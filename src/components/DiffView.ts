@@ -1,4 +1,4 @@
-import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable } from "@opentui/core"
+import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable, type DiffRenderable as DiffRenderableType } from "@opentui/core"
 import { colors, theme } from "../theme"
 
 export interface DiffViewProps {
@@ -32,15 +32,8 @@ export function DiffView({
       width: "100%",
       height: "100%",
       scrollY: true,
-      scrollX: true,
+      scrollX: false, // Disable horizontal scroll - content wraps or clips
       verticalScrollbarOptions: {
-        showArrows: false,
-        trackOptions: {
-          backgroundColor: theme.surface0,
-          foregroundColor: theme.surface2,
-        },
-      },
-      horizontalScrollbarOptions: {
         showArrows: false,
         trackOptions: {
           backgroundColor: theme.surface0,
@@ -70,4 +63,11 @@ export function DiffView({
  */
 export function getScrollBox(renderer: { root: { findDescendantById: (id: string) => unknown } }): ScrollBoxRenderable | null {
   return renderer.root.findDescendantById("diff-scroll") as ScrollBoxRenderable | null
+}
+
+/**
+ * Get a reference to the diff renderable
+ */
+export function getDiffRenderable(renderer: { root: { findDescendantById: (id: string) => unknown } }): DiffRenderableType | null {
+  return renderer.root.findDescendantById("diff-content") as DiffRenderableType | null
 }

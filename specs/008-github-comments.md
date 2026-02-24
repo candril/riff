@@ -18,7 +18,7 @@ When viewing a GitHub PR, allow submitting comments individually (like GitHub's 
 
 - **Single comment**: Submit comment immediately to GitHub (like "Add single comment")
 - **Comment indicator**: Show which comments are local vs synced
-- **Submit shortcut**: `Ctrl+Enter` to submit current comment directly
+- **Submit shortcut**: `S` to sync/submit selected local comment to GitHub
 - **Sync status**: `[local]` / `[synced]` badge on comments
 
 ### P2 - Batch Review
@@ -46,6 +46,8 @@ When viewing a GitHub PR, allow submitting comments individually (like GitHub's 
 
 ### Data Structure Updates
 
+Comments are stored as individual markdown files with YAML frontmatter (see spec 004).
+
 ```typescript
 // src/types.ts
 export interface Comment {
@@ -55,6 +57,7 @@ export interface Comment {
   side: "LEFT" | "RIGHT"
   body: string
   createdAt: string
+  commit?: string             // Git commit hash for linking
   
   // Sync status
   status: "local" | "pending_review" | "synced"
@@ -70,8 +73,7 @@ export interface ReviewSession {
   id: string
   source: string              // "gh:owner/repo#123"
   createdAt: string
-  comments: Comment[]
-  fileStatuses: FileReviewStatus[]
+  updatedAt: string
   
   // GitHub-specific
   prNumber?: number
@@ -80,6 +82,24 @@ export interface ReviewSession {
   reviewMode: "single" | "review"  // Current submission mode
   pendingReviewId?: string         // GitHub pending review ID
 }
+```
+
+**Example comment file** (`.neoriff/comments/a1b2c3d4.md`):
+
+```markdown
+---
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+filename: src/app.ts
+line: 42
+side: RIGHT
+commit: abc1234def5678
+createdAt: 2024-01-15T10:30:00Z
+status: synced
+githubId: 1234567890
+githubUrl: https://github.com/owner/repo/pull/123#discussion_r1234567890
+---
+
+This should use a logger instead of console.log.
 ```
 
 ### GitHub API via `gh` CLI
@@ -207,32 +227,50 @@ export async function submitComment(
 }
 ```
 
-### UI: Comment Input with Submit Option
+### External Editor Flow
+
+Comments are written in `$EDITOR` (nvim by default) with diff context, using a scissors line
+to separate the comment from context (like git commit --verbose).
 
 ```
-┌─ Add comment ─────────────────────────────────────────────────┐
-│                                                               │
-│ This should use a logger instead of console.log              │
-│                                                               │
-├───────────────────────────────────────────────────────────────┤
-│ Enter: save local  Ctrl+Enter: submit to GitHub  Esc: cancel │
-└───────────────────────────────────────────────────────────────┘
+This should use a logger instead of console.log
+
+# Enter your comment above.
+# Commenting on: src/app.ts:42
+#
+# Lines starting with # will be ignored.
+# Leave empty to cancel.
+#
+# Do not modify or remove the line below.
+# ------------------------ >8 ------------------------
+
+diff --git a/src/app.ts b/src/app.ts
+@@ -40,6 +40,7 @@ function main() {
+   const result = calculate()
++  console.log("debug:", result)  // <-- commenting on this line
+   return result
 ```
+
+**Workflow:**
+1. Press `c` to add comment → opens `$EDITOR` with diff context
+2. Write comment above scissors line, save and quit
+3. Comment is saved locally with `status: "local"`
+4. Press `S` on comment to submit to GitHub → `status: "synced"`
 
 ```typescript
-// In comment input handler
-function handleCommentInputKey(key: KeyEvent, commentText: string) {
-  if (key.name === "enter" && key.ctrl) {
-    // Submit directly to GitHub
-    const comment = createComment(currentFile, currentLine, commentText)
-    const synced = await submitComment(session, comment)
-    addComment(synced)
-    showNotification(`Comment submitted to GitHub`)
-  } else if (key.name === "enter") {
-    // Save locally only
-    const comment = createComment(currentFile, currentLine, commentText)
-    addComment(comment)
-  }
+// After editor returns, create comment and optionally submit
+async function handleAddComment(line: number, diffContent: string, filePath: string) {
+  const body = await openCommentEditor({ diffContent, filePath, line })
+  
+  if (!body) return // User cancelled
+  
+  const comment = createComment(filePath, line, body)
+  addComment(comment) // Always save locally first
+  
+  // In single-comment mode, could auto-submit:
+  // if (session.reviewMode === "single" && config.github.auto_submit) {
+  //   await submitComment(session, comment)
+  // }
 }
 ```
 
@@ -314,10 +352,10 @@ export async function submitAllPending(
 ```toml
 # In config.toml
 [keys]
-submit_comment = "ctrl+enter"      # Submit current comment to GitHub
+add_comment = "c"                  # Open $EDITOR to add comment on current line
+sync_comment = "S"                 # Submit selected local comment to GitHub
 toggle_review_mode = "ctrl+r"      # Toggle single/review mode
 submit_review = "ctrl+shift+s"     # Submit all pending as review
-sync_comment = "S"                 # Sync selected local comment
 ```
 
 ### Config Integration
@@ -334,10 +372,9 @@ auto_submit = false                # Auto-submit comments on save
 src/
 ├── providers/
 │   └── github.ts             # GitHub API calls via gh CLI
-├── actions/
-│   └── comments.ts           # Comment submission logic
+├── utils/
+│   └── editor.ts             # External editor integration (existing)
 └── components/
-    ├── CommentInput.ts       # Updated with submit option
-    ├── CommentBadge.ts       # Status indicator
-    └── ReviewModeToggle.ts   # Mode selector
+    ├── CommentIndicators.ts  # Status badges in gutter (existing)
+    └── CommentsList.ts       # Comment list with sync status
 ```

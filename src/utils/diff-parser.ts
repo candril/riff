@@ -94,3 +94,11 @@ export function getFiletype(filename: string): string | undefined {
   }
   return filetypeMap[ext]
 }
+
+/**
+ * Count the number of lines in a diff (for cursor bounds)
+ */
+export function countDiffLines(diff: string): number {
+  if (!diff.trim()) return 0
+  return diff.split("\n").length
+}

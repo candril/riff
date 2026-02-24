@@ -36,6 +36,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 006 | [Configuration](./006-configuration.md) | Ready | TOML config with keybinding sequences |
 | 007 | [Omni Search](./007-omni-search.md) | Ready | Fuzzy finder for files, comments, actions |
 | 008 | [GitHub Comments](./008-github-comments.md) | Ready | Submit comments to GitHub (single or review) |
+| 009 | [GitHub PR Fetch](./009-github-pr-fetch.md) | Ready | Fetch and display GitHub PRs via `gh` CLI |
 
 ## MVP Path
 
@@ -49,8 +50,5 @@ The recommended implementation order for MVP:
 
 ## Future Specs (Not Yet Written)
 
-- `007-github-pr-fetch` - Fetch PR data via `gh` CLI
-- `006-pr-overview` - PR overview with threads/comments
-- `007-github-review-submit` - Submit local comments as GitHub review
-- `008-review-sync-status` - Show local vs synced indicator
-- `009-data-refresh` - Refresh PR data from GitHub
+- `010-pr-overview` - PR overview with threads/comments
+- `011-data-refresh` - Refresh PR data from GitHub

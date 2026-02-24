@@ -59,18 +59,22 @@ function renderTreeItem(
 
   const bgColor = isSelected ? colors.selection : undefined
 
+  // Use stable id based on path for reconciliation
   return Box(
     {
+      id: `tree-item-${node.path}`,
       height: 1,
       width: "100%",
       backgroundColor: bgColor,
     },
     Text({
+      id: `tree-item-text-${node.path}`,
       content: `${indent}${icon}${node.name}`,
       fg: nameFg,
     }),
     status
       ? Text({
+          id: `tree-item-status-${node.path}`,
           content: ` ${status.char}`,
           fg: status.color,
         })
@@ -94,6 +98,7 @@ export function FileTree({
 
   return Box(
     {
+      id: "file-tree-panel",
       width,
       height: "100%",
       flexDirection: "column",
@@ -116,6 +121,7 @@ export function FileTree({
     // Tree content
     ScrollBox(
       {
+        id: "file-tree-scroll",
         flexGrow: 1,
         width: "100%",
         scrollY: true,
@@ -129,6 +135,7 @@ export function FileTree({
       },
       Box(
         {
+          id: "file-tree-content",
           flexDirection: "column",
           width: "100%",
         },
@@ -150,4 +157,11 @@ export function getFlatTreeItems(
   files: DiffFile[]
 ): FlatTreeItem[] {
   return flattenTree(fileTree, files)
+}
+
+/**
+ * Get a reference to the file tree scroll box for programmatic scrolling
+ */
+export function getFileTreeScrollBox(renderer: { root: { findDescendantById: (id: string) => unknown } }): import("@opentui/core").ScrollBoxRenderable | null {
+  return renderer.root.findDescendantById("file-tree-scroll") as import("@opentui/core").ScrollBoxRenderable | null
 }
