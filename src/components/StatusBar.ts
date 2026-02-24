@@ -1,4 +1,5 @@
 import { Box, Text } from "@opentui/core"
+import { colors } from "../theme"
 
 export interface StatusBarProps {
   hints?: string[]
@@ -11,10 +12,10 @@ export function StatusBar({ hints = defaultHints }: StatusBarProps = {}) {
     {
       height: 1,
       width: "100%",
-      backgroundColor: "#1a1b26",
+      backgroundColor: colors.statusBarBg,
       paddingLeft: 1,
       paddingRight: 1,
     },
-    Text({ content: hints.join("  "), fg: "#565f89" })
+    Text({ content: hints.join("  "), fg: colors.statusBarFg })
   )
 }
