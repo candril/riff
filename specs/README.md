@@ -14,7 +14,7 @@ Each spec follows a consistent structure:
 
 ## Naming
 
-Specs are numbered sequentially: `001-feature-name.md`
+Specs are numbered sequentially: `NNN-feature-name.md`
 
 ## Workflow
 
@@ -27,4 +27,30 @@ Specs are numbered sequentially: `001-feature-name.md`
 
 | # | Name | Status | Description |
 |---|------|--------|-------------|
+| 000 | [Vision](./000-vision.md) | Ready | Overall product vision and goals |
 | 001 | [App Shell](./001-app-shell.md) | Ready | Basic application shell with OpenTUI |
+| 002 | [Local Diff View](./002-local-diff-view.md) | Ready | Display local git diffs |
+| 003 | [File Navigation](./003-file-navigation.md) | Ready | Navigate between files in a diff |
+| 004 | [Local Comments](./004-local-comments.md) | Ready | Add and store comments locally |
+| 005 | [File Review Status](./005-file-review-status.md) | Ready | Mark files as viewed/reviewed |
+| 006 | [Configuration](./006-configuration.md) | Ready | TOML config with keybinding sequences |
+| 007 | [Omni Search](./007-omni-search.md) | Ready | Fuzzy finder for files, comments, actions |
+| 008 | [GitHub Comments](./008-github-comments.md) | Ready | Submit comments to GitHub (single or review) |
+
+## MVP Path
+
+The recommended implementation order for MVP:
+
+1. **001 - App Shell** (P1) - Get the basic app running
+2. **002 - Local Diff View** (P1) - Show uncommitted changes
+3. **003 - File Navigation** (P1) - Navigate multi-file diffs  
+4. **004 - Local Comments** (P1) - Add comments on lines
+5. **005 - File Review Status** (P1) - Mark files as viewed
+
+## Future Specs (Not Yet Written)
+
+- `007-github-pr-fetch` - Fetch PR data via `gh` CLI
+- `006-pr-overview` - PR overview with threads/comments
+- `007-github-review-submit` - Submit local comments as GitHub review
+- `008-review-sync-status` - Show local vs synced indicator
+- `009-data-refresh` - Refresh PR data from GitHub
