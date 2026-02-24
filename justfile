@@ -4,11 +4,11 @@ default:
 
 # Run the TUI application
 run:
-    bun index.ts
+    bun src/index.ts
 
 # Run with hot reload (watches for changes)
 dev:
-    bun --watch index.ts
+    bun --watch src/index.ts
 
 # Install dependencies
 install:
