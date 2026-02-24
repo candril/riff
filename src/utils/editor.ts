@@ -18,13 +18,14 @@ export interface EditorOptions {
   existingComment?: string
 }
 
-// Marker line - everything below this is stripped from the comment
+// Marker line - everything at and below this is stripped from the comment
 const SCISSORS_LINE = "# ------------------------ >8 ------------------------"
 
 /**
  * Extract a few lines of context around the target line from the diff.
+ * Returns lines as an array (internal helper).
  */
-function extractContext(diffContent: string, targetLine: number, contextLines: number = 5): string[] {
+function extractContextLines(diffContent: string, targetLine: number, contextLines: number = 5): string[] {
   const lines = diffContent.split("\n")
   
   // Find content lines (skip diff headers)
@@ -48,32 +49,160 @@ function extractContext(diffContent: string, targetLine: number, contextLines: n
 }
 
 /**
+ * Extract a diff hunk (context lines) around the target line.
+ * Returns a string suitable for storing as diffHunk on a Comment.
+ * Shows up to `contextLines` lines before the target line.
+ * 
+ * @param diffContent - Raw diff content including headers
+ * @param targetLine - 1-indexed visible line number (as shown in diff view)
+ * @param contextLines - Number of context lines to include
+ */
+export function extractDiffHunk(diffContent: string, targetLine: number, contextLines: number = 5): string {
+  const lines = diffContent.split("\n")
+  
+  // Map visible line number to raw line index
+  // Visible lines start after the @@ marker and only include actual diff content
+  let visibleLineCount = 0
+  let rawTargetIdx = -1
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ""
+    
+    // Skip header lines - these aren't visible in diff view
+    if (line.startsWith("diff ")) continue
+    if (line.startsWith("index ")) continue
+    if (line.startsWith("---") && line.includes("/")) continue
+    if (line.startsWith("+++") && line.includes("/")) continue
+    if (line.startsWith("new file")) continue
+    if (line.startsWith("deleted file")) continue
+    if (line.startsWith("old mode")) continue
+    if (line.startsWith("new mode")) continue
+    if (line.startsWith("similarity index")) continue
+    if (line.startsWith("rename from")) continue
+    if (line.startsWith("rename to")) continue
+    if (line.startsWith("Binary files")) continue
+    
+    // This is a visible line (@@, +, -, space, or \ no newline)
+    visibleLineCount++
+    
+    if (visibleLineCount === targetLine) {
+      rawTargetIdx = i
+      break
+    }
+  }
+  
+  if (rawTargetIdx === -1) {
+    // Fallback: couldn't map, use last few lines
+    const visibleLines = lines.filter(line => {
+      if (line.startsWith("diff ")) return false
+      if (line.startsWith("index ")) return false
+      if (line.startsWith("---") && line.includes("/")) return false
+      if (line.startsWith("+++") && line.includes("/")) return false
+      if (line.startsWith("new file")) return false
+      if (line.startsWith("deleted file")) return false
+      return true
+    })
+    return visibleLines.slice(-contextLines).join("\n")
+  }
+  
+  // Collect context lines ending at target, skipping headers
+  const result: string[] = []
+  for (let i = rawTargetIdx; i >= 0 && result.length < contextLines; i--) {
+    const line = lines[i] ?? ""
+    
+    // Skip header lines
+    if (line.startsWith("diff ")) continue
+    if (line.startsWith("index ")) continue
+    if (line.startsWith("---") && line.includes("/")) continue
+    if (line.startsWith("+++") && line.includes("/")) continue
+    if (line.startsWith("new file")) continue
+    if (line.startsWith("deleted file")) continue
+    if (line.startsWith("old mode")) continue
+    if (line.startsWith("new mode")) continue
+    if (line.startsWith("similarity index")) continue
+    if (line.startsWith("rename from")) continue
+    if (line.startsWith("rename to")) continue
+    if (line.startsWith("Binary files")) continue
+    
+    result.unshift(line)
+  }
+  
+  return result.join("\n")
+}
+
+/**
+ * Extract context hunk around target line (+/- contextLines).
+ * Returns visible diff lines centered on the target.
+ */
+function extractContextHunk(diffContent: string, targetLine: number, contextLines: number = 5): string {
+  const lines = diffContent.split("\n")
+  
+  // Build list of visible lines with their raw indices
+  const visibleLines: { raw: number; content: string }[] = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ""
+    
+    // Skip header lines - these aren't visible in diff view
+    if (line.startsWith("diff ")) continue
+    if (line.startsWith("index ")) continue
+    if (line.startsWith("---") && line.includes("/")) continue
+    if (line.startsWith("+++") && line.includes("/")) continue
+    if (line.startsWith("new file")) continue
+    if (line.startsWith("deleted file")) continue
+    if (line.startsWith("old mode")) continue
+    if (line.startsWith("new mode")) continue
+    if (line.startsWith("similarity index")) continue
+    if (line.startsWith("rename from")) continue
+    if (line.startsWith("rename to")) continue
+    if (line.startsWith("Binary files")) continue
+    
+    visibleLines.push({ raw: i, content: line })
+  }
+  
+  // targetLine is 1-indexed, convert to 0-indexed in visibleLines
+  const targetIdx = targetLine - 1
+  
+  // Get range centered on target
+  const start = Math.max(0, targetIdx - contextLines)
+  const end = Math.min(visibleLines.length, targetIdx + contextLines + 1)
+  
+  return visibleLines.slice(start, end).map(v => v.content).join("\n")
+}
+
+/**
  * Build the comment file content with diff context.
- * Uses a scissors line to separate comment from context (like git commit --verbose).
+ * 
+ * Structure:
+ *   <comment area - cursor starts here>
+ *   # scissors line
+ *   # Instructions
+ *   <context hunk - actual diff lines for syntax highlighting>
+ *   # Full diff below
+ *   <full diff>
  */
 function buildCommentFileContent(options: EditorOptions): string {
   const lines: string[] = []
-
-  // Add existing comment or empty space for new comment
+  
+  // Comment area at top (cursor starts here)
   if (options.existingComment) {
     lines.push(options.existingComment)
-  } else {
-    lines.push("")
   }
-
   lines.push("")
-  lines.push("# Enter your comment above.")
+  
+  // Scissors line - everything below is stripped
+  lines.push(SCISSORS_LINE)
   lines.push(`# Commenting on: ${options.filePath}:${options.line}`)
-  lines.push("#")
-  lines.push("# Lines starting with # will be ignored.")
   lines.push("# Leave empty to cancel.")
   lines.push("#")
-  lines.push("# Do not modify or remove the line below.")
-  lines.push(SCISSORS_LINE)
+  
+  // Context hunk with the selected line +/- 5 lines (real diff for syntax highlighting)
+  const contextHunk = extractContextHunk(options.diffContent, options.line, 5)
+  lines.push(contextHunk)
+  
+  lines.push("#")
+  lines.push("# Full diff:")
   lines.push("")
-
-  // Add diff context for syntax highlighting
-  // Include the full diff so nvim can highlight it properly
   lines.push(options.diffContent)
 
   return lines.join("\n")
@@ -81,33 +210,17 @@ function buildCommentFileContent(options: EditorOptions): string {
 
 /**
  * Parse the comment from editor output.
- * Strips everything at and after the scissors line, and removes # comment lines.
+ * Takes everything before the scissors line.
  */
 export function parseCommentOutput(content: string): string {
-  const lines = content.split("\n")
-  const commentLines: string[] = []
-
-  for (const line of lines) {
-    // Stop at scissors line - everything below is context
-    if (line.includes(">8")) {
-      break
-    }
-    // Skip lines that start with # (instruction lines)
-    if (!line.startsWith("#")) {
-      commentLines.push(line)
-    }
-  }
-
-  // Trim leading and trailing empty lines, preserve internal formatting
-  let result = commentLines.join("\n")
-
-  // Trim leading empty lines
-  result = result.replace(/^\n+/, "")
-
-  // Trim trailing whitespace/newlines
-  result = result.trimEnd()
-
-  return result
+  // Find scissors line and take everything before it
+  const scissorsIndex = content.indexOf(">8")
+  const commentSection = scissorsIndex !== -1 
+    ? content.slice(0, content.lastIndexOf("\n", scissorsIndex))
+    : content
+  
+  // Trim whitespace
+  return commentSection.trim()
 }
 
 /**

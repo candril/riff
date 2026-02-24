@@ -21,18 +21,18 @@ export interface FileTreePanelOptions {
 }
 
 /**
- * Get status indicator for a file
+ * Get color for file status (no character indicator - color is enough)
  */
-function getStatusIndicator(status: DiffFile["status"]): { char: string; color: string } {
+function getStatusColor(status: DiffFile["status"]): string {
   switch (status) {
     case "added":
-      return { char: "A", color: colors.fileAdded }
+      return colors.fileAdded
     case "modified":
-      return { char: "M", color: colors.fileModified }
+      return colors.fileModified
     case "deleted":
-      return { char: "D", color: colors.fileDeleted }
+      return colors.fileDeleted
     case "renamed":
-      return { char: "R", color: colors.fileRenamed }
+      return colors.fileRenamed
   }
 }
 
@@ -42,14 +42,14 @@ export class FileTreePanel {
   private headerText: TextRenderable
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
-  private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable; status?: TextRenderable }> = new Map()
+  private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable }> = new Map()
   private width: number
 
   // Current state
   private currentFiles: DiffFile[] = []
   private currentFileTree: FileTreeNode[] = []
-  private currentFileIndex: number = 0
-  private selectedIndex: number = 0
+  private highlightIndex: number = 0      // Navigation highlight
+  private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private focused: boolean = false
 
   constructor(options: FileTreePanelOptions) {
@@ -116,12 +116,15 @@ export class FileTreePanel {
   /**
    * Update the file tree with new state.
    * Only recreates item renderables if the tree structure changed.
+   * 
+   * @param highlightIndex - Which item is highlighted (navigation cursor)
+   * @param selectedFileIndex - Which file is selected (scopes views), null = all files
    */
   update(
     files: DiffFile[],
     fileTree: FileTreeNode[],
-    currentFileIndex: number,
-    selectedIndex: number,
+    highlightIndex: number,
+    selectedFileIndex: number | null,
     focused: boolean
   ): void {
     const structureChanged = 
@@ -130,12 +133,13 @@ export class FileTreePanel {
 
     this.currentFiles = files
     this.currentFileTree = fileTree
-    this.currentFileIndex = currentFileIndex
-    this.selectedIndex = selectedIndex
+    this.highlightIndex = highlightIndex
+    this.selectedFileIndex = selectedFileIndex
     this.focused = focused
 
     // Update header
-    this.headerText.content = `Files (${files.length})`
+    const scopeText = selectedFileIndex === null ? "All files" : `Files (${files.length})`
+    this.headerText.content = scopeText
     this.headerText.fg = focused ? colors.primary : colors.textMuted
     this.container.borderColor = focused ? colors.primary : colors.border
 
@@ -165,21 +169,30 @@ export class FileTreePanel {
     for (let index = 0; index < flatItems.length; index++) {
       const item = flatItems[index]!
       const { node, depth } = item
-      const isSelected = index === this.selectedIndex && this.focused
-      const isCurrent = item.fileIndex === this.currentFileIndex
+      
+      // Skip nodes with empty names (shouldn't happen, but defensive)
+      if (!node.name) continue
+      
+      const isHighlighted = index === this.highlightIndex && this.focused
+      const isSelected = item.fileIndex === this.selectedFileIndex
 
       const indent = "  ".repeat(depth)
       const icon = node.isDirectory
         ? node.expanded ? "▼ " : "▶ "
         : "  "
 
-      const nameFg = isCurrent
+      // Files get color based on status, directories get subtext color
+      // Selected file gets primary color
+      const nameFg = isSelected
         ? colors.primary
         : node.isDirectory
           ? theme.subtext0
-          : colors.text
+          : node.file
+            ? getStatusColor(node.file.status)
+            : colors.text
 
-      const bgColor = isSelected ? colors.selection : undefined
+      // Highlighted item gets background
+      const bgColor = isHighlighted ? colors.selection : undefined
 
       // Create box for this item
       const box = new BoxRenderable(this.renderer, {
@@ -189,28 +202,20 @@ export class FileTreePanel {
         backgroundColor: bgColor,
       })
 
-      // Create text
+      // Selection marker (dot when selected)
+      const marker = isSelected ? "●" : " "
+
+      // Create text - just marker, indent, icon, and name
+      // No separate status indicator - color coding is sufficient
       const text = new TextRenderable(this.renderer, {
         id: `tree-item-text-${node.path}`,
-        content: `${indent}${icon}${node.name}`,
+        content: `${marker}${indent}${icon}${node.name}`,
         fg: nameFg,
       })
       box.add(text)
 
-      // Create status indicator if file
-      let statusRenderable: TextRenderable | undefined
-      if (node.file) {
-        const status = getStatusIndicator(node.file.status)
-        statusRenderable = new TextRenderable(this.renderer, {
-          id: `tree-item-status-${node.path}`,
-          content: ` ${status.char}`,
-          fg: status.color,
-        })
-        box.add(statusRenderable)
-      }
-
       this.content.add(box)
-      this.itemRenderables.set(node.path, { box, text, status: statusRenderable })
+      this.itemRenderables.set(node.path, { box, text })
     }
   }
 
@@ -221,8 +226,12 @@ export class FileTreePanel {
     for (let index = 0; index < flatItems.length; index++) {
       const item = flatItems[index]!
       const { node, depth } = item
-      const isSelected = index === this.selectedIndex && this.focused
-      const isCurrent = item.fileIndex === this.currentFileIndex
+      
+      // Skip nodes with empty names
+      if (!node.name) continue
+      
+      const isHighlighted = index === this.highlightIndex && this.focused
+      const isSelected = item.fileIndex === this.selectedFileIndex
 
       const renderables = this.itemRenderables.get(node.path)
       if (!renderables) continue
@@ -232,32 +241,37 @@ export class FileTreePanel {
         ? node.expanded ? "▼ " : "▶ "
         : "  "
 
-      const nameFg = isCurrent
+      // Files get color based on status, directories get subtext color
+      // Selected file gets primary color
+      const nameFg = isSelected
         ? colors.primary
         : node.isDirectory
           ? theme.subtext0
-          : colors.text
+          : node.file
+            ? getStatusColor(node.file.status)
+            : colors.text
 
-      const bgColor = isSelected ? colors.selection : null
+      const bgColor = isHighlighted ? colors.selection : null
+      const marker = isSelected ? "●" : " "
 
       // Update properties
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.text.content = `${indent}${icon}${node.name}`
+      renderables.text.content = `${marker}${indent}${icon}${node.name}`
       renderables.text.fg = nameFg
     }
   }
 
   /**
-   * Ensure the selected item is visible in the scroll box
+   * Ensure the highlighted item is visible in the scroll box
    */
-  ensureSelectedVisible(): void {
+  ensureHighlightVisible(): void {
     const viewportHeight = Math.floor(this.scrollBox.height)
     const scrollTop = this.scrollBox.scrollTop
     
-    if (this.selectedIndex < scrollTop) {
-      this.scrollBox.scrollTop = this.selectedIndex
-    } else if (this.selectedIndex >= scrollTop + viewportHeight) {
-      this.scrollBox.scrollTop = this.selectedIndex - viewportHeight + 1
+    if (this.highlightIndex < scrollTop) {
+      this.scrollBox.scrollTop = this.highlightIndex
+    } else if (this.highlightIndex >= scrollTop + viewportHeight) {
+      this.scrollBox.scrollTop = this.highlightIndex - viewportHeight + 1
     }
   }
 

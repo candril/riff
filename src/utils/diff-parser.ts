@@ -96,9 +96,125 @@ export function getFiletype(filename: string): string | undefined {
 }
 
 /**
- * Count the number of lines in a diff (for cursor bounds)
+ * Count the number of lines in a diff string (raw line count)
  */
 export function countDiffLines(diff: string): number {
   if (!diff.trim()) return 0
   return diff.split("\n").length
+}
+
+/**
+ * Count the number of visible lines that DiffRenderable will display.
+ * This counts only the actual diff content lines (after @@ markers),
+ * not the header lines (diff --git, index, ---, +++, etc.)
+ */
+export function countVisibleDiffLines(diff: string): number {
+  if (!diff.trim()) return 0
+  
+  const lines = diff.split("\n")
+  let count = 0
+  let inHunk = false
+  
+  for (const line of lines) {
+    if (line.startsWith("@@")) {
+      inHunk = true
+      count++ // The @@ line itself is shown
+      continue
+    }
+    
+    if (inHunk) {
+      // Lines in hunks: +, -, space, or \ (no newline marker)
+      if (line.startsWith("+") || line.startsWith("-") || line.startsWith(" ") || line.startsWith("\\")) {
+        count++
+      } else if (line.startsWith("@@")) {
+        count++ // Another hunk
+      } else if (line.startsWith("diff ")) {
+        // New file starts, but we're counting per-file so stop
+        break
+      }
+    }
+  }
+  
+  return count
+}
+
+/**
+ * Line mapping for all-files view.
+ * Maps global line numbers to file index and local line within that file.
+ */
+export interface LineMapping {
+  fileIndex: number
+  localLine: number  // 1-indexed line within the file's diff content
+  isHeader: boolean  // True if this line is a file header or spacing (not commentable)
+}
+
+/**
+ * Get the cumulative line counts for each file in all-files view.
+ * Returns array where entry[i] is the starting global line (1-indexed) for file i.
+ * Each file contributes: 1 header + diffLines + 1 spacing
+ */
+export function getFileLineOffsets(files: DiffFile[]): number[] {
+  const offsets: number[] = []
+  let currentLine = 1
+  
+  for (const file of files) {
+    offsets.push(currentLine)
+    const diffLines = countDiffLines(file.content)
+    // 1 header + diffLines + 1 spacing
+    currentLine += 1 + diffLines + 1
+  }
+  
+  return offsets
+}
+
+/**
+ * Get total line count for all files combined view.
+ */
+export function getTotalLineCount(files: DiffFile[]): number {
+  if (files.length === 0) return 0
+  
+  let total = 0
+  for (const file of files) {
+    // 1 header + visible diff lines + 1 spacing
+    total += 1 + countVisibleDiffLines(file.content) + 1
+  }
+  return total
+}
+
+/**
+ * Get file and local line for a global line number (1-indexed).
+ * Returns null if line is on a header or spacing line.
+ */
+export function getFileAtLine(files: DiffFile[], globalLine: number): LineMapping | null {
+  if (files.length === 0 || globalLine < 1) return null
+  
+  let currentLine = 1
+  
+  for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+    const file = files[fileIndex]!
+    const diffLines = countVisibleDiffLines(file.content)
+    
+    // Header line
+    if (globalLine === currentLine) {
+      return { fileIndex, localLine: 0, isHeader: true }
+    }
+    currentLine++
+    
+    // Diff content lines
+    const diffStart = currentLine
+    const diffEnd = currentLine + diffLines - 1
+    if (globalLine >= diffStart && globalLine <= diffEnd) {
+      const localLine = globalLine - diffStart + 1
+      return { fileIndex, localLine, isHeader: false }
+    }
+    currentLine += diffLines
+    
+    // Spacing line
+    if (globalLine === currentLine) {
+      return { fileIndex, localLine: diffLines + 1, isHeader: true }
+    }
+    currentLine++
+  }
+  
+  return null
 }

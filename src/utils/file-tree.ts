@@ -41,21 +41,21 @@ export function buildFileTree(files: DiffFile[]): FileTreeNode[] {
   const root: TreeBuilder = { children: new Map() }
 
   for (const file of files) {
-    const parts = file.filename.split("/")
+    // Filter out empty parts (handles leading/trailing slashes and double slashes)
+    const parts = file.filename.split("/").filter(p => p.length > 0)
+    if (parts.length === 0) continue
+    
     let current = root
 
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]
-      if (!part) continue
-      
+      const part = parts[i]!
       const isFile = i === parts.length - 1
 
       if (!current.children.has(part)) {
         current.children.set(part, { children: new Map() })
       }
 
-      const child = current.children.get(part)
-      if (!child) continue
+      const child = current.children.get(part)!
 
       if (isFile) {
         child.file = file

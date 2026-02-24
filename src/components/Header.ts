@@ -1,36 +1,68 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
+import type { PrInfo } from "../providers/github"
+import type { ViewMode } from "../state"
 
 export interface HeaderProps {
   title?: string
-  subtitle?: string
-  currentFile?: DiffFile
-  fileIndex?: number
+  viewMode?: ViewMode
+  selectedFile?: DiffFile | null  // null = all files
   totalFiles?: number
+  prInfo?: PrInfo | null
 }
 
 export function Header({
   title = "neoriff",
-  subtitle,
-  currentFile,
-  fileIndex,
+  viewMode = "diff",
+  selectedFile,
   totalFiles,
+  prInfo,
 }: HeaderProps = {}) {
-  // Build file info string
-  let fileInfo = ""
-  if (currentFile && typeof fileIndex === "number" && totalFiles) {
-    fileInfo = `${currentFile.filename} (${fileIndex + 1}/${totalFiles})`
+  // View mode badge
+  const viewBadge = viewMode === "diff" ? "Diff" : "Comments"
+  const viewBadgeColor = viewMode === "diff" ? theme.blue : theme.mauve
+  
+  // Scope text
+  const scopeText = selectedFile 
+    ? selectedFile.filename 
+    : totalFiles 
+      ? `All files (${totalFiles})`
+      : "All files"
+
+  // PR mode header
+  if (prInfo) {
+    return Box(
+      {
+        height: 1,
+        width: "100%",
+        backgroundColor: colors.headerBg,
+        paddingLeft: 1,
+        paddingRight: 1,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+      },
+      // Left side: view mode, PR number, scope
+      Box(
+        { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
+        Text({ content: `[${viewBadge}]`, fg: viewBadgeColor }),
+        Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
+        Text({ content: scopeText, fg: colors.text })
+      ),
+      // Right side: minimal - just stats for selected file
+      selectedFile
+        ? Box(
+            { flexDirection: "row", flexShrink: 0 },
+            Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
+            Text({ content: " ", fg: colors.text }),
+            Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
+          )
+        : null
+    )
   }
 
-  // Build stats string
-  let stats = ""
-  if (currentFile) {
-    const addColor = theme.green
-    const delColor = theme.red
-    stats = `+${currentFile.additions} -${currentFile.deletions}`
-  }
-
+  // Local mode header
   return Box(
     {
       height: 1,
@@ -42,23 +74,20 @@ export function Header({
       justifyContent: "space-between",
       alignItems: "center",
     },
-    // Left side: title and file info
+    // Left side: view mode, title, scope
     Box(
       { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
+      Text({ content: `[${viewBadge}]`, fg: viewBadgeColor }),
       Text({ content: title, fg: colors.headerFg }),
-      fileInfo
-        ? Text({ content: fileInfo, fg: colors.text })
-        : subtitle
-          ? Text({ content: subtitle, fg: colors.statusBarFg })
-          : null
+      Text({ content: scopeText, fg: colors.text })
     ),
-    // Right side: stats (fixed width, won't shrink)
-    currentFile
+    // Right side: stats for selected file
+    selectedFile
       ? Box(
           { flexDirection: "row", flexShrink: 0 },
-          Text({ content: `+${currentFile.additions}`, fg: theme.green }),
+          Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
           Text({ content: " ", fg: colors.text }),
-          Text({ content: `-${currentFile.deletions}`, fg: theme.red })
+          Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
         )
       : null
   )

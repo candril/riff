@@ -1,6 +1,7 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
-import type { Comment, ReviewSession } from "./types"
+import type { Comment, ReviewSession, AppMode } from "./types"
+import type { PrInfo } from "./providers/github"
 
 /**
  * UI mode for the app
@@ -8,34 +9,50 @@ import type { Comment, ReviewSession } from "./types"
 export type UIMode = "normal" | "comment-input" | "comments-list"
 
 /**
+ * Main view mode - which content to show
+ */
+export type ViewMode = "diff" | "comments"
+
+/**
  * Application state
  */
 export interface AppState {
+  // App mode
+  appMode: AppMode
+
   // Diff data
   files: DiffFile[]
   fileTree: FileTreeNode[]
-  currentFileIndex: number
+
+  // View mode and file selection
+  viewMode: ViewMode
+  selectedFileIndex: number | null  // null = no file selected, show all
+  treeHighlightIndex: number        // Highlighted item in tree (for navigation)
 
   // UI state
   showFilePanel: boolean
-  focusedPanel: "tree" | "diff"
-  selectedTreeIndex: number
+  focusedPanel: "tree" | "diff" | "comments"
   mode: UIMode
 
-  // Diff cursor - the selected line in the diff view
-  cursorLine: number
+  // Diff view state
+  cursorLine: number                // Selected line in diff view
+
+  // Comments view state
+  selectedCommentIndex: number      // Selected comment in comments view
 
   // Comment state - comments stored separately from session
   session: ReviewSession | null
   comments: Comment[]
   commentInputLine: number | null
   commentInputText: string
-  commentsListIndex: number // Selected index in comments list
 
   // Source info
   source: string
   description: string
   error: string | null
+
+  // PR info (only in PR mode)
+  prInfo: PrInfo | null
 }
 
 /**
@@ -48,61 +65,86 @@ export function createInitialState(
   description: string,
   error: string | null = null,
   session: ReviewSession | null = null,
-  comments: Comment[] = []
+  comments: Comment[] = [],
+  appMode: AppMode = "local",
+  prInfo: PrInfo | null = null
 ): AppState {
   return {
+    appMode,
     files,
     fileTree,
-    currentFileIndex: 0,
+    viewMode: "diff",
+    selectedFileIndex: null,        // Default: no file selected, show all
+    treeHighlightIndex: 0,          // Start highlight at first item
     showFilePanel: files.length > 1,
     focusedPanel: "diff",
-    selectedTreeIndex: 0,
     mode: "normal",
     cursorLine: 1,
+    selectedCommentIndex: 0,
     session,
     comments,
     commentInputLine: null,
     commentInputText: "",
-    commentsListIndex: 0,
     source,
     description,
     error,
+    prInfo,
   }
 }
 
 /**
- * Navigate to next file
+ * Select a file (scopes views to that file)
  */
-export function nextFile(state: AppState): AppState {
-  if (state.files.length === 0) return state
-  const newIndex = Math.min(state.currentFileIndex + 1, state.files.length - 1)
+export function selectFile(state: AppState, index: number | null): AppState {
+  if (index !== null && (index < 0 || index >= state.files.length)) return state
   return {
     ...state,
-    currentFileIndex: newIndex,
+    selectedFileIndex: index,
+    cursorLine: 1,  // Reset cursor when changing file
+    selectedCommentIndex: 0,  // Reset comment selection
   }
 }
 
 /**
- * Navigate to previous file
+ * Clear file selection (show all)
  */
-export function prevFile(state: AppState): AppState {
-  if (state.files.length === 0) return state
-  const newIndex = Math.max(state.currentFileIndex - 1, 0)
+export function clearFileSelection(state: AppState): AppState {
   return {
     ...state,
-    currentFileIndex: newIndex,
+    selectedFileIndex: null,
+    cursorLine: 1,
+    selectedCommentIndex: 0,
   }
 }
 
 /**
- * Go to specific file by index
+ * Move tree highlight (navigation, not selection)
  */
-export function goToFile(state: AppState, index: number): AppState {
-  if (index < 0 || index >= state.files.length) return state
+export function moveTreeHighlight(state: AppState, delta: number, maxIndex: number): AppState {
+  const newIndex = Math.max(0, Math.min(state.treeHighlightIndex + delta, maxIndex))
   return {
     ...state,
-    currentFileIndex: index,
+    treeHighlightIndex: newIndex,
   }
+}
+
+/**
+ * Toggle view mode between diff and comments
+ */
+export function toggleViewMode(state: AppState): AppState {
+  return {
+    ...state,
+    viewMode: state.viewMode === "diff" ? "comments" : "diff",
+    focusedPanel: state.viewMode === "diff" ? "comments" : "diff",
+  }
+}
+
+/**
+ * Get the currently selected file (or null if showing all)
+ */
+export function getSelectedFile(state: AppState): DiffFile | null {
+  if (state.selectedFileIndex === null) return null
+  return state.files[state.selectedFileIndex] ?? null
 }
 
 /**
@@ -120,20 +162,17 @@ export function toggleFilePanel(state: AppState): AppState {
  */
 export function toggleFocus(state: AppState): AppState {
   if (!state.showFilePanel) return state
-  return {
-    ...state,
-    focusedPanel: state.focusedPanel === "tree" ? "diff" : "tree",
+  
+  // Cycle: tree -> diff/comments -> tree
+  if (state.focusedPanel === "tree") {
+    return {
+      ...state,
+      focusedPanel: state.viewMode === "diff" ? "diff" : "comments",
+    }
   }
-}
-
-/**
- * Move selection in tree
- */
-export function moveTreeSelection(state: AppState, delta: number): AppState {
-  // This will be calculated based on flattened tree
   return {
     ...state,
-    selectedTreeIndex: Math.max(0, state.selectedTreeIndex + delta),
+    focusedPanel: "tree",
   }
 }
 
@@ -249,56 +288,41 @@ export function updateCommentBody(state: AppState, commentId: string, body: stri
 }
 
 /**
- * Open comments list
+ * Move comments view selection
  */
-export function openCommentsList(state: AppState): AppState {
+export function moveCommentSelection(state: AppState, delta: number, maxIndex: number): AppState {
+  const newIndex = Math.max(0, Math.min(state.selectedCommentIndex + delta, maxIndex))
   return {
     ...state,
-    mode: "comments-list",
-    commentsListIndex: 0,
+    selectedCommentIndex: newIndex,
   }
 }
 
 /**
- * Close comments list
+ * Get comments for current view scope (selected file or all)
  */
-export function closeCommentsList(state: AppState): AppState {
-  return {
-    ...state,
-    mode: "normal",
+export function getVisibleComments(state: AppState): Comment[] {
+  if (state.selectedFileIndex === null) {
+    // No file selected - show all comments
+    return state.comments
   }
-}
-
-/**
- * Move comments list selection
- */
-export function moveCommentsListSelection(state: AppState, delta: number): AppState {
-  const currentFileComments = getCommentsForCurrentFile(state)
-  const maxIndex = Math.max(0, currentFileComments.length - 1)
   
-  return {
-    ...state,
-    commentsListIndex: Math.max(0, Math.min(state.commentsListIndex + delta, maxIndex)),
-  }
+  const selectedFile = state.files[state.selectedFileIndex]
+  if (!selectedFile) return []
+  
+  return state.comments.filter(c => c.filename === selectedFile.filename)
 }
 
 /**
- * Get comments for the current file
- */
-export function getCommentsForCurrentFile(state: AppState): Comment[] {
-  if (state.files.length === 0) return []
-
-  const currentFile = state.files[state.currentFileIndex]
-  if (!currentFile) return []
-
-  return state.comments.filter(c => c.filename === currentFile.filename)
-}
-
-/**
- * Get comment for a specific line in the current file
+ * Get comment for a specific line in the selected file
  */
 export function getCommentForLine(state: AppState, line: number): Comment | undefined {
-  return getCommentsForCurrentFile(state).find(c => c.line === line)
+  const selectedFile = getSelectedFile(state)
+  if (!selectedFile) return undefined
+  
+  return state.comments.find(
+    c => c.filename === selectedFile.filename && c.line === line
+  )
 }
 
 /**

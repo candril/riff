@@ -13,6 +13,9 @@ export interface Comment {
 
   // Link to specific revision
   commit?: string // Git commit hash or jj change ID
+  
+  // Code context - the diff hunk or line the comment refers to
+  diffHunk?: string // Diff context from GitHub (or extracted locally)
 
   // GitHub sync (populated after submission or fetch)
   githubId?: number
@@ -69,3 +72,8 @@ export function createSession(source: string): ReviewSession {
     updatedAt: new Date().toISOString(),
   }
 }
+
+/**
+ * App mode - local diff or PR review
+ */
+export type AppMode = "local" | "pr"

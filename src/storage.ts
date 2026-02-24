@@ -39,6 +39,17 @@ function parseFrontmatter(content: string): { meta: Record<string, string>; body
 
 /**
  * Generate markdown with YAML frontmatter for a comment
+ * Format:
+ *   ---
+ *   frontmatter...
+ *   ---
+ *   
+ *   comment body
+ *   
+ *   <!-- context -->
+ *   ```diff
+ *   diff hunk...
+ *   ```
  */
 function toMarkdown(comment: Comment): string {
   const lines = [
@@ -58,6 +69,11 @@ function toMarkdown(comment: Comment): string {
   if (comment.inReplyTo) lines.push(`inReplyTo: ${comment.inReplyTo}`)
 
   lines.push("---", "", comment.body)
+  
+  // Add diff context if available (as HTML comment + code block)
+  if (comment.diffHunk) {
+    lines.push("", "<!-- context -->", "```diff", comment.diffHunk, "```")
+  }
 
   return lines.join("\n")
 }
@@ -66,15 +82,32 @@ function toMarkdown(comment: Comment): string {
  * Parse a Comment from frontmatter metadata and body
  */
 function parseComment(meta: Record<string, string>, body: string): Comment {
+  // Extract diffHunk from body if present (marked with <!-- context -->)
+  let commentBody = body
+  let diffHunk: string | undefined
+  
+  const contextMarker = "<!-- context -->"
+  const contextIndex = body.indexOf(contextMarker)
+  if (contextIndex !== -1) {
+    commentBody = body.slice(0, contextIndex).trim()
+    const contextSection = body.slice(contextIndex + contextMarker.length)
+    // Extract content between ```diff and ```
+    const diffMatch = contextSection.match(/```diff\n([\s\S]*?)\n```/)
+    if (diffMatch) {
+      diffHunk = diffMatch[1]
+    }
+  }
+  
   return {
     id: meta.id || "",
     filename: meta.filename || "",
     line: parseInt(meta.line || "0", 10),
     side: (meta.side as "LEFT" | "RIGHT") || "RIGHT",
-    body,
+    body: commentBody,
     createdAt: meta.createdAt || new Date().toISOString(),
     status: (meta.status as "local" | "pending" | "synced") || "local",
     commit: meta.commit || undefined,
+    diffHunk,
     githubId: meta.githubId ? parseInt(meta.githubId, 10) : undefined,
     githubUrl: meta.githubUrl || undefined,
     author: meta.author || undefined,
