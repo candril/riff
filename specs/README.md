@@ -49,6 +49,11 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 019 | [Create PR](./019-create-pr.md) | Draft | Create PRs from local changes |
 | 020 | [Action Menu](./020-action-menu.md) | Draft | Action menu for common operations |
 | 021 | [Image Support](./021-image-support.md) | Draft | Drag-drop images in comments |
+| 022 | [Flash Navigation](./022-flash-navigation.md) | Draft | flash.nvim-style jump navigation with dim effect |
+| 023 | [Repo-Local Storage](./023-repo-local-storage.md) | Draft | Store comments in local repo directory |
+| 024 | [Commit Picker](./024-commits-panel.md) | Draft | Filter diff by commit via `Ctrl+p #` and `]g`/`[g` navigation |
+| 025 | [App Modularization](./025-app-modularization.md) | Draft | Split app.ts into focused modules |
+| 026 | [Ignore Patterns](./026-ignore-patterns.md) | Draft | Hide generated/lock files from review |
 
 ## MVP Path
 

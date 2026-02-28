@@ -30,10 +30,11 @@ export interface EditorResult {
   editedComments: Map<string, string>
 }
 
-// Markers for parsing
-const MARKER_THREAD = "--- THREAD (edit your comments below, other comments are read-only) ---"
-const MARKER_CONTEXT = "--- CONTEXT ---"
-const MARKER_FULL_CHANGE = "--- FULL CHANGE ---"
+// Markers for parsing (markdown format with HTML comments)
+const MARKER_COMMENT_END = "<!-- Write your comment above this line -->"
+const MARKER_THREAD = "## Thread"
+const MARKER_CONTEXT = "## Context"
+const MARKER_FULL_CHANGE = "## Full Change"
 
 /**
  * Get short ID for display (first 8 chars or gh-id)
@@ -61,14 +62,7 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString()
 }
 
-/**
- * Get status label for a comment
- */
-function getStatusLabel(comment: Comment): string {
-  if (comment.status === "synced") return ""
-  if (comment.status === "pending") return " (pending)"
-  return " (local)"
-}
+
 
 /**
  * Extract a few lines of context around the target line from the diff.
@@ -220,31 +214,47 @@ function extractContextHunk(diffContent: string, targetLine: number, contextLine
 }
 
 /**
- * Build a thread comment for display.
+ * Get status label for HTML comment (without brackets)
+ */
+function getStatusText(comment: Comment): string {
+  // Check for local edits on synced comments
+  if (comment.status === "synced" && comment.localEdit !== undefined) {
+    return "edited"
+  }
+  return comment.status || "local"
+}
+
+/**
+ * Build a thread comment for display using HTML comments for metadata.
  * Own comments are wrapped in edit markers.
  */
 function buildThreadComment(
   comment: Comment, 
   username: string, 
-  isOwn: boolean,
+  isEditable: boolean,
   indent: string = ""
 ): string[] {
   const lines: string[] = []
-  const author = comment.author || (isOwn ? username : "unknown")
+  const author = comment.author || (isEditable ? username : "unknown")
   const time = formatRelativeTime(comment.createdAt)
-  const status = getStatusLabel(comment)
+  const status = getStatusText(comment)
   
-  if (isOwn) {
-    // Editable comment with markers
-    lines.push(`${indent}<!-- @${author}${status} [edit:${shortId(comment.id)}] -->`)
-    for (const bodyLine of comment.body.split("\n")) {
+  // Use localEdit if present (for edited synced comments), otherwise body
+  const displayBody = comment.localEdit ?? comment.body
+  
+  if (isEditable) {
+    // Editable comment with edit marker in HTML comment
+    // Format: <!-- @author · time · status · edit:id -->
+    lines.push(`${indent}<!-- @${author} · ${time} · ${status} · edit:${shortId(comment.id)} -->`)
+    for (const bodyLine of displayBody.split("\n")) {
       lines.push(`${indent}${bodyLine}`)
     }
     lines.push(`${indent}<!-- /edit -->`)
   } else {
-    // Read-only comment (no markers)
-    lines.push(`${indent}@${author} (${time}):`)
-    for (const bodyLine of comment.body.split("\n")) {
+    // Read-only comment
+    // Format: <!-- @author · time · status -->
+    lines.push(`${indent}<!-- @${author} · ${time} · ${status} -->`)
+    for (const bodyLine of displayBody.split("\n")) {
       lines.push(`${indent}${bodyLine}`)
     }
   }
@@ -254,20 +264,30 @@ function buildThreadComment(
 }
 
 /**
- * Build the comment file content with thread context.
+ * Build the comment file content in markdown format.
  * 
  * Structure:
  *   [new reply - cursor starts here]
  *   
- *   --- THREAD ---
- *   @user (time): comment
- *   <!-- @you [edit:id] --> editable own comment <!-- /edit -->
+ *   <!-- Write your comment above this line -->
  *   
- *   --- CONTEXT ---
- *   diff context (3 lines)
+ *   ## Thread
+ *   <!-- @author · time · status -->
+ *   comment text...
  *   
- *   --- FULL CHANGE ---
- *   full diff hunk
+ *   <!-- @you · time · status · edit:id -->
+ *   editable comment...
+ *   <!-- /edit -->
+ *   
+ *   ## Context
+ *   ```diff
+ *   context lines
+ *   ```
+ *   
+ *   ## Full Change
+ *   ```diff
+ *   full diff
+ *   ```
  */
 function buildCommentFileContent(options: EditorOptions): string {
   const lines: string[] = []
@@ -277,6 +297,8 @@ function buildCommentFileContent(options: EditorOptions): string {
   // New reply area at top (cursor starts here, always empty)
   lines.push("")
   lines.push("")
+  lines.push(MARKER_COMMENT_END)
+  lines.push("")
   
   // Thread section (if there are existing comments)
   if (thread.length > 0) {
@@ -284,28 +306,33 @@ function buildCommentFileContent(options: EditorOptions): string {
     lines.push("")
     
     for (const comment of thread) {
-      const isOwn = comment.author === username || 
-                    (!comment.author && comment.status !== "synced")
+      // Your own comments are editable (local, pending, or synced with local edits)
+      const isYours = comment.author === username || !comment.author
+      const isEditable = isYours
       const isReply = comment.inReplyTo !== undefined
-      const indent = isReply ? "  " : ""
+      const indent = isReply ? "    " : ""  // 4 spaces for reply indent
       
-      lines.push(...buildThreadComment(comment, username, isOwn, indent))
+      lines.push(...buildThreadComment(comment, username, isEditable, indent))
     }
   }
   
-  // Context section (3 lines around target)
+  // Context section (3 lines around target) in a diff code block
   const contextHunk = extractContextHunk(options.diffContent, options.line, 3)
   if (contextHunk.trim()) {
     lines.push(MARKER_CONTEXT)
     lines.push("")
+    lines.push("```diff")
     lines.push(contextHunk)
+    lines.push("```")
     lines.push("")
   }
   
-  // Full change section
+  // Full change section in a diff code block
   lines.push(MARKER_FULL_CHANGE)
   lines.push("")
+  lines.push("```diff")
   lines.push(options.diffContent)
+  lines.push("```")
 
   return lines.join("\n")
 }
@@ -322,6 +349,16 @@ export function parseCommentOutput(content: string): string {
 /**
  * Parse the full editor output including edited comments.
  * Returns new reply and map of edited comment IDs to new bodies.
+ * 
+ * Expected format (markdown with HTML comments):
+ *   new comment text here
+ *   
+ *   <!-- Write your comment above this line -->
+ *   
+ *   ## Thread
+ *   <!-- @author · time · status · edit:id -->
+ *   editable comment body
+ *   <!-- /edit -->
  */
 export function parseEditorOutput(content: string): EditorResult {
   const result: EditorResult = {
@@ -329,17 +366,26 @@ export function parseEditorOutput(content: string): EditorResult {
     editedComments: new Map(),
   }
   
-  // Find the first marker to determine where new reply ends
+  // Find the comment end marker first (primary delimiter for new reply)
+  const commentEndIdx = content.indexOf(MARKER_COMMENT_END)
+  
+  // Find section markers
   const threadIdx = content.indexOf(MARKER_THREAD)
   const contextIdx = content.indexOf(MARKER_CONTEXT)
   const fullChangeIdx = content.indexOf(MARKER_FULL_CHANGE)
   
-  // Find the earliest marker
-  const markers = [threadIdx, contextIdx, fullChangeIdx].filter(i => i !== -1)
-  const firstMarkerIdx = markers.length > 0 ? Math.min(...markers) : content.length
+  // New reply ends at the comment end marker, or the first section marker
+  let replyEndIdx: number
+  if (commentEndIdx !== -1) {
+    replyEndIdx = commentEndIdx
+  } else {
+    // Fallback: find the earliest section marker
+    const markers = [threadIdx, contextIdx, fullChangeIdx].filter(i => i !== -1)
+    replyEndIdx = markers.length > 0 ? Math.min(...markers) : content.length
+  }
   
-  // Extract new reply (everything before first marker)
-  result.newReply = content.slice(0, firstMarkerIdx).trim()
+  // Extract new reply (everything before the end marker)
+  result.newReply = content.slice(0, replyEndIdx).trim()
   
   // Parse edited comments from thread section
   if (threadIdx !== -1) {
@@ -347,9 +393,15 @@ export function parseEditorOutput(content: string): EditorResult {
                       fullChangeIdx !== -1 ? fullChangeIdx : content.length
     const threadSection = content.slice(threadIdx + MARKER_THREAD.length, threadEnd)
     
-    // Find all edit blocks: <!-- @user (status) [edit:ID] --> ... <!-- /edit -->
-    // Pattern: <!-- @username (optional status) [edit:SHORT_ID] -->
-    const editRegex = /<!-- @\S+(?:\s+\([^)]*\))?\s+\[edit:([^\]]+)\]\s*-->\n([\s\S]*?)<!-- \/edit -->/g
+    // Find all edit blocks with HTML comment format:
+    // <!-- @author · time · status · edit:ID -->
+    // comment body (may span multiple lines)
+    // <!-- /edit -->
+    // 
+    // The regex captures:
+    // 1. The comment ID from the opening marker
+    // 2. Everything between the markers (the body)
+    const editRegex = /<!--\s*@\S+\s*·[^·]+·[^·]+·\s*edit:(\S+)\s*-->\n([\s\S]*?)<!--\s*\/edit\s*-->/g
     let match
     
     while ((match = editRegex.exec(threadSection)) !== null) {
@@ -371,8 +423,8 @@ export async function openCommentEditor(
 ): Promise<string | null> {
   const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
 
-  // Use .diff extension for proper syntax highlighting
-  const tmpFile = join(tmpdir(), `neoriff-comment-${randomUUID()}.diff`)
+  // Use .md extension for markdown syntax highlighting
+  const tmpFile = join(tmpdir(), `neoriff-comment-${randomUUID()}.md`)
   const content = buildCommentFileContent(options)
 
   await Bun.write(tmpFile, content)

@@ -1,5 +1,5 @@
 import { $ } from "bun"
-import { saveComment, saveSession, loadComments } from "../storage"
+import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
 import type { Comment, ReviewSession } from "../types"
 
 // ============================================================================
@@ -249,24 +249,45 @@ export async function loadPrSession(
   // Load existing local comments first
   const existingComments = await loadComments(prSource)
   
+  // Build a set of GitHub IDs we're fetching (as numbers)
+  const fetchedGithubIds = new Set<number>(prComments.map(c => c.id))
+  
   // Convert GitHub comments and save/update them
-  const githubCommentIds = new Set<string>()
   for (const prComment of prComments) {
     const comment = convertPrComment(prComment, headSha)
-    githubCommentIds.add(comment.id)
     await saveComment(comment, prSource)
   }
   
-  // Merge: GitHub comments + local comments (that aren't synced GitHub comments)
+  // Merge: GitHub comments + local comments (that aren't already on GitHub)
   const comments: Comment[] = []
   
-  // Add all existing comments (both local and previously fetched GitHub ones)
+  // Track which local comments to delete (synced ones that now exist on GitHub)
+  const localCommentsToDelete: string[] = []
+  
+  // Add existing comments, but skip any that are now on GitHub
   for (const existing of existingComments) {
-    // Skip if this is a GitHub comment that we just re-fetched (avoid duplicates)
-    if (existing.githubId && githubCommentIds.has(existing.id)) {
+    // Skip if this comment's githubId is in the fetched set
+    // (either it was submitted and now exists on GitHub, or it was re-fetched)
+    if (existing.githubId && fetchedGithubIds.has(existing.githubId)) {
+      // If this is a local comment that was synced (has UUID id, not gh- prefix)
+      // we should delete its local file since the GitHub version takes precedence
+      if (!existing.id.startsWith("gh-")) {
+        localCommentsToDelete.push(existing.id)
+      }
       continue
     }
+    
+    // Skip if this is a gh- prefixed comment (will be re-added from fresh fetch)
+    if (existing.id.startsWith("gh-") && fetchedGithubIds.has(existing.githubId ?? 0)) {
+      continue
+    }
+    
     comments.push(existing)
+  }
+  
+  // Delete local comment files that are now on GitHub
+  for (const commentId of localCommentsToDelete) {
+    await deleteCommentFile(commentId, prSource)
   }
   
   // Add newly fetched GitHub comments
@@ -347,4 +368,174 @@ export async function getPrBaseFileContent(
     
     return null
   }).catch(() => null)
+}
+
+// ============================================================================
+// Comment Submission
+// ============================================================================
+
+export interface SubmitResult {
+  success: boolean
+  githubId?: number
+  githubUrl?: string
+  error?: string
+}
+
+/**
+ * Submit a single comment immediately to GitHub (like "Add single comment")
+ */
+export async function submitSingleComment(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  comment: Comment,
+  commitSha: string
+): Promise<SubmitResult> {
+  try {
+    // Use -F for line (integer) and -f for strings
+    // side must be uppercase: LEFT or RIGHT
+    const result = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments \
+      -f body=${comment.body} \
+      -f path=${comment.filename} \
+      -F line=${comment.line} \
+      -f side=${comment.side} \
+      -f commit_id=${commitSha}`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    // Extract more useful error message
+    const errMsg = err instanceof Error ? err.message : String(err)
+    // Try to parse JSON error from gh cli
+    const jsonMatch = errMsg.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.message) {
+          return { success: false, error: parsed.message }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    return {
+      success: false,
+      error: errMsg,
+    }
+  }
+}
+
+/**
+ * Submit a reply to an existing comment thread
+ */
+export async function submitReply(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  comment: Comment,
+  parentGithubId: number
+): Promise<SubmitResult> {
+  try {
+    const result = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments/${parentGithubId}/replies \
+      -f body=${comment.body}`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to submit reply",
+    }
+  }
+}
+
+/**
+ * Update an existing comment on GitHub (PATCH)
+ */
+export async function updateComment(
+  owner: string,
+  repo: string,
+  commentId: number,
+  newBody: string
+): Promise<SubmitResult> {
+  try {
+    const result = await $`gh api -X PATCH repos/${owner}/${repo}/pulls/comments/${commentId} \
+      -f body=${newBody}`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    // Try to parse JSON error from gh cli
+    const jsonMatch = errMsg.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.message) {
+          return { success: false, error: parsed.message }
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    return {
+      success: false,
+      error: errMsg,
+    }
+  }
+}
+
+/**
+ * Submit a review with multiple comments as a batch
+ */
+export async function submitReview(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  comments: Comment[],
+  commitSha: string,
+  event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES" = "COMMENT",
+  body: string = ""
+): Promise<SubmitResult> {
+  try {
+    // Build review comments array
+    const reviewComments = comments.map(c => ({
+      path: c.filename,
+      line: c.line,
+      side: c.side,
+      body: c.body,
+    }))
+    
+    // Create the review payload
+    const payload = JSON.stringify({
+      commit_id: commitSha,
+      event,
+      body,
+      comments: reviewComments,
+    })
+    
+    // Submit via gh api with JSON input using echo pipe
+    // Must use --method POST explicitly when using --input
+    const result = await $`echo ${payload} | gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --method POST --input -`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to submit review",
+    }
+  }
 }

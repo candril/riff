@@ -29,6 +29,9 @@ Toggle between Diff View and Comments View. Both views respect the file panel se
 
 - **Resolved state**: Show ✓ for resolved threads
 - **Reply from view**: `r` to reply to selected thread (opens editor)
+- **Edit comment**: `e` on own comment to edit in `$EDITOR` (see Editor Workflow)
+- **Delete comment**: `d` on own comment shows confirmation, then deletes
+- **Resolve thread**: `x` to toggle resolved state on thread (see Resolve Workflow)
 - **Collapse threads**: `h/l` or `-/+` to collapse/expand threads
 - **File headers**: When showing all files, show file separators
 
@@ -100,8 +103,8 @@ When no file is selected, show comments grouped by file:
 │       │ Typo in variable name                                   │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ Tab: diff  j/k: navigate  Enter: jump  r: reply                 │
-└─────────────────────────────────────────────────────────────────┘
+│ Tab: diff  j/k: nav  Enter: jump  r: reply  e: edit  d: del  x: resolve │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Comments View - Single File
@@ -126,8 +129,8 @@ When a file is selected, show only that file's comments (no file headers):
 │          Will fix                                               │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ Tab: diff  j/k: navigate  Enter: jump  r: reply                 │
-└─────────────────────────────────────────────────────────────────┘
+│ Tab: diff  j/k: nav  Enter: jump  r: reply  e: edit  d: del  x: resolve │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Diff View - All Files (Future)
@@ -293,7 +296,7 @@ export function CommentsView({ threads, selectedIndex, scope }: CommentsViewProp
     
     // Status bar
     StatusBar({ 
-      hints: ["Tab: diff", "j/k: navigate", "Enter: jump", "r: reply"] 
+      hints: ["Tab: diff", "j/k: nav", "Enter: jump", "r: reply", "e: edit", "d: del", "x: resolve"] 
     })
   )
 }
@@ -436,8 +439,249 @@ switch (key.name) {
       await handleReplyToThread(replyTarget.thread)
     }
     break
+    
+  case "e":
+    // Edit own comment in $EDITOR
+    const editItems = flattenForNavigation(getVisibleThreads(state))
+    const editTarget = editItems[state.selectedCommentIndex]
+    if (editTarget && isOwnComment(editTarget.comment)) {
+      await handleEditComment(editTarget.comment)
+    }
+    break
+    
+  case "d":
+    // Delete own comment (with confirmation)
+    const deleteItems = flattenForNavigation(getVisibleThreads(state))
+    const deleteTarget = deleteItems[state.selectedCommentIndex]
+    if (deleteTarget && isOwnComment(deleteTarget.comment)) {
+      await handleDeleteComment(deleteTarget.comment)
+    }
+    break
+    
+  case "x":
+    // Toggle resolved state on thread
+    const resolveItems = flattenForNavigation(getVisibleThreads(state))
+    const resolveTarget = resolveItems[state.selectedCommentIndex]
+    if (resolveTarget) {
+      await handleToggleResolved(resolveTarget.thread)
+    }
+    break
 }
 ```
+
+### Edit Comment Workflow
+
+The `e` key opens the selected comment in `$EDITOR` for editing:
+
+```typescript
+async function handleEditComment(comment: Comment) {
+  // Only allow editing own comments
+  if (!isOwnComment(comment)) return
+  
+  // Create temp file with comment body
+  const tmpFile = `/tmp/neoriff-edit-${comment.id}.md`
+  await Bun.write(tmpFile, comment.body)
+  
+  // Suspend renderer, open editor
+  renderer.suspend()
+  const editor = Bun.env.EDITOR || "nvim"
+  const proc = Bun.spawn([editor, tmpFile], {
+    stdin: "inherit",
+    stdout: "inherit", 
+    stderr: "inherit",
+  })
+  await proc.exited
+  renderer.resume()
+  
+  // Read edited content
+  const newBody = await Bun.file(tmpFile).text()
+  
+  // Update if changed
+  if (newBody.trim() !== comment.body.trim()) {
+    updateComment(comment.id, { body: newBody.trim() })
+  }
+  
+  // Cleanup
+  await unlink(tmpFile)
+}
+
+function isOwnComment(comment: Comment): boolean {
+  // Local comments are always own
+  if (comment.status === "local") return true
+  
+  // For synced comments, check author matches current user
+  const currentUser = state.currentUser // from GitHub auth
+  return comment.author === currentUser
+}
+```
+
+### Delete Comment Workflow
+
+The `d` key shows a confirmation before deleting:
+
+```typescript
+async function handleDeleteComment(comment: Comment) {
+  // Only allow deleting own comments
+  if (!isOwnComment(comment)) return
+  
+  // Show confirmation inline
+  const confirmed = await showConfirmation({
+    message: "Delete this comment?",
+    confirmKey: "d",  // Press d again to confirm
+    cancelKey: "escape",
+  })
+  
+  if (!confirmed) return
+  
+  // For local comments, just remove from state
+  if (comment.status === "local") {
+    state = {
+      ...state,
+      comments: state.comments.filter(c => c.id !== comment.id)
+    }
+    render()
+    return
+  }
+  
+  // For synced comments on GitHub PRs, delete via API
+  if (comment.githubId && state.prInfo) {
+    const { owner, repo } = state.prInfo
+    await $`gh api repos/${owner}/${repo}/pulls/comments/${comment.githubId} -X DELETE`
+    
+    // Remove from local state
+    state = {
+      ...state,
+      comments: state.comments.filter(c => c.id !== comment.id)
+    }
+    render()
+  }
+}
+```
+
+### Confirmation UI
+
+When `d` is pressed on a deletable comment, show inline confirmation:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Comments │ src/app.ts (2 threads)                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   L42 │ @octocat [synced]                                       │
+│       │ This should use a logger instead of console.log         │
+│       │                                                         │
+│       └─ @you [local] ◀ DELETE? (d=confirm, Esc=cancel)         │
+│          Will fix                                               │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ d: confirm delete  Esc: cancel                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Resolve Thread Workflow
+
+The `x` key toggles the resolved state of a thread:
+
+```typescript
+async function handleToggleResolved(thread: Thread) {
+  const newResolved = !thread.resolved
+  
+  // For local-only threads, just update state
+  if (isLocalThread(thread)) {
+    updateThread(thread.id, { resolved: newResolved })
+    render()
+    return
+  }
+  
+  // For GitHub threads, use the GraphQL API
+  // Note: REST API doesn't support resolve/unresolve, must use GraphQL
+  if (thread.githubThreadId && state.prInfo) {
+    const mutation = newResolved ? "resolveReviewThread" : "unresolveReviewThread"
+    
+    await $`gh api graphql -f query='
+      mutation {
+        ${mutation}(input: { threadId: "${thread.githubThreadId}" }) {
+          thread {
+            isResolved
+          }
+        }
+      }
+    '`
+    
+    // Update local state
+    updateThread(thread.id, { resolved: newResolved })
+    render()
+  }
+}
+
+function isLocalThread(thread: Thread): boolean {
+  // Thread is local if root comment is local
+  const rootComment = thread.comments[0]
+  return rootComment?.status === "local"
+}
+```
+
+### Thread State
+
+```typescript
+export interface Thread {
+  id: string                    // Root comment's ID
+  githubThreadId?: string       // GitHub's node_id for GraphQL API
+  filename: string
+  line: number
+  comments: Comment[]           // Root + replies, chronological
+  resolved: boolean
+}
+```
+
+### Resolved Visual Indicator
+
+```
+│   L42 │ @octocat [synced] ✓                    # ✓ = resolved
+│       │ This looks good now                    
+│                                                
+│   L58 │ @reviewer [synced]                     # No ✓ = unresolved
+│       │ Missing null check here                
+```
+
+When viewing resolved threads:
+- Thread header shows `✓` indicator
+- Optionally dim resolved threads (configurable)
+- `x` on resolved thread unresolves it
+
+### Comment Permissions
+
+```typescript
+interface CommentPermissions {
+  canEdit: boolean
+  canDelete: boolean
+}
+
+function getCommentPermissions(comment: Comment, state: AppState): CommentPermissions {
+  const isOwn = isOwnComment(comment)
+  
+  return {
+    // Can edit own local comments, or own synced comments on GitHub
+    canEdit: isOwn,
+    // Can delete own local comments, or own synced comments on GitHub
+    canDelete: isOwn,
+  }
+}
+```
+
+### Visual Indicators
+
+Comments show available actions based on permissions:
+
+```
+│   L42 │ @octocat [synced]              # No indicators (not own)
+│       │ Some comment text              
+│                                        
+│   L58 │ @you [local] ✎                 # ✎ = editable
+│       │ My local comment               
+```
+
+The `✎` indicator appears on own comments to show they're editable.
 
 ### File Structure
 

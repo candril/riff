@@ -22,6 +22,10 @@ export interface Comment {
   githubUrl?: string
   author?: string // GitHub username (for others' comments)
   inReplyTo?: string // Parent comment ID for threads
+  
+  // Local edits to synced comments (body differs from what's on GitHub)
+  // When set, this is the edited version; body contains the original GitHub version
+  localEdit?: string
 }
 
 /**
@@ -48,7 +52,8 @@ export function createComment(
   filename: string,
   line: number,
   body: string,
-  side: "LEFT" | "RIGHT" = "RIGHT"
+  side: "LEFT" | "RIGHT" = "RIGHT",
+  author?: string
 ): Comment {
   return {
     id: crypto.randomUUID(),
@@ -58,6 +63,7 @@ export function createComment(
     body,
     createdAt: new Date().toISOString(),
     status: "local",
+    author,
   }
 }
 

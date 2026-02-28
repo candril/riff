@@ -1,9 +1,19 @@
-import { createCliRenderer, Box, Text, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu } from "./components"
+import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, type ValidatedComment, canSubmit } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getCurrentUser } from "./providers/github"
+import { 
+  getPrFileContent, 
+  getPrBaseFileContent, 
+  getCurrentUser, 
+  getPrHeadSha,
+  submitSingleComment,
+  submitReply,
+  submitReview,
+  updateComment,
+  type SubmitResult,
+} from "./providers/github"
 import { parseDiff, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
 import { openCommentEditor, extractDiffHunk, parseEditorOutput, type EditorResult } from "./utils/editor"
@@ -27,6 +37,18 @@ import {
   closeActionMenu,
   setActionMenuQuery,
   moveActionMenuSelection,
+  openReviewPreview,
+  closeReviewPreview,
+  cycleReviewEvent,
+  setReviewPreviewLoading,
+  setReviewPreviewError,
+  toggleReviewComment,
+  moveReviewHighlight,
+  nextReviewSection,
+  prevReviewSection,
+  setReviewBody,
+  showToast,
+  clearToast,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -147,6 +169,8 @@ export async function createApp(options: AppOptions = {}) {
   
   // Create CommentsViewPanel (class-based to avoid flicker)
   const commentsViewPanel = new CommentsViewPanel({ renderer })
+  
+  // ReviewPreview is now functional, no instance needed
 
   // Post-process function for action menu cursor
   renderer.addPostProcessFn(() => {
@@ -202,7 +226,31 @@ export async function createApp(options: AppOptions = {}) {
     vimDiffView.setFilePanelVisible(state.showFilePanel, 35)
     // Tell VimDiffView about view mode for cursor visibility
     vimDiffView.setVisible(state.viewMode === "diff")
+    
+    // ReviewPreview is now rendered as functional component in render()
   }
+
+  /**
+   * Validate comments for GitHub submission.
+   * Checks if the comment's file/line exists in the current diff.
+   */
+  function validateCommentsForSubmit(comments: Comment[]): ValidatedComment[] {
+    return comments.map(comment => {
+      // Check if file exists in the diff
+      const file = state.files.find(f => f.filename === comment.filename)
+      if (!file) {
+        return { comment, valid: false, reason: "file not in diff" }
+      }
+      
+      // For now, if the file exists and we have a line number, assume valid
+      // (The line was validated when the comment was created via isCommentable)
+      // TODO: Could add more granular validation by checking if line is in a hunk
+      return { comment, valid: true }
+    })
+  }
+
+  // Track current user for own-PR detection (cached, populated when review preview opens)
+  let cachedCurrentUser: string | null = null
 
   // Render function
   function render() {
@@ -359,6 +407,25 @@ export async function createApp(options: AppOptions = {}) {
               query: state.actionMenu.query,
               actions: filteredActions,
               selectedIndex: state.actionMenu.selectedIndex,
+            })
+          : null,
+
+        // Toast notification (rendered at top-right)
+        state.toast.message
+          ? Toast({
+              message: state.toast.message,
+              type: state.toast.type,
+            })
+          : null,
+
+        // Review preview modal
+        state.reviewPreview.open
+          ? ReviewPreview({
+              comments: validateCommentsForSubmit(
+                state.comments.filter(c => c.status === "local" && !c.inReplyTo)
+              ),
+              state: state.reviewPreview,
+              isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
             })
           : null
       )
@@ -561,22 +628,43 @@ export async function createApp(options: AppOptions = {}) {
           const comment = state.comments.find(c => 
             c.id.startsWith(shortId) || c.id === shortId
           )
-          if (comment && newBody !== comment.body) {
-            const updatedComment = { ...comment, body: newBody }
-            state = {
-              ...state,
-              comments: state.comments.map(c =>
-                c.id === comment.id ? updatedComment : c
-              ),
+          if (!comment) continue
+          
+          // Get the current display body (localEdit or body)
+          const currentBody = comment.localEdit ?? comment.body
+          if (newBody === currentBody) continue
+          
+          let updatedComment: Comment
+          
+          if (comment.status === "synced") {
+            // For synced comments, store edit in localEdit (user presses S to push)
+            // If edit matches original body, clear localEdit
+            if (newBody === comment.body) {
+              updatedComment = { ...comment, localEdit: undefined }
+            } else {
+              updatedComment = { ...comment, localEdit: newBody }
             }
-            await persistComment(updatedComment)
+          } else {
+            // For local/pending comments, edit body directly
+            updatedComment = { ...comment, body: newBody }
           }
+          
+          state = {
+            ...state,
+            comments: state.comments.map(c =>
+              c.id === comment.id ? updatedComment : c
+            ),
+          }
+          await persistComment(updatedComment)
         }
         
         // Handle new reply
         if (result.newReply) {
-          const comment = createComment(anchor.filename, anchor.line, result.newReply, anchor.side)
-          comment.diffHunk = extractDiffHunk(file.content, anchor.line)
+          const comment = createComment(anchor.filename, anchor.line, result.newReply, anchor.side, username)
+          // Use the selection context if available, otherwise extract from file
+          comment.diffHunk = contextLines.length > 0 
+            ? contextLines.join("\n") 
+            : extractDiffHunk(file.content, anchor.line)
           
           // If there's an existing thread, mark as reply to the last comment
           if (thread.length > 0) {
@@ -657,6 +745,285 @@ export async function createApp(options: AppOptions = {}) {
     render()
   }
 
+  /**
+   * Get the comment under cursor (in diff view) or selected comment (in comments view)
+   */
+  function getCurrentComment(): Comment | null {
+    if (state.viewMode === "comments") {
+      // In comments view, use selected comment
+      const visibleComments = getVisibleComments(state)
+      const threads = groupIntoThreads(visibleComments)
+      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null)
+      const selectedNav = navItems[state.selectedCommentIndex]
+      return selectedNav?.comment ?? null
+    } else {
+      // In diff view, find comment for current cursor position
+      const anchor = lineMapping.getCommentAnchor(vimState.line)
+      if (!anchor) return null
+      
+      // Find submittable comments on this line:
+      // - local comments (not yet on GitHub)
+      // - synced comments with localEdit (pending update)
+      const submittableComments = state.comments.filter(
+        c => c.filename === anchor.filename && 
+             c.line === anchor.line && 
+             c.side === anchor.side &&
+             (c.status === "local" || c.localEdit !== undefined)
+      )
+      
+      // Return the last submittable comment (most recent)
+      return submittableComments[submittableComments.length - 1] ?? null
+    }
+  }
+
+  /**
+   * Submit a single comment immediately to GitHub
+   */
+  async function handleSubmitSingleComment(comment?: Comment): Promise<void> {
+    // Check we're in PR mode
+    if (state.appMode !== "pr" || !state.prInfo) {
+      return
+    }
+
+    // Get the comment to submit
+    const toSubmit = comment ?? getCurrentComment()
+    if (!toSubmit) {
+      return
+    }
+
+    // Check if this is an edit to a synced comment
+    const isEdit = toSubmit.status === "synced" && toSubmit.localEdit !== undefined
+    
+    // Must be either local or an edited synced comment
+    if (toSubmit.status !== "local" && !isEdit) {
+      return
+    }
+
+    const { owner, repo, number: prNumber } = state.prInfo
+    let result: SubmitResult
+
+    if (isEdit && toSubmit.githubId) {
+      // Update existing comment on GitHub
+      result = await updateComment(owner, repo, toSubmit.githubId, toSubmit.localEdit!)
+    } else {
+      // New comment - need head SHA
+      let headSha: string
+      try {
+        headSha = await getPrHeadSha(prNumber, owner, repo)
+      } catch (err) {
+        state = showToast(state, "Failed to get PR info", "error")
+        render()
+        setTimeout(() => { state = clearToast(state); render() }, 5000)
+        return
+      }
+
+      // Check if this is a reply
+      if (toSubmit.inReplyTo) {
+        // Find parent comment's GitHub ID
+        const parentComment = state.comments.find(c => c.id === toSubmit.inReplyTo)
+        if (!parentComment?.githubId) {
+          // Can't reply to unsynced comment
+          return
+        }
+        result = await submitReply(owner, repo, prNumber, toSubmit, parentComment.githubId)
+      } else {
+        result = await submitSingleComment(owner, repo, prNumber, toSubmit, headSha)
+      }
+    }
+
+    if (result.success) {
+      // Ensure we have the author set (might be missing for older comments)
+      let author = toSubmit.author
+      if (!author) {
+        try {
+          author = await getCurrentUser()
+        } catch {
+          // Leave undefined if we can't get the user
+        }
+      }
+      
+      let updatedComment: Comment
+      let toastMessage: string
+      
+      if (isEdit) {
+        // For edits: update body with localEdit content, clear localEdit
+        updatedComment = {
+          ...toSubmit,
+          body: toSubmit.localEdit!,
+          localEdit: undefined,
+          author,
+        }
+        toastMessage = "Comment updated"
+      } else {
+        // For new comments: set synced status and GitHub IDs
+        updatedComment = {
+          ...toSubmit,
+          status: "synced",
+          githubId: result.githubId,
+          githubUrl: result.githubUrl,
+          author,
+        }
+        toastMessage = "Comment submitted"
+      }
+      
+      // Update state and show success toast
+      state = {
+        ...state,
+        comments: state.comments.map(c =>
+          c.id === toSubmit.id ? updatedComment : c
+        ),
+      }
+      state = showToast(state, toastMessage, "success")
+      
+      // Persist to storage
+      await saveComment(updatedComment, source)
+      
+      render()
+      
+      // Auto-clear toast after 3 seconds
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 3000)
+    } else {
+      state = showToast(state, result.error ?? "Failed to submit comment", "error")
+      render()
+      
+      // Auto-clear error toast after 5 seconds
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 5000)
+    }
+  }
+
+  /**
+   * Open the review preview (gS)
+   */
+  async function handleOpenReviewPreview(): Promise<void> {
+    // Cache current user for own-PR detection
+    if (cachedCurrentUser === null && state.appMode === "pr") {
+      try {
+        cachedCurrentUser = await getCurrentUser()
+      } catch {
+        cachedCurrentUser = ""
+      }
+    }
+    state = openReviewPreview(state)
+    render()
+  }
+
+  /**
+   * Submit all local comments as a review batch (called from review preview)
+   */
+  async function handleConfirmReview(): Promise<void> {
+    // Check we're in PR mode
+    if (state.appMode !== "pr" || !state.prInfo) {
+      return
+    }
+
+    // Get all local comments, excluding user-deselected ones, replies, and invalid comments
+    const allLocalComments = state.comments.filter(c => 
+      c.status === "local" && 
+      !c.inReplyTo &&
+      !state.reviewPreview.excludedCommentIds.has(c.id)
+    )
+    
+    // Only submit comments that are valid (file exists in diff)
+    const validatedComments = validateCommentsForSubmit(allLocalComments)
+    const localComments = validatedComments
+      .filter(vc => vc.valid)
+      .map(vc => vc.comment)
+    
+    if (localComments.length === 0) {
+      const invalidCount = validatedComments.filter(vc => !vc.valid).length
+      const msg = invalidCount > 0 
+        ? `No valid comments to submit (${invalidCount} skipped - not in diff)`
+        : "No comments selected to submit"
+      state = setReviewPreviewError(state, msg)
+      render()
+      return
+    }
+
+    const prInfo = state.prInfo
+    if (!prInfo) return
+
+    // Set loading state
+    state = setReviewPreviewLoading(state, true)
+    render()
+
+    // Get the PR head SHA
+    const { owner, repo, number: prNumber } = prInfo
+    let headSha: string
+    try {
+      headSha = await getPrHeadSha(prNumber, owner, repo)
+    } catch (err) {
+      state = setReviewPreviewError(state, err instanceof Error ? err.message : "Failed to get PR info")
+      render()
+      return
+    }
+
+    // Submit as a review batch with selected event and optional body
+    const result = await submitReview(
+      owner, 
+      repo, 
+      prNumber, 
+      localComments, 
+      headSha, 
+      state.reviewPreview.selectedEvent,
+      state.reviewPreview.body || undefined
+    )
+
+    if (result.success) {
+      // Update all submitted comments to synced
+      // Get the current user to set as author on synced comments
+      let currentUser: string | undefined
+      try {
+        currentUser = await getCurrentUser()
+      } catch {
+        // Leave undefined if we can't get the user
+      }
+      
+      // Note: GitHub doesn't return individual IDs for batch comments,
+      // so we mark them synced but without individual githubId
+      const submittedIds = new Set(localComments.map(c => c.id))
+      
+      state = {
+        ...state,
+        comments: state.comments.map(c =>
+          submittedIds.has(c.id) 
+            ? { ...c, status: "synced" as const, author: c.author || currentUser }
+            : c
+        ),
+      }
+      
+      // Close the review preview and show success toast
+      state = closeReviewPreview(state)
+      const eventLabel = state.reviewPreview.selectedEvent === "APPROVE" 
+        ? "Review approved" 
+        : state.reviewPreview.selectedEvent === "REQUEST_CHANGES"
+          ? "Changes requested"
+          : "Review submitted"
+      state = showToast(state, `${eventLabel} (${localComments.length} comment${localComments.length !== 1 ? "s" : ""})`, "success")
+      
+      // Persist to storage
+      for (const comment of localComments) {
+        await saveComment({ ...comment, status: "synced", author: comment.author || currentUser }, source)
+      }
+      
+      render()
+      
+      // Auto-clear toast after 3 seconds
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 3000)
+    } else {
+      state = setReviewPreviewError(state, result.error ?? "Failed to submit review")
+      render()
+    }
+  }
+
   // Key sequence tracking
   let pendingKey: string | null = null
   let pendingTimeout: ReturnType<typeof setTimeout> | null = null
@@ -670,7 +1037,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // Action handlers (called when action is executed)
-  function executeAction(actionId: string) {
+  async function executeAction(actionId: string) {
     switch (actionId) {
       case "quit":
         quit()
@@ -690,13 +1057,19 @@ export async function createApp(options: AppOptions = {}) {
         // TODO: Implement refresh
         break
       case "submit-review":
-        // TODO: Implement submit review flow
+        handleOpenReviewPreview()
         break
       case "submit-comment":
-        // TODO: Implement submit single comment
+        await handleSubmitSingleComment()
         break
       case "create-pr":
         // TODO: Implement create PR flow
+        break
+      case "open-in-browser":
+        if (state.prInfo) {
+          const { owner, repo, number: prNumber } = state.prInfo
+          Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
+        }
         break
     }
   }
@@ -778,6 +1151,121 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
     
+    // ========== REVIEW PREVIEW (captures all input when open) ==========
+    // Tab-based navigation through 4 sections:
+    // 1. Input - type summary/body
+    // 2. Type - h/l to pick Comment/Approve/Request Changes
+    // 3. Comments - j/k navigate, space toggle
+    // 4. Submit - Enter to submit
+    if (state.reviewPreview.open) {
+      const validatedComments = validateCommentsForSubmit(
+        state.comments.filter(c => c.status === "local" && !c.inReplyTo)
+      )
+      const validComments = validatedComments.filter(c => c.valid)
+      const section = state.reviewPreview.focusedSection
+      const includedCount = validComments.filter(c => !state.reviewPreview.excludedCommentIds.has(c.comment.id)).length
+      const isOwn = state.prInfo !== null && cachedCurrentUser === state.prInfo.author
+      
+      // Escape always closes
+      if (key.name === "escape") {
+        state = closeReviewPreview(state)
+        render()
+        return
+      }
+      
+      // Tab moves to next section
+      if (key.name === "tab" && !key.shift) {
+        state = nextReviewSection(state)
+        render()
+        return
+      }
+      
+      // Shift+Tab moves to previous section
+      if (key.name === "tab" && key.shift) {
+        state = prevReviewSection(state)
+        render()
+        return
+      }
+      
+      // Section-specific key handling
+      switch (section) {
+        case "input":
+          // Enter adds newline
+          if (key.name === "return" || key.name === "enter") {
+            state = setReviewBody(state, state.reviewPreview.body + "\n")
+            render()
+            return
+          }
+          // Backspace removes last character
+          if (key.name === "backspace") {
+            if (state.reviewPreview.body.length > 0) {
+              state = setReviewBody(state, state.reviewPreview.body.slice(0, -1))
+              render()
+            }
+            return
+          }
+          // Type characters
+          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+            state = setReviewBody(state, state.reviewPreview.body + key.sequence)
+            render()
+            return
+          }
+          break
+          
+        case "type":
+          // h/left = previous type
+          if (key.name === "h" || key.name === "left") {
+            state = cycleReviewEvent(state, -1)
+            render()
+            return
+          }
+          // l/right = next type
+          if (key.name === "l" || key.name === "right") {
+            state = cycleReviewEvent(state, 1)
+            render()
+            return
+          }
+          break
+          
+        case "comments":
+          // j/down = next comment
+          if (key.name === "j" || key.name === "down") {
+            state = moveReviewHighlight(state, 1, validComments.length - 1)
+            render()
+            return
+          }
+          // k/up = previous comment
+          if (key.name === "k" || key.name === "up") {
+            state = moveReviewHighlight(state, -1, validComments.length - 1)
+            render()
+            return
+          }
+          // Space toggles selection
+          if (key.name === "space") {
+            const highlightedComment = validComments[state.reviewPreview.highlightedIndex]
+            if (highlightedComment) {
+              state = toggleReviewComment(state, highlightedComment.comment.id)
+              render()
+            }
+            return
+          }
+          break
+          
+        case "submit":
+          // Enter submits
+          if (key.name === "return" || key.name === "enter") {
+            if (!state.reviewPreview.loading && canSubmit(state.reviewPreview, includedCount, isOwn)) {
+              handleConfirmReview()
+            }
+            return
+          }
+          break
+      }
+      
+      // Capture all other keys (don't let them escape to normal mode)
+      return
+    }
+    
     // ========== GLOBAL KEYS (work in any mode) ==========
     switch (key.name) {
       case "p":
@@ -833,9 +1321,9 @@ export async function createApp(options: AppOptions = {}) {
         break
     }
     
-    // ========== KEY SEQUENCES (]f, [f) ==========
+    // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     if (pendingKey) {
-      const sequence = `${pendingKey}${key.name}`
+      const sequence = `${pendingKey}${key.name}${key.shift ? "!" : ""}`
       clearPendingKey()
 
       if (sequence === "]f") {
@@ -844,11 +1332,22 @@ export async function createApp(options: AppOptions = {}) {
       } else if (sequence === "[f") {
         navigateFileSelection(-1)
         return
+      } else if (sequence === "gS!" || sequence === "gs!") {
+        // gS (shift+S) - open review preview
+        handleOpenReviewPreview()
+        return
+      } else if (sequence === "go") {
+        // go - open PR in browser
+        if (state.appMode === "pr" && state.prInfo) {
+          const { owner, repo, number: prNumber } = state.prInfo
+          Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
+        }
+        return
       }
       // Other sequences like ]c, [c handled by vim handler
     }
 
-    if (key.name === "]" || key.name === "[") {
+    if (key.name === "]" || key.name === "[" || key.name === "g") {
       pendingKey = key.name
       pendingTimeout = setTimeout(clearPendingKey, 500)
       return
@@ -1032,6 +1531,20 @@ export async function createApp(options: AppOptions = {}) {
             }
           }
           return
+        
+        case "s":
+          // S (shift+s) - submit selected comment (local or edited synced)
+          if (key.shift) {
+            const submitNav = navItems[state.selectedCommentIndex]
+            if (submitNav?.comment) {
+              const c = submitNav.comment
+              // Submit if local OR synced with local edits
+              if (c.status === "local" || c.localEdit !== undefined) {
+                handleSubmitSingleComment(c)
+              }
+            }
+          }
+          return
       }
     }
 
@@ -1079,6 +1592,18 @@ export async function createApp(options: AppOptions = {}) {
       // Handle 'n' and 'N' for search repeat
       if (key.name === "n" && !key.ctrl) {
         vimHandler.repeatSearch(key.shift)
+        return
+      }
+
+      // Handle 'S' for submit comment (local or edited synced)
+      if (key.name === "s" && key.shift) {
+        const currentComment = getCurrentComment()
+        if (currentComment) {
+          // Submit if local OR synced with local edits
+          if (currentComment.status === "local" || currentComment.localEdit !== undefined) {
+            handleSubmitSingleComment(currentComment)
+          }
+        }
         return
       }
     }

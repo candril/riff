@@ -17,6 +17,20 @@ const STATUS_COLORS: Record<Comment["status"], string> = {
   synced: colors.commentSynced,   // Green - synced
 }
 
+// Color for edited synced comments (has localEdit)
+const EDITED_COLOR = colors.commentPending  // Yellow - has local changes
+
+/**
+ * Get the display color for a comment
+ */
+function getCommentColor(comment: Comment): string {
+  // Edited synced comment (has local changes pending)
+  if (comment.status === "synced" && comment.localEdit !== undefined) {
+    return EDITED_COLOR
+  }
+  return STATUS_COLORS[comment.status] || STATUS_COLORS.local
+}
+
 export interface CommentIndicatorsOptions {
   renderer: CliRenderer
   /** Offset from top of screen (e.g., 1 for header) */
@@ -66,7 +80,7 @@ export class CommentIndicators {
 
       indicator.top = viewportLine + this.topOffset
       indicator.left = this.leftOffset + COMMENT_COL
-      indicator.fg = STATUS_COLORS[comment.status] || STATUS_COLORS.local
+      indicator.fg = getCommentColor(comment)
       indicator.visible = true
     }
 

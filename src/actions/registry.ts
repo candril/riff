@@ -39,6 +39,13 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr",
   },
   {
+    id: "open-in-browser",
+    label: "Open in Browser",
+    description: "Open PR in web browser",
+    shortcut: "go",
+    available: (state) => state.appMode === "pr",
+  },
+  {
     id: "toggle-file-panel",
     label: "Toggle File Panel",
     description: "Show or hide the file tree",

@@ -3,6 +3,7 @@ import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode } from "./types"
 import type { PrInfo } from "./providers/github"
 import { type ActionMenuState, createActionMenuState } from "./actions"
+import type { ReviewEvent } from "./components/ReviewPreview"
 
 /**
  * UI mode for the app
@@ -24,6 +25,37 @@ export interface FileContentCache {
     loading: boolean
     error?: string
   }
+}
+
+/**
+ * Review preview section (tab navigation)
+ */
+export type ReviewPreviewSection = "input" | "type" | "comments" | "submit"
+
+/**
+ * Review preview state
+ */
+export interface ReviewPreviewState {
+  open: boolean
+  selectedEvent: ReviewEvent
+  loading: boolean
+  error?: string
+  /** Overall review comment/body */
+  body: string
+  /** IDs of comments to exclude from submission */
+  excludedCommentIds: Set<string>
+  /** Currently highlighted comment index for selection */
+  highlightedIndex: number
+  /** Which section is focused (tab navigation) */
+  focusedSection: ReviewPreviewSection
+}
+
+/**
+ * Toast notification state
+ */
+export interface ToastState {
+  message: string | null
+  type: "success" | "error" | "info"
 }
 
 /**
@@ -75,6 +107,12 @@ export interface AppState {
   
   // Action menu state
   actionMenu: ActionMenuState
+  
+  // Review preview state
+  reviewPreview: ReviewPreviewState
+  
+  // Toast notification
+  toast: ToastState
 }
 
 /**
@@ -114,6 +152,19 @@ export function createInitialState(
     fileContentCache: {},
     expandedDividers: new Set(),
     actionMenu: createActionMenuState(),
+    reviewPreview: {
+      open: false,
+      selectedEvent: "COMMENT",
+      loading: false,
+      body: "",
+      excludedCommentIds: new Set(),
+      highlightedIndex: 0,
+      focusedSection: "input",
+    },
+    toast: {
+      message: null,
+      type: "info",
+    },
   }
 }
 
@@ -509,6 +560,201 @@ export function moveActionMenuSelection(state: AppState, delta: number, maxIndex
     actionMenu: {
       ...state.actionMenu,
       selectedIndex: newIndex,
+    },
+  }
+}
+
+// ============================================================================
+// Review Preview State
+// ============================================================================
+
+/**
+ * Open the review preview
+ */
+export function openReviewPreview(state: AppState): AppState {
+  return {
+    ...state,
+    reviewPreview: {
+      open: true,
+      selectedEvent: "COMMENT",
+      loading: false,
+      error: undefined,
+      body: "",
+      excludedCommentIds: new Set(),
+      highlightedIndex: 0,
+      focusedSection: "input",
+    },
+  }
+}
+
+/**
+ * Close the review preview
+ */
+export function closeReviewPreview(state: AppState): AppState {
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      open: false,
+      loading: false,
+      error: undefined,
+    },
+  }
+}
+
+/**
+ * Cycle through review events (Comment -> Approve -> Request Changes -> Comment)
+ * @param direction 1 for next, -1 for previous (default: 1)
+ */
+export function cycleReviewEvent(state: AppState, direction: number = 1): AppState {
+  const events: ReviewEvent[] = ["COMMENT", "APPROVE", "REQUEST_CHANGES"]
+  const currentIndex = events.indexOf(state.reviewPreview.selectedEvent)
+  const nextIndex = (currentIndex + direction + events.length) % events.length
+  
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      selectedEvent: events[nextIndex]!,
+    },
+  }
+}
+
+/**
+ * Set review preview loading state
+ */
+export function setReviewPreviewLoading(state: AppState, loading: boolean): AppState {
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      loading,
+    },
+  }
+}
+
+/**
+ * Set review preview error
+ */
+export function setReviewPreviewError(state: AppState, error: string | undefined): AppState {
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      error,
+      loading: false,
+    },
+  }
+}
+
+/**
+ * Toggle a comment's inclusion in the review
+ */
+export function toggleReviewComment(state: AppState, commentId: string): AppState {
+  const newExcluded = new Set(state.reviewPreview.excludedCommentIds)
+  if (newExcluded.has(commentId)) {
+    newExcluded.delete(commentId)
+  } else {
+    newExcluded.add(commentId)
+  }
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      excludedCommentIds: newExcluded,
+    },
+  }
+}
+
+/**
+ * Move review preview highlight
+ */
+export function moveReviewHighlight(state: AppState, delta: number, maxIndex: number): AppState {
+  const newIndex = Math.max(0, Math.min(maxIndex, state.reviewPreview.highlightedIndex + delta))
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      highlightedIndex: newIndex,
+    },
+  }
+}
+
+/**
+ * Move to next section in review preview (Tab)
+ */
+export function nextReviewSection(state: AppState): AppState {
+  const sections: ReviewPreviewSection[] = ["input", "type", "comments", "submit"]
+  const currentIndex = sections.indexOf(state.reviewPreview.focusedSection)
+  const nextIndex = (currentIndex + 1) % sections.length
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      focusedSection: sections[nextIndex]!,
+    },
+  }
+}
+
+/**
+ * Move to previous section in review preview (Shift+Tab)
+ */
+export function prevReviewSection(state: AppState): AppState {
+  const sections: ReviewPreviewSection[] = ["input", "type", "comments", "submit"]
+  const currentIndex = sections.indexOf(state.reviewPreview.focusedSection)
+  const prevIndex = (currentIndex - 1 + sections.length) % sections.length
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      focusedSection: sections[prevIndex]!,
+    },
+  }
+}
+
+/**
+ * Update review body text
+ */
+export function setReviewBody(state: AppState, body: string): AppState {
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      body,
+    },
+  }
+}
+
+// ============================================================================
+// Toast State
+// ============================================================================
+
+/**
+ * Show a toast notification
+ */
+export function showToast(
+  state: AppState, 
+  message: string, 
+  type: "success" | "error" | "info" = "info"
+): AppState {
+  return {
+    ...state,
+    toast: {
+      message,
+      type,
+    },
+  }
+}
+
+/**
+ * Clear the toast notification
+ */
+export function clearToast(state: AppState): AppState {
+  return {
+    ...state,
+    toast: {
+      message: null,
+      type: "info",
     },
   }
 }

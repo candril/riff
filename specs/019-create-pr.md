@@ -1,10 +1,10 @@
-# 016 - Create Pull Request
+# 019 - Pull Request Management
 
 **Status**: Draft
 
 ## Description
 
-Create a new GitHub PR from local changes. Review your changes in neoriff, write a description, and submit the PR - all from the terminal.
+Create new GitHub PRs and edit existing PR metadata from neoriff. View PR info, update title and description, and manage PRs without leaving the terminal.
 
 ## Out of Scope
 
@@ -12,46 +12,76 @@ Create a new GitHub PR from local changes. Review your changes in neoriff, write
 - PR templates (use GitHub's default behavior)
 - Assigning reviewers (use GitHub UI or `gh pr edit` after)
 - Labels and milestones
+- Merge/close operations (use `gh pr merge` or GitHub UI)
 
 ## Capabilities
 
 ### P1 - MVP
 
-- **Create PR flow**: `gP` opens PR creation flow
-- **Title input**: Enter PR title
-- **Description editor**: Open `$EDITOR` to write PR description/body
+- **Create PR flow**: `gP` opens PR creation flow (local mode)
+- **Edit PR flow**: `gP` opens PR edit flow (GitHub PR mode)
+- **PR metadata display**: Show branch, author, reviewers, status in header
+- **Title input**: Enter/edit PR title
+- **Description editor**: Open `$EDITOR` to write/edit PR description/body
 - **Base branch**: Auto-detect or specify base branch (main/master)
-- **Preview**: Show summary before creating
-- **Submit**: Create PR and show link
+- **Preview**: Show summary before creating/saving
+- **Submit**: Create PR or save edits and show result
 
 ### P2 - Enhanced
 
 - **Branch creation**: Create and push branch if on main
 - **Commit selection**: Choose which commits to include
 - **Template support**: Load PR template if exists
+- **Reviewers display**: Show requested reviewers and their status
 
 ### P3 - Polish
 
 - **Draft option**: Create as draft PR
 - **Auto-push**: Push branch if not yet pushed
 - **Link issues**: Parse and link referenced issues
+- **CI status**: Show checks/CI status in metadata
 
 ## Keyboard Bindings
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `gP` | Local mode with uncommitted/unpushed changes | Open PR creation flow |
+| `gP` | Local mode with unpushed changes | Open PR creation flow |
+| `gP` | GitHub PR mode | Open PR edit flow |
 
-## Flow
+## PR Metadata Display
 
-### 1. Start PR Creation (`gP`)
+When viewing a GitHub PR, show metadata in the header area:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ #123: Add OAuth2 authentication                          [Open] │
+├─────────────────────────────────────────────────────────────────┤
+│ feature/oauth → main  ·  @alice  ·  3 commits  ·  +142 -38      │
+│ Reviewers: @bob (approved) @carol (pending)                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Metadata fields:
+- **PR number and title**: `#123: Title text`
+- **Status**: `[Open]`, `[Draft]`, `[Merged]`, `[Closed]`
+- **Branches**: `head → base`
+- **Author**: `@username`
+- **Commit count**: `N commits`
+- **Diff stats**: `+additions -deletions`
+- **Reviewers**: List with status (approved/changes requested/pending)
+
+## Flows
+
+### Create PR Flow (Local Mode)
+
+#### 1. Start PR Creation (`gP`)
 
 Check prerequisites:
 - Must have local changes or unpushed commits
 - Must be on a feature branch (not main/master)
 - Branch must be pushed (or offer to push)
 
-### 2. PR Creation UI
+#### 2. PR Creation UI
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -68,7 +98,7 @@ Check prerequisites:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. Description Editor
+#### 3. Description Editor
 
 Press `e` to open `$EDITOR` with template:
 
@@ -96,7 +126,7 @@ Files changed:
 -->
 ```
 
-### 4. Preview & Submit
+#### 4. Preview & Submit
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -122,7 +152,7 @@ Files changed:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Success
+#### 5. Success
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -138,11 +168,124 @@ Files changed:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Edit PR Flow (GitHub PR Mode)
+
+#### 1. Start PR Edit (`gP`)
+
+When viewing a GitHub PR, `gP` opens the edit flow with current values pre-filled.
+
+#### 2. PR Edit UI
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Edit Pull Request #123                                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ Branch: feature/oauth → main  ·  @alice  ·  3 commits           │
+│ Status: Open  ·  Reviewers: @bob (approved) @carol (pending)    │
+│                                                                 │
+│ Title: Add OAuth2 authentication______________________________  │
+│                                                                 │
+│ [e] Edit description    [Enter] Save    [Esc] Cancel            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 3. Description Editor
+
+Press `e` to open `$EDITOR` with the current PR description pre-filled. User can edit and save.
+
+#### 4. Preview & Save
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Edit Pull Request #123                                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ Branch: feature/oauth → main                                    │
+│                                                                 │
+│ Title: Add OAuth2 authentication (updated)                      │
+│        ^^^^^^^^^^^^^^^^^^^^^^^^ changed                         │
+│                                                                 │
+│ Description:                                                    │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ## Summary                                                  │ │
+│ │ This PR adds OAuth2 authentication flow with Google...      │ │
+│ │ (modified)                                                  │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│ [Enter] Save changes    [e] Edit    [Esc] Cancel                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 5. Success
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Pull Request Updated!                                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ #123: Add OAuth2 authentication (updated)                       │
+│                                                                 │
+│ https://github.com/owner/repo/pull/123                          │
+│                                                                 │
+│ [Enter] Open in browser    [Esc] Close                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ## Technical Notes
 
 ### Using `gh` CLI
 
 ```typescript
+// PR metadata type
+interface PrMetadata {
+  number: number
+  title: string
+  body: string
+  state: "open" | "closed" | "merged"
+  isDraft: boolean
+  url: string
+  headBranch: string
+  baseBranch: string
+  author: string
+  additions: number
+  deletions: number
+  commits: number
+  reviewers: Array<{
+    login: string
+    state: "APPROVED" | "CHANGES_REQUESTED" | "PENDING" | "COMMENTED"
+  }>
+}
+
+// Fetch PR metadata
+async function getPrMetadata(prNumber: number): Promise<PrMetadata> {
+  const result = await $`gh pr view ${prNumber} --json \
+    number,title,body,state,isDraft,url,headRefName,baseRefName,\
+    author,additions,deletions,commits,reviews`.json()
+  
+  return {
+    number: result.number,
+    title: result.title,
+    body: result.body,
+    state: result.state.toLowerCase(),
+    isDraft: result.isDraft,
+    url: result.url,
+    headBranch: result.headRefName,
+    baseBranch: result.baseRefName,
+    author: result.author.login,
+    additions: result.additions,
+    deletions: result.deletions,
+    commits: result.commits.length,
+    reviewers: result.reviews.map((r: any) => ({
+      login: r.author.login,
+      state: r.state,
+    })),
+  }
+}
+
 // Create PR
 async function createPullRequest(
   title: string,
@@ -154,6 +297,24 @@ async function createPullRequest(
     --body ${body} \
     --base ${base}`.json()
   
+  return {
+    number: result.number,
+    url: result.url,
+  }
+}
+
+// Edit existing PR
+async function editPullRequest(
+  prNumber: number,
+  title: string,
+  body: string
+): Promise<{ number: number; url: string }> {
+  await $`gh pr edit ${prNumber} \
+    --title ${title} \
+    --body ${body}`
+  
+  // Fetch updated PR info
+  const result = await $`gh pr view ${prNumber} --json number,url`.json()
   return {
     number: result.number,
     url: result.url,
@@ -243,8 +404,9 @@ function buildPrTemplate(
 ```
 src/
 ├── providers/
-│   └── github.ts             # Add createPullRequest
+│   └── github.ts             # Add getPrMetadata, createPullRequest, editPullRequest
 ├── components/
-│   └── CreatePrFlow.ts       # New: PR creation UI
-└── app.ts                    # Handle gP keybinding
+│   ├── PrHeader.ts           # New: PR metadata display in header
+│   └── PrFlow.ts             # New: PR creation/edit UI (shared component)
+└── app.ts                    # Handle gP keybinding (context-aware)
 ```

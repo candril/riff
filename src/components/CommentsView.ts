@@ -9,17 +9,36 @@ import {
 } from "../utils/threads"
 
 // Create a shared syntax style for markdown rendering
+// Scope names must match what MarkdownRenderable expects (markup.* prefixes)
+// Also includes code highlighting styles for fenced code blocks
 let sharedSyntaxStyle: SyntaxStyle | null = null
 function getSyntaxStyle(): SyntaxStyle {
   if (!sharedSyntaxStyle) {
     sharedSyntaxStyle = SyntaxStyle.fromStyles({
-      // Basic markdown styles using our theme
-      "heading": { fg: RGBA.fromInts(137, 180, 250) }, // blue
-      "strong": { bold: true },
-      "emphasis": { italic: true },
-      "code": { fg: RGBA.fromInts(166, 227, 161) }, // green
-      "link": { fg: RGBA.fromInts(137, 180, 250), underline: true },
-      "blockquote": { fg: RGBA.fromInts(166, 173, 200), italic: true }, // subtext0
+      // Markdown-specific styles (markup.* scopes)
+      "markup.heading": { fg: RGBA.fromHex(theme.blue), bold: true },
+      "markup.strong": { bold: true },
+      "markup.italic": { italic: true },
+      "markup.raw": { fg: RGBA.fromHex(theme.green) }, // inline code
+      "markup.strikethrough": { dim: true },
+      "markup.link": { fg: RGBA.fromHex(theme.blue) },
+      "markup.link.label": { fg: RGBA.fromHex(theme.blue), underline: true },
+      "markup.link.url": { fg: RGBA.fromHex(theme.subtext0) },
+      "markup.list": { fg: RGBA.fromHex(theme.yellow) },
+      "punctuation.special": { fg: RGBA.fromHex(theme.subtext0), italic: true }, // blockquote >
+      
+      // Code syntax highlighting (for fenced code blocks)
+      "keyword": { fg: RGBA.fromHex(theme.mauve) },
+      "string": { fg: RGBA.fromHex(theme.green) },
+      "number": { fg: RGBA.fromHex(theme.peach) },
+      "comment": { fg: RGBA.fromHex(theme.overlay0), italic: true },
+      "function": { fg: RGBA.fromHex(theme.blue) },
+      "type": { fg: RGBA.fromHex(theme.yellow) },
+      "variable": { fg: RGBA.fromHex(theme.text) },
+      "operator": { fg: RGBA.fromHex(theme.sky) },
+      "punctuation": { fg: RGBA.fromHex(theme.overlay2) },
+      "property": { fg: RGBA.fromHex(theme.lavender) },
+      "constant": { fg: RGBA.fromHex(theme.peach) },
     })
   }
   return sharedSyntaxStyle

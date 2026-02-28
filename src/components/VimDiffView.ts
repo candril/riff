@@ -554,12 +554,19 @@ export class VimDiffView {
     for (const comment of this.comments) {
       const visualLine = this.lineMapping.findLineForComment(comment)
       if (visualLine !== null) {
-        const color =
-          comment.status === "synced"
-            ? theme.green
-            : comment.status === "pending"
-              ? theme.yellow
-              : theme.blue
+        // Determine color based on status and local edits
+        let color: string
+        if (comment.status === "synced" && comment.localEdit !== undefined) {
+          // Synced but has local edits pending
+          color = theme.yellow
+        } else if (comment.status === "synced") {
+          color = theme.green
+        } else if (comment.status === "pending") {
+          color = theme.yellow
+        } else {
+          // local
+          color = theme.blue
+        }
 
         signs.set(visualLine, {
           before: "●",

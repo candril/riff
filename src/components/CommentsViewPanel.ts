@@ -9,6 +9,9 @@ import {
   BoxRenderable,
   TextRenderable,
   ScrollBoxRenderable,
+  MarkdownRenderable,
+  SyntaxStyle,
+  RGBA,
   type CliRenderer,
 } from "@opentui/core"
 import type { Comment } from "../types"
@@ -18,6 +21,43 @@ import {
   flattenThreadsForNav,
 } from "../utils/threads"
 import { colors, theme } from "../theme"
+
+// Create a shared syntax style for markdown rendering
+// Scope names must match what MarkdownRenderable expects (markup.* prefixes)
+// Also includes code highlighting styles for fenced code blocks
+// Created lazily on first use
+let sharedSyntaxStyle: SyntaxStyle | null = null
+function getSyntaxStyle(): SyntaxStyle {
+  if (!sharedSyntaxStyle) {
+    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+      // Markdown-specific styles (markup.* scopes)
+      "markup.heading": { fg: RGBA.fromHex(theme.blue), bold: true },
+      "markup.strong": { bold: true },
+      "markup.italic": { italic: true },
+      "markup.raw": { fg: RGBA.fromHex(theme.green) }, // inline code
+      "markup.strikethrough": { dim: true },
+      "markup.link": { fg: RGBA.fromHex(theme.blue) },
+      "markup.link.label": { fg: RGBA.fromHex(theme.blue), underline: true },
+      "markup.link.url": { fg: RGBA.fromHex(theme.subtext0) },
+      "markup.list": { fg: RGBA.fromHex(theme.yellow) },
+      "punctuation.special": { fg: RGBA.fromHex(theme.subtext0), italic: true }, // blockquote >
+      
+      // Code syntax highlighting (for fenced code blocks)
+      "keyword": { fg: RGBA.fromHex(theme.mauve) },
+      "string": { fg: RGBA.fromHex(theme.green) },
+      "number": { fg: RGBA.fromHex(theme.peach) },
+      "comment": { fg: RGBA.fromHex(theme.overlay0), italic: true },
+      "function": { fg: RGBA.fromHex(theme.blue) },
+      "type": { fg: RGBA.fromHex(theme.yellow) },
+      "variable": { fg: RGBA.fromHex(theme.text) },
+      "operator": { fg: RGBA.fromHex(theme.sky) },
+      "punctuation": { fg: RGBA.fromHex(theme.overlay2) },
+      "property": { fg: RGBA.fromHex(theme.lavender) },
+      "constant": { fg: RGBA.fromHex(theme.peach) },
+    })
+  }
+  return sharedSyntaxStyle
+}
 
 export interface CommentsViewPanelOptions {
   renderer: CliRenderer
@@ -367,7 +407,7 @@ export class CommentsViewPanel {
     }))
     box.add(headerRow)
 
-    // Body line
+    // Body line with markdown rendering
     const bodyRow = new BoxRenderable(this.renderer, {
       flexDirection: "row",
       width: "100%",
@@ -377,10 +417,13 @@ export class CommentsViewPanel {
       content: bodyIndent,
       fg: colors.textDim,
     }))
-    bodyRow.add(new TextRenderable(this.renderer, {
+    // Use MarkdownRenderable for rich text (bold, italic, code, etc.)
+    const markdownBody = new MarkdownRenderable(this.renderer, {
+      id: `comment-body-${comment.id}`,
       content: comment.body,
-      fg: colors.text,
-    }))
+      syntaxStyle: getSyntaxStyle(),
+    })
+    bodyRow.add(markdownBody)
     box.add(bodyRow)
 
     return box
