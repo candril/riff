@@ -135,6 +135,8 @@ export class VimDiffView {
       this.files !== files || 
       this.selectedFileIndex !== selectedFileIndex ||
       this.lineMapping !== lineMapping
+    
+    const commentsChanged = this.comments !== comments
 
     this.files = files
     this.selectedFileIndex = selectedFileIndex
@@ -145,6 +147,10 @@ export class VimDiffView {
     if (contentChanged) {
       // Full rebuild needed
       this.rebuild()
+    } else if (commentsChanged) {
+      // Comments changed - update line signs
+      this.updateLineSigns()
+      this.updateHighlights()
     } else {
       // Just update cursor/selection highlighting
       this.updateHighlights()
@@ -235,6 +241,7 @@ export class VimDiffView {
           filetype,
           syntaxStyle: getSyntaxStyle(),
           drawUnstyledText: true,
+          conceal: false,  // Don't hide markdown syntax - show raw content for diffs
         })
       )
     )
@@ -262,6 +269,16 @@ export class VimDiffView {
     this.lineNumberRenderable.setLineColors(lineColors)
     
     // Cursor positioning is handled by the post-process function
+  }
+
+  /**
+   * Update line signs (comment indicators) without full rebuild
+   */
+  private updateLineSigns(): void {
+    if (!this.lineNumberRenderable) return
+    
+    const lineSigns = this.buildLineSigns()
+    this.lineNumberRenderable.setLineSigns(lineSigns)
   }
 
   // Track whether file panel is visible (set via setFilePanelVisible)
@@ -343,9 +360,13 @@ export class VimDiffView {
     const digits = Math.max(3, String(lineCount).length)
     const gutterWidth = digits + 2  // digits + padding around them
     
-    // Terminal coordinates are 1-indexed
-    const screenX = filePanelOffset + gutterWidth + visualCol + 1  // +1 for 1-indexed
-    const screenY = headerHeight + visualLine + 1  // +1 for 1-indexed, +1 for header
+    // Screen position calculation:
+    // - filePanelOffset: width of file panel (0 if hidden)
+    // - gutterWidth: width of line number gutter
+    // - visualCol: 0-indexed column in content
+    // The gutter already accounts for the 1-indexed terminal offset
+    const screenX = filePanelOffset + gutterWidth + visualCol
+    const screenY = headerHeight + visualLine + 1
 
     // Set terminal cursor to block style and position it
     this.renderer.setCursorStyle({ style: "block", blinking: false })

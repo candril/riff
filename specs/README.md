@@ -40,6 +40,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 010 | [Comments View](./010-comments-view.md) | In Progress | Dedicated view for browsing threads/comments |
 | 011 | [Editor Thread Context](./011-editor-thread-context.md) | Draft | Show thread context when editing comments |
 | 012 | [Vim Navigation](./012-vim-navigation.md) | Draft | Vim motions, visual line selection, line mapping |
+| 013 | [Virtual Text Comments](./013-virtual-text-comments.md) | Draft | Inline comment previews like nvim virtual text |
 
 ## MVP Path
 

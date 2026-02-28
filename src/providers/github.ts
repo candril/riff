@@ -1,5 +1,5 @@
 import { $ } from "bun"
-import { saveComment, saveSession } from "../storage"
+import { saveComment, saveSession, loadComments } from "../storage"
 import type { Comment, ReviewSession } from "../types"
 
 // ============================================================================
@@ -231,13 +231,37 @@ export async function loadPrSession(
     getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
   ])
 
-  // Convert and save each comment as markdown file
-  const comments: Comment[] = []
+  // Load existing local comments first
+  const existingComments = await loadComments()
+  
+  // Convert GitHub comments and save/update them
+  const githubCommentIds = new Set<string>()
   for (const prComment of prComments) {
     const comment = convertPrComment(prComment, headSha)
+    githubCommentIds.add(comment.id)
     await saveComment(comment)
+  }
+  
+  // Merge: GitHub comments + local comments (that aren't synced GitHub comments)
+  const comments: Comment[] = []
+  
+  // Add all existing comments (both local and previously fetched GitHub ones)
+  for (const existing of existingComments) {
+    // Skip if this is a GitHub comment that we just re-fetched (avoid duplicates)
+    if (existing.githubId && githubCommentIds.has(existing.id)) {
+      continue
+    }
+    comments.push(existing)
+  }
+  
+  // Add newly fetched GitHub comments
+  for (const prComment of prComments) {
+    const comment = convertPrComment(prComment, headSha)
     comments.push(comment)
   }
+  
+  // Sort by createdAt
+  comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
   // Save session metadata
   const session: ReviewSession = {
