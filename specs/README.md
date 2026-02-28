@@ -41,6 +41,9 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 011 | [Editor Thread Context](./011-editor-thread-context.md) | Draft | Show thread context when editing comments |
 | 012 | [Vim Navigation](./012-vim-navigation.md) | Draft | Vim motions, visual line selection, line mapping |
 | 013 | [Virtual Text Comments](./013-virtual-text-comments.md) | Draft | Inline comment previews like nvim virtual text |
+| 014 | [Comment Editor Context](./014-comment-editor-context.md) | Draft | Context for comment editor |
+| 015 | [Modern Diff Styling](./015-modern-diff-styling.md) | Draft | Modern diff styling improvements |
+| 016 | [React Reconciler Migration](./016-react-reconciler-migration.md) | Ready | Migrate to React-style JSX syntax |
 
 ## MVP Path
 

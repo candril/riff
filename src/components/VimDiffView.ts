@@ -85,6 +85,9 @@ export class VimDiffView {
   // Track renderer dimensions to detect resize
   private lastRendererWidth: number = 0
   private lastRendererHeight: number = 0
+  
+  // Visibility state - when false, hide cursor
+  private visible: boolean = true
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -170,6 +173,17 @@ export class VimDiffView {
    */
   getScrollBox(): ScrollBoxRenderable | null {
     return this.scrollBox
+  }
+
+  /**
+   * Set visibility - when false, hides the cursor
+   */
+  setVisible(visible: boolean): void {
+    this.visible = visible
+    if (!visible) {
+      // Hide cursor immediately when becoming invisible
+      this.renderer.setCursorPosition(0, 0, false)
+    }
   }
 
   /**
@@ -298,6 +312,12 @@ export class VimDiffView {
    * Called as a post-process function after each render.
    */
   private positionTerminalCursor(): void {
+    // Hide cursor when view is not visible
+    if (!this.visible) {
+      this.renderer.setCursorPosition(0, 0, false)
+      return
+    }
+    
     if (!this.scrollBox || !this.cursorState || !this.lineMapping) return
     if (!this.lineNumberRenderable || !this.codeRenderable) return
 

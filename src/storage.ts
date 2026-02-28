@@ -1,10 +1,88 @@
 import { join } from "path"
+import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
 import { type Comment, type ReviewSession, createSession } from "./types"
 
-const STORAGE_DIR = ".neoriff"
+const LOCAL_STORAGE_DIR = ".neoriff"
+const GLOBAL_STORAGE_DIR = join(homedir(), ".neoriff")
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
+
+// Current repo info (cached)
+let currentRepoOwner: string | null = null
+let currentRepoName: string | null = null
+let currentRepoChecked = false
+
+/**
+ * Get current repo's GitHub remote info (owner/repo).
+ * Returns null if not a git repo or no GitHub remote.
+ */
+async function getCurrentRepoInfo(): Promise<{ owner: string; repo: string } | null> {
+  if (currentRepoChecked) {
+    return currentRepoOwner && currentRepoName 
+      ? { owner: currentRepoOwner, repo: currentRepoName }
+      : null
+  }
+  
+  currentRepoChecked = true
+  
+  try {
+    const result = await Bun.$`gh repo view --json owner,name`.json() as { owner: { login: string }; name: string }
+    currentRepoOwner = result.owner.login
+    currentRepoName = result.name
+    return { owner: currentRepoOwner, repo: currentRepoName }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Check if a PR source belongs to the current repo.
+ */
+async function isCurrentRepo(source: string): Promise<boolean> {
+  // Local sources always belong to current repo
+  if (!source.startsWith("gh:")) {
+    return true
+  }
+  
+  // Parse source: "gh:owner/repo#123"
+  const match = source.match(/^gh:([^/]+)\/([^#]+)#/)
+  if (!match) {
+    return true // Can't parse, assume local
+  }
+  
+  const [, sourceOwner, sourceRepo] = match
+  const currentRepo = await getCurrentRepoInfo()
+  
+  if (!currentRepo) {
+    return false // Not in a git repo, use global storage
+  }
+  
+  return currentRepo.owner.toLowerCase() === sourceOwner!.toLowerCase() &&
+         currentRepo.repo.toLowerCase() === sourceRepo!.toLowerCase()
+}
+
+/**
+ * Get the base storage directory for a source.
+ * - Current repo PRs/local → .neoriff/ (in repo root)
+ * - Foreign repo PRs → ~/.neoriff/ (global)
+ */
+async function getStorageDir(source: string): Promise<string> {
+  const isLocal = await isCurrentRepo(source)
+  return isLocal ? LOCAL_STORAGE_DIR : GLOBAL_STORAGE_DIR
+}
+
+/**
+ * Convert a source identifier to a safe directory name.
+ * e.g., "gh:owner/repo#123" -> "gh-owner-repo-123"
+ *       "local" -> "local"
+ */
+function sourceToDir(source: string): string {
+  return source
+    .replace(/:/g, "-")
+    .replace(/\//g, "-")
+    .replace(/#/g, "-")
+}
 
 // ============================================================================
 // Frontmatter parsing/generation
@@ -120,10 +198,13 @@ function parseComment(meta: Record<string, string>, body: string): Comment {
 // ============================================================================
 
 /**
- * Ensure storage directories exist
+ * Ensure storage directories exist for a given source
  */
-async function ensureStorageDir(): Promise<void> {
-  await mkdir(join(STORAGE_DIR, COMMENTS_DIR), { recursive: true })
+async function ensureStorageDir(source: string): Promise<string> {
+  const baseDir = await getStorageDir(source)
+  const fullPath = join(baseDir, COMMENTS_DIR, sourceToDir(source))
+  await mkdir(fullPath, { recursive: true })
+  return baseDir
 }
 
 /**
@@ -143,10 +224,11 @@ function shortId(id: string): string {
 // ============================================================================
 
 /**
- * Load all comments from markdown files
+ * Load all comments from markdown files for a specific source
  */
-export async function loadComments(): Promise<Comment[]> {
-  const commentsPath = join(STORAGE_DIR, COMMENTS_DIR)
+export async function loadComments(source: string): Promise<Comment[]> {
+  const baseDir = await getStorageDir(source)
+  const commentsPath = join(baseDir, COMMENTS_DIR, sourceToDir(source))
 
   try {
     const files = await readdir(commentsPath)
@@ -177,23 +259,24 @@ export async function loadComments(): Promise<Comment[]> {
 }
 
 /**
- * Save a comment to a markdown file
+ * Save a comment to a markdown file for a specific source
  */
-export async function saveComment(comment: Comment): Promise<void> {
-  await ensureStorageDir()
+export async function saveComment(comment: Comment, source: string): Promise<void> {
+  const baseDir = await ensureStorageDir(source)
 
   const filename = `${shortId(comment.id)}.md`
-  const filepath = join(STORAGE_DIR, COMMENTS_DIR, filename)
+  const filepath = join(baseDir, COMMENTS_DIR, sourceToDir(source), filename)
 
   await Bun.write(filepath, toMarkdown(comment))
 }
 
 /**
- * Delete a comment file
+ * Delete a comment file for a specific source
  */
-export async function deleteCommentFile(commentId: string): Promise<void> {
+export async function deleteCommentFile(commentId: string, source: string): Promise<void> {
+  const baseDir = await getStorageDir(source)
   const filename = `${shortId(commentId)}.md`
-  const filepath = join(STORAGE_DIR, COMMENTS_DIR, filename)
+  const filepath = join(baseDir, COMMENTS_DIR, sourceToDir(source), filename)
 
   try {
     await unlink(filepath)
@@ -203,21 +286,22 @@ export async function deleteCommentFile(commentId: string): Promise<void> {
 }
 
 /**
- * Update a comment (save with same ID)
+ * Update a comment (save with same ID) for a specific source
  */
-export async function updateComment(comment: Comment): Promise<void> {
-  await saveComment(comment)
+export async function updateComment(comment: Comment, source: string): Promise<void> {
+  await saveComment(comment, source)
 }
 
 // ============================================================================
 // Session storage - JSON file (metadata only)
+// Sessions are always stored locally in .neoriff/ (not global)
 // ============================================================================
 
 /**
  * Load session metadata
  */
 export async function loadSession(source: string): Promise<ReviewSession | null> {
-  const filepath = join(STORAGE_DIR, SESSION_FILE)
+  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
   const file = Bun.file(filepath)
 
   if (!(await file.exists())) {
@@ -240,9 +324,9 @@ export async function loadSession(source: string): Promise<ReviewSession | null>
  * Save session metadata
  */
 export async function saveSession(session: ReviewSession): Promise<void> {
-  await ensureStorageDir()
+  await mkdir(LOCAL_STORAGE_DIR, { recursive: true })
 
-  const filepath = join(STORAGE_DIR, SESSION_FILE)
+  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
   session.updatedAt = new Date().toISOString()
 
   await Bun.write(filepath, JSON.stringify(session, null, 2))
@@ -266,7 +350,7 @@ export async function loadOrCreateSession(source: string): Promise<ReviewSession
  * Delete session file
  */
 export async function deleteSession(): Promise<void> {
-  const filepath = join(STORAGE_DIR, SESSION_FILE)
+  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
 
   try {
     await unlink(filepath)

@@ -222,18 +222,11 @@ function CommentRow({ comment, isRoot, isLastInThread, indent, selected }: Comme
       Text({ content: `@${author}`, fg: theme.blue }),
       Text({ content: ` [${statusText}]`, fg: statusColor })
     ),
-    // Body with markdown rendering (full content)
+    // Body (plain text to avoid flicker from MarkdownRenderable recreation)
     Box(
       { flexDirection: "row", width: "100%", paddingLeft: 2 },
       Text({ content: bodyIndent, fg: colors.textDim }),
-      Box(
-        { flexGrow: 1, flexShrink: 1 },
-        h(MarkdownRenderable, {
-          content: comment.body,
-          syntaxStyle: getSyntaxStyle(),
-          conceal: true,
-        })
-      )
+      Text({ content: comment.body, fg: colors.text })
     )
   )
 }

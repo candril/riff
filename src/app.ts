@@ -1,11 +1,12 @@
 import { createCliRenderer, Box, Text, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
-import { Header, StatusBar, getFlatTreeItems, CommentsView, VimDiffView } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
+import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getCurrentUser } from "./providers/github"
 import { parseDiff, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
-import { openCommentEditor, extractDiffHunk } from "./utils/editor"
+import { openCommentEditor, extractDiffHunk, parseEditorOutput, type EditorResult } from "./utils/editor"
 import {
   createInitialState,
   selectFile,
@@ -53,6 +54,11 @@ export interface AppOptions {
 export async function createApp(options: AppOptions = {}) {
   const { mode = "local", target, diff: preloadedDiff, comments: preloadedComments, prInfo } = options
 
+  // Build source identifier early (needed for loading comments)
+  const source = mode === "pr" && prInfo
+    ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
+    : target ?? "local"
+
   // Get diff content
   let rawDiff = ""
   let description = ""
@@ -72,17 +78,12 @@ export async function createApp(options: AppOptions = {}) {
     } catch (err) {
       error = err instanceof Error ? err.message : "Unknown error"
     }
-    comments = await loadComments()
+    comments = await loadComments(source)
   }
 
   // Parse diff into files
   const files = parseDiff(rawDiff)
   const fileTree = buildFileTree(files)
-
-  // Build source identifier
-  const source = mode === "pr" && prInfo
-    ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
-    : target ?? "local"
 
   // Load or create session
   const session = await loadOrCreateSession(source)
@@ -137,6 +138,9 @@ export async function createApp(options: AppOptions = {}) {
 
   // Create VimDiffView (class-based for cursor highlighting)
   const vimDiffView = new VimDiffView({ renderer })
+  
+  // Create CommentsViewPanel (class-based to avoid flicker)
+  const commentsViewPanel = new CommentsViewPanel({ renderer })
 
   // Get viewport height for vim handler
   function getViewportHeight(): number {
@@ -174,6 +178,8 @@ export async function createApp(options: AppOptions = {}) {
     fileTreePanel.visible = state.showFilePanel
     // Tell VimDiffView about file panel visibility for cursor positioning
     vimDiffView.setFilePanelVisible(state.showFilePanel, 35)
+    // Tell VimDiffView about view mode for cursor visibility
+    vimDiffView.setVisible(state.viewMode === "diff")
   }
 
   // Render function
@@ -228,7 +234,13 @@ export async function createApp(options: AppOptions = {}) {
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })
     } else if (state.viewMode === "comments") {
-      // Comments view
+      // Comments view - update class-based panel
+      commentsViewPanel.update(
+        visibleComments,
+        state.selectedCommentIndex,
+        selectedFile?.filename ?? null
+      )
+      
       content = Box(
         {
           id: "main-content-row",
@@ -236,18 +248,7 @@ export async function createApp(options: AppOptions = {}) {
           height: "100%",
           flexDirection: "row",
         },
-        Box(
-          {
-            flexGrow: 1,
-            height: "100%",
-            flexDirection: "column",
-          },
-          CommentsView({
-            comments: visibleComments,
-            selectedIndex: state.selectedCommentIndex,
-            selectedFilename: selectedFile?.filename ?? null,
-          })
-        )
+        commentsViewPanel.getContainer()
       )
     } else {
       // Diff view with VimDiffView (handles cursor highlighting internally)
@@ -382,9 +383,11 @@ export async function createApp(options: AppOptions = {}) {
     }
   }
 
+
+
   // Save a comment to disk
   async function persistComment(comment: Comment) {
-    await saveComment(comment)
+    await saveComment(comment, source)
   }
 
   function quit() {
@@ -477,8 +480,8 @@ export async function createApp(options: AppOptions = {}) {
     const file = state.files.find(f => f.filename === anchor!.filename)
     if (!file) return
 
-    // Find existing comment for this location
-    const existingComment = state.comments.find(
+    // Find existing thread for this location (all comments on this line)
+    const thread = state.comments.filter(
       c => c.filename === anchor!.filename && c.line === anchor!.line && c.side === anchor!.side
     )
 
@@ -491,32 +494,59 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
 
+    // Get current username (GitHub username for PR mode, @you for local)
+    let username = "@you"
+    if (state.appMode === "pr") {
+      try {
+        username = await getCurrentUser()
+      } catch {
+        // Fall back to @you
+      }
+    }
+
     // Suspend TUI and open editor
     renderer.suspend()
 
     try {
-      const commentBody = await openCommentEditor({
+      const rawContent = await openCommentEditor({
         diffContent: contextLines.length > 0 ? contextLines.join("\n") : file.content,
         filePath: anchor.filename,
         line: anchor.line,
-        existingComment: existingComment?.body,
+        thread,
+        username,
       })
 
-      if (commentBody !== null) {
-        if (existingComment) {
-          // Update existing comment
-          const updatedComment = { ...existingComment, body: commentBody }
-          state = {
-            ...state,
-            comments: state.comments.map(c =>
-              c.id === existingComment.id ? updatedComment : c
-            ),
+      if (rawContent !== null) {
+        const result = parseEditorOutput(rawContent)
+        
+        // Handle edited comments
+        for (const [shortId, newBody] of result.editedComments) {
+          // Find the full comment by short ID
+          const comment = state.comments.find(c => 
+            c.id.startsWith(shortId) || c.id === shortId
+          )
+          if (comment && newBody !== comment.body) {
+            const updatedComment = { ...comment, body: newBody }
+            state = {
+              ...state,
+              comments: state.comments.map(c =>
+                c.id === comment.id ? updatedComment : c
+              ),
+            }
+            await persistComment(updatedComment)
           }
-          await persistComment(updatedComment)
-        } else {
-          // Create new comment with diff context
-          const comment = createComment(anchor.filename, anchor.line, commentBody, anchor.side)
+        }
+        
+        // Handle new reply
+        if (result.newReply) {
+          const comment = createComment(anchor.filename, anchor.line, result.newReply, anchor.side)
           comment.diffHunk = extractDiffHunk(file.content, anchor.line)
+          
+          // If there's an existing thread, mark as reply to the last comment
+          if (thread.length > 0) {
+            comment.inReplyTo = thread[thread.length - 1]!.id
+          }
+          
           state = addComment(state, comment)
           await persistComment(comment)
         }
@@ -757,12 +787,41 @@ export async function createApp(options: AppOptions = {}) {
         case "down":
           state = moveCommentSelection(state, 1, navItems.length - 1)
           render()
+          commentsViewPanel.ensureSelectedVisible(state.selectedCommentIndex)
           return
 
         case "k":
         case "up":
           state = moveCommentSelection(state, -1, navItems.length - 1)
           render()
+          commentsViewPanel.ensureSelectedVisible(state.selectedCommentIndex)
+          return
+        
+        case "d":
+          // Ctrl+d: scroll down half page
+          if (key.ctrl) {
+            const scrollBox = commentsViewPanel.getScrollBox()
+            if (scrollBox) {
+              const viewportHeight = Math.floor(scrollBox.height || 20)
+              const halfPage = Math.floor(viewportHeight / 2)
+              scrollBox.scrollTop = Math.min(
+                scrollBox.scrollHeight - viewportHeight,
+                scrollBox.scrollTop + halfPage
+              )
+            }
+          }
+          return
+        
+        case "u":
+          // Ctrl+u: scroll up half page
+          if (key.ctrl) {
+            const scrollBox = commentsViewPanel.getScrollBox()
+            if (scrollBox) {
+              const viewportHeight = Math.floor(scrollBox.height || 20)
+              const halfPage = Math.floor(viewportHeight / 2)
+              scrollBox.scrollTop = Math.max(0, scrollBox.scrollTop - halfPage)
+            }
+          }
           return
 
         case "return":

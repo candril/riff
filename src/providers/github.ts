@@ -84,6 +84,18 @@ export async function getCurrentRepo(): Promise<{ owner: string; repo: string }>
 }
 
 /**
+ * Get current GitHub username
+ */
+export async function getCurrentUser(): Promise<string> {
+  try {
+    const result = await $`gh api user --jq .login`.text()
+    return result.trim()
+  } catch {
+    return "@you"
+  }
+}
+
+/**
  * Fetch PR metadata
  */
 export async function getPrInfo(
@@ -231,15 +243,18 @@ export async function loadPrSession(
     getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
   ])
 
+  // Build source identifier for this PR
+  const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`
+  
   // Load existing local comments first
-  const existingComments = await loadComments()
+  const existingComments = await loadComments(prSource)
   
   // Convert GitHub comments and save/update them
   const githubCommentIds = new Set<string>()
   for (const prComment of prComments) {
     const comment = convertPrComment(prComment, headSha)
     githubCommentIds.add(comment.id)
-    await saveComment(comment)
+    await saveComment(comment, prSource)
   }
   
   // Merge: GitHub comments + local comments (that aren't synced GitHub comments)
