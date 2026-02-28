@@ -2,6 +2,7 @@ import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode } from "./types"
 import type { PrInfo } from "./providers/github"
+import { type ActionMenuState, createActionMenuState } from "./actions"
 
 /**
  * UI mode for the app
@@ -71,6 +72,9 @@ export interface AppState {
   
   // Expanded dividers (key: "filename:dividerIndex")
   expandedDividers: Set<string>
+  
+  // Action menu state
+  actionMenu: ActionMenuState
 }
 
 /**
@@ -109,6 +113,7 @@ export function createInitialState(
     prInfo,
     fileContentCache: {},
     expandedDividers: new Set(),
+    actionMenu: createActionMenuState(),
   }
 }
 
@@ -445,4 +450,65 @@ export function getFileContent(state: AppState, filename: string): {
   error?: string 
 } | null {
   return state.fileContentCache[filename] ?? null
+}
+
+// ============================================================================
+// Action Menu State
+// ============================================================================
+
+/**
+ * Open the action menu
+ */
+export function openActionMenu(state: AppState): AppState {
+  return {
+    ...state,
+    actionMenu: {
+      open: true,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Close the action menu
+ */
+export function closeActionMenu(state: AppState): AppState {
+  return {
+    ...state,
+    actionMenu: {
+      ...state.actionMenu,
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Update action menu query
+ */
+export function setActionMenuQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    actionMenu: {
+      ...state.actionMenu,
+      query,
+      selectedIndex: 0, // Reset selection when query changes
+    },
+  }
+}
+
+/**
+ * Move action menu selection
+ */
+export function moveActionMenuSelection(state: AppState, delta: number, maxIndex: number): AppState {
+  const newIndex = Math.max(0, Math.min(maxIndex, state.actionMenu.selectedIndex + delta))
+  return {
+    ...state,
+    actionMenu: {
+      ...state.actionMenu,
+      selectedIndex: newIndex,
+    },
+  }
 }

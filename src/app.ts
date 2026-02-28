@@ -1,5 +1,5 @@
 import { createCliRenderer, Box, Text, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -23,6 +23,10 @@ import {
   setFileContent,
   setFileContentError,
   toggleDividerExpansion,
+  openActionMenu,
+  closeActionMenu,
+  setActionMenuQuery,
+  moveActionMenuSelection,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -30,6 +34,8 @@ import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile } fro
 import { createComment, type Comment, type AppMode } from "./types"
 import type { PrInfo } from "./providers/github"
 import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
+import { getAvailableActions, type Action } from "./actions"
+import { fuzzyFilter } from "./utils/fuzzy"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -141,6 +147,22 @@ export async function createApp(options: AppOptions = {}) {
   
   // Create CommentsViewPanel (class-based to avoid flicker)
   const commentsViewPanel = new CommentsViewPanel({ renderer })
+
+  // Post-process function for action menu cursor
+  renderer.addPostProcessFn(() => {
+    if (state.actionMenu.open) {
+      // Find the search box and position cursor there
+      const searchBox = renderer.root.findDescendantById("action-menu-search") as any
+      if (searchBox) {
+        // Use the element's actual screen position
+        // screenX/screenY give absolute position after layout
+        const screenX = searchBox.screenX + state.actionMenu.query.length
+        const screenY = searchBox.screenY
+        renderer.setCursorStyle({ style: "line", blinking: true })
+        renderer.setCursorPosition(screenX, screenY, true)
+      }
+    }
+  })
 
   // Get viewport height for vim handler
   function getViewportHeight(): number {
@@ -297,6 +319,12 @@ export async function createApp(options: AppOptions = {}) {
       lineInfo = `${line}:${col}/${total}${modeStr}`
     }
 
+    // Get filtered actions for action menu
+    const availableActions = getAvailableActions(state)
+    const filteredActions = state.actionMenu.query
+      ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
+      : availableActions
+
     renderer.root.add(
       Box(
         {
@@ -324,7 +352,15 @@ export async function createApp(options: AppOptions = {}) {
         StatusBar({ 
           hints,
           lineInfo,
-        })
+        }),
+        // Action menu overlay (rendered on top when open)
+        state.actionMenu.open
+          ? ActionMenu({
+              query: state.actionMenu.query,
+              actions: filteredActions,
+              selectedIndex: state.actionMenu.selectedIndex,
+            })
+          : null
       )
     )
 
@@ -633,11 +669,126 @@ export async function createApp(options: AppOptions = {}) {
     }
   }
 
+  // Action handlers (called when action is executed)
+  function executeAction(actionId: string) {
+    switch (actionId) {
+      case "quit":
+        quit()
+        break
+      case "toggle-file-panel":
+        state = toggleFilePanel(state)
+        if (state.showFilePanel) {
+          state = { ...state, focusedPanel: "tree" }
+        }
+        render()
+        break
+      case "toggle-view":
+        state = toggleViewMode(state)
+        render()
+        break
+      case "refresh":
+        // TODO: Implement refresh
+        break
+      case "submit-review":
+        // TODO: Implement submit review flow
+        break
+      case "submit-comment":
+        // TODO: Implement submit single comment
+        break
+      case "create-pr":
+        // TODO: Implement create PR flow
+        break
+    }
+  }
+
   // Keyboard handling
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
     
+    // ========== ACTION MENU (captures all input when open) ==========
+    if (state.actionMenu.open) {
+      const availableActions = getAvailableActions(state)
+      const filteredActions = state.actionMenu.query
+        ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
+        : availableActions
+      
+      switch (key.name) {
+        case "escape":
+          state = closeActionMenu(state)
+          render()
+          return
+        
+        case "return":
+        case "enter":
+          const selectedAction = filteredActions[state.actionMenu.selectedIndex]
+          if (selectedAction) {
+            state = closeActionMenu(state)
+            render()
+            executeAction(selectedAction.id)
+          }
+          return
+        
+        case "up":
+          state = moveActionMenuSelection(state, -1, filteredActions.length - 1)
+          render()
+          return
+        
+        case "down":
+          state = moveActionMenuSelection(state, 1, filteredActions.length - 1)
+          render()
+          return
+        
+        case "p":
+          // Ctrl+p moves up
+          if (key.ctrl) {
+            state = moveActionMenuSelection(state, -1, filteredActions.length - 1)
+            render()
+            return
+          }
+          // Otherwise type 'p'
+          state = setActionMenuQuery(state, state.actionMenu.query + "p")
+          render()
+          return
+        
+        case "n":
+          // Ctrl+n moves down
+          if (key.ctrl) {
+            state = moveActionMenuSelection(state, 1, filteredActions.length - 1)
+            render()
+            return
+          }
+          // Otherwise type 'n'
+          state = setActionMenuQuery(state, state.actionMenu.query + "n")
+          render()
+          return
+        
+        case "backspace":
+          if (state.actionMenu.query.length > 0) {
+            state = setActionMenuQuery(state, state.actionMenu.query.slice(0, -1))
+            render()
+          }
+          return
+        
+        default:
+          // Type characters into search
+          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+            state = setActionMenuQuery(state, state.actionMenu.query + key.sequence)
+            render()
+          }
+          return
+      }
+    }
+    
     // ========== GLOBAL KEYS (work in any mode) ==========
     switch (key.name) {
+      case "p":
+        // Ctrl+p opens action menu
+        if (key.ctrl) {
+          state = openActionMenu(state)
+          render()
+          return
+        }
+        break
+
       case "q":
         quit()
         return

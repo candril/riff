@@ -10,3 +10,4 @@ export { CommentsViewPanel, type CommentsViewPanelOptions } from "./CommentsView
 export { Gutter, GUTTER_WIDTH, CURSOR_COL, COMMENT_COL } from "./Gutter"
 export { CursorIndicator, type CursorIndicatorOptions } from "./CursorIndicator"
 export { CommentIndicators, type CommentIndicatorsOptions } from "./CommentIndicators"
+export { ActionMenu, type ActionMenuProps } from "./ActionMenu"

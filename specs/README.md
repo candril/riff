@@ -44,6 +44,11 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 014 | [Comment Editor Context](./014-comment-editor-context.md) | Draft | Context for comment editor |
 | 015 | [Modern Diff Styling](./015-modern-diff-styling.md) | Draft | Modern diff styling improvements |
 | 016 | [React Reconciler Migration](./016-react-reconciler-migration.md) | Ready | Migrate to React-style JSX syntax |
+| 017 | [In-View Search](./017-in-view-search.md) | Draft | Search within current view |
+| 018 | [Submit Comments](./018-submit-comments.md) | Draft | Submit comments to GitHub |
+| 019 | [Create PR](./019-create-pr.md) | Draft | Create PRs from local changes |
+| 020 | [Action Menu](./020-action-menu.md) | Draft | Action menu for common operations |
+| 021 | [Image Support](./021-image-support.md) | Draft | Drag-drop images in comments |
 
 ## MVP Path
 
