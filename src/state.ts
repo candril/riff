@@ -14,6 +14,18 @@ export type UIMode = "normal" | "comment-input" | "comments-list"
 export type ViewMode = "diff" | "comments"
 
 /**
+ * Cached file content (full file, not just diff)
+ */
+export interface FileContentCache {
+  [filename: string]: {
+    newContent: string | null  // After changes (HEAD or working copy)
+    oldContent: string | null  // Before changes (parent revision)
+    loading: boolean
+    error?: string
+  }
+}
+
+/**
  * Application state
  */
 export interface AppState {
@@ -53,6 +65,12 @@ export interface AppState {
 
   // PR info (only in PR mode)
   prInfo: PrInfo | null
+
+  // File content cache for expansion
+  fileContentCache: FileContentCache
+  
+  // Expanded dividers (key: "filename:dividerIndex")
+  expandedDividers: Set<string>
 }
 
 /**
@@ -89,6 +107,8 @@ export function createInitialState(
     description,
     error,
     prInfo,
+    fileContentCache: {},
+    expandedDividers: new Set(),
   }
 }
 
@@ -333,4 +353,96 @@ export function updateSession(state: AppState, session: ReviewSession): AppState
     ...state,
     session,
   }
+}
+
+/**
+ * Set file content loading state
+ */
+export function setFileContentLoading(state: AppState, filename: string): AppState {
+  return {
+    ...state,
+    fileContentCache: {
+      ...state.fileContentCache,
+      [filename]: {
+        newContent: null,
+        oldContent: null,
+        loading: true,
+      },
+    },
+  }
+}
+
+/**
+ * Set file content (after loading)
+ */
+export function setFileContent(
+  state: AppState,
+  filename: string,
+  newContent: string | null,
+  oldContent: string | null
+): AppState {
+  return {
+    ...state,
+    fileContentCache: {
+      ...state.fileContentCache,
+      [filename]: {
+        newContent,
+        oldContent,
+        loading: false,
+      },
+    },
+  }
+}
+
+/**
+ * Set file content error
+ */
+export function setFileContentError(state: AppState, filename: string, error: string): AppState {
+  return {
+    ...state,
+    fileContentCache: {
+      ...state.fileContentCache,
+      [filename]: {
+        newContent: null,
+        oldContent: null,
+        loading: false,
+        error,
+      },
+    },
+  }
+}
+
+/**
+ * Toggle divider expansion
+ */
+export function toggleDividerExpansion(state: AppState, dividerKey: string): AppState {
+  const newExpanded = new Set(state.expandedDividers)
+  if (newExpanded.has(dividerKey)) {
+    newExpanded.delete(dividerKey)
+  } else {
+    newExpanded.add(dividerKey)
+  }
+  return {
+    ...state,
+    expandedDividers: newExpanded,
+  }
+}
+
+/**
+ * Check if a divider is expanded
+ */
+export function isDividerExpanded(state: AppState, dividerKey: string): boolean {
+  return state.expandedDividers.has(dividerKey)
+}
+
+/**
+ * Get file content from cache
+ */
+export function getFileContent(state: AppState, filename: string): { 
+  newContent: string | null
+  oldContent: string | null
+  loading: boolean
+  error?: string 
+} | null {
+  return state.fileContentCache[filename] ?? null
 }

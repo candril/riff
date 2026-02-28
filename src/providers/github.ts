@@ -254,3 +254,58 @@ export async function loadPrSession(
 
   return { prInfo, diff, comments }
 }
+
+// ============================================================================
+// File Content Fetching
+// ============================================================================
+
+/**
+ * Get file content from a PR (the "new" version after changes)
+ * Uses the PR's head commit SHA
+ */
+export async function getPrFileContent(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  filename: string
+): Promise<string | null> {
+  return safeGhCommand(async () => {
+    // Get the PR head SHA first
+    const headSha = await getPrHeadSha(prNumber, owner, repo)
+    
+    // Fetch file content at that SHA
+    const result = await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${headSha}`.json()
+    
+    if (result.encoding === "base64" && result.content) {
+      // Decode base64 content
+      return Buffer.from(result.content, "base64").toString("utf-8")
+    }
+    
+    return null
+  }).catch(() => null)
+}
+
+/**
+ * Get the "old" version of a file (base branch version)
+ */
+export async function getPrBaseFileContent(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  filename: string
+): Promise<string | null> {
+  return safeGhCommand(async () => {
+    // Get the PR base ref (e.g., "main")
+    const prInfo = await getPrInfo(prNumber, owner, repo)
+    
+    // Fetch file content at the base ref
+    const result = await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${prInfo.baseRef}`.json()
+    
+    if (result.encoding === "base64" && result.content) {
+      // Decode base64 content
+      return Buffer.from(result.content, "base64").toString("utf-8")
+    }
+    
+    return null
+  }).catch(() => null)
+}

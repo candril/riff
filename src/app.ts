@@ -1,7 +1,8 @@
 import { createCliRenderer, Box, Text, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
 import { Header, StatusBar, getFlatTreeItems, CommentsView, VimDiffView } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
-import { getLocalDiff, getDiffDescription } from "./providers/local"
+import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
+import { getPrFileContent, getPrBaseFileContent } from "./providers/github"
 import { parseDiff, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
 import { openCommentEditor, extractDiffHunk } from "./utils/editor"
@@ -17,6 +18,10 @@ import {
   addComment,
   moveCommentSelection,
   getVisibleComments,
+  setFileContentLoading,
+  setFileContent,
+  setFileContentError,
+  toggleDividerExpansion,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -98,12 +103,29 @@ export async function createApp(options: AppOptions = {}) {
   // Initialize vim cursor state
   let vimState = createCursorState()
 
-  // Line mapping (recreated when file selection changes)
+  // Line mapping (recreated when file selection changes or dividers expand)
   let lineMapping = createLineMapping()
 
   function createLineMapping(): DiffLineMapping {
     const mappingMode = state.selectedFileIndex === null ? "all" : "single"
-    return new DiffLineMapping(state.files, mappingMode, state.selectedFileIndex ?? undefined)
+    
+    // Build file contents map from cache
+    const fileContents = new Map<string, string>()
+    for (const [filename, cache] of Object.entries(state.fileContentCache)) {
+      if (cache.newContent) {
+        fileContents.set(filename, cache.newContent)
+      }
+    }
+    
+    return new DiffLineMapping(
+      state.files, 
+      mappingMode, 
+      state.selectedFileIndex ?? undefined,
+      {
+        expandedDividers: state.expandedDividers,
+        fileContents,
+      }
+    )
   }
 
   const renderer = await createCliRenderer({
@@ -168,6 +190,11 @@ export async function createApp(options: AppOptions = {}) {
         if (vimState.mode === "visual-line") {
           hints.push("c: comment selection", "Esc: cancel")
         } else {
+          // Check if cursor is on a divider
+          const currentLine = lineMapping.getLine(vimState.line)
+          if (currentLine?.type === "divider") {
+            hints.push("Enter: expand")
+          }
           hints.push("V: select", "c: comment")
         }
       }
@@ -506,6 +533,64 @@ export async function createApp(options: AppOptions = {}) {
     }
   }
 
+  /**
+   * Handle expanding/collapsing a divider (Enter on divider line)
+   */
+  async function handleExpandDivider() {
+    const dividerKey = lineMapping.getDividerKey(vimState.line)
+    if (!dividerKey) return  // Not on a divider
+    
+    const [filename] = dividerKey.split(":")
+    if (!filename) return
+    
+    // Check if we need to fetch the file content
+    const cached = state.fileContentCache[filename]
+    if (!cached || cached.error) {
+      // Need to fetch file content
+      state = setFileContentLoading(state, filename)
+      render()
+      
+      try {
+        let newContent: string | null = null
+        let oldContent: string | null = null
+        
+        if (state.appMode === "pr" && state.prInfo) {
+          // Fetch from GitHub
+          [newContent, oldContent] = await Promise.all([
+            getPrFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
+            getPrBaseFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
+          ])
+        } else {
+          // Fetch from local VCS
+          [newContent, oldContent] = await Promise.all([
+            getFileContent(filename),
+            getOldFileContent(filename),
+          ])
+        }
+        
+        if (newContent === null) {
+          state = setFileContentError(state, filename, "Could not fetch file content")
+          render()
+          return
+        }
+        
+        state = setFileContent(state, filename, newContent, oldContent)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        state = setFileContentError(state, filename, msg)
+        render()
+        return
+      }
+    }
+    
+    // Toggle the divider expansion
+    state = toggleDividerExpansion(state, dividerKey)
+    
+    // Rebuild line mapping with new expansion state
+    lineMapping = createLineMapping()
+    render()
+  }
+
   // Key sequence tracking
   let pendingKey: string | null = null
   let pendingTimeout: ReturnType<typeof setTimeout> | null = null
@@ -758,6 +843,12 @@ export async function createApp(options: AppOptions = {}) {
       // Handle 'c' for comment (not handled by vim handler)
       if (key.name === "c" && !key.ctrl) {
         handleAddComment()
+        return
+      }
+
+      // Handle Enter to expand/collapse dividers
+      if (key.name === "return" || key.name === "enter") {
+        handleExpandDivider()
         return
       }
 

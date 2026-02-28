@@ -4,16 +4,22 @@
 
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
-import type { DiffLine, CommentAnchor, SearchMatch } from "./types"
+import type { DiffLine, CommentAnchor, SearchMatch, DiffLineMappingOptions } from "./types"
 
 export class DiffLineMapping {
   private lines: DiffLine[] = []
+  private expandedDividers: Set<string>
+  private fileContents: Map<string, string>
 
   constructor(
     files: DiffFile[],
     mode: "single" | "all",
-    fileIndex?: number
+    fileIndex?: number,
+    options?: DiffLineMappingOptions
   ) {
+    this.expandedDividers = options?.expandedDividers ?? new Set()
+    this.fileContents = options?.fileContents ?? new Map()
+    
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
     } else if (mode === "all") {
@@ -102,17 +108,36 @@ export class DiffLineMapping {
   }
 
   /**
-   * Find next/previous hunk
+   * Find next/previous hunk (change block)
+   * Finds dividers or the first addition/deletion after context
    */
   findHunk(fromLine: number, direction: "next" | "prev"): number | null {
     const delta = direction === "next" ? 1 : -1
+    let foundDivider = false
+    
     for (
       let i = fromLine + delta;
       i >= 0 && i < this.lines.length;
       i += delta
     ) {
-      if (this.lines[i]?.type === "hunk-header") {
+      const line = this.lines[i]
+      if (!line) continue
+      
+      // Divider marks the start of a new chunk
+      if (line.type === "divider" || line.type === "hunk-header") {
+        foundDivider = true
+        continue
+      }
+      
+      // After a divider, return the first change line
+      if (foundDivider && (line.type === "addition" || line.type === "deletion")) {
         return i
+      }
+      
+      // Also find change after file header
+      if (line.type === "file-header") {
+        foundDivider = true
+        continue
       }
     }
     return null
@@ -187,129 +212,144 @@ export class DiffLineMapping {
     const isWordChar = (c: string): boolean => /\w/.test(c)
     const isWhitespace = (c: string): boolean => /\s/.test(c)
     const isBigWord = motion === "W" || motion === "E" || motion === "B"
+    
+    // Character type for vim word motions
+    const charType = (c: string): "word" | "punct" | "space" => {
+      if (isWhitespace(c)) return "space"
+      if (isWordChar(c)) return "word"
+      return "punct"
+    }
 
     let line = visualIndex
     let c = col
-    let content = this.getLineContent(line)
+    
+    const getContent = (l: number): string => this.getLineContent(l)
+    const getChar = (l: number, col: number): string | undefined => getContent(l)[col]
+    
+    // w: Move to start of next word
+    if (motion === "w" || motion === "W") {
+      let content = getContent(line)
+      
+      // First, skip current word/punct sequence
+      if (c < content.length) {
+        const startType = isBigWord ? (isWhitespace(content[c]!) ? "space" : "word") : charType(content[c]!)
+        while (c < content.length) {
+          const ch = content[c]!
+          const currentType = isBigWord ? (isWhitespace(ch) ? "space" : "word") : charType(ch)
+          if (currentType !== startType) break
+          c++
+        }
+      }
+      
+      // Then skip whitespace (possibly across lines)
+      while (true) {
+        // Skip whitespace on current line
+        while (c < content.length && isWhitespace(content[c]!)) {
+          c++
+        }
+        
+        // If we found a non-whitespace char, we're done
+        if (c < content.length) {
+          return { line, col: c }
+        }
+        
+        // Move to next line
+        line++
+        if (line >= this.lineCount) {
+          return { line: this.lineCount - 1, col: Math.max(0, getContent(this.lineCount - 1).length - 1) }
+        }
+        content = getContent(line)
+        c = 0
+        
+        // If line is empty, continue to next line
+        if (content.length === 0) continue
+        
+        // Skip leading whitespace
+        while (c < content.length && isWhitespace(content[c]!)) {
+          c++
+        }
+        if (c < content.length) {
+          return { line, col: c }
+        }
+      }
+    }
 
-    // Helper to move to next/prev position
-    const move = (): boolean => {
-      if (direction === "forward") {
-        c++
+    // e: Move to end of word
+    if (motion === "e" || motion === "E") {
+      let content = getContent(line)
+      
+      // Move forward at least one position
+      c++
+      
+      // Skip whitespace (possibly across lines)
+      while (true) {
         if (c >= content.length) {
-          // Move to next line
           line++
           if (line >= this.lineCount) {
-            line = this.lineCount - 1
-            c = Math.max(0, this.getLineContent(line).length - 1)
-            return false
+            return { line: this.lineCount - 1, col: Math.max(0, getContent(this.lineCount - 1).length - 1) }
           }
-          content = this.getLineContent(line)
+          content = getContent(line)
           c = 0
         }
-      } else {
-        c--
+        
+        if (content.length === 0) {
+          line++
+          if (line >= this.lineCount) {
+            return { line: this.lineCount - 1, col: Math.max(0, getContent(this.lineCount - 1).length - 1) }
+          }
+          content = getContent(line)
+          c = 0
+          continue
+        }
+        
+        if (!isWhitespace(content[c]!)) break
+        c++
+      }
+      
+      // Now find end of current word
+      const startType = isBigWord ? "word" : charType(content[c]!)
+      while (c + 1 < content.length) {
+        const nextCh = content[c + 1]!
+        const nextType = isBigWord ? (isWhitespace(nextCh) ? "space" : "word") : charType(nextCh)
+        if (nextType !== startType || nextType === "space") break
+        c++
+      }
+      
+      return { line, col: c }
+    }
+
+    // b: Move to start of previous word
+    if (motion === "b" || motion === "B") {
+      let content = getContent(line)
+      
+      // Move backward at least one position
+      c--
+      
+      // Skip whitespace backwards (possibly across lines)
+      while (true) {
         if (c < 0) {
-          // Move to prev line
           line--
           if (line < 0) {
-            line = 0
-            c = 0
-            return false
+            return { line: 0, col: 0 }
           }
-          content = this.getLineContent(line)
-          c = Math.max(0, content.length - 1)
+          content = getContent(line)
+          c = content.length - 1
+          if (c < 0) continue  // Empty line
         }
+        
+        if (!isWhitespace(content[c]!)) break
+        c--
       }
-      return true
-    }
-
-    // w/W: Move to start of next word
-    if (motion === "w" || motion === "W") {
-      // Skip current word
-      if (content.length > 0) {
-        const startChar = content[c] ?? " "
-        if (isBigWord) {
-          // Skip non-whitespace
-          while (c < content.length && !isWhitespace(content[c]!)) {
-            if (!move()) return { line, col: c }
-          }
-        } else {
-          // Skip same type chars
-          const startIsWord = isWordChar(startChar)
-          while (c < content.length) {
-            const ch = content[c]!
-            if (isWhitespace(ch)) break
-            if (startIsWord !== isWordChar(ch)) break
-            if (!move()) return { line, col: c }
-          }
-        }
+      
+      // Now find start of current word
+      const endType = isBigWord ? "word" : charType(content[c]!)
+      while (c > 0) {
+        const prevCh = content[c - 1]!
+        const prevType = isBigWord ? (isWhitespace(prevCh) ? "space" : "word") : charType(prevCh)
+        if (prevType !== endType || prevType === "space") break
+        c--
       }
-      // Skip whitespace
-      while (line < this.lineCount) {
-        while (c < content.length && isWhitespace(content[c]!)) {
-          if (!move()) return { line, col: c }
-        }
-        if (c < content.length && !isWhitespace(content[c]!)) {
-          break
-        }
-        // Empty line or end of line, move to next
-        if (!move()) return { line, col: c }
-      }
-      return { line, col: c }
-    }
-
-    // e/E: Move to end of word
-    if (motion === "e" || motion === "E") {
-      // Move forward one to start
-      if (!move()) return { line, col: c }
-
-      // Skip whitespace
-      while (line < this.lineCount && c < content.length && isWhitespace(content[c]!)) {
-        if (!move()) return { line, col: c }
-      }
-
-      // Move to end of word
-      if (isBigWord) {
-        while (c + 1 < content.length && !isWhitespace(content[c + 1]!)) {
-          if (!move()) return { line, col: c }
-        }
-      } else {
-        const startIsWord = isWordChar(content[c] ?? " ")
-        while (c + 1 < content.length) {
-          const nextCh = content[c + 1]!
-          if (isWhitespace(nextCh)) break
-          if (startIsWord !== isWordChar(nextCh)) break
-          if (!move()) return { line, col: c }
-        }
-      }
-      return { line, col: c }
-    }
-
-    // b/B: Move to start of previous word
-    if (motion === "b" || motion === "B") {
-      // Move back one to start
-      if (!move()) return { line, col: c }
-
-      // Skip whitespace backwards
-      while (line >= 0 && (c < 0 || isWhitespace(content[c] ?? " "))) {
-        if (!move()) return { line, col: c }
-      }
-
-      // Move to start of word
-      if (isBigWord) {
-        while (c > 0 && !isWhitespace(content[c - 1]!)) {
-          if (!move()) return { line, col: c }
-        }
-      } else {
-        const endIsWord = isWordChar(content[c] ?? " ")
-        while (c > 0) {
-          const prevCh = content[c - 1]!
-          if (isWhitespace(prevCh)) break
-          if (endIsWord !== isWordChar(prevCh)) break
-          if (!move()) return { line, col: c }
-        }
-      }
+      
       return { line, col: c }
     }
 
@@ -422,10 +462,61 @@ export class DiffLineMapping {
   ): DiffLine[] {
     const lines: DiffLine[] = []
     const rawLines = content.split("\n")
+    
+    // Get full file content if available (for expansion)
+    const fullFileContent = this.fileContents.get(filename)
+    const fullFileLines = fullFileContent?.split("\n") ?? []
+    const totalFileLines = fullFileLines.length
 
     let oldLineNum = 0
     let newLineNum = 0
     let inHunk = false
+    let prevHunkEndLine = 0  // Track where previous hunk ended (in new file)
+    let hunkIndex = 0  // Track which hunk we're on for divider keys
+    let isFirstHunk = true
+    let lastHunkEndLine = 0  // Track where the final hunk ends
+
+    // Helper to add a divider or expanded context
+    const addDividerOrContext = (
+      startLine: number,  // 1-indexed, first collapsed line
+      endLine: number,    // 1-indexed, last collapsed line  
+      dividerIndex: number,
+      position: "start" | "middle" | "end"
+    ) => {
+      const skippedLines = endLine - startLine + 1
+      if (skippedLines <= 0) return
+      
+      const dividerKey = `${filename}:${position}:${dividerIndex}`
+      const isExpanded = this.expandedDividers.has(dividerKey)
+      
+      if (isExpanded && fullFileLines.length > 0) {
+        // Insert the collapsed lines as context
+        for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
+          const lineContent = fullFileLines[lineNum - 1] ?? ""  // Convert to 0-indexed
+          lines.push({
+            visualIndex: lines.length,
+            type: "context",
+            content: lineContent,
+            rawLine: ` ${lineContent}`,
+            oldLineNum: lineNum,
+            newLineNum: lineNum,
+            fileIndex,
+            filename,
+          })
+        }
+      } else {
+        // Show collapsed divider with its key stored
+        lines.push({
+          visualIndex: lines.length,
+          type: "divider",
+          content: skippedLines === 1 ? "1 line" : `${skippedLines} lines`,
+          rawLine: "",
+          fileIndex,
+          filename,
+          dividerKey,
+        })
+      }
+    }
 
     for (const rawLine of rawLines) {
       // Skip diff --git header lines (we add our own file header in all-files mode)
@@ -439,29 +530,32 @@ export class DiffLineMapping {
       if (rawLine.startsWith("rename from")) continue
       if (rawLine.startsWith("rename to")) continue
 
-      // Hunk header
+      // Hunk header - convert to divider (subtle separator between chunks)
       const hunkMatch = rawLine.match(
         /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/
       )
       if (hunkMatch) {
+        const newHunkStart = parseInt(hunkMatch[3]!, 10)
+        
         oldLineNum = parseInt(hunkMatch[1]!, 10)
-        newLineNum = parseInt(hunkMatch[3]!, 10)
+        newLineNum = newHunkStart
+        
+        if (isFirstHunk) {
+          // Add "start" divider if hunk doesn't start at line 1
+          if (newHunkStart > 1) {
+            addDividerOrContext(1, newHunkStart - 1, 0, "start")
+          }
+          isFirstHunk = false
+        } else {
+          // Add "middle" divider between hunks
+          const skippedLines = newHunkStart - prevHunkEndLine - 1
+          if (skippedLines > 0) {
+            addDividerOrContext(prevHunkEndLine + 1, newHunkStart - 1, hunkIndex, "middle")
+            hunkIndex++
+          }
+        }
+        
         inHunk = true
-
-        lines.push({
-          visualIndex: lines.length,
-          type: "hunk-header",
-          content: rawLine,
-          rawLine,
-          fileIndex,
-          filename,
-          hunkInfo: {
-            oldStart: oldLineNum,
-            oldCount: parseInt(hunkMatch[2] ?? "1", 10),
-            newStart: newLineNum,
-            newCount: parseInt(hunkMatch[4] ?? "1", 10),
-          },
-        })
         continue
       }
 
@@ -478,6 +572,8 @@ export class DiffLineMapping {
           fileIndex,
           filename,
         })
+        prevHunkEndLine = newLineNum
+        lastHunkEndLine = newLineNum
         newLineNum++
       } else if (rawLine.startsWith("-")) {
         lines.push({
@@ -501,6 +597,8 @@ export class DiffLineMapping {
           fileIndex,
           filename,
         })
+        prevHunkEndLine = newLineNum
+        lastHunkEndLine = newLineNum
         oldLineNum++
         newLineNum++
       } else if (rawLine.startsWith("\\")) {
@@ -515,6 +613,22 @@ export class DiffLineMapping {
       }
     }
 
+    // Add "end" divider if there are more lines after the last hunk
+    // We need to know the total file length - use fullFileLines if available
+    if (totalFileLines > 0 && lastHunkEndLine > 0 && lastHunkEndLine < totalFileLines) {
+      addDividerOrContext(lastHunkEndLine + 1, totalFileLines, 0, "end")
+    }
+
     return lines
+  }
+  
+  /**
+   * Get the divider key for a visual line (if it's a divider)
+   * Returns null if the line is not a divider
+   */
+  getDividerKey(visualIndex: number): string | null {
+    const line = this.lines[visualIndex]
+    if (!line || line.type !== "divider") return null
+    return line.dividerKey ?? null
   }
 }

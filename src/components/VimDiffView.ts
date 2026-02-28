@@ -199,6 +199,7 @@ export class VimDiffView {
     const filetype = this.getFiletype()
     const lineColors = this.buildLineColors()
     const lineSigns = this.buildLineSigns()
+    const { lineNumbers, hideLineNumbers } = this.buildLineNumbers()
 
     // Create the component tree using h()
     const scrollBoxElement = ScrollBox(
@@ -223,6 +224,8 @@ export class VimDiffView {
         showLineNumbers: true,
         lineColors,
         lineSigns,
+        lineNumbers,
+        hideLineNumbers,
         minWidth: 4,
         paddingRight: 1,
       },
@@ -365,10 +368,19 @@ export class VimDiffView {
 
       switch (line.type) {
         case "file-header":
-          lines.push(line.rawLine)
+          // More prominent file header with filename and stats
+          const stats = line.rawLine.match(/\([^)]+\)/)?.[0] ?? ""
+          lines.push(`━━━ ${line.filename} ${stats}`)
           break
         case "hunk-header":
+          // Legacy - shouldn't appear anymore
           lines.push(line.content)
+          break
+        case "divider":
+          // Divider showing collapsed line count
+          // Format: ··· 47 lines ···
+          const label = line.content || "..."
+          lines.push(`··· ${label} ···`)
           break
         case "addition":
         case "deletion":
@@ -385,6 +397,47 @@ export class VimDiffView {
       }
     }
     return lines.join("\n")
+  }
+
+  /**
+   * Build line numbers map (visual index -> actual file line number)
+   * and set of lines where line numbers should be hidden
+   */
+  private buildLineNumbers(): { lineNumbers: Map<number, number>; hideLineNumbers: Set<number> } {
+    const lineNumbers = new Map<number, number>()
+    const hideLineNumbers = new Set<number>()
+    
+    if (!this.lineMapping) return { lineNumbers, hideLineNumbers }
+    
+    for (let i = 0; i < this.lineMapping.lineCount; i++) {
+      const line = this.lineMapping.getLine(i)!
+      
+      switch (line.type) {
+        case "file-header":
+        case "divider":
+        case "hunk-header":
+        case "spacing":
+        case "no-newline":
+          // Hide line numbers for non-content lines
+          hideLineNumbers.add(i)
+          break
+        case "addition":
+        case "context":
+          // Show new file line number for additions and context
+          if (line.newLineNum !== undefined) {
+            lineNumbers.set(i, line.newLineNum)
+          }
+          break
+        case "deletion":
+          // Show old file line number for deletions
+          if (line.oldLineNum !== undefined) {
+            lineNumbers.set(i, line.oldLineNum)
+          }
+          break
+      }
+    }
+    
+    return { lineNumbers, hideLineNumbers }
   }
 
   /**
@@ -419,9 +472,14 @@ export class VimDiffView {
       } else if (line.type === "deletion") {
         lineColors.set(i, { gutter: defaultBg, content: "#3a1e2f" })
       } else if (line.type === "file-header") {
-        lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
+        // Prominent file header with accent color
+        lineColors.set(i, { gutter: theme.blue, content: theme.surface1 })
       } else if (line.type === "hunk-header") {
+        // Legacy - shouldn't appear anymore
         lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
+      } else if (line.type === "divider") {
+        // Divider with subtle but visible styling (slightly darker than content)
+        lineColors.set(i, { gutter: theme.mantle, content: theme.mantle })
       }
     }
 

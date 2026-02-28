@@ -7,7 +7,8 @@
  */
 export type DiffLineType =
   | "file-header" // File separator header (all-files view)
-  | "hunk-header" // @@ -1,3 +1,4 @@
+  | "hunk-header" // @@ -1,3 +1,4 @@ (legacy, being phased out)
+  | "divider" // Subtle divider between chunks (replaces hunk-header)
   | "context" // Unchanged line (space prefix)
   | "addition" // Added line (+ prefix)
   | "deletion" // Removed line (- prefix)
@@ -49,6 +50,9 @@ export interface DiffLine {
 
   /** Hunk information (only for hunk-header type) */
   hunkInfo?: HunkInfo
+  
+  /** Divider key for expansion (only for divider type) */
+  dividerKey?: string
 }
 
 /**
@@ -133,4 +137,14 @@ export interface LineSign {
   beforeColor?: string
   after?: string
   afterColor?: string
+}
+
+/**
+ * Options for creating a DiffLineMapping with expansion support
+ */
+export interface DiffLineMappingOptions {
+  /** Set of expanded divider keys ("filename:hunkIndex") */
+  expandedDividers?: Set<string>
+  /** Map of filename -> full file content (new version) */
+  fileContents?: Map<string, string>
 }
