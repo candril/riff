@@ -81,6 +81,10 @@ export class VimDiffView {
   
   // Post-process function for cursor positioning
   private cursorPostProcess: ((buffer: any, deltaTime: number) => void) | null = null
+  
+  // Track renderer dimensions to detect resize
+  private lastRendererWidth: number = 0
+  private lastRendererHeight: number = 0
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -92,8 +96,19 @@ export class VimDiffView {
       height: "100%",
     })
     
+    // Initialize dimensions
+    this.lastRendererWidth = this.renderer.width
+    this.lastRendererHeight = this.renderer.height
+    
     // Register post-process function to position cursor after each render
     this.cursorPostProcess = () => {
+      // Check if renderer dimensions changed (resize occurred)
+      if (this.renderer.width !== this.lastRendererWidth || 
+          this.renderer.height !== this.lastRendererHeight) {
+        this.lastRendererWidth = this.renderer.width
+        this.lastRendererHeight = this.renderer.height
+        // Dimensions changed - recalculate on next frame to allow layout to settle
+      }
       this.positionTerminalCursor()
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
@@ -269,30 +284,23 @@ export class VimDiffView {
     const line = this.cursorState.line
     const col = this.cursorState.col
 
-    // Calculate the visual position of the cursor
-    // We need to account for:
-    // 1. The scroll position
-    // 2. The line number gutter width
-    // 3. The +/- prefix in diff lines
-
+    // Get scroll position
     const scrollTop = this.scrollBox.scrollTop
     const scrollLeft = this.scrollBox.scrollLeft
 
     // Visual line relative to viewport
     const visualLine = line - scrollTop
 
+    // Get the scrollbox's viewport height
+    const viewportHeight = this.scrollBox.height
+
     // Skip if cursor line is not visible
-    if (visualLine < 0 || visualLine >= this.scrollBox.height) {
+    if (visualLine < 0 || visualLine >= viewportHeight) {
       this.renderer.setCursorPosition(0, 0, false)
       return
     }
 
-    // Get gutter width (line numbers + padding)
-    const gutterWidth = this.lineNumberRenderable.width
-
     // Visual column relative to viewport (subtract horizontal scroll)
-    // Note: col is now in terms of the raw line (including +/- prefix)
-    // so no adjustment needed
     const visualCol = col - scrollLeft
 
     // Skip if cursor column is not visible
@@ -301,43 +309,44 @@ export class VimDiffView {
       return
     }
 
-    // Calculate absolute screen position using known layout structure:
-    // - Header: 1 row at top (terminal row 1)
-    // - FileTreePanel: 35 columns when visible (cols 1-35 in terminal coords)
-    // - VimDiffView: starts after file panel
-    // - ScrollBox content area: where the actual code is rendered
+    // Calculate screen position using layout measurements
+    // 
+    // Layout structure (from top-left):
+    // - Row 1: Header (1 row)
+    // - Row 2+: Main content area containing:
+    //   - Column 1-35: FileTreePanel (when visible)
+    //   - Column 36+: VimDiffView container -> ScrollBox -> LineNumberRenderable -> CodeRenderable
+    // - Last row: StatusBar (1 row)
     //
-    // Terminal coordinates are 1-indexed, so:
-    // - Header at row 1
-    // - First content row at row 2
-    // - File panel uses columns 1-35
-    // - Code content starts at column 36 + gutter width
-    const headerHeight = 2  // First content row is terminal row 2
-    const filePanelWidth = this.filePanelVisible ? this.filePanelWidth + 1 : 1  // +1 for 1-indexed
+    // The container's position within its parent gives us the X offset
+    // The gutter (LineNumberRenderable) width tells us where code content starts
     
-    // Get the actual gutter width from the LineNumberRenderable
-    // This includes the line number digits plus any padding
-    // Note: lineNumberRenderable.width gives the total width, not just gutter
-    // The gutter width is typically: digits + paddingRight (1)
-    // But we need to account for how LineNumberRenderable actually renders
+    // Header is 1 row, so content starts at terminal row 2
+    const headerHeight = 1
+    
+    // Get file panel offset from the external state
+    // The container.x is relative to its direct parent, not absolute screen position
+    // So we use the known file panel width from setFilePanelVisible()
+    const filePanelOffset = this.filePanelVisible ? this.filePanelWidth : 0
+    
+    // Calculate the gutter width based on line count
+    // Looking at actual render output:
+    // - File panel ends at column 35
+    // - Line number "1" appears at column 39-40  
+    // - Content starts at column 41
+    // So gutter is columns 36-40 = 5 columns total
+    // This is: sign(1 or 0) + padding(1) + digits(min 3) + padding(1) = ~5
     const lineCount = this.lineMapping.lineCount
-    const digits = Math.max(4, String(lineCount).length)
-    // LineNumberRenderable appears to add extra spacing - use observed offset
-    // Content starts at column 44 when file panel ends at 35, so gutter is 8 cols
-    const calculatedGutterWidth = digits + 4 // Additional padding observed in rendering
+    const digits = Math.max(3, String(lineCount).length)
+    const gutterWidth = digits + 2  // digits + padding around them
     
-    // Base position: after header row and file panel
-    const baseX = filePanelWidth
-    const baseY = headerHeight
-
-    const screenX = baseX + calculatedGutterWidth + visualCol
-    const screenY = baseY + visualLine
+    // Terminal coordinates are 1-indexed
+    const screenX = filePanelOffset + gutterWidth + visualCol + 1  // +1 for 1-indexed
+    const screenY = headerHeight + visualLine + 1  // +1 for 1-indexed, +1 for header
 
     // Set terminal cursor to block style and position it
     this.renderer.setCursorStyle({ style: "block", blinking: false })
     this.renderer.setCursorPosition(screenX, screenY, true)
-    
-
 
     this.lastCursorLine = line
     this.lastCursorCol = col
@@ -425,10 +434,12 @@ export class VimDiffView {
       }
     }
 
-    // Third pass: cursor line
-    lineColors.set(this.cursorState.line, {
+    // Third pass: cursor line - only highlight gutter, keep content as diff color
+    const cursorLine = this.cursorState.line
+    const existing = lineColors.get(cursorLine)
+    lineColors.set(cursorLine, {
       gutter: theme.pink,
-      content: theme.surface1,
+      content: existing?.content ?? defaultBg,
     })
 
     return lineColors
@@ -452,7 +463,7 @@ export class VimDiffView {
               : theme.blue
 
         signs.set(visualLine, {
-          before: "* ",
+          before: "●",
           beforeColor: color,
         })
       }
