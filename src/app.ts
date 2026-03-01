@@ -1,5 +1,5 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, type ValidatedComment, canSubmit } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -49,6 +49,10 @@ import {
   setReviewBody,
   showToast,
   clearToast,
+  openFilePicker,
+  closeFilePicker,
+  setFilePickerQuery,
+  moveFilePickerSelection,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -172,7 +176,7 @@ export async function createApp(options: AppOptions = {}) {
   
   // ReviewPreview is now functional, no instance needed
 
-  // Post-process function for action menu cursor
+  // Post-process function for action menu and file picker cursor
   renderer.addPostProcessFn(() => {
     if (state.actionMenu.open) {
       // Find the search box and position cursor there
@@ -181,6 +185,15 @@ export async function createApp(options: AppOptions = {}) {
         // Use the element's actual screen position
         // screenX/screenY give absolute position after layout
         const screenX = searchBox.screenX + state.actionMenu.query.length
+        const screenY = searchBox.screenY
+        renderer.setCursorStyle({ style: "line", blinking: true })
+        renderer.setCursorPosition(screenX, screenY, true)
+      }
+    } else if (state.filePicker.open) {
+      // Find the file picker search box and position cursor there
+      const searchBox = renderer.root.findDescendantById("file-picker-search") as any
+      if (searchBox) {
+        const screenX = searchBox.screenX + state.filePicker.query.length
         const screenY = searchBox.screenY
         renderer.setCursorStyle({ style: "line", blinking: true })
         renderer.setCursorPosition(screenX, screenY, true)
@@ -373,6 +386,12 @@ export async function createApp(options: AppOptions = {}) {
       ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
       : availableActions
 
+    // Get filtered files for file picker
+    const allFiles: FilteredFile[] = state.files.map((file, index) => ({ file, index }))
+    const filteredFiles = state.filePicker.query
+      ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
+      : allFiles
+
     renderer.root.add(
       Box(
         {
@@ -426,6 +445,15 @@ export async function createApp(options: AppOptions = {}) {
               ),
               state: state.reviewPreview,
               isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
+            })
+          : null,
+
+        // File picker overlay
+        state.filePicker.open
+          ? FilePicker({
+              query: state.filePicker.query,
+              files: filteredFiles,
+              selectedIndex: state.filePicker.selectedIndex,
             })
           : null
       )
@@ -1042,6 +1070,10 @@ export async function createApp(options: AppOptions = {}) {
       case "quit":
         quit()
         break
+      case "find-files":
+        state = openFilePicker(state)
+        render()
+        break
       case "toggle-file-panel":
         state = toggleFilePanel(state)
         if (state.showFilePanel) {
@@ -1083,6 +1115,8 @@ export async function createApp(options: AppOptions = {}) {
       const filteredActions = state.actionMenu.query
         ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
         : availableActions
+      // Get actions in visual order (grouped by category)
+      const visualActions = getVisualActionOrder(filteredActions)
       
       switch (key.name) {
         case "escape":
@@ -1092,7 +1126,7 @@ export async function createApp(options: AppOptions = {}) {
         
         case "return":
         case "enter":
-          const selectedAction = filteredActions[state.actionMenu.selectedIndex]
+          const selectedAction = visualActions[state.actionMenu.selectedIndex]
           if (selectedAction) {
             state = closeActionMenu(state)
             render()
@@ -1101,19 +1135,19 @@ export async function createApp(options: AppOptions = {}) {
           return
         
         case "up":
-          state = moveActionMenuSelection(state, -1, filteredActions.length - 1)
+          state = moveActionMenuSelection(state, -1, visualActions.length - 1)
           render()
           return
         
         case "down":
-          state = moveActionMenuSelection(state, 1, filteredActions.length - 1)
+          state = moveActionMenuSelection(state, 1, visualActions.length - 1)
           render()
           return
         
         case "p":
           // Ctrl+p moves up
           if (key.ctrl) {
-            state = moveActionMenuSelection(state, -1, filteredActions.length - 1)
+            state = moveActionMenuSelection(state, -1, visualActions.length - 1)
             render()
             return
           }
@@ -1125,7 +1159,7 @@ export async function createApp(options: AppOptions = {}) {
         case "n":
           // Ctrl+n moves down
           if (key.ctrl) {
-            state = moveActionMenuSelection(state, 1, filteredActions.length - 1)
+            state = moveActionMenuSelection(state, 1, visualActions.length - 1)
             render()
             return
           }
@@ -1145,6 +1179,83 @@ export async function createApp(options: AppOptions = {}) {
           // Type characters into search
           if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
             state = setActionMenuQuery(state, state.actionMenu.query + key.sequence)
+            render()
+          }
+          return
+      }
+    }
+    
+    // ========== FILE PICKER (captures all input when open) ==========
+    if (state.filePicker.open) {
+      const allFiles: FilteredFile[] = state.files.map((file, index) => ({ file, index }))
+      const filteredFiles = state.filePicker.query
+        ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
+        : allFiles
+      
+      switch (key.name) {
+        case "escape":
+          state = closeFilePicker(state)
+          render()
+          return
+        
+        case "return":
+        case "enter":
+          const selectedFile = filteredFiles[state.filePicker.selectedIndex]
+          if (selectedFile) {
+            state = closeFilePicker(state)
+            state = selectFile(state, selectedFile.index)
+            // Reset vim cursor and rebuild line mapping
+            vimState = createCursorState()
+            lineMapping = createLineMapping()
+            render()
+          }
+          return
+        
+        case "up":
+          state = moveFilePickerSelection(state, -1, filteredFiles.length - 1)
+          render()
+          return
+        
+        case "down":
+          state = moveFilePickerSelection(state, 1, filteredFiles.length - 1)
+          render()
+          return
+        
+        case "p":
+          // Ctrl+p moves up
+          if (key.ctrl) {
+            state = moveFilePickerSelection(state, -1, filteredFiles.length - 1)
+            render()
+            return
+          }
+          // Otherwise type 'p'
+          state = setFilePickerQuery(state, state.filePicker.query + "p")
+          render()
+          return
+        
+        case "n":
+          // Ctrl+n moves down
+          if (key.ctrl) {
+            state = moveFilePickerSelection(state, 1, filteredFiles.length - 1)
+            render()
+            return
+          }
+          // Otherwise type 'n'
+          state = setFilePickerQuery(state, state.filePicker.query + "n")
+          render()
+          return
+        
+        case "backspace":
+          if (state.filePicker.query.length > 0) {
+            state = setFilePickerQuery(state, state.filePicker.query.slice(0, -1))
+            render()
+          }
+          return
+        
+        default:
+          // Type characters into search
+          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+            state = setFilePickerQuery(state, state.filePicker.query + key.sequence)
             render()
           }
           return
@@ -1272,6 +1383,15 @@ export async function createApp(options: AppOptions = {}) {
         // Ctrl+p opens action menu
         if (key.ctrl) {
           state = openActionMenu(state)
+          render()
+          return
+        }
+        break
+
+      case "f":
+        // Ctrl+f opens file picker
+        if (key.ctrl && state.files.length > 0) {
+          state = openFilePicker(state)
           render()
           return
         }

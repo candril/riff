@@ -1,10 +1,10 @@
-# Omni Search
+# File Picker (Omni Search)
 
 **Status**: Ready
 
 ## Description
 
-A unified fuzzy finder (`Ctrl+p`) for quick navigation to files, comments, commits, and actions. Inspired by VS Code's command palette and Telescope.
+A fuzzy file picker (`Ctrl+p`) for quick navigation to files in the diff. Opens via action menu "Find Files" item or direct `Ctrl+p` shortcut. Uses `Ctrl+n`/`Ctrl+p` for vim-style navigation within the picker.
 
 ## Out of Scope
 
@@ -15,11 +15,12 @@ A unified fuzzy finder (`Ctrl+p`) for quick navigation to files, comments, commi
 
 ### P1 - MVP
 
-- **Open with `Ctrl+p`**: Show omni search overlay
-- **Fuzzy matching**: Type to filter results
+- **Open via action menu**: "Find Files" action in command palette
+- **Open with `Ctrl+p`**: Direct shortcut to show file picker overlay
+- **Fuzzy matching**: Type to filter files by path
 - **File search**: Jump to any file in the diff
-- **Keyboard navigation**: `j/k` or arrows to select, `Enter` to confirm, `Esc` to close
-- **Result ranking**: Fuzzy score + recency
+- **Keyboard navigation**: `Ctrl+n`/`Ctrl+p` or arrows to navigate, `Enter` to confirm, `Esc` to close
+- **Result ranking**: Fuzzy score (consecutive matches, start bonus)
 
 ### P2 - Multi-source
 

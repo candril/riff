@@ -59,6 +59,18 @@ export interface ToastState {
 }
 
 /**
+ * File picker state
+ */
+export interface FilePickerState {
+  /** Whether the file picker is open */
+  open: boolean
+  /** Current search query */
+  query: string
+  /** Currently selected index */
+  selectedIndex: number
+}
+
+/**
  * Application state
  */
 export interface AppState {
@@ -113,6 +125,9 @@ export interface AppState {
   
   // Toast notification
   toast: ToastState
+  
+  // File picker state
+  filePicker: FilePickerState
 }
 
 /**
@@ -164,6 +179,11 @@ export function createInitialState(
     toast: {
       message: null,
       type: "info",
+    },
+    filePicker: {
+      open: false,
+      query: "",
+      selectedIndex: 0,
     },
   }
 }
@@ -551,10 +571,13 @@ export function setActionMenuQuery(state: AppState, query: string): AppState {
 }
 
 /**
- * Move action menu selection
+ * Move action menu selection (wraps around)
  */
 export function moveActionMenuSelection(state: AppState, delta: number, maxIndex: number): AppState {
-  const newIndex = Math.max(0, Math.min(maxIndex, state.actionMenu.selectedIndex + delta))
+  let newIndex = state.actionMenu.selectedIndex + delta
+  // Wrap around
+  if (newIndex < 0) newIndex = maxIndex
+  else if (newIndex > maxIndex) newIndex = 0
   return {
     ...state,
     actionMenu: {
@@ -755,6 +778,70 @@ export function clearToast(state: AppState): AppState {
     toast: {
       message: null,
       type: "info",
+    },
+  }
+}
+
+// ============================================================================
+// File Picker State
+// ============================================================================
+
+/**
+ * Open the file picker
+ */
+export function openFilePicker(state: AppState): AppState {
+  return {
+    ...state,
+    filePicker: {
+      open: true,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Close the file picker
+ */
+export function closeFilePicker(state: AppState): AppState {
+  return {
+    ...state,
+    filePicker: {
+      ...state.filePicker,
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Update file picker query
+ */
+export function setFilePickerQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    filePicker: {
+      ...state.filePicker,
+      query,
+      selectedIndex: 0, // Reset selection when query changes
+    },
+  }
+}
+
+/**
+ * Move file picker selection (wraps around)
+ */
+export function moveFilePickerSelection(state: AppState, delta: number, maxIndex: number): AppState {
+  let newIndex = state.filePicker.selectedIndex + delta
+  // Wrap around
+  if (newIndex < 0) newIndex = maxIndex
+  else if (newIndex > maxIndex) newIndex = 0
+  return {
+    ...state,
+    filePicker: {
+      ...state.filePicker,
+      selectedIndex: newIndex,
     },
   }
 }

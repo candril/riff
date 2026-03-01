@@ -7,6 +7,13 @@ import type { AppState } from "../state"
  */
 export const actions: Action[] = [
   {
+    id: "find-files",
+    label: "Find Files",
+    description: "Jump to a file in the diff",
+    shortcut: "Ctrl+f",
+    available: (state) => state.files.length > 0,
+  },
+  {
     id: "submit-review",
     label: "Submit Review",
     description: "Submit all local comments as a review",

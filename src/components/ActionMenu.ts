@@ -70,18 +70,7 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
           flexDirection: "column",
           paddingBottom: 1,
         },
-        ...groupActionsByCategory(actions).flatMap(({ category, items }) => [
-          // Category header
-          Box(
-            { paddingX: 2, paddingTop: 1 },
-            Text({ content: category, fg: theme.lavender })
-          ),
-          // Action items in this category
-          ...items.map((action) => {
-            const globalIndex = actions.indexOf(action)
-            return ActionRow({ action, selected: globalIndex === selectedIndex })
-          })
-        ])
+        ...renderGroupedActions(actions, selectedIndex)
       )
     )
   )
@@ -132,7 +121,7 @@ function groupActionsByCategory(actions: Action[]): ActionGroup[] {
       suggested.push(action)
     } else if (action.id === "refresh") {
       github.push(action)
-    } else if (action.id === "toggle-file-panel" || action.id === "toggle-view") {
+    } else if (action.id === "toggle-file-panel" || action.id === "toggle-view" || action.id === "find-files") {
       navigation.push(action)
     } else {
       other.push(action)
@@ -146,4 +135,38 @@ function groupActionsByCategory(actions: Action[]): ActionGroup[] {
   if (other.length > 0) groups.push({ category: "Other", items: other })
   
   return groups
+}
+
+/**
+ * Get a flat list of actions in visual order (respecting grouping)
+ */
+export function getVisualActionOrder(actions: Action[]): Action[] {
+  return groupActionsByCategory(actions).flatMap(group => group.items)
+}
+
+/**
+ * Render grouped actions with correct visual index tracking
+ */
+function renderGroupedActions(actions: Action[], selectedIndex: number) {
+  const groups = groupActionsByCategory(actions)
+  const result: any[] = []
+  let visualIndex = 0
+  
+  for (const { category, items } of groups) {
+    // Category header
+    result.push(
+      Box(
+        { paddingX: 2, paddingTop: 1 },
+        Text({ content: category, fg: theme.lavender })
+      )
+    )
+    
+    // Action items in this category
+    for (const action of items) {
+      result.push(ActionRow({ action, selected: visualIndex === selectedIndex }))
+      visualIndex++
+    }
+  }
+  
+  return result
 }
