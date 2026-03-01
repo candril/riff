@@ -1,4 +1,5 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
+import { registerSyntaxParsers } from "./syntax-parsers"
 import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
@@ -169,6 +170,10 @@ export async function createApp(options: AppOptions = {}) {
       }
     )
   }
+
+  // Register additional syntax highlighting parsers (tsx, csharp, etc.)
+  // Must be called before creating the renderer
+  registerSyntaxParsers()
 
   const renderer = await createCliRenderer({
     exitOnCtrlC: true,
