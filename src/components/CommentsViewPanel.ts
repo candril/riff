@@ -114,6 +114,7 @@ export class CommentsViewPanel {
   private lastComments: Comment[] | null = null
   private lastSelectedIndex: number = -1
   private lastSelectedFilename: string | null | undefined = undefined
+  private lastCollapsedThreadIds: Set<string> | null = null
 
   constructor(options: CommentsViewPanelOptions) {
     this.renderer = options.renderer
@@ -214,7 +215,8 @@ export class CommentsViewPanel {
   update(
     comments: Comment[],
     selectedIndex: number,
-    selectedFilename: string | null
+    selectedFilename: string | null,
+    collapsedThreadIds?: Set<string>
   ): void {
     // Handle empty state toggle
     const wasEmpty = this.lastComments !== null && this.lastComments.length === 0
@@ -234,6 +236,7 @@ export class CommentsViewPanel {
       this.lastComments = comments
       this.lastSelectedIndex = selectedIndex
       this.lastSelectedFilename = selectedFilename
+      this.lastCollapsedThreadIds = collapsedThreadIds ?? null
       return
     }
 
@@ -241,15 +244,17 @@ export class CommentsViewPanel {
     const commentsChanged = comments !== this.lastComments
     const selectionChanged = selectedIndex !== this.lastSelectedIndex
     const filenameChanged = selectedFilename !== this.lastSelectedFilename
+    const collapsedChanged = collapsedThreadIds !== this.lastCollapsedThreadIds
 
     // Update state tracking
     this.lastComments = comments
     this.lastSelectedIndex = selectedIndex
     this.lastSelectedFilename = selectedFilename
+    this.lastCollapsedThreadIds = collapsedThreadIds ?? null
 
     // Only rebuild if something changed
-    if (commentsChanged || selectionChanged || filenameChanged) {
-      this.rebuildContent(comments, selectedIndex, selectedFilename)
+    if (commentsChanged || selectionChanged || filenameChanged || collapsedChanged) {
+      this.rebuildContent(comments, selectedIndex, selectedFilename, collapsedThreadIds)
     }
   }
 
@@ -259,7 +264,8 @@ export class CommentsViewPanel {
   private rebuildContent(
     comments: Comment[],
     selectedIndex: number,
-    selectedFilename: string | null
+    selectedFilename: string | null,
+    collapsedThreadIds?: Set<string>
   ): void {
     // Clear existing content
     for (const child of this.content.getChildren()) {
@@ -269,7 +275,7 @@ export class CommentsViewPanel {
     // Build nav items
     const threads = groupIntoThreads(comments)
     const showFileHeaders = selectedFilename === null
-    const navItems = flattenThreadsForNav(threads, showFileHeaders)
+    const navItems = flattenThreadsForNav(threads, showFileHeaders, collapsedThreadIds)
 
     // Create items
     for (let i = 0; i < navItems.length; i++) {
@@ -326,14 +332,96 @@ export class CommentsViewPanel {
   ): BoxRenderable {
     const comment = item.comment!
     const isRoot = item.isRoot!
+    const author = comment.author || "you"
+    const statusColor = getStatusColor(comment.status)
+    const marker = selected ? "> " : "  "
+
+    // Collapsed view: minimal one-line representation
+    if (item.isCollapsed) {
+      return this.createCollapsedRow(item, comment, author, statusColor, marker, selected, index)
+    }
+
+    // Expanded view: full comment with context and body
+    return this.createExpandedRow(item, comment, author, statusColor, marker, selected, index)
+  }
+
+  /**
+   * Create a minimal collapsed row (one line, no context)
+   */
+  private createCollapsedRow(
+    item: ThreadNavItem,
+    comment: Comment,
+    author: string,
+    _statusColor: string,
+    marker: string,
+    selected: boolean,
+    index: number
+  ): BoxRenderable {
+    const box = new BoxRenderable(this.renderer, {
+      id: `comment-nav-${index}`,
+      width: "100%",
+      flexDirection: "row",
+      backgroundColor: selected ? theme.surface1 : undefined,
+      paddingY: 0,
+    })
+
+    // Marker
+    box.add(new TextRenderable(this.renderer, {
+      content: marker,
+      fg: selected ? colors.primary : colors.textDim,
+    }))
+
+    // Author
+    box.add(new TextRenderable(this.renderer, {
+      content: `@${author}`,
+      fg: theme.blue,
+    }))
+
+    // Truncated body preview (first ~40 chars)
+    const preview = comment.body.replace(/\n/g, " ").slice(0, 40)
+    const truncated = comment.body.length > 40 ? preview + "..." : preview
+    box.add(new TextRenderable(this.renderer, {
+      content: ` "${truncated}"`,
+      fg: colors.textDim,
+    }))
+
+    // Reply count if any
+    if (item.replyCount && item.replyCount > 0) {
+      box.add(new TextRenderable(this.renderer, {
+        content: ` (+${item.replyCount})`,
+        fg: theme.overlay0,
+      }))
+    }
+
+    // Resolved indicator at the end
+    if (item.thread?.resolved) {
+      box.add(new TextRenderable(this.renderer, {
+        content: " ✓",
+        fg: theme.green,
+      }))
+    }
+
+    return box
+  }
+
+  /**
+   * Create a full expanded row with context and body
+   */
+  private createExpandedRow(
+    item: ThreadNavItem,
+    comment: Comment,
+    author: string,
+    statusColor: string,
+    marker: string,
+    selected: boolean,
+    index: number
+  ): BoxRenderable {
+    const isRoot = item.isRoot!
     const isLastInThread = item.isLastInThread!
     const indent = item.indent
 
-    const marker = selected ? "> " : "  "
     const headerIndent = indent > 0 ? "  └ " : ""
     const bodyIndent = indent > 0 ? (isLastInThread ? "    " : "  │ ") : ""
-    const author = comment.author || "you"
-    const statusColor = getStatusColor(comment.status)
 
     // Extract context lines from diff hunk (for root comments only)
     const contextLines = isRoot ? extractContextLines(comment.diffHunk, 3) : []
@@ -405,6 +493,20 @@ export class CommentsViewPanel {
       content: ` [${comment.status}]`,
       fg: statusColor,
     }))
+    // Resolved indicator (✓) - shown only on root comments of resolved threads
+    if (isRoot && item.thread?.resolved) {
+      headerRow.add(new TextRenderable(this.renderer, {
+        content: " ✓",
+        fg: theme.green,
+      }))
+    }
+    // Reply count indicator for expanded threads with replies
+    if (isRoot && item.thread && item.thread.comments.length > 1) {
+      headerRow.add(new TextRenderable(this.renderer, {
+        content: ` (${item.thread.comments.length - 1} ${item.thread.comments.length === 2 ? "reply" : "replies"})`,
+        fg: theme.overlay0,
+      }))
+    }
     box.add(headerRow)
 
     // Body line with markdown rendering

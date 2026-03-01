@@ -55,6 +55,9 @@ import {
   setFilePickerQuery,
   moveFilePickerSelection,
   setThreadResolved,
+  collapseThread,
+  expandThread,
+  collapseResolvedThreads,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -134,6 +137,10 @@ export async function createApp(options: AppOptions = {}) {
     mode,
     prInfo ?? null
   )
+
+  // Collapse resolved threads by default
+  const threads = groupIntoThreads(comments)
+  state = collapseResolvedThreads(state, threads)
 
   // Initialize vim cursor state
   let vimState = createCursorState()
@@ -291,7 +298,7 @@ export async function createApp(options: AppOptions = {}) {
       }
       hints.push("j/k/w/b: move")
     } else {
-      hints.push("j/k: navigate", "Enter: jump", "x: resolve")
+      hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse")
     }
     
     if (state.showFilePanel) {
@@ -323,7 +330,8 @@ export async function createApp(options: AppOptions = {}) {
       commentsViewPanel.update(
         visibleComments,
         state.selectedCommentIndex,
-        selectedFile?.filename ?? null
+        selectedFile?.filename ?? null,
+        state.collapsedThreadIds
       )
       
       content = Box(
@@ -783,7 +791,7 @@ export async function createApp(options: AppOptions = {}) {
       // In comments view, use selected comment
       const visibleComments = getVisibleComments(state)
       const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null)
+      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
       const selectedNav = navItems[state.selectedCommentIndex]
       return selectedNav?.comment ?? null
     } else {
@@ -950,7 +958,7 @@ export async function createApp(options: AppOptions = {}) {
     // Get current selection
     const visibleComments = getVisibleComments(state)
     const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null)
+    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
     const selectedNav = navItems[state.selectedCommentIndex]
     
     if (!selectedNav?.thread) {
@@ -1639,7 +1647,7 @@ export async function createApp(options: AppOptions = {}) {
     if (state.viewMode === "comments" && state.focusedPanel === "comments") {
       const visibleComments = getVisibleComments(state)
       const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null)
+      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
       
       switch (key.name) {
         case "j":
@@ -1758,6 +1766,30 @@ export async function createApp(options: AppOptions = {}) {
         case "x":
           // x - toggle resolved state on thread
           handleToggleThreadResolved()
+          return
+        
+        case "h":
+        case "minus":
+          // h or - : collapse thread
+          {
+            const selectedNav = navItems[state.selectedCommentIndex]
+            if (selectedNav?.thread) {
+              state = collapseThread(state, selectedNav.thread.id)
+              render()
+            }
+          }
+          return
+        
+        case "l":
+        case "equal":
+          // l or + : expand thread (+ is shift+= on most keyboards)
+          {
+            const selectedNav = navItems[state.selectedCommentIndex]
+            if (selectedNav?.thread) {
+              state = expandThread(state, selectedNav.thread.id)
+              render()
+            }
+          }
           return
       }
     }

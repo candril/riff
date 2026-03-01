@@ -23,6 +23,8 @@ export interface ThreadNavItem {
   isRoot?: boolean              // Is this the root comment of a thread?
   isLastInThread?: boolean      // Is this the last comment in the thread?
   indent: number                // Indentation level (0 for root, 1 for replies)
+  isCollapsed?: boolean         // Is this thread currently collapsed?
+  replyCount?: number           // Number of hidden replies (when collapsed)
 }
 
 /**
@@ -95,10 +97,12 @@ function collectReplies(root: Comment, replyMap: Map<string, Comment[]>): Commen
 /**
  * Flatten threads into navigable items for the comments view.
  * When showFileHeaders is true, includes file separator headers.
+ * When collapsedThreadIds is provided, collapsed threads only show the root comment.
  */
 export function flattenThreadsForNav(
   threads: Thread[], 
-  showFileHeaders: boolean
+  showFileHeaders: boolean,
+  collapsedThreadIds?: Set<string>
 ): ThreadNavItem[] {
   const items: ThreadNavItem[] = []
   let currentFile = ""
@@ -114,19 +118,40 @@ export function flattenThreadsForNav(
       })
     }
     
-    // Add each comment in the thread
-    for (let i = 0; i < thread.comments.length; i++) {
-      const comment = thread.comments[i]!
-      const isRoot = i === 0
-      const isLastInThread = i === thread.comments.length - 1
-      items.push({
-        type: "comment",
-        comment,
-        thread,
-        isRoot,
-        isLastInThread,
-        indent: isRoot ? 0 : 1,
-      })
+    const isCollapsed = collapsedThreadIds?.has(thread.id) ?? false
+    const replyCount = thread.comments.length - 1
+    
+    if (isCollapsed) {
+      // Only show root comment when collapsed
+      const rootComment = thread.comments[0]
+      if (rootComment) {
+        items.push({
+          type: "comment",
+          comment: rootComment,
+          thread,
+          isRoot: true,
+          isLastInThread: true,
+          indent: 0,
+          isCollapsed: true,
+          replyCount,
+        })
+      }
+    } else {
+      // Show all comments when expanded
+      for (let i = 0; i < thread.comments.length; i++) {
+        const comment = thread.comments[i]!
+        const isRoot = i === 0
+        const isLastInThread = i === thread.comments.length - 1
+        items.push({
+          type: "comment",
+          comment,
+          thread,
+          isRoot,
+          isLastInThread,
+          indent: isRoot ? 0 : 1,
+          isCollapsed: false,
+        })
+      }
     }
   }
   

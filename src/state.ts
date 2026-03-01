@@ -96,6 +96,7 @@ export interface AppState {
 
   // Comments view state
   selectedCommentIndex: number      // Selected comment in comments view
+  collapsedThreadIds: Set<string>   // Thread IDs that are collapsed (root comment ID)
 
   // Comment state - comments stored separately from session
   session: ReviewSession | null
@@ -156,6 +157,7 @@ export function createInitialState(
     mode: "normal",
     cursorLine: 1,
     selectedCommentIndex: 0,
+    collapsedThreadIds: new Set(),
     session,
     comments,
     commentInputLine: null,
@@ -404,6 +406,65 @@ export function moveCommentSelection(state: AppState, delta: number, maxIndex: n
   return {
     ...state,
     selectedCommentIndex: newIndex,
+  }
+}
+
+/**
+ * Toggle thread collapse state
+ */
+export function toggleThreadCollapsed(state: AppState, threadId: string): AppState {
+  const newSet = new Set(state.collapsedThreadIds)
+  if (newSet.has(threadId)) {
+    newSet.delete(threadId)
+  } else {
+    newSet.add(threadId)
+  }
+  return {
+    ...state,
+    collapsedThreadIds: newSet,
+  }
+}
+
+/**
+ * Collapse a thread
+ */
+export function collapseThread(state: AppState, threadId: string): AppState {
+  if (state.collapsedThreadIds.has(threadId)) return state
+  const newSet = new Set(state.collapsedThreadIds)
+  newSet.add(threadId)
+  return {
+    ...state,
+    collapsedThreadIds: newSet,
+  }
+}
+
+/**
+ * Expand a thread
+ */
+export function expandThread(state: AppState, threadId: string): AppState {
+  if (!state.collapsedThreadIds.has(threadId)) return state
+  const newSet = new Set(state.collapsedThreadIds)
+  newSet.delete(threadId)
+  return {
+    ...state,
+    collapsedThreadIds: newSet,
+  }
+}
+
+/**
+ * Initialize collapsed state for resolved threads
+ */
+export function collapseResolvedThreads(state: AppState, threads: { id: string; resolved: boolean }[]): AppState {
+  const resolvedIds = threads.filter(t => t.resolved).map(t => t.id)
+  if (resolvedIds.length === 0) return state
+  
+  const newSet = new Set(state.collapsedThreadIds)
+  for (const id of resolvedIds) {
+    newSet.add(id)
+  }
+  return {
+    ...state,
+    collapsedThreadIds: newSet,
   }
 }
 

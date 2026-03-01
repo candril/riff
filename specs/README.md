@@ -56,6 +56,9 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 026 | [Ignore Patterns](./026-ignore-patterns.md) | Draft | Hide generated/lock files from review |
 | 027 | [Leader Key](./027-leader-key.md) | Draft | Leader key for key sequences |
 | 028 | [PR Info Panel](./028-pr-info-panel.md) | Draft | Quick view of PR metadata, checks, approvals |
+| 029 | [Comment Resolution Status](./029-comment-resolution-status.md) | Draft | Display and toggle comment resolution state |
+| 030 | [Viewed Files Sync](./030-viewed-files-sync.md) | Draft | Sync viewed status with GitHub |
+| 031 | [Open in Editor](./031-open-in-editor.md) | Draft | Open current file in nvim at cursor line |
 
 ## MVP Path
 

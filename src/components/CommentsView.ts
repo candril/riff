@@ -48,15 +48,16 @@ export interface CommentsViewProps {
   comments: Comment[]
   selectedIndex: number
   selectedFilename: string | null  // null = showing all files
+  collapsedThreadIds?: Set<string>
 }
 
 /**
  * Comments view - displays all comments/threads for current scope
  */
-export function CommentsView({ comments, selectedIndex, selectedFilename }: CommentsViewProps) {
+export function CommentsView({ comments, selectedIndex, selectedFilename, collapsedThreadIds }: CommentsViewProps) {
   const threads = groupIntoThreads(comments)
   const showFileHeaders = selectedFilename === null
-  const items = flattenThreadsForNav(threads, showFileHeaders)
+  const items = flattenThreadsForNav(threads, showFileHeaders, collapsedThreadIds)
   
   if (comments.length === 0) {
     return Box(
