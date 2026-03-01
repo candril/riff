@@ -20,6 +20,8 @@ export interface Comment {
   // GitHub sync (populated after submission or fetch)
   githubId?: number
   githubUrl?: string
+  githubThreadId?: string // GitHub's node_id for the review thread (for GraphQL API)
+  isThreadResolved?: boolean // Thread resolution state (only on root comments)
   author?: string // GitHub username (for others' comments)
   inReplyTo?: string // Parent comment ID for threads
   

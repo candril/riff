@@ -37,6 +37,10 @@ export interface PrComment {
   // Thread info
   inReplyToId?: number
   threadId?: number
+  
+  // GraphQL thread info (for resolution)
+  graphqlThreadId?: string  // node_id for GraphQL API
+  isThreadResolved?: boolean
 }
 
 // ============================================================================
@@ -165,6 +169,58 @@ export async function getPrHeadSha(
 }
 
 /**
+ * Thread info from GraphQL (for resolution state)
+ */
+interface GraphQLThreadInfo {
+  id: string  // node_id for GraphQL mutations
+  isResolved: boolean
+  path: string
+  line: number | null
+  comments: {
+    nodes: Array<{ databaseId: number }>
+  }
+}
+
+/**
+ * Fetch PR review threads via GraphQL (includes resolution state)
+ */
+async function getPrReviewThreads(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<GraphQLThreadInfo[]> {
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          reviewThreads(first: 100) {
+            nodes {
+              id
+              isResolved
+              path
+              line
+              comments(first: 1) {
+                nodes {
+                  databaseId
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `
+  
+  try {
+    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    return result?.data?.repository?.pullRequest?.reviewThreads?.nodes || []
+  } catch {
+    // Fall back gracefully if GraphQL fails
+    return []
+  }
+}
+
+/**
  * Fetch PR review comments (inline comments on diff)
  */
 export async function getPrComments(
@@ -173,23 +229,46 @@ export async function getPrComments(
   prNumber: number
 ): Promise<PrComment[]> {
   return safeGhCommand(async () => {
-    const result = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`.json()
+    // Fetch REST comments and GraphQL threads in parallel
+    const [restComments, threads] = await Promise.all([
+      $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as Promise<any[]>,
+      getPrReviewThreads(owner, repo, prNumber),
+    ])
+    
+    // Build a map from first comment ID to thread info
+    const threadByFirstCommentId = new Map<number, GraphQLThreadInfo>()
+    for (const thread of threads) {
+      const firstCommentId = thread.comments?.nodes?.[0]?.databaseId
+      if (firstCommentId) {
+        threadByFirstCommentId.set(firstCommentId, thread)
+      }
+    }
 
-    return (result as any[]).map((c: any) => ({
-      id: c.id,
-      body: c.body,
-      path: c.path,
-      line: c.line || c.original_line,
-      side: c.side || "RIGHT",
-      author: c.user.login,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-      url: c.html_url,
-      diffHunk: c.diff_hunk,
-      inReplyToId: c.in_reply_to_id,
-      // GitHub's pull_request_review_id groups comments into a thread
-      threadId: c.pull_request_review_id,
-    }))
+    return restComments.map((c: any) => {
+      // Find thread info for this comment
+      // If this is a root comment (no in_reply_to_id), check if it's in our map
+      // If this is a reply, we'll inherit thread info from root later
+      const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
+      
+      return {
+        id: c.id,
+        body: c.body,
+        path: c.path,
+        line: c.line || c.original_line,
+        side: c.side || "RIGHT",
+        author: c.user.login,
+        createdAt: c.created_at,
+        updatedAt: c.updated_at,
+        url: c.html_url,
+        diffHunk: c.diff_hunk,
+        inReplyToId: c.in_reply_to_id,
+        // GitHub's pull_request_review_id groups comments into a thread
+        threadId: c.pull_request_review_id,
+        // GraphQL thread info (only available on root comments)
+        graphqlThreadId: thread?.id,
+        isThreadResolved: thread?.isResolved,
+      }
+    })
   })
 }
 
@@ -213,6 +292,8 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
     status: "synced",
     githubId: c.id,
     githubUrl: c.url,
+    githubThreadId: c.graphqlThreadId, // For GraphQL resolve/unresolve mutations
+    isThreadResolved: c.isThreadResolved, // Thread resolution state (only on root comments)
     author: c.author, // Preserve original author
     inReplyTo: c.inReplyToId ? `gh-${c.inReplyToId}` : undefined,
   }
@@ -538,4 +619,82 @@ export async function submitReview(
       error: err instanceof Error ? err.message : "Failed to submit review",
     }
   }
+}
+
+// ============================================================================
+// Thread Resolution
+// ============================================================================
+
+export interface ResolveResult {
+  success: boolean
+  isResolved?: boolean
+  error?: string
+}
+
+/**
+ * Resolve a review thread via GraphQL API
+ */
+export async function resolveThread(threadId: string): Promise<ResolveResult> {
+  const mutation = `
+    mutation($threadId: ID!) {
+      resolveReviewThread(input: { threadId: $threadId }) {
+        thread {
+          isResolved
+        }
+      }
+    }
+  `
+  
+  try {
+    const result = await $`gh api graphql -f query=${mutation} -F threadId=${threadId}`.json() as any
+    const isResolved = result?.data?.resolveReviewThread?.thread?.isResolved
+    
+    if (isResolved === undefined) {
+      return { success: false, error: "Unexpected response from GitHub" }
+    }
+    
+    return { success: true, isResolved }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: errMsg }
+  }
+}
+
+/**
+ * Unresolve a review thread via GraphQL API
+ */
+export async function unresolveThread(threadId: string): Promise<ResolveResult> {
+  const mutation = `
+    mutation($threadId: ID!) {
+      unresolveReviewThread(input: { threadId: $threadId }) {
+        thread {
+          isResolved
+        }
+      }
+    }
+  `
+  
+  try {
+    const result = await $`gh api graphql -f query=${mutation} -F threadId=${threadId}`.json() as any
+    const isResolved = result?.data?.unresolveReviewThread?.thread?.isResolved
+    
+    if (isResolved === undefined) {
+      return { success: false, error: "Unexpected response from GitHub" }
+    }
+    
+    return { success: true, isResolved }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: errMsg }
+  }
+}
+
+/**
+ * Toggle thread resolution state
+ */
+export async function toggleThreadResolution(
+  threadId: string,
+  currentlyResolved: boolean
+): Promise<ResolveResult> {
+  return currentlyResolved ? unresolveThread(threadId) : resolveThread(threadId)
 }

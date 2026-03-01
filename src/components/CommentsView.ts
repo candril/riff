@@ -114,6 +114,7 @@ function renderNavItem(item: ThreadNavItem, selected: boolean): ReturnType<typeo
     isLastInThread: item.isLastInThread!,
     indent: item.indent,
     selected,
+    threadResolved: item.thread?.resolved ?? false,
   })
 }
 
@@ -142,6 +143,7 @@ interface CommentRowProps {
   isLastInThread: boolean
   indent: number
   selected: boolean
+  threadResolved: boolean
 }
 
 /**
@@ -188,7 +190,7 @@ function CodeContextBlock({ lines }: { lines: string[] }): ReturnType<typeof Box
   )
 }
 
-function CommentRow({ comment, isRoot, isLastInThread, indent, selected }: CommentRowProps): ReturnType<typeof Box> {
+function CommentRow({ comment, isRoot, isLastInThread, indent, selected, threadResolved }: CommentRowProps): ReturnType<typeof Box> {
   const bg = selected ? theme.surface1 : undefined
   const marker = selected ? "> " : "  "
   
@@ -214,6 +216,9 @@ function CommentRow({ comment, isRoot, isLastInThread, indent, selected }: Comme
   const contextLines = isRoot ? extractContextLines(comment.diffHunk, 3) : []
   const hasContext = contextLines.length > 0
   
+  // Resolved indicator (✓) - shown only on root comments of resolved threads
+  const resolvedIndicator = isRoot && threadResolved ? " ✓" : ""
+  
   return Box(
     {
       width: "100%",
@@ -229,7 +234,7 @@ function CommentRow({ comment, isRoot, isLastInThread, indent, selected }: Comme
           CodeContextBlock({ lines: contextLines })
         )
       : null,
-    // Header line: marker, indent, author, status (and line number if no context)
+    // Header line: marker, indent, author, status, resolved indicator (and line number if no context)
     Box(
       { flexDirection: "row", width: "100%" },
       Text({ content: marker, fg: selected ? colors.primary : colors.textDim }),
@@ -239,7 +244,11 @@ function CommentRow({ comment, isRoot, isLastInThread, indent, selected }: Comme
         ? Text({ content: `L${comment.line} `, fg: theme.yellow })
         : null,
       Text({ content: `@${author}`, fg: theme.blue }),
-      Text({ content: ` [${statusText}]`, fg: statusColor })
+      Text({ content: ` [${statusText}]`, fg: statusColor }),
+      // Resolved indicator
+      resolvedIndicator
+        ? Text({ content: resolvedIndicator, fg: theme.green })
+        : null
     ),
     // Body (plain text to avoid flicker from MarkdownRenderable recreation)
     Box(

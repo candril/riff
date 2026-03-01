@@ -143,6 +143,8 @@ function toMarkdown(comment: Comment): string {
   if (comment.commit) lines.push(`commit: ${comment.commit}`)
   if (comment.githubId) lines.push(`githubId: ${comment.githubId}`)
   if (comment.githubUrl) lines.push(`githubUrl: ${comment.githubUrl}`)
+  if (comment.githubThreadId) lines.push(`githubThreadId: ${comment.githubThreadId}`)
+  if (comment.isThreadResolved !== undefined) lines.push(`isThreadResolved: ${comment.isThreadResolved}`)
   if (comment.author) lines.push(`author: ${comment.author}`)
   if (comment.inReplyTo) lines.push(`inReplyTo: ${comment.inReplyTo}`)
 
@@ -188,6 +190,8 @@ function parseComment(meta: Record<string, string>, body: string): Comment {
     diffHunk,
     githubId: meta.githubId ? parseInt(meta.githubId, 10) : undefined,
     githubUrl: meta.githubUrl || undefined,
+    githubThreadId: meta.githubThreadId || undefined,
+    isThreadResolved: meta.isThreadResolved === "true" ? true : meta.isThreadResolved === "false" ? false : undefined,
     author: meta.author || undefined,
     inReplyTo: meta.inReplyTo || undefined,
   }

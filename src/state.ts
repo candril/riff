@@ -384,6 +384,19 @@ export function updateCommentBody(state: AppState, commentId: string, body: stri
 }
 
 /**
+ * Update thread resolved state on a root comment
+ * The root comment is identified by its ID (thread ID matches root comment ID)
+ */
+export function setThreadResolved(state: AppState, rootCommentId: string, resolved: boolean): AppState {
+  return {
+    ...state,
+    comments: state.comments.map(c =>
+      c.id === rootCommentId ? { ...c, isThreadResolved: resolved } : c
+    ),
+  }
+}
+
+/**
  * Move comments view selection
  */
 export function moveCommentSelection(state: AppState, delta: number, maxIndex: number): AppState {

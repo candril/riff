@@ -12,6 +12,7 @@ import {
   submitReply,
   submitReview,
   updateComment,
+  toggleThreadResolution,
   type SubmitResult,
 } from "./providers/github"
 import { parseDiff, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
@@ -53,6 +54,7 @@ import {
   closeFilePicker,
   setFilePickerQuery,
   moveFilePickerSelection,
+  setThreadResolved,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -289,7 +291,7 @@ export async function createApp(options: AppOptions = {}) {
       }
       hints.push("j/k/w/b: move")
     } else {
-      hints.push("j/k: navigate", "Enter: jump")
+      hints.push("j/k: navigate", "Enter: jump", "x: resolve")
     }
     
     if (state.showFilePanel) {
@@ -939,6 +941,78 @@ export async function createApp(options: AppOptions = {}) {
     }
     state = openReviewPreview(state)
     render()
+  }
+
+  /**
+   * Toggle the resolved state of the selected thread
+   */
+  async function handleToggleThreadResolved(): Promise<void> {
+    // Get current selection
+    const visibleComments = getVisibleComments(state)
+    const threads = groupIntoThreads(visibleComments)
+    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null)
+    const selectedNav = navItems[state.selectedCommentIndex]
+    
+    if (!selectedNav?.thread) {
+      return
+    }
+    
+    const thread = selectedNav.thread
+    const rootComment = thread.comments[0]
+    if (!rootComment) return
+    
+    const newResolved = !thread.resolved
+    
+    // For local-only threads (no GitHub thread ID), just update locally
+    if (!thread.githubThreadId) {
+      // Update state with new resolved value
+      state = setThreadResolved(state, rootComment.id, newResolved)
+      // Persist the change - get the updated comment from state
+      const updatedComment = state.comments.find(c => c.id === rootComment.id)
+      if (updatedComment) {
+        await saveComment(updatedComment, source)
+      }
+      render()
+      return
+    }
+    
+    // For GitHub threads, call the API
+    if (state.appMode !== "pr") {
+      return
+    }
+    
+    const result = await toggleThreadResolution(thread.githubThreadId, thread.resolved)
+    
+    if (result.success) {
+      const finalResolved = result.isResolved ?? newResolved
+      // Update local state
+      state = setThreadResolved(state, rootComment.id, finalResolved)
+      // Persist the change - get the updated comment from state
+      const updatedComment = state.comments.find(c => c.id === rootComment.id)
+      if (updatedComment) {
+        await saveComment(updatedComment, source)
+      }
+      
+      // Show toast
+      const toastMsg = finalResolved ? "Thread resolved" : "Thread reopened"
+      state = showToast(state, toastMsg, "success")
+      render()
+      
+      // Auto-clear toast after 3 seconds
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 3000)
+    } else {
+      state = showToast(state, result.error ?? "Failed to update thread", "error")
+      render()
+      
+      // Auto-clear error toast after 5 seconds
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 5000)
+    }
   }
 
   /**
@@ -1679,6 +1753,11 @@ export async function createApp(options: AppOptions = {}) {
               }
             }
           }
+          return
+        
+        case "x":
+          // x - toggle resolved state on thread
+          handleToggleThreadResolved()
           return
       }
     }

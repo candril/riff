@@ -5,6 +5,7 @@ import type { Comment } from "../types"
  */
 export interface Thread {
   id: string                    // Root comment's ID
+  githubThreadId?: string       // GitHub's node_id for GraphQL API (resolve/unresolve)
   filename: string
   line: number
   comments: Comment[]           // Root + replies, chronological order
@@ -50,10 +51,11 @@ export function groupIntoThreads(comments: Comment[]): Thread[] {
     const threadComments = collectReplies(root, replyMap)
     return {
       id: root.id,
+      githubThreadId: root.githubThreadId, // For GraphQL resolve/unresolve
       filename: root.filename,
       line: root.line,
       comments: threadComments,
-      resolved: false, // TODO: track from GitHub
+      resolved: root.isThreadResolved ?? false, // Use resolved state from root comment
     }
   })
   
