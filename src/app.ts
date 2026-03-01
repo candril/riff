@@ -401,7 +401,7 @@ export async function createApp(options: AppOptions = {}) {
         },
         // Header
         Header({
-          title: "neoriff",
+          title: "riff",
           viewMode: state.viewMode,
           selectedFile,
           totalFiles: state.files.length,
@@ -1527,9 +1527,24 @@ export async function createApp(options: AppOptions = {}) {
         case "left":
           const collapseItem = flatItems[state.treeHighlightIndex]
           if (collapseItem?.node.isDirectory && collapseItem.node.expanded) {
+            // Collapse this directory
             const newTree = toggleNodeExpansion(state.fileTree, collapseItem.node.path)
             state = updateFileTree(state, newTree)
             render()
+          } else if (collapseItem && !collapseItem.node.isDirectory) {
+            // On a file - find parent directory and collapse it
+            // Parent is the nearest directory above this item in the flat list
+            for (let i = state.treeHighlightIndex - 1; i >= 0; i--) {
+              const item = flatItems[i]
+              if (item && item.node.isDirectory && item.depth < collapseItem.depth) {
+                // Found parent directory - collapse it and move highlight to it
+                const newTree = toggleNodeExpansion(state.fileTree, item.node.path)
+                state = updateFileTree(state, newTree)
+                state = { ...state, treeHighlightIndex: i }
+                render()
+                break
+              }
+            }
           }
           return
 

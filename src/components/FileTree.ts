@@ -30,12 +30,22 @@ function getStatusIndicator(status: DiffFile["status"]): { char: string; color: 
 }
 
 /**
+ * Truncate a string to fit within maxLen, adding ellipsis if needed
+ */
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str
+  if (maxLen <= 3) return str.slice(0, maxLen)
+  return str.slice(0, maxLen - 1) + "…"
+}
+
+/**
  * Render a single tree item
  */
 function renderTreeItem(
   item: FlatTreeItem,
   isSelected: boolean,
-  isCurrent: boolean
+  isCurrent: boolean,
+  maxWidth: number
 ): ReturnType<typeof Box> {
   const { node, depth } = item
   const indent = "  ".repeat(depth)
@@ -59,6 +69,14 @@ function renderTreeItem(
 
   const bgColor = isSelected ? colors.selection : undefined
 
+  // Calculate available space for name
+  // Account for: indent + icon + status indicator (2 chars) + border (2 chars) + padding
+  const prefixLen = indent.length + icon.length
+  const suffixLen = status ? 2 : 0
+  const padding = 4  // borders and some margin
+  const availableWidth = Math.max(5, maxWidth - prefixLen - suffixLen - padding)
+  const displayName = truncate(node.name, availableWidth)
+
   // Use stable id based on path for reconciliation
   return Box(
     {
@@ -69,7 +87,7 @@ function renderTreeItem(
     },
     Text({
       id: `tree-item-text-${node.path}`,
-      content: `${indent}${icon}${node.name}`,
+      content: `${indent}${icon}${displayName}`,
       fg: nameFg,
     }),
     status
@@ -142,7 +160,7 @@ export function FileTree({
         ...flatItems.map((item, index) => {
           const isSelected = index === selectedIndex && focused
           const isCurrent = item.fileIndex === currentFileIndex
-          return renderTreeItem(item, isSelected, isCurrent)
+          return renderTreeItem(item, isSelected, isCurrent, width)
         })
       )
     )

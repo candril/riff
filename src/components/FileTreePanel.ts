@@ -36,6 +36,15 @@ function getStatusColor(status: DiffFile["status"]): string {
   }
 }
 
+/**
+ * Truncate a string to fit within maxLen, adding ellipsis if needed
+ */
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str
+  if (maxLen <= 3) return str.slice(0, maxLen)
+  return str.slice(0, maxLen - 1) + "…"
+}
+
 export class FileTreePanel {
   private renderer: CliRenderer
   private container: BoxRenderable
@@ -205,11 +214,18 @@ export class FileTreePanel {
       // Selection marker (dot when selected)
       const marker = isSelected ? "●" : " "
 
+      // Calculate available width for name
+      // Account for: marker (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      const prefixLen = 1 + indent.length + icon.length
+      const reserved = 4  // border + scrollbar + margin
+      const availableWidth = Math.max(5, this.width - prefixLen - reserved)
+      const displayName = truncate(node.name, availableWidth)
+
       // Create text - just marker, indent, icon, and name
       // No separate status indicator - color coding is sufficient
       const text = new TextRenderable(this.renderer, {
         id: `tree-item-text-${node.path}`,
-        content: `${marker}${indent}${icon}${node.name}`,
+        content: `${marker}${indent}${icon}${displayName}`,
         fg: nameFg,
       })
       box.add(text)
@@ -254,9 +270,15 @@ export class FileTreePanel {
       const bgColor = isHighlighted ? colors.selection : null
       const marker = isSelected ? "●" : " "
 
+      // Calculate available width for name
+      const prefixLen = 1 + indent.length + icon.length
+      const reserved = 4
+      const availableWidth = Math.max(5, this.width - prefixLen - reserved)
+      const displayName = truncate(node.name, availableWidth)
+
       // Update properties
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.text.content = `${marker}${indent}${icon}${node.name}`
+      renderables.text.content = `${marker}${indent}${icon}${displayName}`
       renderables.text.fg = nameFg
     }
   }

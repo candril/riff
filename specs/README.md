@@ -54,6 +54,8 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 024 | [Commit Picker](./024-commits-panel.md) | Draft | Filter diff by commit via `Ctrl+p #` and `]g`/`[g` navigation |
 | 025 | [App Modularization](./025-app-modularization.md) | Draft | Split app.ts into focused modules |
 | 026 | [Ignore Patterns](./026-ignore-patterns.md) | Draft | Hide generated/lock files from review |
+| 027 | [Leader Key](./027-leader-key.md) | Draft | Leader key for key sequences |
+| 028 | [PR Info Panel](./028-pr-info-panel.md) | Draft | Quick view of PR metadata, checks, approvals |
 
 ## MVP Path
 

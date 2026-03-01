@@ -95,7 +95,7 @@ async function main() {
       })
     }
   } catch (error) {
-    console.error("Failed to start neoriff:", error instanceof Error ? error.message : error)
+    console.error("Failed to start riff:", error instanceof Error ? error.message : error)
     process.exit(1)
   }
 }

@@ -42,6 +42,10 @@ test-watch:
 typecheck:
     bun x tsc --noEmit
 
+# Build standalone binary
+build:
+    bun build src/index.ts --compile --outfile dist/riff
+
 # Clean node_modules and reinstall
 clean:
     rm -rf node_modules bun.lock && bun install

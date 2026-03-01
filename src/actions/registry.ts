@@ -69,7 +69,7 @@ export const actions: Action[] = [
   {
     id: "quit",
     label: "Quit",
-    description: "Exit neoriff",
+    description: "Exit riff",
     shortcut: "q",
     available: () => true,
   },

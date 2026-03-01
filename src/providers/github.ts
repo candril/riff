@@ -59,7 +59,7 @@ async function safeGhCommand<T>(cmd: () => Promise<T>): Promise<T> {
       throw new Error("PR not found. Check the PR number and repository.")
     }
     if (msg.includes("not a git repository")) {
-      throw new Error("Not in a git repository. Specify full repo: neoriff gh:owner/repo#123")
+      throw new Error("Not in a git repository. Specify full repo: riff gh:owner/repo#123")
     }
 
     throw error

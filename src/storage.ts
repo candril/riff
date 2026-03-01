@@ -3,8 +3,8 @@ import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
 import { type Comment, type ReviewSession, createSession } from "./types"
 
-const LOCAL_STORAGE_DIR = ".neoriff"
-const GLOBAL_STORAGE_DIR = join(homedir(), ".neoriff")
+const LOCAL_STORAGE_DIR = ".riff"
+const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
 
@@ -64,8 +64,8 @@ async function isCurrentRepo(source: string): Promise<boolean> {
 
 /**
  * Get the base storage directory for a source.
- * - Current repo PRs/local → .neoriff/ (in repo root)
- * - Foreign repo PRs → ~/.neoriff/ (global)
+ * - Current repo PRs/local → .riff/ (in repo root)
+ * - Foreign repo PRs → ~/.riff/ (global)
  */
 async function getStorageDir(source: string): Promise<string> {
   const isLocal = await isCurrentRepo(source)
@@ -294,7 +294,7 @@ export async function updateComment(comment: Comment, source: string): Promise<v
 
 // ============================================================================
 // Session storage - JSON file (metadata only)
-// Sessions are always stored locally in .neoriff/ (not global)
+// Sessions are always stored locally in .riff/ (not global)
 // ============================================================================
 
 /**

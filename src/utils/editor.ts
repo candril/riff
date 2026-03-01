@@ -424,7 +424,7 @@ export async function openCommentEditor(
   const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
 
   // Use .md extension for markdown syntax highlighting
-  const tmpFile = join(tmpdir(), `neoriff-comment-${randomUUID()}.md`)
+  const tmpFile = join(tmpdir(), `riff-comment-${randomUUID()}.md`)
   const content = buildCommentFileContent(options)
 
   await Bun.write(tmpFile, content)

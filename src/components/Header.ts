@@ -13,7 +13,7 @@ export interface HeaderProps {
 }
 
 export function Header({
-  title = "neoriff",
+  title = "riff",
   viewMode = "diff",
   selectedFile,
   totalFiles,
