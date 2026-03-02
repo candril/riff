@@ -12,6 +12,7 @@ export interface PrInfo {
   body: string
   author: string
   state: "open" | "closed" | "merged"
+  isDraft?: boolean
   headRef: string // Branch name
   baseRef: string // Target branch (e.g., "main")
   owner: string
@@ -20,6 +21,25 @@ export interface PrInfo {
   additions: number
   deletions: number
   changedFiles: number
+  createdAt?: string
+  updatedAt?: string
+  // Extended info (loaded separately)
+  commits?: PrCommit[]
+  reviews?: PrReview[]
+  requestedReviewers?: string[]
+}
+
+export interface PrCommit {
+  sha: string        // Short SHA (7 chars)
+  message: string    // First line of commit message
+  author: string
+  date: string       // ISO date
+}
+
+export interface PrReview {
+  author: string
+  state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "PENDING" | "DISMISSED"
+  submittedAt?: string
 }
 
 export interface PrComment {
@@ -110,7 +130,7 @@ export async function getPrInfo(
   return safeGhCommand(async () => {
     const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
 
-    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,headRefName,baseRefName,url,additions,deletions,changedFiles`.json()
+    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,url,additions,deletions,changedFiles,createdAt,updatedAt`.json()
 
     // Get owner/repo if not provided
     let finalOwner = owner
@@ -127,6 +147,7 @@ export async function getPrInfo(
       body: result.body || "",
       author: result.author.login,
       state: result.state.toLowerCase() as "open" | "closed" | "merged",
+      isDraft: result.isDraft,
       headRef: result.headRefName,
       baseRef: result.baseRefName,
       owner: finalOwner!,
@@ -135,6 +156,54 @@ export async function getPrInfo(
       additions: result.additions,
       deletions: result.deletions,
       changedFiles: result.changedFiles,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+    }
+  })
+}
+
+/**
+ * Fetch extended PR info (commits, reviews, requested reviewers)
+ */
+export async function getPrExtendedInfo(
+  prNumber: number,
+  owner: string,
+  repo: string
+): Promise<{ commits: PrCommit[]; reviews: PrReview[]; requestedReviewers: string[] }> {
+  return safeGhCommand(async () => {
+    // Fetch commits, reviews, and requested reviewers in one call
+    const result = await $`gh pr view ${prNumber} -R ${owner}/${repo} --json commits,reviews,reviewRequests`.json()
+
+    const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
+      sha: c.oid.slice(0, 7),
+      message: c.messageHeadline,
+      author: c.authors?.[0]?.login || c.authors?.[0]?.name || "unknown",
+      date: c.committedDate,
+    })).reverse() // Newest first
+
+    const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
+      author: r.author?.login || "unknown",
+      state: r.state as PrReview["state"],
+      submittedAt: r.submittedAt,
+    }))
+
+    // Deduplicate reviews - keep only the latest review per author
+    const latestReviews = new Map<string, PrReview>()
+    for (const review of reviews) {
+      const existing = latestReviews.get(review.author)
+      if (!existing || (review.submittedAt && existing.submittedAt && review.submittedAt > existing.submittedAt)) {
+        latestReviews.set(review.author, review)
+      }
+    }
+
+    const requestedReviewers: string[] = (result.reviewRequests || []).map((r: any) => 
+      r.login || r.name || "unknown"
+    )
+
+    return {
+      commits,
+      reviews: Array.from(latestReviews.values()),
+      requestedReviewers,
     }
   })
 }

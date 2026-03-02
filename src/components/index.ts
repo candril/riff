@@ -16,3 +16,4 @@ export { ReviewPreview, type ReviewPreviewProps, type ValidatedComment, type Rev
 export { Toast, type ToastProps, type ToastType } from "./Toast"
 export { FilePicker, type FilePickerProps, type FilteredFile } from "./FilePicker"
 export { SyncPreview, type SyncPreviewProps, type SyncItem, gatherSyncItems } from "./SyncPreview"
+export { PRInfoPanelClass } from "./PRInfoPanel"

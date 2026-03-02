@@ -30,7 +30,7 @@ export interface FileContentCache {
 /**
  * Review preview section (tab navigation)
  */
-export type ReviewPreviewSection = "input" | "type" | "comments" | "submit"
+export type ReviewPreviewSection = "input" | "comments"
 
 /**
  * Review preview state
@@ -79,6 +79,16 @@ export interface FilePickerState {
   query: string
   /** Currently selected index */
   selectedIndex: number
+}
+
+/**
+ * PR info panel state
+ */
+export interface PRInfoPanelState {
+  open: boolean
+  scrollOffset: number
+  loading: boolean
+  cursorIndex: number  // Currently selected item (0 = first commit)
 }
 
 /**
@@ -146,6 +156,9 @@ export interface AppState {
   
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
+  
+  // PR info panel state
+  prInfoPanel: PRInfoPanelState
 }
 
 /**
@@ -211,6 +224,12 @@ export function createInitialState(
       selectedIndex: 0,
     },
     fileStatuses: new Map(),
+    prInfoPanel: {
+      open: false,
+      scrollOffset: 0,
+      loading: false,
+      cursorIndex: 0,
+    },
   }
 }
 
@@ -802,33 +821,29 @@ export function moveReviewHighlight(state: AppState, delta: number, maxIndex: nu
 }
 
 /**
- * Move to next section in review preview (Tab)
+ * Toggle between input and comments section (Tab)
  */
-export function nextReviewSection(state: AppState): AppState {
-  const sections: ReviewPreviewSection[] = ["input", "type", "comments", "submit"]
-  const currentIndex = sections.indexOf(state.reviewPreview.focusedSection)
-  const nextIndex = (currentIndex + 1) % sections.length
+export function toggleReviewSection(state: AppState): AppState {
+  const newSection: ReviewPreviewSection = 
+    state.reviewPreview.focusedSection === "input" ? "comments" : "input"
   return {
     ...state,
     reviewPreview: {
       ...state.reviewPreview,
-      focusedSection: sections[nextIndex]!,
+      focusedSection: newSection,
     },
   }
 }
 
 /**
- * Move to previous section in review preview (Shift+Tab)
+ * Set review event type directly
  */
-export function prevReviewSection(state: AppState): AppState {
-  const sections: ReviewPreviewSection[] = ["input", "type", "comments", "submit"]
-  const currentIndex = sections.indexOf(state.reviewPreview.focusedSection)
-  const prevIndex = (currentIndex - 1 + sections.length) % sections.length
+export function setReviewEvent(state: AppState, event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES"): AppState {
   return {
     ...state,
     reviewPreview: {
       ...state.reviewPreview,
-      focusedSection: sections[prevIndex]!,
+      selectedEvent: event,
     },
   }
 }
@@ -1021,5 +1036,77 @@ export function loadFileStatuses(state: AppState, statuses: FileReviewStatus[]):
   return {
     ...state,
     fileStatuses: newStatuses,
+  }
+}
+
+// ============================================================================
+// PR Info Panel State
+// ============================================================================
+
+/**
+ * Open the PR info panel
+ */
+export function openPRInfoPanel(state: AppState): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      open: true,
+      scrollOffset: 0,
+      loading: true,
+      cursorIndex: 0,
+    },
+  }
+}
+
+/**
+ * Set PR info panel loading state
+ */
+export function setPRInfoPanelLoading(state: AppState, loading: boolean): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      loading,
+    },
+  }
+}
+
+/**
+ * Close the PR info panel
+ */
+export function closePRInfoPanel(state: AppState): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      open: false,
+    },
+  }
+}
+
+/**
+ * Scroll the PR info panel
+ */
+export function scrollPRInfoPanel(state: AppState, delta: number): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      scrollOffset: Math.max(0, state.prInfoPanel.scrollOffset + delta),
+    },
+  }
+}
+
+/**
+ * Move the cursor in the PR info panel
+ */
+export function movePRInfoPanelCursor(state: AppState, delta: number, maxIndex: number): AppState {
+  const newIndex = Math.max(0, Math.min(maxIndex, state.prInfoPanel.cursorIndex + delta))
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      cursorIndex: newIndex,
+    },
   }
 }

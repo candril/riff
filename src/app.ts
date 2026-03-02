@@ -1,6 +1,6 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems, PRInfoPanelClass } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -14,6 +14,7 @@ import {
   submitReview,
   updateComment,
   toggleThreadResolution,
+  getPrExtendedInfo,
   type SubmitResult,
 } from "./providers/github"
 import { parseDiff, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
@@ -46,8 +47,8 @@ import {
   setReviewPreviewError,
   toggleReviewComment,
   moveReviewHighlight,
-  nextReviewSection,
-  prevReviewSection,
+  toggleReviewSection,
+  setReviewEvent,
   setReviewBody,
   showToast,
   clearToast,
@@ -63,6 +64,9 @@ import {
   isFileViewed,
   getReviewProgress,
   loadFileStatuses,
+  openPRInfoPanel,
+  closePRInfoPanel,
+  setPRInfoPanelLoading,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
@@ -201,11 +205,15 @@ export async function createApp(options: AppOptions = {}) {
   // Create CommentsViewPanel (class-based to avoid flicker)
   const commentsViewPanel = new CommentsViewPanel({ renderer })
   
-  // ReviewPreview is now functional, no instance needed
+  // PR Info Panel (created on demand when opened)
+  let prInfoPanel: PRInfoPanelClass | null = null
 
   // Post-process function for action menu and file picker cursor
   renderer.addPostProcessFn(() => {
-    if (state.actionMenu.open) {
+    if (state.prInfoPanel.open) {
+      // Hide cursor when PR info panel is open
+      renderer.setCursorPosition(0, 0, false)
+    } else if (state.actionMenu.open) {
       // Find the search box and position cursor there
       const searchBox = renderer.root.findDescendantById("action-menu-search") as any
       if (searchBox) {
@@ -415,8 +423,12 @@ export async function createApp(options: AppOptions = {}) {
       ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
       : availableActions
 
-    // Get filtered files for file picker
-    const allFiles: FilteredFile[] = state.files.map((file, index) => ({ file, index }))
+    // Get filtered files for file picker (with viewed status and comment counts)
+    const allFiles: FilteredFile[] = state.files.map((file, index) => {
+      const viewed = state.fileStatuses.get(file.filename)?.viewed ?? false
+      const commentCount = state.comments.filter(c => c.filename === file.filename).length
+      return { file, index, viewed, commentCount }
+    })
     const filteredFiles = state.filePicker.query
       ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
       : allFiles
@@ -493,7 +505,9 @@ export async function createApp(options: AppOptions = {}) {
               files: filteredFiles,
               selectedIndex: state.filePicker.selectedIndex,
             })
-          : null
+          : null,
+
+        // PR info panel is managed imperatively (see below)
       )
     )
 
@@ -508,6 +522,17 @@ export async function createApp(options: AppOptions = {}) {
           contentRow.add(fileTreePanel.getContainer())
         }
       }
+    }
+    
+    // Add PR info panel overlay if open
+    if (state.prInfoPanel.open && prInfoPanel) {
+      if (!prInfoPanel.getContainer().parent) {
+        renderer.root.add(prInfoPanel.getContainer())
+      }
+    } else if (prInfoPanel && prInfoPanel.getContainer().parent) {
+      // Remove panel if it was open but now closed
+      prInfoPanel.destroy()
+      prInfoPanel = null
     }
   }
 
@@ -618,15 +643,44 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
+   * Find the visual line where a file starts in the diff
+   */
+  function findFileStartLine(filename: string): number | null {
+    for (let i = 0; i < lineMapping.lineCount; i++) {
+      const line = lineMapping.getLine(i)
+      if (line?.type === "file-header" && line.filename === filename) {
+        return i
+      }
+    }
+    return null
+  }
+
+  /**
    * Navigate to next/previous unviewed file.
+   * In all-files view: scrolls to the file
+   * In single-file view: selects the file
    */
   function navigateToUnviewedFile(direction: 1 | -1): void {
     const treeOrder = getFilesInTreeOrder()
     if (treeOrder.length === 0) return
 
-    // Find starting position
-    const startPos = state.selectedFileIndex !== null 
-      ? treeOrder.indexOf(state.selectedFileIndex)
+    const inAllFilesView = state.selectedFileIndex === null
+
+    // Find current file
+    let currentFilename: string | null = null
+    if (inAllFilesView) {
+      const line = lineMapping.getLine(vimState.line)
+      currentFilename = line?.filename ?? null
+    } else {
+      currentFilename = state.files[state.selectedFileIndex!]?.filename ?? null
+    }
+
+    // Find starting position in tree order
+    const currentFileIndex = currentFilename 
+      ? state.files.findIndex(f => f.filename === currentFilename)
+      : -1
+    const startPos = currentFileIndex !== -1 
+      ? treeOrder.indexOf(currentFileIndex)
       : (direction === 1 ? -1 : treeOrder.length)
 
     // Search in the given direction
@@ -638,17 +692,28 @@ export async function createApp(options: AppOptions = {}) {
       const file = state.files[fileIndex]
       
       if (file && !isFileViewed(state, file.filename)) {
-        state = selectFile(state, fileIndex)
+        if (inAllFilesView) {
+          // In all-files view: scroll to the file without selecting
+          const targetLine = findFileStartLine(file.filename)
+          if (targetLine !== null) {
+            vimState = { ...vimState, line: targetLine }
+            vimDiffView.updateCursor(vimState)
+            ensureCursorVisible()
+          }
+        } else {
+          // In single-file view: select the file
+          state = selectFile(state, fileIndex)
+          vimState = createCursorState()
+          lineMapping = createLineMapping()
+        }
         
+        // Update tree highlight
         const flatItems = getFlatTreeItems(state.fileTree, state.files)
         const treeIndex = flatItems.findIndex(item => item.fileIndex === fileIndex)
         if (treeIndex !== -1) {
           state = { ...state, treeHighlightIndex: treeIndex }
         }
         
-        // Reset vim cursor and rebuild line mapping
-        vimState = createCursorState()
-        lineMapping = createLineMapping()
         render()
         setTimeout(() => {
           render()
@@ -1093,6 +1158,50 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
+   * Open the PR info panel (gi) and load extended info
+   */
+  async function handleOpenPRInfoPanel(): Promise<void> {
+    if (state.appMode !== "pr" || !state.prInfo) {
+      return
+    }
+    
+    const prInfo = state.prInfo
+    state = openPRInfoPanel(state)
+    
+    // Load extended info (commits, reviews) first, then create panel
+    try {
+      const { owner, repo, number: prNumber } = prInfo
+      const extendedInfo = await getPrExtendedInfo(prNumber, owner, repo)
+      
+      // Update prInfo with extended data
+      const updatedPrInfo = {
+        ...state.prInfo!,
+        commits: extendedInfo.commits,
+        reviews: extendedInfo.reviews,
+        requestedReviewers: extendedInfo.requestedReviewers,
+      }
+      
+      state = {
+        ...state,
+        prInfo: updatedPrInfo,
+        prInfoPanel: {
+          ...state.prInfoPanel,
+          loading: false,
+        },
+      }
+      
+      // Create the panel instance with the updated prInfo
+      prInfoPanel = new PRInfoPanelClass(renderer, updatedPrInfo)
+      render()
+    } catch (error) {
+      // Still show panel with basic info
+      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo!)
+      state = setPRInfoPanelLoading(state, false)
+      render()
+    }
+  }
+
+  /**
    * Execute the sync operation
    */
   async function handleExecuteSync(): Promise<void> {
@@ -1291,11 +1400,16 @@ export async function createApp(options: AppOptions = {}) {
       .filter(vc => vc.valid)
       .map(vc => vc.comment)
     
-    if (localComments.length === 0) {
+    const reviewEvent = state.reviewPreview.selectedEvent
+    const hasBody = state.reviewPreview.body.trim().length > 0
+    
+    // For APPROVE, we don't need comments or body
+    // For COMMENT or REQUEST_CHANGES, we need at least comments or body
+    if (localComments.length === 0 && reviewEvent !== "APPROVE" && !hasBody) {
       const invalidCount = validatedComments.filter(vc => !vc.valid).length
       const msg = invalidCount > 0 
         ? `No valid comments to submit (${invalidCount} skipped - not in diff)`
-        : "No comments selected to submit"
+        : "Add a comment or summary to submit"
       state = setReviewPreviewError(state, msg)
       render()
       return
@@ -1434,6 +1548,11 @@ export async function createApp(options: AppOptions = {}) {
           Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
         }
         break
+      case "pr-info":
+        if (state.prInfo) {
+          handleOpenPRInfoPanel()
+        }
+        break
     }
   }
 
@@ -1518,7 +1637,11 @@ export async function createApp(options: AppOptions = {}) {
     
     // ========== FILE PICKER (captures all input when open) ==========
     if (state.filePicker.open) {
-      const allFiles: FilteredFile[] = state.files.map((file, index) => ({ file, index }))
+      const allFiles: FilteredFile[] = state.files.map((file, index) => {
+        const viewed = state.fileStatuses.get(file.filename)?.viewed ?? false
+        const commentCount = state.comments.filter(c => c.filename === file.filename).length
+        return { file, index, viewed, commentCount }
+      })
       const filteredFiles = state.filePicker.query
         ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
         : allFiles
@@ -1593,6 +1716,92 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
     
+    // ========== PR INFO PANEL (captures all input when open) ==========
+    if (state.prInfoPanel.open) {
+      switch (key.name) {
+        case "escape":
+        case "q":
+          state = closePRInfoPanel(state)
+          render()
+          return
+        case "o":
+          // Open PR in browser
+          if (state.prInfo) {
+            Bun.spawn(["open", state.prInfo.url])
+          }
+          return
+        case "y": {
+          // y: Copy selected commit SHA, Y: Copy PR URL
+          if (state.prInfo) {
+            if (key.shift) {
+              // Y = copy PR URL
+              Bun.spawn(["sh", "-c", `echo -n "${state.prInfo.url}" | pbcopy`])
+              state = showToast(state, "PR URL copied", "success")
+            } else {
+              // y = copy selected commit SHA
+              const commit = prInfoPanel?.getSelectedCommit()
+              if (commit) {
+                Bun.spawn(["sh", "-c", `echo -n "${commit.sha}" | pbcopy`])
+                state = showToast(state, `Copied ${commit.sha.slice(0, 8)}`, "success")
+              }
+            }
+            render()
+            setTimeout(() => {
+              state = clearToast(state)
+              render()
+            }, 2000)
+          }
+          return
+        }
+        case "j":
+        case "down": {
+          // Move cursor down in commit list (no re-render needed)
+          if (prInfoPanel) {
+            prInfoPanel.moveCursor(1)
+          }
+          return
+        }
+        case "k":
+        case "up": {
+          // Move cursor up in commit list (no re-render needed)
+          if (prInfoPanel) {
+            prInfoPanel.moveCursor(-1)
+          }
+          return
+        }
+        case "d": {
+          // Ctrl+d: page down
+          if (key.ctrl && prInfoPanel) {
+            prInfoPanel.getScrollBox().scrollBy(10)
+          }
+          return
+        }
+        case "u": {
+          // Ctrl+u: page up
+          if (key.ctrl && prInfoPanel) {
+            prInfoPanel.getScrollBox().scrollBy(-10)
+          }
+          return
+        }
+        case "g": {
+          // gg: scroll to top, G: scroll to bottom
+          if (prInfoPanel) {
+            const scrollBox = prInfoPanel.getScrollBox()
+            if (key.shift) {
+              // G = scroll to bottom
+              scrollBox.scrollTo(scrollBox.scrollHeight)
+            } else {
+              // g = scroll to top (simplified, no gg detection)
+              scrollBox.scrollTo(0)
+            }
+          }
+          return
+        }
+      }
+      // Capture all other keys
+      return
+    }
+    
     // ========== SYNC PREVIEW (captures all input when open) ==========
     if (state.syncPreview.open) {
       // Escape closes
@@ -1619,10 +1828,12 @@ export async function createApp(options: AppOptions = {}) {
     
     // ========== REVIEW PREVIEW (captures all input when open) ==========
     // Tab-based navigation through 4 sections:
-    // 1. Input - type summary/body
-    // 2. Type - h/l to pick Comment/Approve/Request Changes
-    // 3. Comments - j/k navigate, space toggle
-    // 4. Submit - Enter to submit
+    // Simplified review preview:
+    // - 1/2/3: Select review type (Comment/Approve/Request Changes)
+    // - Tab: Toggle between summary input and comments list
+    // - Ctrl+Enter: Submit
+    // - j/k: Navigate comments (when in comments section)
+    // - Space: Toggle comment selection (when in comments section)
     if (state.reviewPreview.open) {
       const validatedComments = validateCommentsForSubmit(
         state.comments.filter(c => c.status === "local" && !c.inReplyTo)
@@ -1639,93 +1850,82 @@ export async function createApp(options: AppOptions = {}) {
         return
       }
       
-      // Tab moves to next section
-      if (key.name === "tab" && !key.shift) {
-        state = nextReviewSection(state)
+      // Enter submits
+      if (key.name === "return" || key.name === "enter") {
+        if (!state.reviewPreview.loading && canSubmit(state.reviewPreview, includedCount, isOwn)) {
+          handleConfirmReview()
+        }
+        return
+      }
+      
+      // 1/2/3 select review type (works in any section)
+      if (key.name === "1") {
+        state = setReviewEvent(state, "COMMENT")
+        render()
+        return
+      }
+      if (key.name === "2") {
+        state = setReviewEvent(state, "APPROVE")
+        render()
+        return
+      }
+      if (key.name === "3") {
+        state = setReviewEvent(state, "REQUEST_CHANGES")
         render()
         return
       }
       
-      // Shift+Tab moves to previous section
-      if (key.name === "tab" && key.shift) {
-        state = prevReviewSection(state)
+      // Tab toggles between input and comments
+      if (key.name === "tab") {
+        state = toggleReviewSection(state)
         render()
         return
       }
       
       // Section-specific key handling
-      switch (section) {
-        case "input":
-          // Enter adds newline
-          if (key.name === "return" || key.name === "enter") {
-            state = setReviewBody(state, state.reviewPreview.body + "\n")
+      if (section === "input") {
+        // Ctrl+j adds newline
+        if (key.name === "j" && key.ctrl) {
+          state = setReviewBody(state, state.reviewPreview.body + "\n")
+          render()
+          return
+        }
+        // Backspace removes last character
+        if (key.name === "backspace") {
+          if (state.reviewPreview.body.length > 0) {
+            state = setReviewBody(state, state.reviewPreview.body.slice(0, -1))
             render()
-            return
           }
-          // Backspace removes last character
-          if (key.name === "backspace") {
-            if (state.reviewPreview.body.length > 0) {
-              state = setReviewBody(state, state.reviewPreview.body.slice(0, -1))
-              render()
-            }
-            return
-          }
-          // Type characters
-          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-            state = setReviewBody(state, state.reviewPreview.body + key.sequence)
+          return
+        }
+        // Type characters (but not 1/2/3 which select type)
+        if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+          state = setReviewBody(state, state.reviewPreview.body + key.sequence)
+          render()
+          return
+        }
+      } else if (section === "comments") {
+        // j/down = next comment
+        if (key.name === "j" || key.name === "down") {
+          state = moveReviewHighlight(state, 1, validComments.length - 1)
+          render()
+          return
+        }
+        // k/up = previous comment
+        if (key.name === "k" || key.name === "up") {
+          state = moveReviewHighlight(state, -1, validComments.length - 1)
+          render()
+          return
+        }
+        // Space toggles selection
+        if (key.name === "space") {
+          const highlightedComment = validComments[state.reviewPreview.highlightedIndex]
+          if (highlightedComment) {
+            state = toggleReviewComment(state, highlightedComment.comment.id)
             render()
-            return
           }
-          break
-          
-        case "type":
-          // h/left = previous type
-          if (key.name === "h" || key.name === "left") {
-            state = cycleReviewEvent(state, -1)
-            render()
-            return
-          }
-          // l/right = next type
-          if (key.name === "l" || key.name === "right") {
-            state = cycleReviewEvent(state, 1)
-            render()
-            return
-          }
-          break
-          
-        case "comments":
-          // j/down = next comment
-          if (key.name === "j" || key.name === "down") {
-            state = moveReviewHighlight(state, 1, validComments.length - 1)
-            render()
-            return
-          }
-          // k/up = previous comment
-          if (key.name === "k" || key.name === "up") {
-            state = moveReviewHighlight(state, -1, validComments.length - 1)
-            render()
-            return
-          }
-          // Space toggles selection
-          if (key.name === "space") {
-            const highlightedComment = validComments[state.reviewPreview.highlightedIndex]
-            if (highlightedComment) {
-              state = toggleReviewComment(state, highlightedComment.comment.id)
-              render()
-            }
-            return
-          }
-          break
-          
-        case "submit":
-          // Enter submits
-          if (key.name === "return" || key.name === "enter") {
-            if (!state.reviewPreview.loading && canSubmit(state.reviewPreview, includedCount, isOwn)) {
-              handleConfirmReview()
-            }
-            return
-          }
-          break
+          return
+        }
       }
       
       // Capture all other keys (don't let them escape to normal mode)
@@ -1826,6 +2026,12 @@ export async function createApp(options: AppOptions = {}) {
         if (state.appMode === "pr" && state.prInfo) {
           const { owner, repo, number: prNumber } = state.prInfo
           Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
+        }
+        return
+      } else if (sequence === "gi") {
+        // gi - open PR info panel
+        if (state.appMode === "pr" && state.prInfo) {
+          handleOpenPRInfoPanel()
         }
         return
       }
@@ -1955,18 +2161,26 @@ export async function createApp(options: AppOptions = {}) {
       
       switch (key.name) {
         case "j":
-        case "down":
+        case "down": {
+          const oldIndex = state.selectedCommentIndex
           state = moveCommentSelection(state, 1, navItems.length - 1)
+          if (state.selectedCommentIndex !== oldIndex) {
+            commentsViewPanel.scrollBy(1)
+          }
           render()
-          commentsViewPanel.ensureSelectedVisible(state.selectedCommentIndex)
           return
+        }
 
         case "k":
-        case "up":
+        case "up": {
+          const oldIndex = state.selectedCommentIndex
           state = moveCommentSelection(state, -1, navItems.length - 1)
+          if (state.selectedCommentIndex !== oldIndex) {
+            commentsViewPanel.scrollBy(-1)
+          }
           render()
-          commentsViewPanel.ensureSelectedVisible(state.selectedCommentIndex)
           return
+        }
         
         case "d":
           // Ctrl+d: scroll down half page

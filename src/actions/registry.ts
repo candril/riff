@@ -20,12 +20,10 @@ export const actions: Action[] = [
   {
     id: "submit-review",
     label: "Submit Review",
-    description: "Submit all local comments as a review",
+    description: "Submit review (approve, request changes, or comment)",
     shortcut: "gS",
     category: "github",
-    available: (state) => 
-      state.appMode === "pr" && 
-      state.comments.some(c => c.status === "local" && !c.inReplyTo),
+    available: (state) => state.appMode === "pr",
   },
   {
     id: "sync-changes",
@@ -73,6 +71,14 @@ export const actions: Action[] = [
     label: "Open in Browser",
     description: "Open PR in web browser",
     shortcut: "go",
+    category: "github",
+    available: (state) => state.appMode === "pr",
+  },
+  {
+    id: "pr-info",
+    label: "PR Info",
+    description: "Show PR details, author, branch info",
+    shortcut: "gi",
     category: "github",
     available: (state) => state.appMode === "pr",
   },

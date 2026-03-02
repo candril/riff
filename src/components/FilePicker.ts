@@ -12,6 +12,8 @@ export interface FilePickerProps {
 export interface FilteredFile {
   file: DiffFile
   index: number  // Original index in files array
+  viewed?: boolean  // Whether file has been marked as viewed
+  commentCount?: number  // Number of comments on this file
 }
 
 /**
@@ -80,7 +82,9 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
         ...files.slice(0, 15).map((item, i) => 
           FileRow({ 
             file: item.file, 
-            selected: i === selectedIndex 
+            selected: i === selectedIndex,
+            viewed: item.viewed,
+            commentCount: item.commentCount,
           })
         ),
         // Show count if more files
@@ -110,13 +114,16 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
 interface FileRowProps {
   file: DiffFile
   selected: boolean
+  viewed?: boolean
+  commentCount?: number
 }
 
-function FileRow({ file, selected }: FileRowProps) {
+function FileRow({ file, selected, viewed, commentCount }: FileRowProps) {
   const bg = selected ? "#585b70" : undefined  // surface2 for selection
-  // Use file type color, or default colors
+  // Use file type color, or default colors - dimmed if viewed
   const fileColor = getFileColor(file.filename)
-  const fg = selected ? theme.text : (fileColor || theme.subtext1)
+  const baseFg = selected ? theme.text : (fileColor || theme.subtext1)
+  const fg = viewed && !selected ? theme.overlay0 : baseFg
   
   // Format additions/deletions
   const stats = `+${file.additions} -${file.deletions}`
@@ -130,7 +137,21 @@ function FileRow({ file, selected }: FileRowProps) {
       paddingX: 2,
       width: "100%",
     },
-    Text({ content: file.filename, fg }),
-    Text({ content: stats, fg: statsFg })
+    // Left side: filename with optional viewed indicator
+    Box(
+      { flexDirection: "row", flexGrow: 1 },
+      viewed 
+        ? Text({ content: "✓ ", fg: theme.green })
+        : null,
+      Text({ content: file.filename, fg })
+    ),
+    // Right side: comment count and stats
+    Box(
+      { flexDirection: "row" },
+      commentCount && commentCount > 0
+        ? Text({ content: `${commentCount} `, fg: theme.blue })
+        : null,
+      Text({ content: stats, fg: statsFg })
+    )
   )
 }

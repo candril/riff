@@ -80,27 +80,22 @@ function getStatusColor(status: Comment["status"]): string {
 }
 
 /**
- * Extract context lines from a diff hunk.
- * Returns up to maxLines of relevant context, preserving diff markers.
+ * Format a relative time string
  */
-function extractContextLines(diffHunk: string | undefined, maxLines: number = 3): string[] {
-  if (!diffHunk) return []
-  
-  // Split and filter empty lines, skip the @@ header
-  const lines = diffHunk.split("\n").filter(l => l.trim() && !l.startsWith("@@"))
-  if (lines.length === 0) return []
-  
-  // Take the last N lines (most relevant to the comment)
-  return lines.slice(-maxLines)
-}
+function formatTimeAgo(isoDate: string): string {
+  const date = new Date(isoDate)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
 
-/**
- * Get diff line color based on prefix
- */
-function getDiffLineColor(line: string): string {
-  if (line.startsWith("+")) return colors.addedFg
-  if (line.startsWith("-")) return colors.removedFg
-  return theme.overlay0
+  if (diffMins < 1) return "now"
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 export class CommentsViewPanel {
@@ -182,30 +177,32 @@ export class CommentsViewPanel {
   }
 
   /**
+   * Scroll by a number of "lines" (approximate item heights)
+   */
+  scrollBy(lines: number): void {
+    const lineHeight = 4  // Approximate height of a comment item
+    this.scrollBox.scrollBy(lines * lineHeight)
+  }
+  
+  /**
    * Scroll to ensure the selected item is visible.
-   * Call this after updating selection.
    */
   ensureSelectedVisible(selectedIndex: number): void {
-    // Try to find the actual rendered item
-    const itemId = `comment-nav-${selectedIndex}`
-    const item = this.content.getChildren().find(c => c.id === itemId) as BoxRenderable | undefined
+    // Each comment nav item is roughly 3-5 lines tall
+    // Use a simple heuristic: scroll so selection is near top third of viewport
+    const estimatedItemHeight = 4
+    const estimatedPosition = selectedIndex * estimatedItemHeight
     
-    if (item) {
-      // Use actual item position and height
-      const itemY = item.y
-      const itemHeight = item.height || 4
-      
-      const scrollTop = this.scrollBox.scrollTop
-      const viewportHeight = Math.floor(this.scrollBox.height || 20)
-      const margin = 1
-      
-      if (itemY < scrollTop + margin) {
-        // Item is above viewport
-        this.scrollBox.scrollTop = Math.max(0, itemY - margin)
-      } else if (itemY + itemHeight > scrollTop + viewportHeight - margin) {
-        // Item is below viewport
-        this.scrollBox.scrollTop = itemY + itemHeight - viewportHeight + margin
-      }
+    const scrollTop = this.scrollBox.scrollTop
+    const viewportHeight = Math.floor(this.scrollBox.height || 20)
+    const margin = estimatedItemHeight * 2
+    
+    if (estimatedPosition < scrollTop + margin) {
+      // Above viewport - scroll up
+      this.scrollBox.scrollTop = Math.max(0, estimatedPosition - margin)
+    } else if (estimatedPosition > scrollTop + viewportHeight - margin) {
+      // Below viewport - scroll down  
+      this.scrollBox.scrollTop = estimatedPosition - viewportHeight + margin
     }
   }
 
@@ -377,6 +374,12 @@ export class CommentsViewPanel {
       fg: theme.blue,
     }))
 
+    // Timestamp
+    box.add(new TextRenderable(this.renderer, {
+      content: ` ${formatTimeAgo(comment.createdAt)}`,
+      fg: theme.overlay0,
+    }))
+
     // Truncated body preview (first ~40 chars)
     const preview = comment.body.replace(/\n/g, " ").slice(0, 40)
     const truncated = comment.body.length > 40 ? preview + "..." : preview
@@ -423,10 +426,6 @@ export class CommentsViewPanel {
     const headerIndent = indent > 0 ? "  └ " : ""
     const bodyIndent = indent > 0 ? (isLastInThread ? "    " : "  │ ") : ""
 
-    // Extract context lines from diff hunk (for root comments only)
-    const contextLines = isRoot ? extractContextLines(comment.diffHunk, 3) : []
-    const hasContext = contextLines.length > 0
-
     const box = new BoxRenderable(this.renderer, {
       id: `comment-nav-${index}`,
       width: "100%",
@@ -435,35 +434,6 @@ export class CommentsViewPanel {
       paddingTop: isRoot ? 1 : 0,
       paddingBottom: 1,
     })
-
-    // Code context block (for root comments with diff context)
-    if (isRoot && hasContext) {
-      const contextWrapper = new BoxRenderable(this.renderer, {
-        width: "100%",
-        paddingLeft: 2,
-      })
-      const contextBlock = new BoxRenderable(this.renderer, {
-        width: "100%",
-        flexDirection: "column",
-        backgroundColor: theme.surface0,
-        paddingX: 1,
-        paddingY: 0,
-        marginBottom: 1,
-      })
-      for (const line of contextLines) {
-        const lineBox = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          width: "100%",
-        })
-        lineBox.add(new TextRenderable(this.renderer, {
-          content: line,
-          fg: getDiffLineColor(line),
-        }))
-        contextBlock.add(lineBox)
-      }
-      contextWrapper.add(contextBlock)
-      box.add(contextWrapper)
-    }
 
     // Header line: marker, indent, author, status (and line number if no context)
     const headerRow = new BoxRenderable(this.renderer, {
@@ -478,8 +448,8 @@ export class CommentsViewPanel {
       content: headerIndent,
       fg: colors.textDim,
     }))
-    // Show line number only if no context available
-    if (isRoot && !hasContext) {
+    // Show line number for root comments
+    if (isRoot) {
       headerRow.add(new TextRenderable(this.renderer, {
         content: `L${comment.line} `,
         fg: theme.yellow,
@@ -488,6 +458,11 @@ export class CommentsViewPanel {
     headerRow.add(new TextRenderable(this.renderer, {
       content: `@${author}`,
       fg: theme.blue,
+    }))
+    // Timestamp
+    headerRow.add(new TextRenderable(this.renderer, {
+      content: ` ${formatTimeAgo(comment.createdAt)}`,
+      fg: theme.overlay0,
     }))
     headerRow.add(new TextRenderable(this.renderer, {
       content: ` [${comment.status}]`,
