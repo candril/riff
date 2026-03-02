@@ -34,7 +34,7 @@ let sharedSyntaxStyle: SyntaxStyle | null = null
 function getSyntaxStyle(): SyntaxStyle {
   if (!sharedSyntaxStyle) {
     sharedSyntaxStyle = SyntaxStyle.fromStyles({
-      // Diff-specific syntax highlighting
+      // Code syntax highlighting
       keyword: { fg: RGBA.fromHex(theme.mauve) },
       string: { fg: RGBA.fromHex(theme.green) },
       number: { fg: RGBA.fromHex(theme.peach) },
@@ -46,6 +46,26 @@ function getSyntaxStyle(): SyntaxStyle {
       punctuation: { fg: RGBA.fromHex(theme.overlay2) },
       property: { fg: RGBA.fromHex(theme.lavender) },
       constant: { fg: RGBA.fromHex(theme.peach) },
+      
+      // Markdown syntax highlighting
+      "markup.heading": { fg: RGBA.fromHex(theme.red), bold: true },
+      "markup.heading.1": { fg: RGBA.fromHex(theme.red), bold: true },
+      "markup.heading.2": { fg: RGBA.fromHex(theme.peach), bold: true },
+      "markup.heading.3": { fg: RGBA.fromHex(theme.yellow), bold: true },
+      "markup.heading.4": { fg: RGBA.fromHex(theme.green), bold: true },
+      "markup.heading.5": { fg: RGBA.fromHex(theme.blue), bold: true },
+      "markup.heading.6": { fg: RGBA.fromHex(theme.mauve), bold: true },
+      "markup.strong": { fg: RGBA.fromHex(theme.text), bold: true },
+      "markup.italic": { fg: RGBA.fromHex(theme.text), italic: true },
+      "markup.strikethrough": { fg: RGBA.fromHex(theme.overlay0) },
+      "markup.link": { fg: RGBA.fromHex(theme.blue) },
+      "markup.link.url": { fg: RGBA.fromHex(theme.blue), underline: true },
+      "markup.link.label": { fg: RGBA.fromHex(theme.lavender) },
+      "markup.raw": { fg: RGBA.fromHex(theme.green) },
+      "markup.raw.inline": { fg: RGBA.fromHex(theme.green) },
+      "markup.raw.block": { fg: RGBA.fromHex(theme.green) },
+      "markup.list": { fg: RGBA.fromHex(theme.blue) },
+      "markup.quote": { fg: RGBA.fromHex(theme.overlay1), italic: true },
     })
   }
   return sharedSyntaxStyle
@@ -53,6 +73,46 @@ function getSyntaxStyle(): SyntaxStyle {
 
 // Default background color (must provide both gutter and content to avoid Bun crash)
 const defaultBg = theme.base
+
+/**
+ * Represents a file section in all-files mode
+ * Each section gets its own CodeRenderable for proper syntax highlighting
+ */
+interface FileSection {
+  fileIndex: number
+  filename: string
+  filetype: string | undefined
+  startLine: number  // global visual line index (inclusive)
+  endLine: number    // global visual line index (inclusive)
+  lineCount: number  // number of lines in this section (content only, excludes header)
+  additions: number
+  deletions: number
+}
+
+/**
+ * Create a styled file header component
+ * Clean, minimal design matching ReviewPreview style
+ * Uses minWidth: "100%" to ensure all headers stretch to full width
+ */
+function FileHeader(props: { filename: string; additions: number; deletions: number }): ReturnType<typeof Box> {
+  const { filename, additions, deletions } = props
+  
+  return Box(
+    {
+      minWidth: "100%",
+      height: 1,
+      flexDirection: "row",
+      backgroundColor: theme.surface0,
+      paddingX: 1,
+      gap: 1,
+    },
+    // Filename
+    Text({ content: filename, fg: theme.blue }),
+    // Stats
+    Text({ content: `+${additions}`, fg: theme.green }),
+    Text({ content: `-${deletions}`, fg: theme.red }),
+  )
+}
 
 export interface VimDiffViewOptions {
   renderer: CliRenderer
@@ -88,6 +148,11 @@ export class VimDiffView {
   
   // Visibility state - when false, hide cursor
   private visible: boolean = true
+  
+  // File sections for all-files mode (multi-renderable architecture)
+  private fileSections: FileSection[] = []
+  // Map of section index -> renderables
+  private sectionRenderables: Map<number, { lineNumber: LineNumberRenderable; code: CodeRenderable }> = new Map()
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -187,13 +252,63 @@ export class VimDiffView {
   }
 
   /**
+   * Build file sections from line mapping (for all-files mode)
+   * Groups consecutive lines by fileIndex into sections
+   */
+  private buildFileSections(): FileSection[] {
+    if (!this.lineMapping) return []
+    
+    const sections: FileSection[] = []
+    let currentSection: FileSection | null = null
+    
+    for (let i = 0; i < this.lineMapping.lineCount; i++) {
+      const line = this.lineMapping.getLine(i)
+      if (!line) continue
+      
+      // File header marks the start of a new section
+      if (line.type === "file-header" && line.fileIndex !== undefined && line.filename) {
+        // Save previous section
+        if (currentSection) {
+          currentSection.endLine = i - 1
+          currentSection.lineCount = currentSection.endLine - currentSection.startLine
+          sections.push(currentSection)
+        }
+        
+        // Start new section (content starts after the header)
+        const file = this.files[line.fileIndex]
+        currentSection = {
+          fileIndex: line.fileIndex,
+          filename: line.filename,
+          filetype: getFiletypeFromPath(line.filename),
+          startLine: i + 1,  // Content starts after header
+          endLine: i + 1,    // Will be updated
+          lineCount: 0,
+          additions: file?.additions ?? 0,
+          deletions: file?.deletions ?? 0,
+        }
+      }
+    }
+    
+    // Save last section
+    if (currentSection) {
+      currentSection.endLine = this.lineMapping.lineCount - 1
+      currentSection.lineCount = currentSection.endLine - currentSection.startLine + 1
+      sections.push(currentSection)
+    }
+    
+    return sections
+  }
+
+  /**
    * Rebuild the entire view
    */
   private rebuild(): void {
-    // Clear container
+    // Clear container and section renderables
     for (const child of this.container.getChildren()) {
       this.container.remove(child.id)
     }
+    this.sectionRenderables.clear()
+    this.fileSections = []
 
     // Handle empty state
     if (this.files.length === 0 || !this.lineMapping || this.lineMapping.lineCount === 0) {
@@ -214,6 +329,20 @@ export class VimDiffView {
       return
     }
 
+    // Determine mode: single file or all files
+    const isAllFilesMode = this.selectedFileIndex === null
+    
+    if (isAllFilesMode) {
+      this.rebuildAllFilesMode()
+    } else {
+      this.rebuildSingleFileMode()
+    }
+  }
+
+  /**
+   * Rebuild for single file mode (original implementation)
+   */
+  private rebuildSingleFileMode(): void {
     // Build content
     const content = this.buildDiffContent()
     const filetype = this.getFiletype()
@@ -263,24 +392,223 @@ export class VimDiffView {
     this.container.add(scrollBoxElement)
 
     // Get references to the renderables for later updates
-    // Important: search within this.container, not renderer.root,
-    // because the container may not be attached to root yet
     this.scrollBox = this.container.findDescendantById("diff-scroll") as ScrollBoxRenderable | null
     this.lineNumberRenderable = this.container.findDescendantById("diff-line-numbers") as LineNumberRenderable | null
     this.codeRenderable = this.container.findDescendantById("diff-code") as CodeRenderable | null
+  }
+
+  /**
+   * Rebuild for all-files mode with per-file syntax highlighting
+   */
+  private rebuildAllFilesMode(): void {
+    // Build file sections
+    this.fileSections = this.buildFileSections()
     
-    // Cursor positioning is handled by the post-process function
+    // Build global data structures
+    const globalLineColors = this.buildLineColors()
+    const globalLineSigns = this.buildLineSigns()
+    const { lineNumbers: globalLineNumbers, hideLineNumbers: globalHideLineNumbers } = this.buildLineNumbers()
+    
+    // Calculate consistent gutter width across all sections
+    // Find the maximum line number to determine digit count
+    let maxLineNumber = 0
+    for (const lineNum of globalLineNumbers.values()) {
+      if (lineNum > maxLineNumber) maxLineNumber = lineNum
+    }
+    // Minimum 3 digits, plus 1 for sign column (comment indicators)
+    const gutterMinWidth = Math.max(3, String(maxLineNumber).length) + 1
+    
+    // Create section elements
+    const sectionElements: ReturnType<typeof Box>[] = []
+    
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
+      
+      // Build content for this section only
+      const content = this.buildSectionContent(section)
+      
+      // Convert global line indices to section-local indices
+      const localLineColors = new Map<number, LineColorConfig>()
+      const localLineSigns = new Map<number, LineSign>()
+      const localLineNumbers = new Map<number, number>()
+      const localHideLineNumbers = new Set<number>()
+      
+      for (let globalLine = section.startLine; globalLine <= section.endLine; globalLine++) {
+        const localLine = globalLine - section.startLine
+        
+        const color = globalLineColors.get(globalLine)
+        if (color) localLineColors.set(localLine, color)
+        
+        const sign = globalLineSigns.get(globalLine)
+        if (sign) localLineSigns.set(localLine, sign)
+        
+        const lineNum = globalLineNumbers.get(globalLine)
+        if (lineNum !== undefined) localLineNumbers.set(localLine, lineNum)
+        
+        if (globalHideLineNumbers.has(globalLine)) {
+          localHideLineNumbers.add(localLine)
+        }
+      }
+      
+      // Always add a placeholder sign on line 0 to reserve sign column width
+      // This ensures consistent gutter width across all sections
+      if (!localLineSigns.has(0)) {
+        localLineSigns.set(0, { before: " " })
+      }
+      
+      // Create file header + code section
+      const sectionElement = Box(
+        {
+          id: `section-${sectionIdx}`,
+          width: "100%",
+          flexDirection: "column",
+        },
+        // File header
+        FileHeader({
+          filename: section.filename,
+          additions: section.additions,
+          deletions: section.deletions,
+        }),
+        // Code content
+        h(LineNumberRenderable, {
+          id: `line-numbers-${sectionIdx}`,
+          fg: theme.overlay0,
+          bg: theme.mantle,
+          showLineNumbers: true,
+          lineColors: localLineColors,
+          lineSigns: localLineSigns,
+          lineNumbers: localLineNumbers,
+          hideLineNumbers: localHideLineNumbers,
+          minWidth: gutterMinWidth,
+          paddingRight: 1,
+        },
+          h(CodeRenderable, {
+            id: `code-${sectionIdx}`,
+            content,
+            filetype: section.filetype,
+            syntaxStyle: getSyntaxStyle(),
+            drawUnstyledText: true,
+            conceal: false,
+          })
+        )
+      )
+      
+      sectionElements.push(sectionElement)
+    }
+    
+    // Create scroll container with all sections
+    const scrollBoxElement = ScrollBox(
+      {
+        id: "diff-scroll",
+        width: "100%",
+        height: "100%",
+        scrollY: true,
+        scrollX: true,
+        verticalScrollbarOptions: {
+          showArrows: false,
+          trackOptions: {
+            backgroundColor: theme.surface0,
+            foregroundColor: theme.surface2,
+          },
+        },
+      },
+      Box(
+        {
+          id: "sections-container",
+          width: "100%",
+          flexDirection: "column",
+        },
+        ...sectionElements
+      )
+    )
+    
+    this.container.add(scrollBoxElement)
+    
+    // Get references
+    this.scrollBox = this.container.findDescendantById("diff-scroll") as ScrollBoxRenderable | null
+    
+    // Store section renderables for updates
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const lineNumber = this.container.findDescendantById(`line-numbers-${sectionIdx}`) as LineNumberRenderable | null
+      const code = this.container.findDescendantById(`code-${sectionIdx}`) as CodeRenderable | null
+      if (lineNumber && code) {
+        this.sectionRenderables.set(sectionIdx, { lineNumber, code })
+      }
+    }
+    
+    // For single-file compat, set main renderable to null in all-files mode
+    this.lineNumberRenderable = null
+    this.codeRenderable = null
+  }
+
+  /**
+   * Build content string for a single section
+   */
+  private buildSectionContent(section: FileSection): string {
+    if (!this.lineMapping) return ""
+    
+    const lines: string[] = []
+    for (let i = section.startLine; i <= section.endLine; i++) {
+      const line = this.lineMapping.getLine(i)
+      if (!line) continue
+
+      switch (line.type) {
+        case "file-header":
+          // Skip - handled by FileHeader component
+          break
+        case "hunk-header":
+          lines.push(line.content)
+          break
+        case "divider":
+          const label = line.content || "..."
+          lines.push(`··· ${label} ···`)
+          break
+        case "addition":
+        case "deletion":
+        case "context":
+          lines.push(line.content)
+          break
+        case "no-newline":
+          lines.push(line.content)
+          break
+        case "spacing":
+          lines.push("")
+          break
+      }
+    }
+    return lines.join("\n")
   }
 
   /**
    * Update line colors without full rebuild
    */
   private updateHighlights(): void {
-    if (!this.lineNumberRenderable || !this.lineMapping || !this.cursorState) return
+    if (!this.lineMapping || !this.cursorState) return
 
-    // Update line colors
-    const lineColors = this.buildLineColors()
-    this.lineNumberRenderable.setLineColors(lineColors)
+    const globalLineColors = this.buildLineColors()
+    
+    // Single-file mode
+    if (this.lineNumberRenderable) {
+      this.lineNumberRenderable.setLineColors(globalLineColors)
+      return
+    }
+    
+    // All-files mode - update each section's renderables
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
+      const renderables = this.sectionRenderables.get(sectionIdx)
+      if (!renderables) continue
+      
+      // Convert global line indices to section-local indices
+      const localLineColors = new Map<number, LineColorConfig>()
+      for (let globalLine = section.startLine; globalLine <= section.endLine; globalLine++) {
+        const localLine = globalLine - section.startLine
+        const color = globalLineColors.get(globalLine)
+        if (color) localLineColors.set(localLine, color)
+      }
+      
+      renderables.lineNumber.setLineColors(localLineColors)
+    }
     
     // Cursor positioning is handled by the post-process function
   }
@@ -289,10 +617,30 @@ export class VimDiffView {
    * Update line signs (comment indicators) without full rebuild
    */
   private updateLineSigns(): void {
-    if (!this.lineNumberRenderable) return
+    const globalLineSigns = this.buildLineSigns()
     
-    const lineSigns = this.buildLineSigns()
-    this.lineNumberRenderable.setLineSigns(lineSigns)
+    // Single-file mode
+    if (this.lineNumberRenderable) {
+      this.lineNumberRenderable.setLineSigns(globalLineSigns)
+      return
+    }
+    
+    // All-files mode - update each section's renderables
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
+      const renderables = this.sectionRenderables.get(sectionIdx)
+      if (!renderables) continue
+      
+      // Convert global line indices to section-local indices
+      const localLineSigns = new Map<number, LineSign>()
+      for (let globalLine = section.startLine; globalLine <= section.endLine; globalLine++) {
+        const localLine = globalLine - section.startLine
+        const sign = globalLineSigns.get(globalLine)
+        if (sign) localLineSigns.set(localLine, sign)
+      }
+      
+      renderables.lineNumber.setLineSigns(localLineSigns)
+    }
   }
 
   // Track whether file panel is visible (set via setFilePanelVisible)
@@ -319,7 +667,10 @@ export class VimDiffView {
     }
     
     if (!this.scrollBox || !this.cursorState || !this.lineMapping) return
-    if (!this.lineNumberRenderable || !this.codeRenderable) return
+    
+    // Need either single-file mode renderable or all-files mode sections
+    const isAllFilesMode = this.fileSections.length > 0
+    if (!isAllFilesMode && (!this.lineNumberRenderable || !this.codeRenderable)) return
 
     const line = this.cursorState.line
     const col = this.cursorState.col
@@ -328,8 +679,36 @@ export class VimDiffView {
     const scrollTop = this.scrollBox.scrollTop
     const scrollLeft = this.scrollBox.scrollLeft
 
-    // Visual line relative to viewport
-    const visualLine = line - scrollTop
+    // In all-files mode, we need to calculate screen position differently
+    // because file-header lines in global mapping are rendered as FileHeader components
+    let visualLine: number
+    if (isAllFilesMode) {
+      // Find which section the cursor is in
+      let screenRow = 0
+      for (const section of this.fileSections) {
+        // Add 1 row for the FileHeader component
+        const headerRow = 1
+        
+        if (line < section.startLine) {
+          // Cursor is before this section (shouldn't happen normally)
+          break
+        }
+        
+        if (line <= section.endLine) {
+          // Cursor is in this section
+          const localLine = line - section.startLine
+          screenRow += headerRow + localLine
+          break
+        }
+        
+        // Cursor is after this section, add full section height
+        const sectionContentLines = section.endLine - section.startLine + 1
+        screenRow += headerRow + sectionContentLines
+      }
+      visualLine = screenRow - scrollTop
+    } else {
+      visualLine = line - scrollTop
+    }
 
     // Get the scrollbox's viewport height
     const viewportHeight = this.scrollBox.height

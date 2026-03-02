@@ -3,6 +3,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
 import { flattenTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
+import { getFileColor } from "../utils/file-colors"
 
 export interface FileTreeProps {
   fileTree: FileTreeNode[]
@@ -60,12 +61,13 @@ function renderTreeItem(
   // Status indicator for files
   const status = node.file ? getStatusIndicator(node.file.status) : null
 
-  // Determine colors
+  // Determine colors - use file type colors for files
+  const fileColor = node.file ? getFileColor(node.name) : undefined
   const nameFg = isCurrent
     ? colors.primary
     : node.isDirectory
       ? theme.subtext0
-      : colors.text
+      : fileColor || colors.text
 
   const bgColor = isSelected ? colors.selection : undefined
 

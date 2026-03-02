@@ -1,6 +1,50 @@
-import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable, type DiffRenderable as DiffRenderableType } from "@opentui/core"
+import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable, type DiffRenderable as DiffRenderableType, SyntaxStyle, RGBA } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
+import { getFileColor } from "../utils/file-colors"
+
+// Shared syntax style for highlighting (created once, reused)
+let sharedSyntaxStyle: SyntaxStyle | null = null
+
+function getSyntaxStyle(): SyntaxStyle {
+  if (!sharedSyntaxStyle) {
+    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+      // Code syntax highlighting
+      keyword: { fg: RGBA.fromHex(theme.mauve) },
+      string: { fg: RGBA.fromHex(theme.green) },
+      number: { fg: RGBA.fromHex(theme.peach) },
+      comment: { fg: RGBA.fromHex(theme.overlay0), italic: true },
+      function: { fg: RGBA.fromHex(theme.blue) },
+      type: { fg: RGBA.fromHex(theme.yellow) },
+      variable: { fg: RGBA.fromHex(theme.text) },
+      operator: { fg: RGBA.fromHex(theme.sky) },
+      punctuation: { fg: RGBA.fromHex(theme.overlay2) },
+      property: { fg: RGBA.fromHex(theme.lavender) },
+      constant: { fg: RGBA.fromHex(theme.peach) },
+      
+      // Markdown syntax highlighting
+      "markup.heading": { fg: RGBA.fromHex(theme.red), bold: true },
+      "markup.heading.1": { fg: RGBA.fromHex(theme.red), bold: true },
+      "markup.heading.2": { fg: RGBA.fromHex(theme.peach), bold: true },
+      "markup.heading.3": { fg: RGBA.fromHex(theme.yellow), bold: true },
+      "markup.heading.4": { fg: RGBA.fromHex(theme.green), bold: true },
+      "markup.heading.5": { fg: RGBA.fromHex(theme.blue), bold: true },
+      "markup.heading.6": { fg: RGBA.fromHex(theme.mauve), bold: true },
+      "markup.strong": { fg: RGBA.fromHex(theme.text), bold: true },
+      "markup.italic": { fg: RGBA.fromHex(theme.text), italic: true },
+      "markup.strikethrough": { fg: RGBA.fromHex(theme.overlay0) },
+      "markup.link": { fg: RGBA.fromHex(theme.blue) },
+      "markup.link.url": { fg: RGBA.fromHex(theme.blue), underline: true },
+      "markup.link.label": { fg: RGBA.fromHex(theme.lavender) },
+      "markup.raw": { fg: RGBA.fromHex(theme.green) },
+      "markup.raw.inline": { fg: RGBA.fromHex(theme.green) },
+      "markup.raw.block": { fg: RGBA.fromHex(theme.green) },
+      "markup.list": { fg: RGBA.fromHex(theme.blue) },
+      "markup.quote": { fg: RGBA.fromHex(theme.overlay1), italic: true },
+    })
+  }
+  return sharedSyntaxStyle
+}
 
 export interface DiffViewProps {
   /** Single diff content (when file is selected) */
@@ -57,6 +101,7 @@ export function DiffView({
         diff: singleDiff,
         view,
         filetype,
+        syntaxStyle: getSyntaxStyle(),
         showLineNumbers,
         addedBg: colors.addedBg,
         removedBg: colors.removedBg,
@@ -95,6 +140,7 @@ export function DiffView({
           diff: file.content,
           view,
           filetype: getFiletypeFromPath(file.filename),
+          syntaxStyle: getSyntaxStyle(),
           showLineNumbers,
           addedBg: colors.addedBg,
           removedBg: colors.removedBg,
@@ -117,6 +163,9 @@ interface FileHeaderProps {
 }
 
 function FileHeader({ filename, additions, deletions }: FileHeaderProps) {
+  // Use file-type color for filename, fallback to primary
+  const fileColor = getFileColor(filename) || colors.primary
+  
   return Box(
     {
       width: "100%",
@@ -129,7 +178,7 @@ function FileHeader({ filename, additions, deletions }: FileHeaderProps) {
     Box(
       { flexDirection: "row" },
       Text({ content: "─── ", fg: colors.textDim }),
-      Text({ content: filename, fg: colors.primary }),
+      Text({ content: filename, fg: fileColor }),
       Text({ content: " ", fg: colors.textDim }),
     ),
     Box(

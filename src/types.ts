@@ -85,3 +85,12 @@ export function createSession(source: string): ReviewSession {
  * App mode - local diff or PR review
  */
 export type AppMode = "local" | "pr"
+
+/**
+ * File review status - tracks whether a file has been viewed/reviewed
+ */
+export interface FileReviewStatus {
+  filename: string
+  viewed: boolean
+  viewedAt?: string  // ISO timestamp when marked viewed
+}

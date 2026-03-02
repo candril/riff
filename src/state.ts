@@ -51,6 +51,17 @@ export interface ReviewPreviewState {
 }
 
 /**
+ * Sync preview state
+ */
+export interface SyncPreviewState {
+  open: boolean
+  loading: boolean
+  error: string | null
+  /** Index of highlighted item for navigation */
+  highlightedIndex: number
+}
+
+/**
  * Toast notification state
  */
 export interface ToastState {
@@ -124,6 +135,9 @@ export interface AppState {
   // Review preview state
   reviewPreview: ReviewPreviewState
   
+  // Sync preview state
+  syncPreview: SyncPreviewState
+  
   // Toast notification
   toast: ToastState
   
@@ -177,6 +191,12 @@ export function createInitialState(
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
       focusedSection: "input",
+    },
+    syncPreview: {
+      open: false,
+      loading: false,
+      error: null,
+      highlightedIndex: 0,
     },
     toast: {
       message: null,

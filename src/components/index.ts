@@ -15,3 +15,4 @@ export { ReviewPreviewPanel, type ReviewPreviewPanelOptions } from "./ReviewPrev
 export { ReviewPreview, type ReviewPreviewProps, type ValidatedComment, type ReviewEvent, canSubmit } from "./ReviewPreview"
 export { Toast, type ToastProps, type ToastType } from "./Toast"
 export { FilePicker, type FilePickerProps, type FilteredFile } from "./FilePicker"
+export { SyncPreview, type SyncPreviewProps, type SyncItem, gatherSyncItems } from "./SyncPreview"

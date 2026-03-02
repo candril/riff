@@ -1,6 +1,7 @@
 import { Box, Text } from "@opentui/core"
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
+import { getFileColor } from "../utils/file-colors"
 
 export interface FilePickerProps {
   query: string
@@ -113,7 +114,9 @@ interface FileRowProps {
 
 function FileRow({ file, selected }: FileRowProps) {
   const bg = selected ? "#585b70" : undefined  // surface2 for selection
-  const fg = selected ? theme.text : theme.subtext1
+  // Use file type color, or default colors
+  const fileColor = getFileColor(file.filename)
+  const fg = selected ? theme.text : (fileColor || theme.subtext1)
   
   // Format additions/deletions
   const stats = `+${file.additions} -${file.deletions}`

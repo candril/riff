@@ -110,29 +110,38 @@ interface ActionGroup {
   items: Action[]
 }
 
+/** Category display order and labels */
+const categoryConfig: Record<string, { order: number; label: string }> = {
+  github: { order: 1, label: "GitHub" },
+  navigation: { order: 2, label: "Navigation" },
+  view: { order: 3, label: "View" },
+  general: { order: 4, label: "General" },
+}
+
 function groupActionsByCategory(actions: Action[]): ActionGroup[] {
-  const suggested: Action[] = []
-  const github: Action[] = []
-  const navigation: Action[] = []
-  const other: Action[] = []
+  // Group by category
+  const byCategory = new Map<string, Action[]>()
   
   for (const action of actions) {
-    if (action.id === "submit-review" || action.id === "submit-comment" || action.id === "create-pr") {
-      suggested.push(action)
-    } else if (action.id === "refresh") {
-      github.push(action)
-    } else if (action.id === "toggle-file-panel" || action.id === "toggle-view" || action.id === "find-files") {
-      navigation.push(action)
-    } else {
-      other.push(action)
-    }
+    const cat = action.category || "general"
+    const existing = byCategory.get(cat) || []
+    existing.push(action)
+    byCategory.set(cat, existing)
   }
   
+  // Convert to groups and sort by category order
   const groups: ActionGroup[] = []
-  if (suggested.length > 0) groups.push({ category: "Suggested", items: suggested })
-  if (github.length > 0) groups.push({ category: "GitHub", items: github })
-  if (navigation.length > 0) groups.push({ category: "Navigation", items: navigation })
-  if (other.length > 0) groups.push({ category: "Other", items: other })
+  for (const [cat, items] of byCategory) {
+    const config = categoryConfig[cat] || { order: 99, label: cat }
+    groups.push({ category: config.label, items })
+  }
+  
+  // Sort groups by order
+  groups.sort((a, b) => {
+    const orderA = Object.values(categoryConfig).find(c => c.label === a.category)?.order ?? 99
+    const orderB = Object.values(categoryConfig).find(c => c.label === b.category)?.order ?? 99
+    return orderA - orderB
+  })
   
   return groups
 }

@@ -1,9 +1,5 @@
-// Define tree-sitter worker path for compiled binaries
-// This must be done before any @opentui/core imports
-// @ts-ignore - Bun file import for embedding worker in compiled binary
-import workerPath from "../node_modules/@opentui/core/parser.worker.js" with { type: "file" }
-// @ts-ignore - global declaration for OpenTUI tree-sitter client
-;(globalThis as any).OTUI_TREE_SITTER_WORKER_PATH = workerPath
+// OTUI_TREE_SITTER_WORKER_PATH is defined at compile time via build script
+// This allows the tree-sitter worker to be found in compiled binaries
 
 import { createApp } from "./app"
 import { loadPrSession, type PrInfo } from "./providers/github"

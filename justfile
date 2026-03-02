@@ -44,7 +44,11 @@ typecheck:
 
 # Build standalone binary
 build:
-    bun build src/index.ts --compile --outfile dist/riff
+    bun scripts/build.ts
+
+# Build for all platforms
+build-all:
+    bun scripts/build.ts --all
 
 # Clean node_modules and reinstall
 clean:

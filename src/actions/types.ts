@@ -1,6 +1,11 @@
 import type { AppState } from "../state"
 
 /**
+ * Action category for grouping in menu
+ */
+export type ActionCategory = "navigation" | "github" | "view" | "general"
+
+/**
  * An action that can be executed from the action menu.
  */
 export interface Action {
@@ -12,6 +17,8 @@ export interface Action {
   description: string
   /** Keyboard shortcut hint (display only) */
   shortcut?: string
+  /** Category for grouping */
+  category?: ActionCategory
   /** Check if action is available in current state */
   available: (state: AppState) => boolean
 }

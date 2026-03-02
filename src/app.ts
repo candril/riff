@@ -1,6 +1,6 @@
-import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core"
+import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -174,6 +174,11 @@ export async function createApp(options: AppOptions = {}) {
   // Register additional syntax highlighting parsers (tsx, csharp, etc.)
   // Must be called before creating the renderer
   registerSyntaxParsers()
+
+  // Initialize tree-sitter client for syntax highlighting in diffs
+  // This must complete before DiffRenderable can highlight code
+  const tsClient = getTreeSitterClient()
+  await tsClient.initialize()
 
   const renderer = await createCliRenderer({
     exitOnCtrlC: true,
@@ -463,6 +468,14 @@ export async function createApp(options: AppOptions = {}) {
             })
           : null,
 
+        // Sync preview modal
+        state.syncPreview.open
+          ? SyncPreview({
+              items: gatherSyncItems(state.comments),
+              state: state.syncPreview,
+            })
+          : null,
+
         // File picker overlay
         state.filePicker.open
           ? FilePicker({
@@ -675,7 +688,8 @@ export async function createApp(options: AppOptions = {}) {
           
           // Get the current display body (localEdit or body)
           const currentBody = comment.localEdit ?? comment.body
-          if (newBody === currentBody) continue
+          // Compare trimmed versions to avoid whitespace-only changes
+          if (newBody.trim() === currentBody.trim()) continue
           
           let updatedComment: Comment
           
@@ -957,6 +971,137 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
+   * Open the sync preview (gs)
+   */
+  function handleOpenSyncPreview(): void {
+    if (state.appMode !== "pr") {
+      state = showToast(state, "Sync only available in PR mode", "error")
+      render()
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 3000)
+      return
+    }
+    
+    state = {
+      ...state,
+      syncPreview: {
+        ...state.syncPreview,
+        open: true,
+        loading: false,
+        error: null,
+      },
+    }
+    render()
+  }
+
+  /**
+   * Execute the sync operation
+   */
+  async function handleExecuteSync(): Promise<void> {
+    if (!state.prInfo) return
+    
+    const { owner, repo, number: prNumber } = state.prInfo
+    const syncItems = gatherSyncItems(state.comments)
+    
+    if (syncItems.length === 0) {
+      state = {
+        ...state,
+        syncPreview: { ...state.syncPreview, open: false },
+      }
+      render()
+      return
+    }
+    
+    // Set loading state
+    state = {
+      ...state,
+      syncPreview: { ...state.syncPreview, loading: true, error: null },
+    }
+    render()
+    
+    let successCount = 0
+    let failedCount = 0
+    let lastError: string | null = null
+    
+    for (const item of syncItems) {
+      try {
+        if (item.type === "edit" && item.newBody && item.comment.githubId) {
+          const result = await updateComment(owner, repo, item.comment.githubId, item.newBody)
+          if (result.success) {
+            // Update comment: clear localEdit, set body to new value
+            const updatedComment: Comment = {
+              ...item.comment,
+              body: item.newBody,
+              localEdit: undefined,
+            }
+            // Update in state
+            state = {
+              ...state,
+              comments: state.comments.map(c => c.id === updatedComment.id ? updatedComment : c),
+            }
+            await saveComment(updatedComment, source)
+            successCount++
+          } else {
+            lastError = result.error || "Failed to update comment"
+            failedCount++
+          }
+        }
+        
+        if (item.type === "reply" && item.parent?.githubId) {
+          const result = await submitReply(owner, repo, prNumber, item.comment, item.parent.githubId)
+          if (result.success) {
+            // Update comment: set status to synced, add GitHub IDs
+            const updatedComment: Comment = {
+              ...item.comment,
+              status: "synced",
+              githubId: result.githubId,
+              githubUrl: result.githubUrl,
+            }
+            // Update in state
+            state = {
+              ...state,
+              comments: state.comments.map(c => c.id === updatedComment.id ? updatedComment : c),
+            }
+            await saveComment(updatedComment, source)
+            successCount++
+          } else {
+            lastError = result.error || "Failed to submit reply"
+            failedCount++
+          }
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Unknown error"
+        failedCount++
+      }
+    }
+    
+    // Close sync preview
+    state = {
+      ...state,
+      syncPreview: { ...state.syncPreview, open: false, loading: false },
+    }
+    
+    // Show result toast
+    if (failedCount === 0) {
+      state = showToast(state, `Synced ${successCount} change${successCount !== 1 ? "s" : ""}`, "success")
+    } else if (successCount > 0) {
+      state = showToast(state, `Synced ${successCount}, failed ${failedCount}: ${lastError}`, "error")
+    } else {
+      state = showToast(state, `Sync failed: ${lastError}`, "error")
+    }
+    
+    render()
+    
+    // Auto-clear toast
+    setTimeout(() => {
+      state = clearToast(state)
+      render()
+    }, 4000)
+  }
+
+  /**
    * Toggle the resolved state of the selected thread
    */
   async function handleToggleThreadResolved(): Promise<void> {
@@ -1178,6 +1323,9 @@ export async function createApp(options: AppOptions = {}) {
       case "submit-review":
         handleOpenReviewPreview()
         break
+      case "sync-changes":
+        handleOpenSyncPreview()
+        break
       case "submit-comment":
         await handleSubmitSingleComment()
         break
@@ -1347,6 +1495,30 @@ export async function createApp(options: AppOptions = {}) {
           }
           return
       }
+    }
+    
+    // ========== SYNC PREVIEW (captures all input when open) ==========
+    if (state.syncPreview.open) {
+      // Escape closes
+      if (key.name === "escape") {
+        state = {
+          ...state,
+          syncPreview: { ...state.syncPreview, open: false },
+        }
+        render()
+        return
+      }
+      
+      // Enter executes sync
+      if (key.name === "return" || key.name === "enter") {
+        if (!state.syncPreview.loading) {
+          handleExecuteSync()
+        }
+        return
+      }
+      
+      // Ignore all other keys when sync preview is open
+      return
     }
     
     // ========== REVIEW PREVIEW (captures all input when open) ==========
@@ -1542,6 +1714,10 @@ export async function createApp(options: AppOptions = {}) {
       } else if (sequence === "gS!" || sequence === "gs!") {
         // gS (shift+S) - open review preview
         handleOpenReviewPreview()
+        return
+      } else if (sequence === "gs") {
+        // gs - open sync preview
+        handleOpenSyncPreview()
         return
       } else if (sequence === "go") {
         // go - open PR in browser
