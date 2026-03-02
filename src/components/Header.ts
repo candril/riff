@@ -10,6 +10,7 @@ export interface HeaderProps {
   selectedFile?: DiffFile | null  // null = all files
   totalFiles?: number
   prInfo?: PrInfo | null
+  reviewProgress?: { reviewed: number; total: number }
 }
 
 export function Header({
@@ -18,6 +19,7 @@ export function Header({
   selectedFile,
   totalFiles,
   prInfo,
+  reviewProgress,
 }: HeaderProps = {}) {
   // View mode badge
   const viewBadge = viewMode === "diff" ? "Diff" : "Comments"
@@ -29,6 +31,14 @@ export function Header({
     : totalFiles 
       ? `All files (${totalFiles})`
       : "All files"
+
+  // Review progress text (e.g., "3/5 reviewed")
+  const progressText = reviewProgress && reviewProgress.total > 0
+    ? `${reviewProgress.reviewed}/${reviewProgress.total} reviewed`
+    : null
+  const progressColor = reviewProgress && reviewProgress.reviewed === reviewProgress.total
+    ? theme.green  // All done!
+    : theme.subtext0
 
   // PR mode header
   if (prInfo) {
@@ -50,15 +60,19 @@ export function Header({
         Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
         Text({ content: scopeText, fg: colors.text })
       ),
-      // Right side: minimal - just stats for selected file
-      selectedFile
-        ? Box(
-            { flexDirection: "row", flexShrink: 0 },
-            Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
-            Text({ content: " ", fg: colors.text }),
-            Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
-          )
-        : null
+      // Right side: progress + stats for selected file
+      Box(
+        { flexDirection: "row", gap: 2, flexShrink: 0 },
+        progressText ? Text({ content: progressText, fg: progressColor }) : null,
+        selectedFile
+          ? Box(
+              { flexDirection: "row" },
+              Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
+              Text({ content: " ", fg: colors.text }),
+              Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
+            )
+          : null
+      )
     )
   }
 
@@ -81,14 +95,18 @@ export function Header({
       Text({ content: title, fg: colors.headerFg }),
       Text({ content: scopeText, fg: colors.text })
     ),
-    // Right side: stats for selected file
-    selectedFile
-      ? Box(
-          { flexDirection: "row", flexShrink: 0 },
-          Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
-          Text({ content: " ", fg: colors.text }),
-          Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
-        )
-      : null
+    // Right side: progress + stats for selected file
+    Box(
+      { flexDirection: "row", gap: 2, flexShrink: 0 },
+      progressText ? Text({ content: progressText, fg: progressColor }) : null,
+      selectedFile
+        ? Box(
+            { flexDirection: "row" },
+            Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
+            Text({ content: " ", fg: colors.text }),
+            Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
+          )
+        : null
+    )
   )
 }

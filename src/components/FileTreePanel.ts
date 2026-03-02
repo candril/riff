@@ -12,6 +12,7 @@ import {
 } from "@opentui/core"
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
+import type { FileReviewStatus } from "../types"
 import { flattenTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
 
@@ -57,6 +58,7 @@ export class FileTreePanel {
   // Current state
   private currentFiles: DiffFile[] = []
   private currentFileTree: FileTreeNode[] = []
+  private currentFileStatuses: Map<string, FileReviewStatus> = new Map()
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private focused: boolean = false
@@ -128,13 +130,15 @@ export class FileTreePanel {
    * 
    * @param highlightIndex - Which item is highlighted (navigation cursor)
    * @param selectedFileIndex - Which file is selected (scopes views), null = all files
+   * @param fileStatuses - Map of file viewed/reviewed statuses
    */
   update(
     files: DiffFile[],
     fileTree: FileTreeNode[],
     highlightIndex: number,
     selectedFileIndex: number | null,
-    focused: boolean
+    focused: boolean,
+    fileStatuses?: Map<string, FileReviewStatus>
   ): void {
     const structureChanged = 
       files !== this.currentFiles || 
@@ -142,12 +146,23 @@ export class FileTreePanel {
 
     this.currentFiles = files
     this.currentFileTree = fileTree
+    this.currentFileStatuses = fileStatuses ?? new Map()
     this.highlightIndex = highlightIndex
     this.selectedFileIndex = selectedFileIndex
     this.focused = focused
 
-    // Update header
-    const scopeText = selectedFileIndex === null ? "All files" : `Files (${files.length})`
+    // Calculate review progress
+    const total = files.length
+    let reviewed = 0
+    for (const file of files) {
+      if (this.currentFileStatuses.get(file.filename)?.viewed) {
+        reviewed++
+      }
+    }
+
+    // Update header with progress
+    const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
+    const scopeText = `Files${progressText}`
     this.headerText.content = scopeText
     this.headerText.fg = focused ? colors.primary : colors.textMuted
     this.container.borderColor = focused ? colors.primary : colors.border
@@ -184,6 +199,9 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
+      const isViewed = node.file 
+        ? this.currentFileStatuses.get(node.file.filename)?.viewed ?? false 
+        : false
 
       const indent = "  ".repeat(depth)
       const icon = node.isDirectory
@@ -191,17 +209,21 @@ export class FileTreePanel {
         : "  "
 
       // Files get color based on status, directories get subtext color
-      // Selected file gets primary color
-      const nameFg = isSelected
-        ? colors.primary
+      // Viewed files get dimmed color
+      const nameFg = isViewed
+        ? colors.fileViewed
         : node.isDirectory
           ? theme.subtext0
           : node.file
             ? getStatusColor(node.file.status)
             : colors.text
 
-      // Highlighted item gets background
-      const bgColor = isHighlighted ? colors.selection : undefined
+      // Background: highlight for keyboard nav, subtle for selected file
+      const bgColor = isHighlighted 
+        ? colors.selection 
+        : isSelected 
+          ? theme.surface0  // Subtle background for current file
+          : undefined
 
       // Create box for this item
       const box = new BoxRenderable(this.renderer, {
@@ -211,8 +233,8 @@ export class FileTreePanel {
         backgroundColor: bgColor,
       })
 
-      // Selection marker (dot when selected)
-      const marker = isSelected ? "●" : " "
+      // Viewed marker: ✓ for viewed, space otherwise (no more ● for selected)
+      const marker = isViewed ? "✓" : " "
 
       // Calculate available width for name
       // Account for: marker (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
@@ -248,6 +270,9 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
+      const isViewed = node.file 
+        ? this.currentFileStatuses.get(node.file.filename)?.viewed ?? false 
+        : false
 
       const renderables = this.itemRenderables.get(node.path)
       if (!renderables) continue
@@ -258,17 +283,23 @@ export class FileTreePanel {
         : "  "
 
       // Files get color based on status, directories get subtext color
-      // Selected file gets primary color
-      const nameFg = isSelected
-        ? colors.primary
+      // Viewed files get dimmed color
+      const nameFg = isViewed
+        ? colors.fileViewed
         : node.isDirectory
           ? theme.subtext0
           : node.file
             ? getStatusColor(node.file.status)
             : colors.text
 
-      const bgColor = isHighlighted ? colors.selection : null
-      const marker = isSelected ? "●" : " "
+      // Background: highlight for keyboard nav, subtle for selected file
+      const bgColor = isHighlighted 
+        ? colors.selection 
+        : isSelected 
+          ? theme.surface0  // Subtle background for current file
+          : null
+      // Viewed marker: ✓ for viewed, space otherwise (no more ● for selected)
+      const marker = isViewed ? "✓" : " "
 
       // Calculate available width for name
       const prefixLen = 1 + indent.length + icon.length

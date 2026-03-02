@@ -1,6 +1,6 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
-import type { Comment, ReviewSession, AppMode } from "./types"
+import type { Comment, ReviewSession, AppMode, FileReviewStatus } from "./types"
 import type { PrInfo } from "./providers/github"
 import { type ActionMenuState, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
@@ -143,6 +143,9 @@ export interface AppState {
   
   // File picker state
   filePicker: FilePickerState
+  
+  // File review status (viewed/reviewed tracking)
+  fileStatuses: Map<string, FileReviewStatus>
 }
 
 /**
@@ -207,6 +210,7 @@ export function createInitialState(
       query: "",
       selectedIndex: 0,
     },
+    fileStatuses: new Map(),
   }
 }
 
@@ -937,5 +941,85 @@ export function moveFilePickerSelection(state: AppState, delta: number, maxIndex
       ...state.filePicker,
       selectedIndex: newIndex,
     },
+  }
+}
+
+// ============================================================================
+// File Review Status (Viewed/Reviewed)
+// ============================================================================
+
+/**
+ * Check if a file has been marked as viewed
+ */
+export function isFileViewed(state: AppState, filename: string): boolean {
+  return state.fileStatuses.get(filename)?.viewed ?? false
+}
+
+/**
+ * Toggle the viewed status of a file
+ */
+export function toggleFileViewed(state: AppState, filename: string): AppState {
+  const current = state.fileStatuses.get(filename)?.viewed ?? false
+  const newStatuses = new Map(state.fileStatuses)
+  
+  newStatuses.set(filename, {
+    filename,
+    viewed: !current,
+    viewedAt: !current ? new Date().toISOString() : undefined,
+  })
+  
+  return {
+    ...state,
+    fileStatuses: newStatuses,
+  }
+}
+
+/**
+ * Set the viewed status of a file
+ */
+export function setFileViewed(state: AppState, filename: string, viewed: boolean): AppState {
+  const newStatuses = new Map(state.fileStatuses)
+  
+  newStatuses.set(filename, {
+    filename,
+    viewed,
+    viewedAt: viewed ? new Date().toISOString() : undefined,
+  })
+  
+  return {
+    ...state,
+    fileStatuses: newStatuses,
+  }
+}
+
+/**
+ * Get review progress stats
+ */
+export function getReviewProgress(state: AppState): { reviewed: number; total: number } {
+  const total = state.files.length
+  let reviewed = 0
+  
+  for (const file of state.files) {
+    if (state.fileStatuses.get(file.filename)?.viewed) {
+      reviewed++
+    }
+  }
+  
+  return { reviewed, total }
+}
+
+/**
+ * Load file statuses from storage data
+ */
+export function loadFileStatuses(state: AppState, statuses: FileReviewStatus[]): AppState {
+  const newStatuses = new Map(state.fileStatuses)
+  
+  for (const status of statuses) {
+    newStatuses.set(status.filename, status)
+  }
+  
+  return {
+    ...state,
+    fileStatuses: newStatuses,
   }
 }

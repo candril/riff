@@ -59,10 +59,14 @@ import {
   collapseThread,
   expandThread,
   collapseResolvedThreads,
+  toggleFileViewed,
+  isFileViewed,
+  getReviewProgress,
+  loadFileStatuses,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
-import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile } from "./storage"
+import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile, loadViewedStatuses, saveFileViewedStatus } from "./storage"
 import { createComment, type Comment, type AppMode } from "./types"
 import type { PrInfo } from "./providers/github"
 import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
@@ -142,6 +146,10 @@ export async function createApp(options: AppOptions = {}) {
   // Collapse resolved threads by default
   const threads = groupIntoThreads(comments)
   state = collapseResolvedThreads(state, threads)
+
+  // Load viewed file statuses
+  const viewedStatuses = await loadViewedStatuses(source)
+  state = loadFileStatuses(state, viewedStatuses)
 
   // Initialize vim cursor state
   let vimState = createCursorState()
@@ -251,7 +259,8 @@ export async function createApp(options: AppOptions = {}) {
       state.fileTree,
       state.treeHighlightIndex,
       state.selectedFileIndex,
-      state.focusedPanel === "tree"
+      state.focusedPanel === "tree",
+      state.fileStatuses
     )
     fileTreePanel.visible = state.showFilePanel
     // Tell VimDiffView about file panel visibility for cursor positioning
@@ -426,6 +435,7 @@ export async function createApp(options: AppOptions = {}) {
           selectedFile,
           totalFiles: state.files.length,
           prInfo: state.prInfo,
+          reviewProgress: getReviewProgress(state),
         }),
         // Main content area
         Box(
@@ -605,6 +615,92 @@ export async function createApp(options: AppOptions = {}) {
           setTimeout(() => {
             render()  // Re-render to update VimDiffView
           }, 0)
+  }
+
+  /**
+   * Navigate to next/previous unviewed file.
+   */
+  function navigateToUnviewedFile(direction: 1 | -1): void {
+    const treeOrder = getFilesInTreeOrder()
+    if (treeOrder.length === 0) return
+
+    // Find starting position
+    const startPos = state.selectedFileIndex !== null 
+      ? treeOrder.indexOf(state.selectedFileIndex)
+      : (direction === 1 ? -1 : treeOrder.length)
+
+    // Search in the given direction
+    for (let i = 1; i <= treeOrder.length; i++) {
+      const pos = startPos + (direction * i)
+      // Wrap around
+      const wrappedPos = ((pos % treeOrder.length) + treeOrder.length) % treeOrder.length
+      const fileIndex = treeOrder[wrappedPos]!
+      const file = state.files[fileIndex]
+      
+      if (file && !isFileViewed(state, file.filename)) {
+        state = selectFile(state, fileIndex)
+        
+        const flatItems = getFlatTreeItems(state.fileTree, state.files)
+        const treeIndex = flatItems.findIndex(item => item.fileIndex === fileIndex)
+        if (treeIndex !== -1) {
+          state = { ...state, treeHighlightIndex: treeIndex }
+        }
+        
+        // Reset vim cursor and rebuild line mapping
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+        render()
+        setTimeout(() => {
+          render()
+        }, 0)
+        return
+      }
+    }
+    
+    // No unviewed files found - show toast
+    state = showToast(state, "All files reviewed!", "success")
+    render()
+    setTimeout(() => {
+      state = clearToast(state)
+      render()
+    }, 2000)
+  }
+
+  /**
+   * Toggle viewed status for current file and optionally advance to next
+   */
+  async function handleToggleViewed(advanceToNext: boolean = false): Promise<void> {
+    let filename: string | null = null
+    
+    // Get filename from selected file or from cursor position in all-files view
+    const selectedFile = getSelectedFile(state)
+    if (selectedFile) {
+      filename = selectedFile.filename
+    } else {
+      // In all-files view - get filename from cursor position
+      const line = lineMapping.getLine(vimState.line)
+      if (line?.filename) {
+        filename = line.filename
+      }
+    }
+    
+    if (!filename) return
+
+    // Toggle the viewed status
+    state = toggleFileViewed(state, filename)
+    
+    // Get the new status to persist
+    const newStatus = state.fileStatuses.get(filename)
+    if (newStatus) {
+      await saveFileViewedStatus(source, newStatus)
+    }
+    
+    render()
+    
+    // If advancing and the file is now marked as viewed, go to next unviewed
+    if (advanceToNext && newStatus?.viewed) {
+      navigateToUnviewedFile(1)
+    }
   }
 
   /**
@@ -1711,6 +1807,12 @@ export async function createApp(options: AppOptions = {}) {
       } else if (sequence === "[f") {
         navigateFileSelection(-1)
         return
+      } else if (sequence === "]u") {
+        navigateToUnviewedFile(1)
+        return
+      } else if (sequence === "[u") {
+        navigateToUnviewedFile(-1)
+        return
       } else if (sequence === "gS!" || sequence === "gs!") {
         // gS (shift+S) - open review preview
         handleOpenReviewPreview()
@@ -1820,6 +1922,27 @@ export async function createApp(options: AppOptions = {}) {
           setTimeout(() => {
             render()  // Re-render to update VimDiffView
           }, 0)
+          return
+
+        case "v":
+          // Toggle viewed status for highlighted file and go to next unviewed
+          const viewItem = flatItems[state.treeHighlightIndex]
+          if (viewItem?.fileIndex !== undefined) {
+            const file = state.files[viewItem.fileIndex]
+            if (file) {
+              state = toggleFileViewed(state, file.filename)
+              const newStatus = state.fileStatuses.get(file.filename)
+              if (newStatus) {
+                saveFileViewedStatus(source, newStatus)
+              }
+              // If marked as viewed, go to next unviewed
+              if (newStatus?.viewed) {
+                navigateToUnviewedFile(1)
+              } else {
+                render()
+              }
+            }
+          }
           return
       }
     }
@@ -2006,6 +2129,12 @@ export async function createApp(options: AppOptions = {}) {
       if (key.name === "v" && key.shift) {
         vimState = enterVisualLineMode(vimState)
         vimDiffView.updateCursor(vimState)
+        return
+      }
+
+      // Handle 'v' for toggle viewed status (lowercase, no shift)
+      if (key.name === "v" && !key.shift && !key.ctrl) {
+        handleToggleViewed(true)  // Advance to next unviewed after marking
         return
       }
 

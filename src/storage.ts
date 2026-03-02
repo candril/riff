@@ -1,12 +1,13 @@
 import { join } from "path"
 import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
-import { type Comment, type ReviewSession, createSession } from "./types"
+import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
 
 const LOCAL_STORAGE_DIR = ".riff"
 const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
+const VIEWED_FILE = "viewed.json"
 
 // Current repo info (cached)
 let currentRepoOwner: string | null = null
@@ -361,4 +362,69 @@ export async function deleteSession(): Promise<void> {
   } catch {
     // File may not exist
   }
+}
+
+// ============================================================================
+// Viewed file status storage - JSON file per source
+// ============================================================================
+
+/**
+ * Get the path for viewed status file
+ */
+function getViewedFilePath(source: string): string {
+  return join(LOCAL_STORAGE_DIR, sourceToDir(source), VIEWED_FILE)
+}
+
+/**
+ * Load viewed file statuses for a source
+ */
+export async function loadViewedStatuses(source: string): Promise<FileReviewStatus[]> {
+  const filepath = getViewedFilePath(source)
+  const file = Bun.file(filepath)
+
+  if (!(await file.exists())) {
+    return []
+  }
+
+  try {
+    const data = await file.json() as FileReviewStatus[]
+    return Array.isArray(data) ? data : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Save viewed file statuses for a source
+ */
+export async function saveViewedStatuses(
+  source: string, 
+  statuses: Map<string, FileReviewStatus>
+): Promise<void> {
+  const dirPath = join(LOCAL_STORAGE_DIR, sourceToDir(source))
+  await mkdir(dirPath, { recursive: true })
+
+  const filepath = getViewedFilePath(source)
+  const data = Array.from(statuses.values())
+
+  await Bun.write(filepath, JSON.stringify(data, null, 2))
+}
+
+/**
+ * Save a single file's viewed status
+ */
+export async function saveFileViewedStatus(
+  source: string,
+  status: FileReviewStatus
+): Promise<void> {
+  // Load existing, update, and save
+  const existing = await loadViewedStatuses(source)
+  const statuses = new Map<string, FileReviewStatus>()
+  
+  for (const s of existing) {
+    statuses.set(s.filename, s)
+  }
+  statuses.set(status.filename, status)
+  
+  await saveViewedStatuses(source, statuses)
 }
