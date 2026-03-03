@@ -26,6 +26,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
+import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-state"
 import { getSelectionRange } from "../vim-diff/cursor-state"
 
 // Shared syntax style for diff rendering
@@ -146,6 +147,7 @@ export class VimDiffView {
   private comments: Comment[] = []
   private fileStatuses: Map<string, FileReviewStatus> = new Map()
   private loadingFiles: Set<string> = new Set()
+  private searchState: SearchState | null = null
   
   // Last cursor position for highlight removal
   private lastCursorLine: number = -1
@@ -238,7 +240,8 @@ export class VimDiffView {
     cursorState: VimCursorState,
     comments: Comment[],
     fileStatuses?: Map<string, FileReviewStatus>,
-    loadingFiles?: Set<string>
+    loadingFiles?: Set<string>,
+    searchState?: SearchState | null
   ): void {
     const newLoadingFiles = loadingFiles ?? new Set()
     const loadingChanged = !this.setsEqual(this.loadingFiles, newLoadingFiles)
@@ -251,6 +254,7 @@ export class VimDiffView {
       loadingChanged
     
     const commentsChanged = this.comments !== comments
+    const searchChanged = this.searchState !== searchState
 
     this.files = files
     this.selectedFileIndex = selectedFileIndex
@@ -259,12 +263,13 @@ export class VimDiffView {
     this.comments = comments
     this.fileStatuses = fileStatuses ?? new Map()
     this.loadingFiles = newLoadingFiles
+    this.searchState = searchState ?? null
 
     if (contentChanged) {
       // Full rebuild needed
       this.rebuild()
-    } else if (commentsChanged) {
-      // Comments changed - update line signs
+    } else if (commentsChanged || searchChanged) {
+      // Comments or search changed - update line signs and highlights
       this.updateLineSigns()
       this.updateHighlights()
     } else {
@@ -1031,7 +1036,39 @@ export class VimDiffView {
       }
     }
 
-    // Second pass: visual selection
+    // Second pass: search matches - highlight lines with matches
+    if (this.searchState && this.searchState.matches.length > 0) {
+      // Build set of lines with matches for quick lookup
+      const matchLines = new Set<number>()
+      for (const match of this.searchState.matches) {
+        matchLines.add(match.line)
+      }
+      
+      // Get current match line
+      const currentMatchLine = this.searchState.currentMatchIndex >= 0 
+        ? this.searchState.matches[this.searchState.currentMatchIndex]?.line
+        : null
+      
+      // Apply subtle highlight to all match lines
+      for (const line of matchLines) {
+        const existing = lineColors.get(line)
+        if (line === currentMatchLine) {
+          // Current match - more prominent highlight
+          lineColors.set(line, { 
+            gutter: existing?.gutter ?? defaultBg, 
+            content: "#3a3a1e"  // Yellowish tint for current match
+          })
+        } else {
+          // Other matches - subtle highlight
+          lineColors.set(line, { 
+            gutter: existing?.gutter ?? defaultBg, 
+            content: "#2a2a2a"  // Very subtle highlight for other matches
+          })
+        }
+      }
+    }
+
+    // Third pass: visual selection
     const selectionRange = getSelectionRange(this.cursorState)
     if (selectionRange) {
       const [start, end] = selectionRange
@@ -1040,7 +1077,7 @@ export class VimDiffView {
       }
     }
 
-    // Third pass: cursor line - only highlight gutter, keep content as diff color
+    // Fourth pass: cursor line - only highlight gutter, keep content as diff color
     const cursorLine = this.cursorState.line
     const existing = lineColors.get(cursorLine)
     lineColors.set(cursorLine, {

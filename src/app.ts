@@ -1,6 +1,6 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems, PRInfoPanelClass } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -97,6 +97,8 @@ import {
 } from "./vim-diff/cursor-state"
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler, type KeyEvent as VimKeyEvent } from "./vim-diff/motion-handler"
+import { createSearchState, type SearchState } from "./vim-diff/search-state"
+import { SearchHandler } from "./vim-diff/search-handler"
 
 export interface AppOptions {
   mode?: AppMode
@@ -319,6 +321,68 @@ export async function createApp(options: AppOptions = {}) {
     },
   })
 
+  // Search state and handler
+  let searchState: SearchState = createSearchState()
+  
+  const searchHandler = new SearchHandler({
+    getMapping: () => lineMapping,
+    getSearchState: () => searchState,
+    setSearchState: (newState) => { searchState = newState },
+    getCursor: () => vimState,
+    setCursor: (line, col) => {
+      vimState = { ...vimState, line, col }
+      ensureCursorVisible()
+      vimDiffView.updateCursor(vimState)
+    },
+    getFileContent: (filename) => {
+      const cached = state.fileContentCache[filename]
+      return cached?.newContent ?? null
+    },
+    loadFileContent: async (filename) => {
+      // Similar to handleExpandDivider, load file content
+      state = setFileContentLoading(state, filename)
+      render()
+      
+      try {
+        let newContent: string | null = null
+        let oldContent: string | null = null
+        
+        if (state.appMode === "pr" && state.prInfo) {
+          [newContent, oldContent] = await Promise.all([
+            getPrFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
+            getPrBaseFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
+          ])
+        } else {
+          [newContent, oldContent] = await Promise.all([
+            getFileContent(filename),
+            getOldFileContent(filename),
+          ])
+        }
+        
+        if (newContent !== null) {
+          state = setFileContent(state, filename, newContent, oldContent)
+        } else {
+          state = setFileContentError(state, filename, "Could not fetch file content")
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        state = setFileContentError(state, filename, msg)
+      }
+      
+      render()
+    },
+    expandDividerForLine: (filename, lineNum) => {
+      const dividerKey = lineMapping.findDividerForLine(filename, lineNum)
+      if (dividerKey) {
+        state = toggleDividerExpansion(state, dividerKey)
+        lineMapping = createLineMapping()
+      }
+    },
+    onUpdate: () => {
+      render()
+    },
+  })
+
   // Update file tree panel with current state
   function updateFileTreePanel() {
     fileTreePanel.update(
@@ -368,40 +432,49 @@ export async function createApp(options: AppOptions = {}) {
 
     // Build hints based on context and view mode
     const hints: string[] = []
-    hints.push("Tab: view")
     
-    if (state.viewMode === "diff") {
-      if (state.files.length > 0) {
-        if (vimState.mode === "visual-line") {
-          hints.push("c: comment selection", "Esc: cancel")
-        } else {
-          // Check if cursor is on a divider
-          const currentLine = lineMapping.getLine(vimState.line)
-          if (currentLine?.type === "divider") {
-            hints.push("Enter: expand")
+    // If search is active (typing), show search hints
+    if (searchState.active) {
+      hints.push("Enter: confirm", "Esc: cancel", "Type to search...")
+    } else if (searchState.pattern && state.viewMode === "diff") {
+      // After search, show navigation hints
+      hints.push("n: next", "N: prev", "Esc: clear")
+    } else {
+      hints.push("Tab: view")
+      
+      if (state.viewMode === "diff") {
+        if (state.files.length > 0) {
+          if (vimState.mode === "visual-line") {
+            hints.push("c: comment selection", "Esc: cancel")
+          } else {
+            // Check if cursor is on a divider
+            const currentLine = lineMapping.getLine(vimState.line)
+            if (currentLine?.type === "divider") {
+              hints.push("Enter: expand")
+            }
+            hints.push("V: select", "c: comment", "/: search")
           }
-          hints.push("V: select", "c: comment")
         }
-      }
-      hints.push("j/k/w/b: move")
-    } else {
-      hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse")
-    }
-    
-    if (state.showFilePanel) {
-      if (state.focusedPanel === "tree") {
-        hints.push("Ctrl+l: content")
-        if (state.selectedFileIndex !== null) {
-          hints.push("Esc: all files")
-        }
+        hints.push("j/k/w/b: move")
       } else {
-        hints.push("Ctrl+h: tree")
+        hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse")
       }
-      hints.push("Ctrl+b: hide panel")
-    } else {
-      hints.push("Ctrl+b: panel")
+      
+      if (state.showFilePanel) {
+        if (state.focusedPanel === "tree") {
+          hints.push("Ctrl+l: content")
+          if (state.selectedFileIndex !== null) {
+            hints.push("Esc: all files")
+          }
+        } else {
+          hints.push("Ctrl+h: tree")
+        }
+        hints.push("Ctrl+b: hide panel")
+      } else {
+        hints.push("Ctrl+b: panel")
+      }
+      hints.push("q: quit")
     }
-    hints.push("q: quit")
 
     // Update file tree panel state
     updateFileTreePanel()
@@ -440,7 +513,7 @@ export async function createApp(options: AppOptions = {}) {
         }
       }
       
-      // Update VimDiffView with current state
+      // Update VimDiffView with current state (including search)
       vimDiffView.update(
         state.files,
         state.selectedFileIndex,
@@ -448,7 +521,8 @@ export async function createApp(options: AppOptions = {}) {
         vimState,
         state.comments,
         state.fileStatuses,
-        loadingFiles
+        loadingFiles,
+        searchState
       )
       
       content = Box(
@@ -527,6 +601,10 @@ export async function createApp(options: AppOptions = {}) {
           },
           content
         ),
+        // Search prompt (between content and status bar when active or has pattern)
+        (searchState.active || searchState.pattern) && state.viewMode === "diff"
+          ? SearchPrompt({ searchState })
+          : null,
         // Status bar
         StatusBar({ 
           hints,
@@ -2679,6 +2757,31 @@ export async function createApp(options: AppOptions = {}) {
       return
     }
     
+    // ========== SEARCH INPUT (captures input when search prompt is active) ==========
+    if (searchState.active) {
+      switch (key.name) {
+        case "escape":
+          searchHandler.cancelSearch()
+          return
+        
+        case "return":
+        case "enter":
+          searchHandler.confirmSearch()
+          return
+        
+        case "backspace":
+          searchHandler.handleBackspace()
+          return
+        
+        default:
+          // Type characters into search
+          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+            searchHandler.handleCharInput(key.sequence)
+          }
+          return
+      }
+    }
+    
     // ========== GLOBAL KEYS (work in any mode) ==========
     switch (key.name) {
       case "p":
@@ -3175,16 +3278,51 @@ export async function createApp(options: AppOptions = {}) {
         return
       }
 
-      // Handle escape to exit visual mode
-      if (key.name === "escape" && vimState.mode === "visual-line") {
-        vimState = exitVisualMode(vimState)
-        vimDiffView.updateCursor(vimState)
+      // Handle escape to exit visual mode OR clear search
+      if (key.name === "escape") {
+        if (vimState.mode === "visual-line") {
+          vimState = exitVisualMode(vimState)
+          vimDiffView.updateCursor(vimState)
+          return
+        }
+        // Clear search highlights (if any)
+        if (searchState.pattern) {
+          searchHandler.clearSearch()
+          return
+        }
+      }
+
+      // Handle '/' for forward search
+      if ((key.name === "/" || key.sequence === "/") && !key.ctrl) {
+        searchHandler.startSearch("forward")
+        return
+      }
+      
+      // Handle '?' for backward search
+      if ((key.name === "?" || key.sequence === "?") && !key.ctrl) {
+        searchHandler.startSearch("backward")
+        return
+      }
+      
+      // Handle '*' for word under cursor search (forward)
+      if (key.sequence === "*" || (key.name === "8" && key.shift)) {
+        searchHandler.searchWordUnderCursor("forward")
+        return
+      }
+      
+      // Handle '#' for word under cursor search (backward)
+      if (key.sequence === "#" || (key.name === "3" && key.shift)) {
+        searchHandler.searchWordUnderCursor("backward")
         return
       }
 
       // Handle 'n' and 'N' for search repeat
       if (key.name === "n" && !key.ctrl) {
-        vimHandler.repeatSearch(key.shift)
+        if (searchState.pattern) {
+          searchHandler.jumpToMatch(key.shift ? "prev" : "next")
+        } else {
+          vimHandler.repeatSearch(key.shift)
+        }
         return
       }
 

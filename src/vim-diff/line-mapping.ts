@@ -640,4 +640,72 @@ export class DiffLineMapping {
     if (!line || line.type !== "divider") return null
     return line.dividerKey ?? null
   }
+
+  /**
+   * Find the visual line index for a given file line number.
+   * Returns null if the line is in a collapsed divider region.
+   * 
+   * @param filename - The filename to search in
+   * @param lineNum - The 1-indexed line number in the file
+   */
+  findVisualLineForFileLine(filename: string, lineNum: number): number | null {
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i]!
+      if (line.filename === filename && line.newLineNum === lineNum) {
+        return i
+      }
+    }
+    return null  // Line is collapsed or not in diff
+  }
+
+  /**
+   * Find which divider contains a given file line (for auto-expansion).
+   * Returns the divider key if the line is within a collapsed divider's range.
+   * Returns null if the line is visible or not in any divider.
+   * 
+   * Note: This is a simplified version. For full implementation, we would need
+   * to track the line ranges that each divider covers during parsing.
+   * 
+   * @param filename - The filename to search in
+   * @param lineNum - The 1-indexed line number in the file
+   */
+  findDividerForLine(filename: string, lineNum: number): string | null {
+    // For now, look through dividers and check if lineNum might be in their range
+    // This requires tracking divider ranges which we'd need to add to parsing
+    
+    // Simple approach: find dividers for this file and check their position
+    // in relation to surrounding visible lines
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i]
+      if (line?.type === "divider" && line.filename === filename && line.dividerKey) {
+        // Check the lines around this divider to see if lineNum might be in its range
+        // Find the last visible line before the divider
+        let prevLineNum = 0
+        for (let j = i - 1; j >= 0; j--) {
+          const prev = this.lines[j]
+          if (prev?.filename === filename && prev.newLineNum !== undefined) {
+            prevLineNum = prev.newLineNum
+            break
+          }
+        }
+        
+        // Find the first visible line after the divider
+        let nextLineNum = Infinity
+        for (let j = i + 1; j < this.lines.length; j++) {
+          const next = this.lines[j]
+          if (next?.filename === filename && next.newLineNum !== undefined) {
+            nextLineNum = next.newLineNum
+            break
+          }
+        }
+        
+        // If lineNum is between prevLineNum and nextLineNum, it's in this divider
+        if (lineNum > prevLineNum && lineNum < nextLineNum) {
+          return line.dividerKey
+        }
+      }
+    }
+    
+    return null
+  }
 }
