@@ -56,6 +56,12 @@ export interface DiffLine {
   
   /** Whether this file is collapsed (only for file-header type in all-files mode) */
   isCollapsed?: boolean
+  
+  /** Hunk key for collapse/expand (only for hunk-header type) */
+  hunkKey?: string
+  
+  /** Number of lines in this hunk (for collapsed display) */
+  hunkLineCount?: number
 }
 
 /**
@@ -152,4 +158,6 @@ export interface DiffLineMappingOptions {
   fileContents?: Map<string, string>
   /** Set of collapsed file names (for all-files mode) */
   collapsedFiles?: Set<string>
+  /** Set of collapsed hunk keys ("filename:hunkIndex") */
+  collapsedHunks?: Set<string>
 }

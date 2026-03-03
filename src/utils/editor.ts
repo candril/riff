@@ -463,3 +463,47 @@ export async function openCommentEditor(
   // Return the raw content - caller will parse it with parseEditorOutput
   return editedContent
 }
+
+/**
+ * Open a file in $EDITOR for viewing (read-only context).
+ * Creates a temporary file with the content and opens it.
+ * The file is cleaned up after the editor closes.
+ * 
+ * @param filename - Original filename (used for extension/syntax highlighting)
+ * @param content - File content to display
+ * @param lineNumber - Optional line number to jump to
+ */
+export async function openFileInEditor(
+  filename: string,
+  content: string,
+  lineNumber?: number
+): Promise<void> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+  
+  // Extract extension from filename for syntax highlighting
+  const ext = filename.includes(".") ? filename.split(".").pop() : "txt"
+  const tmpFile = join(tmpdir(), `riff-view-${randomUUID()}.${ext}`)
+  
+  await Bun.write(tmpFile, content)
+  
+  // Build editor command with line number if supported
+  // Most editors support +N syntax for jumping to line N
+  const args = lineNumber ? [editor, `+${lineNumber}`, tmpFile] : [editor, tmpFile]
+  
+  // Spawn editor and wait for it
+  const proc = Bun.spawn(args, {
+    stdin: "inherit",
+    stdout: "inherit", 
+    stderr: "inherit",
+  })
+  
+  await proc.exited
+  
+  // Clean up temp file
+  try {
+    const { unlink } = await import("fs/promises")
+    await unlink(tmpFile)
+  } catch {
+    // Ignore cleanup errors
+  }
+}

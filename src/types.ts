@@ -88,9 +88,29 @@ export type AppMode = "local" | "pr"
 
 /**
  * File review status - tracks whether a file has been viewed/reviewed
+ * Extended with GitHub sync and change detection capabilities
  */
 export interface FileReviewStatus {
   filename: string
   viewed: boolean
-  viewedAt?: string  // ISO timestamp when marked viewed
+  viewedAt?: string           // ISO timestamp when marked viewed
+  viewedAtCommit?: string     // Commit SHA when marked viewed
+  
+  // Change detection (populated by refreshViewedStatuses)
+  isStale?: boolean           // True if file changed since viewed
+  staleCommits?: number       // Number of commits since viewed
+  latestCommit?: string       // Current HEAD commit for this file
+  
+  // GitHub sync
+  githubSynced?: boolean      // True if synced to GitHub
+  syncedAt?: string           // When last synced to GitHub
+}
+
+/**
+ * Viewed status statistics
+ */
+export interface ViewedStats {
+  total: number
+  viewed: number
+  outdated: number            // Viewed but changed since
 }

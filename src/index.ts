@@ -78,7 +78,7 @@ async function main() {
     if (args.type === "pr") {
       // Fetch PR and persist comments to markdown files
       console.log(`Fetching PR #${args.prNumber}...`)
-      const { prInfo, diff, comments } = await loadPrSession(
+      const { prInfo, diff, comments, viewedStatuses, headSha } = await loadPrSession(
         args.prNumber!,
         args.owner,
         args.repo
@@ -89,6 +89,8 @@ async function main() {
         diff,
         comments,
         prInfo,
+        githubViewedStatuses: viewedStatuses,
+        headSha,
       })
     } else {
       // Local diff mode

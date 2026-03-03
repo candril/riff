@@ -1,6 +1,6 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
-import type { Comment, ReviewSession, AppMode, FileReviewStatus } from "./types"
+import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats } from "./types"
 import type { PrInfo } from "./providers/github"
 import { type ActionMenuState, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
@@ -142,6 +142,9 @@ export interface AppState {
   // Collapsed files in all-files diff view (filenames that are collapsed)
   collapsedFiles: Set<string>
   
+  // Collapsed hunks (key: "filename:hunkIndex")
+  collapsedHunks: Set<string>
+  
   // Action menu state
   actionMenu: ActionMenuState
   
@@ -159,6 +162,7 @@ export interface AppState {
   
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
+  viewedStats: ViewedStats
   
   // PR info panel state
   prInfoPanel: PRInfoPanelState
@@ -202,6 +206,7 @@ export function createInitialState(
     fileContentCache: {},
     expandedDividers: new Set(),
     collapsedFiles: new Set(),
+    collapsedHunks: new Set(),
     actionMenu: createActionMenuState(),
     reviewPreview: {
       open: false,
@@ -228,6 +233,7 @@ export function createInitialState(
       selectedIndex: 0,
     },
     fileStatuses: new Map(),
+    viewedStats: { total: files.length, viewed: 0, outdated: 0 },
     prInfoPanel: {
       open: false,
       scrollOffset: 0,
@@ -676,11 +682,89 @@ export function expandAllFiles(state: AppState): AppState {
   }
 }
 
+// ============================================================================
+// Hunk Fold State
+// ============================================================================
+
+/**
+ * Toggle a hunk's collapsed state
+ * @param hunkKey - Format: "filename:hunkIndex"
+ */
+export function toggleHunkFold(state: AppState, hunkKey: string): AppState {
+  const newCollapsed = new Set(state.collapsedHunks)
+  if (newCollapsed.has(hunkKey)) {
+    newCollapsed.delete(hunkKey)
+  } else {
+    newCollapsed.add(hunkKey)
+  }
+  return {
+    ...state,
+    collapsedHunks: newCollapsed,
+  }
+}
+
+/**
+ * Check if a hunk is collapsed
+ */
+export function isHunkCollapsed(state: AppState, hunkKey: string): boolean {
+  return state.collapsedHunks.has(hunkKey)
+}
+
+/**
+ * Collapse all hunks
+ */
+export function collapseAllHunks(state: AppState): AppState {
+  // This would need line mapping to know all hunk keys
+  // For now, just return state - implement if needed
+  return state
+}
+
+/**
+ * Expand all hunks
+ */
+export function expandAllHunks(state: AppState): AppState {
+  return {
+    ...state,
+    collapsedHunks: new Set(),
+  }
+}
+
 /**
  * Check if a file is collapsed
  */
 export function isFileCollapsed(state: AppState, filename: string): boolean {
   return state.collapsedFiles.has(filename)
+}
+
+/**
+ * Collapse a file (for marking as viewed)
+ */
+export function collapseFile(state: AppState, filename: string): AppState {
+  if (state.collapsedFiles.has(filename)) {
+    return state  // Already collapsed
+  }
+  const newCollapsed = new Set(state.collapsedFiles)
+  newCollapsed.add(filename)
+  return {
+    ...state,
+    collapsedFiles: newCollapsed,
+  }
+}
+
+/**
+ * Collapse all viewed files
+ */
+export function collapseViewedFiles(state: AppState): AppState {
+  const newCollapsed = new Set(state.collapsedFiles)
+  for (const file of state.files) {
+    if (state.fileStatuses.get(file.filename)?.viewed) {
+      newCollapsed.add(file.filename)
+    }
+  }
+  return {
+    ...state,
+    collapsedFiles: newCollapsed,
+  }
 }
 
 /**
@@ -1026,7 +1110,9 @@ export function isFileViewed(state: AppState, filename: string): boolean {
 }
 
 /**
- * Toggle the viewed status of a file
+ * Toggle the viewed status of a file.
+ * Note: For full functionality including viewedAtCommit, use the async version
+ * toggleFileViewedWithCommit in the caller (app.ts).
  */
 export function toggleFileViewed(state: AppState, filename: string): AppState {
   const current = state.fileStatuses.get(filename)?.viewed ?? false
@@ -1041,11 +1127,26 @@ export function toggleFileViewed(state: AppState, filename: string): AppState {
   return {
     ...state,
     fileStatuses: newStatuses,
+    viewedStats: recomputeViewedStats(newStatuses, state.files),
   }
 }
 
 /**
- * Set the viewed status of a file
+ * Set the viewed status of a file with full status object
+ */
+export function setFileViewedStatus(state: AppState, status: FileReviewStatus): AppState {
+  const newStatuses = new Map(state.fileStatuses)
+  newStatuses.set(status.filename, status)
+  
+  return {
+    ...state,
+    fileStatuses: newStatuses,
+    viewedStats: recomputeViewedStats(newStatuses, state.files),
+  }
+}
+
+/**
+ * Set the viewed status of a file (simple version)
  */
 export function setFileViewed(state: AppState, filename: string, viewed: boolean): AppState {
   const newStatuses = new Map(state.fileStatuses)
@@ -1059,23 +1160,19 @@ export function setFileViewed(state: AppState, filename: string, viewed: boolean
   return {
     ...state,
     fileStatuses: newStatuses,
+    viewedStats: recomputeViewedStats(newStatuses, state.files),
   }
 }
 
 /**
- * Get review progress stats
+ * Get review progress stats (uses cached viewedStats)
  */
-export function getReviewProgress(state: AppState): { reviewed: number; total: number } {
-  const total = state.files.length
-  let reviewed = 0
-  
-  for (const file of state.files) {
-    if (state.fileStatuses.get(file.filename)?.viewed) {
-      reviewed++
-    }
+export function getReviewProgress(state: AppState): { reviewed: number; total: number; outdated: number } {
+  return {
+    reviewed: state.viewedStats.viewed,
+    total: state.viewedStats.total,
+    outdated: state.viewedStats.outdated,
   }
-  
-  return { reviewed, total }
 }
 
 /**
@@ -1091,7 +1188,53 @@ export function loadFileStatuses(state: AppState, statuses: FileReviewStatus[]):
   return {
     ...state,
     fileStatuses: newStatuses,
+    viewedStats: recomputeViewedStats(newStatuses, state.files),
   }
+}
+
+/**
+ * Update file statuses with a new map (e.g., after refresh)
+ */
+export function updateFileStatuses(state: AppState, statuses: Map<string, FileReviewStatus>): AppState {
+  return {
+    ...state,
+    fileStatuses: statuses,
+    viewedStats: recomputeViewedStats(statuses, state.files),
+  }
+}
+
+/**
+ * Recompute viewed stats from statuses and files
+ */
+function recomputeViewedStats(
+  statuses: Map<string, FileReviewStatus>,
+  files: DiffFile[]
+): ViewedStats {
+  let viewed = 0
+  let outdated = 0
+  
+  for (const file of files) {
+    const status = statuses.get(file.filename)
+    if (status?.viewed) {
+      viewed++
+      if (status.isStale) {
+        outdated++
+      }
+    }
+  }
+  
+  return {
+    total: files.length,
+    viewed,
+    outdated,
+  }
+}
+
+/**
+ * Check if a file is stale (viewed but modified since)
+ */
+export function isFileStale(state: AppState, filename: string): boolean {
+  return state.fileStatuses.get(filename)?.isStale ?? false
 }
 
 // ============================================================================

@@ -11,6 +11,7 @@ export class DiffLineMapping {
   private expandedDividers: Set<string>
   private fileContents: Map<string, string>
   private collapsedFiles: Set<string>
+  private collapsedHunks: Set<string>
 
   constructor(
     files: DiffFile[],
@@ -21,6 +22,7 @@ export class DiffLineMapping {
     this.expandedDividers = options?.expandedDividers ?? new Set()
     this.fileContents = options?.fileContents ?? new Map()
     this.collapsedFiles = options?.collapsedFiles ?? new Set()
+    this.collapsedHunks = options?.collapsedHunks ?? new Set()
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
@@ -446,8 +448,8 @@ export class DiffLineMapping {
         }
       }
 
-      // Spacing after file (except last)
-      if (fileIndex < files.length - 1) {
+      // Spacing after file (except last, and not for collapsed files)
+      if (fileIndex < files.length - 1 && !isCollapsed) {
         allLines.push({
           visualIndex: allLines.length,
           type: "spacing",

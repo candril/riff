@@ -46,13 +46,72 @@ function truncate(str: string, maxLen: number): string {
   return str.slice(0, maxLen - 1) + "…"
 }
 
+/**
+ * Directory viewed status - aggregates status of all files under a directory
+ */
+interface DirViewedStatus {
+  allViewed: boolean      // All files in dir are viewed
+  anyViewed: boolean      // At least one file is viewed
+  anyStale: boolean       // At least one viewed file is stale
+  totalFiles: number      // Total files under this dir
+  viewedFiles: number     // Number of viewed files
+}
+
+/**
+ * Compute viewed status for a directory based on all files under it.
+ * Handles merged directory paths like "src/components" where files are
+ * "src/components/Header.ts" etc.
+ */
+function computeDirViewedStatus(
+  dirPath: string,
+  files: DiffFile[],
+  statuses: Map<string, FileReviewStatus>
+): DirViewedStatus {
+  // Files under this directory start with "dirPath/"
+  const prefix = dirPath + "/"
+  
+  // Find all files that are under this directory
+  const filesInDir = files.filter(f => f.filename.startsWith(prefix))
+  
+  return computeDirViewedStatusForFiles(filesInDir, statuses)
+}
+
+/**
+ * Helper to compute viewed status from a list of files
+ */
+function computeDirViewedStatusForFiles(
+  filesInDir: DiffFile[],
+  statuses: Map<string, FileReviewStatus>
+): DirViewedStatus {
+  let viewedCount = 0
+  let staleCount = 0
+  
+  for (const file of filesInDir) {
+    const status = statuses.get(file.filename)
+    if (status?.viewed) {
+      viewedCount++
+      if (status.isStale) {
+        staleCount++
+      }
+    }
+  }
+  
+  return {
+    allViewed: filesInDir.length > 0 && viewedCount === filesInDir.length,
+    anyViewed: viewedCount > 0,
+    anyStale: staleCount > 0,
+    totalFiles: filesInDir.length,
+    viewedFiles: viewedCount,
+  }
+}
+
 export class FileTreePanel {
   private renderer: CliRenderer
   private container: BoxRenderable
   private headerText: TextRenderable
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
-  private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable }> = new Map()
+  private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable; markerText: TextRenderable }> = new Map()
   private width: number
 
   // Current state
@@ -203,9 +262,24 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
-      const isViewed = node.file 
-        ? this.currentFileStatuses.get(node.file.filename)?.viewed ?? false 
-        : false
+      
+      // Compute viewed status - different for files vs directories
+      let isViewed = false
+      let isStale = false
+      let isPartiallyViewed = false  // For directories: some but not all viewed
+      
+      if (node.isDirectory) {
+        // Directory: aggregate status from all files under it
+        const dirStatus = computeDirViewedStatus(node.path, this.currentFiles, this.currentFileStatuses)
+        isViewed = dirStatus.allViewed
+        isPartiallyViewed = dirStatus.anyViewed && !dirStatus.allViewed
+        isStale = dirStatus.anyStale
+      } else if (node.file) {
+        // File: use direct status
+        const viewedStatus = this.currentFileStatuses.get(node.file.filename)
+        isViewed = viewedStatus?.viewed ?? false
+        isStale = viewedStatus?.isStale ?? false
+      }
 
       const indent = "  ".repeat(depth)
       const icon = node.isDirectory
@@ -213,7 +287,7 @@ export class FileTreePanel {
         : "  "
 
       // Files get color based on status, directories get subtext color
-      // Viewed files get dimmed color
+      // Viewed files/dirs get dimmed color
       const nameFg = isViewed
         ? colors.fileViewed
         : node.isDirectory
@@ -230,34 +304,60 @@ export class FileTreePanel {
           : undefined
 
       // Create box for this item
+      // Use index for ID to avoid issues with special chars in paths
       const box = new BoxRenderable(this.renderer, {
-        id: `tree-item-${node.path}`,
+        id: `tree-item-${index}`,
         height: 1,
         width: "100%",
+        flexDirection: "row",
         backgroundColor: bgColor,
       })
 
-      // Viewed marker: ✓ for viewed, space otherwise (no more ● for selected)
-      const marker = isViewed ? "✓" : " "
+      // Viewed marker with states:
+      // ✓ green - all viewed, unchanged
+      // ✓ orange - viewed, but modified since (or dir has stale files)
+      // ◐ dim - partially viewed (directories only)
+      // ○ dim - not viewed
+      let marker: string
+      let markerColor: string
+      
+      if (isViewed) {
+        marker = "✓"
+        markerColor = isStale ? colors.viewedStale : colors.viewedOk
+      } else if (isPartiallyViewed) {
+        marker = "◐"
+        markerColor = isStale ? colors.viewedStale : colors.viewedNone
+      } else {
+        marker = "○"
+        markerColor = colors.viewedNone
+      }
 
       // Calculate available width for name
-      // Account for: marker (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
-      const prefixLen = 1 + indent.length + icon.length
+      // Account for: marker (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      const prefixLen = 2 + indent.length + icon.length
       const reserved = 4  // border + scrollbar + margin
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)
       const displayName = truncate(node.name, availableWidth)
 
-      // Create text - just marker, indent, icon, and name
-      // No separate status indicator - color coding is sufficient
+      // Create single text with marker, indent, icon, and name
+      // Use index for ID to avoid issues with special chars in paths
+      const markerText = new TextRenderable(this.renderer, {
+        id: `tree-item-marker-${index}`,
+        content: marker,
+        fg: markerColor,
+      })
+      box.add(markerText)
+
+      // Create text for indent, icon, and name (with leading space for separation)
       const text = new TextRenderable(this.renderer, {
-        id: `tree-item-text-${node.path}`,
-        content: `${marker}${indent}${icon}${displayName}`,
+        id: `tree-item-text-${index}`,
+        content: ` ${indent}${icon}${displayName}`,
         fg: nameFg,
       })
       box.add(text)
 
       this.content.add(box)
-      this.itemRenderables.set(node.path, { box, text })
+      this.itemRenderables.set(String(index), { box, text, markerText })
     }
   }
 
@@ -274,12 +374,27 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
-      const isViewed = node.file 
-        ? this.currentFileStatuses.get(node.file.filename)?.viewed ?? false 
-        : false
 
-      const renderables = this.itemRenderables.get(node.path)
+      const renderables = this.itemRenderables.get(String(index))
       if (!renderables) continue
+
+      // Compute viewed status - different for files vs directories
+      let isViewed = false
+      let isStale = false
+      let isPartiallyViewed = false  // For directories: some but not all viewed
+      
+      if (node.isDirectory) {
+        // Directory: aggregate status from all files under it
+        const dirStatus = computeDirViewedStatus(node.path, this.currentFiles, this.currentFileStatuses)
+        isViewed = dirStatus.allViewed
+        isPartiallyViewed = dirStatus.anyViewed && !dirStatus.allViewed
+        isStale = dirStatus.anyStale
+      } else if (node.file) {
+        // File: use direct status
+        const viewedStatus = this.currentFileStatuses.get(node.file.filename)
+        isViewed = viewedStatus?.viewed ?? false
+        isStale = viewedStatus?.isStale ?? false
+      }
 
       const indent = "  ".repeat(depth)
       const icon = node.isDirectory
@@ -287,7 +402,7 @@ export class FileTreePanel {
         : "  "
 
       // Files get color based on status, directories get subtext color
-      // Viewed files get dimmed color
+      // Viewed files/dirs get dimmed color
       const nameFg = isViewed
         ? colors.fileViewed
         : node.isDirectory
@@ -302,18 +417,37 @@ export class FileTreePanel {
         : isSelected 
           ? theme.surface0  // Subtle background for current file
           : null
-      // Viewed marker: ✓ for viewed, space otherwise (no more ● for selected)
-      const marker = isViewed ? "✓" : " "
+
+      // Viewed marker with states:
+      // ✓ green - all viewed, unchanged
+      // ✓ orange - viewed, but modified since (or dir has stale files)
+      // ◐ dim - partially viewed (directories only)
+      // ○ dim - not viewed
+      let marker: string
+      let markerColor: string
+      
+      if (isViewed) {
+        marker = "✓"
+        markerColor = isStale ? colors.viewedStale : colors.viewedOk
+      } else if (isPartiallyViewed) {
+        marker = "◐"
+        markerColor = isStale ? colors.viewedStale : colors.viewedNone
+      } else {
+        marker = "○"
+        markerColor = colors.viewedNone
+      }
 
       // Calculate available width for name
-      const prefixLen = 1 + indent.length + icon.length
+      const prefixLen = 2 + indent.length + icon.length
       const reserved = 4
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)
       const displayName = truncate(node.name, availableWidth)
 
       // Update properties
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.text.content = `${marker}${indent}${icon}${displayName}`
+      renderables.markerText.content = marker
+      renderables.markerText.fg = markerColor
+      renderables.text.content = ` ${indent}${icon}${displayName}`
       renderables.text.fg = nameFg
     }
   }

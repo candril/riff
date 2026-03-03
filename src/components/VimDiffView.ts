@@ -23,7 +23,7 @@ import {
 } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
-import type { Comment } from "../types"
+import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
 import { getSelectionRange } from "../vim-diff/cursor-state"
@@ -95,11 +95,13 @@ interface FileSection {
  * Clean, minimal design matching ReviewPreview style
  * Uses minWidth: "100%" to ensure all headers stretch to full width
  */
-function FileHeader(props: { filename: string; additions: number; deletions: number; collapsed?: boolean }): ReturnType<typeof Box> {
-  const { filename, additions, deletions, collapsed } = props
+function FileHeader(props: { filename: string; additions: number; deletions: number; collapsed?: boolean; viewed?: boolean }): ReturnType<typeof Box> {
+  const { filename, additions, deletions, collapsed, viewed } = props
   
   // Fold indicator: > for collapsed, v for expanded
   const foldIcon = collapsed ? "▶" : "▼"
+  // Viewed indicator: ✓ for viewed files
+  const viewedIndicator = viewed ? "✓" : " "
   
   return Box(
     {
@@ -112,8 +114,10 @@ function FileHeader(props: { filename: string; additions: number; deletions: num
     },
     // Fold indicator
     Text({ content: foldIcon, fg: collapsed ? theme.overlay1 : theme.overlay0 }),
-    // Filename
-    Text({ content: filename, fg: theme.blue }),
+    // Viewed indicator
+    Text({ content: viewedIndicator, fg: viewed ? theme.green : theme.overlay0 }),
+    // Filename (dimmed if viewed)
+    Text({ content: filename, fg: viewed ? theme.overlay1 : theme.blue }),
     // Stats
     Text({ content: `+${additions}`, fg: theme.green }),
     Text({ content: `-${deletions}`, fg: theme.red }),
@@ -140,6 +144,8 @@ export class VimDiffView {
   private lineMapping: DiffLineMapping | null = null
   private cursorState: VimCursorState | null = null
   private comments: Comment[] = []
+  private fileStatuses: Map<string, FileReviewStatus> = new Map()
+  private loadingFiles: Set<string> = new Set()
   
   // Last cursor position for highlight removal
   private lastCursorLine: number = -1
@@ -196,6 +202,33 @@ export class VimDiffView {
   }
 
   /**
+   * Format a divider line for display
+   * Creates an attractive collapsed context indicator with loading state
+   */
+  private formatDivider(lineCount: string, filename: string): string {
+    const isLoading = this.loadingFiles.has(filename)
+    
+    if (isLoading) {
+      // Loading state - spinner with context
+      return `⟳ Expanding ${lineCount}...`
+    }
+    
+    // Collapsed state - clean, minimal fold indicator
+    return `▸ ${lineCount}`
+  }
+
+  /**
+   * Check if two sets have the same contents
+   */
+  private setsEqual(a: Set<string>, b: Set<string>): boolean {
+    if (a.size !== b.size) return false
+    for (const item of a) {
+      if (!b.has(item)) return false
+    }
+    return true
+  }
+
+  /**
    * Update the view with new data
    */
   update(
@@ -203,12 +236,19 @@ export class VimDiffView {
     selectedFileIndex: number | null,
     lineMapping: DiffLineMapping,
     cursorState: VimCursorState,
-    comments: Comment[]
+    comments: Comment[],
+    fileStatuses?: Map<string, FileReviewStatus>,
+    loadingFiles?: Set<string>
   ): void {
+    const newLoadingFiles = loadingFiles ?? new Set()
+    const loadingChanged = !this.setsEqual(this.loadingFiles, newLoadingFiles)
+    
     const contentChanged = 
       this.files !== files || 
       this.selectedFileIndex !== selectedFileIndex ||
-      this.lineMapping !== lineMapping
+      this.lineMapping !== lineMapping ||
+      this.fileStatuses !== fileStatuses ||
+      loadingChanged
     
     const commentsChanged = this.comments !== comments
 
@@ -217,6 +257,8 @@ export class VimDiffView {
     this.lineMapping = lineMapping
     this.cursorState = cursorState
     this.comments = comments
+    this.fileStatuses = fileStatuses ?? new Map()
+    this.loadingFiles = newLoadingFiles
 
     if (contentChanged) {
       // Full rebuild needed
@@ -467,6 +509,9 @@ export class VimDiffView {
       // For collapsed files, only show the header
       let sectionElement: ReturnType<typeof Box>
       
+      // Check if this file is viewed
+      const isViewed = this.fileStatuses.get(section.filename)?.viewed ?? false
+      
       if (section.collapsed) {
         // Collapsed file - just show header
         sectionElement = Box(
@@ -480,6 +525,7 @@ export class VimDiffView {
             additions: section.additions,
             deletions: section.deletions,
             collapsed: true,
+            viewed: isViewed,
           }),
         )
       } else {
@@ -496,6 +542,7 @@ export class VimDiffView {
             additions: section.additions,
             deletions: section.deletions,
             collapsed: false,
+            viewed: isViewed,
           }),
           // Code content
           h(LineNumberRenderable, {
@@ -589,8 +636,10 @@ export class VimDiffView {
           lines.push(line.content)
           break
         case "divider":
-          const label = line.content || "..."
-          lines.push(`··· ${label} ···`)
+          // Collapsed context - use formatted divider with loading state
+          const divLabel = line.content || "..."
+          const divFilename = line.filename ?? ""
+          lines.push(this.formatDivider(divLabel, divFilename))
           break
         case "addition":
         case "deletion":
@@ -868,10 +917,10 @@ export class VimDiffView {
           lines.push(line.content)
           break
         case "divider":
-          // Divider showing collapsed line count
-          // Format: ··· 47 lines ···
+          // Divider showing collapsed line count with loading state
           const label = line.content || "..."
-          lines.push(`··· ${label} ···`)
+          const filename = line.filename ?? ""
+          lines.push(this.formatDivider(label, filename))
           break
         case "addition":
         case "deletion":
@@ -969,8 +1018,16 @@ export class VimDiffView {
         // Legacy - shouldn't appear anymore
         lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
       } else if (line.type === "divider") {
-        // Divider with subtle but visible styling (slightly darker than content)
-        lineColors.set(i, { gutter: theme.mantle, content: theme.mantle })
+        // Divider with subtle styling - check loading state for visual feedback
+        const divFilename = line.filename ?? ""
+        const isLoading = this.loadingFiles.has(divFilename)
+        if (isLoading) {
+          // Loading - slightly brighter to draw attention
+          lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
+        } else {
+          // Collapsed - subtle dark background
+          lineColors.set(i, { gutter: theme.mantle, content: theme.mantle })
+        }
       }
     }
 
@@ -1001,12 +1058,16 @@ export class VimDiffView {
     const signs = new Map<number, LineSign>()
     if (!this.lineMapping) return signs
 
+    // Add comment indicators
     for (const comment of this.comments) {
       const visualLine = this.lineMapping.findLineForComment(comment)
       if (visualLine !== null) {
-        // Determine color based on status and local edits
+        // Determine color based on status, resolved state, and local edits
         let color: string
-        if (comment.status === "synced" && comment.localEdit !== undefined) {
+        if (comment.isThreadResolved) {
+          // Resolved threads get dimmed color
+          color = colors.commentResolved
+        } else if (comment.status === "synced" && comment.localEdit !== undefined) {
           // Synced but has local edits pending
           color = theme.yellow
         } else if (comment.status === "synced") {

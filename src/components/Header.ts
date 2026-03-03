@@ -10,7 +10,7 @@ export interface HeaderProps {
   selectedFile?: DiffFile | null  // null = all files
   totalFiles?: number
   prInfo?: PrInfo | null
-  reviewProgress?: { reviewed: number; total: number }
+  reviewProgress?: { reviewed: number; total: number; outdated?: number }
 }
 
 export function Header({
@@ -32,16 +32,37 @@ export function Header({
       ? `All files (${totalFiles})`
       : "All files"
 
-  // Review progress text (e.g., "3/5 reviewed")
+  // Review progress text (e.g., "3/5 reviewed" or "3/5 reviewed (1 outdated)")
+  const hasOutdated = reviewProgress && (reviewProgress.outdated ?? 0) > 0
   const progressText = reviewProgress && reviewProgress.total > 0
-    ? `${reviewProgress.reviewed}/${reviewProgress.total} reviewed`
+    ? hasOutdated
+      ? `${reviewProgress.reviewed}/${reviewProgress.total} reviewed (${reviewProgress.outdated} outdated)`
+      : `${reviewProgress.reviewed}/${reviewProgress.total} reviewed`
     : null
-  const progressColor = reviewProgress && reviewProgress.reviewed === reviewProgress.total
-    ? theme.green  // All done!
-    : theme.subtext0
+  const progressColor = hasOutdated
+    ? theme.peach  // Has outdated files
+    : reviewProgress && reviewProgress.reviewed === reviewProgress.total
+      ? theme.green  // All done!
+      : theme.subtext0
 
   // PR mode header
   if (prInfo) {
+    // PR status badge
+    const statusText = prInfo.isDraft 
+      ? "Draft" 
+      : prInfo.state === "merged" 
+        ? "Merged" 
+        : prInfo.state === "closed" 
+          ? "Closed" 
+          : "Open"
+    const statusColor = prInfo.isDraft
+      ? theme.overlay1      // Gray for draft
+      : prInfo.state === "merged"
+        ? theme.mauve       // Purple for merged
+        : prInfo.state === "closed"
+          ? theme.red       // Red for closed
+          : theme.green     // Green for open
+
     return Box(
       {
         height: 1,
@@ -53,12 +74,13 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
       },
-      // Left side: view mode, PR number, scope
+      // Left side: view mode, PR status, number, title
       Box(
-        { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
+        { flexDirection: "row", gap: 1, flexShrink: 1, overflow: "hidden" },
         Text({ content: `[${viewBadge}]`, fg: viewBadgeColor }),
+        Text({ content: statusText, fg: statusColor }),
         Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
-        Text({ content: scopeText, fg: colors.text })
+        Text({ content: prInfo.title, fg: colors.text })
       ),
       // Right side: progress + stats for selected file
       Box(

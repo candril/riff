@@ -207,3 +207,61 @@ export function findFileNode(
   }
   return undefined
 }
+
+/**
+ * Expand all parent directories to make a file visible in the tree.
+ * Returns the updated tree.
+ */
+export function expandToFile(
+  nodes: FileTreeNode[],
+  filename: string
+): FileTreeNode[] {
+  return nodes.map((node) => {
+    if (!node.isDirectory) {
+      return node
+    }
+    
+    // Check if this directory contains the target file (directly or nested)
+    const containsFile = checkContainsFile(node, filename)
+    
+    if (containsFile) {
+      // Expand this directory and recurse into children
+      return {
+        ...node,
+        expanded: true,
+        children: expandToFile(node.children, filename),
+      }
+    }
+    
+    return node
+  })
+}
+
+/**
+ * Check if a directory node contains a file (directly or in subdirectories)
+ */
+function checkContainsFile(node: FileTreeNode, filename: string): boolean {
+  if (!node.isDirectory) {
+    return node.file?.filename === filename
+  }
+  
+  for (const child of node.children) {
+    if (checkContainsFile(child, filename)) {
+      return true
+    }
+  }
+  
+  return false
+}
+
+/**
+ * Find the flat index of a file in the tree (after flattening with current expansion state)
+ */
+export function findFileTreeIndex(
+  nodes: FileTreeNode[],
+  files: DiffFile[],
+  filename: string
+): number {
+  const flatItems = flattenTree(nodes, files)
+  return flatItems.findIndex(item => item.node.file?.filename === filename)
+}

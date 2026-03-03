@@ -77,6 +77,7 @@ export const colors = {
   commentLocal: theme.blue,
   commentPending: theme.yellow,
   commentSynced: theme.green,
+  commentResolved: theme.overlay1,
 
   // File status
   fileAdded: theme.green,
@@ -84,4 +85,9 @@ export const colors = {
   fileDeleted: theme.red,
   fileRenamed: theme.peach,
   fileViewed: theme.overlay0,
+  
+  // Viewed status indicators
+  viewedOk: theme.green,       // Viewed, unchanged
+  viewedStale: theme.peach,    // Viewed, but modified since
+  viewedNone: theme.overlay0,  // Not viewed (dim)
 } as const

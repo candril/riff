@@ -375,7 +375,7 @@ export async function loadPrSession(
   prNumber: number,
   owner?: string,
   repo?: string
-): Promise<{ prInfo: PrInfo; diff: string; comments: Comment[] }> {
+): Promise<{ prInfo: PrInfo; diff: string; comments: Comment[]; viewedStatuses: Map<string, boolean>; headSha: string }> {
   // Resolve owner/repo first if needed
   let resolvedOwner = owner
   let resolvedRepo = repo
@@ -385,12 +385,13 @@ export async function loadPrSession(
     resolvedRepo = current.repo
   }
 
-  // Fetch all data in parallel
-  const [prInfo, diff, prComments, headSha] = await Promise.all([
+  // Fetch all data in parallel (including viewed statuses)
+  const [prInfo, diff, prComments, headSha, viewedStatuses] = await Promise.all([
     getPrInfo(prNumber, resolvedOwner, resolvedRepo),
     getPrDiff(prNumber, resolvedOwner, resolvedRepo),
     getPrComments(resolvedOwner!, resolvedRepo!, prNumber),
     getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
+    fetchViewedStatuses(resolvedOwner!, resolvedRepo!, prNumber),
   ])
 
   // Build source identifier for this PR
@@ -462,7 +463,7 @@ export async function loadPrSession(
   }
   await saveSession(session)
 
-  return { prInfo, diff, comments }
+  return { prInfo, diff, comments, viewedStatuses, headSha }
 }
 
 // ============================================================================
@@ -766,4 +767,178 @@ export async function toggleThreadResolution(
   currentlyResolved: boolean
 ): Promise<ResolveResult> {
   return currentlyResolved ? unresolveThread(threadId) : resolveThread(threadId)
+}
+
+// ============================================================================
+// Viewed Files Sync
+// ============================================================================
+
+export type ViewerViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED"
+
+export interface ViewedFileStatus {
+  path: string
+  viewerViewedState: ViewerViewedState
+}
+
+/**
+ * Fetch viewed statuses for all files in a PR via GraphQL.
+ * Returns a map from filename to viewed boolean.
+ */
+export async function fetchViewedStatuses(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<Map<string, boolean>> {
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          files(first: 100) {
+            nodes {
+              path
+              viewerViewedState
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      }
+    }
+  `
+  
+  const statuses = new Map<string, boolean>()
+  
+  try {
+    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    const files = result?.data?.repository?.pullRequest?.files?.nodes || []
+    
+    for (const file of files) {
+      // viewerViewedState: "VIEWED" | "UNVIEWED" | "DISMISSED"
+      // Consider "VIEWED" as viewed, anything else as not viewed
+      statuses.set(file.path, file.viewerViewedState === "VIEWED")
+    }
+    
+    // Handle pagination for large PRs (100+ files)
+    let pageInfo = result?.data?.repository?.pullRequest?.files?.pageInfo
+    while (pageInfo?.hasNextPage && pageInfo?.endCursor) {
+      const paginatedQuery = `
+        query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $prNumber) {
+              files(first: 100, after: $cursor) {
+                nodes {
+                  path
+                  viewerViewedState
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        }
+      `
+      
+      const nextResult = await $`gh api graphql -f query=${paginatedQuery} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber} -F cursor=${pageInfo.endCursor}`.json() as any
+      const nextFiles = nextResult?.data?.repository?.pullRequest?.files?.nodes || []
+      
+      for (const file of nextFiles) {
+        statuses.set(file.path, file.viewerViewedState === "VIEWED")
+      }
+      
+      pageInfo = nextResult?.data?.repository?.pullRequest?.files?.pageInfo
+    }
+    
+    return statuses
+  } catch (err) {
+    // Return empty map on error (fail gracefully)
+    console.error("Failed to fetch viewed statuses:", err)
+    return statuses
+  }
+}
+
+export interface ViewedSyncResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Mark a file as viewed or unviewed on GitHub via GraphQL mutation.
+ */
+export async function markFileViewedOnGitHub(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  path: string,
+  viewed: boolean
+): Promise<ViewedSyncResult> {
+  try {
+    // First get the PR node ID (required for the mutation)
+    const prQuery = `
+      query($owner: String!, $repo: String!, $prNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $prNumber) {
+            id
+          }
+        }
+      }
+    `
+    
+    const prResult = await $`gh api graphql -f query=${prQuery} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    const prId = prResult?.data?.repository?.pullRequest?.id
+    
+    if (!prId) {
+      return { success: false, error: "Could not get PR ID" }
+    }
+    
+    // Use the appropriate mutation
+    const mutationName = viewed ? "markFileAsViewed" : "unmarkFileAsViewed"
+    const mutation = `
+      mutation($prId: ID!, $path: String!) {
+        ${mutationName}(input: {
+          pullRequestId: $prId
+          path: $path
+        }) {
+          pullRequest {
+            id
+          }
+        }
+      }
+    `
+    
+    await $`gh api graphql -f query=${mutation} -F prId=${prId} -F path=${path}`
+    
+    return { success: true }
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: errMsg }
+  }
+}
+
+/**
+ * Batch mark multiple files as viewed on GitHub.
+ * More efficient than individual calls for bulk operations.
+ */
+export async function markFilesViewedOnGitHub(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  files: { path: string; viewed: boolean }[]
+): Promise<ViewedSyncResult[]> {
+  // Run in parallel with limited concurrency
+  const results: ViewedSyncResult[] = []
+  const concurrency = 5
+  
+  for (let i = 0; i < files.length; i += concurrency) {
+    const batch = files.slice(i, i + concurrency)
+    const batchResults = await Promise.all(
+      batch.map(f => markFileViewedOnGitHub(owner, repo, prNumber, f.path, f.viewed))
+    )
+    results.push(...batchResults)
+  }
+  
+  return results
 }

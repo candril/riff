@@ -68,6 +68,41 @@ export function parseDiff(diff: string): DiffFile[] {
 }
 
 /**
+ * Sort files by folder first, then alphabetically within each folder.
+ * This matches the file tree sorting for consistent ordering.
+ */
+export function sortFiles(files: DiffFile[]): DiffFile[] {
+  return [...files].sort((a, b) => {
+    const partsA = a.filename.split("/")
+    const partsB = b.filename.split("/")
+    
+    // Compare path components
+    const maxLen = Math.max(partsA.length, partsB.length)
+    for (let i = 0; i < maxLen; i++) {
+      const partA = partsA[i]
+      const partB = partsB[i]
+      
+      // If one path is shorter, it's a "parent" level
+      if (partA === undefined) return -1
+      if (partB === undefined) return 1
+      
+      const isLastA = i === partsA.length - 1
+      const isLastB = i === partsB.length - 1
+      
+      // At the same level: directories come before files
+      if (!isLastA && isLastB) return -1  // A is dir, B is file
+      if (isLastA && !isLastB) return 1   // A is file, B is dir
+      
+      // Same type (both dirs or both files at this level): alphabetical
+      const cmp = partA.localeCompare(partB)
+      if (cmp !== 0) return cmp
+    }
+    
+    return 0
+  })
+}
+
+/**
  * Get file extension for syntax highlighting
  */
 export function getFiletype(filename: string): string | undefined {
