@@ -87,6 +87,7 @@ interface FileSection {
   lineCount: number  // number of lines in this section (content only, excludes header)
   additions: number
   deletions: number
+  collapsed: boolean  // whether this file is collapsed (fold closed)
 }
 
 /**
@@ -94,8 +95,11 @@ interface FileSection {
  * Clean, minimal design matching ReviewPreview style
  * Uses minWidth: "100%" to ensure all headers stretch to full width
  */
-function FileHeader(props: { filename: string; additions: number; deletions: number }): ReturnType<typeof Box> {
-  const { filename, additions, deletions } = props
+function FileHeader(props: { filename: string; additions: number; deletions: number; collapsed?: boolean }): ReturnType<typeof Box> {
+  const { filename, additions, deletions, collapsed } = props
+  
+  // Fold indicator: > for collapsed, v for expanded
+  const foldIcon = collapsed ? "▶" : "▼"
   
   return Box(
     {
@@ -106,6 +110,8 @@ function FileHeader(props: { filename: string; additions: number; deletions: num
       paddingX: 1,
       gap: 1,
     },
+    // Fold indicator
+    Text({ content: foldIcon, fg: collapsed ? theme.overlay1 : theme.overlay0 }),
     // Filename
     Text({ content: filename, fg: theme.blue }),
     // Stats
@@ -285,6 +291,7 @@ export class VimDiffView {
           lineCount: 0,
           additions: file?.additions ?? 0,
           deletions: file?.deletions ?? 0,
+          collapsed: line.isCollapsed ?? false,
         }
       }
     }
@@ -457,41 +464,63 @@ export class VimDiffView {
       }
       
       // Create file header + code section
-      const sectionElement = Box(
-        {
-          id: `section-${sectionIdx}`,
-          width: "100%",
-          flexDirection: "column",
-        },
-        // File header
-        FileHeader({
-          filename: section.filename,
-          additions: section.additions,
-          deletions: section.deletions,
-        }),
-        // Code content
-        h(LineNumberRenderable, {
-          id: `line-numbers-${sectionIdx}`,
-          fg: theme.overlay0,
-          bg: theme.mantle,
-          showLineNumbers: true,
-          lineColors: localLineColors,
-          lineSigns: localLineSigns,
-          lineNumbers: localLineNumbers,
-          hideLineNumbers: localHideLineNumbers,
-          minWidth: gutterMinWidth,
-          paddingRight: 1,
-        },
-          h(CodeRenderable, {
-            id: `code-${sectionIdx}`,
-            content,
-            filetype: section.filetype,
-            syntaxStyle: getSyntaxStyle(),
-            drawUnstyledText: true,
-            conceal: false,
-          })
+      // For collapsed files, only show the header
+      let sectionElement: ReturnType<typeof Box>
+      
+      if (section.collapsed) {
+        // Collapsed file - just show header
+        sectionElement = Box(
+          {
+            id: `section-${sectionIdx}`,
+            width: "100%",
+            flexDirection: "column",
+          },
+          FileHeader({
+            filename: section.filename,
+            additions: section.additions,
+            deletions: section.deletions,
+            collapsed: true,
+          }),
         )
-      )
+      } else {
+        // Expanded file - show header + code content
+        sectionElement = Box(
+          {
+            id: `section-${sectionIdx}`,
+            width: "100%",
+            flexDirection: "column",
+          },
+          // File header
+          FileHeader({
+            filename: section.filename,
+            additions: section.additions,
+            deletions: section.deletions,
+            collapsed: false,
+          }),
+          // Code content
+          h(LineNumberRenderable, {
+            id: `line-numbers-${sectionIdx}`,
+            fg: theme.overlay0,
+            bg: theme.mantle,
+            showLineNumbers: true,
+            lineColors: localLineColors,
+            lineSigns: localLineSigns,
+            lineNumbers: localLineNumbers,
+            hideLineNumbers: localHideLineNumbers,
+            minWidth: gutterMinWidth,
+            paddingRight: 1,
+          },
+            h(CodeRenderable, {
+              id: `code-${sectionIdx}`,
+              content,
+              filetype: section.filetype,
+              syntaxStyle: getSyntaxStyle(),
+              drawUnstyledText: true,
+              conceal: false,
+            })
+          )
+        )
+      }
       
       sectionElements.push(sectionElement)
     }
@@ -685,26 +714,68 @@ export class VimDiffView {
     if (isAllFilesMode) {
       // Find which section the cursor is in
       let screenRow = 0
-      for (const section of this.fileSections) {
-        // Add 1 row for the FileHeader component
+      let foundSection = false
+      
+      for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+        const section = this.fileSections[sectionIdx]!
+        // Each section has a FileHeader component (1 row)
         const headerRow = 1
         
-        if (line < section.startLine) {
-          // Cursor is before this section (shouldn't happen normally)
+        // The file-header line in the mapping is the line before startLine
+        // But for collapsed sections, startLine > endLine, so we need to find the header differently
+        // The header is always 1 line before the first content line would be
+        
+        // Find the actual header line index in the line mapping
+        // It's the line with type "file-header" for this file
+        let headerLineInMapping = -1
+        for (let i = 0; i < this.lineMapping!.lineCount; i++) {
+          const mappingLine = this.lineMapping!.getLine(i)
+          if (mappingLine?.type === "file-header" && mappingLine.fileIndex === section.fileIndex) {
+            headerLineInMapping = i
+            break
+          }
+        }
+        
+        if (headerLineInMapping === -1) continue
+        
+        // For collapsed sections, there's only the header
+        if (section.collapsed) {
+          if (line === headerLineInMapping) {
+            // Cursor is on this collapsed file's header
+            foundSection = true
+            break
+          }
+          // Add just the header row and continue
+          screenRow += headerRow
+          continue
+        }
+        
+        // For expanded sections:
+        if (line === headerLineInMapping) {
+          // Cursor is on this file's header line
+          foundSection = true
           break
         }
         
-        if (line <= section.endLine) {
-          // Cursor is in this section
+        if (line >= section.startLine && line <= section.endLine) {
+          // Cursor is in this section's content
           const localLine = line - section.startLine
           screenRow += headerRow + localLine
+          foundSection = true
           break
         }
         
         // Cursor is after this section, add full section height
-        const sectionContentLines = section.endLine - section.startLine + 1
+        const sectionContentLines = Math.max(0, section.endLine - section.startLine + 1)
         screenRow += headerRow + sectionContentLines
       }
+      
+      // If we didn't find a section, hide the cursor
+      if (!foundSection) {
+        this.renderer.setCursorPosition(0, 0, false)
+        return
+      }
+      
       visualLine = screenRow - scrollTop
     } else {
       visualLine = line - scrollTop

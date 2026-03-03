@@ -111,6 +111,12 @@ export class VimMotionHandler {
       return true
     }
 
+    // G - go to bottom (check BEFORE gg to handle shift correctly)
+    if ((key.name === "G") || (key.name === "g" && key.shift)) {
+      this.goToLine(mapping.lineCount - 1)
+      return true
+    }
+
     // gg - go to top (detect double g)
     if (key.name === "g" && !key.ctrl && !key.alt && !key.shift) {
       const now = Date.now()
@@ -121,12 +127,6 @@ export class VimMotionHandler {
       }
       this.lastKey = "g"
       this.lastKeyTime = now
-      return true
-    }
-
-    // G - go to bottom
-    if (key.name === "g" && key.shift) {
-      this.goToLine(mapping.lineCount - 1)
       return true
     }
 

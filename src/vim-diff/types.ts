@@ -53,6 +53,9 @@ export interface DiffLine {
   
   /** Divider key for expansion (only for divider type) */
   dividerKey?: string
+  
+  /** Whether this file is collapsed (only for file-header type in all-files mode) */
+  isCollapsed?: boolean
 }
 
 /**
@@ -147,4 +150,6 @@ export interface DiffLineMappingOptions {
   expandedDividers?: Set<string>
   /** Map of filename -> full file content (new version) */
   fileContents?: Map<string, string>
+  /** Set of collapsed file names (for all-files mode) */
+  collapsedFiles?: Set<string>
 }

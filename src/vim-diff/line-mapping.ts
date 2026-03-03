@@ -10,6 +10,7 @@ export class DiffLineMapping {
   private lines: DiffLine[] = []
   private expandedDividers: Set<string>
   private fileContents: Map<string, string>
+  private collapsedFiles: Set<string>
 
   constructor(
     files: DiffFile[],
@@ -19,6 +20,7 @@ export class DiffLineMapping {
   ) {
     this.expandedDividers = options?.expandedDividers ?? new Set()
     this.fileContents = options?.fileContents ?? new Map()
+    this.collapsedFiles = options?.collapsedFiles ?? new Set()
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
@@ -417,8 +419,9 @@ export class DiffLineMapping {
 
     for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
       const file = files[fileIndex]!
+      const isCollapsed = this.collapsedFiles.has(file.filename)
 
-      // File header
+      // File header (always shown, even when collapsed)
       allLines.push({
         visualIndex: allLines.length,
         type: "file-header",
@@ -426,17 +429,21 @@ export class DiffLineMapping {
         rawLine: `--- ${file.filename} (+${file.additions}/-${file.deletions})`,
         fileIndex,
         filename: file.filename,
+        isCollapsed,  // Mark if this file is collapsed (for rendering)
       })
 
-      // File diff content
-      const fileLines = this.parseFileContent(
-        file.content,
-        fileIndex,
-        file.filename
-      )
-      for (const line of fileLines) {
-        line.visualIndex = allLines.length
-        allLines.push(line)
+      // Skip diff content if file is collapsed
+      if (!isCollapsed) {
+        // File diff content
+        const fileLines = this.parseFileContent(
+          file.content,
+          fileIndex,
+          file.filename
+        )
+        for (const line of fileLines) {
+          line.visualIndex = allLines.length
+          allLines.push(line)
+        }
       }
 
       // Spacing after file (except last)

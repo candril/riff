@@ -139,6 +139,9 @@ export interface AppState {
   // Expanded dividers (key: "filename:dividerIndex")
   expandedDividers: Set<string>
   
+  // Collapsed files in all-files diff view (filenames that are collapsed)
+  collapsedFiles: Set<string>
+  
   // Action menu state
   actionMenu: ActionMenuState
   
@@ -198,6 +201,7 @@ export function createInitialState(
     prInfo,
     fileContentCache: {},
     expandedDividers: new Set(),
+    collapsedFiles: new Set(),
     actionMenu: createActionMenuState(),
     reviewPreview: {
       open: false,
@@ -626,6 +630,57 @@ export function toggleDividerExpansion(state: AppState, dividerKey: string): App
  */
 export function isDividerExpanded(state: AppState, dividerKey: string): boolean {
   return state.expandedDividers.has(dividerKey)
+}
+
+// ============================================================================
+// File Fold State (for all-files diff view)
+// ============================================================================
+
+/**
+ * Toggle a file's collapsed state
+ */
+export function toggleFileFold(state: AppState, filename: string): AppState {
+  const newCollapsed = new Set(state.collapsedFiles)
+  if (newCollapsed.has(filename)) {
+    newCollapsed.delete(filename)
+  } else {
+    newCollapsed.add(filename)
+  }
+  return {
+    ...state,
+    collapsedFiles: newCollapsed,
+  }
+}
+
+/**
+ * Collapse all files (zM)
+ */
+export function collapseAllFiles(state: AppState): AppState {
+  const newCollapsed = new Set<string>()
+  for (const file of state.files) {
+    newCollapsed.add(file.filename)
+  }
+  return {
+    ...state,
+    collapsedFiles: newCollapsed,
+  }
+}
+
+/**
+ * Expand all files (zR)
+ */
+export function expandAllFiles(state: AppState): AppState {
+  return {
+    ...state,
+    collapsedFiles: new Set(),
+  }
+}
+
+/**
+ * Check if a file is collapsed
+ */
+export function isFileCollapsed(state: AppState, filename: string): boolean {
+  return state.collapsedFiles.has(filename)
 }
 
 /**

@@ -59,6 +59,7 @@ export class FileTreePanel {
   private currentFiles: DiffFile[] = []
   private currentFileTree: FileTreeNode[] = []
   private currentFileStatuses: Map<string, FileReviewStatus> = new Map()
+  private currentCollapsedFiles: Set<string> = new Set()
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private focused: boolean = false
@@ -131,6 +132,7 @@ export class FileTreePanel {
    * @param highlightIndex - Which item is highlighted (navigation cursor)
    * @param selectedFileIndex - Which file is selected (scopes views), null = all files
    * @param fileStatuses - Map of file viewed/reviewed statuses
+   * @param collapsedFiles - Set of filenames that are collapsed in diff view
    */
   update(
     files: DiffFile[],
@@ -138,7 +140,8 @@ export class FileTreePanel {
     highlightIndex: number,
     selectedFileIndex: number | null,
     focused: boolean,
-    fileStatuses?: Map<string, FileReviewStatus>
+    fileStatuses?: Map<string, FileReviewStatus>,
+    collapsedFiles?: Set<string>
   ): void {
     const structureChanged = 
       files !== this.currentFiles || 
@@ -147,6 +150,7 @@ export class FileTreePanel {
     this.currentFiles = files
     this.currentFileTree = fileTree
     this.currentFileStatuses = fileStatuses ?? new Map()
+    this.currentCollapsedFiles = collapsedFiles ?? new Set()
     this.highlightIndex = highlightIndex
     this.selectedFileIndex = selectedFileIndex
     this.focused = focused
