@@ -1,5 +1,7 @@
 /**
  * SearchPrompt - Search input UI shown at the bottom of the diff view
+ * 
+ * Only shows the search pattern input. Match count is displayed in the StatusBar.
  */
 
 import { Box, Text } from "@opentui/core"
@@ -11,13 +13,10 @@ export interface SearchPromptProps {
 }
 
 /**
- * Search prompt component - shows search input and match info
+ * Search prompt component - shows search input pattern
  * 
- * Display modes:
- * - Active search: "/pattern" or "?pattern" with cursor
- * - After search: "[1/N]" match count
- * - No matches: "[No matches]" in red
- * - Wrapped: Shows "Wrapped" indicator briefly
+ * Display: "/pattern" or "?pattern"
+ * Match count is shown in the StatusBar (right-aligned)
  */
 export function SearchPrompt({ searchState }: SearchPromptProps) {
   // Don't render if no search activity
@@ -27,33 +26,16 @@ export function SearchPrompt({ searchState }: SearchPromptProps) {
   
   const prefix = searchState.direction === "forward" ? "/" : "?"
   
-  // Build match info string
-  let matchInfo = ""
-  if (searchState.matches.length > 0) {
-    const currentMatch = searchState.currentMatchIndex + 1
-    matchInfo = `[${currentMatch}/${searchState.matches.length}]`
-  } else if (searchState.promptValue || searchState.pattern) {
-    matchInfo = "[No matches]"
-  }
-  
-  // Build wrap indicator
-  const wrapIndicator = searchState.wrapped ? " (Wrapped)" : ""
-  
-  // Build loading indicator
-  const loadingIndicator = searchState.loading ? " Loading..." : ""
-  
-  // Determine colors
+  // Determine color based on match status
+  const hasNoMatches = searchState.matches.length === 0 && (searchState.promptValue || searchState.pattern)
   const promptColor = searchState.error 
     ? theme.red 
-    : (searchState.matches.length === 0 && searchState.promptValue) 
+    : hasNoMatches
       ? theme.red 
       : theme.text
   
-  const matchColor = searchState.matches.length === 0 
-    ? theme.red 
-    : theme.subtext0
-  
-  const wrapColor = theme.yellow
+  // Build loading indicator
+  const loadingIndicator = searchState.loading ? " Loading..." : ""
   
   return Box(
     {
@@ -61,7 +43,7 @@ export function SearchPrompt({ searchState }: SearchPromptProps) {
       width: "100%",
       backgroundColor: theme.surface0,
       flexDirection: "row",
-      paddingX: 1,
+      paddingLeft: 1,
     },
     
     // Search prompt with pattern
@@ -71,18 +53,6 @@ export function SearchPrompt({ searchState }: SearchPromptProps) {
         : `${prefix}${searchState.pattern}`,
       fg: promptColor,
     }),
-    
-    // Match count
-    matchInfo ? Text({
-      content: ` ${matchInfo}`,
-      fg: matchColor,
-    }) : null,
-    
-    // Wrap indicator
-    wrapIndicator ? Text({
-      content: wrapIndicator,
-      fg: wrapColor,
-    }) : null,
     
     // Loading indicator
     loadingIndicator ? Text({

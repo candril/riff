@@ -260,6 +260,30 @@ export class SearchHandler {
   }
 
   /**
+   * Handle Ctrl+W - delete word backwards
+   */
+  handleDeleteWord(): void {
+    const state = this.opts.getSearchState()
+    const value = state.promptValue
+    if (value.length === 0) return
+    
+    // Find the start of the previous word
+    let i = value.length - 1
+    
+    // Skip trailing whitespace
+    while (i >= 0 && /\s/.test(value[i]!)) {
+      i--
+    }
+    
+    // Skip the word characters
+    while (i >= 0 && /\S/.test(value[i]!)) {
+      i--
+    }
+    
+    this.updatePattern(value.slice(0, i + 1))
+  }
+
+  /**
    * Handle character input in search mode
    */
   handleCharInput(char: string): void {

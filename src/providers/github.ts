@@ -3,6 +3,46 @@ import { saveComment, saveSession, loadComments, deleteCommentFile } from "../st
 import type { Comment, ReviewSession } from "../types"
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Extract a useful error message from a Bun shell error.
+ * Bun's ShellError has stderr which contains the actual error,
+ * while message is just "Failed with exit code N".
+ */
+function extractShellError(err: unknown): string {
+  if (err && typeof err === "object") {
+    // Check for Bun ShellError which has stderr
+    const shellErr = err as { stderr?: Buffer; message?: string }
+    if (shellErr.stderr) {
+      const stderrStr = shellErr.stderr.toString().trim()
+      // Try to parse JSON error from gh cli (GitHub API errors)
+      const jsonMatch = stderrStr.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0])
+          if (parsed.message) {
+            return parsed.message
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+      // Return raw stderr if no JSON found
+      if (stderrStr) {
+        return stderrStr
+      }
+    }
+    // Fallback to message
+    if (shellErr.message) {
+      return shellErr.message
+    }
+  }
+  return err instanceof Error ? err.message : String(err)
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -61,6 +101,27 @@ export interface PrComment {
   // GraphQL thread info (for resolution)
   graphqlThreadId?: string  // node_id for GraphQL API
   isThreadResolved?: boolean
+}
+
+/**
+ * A pending review comment from GitHub
+ */
+export interface PendingReviewComment {
+  id: number
+  body: string
+  path: string
+  line: number
+  side: "LEFT" | "RIGHT"
+}
+
+/**
+ * A pending (draft) review on a PR
+ */
+export interface PendingReview {
+  id: number
+  user: string
+  body: string
+  comments: PendingReviewComment[]
 }
 
 // ============================================================================
@@ -206,6 +267,74 @@ export async function getPrExtendedInfo(
       requestedReviewers,
     }
   })
+}
+
+/**
+ * Fetch the current user's pending (draft) review on a PR, if any.
+ * Returns null if no pending review exists.
+ */
+export async function getPendingReview(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<PendingReview | null> {
+  try {
+    // Get current user
+    const currentUser = await getCurrentUser()
+    if (currentUser === "@you") {
+      return null // Can't determine user
+    }
+
+    // Fetch all reviews for the PR
+    const reviews = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json() as any[]
+    
+    // Find pending review by current user
+    const pendingReview = reviews.find(
+      (r: any) => r.state === "PENDING" && r.user?.login === currentUser
+    )
+    
+    if (!pendingReview) {
+      return null
+    }
+
+    // Fetch comments for this pending review
+    const reviewComments = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews/${pendingReview.id}/comments`.json() as any[]
+
+    return {
+      id: pendingReview.id,
+      user: currentUser,
+      body: pendingReview.body || "",
+      comments: reviewComments.map((c: any) => ({
+        id: c.id,
+        body: c.body,
+        path: c.path,
+        // GitHub returns line/original_line for absolute line numbers,
+        // or position/original_position for diff hunk position
+        line: c.line || c.original_line || c.position || c.original_position || 0,
+        side: (c.side || "RIGHT") as "LEFT" | "RIGHT",
+      })),
+    }
+  } catch {
+    // Silently fail - pending review detection is not critical
+    return null
+  }
+}
+
+/**
+ * Delete a pending review (to allow submitting a new one or standalone comments)
+ */
+export async function deletePendingReview(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  reviewId: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await $`gh api -X DELETE repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}`
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: extractShellError(err) }
+  }
 }
 
 /**
@@ -558,23 +687,9 @@ export async function submitSingleComment(
       githubUrl: result.html_url,
     }
   } catch (err) {
-    // Extract more useful error message
-    const errMsg = err instanceof Error ? err.message : String(err)
-    // Try to parse JSON error from gh cli
-    const jsonMatch = errMsg.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0])
-        if (parsed.message) {
-          return { success: false, error: parsed.message }
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
     return {
       success: false,
-      error: errMsg,
+      error: extractShellError(err),
     }
   }
 }
@@ -601,7 +716,7 @@ export async function submitReply(
   } catch (err) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to submit reply",
+      error: extractShellError(err),
     }
   }
 }
@@ -625,28 +740,48 @@ export async function updateComment(
       githubUrl: result.html_url,
     }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    // Try to parse JSON error from gh cli
-    const jsonMatch = errMsg.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0])
-        if (parsed.message) {
-          return { success: false, error: parsed.message }
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
     return {
       success: false,
-      error: errMsg,
+      error: extractShellError(err),
+    }
+  }
+}
+
+
+
+/**
+ * Submit an existing pending review (without adding new comments)
+ */
+export async function submitExistingReview(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  reviewId: number,
+  event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES",
+  body: string = ""
+): Promise<SubmitResult> {
+  try {
+    const result = await $`gh api -X POST repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}/events \
+      -f event=${event} \
+      -f body=${body}`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: extractShellError(err),
     }
   }
 }
 
 /**
- * Submit a review with multiple comments as a batch
+ * Submit a review with multiple comments as a batch.
+ * If pendingReviewId is provided, submits the existing pending review first,
+ * then creates a new review with local comments (if any).
  */
 export async function submitReview(
   owner: string,
@@ -655,10 +790,50 @@ export async function submitReview(
   comments: Comment[],
   commitSha: string,
   event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES" = "COMMENT",
-  body: string = ""
+  body: string = "",
+  pendingReviewId?: number
 ): Promise<SubmitResult> {
   try {
-    // Build review comments array
+    // If there's an existing pending review, submit it first with the chosen event
+    if (pendingReviewId) {
+      const pendingResult = await submitExistingReview(
+        owner, repo, prNumber, pendingReviewId, event, body
+      )
+      if (!pendingResult.success) {
+        return pendingResult
+      }
+      
+      // If we have local comments to add, create a second review for them
+      // (as COMMENT only, since the event was already applied to the pending review)
+      if (comments.length > 0) {
+        const reviewComments = comments.map(c => ({
+          path: c.filename,
+          line: c.line,
+          side: c.side,
+          body: c.body,
+        }))
+        
+        const payload = JSON.stringify({
+          commit_id: commitSha,
+          event: "COMMENT", // Always COMMENT for the follow-up
+          body: "",
+          comments: reviewComments,
+        })
+        
+        const result = await $`echo ${payload} | gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --method POST --input -`.json() as { id: number; html_url: string }
+        
+        return {
+          success: true,
+          githubId: result.id,
+          githubUrl: result.html_url,
+        }
+      }
+      
+      // No local comments, just return the pending review result
+      return pendingResult
+    }
+    
+    // No pending review - create a new review with all comments
     const reviewComments = comments.map(c => ({
       path: c.filename,
       line: c.line,
@@ -686,7 +861,7 @@ export async function submitReview(
   } catch (err) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to submit review",
+      error: extractShellError(err),
     }
   }
 }
@@ -725,8 +900,7 @@ export async function resolveThread(threadId: string): Promise<ResolveResult> {
     
     return { success: true, isResolved }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: errMsg }
+    return { success: false, error: extractShellError(err) }
   }
 }
 
@@ -754,8 +928,7 @@ export async function unresolveThread(threadId: string): Promise<ResolveResult> 
     
     return { success: true, isResolved }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: errMsg }
+    return { success: false, error: extractShellError(err) }
   }
 }
 
@@ -913,8 +1086,7 @@ export async function markFileViewedOnGitHub(
     
     return { success: true }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: errMsg }
+    return { success: false, error: extractShellError(err) }
   }
 }
 

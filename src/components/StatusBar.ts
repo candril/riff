@@ -3,13 +3,38 @@ import { colors, theme } from "../theme"
 
 export interface StatusBarProps {
   hints?: string[]
-  /** Current line info, e.g., "L:42" */
-  lineInfo?: string
+  /** Search match info, e.g., "1/5" or "No matches" */
+  searchInfo?: {
+    current: number
+    total: number
+    pattern: string
+    wrapped?: boolean
+  } | null
 }
 
 const defaultHints = ["q: quit", "?: help"]
 
-export function StatusBar({ hints = defaultHints, lineInfo }: StatusBarProps = {}) {
+export function StatusBar({ hints = defaultHints, searchInfo }: StatusBarProps = {}) {
+  // Build right side content
+  const rightContent: ReturnType<typeof Text>[] = []
+  
+  // Add search info if present
+  if (searchInfo) {
+    if (searchInfo.total > 0) {
+      // Show match count
+      const matchText = `${searchInfo.current}/${searchInfo.total}`
+      rightContent.push(Text({ content: matchText, fg: theme.yellow }))
+      
+      // Show wrapped indicator
+      if (searchInfo.wrapped) {
+        rightContent.push(Text({ content: " ↺", fg: theme.overlay1 }))
+      }
+    } else if (searchInfo.pattern) {
+      // No matches found
+      rightContent.push(Text({ content: "No matches", fg: theme.red }))
+    }
+  }
+  
   return Box(
     {
       height: 1,
@@ -21,8 +46,8 @@ export function StatusBar({ hints = defaultHints, lineInfo }: StatusBarProps = {
       justifyContent: "space-between",
     },
     Text({ content: hints.join("  "), fg: colors.statusBarFg }),
-    lineInfo 
-      ? Text({ content: lineInfo, fg: theme.blue })
+    rightContent.length > 0 
+      ? Box({ flexDirection: "row" }, ...rightContent)
       : null
   )
 }

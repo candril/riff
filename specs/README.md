@@ -59,6 +59,9 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 029 | [Comment Resolution Status](./029-comment-resolution-status.md) | Draft | Display and toggle comment resolution state |
 | 030 | [Viewed Files Sync](./030-viewed-files-sync.md) | Draft | Sync viewed status with GitHub |
 | 031 | [Open in Editor](./031-open-in-editor.md) | Draft | Open current file in nvim at cursor line |
+| 032 | [Diff Strategies](./032-diff-strategies.md) | Draft | Different diff algorithm strategies |
+| 033 | [Comment Sync](./033-comment-sync.md) | Ready | Sync edits and replies to GitHub |
+| 034 | [Delete Comments](./034-delete-comments.md) | Draft | Delete comments with safeguard confirmation |
 
 ## MVP Path
 

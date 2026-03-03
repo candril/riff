@@ -20,6 +20,7 @@ import {
   type ScrollBoxRenderable,
   type LineColorConfig,
   type LineSign,
+  type SimpleHighlight,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
@@ -67,9 +68,43 @@ function getSyntaxStyle(): SyntaxStyle {
       "markup.raw.block": { fg: RGBA.fromHex(theme.green) },
       "markup.list": { fg: RGBA.fromHex(theme.blue) },
       "markup.quote": { fg: RGBA.fromHex(theme.overlay1), italic: true },
+      
+      // Search highlight styles
+      "search.match": { bg: RGBA.fromHex(theme.yellow), fg: RGBA.fromHex(theme.base) },
+      "search.current": { bg: RGBA.fromHex(theme.peach), fg: RGBA.fromHex(theme.base) },
     })
   }
   return sharedSyntaxStyle
+}
+
+/**
+ * Compute character offsets for each line start in a content string.
+ * Returns an array where index i = character offset where line i starts.
+ */
+function computeLineStartOffsets(content: string): number[] {
+  const offsets: number[] = [0]
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') {
+      offsets.push(i + 1)
+    }
+  }
+  return offsets
+}
+
+/**
+ * Convert visual line + column to character offset in content.
+ * Returns -1 if out of bounds.
+ */
+function lineColToOffset(
+  lineStartOffsets: number[],
+  line: number,
+  col: number,
+  contentLength: number
+): number {
+  if (line < 0 || line >= lineStartOffsets.length) return -1
+  const lineStart = lineStartOffsets[line]!
+  const offset = lineStart + col
+  return offset <= contentLength ? offset : -1
 }
 
 // Default background color (must provide both gutter and content to avoid Bun crash)
@@ -167,6 +202,9 @@ export class VimDiffView {
   private fileSections: FileSection[] = []
   // Map of section index -> renderables
   private sectionRenderables: Map<number, { lineNumber: LineNumberRenderable; code: CodeRenderable }> = new Map()
+  
+  // Track gutter width for cursor positioning (set during rebuild)
+  private gutterMinWidth: number = 4
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -268,10 +306,15 @@ export class VimDiffView {
     if (contentChanged) {
       // Full rebuild needed
       this.rebuild()
+      // After rebuild, set up search highlights if we have a search
+      if (this.searchState && this.searchState.matches.length > 0) {
+        this.updateSearchHighlights()
+      }
     } else if (commentsChanged || searchChanged) {
-      // Comments or search changed - update line signs and highlights
+      // Comments or search changed - update line signs, highlights, and search
       this.updateLineSigns()
       this.updateHighlights()
+      this.updateSearchHighlights()
     } else {
       // Just update cursor/selection highlighting
       this.updateHighlights()
@@ -403,6 +446,13 @@ export class VimDiffView {
     const lineColors = this.buildLineColors()
     const lineSigns = this.buildLineSigns()
     const { lineNumbers, hideLineNumbers } = this.buildLineNumbers()
+    
+    // Calculate gutter width based on max line number
+    let maxLineNumber = 0
+    for (const lineNum of lineNumbers.values()) {
+      if (lineNum > maxLineNumber) maxLineNumber = lineNum
+    }
+    this.gutterMinWidth = Math.max(4, String(maxLineNumber).length)
 
     // Create the component tree using h()
     const scrollBoxElement = ScrollBox(
@@ -429,7 +479,7 @@ export class VimDiffView {
         lineSigns,
         lineNumbers,
         hideLineNumbers,
-        minWidth: 4,
+        minWidth: this.gutterMinWidth,
         paddingRight: 1,
       },
         h(CodeRenderable, {
@@ -438,7 +488,7 @@ export class VimDiffView {
           filetype,
           syntaxStyle: getSyntaxStyle(),
           drawUnstyledText: true,
-          conceal: false,  // Don't hide markdown syntax - show raw content for diffs
+          conceal: false,
         })
       )
     )
@@ -469,8 +519,8 @@ export class VimDiffView {
     for (const lineNum of globalLineNumbers.values()) {
       if (lineNum > maxLineNumber) maxLineNumber = lineNum
     }
-    // Minimum 3 digits, plus 1 for sign column (comment indicators)
-    const gutterMinWidth = Math.max(3, String(maxLineNumber).length) + 1
+    // Minimum 4 digits to match single-file mode
+    this.gutterMinWidth = Math.max(4, String(maxLineNumber).length)
     
     // Create section elements
     const sectionElements: ReturnType<typeof Box>[] = []
@@ -559,7 +609,7 @@ export class VimDiffView {
             lineSigns: localLineSigns,
             lineNumbers: localLineNumbers,
             hideLineNumbers: localHideLineNumbers,
-            minWidth: gutterMinWidth,
+            minWidth: this.gutterMinWidth,
             paddingRight: 1,
           },
             h(CodeRenderable, {
@@ -694,6 +744,90 @@ export class VimDiffView {
     }
     
     // Cursor positioning is handled by the post-process function
+  }
+
+  /**
+   * Update search character highlights on CodeRenderable(s)
+   * Uses the onHighlight callback to inject search match highlights
+   */
+  private updateSearchHighlights(): void {
+    if (!this.searchState || this.searchState.matches.length === 0) {
+      // Clear search highlights by setting onHighlight to undefined
+      if (this.codeRenderable) {
+        this.codeRenderable.onHighlight = undefined
+      }
+      for (const renderables of this.sectionRenderables.values()) {
+        renderables.code.onHighlight = undefined
+      }
+      return
+    }
+
+    const searchState = this.searchState
+
+    // Single-file mode
+    if (this.codeRenderable) {
+      this.codeRenderable.onHighlight = (highlights, context) => {
+        return this.injectSearchHighlights(
+          highlights,
+          context.content,
+          searchState,
+          0 // No line offset in single-file mode
+        )
+      }
+      return
+    }
+
+    // All-files mode - set onHighlight for each section
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
+      const renderables = this.sectionRenderables.get(sectionIdx)
+      if (!renderables) continue
+
+      const lineOffset = section.startLine
+      renderables.code.onHighlight = (highlights, context) => {
+        return this.injectSearchHighlights(
+          highlights,
+          context.content,
+          searchState,
+          lineOffset
+        )
+      }
+    }
+  }
+
+  /**
+   * Inject search match highlights into the highlights array
+   */
+  private injectSearchHighlights(
+    highlights: SimpleHighlight[],
+    content: string,
+    searchState: SearchState,
+    lineOffset: number
+  ): SimpleHighlight[] {
+    const lineStartOffsets = computeLineStartOffsets(content)
+    const result = [...highlights]
+
+    for (let i = 0; i < searchState.matches.length; i++) {
+      const match = searchState.matches[i]!
+      // Convert global visual line to local line within this content
+      const localLine = match.line - lineOffset
+      
+      // Skip if match is not in this section
+      if (localLine < 0 || localLine >= lineStartOffsets.length) continue
+
+      const startOffset = lineColToOffset(lineStartOffsets, localLine, match.startCol, content.length)
+      const endOffset = lineColToOffset(lineStartOffsets, localLine, match.endCol, content.length)
+
+      if (startOffset < 0 || endOffset < 0) continue
+
+      // Use current match scope if this is the current match
+      const scope = i === searchState.currentMatchIndex ? "search.current" : "search.match"
+      
+      // Add highlight - SimpleHighlight format: [start, end, scope, metadata?]
+      result.push([startOffset, endOffset, scope])
+    }
+
+    return result
   }
 
   /**
@@ -873,16 +1007,17 @@ export class VimDiffView {
     // So we use the known file panel width from setFilePanelVisible()
     const filePanelOffset = this.filePanelVisible ? this.filePanelWidth : 0
     
-    // Calculate the gutter width based on line count
-    // Looking at actual render output:
-    // - File panel ends at column 35
-    // - Line number "1" appears at column 39-40  
-    // - Content starts at column 41
-    // So gutter is columns 36-40 = 5 columns total
-    // This is: sign(1 or 0) + padding(1) + digits(min 3) + padding(1) = ~5
-    const lineCount = this.lineMapping.lineCount
-    const digits = Math.max(3, String(lineCount).length)
-    const gutterWidth = digits + 2  // digits + padding around them
+    // Calculate gutter width to match OpenTUI's LineNumberRenderable
+    // Formula: max(minWidth, digits + paddingRight + 1) + signWidth
+    // We use minWidth=gutterMinWidth, paddingRight=1, signWidth=1
+    const maxLineNum = this.lineMapping.lineCount
+    const digits = maxLineNum > 0 ? Math.floor(Math.log10(maxLineNum)) + 1 : 1
+    const baseWidth = Math.max(this.gutterMinWidth, digits + 1 + 1)  // digits + paddingRight + 1
+    const gutterWidth = baseWidth + 1  // + signWidth
+    console.log(`DEBUG cursor: maxLineNum=${maxLineNum}, digits=${digits}, gutterMinWidth=${this.gutterMinWidth}, baseWidth=${baseWidth}, gutterWidth=${gutterWidth}, filePanelOffset=${filePanelOffset}, visualCol=${visualCol}, screenX=${filePanelOffset + gutterWidth + visualCol}`)
+    
+    // DEBUG: log cursor position calculation
+    // console.error(`cursor: filePanelOffset=${filePanelOffset}, gutterWidth=${gutterWidth}, gutterMinWidth=${this.gutterMinWidth}, visualCol=${visualCol}, screenX=${filePanelOffset + gutterWidth + visualCol}`)
     
     // Screen position calculation:
     // - filePanelOffset: width of file panel (0 if hidden)
@@ -1036,39 +1171,7 @@ export class VimDiffView {
       }
     }
 
-    // Second pass: search matches - highlight lines with matches
-    if (this.searchState && this.searchState.matches.length > 0) {
-      // Build set of lines with matches for quick lookup
-      const matchLines = new Set<number>()
-      for (const match of this.searchState.matches) {
-        matchLines.add(match.line)
-      }
-      
-      // Get current match line
-      const currentMatchLine = this.searchState.currentMatchIndex >= 0 
-        ? this.searchState.matches[this.searchState.currentMatchIndex]?.line
-        : null
-      
-      // Apply subtle highlight to all match lines
-      for (const line of matchLines) {
-        const existing = lineColors.get(line)
-        if (line === currentMatchLine) {
-          // Current match - more prominent highlight
-          lineColors.set(line, { 
-            gutter: existing?.gutter ?? defaultBg, 
-            content: "#3a3a1e"  // Yellowish tint for current match
-          })
-        } else {
-          // Other matches - subtle highlight
-          lineColors.set(line, { 
-            gutter: existing?.gutter ?? defaultBg, 
-            content: "#2a2a2a"  // Very subtle highlight for other matches
-          })
-        }
-      }
-    }
-
-    // Third pass: visual selection
+    // Second pass: visual selection
     const selectionRange = getSelectionRange(this.cursorState)
     if (selectionRange) {
       const [start, end] = selectionRange
@@ -1077,12 +1180,25 @@ export class VimDiffView {
       }
     }
 
-    // Fourth pass: cursor line - only highlight gutter, keep content as diff color
+    // Third pass: cursor line - subtle full-line highlight (cursorline)
+    // Apply a very subtle background to the entire line, blending with diff colors
     const cursorLine = this.cursorState.line
     const existing = lineColors.get(cursorLine)
+    const cursorLineType = this.lineMapping.getLine(cursorLine)?.type
+    
+    // Determine cursor line content background - blend with diff colors
+    let cursorContentBg: string
+    if (cursorLineType === "addition") {
+      cursorContentBg = "#243d32"  // Slightly brighter green for cursor on addition
+    } else if (cursorLineType === "deletion") {
+      cursorContentBg = "#3d2432"  // Slightly brighter red for cursor on deletion  
+    } else {
+      cursorContentBg = "#232330"  // Subtle highlight for normal lines
+    }
+    
     lineColors.set(cursorLine, {
-      gutter: theme.pink,
-      content: existing?.content ?? defaultBg,
+      gutter: existing?.gutter ?? defaultBg,  // Keep gutter as-is
+      content: cursorContentBg,
     })
 
     return lineColors
@@ -1094,6 +1210,10 @@ export class VimDiffView {
   private buildLineSigns(): Map<number, LineSign> {
     const signs = new Map<number, LineSign>()
     if (!this.lineMapping) return signs
+
+    // Always add a placeholder sign on line 0 to reserve sign column width
+    // This ensures consistent gutter width and prevents layout shifts
+    signs.set(0, { before: " " })
 
     // Add comment indicators
     for (const comment of this.comments) {

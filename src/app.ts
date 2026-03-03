@@ -16,6 +16,8 @@ import {
   toggleThreadResolution,
   getPrExtendedInfo,
   markFileViewedOnGitHub,
+  loadPrSession,
+  getPendingReview,
   type SubmitResult,
 } from "./providers/github"
 import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
@@ -46,6 +48,7 @@ import {
   cycleReviewEvent,
   setReviewPreviewLoading,
   setReviewPreviewError,
+  setPendingReview,
   toggleReviewComment,
   moveReviewHighlight,
   toggleReviewSection,
@@ -311,13 +314,11 @@ export async function createApp(options: AppOptions = {}) {
       vimState = newState 
       ensureCursorVisible()
       vimDiffView.updateCursor(vimState)
-      updateLineInfo()
     },
     getViewportHeight,
     onCursorMove: () => {
       ensureCursorVisible()
       vimDiffView.updateCursor(vimState)
-      updateLineInfo()
     },
   })
 
@@ -551,15 +552,7 @@ export async function createApp(options: AppOptions = {}) {
       renderer.root.remove(child.id)
     }
 
-    // Build line info for status bar
-    let lineInfo: string | undefined
-    if (state.viewMode === "diff" && state.files.length > 0) {
-      const line = vimState.line + 1  // Convert to 1-indexed for display
-      const col = vimState.col + 1    // Convert to 1-indexed for display
-      const total = lineMapping.lineCount
-      const modeStr = vimState.mode === "visual-line" ? " [V-LINE]" : ""
-      lineInfo = `${line}:${col}/${total}${modeStr}`
-    }
+
 
     // Get filtered actions for action menu
     const availableActions = getAvailableActions(state)
@@ -608,7 +601,12 @@ export async function createApp(options: AppOptions = {}) {
         // Status bar
         StatusBar({ 
           hints,
-          lineInfo,
+          searchInfo: searchState.pattern && state.viewMode === "diff" ? {
+            current: searchState.currentMatchIndex + 1,
+            total: searchState.matches.length,
+            pattern: searchState.pattern,
+            wrapped: searchState.wrapped,
+          } : null,
         }),
         // Action menu overlay (rendered on top when open)
         state.actionMenu.open
@@ -631,7 +629,8 @@ export async function createApp(options: AppOptions = {}) {
         state.reviewPreview.open
           ? ReviewPreview({
               comments: validateCommentsForSubmit(
-                state.comments.filter(c => c.status === "local" && !c.inReplyTo)
+                // Show both local (new) and pending (from GitHub draft) comments
+                state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo)
               ),
               state: state.reviewPreview,
               isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
@@ -686,17 +685,6 @@ export async function createApp(options: AppOptions = {}) {
 
   // Scroll offset - keep cursor this many lines from top/bottom edge
   const SCROLL_OFF = 5
-
-  // Line info renderable for status bar (created lazily)
-  let lineInfoRenderable: any = null
-  
-  /**
-   * Update the line info in status bar
-   */
-  function updateLineInfo(): void {
-    // Trigger a re-render to update the status bar with new cursor position
-    render()
-  }
 
   /**
    * Ensure cursor is visible with scrolloff margin (vim-like behavior)
@@ -1448,7 +1436,12 @@ export async function createApp(options: AppOptions = {}) {
         render()
       }, 3000)
     } else {
-      state = showToast(state, result.error ?? "Failed to submit comment", "error")
+      // Check for pending review error and provide actionable message
+      let errorMessage = result.error ?? "Failed to submit comment"
+      if (errorMessage.includes("pending review") || errorMessage.includes("user_id can only have one")) {
+        errorMessage = "You have a pending review. Use gS to submit as review instead."
+      }
+      state = showToast(state, errorMessage, "error")
       render()
       
       // Auto-clear error toast after 5 seconds
@@ -1473,6 +1466,9 @@ export async function createApp(options: AppOptions = {}) {
     }
     state = openReviewPreview(state)
     render()
+
+    // Fetch pending review in background (only for PR mode)
+    // Pending review is now loaded when PR opens, no need to fetch again
   }
 
   /**
@@ -1499,6 +1495,134 @@ export async function createApp(options: AppOptions = {}) {
       },
     }
     render()
+  }
+
+  /**
+   * Full refresh - reload everything from scratch (PR data, diff, comments)
+   */
+  async function handleRefresh(): Promise<void> {
+    // Show loading toast
+    state = showToast(state, "Refreshing...", "info")
+    render()
+    
+    try {
+      if (state.appMode === "pr" && state.prInfo) {
+        // PR mode - reload PR data
+        const { owner, repo, number: prNumber } = state.prInfo
+        const { prInfo: newPrInfo, diff: newDiff, comments: newComments, viewedStatuses, headSha } = await loadPrSession(
+          prNumber,
+          owner,
+          repo
+        )
+        
+        // Parse diff into files
+        const newFiles = sortFiles(parseDiff(newDiff))
+        const newFileTree = buildFileTree(newFiles)
+        
+        // Re-initialize state with new data
+        state = createInitialState(
+          newFiles,
+          newFileTree,
+          state.source,
+          `#${prNumber}: ${newPrInfo.title}`,
+          null, // no error
+          state.session,
+          newComments,
+          "pr",
+          newPrInfo
+        )
+        
+        // Collapse resolved threads
+        const threads = groupIntoThreads(newComments)
+        state = collapseResolvedThreads(state, threads)
+        
+        // Load file statuses
+        const localViewedStatuses = await loadViewedStatuses(state.source)
+        state = loadFileStatuses(state, localViewedStatuses)
+        
+        // Merge GitHub viewed statuses
+        if (viewedStatuses && headSha) {
+          const mergedStatuses = new Map(state.fileStatuses)
+          for (const [filename, viewed] of viewedStatuses) {
+            const existing = mergedStatuses.get(filename)
+            if (!existing) {
+              mergedStatuses.set(filename, {
+                filename,
+                viewed,
+                viewedAt: viewed ? new Date().toISOString() : undefined,
+                viewedAtCommit: viewed ? headSha : undefined,
+                githubSynced: true,
+                syncedAt: new Date().toISOString(),
+              })
+            } else {
+              mergedStatuses.set(filename, {
+                ...existing,
+                viewed,
+                viewedAt: viewed ? new Date().toISOString() : undefined,
+                viewedAtCommit: viewed ? headSha : undefined,
+                githubSynced: true,
+                syncedAt: new Date().toISOString(),
+              })
+            }
+          }
+          state = updateFileStatuses(state, mergedStatuses)
+        }
+        
+        // Collapse viewed files
+        state = collapseViewedFiles(state)
+        
+        // Reset cursor and rebuild line mapping
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+        
+        // Clear search state
+        searchState = createSearchState()
+        
+        state = showToast(state, "Refreshed", "success")
+      } else {
+        // Local mode - reload diff
+        const newDiff = await getLocalDiff(options.target)
+        const newDescription = await getDiffDescription(options.target)
+        const newComments = await loadComments(state.source)
+        
+        const newFiles = sortFiles(parseDiff(newDiff))
+        const newFileTree = buildFileTree(newFiles)
+        
+        state = createInitialState(
+          newFiles,
+          newFileTree,
+          state.source,
+          newDescription,
+          null,
+          state.session,
+          newComments,
+          "local",
+          null
+        )
+        
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+        searchState = createSearchState()
+        
+        state = showToast(state, "Refreshed", "success")
+      }
+      
+      render()
+      
+      // Auto-clear toast
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 2000)
+    } catch (err) {
+      state = showToast(state, `Refresh failed: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
+      render()
+      
+      setTimeout(() => {
+        state = clearToast(state)
+        render()
+      }, 4000)
+    }
   }
 
   /**
@@ -2211,10 +2335,11 @@ export async function createApp(options: AppOptions = {}) {
     
     const reviewEvent = state.reviewPreview.selectedEvent
     const hasBody = state.reviewPreview.body.trim().length > 0
+    const hasPendingComments = (state.pendingReview?.comments.length ?? 0) > 0
     
     // For APPROVE, we don't need comments or body
-    // For COMMENT or REQUEST_CHANGES, we need at least comments or body
-    if (localComments.length === 0 && reviewEvent !== "APPROVE" && !hasBody) {
+    // For COMMENT or REQUEST_CHANGES, we need at least comments or body (or pending comments from GitHub)
+    if (localComments.length === 0 && reviewEvent !== "APPROVE" && !hasBody && !hasPendingComments) {
       const invalidCount = validatedComments.filter(vc => !vc.valid).length
       const msg = invalidCount > 0 
         ? `No valid comments to submit (${invalidCount} skipped - not in diff)`
@@ -2243,6 +2368,8 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // Submit as a review batch with selected event and optional body
+    // If there's a pending review, merge our comments into it
+    const pendingReviewId = state.reviewPreview.pendingReview?.id
     const result = await submitReview(
       owner, 
       repo, 
@@ -2250,7 +2377,8 @@ export async function createApp(options: AppOptions = {}) {
       localComments, 
       headSha, 
       state.reviewPreview.selectedEvent,
-      state.reviewPreview.body || undefined
+      state.reviewPreview.body || undefined,
+      pendingReviewId
     )
 
     if (result.success) {
@@ -2277,13 +2405,16 @@ export async function createApp(options: AppOptions = {}) {
       }
       
       // Close the review preview and show success toast
+      const pendingReviewCommentCount = state.reviewPreview.pendingReview?.comments.length ?? 0
       state = closeReviewPreview(state)
       const eventLabel = state.reviewPreview.selectedEvent === "APPROVE" 
         ? "Review approved" 
         : state.reviewPreview.selectedEvent === "REQUEST_CHANGES"
           ? "Changes requested"
           : "Review submitted"
-      state = showToast(state, `${eventLabel} (${localComments.length} comment${localComments.length !== 1 ? "s" : ""})`, "success")
+      const totalComments = localComments.length + pendingReviewCommentCount
+      const mergedNote = pendingReviewCommentCount > 0 ? " (merged with pending)" : ""
+      state = showToast(state, `${eventLabel} (${totalComments} comment${totalComments !== 1 ? "s" : ""})${mergedNote}`, "success")
       
       // Persist to storage
       for (const comment of localComments) {
@@ -2337,7 +2468,7 @@ export async function createApp(options: AppOptions = {}) {
         render()
         break
       case "refresh":
-        // TODO: Implement refresh
+        handleRefresh()
         break
       case "submit-review":
         handleOpenReviewPreview()
@@ -2362,11 +2493,32 @@ export async function createApp(options: AppOptions = {}) {
           handleOpenPRInfoPanel()
         }
         break
+      case "copy-pr-url":
+        if (state.prInfo) {
+          const url = state.prInfo.url
+          // Use pbcopy on macOS, xclip on Linux
+          const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" })
+          proc.stdin.write(url)
+          proc.stdin.end()
+          state = showToast(state, "PR URL copied to clipboard", "success")
+          render()
+          setTimeout(() => {
+            state = clearToast(state)
+            render()
+          }, 2000)
+        }
+        break
     }
   }
 
   // Keyboard handling
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
+    
+    // F12 toggles debug console
+    if (key.name === "f12") {
+      renderer.console.toggle()
+      return
+    }
     
     // ========== ACTION MENU (captures all input when open) ==========
     if (state.actionMenu.open) {
@@ -2661,7 +2813,8 @@ export async function createApp(options: AppOptions = {}) {
     // - Space: Toggle comment selection (when in comments section)
     if (state.reviewPreview.open) {
       const validatedComments = validateCommentsForSubmit(
-        state.comments.filter(c => c.status === "local" && !c.inReplyTo)
+        // Include both local (new) and pending (from GitHub draft) comments
+        state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo)
       )
       const validComments = validatedComments.filter(c => c.valid)
       const section = state.reviewPreview.focusedSection
@@ -2774,6 +2927,11 @@ export async function createApp(options: AppOptions = {}) {
           return
         
         default:
+          // Ctrl+W deletes word backwards
+          if (key.name === "w" && key.ctrl) {
+            searchHandler.handleDeleteWord()
+            return
+          }
           // Type characters into search
           if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
             searchHandler.handleCharInput(key.sequence)
@@ -2901,9 +3059,19 @@ export async function createApp(options: AppOptions = {}) {
           handleOpenPRInfoPanel()
         }
         return
+      } else if (sequence === "gy") {
+        // gy - copy PR URL to clipboard
+        if (state.appMode === "pr" && state.prInfo) {
+          executeAction("copy-pr-url")
+        }
+        return
       } else if (sequence === "gf") {
         // gf - open file in $EDITOR
         handleOpenFileInEditor()
+        return
+      } else if (sequence === "gR!" || sequence === "gr!") {
+        // gR - full refresh (reload PR/diff from scratch)
+        handleRefresh()
         return
       } else if (sequence === "gg") {
         // gg - go to top
@@ -3342,6 +3510,18 @@ export async function createApp(options: AppOptions = {}) {
 
   // Initial render
   render()
+
+  // Load pending review asynchronously for PR mode
+  if (mode === "pr" && prInfo) {
+    getPendingReview(prInfo.owner, prInfo.repo, prInfo.number)
+      .then(pendingReview => {
+        state = setPendingReview(state, pendingReview)
+        render()
+      })
+      .catch(() => {
+        // Silently ignore - pending review detection is not critical
+      })
+  }
 
   return {
     renderer,

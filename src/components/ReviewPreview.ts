@@ -97,6 +97,29 @@ export function ReviewPreview({
         Text({ content: "Esc to close", fg: theme.overlay0 })
       ),
 
+      // Pending review banner (if exists)
+      state.pendingReviewLoading ? Box(
+        {
+          flexDirection: "row",
+          paddingX: 2,
+          paddingY: 1,
+          backgroundColor: theme.surface0,
+        },
+        Text({ content: "Checking for pending review...", fg: theme.overlay0 })
+      ) : state.pendingReview ? Box(
+        {
+          flexDirection: "column",
+          paddingX: 2,
+          paddingY: 1,
+          backgroundColor: theme.yellow + "20",
+        },
+        Text({ content: `! Pending review on GitHub (${state.pendingReview.comments.length} comment${state.pendingReview.comments.length !== 1 ? "s" : ""})`, fg: theme.yellow }),
+        Text({ 
+          content: "  Will be merged with your new comments on submit", 
+          fg: theme.subtext0,
+        })
+      ) : null,
+
       // Type selector
       Box(
         { 
@@ -171,7 +194,10 @@ export function ReviewPreview({
           ...validComments.slice(0, 6).map((vc, i) => {
             const isHighlighted = isFocused("comments") && i === state.highlightedIndex
             const isIncluded = !state.excludedCommentIds.has(vc.comment.id)
-            const checkbox = isIncluded ? "✓" : "○"
+            const isPending = vc.comment.status === "pending"
+            // Pending comments (already on GitHub) show differently - they're always included
+            const checkbox = isPending ? "●" : (isIncluded ? "✓" : "○")
+            const checkboxColor = isPending ? theme.yellow : (isIncluded ? theme.green : theme.overlay0)
             const filename = vc.comment.filename.split("/").pop() || vc.comment.filename
             const preview = vc.comment.body.replace(/\s+/g, " ").slice(0, 40)
             
@@ -183,8 +209,8 @@ export function ReviewPreview({
                 paddingX: 1,
                 backgroundColor: isHighlighted ? theme.surface0 : undefined,
               },
-              Text({ id: `review-comment-cb-${vc.comment.id}`, content: `${checkbox} `, fg: isIncluded ? theme.green : theme.overlay0 }),
-              Text({ id: `review-comment-file-${vc.comment.id}`, content: `${filename}:${vc.comment.line} `, fg: theme.blue }),
+              Text({ id: `review-comment-cb-${vc.comment.id}`, content: `${checkbox} `, fg: checkboxColor }),
+              Text({ id: `review-comment-file-${vc.comment.id}`, content: `${filename}:${vc.comment.line ?? "?"} `, fg: theme.blue }),
               Text({ id: `review-comment-preview-${vc.comment.id}`, content: preview + (vc.comment.body.length > 40 ? "…" : ""), fg: theme.subtext0 })
             )
           }),

@@ -1,7 +1,7 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats } from "./types"
-import type { PrInfo } from "./providers/github"
+import type { PrInfo, PendingReview } from "./providers/github"
 import { type ActionMenuState, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
 
@@ -48,6 +48,10 @@ export interface ReviewPreviewState {
   highlightedIndex: number
   /** Which section is focused (tab navigation) */
   focusedSection: ReviewPreviewSection
+  /** Existing pending review from GitHub (if any) */
+  pendingReview: PendingReview | null
+  /** Whether we're currently loading the pending review */
+  pendingReviewLoading: boolean
 }
 
 /**
@@ -132,6 +136,9 @@ export interface AppState {
 
   // PR info (only in PR mode)
   prInfo: PrInfo | null
+  
+  // Pending review from GitHub (draft review not yet submitted)
+  pendingReview: PendingReview | null
 
   // File content cache for expansion
   fileContentCache: FileContentCache
@@ -203,6 +210,7 @@ export function createInitialState(
     description,
     error,
     prInfo,
+    pendingReview: null,
     fileContentCache: {},
     expandedDividers: new Set(),
     collapsedFiles: new Set(),
@@ -216,6 +224,8 @@ export function createInitialState(
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
       focusedSection: "input",
+      pendingReview: null,
+      pendingReviewLoading: false,
     },
     syncPreview: {
       open: false,
@@ -862,8 +872,57 @@ export function openReviewPreview(state: AppState): AppState {
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
       focusedSection: "input",
+      // Use app-level pending review (already loaded when PR opened)
+      pendingReview: state.pendingReview,
+      pendingReviewLoading: false,
     },
   }
+}
+
+/**
+ * Set the pending review at the app level (and sync to review preview if open)
+ * Also adds pending review comments to the comments array with status="pending"
+ */
+export function setPendingReview(
+  state: AppState,
+  pendingReview: PendingReview | null
+): AppState {
+  // Remove any existing pending comments (they'll be re-added from the new pending review)
+  const nonPendingComments = state.comments.filter(c => c.status !== "pending")
+  
+  // Convert pending review comments to Comment objects
+  const pendingComments: Comment[] = pendingReview?.comments.map(pc => ({
+    id: `pending-${pc.id}`,
+    filename: pc.path,
+    line: pc.line,
+    side: pc.side,
+    body: pc.body,
+    createdAt: new Date().toISOString(),
+    status: "pending" as const,
+    githubId: pc.id,
+    author: pendingReview.user,
+  })) ?? []
+  
+  return {
+    ...state,
+    pendingReview,
+    comments: [...nonPendingComments, ...pendingComments],
+    reviewPreview: {
+      ...state.reviewPreview,
+      pendingReview,
+      pendingReviewLoading: false,
+    },
+  }
+}
+
+/**
+ * @deprecated Use setPendingReview instead
+ */
+export function setReviewPreviewPendingReview(
+  state: AppState,
+  pendingReview: PendingReview | null
+): AppState {
+  return setPendingReview(state, pendingReview)
 }
 
 /**

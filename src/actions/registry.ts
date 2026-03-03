@@ -82,6 +82,14 @@ export const actions: Action[] = [
     category: "github",
     available: (state) => state.appMode === "pr",
   },
+  {
+    id: "copy-pr-url",
+    label: "Copy PR URL",
+    description: "Copy the PR URL to clipboard",
+    shortcut: "gy",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo !== null,
+  },
   
   // View
   {
