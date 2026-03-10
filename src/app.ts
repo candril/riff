@@ -67,7 +67,6 @@ import {
   setFileViewedStatus,
   updateFileStatuses,
   openPRInfoPanel,
-  closePRInfoPanel,
   setPRInfoPanelLoading,
   toggleFileFold,
   collapseAllFiles,
@@ -88,6 +87,7 @@ import { fuzzyFilter } from "./utils/fuzzy"
 // Feature modules
 import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
+import * as prInfoPanelFeature from "./features/pr-info-panel"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2582,88 +2582,12 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== PR INFO PANEL (captures all input when open) ==========
-    if (state.prInfoPanel.open) {
-      switch (key.name) {
-        case "escape":
-        case "q":
-          state = closePRInfoPanel(state)
-          render()
-          return
-        case "o":
-          // Open PR in browser
-          if (state.prInfo) {
-            Bun.spawn(["open", state.prInfo.url])
-          }
-          return
-        case "y": {
-          // y: Copy selected commit SHA, Y: Copy PR URL
-          if (state.prInfo) {
-            if (key.shift) {
-              // Y = copy PR URL
-              Bun.spawn(["sh", "-c", `echo -n "${state.prInfo.url}" | pbcopy`])
-              state = showToast(state, "PR URL copied", "success")
-            } else {
-              // y = copy selected commit SHA
-              const commit = prInfoPanel?.getSelectedCommit()
-              if (commit) {
-                Bun.spawn(["sh", "-c", `echo -n "${commit.sha}" | pbcopy`])
-                state = showToast(state, `Copied ${commit.sha.slice(0, 8)}`, "success")
-              }
-            }
-            render()
-            setTimeout(() => {
-              state = clearToast(state)
-              render()
-            }, 2000)
-          }
-          return
-        }
-        case "j":
-        case "down": {
-          // Move cursor down in commit list (no re-render needed)
-          if (prInfoPanel) {
-            prInfoPanel.moveCursor(1)
-          }
-          return
-        }
-        case "k":
-        case "up": {
-          // Move cursor up in commit list (no re-render needed)
-          if (prInfoPanel) {
-            prInfoPanel.moveCursor(-1)
-          }
-          return
-        }
-        case "d": {
-          // Ctrl+d: page down
-          if (key.ctrl && prInfoPanel) {
-            prInfoPanel.getScrollBox().scrollBy(10)
-          }
-          return
-        }
-        case "u": {
-          // Ctrl+u: page up
-          if (key.ctrl && prInfoPanel) {
-            prInfoPanel.getScrollBox().scrollBy(-10)
-          }
-          return
-        }
-        case "g": {
-          // gg: scroll to top, G: scroll to bottom
-          if (prInfoPanel) {
-            const scrollBox = prInfoPanel.getScrollBox()
-            if (key.shift) {
-              // G = scroll to bottom
-              scrollBox.scrollTo(scrollBox.scrollHeight)
-            } else {
-              // g = scroll to top (simplified, no gg detection)
-              scrollBox.scrollTo(0)
-            }
-          }
-          return
-        }
-      }
-      // Capture all other keys
+    if (prInfoPanelFeature.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      getPanel: () => prInfoPanel,
+    })) {
       return
     }
     
