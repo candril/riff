@@ -53,7 +53,7 @@ import {
   setThreadResolved,
   collapseThread,
   expandThread,
-  toggleThreadCollapsed,
+
   collapseResolvedThreads,
   toggleFileViewed,
   isFileViewed,
@@ -63,9 +63,7 @@ import {
   updateFileStatuses,
   openPRInfoPanel,
   setPRInfoPanelLoading,
-  toggleFileFold,
-  collapseAllFiles,
-  expandAllFiles,
+
   collapseFile,
   collapseViewedFiles,
   type AppState,
@@ -89,6 +87,7 @@ import * as search from "./features/search"
 import * as fileTreeFeature from "./features/file-tree"
 import * as commentsView from "./features/comments-view"
 import * as diffView from "./features/diff-view"
+import * as folds from "./features/folds"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2023,378 +2022,6 @@ export async function createApp(options: AppOptions = {}) {
   // ============================================================================
 
   /**
-   * Get the filename at the current cursor position in all-files mode
-   */
-  function getFilenameAtCursor(): string | null {
-    if (state.selectedFileIndex !== null) {
-      // Single file mode - return current file
-      const file = state.files[state.selectedFileIndex]
-      return file?.filename ?? null
-    }
-    // All files mode - find file at cursor position
-    const lineInfo = lineMapping.getLine(vimState.line)
-    if (lineInfo?.filename) {
-      return lineInfo.filename
-    }
-    return null
-  }
-
-  /**
-   * Go to top (gg) - works in tree, comments, and diff views
-   */
-  function handleGoToTop(): void {
-    if (state.focusedPanel === "tree") {
-      state = { ...state, treeHighlightIndex: 0 }
-      updateFileTreePanel()
-      fileTreePanel.ensureHighlightVisible()
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      state = { ...state, selectedCommentIndex: 0 }
-      const scrollBox = commentsViewPanel.getScrollBox()
-      if (scrollBox) {
-        scrollBox.scrollTop = 0
-      }
-      render()
-      return
-    }
-    
-    // Diff view - go to first line
-    vimState = { ...vimState, line: 0, col: 0 }
-    vimDiffView.updateCursor(vimState)
-    ensureCursorVisible()
-  }
-
-  /**
-   * Go to bottom (G) - works in tree, comments, and diff views
-   */
-  function handleGoToBottom(): void {
-    if (state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      state = { ...state, treeHighlightIndex: Math.max(0, flatItems.length - 1) }
-      updateFileTreePanel()
-      fileTreePanel.ensureHighlightVisible()
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      state = { ...state, selectedCommentIndex: Math.max(0, navItems.length - 1) }
-      const scrollBox = commentsViewPanel.getScrollBox()
-      if (scrollBox) {
-        scrollBox.scrollTop = scrollBox.scrollHeight
-      }
-      render()
-      return
-    }
-    
-    // Diff view - go to last line
-    const lastLine = Math.max(0, lineMapping.lineCount - 1)
-    vimState = { ...vimState, line: lastLine, col: 0 }
-    vimDiffView.updateCursor(vimState)
-    ensureCursorVisible()
-  }
-
-  /**
-   * Find the file header line for a given filename in the current line mapping
-   */
-  function findFileHeaderLine(filename: string): number {
-    for (let i = 0; i < lineMapping.lineCount; i++) {
-      const line = lineMapping.getLine(i)
-      if (line?.type === "file-header" && line.filename === filename) {
-        return i
-      }
-    }
-    return 0
-  }
-
-  /**
-   * Toggle fold at cursor (za)
-   * In diff view: toggle file collapse in all-files mode
-   * In tree view: toggle directory expansion OR file collapse in diff
-   * In comments view: toggle thread collapse
-   */
-  function handleToggleFoldAtCursor(): void {
-    if (state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const highlightedItem = flatItems[state.treeHighlightIndex]
-      if (!highlightedItem) return
-      
-      if (highlightedItem.node.isDirectory) {
-        // Toggle directory expansion
-        const newTree = toggleNodeExpansion(state.fileTree, highlightedItem.node.path)
-        state = updateFileTree(state, newTree)
-        render()
-      } else {
-        // On a file - find and toggle parent directory
-        for (let i = state.treeHighlightIndex - 1; i >= 0; i--) {
-          const item = flatItems[i]
-          if (item && item.node.isDirectory && item.depth < highlightedItem.depth) {
-            const newTree = toggleNodeExpansion(state.fileTree, item.node.path)
-            state = updateFileTree(state, newTree)
-            state = { ...state, treeHighlightIndex: i }
-            render()
-            break
-          }
-        }
-      }
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      // Toggle thread collapse
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      const selectedNav = navItems[state.selectedCommentIndex]
-      if (selectedNav?.thread) {
-        state = toggleThreadCollapsed(state, selectedNav.thread.id)
-        render()
-      }
-      return
-    }
-    
-    // In diff view - toggle folds (file headers, dividers)
-    // First try to expand/collapse a divider (works in both single and all-files mode)
-    // Check if cursor is on a divider - if so, only handle the divider
-    const dividerKey = lineMapping.getDividerKey(vimState.line)
-    if (dividerKey) {
-      handleExpandDivider()
-      return
-    }
-    
-    // Not on a divider - in all-files mode, try to toggle file fold
-    if (state.selectedFileIndex === null) {
-      const currentLine = lineMapping.getLine(vimState.line)
-      if (!currentLine) return
-      
-      // On a file header or within a file - toggle file fold
-      const filename = currentLine.filename ?? getFilenameAtCursor()
-      if (filename) {
-        state = toggleFileFold(state, filename)
-        lineMapping = createLineMapping()
-        // Move cursor to the file header after fold/unfold
-        const headerLine = findFileHeaderLine(filename)
-        vimState = { ...vimState, line: headerLine, col: 0 }
-        render()
-      }
-    }
-  }
-
-  /**
-   * Open fold at cursor (zo)
-   */
-  function handleOpenFoldAtCursor(): void {
-    if (state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const highlightedItem = flatItems[state.treeHighlightIndex]
-      if (!highlightedItem) return
-      
-      if (highlightedItem.node.isDirectory && !highlightedItem.node.expanded) {
-        // Expand directory
-        const newTree = toggleNodeExpansion(state.fileTree, highlightedItem.node.path)
-        state = updateFileTree(state, newTree)
-        render()
-      } else if (!highlightedItem.node.isDirectory) {
-        // On a file - find and expand parent directory (if collapsed)
-        for (let i = state.treeHighlightIndex - 1; i >= 0; i--) {
-          const item = flatItems[i]
-          if (item && item.node.isDirectory && item.depth < highlightedItem.depth) {
-            if (!item.node.expanded) {
-              const newTree = toggleNodeExpansion(state.fileTree, item.node.path)
-              state = updateFileTree(state, newTree)
-              render()
-            }
-            break
-          }
-        }
-      }
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      // Expand thread
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      const selectedNav = navItems[state.selectedCommentIndex]
-      if (selectedNav?.thread) {
-        state = expandThread(state, selectedNav.thread.id)
-        render()
-      }
-      return
-    }
-    
-    // In diff view - expand file in all-files mode
-    if (state.selectedFileIndex !== null) return
-    
-    const filename = getFilenameAtCursor()
-    if (filename && state.collapsedFiles.has(filename)) {
-      state = toggleFileFold(state, filename)
-      lineMapping = createLineMapping()
-      // Move cursor to the file header after expanding
-      const headerLine = findFileHeaderLine(filename)
-      vimState = { ...vimState, line: headerLine, col: 0 }
-      render()
-    }
-  }
-
-  /**
-   * Close fold at cursor (zc)
-   */
-  function handleCloseFoldAtCursor(): void {
-    if (state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const highlightedItem = flatItems[state.treeHighlightIndex]
-      if (!highlightedItem) return
-      
-      if (highlightedItem.node.isDirectory && highlightedItem.node.expanded) {
-        // Collapse directory
-        const newTree = toggleNodeExpansion(state.fileTree, highlightedItem.node.path)
-        state = updateFileTree(state, newTree)
-        render()
-      } else if (!highlightedItem.node.isDirectory) {
-        // On a file - find and collapse parent directory (and move to it)
-        for (let i = state.treeHighlightIndex - 1; i >= 0; i--) {
-          const item = flatItems[i]
-          if (item && item.node.isDirectory && item.depth < highlightedItem.depth) {
-            if (item.node.expanded) {
-              const newTree = toggleNodeExpansion(state.fileTree, item.node.path)
-              state = updateFileTree(state, newTree)
-              state = { ...state, treeHighlightIndex: i }
-              render()
-            }
-            break
-          }
-        }
-      }
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      // Collapse thread
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      const selectedNav = navItems[state.selectedCommentIndex]
-      if (selectedNav?.thread) {
-        state = collapseThread(state, selectedNav.thread.id)
-        render()
-      }
-      return
-    }
-    
-    // In diff view - collapse file in all-files mode
-    if (state.selectedFileIndex !== null) return
-    
-    const filename = getFilenameAtCursor()
-    if (filename && !state.collapsedFiles.has(filename)) {
-      state = toggleFileFold(state, filename)
-      lineMapping = createLineMapping()
-      // Move cursor to the file header after collapsing
-      const headerLine = findFileHeaderLine(filename)
-      vimState = { ...vimState, line: headerLine, col: 0 }
-      render()
-    }
-  }
-
-  /**
-   * Expand all folds (zR)
-   * In diff view: expand all files
-   * In tree view: expand all directories AND expand all files in diff
-   * In comments view: expand all threads
-   */
-  function handleExpandAllFolds(): void {
-    if (state.focusedPanel === "tree") {
-      // In tree panel - expand all directories AND all files in diff
-      const expandAll = (nodes: typeof state.fileTree): typeof state.fileTree => {
-        return nodes.map(node => ({
-          ...node,
-          expanded: node.isDirectory ? true : node.expanded,
-          children: node.isDirectory ? expandAll(node.children) : node.children,
-        }))
-      }
-      state = updateFileTree(state, expandAll(state.fileTree))
-      state = expandAllFiles(state)
-      lineMapping = createLineMapping()
-      render()
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      // Expand all threads
-      state = { ...state, collapsedThreadIds: new Set() }
-      render()
-      return
-    }
-    
-    // In diff view - expand all files
-    // Remember current file to restore cursor position
-    const currentFilename = getFilenameAtCursor()
-    state = expandAllFiles(state)
-    lineMapping = createLineMapping()
-    // Try to stay on the same file's header
-    if (currentFilename) {
-      const headerLine = findFileHeaderLine(currentFilename)
-      vimState = { ...vimState, line: headerLine, col: 0 }
-    } else {
-      vimState = { ...vimState, line: 0, col: 0 }
-    }
-    render()
-  }
-
-  /**
-   * Collapse all folds (zM)
-   * In diff view: collapse all files
-   * In tree view: collapse all directories AND collapse all files in diff
-   * In comments view: collapse all threads
-   */
-  function handleCollapseAllFolds(): void {
-    if (state.focusedPanel === "tree") {
-      // In tree panel - collapse all directories AND all files in diff
-      const collapseAll = (nodes: typeof state.fileTree): typeof state.fileTree => {
-        return nodes.map(node => ({
-          ...node,
-          expanded: node.isDirectory ? false : node.expanded,
-          children: node.isDirectory ? collapseAll(node.children) : node.children,
-        }))
-      }
-      state = updateFileTree(state, collapseAll(state.fileTree))
-      state = collapseAllFiles(state)
-      lineMapping = createLineMapping()
-      render()
-      return
-    }
-    
-    if (state.focusedPanel === "comments") {
-      // Collapse all threads
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const allThreadIds = new Set(threads.map(t => t.id))
-      state = { ...state, collapsedThreadIds: allThreadIds }
-      render()
-      return
-    }
-    
-    // In diff view - collapse all files
-    // Remember current file to restore cursor position
-    const currentFilename = getFilenameAtCursor()
-    state = collapseAllFiles(state)
-    lineMapping = createLineMapping()
-    // Try to stay on the same file's header
-    if (currentFilename) {
-      const headerLine = findFileHeaderLine(currentFilename)
-      vimState = { ...vimState, line: headerLine, col: 0 }
-    } else {
-      vimState = { ...vimState, line: 0, col: 0 }
-    }
-    render()
-  }
-
-  /**
    * Submit all local comments as a review batch (called from review preview)
    */
   async function handleConfirmReview(): Promise<void> {
@@ -2550,6 +2177,23 @@ export async function createApp(options: AppOptions = {}) {
     })
   }
 
+  // Folds context for fold operations
+  const foldsContext: folds.FoldsContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    setVimState: (s) => { vimState = s },
+    getLineMapping: () => lineMapping,
+    rebuildLineMapping: () => { lineMapping = createLineMapping() },
+    getFileTreePanel: () => fileTreePanel,
+    getCommentsViewPanel: () => commentsViewPanel,
+    getVimDiffView: () => vimDiffView,
+    updateFileTreePanel,
+    ensureCursorVisible,
+    render,
+    handleExpandDivider,
+  }
+
   // Keyboard handling
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
     
@@ -2649,7 +2293,7 @@ export async function createApp(options: AppOptions = {}) {
       case "G":
         // G (shift+g) - go to bottom (only for tree/comments, diff handled by vim)
         if ((key.name === "G" || key.shift) && state.focusedPanel !== "diff") {
-          handleGoToBottom()
+          folds.handleGoToBottom(foldsContext)
           return
         }
         break
@@ -2756,39 +2400,39 @@ export async function createApp(options: AppOptions = {}) {
         return
       } else if (sequence === "gg") {
         // gg - go to top
-        handleGoToTop()
+        folds.handleGoToTop(foldsContext)
         return
       } else if (sequence === "gG!" || sequence === "G!") {
         // G - go to bottom (G is shift, so we check for the shift marker)
-        handleGoToBottom()
+        folds.handleGoToBottom(foldsContext)
         return
       } else if (sequence === "za") {
         // za - toggle fold at cursor (file in all-files view, directory in tree)
-        handleToggleFoldAtCursor()
+        folds.handleToggleFoldAtCursor(foldsContext)
         return
       } else if (sequence === "zR!" || sequence === "zr!") {
         // zR - expand all folds
-        handleExpandAllFolds()
+        folds.handleExpandAllFolds(foldsContext)
         return
       } else if (sequence === "zM!" || sequence === "zm!") {
         // zM - collapse all folds
-        handleCollapseAllFolds()
+        folds.handleCollapseAllFolds(foldsContext)
         return
       } else if (sequence === "zr") {
         // zr - expand all (lowercase alias)
-        handleExpandAllFolds()
+        folds.handleExpandAllFolds(foldsContext)
         return
       } else if (sequence === "zm") {
         // zm - collapse all (lowercase alias)
-        handleCollapseAllFolds()
+        folds.handleCollapseAllFolds(foldsContext)
         return
       } else if (sequence === "zo") {
         // zo - open fold at cursor
-        handleOpenFoldAtCursor()
+        folds.handleOpenFoldAtCursor(foldsContext)
         return
       } else if (sequence === "zc") {
         // zc - close fold at cursor
-        handleCloseFoldAtCursor()
+        folds.handleCloseFoldAtCursor(foldsContext)
         return
       }
       // Other sequences like ]c, [c handled by vim handler
