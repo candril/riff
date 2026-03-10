@@ -15,6 +15,14 @@ export const actions: Action[] = [
     category: "navigation",
     available: (state) => state.files.length > 0,
   },
+  {
+    id: "open-in-editor",
+    label: "Open in Editor",
+    description: "Open current file in $EDITOR (nvim)",
+    shortcut: "gf",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
   
   // GitHub
   {

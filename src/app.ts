@@ -2516,6 +2516,9 @@ export async function createApp(options: AppOptions = {}) {
           }, 2000)
         }
         break
+      case "open-in-editor":
+        handleOpenFileInEditor()
+        break
     }
   }
 
