@@ -1,6 +1,6 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, canSubmit, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -21,7 +21,7 @@ import {
   type SubmitResult,
 } from "./providers/github"
 import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
-import { buildFileTree, toggleNodeExpansion, expandToFile, findFileTreeIndex } from "./utils/file-tree"
+import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
 import { openCommentEditor, extractDiffHunk, parseEditorOutput, openFileInEditor, openExternalDiffViewer, type EditorResult } from "./utils/editor"
 import {
   createInitialState,
@@ -54,9 +54,7 @@ import {
   showToast,
   clearToast,
   openFilePicker,
-  closeFilePicker,
-  setFilePickerQuery,
-  moveFilePickerSelection,
+
   setThreadResolved,
   collapseThread,
   expandThread,
@@ -89,6 +87,7 @@ import { fuzzyFilter } from "./utils/fuzzy"
 
 // Feature modules
 import * as actionMenu from "./features/action-menu"
+import * as filePicker from "./features/file-picker"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -561,14 +560,7 @@ export async function createApp(options: AppOptions = {}) {
       : availableActions
 
     // Get filtered files for file picker (with viewed status and comment counts)
-    const allFiles: FilteredFile[] = state.files.map((file, index) => {
-      const viewed = state.fileStatuses.get(file.filename)?.viewed ?? false
-      const commentCount = state.comments.filter(c => c.filename === file.filename).length
-      return { file, index, viewed, commentCount }
-    })
-    const filteredFiles = state.filePicker.query
-      ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
-      : allFiles
+    const filteredFiles = filePicker.getFilteredFiles(state)
 
     renderer.root.add(
       Box(
@@ -2577,100 +2569,16 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== FILE PICKER (captures all input when open) ==========
-    if (state.filePicker.open) {
-      const allFiles: FilteredFile[] = state.files.map((file, index) => {
-        const viewed = state.fileStatuses.get(file.filename)?.viewed ?? false
-        const commentCount = state.comments.filter(c => c.filename === file.filename).length
-        return { file, index, viewed, commentCount }
-      })
-      const filteredFiles = state.filePicker.query
-        ? fuzzyFilter(state.filePicker.query, allFiles, f => [f.file.filename])
-        : allFiles
-      
-      switch (key.name) {
-        case "escape":
-          state = closeFilePicker(state)
-          render()
-          return
-        
-        case "return":
-        case "enter":
-          const selectedFile = filteredFiles[state.filePicker.selectedIndex]
-          if (selectedFile) {
-            state = closeFilePicker(state)
-            
-            // Expand tree to show the selected file
-            const filename = state.files[selectedFile.index]?.filename
-            if (filename) {
-              const expandedTree = expandToFile(state.fileTree, filename)
-              state = updateFileTree(state, expandedTree)
-              
-              // Find and set the tree highlight index
-              const treeIndex = findFileTreeIndex(expandedTree, state.files, filename)
-              if (treeIndex !== -1) {
-                state = { ...state, treeHighlightIndex: treeIndex }
-              }
-            }
-            
-            // Select the file
-            state = selectFile(state, selectedFile.index)
-            
-            // Reset vim cursor and rebuild line mapping
-            vimState = createCursorState()
-            lineMapping = createLineMapping()
-            render()
-          }
-          return
-        
-        case "up":
-          state = moveFilePickerSelection(state, -1, filteredFiles.length - 1)
-          render()
-          return
-        
-        case "down":
-          state = moveFilePickerSelection(state, 1, filteredFiles.length - 1)
-          render()
-          return
-        
-        case "p":
-          // Ctrl+p moves up
-          if (key.ctrl) {
-            state = moveFilePickerSelection(state, -1, filteredFiles.length - 1)
-            render()
-            return
-          }
-          // Otherwise type 'p'
-          state = setFilePickerQuery(state, state.filePicker.query + "p")
-          render()
-          return
-        
-        case "n":
-          // Ctrl+n moves down
-          if (key.ctrl) {
-            state = moveFilePickerSelection(state, 1, filteredFiles.length - 1)
-            render()
-            return
-          }
-          // Otherwise type 'n'
-          state = setFilePickerQuery(state, state.filePicker.query + "n")
-          render()
-          return
-        
-        case "backspace":
-          if (state.filePicker.query.length > 0) {
-            state = setFilePickerQuery(state, state.filePicker.query.slice(0, -1))
-            render()
-          }
-          return
-        
-        default:
-          // Type characters into search
-          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-            state = setFilePickerQuery(state, state.filePicker.query + key.sequence)
-            render()
-          }
-          return
-      }
+    if (filePicker.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      onFileSelected: () => {
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+      },
+    })) {
+      return
     }
     
     // ========== PR INFO PANEL (captures all input when open) ==========
