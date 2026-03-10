@@ -22,7 +22,7 @@ import {
 } from "./providers/github"
 import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
-import { openFileInEditor, openExternalDiffViewer, type EditorResult } from "./utils/editor"
+
 import {
   createInitialState,
   selectFile,
@@ -86,6 +86,7 @@ import * as diffView from "./features/diff-view"
 import * as folds from "./features/folds"
 import * as fileNavigation from "./features/file-navigation"
 import * as commentsFeature from "./features/comments"
+import * as externalTools from "./features/external-tools"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -974,177 +975,6 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
-   * Open the current file in $EDITOR (gf)
-   * Works from: single file view, all files view (file at cursor), file tree
-   */
-  async function handleOpenFileInEditor(): Promise<void> {
-    let filename: string | null = null
-    let lineNumber: number | undefined = undefined
-    
-    // Determine which file to open based on context
-    if (state.focusedPanel === "tree") {
-      // From file tree - use highlighted file
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const highlightedItem = flatItems[state.treeHighlightIndex]
-      if (highlightedItem && !highlightedItem.node.isDirectory) {
-        filename = highlightedItem.node.path
-      }
-    } else if (state.selectedFileIndex !== null) {
-      // Single file view - use selected file
-      const file = state.files[state.selectedFileIndex]
-      if (file) {
-        filename = file.filename
-        // Get line number from cursor position if on a code line
-        const currentLine = lineMapping.getLine(vimState.line)
-        if (currentLine?.newLineNum) {
-          lineNumber = currentLine.newLineNum
-        }
-      }
-    } else {
-      // All files view - use file at cursor
-      const currentLine = lineMapping.getLine(vimState.line)
-      if (currentLine?.filename) {
-        filename = currentLine.filename
-        // Get line number if on a code line
-        if (currentLine.newLineNum) {
-          lineNumber = currentLine.newLineNum
-        }
-      }
-    }
-    
-    if (!filename) {
-      state = showToast(state, "No file selected", "info")
-      render()
-      return
-    }
-    
-    // Fetch the file content
-    let content: string | null = null
-    
-    state = showToast(state, `Opening ${filename}...`, "info")
-    render()
-    
-    try {
-      if (state.appMode === "pr" && state.prInfo) {
-        // Fetch from GitHub (head version)
-        content = await getPrFileContent(
-          state.prInfo.owner,
-          state.prInfo.repo,
-          state.prInfo.number,
-          filename
-        )
-      } else {
-        // Fetch from local (current working tree version)
-        content = await getFileContent(filename)
-      }
-      
-      if (content === null) {
-        state = showToast(state, `Could not fetch ${filename}`, "error")
-        render()
-        return
-      }
-      
-      // Suspend the TUI and open editor
-      state = clearToast(state)
-      renderer.suspend()
-      
-      await openFileInEditor(filename, content, lineNumber)
-      
-      // Resume the TUI
-      renderer.resume()
-      render()
-      
-    } catch (err) {
-      renderer.resume()
-      const msg = err instanceof Error ? err.message : "Unknown error"
-      state = showToast(state, `Error: ${msg}`, "error")
-      render()
-    }
-  }
-
-  /**
-   * Open current file in an external diff viewer (difftastic, delta, nvim)
-   */
-  async function handleOpenExternalDiff(viewer: "difftastic" | "delta" | "nvim"): Promise<void> {
-    let filename: string | null = null
-    
-    // Determine which file to diff based on context
-    if (state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const highlightedItem = flatItems[state.treeHighlightIndex]
-      if (highlightedItem && !highlightedItem.node.isDirectory) {
-        filename = highlightedItem.node.path
-      }
-    } else if (state.selectedFileIndex !== null) {
-      const file = state.files[state.selectedFileIndex]
-      if (file) {
-        filename = file.filename
-      }
-    } else {
-      const currentLine = lineMapping.getLine(vimState.line)
-      if (currentLine?.filename) {
-        filename = currentLine.filename
-      }
-    }
-    
-    if (!filename) {
-      state = showToast(state, "No file selected", "info")
-      render()
-      return
-    }
-    
-    const viewerNames = { difftastic: "difftastic", delta: "delta", nvim: "nvim diff" }
-    state = showToast(state, `Opening ${filename} in ${viewerNames[viewer]}...`, "info")
-    render()
-    
-    try {
-      let oldContent: string | null = null
-      let newContent: string | null = null
-      
-      if (state.appMode === "pr" && state.prInfo) {
-        // For PRs, fetch both base and head versions from GitHub
-        const { owner, repo, number: prNumber } = state.prInfo
-        const [baseContent, headContent] = await Promise.all([
-          getPrBaseFileContent(owner, repo, prNumber, filename),
-          getPrFileContent(owner, repo, prNumber, filename),
-        ])
-        oldContent = baseContent
-        newContent = headContent
-      } else {
-        // For local diffs, get old (HEAD/@-) and new (working copy) versions
-        oldContent = await getOldFileContent(filename, options.target)
-        newContent = await getFileContent(filename, options.target)
-      }
-      
-      if (oldContent === null && newContent === null) {
-        state = showToast(state, `Could not fetch ${filename}`, "error")
-        render()
-        return
-      }
-      
-      // Handle new files (no old content) or deleted files (no new content)
-      oldContent = oldContent ?? ""
-      newContent = newContent ?? ""
-      
-      // Suspend the TUI and open diff viewer
-      state = clearToast(state)
-      renderer.suspend()
-      
-      await openExternalDiffViewer(oldContent, newContent, filename, viewer)
-      
-      // Resume the TUI
-      renderer.resume()
-      render()
-      
-    } catch (err) {
-      renderer.resume()
-      const msg = err instanceof Error ? err.message : "Unknown error"
-      state = showToast(state, `Error: ${msg}`, "error")
-      render()
-    }
-  }
-
-  /**
    * Execute the sync operation
    */
   async function handleExecuteSync(): Promise<void> {
@@ -1461,6 +1291,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // Action execution context for action-menu feature
+  // Note: Some handlers are wrapped in functions to access contexts defined below
   const actionHandlers: actionMenu.ActionHandlers = {
     quit,
     handleRefresh,
@@ -1468,8 +1299,8 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenSyncPreview,
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleOpenPRInfoPanel,
-    handleOpenFileInEditor,
-    handleOpenExternalDiff,
+    handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
+    handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
   }
 
   function executeAction(actionId: string) {
@@ -1529,6 +1360,20 @@ export async function createApp(options: AppOptions = {}) {
     source,
     mode,
     prInfo: prInfo ?? null,
+  }
+
+  // External tools context
+  const externalToolsContext: externalTools.ExternalToolsContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    getLineMapping: () => lineMapping,
+    render,
+    suspendRenderer: () => renderer.suspend(),
+    resumeRenderer: () => renderer.resume(),
+    mode,
+    prInfo: prInfo ?? null,
+    options,
   }
 
   // Keyboard handling
@@ -1730,7 +1575,7 @@ export async function createApp(options: AppOptions = {}) {
         return
       } else if (sequence === "gf") {
         // gf - open file in $EDITOR
-        handleOpenFileInEditor()
+        externalTools.handleOpenFileInEditor(externalToolsContext)
         return
       } else if (sequence === "gR!" || sequence === "gr!") {
         // gR - full refresh (reload PR/diff from scratch)
