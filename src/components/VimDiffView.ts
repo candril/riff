@@ -205,6 +205,10 @@ export class VimDiffView {
   
   // Track gutter width for cursor positioning (set during rebuild)
   private gutterMinWidth: number = 4
+  
+  // Expected scroll position - set by external scroll logic to avoid stale reads
+  // When set, positionTerminalCursor uses this instead of scrollBox.scrollTop
+  private expectedScrollTop: number | null = null
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -345,6 +349,22 @@ export class VimDiffView {
       // Hide cursor immediately when becoming invisible
       this.renderer.setCursorPosition(0, 0, false)
     }
+  }
+
+  /**
+   * Set expected scroll position for cursor positioning.
+   * This is used to avoid reading stale scrollTop values from the scrollBox
+   * when the scroll position was just changed by ensureCursorVisible().
+   */
+  setExpectedScrollTop(scrollTop: number): void {
+    this.expectedScrollTop = scrollTop
+  }
+
+  /**
+   * Clear the expected scroll position, reverting to reading from scrollBox.
+   */
+  clearExpectedScrollTop(): void {
+    this.expectedScrollTop = null
   }
 
   /**
@@ -489,6 +509,7 @@ export class VimDiffView {
           syntaxStyle: getSyntaxStyle(),
           drawUnstyledText: true,
           conceal: false,
+          wrapMode: "none",  // Disable line wrapping - use horizontal scroll instead
         })
       )
     )
@@ -619,6 +640,7 @@ export class VimDiffView {
               syntaxStyle: getSyntaxStyle(),
               drawUnstyledText: true,
               conceal: false,
+              wrapMode: "none",  // Disable line wrapping - use horizontal scroll instead
             })
           )
         )
@@ -892,9 +914,12 @@ export class VimDiffView {
     const line = this.cursorState.line
     const col = this.cursorState.col
 
-    // Get scroll position
-    const scrollTop = this.scrollBox.scrollTop
+    // Get scroll position - prefer expected value to avoid stale reads
+    const scrollTop = this.expectedScrollTop ?? this.scrollBox.scrollTop
     const scrollLeft = this.scrollBox.scrollLeft
+    
+    // Clear expected scroll position after using it
+    this.expectedScrollTop = null
 
     // In all-files mode, we need to calculate screen position differently
     // because file-header lines in global mapping are rendered as FileHeader components
@@ -1014,10 +1039,6 @@ export class VimDiffView {
     const digits = maxLineNum > 0 ? Math.floor(Math.log10(maxLineNum)) + 1 : 1
     const baseWidth = Math.max(this.gutterMinWidth, digits + 1 + 1)  // digits + paddingRight + 1
     const gutterWidth = baseWidth + 1  // + signWidth
-    console.log(`DEBUG cursor: maxLineNum=${maxLineNum}, digits=${digits}, gutterMinWidth=${this.gutterMinWidth}, baseWidth=${baseWidth}, gutterWidth=${gutterWidth}, filePanelOffset=${filePanelOffset}, visualCol=${visualCol}, screenX=${filePanelOffset + gutterWidth + visualCol}`)
-    
-    // DEBUG: log cursor position calculation
-    // console.error(`cursor: filePanelOffset=${filePanelOffset}, gutterWidth=${gutterWidth}, gutterMinWidth=${this.gutterMinWidth}, visualCol=${visualCol}, screenX=${filePanelOffset + gutterWidth + visualCol}`)
     
     // Screen position calculation:
     // - filePanelOffset: width of file panel (0 if hidden)

@@ -702,15 +702,23 @@ export async function createApp(options: AppOptions = {}) {
     const topThreshold = scrollTop + SCROLL_OFF
     const bottomThreshold = scrollTop + viewportHeight - SCROLL_OFF - 1
     
+    // Track the effective scroll position for cursor positioning
+    let effectiveScrollTop = scrollTop
+    
     if (cursorLine < topThreshold) {
       // Cursor is above the safe zone - scroll up
       const newScrollTop = Math.max(0, cursorLine - SCROLL_OFF)
       scrollBox.scrollTop = newScrollTop
+      effectiveScrollTop = newScrollTop
     } else if (cursorLine > bottomThreshold) {
       // Cursor is below the safe zone - scroll down
       const newScrollTop = Math.min(maxScroll, cursorLine - viewportHeight + SCROLL_OFF + 1)
       scrollBox.scrollTop = newScrollTop
+      effectiveScrollTop = newScrollTop
     }
+    
+    // Tell VimDiffView the expected scroll position to avoid stale reads
+    vimDiffView.setExpectedScrollTop(effectiveScrollTop)
   }
 
 
