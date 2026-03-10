@@ -88,6 +88,7 @@ import { fuzzyFilter } from "./utils/fuzzy"
 import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
+import * as syncPreview from "./features/sync-preview"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2592,26 +2593,12 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== SYNC PREVIEW (captures all input when open) ==========
-    if (state.syncPreview.open) {
-      // Escape closes
-      if (key.name === "escape") {
-        state = {
-          ...state,
-          syncPreview: { ...state.syncPreview, open: false },
-        }
-        render()
-        return
-      }
-      
-      // Enter executes sync
-      if (key.name === "return" || key.name === "enter") {
-        if (!state.syncPreview.loading) {
-          handleExecuteSync()
-        }
-        return
-      }
-      
-      // Ignore all other keys when sync preview is open
+    if (syncPreview.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      onExecuteSync: handleExecuteSync,
+    })) {
       return
     }
     
