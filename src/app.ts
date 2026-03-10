@@ -1,6 +1,6 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, canSubmit, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -46,11 +46,7 @@ import {
   setReviewPreviewLoading,
   setReviewPreviewError,
   setPendingReview,
-  toggleReviewComment,
-  moveReviewHighlight,
-  toggleReviewSection,
-  setReviewEvent,
-  setReviewBody,
+
   showToast,
   clearToast,
   openFilePicker,
@@ -89,6 +85,7 @@ import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import * as syncPreview from "./features/sync-preview"
+import * as reviewPreview from "./features/review-preview"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2603,109 +2600,16 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== REVIEW PREVIEW (captures all input when open) ==========
-    // Tab-based navigation through 4 sections:
-    // Simplified review preview:
-    // - 1/2/3: Select review type (Comment/Approve/Request Changes)
-    // - Tab: Toggle between summary input and comments list
-    // - Ctrl+Enter: Submit
-    // - j/k: Navigate comments (when in comments section)
-    // - Space: Toggle comment selection (when in comments section)
-    if (state.reviewPreview.open) {
-      const validatedComments = validateCommentsForSubmit(
-        // Include both local (new) and pending (from GitHub draft) comments
+    if (reviewPreview.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      getValidatedComments: () => validateCommentsForSubmit(
         state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo)
-      )
-      const validComments = validatedComments.filter(c => c.valid)
-      const section = state.reviewPreview.focusedSection
-      const includedCount = validComments.filter(c => !state.reviewPreview.excludedCommentIds.has(c.comment.id)).length
-      const isOwn = state.prInfo !== null && cachedCurrentUser === state.prInfo.author
-      
-      // Escape always closes
-      if (key.name === "escape") {
-        state = closeReviewPreview(state)
-        render()
-        return
-      }
-      
-      // Enter submits
-      if (key.name === "return" || key.name === "enter") {
-        if (!state.reviewPreview.loading && canSubmit(state.reviewPreview, includedCount, isOwn)) {
-          handleConfirmReview()
-        }
-        return
-      }
-      
-      // 1/2/3 select review type (works in any section)
-      if (key.name === "1") {
-        state = setReviewEvent(state, "COMMENT")
-        render()
-        return
-      }
-      if (key.name === "2") {
-        state = setReviewEvent(state, "APPROVE")
-        render()
-        return
-      }
-      if (key.name === "3") {
-        state = setReviewEvent(state, "REQUEST_CHANGES")
-        render()
-        return
-      }
-      
-      // Tab toggles between input and comments
-      if (key.name === "tab") {
-        state = toggleReviewSection(state)
-        render()
-        return
-      }
-      
-      // Section-specific key handling
-      if (section === "input") {
-        // Ctrl+j adds newline
-        if (key.name === "j" && key.ctrl) {
-          state = setReviewBody(state, state.reviewPreview.body + "\n")
-          render()
-          return
-        }
-        // Backspace removes last character
-        if (key.name === "backspace") {
-          if (state.reviewPreview.body.length > 0) {
-            state = setReviewBody(state, state.reviewPreview.body.slice(0, -1))
-            render()
-          }
-          return
-        }
-        // Type characters (but not 1/2/3 which select type)
-        if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-          state = setReviewBody(state, state.reviewPreview.body + key.sequence)
-          render()
-          return
-        }
-      } else if (section === "comments") {
-        // j/down = next comment
-        if (key.name === "j" || key.name === "down") {
-          state = moveReviewHighlight(state, 1, validComments.length - 1)
-          render()
-          return
-        }
-        // k/up = previous comment
-        if (key.name === "k" || key.name === "up") {
-          state = moveReviewHighlight(state, -1, validComments.length - 1)
-          render()
-          return
-        }
-        // Space toggles selection
-        if (key.name === "space") {
-          const highlightedComment = validComments[state.reviewPreview.highlightedIndex]
-          if (highlightedComment) {
-            state = toggleReviewComment(state, highlightedComment.comment.id)
-            render()
-          }
-          return
-        }
-      }
-      
-      // Capture all other keys (don't let them escape to normal mode)
+      ),
+      isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
+      onConfirmReview: handleConfirmReview,
+    })) {
       return
     }
     
