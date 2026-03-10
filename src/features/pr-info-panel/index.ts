@@ -9,6 +9,7 @@
  */
 
 export { handleInput, type PRInfoPanelInputContext } from "./input"
+export { handleOpenPRInfoPanel, type PRInfoPanelOpenContext } from "./handlers"
 
 // Re-export state operations that callers might need
 export { openPRInfoPanel, closePRInfoPanel } from "../../state"

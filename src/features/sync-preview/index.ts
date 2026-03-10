@@ -8,3 +8,4 @@
  */
 
 export { handleInput, type SyncPreviewInputContext } from "./input"
+export { handleOpenSyncPreview, type SyncPreviewOpenContext } from "./handlers"

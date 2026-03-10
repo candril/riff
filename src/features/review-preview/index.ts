@@ -9,6 +9,7 @@
  */
 
 export { handleInput, type ReviewPreviewInputContext } from "./input"
+export { handleOpenReviewPreview, type ReviewPreviewOpenContext } from "./handlers"
 
 // Re-export state operations that callers might need
 export { openReviewPreview, closeReviewPreview } from "../../state"

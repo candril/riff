@@ -1,27 +1,16 @@
-import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
+import { createCliRenderer, Box, Text, type KeyEvent, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
+import { Header, StatusBar, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
 import { 
   getPrFileContent, 
   getPrBaseFileContent, 
-  getCurrentUser, 
-  getPrHeadSha,
-  submitSingleComment,
-  submitReply,
-  submitReview,
-  updateComment,
-  toggleThreadResolution,
-  getPrExtendedInfo,
-
-  loadPrSession,
   getPendingReview,
-  type SubmitResult,
 } from "./providers/github"
-import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
-import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
+import { parseDiff, sortFiles } from "./utils/diff-parser"
+import { buildFileTree } from "./utils/file-tree"
 
 import {
   createInitialState,
@@ -38,39 +27,28 @@ import {
   setFileContentError,
   toggleDividerExpansion,
   openActionMenu,
-  openReviewPreview,
-  closeReviewPreview,
-  cycleReviewEvent,
-  setReviewPreviewLoading,
-  setReviewPreviewError,
+
   setPendingReview,
 
   showToast,
   clearToast,
   openFilePicker,
 
-  setThreadResolved,
-  collapseThread,
-  expandThread,
-
   collapseResolvedThreads,
-  toggleFileViewed,
   getReviewProgress,
   loadFileStatuses,
   updateFileStatuses,
-  openPRInfoPanel,
-  setPRInfoPanelLoading,
 
   collapseViewedFiles,
   type AppState,
 } from "./state"
-import { colors, theme } from "./theme"
-import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile, loadViewedStatuses } from "./storage"
-import { type Comment, type AppMode, type FileReviewStatus } from "./types"
+import { colors } from "./theme"
+import { loadOrCreateSession, loadComments, loadViewedStatuses } from "./storage"
+import { type Comment, type AppMode } from "./types"
 
 import type { PrInfo } from "./providers/github"
-import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
-import { getAvailableActions, type Action } from "./actions"
+import { groupIntoThreads } from "./utils/threads"
+import { getAvailableActions } from "./actions"
 import { fuzzyFilter } from "./utils/fuzzy"
 
 // Feature modules
@@ -88,12 +66,12 @@ import * as fileNavigation from "./features/file-navigation"
 import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import * as prOperations from "./features/pr-operations"
+import * as refresh from "./features/refresh"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
 import { 
   createCursorState, 
-  enterVisualLineMode, 
 } from "./vim-diff/cursor-state"
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler } from "./vim-diff/motion-handler"
@@ -758,221 +736,59 @@ export async function createApp(options: AppOptions = {}) {
     return true
   }
 
-  /**
-   * Open the review preview (gS)
-   */
-  async function handleOpenReviewPreview(): Promise<void> {
-    // Cache current user for own-PR detection
-    if (cachedCurrentUser === null && state.appMode === "pr") {
-      try {
-        cachedCurrentUser = await getCurrentUser()
-      } catch {
-        cachedCurrentUser = ""
-      }
-    }
-    state = openReviewPreview(state)
-    render()
-
-    // Fetch pending review in background (only for PR mode)
-    // Pending review is now loaded when PR opens, no need to fetch again
+  // Refresh context for full reload
+  const refreshContext: refresh.RefreshContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    setVimState: (s) => { vimState = s },
+    setSearchState: (s) => { searchState = s },
+    rebuildLineMapping: () => { lineMapping = createLineMapping() },
+    mode,
+    target: options.target,
+    prInfo: prInfo ?? null,
   }
 
-  /**
-   * Open the sync preview (gs)
-   */
-  function handleOpenSyncPreview(): void {
-    if (state.appMode !== "pr") {
-      state = showToast(state, "Sync only available in PR mode", "error")
-      render()
-      setTimeout(() => {
-        state = clearToast(state)
-        render()
-      }, 3000)
-      return
-    }
-    
-    state = {
-      ...state,
-      syncPreview: {
-        ...state.syncPreview,
-        open: true,
-        loading: false,
-        error: null,
-      },
-    }
-    render()
+  function handleRefresh() {
+    return refresh.handleRefresh(refreshContext)
   }
 
-  /**
-   * Full refresh - reload everything from scratch (PR data, diff, comments)
-   */
-  async function handleRefresh(): Promise<void> {
-    // Show loading toast
-    state = showToast(state, "Refreshing...", "info")
-    render()
-    
-    try {
-      if (state.appMode === "pr" && state.prInfo) {
-        // PR mode - reload PR data
-        const { owner, repo, number: prNumber } = state.prInfo
-        const { prInfo: newPrInfo, diff: newDiff, comments: newComments, viewedStatuses, headSha } = await loadPrSession(
-          prNumber,
-          owner,
-          repo
-        )
-        
-        // Parse diff into files
-        const newFiles = sortFiles(parseDiff(newDiff))
-        const newFileTree = buildFileTree(newFiles)
-        
-        // Re-initialize state with new data
-        state = createInitialState(
-          newFiles,
-          newFileTree,
-          state.source,
-          `#${prNumber}: ${newPrInfo.title}`,
-          null, // no error
-          state.session,
-          newComments,
-          "pr",
-          newPrInfo
-        )
-        
-        // Collapse resolved threads
-        const threads = groupIntoThreads(newComments)
-        state = collapseResolvedThreads(state, threads)
-        
-        // Load file statuses
-        const localViewedStatuses = await loadViewedStatuses(state.source)
-        state = loadFileStatuses(state, localViewedStatuses)
-        
-        // Merge GitHub viewed statuses
-        if (viewedStatuses && headSha) {
-          const mergedStatuses = new Map(state.fileStatuses)
-          for (const [filename, viewed] of viewedStatuses) {
-            const existing = mergedStatuses.get(filename)
-            if (!existing) {
-              mergedStatuses.set(filename, {
-                filename,
-                viewed,
-                viewedAt: viewed ? new Date().toISOString() : undefined,
-                viewedAtCommit: viewed ? headSha : undefined,
-                githubSynced: true,
-                syncedAt: new Date().toISOString(),
-              })
-            } else {
-              mergedStatuses.set(filename, {
-                ...existing,
-                viewed,
-                viewedAt: viewed ? new Date().toISOString() : undefined,
-                viewedAtCommit: viewed ? headSha : undefined,
-                githubSynced: true,
-                syncedAt: new Date().toISOString(),
-              })
-            }
-          }
-          state = updateFileStatuses(state, mergedStatuses)
-        }
-        
-        // Collapse viewed files
-        state = collapseViewedFiles(state)
-        
-        // Reset cursor and rebuild line mapping
-        vimState = createCursorState()
-        lineMapping = createLineMapping()
-        
-        // Clear search state
-        searchState = createSearchState()
-        
-        state = showToast(state, "Refreshed", "success")
-      } else {
-        // Local mode - reload diff
-        const newDiff = await getLocalDiff(options.target)
-        const newDescription = await getDiffDescription(options.target)
-        const newComments = await loadComments(state.source)
-        
-        const newFiles = sortFiles(parseDiff(newDiff))
-        const newFileTree = buildFileTree(newFiles)
-        
-        state = createInitialState(
-          newFiles,
-          newFileTree,
-          state.source,
-          newDescription,
-          null,
-          state.session,
-          newComments,
-          "local",
-          null
-        )
-        
-        vimState = createCursorState()
-        lineMapping = createLineMapping()
-        searchState = createSearchState()
-        
-        state = showToast(state, "Refreshed", "success")
-      }
-      
-      render()
-      
-      // Auto-clear toast
-      setTimeout(() => {
-        state = clearToast(state)
-        render()
-      }, 2000)
-    } catch (err) {
-      state = showToast(state, `Refresh failed: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
-      render()
-      
-      setTimeout(() => {
-        state = clearToast(state)
-        render()
-      }, 4000)
-    }
+  // Review preview open context
+  const reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    getCachedCurrentUser: () => cachedCurrentUser,
+    setCachedCurrentUser: (user) => { cachedCurrentUser = user },
+    mode,
   }
 
-  /**
-   * Open the PR info panel (gi) and load extended info
-   */
-  async function handleOpenPRInfoPanel(): Promise<void> {
-    if (state.appMode !== "pr" || !state.prInfo) {
-      return
-    }
-    
-    const prInfo = state.prInfo
-    state = openPRInfoPanel(state)
-    
-    // Load extended info (commits, reviews) first, then create panel
-    try {
-      const { owner, repo, number: prNumber } = prInfo
-      const extendedInfo = await getPrExtendedInfo(prNumber, owner, repo)
-      
-      // Update prInfo with extended data
-      const updatedPrInfo = {
-        ...state.prInfo!,
-        commits: extendedInfo.commits,
-        reviews: extendedInfo.reviews,
-        requestedReviewers: extendedInfo.requestedReviewers,
-      }
-      
-      state = {
-        ...state,
-        prInfo: updatedPrInfo,
-        prInfoPanel: {
-          ...state.prInfoPanel,
-          loading: false,
-        },
-      }
-      
-      // Create the panel instance with the updated prInfo
-      prInfoPanel = new PRInfoPanelClass(renderer, updatedPrInfo)
-      render()
-    } catch (error) {
-      // Still show panel with basic info
-      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo!)
-      state = setPRInfoPanelLoading(state, false)
-      render()
-    }
+  function handleOpenReviewPreview() {
+    return reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext)
+  }
+
+  // Sync preview open context
+  const syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+  }
+
+  function handleOpenSyncPreview() {
+    return syncPreview.handleOpenSyncPreview(syncPreviewOpenContext)
+  }
+
+  // PR info panel open context
+  const prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    setPanelInstance: (panel) => { prInfoPanel = panel },
+    createPanelInstance: (info) => new PRInfoPanelClass(renderer, info),
+  }
+
+  function handleOpenPRInfoPanel() {
+    return prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext)
   }
 
   // Key sequence tracking
