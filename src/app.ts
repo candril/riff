@@ -1,6 +1,6 @@
 import { createCliRenderer, Box, Text, BoxRenderable, TextRenderable, type KeyEvent, type ScrollBoxRenderable, getTreeSitterClient } from "@opentui/core"
 import { registerSyntaxParsers } from "./syntax-parsers"
-import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, getVisualActionOrder, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
+import { Header, StatusBar, getFlatTreeItems, VimDiffView, ActionMenu, ReviewPreview, Toast, FilePicker, type ValidatedComment, type FilteredFile, canSubmit, SyncPreview, gatherSyncItems, PRInfoPanelClass, SearchPrompt } from "./components"
 import { FileTreePanel } from "./components/FileTreePanel"
 import { CommentsViewPanel } from "./components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getFileContent, getOldFileContent } from "./providers/local"
@@ -40,9 +40,6 @@ import {
   setFileContentError,
   toggleDividerExpansion,
   openActionMenu,
-  closeActionMenu,
-  setActionMenuQuery,
-  moveActionMenuSelection,
   openReviewPreview,
   closeReviewPreview,
   cycleReviewEvent,
@@ -89,6 +86,9 @@ import type { PrInfo } from "./providers/github"
 import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
 import { getAvailableActions, type Action } from "./actions"
 import { fuzzyFilter } from "./utils/fuzzy"
+
+// Feature modules
+import * as actionMenu from "./features/action-menu"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2536,81 +2536,25 @@ export async function createApp(options: AppOptions = {}) {
     }
   }
 
-  // Action handlers (called when action is executed)
-  async function executeAction(actionId: string) {
-    switch (actionId) {
-      case "quit":
-        quit()
-        break
-      case "find-files":
-        state = openFilePicker(state)
-        render()
-        break
-      case "toggle-file-panel":
-        state = toggleFilePanel(state)
-        if (state.showFilePanel) {
-          state = { ...state, focusedPanel: "tree" }
-        }
-        render()
-        break
-      case "toggle-view":
-        state = toggleViewMode(state)
-        render()
-        break
-      case "refresh":
-        handleRefresh()
-        break
-      case "submit-review":
-        handleOpenReviewPreview()
-        break
-      case "sync-changes":
-        handleOpenSyncPreview()
-        break
-      case "submit-comment":
-        await handleSubmitSingleComment()
-        break
-      case "create-pr":
-        // TODO: Implement create PR flow
-        break
-      case "open-in-browser":
-        if (state.prInfo) {
-          const { owner, repo, number: prNumber } = state.prInfo
-          Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
-        }
-        break
-      case "pr-info":
-        if (state.prInfo) {
-          handleOpenPRInfoPanel()
-        }
-        break
-      case "copy-pr-url":
-        if (state.prInfo) {
-          const url = state.prInfo.url
-          // Use pbcopy on macOS, xclip on Linux
-          const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" })
-          proc.stdin.write(url)
-          proc.stdin.end()
-          state = showToast(state, "PR URL copied to clipboard", "success")
-          render()
-          setTimeout(() => {
-            state = clearToast(state)
-            render()
-          }, 2000)
-        }
-        break
-      case "open-in-editor":
-        handleOpenFileInEditor()
-        break
-      case "diff-difftastic":
-        handleOpenExternalDiff("difftastic")
-        break
-      case "diff-delta":
-        handleOpenExternalDiff("delta")
-        break
-      case "diff-nvim":
-        handleOpenExternalDiff("nvim")
-        break
-    }
+  // Action execution context for action-menu feature
+  const actionHandlers: actionMenu.ActionHandlers = {
+    quit,
+    handleRefresh,
+    handleOpenReviewPreview,
+    handleOpenSyncPreview,
+    handleSubmitSingleComment,
+    handleOpenPRInfoPanel,
+    handleOpenFileInEditor,
+    handleOpenExternalDiff,
+  }
+
+  function executeAction(actionId: string) {
+    actionMenu.executeAction(actionId, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      handlers: actionHandlers,
+    })
   }
 
   // Keyboard handling
@@ -2623,79 +2567,13 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== ACTION MENU (captures all input when open) ==========
-    if (state.actionMenu.open) {
-      const availableActions = getAvailableActions(state)
-      const filteredActions = state.actionMenu.query
-        ? fuzzyFilter(state.actionMenu.query, availableActions, a => [a.label, a.id, a.description])
-        : availableActions
-      // Get actions in visual order (grouped by category)
-      const visualActions = getVisualActionOrder(filteredActions)
-      
-      switch (key.name) {
-        case "escape":
-          state = closeActionMenu(state)
-          render()
-          return
-        
-        case "return":
-        case "enter":
-          const selectedAction = visualActions[state.actionMenu.selectedIndex]
-          if (selectedAction) {
-            state = closeActionMenu(state)
-            render()
-            executeAction(selectedAction.id)
-          }
-          return
-        
-        case "up":
-          state = moveActionMenuSelection(state, -1, visualActions.length - 1)
-          render()
-          return
-        
-        case "down":
-          state = moveActionMenuSelection(state, 1, visualActions.length - 1)
-          render()
-          return
-        
-        case "p":
-          // Ctrl+p moves up
-          if (key.ctrl) {
-            state = moveActionMenuSelection(state, -1, visualActions.length - 1)
-            render()
-            return
-          }
-          // Otherwise type 'p'
-          state = setActionMenuQuery(state, state.actionMenu.query + "p")
-          render()
-          return
-        
-        case "n":
-          // Ctrl+n moves down
-          if (key.ctrl) {
-            state = moveActionMenuSelection(state, 1, visualActions.length - 1)
-            render()
-            return
-          }
-          // Otherwise type 'n'
-          state = setActionMenuQuery(state, state.actionMenu.query + "n")
-          render()
-          return
-        
-        case "backspace":
-          if (state.actionMenu.query.length > 0) {
-            state = setActionMenuQuery(state, state.actionMenu.query.slice(0, -1))
-            render()
-          }
-          return
-        
-        default:
-          // Type characters into search
-          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-            state = setActionMenuQuery(state, state.actionMenu.query + key.sequence)
-            render()
-          }
-          return
-      }
+    if (actionMenu.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      executeAction,
+    })) {
+      return
     }
     
     // ========== FILE PICKER (captures all input when open) ==========
