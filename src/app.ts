@@ -32,7 +32,7 @@ import {
   toggleFilePanel,
   updateFileTree,
   addComment,
-  moveCommentSelection,
+
   getVisibleComments,
   setFileContentLoading,
   setFileContent,
@@ -87,6 +87,7 @@ import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as search from "./features/search"
 import * as fileTreeFeature from "./features/file-tree"
+import * as commentsView from "./features/comments-view"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2815,162 +2816,25 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // ========== COMMENTS VIEW FOCUSED ==========
-    if (state.viewMode === "comments" && state.focusedPanel === "comments") {
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      
-      switch (key.name) {
-        case "j":
-        case "down": {
-          const oldIndex = state.selectedCommentIndex
-          state = moveCommentSelection(state, 1, navItems.length - 1)
-          if (state.selectedCommentIndex !== oldIndex) {
-            commentsViewPanel.scrollBy(1)
-          }
-          render()
-          return
-        }
-
-        case "k":
-        case "up": {
-          const oldIndex = state.selectedCommentIndex
-          state = moveCommentSelection(state, -1, navItems.length - 1)
-          if (state.selectedCommentIndex !== oldIndex) {
-            commentsViewPanel.scrollBy(-1)
-          }
-          render()
-          return
-        }
-        
-        case "d":
-          // Ctrl+d: scroll down half page
-          if (key.ctrl) {
-            const scrollBox = commentsViewPanel.getScrollBox()
-            if (scrollBox) {
-              const viewportHeight = Math.floor(scrollBox.height || 20)
-              const halfPage = Math.floor(viewportHeight / 2)
-              scrollBox.scrollTop = Math.min(
-                scrollBox.scrollHeight - viewportHeight,
-                scrollBox.scrollTop + halfPage
-              )
-            }
-          }
-          return
-        
-        case "u":
-          // Ctrl+u: scroll up half page
-          if (key.ctrl) {
-            const scrollBox = commentsViewPanel.getScrollBox()
-            if (scrollBox) {
-              const viewportHeight = Math.floor(scrollBox.height || 20)
-              const halfPage = Math.floor(viewportHeight / 2)
-              scrollBox.scrollTop = Math.max(0, scrollBox.scrollTop - halfPage)
-            }
-          }
-          return
-
-        case "return":
-        case "enter":
-          const selectedNav = navItems[state.selectedCommentIndex]
-          if (selectedNav?.comment) {
-            const fileIndex = state.files.findIndex(
-              f => f.filename === selectedNav.comment!.filename
-            )
-            if (fileIndex >= 0) {
-              state = selectFile(state, fileIndex)
-              state = { 
-                ...state, 
-                viewMode: "diff",
-                focusedPanel: "diff",
-              }
-              // Reset vim cursor to the comment's line
-              vimState = createCursorState()
-              lineMapping = createLineMapping()
-              // Find the visual line for this comment
-              const visualLine = lineMapping.findLineForComment(selectedNav.comment)
-              if (visualLine !== null) {
-                vimState = { ...vimState, line: visualLine }
-              }
-              render()
-              setTimeout(() => {
-                ensureCursorVisible()
-              }, 0)
-            }
-          }
-          return
-
-        case "r":
-          const replyNav = navItems[state.selectedCommentIndex]
-          if (replyNav?.comment) {
-            const fileIndex = state.files.findIndex(
-              f => f.filename === replyNav.comment!.filename
-            )
-            if (fileIndex >= 0) {
-              state = selectFile(state, fileIndex)
-              state = { 
-                ...state, 
-                viewMode: "diff",
-                focusedPanel: "diff",
-              }
-              vimState = createCursorState()
-              lineMapping = createLineMapping()
-              const visualLine = lineMapping.findLineForComment(replyNav.comment)
-              if (visualLine !== null) {
-                vimState = { ...vimState, line: visualLine }
-              }
-              render()
-              setTimeout(() => {
-                ensureCursorVisible()
-                handleAddComment()
-              }, 0)
-            }
-          }
-          return
-        
-        case "s":
-          // S (shift+s) - submit selected comment (local or edited synced)
-          if (key.shift) {
-            const submitNav = navItems[state.selectedCommentIndex]
-            if (submitNav?.comment) {
-              const c = submitNav.comment
-              // Submit if local OR synced with local edits
-              if (c.status === "local" || c.localEdit !== undefined) {
-                handleSubmitSingleComment(c)
-              }
-            }
-          }
-          return
-        
-        case "x":
-          // x - toggle resolved state on thread
-          handleToggleThreadResolved()
-          return
-        
-        case "h":
-        case "minus":
-          // h or - : collapse thread
-          {
-            const selectedNav = navItems[state.selectedCommentIndex]
-            if (selectedNav?.thread) {
-              state = collapseThread(state, selectedNav.thread.id)
-              render()
-            }
-          }
-          return
-        
-        case "l":
-        case "equal":
-          // l or + : expand thread (+ is shift+= on most keyboards)
-          {
-            const selectedNav = navItems[state.selectedCommentIndex]
-            if (selectedNav?.thread) {
-              state = expandThread(state, selectedNav.thread.id)
-              render()
-            }
-          }
-          return
-      }
+    if (commentsView.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      getPanel: () => commentsViewPanel,
+      getVimState: () => vimState,
+      setVimState: (s) => { vimState = s },
+      getLineMapping: () => lineMapping,
+      rebuildLineMapping: () => {
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+        return lineMapping
+      },
+      ensureCursorVisible,
+      handleAddComment,
+      handleSubmitSingleComment,
+      handleToggleThreadResolved,
+    })) {
+      return
     }
 
     // ========== DIFF VIEW FOCUSED ==========
