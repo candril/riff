@@ -88,6 +88,7 @@ import * as reviewPreview from "./features/review-preview"
 import * as search from "./features/search"
 import * as fileTreeFeature from "./features/file-tree"
 import * as commentsView from "./features/comments-view"
+import * as diffView from "./features/diff-view"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -98,7 +99,7 @@ import {
   exitVisualMode,
 } from "./vim-diff/cursor-state"
 import type { VimCursorState } from "./vim-diff/types"
-import { VimMotionHandler, type KeyEvent as VimKeyEvent } from "./vim-diff/motion-handler"
+import { VimMotionHandler } from "./vim-diff/motion-handler"
 import { createSearchState, type SearchState } from "./vim-diff/search-state"
 import { SearchHandler } from "./vim-diff/search-handler"
 
@@ -2838,105 +2839,20 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // ========== DIFF VIEW FOCUSED ==========
-    if (state.viewMode === "diff" && state.focusedPanel === "diff") {
-      // Convert KeyEvent to VimKeyEvent format
-      const vimKey: VimKeyEvent = {
-        name: key.name,
-        sequence: key.sequence,
-        ctrl: key.ctrl,
-        shift: key.shift,
-      }
-
-      // Let vim handler try first
-      if (vimHandler.handleKey(vimKey)) {
-        return
-      }
-
-      // Handle 'c' for comment (not handled by vim handler)
-      if (key.name === "c" && !key.ctrl) {
-        handleAddComment()
-        return
-      }
-
-      // Handle Enter to expand/collapse dividers
-      if (key.name === "return" || key.name === "enter") {
-        handleExpandDivider()
-        return
-      }
-
-      // Handle 'V' for visual line mode (explicit check)
-      if (key.name === "v" && key.shift) {
-        vimState = enterVisualLineMode(vimState)
-        vimDiffView.updateCursor(vimState)
-        return
-      }
-
-      // Handle 'v' for toggle viewed status (lowercase, no shift)
-      if (key.name === "v" && !key.shift && !key.ctrl) {
-        handleToggleViewed(true)  // Advance to next unviewed after marking
-        return
-      }
-
-      // Handle escape to exit visual mode OR clear search
-      if (key.name === "escape") {
-        if (vimState.mode === "visual-line") {
-          vimState = exitVisualMode(vimState)
-          vimDiffView.updateCursor(vimState)
-          return
-        }
-        // Clear search highlights (if any)
-        if (searchState.pattern) {
-          searchHandler.clearSearch()
-          return
-        }
-      }
-
-      // Handle '/' for forward search
-      if ((key.name === "/" || key.sequence === "/") && !key.ctrl) {
-        searchHandler.startSearch("forward")
-        return
-      }
-      
-      // Handle '?' for backward search
-      if ((key.name === "?" || key.sequence === "?") && !key.ctrl) {
-        searchHandler.startSearch("backward")
-        return
-      }
-      
-      // Handle '*' for word under cursor search (forward)
-      if (key.sequence === "*" || (key.name === "8" && key.shift)) {
-        searchHandler.searchWordUnderCursor("forward")
-        return
-      }
-      
-      // Handle '#' for word under cursor search (backward)
-      if (key.sequence === "#" || (key.name === "3" && key.shift)) {
-        searchHandler.searchWordUnderCursor("backward")
-        return
-      }
-
-      // Handle 'n' and 'N' for search repeat
-      if (key.name === "n" && !key.ctrl) {
-        if (searchState.pattern) {
-          searchHandler.jumpToMatch(key.shift ? "prev" : "next")
-        } else {
-          vimHandler.repeatSearch(key.shift)
-        }
-        return
-      }
-
-      // Handle 'S' for submit comment (local or edited synced)
-      if (key.name === "s" && key.shift) {
-        const currentComment = getCurrentComment()
-        if (currentComment) {
-          // Submit if local OR synced with local edits
-          if (currentComment.status === "local" || currentComment.localEdit !== undefined) {
-            handleSubmitSingleComment(currentComment)
-          }
-        }
-        return
-      }
-    }
+    diffView.handleInput(key, {
+      state,
+      getVimState: () => vimState,
+      setVimState: (s) => { vimState = s },
+      vimHandler,
+      vimDiffView,
+      searchState,
+      searchHandler,
+      getCurrentComment,
+      handleAddComment,
+      handleExpandDivider,
+      handleToggleViewed,
+      handleSubmitSingleComment,
+    })
   })
 
   // Initial render
