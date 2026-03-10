@@ -3,7 +3,7 @@ import type { AppState } from "../state"
 /**
  * Action category for grouping in menu
  */
-export type ActionCategory = "navigation" | "github" | "view" | "general"
+export type ActionCategory = "navigation" | "github" | "view" | "general" | "external"
 
 /**
  * An action that can be executed from the action menu.

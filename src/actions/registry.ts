@@ -23,28 +23,6 @@ export const actions: Action[] = [
     category: "navigation",
     available: (state) => state.files.length > 0,
   },
-  {
-    id: "diff-difftastic",
-    label: "Diff: difftastic",
-    description: "View file diff with difftastic (dft)",
-    category: "navigation",
-    available: (state) => state.files.length > 0,
-  },
-  {
-    id: "diff-delta",
-    label: "Diff: delta",
-    description: "View file diff with delta",
-    category: "navigation",
-    available: (state) => state.files.length > 0,
-  },
-  {
-    id: "diff-nvim",
-    label: "Diff: nvim",
-    description: "View file diff in neovim diff mode",
-    category: "navigation",
-    available: (state) => state.files.length > 0,
-  },
-  
   // GitHub
   {
     id: "submit-review",
@@ -146,6 +124,29 @@ export const actions: Action[] = [
     shortcut: "q",
     category: "general",
     available: () => true,
+  },
+  
+  // External tools
+  {
+    id: "diff-difftastic",
+    label: "Diff: difftastic",
+    description: "View file diff with difftastic",
+    category: "external",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "diff-delta",
+    label: "Diff: delta",
+    description: "View file diff with delta",
+    category: "external",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "diff-nvim",
+    label: "Diff: nvim",
+    description: "View file diff in neovim diff mode",
+    category: "external",
+    available: (state) => state.files.length > 0,
   },
 ]
 

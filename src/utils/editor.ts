@@ -536,8 +536,9 @@ export async function openExternalDiffViewer(
   
   switch (viewer) {
     case "difftastic":
-      // difftastic (dft) with side-by-side diff
-      proc = Bun.spawn(["difft", oldFile, newFile], {
+      // difftastic (dft) with side-by-side diff, piped to less for paging
+      // --color=always forces color output when piped
+      proc = Bun.spawn(["sh", "-c", `difft --color=always "${oldFile}" "${newFile}" | less -R`], {
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
