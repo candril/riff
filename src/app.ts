@@ -86,6 +86,7 @@ import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
+import * as search from "./features/search"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2614,33 +2615,8 @@ export async function createApp(options: AppOptions = {}) {
     }
     
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
-    if (searchState.active) {
-      switch (key.name) {
-        case "escape":
-          searchHandler.cancelSearch()
-          return
-        
-        case "return":
-        case "enter":
-          searchHandler.confirmSearch()
-          return
-        
-        case "backspace":
-          searchHandler.handleBackspace()
-          return
-        
-        default:
-          // Ctrl+W deletes word backwards
-          if (key.name === "w" && key.ctrl) {
-            searchHandler.handleDeleteWord()
-            return
-          }
-          // Type characters into search
-          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-            searchHandler.handleCharInput(key.sequence)
-          }
-          return
-      }
+    if (search.handleInput(key, { searchState, searchHandler })) {
+      return
     }
     
     // ========== GLOBAL KEYS (work in any mode) ==========
