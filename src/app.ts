@@ -26,8 +26,7 @@ import { openCommentEditor, extractDiffHunk, parseEditorOutput, openFileInEditor
 import {
   createInitialState,
   selectFile,
-  clearFileSelection,
-  moveTreeHighlight,
+
   toggleViewMode,
   getSelectedFile,
   toggleFilePanel,
@@ -87,6 +86,7 @@ import * as prInfoPanelFeature from "./features/pr-info-panel"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as search from "./features/search"
+import * as fileTreeFeature from "./features/file-tree"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -2799,131 +2799,19 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // ========== TREE PANEL FOCUSED ==========
-    if (state.showFilePanel && state.focusedPanel === "tree") {
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-
-      switch (key.name) {
-        case "j":
-        case "down":
-          state = moveTreeHighlight(state, 1, flatItems.length - 1)
-          updateFileTreePanel()
-          fileTreePanel.ensureHighlightVisible()
-          return
-
-        case "k":
-        case "up":
-          state = moveTreeHighlight(state, -1, flatItems.length - 1)
-          updateFileTreePanel()
-          fileTreePanel.ensureHighlightVisible()
-          return
-
-        case "return":
-        case "enter":
-          const highlightedItem = flatItems[state.treeHighlightIndex]
-          if (highlightedItem) {
-            if (highlightedItem.node.isDirectory) {
-              const newTree = toggleNodeExpansion(state.fileTree, highlightedItem.node.path)
-              state = updateFileTree(state, newTree)
-            } else if (typeof highlightedItem.fileIndex === "number") {
-              state = selectFile(state, highlightedItem.fileIndex)
-              state = { ...state, focusedPanel: state.viewMode === "diff" ? "diff" : "comments" }
-              // Reset vim cursor and rebuild line mapping
-              vimState = createCursorState()
-              lineMapping = createLineMapping()
-              setTimeout(() => {
-                render()  // Re-render to update VimDiffView
-              }, 0)
-            }
-          }
-          render()
-          return
-
-        case "l":
-        case "right":
-          const expandItem = flatItems[state.treeHighlightIndex]
-          if (expandItem?.node.isDirectory && !expandItem.node.expanded) {
-            const newTree = toggleNodeExpansion(state.fileTree, expandItem.node.path)
-            state = updateFileTree(state, newTree)
-            render()
-          }
-          return
-
-        case "h":
-        case "left":
-          const collapseItem = flatItems[state.treeHighlightIndex]
-          if (collapseItem?.node.isDirectory && collapseItem.node.expanded) {
-            // Collapse this directory
-            const newTree = toggleNodeExpansion(state.fileTree, collapseItem.node.path)
-            state = updateFileTree(state, newTree)
-            render()
-          } else if (collapseItem && !collapseItem.node.isDirectory) {
-            // On a file - find parent directory and collapse it
-            // Parent is the nearest directory above this item in the flat list
-            for (let i = state.treeHighlightIndex - 1; i >= 0; i--) {
-              const item = flatItems[i]
-              if (item && item.node.isDirectory && item.depth < collapseItem.depth) {
-                // Found parent directory - collapse it and move highlight to it
-                const newTree = toggleNodeExpansion(state.fileTree, item.node.path)
-                state = updateFileTree(state, newTree)
-                state = { ...state, treeHighlightIndex: i }
-                render()
-                break
-              }
-            }
-          }
-          return
-
-        case "escape":
-          state = clearFileSelection(state)
-          state = { ...state, focusedPanel: state.viewMode === "diff" ? "diff" : "comments" }
-          vimState = createCursorState()
-          lineMapping = createLineMapping()
-          render()
-          setTimeout(() => {
-            render()  // Re-render to update VimDiffView
-          }, 0)
-          return
-
-        case "v":
-          // Toggle viewed status for highlighted item
-          const viewItem = flatItems[state.treeHighlightIndex]
-          if (!viewItem) return
-          
-          if (viewItem.node.isDirectory) {
-            // Directory: toggle viewed for all files under this directory
-            const dirPath = viewItem.node.path + "/"
-            const filesToToggle = state.files.filter(f => f.filename.startsWith(dirPath))
-            
-            if (filesToToggle.length > 0) {
-              // Check if any file in dir is unviewed - if so, mark all as viewed
-              // Otherwise, mark all as unviewed
-              const anyUnviewed = filesToToggle.some(f => !isFileViewed(state, f.filename))
-              const targetViewed = anyUnviewed
-              
-              // Toggle all files in the directory
-              Promise.all(
-                filesToToggle.map(f => {
-                  const currentlyViewed = isFileViewed(state, f.filename)
-                  if (currentlyViewed !== targetViewed) {
-                    return toggleViewedForFile(f.filename)
-                  }
-                  return Promise.resolve(currentlyViewed)
-                })
-              ).then(() => {
-                render()
-              })
-            }
-          } else if (viewItem.fileIndex !== undefined) {
-            // File: toggle viewed for this file only (don't jump to next)
-            const file = state.files[viewItem.fileIndex]
-            if (file) {
-              toggleViewedForFile(file.filename).then(() => {
-                render()
-              })
-            }
-          }
-          return
-      }
+    if (fileTreeFeature.handleInput(key, {
+      state,
+      setState: (fn) => { state = fn(state) },
+      render,
+      getPanel: () => fileTreePanel,
+      updatePanel: updateFileTreePanel,
+      onFileSelected: () => {
+        vimState = createCursorState()
+        lineMapping = createLineMapping()
+      },
+      toggleViewedForFile,
+    })) {
+      return
     }
 
     // ========== COMMENTS VIEW FOCUSED ==========
