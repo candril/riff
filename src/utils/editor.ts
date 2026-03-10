@@ -6,6 +6,7 @@
 import { tmpdir } from "os"
 import { join } from "path"
 import { randomUUID } from "crypto"
+import { $ } from "bun"
 import type { Comment } from "../types"
 
 export interface EditorOptions {
@@ -503,6 +504,72 @@ export async function openFileInEditor(
   try {
     const { unlink } = await import("fs/promises")
     await unlink(tmpFile)
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+/**
+ * Open a file diff in an external diff viewer.
+ * Suspends the TUI while the viewer is open.
+ * 
+ * @param oldContent - The old version of the file
+ * @param newContent - The new version of the file  
+ * @param filename - Original filename (for temp file extension)
+ * @param viewer - Which diff viewer to use
+ */
+export async function openExternalDiffViewer(
+  oldContent: string,
+  newContent: string,
+  filename: string,
+  viewer: "difftastic" | "delta" | "nvim"
+): Promise<void> {
+  const ext = filename.includes(".") ? filename.split(".").pop() : "txt"
+  const baseName = filename.split("/").pop()?.replace(/\.[^.]+$/, "") || "file"
+  const oldFile = join(tmpdir(), `riff-old-${baseName}-${randomUUID().slice(0, 8)}.${ext}`)
+  const newFile = join(tmpdir(), `riff-new-${baseName}-${randomUUID().slice(0, 8)}.${ext}`)
+  
+  await Bun.write(oldFile, oldContent)
+  await Bun.write(newFile, newContent)
+  
+  let proc: ReturnType<typeof Bun.spawn>
+  
+  switch (viewer) {
+    case "difftastic":
+      // difftastic (dft) with side-by-side diff
+      proc = Bun.spawn(["difft", oldFile, newFile], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      })
+      break
+      
+    case "delta":
+      // delta reads unified diff from stdin
+      // Generate diff with git diff --no-index, pipe to delta
+      proc = Bun.spawn(["sh", "-c", `git diff --no-index --color=always "${oldFile}" "${newFile}" | delta --paging=always`], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      })
+      break
+      
+    case "nvim":
+      // neovim diff mode
+      proc = Bun.spawn(["nvim", "-d", oldFile, newFile], {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      })
+      break
+  }
+  
+  await proc.exited
+  
+  // Clean up temp files
+  try {
+    const { unlink } = await import("fs/promises")
+    await Promise.all([unlink(oldFile), unlink(newFile)])
   } catch {
     // Ignore cleanup errors
   }

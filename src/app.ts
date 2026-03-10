@@ -22,7 +22,7 @@ import {
 } from "./providers/github"
 import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion, expandToFile, findFileTreeIndex } from "./utils/file-tree"
-import { openCommentEditor, extractDiffHunk, parseEditorOutput, openFileInEditor, type EditorResult } from "./utils/editor"
+import { openCommentEditor, extractDiffHunk, parseEditorOutput, openFileInEditor, openExternalDiffViewer, type EditorResult } from "./utils/editor"
 import {
   createInitialState,
   selectFile,
@@ -1767,6 +1767,88 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
+   * Open current file in an external diff viewer (difftastic, delta, nvim)
+   */
+  async function handleOpenExternalDiff(viewer: "difftastic" | "delta" | "nvim"): Promise<void> {
+    let filename: string | null = null
+    
+    // Determine which file to diff based on context
+    if (state.focusedPanel === "tree") {
+      const flatItems = getFlatTreeItems(state.fileTree, state.files)
+      const highlightedItem = flatItems[state.treeHighlightIndex]
+      if (highlightedItem && !highlightedItem.node.isDirectory) {
+        filename = highlightedItem.node.path
+      }
+    } else if (state.selectedFileIndex !== null) {
+      const file = state.files[state.selectedFileIndex]
+      if (file) {
+        filename = file.filename
+      }
+    } else {
+      const currentLine = lineMapping.getLine(vimState.line)
+      if (currentLine?.filename) {
+        filename = currentLine.filename
+      }
+    }
+    
+    if (!filename) {
+      state = showToast(state, "No file selected", "info")
+      render()
+      return
+    }
+    
+    const viewerNames = { difftastic: "difftastic", delta: "delta", nvim: "nvim diff" }
+    state = showToast(state, `Opening ${filename} in ${viewerNames[viewer]}...`, "info")
+    render()
+    
+    try {
+      let oldContent: string | null = null
+      let newContent: string | null = null
+      
+      if (state.appMode === "pr" && state.prInfo) {
+        // For PRs, fetch both base and head versions from GitHub
+        const { owner, repo, number: prNumber } = state.prInfo
+        const [baseContent, headContent] = await Promise.all([
+          getPrBaseFileContent(owner, repo, prNumber, filename),
+          getPrFileContent(owner, repo, prNumber, filename),
+        ])
+        oldContent = baseContent
+        newContent = headContent
+      } else {
+        // For local diffs, get old (HEAD/@-) and new (working copy) versions
+        oldContent = await getOldFileContent(filename, options.target)
+        newContent = await getFileContent(filename, options.target)
+      }
+      
+      if (oldContent === null && newContent === null) {
+        state = showToast(state, `Could not fetch ${filename}`, "error")
+        render()
+        return
+      }
+      
+      // Handle new files (no old content) or deleted files (no new content)
+      oldContent = oldContent ?? ""
+      newContent = newContent ?? ""
+      
+      // Suspend the TUI and open diff viewer
+      state = clearToast(state)
+      renderer.suspend()
+      
+      await openExternalDiffViewer(oldContent, newContent, filename, viewer)
+      
+      // Resume the TUI
+      renderer.resume()
+      render()
+      
+    } catch (err) {
+      renderer.resume()
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      state = showToast(state, `Error: ${msg}`, "error")
+      render()
+    }
+  }
+
+  /**
    * Execute the sync operation
    */
   async function handleExecuteSync(): Promise<void> {
@@ -2518,6 +2600,15 @@ export async function createApp(options: AppOptions = {}) {
         break
       case "open-in-editor":
         handleOpenFileInEditor()
+        break
+      case "diff-difftastic":
+        handleOpenExternalDiff("difftastic")
+        break
+      case "diff-delta":
+        handleOpenExternalDiff("delta")
+        break
+      case "diff-nvim":
+        handleOpenExternalDiff("nvim")
         break
     }
   }
