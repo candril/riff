@@ -1,10 +1,10 @@
 # App Modularization
 
-**Status**: Draft
+**Status**: Ready
 
 ## Description
 
-Split `src/app.ts` (1574 lines) into focused, feature-based modules. The current file handles too many concerns mixed together. This refactoring extracts vertical feature slices - each feature owns its state, input handling, and actions together.
+Split `src/app.ts` (3634 lines) into focused, feature-based modules. The current file handles too many concerns mixed together. This refactoring extracts vertical feature slices - each feature owns its state, input handling, and actions together.
 
 ## Out of Scope
 
@@ -15,39 +15,83 @@ Split `src/app.ts` (1574 lines) into focused, feature-based modules. The current
 
 ## Current State Analysis
 
-The file mixes concerns across features:
+The file has grown significantly and mixes many concerns:
 
-| Feature | Input Handling | State/Actions | Rendering |
-|---------|---------------|---------------|-----------|
-| Action Menu | lines 1050-1121 | state.ts | ActionMenu component |
-| Review Preview | lines 1124-1220 | state.ts | ReviewPreviewPanel |
-| File Tree | lines 1310-1379 | state.ts | FileTreePanel |
-| Comments View | lines 1383-1501 | state.ts | CommentsViewPanel |
-| Diff/Vim | lines 1505-1562 | vim-diff/* | VimDiffView |
-| Comment Editing | lines 530-661 | state.ts | editor utils |
-| Review Submission | lines 876-994 | state.ts | github provider |
+| Feature | Input Handling | State/Actions | Lines (approx) |
+|---------|---------------|---------------|----------------|
+| **Modal Overlays** | | | |
+| Action Menu | lines 2625-2699 | state.ts | ~75 |
+| File Picker | lines 2701-2796 | state.ts | ~95 |
+| PR Info Panel | lines 2798-2882 | state.ts | ~85 |
+| Sync Preview | lines 2884-2906 | state.ts | ~25 |
+| Review Preview | lines 2908-3013 | state.ts | ~105 |
+| Search Input | lines 3015-3043 | search-handler | ~30 |
+| **Navigation** | | | |
+| File Tree Panel | lines 3224-3350 | state.ts | ~125 |
+| Comments View | lines 3352-3508 | state.ts | ~155 |
+| Diff View (Vim) | lines 3511-3610 | vim-diff/* | ~100 |
+| **Key Sequences** | | | |
+| g/z/]/[ sequences | lines 3118-3222 | various | ~105 |
+| **Actions/Handlers** | | | |
+| File Navigation | lines 739-1016 | state.ts | ~280 |
+| Comment Add/Edit | lines 1112-1244 | editor utils | ~130 |
+| Comment Submit | lines 1340-1461 | github provider | ~120 |
+| Review Submit | lines 2407-2525 | github provider | ~120 |
+| Sync Execute | lines 1854-1954 | github provider | ~100 |
+| Thread Resolution | lines 1959-2026 | github provider | ~70 |
+| Fold Operations | lines 2028-2402 | state.ts | ~375 |
+| External Editor/Diff | lines 1684-1849 | editor utils | ~165 |
+| Refresh | lines 1511-1634 | providers | ~125 |
+| PR Info Panel Open | lines 1639-1678 | github provider | ~40 |
+| **Setup/Render** | | | |
+| Initialization | lines 119-325 | - | ~205 |
+| Render Function | lines 430-685 | - | ~255 |
+| Line Mapping | lines 226-248 | vim-diff | ~25 |
+| Vim Handler Setup | lines 309-385 | vim-diff | ~75 |
+
+**Total**: ~3634 lines with significant interleaving of concerns
 
 ## Capabilities
 
-### P1 - Extract Feature Modules
+### P1 - Extract Modal Overlay Features
 
-Each feature becomes a self-contained module with its own input handling, state operations, and coordination logic.
+Modal overlays capture all input when open - they're the cleanest to extract first.
 
-- **Extract `src/features/action-menu/`**: Menu state, input, filtering, execution
-- **Extract `src/features/review-preview/`**: Preview state, input, submission
-- **Extract `src/features/comments/`**: Comment CRUD, editor integration, submission
-- **Extract `src/features/file-tree/`**: Tree navigation, selection, expansion
+- **Extract `src/features/action-menu/`**: Menu state, input, filtering, action execution (~75 lines)
+- **Extract `src/features/file-picker/`**: File picker state, input, file selection (~95 lines)
+- **Extract `src/features/review-preview/`**: Preview state, input, review submission (~225 lines total with submit logic)
+- **Extract `src/features/sync-preview/`**: Sync state, input, sync execution (~125 lines)
 
-### P2 - Extract Remaining Features
+### P2 - Extract Panel Features
 
-- **Extract `src/features/diff-view/`**: Vim integration, divider expansion, cursor management
-- **Extract `src/features/comments-view/`**: Comments list navigation, jump-to-diff
+Panel-based features with their own navigation and input handling.
 
-### P3 - Slim App Core
+- **Extract `src/features/file-tree/`**: Tree navigation, selection, expansion, viewed status toggle (~125 lines)
+- **Extract `src/features/comments-view/`**: Comments list navigation, thread collapse, jump-to-diff (~155 lines)
+- **Extract `src/features/pr-info-panel/`**: PR info display, commit navigation (~85 lines)
 
-- **Slim `app.ts`**: Becomes ~200 line orchestrator that wires features together
-- **Extract `src/app/init.ts`**: Data loading, state initialization
-- **Extract `src/app/render.ts`**: Main render coordination
+### P3 - Extract Diff View Features
+
+The diff view is the most complex - vim integration, search, comments, folds.
+
+- **Extract `src/features/diff-view/`**: Vim integration, visual mode, divider expansion (~100 lines input)
+- **Extract `src/features/search/`**: Search input handling, match navigation (~30 lines input + search-handler integration)
+- **Extract `src/features/folds/`**: File folds, za/zR/zM/zo/zc handlers (~375 lines)
+
+### P4 - Extract Action Handlers
+
+Large handler functions that coordinate multiple concerns.
+
+- **Extract `src/features/comments/`**: Comment add/edit/submit, thread resolution (~320 lines)
+- **Extract `src/features/file-navigation/`**: ]f/[f, ]u/[u, ]o/[o navigation (~280 lines)
+- **Extract `src/features/external-tools/`**: Editor open, external diff viewers (~165 lines)
+
+### P5 - Slim App Core
+
+- **Slim `app.ts`**: Becomes ~300 line orchestrator that wires features together
+- **Extract `src/app/init.ts`**: Data loading, state initialization (~200 lines)
+- **Extract `src/app/render.ts`**: Main render coordination (~250 lines)
+- **Extract `src/app/global-keys.ts`**: Global key handling (Ctrl+p, Ctrl+b, Tab, q, etc.)
 
 ## Technical Notes
 
@@ -55,37 +99,68 @@ Each feature becomes a self-contained module with its own input handling, state 
 
 ```
 src/
-  app.ts                         # Orchestrator (~200 lines)
+  app.ts                         # Orchestrator (~300 lines)
   app/
-    init.ts                      # Initialization
-    render.ts                    # Render coordination
+    init.ts                      # Initialization (~200 lines)
+    render.ts                    # Render coordination (~250 lines)
+    global-keys.ts               # Global key handling
   features/
+    # P1 - Modal Overlays
     action-menu/
       index.ts                   # Public API
-      input.ts                   # Keyboard handling
-      state.ts                   # State slice + actions
+      input.ts                   # Keyboard handling (~60 lines)
+      execute.ts                 # Action execution
+    file-picker/
+      index.ts
+      input.ts                   # (~80 lines)
     review-preview/
       index.ts
-      input.ts
-      state.ts
-      submit.ts                  # Submission logic
+      input.ts                   # (~80 lines)
+      submit.ts                  # Review submission (~120 lines)
+    sync-preview/
+      index.ts
+      input.ts                   # (~25 lines)
+      execute.ts                 # Sync execution (~100 lines)
+    
+    # P2 - Panel Features
+    file-tree/
+      index.ts
+      input.ts                   # (~100 lines)
+      navigation.ts              # Tree traversal logic
+    comments-view/
+      index.ts
+      input.ts                   # (~120 lines)
+      navigation.ts              # j/k, Enter to jump
+    pr-info-panel/
+      index.ts
+      input.ts                   # (~70 lines)
+    
+    # P3 - Diff View
+    diff-view/
+      index.ts
+      input.ts                   # Vim passthrough, V, v, c, Enter (~80 lines)
+      dividers.ts                # Expansion logic
+    search/
+      index.ts
+      input.ts                   # Search prompt input
+    folds/
+      index.ts
+      handlers.ts                # za/zR/zM/zo/zc (~300 lines)
+    
+    # P4 - Action Handlers
     comments/
       index.ts
       input.ts                   # 'c' key, 'S' key in diff
-      editor.ts                  # Editor integration
-      submit.ts                  # Single comment submission
-    file-tree/
+      editor.ts                  # Editor integration (~130 lines)
+      submit.ts                  # Single comment submission (~120 lines)
+      resolution.ts              # Thread resolution (~70 lines)
+    file-navigation/
       index.ts
-      input.ts
-      navigation.ts              # Tree traversal logic
-    diff-view/
+      handlers.ts                # ]f/[f, ]u/[u, ]o/[o (~280 lines)
+    external-tools/
       index.ts
-      input.ts                   # Vim passthrough, Enter for dividers
-      dividers.ts                # Expansion logic
-    comments-view/
-      index.ts
-      input.ts
-      navigation.ts              # j/k, Enter to jump
+      editor.ts                  # Open in editor (~85 lines)
+      diff-viewers.ts            # difftastic, delta, nvim (~80 lines)
 ```
 
 ### Feature Module Pattern
@@ -604,72 +679,172 @@ function handleGlobalKeys(key: KeyEvent, ctx: FeatureContext): boolean {
 
 ### Migration Path
 
-1. **Phase 1 - Action Menu Feature**
-   - Create `src/features/types.ts` with `FeatureContext`
-   - Create `src/features/action-menu/` with input.ts and state.ts
-   - Wire into app.ts, test menu functionality
-   - Remove old code from app.ts
+Each phase is a separate jj change that can be tested independently.
 
-2. **Phase 2 - Review Preview Feature**
-   - Create `src/features/review-preview/`
-   - Include submission logic in submit.ts
-   - Wire and test
+#### Phase 1: Foundation + Action Menu (~1 hour)
+1. Create `src/features/types.ts` with `FeatureContext` interface
+2. Create `src/features/action-menu/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 2625-2699)
+   - `execute.ts` - action execution (extract `executeAction` function)
+3. Wire into app.ts, test menu functionality
+4. Remove old code from app.ts
 
-3. **Phase 3 - Comments Feature**
-   - Create `src/features/comments/`
-   - Extract editor integration, submission
-   - Handle both diff-view and comments-view input
+**Why start here**: Action menu is self-contained, captures all input when open, has no dependencies on other features, and establishes the pattern for all other extractions.
 
-4. **Phase 4 - File Tree Feature**
-   - Create `src/features/file-tree/`
-   - Extract navigation, expansion logic
+#### Phase 2: File Picker (~30 min)
+1. Create `src/features/file-picker/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 2701-2796)
+2. Wire and test
 
-5. **Phase 5 - View Features**
-   - Create `src/features/diff-view/` (vim passthrough, dividers)
-   - Create `src/features/comments-view/` (list navigation)
+#### Phase 3: PR Info Panel (~30 min)
+1. Create `src/features/pr-info-panel/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 2798-2882)
+   - `loader.ts` - PR info loading (extract from `handleOpenPRInfoPanel`)
+2. Wire and test
 
-6. **Phase 6 - App Cleanup**
-   - Extract init to `src/app/init.ts`
-   - Extract render to `src/app/render.ts`
-   - Slim app.ts to orchestrator
+#### Phase 4: Sync Preview (~45 min)
+1. Create `src/features/sync-preview/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 2884-2906)
+   - `execute.ts` - sync execution (extract `handleExecuteSync`)
+2. Wire and test
+
+#### Phase 5: Review Preview (~1 hour)
+1. Create `src/features/review-preview/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 2908-3013)
+   - `submit.ts` - review submission (extract `handleConfirmReview`)
+   - `validate.ts` - comment validation (extract `validateCommentsForSubmit`)
+2. Wire and test
+
+#### Phase 6: File Tree (~1 hour)
+1. Create `src/features/file-tree/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 3224-3350)
+   - `navigation.ts` - tree traversal helpers
+2. Wire and test
+
+#### Phase 7: Comments View (~1 hour)
+1. Create `src/features/comments-view/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 3352-3508)
+   - `navigation.ts` - comment/thread navigation
+2. Wire and test
+
+#### Phase 8: Diff View (~1.5 hours)
+1. Create `src/features/diff-view/` with:
+   - `index.ts` - exports
+   - `input.ts` - keyboard handling (extract lines 3511-3610)
+   - `dividers.ts` - divider expansion (extract `handleExpandDivider`)
+   - `visual-mode.ts` - V/v mode handling
+2. Wire and test
+
+#### Phase 9: Search (~45 min)
+1. Create `src/features/search/` with:
+   - `index.ts` - exports
+   - `input.ts` - search prompt input (extract lines 3015-3043)
+2. Wire and test (mostly delegates to SearchHandler)
+
+#### Phase 10: Folds (~1.5 hours)
+1. Create `src/features/folds/` with:
+   - `index.ts` - exports
+   - `handlers.ts` - za/zR/zM/zo/zc (extract lines 2028-2402)
+2. Wire and test
+
+#### Phase 11: Comments (~2 hours)
+1. Create `src/features/comments/` with:
+   - `index.ts` - exports
+   - `editor.ts` - editor integration (extract `handleAddComment`)
+   - `submit.ts` - single comment submission (extract `handleSubmitSingleComment`)
+   - `resolution.ts` - thread resolution (extract `handleToggleThreadResolved`)
+2. Wire and test
+
+#### Phase 12: File Navigation (~1 hour)
+1. Create `src/features/file-navigation/` with:
+   - `index.ts` - exports
+   - `handlers.ts` - ]f/[f, ]u/[u, ]o/[o, viewed toggle (extract lines 739-1107)
+2. Wire and test
+
+#### Phase 13: External Tools (~45 min)
+1. Create `src/features/external-tools/` with:
+   - `index.ts` - exports
+   - `editor.ts` - open in editor (extract `handleOpenFileInEditor`)
+   - `diff-viewers.ts` - external diff viewers (extract `handleOpenExternalDiff`)
+2. Wire and test
+
+#### Phase 14: App Core (~2 hours)
+1. Extract `src/app/init.ts` - initialization logic (lines 119-325)
+2. Extract `src/app/render.ts` - render function (lines 430-685)
+3. Extract `src/app/global-keys.ts` - global key handling
+4. Slim `app.ts` to orchestrator (~300 lines)
+
+**Total estimated time**: ~14 hours of focused work
 
 ### File Structure After Refactor
 
 ```
 src/
-  app.ts                              # ~200 lines, orchestration
+  app.ts                              # ~300 lines, orchestration
   app/
-    init.ts                           # ~80 lines, data loading
-    render.ts                         # ~100 lines, render function
+    init.ts                           # ~200 lines, data loading
+    render.ts                         # ~250 lines, render function
+    global-keys.ts                    # ~80 lines, global key handling
   features/
-    types.ts                          # FeatureContext interface
+    types.ts                          # FeatureContext interface (~50 lines)
     action-menu/
       index.ts                        # exports
       input.ts                        # ~60 lines
-      state.ts                        # ~50 lines
+      execute.ts                      # ~80 lines
+    file-picker/
+      index.ts
+      input.ts                        # ~80 lines
+    pr-info-panel/
+      index.ts
+      input.ts                        # ~70 lines
+      loader.ts                       # ~40 lines
+    sync-preview/
+      index.ts
+      input.ts                        # ~25 lines
+      execute.ts                      # ~100 lines
     review-preview/
       index.ts
       input.ts                        # ~80 lines
-      state.ts                        # ~40 lines
-      submit.ts                       # ~80 lines
-    comments/
-      index.ts
-      input.ts                        # ~40 lines
-      editor.ts                       # ~100 lines
-      submit.ts                       # ~70 lines
-      selectors.ts                    # ~30 lines
+      submit.ts                       # ~120 lines
+      validate.ts                     # ~20 lines
     file-tree/
       index.ts
-      input.ts                        # ~60 lines
+      input.ts                        # ~100 lines
+      navigation.ts                   # ~30 lines
+    comments-view/
+      index.ts
+      input.ts                        # ~120 lines
       navigation.ts                   # ~40 lines
     diff-view/
       index.ts
-      input.ts                        # ~50 lines
+      input.ts                        # ~80 lines
       dividers.ts                     # ~60 lines
-    comments-view/
+      visual-mode.ts                  # ~20 lines
+    search/
       index.ts
-      input.ts                        # ~60 lines
-      navigation.ts                   # ~30 lines
+      input.ts                        # ~30 lines
+    folds/
+      index.ts
+      handlers.ts                     # ~300 lines
+    comments/
+      index.ts
+      editor.ts                       # ~130 lines
+      submit.ts                       # ~120 lines
+      resolution.ts                   # ~70 lines
+    file-navigation/
+      index.ts
+      handlers.ts                     # ~280 lines
+    external-tools/
+      index.ts
+      editor.ts                       # ~85 lines
+      diff-viewers.ts                 # ~80 lines
 ```
 
 ### Benefits of Feature Slicing
