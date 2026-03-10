@@ -15,7 +15,7 @@ import {
   updateComment,
   toggleThreadResolution,
   getPrExtendedInfo,
-  markFileViewedOnGitHub,
+
   loadPrSession,
   getPendingReview,
   type SubmitResult,
@@ -56,22 +56,19 @@ import {
 
   collapseResolvedThreads,
   toggleFileViewed,
-  isFileViewed,
   getReviewProgress,
   loadFileStatuses,
-  setFileViewedStatus,
   updateFileStatuses,
   openPRInfoPanel,
   setPRInfoPanelLoading,
 
-  collapseFile,
   collapseViewedFiles,
   type AppState,
 } from "./state"
 import { colors, theme } from "./theme"
-import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile, loadViewedStatuses, saveFileViewedStatus } from "./storage"
+import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile, loadViewedStatuses } from "./storage"
 import { createComment, type Comment, type AppMode, type FileReviewStatus } from "./types"
-import { createViewedStatus, getHeadCommit } from "./utils/viewed-status"
+
 import type { PrInfo } from "./providers/github"
 import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
 import { getAvailableActions, type Action } from "./actions"
@@ -88,6 +85,7 @@ import * as fileTreeFeature from "./features/file-tree"
 import * as commentsView from "./features/comments-view"
 import * as diffView from "./features/diff-view"
 import * as folds from "./features/folds"
+import * as fileNavigation from "./features/file-navigation"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -723,379 +721,6 @@ export async function createApp(options: AppOptions = {}) {
   function quit() {
     renderer.destroy()
     process.exit(0)
-  }
-
-  /**
-   * Get files in tree order (as they appear visually in the file tree).
-   */
-  function getFilesInTreeOrder(): number[] {
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
-    return flatItems
-      .filter(item => item.fileIndex !== undefined)
-      .map(item => item.fileIndex!)
-  }
-
-  /**
-   * Navigate to next/previous file selection.
-   */
-  function navigateFileSelection(direction: 1 | -1): void {
-    const treeOrder = getFilesInTreeOrder()
-    if (treeOrder.length === 0) return
-
-    if (state.selectedFileIndex === null) {
-      const newIndex = direction === 1 ? treeOrder[0] : treeOrder[treeOrder.length - 1]
-      if (newIndex !== undefined) {
-        state = selectFile(state, newIndex)
-        const flatItems = getFlatTreeItems(state.fileTree, state.files)
-        const treeIndex = flatItems.findIndex(item => item.fileIndex === newIndex)
-        if (treeIndex !== -1) {
-          state = { ...state, treeHighlightIndex: treeIndex }
-        }
-      }
-    } else {
-      const currentPosInTree = treeOrder.indexOf(state.selectedFileIndex)
-      if (currentPosInTree === -1) return
-
-      const newPosInTree = currentPosInTree + direction
-      if (newPosInTree < 0 || newPosInTree >= treeOrder.length) return
-
-      const newFileIndex = treeOrder[newPosInTree]!
-      state = selectFile(state, newFileIndex)
-      
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const treeIndex = flatItems.findIndex(item => item.fileIndex === newFileIndex)
-      if (treeIndex !== -1) {
-        state = { ...state, treeHighlightIndex: treeIndex }
-      }
-    }
-    
-    // Reset vim cursor and rebuild line mapping
-    vimState = createCursorState()
-    lineMapping = createLineMapping()
-    render()
-          setTimeout(() => {
-            render()  // Re-render to update VimDiffView
-          }, 0)
-  }
-
-  /**
-   * Find the visual line where a file starts in the diff
-   */
-  function findFileStartLine(filename: string): number | null {
-    for (let i = 0; i < lineMapping.lineCount; i++) {
-      const line = lineMapping.getLine(i)
-      if (line?.type === "file-header" && line.filename === filename) {
-        return i
-      }
-    }
-    return null
-  }
-
-  /**
-   * Navigate to next file in tree order (after collapsing current file).
-   * Used when marking a file as viewed in all-files mode.
-   * First tries to find next unviewed file, falls back to next file in order.
-   */
-  function navigateToNextFile(currentFilename: string): void {
-    const treeOrder = getFilesInTreeOrder()
-    if (treeOrder.length === 0) return
-
-    // Find current file's position in tree order
-    const currentFileIndex = state.files.findIndex(f => f.filename === currentFilename)
-    const currentPos = currentFileIndex !== -1 
-      ? treeOrder.indexOf(currentFileIndex)
-      : -1
-
-    if (currentPos === -1) return
-
-    // First, try to find next unviewed file
-    for (let i = 1; i <= treeOrder.length; i++) {
-      const pos = (currentPos + i) % treeOrder.length
-      const fileIndex = treeOrder[pos]!
-      const file = state.files[fileIndex]
-      
-      if (file && !isFileViewed(state, file.filename)) {
-        // Found next unviewed file - scroll to it
-        const targetLine = findFileStartLine(file.filename)
-        if (targetLine !== null) {
-          vimState = { ...vimState, line: targetLine }
-          vimDiffView.updateCursor(vimState)
-          ensureCursorVisible()
-        }
-        
-        // Update tree highlight
-        const flatItems = getFlatTreeItems(state.fileTree, state.files)
-        const treeIndex = flatItems.findIndex(item => item.fileIndex === fileIndex)
-        if (treeIndex !== -1) {
-          state = { ...state, treeHighlightIndex: treeIndex }
-        }
-        return
-      }
-    }
-
-    // All files viewed - just go to next file in order
-    const nextPos = (currentPos + 1) % treeOrder.length
-    const nextFileIndex = treeOrder[nextPos]!
-    const nextFile = state.files[nextFileIndex]
-    
-    if (nextFile) {
-      const targetLine = findFileStartLine(nextFile.filename)
-      if (targetLine !== null) {
-        vimState = { ...vimState, line: targetLine }
-        vimDiffView.updateCursor(vimState)
-        ensureCursorVisible()
-      }
-      
-      // Update tree highlight
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
-      const treeIndex = flatItems.findIndex(item => item.fileIndex === nextFileIndex)
-      if (treeIndex !== -1) {
-        state = { ...state, treeHighlightIndex: treeIndex }
-      }
-    }
-  }
-
-  /**
-   * Navigate to next/previous unviewed file.
-   * In all-files view: scrolls to the file
-   * In single-file view: selects the file
-   */
-  function navigateToUnviewedFile(direction: 1 | -1): void {
-    const treeOrder = getFilesInTreeOrder()
-    if (treeOrder.length === 0) return
-
-    const inAllFilesView = state.selectedFileIndex === null
-
-    // Find current file
-    let currentFilename: string | null = null
-    if (inAllFilesView) {
-      const line = lineMapping.getLine(vimState.line)
-      currentFilename = line?.filename ?? null
-    } else {
-      currentFilename = state.files[state.selectedFileIndex!]?.filename ?? null
-    }
-
-    // Find starting position in tree order
-    const currentFileIndex = currentFilename 
-      ? state.files.findIndex(f => f.filename === currentFilename)
-      : -1
-    const startPos = currentFileIndex !== -1 
-      ? treeOrder.indexOf(currentFileIndex)
-      : (direction === 1 ? -1 : treeOrder.length)
-
-    // Search in the given direction
-    for (let i = 1; i <= treeOrder.length; i++) {
-      const pos = startPos + (direction * i)
-      // Wrap around
-      const wrappedPos = ((pos % treeOrder.length) + treeOrder.length) % treeOrder.length
-      const fileIndex = treeOrder[wrappedPos]!
-      const file = state.files[fileIndex]
-      
-      if (file && !isFileViewed(state, file.filename)) {
-        if (inAllFilesView) {
-          // In all-files view: scroll to the file without selecting
-          const targetLine = findFileStartLine(file.filename)
-          if (targetLine !== null) {
-            vimState = { ...vimState, line: targetLine }
-            vimDiffView.updateCursor(vimState)
-            ensureCursorVisible()
-          }
-        } else {
-          // In single-file view: select the file
-          state = selectFile(state, fileIndex)
-          vimState = createCursorState()
-          lineMapping = createLineMapping()
-        }
-        
-        // Update tree highlight
-        const flatItems = getFlatTreeItems(state.fileTree, state.files)
-        const treeIndex = flatItems.findIndex(item => item.fileIndex === fileIndex)
-        if (treeIndex !== -1) {
-          state = { ...state, treeHighlightIndex: treeIndex }
-        }
-        
-        render()
-        setTimeout(() => {
-          render()
-        }, 0)
-        return
-      }
-    }
-    
-    // No unviewed files found - show toast
-    state = showToast(state, "All files reviewed!", "success")
-    render()
-    setTimeout(() => {
-      state = clearToast(state)
-      render()
-    }, 2000)
-  }
-
-  /**
-   * Navigate to next/previous outdated file (viewed but changed since).
-   */
-  function navigateToOutdatedFile(direction: 1 | -1): void {
-    const treeOrder = getFilesInTreeOrder()
-    if (treeOrder.length === 0) return
-
-    const inAllFilesView = state.selectedFileIndex === null
-
-    // Find current file
-    let currentFilename: string | null = null
-    if (inAllFilesView) {
-      const line = lineMapping.getLine(vimState.line)
-      currentFilename = line?.filename ?? null
-    } else {
-      currentFilename = state.files[state.selectedFileIndex!]?.filename ?? null
-    }
-
-    // Find starting position in tree order
-    const currentFileIndex = currentFilename 
-      ? state.files.findIndex(f => f.filename === currentFilename)
-      : -1
-    const startPos = currentFileIndex !== -1 
-      ? treeOrder.indexOf(currentFileIndex)
-      : (direction === 1 ? -1 : treeOrder.length)
-
-    // Search in the given direction for outdated files
-    for (let i = 1; i <= treeOrder.length; i++) {
-      const pos = startPos + (direction * i)
-      // Wrap around
-      const wrappedPos = ((pos % treeOrder.length) + treeOrder.length) % treeOrder.length
-      const fileIndex = treeOrder[wrappedPos]!
-      const file = state.files[fileIndex]
-      
-      // Check if file is outdated (viewed but stale)
-      const status = file ? state.fileStatuses.get(file.filename) : null
-      if (file && status?.viewed && status?.isStale) {
-        if (inAllFilesView) {
-          // In all-files view: scroll to the file without selecting
-          const targetLine = findFileStartLine(file.filename)
-          if (targetLine !== null) {
-            vimState = { ...vimState, line: targetLine }
-            vimDiffView.updateCursor(vimState)
-            ensureCursorVisible()
-          }
-        } else {
-          // In single-file view: select the file
-          state = selectFile(state, fileIndex)
-          vimState = createCursorState()
-          lineMapping = createLineMapping()
-        }
-        
-        // Update tree highlight
-        const flatItems = getFlatTreeItems(state.fileTree, state.files)
-        const treeIndex = flatItems.findIndex(item => item.fileIndex === fileIndex)
-        if (treeIndex !== -1) {
-          state = { ...state, treeHighlightIndex: treeIndex }
-        }
-        
-        render()
-        setTimeout(() => {
-          render()
-        }, 0)
-        return
-      }
-    }
-    
-    // No outdated files found - show toast
-    state = showToast(state, "No outdated files", "info")
-    render()
-    setTimeout(() => {
-      state = clearToast(state)
-      render()
-    }, 2000)
-  }
-
-  /**
-   * Toggle viewed status for a specific file.
-   * Handles persisting locally and syncing to GitHub.
-   * Returns the new viewed status.
-   */
-  async function toggleViewedForFile(filename: string): Promise<boolean> {
-    // Get current HEAD for viewedAtCommit
-    // In PR mode, use cached headSha; in local mode, get from git
-    const commitSha = currentHeadSha || await getHeadCommit()
-    if (!currentHeadSha && commitSha) {
-      currentHeadSha = commitSha
-    }
-    
-    // Get current status and toggle
-    const currentStatus = state.fileStatuses.get(filename)
-    const newViewed = !currentStatus?.viewed
-    
-    // Create the new status with viewedAtCommit
-    const newStatus: FileReviewStatus = createViewedStatus(filename, commitSha, newViewed)
-    
-    // Update state
-    state = setFileViewedStatus(state, newStatus)
-    
-    // Persist locally
-    await saveFileViewedStatus(source, newStatus)
-    
-    // Sync to GitHub in PR mode (fire and forget, don't block UI)
-    if (mode === "pr" && prInfo) {
-      markFileViewedOnGitHub(
-        prInfo.owner,
-        prInfo.repo,
-        prInfo.number,
-        filename,
-        newViewed
-      ).then(result => {
-        if (result.success) {
-          // Update status to mark as synced
-          const syncedStatus = state.fileStatuses.get(filename)
-          if (syncedStatus) {
-            const updated = { ...syncedStatus, githubSynced: true, syncedAt: new Date().toISOString() }
-            state = setFileViewedStatus(state, updated)
-            saveFileViewedStatus(source, updated)
-          }
-        }
-        // Silently ignore sync failures - local state is still valid
-      })
-    }
-    
-    return newViewed
-  }
-  
-  /**
-   * Toggle viewed status for current file and optionally advance to next
-   */
-  async function handleToggleViewed(advanceToNext: boolean = false): Promise<void> {
-    let filename: string | null = null
-    const inAllFilesView = state.selectedFileIndex === null
-    
-    // Get filename from selected file or from cursor position in all-files view
-    const selectedFile = getSelectedFile(state)
-    if (selectedFile) {
-      filename = selectedFile.filename
-    } else {
-      // In all-files view - get filename from cursor position
-      const line = lineMapping.getLine(vimState.line)
-      if (line?.filename) {
-        filename = line.filename
-      }
-    }
-    
-    if (!filename) return
-
-    const newViewed = await toggleViewedForFile(filename)
-    
-    // In all-files view, when marking as viewed: collapse the file and jump to next
-    if (inAllFilesView && newViewed) {
-      state = collapseFile(state, filename)
-      // Rebuild line mapping with the collapsed file
-      lineMapping = createLineMapping()
-      // Navigate to next unviewed file (or next file if all viewed)
-      navigateToNextFile(filename)
-    }
-    
-    render()
-    
-    // If advancing (and not in all-files view) and the file is now marked as viewed, go to next unviewed
-    if (advanceToNext && !inAllFilesView && newViewed) {
-      navigateToUnviewedFile(1)
-    }
   }
 
   /**
@@ -2194,6 +1819,24 @@ export async function createApp(options: AppOptions = {}) {
     handleExpandDivider,
   }
 
+  // File navigation context
+  const fileNavContext: fileNavigation.FileNavigationContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    setVimState: (s) => { vimState = s },
+    getLineMapping: () => lineMapping,
+    createLineMapping: () => { lineMapping = createLineMapping(); return lineMapping },
+    getVimDiffView: () => vimDiffView,
+    ensureCursorVisible,
+    render,
+    mode,
+    prInfo: prInfo ?? null,
+    source,
+    getHeadSha: () => currentHeadSha,
+    setHeadSha: (sha) => { currentHeadSha = sha },
+  }
+
   // Keyboard handling
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
     
@@ -2346,22 +1989,22 @@ export async function createApp(options: AppOptions = {}) {
       clearPendingKey()
 
       if (sequence === "]f") {
-        navigateFileSelection(1)
+        fileNavigation.navigateFileSelection(1, fileNavContext)
         return
       } else if (sequence === "[f") {
-        navigateFileSelection(-1)
+        fileNavigation.navigateFileSelection(-1, fileNavContext)
         return
       } else if (sequence === "]u") {
-        navigateToUnviewedFile(1)
+        fileNavigation.navigateToUnviewedFile(1, fileNavContext)
         return
       } else if (sequence === "[u") {
-        navigateToUnviewedFile(-1)
+        fileNavigation.navigateToUnviewedFile(-1, fileNavContext)
         return
       } else if (sequence === "]o") {
-        navigateToOutdatedFile(1)
+        fileNavigation.navigateToOutdatedFile(1, fileNavContext)
         return
       } else if (sequence === "[o") {
-        navigateToOutdatedFile(-1)
+        fileNavigation.navigateToOutdatedFile(-1, fileNavContext)
         return
       } else if (sequence === "gS!" || sequence === "gs!") {
         // gS (shift+S) - open review preview
@@ -2455,7 +2098,7 @@ export async function createApp(options: AppOptions = {}) {
         vimState = createCursorState()
         lineMapping = createLineMapping()
       },
-      toggleViewedForFile,
+      toggleViewedForFile: (filename: string) => fileNavigation.toggleViewedForFile(filename, fileNavContext),
     })) {
       return
     }
@@ -2494,7 +2137,7 @@ export async function createApp(options: AppOptions = {}) {
       getCurrentComment,
       handleAddComment,
       handleExpandDivider,
-      handleToggleViewed,
+      handleToggleViewed: (advanceToNext: boolean) => fileNavigation.handleToggleViewed(advanceToNext, fileNavContext),
       handleSubmitSingleComment,
     })
   })
