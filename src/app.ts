@@ -22,7 +22,7 @@ import {
 } from "./providers/github"
 import { parseDiff, sortFiles, getFiletype, countVisibleDiffLines, getTotalLineCount } from "./utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "./utils/file-tree"
-import { openCommentEditor, extractDiffHunk, parseEditorOutput, openFileInEditor, openExternalDiffViewer, type EditorResult } from "./utils/editor"
+import { openFileInEditor, openExternalDiffViewer, type EditorResult } from "./utils/editor"
 import {
   createInitialState,
   selectFile,
@@ -31,7 +31,6 @@ import {
   getSelectedFile,
   toggleFilePanel,
   updateFileTree,
-  addComment,
 
   getVisibleComments,
   setFileContentLoading,
@@ -67,7 +66,7 @@ import {
 } from "./state"
 import { colors, theme } from "./theme"
 import { loadOrCreateSession, loadComments, saveComment, deleteCommentFile, loadViewedStatuses } from "./storage"
-import { createComment, type Comment, type AppMode, type FileReviewStatus } from "./types"
+import { type Comment, type AppMode, type FileReviewStatus } from "./types"
 
 import type { PrInfo } from "./providers/github"
 import { flattenThreadsForNav, groupIntoThreads } from "./utils/threads"
@@ -86,14 +85,13 @@ import * as commentsView from "./features/comments-view"
 import * as diffView from "./features/diff-view"
 import * as folds from "./features/folds"
 import * as fileNavigation from "./features/file-navigation"
+import * as commentsFeature from "./features/comments"
 
 // Vim navigation imports
 import { DiffLineMapping } from "./vim-diff/line-mapping"
 import { 
   createCursorState, 
-  getSelectionRange, 
   enterVisualLineMode, 
-  exitVisualMode,
 } from "./vim-diff/cursor-state"
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler } from "./vim-diff/motion-handler"
@@ -401,25 +399,6 @@ export async function createApp(options: AppOptions = {}) {
     // ReviewPreview is now rendered as functional component in render()
   }
 
-  /**
-   * Validate comments for GitHub submission.
-   * Checks if the comment's file/line exists in the current diff.
-   */
-  function validateCommentsForSubmit(comments: Comment[]): ValidatedComment[] {
-    return comments.map(comment => {
-      // Check if file exists in the diff
-      const file = state.files.find(f => f.filename === comment.filename)
-      if (!file) {
-        return { comment, valid: false, reason: "file not in diff" }
-      }
-      
-      // For now, if the file exists and we have a line number, assume valid
-      // (The line was validated when the comment was created via isCommentable)
-      // TODO: Could add more granular validation by checking if line is in a hunk
-      return { comment, valid: true }
-    })
-  }
-
   // Track current user for own-PR detection (cached, populated when review preview opens)
   let cachedCurrentUser: string | null = null
 
@@ -618,9 +597,10 @@ export async function createApp(options: AppOptions = {}) {
         // Review preview modal
         state.reviewPreview.open
           ? ReviewPreview({
-              comments: validateCommentsForSubmit(
+              comments: commentsFeature.validateCommentsForSubmit(
                 // Show both local (new) and pending (from GitHub draft) comments
-                state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo)
+                state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo),
+                state.files
               ),
               state: state.reviewPreview,
               isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
@@ -711,153 +691,9 @@ export async function createApp(options: AppOptions = {}) {
     vimDiffView.setExpectedScrollTop(effectiveScrollTop)
   }
 
-
-
-  // Save a comment to disk
-  async function persistComment(comment: Comment) {
-    await saveComment(comment, source)
-  }
-
   function quit() {
     renderer.destroy()
     process.exit(0)
-  }
-
-  /**
-   * Handle adding a comment on current line or selection
-   */
-  async function handleAddComment() {
-    if (state.files.length === 0) return
-
-    let startLine: number
-    let endLine: number
-
-    // Check if in visual line mode
-    const selectionRange = getSelectionRange(vimState)
-    if (selectionRange) {
-      [startLine, endLine] = selectionRange
-    } else {
-      startLine = endLine = vimState.line
-    }
-
-    // Find the first commentable line in the range
-    let anchor = lineMapping.getCommentAnchor(startLine)
-    for (let i = startLine; i <= endLine && !anchor; i++) {
-      anchor = lineMapping.getCommentAnchor(i)
-    }
-
-    if (!anchor) {
-      // No commentable lines in selection
-      return
-    }
-
-    // Find the file
-    const file = state.files.find(f => f.filename === anchor!.filename)
-    if (!file) return
-
-    // Find existing thread for this location (all comments on this line)
-    const thread = state.comments.filter(
-      c => c.filename === anchor!.filename && c.line === anchor!.line && c.side === anchor!.side
-    )
-
-    // Build diff context from the selection range
-    const contextLines: string[] = []
-    for (let i = startLine; i <= endLine; i++) {
-      const line = lineMapping.getLine(i)
-      if (line && lineMapping.isCommentable(i)) {
-        contextLines.push(line.rawLine)
-      }
-    }
-
-    // Get current username (GitHub username for PR mode, @you for local)
-    let username = "@you"
-    if (state.appMode === "pr") {
-      try {
-        username = await getCurrentUser()
-      } catch {
-        // Fall back to @you
-      }
-    }
-
-    // Suspend TUI and open editor
-    renderer.suspend()
-
-    try {
-      const rawContent = await openCommentEditor({
-        diffContent: contextLines.length > 0 ? contextLines.join("\n") : file.content,
-        filePath: anchor.filename,
-        line: anchor.line,
-        thread,
-        username,
-      })
-
-      if (rawContent !== null) {
-        const result = parseEditorOutput(rawContent)
-        
-        // Handle edited comments
-        for (const [shortId, newBody] of result.editedComments) {
-          // Find the full comment by short ID
-          const comment = state.comments.find(c => 
-            c.id.startsWith(shortId) || c.id === shortId
-          )
-          if (!comment) continue
-          
-          // Get the current display body (localEdit or body)
-          const currentBody = comment.localEdit ?? comment.body
-          // Compare trimmed versions to avoid whitespace-only changes
-          if (newBody.trim() === currentBody.trim()) continue
-          
-          let updatedComment: Comment
-          
-          if (comment.status === "synced") {
-            // For synced comments, store edit in localEdit (user presses S to push)
-            // If edit matches original body, clear localEdit
-            if (newBody === comment.body) {
-              updatedComment = { ...comment, localEdit: undefined }
-            } else {
-              updatedComment = { ...comment, localEdit: newBody }
-            }
-          } else {
-            // For local/pending comments, edit body directly
-            updatedComment = { ...comment, body: newBody }
-          }
-          
-          state = {
-            ...state,
-            comments: state.comments.map(c =>
-              c.id === comment.id ? updatedComment : c
-            ),
-          }
-          await persistComment(updatedComment)
-        }
-        
-        // Handle new reply
-        if (result.newReply) {
-          const comment = createComment(anchor.filename, anchor.line, result.newReply, anchor.side, username)
-          // Use the selection context if available, otherwise extract from file
-          comment.diffHunk = contextLines.length > 0 
-            ? contextLines.join("\n") 
-            : extractDiffHunk(file.content, anchor.line)
-          
-          // If there's an existing thread, mark as reply to the last comment
-          if (thread.length > 0) {
-            comment.inReplyTo = thread[thread.length - 1]!.id
-          }
-          
-          state = addComment(state, comment)
-          await persistComment(comment)
-        }
-      }
-    } finally {
-      // Exit visual mode if we were in it
-      if (vimState.mode === "visual-line") {
-        vimState = exitVisualMode(vimState)
-      }
-      
-      // Resume TUI
-      renderer.resume()
-      render()
-    }
   }
 
   /**
@@ -918,163 +754,6 @@ export async function createApp(options: AppOptions = {}) {
     lineMapping = createLineMapping()
     render()
     return true
-  }
-
-  /**
-   * Get the comment under cursor (in diff view) or selected comment (in comments view)
-   */
-  function getCurrentComment(): Comment | null {
-    if (state.viewMode === "comments") {
-      // In comments view, use selected comment
-      const visibleComments = getVisibleComments(state)
-      const threads = groupIntoThreads(visibleComments)
-      const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-      const selectedNav = navItems[state.selectedCommentIndex]
-      return selectedNav?.comment ?? null
-    } else {
-      // In diff view, find comment for current cursor position
-      const anchor = lineMapping.getCommentAnchor(vimState.line)
-      if (!anchor) return null
-      
-      // Find submittable comments on this line:
-      // - local comments (not yet on GitHub)
-      // - synced comments with localEdit (pending update)
-      const submittableComments = state.comments.filter(
-        c => c.filename === anchor.filename && 
-             c.line === anchor.line && 
-             c.side === anchor.side &&
-             (c.status === "local" || c.localEdit !== undefined)
-      )
-      
-      // Return the last submittable comment (most recent)
-      return submittableComments[submittableComments.length - 1] ?? null
-    }
-  }
-
-  /**
-   * Submit a single comment immediately to GitHub
-   */
-  async function handleSubmitSingleComment(comment?: Comment): Promise<void> {
-    // Check we're in PR mode
-    if (state.appMode !== "pr" || !state.prInfo) {
-      return
-    }
-
-    // Get the comment to submit
-    const toSubmit = comment ?? getCurrentComment()
-    if (!toSubmit) {
-      return
-    }
-
-    // Check if this is an edit to a synced comment
-    const isEdit = toSubmit.status === "synced" && toSubmit.localEdit !== undefined
-    
-    // Must be either local or an edited synced comment
-    if (toSubmit.status !== "local" && !isEdit) {
-      return
-    }
-
-    const { owner, repo, number: prNumber } = state.prInfo
-    let result: SubmitResult
-
-    if (isEdit && toSubmit.githubId) {
-      // Update existing comment on GitHub
-      result = await updateComment(owner, repo, toSubmit.githubId, toSubmit.localEdit!)
-    } else {
-      // New comment - need head SHA
-      let headSha: string
-      try {
-        headSha = await getPrHeadSha(prNumber, owner, repo)
-      } catch (err) {
-        state = showToast(state, "Failed to get PR info", "error")
-        render()
-        setTimeout(() => { state = clearToast(state); render() }, 5000)
-        return
-      }
-
-      // Check if this is a reply
-      if (toSubmit.inReplyTo) {
-        // Find parent comment's GitHub ID
-        const parentComment = state.comments.find(c => c.id === toSubmit.inReplyTo)
-        if (!parentComment?.githubId) {
-          // Can't reply to unsynced comment
-          return
-        }
-        result = await submitReply(owner, repo, prNumber, toSubmit, parentComment.githubId)
-      } else {
-        result = await submitSingleComment(owner, repo, prNumber, toSubmit, headSha)
-      }
-    }
-
-    if (result.success) {
-      // Ensure we have the author set (might be missing for older comments)
-      let author = toSubmit.author
-      if (!author) {
-        try {
-          author = await getCurrentUser()
-        } catch {
-          // Leave undefined if we can't get the user
-        }
-      }
-      
-      let updatedComment: Comment
-      let toastMessage: string
-      
-      if (isEdit) {
-        // For edits: update body with localEdit content, clear localEdit
-        updatedComment = {
-          ...toSubmit,
-          body: toSubmit.localEdit!,
-          localEdit: undefined,
-          author,
-        }
-        toastMessage = "Comment updated"
-      } else {
-        // For new comments: set synced status and GitHub IDs
-        updatedComment = {
-          ...toSubmit,
-          status: "synced",
-          githubId: result.githubId,
-          githubUrl: result.githubUrl,
-          author,
-        }
-        toastMessage = "Comment submitted"
-      }
-      
-      // Update state and show success toast
-      state = {
-        ...state,
-        comments: state.comments.map(c =>
-          c.id === toSubmit.id ? updatedComment : c
-        ),
-      }
-      state = showToast(state, toastMessage, "success")
-      
-      // Persist to storage
-      await saveComment(updatedComment, source)
-      
-      render()
-      
-      // Auto-clear toast after 3 seconds
-      setTimeout(() => {
-        state = clearToast(state)
-        render()
-      }, 3000)
-    } else {
-      // Check for pending review error and provide actionable message
-      let errorMessage = result.error ?? "Failed to submit comment"
-      if (errorMessage.includes("pending review") || errorMessage.includes("user_id can only have one")) {
-        errorMessage = "You have a pending review. Use gS to submit as review instead."
-      }
-      state = showToast(state, errorMessage, "error")
-      render()
-      
-      // Auto-clear error toast after 5 seconds
-      setTimeout(() => {
-        state = clearToast(state)
-        render()
-      }, 5000)
-    }
   }
 
   /**
@@ -1663,7 +1342,7 @@ export async function createApp(options: AppOptions = {}) {
     )
     
     // Only submit comments that are valid (file exists in diff)
-    const validatedComments = validateCommentsForSubmit(allLocalComments)
+    const validatedComments = commentsFeature.validateCommentsForSubmit(allLocalComments, state.files)
     const localComments = validatedComments
       .filter(vc => vc.valid)
       .map(vc => vc.comment)
@@ -1787,7 +1466,7 @@ export async function createApp(options: AppOptions = {}) {
     handleRefresh,
     handleOpenReviewPreview,
     handleOpenSyncPreview,
-    handleSubmitSingleComment,
+    handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleOpenPRInfoPanel,
     handleOpenFileInEditor,
     handleOpenExternalDiff,
@@ -1835,6 +1514,21 @@ export async function createApp(options: AppOptions = {}) {
     source,
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
+  }
+
+  // Comments context
+  const commentsContext: commentsFeature.CommentsContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    setVimState: (s) => { vimState = s },
+    getLineMapping: () => lineMapping,
+    render,
+    suspendRenderer: () => renderer.suspend(),
+    resumeRenderer: () => renderer.resume(),
+    source,
+    mode,
+    prInfo: prInfo ?? null,
   }
 
   // Keyboard handling
@@ -1894,8 +1588,9 @@ export async function createApp(options: AppOptions = {}) {
       state,
       setState: (fn) => { state = fn(state) },
       render,
-      getValidatedComments: () => validateCommentsForSubmit(
-        state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo)
+      getValidatedComments: () => commentsFeature.validateCommentsForSubmit(
+        state.comments.filter(c => (c.status === "local" || c.status === "pending") && !c.inReplyTo),
+        state.files
       ),
       isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
       onConfirmReview: handleConfirmReview,
@@ -2118,8 +1813,8 @@ export async function createApp(options: AppOptions = {}) {
         return lineMapping
       },
       ensureCursorVisible,
-      handleAddComment,
-      handleSubmitSingleComment,
+      handleAddComment: () => commentsFeature.handleAddComment(commentsContext),
+      handleSubmitSingleComment: (comment) => commentsFeature.handleSubmitSingleComment(commentsContext, comment),
       handleToggleThreadResolved,
     })) {
       return
@@ -2134,11 +1829,11 @@ export async function createApp(options: AppOptions = {}) {
       vimDiffView,
       searchState,
       searchHandler,
-      getCurrentComment,
-      handleAddComment,
+      getCurrentComment: () => commentsFeature.getCurrentComment(commentsContext),
+      handleAddComment: () => commentsFeature.handleAddComment(commentsContext),
       handleExpandDivider,
       handleToggleViewed: (advanceToNext: boolean) => fileNavigation.handleToggleViewed(advanceToNext, fileNavContext),
-      handleSubmitSingleComment,
+      handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     })
   })
 
