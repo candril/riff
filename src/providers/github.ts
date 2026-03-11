@@ -1082,7 +1082,7 @@ export async function markFileViewedOnGitHub(
       }
     `
     
-    await $`gh api graphql -f query=${mutation} -F prId=${prId} -F path=${path}`
+    await $`gh api graphql -f query=${mutation} -F prId=${prId} -F path=${path}`.quiet()
     
     return { success: true }
   } catch (err) {

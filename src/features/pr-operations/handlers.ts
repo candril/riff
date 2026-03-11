@@ -27,6 +27,7 @@ import {
   toggleThreadResolution,
   getPrHeadSha,
   getCurrentUser,
+  getPrComments,
 } from "../../providers/github"
 import { validateCommentsForSubmit } from "../comments"
 
@@ -304,15 +305,53 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       // Leave undefined if we can't get the user
     }
 
-    // Note: GitHub doesn't return individual IDs for batch comments,
-    // so we mark them synced but without individual githubId
+    // Fetch the submitted comments from GitHub to get their individual IDs.
+    // The reviews API only returns the review-level ID, not individual comment IDs,
+    // so we need to fetch them separately and match by (path, line, body).
     const submittedIds = new Set(localComments.map((c) => c.id))
+    let remoteIdMap = new Map<string, { githubId: number; githubUrl: string }>()
+
+    if (localComments.length > 0) {
+      try {
+        const remoteComments = await getPrComments(owner, repo, prNumber)
+        // Match each local comment to a remote comment by (path, line, body)
+        // Build a pool of unmatched remote comments to avoid double-matching
+        const unmatchedRemote = new Set(remoteComments.map((_, i) => i))
+
+        for (const local of localComments) {
+          for (const idx of unmatchedRemote) {
+            const remote = remoteComments[idx]!
+            if (
+              remote.path === local.filename &&
+              remote.line === local.line &&
+              remote.body === local.body
+            ) {
+              remoteIdMap.set(local.id, {
+                githubId: remote.id,
+                githubUrl: remote.url,
+              })
+              unmatchedRemote.delete(idx)
+              break
+            }
+          }
+        }
+      } catch {
+        // If fetching fails, we still mark as synced (dedup will happen on next refresh)
+      }
+    }
 
     ctx.setState((s) => ({
       ...s,
-      comments: s.comments.map((c) =>
-        submittedIds.has(c.id) ? { ...c, status: "synced" as const, author: c.author || currentUser } : c
-      ),
+      comments: s.comments.map((c) => {
+        if (!submittedIds.has(c.id)) return c
+        const remoteIds = remoteIdMap.get(c.id)
+        return {
+          ...c,
+          status: "synced" as const,
+          author: c.author || currentUser,
+          ...(remoteIds ? { githubId: remoteIds.githubId, githubUrl: remoteIds.githubUrl } : {}),
+        }
+      }),
     }))
 
     // Close the review preview and show success toast
@@ -334,9 +373,18 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       )
     )
 
-    // Persist to storage
+    // Persist to storage (with githubId if matched)
     for (const comment of localComments) {
-      await saveComment({ ...comment, status: "synced", author: comment.author || currentUser }, ctx.source)
+      const remoteIds = remoteIdMap.get(comment.id)
+      await saveComment(
+        {
+          ...comment,
+          status: "synced",
+          author: comment.author || currentUser,
+          ...(remoteIds ? { githubId: remoteIds.githubId, githubUrl: remoteIds.githubUrl } : {}),
+        },
+        ctx.source
+      )
     }
 
     ctx.render()
