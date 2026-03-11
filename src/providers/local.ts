@@ -51,8 +51,8 @@ export async function getLocalDiff(target?: string): Promise<string> {
  */
 async function getJjDiff(target?: string): Promise<string> {
   if (!target) {
-    // Current change diff
-    const result = await $`jj diff --git`.text()
+    // All changes from trunk to working copy
+    const result = await $`jj diff --git --from ${"trunk()"}`.text()
     return result
   }
 
@@ -89,6 +89,46 @@ async function getGitDiff(target?: string): Promise<string> {
 }
 
 /**
+ * Get branch/bookmark info for display in header.
+ * Returns something like "my-feature → main" for jj/git.
+ */
+export async function getBranchInfo(target?: string): Promise<string | null> {
+  const vcs = await detectVcs()
+
+  try {
+    if (vcs === "jj") {
+      // Get bookmark on current change (or nearest ancestor)
+      const currentBookmark = await $`jj log -r 'latest(::@ & bookmarks())' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.nothrow()
+      const trunkBookmark = await $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.nothrow()
+
+      const current = currentBookmark.exitCode === 0 ? currentBookmark.text().trim() : ""
+      const trunk = trunkBookmark.exitCode === 0 ? trunkBookmark.text().trim() : ""
+
+      if (current && trunk && current !== trunk) {
+        return `${current} → ${trunk}`
+      } else if (current) {
+        return current
+      } else if (trunk) {
+        return `→ ${trunk}`
+      }
+      return null
+    }
+
+    if (vcs === "git") {
+      const branch = await $`git branch --show-current`.nothrow()
+      const current = branch.exitCode === 0 ? branch.text().trim() : ""
+      if (current) {
+        return current
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  return null
+}
+
+/**
  * Get description of what we're diffing
  */
 export async function getDiffDescription(target?: string): Promise<string> {
@@ -96,12 +136,12 @@ export async function getDiffDescription(target?: string): Promise<string> {
 
   if (vcs === "jj") {
     if (!target) {
-      // Get current change description
+      // Get current change description, or fall back to branch description
       try {
         const desc = await $`jj log -r @ --no-graph -T description`.text()
-        return desc.trim() || "Current change"
+        return desc.trim() || "Changes since trunk"
       } catch {
-        return "Current change"
+        return "Changes since trunk"
       }
     }
     return `Revision: ${target}`
@@ -204,8 +244,8 @@ export async function getOldFileContent(
 
   try {
     if (vcs === "jj") {
-      // For jj, the "old" version is the parent of current change
-      const revision = target ? `${target}-` : "@-"
+      // For jj, the "old" version is trunk (or parent of target)
+      const revision = target ? `${target}-` : "trunk()"
       return await $`jj file show ${filename} -r ${revision}`.text()
     }
 

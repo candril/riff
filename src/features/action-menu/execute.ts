@@ -10,6 +10,7 @@ import {
   openFilePicker,
   toggleFilePanel,
   toggleViewMode,
+  clearFileSelection,
   showToast,
   clearToast,
 } from "../../state"
@@ -27,6 +28,9 @@ export interface ActionHandlers {
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
+  handleShowAllFiles: () => void
+  handleEditPr: () => Promise<void>
+  handleCreatePr: () => Promise<void>
 }
 
 export interface ExecuteContext {
@@ -87,7 +91,13 @@ export async function executeAction(
       break
 
     case "create-pr":
-      // TODO: Implement create PR flow
+      await handlers.handleCreatePr()
+      break
+
+    case "edit-pr":
+      if (state.prInfo) {
+        await handlers.handleEditPr()
+      }
       break
 
     case "open-in-browser":
@@ -129,6 +139,15 @@ export async function executeAction(
 
     case "open-in-editor":
       handlers.handleOpenFileInEditor()
+      break
+
+    case "show-all-files":
+      setState((s) => {
+        const cleared = clearFileSelection(s)
+        return { ...cleared, focusedPanel: s.viewMode === "diff" ? "diff" as const : "comments" as const }
+      })
+      handlers.handleShowAllFiles()
+      render()
       break
 
     case "diff-difftastic":

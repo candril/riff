@@ -195,11 +195,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         },
         Header({
           title: "riff",
-          viewMode: state.viewMode,
           selectedFile,
           totalFiles: state.files.length,
           prInfo: state.prInfo,
           reviewProgress: getReviewProgress(state),
+          branchInfo: state.branchInfo,
         }),
         Box(
           {

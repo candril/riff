@@ -23,6 +23,13 @@ export const actions: Action[] = [
     category: "navigation",
     available: (state) => state.files.length > 0,
   },
+  {
+    id: "show-all-files",
+    label: "Show All Files",
+    description: "Exit single-file view and show all files",
+    category: "navigation",
+    available: (state) => state.selectedFileIndex !== null,
+  },
   // GitHub
   {
     id: "submit-review",
@@ -64,6 +71,14 @@ export const actions: Action[] = [
     shortcut: "gP",
     category: "github",
     available: (state) => state.appMode === "local",
+  },
+  {
+    id: "edit-pr",
+    label: "Edit PR Title & Description",
+    description: "Edit PR title and description in $EDITOR with diff context",
+    shortcut: "gP",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
     id: "refresh",

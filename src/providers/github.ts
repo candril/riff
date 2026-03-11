@@ -352,6 +352,47 @@ export async function getPrDiff(
 }
 
 /**
+ * Edit PR title and/or body
+ */
+export async function editPullRequest(
+  prNumber: number,
+  title: string,
+  body: string,
+  owner?: string,
+  repo?: string
+): Promise<void> {
+  return safeGhCommand(async () => {
+    const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
+    await $`gh pr edit ${prNumber} ${repoArgs} --title ${title} --body ${body}`
+  })
+}
+
+export interface CreatePrResult {
+  prNumber: number
+  url: string
+}
+
+/**
+ * Create a new pull request from the current branch.
+ * Uses `gh pr create` which handles pushing the branch if needed.
+ */
+export async function createPullRequest(
+  title: string,
+  body: string,
+  draft: boolean = false
+): Promise<CreatePrResult> {
+  return safeGhCommand(async () => {
+    const draftArgs = draft ? ["--draft"] : []
+    // gh pr create will push the branch if needed
+    const result = await $`gh pr create --title ${title} --body ${body} ${draftArgs} --json number,url`.json()
+    return {
+      prNumber: result.number,
+      url: result.url,
+    }
+  })
+}
+
+/**
  * Fetch PR head commit SHA
  */
 export async function getPrHeadSha(

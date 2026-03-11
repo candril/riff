@@ -509,6 +509,354 @@ export async function openFileInEditor(
   }
 }
 
+// ========== PR TITLE/DESCRIPTION EDITOR ==========
+
+const PR_EDIT_SCISSORS = "# ------------------------ >8 ------------------------"
+const PR_EDIT_COMMENT_PREFIX = "# "
+
+export interface PrEditOptions {
+  /** Current PR title */
+  title: string
+  /** Current PR description/body */
+  body: string
+  /** Raw unified diff of all changes (shown below scissors line) */
+  diff: string
+  /** File summary lines (e.g., "M src/app.ts") */
+  fileSummary?: string[]
+}
+
+export interface PrEditResult {
+  /** The new title (first non-comment, non-empty line) */
+  title: string
+  /** The new description (everything after first blank line, before scissors) */
+  body: string
+}
+
+/**
+ * Build the editor file content for PR title/description editing.
+ * Format follows git commit --verbose conventions:
+ *
+ *   PR title here
+ *
+ *   PR description here
+ *   (can be multiple lines/paragraphs)
+ *
+ *   # ------------------------ >8 ------------------------
+ *   # Do not modify or remove the line above.
+ *   # Everything below it will be ignored.
+ *   #
+ *   # Files changed:
+ *   #   M src/app.ts
+ *   #   A src/new-file.ts
+ *   #
+ *   diff --git a/src/app.ts b/src/app.ts
+ *   ...
+ */
+function buildPrEditContent(options: PrEditOptions): string {
+  const lines: string[] = []
+
+  // Title (first line)
+  lines.push(options.title)
+  lines.push("")
+
+  // Body
+  if (options.body.trim()) {
+    lines.push(options.body)
+    // Ensure body ends with blank line before scissors
+    if (!options.body.endsWith("\n")) {
+      lines.push("")
+    }
+  }
+
+  // Scissors line
+  lines.push(PR_EDIT_SCISSORS)
+  lines.push(`${PR_EDIT_COMMENT_PREFIX}Do not modify or remove the line above.`)
+  lines.push(`${PR_EDIT_COMMENT_PREFIX}Everything below it will be ignored.`)
+  lines.push(PR_EDIT_COMMENT_PREFIX)
+
+  // File summary
+  if (options.fileSummary && options.fileSummary.length > 0) {
+    lines.push(`${PR_EDIT_COMMENT_PREFIX}Files changed:`)
+    for (const file of options.fileSummary) {
+      lines.push(`${PR_EDIT_COMMENT_PREFIX}  ${file}`)
+    }
+    lines.push(PR_EDIT_COMMENT_PREFIX)
+  }
+
+  // Full diff (not commented — syntax highlighting works)
+  lines.push(options.diff)
+
+  return lines.join("\n")
+}
+
+/**
+ * Parse the editor output for PR title/description.
+ * Strips everything at/after the scissors line and comment lines.
+ * First line = title, rest = body.
+ */
+export function parsePrEditOutput(content: string): PrEditResult | null {
+  // Strip everything at and after scissors line
+  const scissorsIdx = content.indexOf(PR_EDIT_SCISSORS)
+  const editable = scissorsIdx !== -1 ? content.slice(0, scissorsIdx) : content
+
+  // Split into lines and strip trailing whitespace
+  const lines = editable.split("\n")
+
+  // Remove trailing empty lines
+  while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") {
+    lines.pop()
+  }
+
+  if (lines.length === 0) {
+    return null // Empty = cancelled
+  }
+
+  // First non-empty line is the title
+  const title = lines[0]!.trim()
+  if (!title) {
+    return null // No title = cancelled
+  }
+
+  // Skip blank line(s) after title, rest is body
+  let bodyStart = 1
+  while (bodyStart < lines.length && lines[bodyStart]!.trim() === "") {
+    bodyStart++
+  }
+
+  const body = lines.slice(bodyStart).join("\n").trimEnd()
+
+  return { title, body }
+}
+
+/**
+ * Open $EDITOR to edit PR title and description, with diff as context.
+ * Returns the parsed result, or null if the user cancelled (empty title or editor error).
+ */
+export async function openPrEditor(options: PrEditOptions): Promise<PrEditResult | null> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+
+  // Use .diff extension so the diff portion gets syntax highlighting
+  const tmpFile = join(tmpdir(), `riff-pr-edit-${randomUUID()}.diff`)
+  const content = buildPrEditContent(options)
+
+  await Bun.write(tmpFile, content)
+
+  // Spawn editor at line 1
+  const proc = Bun.spawn([editor, tmpFile], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode !== 0) {
+    try {
+      const { unlink } = await import("fs/promises")
+      await unlink(tmpFile)
+    } catch {
+      // Ignore cleanup errors
+    }
+    return null
+  }
+
+  // Read the file back
+  const editedContent = await Bun.file(tmpFile).text()
+
+  // Clean up
+  try {
+    const { unlink } = await import("fs/promises")
+    await unlink(tmpFile)
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  return parsePrEditOutput(editedContent)
+}
+
+// ========== CREATE PR EDITOR ==========
+
+export interface PrCreateOptions {
+  /** Raw unified diff of all changes (shown below scissors line) */
+  diff: string
+  /** File summary lines (e.g., "M src/app.ts") */
+  fileSummary?: string[]
+  /** Branch info (e.g., "my-feature → main") */
+  branchInfo?: string | null
+}
+
+export interface PrCreateResult {
+  /** The PR title (first non-empty line) */
+  title: string
+  /** The PR description (everything after first blank line, before Draft/scissors) */
+  body: string
+  /** Whether to create as draft */
+  draft: boolean
+}
+
+/**
+ * Build the editor file content for PR creation.
+ * Format:
+ *
+ *   <title here>
+ *
+ *   <body here>
+ *
+ *   # Draft: no
+ *   # ------------------------ >8 ------------------------
+ *   # Do not modify or remove the line above.
+ *   # Everything below it will be ignored.
+ *   #
+ *   # Creating PR for branch: my-feature → main
+ *   #
+ *   # Files changed:
+ *   #   M src/app.ts
+ *   #   A src/new-file.ts
+ *   #
+ *   diff --git a/src/app.ts b/src/app.ts
+ *   ...
+ */
+function buildPrCreateContent(options: PrCreateOptions): string {
+  const lines: string[] = []
+
+  // Title placeholder (first line - user fills this in)
+  lines.push("")
+  lines.push("")
+
+  // Body placeholder
+  lines.push("")
+
+  // Draft option
+  lines.push("# Draft: no")
+
+  // Scissors line
+  lines.push(PR_EDIT_SCISSORS)
+  lines.push(`${PR_EDIT_COMMENT_PREFIX}Do not modify or remove the line above.`)
+  lines.push(`${PR_EDIT_COMMENT_PREFIX}Everything below it will be ignored.`)
+  lines.push(PR_EDIT_COMMENT_PREFIX)
+
+  // Branch info
+  if (options.branchInfo) {
+    lines.push(`${PR_EDIT_COMMENT_PREFIX}Creating PR for: ${options.branchInfo}`)
+    lines.push(PR_EDIT_COMMENT_PREFIX)
+  }
+
+  // File summary
+  if (options.fileSummary && options.fileSummary.length > 0) {
+    lines.push(`${PR_EDIT_COMMENT_PREFIX}Files changed:`)
+    for (const file of options.fileSummary) {
+      lines.push(`${PR_EDIT_COMMENT_PREFIX}  ${file}`)
+    }
+    lines.push(PR_EDIT_COMMENT_PREFIX)
+  }
+
+  // Full diff (not commented — syntax highlighting works)
+  lines.push(options.diff)
+
+  return lines.join("\n")
+}
+
+/**
+ * Parse the editor output for PR creation.
+ * Extracts title, body, and draft flag.
+ * Returns null if title is empty (cancelled).
+ */
+export function parsePrCreateOutput(content: string): PrCreateResult | null {
+  // Strip everything at and after scissors line
+  const scissorsIdx = content.indexOf(PR_EDIT_SCISSORS)
+  const editable = scissorsIdx !== -1 ? content.slice(0, scissorsIdx) : content
+
+  // Extract draft flag from the "# Draft: yes/no" line before scissors
+  let draft = false
+  const draftMatch = editable.match(/^#\s*Draft:\s*(yes|no)\s*$/mi)
+  if (draftMatch) {
+    draft = draftMatch[1]!.toLowerCase() === "yes"
+  }
+
+  // Remove comment lines (starting with #) and the draft line
+  const lines = editable.split("\n").filter(line => !line.match(/^\s*#/))
+
+  // Remove trailing empty lines
+  while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") {
+    lines.pop()
+  }
+
+  if (lines.length === 0) {
+    return null // Empty = cancelled
+  }
+
+  // Find first non-empty line as title
+  let titleIdx = 0
+  while (titleIdx < lines.length && lines[titleIdx]!.trim() === "") {
+    titleIdx++
+  }
+
+  if (titleIdx >= lines.length) {
+    return null // No title = cancelled
+  }
+
+  const title = lines[titleIdx]!.trim()
+  if (!title) {
+    return null
+  }
+
+  // Skip blank line(s) after title, rest is body
+  let bodyStart = titleIdx + 1
+  while (bodyStart < lines.length && lines[bodyStart]!.trim() === "") {
+    bodyStart++
+  }
+
+  const body = lines.slice(bodyStart).join("\n").trimEnd()
+
+  return { title, body, draft }
+}
+
+/**
+ * Open $EDITOR to create a new PR, with diff as context.
+ * Returns the parsed result, or null if the user cancelled (empty title or editor error).
+ */
+export async function openPrCreator(options: PrCreateOptions): Promise<PrCreateResult | null> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+
+  // Use .diff extension so the diff portion gets syntax highlighting
+  const tmpFile = join(tmpdir(), `riff-pr-create-${randomUUID()}.diff`)
+  const content = buildPrCreateContent(options)
+
+  await Bun.write(tmpFile, content)
+
+  // Spawn editor at line 1
+  const proc = Bun.spawn([editor, tmpFile], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode !== 0) {
+    try {
+      const { unlink } = await import("fs/promises")
+      await unlink(tmpFile)
+    } catch {
+      // Ignore cleanup errors
+    }
+    return null
+  }
+
+  // Read the file back
+  const editedContent = await Bun.file(tmpFile).text()
+
+  // Clean up
+  try {
+    const { unlink } = await import("fs/promises")
+    await unlink(tmpFile)
+  } catch {
+    // Ignore cleanup errors
+  }
+
+  return parsePrCreateOutput(editedContent)
+}
+
 /**
  * Open a file diff in an external diff viewer.
  * Suspends the TUI while the viewer is open.

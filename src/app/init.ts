@@ -10,7 +10,7 @@ import { registerSyntaxParsers } from "../syntax-parsers"
 import { VimDiffView, PRInfoPanelClass } from "../components"
 import { FileTreePanel } from "../components/FileTreePanel"
 import { CommentsViewPanel } from "../components/CommentsViewPanel"
-import { getLocalDiff, getDiffDescription } from "../providers/local"
+import { getLocalDiff, getDiffDescription, getBranchInfo } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 import {
@@ -87,6 +87,12 @@ export async function initializeAppState(options: InitOptions): Promise<{
     comments = await loadComments(source)
   }
 
+  // Get branch info for local mode
+  let branchInfo: string | null = null
+  if (mode === "local") {
+    branchInfo = await getBranchInfo(target)
+  }
+
   // Parse diff and build tree
   const files = sortFiles(parseDiff(rawDiff))
   const fileTree = buildFileTree(files)
@@ -96,6 +102,9 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Initialize state
   let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null)
+
+  // Set branch info for local mode
+  state = { ...state, branchInfo }
 
   // Collapse resolved threads by default
   const threads = groupIntoThreads(comments)

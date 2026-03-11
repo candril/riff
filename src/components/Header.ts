@@ -2,29 +2,24 @@ import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PrInfo } from "../providers/github"
-import type { ViewMode } from "../state"
 
 export interface HeaderProps {
   title?: string
-  viewMode?: ViewMode
   selectedFile?: DiffFile | null  // null = all files
   totalFiles?: number
   prInfo?: PrInfo | null
   reviewProgress?: { reviewed: number; total: number; outdated?: number }
+  branchInfo?: string | null
 }
 
 export function Header({
   title = "riff",
-  viewMode = "diff",
   selectedFile,
   totalFiles,
   prInfo,
   reviewProgress,
+  branchInfo,
 }: HeaderProps = {}) {
-  // View mode badge
-  const viewBadge = viewMode === "diff" ? "Diff" : "Comments"
-  const viewBadgeColor = viewMode === "diff" ? theme.blue : theme.mauve
-  
   // Scope text
   const scopeText = selectedFile 
     ? selectedFile.filename 
@@ -74,12 +69,12 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
       },
-      // Left side: view mode, PR status, number, title
+      // Left side: PR status, number, author, title
       Box(
         { flexDirection: "row", gap: 1, flexShrink: 1, overflow: "hidden" },
-        Text({ content: `[${viewBadge}]`, fg: viewBadgeColor }),
         Text({ content: statusText, fg: statusColor }),
         Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
+        Text({ content: `@${prInfo.author}`, fg: theme.subtext0 }),
         Text({ content: prInfo.title, fg: colors.text })
       ),
       // Right side: progress + stats for selected file
@@ -99,6 +94,21 @@ export function Header({
   }
 
   // Local mode header
+  // Build branch info elements
+  const branchElements: ReturnType<typeof Text>[] = []
+  if (branchInfo) {
+    const parts = branchInfo.split(" → ")
+    if (parts.length === 2) {
+      branchElements.push(
+        Text({ content: parts[0], fg: theme.sapphire }),
+        Text({ content: " → ", fg: theme.subtext0 }),
+        Text({ content: parts[1], fg: theme.sapphire }),
+      )
+    } else {
+      branchElements.push(Text({ content: branchInfo, fg: theme.sapphire }))
+    }
+  }
+
   return Box(
     {
       height: 1,
@@ -110,11 +120,11 @@ export function Header({
       justifyContent: "space-between",
       alignItems: "center",
     },
-    // Left side: view mode, title, scope
+    // Left side: title, branch info, scope
     Box(
       { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
-      Text({ content: `[${viewBadge}]`, fg: viewBadgeColor }),
       Text({ content: title, fg: colors.headerFg }),
+      ...branchElements,
       Text({ content: scopeText, fg: colors.text })
     ),
     // Right side: progress + stats for selected file

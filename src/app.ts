@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass } from "./components"
 import { getFileContent, getOldFileContent } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -9,9 +9,15 @@ import {
   toggleDividerExpansion,
   openActionMenu,
   setPendingReview,
+  showToast,
+  clearToast,
+  createInitialState,
   type AppState,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
+import { openPrEditor, openPrCreator } from "./utils/editor"
+import { parseDiff, sortFiles } from "./utils/diff-parser"
+import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
 
 // App submodules
@@ -419,6 +425,175 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
+    handleShowAllFiles: () => {
+      vimState = createCursorState()
+      createLineMapping()
+    },
+    handleEditPr: async () => {
+      if (!prInfo) return
+
+      // Show loading toast while fetching diff
+      state = showToast(state, "Fetching PR diff...", "info")
+      render()
+
+      let suspended = false
+      try {
+        // Fetch the full PR diff for context
+        const diff = await getPrDiff(prInfo.number, prInfo.owner, prInfo.repo)
+
+        // Build file summary from current state
+        const fileSummary = state.files.map((f) => {
+          const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
+          return `${prefix} ${f.filename}`
+        })
+
+        // Clear toast and suspend TUI
+        state = clearToast(state)
+        renderer.suspend()
+        suspended = true
+
+        const result = await openPrEditor({
+          title: prInfo.title,
+          body: prInfo.body,
+          diff,
+          fileSummary,
+        })
+
+        renderer.resume()
+        suspended = false
+
+        if (!result) {
+          // User cancelled (empty title or editor error)
+          render()
+          return
+        }
+
+        // Check if anything changed
+        if (result.title === prInfo.title && result.body === prInfo.body) {
+          state = showToast(state, "No changes made", "info")
+          render()
+          setTimeout(() => {
+            state = clearToast(state)
+            render()
+          }, 2000)
+          return
+        }
+
+        // Update on GitHub
+        state = showToast(state, "Updating PR...", "info")
+        render()
+
+        await editPullRequest(prInfo.number, result.title, result.body, prInfo.owner, prInfo.repo)
+
+        // Update local state with new title/body
+        state = {
+          ...state,
+          prInfo: state.prInfo ? { ...state.prInfo, title: result.title, body: result.body } : null,
+        }
+
+        state = showToast(state, "PR updated", "success")
+        render()
+        setTimeout(() => {
+          state = clearToast(state)
+          render()
+        }, 2000)
+      } catch (err) {
+        if (suspended) renderer.resume()
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        state = showToast(state, `Error: ${msg}`, "error")
+        render()
+        setTimeout(() => {
+          state = clearToast(state)
+          render()
+        }, 3000)
+      }
+    },
+    handleCreatePr: async () => {
+      // Build file summary from current state
+      const fileSummary = state.files.map((f) => {
+        const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
+        return `${prefix} ${f.filename}`
+      })
+
+      // Get the raw diff for context
+      let rawDiff = ""
+      for (const f of state.files) {
+        rawDiff += f.content + "\n"
+      }
+
+      let suspended = false
+      try {
+        // Suspend TUI and open editor
+        renderer.suspend()
+        suspended = true
+
+        const result = await openPrCreator({
+          diff: rawDiff,
+          fileSummary,
+          branchInfo: state.branchInfo,
+        })
+
+        renderer.resume()
+        suspended = false
+
+        if (!result) {
+          // User cancelled
+          render()
+          return
+        }
+
+        // Create PR on GitHub
+        state = showToast(state, "Creating PR...", "info")
+        render()
+
+        const { prNumber, url } = await createPullRequest(result.title, result.body, result.draft)
+
+        state = showToast(state, `PR #${prNumber} created! Loading...`, "success")
+        render()
+
+        // Switch to PR mode: load the PR session and reinitialize state
+        const prSession = await loadPrSession(prNumber)
+
+        // Rebuild state as PR mode
+        const newFiles = sortFiles(parseDiff(prSession.diff))
+        const newFileTree = buildFileTree(newFiles)
+        const newSource = `gh:${prSession.prInfo.owner}/${prSession.prInfo.repo}#${prNumber}`
+
+        state = createInitialState(
+          newFiles,
+          newFileTree,
+          newSource,
+          `#${prNumber}: ${prSession.prInfo.title}`,
+          null,
+          state.session,
+          prSession.comments,
+          "pr",
+          prSession.prInfo
+        )
+
+        // Reset vim state and rebuild line mapping
+        vimState = createCursorState()
+        searchState = createSearchState()
+        currentHeadSha = prSession.headSha
+        lineMapping = buildLineMapping(state)
+
+        state = showToast(state, `PR #${prNumber} created: ${url}`, "success")
+        render()
+        setTimeout(() => {
+          state = clearToast(state)
+          render()
+        }, 4000)
+      } catch (err) {
+        if (suspended) renderer.resume()
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        state = showToast(state, `Error: ${msg}`, "error")
+        render()
+        setTimeout(() => {
+          state = clearToast(state)
+          render()
+        }, 3000)
+      }
+    },
   }
 
   function executeAction(actionId: string) {

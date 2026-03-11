@@ -298,6 +298,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       } else if (sequence === "gf") {
         externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
         return
+      } else if (sequence === "gP!" || sequence === "gp!") {
+        if (s.appMode === "pr" && s.prInfo) {
+          ctx.executeAction("edit-pr")
+        } else if (s.appMode === "local") {
+          ctx.executeAction("create-pr")
+        }
+        return
       } else if (sequence === "gR!" || sequence === "gr!") {
         ctx.refreshContext.handleRefresh()
         return

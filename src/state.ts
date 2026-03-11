@@ -132,6 +132,7 @@ export interface AppState {
   // Source info
   source: string
   description: string
+  branchInfo: string | null
   error: string | null
 
   // PR info (only in PR mode)
@@ -208,6 +209,7 @@ export function createInitialState(
     commentInputText: "",
     source,
     description,
+    branchInfo: null,
     error,
     prInfo,
     pendingReview: null,

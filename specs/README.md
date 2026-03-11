@@ -46,7 +46,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 016 | [React Reconciler Migration](./016-react-reconciler-migration.md) | Ready | Migrate to React-style JSX syntax |
 | 017 | [In-View Search](./017-in-view-search.md) | Draft | Search within current view |
 | 018 | [Submit Comments](./018-submit-comments.md) | Draft | Submit comments to GitHub |
-| 019 | [Create PR](./019-create-pr.md) | Draft | Create PRs from local changes |
+| 019 | [PR Management](./019-create-pr.md) | Done | Create PRs and edit PR title/description |
 | 020 | [Action Menu](./020-action-menu.md) | Draft | Action menu for common operations |
 | 021 | [Image Support](./021-image-support.md) | Draft | Drag-drop images in comments |
 | 022 | [Flash Navigation](./022-flash-navigation.md) | Draft | flash.nvim-style jump navigation with dim effect |
