@@ -40,7 +40,7 @@ Show comment resolution progress throughout the UI. Display resolved/total count
 The header shows overall comment resolution status:
 
 ```
-┌─ neoriff ─────────────────────────────────────────────────────────┐
+┌─ riff ─────────────────────────────────────────────────────────┐
 │ PR #1234  Add dark mode support                                   │
 │ alice/dark-mode -> main                      2/10 Comments        │
 └───────────────────────────────────────────────────────────────────┘

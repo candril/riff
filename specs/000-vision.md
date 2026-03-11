@@ -4,7 +4,7 @@
 
 ## Overview
 
-neoriff is a terminal-based code review companion focused on reviewing code with minimal distractions. It supports both GitHub PRs (via `gh` CLI) and local changes (commits, branches).
+riff is a terminal-based code review companion focused on reviewing code with minimal distractions. It supports both GitHub PRs (via `gh` CLI) and local changes (commits, branches).
 
 ## Core Principles
 
@@ -34,14 +34,14 @@ View ongoing conversations and review status:
 
 | Source | Command | Description |
 |--------|---------|-------------|
-| GitHub PR | `neoriff gh:owner/repo#123` | Fetch PR via `gh` CLI |
-| Local branch diff | `neoriff branch:main` | Compare current branch to target |
-| Local commits | `neoriff HEAD~3` | Review recent commits |
-| Uncommitted | `neoriff` | Review working directory changes |
+| GitHub PR | `riff gh:owner/repo#123` | Fetch PR via `gh` CLI |
+| Local branch diff | `riff branch:main` | Compare current branch to target |
+| Local commits | `riff HEAD~3` | Review recent commits |
+| Uncommitted | `riff` | Review working directory changes |
 
 ## Comment Workflow
 
-1. Add comments while reviewing (stored locally in `.neoriff/`)
+1. Add comments while reviewing (stored locally in `.riff/`)
 2. Preview pending review
 3. Submit as GitHub review (or keep local)
 4. Indicator shows sync status: `[local]` vs `[synced]`
@@ -51,4 +51,4 @@ View ongoing conversations and review status:
 - **UI**: OpenTUI components (Diff, ScrollBox, Text, Box, Input)
 - **GitHub**: `gh` CLI for API access
 - **Local VCS**: `git` / `jj` commands
-- **Storage**: Local JSON files in `.neoriff/`
+- **Storage**: Local JSON files in `.riff/`

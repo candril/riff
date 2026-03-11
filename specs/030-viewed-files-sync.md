@@ -77,7 +77,7 @@ For tighter layouts, use single-character icons:
 ### Header Progress
 
 ```
-┌─ neoriff ─────────────────────────────────────────────────────────┐
+┌─ riff ─────────────────────────────────────────────────────────┐
 │ PR #1234  Add dark mode                                           │
 │ alice/dark-mode -> main       3/5 Viewed  2/10 Comments           │
 └───────────────────────────────────────────────────────────────────┘

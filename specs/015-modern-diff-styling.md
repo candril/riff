@@ -250,7 +250,7 @@ src/
    3 │ export function Header() {
    4+│   return Box(
    5+│     { height: 1, backgroundColor: "#1a1b26" },
-   6+│     Text({ content: "neoriff", fg: "#7aa2f7" })
+   6+│     Text({ content: "riff", fg: "#7aa2f7" })
    7+│   )
    8 │ }
    9 │ 

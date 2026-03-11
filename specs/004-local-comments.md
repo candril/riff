@@ -20,7 +20,7 @@ Add comments on specific lines in a diff. Comments are stored locally and can la
 - **Save comment**: Save and quit editor to save, empty content to cancel
 - **View comments**: Show indicator on lines with comments
 - **List comments**: `C` to show all comments in current file
-- **Markdown storage**: Comments saved as `.neoriff/comments/*.md` with frontmatter
+- **Markdown storage**: Comments saved as `.riff/comments/*.md` with frontmatter
 
 ### P2 - Edit & Delete
 
@@ -84,7 +84,7 @@ Comments are stored as individual markdown files with YAML frontmatter. This mak
 - Linkable to specific commits
 
 ```
-.neoriff/
+.riff/
 ├── session.toml              # Session metadata (source, reviewMode, etc.)
 └── comments/
     ├── a1b2c3d4.md           # Comment files named by ID
@@ -149,7 +149,7 @@ reviewMode = "single"
 import { join } from "path"
 import { readdir, mkdir } from "fs/promises"
 
-const STORAGE_DIR = ".neoriff"
+const STORAGE_DIR = ".riff"
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.toml"
 
@@ -377,7 +377,7 @@ src/
     └── CommentsList.ts   # Comments overlay
 
 # Local storage layout
-.neoriff/
+.riff/
 ├── session.toml          # Session metadata
 └── comments/
     ├── a1b2c3d4.md       # Individual comment files

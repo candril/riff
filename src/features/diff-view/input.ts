@@ -34,6 +34,7 @@ export interface DiffViewInputContext {
   handleExpandDivider: () => void
   handleToggleViewed: (advanceToNext: boolean) => void
   handleSubmitSingleComment: (comment: Comment) => void
+  handleOpenThreadPreview: () => boolean  // Returns true if thread preview was opened
 }
 
 /**
@@ -67,9 +68,11 @@ export function handleInput(
     return true
   }
 
-  // Handle Enter to expand/collapse dividers
+  // Handle Enter: show thread preview if comments exist, otherwise expand/collapse dividers
   if (key.name === "return" || key.name === "enter") {
-    ctx.handleExpandDivider()
+    if (!ctx.handleOpenThreadPreview()) {
+      ctx.handleExpandDivider()
+    }
     return true
   }
 

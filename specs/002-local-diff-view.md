@@ -4,7 +4,7 @@
 
 ## Description
 
-Display a diff of local changes (uncommitted or between commits/branches) with syntax highlighting. This is the foundation for all diff viewing in neoriff.
+Display a diff of local changes (uncommitted or between commits/branches) with syntax highlighting. This is the foundation for all diff viewing in riff.
 
 ## Out of Scope
 
@@ -25,9 +25,9 @@ Display a diff of local changes (uncommitted or between commits/branches) with s
 
 ### P2 - Branch/Commit Diffs
 
-- **Branch diff**: `neoriff branch:main` compares current to main
-- **Commit range**: `neoriff HEAD~3..HEAD` shows recent commits
-- **Single commit**: `neoriff HEAD~1` shows last commit
+- **Branch diff**: `riff branch:main` compares current to main
+- **Commit range**: `riff HEAD~3..HEAD` shows recent commits
+- **Single commit**: `riff HEAD~1` shows last commit
 - **Support JJ revset**: Allow jj revsets as input `@-` or `..trunk()`
 
 ### P3 - Polish
@@ -76,7 +76,7 @@ renderer.root.add(
     // Header
     Box(
       { height: 1, backgroundColor: "#1a1b26" },
-      Text({ content: " neoriff - local changes", fg: "#7aa2f7" })
+      Text({ content: " riff - local changes", fg: "#7aa2f7" })
     ),
     // Diff view
     ScrollBox(
@@ -136,14 +136,14 @@ src/
 
 ```bash
 # Uncommitted changes
-neoriff
+riff
 
 # Compare to main branch
-neoriff branch:main
+riff branch:main
 
 # Last 3 commits
-neoriff HEAD~3
+riff HEAD~3
 
 # Specific commit range
-neoriff abc123..def456
+riff abc123..def456
 ```

@@ -10,7 +10,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { VimDiffView } from "../../components"
 import type { PrInfo } from "../../providers/github"
-import { getFlatTreeItems } from "../../components"
+import { getVisibleFlatTreeItems } from "../../components"
 import {
   selectFile,
   isFileViewed,
@@ -51,12 +51,30 @@ export interface FileNavigationContext {
 
 /**
  * Get files in tree order (as they appear visually in the file tree).
+ * Respects ignore patterns — when hidden files are not shown, ignored files are excluded.
  */
 function getFilesInTreeOrder(state: AppState): number[] {
-  const flatItems = getFlatTreeItems(state.fileTree, state.files)
+  const flatItems = getVisibleFlatTreeItems(
+    state.fileTree,
+    state.files,
+    state.ignoredFiles,
+    state.showHiddenFiles
+  )
   return flatItems
     .filter((item) => item.fileIndex !== undefined)
     .map((item) => item.fileIndex!)
+}
+
+/**
+ * Get the visible flat tree items for the given state (respects ignore patterns).
+ */
+function getVisibleItems(state: AppState) {
+  return getVisibleFlatTreeItems(
+    state.fileTree,
+    state.files,
+    state.ignoredFiles,
+    state.showHiddenFiles
+  )
 }
 
 /**
@@ -85,7 +103,7 @@ export function navigateFileSelection(direction: 1 | -1, ctx: FileNavigationCont
     if (newIndex !== undefined) {
       ctx.setState((s) => {
         const selected = selectFile(s, newIndex)
-        const flatItems = getFlatTreeItems(s.fileTree, s.files)
+        const flatItems = getVisibleItems(s)
         const treeIndex = flatItems.findIndex((item) => item.fileIndex === newIndex)
         return treeIndex !== -1 ? { ...selected, treeHighlightIndex: treeIndex } : selected
       })
@@ -100,7 +118,7 @@ export function navigateFileSelection(direction: 1 | -1, ctx: FileNavigationCont
     const newFileIndex = treeOrder[newPosInTree]!
     ctx.setState((s) => {
       const selected = selectFile(s, newFileIndex)
-      const flatItems = getFlatTreeItems(s.fileTree, s.files)
+      const flatItems = getVisibleItems(s)
       const treeIndex = flatItems.findIndex((item) => item.fileIndex === newFileIndex)
       return treeIndex !== -1 ? { ...selected, treeHighlightIndex: treeIndex } : selected
     })
@@ -144,7 +162,7 @@ function navigateToNextFile(currentFilename: string, ctx: FileNavigationContext)
         ctx.ensureCursorVisible()
       }
 
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
+      const flatItems = getVisibleItems(state)
       const treeIndex = flatItems.findIndex((item) => item.fileIndex === fileIndex)
       if (treeIndex !== -1) {
         ctx.setState((s) => ({ ...s, treeHighlightIndex: treeIndex }))
@@ -166,7 +184,7 @@ function navigateToNextFile(currentFilename: string, ctx: FileNavigationContext)
       ctx.ensureCursorVisible()
     }
 
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleItems(state)
     const treeIndex = flatItems.findIndex((item) => item.fileIndex === nextFileIndex)
     if (treeIndex !== -1) {
       ctx.setState((s) => ({ ...s, treeHighlightIndex: treeIndex }))
@@ -225,7 +243,7 @@ export function navigateToUnviewedFile(direction: 1 | -1, ctx: FileNavigationCon
         ctx.createLineMapping()
       }
 
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
+      const flatItems = getVisibleItems(state)
       const treeIndex = flatItems.findIndex((item) => item.fileIndex === fileIndex)
       if (treeIndex !== -1) {
         ctx.setState((s) => ({ ...s, treeHighlightIndex: treeIndex }))
@@ -296,7 +314,7 @@ export function navigateToOutdatedFile(direction: 1 | -1, ctx: FileNavigationCon
         ctx.createLineMapping()
       }
 
-      const flatItems = getFlatTreeItems(state.fileTree, state.files)
+      const flatItems = getVisibleItems(state)
       const treeIndex = flatItems.findIndex((item) => item.fileIndex === fileIndex)
       if (treeIndex !== -1) {
         ctx.setState((s) => ({ ...s, treeHighlightIndex: treeIndex }))

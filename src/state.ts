@@ -1,9 +1,10 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats } from "./types"
-import type { PrInfo, PendingReview } from "./providers/github"
+import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
+import type { IgnoreMatcher } from "./utils/ignore"
 
 /**
  * UI mode for the app
@@ -86,6 +87,19 @@ export interface FilePickerState {
 }
 
 /**
+ * Thread preview state (quick view of comment thread from diff view)
+ */
+export interface ThreadPreviewState {
+  open: boolean
+  /** Comments to display in the thread preview */
+  comments: Comment[]
+  /** Filename where the thread is located */
+  filename: string
+  /** Line number in the file */
+  line: number
+}
+
+/**
  * PR info panel state
  */
 export interface PRInfoPanelState {
@@ -93,6 +107,18 @@ export interface PRInfoPanelState {
   scrollOffset: number
   loading: boolean
   cursorIndex: number  // Currently selected item (0 = first commit)
+}
+
+/**
+ * Commit picker state
+ */
+export interface CommitPickerState {
+  /** Whether the commit picker is open */
+  open: boolean
+  /** Current search query */
+  query: string
+  /** Currently selected index (0 = "All commits" option) */
+  selectedIndex: number
 }
 
 /**
@@ -138,6 +164,9 @@ export interface AppState {
   // PR info (only in PR mode)
   prInfo: PrInfo | null
   
+  // Commits in this diff (PR commits or local commits)
+  commits: PrCommit[]
+  
   // Pending review from GitHub (draft review not yet submitted)
   pendingReview: PendingReview | null
 
@@ -174,6 +203,23 @@ export interface AppState {
   
   // PR info panel state
   prInfoPanel: PRInfoPanelState
+  
+  // Thread preview state (quick view from diff view)
+  threadPreview: ThreadPreviewState
+  
+  // Ignore patterns state
+  ignoredFiles: Set<string>          // Filenames matching ignore patterns
+  showHiddenFiles: boolean           // Toggle to show/hide ignored files in tree
+  ignoreMatcher: IgnoreMatcher | null  // The matcher instance (null = no patterns)
+  
+  // Commit picker state
+  commitPicker: CommitPickerState
+  
+  // Commit filtering - view changes from a specific commit
+  viewingCommit: string | null       // null = all commits, string = specific commit SHA
+  allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
+  allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
+  commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
 }
 
 /**
@@ -188,8 +234,14 @@ export function createInitialState(
   session: ReviewSession | null = null,
   comments: Comment[] = [],
   appMode: AppMode = "local",
-  prInfo: PrInfo | null = null
+  prInfo: PrInfo | null = null,
+  ignoreMatcher: IgnoreMatcher | null = null
 ): AppState {
+  // Compute ignored files from matcher
+  const ignoredFiles = ignoreMatcher
+    ? ignoreMatcher.computeIgnoredSet(files)
+    : new Set<string>()
+
   return {
     appMode,
     files,
@@ -212,6 +264,7 @@ export function createInitialState(
     branchInfo: null,
     error,
     prInfo,
+    commits: [],
     pendingReview: null,
     fileContentCache: {},
     expandedDividers: new Set(),
@@ -245,13 +298,31 @@ export function createInitialState(
       selectedIndex: 0,
     },
     fileStatuses: new Map(),
-    viewedStats: { total: files.length, viewed: 0, outdated: 0 },
+    viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
     prInfoPanel: {
       open: false,
       scrollOffset: 0,
       loading: false,
       cursorIndex: 0,
     },
+    threadPreview: {
+      open: false,
+      comments: [],
+      filename: "",
+      line: 0,
+    },
+    ignoredFiles,
+    showHiddenFiles: false,
+    ignoreMatcher,
+    commitPicker: {
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+    viewingCommit: null,
+    allFiles: files,
+    allFileTree: fileTree,
+    commitDiffCache: new Map(),
   }
 }
 
@@ -1188,7 +1259,7 @@ export function toggleFileViewed(state: AppState, filename: string): AppState {
   return {
     ...state,
     fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files),
+    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
   }
 }
 
@@ -1202,7 +1273,7 @@ export function setFileViewedStatus(state: AppState, status: FileReviewStatus): 
   return {
     ...state,
     fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files),
+    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
   }
 }
 
@@ -1221,7 +1292,7 @@ export function setFileViewed(state: AppState, filename: string, viewed: boolean
   return {
     ...state,
     fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files),
+    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
   }
 }
 
@@ -1249,7 +1320,7 @@ export function loadFileStatuses(state: AppState, statuses: FileReviewStatus[]):
   return {
     ...state,
     fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files),
+    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
   }
 }
 
@@ -1260,21 +1331,28 @@ export function updateFileStatuses(state: AppState, statuses: Map<string, FileRe
   return {
     ...state,
     fileStatuses: statuses,
-    viewedStats: recomputeViewedStats(statuses, state.files),
+    viewedStats: recomputeViewedStats(statuses, state.files, state.ignoredFiles),
   }
 }
 
 /**
- * Recompute viewed stats from statuses and files
+ * Recompute viewed stats from statuses and files.
+ * Excludes ignored files from the total count.
  */
 function recomputeViewedStats(
   statuses: Map<string, FileReviewStatus>,
-  files: DiffFile[]
+  files: DiffFile[],
+  ignoredFiles?: Set<string>
 ): ViewedStats {
+  let total = 0
   let viewed = 0
   let outdated = 0
   
   for (const file of files) {
+    // Skip ignored files from the count
+    if (ignoredFiles?.has(file.filename)) continue
+    
+    total++
     const status = statuses.get(file.filename)
     if (status?.viewed) {
       viewed++
@@ -1285,7 +1363,7 @@ function recomputeViewedStats(
   }
   
   return {
-    total: files.length,
+    total,
     viewed,
     outdated,
   }
@@ -1367,5 +1445,156 @@ export function movePRInfoPanelCursor(state: AppState, delta: number, maxIndex: 
       ...state.prInfoPanel,
       cursorIndex: newIndex,
     },
+  }
+}
+
+// ============================================================================
+// Ignore Patterns State
+// ============================================================================
+
+/**
+ * Open the thread preview for a specific line's comments
+ */
+export function openThreadPreview(
+  state: AppState,
+  comments: Comment[],
+  filename: string,
+  line: number
+): AppState {
+  return {
+    ...state,
+    threadPreview: {
+      open: true,
+      comments,
+      filename,
+      line,
+    },
+  }
+}
+
+/**
+ * Close the thread preview
+ */
+export function closeThreadPreview(state: AppState): AppState {
+  return {
+    ...state,
+    threadPreview: {
+      ...state.threadPreview,
+      open: false,
+    },
+  }
+}
+
+/**
+ * Toggle visibility of hidden (ignored) files in the file tree
+ */
+export function toggleShowHiddenFiles(state: AppState): AppState {
+  return {
+    ...state,
+    showHiddenFiles: !state.showHiddenFiles,
+  }
+}
+
+// ============================================================================
+// Commit Picker State
+// ============================================================================
+
+/**
+ * Open the commit picker
+ */
+export function openCommitPicker(state: AppState): AppState {
+  return {
+    ...state,
+    commitPicker: {
+      open: true,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Close the commit picker
+ */
+export function closeCommitPicker(state: AppState): AppState {
+  return {
+    ...state,
+    commitPicker: {
+      ...state.commitPicker,
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Update commit picker query
+ */
+export function setCommitPickerQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    commitPicker: {
+      ...state.commitPicker,
+      query,
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Move commit picker selection (wraps around)
+ */
+export function moveCommitPickerSelection(state: AppState, delta: number, maxIndex: number): AppState {
+  let newIndex = state.commitPicker.selectedIndex + delta
+  if (newIndex < 0) newIndex = maxIndex
+  else if (newIndex > maxIndex) newIndex = 0
+  return {
+    ...state,
+    commitPicker: {
+      ...state.commitPicker,
+      selectedIndex: newIndex,
+    },
+  }
+}
+
+/**
+ * Set the viewing commit and swap files/fileTree accordingly.
+ * When switching to a specific commit, files/fileTree come from the cache.
+ * When switching to null (all commits), restore allFiles/allFileTree.
+ */
+export function setViewingCommit(
+  state: AppState,
+  commitSha: string | null,
+): AppState {
+  if (commitSha === null) {
+    // Restore full PR diff
+    return {
+      ...state,
+      viewingCommit: null,
+      files: state.allFiles,
+      fileTree: state.allFileTree,
+      selectedFileIndex: null,
+      cursorLine: 1,
+      collapsedFiles: new Set(),
+      collapsedHunks: new Set(),
+      expandedDividers: new Set(),
+    }
+  }
+
+  // Switch to a specific commit's diff
+  const cached = state.commitDiffCache.get(commitSha)
+  if (!cached) return state  // Should not happen — caller caches first
+
+  return {
+    ...state,
+    viewingCommit: commitSha,
+    files: cached.files,
+    fileTree: cached.fileTree,
+    selectedFileIndex: null,
+    cursorLine: 1,
+    collapsedFiles: new Set(),
+    collapsedHunks: new Set(),
+    expandedDividers: new Set(),
   }
 }

@@ -105,6 +105,25 @@ function computeDirViewedStatusForFiles(
   }
 }
 
+/**
+ * Remove directory items from flattened tree that have no visible (non-ignored) file children.
+ * A directory is "empty" if all its descendant files are ignored.
+ */
+function removeEmptyDirs(
+  flatItems: FlatTreeItem[],
+  files: DiffFile[],
+  ignoredFiles: Set<string>
+): FlatTreeItem[] {
+  // For each directory node, check if it has any non-ignored files under it
+  return flatItems.filter(item => {
+    if (!item.node.isDirectory) return true
+    
+    // Check if any file under this directory path is not ignored
+    const dirPrefix = item.node.path + "/"
+    return files.some(f => f.filename.startsWith(dirPrefix) && !ignoredFiles.has(f.filename))
+  })
+}
+
 export class FileTreePanel {
   private renderer: CliRenderer
   private container: BoxRenderable
@@ -112,6 +131,7 @@ export class FileTreePanel {
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
   private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable; markerText: TextRenderable }> = new Map()
+  private hiddenCountRenderable: { box: BoxRenderable; text: TextRenderable } | null = null
   private width: number
 
   // Current state
@@ -119,6 +139,8 @@ export class FileTreePanel {
   private currentFileTree: FileTreeNode[] = []
   private currentFileStatuses: Map<string, FileReviewStatus> = new Map()
   private currentCollapsedFiles: Set<string> = new Set()
+  private currentIgnoredFiles: Set<string> = new Set()
+  private currentShowHidden: boolean = false
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private focused: boolean = false
@@ -192,6 +214,8 @@ export class FileTreePanel {
    * @param selectedFileIndex - Which file is selected (scopes views), null = all files
    * @param fileStatuses - Map of file viewed/reviewed statuses
    * @param collapsedFiles - Set of filenames that are collapsed in diff view
+   * @param ignoredFiles - Set of filenames that match ignore patterns
+   * @param showHiddenFiles - Whether to show ignored files in the tree
    */
   update(
     files: DiffFile[],
@@ -200,28 +224,41 @@ export class FileTreePanel {
     selectedFileIndex: number | null,
     focused: boolean,
     fileStatuses?: Map<string, FileReviewStatus>,
-    collapsedFiles?: Set<string>
+    collapsedFiles?: Set<string>,
+    ignoredFiles?: Set<string>,
+    showHiddenFiles?: boolean
   ): void {
+    const newIgnored = ignoredFiles ?? new Set<string>()
+    const newShowHidden = showHiddenFiles ?? false
+    
     const structureChanged = 
       files !== this.currentFiles || 
-      fileTree !== this.currentFileTree
+      fileTree !== this.currentFileTree ||
+      newIgnored !== this.currentIgnoredFiles ||
+      newShowHidden !== this.currentShowHidden
 
     this.currentFiles = files
     this.currentFileTree = fileTree
     this.currentFileStatuses = fileStatuses ?? new Map()
     this.currentCollapsedFiles = collapsedFiles ?? new Set()
+    this.currentIgnoredFiles = newIgnored
+    this.currentShowHidden = newShowHidden
     this.highlightIndex = highlightIndex
     this.selectedFileIndex = selectedFileIndex
     this.focused = focused
 
-    // Calculate review progress
-    const total = files.length
+    // Calculate review progress (exclude ignored files)
+    let total = 0
     let reviewed = 0
     for (const file of files) {
+      if (newIgnored.has(file.filename)) continue
+      total++
       if (this.currentFileStatuses.get(file.filename)?.viewed) {
         reviewed++
       }
     }
+
+    const hiddenCount = newIgnored.size
 
     // Update header with progress
     const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
@@ -230,15 +267,30 @@ export class FileTreePanel {
     this.headerText.fg = focused ? colors.primary : colors.textMuted
     this.container.borderColor = focused ? colors.primary : colors.border
 
-    // Get flat items
-    const flatItems = flattenTree(fileTree, files)
+    // Get flat items, filtering out ignored files (unless showing hidden)
+    let flatItems = flattenTree(fileTree, files)
+    if (!newShowHidden && hiddenCount > 0) {
+      flatItems = flatItems.filter(item => {
+        // Keep directory nodes (they might contain non-ignored files)
+        if (item.node.isDirectory) return true
+        // Filter out ignored file nodes
+        if (item.node.file && newIgnored.has(item.node.file.filename)) return false
+        return true
+      })
+      // Remove directory nodes that have no visible children
+      flatItems = removeEmptyDirs(flatItems, files, newIgnored)
+      // Re-index
+      flatItems.forEach((item, i) => { item.index = i })
+    }
 
     if (structureChanged) {
       // Rebuild all items
       this.rebuildItems(flatItems)
+      this.updateHiddenCount(hiddenCount, newShowHidden)
     } else {
       // Just update styles (selection, current file highlighting)
       this.updateItemStyles(flatItems)
+      this.updateHiddenCount(hiddenCount, newShowHidden)
     }
   }
 
@@ -449,6 +501,35 @@ export class FileTreePanel {
       renderables.markerText.fg = markerColor
       renderables.text.content = ` ${indent}${icon}${displayName}`
       renderables.text.fg = nameFg
+    }
+  }
+
+  /**
+   * Update the "(+N hidden)" indicator at the bottom of the tree
+   */
+  private updateHiddenCount(hiddenCount: number, showHidden: boolean): void {
+    // Remove existing hidden count renderable if present
+    if (this.hiddenCountRenderable) {
+      this.content.remove(this.hiddenCountRenderable.box.id)
+      this.hiddenCountRenderable = null
+    }
+
+    // Show hidden count indicator if there are hidden files and we're not showing them
+    if (hiddenCount > 0 && !showHidden) {
+      const box = new BoxRenderable(this.renderer, {
+        id: "tree-hidden-count",
+        height: 1,
+        width: "100%",
+        paddingLeft: 1,
+      })
+      const text = new TextRenderable(this.renderer, {
+        id: "tree-hidden-count-text",
+        content: `(+${hiddenCount} hidden)`,
+        fg: colors.textMuted,
+      })
+      box.add(text)
+      this.content.add(box)
+      this.hiddenCountRenderable = { box, text }
     }
   }
 

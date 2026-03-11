@@ -635,8 +635,8 @@ export function parsePrEditOutput(content: string): PrEditResult | null {
 export async function openPrEditor(options: PrEditOptions): Promise<PrEditResult | null> {
   const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
 
-  // Use .diff extension so the diff portion gets syntax highlighting
-  const tmpFile = join(tmpdir(), `riff-pr-edit-${randomUUID()}.diff`)
+  // Use .md extension so the title/description get markdown syntax highlighting
+  const tmpFile = join(tmpdir(), `riff-pr-edit-${randomUUID()}.md`)
   const content = buildPrEditContent(options)
 
   await Bun.write(tmpFile, content)

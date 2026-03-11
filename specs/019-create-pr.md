@@ -4,7 +4,7 @@
 
 ## Description
 
-Create new GitHub PRs and edit existing PR metadata from neoriff. Both flows use `$EDITOR` with a git-commit-verbose-style template showing the full diff as context.
+Create new GitHub PRs and edit existing PR metadata from riff. Both flows use `$EDITOR` with a git-commit-verbose-style template showing the full diff as context.
 
 ## Out of Scope
 

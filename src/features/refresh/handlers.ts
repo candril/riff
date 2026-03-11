@@ -9,6 +9,7 @@ import type { PrInfo } from "../../providers/github"
 import type { AppMode } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { SearchState } from "../../vim-diff/search-state"
+import type { IgnoreMatcher } from "../../utils/ignore"
 import {
   showToast,
   clearToast,
@@ -70,19 +71,32 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       const newFileTree = buildFileTree(newFiles)
 
       // Re-initialize state with new data
-      ctx.setState(() =>
-        createInitialState(
+      ctx.setState(() => {
+        const prevState = ctx.getState()
+        const newState = createInitialState(
           newFiles,
           newFileTree,
-          state.source,
+          prevState.source,
           `#${prNumber}: ${newPrInfo.title}`,
           null, // no error
-          state.session,
+          prevState.session,
           newComments,
           "pr",
-          newPrInfo
+          newPrInfo,
+          prevState.ignoreMatcher
         )
-      )
+        // Set commits from refreshed PR info
+        const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
+        // Auto-collapse ignored files
+        if (withCommits.ignoredFiles.size > 0) {
+          const newCollapsed = new Set(withCommits.collapsedFiles)
+          for (const filename of withCommits.ignoredFiles) {
+            newCollapsed.add(filename)
+          }
+          return { ...withCommits, collapsedFiles: newCollapsed }
+        }
+        return withCommits
+      })
 
       // Collapse resolved threads
       const threads = groupIntoThreads(newComments)
@@ -142,9 +156,19 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       const newFiles = sortFiles(parseDiff(newDiff))
       const newFileTree = buildFileTree(newFiles)
 
-      ctx.setState(() =>
-        createInitialState(newFiles, newFileTree, state.source, newDescription, null, state.session, newComments, "local", null)
-      )
+      ctx.setState(() => {
+        const prevState = ctx.getState()
+        const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, newComments, "local", null, prevState.ignoreMatcher)
+        // Auto-collapse ignored files
+        if (newState.ignoredFiles.size > 0) {
+          const newCollapsed = new Set(newState.collapsedFiles)
+          for (const filename of newState.ignoredFiles) {
+            newCollapsed.add(filename)
+          }
+          return { ...newState, collapsedFiles: newCollapsed }
+        }
+        return newState
+      })
 
       ctx.setVimState(createCursorState())
       ctx.rebuildLineMapping()

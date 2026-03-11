@@ -16,7 +16,7 @@ Load user configuration from a TOML file. All keybindings are configurable and s
 
 ### P1 - MVP
 
-- **Load config**: Read `~/.config/neoriff/config.toml` on startup
+- **Load config**: Read `~/.config/riff/config.toml` on startup
 - **Default config**: Ship sensible defaults, work without config file
 - **All keybindings**: Every action configurable via `[keys]` section
 - **Key sequences**: Support multi-key bindings like `g g`, `]f`, `]F`
@@ -31,26 +31,26 @@ Load user configuration from a TOML file. All keybindings are configurable and s
 ### P3 - Polish
 
 - **Config validation**: Warn on invalid keys/values at startup
-- **Generate default**: `neoriff --init-config` creates commented config
-- **Config dump**: `neoriff --dump-config` shows current effective config
+- **Generate default**: `riff --init-config` creates commented config
+- **Config dump**: `riff --dump-config` shows current effective config
 
 ## Technical Notes
 
 ### Config File Location
 
 ```
-~/.config/neoriff/config.toml
+~/.config/riff/config.toml
 ```
 
 Fallback order:
-1. `$NEORIFF_CONFIG` environment variable
-2. `$XDG_CONFIG_HOME/neoriff/config.toml`
-3. `~/.config/neoriff/config.toml`
+1. `$RIFF_CONFIG` environment variable
+2. `$XDG_CONFIG_HOME/riff/config.toml`
+3. `~/.config/riff/config.toml`
 
 ### Full Default Config
 
 ```toml
-# neoriff configuration
+# riff configuration
 
 [view]
 default_mode = "unified"      # "unified" | "split"
@@ -256,11 +256,11 @@ export async function loadConfig(): Promise<Config> {
 }
 
 function getConfigPath(): string {
-  if (process.env.NEORIFF_CONFIG) {
-    return process.env.NEORIFF_CONFIG
+  if (process.env.RIFF_CONFIG) {
+    return process.env.RIFF_CONFIG
   }
   const xdgConfig = process.env.XDG_CONFIG_HOME || join(homedir(), ".config")
-  return join(xdgConfig, "neoriff", "config.toml")
+  return join(xdgConfig, "riff", "config.toml")
 }
 
 function deepMerge<T extends object>(target: T, source: Partial<T>): T {
@@ -436,7 +436,7 @@ src/
 ### Example Custom Config
 
 ```toml
-# ~/.config/neoriff/config.toml
+# ~/.config/riff/config.toml
 
 # I prefer split view by default
 [view]

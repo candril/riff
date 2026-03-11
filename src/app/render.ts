@@ -11,8 +11,10 @@ import {
   StatusBar,
   ActionMenu,
   ReviewPreview,
+  ThreadPreview,
   Toast,
   FilePicker,
+  CommitPicker,
   SyncPreview,
   SearchPrompt,
   gatherSyncItems,
@@ -30,6 +32,7 @@ import type { SearchState } from "../vim-diff/search-state"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
+import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
 
 export interface RenderContext {
@@ -104,6 +107,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         hints.push("Ctrl+b: panel")
       }
       hints.push("q: quit")
+    }
+
+    // Add hidden files indicator
+    const hiddenCount = state.ignoredFiles.size
+    if (hiddenCount > 0 && !state.showHiddenFiles) {
+      hints.push(`+${hiddenCount} hidden`)
     }
 
     // Update file tree panel state
@@ -184,6 +193,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // Get filtered files for file picker
     const filteredFiles = filePicker.getFilteredFiles(state)
 
+    // Get filtered commits for commit picker
+    const filteredCommits = commitPicker.getFilteredCommits(state)
+
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
     ctx.renderer.root.add(
@@ -200,6 +212,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           prInfo: state.prInfo,
           reviewProgress: getReviewProgress(state),
           branchInfo: state.branchInfo,
+          viewingCommit: state.viewingCommit,
+          commits: state.commits,
         }),
         Box(
           {
@@ -254,11 +268,27 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               state: state.syncPreview,
             })
           : null,
+        state.threadPreview.open
+          ? ThreadPreview({
+              comments: state.threadPreview.comments,
+              filename: state.threadPreview.filename,
+              line: state.threadPreview.line,
+              renderer: ctx.renderer,
+            })
+          : null,
         state.filePicker.open
           ? FilePicker({
               query: state.filePicker.query,
               files: filteredFiles,
               selectedIndex: state.filePicker.selectedIndex,
+            })
+          : null,
+        state.commitPicker.open
+          ? CommitPicker({
+              query: state.commitPicker.query,
+              commits: filteredCommits,
+              selectedIndex: state.commitPicker.selectedIndex,
+              viewingCommit: state.viewingCommit,
             })
           : null,
       )

@@ -1,4 +1,5 @@
 import { $ } from "bun"
+import type { PrCommit } from "./github"
 
 export type VcsType = "git" | "jj" | "none"
 
@@ -270,4 +271,101 @@ export async function getOldFileContent(
   } catch {
     return null
   }
+}
+
+// ============================================================================
+// Local Commit Enumeration
+// ============================================================================
+
+/**
+ * List commits in the local diff range.
+ * Returns commits in newest-first order matching PrCommit shape.
+ */
+export async function getLocalCommits(target?: string): Promise<PrCommit[]> {
+  const vcs = await detectVcs()
+
+  if (vcs === "jj") {
+    return getJjCommits(target)
+  }
+  if (vcs === "git") {
+    return getGitCommits(target)
+  }
+  return []
+}
+
+/**
+ * Get commits from jj between trunk and working copy
+ */
+async function getJjCommits(target?: string): Promise<PrCommit[]> {
+  try {
+    const revset = target || "trunk()..@"
+    // Use template to get structured output (NUL-separated fields, newline-separated records)
+    const template = 'commit_id.short(7) ++ "\\x00" ++ description.first_line() ++ "\\x00" ++ author.name() ++ "\\x00" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\n"'
+    const result = await $`jj log -r ${revset} --no-graph -T ${template}`.nothrow()
+    if (result.exitCode !== 0) return []
+
+    const lines = result.text().trim().split("\n").filter(Boolean)
+    return lines.map((line) => {
+      const [sha = "", message = "", author = "", date = ""] = line.split("\x00")
+      return { sha, message, author, date }
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Get commits from git in the diff range
+ */
+async function getGitCommits(target?: string): Promise<PrCommit[]> {
+  try {
+    let range: string
+    if (target) {
+      if (target.startsWith("branch:")) {
+        range = `${target.slice(7)}..HEAD`
+      } else if (target.includes("..")) {
+        range = target
+      } else {
+        // Single commit — just that one
+        range = `${target}~1..${target}`
+      }
+    } else {
+      // Default: commits on current branch not on main/master
+      // Try main first, fall back to master
+      const mainCheck = await $`git rev-parse --verify main`.quiet().nothrow()
+      const baseBranch = mainCheck.exitCode === 0 ? "main" : "master"
+      range = `${baseBranch}..HEAD`
+    }
+
+    const format = "%h%x00%s%x00%an%x00%aI"
+    const result = await $`git log ${range} --format=${format}`.nothrow()
+    if (result.exitCode !== 0) return []
+
+    const lines = result.text().trim().split("\n").filter(Boolean)
+    return lines.map((line) => {
+      const [sha = "", message = "", author = "", date = ""] = line.split("\x00")
+      return { sha, message, author, date }
+    })
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Fetch the diff for a specific local commit
+ */
+export async function getLocalCommitDiff(sha: string, target?: string): Promise<string> {
+  const vcs = await detectVcs()
+
+  if (vcs === "jj") {
+    // For jj, the sha is a short commit id
+    const result = await $`jj diff --git -r ${sha}`.nothrow()
+    if (result.exitCode !== 0) return ""
+    return result.text()
+  }
+
+  // git: show just the diff for that commit
+  const result = await $`git show ${sha} --format= --patch`.nothrow()
+  if (result.exitCode !== 0) return ""
+  return result.text()
 }

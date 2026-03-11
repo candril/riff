@@ -7,7 +7,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { FileTreePanel } from "../../components/FileTreePanel"
-import { getFlatTreeItems } from "../../components"
+import { getVisibleFlatTreeItems } from "../../components"
 import {
   moveTreeHighlight,
   updateFileTree,
@@ -43,7 +43,12 @@ export function handleInput(
     return false
   }
 
-  const flatItems = getFlatTreeItems(ctx.state.fileTree, ctx.state.files)
+  const flatItems = getVisibleFlatTreeItems(
+    ctx.state.fileTree,
+    ctx.state.files,
+    ctx.state.ignoredFiles,
+    ctx.state.showHiddenFiles
+  )
   const panel = ctx.getPanel()
 
   switch (key.name) {

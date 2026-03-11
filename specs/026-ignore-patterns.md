@@ -8,7 +8,7 @@ Hide generated and noisy files from code review. Files matching configurable glo
 
 ## Out of Scope
 
-- Per-project config (`.neoriff/config.toml` in repo)
+- Per-project config (`.riff/config.toml` in repo)
 - Per-session override to "un-ignore" specific files
 - Separate "Generated Files" section in file tree
 - Dimmed display mode (show but grey out)
@@ -17,7 +17,7 @@ Hide generated and noisy files from code review. Files matching configurable glo
 
 ### P1 - MVP
 
-- **Global config**: Define patterns in `~/.config/neoriff/config.toml`
+- **Global config**: Define patterns in `~/.config/riff/config.toml`
 - **Glob patterns**: Standard glob syntax (`**/__generated__/**`, `*.lock`, etc.)
 - **Hidden in file tree**: Matching files don't appear in file list
 - **Hidden file count**: Show "(+N hidden)" after visible files
@@ -31,7 +31,7 @@ Hide generated and noisy files from code review. Files matching configurable glo
 ### P3 - Polish
 
 - **Expand all ignored**: Action to expand all collapsed ignored files at once
-- **Pattern preview**: `neoriff --list-ignored` shows which files would be hidden
+- **Pattern preview**: `riff --list-ignored` shows which files would be hidden
 
 ## Technical Notes
 
@@ -40,7 +40,7 @@ Hide generated and noisy files from code review. Files matching configurable glo
 Add `[ignore]` section to config schema:
 
 ```toml
-# ~/.config/neoriff/config.toml
+# ~/.config/riff/config.toml
 
 [ignore]
 # Glob patterns for files to hide/collapse

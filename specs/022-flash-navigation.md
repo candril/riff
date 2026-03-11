@@ -685,7 +685,7 @@ smart_case = true
    3 │ export function Header() {
    4+│   return Box(
    5+│     { height: 1, backgroundColor: "#1a1b26" },
-   6+│     Text({ content: "neoriff", fg: "#7aa2f7" })
+   6+│     Text({ content: "riff", fg: "#7aa2f7" })
    7+│   )
    8 │ }
 ```
@@ -700,7 +700,7 @@ Dimmed lines shown with lighter text, matches highlighted with labels:
    3 │ export function Header() {                    ← dimmed
    4+│   return [s]Box(                              ← bright, "s" label
    5+│     { height: 1, backgroundColor: "#1a1b26" },← dimmed
-   6+│     Text({ content: "neoriff", fg: "#7aa2f7" })← dimmed
+   6+│     Text({ content: "riff", fg: "#7aa2f7" })← dimmed
    7+│   )                                           ← dimmed
    8 │ }                                             ← dimmed
 

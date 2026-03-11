@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, toggleFilePanel, toggleViewMode } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -21,9 +21,11 @@ import { createCursorState } from "../vim-diff/cursor-state"
 
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
+import * as commitPicker from "../features/commit-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
+import * as threadPreview from "../features/thread-preview"
 import * as search from "../features/search"
 import * as fileTreeFeature from "../features/file-tree"
 import * as commentsView from "../features/comments-view"
@@ -62,6 +64,8 @@ export interface GlobalKeyContext {
   updateFileTreePanel: () => void
   handleExpandDivider: () => Promise<boolean>
   executeAction: (id: string) => void
+  // Commit selection handler
+  onCommitSelected: (sha: string | null) => void
   // Feature contexts (passed through for delegation)
   foldsContext: folds.FoldsContext
   fileNavContext: fileNavigation.FileNavigationContext
@@ -121,6 +125,18 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== COMMIT PICKER (captures all input when open) ==========
+    if (
+      commitPicker.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        onCommitSelected: ctx.onCommitSelected,
+      })
+    ) {
+      return
+    }
+
     // ========== PR INFO PANEL (captures all input when open) ==========
     if (
       prInfoPanelFeature.handleInput(key, {
@@ -168,6 +184,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== THREAD PREVIEW (captures all input when open) ==========
+    if (
+      threadPreview.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+      })
+    ) {
+      return
+    }
+
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
     if (search.handleInput(key, { searchState: ctx.getSearchState(), searchHandler: ctx.searchHandler })) {
       return
@@ -187,6 +214,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       case "f":
         if (key.ctrl && state.files.length > 0) {
           ctx.setState(openFilePicker)
+          ctx.render()
+          return
+        }
+        break
+
+      case "g":
+        if (key.ctrl && state.commits.length > 0) {
+          ctx.setState(openCommitPicker)
           ctx.render()
           return
         }
@@ -336,6 +371,41 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleCloseFoldAtCursor(ctx.foldsContext)
         return
       }
+      if (sequence === "]g") {
+        // Next commit
+        if (s.commits.length > 0) {
+          if (s.viewingCommit === null) {
+            // All → first commit
+            ctx.onCommitSelected(s.commits[0]!.sha)
+          } else {
+            const idx = s.commits.findIndex(c => c.sha === s.viewingCommit)
+            if (idx >= s.commits.length - 1) {
+              // Last commit → wrap to all
+              ctx.onCommitSelected(null)
+            } else {
+              ctx.onCommitSelected(s.commits[idx + 1]!.sha)
+            }
+          }
+        }
+        return
+      } else if (sequence === "[g") {
+        // Prev commit
+        if (s.commits.length > 0) {
+          if (s.viewingCommit === null) {
+            // All → last commit
+            ctx.onCommitSelected(s.commits[s.commits.length - 1]!.sha)
+          } else {
+            const idx = s.commits.findIndex(c => c.sha === s.viewingCommit)
+            if (idx <= 0) {
+              // First commit → wrap to all
+              ctx.onCommitSelected(null)
+            } else {
+              ctx.onCommitSelected(s.commits[idx - 1]!.sha)
+            }
+          }
+        }
+        return
+      }
       if (sequence === "]c") {
         ctx.vimHandler.moveToHunk("next")
         ctx.render()
@@ -414,6 +484,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
       handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),
+      handleOpenThreadPreview: () => {
+        const s = ctx.getState()
+        const lineMapping = ctx.getLineMapping()
+        const vimState = ctx.getVimState()
+        const anchor = lineMapping.getCommentAnchor(vimState.line)
+        if (!anchor) return false
+        
+        const lineComments = s.comments.filter(
+          (c) => c.filename === anchor.filename && c.line === anchor.line && c.side === anchor.side
+        )
+        if (lineComments.length === 0) return false
+        
+        ctx.setState((s) => openThreadPreview(s, lineComments, anchor.filename, anchor.line))
+        ctx.render()
+        return true
+      },
     })
   }
 }

@@ -479,7 +479,7 @@ async function handleEditComment(comment: Comment) {
   if (!isOwnComment(comment)) return
   
   // Create temp file with comment body
-  const tmpFile = `/tmp/neoriff-edit-${comment.id}.md`
+  const tmpFile = `/tmp/riff-edit-${comment.id}.md`
   await Bun.write(tmpFile, comment.body)
   
   // Suspend renderer, open editor

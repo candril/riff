@@ -7,10 +7,44 @@ import {
   BoxRenderable,
   TextRenderable,
   ScrollBoxRenderable,
+  MarkdownRenderable,
+  SyntaxStyle,
+  RGBA,
   type CliRenderer,
 } from "@opentui/core"
 import type { PrInfo, PrReview, PrCommit } from "../providers/github"
 import { colors, theme } from "../theme"
+
+// Shared syntax style for markdown rendering (lazy init)
+let sharedSyntaxStyle: SyntaxStyle | null = null
+function getSyntaxStyle(): SyntaxStyle {
+  if (!sharedSyntaxStyle) {
+    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+      "markup.heading": { fg: RGBA.fromHex(theme.blue), bold: true },
+      "markup.strong": { bold: true },
+      "markup.italic": { italic: true },
+      "markup.raw": { fg: RGBA.fromHex(theme.green) },
+      "markup.strikethrough": { dim: true },
+      "markup.link": { fg: RGBA.fromHex(theme.blue) },
+      "markup.link.label": { fg: RGBA.fromHex(theme.blue), underline: true },
+      "markup.link.url": { fg: RGBA.fromHex(theme.subtext0) },
+      "markup.list": { fg: RGBA.fromHex(theme.yellow) },
+      "punctuation.special": { fg: RGBA.fromHex(theme.subtext0), italic: true },
+      "keyword": { fg: RGBA.fromHex(theme.mauve) },
+      "string": { fg: RGBA.fromHex(theme.green) },
+      "number": { fg: RGBA.fromHex(theme.peach) },
+      "comment": { fg: RGBA.fromHex(theme.overlay0), italic: true },
+      "function": { fg: RGBA.fromHex(theme.blue) },
+      "type": { fg: RGBA.fromHex(theme.yellow) },
+      "variable": { fg: RGBA.fromHex(theme.text) },
+      "operator": { fg: RGBA.fromHex(theme.sky) },
+      "punctuation": { fg: RGBA.fromHex(theme.overlay2) },
+      "property": { fg: RGBA.fromHex(theme.lavender) },
+      "constant": { fg: RGBA.fromHex(theme.peach) },
+    })
+  }
+  return sharedSyntaxStyle
+}
 
 /**
  * Format a relative time string
@@ -192,29 +226,6 @@ export class PRInfoPanelClass {
   private build(): { container: BoxRenderable; scrollBox: ScrollBoxRenderable } {
     const prInfo = this.prInfo
     const statusInfo = getStatusInfo(prInfo.state, prInfo.isDraft)
-    
-    // Build description lines (wrap at ~70 chars)
-    const descriptionLines: string[] = []
-    if (prInfo.body) {
-      const paragraphs = prInfo.body.split(/\n/)
-      for (const para of paragraphs) {
-        if (para.trim() === "") {
-          descriptionLines.push("")
-          continue
-        }
-        const words = para.split(/\s+/)
-        let currentLine = ""
-        for (const word of words) {
-          if (currentLine.length + word.length + 1 > 70) {
-            descriptionLines.push(currentLine)
-            currentLine = word
-          } else {
-            currentLine = currentLine ? `${currentLine} ${word}` : word
-          }
-        }
-        if (currentLine) descriptionLines.push(currentLine)
-      }
-    }
 
     const commitCount = prInfo.commits?.length ?? 0
     const reviews = prInfo.reviews ?? []
@@ -367,6 +378,23 @@ export class PRInfoPanelClass {
       content.add(reviewsSection)
     }
 
+    // Description section (rendered with markdown)
+    if (prInfo.body && prInfo.body.trim()) {
+      const descSection = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
+      descSection.add(new TextRenderable(this.renderer, { content: "Description", fg: theme.overlay0 }))
+
+      const descContent = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
+      descSection.add(descContent)
+
+      descContent.add(new MarkdownRenderable(this.renderer, {
+        id: "pr-info-description",
+        content: prInfo.body,
+        syntaxStyle: getSyntaxStyle(),
+      }))
+
+      content.add(descSection)
+    }
+
     // Commits section
     if (prInfo.commits && prInfo.commits.length > 0) {
       const commitsSection = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
@@ -413,27 +441,7 @@ export class PRInfoPanelClass {
       content.add(commitsSection)
     }
 
-    // Description section
-    if (prInfo.body && descriptionLines.length > 0) {
-      const descSection = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
-      descSection.add(new TextRenderable(this.renderer, { content: "Description", fg: theme.overlay0 }))
-      
-      const descContent = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
-      descSection.add(descContent)
-      
-      for (let i = 0; i < Math.min(20, descriptionLines.length); i++) {
-        descContent.add(new TextRenderable(this.renderer, { content: descriptionLines[i] || " ", fg: theme.subtext1 }))
-      }
-      
-      if (descriptionLines.length > 20) {
-        descContent.add(new TextRenderable(this.renderer, { 
-          content: `... +${descriptionLines.length - 20} more lines`, 
-          fg: theme.overlay0 
-        }))
-      }
-      
-      content.add(descSection)
-    }
+    // (Description is rendered above commits via MarkdownRenderable)
 
     // Footer
     const footer = new BoxRenderable(this.renderer, {

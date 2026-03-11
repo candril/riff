@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Build script for neoriff
+ * Build script for riff
  * 
  * Creates a compiled binary with proper tree-sitter worker embedding.
  * Based on opencode's build approach.

@@ -19,7 +19,7 @@ Support multiple diff rendering strategies beyond the standard unified diff. Dif
 - **Binary detection**: Check for `difft` binary on startup, graceful fallback if missing
 - **Structural diffing**: Use difftastic's AST-aware diff for supported languages
 - **Language support**: TypeScript, JavaScript, JSON, Rust, Go, Python, and 50+ others
-- **Inline rendering**: Parse difftastic output and render in neoriff's diff view
+- **Inline rendering**: Parse difftastic output and render in riff's diff view
 - **Move detection**: Show when code moved rather than was deleted and re-added
 - **Fallback behavior**: Use unified diff for unsupported files or when difftastic unavailable
 
@@ -455,7 +455,7 @@ const diffStrategyKeys = {
 ### Configuration
 
 ```toml
-# .neoriff/config.toml
+# .riff/config.toml
 
 [diff]
 # Default strategy: "unified", "difftastic", "split", "word"

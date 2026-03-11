@@ -66,7 +66,7 @@ renderer.root.add(
     // Header
     Box(
       { height: 1, width: "100%", backgroundColor: "#1a1b26" },
-      Text({ content: " neoriff", fg: "#7aa2f7" })
+      Text({ content: " riff", fg: "#7aa2f7" })
     ),
     // Main content area
     Box(
@@ -96,7 +96,7 @@ renderer.keyInput.on("keypress", (key) => {
 ### Component Structure
 
 ```
-┌─ neoriff ───────────────────────────────────────────────────┐
+┌─ riff ───────────────────────────────────────────────────┐
 │  Header                                                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │

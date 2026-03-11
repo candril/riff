@@ -113,6 +113,15 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   
+  {
+    id: "select-commit",
+    label: "Select Commit",
+    description: "Filter diff to a single commit's changes",
+    shortcut: "Ctrl+g",
+    category: "navigation",
+    available: (state) => state.commits.length > 0,
+  },
+
   // View
   {
     id: "toggle-file-panel",
@@ -129,6 +138,13 @@ export const actions: Action[] = [
     shortcut: "Tab",
     category: "view",
     available: () => true,
+  },
+  {
+    id: "toggle-hidden-files",
+    label: "Toggle Hidden Files",
+    description: "Show or hide ignored files in file tree",
+    category: "view",
+    available: (state) => state.ignoredFiles.size > 0,
   },
   
   // General

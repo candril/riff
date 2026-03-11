@@ -4,7 +4,7 @@
 
 ## Description
 
-Fetch and display GitHub Pull Requests using the `gh` CLI. Support opening PRs by number (`neoriff #123`), by URL, or by full reference (`gh:owner/repo#123`). Load the PR diff and existing comments for review.
+Fetch and display GitHub Pull Requests using the `gh` CLI. Support opening PRs by number (`riff #123`), by URL, or by full reference (`gh:owner/repo#123`). Load the PR diff and existing comments for review.
 
 ## Out of Scope
 
@@ -17,22 +17,22 @@ Fetch and display GitHub Pull Requests using the `gh` CLI. Support opening PRs b
 
 ### P1 - MVP
 
-- **PR by URL**: `neoriff https://github.com/owner/repo/pull/123` (copy from browser)
-- **PR by number**: `neoriff #123` or `neoriff 123` (infers repo from current directory)
+- **PR by URL**: `riff https://github.com/owner/repo/pull/123` (copy from browser)
+- **PR by number**: `riff #123` or `riff 123` (infers repo from current directory)
 - **PR diff**: Fetch and display the PR diff
 - **PR metadata**: Show PR title, author, branch info in header
 - **Existing comments**: Load and display existing PR review comments
 
 ### P2 - Enhanced
 
-- **Full reference**: `neoriff gh:owner/repo#123` (for PRs in other repos)
+- **Full reference**: `riff gh:owner/repo#123` (for PRs in other repos)
 - **Comment threads**: Group comments into threads with replies
 - **PR description**: Show PR body in a collapsible panel
 
 ### P3 - Polish
 
 - **Multiple PRs**: Open multiple PRs in tabs/splits
-- **PR list**: `neoriff --list` to show open PRs, pick one
+- **PR list**: `riff --list` to show open PRs, pick one
 - **Refresh**: `R` to refresh PR data from GitHub
 
 ## Technical Notes
@@ -227,7 +227,7 @@ export async function getPrComments(
 
 ### Loading PR and Persisting to Markdown
 
-When fetching a PR, comments are immediately written to `.neoriff/comments/` as markdown files.
+When fetching a PR, comments are immediately written to `.riff/comments/` as markdown files.
 This unifies storage between PR reviews and local diff reviews.
 
 ```typescript
@@ -319,7 +319,7 @@ async function getPrHeadSha(
 **Result: Same storage format for any source**
 
 ```
-.neoriff/
+.riff/
 ├── session.toml
 └── comments/
     ├── gh-12345678.md    # Comment from GitHub (status: synced)
@@ -327,7 +327,7 @@ async function getPrHeadSha(
     └── a1b2c3d4.md       # Local comment (status: local)
 ```
 
-**Example synced comment file** (`.neoriff/comments/gh-12345678.md`):
+**Example synced comment file** (`.riff/comments/gh-12345678.md`):
 
 ```markdown
 ---
@@ -489,7 +489,7 @@ async function safeGhCommand<T>(cmd: () => Promise<T>): Promise<T> {
       throw new Error("PR not found. Check the PR number and repository.")
     }
     if (msg.includes("not a git repository")) {
-      throw new Error("Not in a git repository. Specify full repo: neoriff gh:owner/repo#123")
+      throw new Error("Not in a git repository. Specify full repo: riff gh:owner/repo#123")
     }
     
     throw error
@@ -512,17 +512,17 @@ src/
 
 ```bash
 # Review PR in current repo
-neoriff #123
-neoriff 123
+riff #123
+riff 123
 
 # Review PR in another repo
-neoriff gh:facebook/react#12345
+riff gh:facebook/react#12345
 
 # Review PR by URL (copy from browser)
-neoriff https://github.com/owner/repo/pull/123
+riff https://github.com/owner/repo/pull/123
 
 # Still works: local diff review
-neoriff              # Uncommitted changes
-neoriff branch:main  # Diff against main
-neoriff @-           # Previous jj revision
+riff              # Uncommitted changes
+riff branch:main  # Diff against main
+riff @-           # Previous jj revision
 ```

@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass } from "./components"
-import { getFileContent, getOldFileContent } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession } from "./providers/github"
+import { getFileContent, getOldFileContent, getLocalCommitDiff } from "./providers/local"
+import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -9,6 +9,7 @@ import {
   toggleDividerExpansion,
   openActionMenu,
   setPendingReview,
+  setViewingCommit,
   showToast,
   clearToast,
   createInitialState,
@@ -118,6 +119,14 @@ export async function createApp(options: AppOptions = {}) {
         renderer.setCursorStyle({ style: "line", blinking: true })
         renderer.setCursorPosition(screenX, screenY, true)
       }
+    } else if (state.commitPicker.open) {
+      const searchBox = renderer.root.findDescendantById("commit-picker-search") as any
+      if (searchBox) {
+        const screenX = searchBox.screenX + state.commitPicker.query.length
+        const screenY = searchBox.screenY
+        renderer.setCursorStyle({ style: "line", blinking: true })
+        renderer.setCursorPosition(screenX, screenY, true)
+      }
     }
   })
 
@@ -169,7 +178,9 @@ export async function createApp(options: AppOptions = {}) {
       state.selectedFileIndex,
       state.focusedPanel === "tree",
       state.fileStatuses,
-      state.collapsedFiles
+      state.collapsedFiles,
+      state.ignoredFiles,
+      state.showHiddenFiles
     )
     fileTreePanel.visible = state.showFilePanel
     vimDiffView.setFilePanelVisible(state.showFilePanel, 35)
@@ -568,8 +579,18 @@ export async function createApp(options: AppOptions = {}) {
           state.session,
           prSession.comments,
           "pr",
-          prSession.prInfo
+          prSession.prInfo,
+          state.ignoreMatcher
         )
+
+        // Auto-collapse ignored files
+        if (state.ignoredFiles.size > 0) {
+          const newCollapsed = new Set(state.collapsedFiles)
+          for (const filename of state.ignoredFiles) {
+            newCollapsed.add(filename)
+          }
+          state = { ...state, collapsedFiles: newCollapsed }
+        }
 
         // Reset vim state and rebuild line mapping
         vimState = createCursorState()
@@ -605,6 +626,64 @@ export async function createApp(options: AppOptions = {}) {
     })
   }
 
+  // ===== COMMIT SELECTION =====
+  async function handleCommitSelected(sha: string | null) {
+    if (sha === null) {
+      // Switch back to all commits
+      state = setViewingCommit(state, null)
+      state = { ...state, fileTree: buildFileTree(state.files) }
+      vimState = createCursorState()
+      createLineMapping()
+      state = showToast(state, "Viewing all commits", "info")
+      render()
+      setTimeout(() => { state = clearToast(state); render() }, 1500)
+      return
+    }
+
+    // Check cache first
+    if (!state.commitDiffCache.has(sha)) {
+      // Fetch the commit diff
+      state = showToast(state, "Loading commit...", "info")
+      render()
+
+      try {
+        let rawDiff: string
+        if (state.appMode === "pr" && state.prInfo) {
+          rawDiff = await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
+        } else {
+          rawDiff = await getLocalCommitDiff(sha, options.target)
+        }
+
+        const files = sortFiles(parseDiff(rawDiff))
+        const fileTree = buildFileTree(files)
+
+        // Cache the result
+        const newCache = new Map(state.commitDiffCache)
+        newCache.set(sha, { files, fileTree })
+        state = { ...state, commitDiffCache: newCache }
+      } catch (err) {
+        state = showToast(state, `Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
+        render()
+        setTimeout(() => { state = clearToast(state); render() }, 3000)
+        return
+      }
+    }
+
+    // Switch to the commit's diff
+    state = setViewingCommit(state, sha)
+    vimState = createCursorState()
+    createLineMapping()
+
+    // Show toast with commit info
+    const commit = state.commits.find(c => c.sha === sha)
+    const commitIdx = state.commits.findIndex(c => c.sha === sha) + 1
+    const msg = commit ? `${commit.sha}: ${commit.message}` : sha
+    const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg
+    state = showToast(state, `Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
+    render()
+    setTimeout(() => { state = clearToast(state); render() }, 1500)
+  }
+
   // ===== KEYBOARD INPUT =====
   const handleKeypress = createKeyHandler({
     getState: () => state,
@@ -627,6 +706,7 @@ export async function createApp(options: AppOptions = {}) {
     updateFileTreePanel,
     handleExpandDivider,
     executeAction,
+    onCommitSelected: handleCommitSelected,
     foldsContext,
     fileNavContext,
     commentsContext,

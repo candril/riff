@@ -8,11 +8,13 @@
 import type { AppState } from "../../state"
 import {
   openFilePicker,
+  openCommitPicker,
   toggleFilePanel,
   toggleViewMode,
   clearFileSelection,
   showToast,
   clearToast,
+  toggleShowHiddenFiles,
 } from "../../state"
 
 /**
@@ -59,6 +61,13 @@ export async function executeAction(
       render()
       break
 
+    case "select-commit":
+      if (state.commits.length > 0) {
+        setState(openCommitPicker)
+        render()
+      }
+      break
+
     case "toggle-file-panel":
       setState((s) => {
         const toggled = toggleFilePanel(s)
@@ -71,6 +80,11 @@ export async function executeAction(
 
     case "toggle-view":
       setState(toggleViewMode)
+      render()
+      break
+
+    case "toggle-hidden-files":
+      setState(toggleShowHiddenFiles)
       render()
       break
 

@@ -43,12 +43,12 @@ A fuzzy-searchable command palette (like VS Code's `Ctrl+P` or OpenCode's action
 | Create PR | Create a new pull request | Local mode, has changes |
 | Refresh | Reload PR data from GitHub | PR mode |
 | Toggle File Panel | Show/hide file tree | Always |
-| Quit | Exit neoriff | Always |
+| Quit | Exit riff | Always |
 
 ## UI
 
 ### Closed State
-Normal neoriff UI.
+Normal riff UI.
 
 ### Open State
 Modal overlay with input and action list:
@@ -137,7 +137,7 @@ const actions: Action[] = [
   {
     id: "quit",
     label: "Quit",
-    description: "Exit neoriff",
+    description: "Exit riff",
     shortcut: "q",
     handler: () => quit(),
     available: () => true,

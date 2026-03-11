@@ -1,4 +1,4 @@
-# neoriff
+# riff
 
 A terminal-based code review companion built with OpenTUI. Review GitHub PRs and local changes with minimal distractions.
 
@@ -130,10 +130,10 @@ await $`gh api repos/${owner}/${repo}/pulls/${pr}/comments \
 
 ### Local Storage
 
-Review sessions stored in `.neoriff/`:
+Review sessions stored in `.riff/`:
 
 ```
-.neoriff/
+.riff/
 ├── sessions/
 │   ├── local-abc123.json      # Local diff session
 │   └── gh-owner-repo-123.json # GitHub PR session

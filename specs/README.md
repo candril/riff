@@ -1,6 +1,6 @@
 # Specs
 
-This directory contains feature specifications for neoriff.
+This directory contains feature specifications for riff.
 
 ## Format
 

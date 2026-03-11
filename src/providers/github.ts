@@ -191,7 +191,7 @@ export async function getPrInfo(
   return safeGhCommand(async () => {
     const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
 
-    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,url,additions,deletions,changedFiles,createdAt,updatedAt`.json()
+    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,url,additions,deletions,changedFiles,createdAt,updatedAt,reviews,commits`.json()
 
     // Get owner/repo if not provided
     let finalOwner = owner
@@ -201,6 +201,28 @@ export async function getPrInfo(
       finalOwner = current.owner
       finalRepo = current.repo
     }
+
+    // Parse and deduplicate reviews (keep latest per author)
+    const rawReviews: PrReview[] = (result.reviews || []).map((r: any) => ({
+      author: r.author?.login || "unknown",
+      state: r.state as PrReview["state"],
+      submittedAt: r.submittedAt,
+    }))
+    const latestReviews = new Map<string, PrReview>()
+    for (const review of rawReviews) {
+      const existing = latestReviews.get(review.author)
+      if (!existing || (review.submittedAt && existing.submittedAt && review.submittedAt > existing.submittedAt)) {
+        latestReviews.set(review.author, review)
+      }
+    }
+
+    // Parse commits (newest first)
+    const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
+      sha: c.oid.slice(0, 7),
+      message: c.messageHeadline,
+      author: c.authors?.[0]?.login || c.authors?.[0]?.name || "unknown",
+      date: c.committedDate,
+    })).reverse()
 
     return {
       number: result.number,
@@ -219,6 +241,8 @@ export async function getPrInfo(
       changedFiles: result.changedFiles,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
+      reviews: Array.from(latestReviews.values()),
+      commits,
     }
   })
 }
@@ -348,6 +372,19 @@ export async function getPrDiff(
   return safeGhCommand(async () => {
     const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
     return await $`gh pr diff ${prNumber} ${repoArgs}`.text()
+  })
+}
+
+/**
+ * Fetch the diff for a specific commit in a PR
+ */
+export async function fetchCommitDiff(
+  owner: string,
+  repo: string,
+  sha: string
+): Promise<string> {
+  return safeGhCommand(async () => {
+    return await $`gh api repos/${owner}/${repo}/commits/${sha} -H "Accept: application/vnd.github.diff"`.text()
   })
 }
 

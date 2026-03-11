@@ -202,7 +202,7 @@ export const actions: Action[] = [
   { id: "toggle_file_panel", name: "Toggle file panel", description: "Show/hide file list sidebar" },
   { id: "mark_all_viewed", name: "Mark all files viewed", description: "Mark all files as reviewed" },
   { id: "refresh", name: "Refresh", description: "Refresh data from source" },
-  { id: "quit", name: "Quit", description: "Exit neoriff" },
+  { id: "quit", name: "Quit", description: "Exit riff" },
   // ... more actions
 ]
 ```

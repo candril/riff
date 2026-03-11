@@ -4,9 +4,9 @@ Status: Draft
 
 ## Overview
 
-Support images in comments via drag-and-drop in the external editor. When a user drops an image file into nvim, it inserts a path. neoriff detects image paths and:
+Support images in comments via drag-and-drop in the external editor. When a user drops an image file into nvim, it inserts a path. riff detects image paths and:
 
-1. **Local reviews**: Copies images to `.neoriff/images/` and rewrites to relative markdown refs
+1. **Local reviews**: Copies images to `.riff/images/` and rewrites to relative markdown refs
 2. **GitHub PRs**: Uploads to GitHub's CDN and replaces with the permanent URL
 
 ## Capabilities
@@ -19,7 +19,7 @@ Support images in comments via drag-and-drop in the external editor. When a user
 
 ### P1 - Local Image Storage
 
-- Copy detected images to `.neoriff/images/{comment-id}/` 
+- Copy detected images to `.riff/images/{comment-id}/` 
 - Rename to content-hash for deduplication (e.g., `a1b2c3d4.png`)
 - Rewrite comment body with relative path: `![](images/{comment-id}/a1b2c3d4.png)`
 - Handle missing files gracefully (warn, don't fail)
@@ -40,7 +40,7 @@ Support images in comments via drag-and-drop in the external editor. When a user
 - In-app image capture/screenshot
 - Image editing/cropping
 - Video support
-- Clipboard paste (handled by the editor, not neoriff)
+- Clipboard paste (handled by the editor, not riff)
 
 ## Detection Patterns
 
@@ -69,7 +69,7 @@ src/utils/
 ## Storage Structure
 
 ```
-.neoriff/
+.riff/
 ├── images/
 │   └── {comment-id}/
 │       ├── a1b2c3d4.png
@@ -203,5 +203,5 @@ detectImagePaths("See ![alt](/path/to/img.jpg)")
 // Processing tests  
 processCommentImages("Look at /tmp/x.png", "abc123", { mode: "local" })
 // → "Look at ![](images/abc123/d4e5f6a7.png)"
-// Side effect: copies file to .neoriff/images/abc123/d4e5f6a7.png
+// Side effect: copies file to .riff/images/abc123/d4e5f6a7.png
 ```

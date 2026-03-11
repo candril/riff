@@ -19,7 +19,7 @@ Mark files as viewed/reviewed while going through a diff. This status persists l
 - **Unmark viewed**: Press `v` again to toggle off
 - **Visual indicator**: Show checkmark or different color for viewed files
 - **Progress tracking**: Show "3/5 files reviewed" in header
-- **Persist locally**: Save viewed status in `.neoriff/` session
+- **Persist locally**: Save viewed status in `.riff/` session
 
 ### P2 - Auto & Navigation
 
@@ -115,7 +115,7 @@ function renderFileItem(file: DiffFile, isViewed: boolean, isSelected: boolean) 
 ### Header Progress
 
 ```
-┌─ neoriff ─────────────────────────────────────────────────────┐
+┌─ riff ─────────────────────────────────────────────────────┐
 │ src/index.ts (2/5)  [✓✓○○✓] 3/5 reviewed         +12 -3      │
 ```
 

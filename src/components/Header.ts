@@ -1,7 +1,7 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
-import type { PrInfo } from "../providers/github"
+import type { PrInfo, PrCommit } from "../providers/github"
 
 export interface HeaderProps {
   title?: string
@@ -10,6 +10,10 @@ export interface HeaderProps {
   prInfo?: PrInfo | null
   reviewProgress?: { reviewed: number; total: number; outdated?: number }
   branchInfo?: string | null
+  /** Currently viewing a specific commit (null = all commits) */
+  viewingCommit?: string | null
+  /** All available commits (for showing count) */
+  commits?: PrCommit[]
 }
 
 export function Header({
@@ -19,6 +23,8 @@ export function Header({
   prInfo,
   reviewProgress,
   branchInfo,
+  viewingCommit,
+  commits,
 }: HeaderProps = {}) {
   // Scope text
   const scopeText = selectedFile 
@@ -26,6 +32,15 @@ export function Header({
     : totalFiles 
       ? `All files (${totalFiles})`
       : "All files"
+
+  // Commit filter text
+  const commitFilterText = (() => {
+    if (!commits || commits.length === 0) return null
+    if (viewingCommit === null || viewingCommit === undefined) return null
+    const commit = commits.find(c => c.sha === viewingCommit)
+    if (!commit) return viewingCommit.slice(0, 7)
+    return `${commit.sha}: ${commit.message}`
+  })()
 
   // Review progress text (e.g., "3/5 reviewed" or "3/5 reviewed (1 outdated)")
   const hasOutdated = reviewProgress && (reviewProgress.outdated ?? 0) > 0
@@ -58,6 +73,12 @@ export function Header({
           ? theme.red       // Red for closed
           : theme.green     // Green for open
 
+    // Approval state from reviews (only show if approved)
+    const reviews = prInfo.reviews ?? []
+    const hasApproval = reviews.some(r => r.state === "APPROVED")
+    const hasChangesRequested = reviews.some(r => r.state === "CHANGES_REQUESTED")
+    const isApproved = hasApproval && !hasChangesRequested
+
     return Box(
       {
         height: 1,
@@ -69,13 +90,16 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
       },
-      // Left side: PR status, number, author, title
+      // Left side: PR status, number, author, title, commit filter
       Box(
         { flexDirection: "row", gap: 1, flexShrink: 1, overflow: "hidden" },
         Text({ content: statusText, fg: statusColor }),
+        isApproved ? Text({ content: "✓ Approved", fg: theme.green }) : null,
         Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
         Text({ content: `@${prInfo.author}`, fg: theme.subtext0 }),
-        Text({ content: prInfo.title, fg: colors.text })
+        commitFilterText
+          ? Text({ content: commitFilterText, fg: theme.peach })
+          : Text({ content: prInfo.title, fg: colors.text })
       ),
       // Right side: progress + stats for selected file
       Box(
@@ -120,11 +144,14 @@ export function Header({
       justifyContent: "space-between",
       alignItems: "center",
     },
-    // Left side: title, branch info, scope
+    // Left side: title, branch info, commit filter, scope
     Box(
       { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
       Text({ content: title, fg: colors.headerFg }),
       ...branchElements,
+      commitFilterText
+        ? Text({ content: commitFilterText, fg: theme.peach })
+        : null,
       Text({ content: scopeText, fg: colors.text })
     ),
     // Right side: progress + stats for selected file

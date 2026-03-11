@@ -10,7 +10,7 @@ import { registerSyntaxParsers } from "../syntax-parsers"
 import { VimDiffView, PRInfoPanelClass } from "../components"
 import { FileTreePanel } from "../components/FileTreePanel"
 import { CommentsViewPanel } from "../components/CommentsViewPanel"
-import { getLocalDiff, getDiffDescription, getBranchInfo } from "../providers/local"
+import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 import {
@@ -28,6 +28,8 @@ import { groupIntoThreads } from "../utils/threads"
 import { getTreeSitterClient } from "@opentui/core"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mapping"
+import { loadConfig } from "../config"
+import { IgnoreMatcher } from "../utils/ignore"
 
 export interface InitOptions {
   mode: AppMode
@@ -97,14 +99,32 @@ export async function initializeAppState(options: InitOptions): Promise<{
   const files = sortFiles(parseDiff(rawDiff))
   const fileTree = buildFileTree(files)
 
+  // Load config and create ignore matcher
+  const config = loadConfig()
+  const ignoreMatcher = new IgnoreMatcher(config.ignore.patterns)
+
   // Load or create session
   const session = await loadOrCreateSession(source)
 
-  // Initialize state
-  let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null)
+  // Initialize state (with ignore matcher)
+  let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null, ignoreMatcher)
 
   // Set branch info for local mode
   state = { ...state, branchInfo }
+
+  // Load commits for the diff range
+  if (mode === "pr" && prInfo?.commits && prInfo.commits.length > 0) {
+    // PR mode: commits already available from prInfo (loaded via getPrExtendedInfo or getPrInfo)
+    state = { ...state, commits: prInfo.commits }
+  } else if (mode === "local") {
+    // Local mode: enumerate commits from git/jj
+    try {
+      const commits = await getLocalCommits(target)
+      state = { ...state, commits }
+    } catch {
+      // Silently ignore — commits just won't be available
+    }
+  }
 
   // Collapse resolved threads by default
   const threads = groupIntoThreads(comments)
@@ -149,6 +169,15 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Collapse viewed files initially
   state = collapseViewedFiles(state)
+
+  // Auto-collapse ignored files in diff view
+  if (state.ignoredFiles.size > 0) {
+    const newCollapsed = new Set(state.collapsedFiles)
+    for (const filename of state.ignoredFiles) {
+      newCollapsed.add(filename)
+    }
+    state = { ...state, collapsedFiles: newCollapsed }
+  }
 
   return { state, source, headSha: headSha ?? "" }
 }

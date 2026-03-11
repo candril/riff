@@ -10,7 +10,7 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileTreePanel } from "../../components/FileTreePanel"
 import type { CommentsViewPanel } from "../../components/CommentsViewPanel"
 import type { VimDiffView } from "../../components"
-import { getFlatTreeItems } from "../../components"
+import { getVisibleFlatTreeItems } from "../../components"
 import {
   updateFileTree,
   toggleFileFold,
@@ -112,7 +112,7 @@ export function handleGoToBottom(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
     ctx.setState((s) => ({ ...s, treeHighlightIndex: Math.max(0, flatItems.length - 1) }))
     ctx.updateFileTreePanel()
     ctx.getFileTreePanel().ensureHighlightVisible()
@@ -146,7 +146,7 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 
@@ -211,7 +211,7 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 
@@ -267,7 +267,7 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 

@@ -3,6 +3,8 @@
 
 import { createApp } from "./app"
 import { loadPrSession, type PrInfo } from "./providers/github"
+import { resolveStorageWithConfirmation } from "./storage"
+import * as readline from "readline"
 
 // ============================================================================
 // CLI Argument Parsing
@@ -68,6 +70,42 @@ export function parseArgs(args: string[]): CliArgs {
 }
 
 // ============================================================================
+// User Confirmation Prompt
+// ============================================================================
+
+/**
+ * Prompt user for confirmation (Y/n)
+ */
+async function promptConfirm(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    })
+
+    rl.question(message, (answer) => {
+      rl.close()
+      // Default to yes if empty, only "n" or "no" means no
+      const normalized = answer.trim().toLowerCase()
+      resolve(normalized !== "n" && normalized !== "no")
+    })
+  })
+}
+
+/**
+ * Confirm storage location with user if auto-detected via basePath
+ */
+async function confirmStorageLocation(source: string): Promise<void> {
+  await resolveStorageWithConfirmation(source, async (repoPath, ownerRepo) => {
+    console.log(`\nFound local clone for ${ownerRepo}:`)
+    console.log(`  ${repoPath}`)
+    const confirmed = await promptConfirm("Use this location? [Y/n] ")
+    console.log() // blank line before TUI starts
+    return confirmed
+  })
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -84,6 +122,10 @@ async function main() {
         args.repo
       )
 
+      // Build source identifier and confirm storage location
+      const source = `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
+      await confirmStorageLocation(source)
+
       await createApp({
         mode: "pr",
         diff,
@@ -93,7 +135,10 @@ async function main() {
         headSha,
       })
     } else {
-      // Local diff mode
+      // Local diff mode - confirm storage for local source
+      const source = args.target ?? "local"
+      await confirmStorageLocation(source)
+
       await createApp({
         mode: "local",
         target: args.target,

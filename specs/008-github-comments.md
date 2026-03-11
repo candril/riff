@@ -84,7 +84,7 @@ export interface ReviewSession {
 }
 ```
 
-**Example comment file** (`.neoriff/comments/a1b2c3d4.md`):
+**Example comment file** (`.riff/comments/a1b2c3d4.md`):
 
 ```markdown
 ---

@@ -4,7 +4,7 @@
 
 ## Description
 
-Migrate the entire neoriff codebase from OpenTUI's imperative core API (`@opentui/core`) to the React reconciler (`@opentui/react`). This enables declarative component composition using JSX, React hooks for state management, and familiar React patterns throughout the codebase.
+Migrate the entire riff codebase from OpenTUI's imperative core API (`@opentui/core`) to the React reconciler (`@opentui/react`). This enables declarative component composition using JSX, React hooks for state management, and familiar React patterns throughout the codebase.
 
 The current architecture uses:
 - Factory functions that return renderables (`Box()`, `Text()`, `ScrollBox()`)
@@ -152,7 +152,7 @@ export function App({ mode, target, diff, comments, prInfo }: AppProps) {
   return (
     <Shell>
       <Header
-        title="neoriff"
+        title="riff"
         viewMode={state.viewMode}
         selectedFile={getSelectedFile(state)}
         totalFiles={state.files.length}
@@ -205,7 +205,7 @@ interface HeaderProps {
 }
 
 export function Header({
-  title = "neoriff",
+  title = "riff",
   viewMode = "diff",
   selectedFile,
   totalFiles,

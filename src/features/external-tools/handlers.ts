@@ -9,7 +9,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
 import { showToast, clearToast } from "../../state"
-import { getFlatTreeItems } from "../../components"
+import { getVisibleFlatTreeItems } from "../../components"
 import { openFileInEditor, openExternalDiffViewer } from "../../utils/editor"
 import { getFileContent, getOldFileContent } from "../../providers/local"
 import { getPrFileContent, getPrBaseFileContent } from "../../providers/github"
@@ -45,7 +45,7 @@ function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | und
 
   if (state.focusedPanel === "tree") {
     // From file tree - use highlighted file
-    const flatItems = getFlatTreeItems(state.fileTree, state.files)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (highlightedItem && !highlightedItem.node.isDirectory) {
       return [highlightedItem.node.path, undefined]
