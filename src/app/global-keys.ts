@@ -341,7 +341,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       // Other sequences handled by vim handler
     }
 
-    if (key.name === "]" || key.name === "[" || key.name === "g" || key.name === "z") {
+    if (key.name === "]" || key.name === "[" || (key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {
       pendingKey = key.name
       pendingTimeout = setTimeout(clearPendingKey, 500)
       return

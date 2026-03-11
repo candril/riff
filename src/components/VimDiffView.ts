@@ -368,6 +368,63 @@ export class VimDiffView {
   }
 
   /**
+   * Convert a cursor line (mapping index) to the visual row in the scrollbox.
+   * In single-file mode, the visual row equals the cursor line.
+   * In all-files mode, file headers are separate components, and collapsed
+   * files take only 1 row (the header), so the visual row may differ.
+   * Returns -1 if the line is not found.
+   */
+  cursorLineToVisualRow(cursorLine: number): number {
+    // Single-file mode: 1:1 mapping
+    if (this.fileSections.length === 0) {
+      return cursorLine
+    }
+
+    // All-files mode: calculate visual row accounting for headers and collapsed sections
+    let screenRow = 0
+    for (const section of this.fileSections) {
+      const headerRow = 1 // FileHeader component is always 1 row
+
+      // Find the header line for this section
+      let headerLineInMapping = -1
+      if (this.lineMapping) {
+        for (let i = 0; i < this.lineMapping.lineCount; i++) {
+          const mappingLine = this.lineMapping.getLine(i)
+          if (mappingLine?.type === "file-header" && mappingLine.fileIndex === section.fileIndex) {
+            headerLineInMapping = i
+            break
+          }
+        }
+      }
+
+      if (headerLineInMapping === -1) continue
+
+      // Cursor is on this file's header
+      if (cursorLine === headerLineInMapping) {
+        return screenRow
+      }
+
+      if (section.collapsed) {
+        // Collapsed: just the header row
+        screenRow += headerRow
+        continue
+      }
+
+      // Expanded: check if cursor is in this section's content
+      if (cursorLine >= section.startLine && cursorLine <= section.endLine) {
+        const localLine = cursorLine - section.startLine
+        return screenRow + headerRow + localLine
+      }
+
+      // Skip past this section
+      const sectionContentLines = Math.max(0, section.endLine - section.startLine + 1)
+      screenRow += headerRow + sectionContentLines
+    }
+
+    return -1
+  }
+
+  /**
    * Build file sections from line mapping (for all-files mode)
    * Groups consecutive lines by fileIndex into sections
    */
@@ -749,6 +806,7 @@ export class VimDiffView {
     }
     
     // All-files mode - update each section's renderables
+    let anyUpdated = false
     for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
       const section = this.fileSections[sectionIdx]!
       const renderables = this.sectionRenderables.get(sectionIdx)
@@ -763,9 +821,14 @@ export class VimDiffView {
       }
       
       renderables.lineNumber.setLineColors(localLineColors)
+      anyUpdated = true
     }
     
-    // Cursor positioning is handled by the post-process function
+    // If no renderables were updated (e.g. all files collapsed), we still need
+    // a render cycle so positionTerminalCursor runs and updates the cursor
+    if (!anyUpdated) {
+      this.renderer.requestRender()
+    }
   }
 
   /**
@@ -921,78 +984,13 @@ export class VimDiffView {
     // Clear expected scroll position after using it
     this.expectedScrollTop = null
 
-    // In all-files mode, we need to calculate screen position differently
-    // because file-header lines in global mapping are rendered as FileHeader components
-    let visualLine: number
-    if (isAllFilesMode) {
-      // Find which section the cursor is in
-      let screenRow = 0
-      let foundSection = false
-      
-      for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
-        const section = this.fileSections[sectionIdx]!
-        // Each section has a FileHeader component (1 row)
-        const headerRow = 1
-        
-        // The file-header line in the mapping is the line before startLine
-        // But for collapsed sections, startLine > endLine, so we need to find the header differently
-        // The header is always 1 line before the first content line would be
-        
-        // Find the actual header line index in the line mapping
-        // It's the line with type "file-header" for this file
-        let headerLineInMapping = -1
-        for (let i = 0; i < this.lineMapping!.lineCount; i++) {
-          const mappingLine = this.lineMapping!.getLine(i)
-          if (mappingLine?.type === "file-header" && mappingLine.fileIndex === section.fileIndex) {
-            headerLineInMapping = i
-            break
-          }
-        }
-        
-        if (headerLineInMapping === -1) continue
-        
-        // For collapsed sections, there's only the header
-        if (section.collapsed) {
-          if (line === headerLineInMapping) {
-            // Cursor is on this collapsed file's header
-            foundSection = true
-            break
-          }
-          // Add just the header row and continue
-          screenRow += headerRow
-          continue
-        }
-        
-        // For expanded sections:
-        if (line === headerLineInMapping) {
-          // Cursor is on this file's header line
-          foundSection = true
-          break
-        }
-        
-        if (line >= section.startLine && line <= section.endLine) {
-          // Cursor is in this section's content
-          const localLine = line - section.startLine
-          screenRow += headerRow + localLine
-          foundSection = true
-          break
-        }
-        
-        // Cursor is after this section, add full section height
-        const sectionContentLines = Math.max(0, section.endLine - section.startLine + 1)
-        screenRow += headerRow + sectionContentLines
-      }
-      
-      // If we didn't find a section, hide the cursor
-      if (!foundSection) {
-        this.renderer.setCursorPosition(0, 0, false)
-        return
-      }
-      
-      visualLine = screenRow - scrollTop
-    } else {
-      visualLine = line - scrollTop
+    // Calculate visual line relative to scroll position
+    const visualRow = this.cursorLineToVisualRow(line)
+    if (visualRow < 0) {
+      this.renderer.setCursorPosition(0, 0, false)
+      return
     }
+    const visualLine = visualRow - scrollTop
 
     // Get the scrollbox's viewport height
     const viewportHeight = this.scrollBox.height

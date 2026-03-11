@@ -127,7 +127,12 @@ export async function createApp(options: AppOptions = {}) {
     const scrollBox = vimDiffView.getScrollBox()
     if (!scrollBox) return
 
-    const cursorLine = vimState.line
+    // In all-files mode, the cursor line (mapping index) may not equal
+    // the visual row in the scrollbox due to file headers and collapsed files.
+    // Use cursorLineToVisualRow to get the actual visual position.
+    const visualRow = vimDiffView.cursorLineToVisualRow(vimState.line)
+    if (visualRow < 0) return
+
     const scrollTop = scrollBox.scrollTop
     const viewportHeight = Math.floor(scrollBox.height)
     const maxScroll = Math.max(0, scrollBox.scrollHeight - viewportHeight)
@@ -137,12 +142,12 @@ export async function createApp(options: AppOptions = {}) {
 
     let effectiveScrollTop = scrollTop
 
-    if (cursorLine < topThreshold) {
-      const newScrollTop = Math.max(0, cursorLine - SCROLL_OFF)
+    if (visualRow < topThreshold) {
+      const newScrollTop = Math.max(0, visualRow - SCROLL_OFF)
       scrollBox.scrollTop = newScrollTop
       effectiveScrollTop = newScrollTop
-    } else if (cursorLine > bottomThreshold) {
-      const newScrollTop = Math.min(maxScroll, cursorLine - viewportHeight + SCROLL_OFF + 1)
+    } else if (visualRow > bottomThreshold) {
+      const newScrollTop = Math.min(maxScroll, visualRow - viewportHeight + SCROLL_OFF + 1)
       scrollBox.scrollTop = newScrollTop
       effectiveScrollTop = newScrollTop
     }
