@@ -112,39 +112,40 @@ export class DiffLineMapping {
   }
 
   /**
-   * Find next/previous hunk (change block)
-   * Finds dividers or the first addition/deletion after context
+   * Find next/previous hunk (change block).
+   *
+   * A "hunk" is a contiguous block of addition/deletion lines.
+   * - Next: skip past current change block (if any), then find the first
+   *   change line of the next block.
+   * - Prev: skip back past current change block (if any), then find the
+   *   first change line (in reading order) of the previous block.
    */
   findHunk(fromLine: number, direction: "next" | "prev"): number | null {
-    const delta = direction === "next" ? 1 : -1
-    let foundDivider = false
-    
-    for (
-      let i = fromLine + delta;
-      i >= 0 && i < this.lines.length;
-      i += delta
-    ) {
-      const line = this.lines[i]
-      if (!line) continue
-      
-      // Divider marks the start of a new chunk
-      if (line.type === "divider" || line.type === "hunk-header") {
-        foundDivider = true
-        continue
-      }
-      
-      // After a divider, return the first change line
-      if (foundDivider && (line.type === "addition" || line.type === "deletion")) {
-        return i
-      }
-      
-      // Also find change after file header
-      if (line.type === "file-header") {
-        foundDivider = true
-        continue
-      }
+    const isChange = (i: number) => {
+      const t = this.lines[i]?.type
+      return t === "addition" || t === "deletion"
     }
-    return null
+
+    if (direction === "next") {
+      let i = fromLine + 1
+      // 1. Skip past remaining lines of the current change block
+      while (i < this.lines.length && isChange(i)) i++
+      // 2. Skip past non-change lines (context, dividers, headers, spacing)
+      while (i < this.lines.length && !isChange(i)) i++
+      // 3. Return the first change line of the next block (if any)
+      return i < this.lines.length ? i : null
+    } else {
+      let i = fromLine - 1
+      // 1. Skip past remaining lines of the current change block (going up)
+      while (i >= 0 && isChange(i)) i--
+      // 2. Skip past non-change lines
+      while (i >= 0 && !isChange(i)) i--
+      // 3. We're now on the last line of the previous change block;
+      //    walk back to find its first line
+      if (i < 0) return null
+      while (i > 0 && isChange(i - 1)) i--
+      return i
+    }
   }
 
   /**

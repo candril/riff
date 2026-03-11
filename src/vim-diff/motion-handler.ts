@@ -470,7 +470,7 @@ export class VimMotionHandler {
   /**
    * Move to next/previous hunk
    */
-  private moveToHunk(direction: "next" | "prev"): void {
+  moveToHunk(direction: "next" | "prev"): void {
     const state = this.getState()
     const mapping = this.getMapping()
     const hunkLine = mapping.findHunk(state.line, direction)

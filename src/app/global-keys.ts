@@ -329,7 +329,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleCloseFoldAtCursor(ctx.foldsContext)
         return
       }
-      // Other sequences like ]c, [c handled by vim handler
+      if (sequence === "]c") {
+        ctx.vimHandler.moveToHunk("next")
+        ctx.render()
+        return
+      } else if (sequence === "[c") {
+        ctx.vimHandler.moveToHunk("prev")
+        ctx.render()
+        return
+      }
+      // Other sequences handled by vim handler
     }
 
     if (key.name === "]" || key.name === "[" || key.name === "g" || key.name === "z") {
