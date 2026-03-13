@@ -205,6 +205,8 @@ export class VimDiffView {
   
   // Track gutter width for cursor positioning (set during rebuild)
   private gutterMinWidth: number = 4
+  // Track max line number for correct gutter width calculation
+  private maxLineNumber: number = 0
   
   // Expected scroll position - set by external scroll logic to avoid stale reads
   // When set, positionTerminalCursor uses this instead of scrollBox.scrollTop
@@ -525,11 +527,12 @@ export class VimDiffView {
     const { lineNumbers, hideLineNumbers } = this.buildLineNumbers()
     
     // Calculate gutter width based on max line number
-    let maxLineNumber = 0
+    let maxLineNum = 0
     for (const lineNum of lineNumbers.values()) {
-      if (lineNum > maxLineNumber) maxLineNumber = lineNum
+      if (lineNum > maxLineNum) maxLineNum = lineNum
     }
-    this.gutterMinWidth = Math.max(4, String(maxLineNumber).length)
+    this.maxLineNumber = maxLineNum
+    this.gutterMinWidth = Math.max(4, String(maxLineNum).length)
 
     // Create the component tree using h()
     const scrollBoxElement = ScrollBox(
@@ -593,12 +596,14 @@ export class VimDiffView {
     
     // Calculate consistent gutter width across all sections
     // Find the maximum line number to determine digit count
-    let maxLineNumber = 0
+    let maxLineNum = 0
     for (const lineNum of globalLineNumbers.values()) {
-      if (lineNum > maxLineNumber) maxLineNumber = lineNum
+      if (lineNum > maxLineNum) maxLineNum = lineNum
     }
+    // Store max line number for cursor positioning
+    this.maxLineNumber = maxLineNum
     // Minimum 4 digits to match single-file mode
-    this.gutterMinWidth = Math.max(4, String(maxLineNumber).length)
+    this.gutterMinWidth = Math.max(4, String(maxLineNum).length)
     
     // Create section elements
     const sectionElements: ReturnType<typeof Box>[] = []
@@ -1031,19 +1036,47 @@ export class VimDiffView {
     const filePanelOffset = this.filePanelVisible ? this.filePanelWidth : 0
     
     // Calculate gutter width to match OpenTUI's LineNumberRenderable
-    // Formula: max(minWidth, digits + paddingRight + 1) + signWidth
-    // We use minWidth=gutterMinWidth, paddingRight=1, signWidth=1
-    const maxLineNum = this.lineMapping.lineCount
+    // Formula: max(minWidth, digits + paddingRight + 1) + maxBeforeWidth + maxAfterWidth
+    // 
+    // In all-files mode, each section has its own LineNumberRenderable with its own gutter width.
+    // OpenTUI calculates width from max(virtualLineCount, max(custom line numbers)).
+    // We need to find the section containing the cursor and use its line count.
+    // 
+    // We use: minWidth=gutterMinWidth, paddingRight=1, maxBeforeWidth=1 (sign column), maxAfterWidth=0
+    let sectionLineCount = this.lineMapping?.lineCount ?? 0
+    let sectionMaxLineNum = this.maxLineNumber
+    
+    if (isAllFilesMode) {
+      // Find the section containing the current cursor line
+      const cursorSection = this.fileSections.find(
+        s => line >= s.startLine && line <= s.endLine
+      )
+      if (cursorSection) {
+        // Use section's line count for virtualLineCount
+        sectionLineCount = cursorSection.lineCount
+        // Find max source line number within this section
+        sectionMaxLineNum = 0
+        for (let globalLine = cursorSection.startLine; globalLine <= cursorSection.endLine; globalLine++) {
+          const mappingLine = this.lineMapping?.getLine(globalLine)
+          const lineNum = mappingLine?.newLineNum ?? mappingLine?.oldLineNum
+          if (lineNum !== undefined && lineNum > sectionMaxLineNum) {
+            sectionMaxLineNum = lineNum
+          }
+        }
+      }
+    }
+    
+    const maxLineNum = Math.max(sectionLineCount, sectionMaxLineNum)
     const digits = maxLineNum > 0 ? Math.floor(Math.log10(maxLineNum)) + 1 : 1
     const baseWidth = Math.max(this.gutterMinWidth, digits + 1 + 1)  // digits + paddingRight + 1
-    const gutterWidth = baseWidth + 1  // + signWidth
+    const gutterWidth = baseWidth + 1  // + maxBeforeWidth (sign column)
     
     // Screen position calculation:
     // - filePanelOffset: width of file panel (0 if hidden)
     // - gutterWidth: width of line number gutter
     // - visualCol: 0-indexed column in content
-    // The gutter already accounts for the 1-indexed terminal offset
-    const screenX = filePanelOffset + gutterWidth + visualCol
+    // - +1: terminal coordinates are 1-indexed
+    const screenX = filePanelOffset + gutterWidth + visualCol + 1
     const screenY = headerHeight + visualLine + 1
 
     // Set terminal cursor to block style and position it
