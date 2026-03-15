@@ -12,7 +12,19 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
-import { closePRInfoPanel, showToast, clearToast } from "../../state"
+import { closePRInfoPanel, showToast, clearToast, toggleLinkReveal } from "../../state"
+
+// Key sequence state for multi-key commands (e.g., "gl" for link reveal)
+let pendingKey: string | null = null
+let pendingTimeout: ReturnType<typeof setTimeout> | null = null
+
+function clearPendingKey(): void {
+  pendingKey = null
+  if (pendingTimeout) {
+    clearTimeout(pendingTimeout)
+    pendingTimeout = null
+  }
+}
 
 export interface PRInfoPanelInputContext {
   readonly state: AppState
@@ -64,15 +76,20 @@ export function handleInput(
       return true
 
     case "a":
-      // za - toggle current section or thread
+      // za - toggle current section or thread/comment
       if (panel) {
-        const section = panel.getActiveSection()
-        if (section === 'conversation') {
-          // Toggle thread expand/collapse if on a thread
-          panel.toggleSelectedThread()
-        } else {
-          // Toggle section expand/collapse
+        if (panel.isOnSectionHeader()) {
+          // On section header: toggle section expand/collapse
           panel.toggleSection()
+        } else {
+          const section = panel.getActiveSection()
+          if (section === 'conversation') {
+            // On conversation item: toggle thread/comment expand
+            panel.toggleSelectedThread()
+          } else {
+            // On other items: toggle section
+            panel.toggleSection()
+          }
         }
       }
       return true
@@ -168,8 +185,11 @@ export function handleInput(
           }
           case 'conversation': {
             const item = panel.getSelectedConversationItem()
-            if (item) {
-              const url = item.type === 'pr-comment' ? item.data.url : item.data.url
+            if (item && item.type !== 'pending-reviewer') {
+              // Get URL - for PR comments use direct url, for reviews use first thread's url
+              const url = item.type === 'pr-comment' 
+                ? item.data.url 
+                : item.data.threads[0]?.url
               if (url) Bun.spawn(["open", url])
             }
             break
@@ -213,11 +233,16 @@ export function handleInput(
             }
             case 'conversation': {
               const item = panel.getSelectedConversationItem()
-              if (item) {
-                const body = item.type === 'pr-comment' ? item.data.body : item.data.body
-                Bun.spawn(["sh", "-c", `echo -n "${body.replace(/"/g, '\\"')}" | pbcopy`])
-                ctx.setState((s) => showToast(s, "Comment copied", "success"))
-                copied = true
+              if (item && item.type !== 'pending-reviewer') {
+                // Get body - for PR comments use direct body, for reviews use body or first thread body
+                const body = item.type === 'pr-comment' 
+                  ? item.data.body 
+                  : (item.data.body || item.data.threads[0]?.body || '')
+                if (body) {
+                  Bun.spawn(["sh", "-c", `echo -n "${body.replace(/"/g, '\\"')}" | pbcopy`])
+                  ctx.setState((s) => showToast(s, "Comment copied", "success"))
+                  copied = true
+                }
               }
               break
             }
@@ -240,18 +265,15 @@ export function handleInput(
     case "j":
     case "down":
       if (panel) {
-        const section = panel.getActiveSection()
-        const hasItems = section === 'files' || section === 'commits' || section === 'conversation'
-        
-        if (panel.isSectionExpanded() && hasItems) {
-          // Navigate within items if expanded and section has items
+        if (panel.isSectionExpanded()) {
+          // Try to move within section (header -> items -> next section)
           const moved = panel.moveCursor(1)
           if (!moved) {
-            // At end of items, go to next section
+            // At end of items, go to next section header
             panel.cycleSection(1)
           }
         } else {
-          // Section collapsed or no items, go to next section
+          // Section collapsed, go to next section
           panel.cycleSection(1)
         }
       }
@@ -260,19 +282,16 @@ export function handleInput(
     case "k":
     case "up":
       if (panel) {
-        const section = panel.getActiveSection()
-        const hasItems = section === 'files' || section === 'commits' || section === 'conversation'
-        
-        if (panel.isSectionExpanded() && hasItems) {
-          // Navigate within items if expanded and section has items
+        if (panel.isSectionExpanded()) {
+          // Try to move within section (items -> header -> prev section)
           const moved = panel.moveCursor(-1)
           if (!moved) {
-            // At start of items, go to previous section
-            panel.cycleSection(-1)
+            // At header, go to previous section (at its last item or header)
+            panel.cycleSectionToEnd(-1)
           }
         } else {
-          // Section collapsed or no items, go to previous section
-          panel.cycleSection(-1)
+          // Section collapsed, go to previous section
+          panel.cycleSectionToEnd(-1)
         }
       }
       return true
@@ -292,19 +311,49 @@ export function handleInput(
       return true
 
     case "g": {
-      // gg: scroll to top, G: scroll to bottom
-      if (panel) {
-        const scrollBox = panel.getScrollBox()
-        if (key.shift) {
-          // G = scroll to bottom
-          scrollBox.scrollTo(scrollBox.scrollHeight)
-        } else {
-          // g = scroll to top (simplified, no gg detection)
-          scrollBox.scrollTo(0)
+      if (key.shift) {
+        // G = scroll to bottom
+        if (panel) {
+          panel.getScrollBox().scrollTo(panel.getScrollBox().scrollHeight)
         }
+        return true
+      }
+      // Start key sequence for g-prefixed commands
+      pendingKey = "g"
+      pendingTimeout = setTimeout(clearPendingKey, 500)
+      return true
+    }
+
+    case "l": {
+      // gl = toggle link reveal mode
+      if (pendingKey === "g") {
+        clearPendingKey()
+        // Toggle the state - this inverts the current value
+        const newLinkReveal = !ctx.state.prInfoPanel.linkReveal
+        ctx.setState(toggleLinkReveal)
+        // Also update the panel instance's linkReveal state
+        if (panel) {
+          panel.linkReveal = newLinkReveal
+        }
+        ctx.render()
+        return true
       }
       return true
     }
+  }
+
+  // Handle second key of g-sequence (for gg)
+  if (pendingKey === "g" && key.name === "g") {
+    clearPendingKey()
+    if (panel) {
+      panel.getScrollBox().scrollTo(0)
+    }
+    return true
+  }
+
+  // Clear pending key on any other input
+  if (pendingKey) {
+    clearPendingKey()
   }
 
   // Capture all other keys when panel is open

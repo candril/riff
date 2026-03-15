@@ -23,10 +23,32 @@ import { colors, theme } from "../theme"
  */
 type ConversationItem = 
   | { type: 'pr-comment'; data: PrConversationComment }
-  | { type: 'review-thread'; data: ReviewThread }
+  | { type: 'review'; data: ReviewWithThreads }
+  | { type: 'pending-reviewer'; data: string }
 
 /**
- * A review thread (code comment with replies)
+ * Flattened conversation item (for navigation when reviews are expanded)
+ */
+type FlatConversationItem =
+  | { type: 'pr-comment'; data: PrConversationComment }
+  | { type: 'review-header'; data: ReviewWithThreads }
+  | { type: 'review-thread'; data: ReviewThread; parentReview: ReviewWithThreads }
+  | { type: 'pending-reviewer'; data: string }
+
+/**
+ * A review with its code comment threads
+ */
+interface ReviewWithThreads {
+  id: string
+  author: string
+  state: PrReview["state"]
+  body?: string
+  submittedAt?: string
+  threads: ReviewThread[]
+}
+
+/**
+ * A code comment thread (root comment with replies)
  */
 interface ReviewThread {
   id: string
@@ -38,7 +60,6 @@ interface ReviewThread {
   url?: string
   isResolved: boolean
   replies: Comment[]
-  expanded: boolean
 }
 
 // Shared syntax style for markdown rendering (lazy init)
@@ -145,11 +166,49 @@ function getReviewIcon(state: PrReview["state"]): { icon: string; color: string 
 }
 
 /**
+ * Get terminal width (defaults to 80 if unavailable)
+ */
+function getTerminalWidth(): number {
+  return process.stdout.columns || 80
+}
+
+/**
  * Truncate string to max length with ellipsis
  */
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str
   return str.slice(0, maxLen - 1) + "…"
+}
+
+/**
+ * Calculate available width for body text in conversation rows.
+ * Total width minus fixed elements: indent, icons, author, time, padding
+ */
+function getBodyPreviewWidth(): number {
+  const termWidth = getTerminalWidth()
+  // Reserve space for: indent (4) + icon (2) + author (~20) + time (~12) + padding (~6)
+  const reserved = 44
+  return Math.max(20, termWidth - reserved)
+}
+
+/**
+ * Calculate available width for thread rows (has file:line prefix).
+ * Thread rows have: indent (4) + icon (2) + file:line (padded 24) + author (~15) + reply count (~6) + padding (~6)
+ */
+function getThreadBodyPreviewWidth(): number {
+  const termWidth = getTerminalWidth()
+  const reserved = 57
+  return Math.max(15, termWidth - reserved)
+}
+
+/**
+ * Calculate available width for file/commit lists.
+ */
+function getListItemWidth(): number {
+  const termWidth = getTerminalWidth()
+  // Reserve space for: indent (4) + icon (2) + status (~15) + padding (~6)
+  const reserved = 27
+  return Math.max(30, termWidth - reserved)
 }
 
 /**
@@ -172,7 +231,7 @@ interface SectionConfig {
   hasItems: boolean
 }
 
-const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'reviews', 'conversation', 'files', 'commits']
+const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'conversation', 'files', 'commits']
 
 /**
  * PR Info Panel - class-based for efficient updates
@@ -187,16 +246,22 @@ export class PRInfoPanelClass {
   
   // Section state
   private activeSection: PRInfoPanelSection = 'description'
-  private cursorIndex: number = 0
+  private cursorIndex: number = -1  // -1 = on section header
   
   // Expanded state per section (all open by default)
   private expandedSections: Set<PRInfoPanelSection> = new Set(ALL_SECTIONS)
   
-  // Thread expanded state (by thread root comment id)
+  // Thread expanded state (by thread root comment id) - shows replies
   private expandedThreads: Set<string> = new Set()
+  
+  // Content expanded state (by item id) - shows full comment body
+  private expandedContent: Set<string> = new Set()
   
   // Conversation items (computed from prInfo + comments)
   private conversationItems: ConversationItem[] = []
+  
+  // Flattened items cache (includes expanded review threads as separate items)
+  private flatConversationItems: FlatConversationItem[] = []
   
   // Section containers (for rebuilding on section change)
   private sectionsContainer: BoxRenderable | null = null
@@ -204,6 +269,15 @@ export class PRInfoPanelClass {
   
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
+  
+  // Link reveal mode (when true, show full URLs in markdown links)
+  private _linkReveal: boolean = false
+  
+  // Track all markdown renderables for link reveal updates
+  private markdownRenderables: MarkdownRenderable[] = []
+  
+  // Footer container for dynamic updates
+  private footer: BoxRenderable | null = null
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
@@ -213,6 +287,7 @@ export class PRInfoPanelClass {
     
     // Build conversation items
     this.conversationItems = this.buildConversationItems()
+    this.refreshFlatItems()
     
     // Build the panel
     const { container, scrollBox } = this.build()
@@ -249,25 +324,63 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Get the max cursor index for the current section
+   * Check if cursor is on section header (index -1)
    */
-  getMaxCursorIndex(): number {
+  isOnSectionHeader(): boolean {
+    return this.cursorIndex === -1
+  }
+
+  /**
+   * Get the item count for the current section (not including header)
+   */
+  private getItemCount(): number {
     switch (this.activeSection) {
       case 'description':
         return 0  // Description has no items, just expanded content
-      case 'reviews':
-        return Math.max(0, this.getReviewItems().length - 1)
       case 'conversation':
-        return Math.max(0, this.conversationItems.length - 1)
+        return this.flatConversationItems.length
       case 'files':
-        return Math.max(0, this.files.length - 1)
+        return this.files.length
       case 'commits':
-        return Math.max(0, (this.prInfo.commits?.length ?? 0) - 1)
+        return this.prInfo.commits?.length ?? 0
     }
   }
 
   /**
-   * Build conversation items from PR comments and code comments
+   * Get the max cursor index for the current section
+   * -1 = section header, 0+ = items
+   */
+  getMaxCursorIndex(): number {
+    const itemCount = this.getItemCount()
+    return itemCount > 0 ? itemCount - 1 : -1
+  }
+
+  /**
+   * Get link reveal state
+   */
+  get linkReveal(): boolean {
+    return this._linkReveal
+  }
+
+  /**
+   * Set link reveal state and update all markdown renderables
+   * When true, shows full URLs in markdown links (conceal=false)
+   */
+  set linkReveal(value: boolean) {
+    if (this._linkReveal === value) return
+    this._linkReveal = value
+    
+    // Update all tracked markdown renderables
+    for (const md of this.markdownRenderables) {
+      md.conceal = !value
+    }
+    
+    // Update footer to show current mode
+    this.updateFooter()
+  }
+
+  /**
+   * Build conversation items from PR comments, reviews, and code comments
    */
   private buildConversationItems(): ConversationItem[] {
     const items: ConversationItem[] = []
@@ -277,14 +390,11 @@ export class PRInfoPanelClass {
       items.push({ type: 'pr-comment', data: comment })
     }
     
-    // Group code comments into threads
+    // Build thread map from code comments (root comments only)
     const threadMap = new Map<string, ReviewThread>()
-    
     for (const comment of this.comments) {
-      // Skip if this is a reply (will be added to parent thread)
-      if (comment.inReplyTo) continue
+      if (comment.inReplyTo) continue // Skip replies
       
-      // Create thread from root comment
       const thread: ReviewThread = {
         id: comment.id,
         filename: comment.filename,
@@ -295,7 +405,6 @@ export class PRInfoPanelClass {
         url: comment.githubUrl,
         isResolved: comment.isThreadResolved ?? false,
         replies: [],
-        expanded: false, // Default collapsed for threads with replies
       }
       threadMap.set(comment.id, thread)
     }
@@ -310,20 +419,94 @@ export class PRInfoPanelClass {
       }
     }
     
-    // Add threads to items, sorted by date
-    const threads = Array.from(threadMap.values())
-    for (const thread of threads) {
-      // Sort replies by date
+    // Sort replies within each thread
+    for (const thread of threadMap.values()) {
       thread.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      // Expand by default if no replies or resolved
-      thread.expanded = thread.replies.length === 0 || thread.isResolved
-      items.push({ type: 'review-thread', data: thread })
     }
     
-    // Sort all items by date
+    // Group threads by their parent review ID
+    const reviewThreadsMap = new Map<number, ReviewThread[]>()
+    const orphanThreads: ReviewThread[] = [] // Threads not linked to a review
+    
+    for (const comment of this.comments) {
+      if (comment.inReplyTo) continue // Only process root comments
+      const thread = threadMap.get(comment.id)
+      if (!thread) continue
+      
+      if (comment.githubReviewId) {
+        const existing = reviewThreadsMap.get(comment.githubReviewId) ?? []
+        existing.push(thread)
+        reviewThreadsMap.set(comment.githubReviewId, existing)
+      } else {
+        orphanThreads.push(thread)
+      }
+    }
+    
+    // Build reviews with their threads
+    const reviews = this.prInfo.reviews ?? []
+    for (const review of reviews) {
+      if (review.state === "PENDING") continue // Skip pending reviews
+      
+      // Find threads for this review (match by numeric part of GraphQL ID)
+      // GraphQL ID format: PRR_kwDOQMrSEM7rKlCy, REST API id is a number
+      // We need to match somehow - for now just use the review data directly
+      const reviewWithThreads: ReviewWithThreads = {
+        id: review.id,
+        author: review.author,
+        state: review.state,
+        body: review.body,
+        submittedAt: review.submittedAt,
+        threads: [], // Will be populated below
+      }
+      
+      // Find threads that belong to this review
+      // Match by looking at comments created around the same time
+      // (This is imperfect but works for most cases)
+      for (const [reviewId, threads] of reviewThreadsMap) {
+        // The reviewId is the numeric REST API review ID
+        // We can't directly match it to the GraphQL ID, so we add all threads
+        // to the review they belong to based on the stored reviewId
+        reviewWithThreads.threads.push(...threads)
+        reviewThreadsMap.delete(reviewId) // Remove so we don't add twice
+        break // For now, just assign threads to first review (imperfect)
+      }
+      
+      items.push({ type: 'review', data: reviewWithThreads })
+    }
+    
+    // Add orphan threads as standalone reviews (shouldn't happen normally)
+    for (const thread of orphanThreads) {
+      items.push({
+        type: 'review',
+        data: {
+          id: `orphan-${thread.id}`,
+          author: thread.author,
+          state: "COMMENTED",
+          threads: [thread],
+        }
+      })
+    }
+    
+    // Add pending reviewers at the end
+    const requestedReviewers = this.prInfo.requestedReviewers ?? []
+    const submittedReviews = this.prInfo.reviews ?? []
+    const pendingReviewers = requestedReviewers.filter(
+      r => !submittedReviews.some(rev => rev.author === r)
+    )
+    for (const reviewer of pendingReviewers) {
+      items.push({ type: 'pending-reviewer', data: reviewer })
+    }
+    
+    // Sort items by date (pending reviewers go at the end since they have no date)
     items.sort((a, b) => {
-      const dateA = a.type === 'pr-comment' ? a.data.createdAt : a.data.createdAt
-      const dateB = b.type === 'pr-comment' ? b.data.createdAt : b.data.createdAt
+      if (a.type === 'pending-reviewer') return 1
+      if (b.type === 'pending-reviewer') return -1
+      const dateA = a.type === 'pr-comment' 
+        ? a.data.createdAt 
+        : a.data.submittedAt ?? a.data.threads[0]?.createdAt ?? ''
+      const dateB = b.type === 'pr-comment' 
+        ? b.data.createdAt 
+        : b.data.submittedAt ?? b.data.threads[0]?.createdAt ?? ''
       return new Date(dateA).getTime() - new Date(dateB).getTime()
     })
     
@@ -331,47 +514,69 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Get combined review items (reviews + pending reviewers)
+   * Build flattened conversation items (expands reviews to include their threads)
    */
-  private getReviewItems(): Array<{ type: 'review' | 'pending', data: PrReview | string }> {
-    const reviews = this.prInfo.reviews ?? []
-    const requestedReviewers = this.prInfo.requestedReviewers ?? []
-    const reviewedBy = reviews.filter(r => r.state !== "PENDING")
-    const pendingReviewers = requestedReviewers.filter(
-      r => !reviews.some(rev => rev.author === r)
-    )
+  private buildFlatConversationItems(): FlatConversationItem[] {
+    const flat: FlatConversationItem[] = []
     
-    const items: Array<{ type: 'review' | 'pending', data: PrReview | string }> = []
-    for (const review of reviewedBy) {
-      items.push({ type: 'review', data: review })
+    for (const item of this.conversationItems) {
+      if (item.type === 'pr-comment') {
+        flat.push(item)
+      } else if (item.type === 'pending-reviewer') {
+        flat.push(item)
+      } else {
+        // Review - add header, then threads if expanded
+        flat.push({ type: 'review-header', data: item.data })
+        
+        if (this.isContentExpanded(item)) {
+          for (const thread of item.data.threads) {
+            flat.push({ type: 'review-thread', data: thread, parentReview: item.data })
+          }
+        }
+      }
     }
-    for (const reviewer of pendingReviewers) {
-      items.push({ type: 'pending', data: reviewer })
-    }
-    return items
+    
+    return flat
+  }
+
+  /**
+   * Refresh the flat conversation items cache
+   */
+  private refreshFlatItems(): void {
+    this.flatConversationItems = this.buildFlatConversationItems()
   }
 
   /**
    * Move cursor within current section
    * Returns true if cursor moved, false if at boundary
+   * Cursor -1 = section header, 0+ = items
    */
   moveCursor(delta: number): boolean {
     const maxIndex = this.getMaxCursorIndex()
-    const newIndex = Math.max(0, Math.min(maxIndex, this.cursorIndex + delta))
+    // Min is -1 (header), max is the last item index
+    const newIndex = Math.max(-1, Math.min(maxIndex, this.cursorIndex + delta))
     
     if (newIndex === this.cursorIndex) return false
     
-    // Update old row (deselect)
-    this.updateItemRow(this.activeSection, this.cursorIndex, false)
+    // Update old row (deselect) - only for items, not header
+    if (this.cursorIndex >= 0) {
+      this.updateItemRow(this.activeSection, this.cursorIndex, false)
+    }
     
-    // Update new row (select)
+    // Update new row (select) - only for items, not header
     this.cursorIndex = newIndex
-    this.updateItemRow(this.activeSection, this.cursorIndex, true)
+    if (this.cursorIndex >= 0) {
+      this.updateItemRow(this.activeSection, this.cursorIndex, true)
+    }
+    
+    // Rebuild to update header highlight
+    this.rebuildSections()
     return true
   }
 
   /**
    * Cycle to next/previous section (Tab navigation)
+   * Positions cursor at section header (-1)
    */
   cycleSection(delta: number): void {
     const currentIndex = ALL_SECTIONS.indexOf(this.activeSection)
@@ -381,21 +586,64 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * Cycle to next/previous section, positioning cursor at end if expanded
+   * Used when navigating up from a section header
+   */
+  cycleSectionToEnd(delta: number): void {
+    const currentIndex = ALL_SECTIONS.indexOf(this.activeSection)
+    const newIndex = (currentIndex + delta + ALL_SECTIONS.length) % ALL_SECTIONS.length
+    const newSection = ALL_SECTIONS[newIndex]!
+    
+    // Deselect old cursor
+    if (this.cursorIndex >= 0) {
+      this.updateItemRow(this.activeSection, this.cursorIndex, false)
+    }
+    
+    this.activeSection = newSection
+    
+    // If new section is expanded, go to last item; otherwise stay on header
+    if (this.expandedSections.has(newSection)) {
+      const itemCount = this.getItemCountForSection(newSection)
+      this.cursorIndex = itemCount > 0 ? itemCount - 1 : -1
+      if (this.cursorIndex >= 0) {
+        this.updateItemRow(newSection, this.cursorIndex, true)
+      }
+    } else {
+      this.cursorIndex = -1
+    }
+    
+    this.rebuildSections()
+  }
+
+  /**
+   * Get item count for a specific section
+   */
+  private getItemCountForSection(section: PRInfoPanelSection): number {
+    switch (section) {
+      case 'description':
+        return 0
+      case 'conversation':
+        return this.flatConversationItems.length
+      case 'files':
+        return this.files.length
+      case 'commits':
+        return this.prInfo.commits?.length ?? 0
+    }
+  }
+
+  /**
    * Set the active section
    */
   setActiveSection(section: PRInfoPanelSection): void {
     if (section === this.activeSection) return
     
-    // Deselect old section's cursor
-    this.updateItemRow(this.activeSection, this.cursorIndex, false)
+    // Deselect old section's cursor (only for items, not header)
+    if (this.cursorIndex >= 0) {
+      this.updateItemRow(this.activeSection, this.cursorIndex, false)
+    }
     
     this.activeSection = section
-    this.cursorIndex = 0
-    
-    // Select new section's first item if expanded
-    if (this.expandedSections.has(section)) {
-      this.updateItemRow(section, 0, true)
-    }
+    this.cursorIndex = -1  // Start on section header
     
     // Rebuild to update section header styling
     this.rebuildSections()
@@ -456,7 +704,7 @@ export class PRInfoPanelClass {
    * Get selected commit
    */
   getSelectedCommit(): PrCommit | undefined {
-    if (this.activeSection !== 'commits') return undefined
+    if (this.activeSection !== 'commits' || this.cursorIndex < 0) return undefined
     return this.prInfo.commits?.[this.cursorIndex]
   }
 
@@ -464,47 +712,119 @@ export class PRInfoPanelClass {
    * Get selected file
    */
   getSelectedFile(): DiffFile | undefined {
-    if (this.activeSection !== 'files') return undefined
+    if (this.activeSection !== 'files' || this.cursorIndex < 0) return undefined
     return this.files[this.cursorIndex]
   }
 
   /**
-   * Get selected conversation item
+   * Get selected conversation item (from original list, not flat)
    */
   getSelectedConversationItem(): ConversationItem | undefined {
-    if (this.activeSection !== 'conversation') return undefined
-    return this.conversationItems[this.cursorIndex]
+    const flatItem = this.getSelectedFlatItem()
+    if (!flatItem) return undefined
+    
+    // Map flat item back to original conversation item
+    if (flatItem.type === 'pr-comment') {
+      return flatItem
+    } else if (flatItem.type === 'review-header') {
+      return { type: 'review', data: flatItem.data }
+    } else if (flatItem.type === 'review-thread') {
+      return { type: 'review', data: flatItem.parentReview }
+    } else {
+      return flatItem
+    }
   }
 
   /**
    * Get the jump location for the selected conversation item (file/line for code comments)
    */
   getSelectedCommentLocation(): { filename: string; line: number } | undefined {
-    const item = this.getSelectedConversationItem()
-    if (!item) return undefined
+    const flatItem = this.getSelectedFlatItem()
+    if (!flatItem) return undefined
     
-    if (item.type === 'review-thread') {
-      return { filename: item.data.filename, line: item.data.line }
+    if (flatItem.type === 'review-thread') {
+      return { filename: flatItem.data.filename, line: flatItem.data.line }
+    } else if (flatItem.type === 'review-header' && flatItem.data.threads.length > 0) {
+      const firstThread = flatItem.data.threads[0]!
+      return { filename: firstThread.filename, line: firstThread.line }
     }
     return undefined // PR comments have no code location
   }
 
   /**
-   * Toggle expand/collapse for the selected thread
+   * Toggle expand/collapse for the selected conversation item.
+   * - For PR comments: toggles full body display
+   * - For reviews: toggles threads visibility (flattens them as navigable items)
    */
   toggleSelectedThread(): void {
-    const item = this.getSelectedConversationItem()
-    if (!item || item.type !== 'review-thread') return
+    const flatItem = this.getSelectedFlatItem()
+    if (!flatItem) return
     
-    const threadId = item.data.id
-    if (this.expandedThreads.has(threadId)) {
-      this.expandedThreads.delete(threadId)
+    // For review threads, toggle the parent review
+    if (flatItem.type === 'review-thread') {
+      const parentId = flatItem.parentReview.id
+      if (this.expandedContent.has(parentId)) {
+        this.expandedContent.delete(parentId)
+      } else {
+        this.expandedContent.add(parentId)
+      }
     } else {
-      this.expandedThreads.add(threadId)
+      const itemId = this.getFlatItemId(flatItem)
+      if (this.expandedContent.has(itemId)) {
+        this.expandedContent.delete(itemId)
+      } else {
+        this.expandedContent.add(itemId)
+      }
     }
-    // Update the thread's expanded state
-    item.data.expanded = this.expandedThreads.has(threadId)
+    
+    // Refresh flat items and rebuild
+    this.refreshFlatItems()
     this.rebuildSections()
+  }
+  
+  /**
+   * Get the string id for a conversation item
+   */
+  private getItemId(item: ConversationItem): string {
+    switch (item.type) {
+      case 'pr-comment':
+        return String(item.data.id)
+      case 'review':
+        return item.data.id
+      case 'pending-reviewer':
+        return `pending-${item.data}`
+    }
+  }
+  
+  /**
+   * Get the string id for a flat conversation item
+   */
+  private getFlatItemId(item: FlatConversationItem): string {
+    switch (item.type) {
+      case 'pr-comment':
+        return String(item.data.id)
+      case 'review-header':
+        return item.data.id
+      case 'review-thread':
+        return item.data.id
+      case 'pending-reviewer':
+        return `pending-${item.data}`
+    }
+  }
+  
+  /**
+   * Get the currently selected flat conversation item
+   */
+  getSelectedFlatItem(): FlatConversationItem | undefined {
+    if (this.activeSection !== 'conversation' || this.cursorIndex < 0) return undefined
+    return this.flatConversationItems[this.cursorIndex]
+  }
+  
+  /**
+   * Check if an item's content is expanded (showing full body/threads)
+   */
+  private isContentExpanded(item: ConversationItem): boolean {
+    return this.expandedContent.has(this.getItemId(item))
   }
 
   /**
@@ -530,9 +850,6 @@ export class PRInfoPanelClass {
         row.primary.fg = selected ? theme.blue : theme.sapphire
         if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
         break
-      case 'reviews':
-        row.primary.fg = selected ? theme.text : theme.subtext1
-        break
     }
   }
 
@@ -540,20 +857,10 @@ export class PRInfoPanelClass {
    * Build section configs
    */
   private getSectionConfigs(): SectionConfig[] {
-    const reviews = this.prInfo.reviews ?? []
-    const reviewedBy = reviews.filter(r => r.state !== "PENDING")
-    const approved = reviewedBy.filter(r => r.state === "APPROVED").length
-    const changesRequested = reviewedBy.filter(r => r.state === "CHANGES_REQUESTED").length
-    
     const conversationCount = this.conversationItems.length
     const commitCount = this.prInfo.commits?.length ?? 0
     const fileCount = this.files.length
     const bodyLines = (this.prInfo.body || "").split("\n").filter(l => l.trim()).length
-
-    // Reviews preview: "✓2 ✗1"
-    let reviewsPreview = ""
-    if (approved > 0) reviewsPreview += `✓${approved}`
-    if (changesRequested > 0) reviewsPreview += (reviewsPreview ? " " : "") + `✗${changesRequested}`
 
     return [
       {
@@ -562,13 +869,6 @@ export class PRInfoPanelClass {
         count: bodyLines,
         preview: bodyLines > 0 ? `${bodyLines} lines` : "empty",
         hasItems: false,
-      },
-      {
-        id: 'reviews',
-        title: 'Reviews',
-        count: this.getReviewItems().length,
-        preview: reviewsPreview || "none",
-        hasItems: this.getReviewItems().length > 0,
       },
       {
         id: 'conversation',
@@ -606,6 +906,7 @@ export class PRInfoPanelClass {
     }
     this.sectionBoxes = []
     this.itemRows.clear()
+    this.markdownRenderables = []  // Clear tracked markdown renderables
     
     // Rebuild
     this.buildSections(this.sectionsContainer)
@@ -630,8 +931,8 @@ export class PRInfoPanelClass {
       const hasItems = this.sectionHasItems(config.id)
       
       // Header is highlighted when:
-      // - Section is active AND (collapsed OR has no selectable items)
-      const headerHighlighted = isActive && (!isExpanded || !hasItems)
+      // - Section is active AND cursor is on header (index -1)
+      const headerHighlighted = isActive && this.cursorIndex === -1
       
       const sectionBox = new BoxRenderable(this.renderer, {
         id: `section-${config.id}`,
@@ -649,7 +950,7 @@ export class PRInfoPanelClass {
         backgroundColor: headerHighlighted ? theme.surface0 : undefined,
       })
       headerRow.add(new TextRenderable(this.renderer, {
-        content: `${indicator} ${config.title} (${config.count})`,
+        content: `${indicator}  ${config.title} (${config.count})`,
         fg: isActive ? theme.blue : theme.overlay0,
       }))
       // Show preview only when collapsed
@@ -685,9 +986,6 @@ export class PRInfoPanelClass {
       case 'description':
         this.buildDescriptionContent(contentBox)
         break
-      case 'reviews':
-        this.buildReviewsContent(contentBox, isActive)
-        break
       case 'conversation':
         this.buildConversationContent(contentBox, isActive)
         break
@@ -714,78 +1012,26 @@ export class PRInfoPanelClass {
       return
     }
     
-    container.add(new MarkdownRenderable(this.renderer, {
+    const md = new MarkdownRenderable(this.renderer, {
       id: "pr-info-description",
       content: this.prInfo.body,
       syntaxStyle: getSyntaxStyle(),
-    }))
+      conceal: !this._linkReveal,
+    })
+    this.markdownRenderables.push(md)
+    container.add(md)
   }
 
   /**
-   * Build reviews content
-   */
-  private buildReviewsContent(container: BoxRenderable, isActive: boolean): void {
-    const items = this.getReviewItems()
-    const rows: ItemRowRefs[] = []
-    
-    if (items.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No reviews yet",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-    
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]!
-      const isSelected = isActive && i === this.cursorIndex
-      
-      const row = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: isSelected ? theme.surface1 : undefined,
-      })
-      
-      if (item.type === 'review') {
-        const review = item.data as PrReview
-        const { icon, color } = getReviewIcon(review.state)
-        const stateLabel = review.state === "CHANGES_REQUESTED" 
-          ? "changes requested" 
-          : review.state.toLowerCase()
-        
-        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: color }))
-        const nameText = new TextRenderable(this.renderer, {
-          content: `@${review.author}`.padEnd(20),
-          fg: isSelected ? theme.text : theme.subtext1,
-        })
-        row.add(nameText)
-        row.add(new TextRenderable(this.renderer, { content: stateLabel, fg: theme.subtext0 }))
-        rows.push({ container: row, primary: nameText })
-      } else {
-        const reviewer = item.data as string
-        row.add(new TextRenderable(this.renderer, { content: "○ ", fg: theme.yellow }))
-        const nameText = new TextRenderable(this.renderer, {
-          content: `@${reviewer}`.padEnd(20),
-          fg: isSelected ? theme.text : theme.subtext1,
-        })
-        row.add(nameText)
-        row.add(new TextRenderable(this.renderer, { content: "awaiting review", fg: theme.yellow }))
-        rows.push({ container: row, primary: nameText })
-      }
-      
-      container.add(row)
-    }
-    
-    this.itemRows.set('reviews', rows)
-  }
-
-  /**
-   * Build conversation content (unified: PR comments + code threads)
+   * Build conversation content using flattened items (reviews expand to show threads as separate items)
    */
   private buildConversationContent(container: BoxRenderable, isActive: boolean): void {
     const rows: ItemRowRefs[] = []
     
-    if (this.conversationItems.length === 0) {
+    // Refresh flat items before rendering
+    this.refreshFlatItems()
+    
+    if (this.flatConversationItems.length === 0) {
       container.add(new TextRenderable(this.renderer, {
         content: "No comments",
         fg: theme.overlay0,
@@ -793,83 +1039,101 @@ export class PRInfoPanelClass {
       return
     }
     
-    for (let i = 0; i < this.conversationItems.length; i++) {
-      const item = this.conversationItems[i]!
+    for (let i = 0; i < this.flatConversationItems.length; i++) {
+      const item = this.flatConversationItems[i]!
       const isSelected = isActive && i === this.cursorIndex
       
       if (item.type === 'pr-comment') {
-        // PR conversation comment (no code location)
         const comment = item.data
+        const isExpanded = this.expandedContent.has(String(comment.id))
+        
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
           height: 1,
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
         
-        row.add(new TextRenderable(this.renderer, { content: "💬 ", fg: theme.subtext0 }))
+        const expandIcon = isExpanded ? "▼" : "▶"
+        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
+        row.add(new TextRenderable(this.renderer, { content: " PR  ", fg: theme.overlay1 }))
         
         const authorText = new TextRenderable(this.renderer, {
-          content: `@${comment.author}`.padEnd(16),
+          content: `@${comment.author}`,
           fg: isSelected ? theme.blue : theme.sapphire,
         })
         row.add(authorText)
         
-        const bodyPreview = truncate(comment.body.replace(/\n/g, " "), 35)
-        const bodyText = new TextRenderable(this.renderer, {
-          content: bodyPreview.padEnd(37),
-          fg: isSelected ? theme.text : theme.subtext1,
-        })
+        let bodyText: TextRenderable
+        if (isExpanded) {
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+        } else {
+          const bodyPreview = truncate(comment.body.replace(/\n/g, " "), getBodyPreviewWidth())
+          bodyText = new TextRenderable(this.renderer, {
+            content: `  ${bodyPreview}`,
+            fg: isSelected ? theme.text : theme.subtext1,
+          })
+        }
         row.add(bodyText)
         
         row.add(new TextRenderable(this.renderer, {
-          content: formatTimeAgo(comment.createdAt),
+          content: `  ${formatTimeAgo(comment.createdAt)}`,
           fg: theme.overlay0,
         }))
         
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
         
-      } else {
-        // Review thread (code comment)
-        const thread = item.data
-        const hasReplies = thread.replies.length > 0
-        const isExpanded = thread.expanded || this.expandedThreads.has(thread.id)
+        if (isExpanded) {
+          this.buildExpandedCommentBody(container, comment.body, 4)
+        }
         
-        // Thread header row
+      } else if (item.type === 'review-header') {
+        const review = item.data
+        const isExpanded = this.expandedContent.has(review.id)
+        const hasThreads = review.threads.length > 0
+        const hasBody = review.body && review.body.trim().length > 0
+        const { icon: stateIcon, color: stateColor } = getReviewIcon(review.state)
+        
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
           height: 1,
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
         
-        // Icon: resolved, expandable, or single
-        const icon = thread.isResolved ? "✓" : hasReplies ? (isExpanded ? "▼" : "▶") : "○"
-        const iconColor = thread.isResolved ? theme.green : theme.subtext0
-        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor }))
-        
-        // File:line indicator
-        const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, 15)
-        row.add(new TextRenderable(this.renderer, {
-          content: `${fileShort}:${thread.line}`.padEnd(20),
-          fg: theme.yellow,
-        }))
+        const expandIcon = isExpanded ? "▼" : "▶"
+        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
+        row.add(new TextRenderable(this.renderer, { content: ` ${stateIcon} `, fg: stateColor }))
         
         const authorText = new TextRenderable(this.renderer, {
-          content: `@${thread.author}`.padEnd(14),
+          content: `@${review.author}`,
           fg: isSelected ? theme.blue : theme.sapphire,
         })
         row.add(authorText)
         
-        const bodyPreview = truncate(thread.body.replace(/\n/g, " "), 25)
-        const bodyText = new TextRenderable(this.renderer, {
-          content: bodyPreview,
-          fg: isSelected ? theme.text : theme.subtext1,
-        })
+        const stateLabel = review.state === "CHANGES_REQUESTED" 
+          ? "requested changes" 
+          : review.state === "APPROVED" 
+            ? "approved" 
+            : "commented"
+        row.add(new TextRenderable(this.renderer, {
+          content: `  ${stateLabel}`,
+          fg: theme.subtext0,
+        }))
+        
+        let bodyText: TextRenderable
+        if (!isExpanded && hasThreads) {
+          bodyText = new TextRenderable(this.renderer, {
+            content: `  (${review.threads.length} ${review.threads.length === 1 ? 'thread' : 'threads'})`,
+            fg: theme.overlay0,
+          })
+        } else {
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+        }
         row.add(bodyText)
         
-        if (hasReplies) {
+        if (review.submittedAt) {
           row.add(new TextRenderable(this.renderer, {
-            content: ` (${thread.replies.length + 1})`,
+            content: `  ${formatTimeAgo(review.submittedAt)}`,
             fg: theme.overlay0,
           }))
         }
@@ -877,34 +1141,194 @@ export class PRInfoPanelClass {
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
         
-        // Show replies if expanded
-        if (isExpanded && hasReplies) {
+        // Show review body if expanded (but threads are separate items now)
+        if (isExpanded && hasBody) {
+          this.buildExpandedCommentBody(container, review.body!, 4)
+        }
+        
+      } else if (item.type === 'review-thread') {
+        const thread = item.data
+        const isExpanded = this.expandedContent.has(thread.id)
+        const hasReplies = thread.replies.length > 0
+        
+        const row = new BoxRenderable(this.renderer, {
+          flexDirection: "row",
+          height: 1,
+          paddingLeft: 2,  // Indent to show it's under a review
+          backgroundColor: isSelected ? theme.surface1 : undefined,
+        })
+        
+        // Thread icon
+        const icon = thread.isResolved ? "✓" : (isExpanded ? "▼" : "▶")
+        const iconColor = thread.isResolved ? theme.green : theme.subtext0
+        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor }))
+        
+        // File:line - use more width on wider terminals
+        const fileLineWidth = Math.min(40, Math.max(20, Math.floor(getTerminalWidth() * 0.25)))
+        const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, fileLineWidth - 5) // Leave room for :line
+        row.add(new TextRenderable(this.renderer, {
+          content: ` ${fileShort}:${thread.line}  `,
+          fg: theme.yellow,
+        }))
+        
+        const authorText = new TextRenderable(this.renderer, {
+          content: `@${thread.author}`,
+          fg: isSelected ? theme.blue : theme.sapphire,
+        })
+        row.add(authorText)
+        
+        let bodyText: TextRenderable
+        if (isExpanded) {
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+        } else {
+          const bodyPreview = truncate(thread.body.replace(/\n/g, " "), getThreadBodyPreviewWidth())
+          bodyText = new TextRenderable(this.renderer, {
+            content: `  ${bodyPreview}`,
+            fg: isSelected ? theme.text : theme.subtext1,
+          })
+        }
+        row.add(bodyText)
+        
+        if (hasReplies && !isExpanded) {
+          row.add(new TextRenderable(this.renderer, {
+            content: `  (${thread.replies.length + 1})`,
+            fg: theme.overlay0,
+          }))
+        }
+        
+        container.add(row)
+        rows.push({ container: row, primary: authorText, secondary: bodyText })
+        
+        // Show thread content if expanded
+        if (isExpanded) {
+          this.buildExpandedCommentBody(container, thread.body, 6)
+          
           for (const reply of thread.replies) {
-            const replyRow = new BoxRenderable(this.renderer, {
+            const replyHeader = new BoxRenderable(this.renderer, {
               flexDirection: "row",
               height: 1,
-              paddingLeft: 4,
+              paddingLeft: 6,
             })
-            
-            replyRow.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
-            replyRow.add(new TextRenderable(this.renderer, {
-              content: `@${reply.author ?? 'you'}`.padEnd(14),
-              fg: theme.subtext0,
+            replyHeader.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
+            replyHeader.add(new TextRenderable(this.renderer, {
+              content: `@${reply.author ?? 'you'}`,
+              fg: theme.sapphire,
             }))
-            
-            const replyPreview = truncate(reply.body.replace(/\n/g, " "), 40)
-            replyRow.add(new TextRenderable(this.renderer, {
-              content: replyPreview,
-              fg: theme.subtext1,
+            replyHeader.add(new TextRenderable(this.renderer, {
+              content: `  ${formatTimeAgo(reply.createdAt)}`,
+              fg: theme.overlay0,
             }))
+            container.add(replyHeader)
             
-            container.add(replyRow)
+            this.buildExpandedCommentBody(container, reply.body, 8)
           }
         }
+        
+      } else {
+        // Pending reviewer
+        const reviewer = item.data
+        
+        const row = new BoxRenderable(this.renderer, {
+          flexDirection: "row",
+          height: 1,
+          backgroundColor: isSelected ? theme.surface1 : undefined,
+        })
+        
+        row.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.subtext0 }))
+        row.add(new TextRenderable(this.renderer, { content: "○ ", fg: theme.yellow }))
+        
+        const authorText = new TextRenderable(this.renderer, {
+          content: `@${reviewer}`,
+          fg: isSelected ? theme.blue : theme.sapphire,
+        })
+        row.add(authorText)
+        
+        const bodyText = new TextRenderable(this.renderer, {
+          content: "  awaiting review",
+          fg: theme.yellow,
+        })
+        row.add(bodyText)
+        
+        container.add(row)
+        rows.push({ container: row, primary: authorText, secondary: bodyText })
       }
     }
     
     this.itemRows.set('conversation', rows)
+  }
+  
+  /**
+   * Build expanded comment body with markdown rendering
+   */
+  private buildExpandedCommentBody(container: BoxRenderable, body: string, indent: number): void {
+    const bodyBox = new BoxRenderable(this.renderer, {
+      flexDirection: "column",
+      paddingLeft: indent,
+      paddingRight: 2,
+      marginTop: 1,
+      marginBottom: 1,
+    })
+    
+    const md = new MarkdownRenderable(this.renderer, {
+      content: body,
+      syntaxStyle: getSyntaxStyle(),
+      conceal: !this._linkReveal,
+    })
+    this.markdownRenderables.push(md)
+    bodyBox.add(md)
+    
+    container.add(bodyBox)
+  }
+
+  /**
+   * Build a code comment thread display (file:line, body, replies)
+   */
+  private buildThreadDisplay(container: BoxRenderable, thread: ReviewThread, indent: number): void {
+    // Thread header with file:line
+    const headerRow = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+      paddingLeft: indent,
+      marginTop: 1,
+    })
+    
+    // Resolved indicator
+    const icon = thread.isResolved ? "✓" : "○"
+    const iconColor = thread.isResolved ? theme.green : theme.subtext0
+    headerRow.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor }))
+    
+    // File:line
+    const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, 30)
+    headerRow.add(new TextRenderable(this.renderer, {
+      content: `${fileShort}:${thread.line}`,
+      fg: theme.yellow,
+    }))
+    
+    container.add(headerRow)
+    
+    // Thread root comment body
+    this.buildExpandedCommentBody(container, thread.body, indent + 2)
+    
+    // Replies
+    for (const reply of thread.replies) {
+      const replyHeader = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        height: 1,
+        paddingLeft: indent + 2,
+      })
+      replyHeader.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
+      replyHeader.add(new TextRenderable(this.renderer, {
+        content: `@${reply.author ?? 'you'}`,
+        fg: theme.sapphire,
+      }))
+      replyHeader.add(new TextRenderable(this.renderer, {
+        content: `  ${formatTimeAgo(reply.createdAt)}`,
+        fg: theme.overlay0,
+      }))
+      container.add(replyHeader)
+      
+      this.buildExpandedCommentBody(container, reply.body, indent + 4)
+    }
   }
 
   /**
@@ -932,7 +1356,7 @@ export class PRInfoPanelClass {
       })
       
       const filenameText = new TextRenderable(this.renderer, {
-        content: truncate(file.filename, 50).padEnd(52),
+        content: truncate(file.filename, getListItemWidth()),
         fg: isSelected ? theme.text : theme.subtext1,
       })
       row.add(filenameText)
@@ -986,7 +1410,7 @@ export class PRInfoPanelClass {
       row.add(shaText)
       
       const messageText = new TextRenderable(this.renderer, {
-        content: truncate(commit.message, 50).padEnd(52),
+        content: truncate(commit.message, getListItemWidth()),
         fg: isSelected ? theme.text : theme.subtext1,
       })
       row.add(messageText)
@@ -1115,28 +1539,63 @@ export class PRInfoPanelClass {
     this.buildSections(this.sectionsContainer)
 
     // Footer
-    const footer = new BoxRenderable(this.renderer, {
+    this.footer = new BoxRenderable(this.renderer, {
       height: 1,
       width: "100%",
       backgroundColor: theme.mantle,
       paddingLeft: 2,
       flexDirection: "row",
     })
-    footer.add(new TextRenderable(this.renderer, { content: "Tab ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "section  ", fg: theme.subtext0 }))
-    footer.add(new TextRenderable(this.renderer, { content: "j/k ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "nav  ", fg: theme.subtext0 }))
-    footer.add(new TextRenderable(this.renderer, { content: "za ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "toggle  ", fg: theme.subtext0 }))
-    footer.add(new TextRenderable(this.renderer, { content: "Enter ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "action  ", fg: theme.subtext0 }))
-    footer.add(new TextRenderable(this.renderer, { content: "y ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "copy  ", fg: theme.subtext0 }))
-    footer.add(new TextRenderable(this.renderer, { content: "o ", fg: theme.yellow }))
-    footer.add(new TextRenderable(this.renderer, { content: "open", fg: theme.subtext0 }))
-    container.add(footer)
+    this.buildFooterContent()
+    container.add(this.footer)
 
     return { container, scrollBox }
+  }
+
+  /**
+   * Build footer content with keybinding hints
+   */
+  private buildFooterContent(): void {
+    if (!this.footer) return
+    
+    this.footer.add(new TextRenderable(this.renderer, { content: "Tab ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "section  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "j/k ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "nav  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "za ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "toggle  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "Enter ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "action  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "y ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "copy  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "o ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "open  ", fg: theme.subtext0 }))
+    this.footer.add(new TextRenderable(this.renderer, { content: "gl ", fg: theme.yellow }))
+    this.footer.add(new TextRenderable(this.renderer, { 
+      content: this._linkReveal ? "hide URLs" : "show URLs", 
+      fg: theme.subtext0 
+    }))
+    
+    // Show indicator when link reveal is active
+    if (this._linkReveal) {
+      this.footer.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.subtext0 }))
+      this.footer.add(new TextRenderable(this.renderer, { content: "[URLs]", fg: theme.blue }))
+    }
+  }
+
+  /**
+   * Update the footer content (e.g., when link reveal state changes)
+   */
+  private updateFooter(): void {
+    if (!this.footer) return
+    
+    // Clear existing content
+    for (const child of this.footer.getChildren()) {
+      this.footer.remove(child.id)
+    }
+    
+    // Rebuild
+    this.buildFooterContent()
   }
 
   /**

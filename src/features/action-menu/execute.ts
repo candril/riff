@@ -29,6 +29,7 @@ export interface ActionHandlers {
   handleSubmitSingleComment: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
+  handleCheckoutAndEdit: () => Promise<void>
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
   handleShowAllFiles: () => void
   handleEditPr: () => Promise<void>
@@ -153,6 +154,10 @@ export async function executeAction(
 
     case "open-in-editor":
       handlers.handleOpenFileInEditor()
+      break
+
+    case "checkout-and-edit":
+      handlers.handleCheckoutAndEdit()
       break
 
     case "show-all-files":

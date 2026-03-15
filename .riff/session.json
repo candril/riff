@@ -1,10 +1,10 @@
 {
-  "id": "0364d54d-a036-41cb-b664-632642052bdd",
-  "source": "gh:DigitecGalaxus/Dg.GalaxusAbos#469",
-  "createdAt": "2026-03-15T11:02:55.987Z",
-  "updatedAt": "2026-03-15T11:02:55.988Z",
-  "prNumber": 469,
-  "owner": "DigitecGalaxus",
-  "repo": "Dg.GalaxusAbos",
+  "id": "655f52c0-c1ea-4669-8432-c6058338201e",
+  "source": "gh:candril/jj-test#2",
+  "createdAt": "2026-03-15T16:56:41.239Z",
+  "updatedAt": "2026-03-15T16:56:41.239Z",
+  "prNumber": 2,
+  "owner": "candril",
+  "repo": "jj-test",
   "reviewMode": "single"
 }

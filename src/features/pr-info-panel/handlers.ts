@@ -25,7 +25,7 @@ export interface PRInfoPanelOpenContext {
 }
 
 /**
- * Open the PR info panel (gi) and load extended info
+ * Open the PR info panel (i) and load extended info
  */
 export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promise<void> {
   const state = ctx.getState()

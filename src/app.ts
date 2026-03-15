@@ -435,6 +435,7 @@ export async function createApp(options: AppOptions = {}) {
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
+    handleCheckoutAndEdit: () => externalTools.handleCheckoutAndEdit(externalToolsContext),
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
     handleShowAllFiles: () => {
       vimState = createCursorState()

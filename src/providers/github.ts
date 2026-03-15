@@ -78,9 +78,12 @@ export interface PrCommit {
 }
 
 export interface PrReview {
+  id: string  // GraphQL ID (PRR_...)
   author: string
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "PENDING" | "DISMISSED"
+  body?: string  // Review summary comment
   submittedAt?: string
+  url?: string
 }
 
 /**
@@ -219,8 +222,10 @@ export async function getPrInfo(
 
     // Parse and deduplicate reviews (keep latest per author)
     const rawReviews: PrReview[] = (result.reviews || []).map((r: any) => ({
+      id: r.id,
       author: r.author?.login || "unknown",
       state: r.state as PrReview["state"],
+      body: r.body || undefined,
       submittedAt: r.submittedAt,
     }))
     const latestReviews = new Map<string, PrReview>()
@@ -282,8 +287,10 @@ export async function getPrExtendedInfo(
     })).reverse() // Newest first
 
     const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
+      id: r.id,
       author: r.author?.login || "unknown",
       state: r.state as PrReview["state"],
+      body: r.body || undefined,
       submittedAt: r.submittedAt,
     }))
 
@@ -609,6 +616,7 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
     githubId: c.id,
     githubUrl: c.url,
     githubThreadId: c.graphqlThreadId, // For GraphQL resolve/unresolve mutations
+    githubReviewId: c.threadId, // The pull_request_review_id linking to parent review
     isThreadResolved: c.isThreadResolved, // Thread resolution state (only on root comments)
     author: c.author, // Preserve original author
     inReplyTo: c.inReplyToId ? `gh-${c.inReplyToId}` : undefined,

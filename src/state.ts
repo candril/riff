@@ -102,7 +102,7 @@ export interface ThreadPreviewState {
 /**
  * PR info panel state
  */
-export type PRInfoPanelSection = 'description' | 'reviews' | 'conversation' | 'files' | 'commits'
+export type PRInfoPanelSection = 'description' | 'conversation' | 'files' | 'commits'
 
 export interface PRInfoPanelState {
   open: boolean
@@ -110,6 +110,7 @@ export interface PRInfoPanelState {
   loading: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
   cursorIndex: number  // Currently selected item within active section
+  linkReveal: boolean  // Whether to show full URLs in markdown links
 }
 
 /**
@@ -308,6 +309,7 @@ export function createInitialState(
       loading: false,
       activeSection: 'commits',
       cursorIndex: 0,
+      linkReveal: false,
     },
     threadPreview: {
       open: false,
@@ -1396,6 +1398,7 @@ export function openPRInfoPanel(state: AppState): AppState {
       loading: true,
       activeSection: 'commits',
       cursorIndex: 0,
+      linkReveal: state.prInfoPanel.linkReveal,  // Preserve link reveal state
     },
   }
 }
@@ -1456,7 +1459,7 @@ export function movePRInfoPanelCursor(state: AppState, delta: number, maxIndex: 
 /**
  * All PR info panel sections in order
  */
-const PR_INFO_SECTIONS: PRInfoPanelSection[] = ['description', 'reviews', 'conversation', 'files', 'commits']
+const PR_INFO_SECTIONS: PRInfoPanelSection[] = ['description', 'conversation', 'files', 'commits']
 
 /**
  * Move to the next/previous section in the PR info panel
@@ -1484,6 +1487,19 @@ export function setPRInfoPanelSection(state: AppState, section: PRInfoPanelSecti
       ...state.prInfoPanel,
       activeSection: section,
       cursorIndex: 0,
+    },
+  }
+}
+
+/**
+ * Toggle link reveal mode in PR info panel (show/hide URLs in markdown)
+ */
+export function toggleLinkReveal(state: AppState): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      linkReveal: !state.prInfoPanel.linkReveal,
     },
   }
 }

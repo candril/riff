@@ -9,5 +9,6 @@
 export {
   handleOpenFileInEditor,
   handleOpenExternalDiff,
+  handleCheckoutAndEdit,
   type ExternalToolsContext,
 } from "./handlers"

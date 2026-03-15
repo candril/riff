@@ -4,6 +4,7 @@
  * Handles opening files in external editors and diff viewers.
  */
 
+import { join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
@@ -13,6 +14,8 @@ import { getVisibleFlatTreeItems } from "../../components"
 import { openFileInEditor, openExternalDiffViewer } from "../../utils/editor"
 import { getFileContent, getOldFileContent } from "../../providers/local"
 import { getPrFileContent, getPrBaseFileContent } from "../../providers/github"
+import { findLocalRepoPath, checkoutPR } from "../../utils/repo-path"
+import { loadConfig } from "../../config"
 
 export interface ExternalToolsContext {
   // State access
@@ -181,6 +184,87 @@ export async function handleOpenExternalDiff(
     ctx.suspendRenderer()
 
     await openExternalDiffViewer(oldContent, newContent, filename, viewer)
+
+    // Resume the TUI
+    ctx.resumeRenderer()
+    ctx.render()
+  } catch (err) {
+    ctx.resumeRenderer()
+    const msg = err instanceof Error ? err.message : "Unknown error"
+    ctx.setState((s) => showToast(s, `Error: ${msg}`, "error"))
+    ctx.render()
+  }
+}
+
+/**
+ * Checkout the PR branch and open the current file in $EDITOR (gc)
+ * 
+ * This command:
+ * 1. Finds the local repo path using config mappings
+ * 2. Runs `gh pr checkout` to switch to the PR branch
+ * 3. Opens the actual file (not a temp copy) in the editor at the current line
+ * 
+ * Only available in PR mode when a local repo path is configured.
+ */
+export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<void> {
+  // Only works in PR mode
+  if (ctx.mode !== "pr" || !ctx.prInfo) {
+    ctx.setState((s) => showToast(s, "Checkout only available in PR mode", "info"))
+    ctx.render()
+    return
+  }
+
+  const [filename, lineNumber] = getCurrentFile(ctx)
+
+  if (!filename) {
+    ctx.setState((s) => showToast(s, "No file selected", "info"))
+    ctx.render()
+    return
+  }
+
+  // Find local repo path
+  const config = loadConfig()
+  const repoName = `${ctx.prInfo.owner}/${ctx.prInfo.repo}`
+  const localPath = findLocalRepoPath(repoName, config)
+
+  if (!localPath) {
+    ctx.setState((s) => showToast(s, `No local path configured for ${repoName}`, "error"))
+    ctx.render()
+    return
+  }
+
+  ctx.setState((s) => showToast(s, `Checking out PR #${ctx.prInfo!.number}...`, "info"))
+  ctx.render()
+
+  try {
+    // Checkout the PR branch
+    const checkoutResult = await checkoutPR(ctx.prInfo.number, repoName, localPath)
+
+    if (!checkoutResult.success) {
+      ctx.setState((s) => showToast(s, checkoutResult.message, "error"))
+      ctx.render()
+      return
+    }
+
+    // Build full file path
+    const fullPath = join(localPath, filename)
+
+    // Clear toast and suspend TUI
+    ctx.setState(clearToast)
+    ctx.suspendRenderer()
+
+    // Open the actual file (not a temp copy) in the editor
+    // Use $EDITOR directly with the file path
+    const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+    const args = lineNumber ? [editor, `+${lineNumber}`, fullPath] : [editor, fullPath]
+
+    const proc = Bun.spawn(args, {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    })
+
+    await proc.exited
 
     // Resume the TUI
     ctx.resumeRenderer()

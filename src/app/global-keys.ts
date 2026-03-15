@@ -252,6 +252,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.quit()
         return
 
+      case "i":
+        // Open PR info panel (only for PR mode)
+        if (state.appMode === "pr" && state.prInfo) {
+          prInfoPanelFeature.handleOpenPRInfoPanel(ctx.prInfoPanelOpenContext)
+          return
+        }
+        break
+
       case "g":
       case "G":
         if ((key.name === "G" || key.shift) && state.focusedPanel !== "diff") {
@@ -353,6 +361,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gf") {
         externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
+        return
+      } else if (sequence === "gc") {
+        externalTools.handleCheckoutAndEdit(ctx.externalToolsContext)
         return
       } else if (sequence === "gP!" || sequence === "gp!") {
         if (s.appMode === "pr" && s.prInfo) {

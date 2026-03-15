@@ -24,6 +24,14 @@ export const actions: Action[] = [
     available: (state) => state.files.length > 0,
   },
   {
+    id: "checkout-and-edit",
+    label: "Checkout & Edit",
+    description: "Checkout PR branch and open file in $EDITOR",
+    shortcut: "gc",
+    category: "navigation",
+    available: (state) => state.appMode === "pr" && state.files.length > 0,
+  },
+  {
     id: "show-all-files",
     label: "Show All Files",
     description: "Exit single-file view and show all files",
