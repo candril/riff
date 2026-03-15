@@ -102,11 +102,14 @@ export interface ThreadPreviewState {
 /**
  * PR info panel state
  */
+export type PRInfoPanelSection = 'description' | 'reviews' | 'conversation' | 'files' | 'commits'
+
 export interface PRInfoPanelState {
   open: boolean
   scrollOffset: number
   loading: boolean
-  cursorIndex: number  // Currently selected item (0 = first commit)
+  activeSection: PRInfoPanelSection  // Currently focused section
+  cursorIndex: number  // Currently selected item within active section
 }
 
 /**
@@ -303,6 +306,7 @@ export function createInitialState(
       open: false,
       scrollOffset: 0,
       loading: false,
+      activeSection: 'commits',
       cursorIndex: 0,
     },
     threadPreview: {
@@ -1390,6 +1394,7 @@ export function openPRInfoPanel(state: AppState): AppState {
       open: true,
       scrollOffset: 0,
       loading: true,
+      activeSection: 'commits',
       cursorIndex: 0,
     },
   }
@@ -1444,6 +1449,41 @@ export function movePRInfoPanelCursor(state: AppState, delta: number, maxIndex: 
     prInfoPanel: {
       ...state.prInfoPanel,
       cursorIndex: newIndex,
+    },
+  }
+}
+
+/**
+ * All PR info panel sections in order
+ */
+const PR_INFO_SECTIONS: PRInfoPanelSection[] = ['description', 'reviews', 'conversation', 'files', 'commits']
+
+/**
+ * Move to the next/previous section in the PR info panel
+ */
+export function cyclePRInfoPanelSection(state: AppState, delta: number): AppState {
+  const currentIndex = PR_INFO_SECTIONS.indexOf(state.prInfoPanel.activeSection)
+  const newIndex = (currentIndex + delta + PR_INFO_SECTIONS.length) % PR_INFO_SECTIONS.length
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      activeSection: PR_INFO_SECTIONS[newIndex]!,
+      cursorIndex: 0,  // Reset cursor when changing sections
+    },
+  }
+}
+
+/**
+ * Set the active section in the PR info panel
+ */
+export function setPRInfoPanelSection(state: AppState, section: PRInfoPanelSection): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      activeSection: section,
+      cursorIndex: 0,
     },
   }
 }

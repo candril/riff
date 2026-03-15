@@ -6,6 +6,8 @@
 
 import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github"
+import type { DiffFile } from "../../utils/diff-parser"
+import type { Comment } from "../../types"
 import type { PRInfoPanelClass } from "../../components"
 import { openPRInfoPanel, setPRInfoPanelLoading } from "../../state"
 import { getPrExtendedInfo } from "../../providers/github"
@@ -18,8 +20,8 @@ export interface PRInfoPanelOpenContext {
   render: () => void
   // The PR info panel instance (created by this handler)
   setPanelInstance: (panel: PRInfoPanelClass) => void
-  // Factory to create panel instance
-  createPanelInstance: (prInfo: PrInfo) => PRInfoPanelClass
+  // Factory to create panel instance (now also takes files and comments)
+  createPanelInstance: (prInfo: PrInfo, files: DiffFile[], comments: Comment[]) => PRInfoPanelClass
 }
 
 /**
@@ -56,12 +58,14 @@ export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promis
       },
     }))
 
-    // Create the panel instance with the updated prInfo
-    ctx.setPanelInstance(ctx.createPanelInstance(updatedPrInfo))
+    // Create the panel instance with the updated prInfo, files, and comments
+    const currentState = ctx.getState()
+    ctx.setPanelInstance(ctx.createPanelInstance(updatedPrInfo, currentState.files, currentState.comments))
     ctx.render()
   } catch {
     // Still show panel with basic info
-    ctx.setPanelInstance(ctx.createPanelInstance(state.prInfo))
+    const currentState = ctx.getState()
+    ctx.setPanelInstance(ctx.createPanelInstance(state.prInfo, currentState.files, currentState.comments))
     ctx.setState((s) => setPRInfoPanelLoading(s, false))
     ctx.render()
   }

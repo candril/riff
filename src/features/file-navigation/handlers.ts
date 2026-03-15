@@ -134,6 +134,30 @@ export function navigateFileSelection(direction: 1 | -1, ctx: FileNavigationCont
 }
 
 /**
+ * Select a file by index.
+ * Used for jumping directly to a file (e.g., from PR info panel).
+ */
+export function handleSelectFile(fileIndex: number, ctx: FileNavigationContext): void {
+  const state = ctx.getState()
+  if (fileIndex < 0 || fileIndex >= state.files.length) return
+
+  ctx.setState((s) => {
+    const selected = selectFile(s, fileIndex)
+    const flatItems = getVisibleItems(s)
+    const treeIndex = flatItems.findIndex((item) => item.fileIndex === fileIndex)
+    return treeIndex !== -1 ? { ...selected, treeHighlightIndex: treeIndex } : selected
+  })
+
+  // Reset vim cursor and rebuild line mapping
+  ctx.setVimState(createCursorState())
+  ctx.createLineMapping()
+  ctx.render()
+  setTimeout(() => {
+    ctx.render()
+  }, 0)
+}
+
+/**
  * Navigate to next file in tree order (after collapsing current file).
  * Used when marking a file as viewed in all-files mode.
  */

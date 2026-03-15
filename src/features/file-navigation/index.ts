@@ -14,5 +14,6 @@ export {
   navigateToOutdatedFile,
   toggleViewedForFile,
   handleToggleViewed,
+  handleSelectFile,
   type FileNavigationContext,
 } from "./handlers"

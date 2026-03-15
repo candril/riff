@@ -355,7 +355,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     render,
     setPanelInstance: (panel) => { prInfoPanel = panel },
-    createPanelInstance: (info) => new PRInfoPanelClass(renderer, info),
+    createPanelInstance: (info, files, comments) => new PRInfoPanelClass(renderer, info, files, comments),
   }
 
   const foldsContext: folds.FoldsContext = {

@@ -144,6 +144,27 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         setState: ctx.setState,
         render: ctx.render,
         getPanel: ctx.getPrInfoPanel,
+        onJumpToFile: (filename) => {
+          // Jump to file by filename
+          const state = ctx.getState()
+          const fileIndex = state.files.findIndex((f) => f.filename === filename)
+          if (fileIndex !== -1) {
+            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
+          }
+        },
+        onJumpToLocation: (filename, line) => {
+          // Jump to file:line (for code comments)
+          const state = ctx.getState()
+          const fileIndex = state.files.findIndex((f) => f.filename === filename)
+          if (fileIndex !== -1) {
+            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
+            // TODO: Also scroll to the specific line
+          }
+        },
+        onActivateCommit: (sha) => {
+          // Activate commit (set viewing commit)
+          ctx.onCommitSelected(sha)
+        },
       })
     ) {
       return

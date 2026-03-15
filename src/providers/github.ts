@@ -67,6 +67,7 @@ export interface PrInfo {
   commits?: PrCommit[]
   reviews?: PrReview[]
   requestedReviewers?: string[]
+  conversationComments?: PrConversationComment[]
 }
 
 export interface PrCommit {
@@ -80,6 +81,20 @@ export interface PrReview {
   author: string
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "PENDING" | "DISMISSED"
   submittedAt?: string
+}
+
+/**
+ * A conversation comment on a PR (not attached to code)
+ * These are the "issue comments" that appear in the PR conversation tab
+ */
+export interface PrConversationComment {
+  id: number
+  body: string
+  author: string
+  createdAt: string
+  updatedAt: string
+  url: string
+  isBot: boolean
 }
 
 export interface PrComment {
@@ -548,6 +563,31 @@ export async function getPrComments(
   })
 }
 
+/**
+ * Fetch PR conversation comments (issue comments - not attached to code)
+ * These appear in the PR "Conversation" tab
+ */
+export async function getPrConversationComments(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<PrConversationComment[]> {
+  return safeGhCommand(async () => {
+    // PR conversation comments use the issues API endpoint
+    const comments = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`.json() as any[]
+    
+    return comments.map((c: any) => ({
+      id: c.id,
+      body: c.body,
+      author: c.user.login,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      url: c.html_url,
+      isBot: c.user.login.endsWith('[bot]') || c.user.type === 'Bot',
+    }))
+  })
+}
+
 // ============================================================================
 // PR Session Loading
 // ============================================================================
@@ -593,13 +633,17 @@ export async function loadPrSession(
   }
 
   // Fetch all data in parallel (including viewed statuses)
-  const [prInfo, diff, prComments, headSha, viewedStatuses] = await Promise.all([
+  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments] = await Promise.all([
     getPrInfo(prNumber, resolvedOwner, resolvedRepo),
     getPrDiff(prNumber, resolvedOwner, resolvedRepo),
     getPrComments(resolvedOwner!, resolvedRepo!, prNumber),
     getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
     fetchViewedStatuses(resolvedOwner!, resolvedRepo!, prNumber),
+    getPrConversationComments(resolvedOwner!, resolvedRepo!, prNumber),
   ])
+  
+  // Attach conversation comments to prInfo
+  prInfo.conversationComments = conversationComments
 
   // Build source identifier for this PR
   const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`
