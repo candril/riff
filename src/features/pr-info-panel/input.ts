@@ -4,7 +4,7 @@
  * The PR info panel captures all input when open. It displays PR details
  * with section-based navigation:
  * - Tab: cycle between sections
- * - j/k: navigate items within active section  
+ * - j/k: navigate items within active section
  * - za/zm/zr/zR/zM: fold controls
  * - Enter: action on selected item
  */
@@ -12,9 +12,9 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
-import { closePRInfoPanel, showToast, clearToast, toggleLinkReveal } from "../../state"
+import { closePRInfoPanel, showToast, clearToast } from "../../state"
 
-// Key sequence state for multi-key commands (e.g., "gl" for link reveal)
+// Key sequence state for multi-key commands (e.g., "gg" for go to top)
 let pendingKey: string | null = null
 let pendingTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -324,22 +324,6 @@ export function handleInput(
       return true
     }
 
-    case "l": {
-      // gl = toggle link reveal mode
-      if (pendingKey === "g") {
-        clearPendingKey()
-        // Toggle the state - this inverts the current value
-        const newLinkReveal = !ctx.state.prInfoPanel.linkReveal
-        ctx.setState(toggleLinkReveal)
-        // Also update the panel instance's linkReveal state
-        if (panel) {
-          panel.linkReveal = newLinkReveal
-        }
-        ctx.render()
-        return true
-      }
-      return true
-    }
   }
 
   // Handle second key of g-sequence (for gg)

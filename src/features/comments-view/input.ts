@@ -36,6 +36,7 @@ export interface CommentsViewInputContext {
   handleAddComment: () => void
   handleSubmitSingleComment: (comment: Comment) => void
   handleToggleThreadResolved: () => void
+  handleDeleteComment: (comment: Comment) => void
 }
 
 /**
@@ -93,6 +94,12 @@ export function handleInput(
             scrollBox.scrollHeight - viewportHeight,
             scrollBox.scrollTop + halfPage
           )
+        }
+      } else {
+        // d: delete comment (local only, synced shows info toast)
+        const deleteNav = navItems[ctx.state.selectedCommentIndex]
+        if (deleteNav?.comment) {
+          ctx.handleDeleteComment(deleteNav.comment)
         }
       }
       return true

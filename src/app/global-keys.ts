@@ -496,6 +496,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
         handleToggleThreadResolved: () =>
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext),
+        handleDeleteComment: (comment) =>
+          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
       })
     ) {
       return

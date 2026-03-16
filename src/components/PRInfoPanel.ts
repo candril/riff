@@ -94,7 +94,7 @@ function getSyntaxStyle(): SyntaxStyle {
 }
 
 /**
- * Format a relative time string
+ * Format a relative time string (compact, no "ago")
  */
 function formatTimeAgo(isoDate: string): string {
   const date = new Date(isoDate)
@@ -104,12 +104,12 @@ function formatTimeAgo(isoDate: string): string {
   const diffHours = Math.floor(diffMins / 60)
   const diffDays = Math.floor(diffHours / 24)
 
-  if (diffMins < 1) return "just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
-  return date.toLocaleDateString()
+  if (diffMins < 1) return "now"
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 30) return `${diffDays}d`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo`
+  return `${Math.floor(diffDays / 365)}y`
 }
 
 /**
@@ -270,12 +270,6 @@ export class PRInfoPanelClass {
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
   
-  // Link reveal mode (when true, show full URLs in markdown links)
-  private _linkReveal: boolean = false
-  
-  // Track all markdown renderables for link reveal updates
-  private markdownRenderables: MarkdownRenderable[] = []
-  
   // Footer container for dynamic updates
   private footer: BoxRenderable | null = null
 
@@ -353,30 +347,6 @@ export class PRInfoPanelClass {
   getMaxCursorIndex(): number {
     const itemCount = this.getItemCount()
     return itemCount > 0 ? itemCount - 1 : -1
-  }
-
-  /**
-   * Get link reveal state
-   */
-  get linkReveal(): boolean {
-    return this._linkReveal
-  }
-
-  /**
-   * Set link reveal state and update all markdown renderables
-   * When true, shows full URLs in markdown links (conceal=false)
-   */
-  set linkReveal(value: boolean) {
-    if (this._linkReveal === value) return
-    this._linkReveal = value
-    
-    // Update all tracked markdown renderables
-    for (const md of this.markdownRenderables) {
-      md.conceal = !value
-    }
-    
-    // Update footer to show current mode
-    this.updateFooter()
   }
 
   /**
@@ -906,7 +876,6 @@ export class PRInfoPanelClass {
     }
     this.sectionBoxes = []
     this.itemRows.clear()
-    this.markdownRenderables = []  // Clear tracked markdown renderables
     
     // Rebuild
     this.buildSections(this.sectionsContainer)
@@ -1016,9 +985,7 @@ export class PRInfoPanelClass {
       id: "pr-info-description",
       content: this.prInfo.body,
       syntaxStyle: getSyntaxStyle(),
-      conceal: !this._linkReveal,
     })
-    this.markdownRenderables.push(md)
     container.add(md)
   }
 
@@ -1272,9 +1239,7 @@ export class PRInfoPanelClass {
     const md = new MarkdownRenderable(this.renderer, {
       content: body,
       syntaxStyle: getSyntaxStyle(),
-      conceal: !this._linkReveal,
     })
-    this.markdownRenderables.push(md)
     bodyBox.add(md)
     
     container.add(bodyBox)
@@ -1393,6 +1358,10 @@ export class PRInfoPanelClass {
     }
     
     const maxDisplay = 20
+    // Calculate message width: terminal - timeAgo(8) - sha(8) - padding(4)
+    const termWidth = getTerminalWidth()
+    const messageWidth = Math.max(20, termWidth - 8 - 8 - 4)
+    
     for (let i = 0; i < Math.min(maxDisplay, commits.length); i++) {
       const commit = commits[i]!
       const isSelected = isActive && i === this.cursorIndex
@@ -1403,22 +1372,25 @@ export class PRInfoPanelClass {
         backgroundColor: isSelected ? theme.surface1 : undefined,
       })
       
+      // Relative date (right-padded to 8 chars for alignment)
+      row.add(new TextRenderable(this.renderer, {
+        content: formatTimeAgo(commit.date).padEnd(8),
+        fg: theme.subtext0,
+      }))
+      
+      // SHA (7 chars + 1 space)
       const shaText = new TextRenderable(this.renderer, {
-        content: commit.sha.padEnd(9),
+        content: commit.sha.slice(0, 7) + " ",
         fg: isSelected ? theme.peach : theme.yellow,
       })
       row.add(shaText)
       
+      // Message (truncated)
       const messageText = new TextRenderable(this.renderer, {
-        content: truncate(commit.message, getListItemWidth()),
+        content: truncate(commit.message, messageWidth),
         fg: isSelected ? theme.text : theme.subtext1,
       })
       row.add(messageText)
-      
-      row.add(new TextRenderable(this.renderer, {
-        content: formatDateTime(commit.date),
-        fg: theme.subtext0,
-      }))
       
       container.add(row)
       rows.push({ container: row, primary: shaText, secondary: messageText })
@@ -1569,33 +1541,7 @@ export class PRInfoPanelClass {
     this.footer.add(new TextRenderable(this.renderer, { content: "y ", fg: theme.yellow }))
     this.footer.add(new TextRenderable(this.renderer, { content: "copy  ", fg: theme.subtext0 }))
     this.footer.add(new TextRenderable(this.renderer, { content: "o ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "open  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "gl ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { 
-      content: this._linkReveal ? "hide URLs" : "show URLs", 
-      fg: theme.subtext0 
-    }))
-    
-    // Show indicator when link reveal is active
-    if (this._linkReveal) {
-      this.footer.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.subtext0 }))
-      this.footer.add(new TextRenderable(this.renderer, { content: "[URLs]", fg: theme.blue }))
-    }
-  }
-
-  /**
-   * Update the footer content (e.g., when link reveal state changes)
-   */
-  private updateFooter(): void {
-    if (!this.footer) return
-    
-    // Clear existing content
-    for (const child of this.footer.getChildren()) {
-      this.footer.remove(child.id)
-    }
-    
-    // Rebuild
-    this.buildFooterContent()
+    this.footer.add(new TextRenderable(this.renderer, { content: "open", fg: theme.subtext0 }))
   }
 
   /**

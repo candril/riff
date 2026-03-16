@@ -12,12 +12,13 @@ import type { ValidatedComment } from "../../components"
 import type { PrInfo, SubmitResult } from "../../providers/github"
 import {
   addComment,
+  deleteComment,
   showToast,
   clearToast,
   getVisibleComments,
 } from "../../state"
 import { createComment } from "../../types"
-import { saveComment } from "../../storage"
+import { saveComment, deleteCommentFile } from "../../storage"
 import {
   openCommentEditor,
   extractDiffHunk,
@@ -391,4 +392,51 @@ export async function handleSubmitSingleComment(
       ctx.render()
     }, 5000)
   }
+}
+
+/**
+ * Delete a comment.
+ * Only local comments can be deleted. Synced comments show a toast
+ * instructing user to delete on GitHub.
+ */
+export async function handleDeleteComment(
+  ctx: CommentsContext,
+  comment?: Comment
+): Promise<void> {
+  const state = ctx.getState()
+
+  // Get the comment to delete
+  const toDelete = comment ?? getCurrentComment(ctx)
+  if (!toDelete) {
+    return
+  }
+
+  // Check if comment is synced (exists on GitHub)
+  if (toDelete.status === "synced") {
+    ctx.setState((s) => showToast(s, "Synced comments must be deleted on GitHub", "info"))
+    ctx.render()
+
+    // Auto-clear toast after 3 seconds
+    setTimeout(() => {
+      ctx.setState(clearToast)
+      ctx.render()
+    }, 3000)
+    return
+  }
+
+  // Delete the comment from state
+  ctx.setState((s) => deleteComment(s, toDelete.id))
+
+  // Delete from storage
+  await deleteCommentFile(toDelete.id, ctx.source)
+
+  // Show success toast
+  ctx.setState((s) => showToast(s, "Comment deleted", "success"))
+  ctx.render()
+
+  // Auto-clear toast after 3 seconds
+  setTimeout(() => {
+    ctx.setState(clearToast)
+    ctx.render()
+  }, 3000)
 }
