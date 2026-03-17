@@ -96,7 +96,7 @@ export function handleInput(
           )
         }
       } else {
-        // d: delete comment (local only, synced shows info toast)
+        // d: delete comment (synced comments are deleted on GitHub first)
         const deleteNav = navItems[ctx.state.selectedCommentIndex]
         if (deleteNav?.comment) {
           ctx.handleDeleteComment(deleteNav.comment)

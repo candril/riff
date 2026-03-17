@@ -4,7 +4,7 @@
  * Provides comment creation and submission functionality.
  * - c: add comment on current line/selection
  * - S: submit single comment immediately
- * - d: delete comment (local only)
+ * - d: delete comment (local comments deleted immediately, synced comments deleted on GitHub)
  */
 
 export {

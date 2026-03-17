@@ -16,6 +16,8 @@ import {
   showToast,
   clearToast,
   getVisibleComments,
+  showConfirmDialog,
+  closeConfirmDialog,
 } from "../../state"
 import { createComment } from "../../types"
 import { saveComment, deleteCommentFile } from "../../storage"
@@ -32,6 +34,7 @@ import {
   submitSingleComment,
   submitReply,
   updateComment,
+  deleteGitHubComment,
 } from "../../providers/github"
 
 export interface CommentsContext {
@@ -396,15 +399,13 @@ export async function handleSubmitSingleComment(
 
 /**
  * Delete a comment.
- * Only local comments can be deleted. Synced comments show a toast
- * instructing user to delete on GitHub.
+ * Local comments are deleted immediately.
+ * Synced comments show a confirmation dialog before deleting on GitHub.
  */
 export async function handleDeleteComment(
   ctx: CommentsContext,
   comment?: Comment
 ): Promise<void> {
-  const state = ctx.getState()
-
   // Get the comment to delete
   const toDelete = comment ?? getCurrentComment(ctx)
   if (!toDelete) {
@@ -413,17 +414,79 @@ export async function handleDeleteComment(
 
   // Check if comment is synced (exists on GitHub)
   if (toDelete.status === "synced") {
-    ctx.setState((s) => showToast(s, "Synced comments must be deleted on GitHub", "info"))
-    ctx.render()
-
-    // Auto-clear toast after 3 seconds
-    setTimeout(() => {
-      ctx.setState(clearToast)
+    // Must be in PR mode with valid prInfo and have a GitHub ID
+    if (ctx.mode !== "pr" || !ctx.prInfo || !toDelete.githubId) {
+      ctx.setState((s) => showToast(s, "Cannot delete: missing GitHub info", "error"))
       ctx.render()
-    }, 3000)
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 3000)
+      return
+    }
+
+    // Show confirmation dialog
+    const truncatedBody = toDelete.body.length > 50
+      ? toDelete.body.slice(0, 47) + "..."
+      : toDelete.body
+    
+    ctx.setState((s) =>
+      showConfirmDialog(s, {
+        title: "Delete Comment",
+        message: "Delete this comment on GitHub?",
+        details: truncatedBody,
+        onConfirm: () => executeDeleteOnGitHub(ctx, toDelete),
+        onCancel: () => {
+          ctx.setState(closeConfirmDialog)
+          ctx.render()
+        },
+      })
+    )
+    ctx.render()
     return
   }
 
+  // Local comments: delete immediately
+  await performDelete(ctx, toDelete)
+}
+
+/**
+ * Execute the GitHub delete after confirmation
+ */
+async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): Promise<void> {
+  if (!ctx.prInfo || !toDelete.githubId) {
+    ctx.setState((s) => closeConfirmDialog(showToast(s, "Cannot delete: missing GitHub info", "error")))
+    ctx.render()
+    return
+  }
+
+  const { owner, repo } = ctx.prInfo
+
+  // Close dialog and show loading toast
+  ctx.setState((s) => closeConfirmDialog(showToast(s, "Deleting comment...", "info")))
+  ctx.render()
+
+  // Delete on GitHub
+  const result = await deleteGitHubComment(owner, repo, toDelete.githubId)
+
+  if (!result.success) {
+    ctx.setState((s) => showToast(s, result.error ?? "Failed to delete comment", "error"))
+    ctx.render()
+    setTimeout(() => {
+      ctx.setState(clearToast)
+      ctx.render()
+    }, 5000)
+    return
+  }
+
+  // Delete locally
+  await performDelete(ctx, toDelete)
+}
+
+/**
+ * Perform the actual delete (from state and storage)
+ */
+async function performDelete(ctx: CommentsContext, toDelete: Comment): Promise<void> {
   // Delete the comment from state
   ctx.setState((s) => deleteComment(s, toDelete.id))
 

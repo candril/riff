@@ -73,6 +73,14 @@ export const actions: Action[] = [
       state.comments.some(c => c.status === "local"),
   },
   {
+    id: "delete-comment",
+    label: "Delete Comment",
+    description: "Delete the selected comment",
+    shortcut: "d",
+    category: "github",
+    available: (state) => state.comments.length > 0,
+  },
+  {
     id: "create-pr",
     label: "Create Pull Request",
     description: "Create a new PR from current changes",
@@ -156,6 +164,14 @@ export const actions: Action[] = [
   },
   
   // General
+  {
+    id: "help",
+    label: "Help",
+    description: "Show keyboard shortcuts",
+    shortcut: "g?",
+    category: "general",
+    available: () => true,
+  },
   {
     id: "quit",
     label: "Quit",

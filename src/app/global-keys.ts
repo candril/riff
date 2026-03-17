@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleViewMode, setViewingCommit, showToast, clearToast, toggleHelp, closeHelp } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -96,6 +96,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     if (key.name === "f12") {
       ctx.renderer.console.toggle()
       return
+    }
+
+    // ========== HELP OVERLAY (captures input when open) ==========
+    {
+      const helpState = ctx.getState()
+      if (helpState.showHelp) {
+        // Escape, q, or ? closes help
+        if (key.name === "escape" || key.name === "q" || key.sequence === "?") {
+          ctx.setState(closeHelp)
+          ctx.render()
+          return
+        }
+        // Ignore other keys when help is open (help overlay swallows all input)
+        return
+      }
     }
 
     // ========== ACTION MENU (captures all input when open) ==========
@@ -214,6 +229,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       })
     ) {
       return
+    }
+
+    // ========== CONFIRMATION DIALOG (y/n to confirm/cancel) ==========
+    {
+      const dialogState = ctx.getState()
+      if (dialogState.confirmDialog) {
+        if (key.name === "y" || key.name === "Y") {
+          dialogState.confirmDialog.onConfirm()
+          return
+        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
+          dialogState.confirmDialog.onCancel()
+          return
+        }
+        // Other keys are ignored while dialog is open
+        return
+      }
     }
 
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
@@ -401,6 +432,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "zc") {
         folds.handleCloseFoldAtCursor(ctx.foldsContext)
+        return
+      } else if (sequence === "g?" || sequence === "g?!") {
+        // Toggle help overlay (g? - shift is needed for ? so accept both)
+        ctx.setState(toggleHelp)
+        ctx.render()
         return
       }
       if (sequence === "]g") {

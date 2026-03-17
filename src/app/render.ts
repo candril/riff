@@ -17,6 +17,8 @@ import {
   CommitPicker,
   SyncPreview,
   SearchPrompt,
+  ConfirmDialog,
+  HelpOverlay,
   gatherSyncItems,
 } from "../components"
 import type { VimDiffView } from "../components"
@@ -291,6 +293,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               viewingCommit: state.viewingCommit,
             })
           : null,
+        state.confirmDialog
+          ? ConfirmDialog({
+              title: state.confirmDialog.title,
+              message: state.confirmDialog.message,
+              details: state.confirmDialog.details,
+            })
+          : null,
+        state.showHelp ? HelpOverlay({}) : null,
       )
     )
 

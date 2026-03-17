@@ -877,6 +877,30 @@ export async function updateComment(
   }
 }
 
+export interface DeleteResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Delete an existing comment on GitHub
+ */
+export async function deleteGitHubComment(
+  owner: string,
+  repo: string,
+  commentId: number
+): Promise<DeleteResult> {
+  try {
+    await $`gh api -X DELETE repos/${owner}/${repo}/pulls/comments/${commentId}`.quiet()
+    return { success: true }
+  } catch (err) {
+    return {
+      success: false,
+      error: extractShellError(err),
+    }
+  }
+}
+
 
 
 /**

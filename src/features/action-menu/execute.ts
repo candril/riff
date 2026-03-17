@@ -15,6 +15,7 @@ import {
   showToast,
   clearToast,
   toggleShowHiddenFiles,
+  openHelp,
 } from "../../state"
 
 /**
@@ -27,6 +28,7 @@ export interface ActionHandlers {
   handleOpenReviewPreview: () => Promise<void>
   handleOpenSyncPreview: () => void
   handleSubmitSingleComment: () => Promise<void>
+  handleDeleteComment: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
   handleCheckoutAndEdit: () => Promise<void>
@@ -53,6 +55,11 @@ export async function executeAction(
   const { state, setState, render, handlers } = ctx
 
   switch (actionId) {
+    case "help":
+      setState(openHelp)
+      render()
+      break
+
     case "quit":
       handlers.quit()
       break
@@ -103,6 +110,10 @@ export async function executeAction(
 
     case "submit-comment":
       await handlers.handleSubmitSingleComment()
+      break
+
+    case "delete-comment":
+      await handlers.handleDeleteComment()
       break
 
     case "create-pr":

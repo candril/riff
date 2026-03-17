@@ -223,6 +223,28 @@ export interface AppState {
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
   commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
+  
+  // Confirmation dialog state
+  confirmDialog: ConfirmDialogState | null
+  
+  // Help overlay state
+  showHelp: boolean
+}
+
+/**
+ * Confirmation dialog state
+ */
+export interface ConfirmDialogState {
+  /** Dialog title */
+  title: string
+  /** Main message */
+  message: string
+  /** Optional details */
+  details?: string
+  /** Callback when user confirms (presses 'y') */
+  onConfirm: () => void
+  /** Callback when user cancels (presses 'n' or Escape) */
+  onCancel: () => void
 }
 
 /**
@@ -327,6 +349,8 @@ export function createInitialState(
     allFiles: files,
     allFileTree: fileTree,
     commitDiffCache: new Map(),
+    confirmDialog: null,
+    showHelp: false,
   }
 }
 
@@ -1171,6 +1195,33 @@ export function clearToast(state: AppState): AppState {
 }
 
 // ============================================================================
+// Confirmation Dialog State
+// ============================================================================
+
+/**
+ * Show a confirmation dialog
+ */
+export function showConfirmDialog(
+  state: AppState,
+  dialog: ConfirmDialogState
+): AppState {
+  return {
+    ...state,
+    confirmDialog: dialog,
+  }
+}
+
+/**
+ * Close the confirmation dialog
+ */
+export function closeConfirmDialog(state: AppState): AppState {
+  return {
+    ...state,
+    confirmDialog: null,
+  }
+}
+
+// ============================================================================
 // File Picker State
 // ============================================================================
 
@@ -1595,6 +1646,40 @@ export function moveCommitPickerSelection(state: AppState, delta: number, maxInd
       ...state.commitPicker,
       selectedIndex: newIndex,
     },
+  }
+}
+
+// ============================================================================
+// Help Overlay State
+// ============================================================================
+
+/**
+ * Toggle the help overlay
+ */
+export function toggleHelp(state: AppState): AppState {
+  return {
+    ...state,
+    showHelp: !state.showHelp,
+  }
+}
+
+/**
+ * Open the help overlay
+ */
+export function openHelp(state: AppState): AppState {
+  return {
+    ...state,
+    showHelp: true,
+  }
+}
+
+/**
+ * Close the help overlay
+ */
+export function closeHelp(state: AppState): AppState {
+  return {
+    ...state,
+    showHelp: false,
   }
 }
 

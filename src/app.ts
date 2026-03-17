@@ -433,6 +433,7 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
     handleOpenSyncPreview: () => syncPreview.handleOpenSyncPreview(syncPreviewOpenContext),
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
+    handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleCheckoutAndEdit: () => externalTools.handleCheckoutAndEdit(externalToolsContext),
