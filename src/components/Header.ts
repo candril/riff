@@ -73,12 +73,6 @@ export function Header({
           ? theme.red       // Red for closed
           : theme.green     // Green for open
 
-    // Approval state from reviews (only show if approved)
-    const reviews = prInfo.reviews ?? []
-    const hasApproval = reviews.some(r => r.state === "APPROVED")
-    const hasChangesRequested = reviews.some(r => r.state === "CHANGES_REQUESTED")
-    const isApproved = hasApproval && !hasChangesRequested
-
     return Box(
       {
         height: 1,
@@ -90,11 +84,10 @@ export function Header({
         justifyContent: "space-between",
         alignItems: "center",
       },
-      // Left side: PR status, number, author, title, commit filter
+      // Left side: PR status, number, author, title/commit
       Box(
         { flexDirection: "row", gap: 1, flexShrink: 1, overflow: "hidden" },
         Text({ content: statusText, fg: statusColor }),
-        isApproved ? Text({ content: "✓ Approved", fg: theme.green }) : null,
         Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
         Text({ content: `@${prInfo.author}`, fg: theme.subtext0 }),
         commitFilterText

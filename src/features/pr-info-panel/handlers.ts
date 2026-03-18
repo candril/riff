@@ -9,7 +9,7 @@ import type { PrInfo } from "../../providers/github"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { Comment } from "../../types"
 import type { PRInfoPanelClass } from "../../components"
-import { openPRInfoPanel, setPRInfoPanelLoading } from "../../state"
+import { openPRInfoPanel, setPRInfoPanelLoading, showToast, clearToast } from "../../state"
 import { getPrExtendedInfo } from "../../providers/github"
 
 export interface PRInfoPanelOpenContext {
@@ -34,7 +34,21 @@ export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promis
   }
 
   const prInfo = state.prInfo
-  ctx.setState(openPRInfoPanel)
+  
+  // Check if extended info is already loaded (from startup)
+  const hasExtendedInfo = prInfo.commits && prInfo.reviews
+  
+  if (hasExtendedInfo) {
+    // Data already loaded - open panel immediately
+    ctx.setState(openPRInfoPanel)
+    ctx.setPanelInstance(ctx.createPanelInstance(prInfo, state.files, state.comments))
+    ctx.render()
+    return
+  }
+  
+  // Show loading toast while fetching extended info
+  ctx.setState((s) => showToast(openPRInfoPanel(s), "Loading PR info...", "info"))
+  ctx.render()
 
   // Load extended info (commits, reviews) first, then create panel
   try {
@@ -49,7 +63,7 @@ export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promis
       requestedReviewers: extendedInfo.requestedReviewers,
     }
 
-    ctx.setState((s) => ({
+    ctx.setState((s) => clearToast({
       ...s,
       prInfo: updatedPrInfo,
       prInfoPanel: {
@@ -64,6 +78,7 @@ export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promis
     ctx.render()
   } catch {
     // Still show panel with basic info
+    ctx.setState(clearToast)
     const currentState = ctx.getState()
     ctx.setPanelInstance(ctx.createPanelInstance(state.prInfo, currentState.files, currentState.comments))
     ctx.setState((s) => setPRInfoPanelLoading(s, false))

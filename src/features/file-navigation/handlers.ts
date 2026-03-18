@@ -109,8 +109,35 @@ export function navigateFileSelection(direction: 1 | -1, ctx: FileNavigationCont
       })
     }
   } else {
-    const currentPosInTree = treeOrder.indexOf(state.selectedFileIndex)
-    if (currentPosInTree === -1) return
+    let currentPosInTree = treeOrder.indexOf(state.selectedFileIndex)
+    
+    // If current file is hidden/ignored, find the nearest visible file in the given direction
+    if (currentPosInTree === -1) {
+      // Get all file indices to find where current file would be in sort order
+      const allFileIndices = state.files.map((_, i) => i)
+      const currentFileIdx = state.selectedFileIndex
+      
+      // Find the nearest visible file in the direction we're navigating
+      if (direction === 1) {
+        // Going forward: find first visible file after current
+        const nextVisible = treeOrder.find((idx) => idx > currentFileIdx)
+        if (nextVisible !== undefined) {
+          currentPosInTree = treeOrder.indexOf(nextVisible) - 1
+        } else {
+          // No visible file after, wrap to start
+          currentPosInTree = -1
+        }
+      } else {
+        // Going backward: find last visible file before current
+        const prevVisible = [...treeOrder].reverse().find((idx) => idx < currentFileIdx)
+        if (prevVisible !== undefined) {
+          currentPosInTree = treeOrder.indexOf(prevVisible) + 1
+        } else {
+          // No visible file before, wrap to end
+          currentPosInTree = treeOrder.length
+        }
+      }
+    }
 
     const newPosInTree = currentPosInTree + direction
     if (newPosInTree < 0 || newPosInTree >= treeOrder.length) return

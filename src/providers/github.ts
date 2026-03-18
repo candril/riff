@@ -640,18 +640,22 @@ export async function loadPrSession(
     resolvedRepo = current.repo
   }
 
-  // Fetch all data in parallel (including viewed statuses)
-  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments] = await Promise.all([
+  // Fetch all data in parallel (including viewed statuses and extended info)
+  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments, extendedInfo] = await Promise.all([
     getPrInfo(prNumber, resolvedOwner, resolvedRepo),
     getPrDiff(prNumber, resolvedOwner, resolvedRepo),
     getPrComments(resolvedOwner!, resolvedRepo!, prNumber),
     getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
     fetchViewedStatuses(resolvedOwner!, resolvedRepo!, prNumber),
     getPrConversationComments(resolvedOwner!, resolvedRepo!, prNumber),
+    getPrExtendedInfo(prNumber, resolvedOwner!, resolvedRepo!),
   ])
   
-  // Attach conversation comments to prInfo
+  // Attach conversation comments and extended info to prInfo
   prInfo.conversationComments = conversationComments
+  prInfo.commits = extendedInfo.commits
+  prInfo.reviews = extendedInfo.reviews
+  prInfo.requestedReviewers = extendedInfo.requestedReviewers
 
   // Build source identifier for this PR
   const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`

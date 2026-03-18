@@ -166,6 +166,47 @@ function getReviewIcon(state: PrReview["state"]): { icon: string; color: string 
 }
 
 /**
+ * Build reviewer display for metadata section.
+ * Shows each reviewer's most recent relevant review state.
+ */
+function buildReviewerSummary(reviews: PrReview[], requestedReviewers: string[]): { icon: string; name: string; color: string }[] {
+  // Get the most recent meaningful review per author
+  const reviewsByAuthor = new Map<string, PrReview>()
+  
+  // Sort reviews by date (most recent first)
+  const sortedReviews = [...reviews].sort((a, b) => {
+    const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
+    const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
+    return dateB - dateA
+  })
+  
+  // Keep only the most recent review per author (excluding COMMENTED and DISMISSED)
+  for (const review of sortedReviews) {
+    if (reviewsByAuthor.has(review.author)) continue
+    // Skip pure comment reviews - they don't represent a review decision
+    if (review.state === "COMMENTED" || review.state === "DISMISSED") continue
+    reviewsByAuthor.set(review.author, review)
+  }
+  
+  const result: { icon: string; name: string; color: string }[] = []
+  
+  // Add reviewers with their status
+  for (const [author, review] of reviewsByAuthor) {
+    const { icon, color } = getReviewIcon(review.state)
+    result.push({ icon, name: author, color })
+  }
+  
+  // Add pending reviewers (requested but haven't reviewed yet)
+  for (const reviewer of requestedReviewers) {
+    if (!reviewsByAuthor.has(reviewer)) {
+      result.push({ icon: "○", name: reviewer, color: theme.yellow })
+    }
+  }
+  
+  return result
+}
+
+/**
  * Get terminal width (defaults to 80 if unavailable)
  */
 function getTerminalWidth(): number {
@@ -1494,6 +1535,17 @@ export class PRInfoPanelClass {
     changesRow.add(new TextRenderable(this.renderer, { content: ` -${prInfo.deletions}`, fg: theme.red }))
     changesRow.add(new TextRenderable(this.renderer, { content: ` (${prInfo.changedFiles} files)`, fg: theme.subtext0 }))
     basicInfo.add(changesRow)
+
+    // Reviews row (if there are any reviews or requested reviewers)
+    const reviewerSummary = buildReviewerSummary(prInfo.reviews ?? [], prInfo.requestedReviewers ?? [])
+    if (reviewerSummary.length > 0) {
+      const reviewsRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
+      reviewsRow.add(new TextRenderable(this.renderer, { content: "Reviews".padEnd(12), fg: theme.overlay0 }))
+      for (const reviewer of reviewerSummary) {
+        reviewsRow.add(new TextRenderable(this.renderer, { content: `${reviewer.icon} ${reviewer.name}  `, fg: reviewer.color }))
+      }
+      basicInfo.add(reviewsRow)
+    }
 
     // Separator before sections
     const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })
