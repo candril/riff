@@ -148,6 +148,9 @@ src/
 ├── app.ts                # Renderer setup, main loop
 ├── state.ts              # App state management
 ├── types.ts              # Type definitions
+├── actions/
+│   ├── registry.ts       # Action definitions (add new actions here!)
+│   └── types.ts          # Action types
 ├── config/
 │   ├── schema.ts         # Config types
 │   ├── defaults.ts       # Default configuration
@@ -172,3 +175,42 @@ src/
     ├── CommentInput.ts   # Comment editor
     └── OmniSearch.ts     # Fuzzy finder
 ```
+
+## Actions
+
+Actions are commands that can be triggered via the action menu (`Ctrl+p`) or keyboard shortcuts.
+
+### Adding a New Action
+
+1. Add the action definition to `src/actions/registry.ts`:
+
+```typescript
+{
+  id: "my-action",
+  label: "My Action",
+  description: "What this action does",
+  shortcut: "ga",  // Optional keyboard shortcut
+  category: "navigation" | "github" | "view" | "general" | "external",
+  available: (state) => true,  // When action is available
+},
+```
+
+2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module
+
+3. If adding a keyboard shortcut, wire it up in `src/app/global-keys.ts`
+
+### Current Actions
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Find Files | Ctrl+f | Jump to a file in the diff |
+| Show File Path | Ctrl+g | Display current file path as toast |
+| Open in Editor | gf | Open current file in $EDITOR |
+| Refresh | gr | Reload diff, commits, and comments |
+| Submit Review | gS | Submit review (PR mode) |
+| Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
+| Open in Browser | go | Open PR in browser |
+| PR Info | gi | Show PR details |
+| Toggle File Panel | Ctrl+b | Show/hide file tree |
+| Help | g? | Show keyboard shortcuts |
+| Quit | q | Exit riff |

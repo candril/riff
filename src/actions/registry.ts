@@ -99,10 +99,10 @@ export const actions: Action[] = [
   {
     id: "refresh",
     label: "Refresh",
-    description: "Reload data from GitHub",
+    description: "Reload diff, commits, and comments",
     shortcut: "gr",
-    category: "github",
-    available: (state) => state.appMode === "pr",
+    category: "general",
+    available: () => true,
   },
   {
     id: "open-in-browser",
@@ -133,9 +133,16 @@ export const actions: Action[] = [
     id: "select-commit",
     label: "Select Commit",
     description: "Filter diff to a single commit's changes",
-    shortcut: "Ctrl+g",
     category: "navigation",
     available: (state) => state.commits.length > 0,
+  },
+  {
+    id: "show-file-path",
+    label: "Show File Path",
+    description: "Display the current file path",
+    shortcut: "Ctrl+g",
+    category: "view",
+    available: (state) => state.files.length > 0,
   },
 
   // View

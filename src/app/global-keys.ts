@@ -18,6 +18,7 @@ import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { CommentsViewPanel } from "../components/CommentsViewPanel"
 import { createCursorState } from "../vim-diff/cursor-state"
+import { getVisibleFlatTreeItems } from "../components"
 
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
@@ -76,6 +77,42 @@ export interface GlobalKeyContext {
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
+}
+
+/**
+ * Get the current file path based on context (like nvim's Ctrl+g).
+ * Returns the full path from:
+ * - File tree: highlighted file path
+ * - Single file view: selected file path
+ * - All files view: file at cursor position
+ */
+function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
+  const state = ctx.getState()
+  const lineMapping = ctx.getLineMapping()
+  const vimState = ctx.getVimState()
+
+  if (state.focusedPanel === "tree") {
+    // From file tree - use highlighted item
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const highlightedItem = flatItems[state.treeHighlightIndex]
+    if (highlightedItem) {
+      return highlightedItem.node.path
+    }
+  } else if (state.selectedFileIndex !== null) {
+    // Single file view - use selected file
+    const file = state.files[state.selectedFileIndex]
+    if (file) {
+      return file.filename
+    }
+  } else {
+    // All files view - use file at cursor
+    const currentLine = lineMapping.getLine(vimState.line)
+    if (currentLine?.filename) {
+      return currentLine.filename
+    }
+  }
+
+  return null
 }
 
 export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void {
@@ -272,9 +309,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "g":
-        if (key.ctrl && state.commits.length > 0) {
-          ctx.setState(openCommitPicker)
-          ctx.render()
+        if (key.ctrl && state.files.length > 0) {
+          // Show file path toast (like nvim Ctrl+g)
+          const filePath = getCurrentFilePath(ctx)
+          if (filePath) {
+            ctx.setState((s) => showToast(s, filePath, "info"))
+            ctx.render()
+          }
           return
         }
         break

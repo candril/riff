@@ -92,41 +92,110 @@ async function getGitDiff(target?: string): Promise<string> {
 /**
  * Get branch/bookmark info for display in header.
  * Returns something like "my-feature → main" for jj/git.
+ * 
+ * For jj:
+ * - If current change has a bookmark: "bookmark → trunk"
+ * - Otherwise: "change-id (description) → trunk" or just "change-id → trunk"
+ * 
+ * For git:
+ * - If on a branch: "branch → main/master"
+ * - If detached: "commit-sha → main/master"
  */
 export async function getBranchInfo(target?: string): Promise<string | null> {
   const vcs = await detectVcs()
 
   try {
     if (vcs === "jj") {
-      // Get bookmark on current change (or nearest ancestor)
-      const currentBookmark = await $`jj log -r 'latest(::@ & bookmarks())' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.nothrow()
-      const trunkBookmark = await $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.nothrow()
-
-      const current = currentBookmark.exitCode === 0 ? currentBookmark.text().trim() : ""
-      const trunk = trunkBookmark.exitCode === 0 ? trunkBookmark.text().trim() : ""
-
-      if (current && trunk && current !== trunk) {
-        return `${current} → ${trunk}`
-      } else if (current) {
-        return current
-      } else if (trunk) {
-        return `→ ${trunk}`
-      }
-      return null
+      return await getJjBranchInfo()
     }
 
     if (vcs === "git") {
-      const branch = await $`git branch --show-current`.nothrow()
-      const current = branch.exitCode === 0 ? branch.text().trim() : ""
-      if (current) {
-        return current
-      }
+      return await getGitBranchInfo()
     }
   } catch {
     // Ignore errors
   }
 
   return null
+}
+
+/**
+ * Get branch info for jj repositories
+ */
+async function getJjBranchInfo(): Promise<string | null> {
+  // Check if current change has a bookmark directly on it
+  const currentBookmarkResult = await $`jj log -r '@' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow()
+  const currentBookmark = currentBookmarkResult.exitCode === 0 ? currentBookmarkResult.text().trim() : ""
+  
+  // Get trunk bookmark
+  const trunkResult = await $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow()
+  const trunk = trunkResult.exitCode === 0 ? trunkResult.text().trim() : ""
+
+  // If current change has a bookmark, use that
+  if (currentBookmark) {
+    if (trunk && currentBookmark !== trunk) {
+      return `${currentBookmark} → ${trunk}`
+    }
+    return currentBookmark
+  }
+
+  // No bookmark on current change - use change ID and optionally description
+  const changeIdResult = await $`jj log -r '@' --no-graph -T 'change_id.shortest(6)'`.quiet().nothrow()
+  const changeId = changeIdResult.exitCode === 0 ? changeIdResult.text().trim() : ""
+
+  const descResult = await $`jj log -r '@' --no-graph -T 'description.first_line()'`.quiet().nothrow()
+  const desc = descResult.exitCode === 0 ? descResult.text().trim() : ""
+
+  if (!changeId) {
+    return trunk ? `→ ${trunk}` : null
+  }
+
+  // Format: "change-id (description)" or just "change-id"
+  const current = desc ? `${changeId} (${truncate(desc, 30)})` : changeId
+
+  if (trunk) {
+    return `${current} → ${trunk}`
+  }
+  return current
+}
+
+/**
+ * Get branch info for git repositories
+ */
+async function getGitBranchInfo(): Promise<string | null> {
+  // Get current branch name
+  const branchResult = await $`git branch --show-current`.quiet().nothrow()
+  const currentBranch = branchResult.exitCode === 0 ? branchResult.text().trim() : ""
+
+  // Get main/master branch name
+  const mainCheck = await $`git rev-parse --verify main`.quiet().nothrow()
+  const baseBranch = mainCheck.exitCode === 0 ? "main" : "master"
+
+  if (currentBranch) {
+    // On a named branch
+    if (currentBranch !== baseBranch) {
+      return `${currentBranch} → ${baseBranch}`
+    }
+    return currentBranch
+  }
+
+  // Detached HEAD - get short commit hash
+  const headResult = await $`git rev-parse --short HEAD`.quiet().nothrow()
+  const head = headResult.exitCode === 0 ? headResult.text().trim() : ""
+
+  if (head) {
+    return `${head} → ${baseBranch}`
+  }
+
+  return null
+}
+
+/**
+ * Truncate a string with ellipsis
+ */
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str
+  return str.slice(0, maxLen - 1) + "…"
 }
 
 /**
@@ -301,7 +370,7 @@ async function getJjCommits(target?: string): Promise<PrCommit[]> {
     const revset = target || "trunk()..@"
     // Use template to get structured output (NUL-separated fields, newline-separated records)
     const template = 'commit_id.short(7) ++ "\\x00" ++ description.first_line() ++ "\\x00" ++ author.name() ++ "\\x00" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\n"'
-    const result = await $`jj log -r ${revset} --no-graph -T ${template}`.nothrow()
+    const result = await $`jj log -r ${revset} --no-graph -T ${template}`.quiet().nothrow()
     if (result.exitCode !== 0) return []
 
     const lines = result.text().trim().split("\n").filter(Boolean)
@@ -338,7 +407,7 @@ async function getGitCommits(target?: string): Promise<PrCommit[]> {
     }
 
     const format = "%h%x00%s%x00%an%x00%aI"
-    const result = await $`git log ${range} --format=${format}`.nothrow()
+    const result = await $`git log ${range} --format=${format}`.quiet().nothrow()
     if (result.exitCode !== 0) return []
 
     const lines = result.text().trim().split("\n").filter(Boolean)

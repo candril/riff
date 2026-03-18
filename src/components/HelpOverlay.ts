@@ -24,7 +24,7 @@ const HELP_SECTIONS = [
       ["Tab", "Toggle diff / comments view"],
       ["Ctrl+b", "Toggle file tree panel"],
       ["Ctrl+f", "Find files (fuzzy)"],
-      ["Ctrl+g", "Select commit to view"],
+      ["Ctrl+g", "Show current file path"],
       ["Ctrl+p", "Open action menu"],
     ],
   },

@@ -20,7 +20,7 @@ import {
   collapseViewedFiles,
 } from "../../state"
 import { loadPrSession } from "../../providers/github"
-import { getLocalDiff, getDiffDescription } from "../../providers/local"
+import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments, loadViewedStatuses } from "../../storage"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
@@ -148,10 +148,14 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       ctx.setState((s) => showToast(s, "Refreshed", "success"))
     } else {
-      // Local mode - reload diff
-      const newDiff = await getLocalDiff(ctx.target)
-      const newDescription = await getDiffDescription(ctx.target)
-      const newComments = await loadComments(state.source)
+      // Local mode - reload diff, commits, and branch info
+      const [newDiff, newDescription, newBranchInfo, newCommits, newComments] = await Promise.all([
+        getLocalDiff(ctx.target),
+        getDiffDescription(ctx.target),
+        getBranchInfo(ctx.target),
+        getLocalCommits(ctx.target),
+        loadComments(state.source),
+      ])
 
       const newFiles = sortFiles(parseDiff(newDiff))
       const newFileTree = buildFileTree(newFiles)
@@ -159,15 +163,23 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.setState(() => {
         const prevState = ctx.getState()
         const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, newComments, "local", null, prevState.ignoreMatcher)
+        
+        // Set branch info and commits
+        const withBranchAndCommits = {
+          ...newState,
+          branchInfo: newBranchInfo,
+          commits: newCommits,
+        }
+        
         // Auto-collapse ignored files
-        if (newState.ignoredFiles.size > 0) {
-          const newCollapsed = new Set(newState.collapsedFiles)
-          for (const filename of newState.ignoredFiles) {
+        if (withBranchAndCommits.ignoredFiles.size > 0) {
+          const newCollapsed = new Set(withBranchAndCommits.collapsedFiles)
+          for (const filename of withBranchAndCommits.ignoredFiles) {
             newCollapsed.add(filename)
           }
-          return { ...newState, collapsedFiles: newCollapsed }
+          return { ...withBranchAndCommits, collapsedFiles: newCollapsed }
         }
-        return newState
+        return withBranchAndCommits
       })
 
       ctx.setVimState(createCursorState())
