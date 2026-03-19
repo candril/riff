@@ -16,6 +16,7 @@ import {
   SyntaxStyle,
   RGBA,
   BoxRenderable,
+  TextRenderable,
   type CliRenderer,
   type ScrollBoxRenderable,
   type LineColorConfig,
@@ -211,6 +212,15 @@ export class VimDiffView {
   // Expected scroll position - set by external scroll logic to avoid stale reads
   // When set, positionTerminalCursor uses this instead of scrollBox.scrollTop
   private expectedScrollTop: number | null = null
+  
+  // Sticky file header - shows current file name when its header scrolls out of view
+  private stickyHeaderBox: BoxRenderable | null = null
+  private stickyHeaderFoldText: TextRenderable | null = null
+  private stickyHeaderViewedText: TextRenderable | null = null
+  private stickyHeaderFilenameText: TextRenderable | null = null
+  private stickyHeaderAdditionsText: TextRenderable | null = null
+  private stickyHeaderDeletionsText: TextRenderable | null = null
+  private lastStickyFileIndex: number = -1
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
@@ -485,6 +495,14 @@ export class VimDiffView {
     }
     this.sectionRenderables.clear()
     this.fileSections = []
+    // Clear sticky header references (the box was already removed above)
+    this.stickyHeaderBox = null
+    this.stickyHeaderFoldText = null
+    this.stickyHeaderViewedText = null
+    this.stickyHeaderFilenameText = null
+    this.stickyHeaderAdditionsText = null
+    this.stickyHeaderDeletionsText = null
+    this.lastStickyFileIndex = -1
 
     // Handle empty state
     if (this.files.length === 0 || !this.lineMapping || this.lineMapping.lineCount === 0) {
@@ -754,6 +772,9 @@ export class VimDiffView {
     // For single-file compat, set main renderable to null in all-files mode
     this.lineNumberRenderable = null
     this.codeRenderable = null
+    
+    // Create sticky file header overlay (positioned absolutely over the scroll area)
+    this.createStickyHeader()
   }
 
   /**
@@ -950,6 +971,168 @@ export class VimDiffView {
     }
   }
 
+  /**
+   * Create the sticky file header overlay.
+   * This is an absolutely-positioned box at the top of the container
+   * that shows the current file's header when it scrolls out of view.
+   */
+  private createStickyHeader(): void {
+    // Remove old sticky header if present
+    this.destroyStickyHeader()
+    
+    this.stickyHeaderBox = new BoxRenderable(this.renderer, {
+      id: "sticky-file-header",
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: 1,
+      flexDirection: "row",
+      backgroundColor: theme.surface0,
+      paddingLeft: 1,
+      gap: 1,
+      zIndex: 10,
+    })
+    this.stickyHeaderBox.visible = false
+    
+    // Fold indicator
+    this.stickyHeaderFoldText = new TextRenderable(this.renderer, {
+      id: "sticky-header-fold",
+      content: "▼",
+      fg: theme.overlay0,
+    })
+    this.stickyHeaderBox.add(this.stickyHeaderFoldText)
+    
+    // Viewed indicator
+    this.stickyHeaderViewedText = new TextRenderable(this.renderer, {
+      id: "sticky-header-viewed",
+      content: " ",
+      fg: theme.overlay0,
+    })
+    this.stickyHeaderBox.add(this.stickyHeaderViewedText)
+    
+    // Filename
+    this.stickyHeaderFilenameText = new TextRenderable(this.renderer, {
+      id: "sticky-header-filename",
+      content: "",
+      fg: theme.blue,
+    })
+    this.stickyHeaderBox.add(this.stickyHeaderFilenameText)
+    
+    // Additions
+    this.stickyHeaderAdditionsText = new TextRenderable(this.renderer, {
+      id: "sticky-header-additions",
+      content: "",
+      fg: theme.green,
+    })
+    this.stickyHeaderBox.add(this.stickyHeaderAdditionsText)
+    
+    // Deletions
+    this.stickyHeaderDeletionsText = new TextRenderable(this.renderer, {
+      id: "sticky-header-deletions",
+      content: "",
+      fg: theme.red,
+    })
+    this.stickyHeaderBox.add(this.stickyHeaderDeletionsText)
+    
+    this.container.add(this.stickyHeaderBox)
+    this.lastStickyFileIndex = -1
+  }
+  
+  /**
+   * Remove the sticky header from the container
+   */
+  private destroyStickyHeader(): void {
+    if (this.stickyHeaderBox) {
+      this.container.remove(this.stickyHeaderBox.id)
+      this.stickyHeaderBox = null
+      this.stickyHeaderFoldText = null
+      this.stickyHeaderViewedText = null
+      this.stickyHeaderFilenameText = null
+      this.stickyHeaderAdditionsText = null
+      this.stickyHeaderDeletionsText = null
+      this.lastStickyFileIndex = -1
+    }
+  }
+  
+  /**
+   * Compute which file section's header should be shown as sticky.
+   * Returns the section whose header has scrolled above the viewport,
+   * or null if the first file's header is still visible.
+   */
+  private computeStickySection(scrollTop: number): FileSection | null {
+    if (this.fileSections.length === 0) return null
+    
+    let visualRow = 0
+    let stickySection: FileSection | null = null
+    
+    for (const section of this.fileSections) {
+      const headerRow = visualRow
+      
+      if (headerRow < scrollTop) {
+        // This header is scrolled above the viewport
+        stickySection = section
+      } else {
+        // This header is visible or below - stop looking
+        break
+      }
+      
+      // Advance past this section: 1 for header + content lines
+      visualRow += 1  // header row
+      if (!section.collapsed) {
+        visualRow += section.lineCount
+      }
+    }
+    
+    return stickySection
+  }
+  
+  /**
+   * Update the sticky header visibility and content based on scroll position.
+   * Called during post-process (every frame).
+   */
+  private updateStickyHeader(scrollTop: number): void {
+    if (!this.stickyHeaderBox) return
+    
+    // Only show in all-files mode
+    if (this.fileSections.length === 0 || this.selectedFileIndex !== null) {
+      this.stickyHeaderBox.visible = false
+      this.lastStickyFileIndex = -1
+      return
+    }
+    
+    const stickySection = this.computeStickySection(scrollTop)
+    
+    if (!stickySection) {
+      // First file's header is still visible - hide sticky
+      this.stickyHeaderBox.visible = false
+      this.lastStickyFileIndex = -1
+      return
+    }
+    
+    // Show the sticky header
+    this.stickyHeaderBox.visible = true
+    
+    // Only update text content if the file changed (avoid unnecessary updates)
+    if (stickySection.fileIndex !== this.lastStickyFileIndex) {
+      this.lastStickyFileIndex = stickySection.fileIndex
+      
+      const isViewed = this.fileStatuses.get(stickySection.filename)?.viewed ?? false
+      
+      this.stickyHeaderFoldText!.content = stickySection.collapsed ? "▶" : "▼"
+      this.stickyHeaderFoldText!.fg = stickySection.collapsed ? theme.overlay1 : theme.overlay0
+      
+      this.stickyHeaderViewedText!.content = isViewed ? "✓" : " "
+      this.stickyHeaderViewedText!.fg = isViewed ? theme.green : theme.overlay0
+      
+      this.stickyHeaderFilenameText!.content = stickySection.filename
+      this.stickyHeaderFilenameText!.fg = isViewed ? theme.overlay1 : theme.blue
+      
+      this.stickyHeaderAdditionsText!.content = `+${stickySection.additions}`
+      this.stickyHeaderDeletionsText!.content = `-${stickySection.deletions}`
+    }
+  }
+
   // Track whether file panel is visible (set via setFilePanelVisible)
   private filePanelVisible: boolean = true
   private filePanelWidth: number = 35
@@ -988,6 +1171,9 @@ export class VimDiffView {
     
     // Clear expected scroll position after using it
     this.expectedScrollTop = null
+    
+    // Update sticky file header based on scroll position
+    this.updateStickyHeader(scrollTop)
 
     // Calculate visual line relative to scroll position
     const visualRow = this.cursorLineToVisualRow(line)
@@ -1310,6 +1496,9 @@ export class VimDiffView {
     
     // Hide cursor
     this.renderer.setCursorPosition(0, 0, false)
+    
+    // Clean up sticky header
+    this.destroyStickyHeader()
     
     for (const child of this.container.getChildren()) {
       this.container.remove(child.id)

@@ -416,7 +416,7 @@ function toMarkdown(comment: Comment): string {
     "---",
     `id: ${comment.id}`,
     `filename: ${comment.filename}`,
-    `line: ${comment.line}`,
+    `line: ${comment.line ?? 0}`,
     `side: ${comment.side}`,
     `createdAt: ${comment.createdAt}`,
     `status: ${comment.status}`,

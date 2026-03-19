@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass } from "./components"
 import { getFileContent, getOldFileContent, getLocalCommitDiff } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -16,7 +16,7 @@ import {
   type AppState,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
-import { openPrEditor, openPrCreator } from "./utils/editor"
+import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
@@ -338,6 +338,8 @@ export async function createApp(options: AppOptions = {}) {
     state = toggleDividerExpansion(state, dividerKey)
     createLineMapping()
     render()
+    ensureCursorVisible()
+    vimDiffView.updateCursor(vimState)
     return true
   }
 
@@ -628,6 +630,55 @@ export async function createApp(options: AppOptions = {}) {
           state = clearToast(state)
           render()
         }, 4000)
+      } catch (err) {
+        if (suspended) renderer.resume()
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        state = showToast(state, `Error: ${msg}`, "error")
+        render()
+        setTimeout(() => {
+          state = clearToast(state)
+          render()
+        }, 3000)
+      }
+    },
+    handleAddPrComment: async () => {
+      if (!prInfo) return
+
+      let suspended = false
+      try {
+        renderer.suspend()
+        suspended = true
+
+        const body = await openPrCommentEditor()
+
+        renderer.resume()
+        suspended = false
+
+        if (!body) {
+          render()
+          return
+        }
+
+        state = showToast(state, "Posting comment...", "info")
+        render()
+
+        const result = await submitPrComment(prInfo.owner, prInfo.repo, prInfo.number, body)
+
+        if (result.success) {
+          state = showToast(state, "Comment posted", "success")
+          render()
+          setTimeout(() => {
+            state = clearToast(state)
+            render()
+          }, 2000)
+        } else {
+          state = showToast(state, `Error: ${result.error}`, "error")
+          render()
+          setTimeout(() => {
+            state = clearToast(state)
+            render()
+          }, 3000)
+        }
       } catch (err) {
         if (suspended) renderer.resume()
         const msg = err instanceof Error ? err.message : "Unknown error"

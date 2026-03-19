@@ -28,9 +28,12 @@ import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress } from "../state"
 import type { AppState } from "../state"
+import { filterCommentsBySearch } from "../features/comments-view/search"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
+import type { CommentsSearchState } from "../state"
+import { theme } from "../theme"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
@@ -56,6 +59,33 @@ export interface RenderContext {
 }
 
 /**
+ * Comments search prompt — shown at the bottom of the screen (like diff SearchPrompt)
+ */
+function CommentsSearchPrompt({ searchState }: { searchState: CommentsSearchState }) {
+  const prefix = "/"
+  const displayText = searchState.active
+    ? `${prefix}${searchState.query}`
+    : `${prefix}${searchState.query}`
+
+  return Box(
+    {
+      height: 1,
+      width: "100%",
+      backgroundColor: theme.surface0,
+      flexDirection: "row",
+      paddingLeft: 1,
+    },
+    Text({
+      content: displayText,
+      fg: theme.text,
+    }),
+    searchState.active
+      ? Text({ content: "█", fg: theme.text })
+      : null,
+  )
+}
+
+/**
  * Create the main render function
  */
 export function createRenderFunction(ctx: RenderContext): () => void {
@@ -66,13 +96,22 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const searchState = ctx.getSearchState()
 
     const selectedFile = getSelectedFile(state)
-    const visibleComments = getVisibleComments(state)
+    let visibleComments = getVisibleComments(state)
+
+    // Apply comment search filter
+    if (state.commentsSearch.query) {
+      visibleComments = filterCommentsBySearch(visibleComments, state.commentsSearch.query)
+    }
 
     // Build hints based on context and view mode
     const hints: string[] = []
 
     if (searchState.active) {
       hints.push("Enter: confirm", "Esc: cancel", "Type to search...")
+    } else if (state.commentsSearch.active) {
+      hints.push("Enter: confirm", "Esc: cancel", "Type to filter comments...")
+    } else if (state.commentsSearch.query && state.viewMode === "comments") {
+      hints.push("Esc: clear filter", "/: search")
     } else if (searchState.pattern && state.viewMode === "diff") {
       hints.push("n: next", "N: prev", "Esc: clear")
     } else {
@@ -92,7 +131,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         }
         hints.push("j/k/w/b: move")
       } else {
-        hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse")
+        hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse", "/: search")
       }
 
       if (state.showFilePanel) {
@@ -131,7 +170,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         visibleComments,
         state.selectedCommentIndex,
         selectedFile?.filename ?? null,
-        state.collapsedThreadIds
+        state.commentsSearch.query ? new Set() : state.collapsedThreadIds,
+        state.commentsSearch
       )
 
       content = Box(
@@ -226,7 +266,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         ),
         (searchState.active || searchState.pattern) && state.viewMode === "diff"
           ? SearchPrompt({ searchState })
-          : null,
+          : (state.commentsSearch.active || state.commentsSearch.query) && state.viewMode === "comments"
+            ? CommentsSearchPrompt({ searchState: state.commentsSearch })
+            : null,
         StatusBar({
           hints,
           searchInfo:

@@ -17,6 +17,7 @@ import {
   clearToast,
   toggleShowHiddenFiles,
   openHelp,
+  openCommentsSearch,
 } from "../../state"
 
 /**
@@ -37,6 +38,7 @@ export interface ActionHandlers {
   handleShowAllFiles: () => void
   handleEditPr: () => Promise<void>
   handleCreatePr: () => Promise<void>
+  handleAddPrComment: () => Promise<void>
 }
 
 export interface ExecuteContext {
@@ -67,6 +69,14 @@ export async function executeAction(
 
     case "find-files":
       setState(openFilePicker)
+      render()
+      break
+
+    case "search-comments":
+      setState((s) => {
+        const withView = s.viewMode === "comments" ? s : { ...s, viewMode: "comments" as const, focusedPanel: "comments" as const }
+        return openCommentsSearch(withView)
+      })
       render()
       break
 
@@ -167,6 +177,10 @@ export async function executeAction(
           render()
         }, 2000)
       }
+      break
+
+    case "add-pr-comment":
+      await handlers.handleAddPrComment()
       break
 
     case "open-in-editor":

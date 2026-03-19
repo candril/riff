@@ -59,6 +59,7 @@ interface ReviewThread {
   createdAt: string
   url?: string
   isResolved: boolean
+  diffHunk?: string
   replies: Comment[]
 }
 
@@ -219,6 +220,25 @@ function getTerminalWidth(): number {
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str
   return str.slice(0, maxLen - 1) + "…"
+}
+
+/**
+ * Clean up a comment body for single-line preview display.
+ * Strips HTML comments, markdown noise, collapses whitespace.
+ */
+function cleanBodyPreview(body: string): string {
+  return body
+    .replace(/<!--[\s\S]*?-->/g, "")      // Remove HTML comments
+    .replace(/<[^>]+>/g, "")               // Remove HTML tags
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
+    .replace(/^#{1,6}\s+/gm, "")           // Remove heading markers
+    .replace(/\|[^|\n]*\|/g, "")           // Remove markdown table rows
+    .replace(/[:\-|]{3,}/g, "")            // Remove table separators
+    .replace(/^\s*[-*+]\s+/gm, "")         // Remove list markers
+    .replace(/`{1,3}/g, "")               // Remove backticks
+    .replace(/\n/g, " ")                   // Collapse newlines to spaces
+    .replace(/\s+/g, " ")                  // Collapse multiple spaces
+    .trim()
 }
 
 /**
@@ -422,6 +442,7 @@ export class PRInfoPanelClass {
         createdAt: comment.createdAt,
         url: comment.githubUrl,
         isResolved: comment.isThreadResolved ?? false,
+        diffHunk: comment.diffHunk,
         replies: [],
       }
       threadMap.set(comment.id, thread)
@@ -465,9 +486,6 @@ export class PRInfoPanelClass {
     for (const review of reviews) {
       if (review.state === "PENDING") continue // Skip pending reviews
       
-      // Find threads for this review (match by numeric part of GraphQL ID)
-      // GraphQL ID format: PRR_kwDOQMrSEM7rKlCy, REST API id is a number
-      // We need to match somehow - for now just use the review data directly
       const reviewWithThreads: ReviewWithThreads = {
         id: review.id,
         author: review.author,
@@ -478,18 +496,26 @@ export class PRInfoPanelClass {
       }
       
       // Find threads that belong to this review
-      // Match by looking at comments created around the same time
-      // (This is imperfect but works for most cases)
-      for (const [reviewId, threads] of reviewThreadsMap) {
-        // The reviewId is the numeric REST API review ID
-        // We can't directly match it to the GraphQL ID, so we add all threads
-        // to the review they belong to based on the stored reviewId
-        reviewWithThreads.threads.push(...threads)
-        reviewThreadsMap.delete(reviewId) // Remove so we don't add twice
-        break // For now, just assign threads to first review (imperfect)
+      // Match using databaseId (numeric REST API ID) which matches comment.githubReviewId
+      if (review.databaseId) {
+        const threads = reviewThreadsMap.get(review.databaseId)
+        if (threads) {
+          reviewWithThreads.threads.push(...threads)
+          reviewThreadsMap.delete(review.databaseId)
+        }
+      }
+      
+      // Skip empty COMMENTED reviews (auto-generated when posting inline comments without a body)
+      if (review.state === "COMMENTED" && !review.body && reviewWithThreads.threads.length === 0) {
+        continue
       }
       
       items.push({ type: 'review', data: reviewWithThreads })
+    }
+    
+    // Add unmatched threads from reviewThreadsMap (review ID didn't match any known review)
+    for (const [, threads] of reviewThreadsMap) {
+      orphanThreads.push(...threads)
     }
     
     // Add orphan threads as standalone reviews (shouldn't happen normally)
@@ -788,26 +814,44 @@ export class PRInfoPanelClass {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
     
-    // For review threads, toggle the parent review
-    if (flatItem.type === 'review-thread') {
-      const parentId = flatItem.parentReview.id
-      if (this.expandedContent.has(parentId)) {
-        this.expandedContent.delete(parentId)
-      } else {
-        this.expandedContent.add(parentId)
-      }
+    const itemId = this.getFlatItemId(flatItem)
+    if (this.expandedContent.has(itemId)) {
+      this.expandedContent.delete(itemId)
     } else {
-      const itemId = this.getFlatItemId(flatItem)
-      if (this.expandedContent.has(itemId)) {
-        this.expandedContent.delete(itemId)
-      } else {
-        this.expandedContent.add(itemId)
-      }
+      this.expandedContent.add(itemId)
     }
     
     // Refresh flat items and rebuild
     this.refreshFlatItems()
     this.rebuildSections()
+  }
+
+  /**
+   * Expand the currently selected conversation item (no-op if already expanded)
+   */
+  expandSelectedThread(): void {
+    const flatItem = this.getSelectedFlatItem()
+    if (!flatItem) return
+    const itemId = this.getFlatItemId(flatItem)
+    if (!this.expandedContent.has(itemId)) {
+      this.expandedContent.add(itemId)
+      this.refreshFlatItems()
+      this.rebuildSections()
+    }
+  }
+
+  /**
+   * Collapse the currently selected conversation item (no-op if already collapsed)
+   */
+  collapseSelectedThread(): void {
+    const flatItem = this.getSelectedFlatItem()
+    if (!flatItem) return
+    const itemId = this.getFlatItemId(flatItem)
+    if (this.expandedContent.has(itemId)) {
+      this.expandedContent.delete(itemId)
+      this.refreshFlatItems()
+      this.rebuildSections()
+    }
   }
   
   /**
@@ -1196,6 +1240,7 @@ export class PRInfoPanelClass {
       if (item.type === 'pr-comment') {
         const comment = item.data
         const isExpanded = this.expandedContent.has(String(comment.id))
+        const isBot = comment.isBot
         
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
@@ -1205,11 +1250,11 @@ export class PRInfoPanelClass {
         
         const expandIcon = isExpanded ? "▼" : "▶"
         row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: " PR  ", fg: theme.overlay1 }))
+        row.add(new TextRenderable(this.renderer, { content: "PR ", fg: theme.overlay1 }))
         
         const authorText = new TextRenderable(this.renderer, {
           content: `@${comment.author}`,
-          fg: isSelected ? theme.blue : theme.sapphire,
+          fg: isBot ? theme.overlay0 : (isSelected ? theme.blue : theme.sapphire),
         })
         row.add(authorText)
         
@@ -1217,10 +1262,10 @@ export class PRInfoPanelClass {
         if (isExpanded) {
           bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
         } else {
-          const bodyPreview = truncate(comment.body.replace(/\n/g, " "), getBodyPreviewWidth())
+          const bodyPreview = truncate(cleanBodyPreview(comment.body), getBodyPreviewWidth())
           bodyText = new TextRenderable(this.renderer, {
             content: `  ${bodyPreview}`,
-            fg: isSelected ? theme.text : theme.subtext1,
+            fg: isBot ? theme.overlay0 : (isSelected ? theme.text : theme.subtext1),
           })
         }
         row.add(bodyText)
@@ -1252,7 +1297,7 @@ export class PRInfoPanelClass {
         
         const expandIcon = isExpanded ? "▼" : "▶"
         row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: ` ${stateIcon} `, fg: stateColor }))
+        row.add(new TextRenderable(this.renderer, { content: `${stateIcon}  `, fg: stateColor }))
         
         const authorText = new TextRenderable(this.renderer, {
           content: `@${review.author}`,
@@ -1331,7 +1376,7 @@ export class PRInfoPanelClass {
         if (isExpanded) {
           bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
         } else {
-          const bodyPreview = truncate(thread.body.replace(/\n/g, " "), getThreadBodyPreviewWidth())
+          const bodyPreview = truncate(cleanBodyPreview(thread.body), getThreadBodyPreviewWidth())
           bodyText = new TextRenderable(this.renderer, {
             content: `  ${bodyPreview}`,
             fg: isSelected ? theme.text : theme.subtext1,
@@ -1351,8 +1396,21 @@ export class PRInfoPanelClass {
         
         // Show thread content if expanded
         if (isExpanded) {
+          // Show diff hunk context if available
+          if (thread.diffHunk && thread.diffHunk.trim()) {
+            this.buildDiffHunkDisplay(container, thread.diffHunk, 6)
+          } else {
+            // No diff hunk from API — try to extract from loaded diff files
+            const fileContent = this.getFileDiffContent(thread.filename, thread.line)
+            if (fileContent) {
+              this.buildDiffHunkDisplay(container, fileContent, 6)
+            }
+          }
+          
+          // Comment body
           this.buildExpandedCommentBody(container, thread.body, 6)
           
+          // Replies
           for (const reply of thread.replies) {
             const replyHeader = new BoxRenderable(this.renderer, {
               flexDirection: "row",
@@ -1385,7 +1443,7 @@ export class PRInfoPanelClass {
         })
         
         row.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: "○ ", fg: theme.yellow }))
+        row.add(new TextRenderable(this.renderer, { content: "○  ", fg: theme.yellow }))
         
         const authorText = new TextRenderable(this.renderer, {
           content: `@${reviewer}`,
@@ -1426,6 +1484,73 @@ export class PRInfoPanelClass {
     bodyBox.add(md)
     
     container.add(bodyBox)
+  }
+
+  /**
+   * Extract diff context around a line from the loaded diff files.
+   * Returns a few lines of context or null if the file isn't found.
+   */
+  private getFileDiffContent(filename: string, line: number): string | null {
+    const file = this.files.find(f => f.filename === filename)
+    if (!file?.content) return null
+
+    const lines = file.content.split("\n")
+    // Find content lines near the target line number
+    // The diff format includes headers, so we scan for the relevant hunk
+    const contextRadius = 4
+    const start = Math.max(0, line - contextRadius - 1)
+    const end = Math.min(lines.length, line + contextRadius)
+
+    // Find the closest @@ hunk header before our target
+    let hunkStart = start
+    for (let i = start; i >= 0; i--) {
+      if (lines[i]?.startsWith("@@")) {
+        hunkStart = i
+        break
+      }
+    }
+
+    const contextLines = lines.slice(hunkStart, end)
+    if (contextLines.length === 0) return null
+    return contextLines.join("\n")
+  }
+
+  /**
+   * Build a diff hunk display showing code context for a thread.
+   * Shows the last few lines of the diff hunk with diff coloring.
+   */
+  private buildDiffHunkDisplay(container: BoxRenderable, diffHunk: string, indent: number): void {
+    const lines = diffHunk.split("\n")
+    // Show only the last ~8 lines of the hunk (the most relevant context)
+    const maxLines = 8
+    const startIdx = Math.max(0, lines.length - maxLines)
+    const visibleLines = lines.slice(startIdx)
+
+    const hunkBox = new BoxRenderable(this.renderer, {
+      flexDirection: "column",
+      paddingLeft: indent,
+      paddingRight: 2,
+      marginTop: 1,
+      backgroundColor: theme.mantle,
+    })
+
+    for (const line of visibleLines) {
+      if (!line && visibleLines.indexOf(line) === visibleLines.length - 1) continue // skip trailing empty line
+      let fg: string = theme.overlay1
+      if (line.startsWith("+")) {
+        fg = theme.green
+      } else if (line.startsWith("-")) {
+        fg = theme.red
+      } else if (line.startsWith("@@")) {
+        fg = theme.blue
+      }
+      hunkBox.add(new TextRenderable(this.renderer, {
+        content: line || " ",
+        fg,
+      }))
+    }
+
+    container.add(hunkBox)
   }
 
   /**

@@ -23,6 +23,7 @@ import {
 } from "../../state"
 import { toggleNodeExpansion } from "../../utils/file-tree"
 import { groupIntoThreads, flattenThreadsForNav } from "../../utils/threads"
+import { getFilteredNavItems } from "../comments-view/input"
 
 export interface FoldsContext {
   // State access
@@ -120,9 +121,7 @@ export function handleGoToBottom(ctx: FoldsContext): void {
   }
 
   if (state.focusedPanel === "comments") {
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
+    const navItems = getFilteredNavItems(state)
     ctx.setState((s) => ({ ...s, selectedCommentIndex: Math.max(0, navItems.length - 1) }))
     const scrollBox = ctx.getCommentsViewPanel().getScrollBox()
     if (scrollBox) {

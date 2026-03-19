@@ -87,6 +87,16 @@ export interface FilePickerState {
 }
 
 /**
+ * Comments search state
+ */
+export interface CommentsSearchState {
+  /** Whether the search is active */
+  active: boolean
+  /** Current search query */
+  query: string
+}
+
+/**
  * Thread preview state (quick view of comment thread from diff view)
  */
 export interface ThreadPreviewState {
@@ -157,6 +167,7 @@ export interface AppState {
   // Comments view state
   selectedCommentIndex: number      // Selected comment in comments view
   collapsedThreadIds: Set<string>   // Thread IDs that are collapsed (root comment ID)
+  commentsSearch: CommentsSearchState // Search/filter in comments view
 
   // Comment state - comments stored separately from session
   session: ReviewSession | null
@@ -287,6 +298,10 @@ export function createInitialState(
     cursorLine: 1,
     selectedCommentIndex: 0,
     collapsedThreadIds: new Set(),
+    commentsSearch: {
+      active: false,
+      query: "",
+    },
     session,
     comments,
     commentInputLine: null,
@@ -575,11 +590,23 @@ export function updateCommentBody(state: AppState, commentId: string, body: stri
  * The root comment is identified by its ID (thread ID matches root comment ID)
  */
 export function setThreadResolved(state: AppState, rootCommentId: string, resolved: boolean): AppState {
+  // Update the comment's resolved flag
+  const newComments = state.comments.map(c =>
+    c.id === rootCommentId ? { ...c, isThreadResolved: resolved } : c
+  )
+
+  // Auto-collapse when resolving, auto-expand when unresolving
+  const newCollapsed = new Set(state.collapsedThreadIds)
+  if (resolved) {
+    newCollapsed.add(rootCommentId)
+  } else {
+    newCollapsed.delete(rootCommentId)
+  }
+
   return {
     ...state,
-    comments: state.comments.map(c =>
-      c.id === rootCommentId ? { ...c, isThreadResolved: resolved } : c
-    ),
+    comments: newComments,
+    collapsedThreadIds: newCollapsed,
   }
 }
 
@@ -1013,17 +1040,31 @@ export function setPendingReview(
   const nonPendingComments = state.comments.filter(c => c.status !== "pending")
   
   // Convert pending review comments to Comment objects
-  const pendingComments: Comment[] = pendingReview?.comments.map(pc => ({
-    id: `pending-${pc.id}`,
-    filename: pc.path,
-    line: pc.line,
-    side: pc.side,
-    body: pc.body,
-    createdAt: new Date().toISOString(),
-    status: "pending" as const,
-    githubId: pc.id,
-    author: pendingReview.user,
-  })) ?? []
+  // A pending reply's parent could be a synced comment (gh-${id}) or another pending comment (pending-${id})
+  const syncedGithubIds = new Set(nonPendingComments.filter(c => c.githubId).map(c => c.githubId))
+  const pendingComments: Comment[] = pendingReview?.comments.map(pc => {
+    let inReplyTo: string | undefined
+    if (pc.inReplyToId) {
+      // Check if parent is a synced comment first, then fall back to pending
+      if (syncedGithubIds.has(pc.inReplyToId)) {
+        inReplyTo = `gh-${pc.inReplyToId}`
+      } else {
+        inReplyTo = `pending-${pc.inReplyToId}`
+      }
+    }
+    return {
+      id: `pending-${pc.id}`,
+      filename: pc.path,
+      line: pc.line,
+      side: pc.side,
+      body: pc.body,
+      createdAt: new Date().toISOString(),
+      status: "pending" as const,
+      githubId: pc.id,
+      author: pendingReview.user,
+      inReplyTo,
+    }
+  }) ?? []
   
   return {
     ...state,
@@ -1303,6 +1344,51 @@ export function moveFilePickerSelection(state: AppState, delta: number, maxIndex
       ...state.filePicker,
       selectedIndex: newIndex,
     },
+  }
+}
+
+// ============================================================================
+// Comments Search
+// ============================================================================
+
+/**
+ * Open comments search
+ */
+export function openCommentsSearch(state: AppState): AppState {
+  return {
+    ...state,
+    commentsSearch: {
+      active: true,
+      query: "",
+    },
+  }
+}
+
+/**
+ * Close comments search and clear query
+ */
+export function closeCommentsSearch(state: AppState): AppState {
+  return {
+    ...state,
+    commentsSearch: {
+      active: false,
+      query: "",
+    },
+    selectedCommentIndex: 0,
+  }
+}
+
+/**
+ * Update comments search query
+ */
+export function setCommentsSearchQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    commentsSearch: {
+      ...state.commentsSearch,
+      query,
+    },
+    selectedCommentIndex: 0, // Reset selection when query changes
   }
 }
 

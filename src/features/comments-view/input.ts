@@ -16,8 +16,12 @@ import {
   collapseThread,
   expandThread,
   getVisibleComments,
+  openCommentsSearch,
+  closeCommentsSearch,
+  setCommentsSearchQuery,
 } from "../../state"
 import { groupIntoThreads, flattenThreadsForNav } from "../../utils/threads"
+import { filterCommentsBySearch } from "./search"
 
 export interface CommentsViewInputContext {
   readonly state: AppState
@@ -40,6 +44,122 @@ export interface CommentsViewInputContext {
 }
 
 /**
+ * Handle input when comments search is active.
+ * Returns true if the key was handled (search is active), false otherwise.
+ */
+export function handleSearchInput(
+  key: KeyEvent,
+  ctx: CommentsViewInputContext
+): boolean {
+  if (!ctx.state.commentsSearch.active) {
+    return false
+  }
+
+  switch (key.name) {
+    case "escape":
+      ctx.setState(closeCommentsSearch)
+      ctx.render()
+      return true
+
+    case "return":
+    case "enter":
+      // Confirm search — keep filter active, just close the input prompt
+      ctx.setState((s) => ({
+        ...s,
+        commentsSearch: { ...s.commentsSearch, active: false },
+      }))
+      ctx.render()
+      return true
+
+    case "backspace":
+      if (ctx.state.commentsSearch.query.length > 0) {
+        ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query.slice(0, -1)))
+        ctx.render()
+      } else {
+        // Backspace on empty query closes search
+        ctx.setState(closeCommentsSearch)
+        ctx.render()
+      }
+      return true
+
+    case "w":
+      // Ctrl+w: delete last word
+      if (key.ctrl) {
+        const q = ctx.state.commentsSearch.query
+        const trimmed = q.replace(/\S+\s*$/, "")
+        ctx.setState((s) => setCommentsSearchQuery(s, trimmed))
+        ctx.render()
+        return true
+      }
+      // fallthrough to default
+      ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query + "w"))
+      ctx.render()
+      return true
+
+    case "u":
+      // Ctrl+u: clear query
+      if (key.ctrl) {
+        ctx.setState((s) => setCommentsSearchQuery(s, ""))
+        ctx.render()
+        return true
+      }
+      ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query + "u"))
+      ctx.render()
+      return true
+
+    case "n":
+      if (key.ctrl) {
+        // Ctrl+n: move selection down
+        const items = getFilteredNavItems(ctx.state)
+        ctx.setState((s) => moveCommentSelection(s, 1, items.length - 1))
+        ctx.render()
+        return true
+      }
+      ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query + "n"))
+      ctx.render()
+      return true
+
+    case "p":
+      if (key.ctrl) {
+        // Ctrl+p: move selection up
+        const items = getFilteredNavItems(ctx.state)
+        ctx.setState((s) => moveCommentSelection(s, -1, items.length - 1))
+        ctx.render()
+        return true
+      }
+      ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query + "p"))
+      ctx.render()
+      return true
+
+    default:
+      // Type characters into search
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        ctx.setState((s) => setCommentsSearchQuery(s, s.commentsSearch.query + key.sequence))
+        ctx.render()
+      }
+      // Capture all keys when search is active
+      return true
+  }
+}
+
+/**
+ * Get filtered nav items based on current search query.
+ * Used by both the input handler and the panel for consistent filtering.
+ */
+export function getFilteredNavItems(state: AppState) {
+  let comments = getVisibleComments(state)
+  if (state.commentsSearch.query) {
+    comments = filterCommentsBySearch(comments, state.commentsSearch.query)
+  }
+  const threads = groupIntoThreads(comments)
+  return flattenThreadsForNav(
+    threads,
+    state.selectedFileIndex === null,
+    state.commentsSearch.query ? undefined : state.collapsedThreadIds
+  )
+}
+
+/**
  * Handle input when comments view is focused.
  * Returns true if the key was handled, false otherwise.
  */
@@ -51,49 +171,56 @@ export function handleInput(
     return false
   }
 
-  const visibleComments = getVisibleComments(ctx.state)
-  const threads = groupIntoThreads(visibleComments)
-  const navItems = flattenThreadsForNav(
-    threads,
-    ctx.state.selectedFileIndex === null,
-    ctx.state.collapsedThreadIds
-  )
+  const navItems = getFilteredNavItems(ctx.state)
   const panel = ctx.getPanel()
 
+  // Handle '/' for search (may come as key.sequence only, not key.name)
+  if ((key.name === "/" || key.sequence === "/") && !key.ctrl) {
+    ctx.setState(openCommentsSearch)
+    ctx.render()
+    return true
+  }
+
   switch (key.name) {
+    case "escape": {
+      // Clear search filter if active
+      if (ctx.state.commentsSearch.query) {
+        ctx.setState(closeCommentsSearch)
+        ctx.render()
+        return true
+      }
+      return false
+    }
+
     case "j":
     case "down": {
-      const oldIndex = ctx.state.selectedCommentIndex
       ctx.setState((s) => moveCommentSelection(s, 1, navItems.length - 1))
-      if (ctx.state.selectedCommentIndex !== oldIndex) {
-        panel.scrollBy(1)
-      }
+      panel.ensureSelectedVisible(ctx.state.selectedCommentIndex)
       ctx.render()
       return true
     }
 
     case "k":
     case "up": {
-      const oldIndex = ctx.state.selectedCommentIndex
       ctx.setState((s) => moveCommentSelection(s, -1, navItems.length - 1))
-      if (ctx.state.selectedCommentIndex !== oldIndex) {
-        panel.scrollBy(-1)
-      }
+      panel.ensureSelectedVisible(ctx.state.selectedCommentIndex)
       ctx.render()
       return true
     }
 
     case "d":
-      // Ctrl+d: scroll down half page
+      // Ctrl+d: scroll down half page and move selection
       if (key.ctrl) {
         const scrollBox = panel.getScrollBox()
         if (scrollBox) {
           const viewportHeight = Math.floor(scrollBox.height || 20)
           const halfPage = Math.floor(viewportHeight / 2)
-          scrollBox.scrollTop = Math.min(
-            scrollBox.scrollHeight - viewportHeight,
-            scrollBox.scrollTop + halfPage
-          )
+          const maxScroll = scrollBox.scrollHeight - viewportHeight
+          scrollBox.scrollTop = Math.min(maxScroll, scrollBox.scrollTop + halfPage)
+          // Move selection to match new viewport position
+          const newIndex = panel.findItemAtScrollPosition(scrollBox.scrollTop)
+          ctx.setState((s) => ({ ...s, selectedCommentIndex: Math.min(newIndex, navItems.length - 1) }))
+          ctx.render()
         }
       } else {
         // d: delete comment (synced comments are deleted on GitHub first)
@@ -105,13 +232,17 @@ export function handleInput(
       return true
 
     case "u":
-      // Ctrl+u: scroll up half page
+      // Ctrl+u: scroll up half page and move selection
       if (key.ctrl) {
         const scrollBox = panel.getScrollBox()
         if (scrollBox) {
           const viewportHeight = Math.floor(scrollBox.height || 20)
           const halfPage = Math.floor(viewportHeight / 2)
           scrollBox.scrollTop = Math.max(0, scrollBox.scrollTop - halfPage)
+          // Move selection to match new viewport position
+          const newIndex = panel.findItemAtScrollPosition(scrollBox.scrollTop)
+          ctx.setState((s) => ({ ...s, selectedCommentIndex: Math.min(newIndex, navItems.length - 1) }))
+          ctx.render()
         }
       }
       return true

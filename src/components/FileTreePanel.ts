@@ -623,7 +623,17 @@ export class FileTreePanel {
     this.width = width
     this.container.width = width
     // Force rebuild items to recalculate truncation
-    const flatItems = flattenTree(this.currentFileTree, this.currentFiles)
+    // Must apply the same ignore filtering as update()
+    let flatItems = flattenTree(this.currentFileTree, this.currentFiles)
+    if (!this.currentShowHidden && this.currentIgnoredFiles.size > 0) {
+      flatItems = flatItems.filter(item => {
+        if (item.node.isDirectory) return true
+        if (item.node.file && this.currentIgnoredFiles.has(item.node.file.filename)) return false
+        return true
+      })
+      flatItems = removeEmptyDirs(flatItems, this.currentFiles, this.currentIgnoredFiles)
+      flatItems.forEach((item, i) => { item.index = i })
+    }
     this.rebuildItems(flatItems)
   }
 }

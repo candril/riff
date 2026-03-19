@@ -289,6 +289,34 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== COMMENTS SEARCH (captures all input when active) ==========
+    if (
+      commentsView.handleSearchInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        getPanel: () => ctx.commentsViewPanel,
+        getVimState: ctx.getVimState,
+        setVimState: ctx.setVimState,
+        getLineMapping: ctx.getLineMapping,
+        rebuildLineMapping: () => {
+          ctx.setVimState(createCursorState())
+          ctx.rebuildLineMapping()
+          return ctx.getLineMapping()
+        },
+        ensureCursorVisible: ctx.ensureCursorVisible,
+        handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
+        handleSubmitSingleComment: (comment) =>
+          commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
+        handleToggleThreadResolved: () =>
+          prOperations.handleToggleThreadResolved(ctx.prOperationsContext),
+        handleDeleteComment: (comment) =>
+          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
+      })
+    ) {
+      return
+    }
+
     // ========== GLOBAL KEYS (work in any mode) ==========
     const state = ctx.getState()
     switch (key.name) {
@@ -323,6 +351,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       case "q":
         ctx.quit()
         return
+
+      case "c":
+        // C (shift+c): Add PR-level conversation comment
+        if (key.shift && state.appMode === "pr" && state.prInfo) {
+          ctx.executeAction("add-pr-comment")
+          return
+        }
+        break
 
       case "escape":
         // Clear toast if visible
@@ -619,12 +655,30 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         const anchor = lineMapping.getCommentAnchor(vimState.line)
         if (!anchor) return false
         
-        const lineComments = s.comments.filter(
-          (c) => c.filename === anchor.filename && c.line === anchor.line && c.side === anchor.side
+        // Find root comments on this line
+        const rootComments = s.comments.filter(
+          (c) => c.filename === anchor.filename && c.line === anchor.line && c.side === anchor.side && !c.inReplyTo
         )
-        if (lineComments.length === 0) return false
+        if (rootComments.length === 0) return false
         
-        ctx.setState((s) => openThreadPreview(s, lineComments, anchor.filename, anchor.line))
+        // Collect root comments AND all transitive replies
+        // (replies may have line=undefined/0 since GitHub REST API doesn't set line on replies)
+        const threadIds = new Set(rootComments.map(c => c.id))
+        let added = true
+        while (added) {
+          added = false
+          for (const c of s.comments) {
+            if (!threadIds.has(c.id) && c.inReplyTo && threadIds.has(c.inReplyTo)) {
+              threadIds.add(c.id)
+              added = true
+            }
+          }
+        }
+        const threadComments = s.comments.filter(c => threadIds.has(c.id))
+        
+        if (threadComments.length === 0) return false
+        
+        ctx.setState((s) => openThreadPreview(s, threadComments, anchor.filename, anchor.line))
         ctx.render()
         return true
       },

@@ -85,6 +85,22 @@ export function handleInput(
       }
       return true
 
+    case "l":
+      // l: expand selected conversation item
+      if (panel && panel.getActiveSection() === 'conversation') {
+        panel.expandSelectedThread()
+      }
+      ctx.render()
+      return true
+
+    case "h":
+      // h: collapse selected conversation item
+      if (panel && panel.getActiveSection() === 'conversation') {
+        panel.collapseSelectedThread()
+      }
+      ctx.render()
+      return true
+
     case "tab":
       // Tab/Shift+Tab to cycle sections
       if (panel) {
@@ -180,11 +196,8 @@ export function handleInput(
               ctx.render()
               ctx.onJumpToLocation(location.filename, location.line)
             } else {
-              // PR comment (no code location) - open in browser
-              const item = panel.getSelectedConversationItem()
-              if (item?.type === 'pr-comment' && item.data.url) {
-                Bun.spawn(["open", item.data.url])
-              }
+              // PR comment or review header (no code location) - toggle expand
+              panel.toggleSelectedThread()
             }
             break
           }

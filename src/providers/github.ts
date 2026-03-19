@@ -80,6 +80,7 @@ export interface PrCommit {
 
 export interface PrReview {
   id: string  // GraphQL ID (PRR_...)
+  databaseId?: number  // Numeric REST API ID (matches pull_request_review_id on comments)
   author: string
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "PENDING" | "DISMISSED"
   body?: string  // Review summary comment
@@ -144,6 +145,7 @@ export interface PendingReviewComment {
   path: string
   line: number
   side: "LEFT" | "RIGHT"
+  inReplyToId?: number
 }
 
 /**
@@ -234,21 +236,24 @@ export async function getPrInfo(
       finalRepo = current.repo
     }
 
-    // Parse and deduplicate reviews (keep latest per author)
-    const rawReviews: PrReview[] = (result.reviews || []).map((r: any) => ({
+    // Fetch REST reviews in parallel for numeric IDs (best-effort)
+    const restReviews = await $`gh api --paginate repos/${finalOwner}/${finalRepo}/pulls/${prNumber}/reviews`.json().catch(() => [] as any[]) as any[]
+    const nodeIdToDbId = new Map<string, number>()
+    for (const r of restReviews) {
+      if (r.node_id && r.id) {
+        nodeIdToDbId.set(r.node_id, r.id)
+      }
+    }
+
+    // Parse all reviews (no deduplication — consumers handle that where needed)
+    const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
       id: r.id,
+      databaseId: nodeIdToDbId.get(r.id),
       author: r.author?.login || "unknown",
       state: r.state as PrReview["state"],
       body: r.body || undefined,
       submittedAt: r.submittedAt,
     }))
-    const latestReviews = new Map<string, PrReview>()
-    for (const review of rawReviews) {
-      const existing = latestReviews.get(review.author)
-      if (!existing || (review.submittedAt && existing.submittedAt && review.submittedAt > existing.submittedAt)) {
-        latestReviews.set(review.author, review)
-      }
-    }
 
     // Parse commits (newest first)
     const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
@@ -275,7 +280,7 @@ export async function getPrInfo(
       changedFiles: result.changedFiles,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      reviews: Array.from(latestReviews.values()),
+      reviews,
       commits,
     }
   })
@@ -290,8 +295,20 @@ export async function getPrExtendedInfo(
   repo: string
 ): Promise<{ commits: PrCommit[]; reviews: PrReview[]; requestedReviewers: string[] }> {
   return safeGhCommand(async () => {
-    // Fetch commits, reviews, and requested reviewers in one call
-    const result = await $`gh pr view ${prNumber} -R ${owner}/${repo} --json commits,reviews,reviewRequests`.json()
+    // Fetch commits, reviews, and requested reviewers via GraphQL
+    // Also fetch reviews from REST API to get numeric IDs (for matching with comment.githubReviewId)
+    const [result, restReviews] = await Promise.all([
+      $`gh pr view ${prNumber} -R ${owner}/${repo} --json commits,reviews,reviewRequests`.json(),
+      $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json().catch(() => [] as any[]),
+    ])
+
+    // Build a map from GraphQL node_id to REST numeric id
+    const nodeIdToDbId = new Map<string, number>()
+    for (const r of (restReviews as any[])) {
+      if (r.node_id && r.id) {
+        nodeIdToDbId.set(r.node_id, r.id)
+      }
+    }
 
     const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
       sha: c.oid.slice(0, 7),
@@ -302,20 +319,12 @@ export async function getPrExtendedInfo(
 
     const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
       id: r.id,
+      databaseId: nodeIdToDbId.get(r.id),
       author: r.author?.login || "unknown",
       state: r.state as PrReview["state"],
       body: r.body || undefined,
       submittedAt: r.submittedAt,
     }))
-
-    // Deduplicate reviews - keep only the latest review per author
-    const latestReviews = new Map<string, PrReview>()
-    for (const review of reviews) {
-      const existing = latestReviews.get(review.author)
-      if (!existing || (review.submittedAt && existing.submittedAt && review.submittedAt > existing.submittedAt)) {
-        latestReviews.set(review.author, review)
-      }
-    }
 
     const requestedReviewers: string[] = (result.reviewRequests || []).map((r: any) => 
       r.login || r.name || "unknown"
@@ -323,7 +332,7 @@ export async function getPrExtendedInfo(
 
     return {
       commits,
-      reviews: Array.from(latestReviews.values()),
+      reviews,
       requestedReviewers,
     }
   })
@@ -372,7 +381,7 @@ export async function getPendingReview(
     }
 
     // Fetch all reviews for the PR
-    const reviews = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json() as any[]
+    const reviews = await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json() as any[]
     
     // Find pending review by current user
     const pendingReview = reviews.find(
@@ -384,7 +393,7 @@ export async function getPendingReview(
     }
 
     // Fetch comments for this pending review
-    const reviewComments = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews/${pendingReview.id}/comments`.json() as any[]
+    const reviewComments = await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews/${pendingReview.id}/comments`.json() as any[]
 
     return {
       id: pendingReview.id,
@@ -398,6 +407,7 @@ export async function getPendingReview(
         // or position/original_position for diff hunk position
         line: c.line || c.original_line || c.position || c.original_position || 0,
         side: (c.side || "RIGHT") as "LEFT" | "RIGHT",
+        inReplyToId: c.in_reply_to_id,
       })),
     }
   } catch {
@@ -568,8 +578,9 @@ export async function getPrComments(
 ): Promise<PrComment[]> {
   return safeGhCommand(async () => {
     // Fetch REST comments and GraphQL threads in parallel
+    // Use --paginate to fetch ALL comments (GitHub defaults to 30 per page)
     const [restComments, threads] = await Promise.all([
-      $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as Promise<any[]>,
+      $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as Promise<any[]>,
       getPrReviewThreads(owner, repo, prNumber),
     ])
     
@@ -582,10 +593,10 @@ export async function getPrComments(
       }
     }
 
-    return restComments.map((c: any) => {
+    // First pass: convert all comments
+    const comments: PrComment[] = restComments.map((c: any) => {
       // Find thread info for this comment
       // If this is a root comment (no in_reply_to_id), check if it's in our map
-      // If this is a reply, we'll inherit thread info from root later
       const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
       
       return {
@@ -607,6 +618,29 @@ export async function getPrComments(
         isThreadResolved: thread?.isResolved,
       }
     })
+
+    // Second pass: replies often have line=null from the REST API.
+    // Inherit line/side/path from the root comment in the same thread.
+    const byId = new Map<number, PrComment>()
+    for (const c of comments) byId.set(c.id, c)
+
+    for (const c of comments) {
+      if (c.inReplyToId && !c.line) {
+        // Walk up the reply chain to find the root with a valid line
+        let parent = byId.get(c.inReplyToId)
+        while (parent) {
+          if (parent.line) {
+            c.line = parent.line
+            c.side = parent.side
+            c.path = parent.path
+            break
+          }
+          parent = parent.inReplyToId ? byId.get(parent.inReplyToId) : undefined
+        }
+      }
+    }
+
+    return comments
   })
 }
 
@@ -621,7 +655,7 @@ export async function getPrConversationComments(
 ): Promise<PrConversationComment[]> {
   return safeGhCommand(async () => {
     // PR conversation comments use the issues API endpoint
-    const comments = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`.json() as any[]
+    const comments = await $`gh api --paginate repos/${owner}/${repo}/issues/${prNumber}/comments`.json() as any[]
     
     return comments.map((c: any) => ({
       id: c.id,

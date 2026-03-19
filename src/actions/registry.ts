@@ -38,6 +38,14 @@ export const actions: Action[] = [
     category: "navigation",
     available: (state) => state.selectedFileIndex !== null,
   },
+  {
+    id: "search-comments",
+    label: "Search Comments",
+    description: "Filter comments by body, author, or filename",
+    shortcut: "/",
+    category: "navigation",
+    available: (state) => state.comments.length > 0,
+  },
   // GitHub
   {
     id: "submit-review",
@@ -81,6 +89,14 @@ export const actions: Action[] = [
     shortcut: "d",
     category: "github",
     available: (state) => state.comments.length > 0,
+  },
+  {
+    id: "add-pr-comment",
+    label: "Add PR Comment",
+    description: "Post a conversation comment on the PR (not tied to code)",
+    shortcut: "C",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
     id: "create-pr",

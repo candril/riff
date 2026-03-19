@@ -466,6 +466,56 @@ export async function openCommentEditor(
 }
 
 /**
+ * Open $EDITOR for a PR-level conversation comment (not attached to code).
+ * Returns the comment body, or null if cancelled/empty.
+ */
+export async function openPrCommentEditor(): Promise<string | null> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+
+  const tmpFile = join(tmpdir(), `riff-pr-comment-${randomUUID()}.md`)
+  const content = [
+    "",
+    MARKER_COMMENT_END,
+    "",
+    "<!-- PR conversation comment — write above the line, save and quit to post -->",
+    "",
+  ].join("\n")
+
+  await Bun.write(tmpFile, content)
+
+  const proc = Bun.spawn([editor, tmpFile], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode !== 0) {
+    try {
+      const { unlink } = await import("fs/promises")
+      await unlink(tmpFile)
+    } catch {}
+    return null
+  }
+
+  const editedContent = await Bun.file(tmpFile).text()
+
+  try {
+    const { unlink } = await import("fs/promises")
+    await unlink(tmpFile)
+  } catch {}
+
+  // Extract comment body (everything before the marker)
+  const markerIdx = editedContent.indexOf(MARKER_COMMENT_END)
+  const body = markerIdx >= 0
+    ? editedContent.slice(0, markerIdx).trim()
+    : editedContent.trim()
+
+  return body || null
+}
+
+/**
  * Open a file in $EDITOR for viewing (read-only context).
  * Creates a temporary file with the content and opens it.
  * The file is cleaned up after the editor closes.

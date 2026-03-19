@@ -51,6 +51,7 @@ const HELP_SECTIONS = [
       ["gy", "Copy PR URL"],
       ["gP", "Edit PR title/body"],
       ["gr", "Refresh from GitHub"],
+      ["C", "Add PR comment"],
     ],
   },
   {
@@ -61,6 +62,7 @@ const HELP_SECTIONS = [
       ["h / l", "Collapse / expand thread"],
       ["r", "Reply to thread"],
       ["d", "Delete comment"],
+      ["/", "Search/filter comments"],
     ],
   },
   {

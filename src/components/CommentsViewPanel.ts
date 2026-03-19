@@ -15,6 +15,7 @@ import {
   type CliRenderer,
 } from "@opentui/core"
 import type { Comment } from "../types"
+import type { CommentsSearchState } from "../state"
 import { 
   type ThreadNavItem, 
   groupIntoThreads, 
@@ -110,6 +111,17 @@ export class CommentsViewPanel {
   private lastSelectedIndex: number = -1
   private lastSelectedFilename: string | null | undefined = undefined
   private lastCollapsedThreadIds: Set<string> | null = null
+  private lastSearchState: CommentsSearchState | null = null
+
+  // Empty state text elements (for dynamic update)
+  private emptyTitle: TextRenderable
+  private emptySubtitle: TextRenderable
+
+  // Precomputed item positions (in terminal rows) for scroll navigation.
+  // Computed during rebuildContent() so they're available immediately.
+  private itemTops: number[] = []
+  private itemHeights: number[] = []
+  private totalContentHeight: number = 0
 
   constructor(options: CommentsViewPanelOptions) {
     this.renderer = options.renderer
@@ -143,7 +155,6 @@ export class CommentsViewPanel {
       flexDirection: "column",
       width: "100%",
       paddingX: 1,
-      paddingY: 1,
     })
     this.scrollBox.add(this.content)
     this.container.add(this.scrollBox)
@@ -158,14 +169,16 @@ export class CommentsViewPanel {
       flexDirection: "column",
       gap: 1,
     })
-    this.emptyStateContainer.add(new TextRenderable(this.renderer, {
+    this.emptyTitle = new TextRenderable(this.renderer, {
       content: "No comments yet",
       fg: colors.textDim,
-    }))
-    this.emptyStateContainer.add(new TextRenderable(this.renderer, {
+    })
+    this.emptySubtitle = new TextRenderable(this.renderer, {
       content: "Press 'c' on a line in diff view to add one",
       fg: colors.textDim,
-    }))
+    })
+    this.emptyStateContainer.add(this.emptyTitle)
+    this.emptyStateContainer.add(this.emptySubtitle)
   }
 
   getContainer(): BoxRenderable {
@@ -177,33 +190,40 @@ export class CommentsViewPanel {
   }
 
   /**
-   * Scroll by a number of "lines" (approximate item heights)
-   */
-  scrollBy(lines: number): void {
-    const lineHeight = 4  // Approximate height of a comment item
-    this.scrollBox.scrollBy(lines * lineHeight)
-  }
-  
-  /**
    * Scroll to ensure the selected item is visible.
+   * Uses precomputed row positions from rebuildContent().
    */
   ensureSelectedVisible(selectedIndex: number): void {
-    // Each comment nav item is roughly 3-5 lines tall
-    // Use a simple heuristic: scroll so selection is near top third of viewport
-    const estimatedItemHeight = 4
-    const estimatedPosition = selectedIndex * estimatedItemHeight
-    
+    if (selectedIndex < 0 || selectedIndex >= this.itemTops.length) return
+
+    const itemTop = this.itemTops[selectedIndex]!
+    const itemHeight = this.itemHeights[selectedIndex]!
+    const itemBottom = itemTop + itemHeight
     const scrollTop = this.scrollBox.scrollTop
     const viewportHeight = Math.floor(this.scrollBox.height || 20)
-    const margin = estimatedItemHeight * 2
-    
-    if (estimatedPosition < scrollTop + margin) {
-      // Above viewport - scroll up
-      this.scrollBox.scrollTop = Math.max(0, estimatedPosition - margin)
-    } else if (estimatedPosition > scrollTop + viewportHeight - margin) {
-      // Below viewport - scroll down  
-      this.scrollBox.scrollTop = estimatedPosition - viewportHeight + margin
+
+    if (itemTop < scrollTop) {
+      // Item is above viewport - scroll up to show it
+      this.scrollBox.scrollTop = itemTop
+    } else if (itemBottom > scrollTop + viewportHeight) {
+      // Item is below viewport - scroll down so it's at bottom
+      this.scrollBox.scrollTop = itemBottom - viewportHeight
     }
+  }
+
+  /**
+   * Find which nav item index is at a given scroll position (in rows).
+   * Used by half-page scrolling to move the selection to match the viewport.
+   */
+  findItemAtScrollPosition(scrollY: number): number {
+    for (let i = 0; i < this.itemTops.length; i++) {
+      const top = this.itemTops[i]!
+      const height = this.itemHeights[i]!
+      if (top + height > scrollY) {
+        return i
+      }
+    }
+    return Math.max(0, this.itemTops.length - 1)
   }
 
   /**
@@ -213,7 +233,8 @@ export class CommentsViewPanel {
     comments: Comment[],
     selectedIndex: number,
     selectedFilename: string | null,
-    collapsedThreadIds?: Set<string>
+    collapsedThreadIds?: Set<string>,
+    searchState?: CommentsSearchState
   ): void {
     // Handle empty state toggle
     const wasEmpty = this.lastComments !== null && this.lastComments.length === 0
@@ -229,11 +250,23 @@ export class CommentsViewPanel {
       this.container.add(this.scrollBox)
     }
 
+    // Update empty state text based on whether a search filter is active
+    if (isEmpty) {
+      if (searchState?.query) {
+        this.emptyTitle.content = "No matching comments"
+        this.emptySubtitle.content = "Press Esc to clear the search filter"
+      } else {
+        this.emptyTitle.content = "No comments yet"
+        this.emptySubtitle.content = "Press 'c' on a line in diff view to add one"
+      }
+    }
+
     if (isEmpty) {
       this.lastComments = comments
       this.lastSelectedIndex = selectedIndex
       this.lastSelectedFilename = selectedFilename
       this.lastCollapsedThreadIds = collapsedThreadIds ?? null
+      this.lastSearchState = searchState ?? null
       return
     }
 
@@ -242,21 +275,24 @@ export class CommentsViewPanel {
     const selectionChanged = selectedIndex !== this.lastSelectedIndex
     const filenameChanged = selectedFilename !== this.lastSelectedFilename
     const collapsedChanged = collapsedThreadIds !== this.lastCollapsedThreadIds
+    const searchChanged = searchState?.query !== this.lastSearchState?.query ||
+      searchState?.active !== this.lastSearchState?.active
 
     // Update state tracking
     this.lastComments = comments
     this.lastSelectedIndex = selectedIndex
     this.lastSelectedFilename = selectedFilename
     this.lastCollapsedThreadIds = collapsedThreadIds ?? null
+    this.lastSearchState = searchState ?? null
 
     // Only rebuild if something changed
-    if (commentsChanged || selectionChanged || filenameChanged || collapsedChanged) {
+    if (commentsChanged || selectionChanged || filenameChanged || collapsedChanged || searchChanged) {
       this.rebuildContent(comments, selectedIndex, selectedFilename, collapsedThreadIds)
     }
   }
 
   /**
-   * Rebuild all content
+   * Rebuild all content and precompute item positions.
    */
   private rebuildContent(
     comments: Comment[],
@@ -274,13 +310,50 @@ export class CommentsViewPanel {
     const showFileHeaders = selectedFilename === null
     const navItems = flattenThreadsForNav(threads, showFileHeaders, collapsedThreadIds)
 
-    // Create items
+    // Reset position tracking
+    this.itemTops = []
+    this.itemHeights = []
+    let currentY = 0
+
+    // Create items and compute positions
     for (let i = 0; i < navItems.length; i++) {
       const item = navItems[i]!
       const isSelected = i === selectedIndex
       const itemBox = this.createNavItem(item, isSelected, i)
       this.content.add(itemBox)
+
+      const height = this.estimateItemHeight(item, i)
+      this.itemTops.push(currentY)
+      this.itemHeights.push(height)
+      currentY += height
     }
+
+    this.totalContentHeight = currentY
+  }
+
+  /**
+   * Estimate the height of a nav item in terminal rows.
+   * Must match the padding/structure in create*Row methods.
+   */
+  private estimateItemHeight(item: ThreadNavItem, index: number): number {
+    if (item.type === "file-header") {
+      // paddingTop: (index === 0 ? 0 : 1) + 1 text line
+      return (index === 0 ? 0 : 1) + 1
+    }
+
+    if (item.isCollapsed) {
+      // Single line, no padding
+      return 1
+    }
+
+    // Expanded comment: paddingTop (1 for root, 0 for reply) + header (1) + body lines (if multi-line)
+    const isRoot = item.isRoot!
+    const paddingTop = isRoot ? 1 : 0
+    const headerLines = 1
+    const body = item.comment?.body ?? ""
+    const shortBody = !body.includes("\n") && body.length <= 60
+    const bodyLines = shortBody ? 0 : Math.max(1, body.split("\n").length)
+    return paddingTop + headerLines + bodyLines
   }
 
   /**
@@ -309,8 +382,7 @@ export class CommentsViewPanel {
       id: `comment-nav-${index}`,
       width: "100%",
       backgroundColor: selected ? theme.surface1 : undefined,
-      paddingTop: 1,
-      paddingBottom: 1,
+      paddingTop: index === 0 ? 0 : 1,
     })
     box.add(new TextRenderable(this.renderer, {
       content: filename,
@@ -370,7 +442,7 @@ export class CommentsViewPanel {
 
     // Author
     box.add(new TextRenderable(this.renderer, {
-      content: `@${author}`,
+      content: author,
       fg: theme.blue,
     }))
 
@@ -380,11 +452,11 @@ export class CommentsViewPanel {
       fg: theme.overlay0,
     }))
 
-    // Truncated body preview (first ~40 chars)
-    const preview = comment.body.replace(/\n/g, " ").slice(0, 40)
-    const truncated = comment.body.length > 40 ? preview + "..." : preview
+    // Truncated body preview (first ~50 chars)
+    const preview = comment.body.replace(/\n/g, " ").slice(0, 50)
+    const truncated = comment.body.length > 50 ? preview + "..." : preview
     box.add(new TextRenderable(this.renderer, {
-      content: ` "${truncated}"`,
+      content: ` · ${truncated}`,
       fg: colors.textDim,
     }))
 
@@ -408,6 +480,14 @@ export class CommentsViewPanel {
   }
 
   /**
+   * Check if a comment body is short enough to inline on the header row.
+   * Short = single line and <= 60 chars.
+   */
+  private isShortBody(body: string): boolean {
+    return !body.includes("\n") && body.length <= 60
+  }
+
+  /**
    * Create a full expanded row with context and body
    */
   private createExpandedRow(
@@ -422,6 +502,7 @@ export class CommentsViewPanel {
     const isRoot = item.isRoot!
     const isLastInThread = item.isLastInThread!
     const indent = item.indent
+    const shortBody = this.isShortBody(comment.body)
 
     const headerIndent = indent > 0 ? "  └ " : ""
     const bodyIndent = indent > 0 ? (isLastInThread ? "    " : "  │ ") : ""
@@ -432,10 +513,9 @@ export class CommentsViewPanel {
       flexDirection: "column",
       backgroundColor: selected ? theme.surface1 : undefined,
       paddingTop: isRoot ? 1 : 0,
-      paddingBottom: 1,
     })
 
-    // Header line: marker, indent, author, status (and line number if no context)
+    // Header line: marker, indent, author, time, [status if not synced], [inline body if short]
     const headerRow = new BoxRenderable(this.renderer, {
       flexDirection: "row",
       width: "100%",
@@ -448,15 +528,8 @@ export class CommentsViewPanel {
       content: headerIndent,
       fg: colors.textDim,
     }))
-    // Show line number for root comments
-    if (isRoot) {
-      headerRow.add(new TextRenderable(this.renderer, {
-        content: `L${comment.line} `,
-        fg: theme.yellow,
-      }))
-    }
     headerRow.add(new TextRenderable(this.renderer, {
-      content: `@${author}`,
+      content: author,
       fg: theme.blue,
     }))
     // Timestamp
@@ -464,10 +537,13 @@ export class CommentsViewPanel {
       content: ` ${formatTimeAgo(comment.createdAt)}`,
       fg: theme.overlay0,
     }))
-    headerRow.add(new TextRenderable(this.renderer, {
-      content: ` [${comment.status}]`,
-      fg: statusColor,
-    }))
+    // Only show status badge for non-synced comments
+    if (comment.status !== "synced") {
+      headerRow.add(new TextRenderable(this.renderer, {
+        content: ` [${comment.status}]`,
+        fg: statusColor,
+      }))
+    }
     // Resolved indicator (✓) - shown only on root comments of resolved threads
     if (isRoot && item.thread?.resolved) {
       headerRow.add(new TextRenderable(this.renderer, {
@@ -482,26 +558,35 @@ export class CommentsViewPanel {
         fg: theme.overlay0,
       }))
     }
+    // Short body: inline on the header row after a separator
+    if (shortBody) {
+      headerRow.add(new TextRenderable(this.renderer, {
+        content: ` · ${comment.body}`,
+        fg: theme.text,
+      }))
+    }
     box.add(headerRow)
 
-    // Body line with markdown rendering
-    const bodyRow = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      width: "100%",
-      paddingLeft: 2,
-    })
-    bodyRow.add(new TextRenderable(this.renderer, {
-      content: bodyIndent,
-      fg: colors.textDim,
-    }))
-    // Use MarkdownRenderable for rich text (bold, italic, code, etc.)
-    const markdownBody = new MarkdownRenderable(this.renderer, {
-      id: `comment-body-${comment.id}`,
-      content: comment.body,
-      syntaxStyle: getSyntaxStyle(),
-    })
-    bodyRow.add(markdownBody)
-    box.add(bodyRow)
+    // Multi-line / long body: render below header with markdown
+    if (!shortBody) {
+      const bodyRow = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        width: "100%",
+        paddingLeft: 2,
+      })
+      bodyRow.add(new TextRenderable(this.renderer, {
+        content: bodyIndent,
+        fg: colors.textDim,
+      }))
+      // Use MarkdownRenderable for rich text (bold, italic, code, etc.)
+      const markdownBody = new MarkdownRenderable(this.renderer, {
+        id: `comment-body-${comment.id}`,
+        content: comment.body,
+        syntaxStyle: getSyntaxStyle(),
+      })
+      bodyRow.add(markdownBody)
+      box.add(bodyRow)
+    }
 
     return box
   }
