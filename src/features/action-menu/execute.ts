@@ -10,6 +10,7 @@ import {
   openFilePicker,
   openCommitPicker,
   toggleFilePanel,
+  toggleFilePanelExpanded,
   toggleViewMode,
   clearFileSelection,
   showToast,
@@ -93,6 +94,11 @@ export async function executeAction(
 
     case "toggle-hidden-files":
       setState(toggleShowHiddenFiles)
+      render()
+      break
+
+    case "toggle-file-panel-expanded":
+      setState(toggleFilePanelExpanded)
       render()
       break
 

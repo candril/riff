@@ -68,6 +68,7 @@ export interface PrInfo {
   reviews?: PrReview[]
   requestedReviewers?: string[]
   conversationComments?: PrConversationComment[]
+  checks?: PrCheck[]
 }
 
 export interface PrCommit {
@@ -84,6 +85,19 @@ export interface PrReview {
   body?: string  // Review summary comment
   submittedAt?: string
   url?: string
+}
+
+/**
+ * A CI check run on a PR
+ */
+export interface PrCheck {
+  id: number
+  name: string
+  status: "queued" | "in_progress" | "completed"
+  conclusion: "success" | "failure" | "neutral" | "cancelled" | "skipped" | "timed_out" | "action_required" | null
+  detailsUrl: string | null
+  startedAt: string | null
+  completedAt: string | null
 }
 
 /**
@@ -312,6 +326,32 @@ export async function getPrExtendedInfo(
       reviews: Array.from(latestReviews.values()),
       requestedReviewers,
     }
+  })
+}
+
+/**
+ * Fetch check runs for a PR (CI/CD status)
+ */
+export async function getPrChecks(
+  owner: string,
+  repo: string,
+  headSha: string
+): Promise<PrCheck[]> {
+  return safeGhCommand(async () => {
+    const result = await $`gh api repos/${owner}/${repo}/commits/${headSha}/check-runs`.json() as {
+      total_count: number
+      check_runs: any[]
+    }
+
+    return (result.check_runs || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      status: c.status as PrCheck["status"],
+      conclusion: c.conclusion as PrCheck["conclusion"],
+      detailsUrl: c.details_url || c.html_url || null,
+      startedAt: c.started_at || null,
+      completedAt: c.completed_at || null,
+    }))
   })
 }
 
@@ -651,11 +691,15 @@ export async function loadPrSession(
     getPrExtendedInfo(prNumber, resolvedOwner!, resolvedRepo!),
   ])
   
-  // Attach conversation comments and extended info to prInfo
+  // Fetch checks (requires headSha from first batch)
+  const checks = await getPrChecks(resolvedOwner!, resolvedRepo!, headSha)
+  
+  // Attach conversation comments, extended info, and checks to prInfo
   prInfo.conversationComments = conversationComments
   prInfo.commits = extendedInfo.commits
   prInfo.reviews = extendedInfo.reviews
   prInfo.requestedReviewers = extendedInfo.requestedReviewers
+  prInfo.checks = checks
 
   // Build source identifier for this PR
   const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`
@@ -841,6 +885,33 @@ export async function submitReply(
   try {
     const result = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments/${parentGithubId}/replies \
       -f body=${comment.body}`.json() as { id: number; html_url: string }
+    
+    return {
+      success: true,
+      githubId: result.id,
+      githubUrl: result.html_url,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: extractShellError(err),
+    }
+  }
+}
+
+/**
+ * Submit a PR-level comment (appears in the conversation tab, not attached to code)
+ * These use the issues API endpoint
+ */
+export async function submitPrComment(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  body: string
+): Promise<SubmitResult> {
+  try {
+    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments \
+      -f body=${body}`.json() as { id: number; html_url: string }
     
     return {
       success: true,

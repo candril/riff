@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleViewMode, setViewingCommit, showToast, clearToast, toggleHelp, closeHelp } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, toggleHelp, closeHelp } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -324,6 +324,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.quit()
         return
 
+      case "escape":
+        // Clear toast if visible
+        if (state.toast.message) {
+          ctx.setState(clearToast)
+          ctx.render()
+          return
+        }
+        break
+
       case "i":
         // Open PR info panel (only for PR mode)
         if (state.appMode === "pr" && state.prInfo) {
@@ -350,6 +359,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           setTimeout(() => {
             ctx.render()
           }, 0)
+          return
+        }
+        break
+
+      case "e":
+        if (key.ctrl && state.showFilePanel) {
+          ctx.setState(toggleFilePanelExpanded)
+          ctx.render()
           return
         }
         break

@@ -12,7 +12,7 @@ import {
   RGBA,
   type CliRenderer,
 } from "@opentui/core"
-import type { PrInfo, PrReview, PrCommit, PrConversationComment } from "../providers/github"
+import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
 import type { PRInfoPanelSection } from "../state"
@@ -272,7 +272,7 @@ interface SectionConfig {
   hasItems: boolean
 }
 
-const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'conversation', 'files', 'commits']
+const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'checks', 'conversation', 'files', 'commits']
 
 /**
  * PR Info Panel - class-based for efficient updates
@@ -289,8 +289,8 @@ export class PRInfoPanelClass {
   private activeSection: PRInfoPanelSection = 'description'
   private cursorIndex: number = -1  // -1 = on section header
   
-  // Expanded state per section (all open by default)
-  private expandedSections: Set<PRInfoPanelSection> = new Set(ALL_SECTIONS)
+  // Expanded state per section (checks collapsed by default, others open)
+  private expandedSections: Set<PRInfoPanelSection> = new Set(['description', 'conversation', 'files', 'commits'] as PRInfoPanelSection[])
   
   // Thread expanded state (by thread root comment id) - shows replies
   private expandedThreads: Set<string> = new Set()
@@ -313,6 +313,11 @@ export class PRInfoPanelClass {
   
   // Footer container for dynamic updates
   private footer: BoxRenderable | null = null
+  
+  // Comment input overlay
+  private commentInputOverlay: BoxRenderable | null = null
+  private commentInputText: TextRenderable | null = null
+  private commentInputStatus: TextRenderable | null = null
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
@@ -372,6 +377,8 @@ export class PRInfoPanelClass {
     switch (this.activeSection) {
       case 'description':
         return 0  // Description has no items, just expanded content
+      case 'checks':
+        return this.prInfo.checks?.length ?? 0
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
@@ -633,6 +640,8 @@ export class PRInfoPanelClass {
     switch (section) {
       case 'description':
         return 0
+      case 'checks':
+        return this.prInfo.checks?.length ?? 0
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
@@ -725,6 +734,14 @@ export class PRInfoPanelClass {
   getSelectedFile(): DiffFile | undefined {
     if (this.activeSection !== 'files' || this.cursorIndex < 0) return undefined
     return this.files[this.cursorIndex]
+  }
+
+  /**
+   * Get selected check
+   */
+  getSelectedCheck(): PrCheck | undefined {
+    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return undefined
+    return this.prInfo.checks?.[this.cursorIndex]
   }
 
   /**
@@ -861,6 +878,31 @@ export class PRInfoPanelClass {
         row.primary.fg = selected ? theme.blue : theme.sapphire
         if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
         break
+      case 'checks':
+        row.primary.fg = selected ? theme.text : theme.subtext1
+        break
+    }
+  }
+
+  /**
+   * Get aggregated checks status for collapsed preview
+   */
+  private getChecksAggregateStatus(): { icon: string; color: string; text: string } {
+    const checks = this.prInfo.checks ?? []
+    if (checks.length === 0) {
+      return { icon: "○", color: theme.overlay0, text: "no checks" }
+    }
+    
+    const pending = checks.filter(c => c.status !== "completed")
+    const failed = checks.filter(c => c.status === "completed" && c.conclusion !== "success" && c.conclusion !== "neutral" && c.conclusion !== "skipped")
+    const succeeded = checks.filter(c => c.status === "completed" && (c.conclusion === "success" || c.conclusion === "neutral" || c.conclusion === "skipped"))
+    
+    if (failed.length > 0) {
+      return { icon: "✗", color: theme.red, text: `${failed.length} failed` }
+    } else if (pending.length > 0) {
+      return { icon: "○", color: theme.yellow, text: `${pending.length} pending` }
+    } else {
+      return { icon: "✓", color: theme.green, text: "all passed" }
     }
   }
 
@@ -872,6 +914,8 @@ export class PRInfoPanelClass {
     const commitCount = this.prInfo.commits?.length ?? 0
     const fileCount = this.files.length
     const bodyLines = (this.prInfo.body || "").split("\n").filter(l => l.trim()).length
+    const checkCount = this.prInfo.checks?.length ?? 0
+    const checksStatus = this.getChecksAggregateStatus()
 
     return [
       {
@@ -880,6 +924,13 @@ export class PRInfoPanelClass {
         count: bodyLines,
         preview: bodyLines > 0 ? `${bodyLines} lines` : "empty",
         hasItems: false,
+      },
+      {
+        id: 'checks',
+        title: 'Checks',
+        count: checkCount,
+        preview: `${checksStatus.icon} ${checksStatus.text}`,
+        hasItems: checkCount > 0,
       },
       {
         id: 'conversation',
@@ -926,7 +977,7 @@ export class PRInfoPanelClass {
    * Check if a section has selectable items
    */
   private sectionHasItems(section: PRInfoPanelSection): boolean {
-    return section === 'files' || section === 'commits' || section === 'conversation'
+    return section === 'files' || section === 'commits' || section === 'conversation' || section === 'checks'
   }
 
   /**
@@ -996,6 +1047,9 @@ export class PRInfoPanelClass {
       case 'description':
         this.buildDescriptionContent(contentBox)
         break
+      case 'checks':
+        this.buildChecksContent(contentBox, isActive)
+        break
       case 'conversation':
         this.buildConversationContent(contentBox, isActive)
         break
@@ -1028,6 +1082,94 @@ export class PRInfoPanelClass {
       syntaxStyle: getSyntaxStyle(),
     })
     container.add(md)
+  }
+
+  /**
+   * Get icon and color for a check status
+   */
+  private getCheckStatusDisplay(check: PrCheck): { icon: string; color: string } {
+    if (check.status !== "completed") {
+      // In progress or queued
+      return { icon: "○", color: theme.yellow }
+    }
+    
+    switch (check.conclusion) {
+      case "success":
+        return { icon: "✓", color: theme.green }
+      case "failure":
+      case "timed_out":
+        return { icon: "✗", color: theme.red }
+      case "cancelled":
+        return { icon: "⊘", color: theme.overlay0 }
+      case "skipped":
+        return { icon: "⊘", color: theme.overlay0 }
+      case "neutral":
+        return { icon: "◇", color: theme.subtext0 }
+      case "action_required":
+        return { icon: "!", color: theme.peach }
+      default:
+        return { icon: "?", color: theme.overlay0 }
+    }
+  }
+
+  /**
+   * Build checks content
+   */
+  private buildChecksContent(container: BoxRenderable, isActive: boolean): void {
+    const rows: ItemRowRefs[] = []
+    const checks = this.prInfo.checks ?? []
+    
+    if (checks.length === 0) {
+      container.add(new TextRenderable(this.renderer, {
+        content: "No checks configured",
+        fg: theme.overlay0,
+      }))
+      return
+    }
+    
+    for (let i = 0; i < checks.length; i++) {
+      const check = checks[i]!
+      const isSelected = isActive && i === this.cursorIndex
+      const { icon, color } = this.getCheckStatusDisplay(check)
+      
+      const row = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        height: 1,
+        backgroundColor: isSelected ? theme.surface1 : undefined,
+      })
+      
+      // Status icon
+      row.add(new TextRenderable(this.renderer, {
+        content: `${icon} `,
+        fg: color,
+      }))
+      
+      // Check name
+      const nameText = new TextRenderable(this.renderer, {
+        content: check.name,
+        fg: isSelected ? theme.text : theme.subtext1,
+      })
+      row.add(nameText)
+      
+      // Status text (for non-completed or failed)
+      let statusText = ""
+      if (check.status !== "completed") {
+        statusText = ` (${check.status})`
+      } else if (check.conclusion && check.conclusion !== "success") {
+        statusText = ` (${check.conclusion})`
+      }
+      
+      const statusTextEl = new TextRenderable(this.renderer, {
+        content: statusText,
+        fg: theme.overlay0,
+      })
+      row.add(statusTextEl)
+      
+      container.add(row)
+      rows.push({ container: row, primary: nameText, secondary: statusTextEl })
+    }
+    
+    this.itemRows.set('checks', rows)
   }
 
   /**
@@ -1594,6 +1736,115 @@ export class PRInfoPanelClass {
     this.footer.add(new TextRenderable(this.renderer, { content: "copy  ", fg: theme.subtext0 }))
     this.footer.add(new TextRenderable(this.renderer, { content: "o ", fg: theme.yellow }))
     this.footer.add(new TextRenderable(this.renderer, { content: "open", fg: theme.subtext0 }))
+  }
+
+  /**
+   * Update comment input overlay
+   */
+  updateCommentInput(open: boolean, text: string, loading: boolean, error: string | null): void {
+    if (!open) {
+      // Remove overlay if it exists
+      if (this.commentInputOverlay) {
+        this.container.remove(this.commentInputOverlay.id)
+        this.commentInputOverlay = null
+        this.commentInputText = null
+        this.commentInputStatus = null
+      }
+      return
+    }
+
+    // Create overlay if it doesn't exist
+    if (!this.commentInputOverlay) {
+      this.commentInputOverlay = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-overlay",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        zIndex: 100,
+        justifyContent: "center",
+        alignItems: "center",
+      })
+      
+      // Dim background
+      const bg = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-bg",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#00000080",
+      })
+      this.commentInputOverlay.add(bg)
+      
+      // Input box
+      const inputBox = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-box",
+        width: 60,
+        flexDirection: "column",
+        backgroundColor: theme.mantle,
+        borderStyle: "single",
+        borderColor: theme.blue,
+        padding: 1,
+      })
+      
+      // Header
+      const header = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-header",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 1,
+      })
+      header.add(new TextRenderable(this.renderer, { content: "Add PR Comment", fg: theme.text }))
+      header.add(new TextRenderable(this.renderer, { content: "Esc to cancel", fg: theme.overlay0 }))
+      inputBox.add(header)
+      
+      // Text display area
+      this.commentInputText = new TextRenderable(this.renderer, {
+        id: "pr-comment-input-text",
+        content: text || "Type your comment...",
+        fg: text ? theme.text : theme.overlay0,
+      })
+      inputBox.add(this.commentInputText)
+      
+      // Status line
+      this.commentInputStatus = new TextRenderable(this.renderer, {
+        id: "pr-comment-input-status",
+        content: "",
+        fg: theme.overlay0,
+      })
+      const statusBox = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-status-box",
+        marginTop: 1,
+      })
+      statusBox.add(this.commentInputStatus)
+      inputBox.add(statusBox)
+      
+      this.commentInputOverlay.add(inputBox)
+      this.container.add(this.commentInputOverlay)
+    }
+
+    // Update text
+    if (this.commentInputText) {
+      this.commentInputText.content = text || "Type your comment..."
+      this.commentInputText.fg = text ? theme.text : theme.overlay0
+    }
+    
+    // Update status
+    if (this.commentInputStatus) {
+      if (loading) {
+        this.commentInputStatus.content = "Submitting..."
+        this.commentInputStatus.fg = theme.yellow
+      } else if (error) {
+        this.commentInputStatus.content = error
+        this.commentInputStatus.fg = theme.red
+      } else {
+        this.commentInputStatus.content = "Enter to submit"
+        this.commentInputStatus.fg = theme.overlay0
+      }
+    }
   }
 
   /**

@@ -50,7 +50,7 @@ export const actions: Action[] = [
   {
     id: "sync-changes",
     label: "Sync Changes",
-    description: "Sync edits and replies to GitHub",
+    description: "Sync local comments, edits, and replies to GitHub",
     shortcut: "gs",
     category: "github",
     available: (state) => 
@@ -59,7 +59,9 @@ export const actions: Action[] = [
         // Has local edit to synced comment
         (c.status === "synced" && c.localEdit) ||
         // Or is a local reply to a synced comment
-        (c.status === "local" && c.inReplyTo && state.comments.find(p => p.id === c.inReplyTo)?.githubId)
+        (c.status === "local" && c.inReplyTo && state.comments.find(p => p.id === c.inReplyTo)?.githubId) ||
+        // Or is a new local top-level comment (not yet on GitHub)
+        (c.status === "local" && !c.inReplyTo)
       ),
   },
   {
@@ -168,6 +170,14 @@ export const actions: Action[] = [
     description: "Show or hide ignored files in file tree",
     category: "view",
     available: (state) => state.ignoredFiles.size > 0,
+  },
+  {
+    id: "toggle-file-panel-expanded",
+    label: "Expand File Panel",
+    description: "Toggle file panel between normal and full width",
+    shortcut: "Ctrl+e",
+    category: "view",
+    available: (state) => state.showFilePanel,
   },
   
   // General

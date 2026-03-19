@@ -208,9 +208,11 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Open in Editor | gf | Open current file in $EDITOR |
 | Refresh | gr | Reload diff, commits, and comments |
 | Submit Review | gS | Submit review (PR mode) |
+| Sync Changes | gs | Sync local comments/edits/replies |
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
 | PR Info | gi | Show PR details |
 | Toggle File Panel | Ctrl+b | Show/hide file tree |
+| Expand File Panel | Ctrl+e | Toggle file panel full width |
 | Help | g? | Show keyboard shortcuts |
 | Quit | q | Exit riff |

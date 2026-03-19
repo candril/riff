@@ -323,6 +323,13 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       if (!prInfoPanel.getContainer().parent) {
         ctx.renderer.root.add(prInfoPanel.getContainer())
       }
+      // Update comment input overlay
+      prInfoPanel.updateCommentInput(
+        state.prInfoPanel.commentInputOpen,
+        state.prInfoPanel.commentInputText,
+        state.prInfoPanel.commentInputLoading,
+        state.prInfoPanel.commentInputError
+      )
     } else if (prInfoPanel && prInfoPanel.getContainer().parent) {
       prInfoPanel.destroy()
       ctx.setPrInfoPanel(null)

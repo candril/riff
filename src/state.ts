@@ -102,7 +102,7 @@ export interface ThreadPreviewState {
 /**
  * PR info panel state
  */
-export type PRInfoPanelSection = 'description' | 'conversation' | 'files' | 'commits'
+export type PRInfoPanelSection = 'description' | 'checks' | 'conversation' | 'files' | 'commits'
 
 export interface PRInfoPanelState {
   open: boolean
@@ -110,6 +110,11 @@ export interface PRInfoPanelState {
   loading: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
   cursorIndex: number  // Currently selected item within active section
+  // PR-level comment input
+  commentInputOpen: boolean
+  commentInputText: string
+  commentInputLoading: boolean
+  commentInputError: string | null
 }
 
 /**
@@ -142,6 +147,7 @@ export interface AppState {
 
   // UI state
   showFilePanel: boolean
+  filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments"
   mode: UIMode
 
@@ -275,6 +281,7 @@ export function createInitialState(
     selectedFileIndex: null,        // Default: no file selected, show all
     treeHighlightIndex: 0,          // Start highlight at first item
     showFilePanel: files.length > 1,
+    filePanelExpanded: false,
     focusedPanel: "diff",
     mode: "normal",
     cursorLine: 1,
@@ -330,6 +337,10 @@ export function createInitialState(
       loading: false,
       activeSection: 'commits',
       cursorIndex: 0,
+      commentInputOpen: false,
+      commentInputText: "",
+      commentInputLoading: false,
+      commentInputError: null,
     },
     threadPreview: {
       open: false,
@@ -416,6 +427,16 @@ export function toggleFilePanel(state: AppState): AppState {
   return {
     ...state,
     showFilePanel: !state.showFilePanel,
+  }
+}
+
+/**
+ * Toggle file panel expanded mode (full width vs normal)
+ */
+export function toggleFilePanelExpanded(state: AppState): AppState {
+  return {
+    ...state,
+    filePanelExpanded: !state.filePanelExpanded,
   }
 }
 
@@ -1447,6 +1468,10 @@ export function openPRInfoPanel(state: AppState): AppState {
       loading: true,
       activeSection: 'commits',
       cursorIndex: 0,
+      commentInputOpen: false,
+      commentInputText: "",
+      commentInputLoading: false,
+      commentInputError: null,
     },
   }
 }
@@ -1535,6 +1560,77 @@ export function setPRInfoPanelSection(state: AppState, section: PRInfoPanelSecti
       ...state.prInfoPanel,
       activeSection: section,
       cursorIndex: 0,
+    },
+  }
+}
+
+/**
+ * Open PR-level comment input in PR info panel
+ */
+export function openPRCommentInput(state: AppState): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      commentInputOpen: true,
+      commentInputText: "",
+      commentInputLoading: false,
+      commentInputError: null,
+    },
+  }
+}
+
+/**
+ * Close PR-level comment input
+ */
+export function closePRCommentInput(state: AppState): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      commentInputOpen: false,
+      commentInputText: "",
+      commentInputLoading: false,
+      commentInputError: null,
+    },
+  }
+}
+
+/**
+ * Update PR-level comment input text
+ */
+export function setPRCommentInputText(state: AppState, text: string): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      commentInputText: text,
+    },
+  }
+}
+
+/**
+ * Set PR comment input loading state
+ */
+export function setPRCommentInputLoading(state: AppState, loading: boolean): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      commentInputLoading: loading,
+    },
+  }
+}
+
+/**
+ * Set PR comment input error
+ */
+export function setPRCommentInputError(state: AppState, error: string | null): AppState {
+  return {
+    ...state,
+    prInfoPanel: {
+      ...state.prInfoPanel,
+      commentInputError: error,
     },
   }
 }

@@ -89,8 +89,14 @@ export async function createApp(options: AppOptions = {}) {
   let prInfoPanel: PRInfoPanelClass | null = null
 
   // ===== HELPERS =====
+  // searchHandler is defined later, but we need a reference in createLineMapping
+  let searchHandlerRef: SearchHandler | null = null
+
   function createLineMapping() {
     lineMapping = buildLineMapping(state)
+    // Refresh search matches for the new line mapping
+    // This ensures search results are updated when switching files
+    searchHandlerRef?.refreshMatches()
     return lineMapping
   }
 
@@ -171,6 +177,17 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function updateFileTreePanel() {
+    // Calculate file panel width based on expanded state
+    const normalWidth = 35
+    const terminalWidth = process.stdout.columns || 80
+    const expandedWidth = Math.floor(terminalWidth * 0.45)  // 45% of terminal width
+    const panelWidth = state.filePanelExpanded ? expandedWidth : normalWidth
+
+    // Update panel width if it changed
+    if (fileTreePanel.getWidth() !== panelWidth) {
+      fileTreePanel.setWidth(panelWidth)
+    }
+
     fileTreePanel.update(
       state.files,
       state.fileTree,
@@ -183,7 +200,7 @@ export async function createApp(options: AppOptions = {}) {
       state.showHiddenFiles
     )
     fileTreePanel.visible = state.showFilePanel
-    vimDiffView.setFilePanelVisible(state.showFilePanel, 35)
+    vimDiffView.setFilePanelVisible(state.showFilePanel, panelWidth)
     vimDiffView.setVisible(state.viewMode === "diff")
   }
 
@@ -273,6 +290,9 @@ export async function createApp(options: AppOptions = {}) {
       render()
     },
   })
+
+  // Assign searchHandler reference for use in createLineMapping
+  searchHandlerRef = searchHandler
 
   // ===== EXPAND DIVIDER =====
   async function handleExpandDivider(): Promise<boolean> {
@@ -403,6 +423,8 @@ export async function createApp(options: AppOptions = {}) {
     source,
     mode,
     prInfo: prInfo ?? null,
+    getCachedCurrentUser: () => cachedCurrentUser,
+    setCachedCurrentUser: (user) => { cachedCurrentUser = user },
   }
 
   const externalToolsContext: externalTools.ExternalToolsContext = {

@@ -22,7 +22,7 @@ export interface FileTreePanelOptions {
 }
 
 /**
- * Get color for file status (no character indicator - color is enough)
+ * Get color for file status
  */
 function getStatusColor(status: DiffFile["status"]): string {
   switch (status) {
@@ -34,6 +34,22 @@ function getStatusColor(status: DiffFile["status"]): string {
       return colors.fileDeleted
     case "renamed":
       return colors.fileRenamed
+  }
+}
+
+/**
+ * Get status indicator character for a file (A/M/D/R)
+ */
+function getStatusIndicator(status: DiffFile["status"]): string {
+  switch (status) {
+    case "added":
+      return "A"
+    case "modified":
+      return "M"
+    case "deleted":
+      return "D"
+    case "renamed":
+      return "R"
   }
 }
 
@@ -130,7 +146,12 @@ export class FileTreePanel {
   private headerText: TextRenderable
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
-  private itemRenderables: Map<string, { box: BoxRenderable; text: TextRenderable; markerText: TextRenderable }> = new Map()
+  private itemRenderables: Map<string, { 
+    box: BoxRenderable
+    text: TextRenderable
+    markerText: TextRenderable
+    statusText: TextRenderable 
+  }> = new Map()
   private hiddenCountRenderable: { box: BoxRenderable; text: TextRenderable } | null = null
   private width: number
 
@@ -384,32 +405,46 @@ export class FileTreePanel {
         markerColor = colors.viewedNone
       }
 
+      // Status indicator (A/M/D/R) for files, empty for directories
+      // Dim the color when file is viewed
+      const statusIndicator = node.file ? getStatusIndicator(node.file.status) : " "
+      const statusColor = isViewed 
+        ? colors.fileViewed 
+        : (node.file ? getStatusColor(node.file.status) : colors.text)
+
       // Calculate available width for name
-      // Account for: marker (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
-      const prefixLen = 2 + indent.length + icon.length
+      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      const prefixLen = 4 + indent.length + icon.length
       const reserved = 4  // border + scrollbar + margin
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)
       const displayName = truncate(node.name, availableWidth)
 
-      // Create single text with marker, indent, icon, and name
-      // Use index for ID to avoid issues with special chars in paths
+      // Column 1: Viewed marker with trailing space
       const markerText = new TextRenderable(this.renderer, {
         id: `tree-item-marker-${index}`,
-        content: marker,
+        content: `${marker} `,
         fg: markerColor,
       })
       box.add(markerText)
 
-      // Create text for indent, icon, and name (with leading space for separation)
+      // Column 2: Status indicator (A/M/D/R) with trailing space
+      const statusText = new TextRenderable(this.renderer, {
+        id: `tree-item-status-${index}`,
+        content: `${statusIndicator} `,
+        fg: statusColor,
+      })
+      box.add(statusText)
+
+      // Column 3: Indent, icon, and name
       const text = new TextRenderable(this.renderer, {
         id: `tree-item-text-${index}`,
-        content: ` ${indent}${icon}${displayName}`,
+        content: `${indent}${icon}${displayName}`,
         fg: nameFg,
       })
       box.add(text)
 
       this.content.add(box)
-      this.itemRenderables.set(String(index), { box, text, markerText })
+      this.itemRenderables.set(String(index), { box, text, markerText, statusText })
     }
   }
 
@@ -489,17 +524,27 @@ export class FileTreePanel {
         markerColor = colors.viewedNone
       }
 
+      // Status indicator (A/M/D/R) for files, empty for directories
+      // Dim the color when file is viewed
+      const statusIndicator = node.file ? getStatusIndicator(node.file.status) : " "
+      const statusColor = isViewed 
+        ? colors.fileViewed 
+        : (node.file ? getStatusColor(node.file.status) : colors.text)
+
       // Calculate available width for name
-      const prefixLen = 2 + indent.length + icon.length
+      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      const prefixLen = 4 + indent.length + icon.length
       const reserved = 4
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)
       const displayName = truncate(node.name, availableWidth)
 
       // Update properties
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.markerText.content = marker
+      renderables.markerText.content = `${marker} `
       renderables.markerText.fg = markerColor
-      renderables.text.content = ` ${indent}${icon}${displayName}`
+      renderables.statusText.content = `${statusIndicator} `
+      renderables.statusText.fg = statusColor
+      renderables.text.content = `${indent}${icon}${displayName}`
       renderables.text.fg = nameFg
     }
   }
@@ -561,5 +606,24 @@ export class FileTreePanel {
 
   set visible(value: boolean) {
     this.container.visible = value
+  }
+
+  /**
+   * Get current width
+   */
+  getWidth(): number {
+    return this.width
+  }
+
+  /**
+   * Set the panel width and update the container
+   */
+  setWidth(width: number): void {
+    if (this.width === width) return
+    this.width = width
+    this.container.width = width
+    // Force rebuild items to recalculate truncation
+    const flatItems = flattenTree(this.currentFileTree, this.currentFiles)
+    this.rebuildItems(flatItems)
   }
 }

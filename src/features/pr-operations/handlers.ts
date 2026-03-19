@@ -23,6 +23,7 @@ import { flattenThreadsForNav, groupIntoThreads } from "../../utils/threads"
 import {
   updateComment,
   submitReply,
+  submitSingleComment,
   submitReview,
   toggleThreadResolution,
   getPrHeadSha,
@@ -116,6 +117,31 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
           successCount++
         } else {
           lastError = result.error || "Failed to submit reply"
+          failedCount++
+        }
+      }
+
+      if (item.type === "new") {
+        // Need head SHA for new comments
+        const headSha = await getPrHeadSha(prNumber, owner, repo)
+        const result = await submitSingleComment(owner, repo, prNumber, item.comment, headSha)
+        if (result.success) {
+          // Update comment: set status to synced, add GitHub IDs
+          const updatedComment: Comment = {
+            ...item.comment,
+            status: "synced",
+            githubId: result.githubId,
+            githubUrl: result.githubUrl,
+          }
+          // Update in state
+          ctx.setState((s) => ({
+            ...s,
+            comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
+          }))
+          await saveComment(updatedComment, ctx.source)
+          successCount++
+        } else {
+          lastError = result.error || "Failed to submit comment"
           failedCount++
         }
       }

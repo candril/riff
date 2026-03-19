@@ -55,6 +55,9 @@ export interface CommentsContext {
   source: string
   mode: "local" | "pr"
   prInfo: PrInfo | null
+  // Cached current user (for faster comment creation)
+  getCachedCurrentUser: () => string | null
+  setCachedCurrentUser: (user: string) => void
 }
 
 /**
@@ -136,18 +139,14 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
     }
   }
 
-  // Get current username (GitHub username for PR mode, @you for local)
-  let username = "@you"
-  if (state.appMode === "pr") {
-    try {
-      username = await getCurrentUser()
-    } catch {
-      // Fall back to @you
-    }
-  }
-
-  // Suspend TUI and open editor
+  // Suspend TUI immediately for fast response
   ctx.suspendRenderer()
+
+  // Get current username (GitHub username for PR mode, @you for local)
+  // Use cached value if available, otherwise fall back to @you
+  // We don't make a network call here to keep the editor opening instant
+  // The actual username will be fetched when submitting the comment
+  const username = (state.appMode === "pr" && ctx.getCachedCurrentUser()) || "@you"
 
   try {
     const rawContent = await openCommentEditor({

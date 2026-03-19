@@ -14,7 +14,7 @@ import type { Comment } from "../types"
  * Item to be synced
  */
 export interface SyncItem {
-  type: "edit" | "reply"
+  type: "edit" | "reply" | "new"
   comment: Comment
   /** For edits: the new body to send */
   newBody?: string
@@ -48,6 +48,14 @@ export function gatherSyncItems(comments: Comment[]): SyncItem[] {
           parent,
         })
       }
+    }
+    
+    // New: local top-level comments (not replies)
+    if (comment.status === "local" && !comment.inReplyTo) {
+      items.push({
+        type: "new",
+        comment,
+      })
     }
   }
   
@@ -95,6 +103,7 @@ function firstLine(text: string, maxLen: number = 60): string {
  * SyncPreview modal component
  */
 export function SyncPreview({ items, state }: SyncPreviewProps) {
+  const newComments = items.filter(i => i.type === "new")
   const edits = items.filter(i => i.type === "edit")
   const replies = items.filter(i => i.type === "reply")
   const totalCount = items.length
@@ -153,6 +162,34 @@ export function SyncPreview({ items, state }: SyncPreviewProps) {
         totalCount === 0 ? Box(
           { paddingY: 2 },
           Text({ content: "No changes to sync", fg: theme.overlay0 })
+        ) : null,
+        
+        // New comments section
+        newComments.length > 0 ? Box(
+          { flexDirection: "column", gap: 1 },
+          Text({ content: `New Comments (${newComments.length})`, fg: theme.subtext0 }),
+          ...newComments.map(item => Box(
+            {
+              flexDirection: "column",
+              backgroundColor: theme.surface0,
+              paddingX: 1,
+              paddingY: 1,
+            },
+            // Location
+            Text({ 
+              content: `${item.comment.filename}:${item.comment.line}`, 
+              fg: theme.blue 
+            }),
+            // Comment content
+            Box(
+              { flexDirection: "row", gap: 1 },
+              Text({ content: "+", fg: theme.green }),
+              Text({ 
+                content: firstLine(item.comment.body), 
+                fg: theme.green 
+              })
+            )
+          ))
         ) : null,
         
         // Edits section

@@ -12,7 +12,17 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
-import { closePRInfoPanel, showToast, clearToast } from "../../state"
+import { 
+  closePRInfoPanel, 
+  showToast, 
+  clearToast,
+  openPRCommentInput,
+  closePRCommentInput,
+  setPRCommentInputText,
+  setPRCommentInputLoading,
+  setPRCommentInputError,
+} from "../../state"
+import { submitPrComment } from "../../providers/github"
 
 // Key sequence state for multi-key commands (e.g., "gg" for go to top)
 let pendingKey: string | null = null
@@ -52,6 +62,12 @@ export function handleInput(
     return false
   }
 
+  // Handle PR comment input mode
+  if (ctx.state.prInfoPanel.commentInputOpen) {
+    handleCommentInput(key, ctx)
+    return true
+  }
+
   const panel = ctx.getPanel()
 
   switch (key.name) {
@@ -59,6 +75,14 @@ export function handleInput(
     case "q":
       ctx.setState(closePRInfoPanel)
       ctx.render()
+      return true
+
+    case "c":
+      // 'c' in conversation section opens comment input
+      if (panel && panel.getActiveSection() === 'conversation' && ctx.state.prInfo) {
+        ctx.setState(openPRCommentInput)
+        ctx.render()
+      }
       return true
 
     case "tab":
@@ -122,6 +146,14 @@ export function handleInput(
       if (panel) {
         const section = panel.getActiveSection()
         switch (section) {
+          case 'checks': {
+            // Open check details URL in browser
+            const check = panel.getSelectedCheck()
+            if (check?.detailsUrl) {
+              Bun.spawn(["open", check.detailsUrl])
+            }
+            break
+          }
           case 'files': {
             const file = panel.getSelectedFile()
             if (file && ctx.onJumpToFile) {
@@ -165,6 +197,13 @@ export function handleInput(
       if (panel && ctx.state.prInfo) {
         const section = panel.getActiveSection()
         switch (section) {
+          case 'checks': {
+            const check = panel.getSelectedCheck()
+            if (check?.detailsUrl) {
+              Bun.spawn(["open", check.detailsUrl])
+            }
+            break
+          }
           case 'commits': {
             const commit = panel.getSelectedCommit()
             if (commit) {
@@ -213,6 +252,15 @@ export function handleInput(
           const section = panel.getActiveSection()
           let copied = false
           switch (section) {
+            case 'checks': {
+              const check = panel.getSelectedCheck()
+              if (check?.detailsUrl) {
+                Bun.spawn(["sh", "-c", `echo -n "${check.detailsUrl}" | pbcopy`])
+                ctx.setState((s) => showToast(s, `Copied ${check.name} URL`, "success"))
+                copied = true
+              }
+              break
+            }
             case 'commits': {
               const commit = panel.getSelectedCommit()
               if (commit) {
@@ -342,4 +390,72 @@ export function handleInput(
 
   // Capture all other keys when panel is open
   return true
+}
+
+/**
+ * Handle input when PR comment input is open
+ */
+function handleCommentInput(
+  key: KeyEvent,
+  ctx: PRInfoPanelInputContext
+): void {
+  const { prInfoPanel, prInfo } = ctx.state
+  
+  switch (key.name) {
+    case "escape":
+      ctx.setState(closePRCommentInput)
+      ctx.render()
+      return
+
+    case "return":
+    case "enter":
+      // Enter to submit
+      if (prInfoPanel.commentInputText.trim() && prInfo) {
+        ctx.setState(s => setPRCommentInputLoading(s, true))
+        ctx.render()
+        
+        // Submit async
+        submitPrComment(
+          prInfo.owner,
+          prInfo.repo,
+          prInfo.number,
+          prInfoPanel.commentInputText.trim()
+        ).then(result => {
+          if (result.success) {
+            ctx.setState(s => {
+              const closed = closePRCommentInput(s)
+              return showToast(closed, "Comment posted", "success")
+            })
+            ctx.render()
+            setTimeout(() => {
+              ctx.setState(clearToast)
+              ctx.render()
+            }, 2000)
+          } else {
+            ctx.setState(s => setPRCommentInputError(s, result.error ?? "Failed to post comment"))
+            ctx.render()
+          }
+        })
+      }
+      return
+
+    case "backspace":
+      if (prInfoPanel.commentInputText.length > 0) {
+        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText.slice(0, -1)))
+        ctx.render()
+      }
+      return
+
+    default:
+      // Add character to input
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText + key.sequence))
+        ctx.render()
+      } else if (key.name === "j" && key.ctrl) {
+        // Ctrl+j for newline
+        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText + "\n"))
+        ctx.render()
+      }
+      return
+  }
 }

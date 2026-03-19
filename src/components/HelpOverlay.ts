@@ -23,6 +23,7 @@ const HELP_SECTIONS = [
     keys: [
       ["Tab", "Toggle diff / comments view"],
       ["Ctrl+b", "Toggle file tree panel"],
+      ["Ctrl+e", "Expand file tree (full width)"],
       ["Ctrl+f", "Find files (fuzzy)"],
       ["Ctrl+g", "Show current file path"],
       ["Ctrl+p", "Open action menu"],
