@@ -106,33 +106,28 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== POST-PROCESS (cursor positioning) =====
+  function positionCursorInSearch(elementId: string, queryLength: number) {
+    const searchBox = renderer.root.findDescendantById(elementId) as any
+    if (!searchBox) return
+    // Get the first child (the Text element) — .x/.y are absolute 0-indexed coords
+    const children = searchBox.getChildren?.() ?? []
+    const textChild = children[0]
+    if (textChild) {
+      // setCursorPosition uses 1-indexed coordinates (like ANSI escape codes)
+      renderer.setCursorStyle({ style: "line", blinking: true })
+      renderer.setCursorPosition(textChild.x + queryLength + 1, textChild.y + 1, true)
+    }
+  }
+
   renderer.addPostProcessFn(() => {
     if (state.prInfoPanel.open) {
       renderer.setCursorPosition(0, 0, false)
     } else if (state.actionMenu.open) {
-      const searchBox = renderer.root.findDescendantById("action-menu-search") as any
-      if (searchBox) {
-        const screenX = searchBox.screenX + state.actionMenu.query.length
-        const screenY = searchBox.screenY
-        renderer.setCursorStyle({ style: "line", blinking: true })
-        renderer.setCursorPosition(screenX, screenY, true)
-      }
+      positionCursorInSearch("action-menu-search", state.actionMenu.query.length)
     } else if (state.filePicker.open) {
-      const searchBox = renderer.root.findDescendantById("file-picker-search") as any
-      if (searchBox) {
-        const screenX = searchBox.screenX + state.filePicker.query.length
-        const screenY = searchBox.screenY
-        renderer.setCursorStyle({ style: "line", blinking: true })
-        renderer.setCursorPosition(screenX, screenY, true)
-      }
+      positionCursorInSearch("file-picker-search", state.filePicker.query.length)
     } else if (state.commitPicker.open) {
-      const searchBox = renderer.root.findDescendantById("commit-picker-search") as any
-      if (searchBox) {
-        const screenX = searchBox.screenX + state.commitPicker.query.length
-        const screenY = searchBox.screenY
-        renderer.setCursorStyle({ style: "line", blinking: true })
-        renderer.setCursorPosition(screenX, screenY, true)
-      }
+      positionCursorInSearch("commit-picker-search", state.commitPicker.query.length)
     }
   })
 

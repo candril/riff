@@ -3,7 +3,8 @@ import type { AppState } from "../state"
 
 /**
  * All available actions in the app.
- * The handler is not stored here - it's looked up by ID in app.ts
+ * The handler is not stored here - it's looked up by ID in app.ts.
+ * This is the single source of truth for all keybindings (shown in Ctrl+p).
  */
 export const actions: Action[] = [
   // Navigation
@@ -16,9 +17,104 @@ export const actions: Action[] = [
     available: (state) => state.files.length > 0,
   },
   {
+    id: "next-file",
+    label: "Next File",
+    description: "Jump to next file",
+    shortcut: "]f",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "prev-file",
+    label: "Previous File",
+    description: "Jump to previous file",
+    shortcut: "[f",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "next-hunk",
+    label: "Next Hunk",
+    description: "Jump to next change hunk",
+    shortcut: "]c",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "prev-hunk",
+    label: "Previous Hunk",
+    description: "Jump to previous change hunk",
+    shortcut: "[c",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "next-unviewed",
+    label: "Next Unviewed File",
+    description: "Jump to next unviewed file",
+    shortcut: "]u",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "prev-unviewed",
+    label: "Previous Unviewed File",
+    description: "Jump to previous unviewed file",
+    shortcut: "[u",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "next-outdated",
+    label: "Next Outdated File",
+    description: "Jump to next outdated file",
+    shortcut: "]o",
+    category: "navigation",
+    available: (state) => state.appMode === "pr" && state.files.length > 0,
+  },
+  {
+    id: "prev-outdated",
+    label: "Previous Outdated File",
+    description: "Jump to previous outdated file",
+    shortcut: "[o",
+    category: "navigation",
+    available: (state) => state.appMode === "pr" && state.files.length > 0,
+  },
+  {
+    id: "next-commit",
+    label: "Next Commit",
+    description: "View next commit's diff",
+    shortcut: "]g",
+    category: "navigation",
+    available: (state) => state.commits.length > 0,
+  },
+  {
+    id: "prev-commit",
+    label: "Previous Commit",
+    description: "View previous commit's diff",
+    shortcut: "[g",
+    category: "navigation",
+    available: (state) => state.commits.length > 0,
+  },
+  {
+    id: "select-commit",
+    label: "Select Commit",
+    description: "Filter diff to a single commit's changes",
+    category: "navigation",
+    available: (state) => state.commits.length > 0,
+  },
+  {
+    id: "show-all-files",
+    label: "Show All Files",
+    description: "Exit single-file view and show all files",
+    shortcut: "Esc",
+    category: "navigation",
+    available: (state) => state.selectedFileIndex !== null,
+  },
+  {
     id: "open-in-editor",
     label: "Open in Editor",
-    description: "Open current file in $EDITOR (nvim)",
+    description: "Open current file in $EDITOR",
     shortcut: "gf",
     category: "navigation",
     available: (state) => state.files.length > 0,
@@ -32,20 +128,114 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.files.length > 0,
   },
   {
-    id: "show-all-files",
-    label: "Show All Files",
-    description: "Exit single-file view and show all files",
-    category: "navigation",
-    available: (state) => state.selectedFileIndex !== null,
-  },
-  {
-    id: "search-comments",
-    label: "Search Comments",
-    description: "Filter comments by body, author, or filename",
+    id: "search-diff",
+    label: "Search in Diff",
+    description: "Search text in the diff view",
     shortcut: "/",
     category: "navigation",
-    available: (state) => state.comments.length > 0,
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
+  {
+    id: "search-diff-backward",
+    label: "Search Backward",
+    description: "Search text backward in the diff view",
+    shortcut: "?",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "search-word",
+    label: "Search Word Under Cursor",
+    description: "Search for the word under the cursor",
+    shortcut: "*",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "jump-back",
+    label: "Jump Back",
+    description: "Go to previous location in jump list",
+    shortcut: "Ctrl+o",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "jump-forward",
+    label: "Jump Forward",
+    description: "Go to next location in jump list",
+    shortcut: "Ctrl+i",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+
+  // Diff actions
+  {
+    id: "add-comment",
+    label: "Add Comment",
+    description: "Add a comment on the current line",
+    shortcut: "c",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "visual-select",
+    label: "Visual Line Select",
+    description: "Select lines for multi-line comment",
+    shortcut: "V",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "mark-viewed",
+    label: "Mark File Viewed",
+    description: "Toggle file as viewed and advance to next",
+    shortcut: "v",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+
+  // Folds
+  {
+    id: "toggle-fold",
+    label: "Toggle Fold",
+    description: "Toggle fold at cursor (file header or hunk)",
+    shortcut: "za",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "open-fold",
+    label: "Open Fold",
+    description: "Open fold at cursor",
+    shortcut: "zo",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "close-fold",
+    label: "Close Fold",
+    description: "Close fold at cursor",
+    shortcut: "zc",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "expand-all-folds",
+    label: "Expand All Folds",
+    description: "Open all folds",
+    shortcut: "zR",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "collapse-all-folds",
+    label: "Collapse All Folds",
+    description: "Close all folds",
+    shortcut: "zM",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+
   // GitHub
   {
     id: "submit-review",
@@ -64,11 +254,8 @@ export const actions: Action[] = [
     available: (state) => 
       state.appMode === "pr" && 
       state.comments.some(c => 
-        // Has local edit to synced comment
         (c.status === "synced" && c.localEdit) ||
-        // Or is a local reply to a synced comment
         (c.status === "local" && c.inReplyTo && state.comments.find(p => p.id === c.inReplyTo)?.githubId) ||
-        // Or is a new local top-level comment (not yet on GitHub)
         (c.status === "local" && !c.inReplyTo)
       ),
   },
@@ -115,14 +302,6 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
-    id: "refresh",
-    label: "Refresh",
-    description: "Reload diff, commits, and comments",
-    shortcut: "gr",
-    category: "general",
-    available: () => true,
-  },
-  {
     id: "open-in-browser",
     label: "Open in Browser",
     description: "Open PR in web browser",
@@ -146,32 +325,16 @@ export const actions: Action[] = [
     category: "github",
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
-  
   {
-    id: "select-commit",
-    label: "Select Commit",
-    description: "Filter diff to a single commit's changes",
-    category: "navigation",
-    available: (state) => state.commits.length > 0,
-  },
-  {
-    id: "show-file-path",
-    label: "Show File Path",
-    description: "Display the current file path",
-    shortcut: "Ctrl+g",
-    category: "view",
-    available: (state) => state.files.length > 0,
+    id: "search-comments",
+    label: "Search Comments",
+    description: "Filter comments by body, author, or filename",
+    shortcut: "/",
+    category: "github",
+    available: (state) => state.viewMode === "comments" && state.comments.length > 0,
   },
 
   // View
-  {
-    id: "toggle-file-panel",
-    label: "Toggle File Panel",
-    description: "Show or hide the file tree",
-    shortcut: "Ctrl+b",
-    category: "view",
-    available: () => true,
-  },
   {
     id: "toggle-view",
     label: "Toggle View",
@@ -181,11 +344,12 @@ export const actions: Action[] = [
     available: () => true,
   },
   {
-    id: "toggle-hidden-files",
-    label: "Toggle Hidden Files",
-    description: "Show or hide ignored files in file tree",
+    id: "toggle-file-panel",
+    label: "Toggle File Panel",
+    description: "Show or hide the file tree",
+    shortcut: "Ctrl+b",
     category: "view",
-    available: (state) => state.ignoredFiles.size > 0,
+    available: () => true,
   },
   {
     id: "toggle-file-panel-expanded",
@@ -195,13 +359,44 @@ export const actions: Action[] = [
     category: "view",
     available: (state) => state.showFilePanel,
   },
-  
+  {
+    id: "toggle-hidden-files",
+    label: "Toggle Hidden Files",
+    description: "Show or hide ignored files in file tree",
+    category: "view",
+    available: (state) => state.ignoredFiles.size > 0,
+  },
+  {
+    id: "show-file-path",
+    label: "Show File Path",
+    description: "Display the current file path",
+    shortcut: "Ctrl+g",
+    category: "view",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "focus-tree",
+    label: "Focus File Tree",
+    description: "Move focus to the file tree panel",
+    shortcut: "Ctrl+h",
+    category: "view",
+    available: (state) => state.showFilePanel,
+  },
+  {
+    id: "focus-content",
+    label: "Focus Content",
+    description: "Move focus to the diff or comments panel",
+    shortcut: "Ctrl+l",
+    category: "view",
+    available: (state) => state.showFilePanel,
+  },
+
   // General
   {
-    id: "help",
-    label: "Help",
-    description: "Show keyboard shortcuts",
-    shortcut: "g?",
+    id: "refresh",
+    label: "Refresh",
+    description: "Reload diff, commits, and comments",
+    shortcut: "gr",
     category: "general",
     available: () => true,
   },

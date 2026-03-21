@@ -18,7 +18,6 @@ import {
   SyncPreview,
   SearchPrompt,
   ConfirmDialog,
-  HelpOverlay,
   gatherSyncItems,
 } from "../components"
 import type { VimDiffView } from "../components"
@@ -101,59 +100,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // Apply comment search filter
     if (state.commentsSearch.query) {
       visibleComments = filterCommentsBySearch(visibleComments, state.commentsSearch.query)
-    }
-
-    // Build hints based on context and view mode
-    const hints: string[] = []
-
-    if (searchState.active) {
-      hints.push("Enter: confirm", "Esc: cancel", "Type to search...")
-    } else if (state.commentsSearch.active) {
-      hints.push("Enter: confirm", "Esc: cancel", "Type to filter comments...")
-    } else if (state.commentsSearch.query && state.viewMode === "comments") {
-      hints.push("Esc: clear filter", "/: search")
-    } else if (searchState.pattern && state.viewMode === "diff") {
-      hints.push("n: next", "N: prev", "Esc: clear")
-    } else {
-      hints.push("Tab: view")
-
-      if (state.viewMode === "diff") {
-        if (state.files.length > 0) {
-          if (vimState.mode === "visual-line") {
-            hints.push("c: comment selection", "Esc: cancel")
-          } else {
-            const currentLine = lineMapping.getLine(vimState.line)
-            if (currentLine?.type === "divider") {
-              hints.push("Enter: expand")
-            }
-            hints.push("V: select", "c: comment", "/: search")
-          }
-        }
-        hints.push("j/k/w/b: move")
-      } else {
-        hints.push("j/k: navigate", "Enter: jump", "x: resolve", "h/l: collapse", "/: search")
-      }
-
-      if (state.showFilePanel) {
-        if (state.focusedPanel === "tree") {
-          hints.push("Ctrl+l: content")
-          if (state.selectedFileIndex !== null) {
-            hints.push("Esc: all files")
-          }
-        } else {
-          hints.push("Ctrl+h: tree")
-        }
-        hints.push("Ctrl+b: hide panel")
-      } else {
-        hints.push("Ctrl+b: panel")
-      }
-      hints.push("q: quit")
-    }
-
-    // Add hidden files indicator
-    const hiddenCount = state.ignoredFiles.size
-    if (hiddenCount > 0 && !state.showHiddenFiles) {
-      hints.push(`+${hiddenCount} hidden`)
     }
 
     // Update file tree panel state
@@ -270,7 +216,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             ? CommentsSearchPrompt({ searchState: state.commentsSearch })
             : null,
         StatusBar({
-          hints,
           searchInfo:
             searchState.pattern && state.viewMode === "diff"
               ? {
@@ -342,7 +287,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               details: state.confirmDialog.details,
             })
           : null,
-        state.showHelp ? HelpOverlay({}) : null,
+
       )
     )
 

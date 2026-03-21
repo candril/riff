@@ -79,7 +79,7 @@ export function CommitPicker({ query, commits, selectedIndex, viewingCommit }: C
         Text({ content: "Select Commit", fg: theme.subtext0 }),
         Text({ content: "esc", fg: theme.overlay0 })
       ),
-      // Search input
+      // Search input (cursor positioned via postProcess in app.ts)
       Box(
         {
           id: "commit-picker-search",

@@ -2,7 +2,6 @@ import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 
 export interface StatusBarProps {
-  hints?: string[]
   /** Search match info, e.g., "1/5" or "No matches" */
   searchInfo?: {
     current: number
@@ -12,25 +11,20 @@ export interface StatusBarProps {
   } | null
 }
 
-const defaultHints = ["q: quit", "?: help"]
-
-export function StatusBar({ hints = defaultHints, searchInfo }: StatusBarProps = {}) {
+export function StatusBar({ searchInfo }: StatusBarProps = {}) {
   // Build right side content
   const rightContent: ReturnType<typeof Text>[] = []
   
   // Add search info if present
   if (searchInfo) {
     if (searchInfo.total > 0) {
-      // Show match count
       const matchText = `${searchInfo.current}/${searchInfo.total}`
       rightContent.push(Text({ content: matchText, fg: theme.yellow }))
       
-      // Show wrapped indicator
       if (searchInfo.wrapped) {
         rightContent.push(Text({ content: " ↺", fg: theme.overlay1 }))
       }
     } else if (searchInfo.pattern) {
-      // No matches found
       rightContent.push(Text({ content: "No matches", fg: theme.red }))
     }
   }
@@ -45,7 +39,7 @@ export function StatusBar({ hints = defaultHints, searchInfo }: StatusBarProps =
       flexDirection: "row",
       justifyContent: "space-between",
     },
-    Text({ content: hints.join("  "), fg: colors.statusBarFg }),
+    Text({ content: "Ctrl+p: commands", fg: colors.statusBarFg }),
     rightContent.length > 0 
       ? Box({ flexDirection: "row" }, ...rightContent)
       : null

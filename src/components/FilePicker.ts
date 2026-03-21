@@ -16,11 +16,29 @@ export interface FilteredFile {
   commentCount?: number  // Number of comments on this file
 }
 
+/** Max visible rows in the file list */
+const MAX_VISIBLE = 20
+
 /**
  * File picker overlay for fuzzy file search
- * Styled similar to ActionMenu
+ * Styled similar to ActionMenu. Shows a scrolling window of all files.
  */
 export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
+  // Compute visible window around selected index
+  const total = files.length
+  let startIndex = 0
+  if (total > MAX_VISIBLE) {
+    // Keep selected item roughly centered, but clamp to bounds
+    startIndex = Math.max(0, Math.min(selectedIndex - Math.floor(MAX_VISIBLE / 2), total - MAX_VISIBLE))
+  }
+  const endIndex = Math.min(startIndex + MAX_VISIBLE, total)
+  const visibleFiles = files.slice(startIndex, endIndex)
+
+  // Count indicator
+  const countText = total > 0
+    ? `${selectedIndex + 1}/${total}`
+    : "0"
+
   return Box(
     {
       id: "file-picker-overlay",
@@ -49,7 +67,7 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
         flexDirection: "column",
         backgroundColor: theme.mantle,
       },
-      // Header row: Find Files + esc
+      // Header row: Find Files + count + esc
       Box(
         { 
           flexDirection: "row",
@@ -58,9 +76,13 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
           paddingY: 1,
         },
         Text({ content: "Find Files", fg: theme.subtext0 }),
-        Text({ content: "esc", fg: theme.overlay0 })
+        Box(
+          { flexDirection: "row", gap: 2 },
+          Text({ content: countText, fg: theme.overlay0 }),
+          Text({ content: "esc", fg: theme.overlay0 }),
+        )
       ),
-      // Search input - placeholder or query text
+      // Search input (cursor positioned via postProcess in app.ts)
       Box(
         { 
           id: "file-picker-search",
@@ -72,41 +94,35 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
           ? Text({ content: query, fg: theme.text })
           : Text({ content: "Type to search...", fg: theme.overlay0 })
       ),
-      // Files list
+      // Files list (scrolling window)
       Box(
         { 
           flexDirection: "column",
           paddingBottom: 1,
-          maxHeight: 15,
         },
-        ...files.slice(0, 15).map((item, i) => 
+        // Scroll indicator at top
+        startIndex > 0
+          ? Box(
+              { paddingX: 2, height: 1 },
+              Text({ content: `↑ ${startIndex} more`, fg: theme.overlay0 })
+            )
+          : null,
+        ...visibleFiles.map((item, i) => 
           FileRow({ 
             file: item.file, 
-            selected: i === selectedIndex,
+            selected: (startIndex + i) === selectedIndex,
             viewed: item.viewed,
             commentCount: item.commentCount,
           })
         ),
-        // Show count if more files
-        files.length > 15
+        // Scroll indicator at bottom
+        endIndex < total
           ? Box(
-              { paddingX: 2 },
-              Text({ 
-                content: `... and ${files.length - 15} more`, 
-                fg: theme.overlay0 
-              })
+              { paddingX: 2, height: 1 },
+              Text({ content: `↓ ${total - endIndex} more`, fg: theme.overlay0 })
             )
-          : null
+          : null,
       ),
-      // Footer hints
-      Box(
-        { 
-          flexDirection: "row",
-          paddingX: 2,
-          paddingTop: 1,
-        },
-        Text({ content: "Ctrl+n/p: navigate  Enter: select", fg: theme.overlay0 })
-      )
     )
   )
 }

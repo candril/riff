@@ -52,7 +52,7 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
         Text({ content: "Commands", fg: theme.subtext0 }),
         Text({ content: "esc", fg: theme.overlay0 })
       ),
-      // Search input - placeholder or query text
+      // Search input (cursor positioned via postProcess in app.ts)
       Box(
         { 
           id: "action-menu-search",

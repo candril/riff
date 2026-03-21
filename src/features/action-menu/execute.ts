@@ -16,7 +16,6 @@ import {
   showToast,
   clearToast,
   toggleShowHiddenFiles,
-  openHelp,
   openCommentsSearch,
 } from "../../state"
 
@@ -58,11 +57,6 @@ export async function executeAction(
   const { state, setState, render, handlers } = ctx
 
   switch (actionId) {
-    case "help":
-      setState(openHelp)
-      render()
-      break
-
     case "quit":
       handlers.quit()
       break

@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, toggleHelp, closeHelp } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -133,21 +133,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     if (key.name === "f12") {
       ctx.renderer.console.toggle()
       return
-    }
-
-    // ========== HELP OVERLAY (captures input when open) ==========
-    {
-      const helpState = ctx.getState()
-      if (helpState.showHelp) {
-        // Escape, q, or ? closes help
-        if (key.name === "escape" || key.name === "q" || key.sequence === "?") {
-          ctx.setState(closeHelp)
-          ctx.render()
-          return
-        }
-        // Ignore other keys when help is open (help overlay swallows all input)
-        return
-      }
     }
 
     // ========== ACTION MENU (captures all input when open) ==========
@@ -445,10 +430,24 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       const s = ctx.getState()
 
       if (sequence === "]f") {
-        fileNavigation.navigateFileSelection(1, ctx.fileNavContext)
+        if (s.selectedFileIndex === null) {
+          // All-files view: move cursor to next file header
+          ctx.vimHandler.moveToFile("next")
+          ctx.render()
+        } else {
+          // Single-file view: navigate to next file
+          fileNavigation.navigateFileSelection(1, ctx.fileNavContext)
+        }
         return
       } else if (sequence === "[f") {
-        fileNavigation.navigateFileSelection(-1, ctx.fileNavContext)
+        if (s.selectedFileIndex === null) {
+          // All-files view: move cursor to previous file header
+          ctx.vimHandler.moveToFile("prev")
+          ctx.render()
+        } else {
+          // Single-file view: navigate to previous file
+          fileNavigation.navigateFileSelection(-1, ctx.fileNavContext)
+        }
         return
       } else if (sequence === "]u") {
         fileNavigation.navigateToUnviewedFile(1, ctx.fileNavContext)
@@ -528,8 +527,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleCloseFoldAtCursor(ctx.foldsContext)
         return
       } else if (sequence === "g?" || sequence === "g?!") {
-        // Toggle help overlay (g? - shift is needed for ? so accept both)
-        ctx.setState(toggleHelp)
+        // Open action menu (single source of truth for keybindings)
+        ctx.setState(openActionMenu)
         ctx.render()
         return
       }

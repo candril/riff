@@ -493,7 +493,7 @@ export class VimMotionHandler {
   /**
    * Move to next/previous file header
    */
-  private moveToFile(direction: "next" | "prev"): void {
+  moveToFile(direction: "next" | "prev"): void {
     const state = this.getState()
     const mapping = this.getMapping()
     const fileLine = mapping.findFileHeader(state.line, direction)

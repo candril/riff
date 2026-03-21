@@ -243,9 +243,6 @@ export interface AppState {
   
   // Confirmation dialog state
   confirmDialog: ConfirmDialogState | null
-  
-  // Help overlay state
-  showHelp: boolean
 }
 
 /**
@@ -376,7 +373,6 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     confirmDialog: null,
-    showHelp: false,
   }
 }
 
@@ -1828,40 +1824,6 @@ export function moveCommitPickerSelection(state: AppState, delta: number, maxInd
       ...state.commitPicker,
       selectedIndex: newIndex,
     },
-  }
-}
-
-// ============================================================================
-// Help Overlay State
-// ============================================================================
-
-/**
- * Toggle the help overlay
- */
-export function toggleHelp(state: AppState): AppState {
-  return {
-    ...state,
-    showHelp: !state.showHelp,
-  }
-}
-
-/**
- * Open the help overlay
- */
-export function openHelp(state: AppState): AppState {
-  return {
-    ...state,
-    showHelp: true,
-  }
-}
-
-/**
- * Close the help overlay
- */
-export function closeHelp(state: AppState): AppState {
-  return {
-    ...state,
-    showHelp: false,
   }
 }
 
