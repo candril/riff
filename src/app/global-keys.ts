@@ -409,9 +409,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
       case "l":
         if (key.ctrl) {
+          // Ctrl+l leaves the tree panel — tear down any active V-mode
+          // multi-select so it doesn't linger as dormant state.
           ctx.setState((s) => ({
             ...s,
             focusedPanel: s.viewMode === "comments" ? "comments" : "diff",
+            treeSelectionAnchor: null,
           }))
           ctx.render()
           setTimeout(() => {

@@ -53,6 +53,20 @@ export interface FolderContextResult {
   bytes: number
 }
 
+export interface MultiContextInput {
+  /** Files the user picked via V-mode multi-select in the sidebar. */
+  files: DiffFile[]
+  mode: "local" | "pr"
+  prInfo: PrInfo | null
+  localTarget: string | undefined
+}
+
+export interface MultiContextResult {
+  markdown: string
+  includedCount: number
+  bytes: number
+}
+
 /**
  * Assistant directives loaded into Claude's system prompt via
  * `--append-system-prompt-file`. Addresses two observed failure modes:
@@ -178,6 +192,41 @@ export function buildPrContextMd(input: PrContextInput): PrContextResult {
     markdown,
     includedCount: included.length,
     skippedCount,
+    bytes: Buffer.byteLength(markdown, "utf8"),
+  }
+}
+
+/**
+ * Build a markdown file describing an ad-hoc multi-file selection from the
+ * sidebar (the user picked N specific files via V-mode). Layout mirrors the
+ * folder variant — Claude doesn't care whether the grouping is a directory
+ * or a hand-picked set, only that it gets a labelled list of diffs.
+ */
+export function buildMultiContextMd(input: MultiContextInput): MultiContextResult {
+  const { files, mode, prInfo, localTarget } = input
+
+  const header = buildHeader({
+    title: "Riff · AI Review context (selection)",
+    mode,
+    prInfo,
+    localTarget,
+    extras: [`**Selection:** ${files.length} files (hand-picked in sidebar)`],
+  })
+
+  const sections: string[] = [header, "", "## Files", ""]
+  for (const f of files) {
+    sections.push(`- \`${f.filename}\` (${describeStatus(f)}, +${f.additions} / -${f.deletions})`)
+  }
+  sections.push("")
+
+  for (const f of files) {
+    sections.push(`## \`${f.filename}\``, "", "```diff", f.content.trimEnd(), "```", "")
+  }
+
+  const markdown = sections.join("\n")
+  return {
+    markdown,
+    includedCount: files.length,
     bytes: Buffer.byteLength(markdown, "utf8"),
   }
 }

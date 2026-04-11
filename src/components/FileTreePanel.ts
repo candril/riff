@@ -164,6 +164,7 @@ export class FileTreePanel {
   private currentShowHidden: boolean = false
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
+  private multiSelectedFilenames: Set<string> = new Set()  // V-mode tree selection
   private focused: boolean = false
 
   constructor(options: FileTreePanelOptions) {
@@ -230,13 +231,16 @@ export class FileTreePanel {
   /**
    * Update the file tree with new state.
    * Only recreates item renderables if the tree structure changed.
-   * 
+   *
    * @param highlightIndex - Which item is highlighted (navigation cursor)
    * @param selectedFileIndex - Which file is selected (scopes views), null = all files
    * @param fileStatuses - Map of file viewed/reviewed statuses
    * @param collapsedFiles - Set of filenames that are collapsed in diff view
    * @param ignoredFiles - Set of filenames that match ignore patterns
    * @param showHiddenFiles - Whether to show ignored files in the tree
+   * @param multiSelectedFilenames - Filenames currently inside the V-mode
+   *                                 tree multi-select range. Empty = no
+   *                                 multi-select active.
    */
   update(
     files: DiffFile[],
@@ -247,13 +251,15 @@ export class FileTreePanel {
     fileStatuses?: Map<string, FileReviewStatus>,
     collapsedFiles?: Set<string>,
     ignoredFiles?: Set<string>,
-    showHiddenFiles?: boolean
+    showHiddenFiles?: boolean,
+    multiSelectedFilenames?: Set<string>
   ): void {
     const newIgnored = ignoredFiles ?? new Set<string>()
     const newShowHidden = showHiddenFiles ?? false
-    
-    const structureChanged = 
-      files !== this.currentFiles || 
+    const newMulti = multiSelectedFilenames ?? new Set<string>()
+
+    const structureChanged =
+      files !== this.currentFiles ||
       fileTree !== this.currentFileTree ||
       newIgnored !== this.currentIgnoredFiles ||
       newShowHidden !== this.currentShowHidden
@@ -264,6 +270,7 @@ export class FileTreePanel {
     this.currentCollapsedFiles = collapsedFiles ?? new Set()
     this.currentIgnoredFiles = newIgnored
     this.currentShowHidden = newShowHidden
+    this.multiSelectedFilenames = newMulti
     this.highlightIndex = highlightIndex
     this.selectedFileIndex = selectedFileIndex
     this.focused = focused
@@ -335,12 +342,13 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
-      
+      const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
+
       // Compute viewed status - different for files vs directories
       let isViewed = false
       let isStale = false
       let isPartiallyViewed = false  // For directories: some but not all viewed
-      
+
       if (node.isDirectory) {
         // Directory: aggregate status from all files under it
         const dirStatus = computeDirViewedStatus(node.path, this.currentFiles, this.currentFileStatuses)
@@ -369,12 +377,15 @@ export class FileTreePanel {
             ? getStatusColor(node.file.status)
             : colors.text
 
-      // Background: highlight for keyboard nav, subtle for selected file
-      const bgColor = isHighlighted 
-        ? colors.selection 
-        : isSelected 
-          ? theme.surface0  // Subtle background for current file
-          : undefined
+      // Background priority (darker → lighter):
+      //   cursor highlight > multi-select range > currently-open file > none
+      const bgColor = isHighlighted
+        ? colors.selection                 // surface2 — cursor
+        : isMultiSelected
+          ? theme.surface1                 // V-mode range member
+          : isSelected
+            ? theme.surface0               // currently-open file (subtle)
+            : undefined
 
       // Create box for this item
       // Use index for ID to avoid issues with special chars in paths
@@ -461,6 +472,7 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       const isSelected = item.fileIndex === this.selectedFileIndex
+      const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
 
       const renderables = this.itemRenderables.get(String(index))
       if (!renderables) continue
@@ -498,12 +510,15 @@ export class FileTreePanel {
             ? getStatusColor(node.file.status)
             : colors.text
 
-      // Background: highlight for keyboard nav, subtle for selected file
-      const bgColor = isHighlighted 
-        ? colors.selection 
-        : isSelected 
-          ? theme.surface0  // Subtle background for current file
-          : null
+      // Background priority (same as rebuildItems):
+      //   cursor highlight > multi-select range > currently-open file > none
+      const bgColor = isHighlighted
+        ? colors.selection
+        : isMultiSelected
+          ? theme.surface1
+          : isSelected
+            ? theme.surface0
+            : null
 
       // Viewed marker with states:
       // ✓ green - all viewed, unchanged

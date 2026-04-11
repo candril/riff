@@ -154,6 +154,11 @@ export interface AppState {
   viewMode: ViewMode
   selectedFileIndex: number | null  // null = no file selected, show all
   treeHighlightIndex: number        // Highlighted item in tree (for navigation)
+  // Tree multi-select (visual-line mode in the sidebar). When non-null,
+  // the range between this path and the row under the cursor is selected.
+  // Stored as a node.path (not an index) so expand/collapse doesn't drift
+  // the anchor; it's only auto-cleared if the anchor row vanishes entirely.
+  treeSelectionAnchor: string | null
 
   // UI state
   showFilePanel: boolean
@@ -288,6 +293,7 @@ export function createInitialState(
     viewMode: appMode === "pr" ? "pr" : "diff",
     selectedFileIndex: null,        // Default: no file selected, show all
     treeHighlightIndex: 0,          // Start highlight at first item
+    treeSelectionAnchor: null,      // No multi-select active
     // In PR mode we open on the PR overview (spec 041), so the tree
     // sidebar starts hidden and the user reveals it with Ctrl+B. In
     // local mode the diff is the first thing shown, so keep the tree
@@ -410,7 +416,10 @@ export function clearFileSelection(state: AppState): AppState {
 }
 
 /**
- * Move tree highlight (navigation, not selection)
+ * Move tree highlight (navigation, not selection).
+ *
+ * Preserves `treeSelectionAnchor` — when multi-select is active, j/k extend
+ * the derived range without touching the anchor.
  */
 export function moveTreeHighlight(state: AppState, delta: number, maxIndex: number): AppState {
   const newIndex = Math.max(0, Math.min(state.treeHighlightIndex + delta, maxIndex))
@@ -418,6 +427,22 @@ export function moveTreeHighlight(state: AppState, delta: number, maxIndex: numb
     ...state,
     treeHighlightIndex: newIndex,
   }
+}
+
+/**
+ * Enter tree multi-select mode: anchor the range at the current highlight.
+ * Idempotent — callers pass the node.path they want to anchor at.
+ */
+export function setTreeSelectionAnchor(state: AppState, anchorPath: string): AppState {
+  return { ...state, treeSelectionAnchor: anchorPath }
+}
+
+/**
+ * Exit tree multi-select mode.
+ */
+export function clearTreeSelectionAnchor(state: AppState): AppState {
+  if (state.treeSelectionAnchor === null) return state
+  return { ...state, treeSelectionAnchor: null }
 }
 
 /**

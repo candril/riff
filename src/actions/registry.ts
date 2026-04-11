@@ -415,25 +415,29 @@ export const actions: Action[] = [
   // Claude
   {
     id: "claude-discuss",
-    // Label adapts to current scope: selection > folder > file. The
+    // Label adapts to current scope: multi > selection > folder > file. The
     // handler dispatches on the same detection.
     label: (state, vimState) => {
       const scope = detectReviewScope(state, vimState)
       switch (scope.kind) {
-        case "selection": return "Claude: Discuss selection"
-        case "folder":    return "Claude: Discuss folder"
-        case "file":      return "Claude: Discuss file"
-        case "none":      return "Claude: Discuss (nothing to send)"
+        case "multi":
+          return scope.count === 1
+            ? "Claude: Chat about 1 selected file"
+            : `Claude: Chat about ${scope.count} selected files`
+        case "selection": return "Claude: Chat about selection"
+        case "folder":    return "Claude: Chat about folder"
+        case "file":      return "Claude: Chat about file"
+        case "none":      return "Claude: Chat (nothing to send)"
       }
     },
-    description: "Open a Claude Code chat about the active scope (selection, folder, or file)",
+    description: "Open a Claude Code chat about the active scope (multi-select, selection, folder, or file)",
     category: "claude",
     available: (state, vimState) =>
       state.files.length > 0 && detectReviewScope(state, vimState).kind !== "none",
   },
   {
     id: "claude-discuss-full",
-    label: "Claude: Discuss whole diff",
+    label: "Claude: Chat about whole diff",
     description: "Open a Claude Code chat about the whole diff (ignored files excluded)",
     category: "claude",
     available: (state) => state.files.length > 0,

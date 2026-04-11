@@ -14,7 +14,10 @@ import {
   selectFile,
   clearFileSelection,
   isFileViewed,
+  setTreeSelectionAnchor,
+  clearTreeSelectionAnchor,
 } from "../../state"
+import { collectMultiSelectionFiles } from "../ai-review"
 import { toggleNodeExpansion } from "../../utils/file-tree"
 
 export interface FileTreeInputContext {
@@ -76,9 +79,16 @@ export function handleInput(
             return updateFileTree(s, newTree)
           })
         } else if (typeof highlightedItem.fileIndex === "number") {
+          // Committing to a single file is treated as exiting multi-select:
+          // the user made a concrete "view this one" choice, so the pending
+          // V-mode range gets torn down.
           ctx.setState((s) => {
             const selected = selectFile(s, highlightedItem.fileIndex!)
-            return { ...selected, focusedPanel: selected.viewMode === "comments" ? "comments" as const : "diff" as const }
+            return {
+              ...selected,
+              focusedPanel: selected.viewMode === "comments" ? "comments" as const : "diff" as const,
+              treeSelectionAnchor: null,
+            }
           })
           ctx.onFileSelected()
           setTimeout(() => {
@@ -131,6 +141,13 @@ export function handleInput(
     }
 
     case "escape":
+      // Escape first tears down the multi-select anchor if one is active,
+      // staying in the tree. A second Escape leaves the tree panel.
+      if (ctx.state.treeSelectionAnchor !== null) {
+        ctx.setState(clearTreeSelectionAnchor)
+        ctx.updatePanel()
+        return true
+      }
       ctx.setState((s) => {
         const cleared = clearFileSelection(s)
         return { ...cleared, focusedPanel: cleared.viewMode === "comments" ? "comments" as const : "diff" as const }
@@ -143,6 +160,53 @@ export function handleInput(
       return true
 
     case "v": {
+      // Shift+v → enter / exit tree multi-select mode. Idempotent: a second
+      // V while already in multi-select clears it. opentui delivers V as
+      // `name: "v", shift: true` (same pattern as the diff view handler).
+      if (key.shift) {
+        const anchorItem = flatItems[ctx.state.treeHighlightIndex]
+        if (!anchorItem) return true
+        if (ctx.state.treeSelectionAnchor !== null) {
+          ctx.setState(clearTreeSelectionAnchor)
+        } else {
+          const anchorPath = anchorItem.node.path
+          ctx.setState((s) => setTreeSelectionAnchor(s, anchorPath))
+        }
+        ctx.updatePanel()
+        return true
+      }
+
+      // With multi-select active, `v` bulk-toggles every selected file and
+      // discards the selection. Directory rows inside the range are skipped
+      // by the collector, so the behaviour is "operate on the file rows the
+      // user highlighted".
+      if (ctx.state.treeSelectionAnchor !== null) {
+        const selected = collectMultiSelectionFiles(ctx.state, flatItems)
+        if (selected.length === 0) {
+          ctx.setState(clearTreeSelectionAnchor)
+          ctx.updatePanel()
+          return true
+        }
+        // Majority rule: if any selected file is unviewed, mark all viewed;
+        // otherwise flip all to unviewed. Same convention as the folder case.
+        const anyUnviewed = selected.some((f) => !isFileViewed(ctx.state, f.filename))
+        const targetViewed = anyUnviewed
+
+        Promise.all(
+          selected.map((f) => {
+            const currentlyViewed = isFileViewed(ctx.state, f.filename)
+            if (currentlyViewed !== targetViewed) {
+              return ctx.toggleViewedForFile(f.filename)
+            }
+            return Promise.resolve(currentlyViewed)
+          })
+        ).then(() => {
+          ctx.setState(clearTreeSelectionAnchor)
+          ctx.render()
+        })
+        return true
+      }
+
       // Toggle viewed status for highlighted item
       const viewItem = flatItems[ctx.state.treeHighlightIndex]
       if (!viewItem) return true
@@ -180,6 +244,7 @@ export function handleInput(
       }
       return true
     }
+
   }
 
   return false

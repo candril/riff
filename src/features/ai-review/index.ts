@@ -10,4 +10,8 @@ export {
   handleAiReviewFull,
   type AiReviewContext,
 } from "./handlers"
-export { detectReviewScope } from "./scope"
+export {
+  detectReviewScope,
+  collectMultiSelectionFiles,
+  getTreeMultiSelectionFilenames,
+} from "./scope"

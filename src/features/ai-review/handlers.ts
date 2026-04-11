@@ -23,16 +23,21 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
 import type { DiffFile } from "../../utils/diff-parser"
-import { showToast, clearToast } from "../../state"
+import { showToast, clearToast, clearTreeSelectionAnchor } from "../../state"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
   buildFileContextMd,
   buildPrContextMd,
   buildFolderContextMd,
+  buildMultiContextMd,
   AI_REVIEW_SYSTEM_PROMPT,
 } from "./format"
 import { launchClaudeWithContext } from "./launch"
-import { detectReviewScope, collectFilesUnderDirectory } from "./scope"
+import {
+  detectReviewScope,
+  collectFilesUnderDirectory,
+  collectMultiSelectionFiles,
+} from "./scope"
 
 const PR_SIZE_WARN_BYTES = 200 * 1024 // 200 KB
 
@@ -67,6 +72,9 @@ export async function handleAiReviewContextAware(
       return
     case "folder":
       await handleFolder(ctx)
+      return
+    case "multi":
+      await handleMulti(ctx)
       return
     case "none":
       ctx.setState((s) => showToast(s, "Nothing to review", "info"))
@@ -256,6 +264,63 @@ async function handleFolder(ctx: AiReviewContext): Promise<void> {
   await launchSafely(ctx, path)
 }
 
+// ---------- multi-file selection ----------
+
+async function handleMulti(ctx: AiReviewContext): Promise<void> {
+  const state = ctx.getState()
+
+  // Re-collect the selection here (we can't trust the scope detector's count
+  // to still be accurate by the time this runs — state could have changed).
+  const flatItems = getVisibleFlatTreeItems(
+    state.fileTree,
+    state.files,
+    state.ignoredFiles,
+    state.showHiddenFiles,
+  )
+  const files = collectMultiSelectionFiles(state, flatItems)
+
+  if (files.length === 0) {
+    ctx.setState((s) => showToast(s, "No files in selection", "info"))
+    ctx.render()
+    scheduleToastClear(ctx)
+    return
+  }
+
+  const built = buildMultiContextMd({
+    files,
+    mode: ctx.mode,
+    prInfo: ctx.prInfo,
+    localTarget: ctx.options.target,
+  })
+
+  if (built.bytes > PR_SIZE_WARN_BYTES) {
+    const kb = Math.round(built.bytes / 1024)
+    ctx.setState((s) =>
+      showToast(s, `Selection is ${kb} KB — large context, Claude may struggle`, "info"),
+    )
+    ctx.render()
+  }
+
+  const path = writeContextFile({
+    mode: ctx.mode,
+    prInfo: ctx.prInfo,
+    source: state.source,
+    kind: "multi",
+    content: built.markdown,
+  })
+
+  // Clear the tree multi-select anchor now that we've consumed it. The user
+  // asked for actions to discard the selection on execute (mirrors how `v`
+  // bulk-mark also clears).
+  ctx.setState(clearTreeSelectionAnchor)
+  ctx.setState((s) =>
+    showToast(s, `Opening Claude with selection (${files.length} files)`, "info"),
+  )
+  ctx.render()
+
+  await launchSafely(ctx, path)
+}
+
 // ---------- full PR ----------
 
 export async function handleAiReviewFull(ctx: AiReviewContext): Promise<void> {
@@ -381,7 +446,7 @@ interface WriteInput {
   mode: "local" | "pr"
   prInfo: PrInfo | null
   source: string
-  kind: "file" | "folder" | "full"
+  kind: "file" | "folder" | "full" | "multi"
   filename?: string
   content: string
 }
@@ -415,6 +480,10 @@ function writeContextFile(input: WriteInput): string {
   let basename: string
   if (input.kind === "full") {
     basename = "full.md"
+  } else if (input.kind === "multi") {
+    // Only ever one active hand-picked selection at a time — deterministic
+    // name means re-invoking overwrites rather than accumulating.
+    basename = "multi.md"
   } else if (input.kind === "folder") {
     basename = `folder-${slugify(input.filename ?? "unknown")}.md`
   } else {
