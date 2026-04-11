@@ -1,7 +1,9 @@
 export { actions, getAvailableActions } from "./registry"
-export { 
+export {
   type Action,
+  type ResolvedAction,
   type ActionCategory,
-  type ActionMenuState, 
-  createActionMenuState 
+  type ActionMenuState,
+  createActionMenuState,
+  resolveActionLabel,
 } from "./types"

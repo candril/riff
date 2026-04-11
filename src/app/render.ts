@@ -185,7 +185,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     }
 
     // Get filtered actions for action menu
-    const availableActions = getAvailableActions(state)
+    const availableActions = getAvailableActions(state, ctx.getVimState())
     const filteredActions = state.actionMenu.query
       ? fuzzyFilter(state.actionMenu.query, availableActions, (a) => [a.label, a.id, a.description])
       : availableActions

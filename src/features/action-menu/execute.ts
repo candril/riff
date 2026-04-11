@@ -38,6 +38,8 @@ export interface ActionHandlers {
   handleEditPr: () => Promise<void>
   handleCreatePr: () => Promise<void>
   handleAddPrComment: () => Promise<void>
+  handleAiReviewContextAware: () => Promise<void>
+  handleAiReviewFull: () => Promise<void>
 }
 
 export interface ExecuteContext {
@@ -204,6 +206,14 @@ export async function executeAction(
 
     case "diff-nvim":
       handlers.handleOpenExternalDiff("nvim")
+      break
+
+    case "claude-discuss":
+      await handlers.handleAiReviewContextAware()
+      break
+
+    case "claude-discuss-full":
+      await handlers.handleAiReviewFull()
       break
   }
 }

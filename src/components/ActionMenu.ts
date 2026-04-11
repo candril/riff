@@ -1,10 +1,10 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
-import type { Action } from "../actions"
+import type { ResolvedAction } from "../actions"
 
 export interface ActionMenuProps {
   query: string
-  actions: Action[]
+  actions: ResolvedAction[]
   selectedIndex: number
 }
 
@@ -77,7 +77,7 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
 }
 
 interface ActionRowProps {
-  action: Action
+  action: ResolvedAction
   selected: boolean
 }
 
@@ -107,20 +107,22 @@ function ActionRow({ action, selected }: ActionRowProps) {
  */
 interface ActionGroup {
   category: string
-  items: Action[]
+  items: ResolvedAction[]
 }
 
 /** Category display order and labels */
 const categoryConfig: Record<string, { order: number; label: string }> = {
+  claude: { order: 0, label: "Claude" },
   github: { order: 1, label: "GitHub" },
   navigation: { order: 2, label: "Navigation" },
   view: { order: 3, label: "View" },
-  general: { order: 4, label: "General" },
+  external: { order: 4, label: "External Tools" },
+  general: { order: 5, label: "General" },
 }
 
-function groupActionsByCategory(actions: Action[]): ActionGroup[] {
+function groupActionsByCategory(actions: ResolvedAction[]): ActionGroup[] {
   // Group by category
-  const byCategory = new Map<string, Action[]>()
+  const byCategory = new Map<string, ResolvedAction[]>()
   
   for (const action of actions) {
     const cat = action.category || "general"
@@ -149,14 +151,14 @@ function groupActionsByCategory(actions: Action[]): ActionGroup[] {
 /**
  * Get a flat list of actions in visual order (respecting grouping)
  */
-export function getVisualActionOrder(actions: Action[]): Action[] {
+export function getVisualActionOrder(actions: ResolvedAction[]): ResolvedAction[] {
   return groupActionsByCategory(actions).flatMap(group => group.items)
 }
 
 /**
  * Render grouped actions with correct visual index tracking
  */
-function renderGroupedActions(actions: Action[], selectedIndex: number) {
+function renderGroupedActions(actions: ResolvedAction[], selectedIndex: number) {
   const groups = groupActionsByCategory(actions)
   const result: any[] = []
   let visualIndex = 0

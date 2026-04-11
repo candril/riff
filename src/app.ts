@@ -39,6 +39,7 @@ import * as folds from "./features/folds"
 import * as fileNavigation from "./features/file-navigation"
 import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
+import * as aiReview from "./features/ai-review"
 import * as prOperations from "./features/pr-operations"
 import * as refresh from "./features/refresh"
 
@@ -438,6 +439,19 @@ export async function createApp(options: AppOptions = {}) {
     options,
   }
 
+  const aiReviewContext: aiReview.AiReviewContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    getLineMapping: () => lineMapping,
+    render,
+    suspendRenderer: () => renderer.suspend(),
+    resumeRenderer: () => renderer.resume(),
+    mode,
+    prInfo: prInfo ?? null,
+    options,
+  }
+
   const prOperationsContext: prOperations.PrOperationsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -458,6 +472,8 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleCheckoutAndEdit: () => externalTools.handleCheckoutAndEdit(externalToolsContext),
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
+    handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),
+    handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
     handleShowAllFiles: () => {
       vimState = createCursorState()
       createLineMapping()

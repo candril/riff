@@ -1,5 +1,8 @@
-import type { Action } from "./types"
+import type { Action, ResolvedAction } from "./types"
+import { resolveActionLabel } from "./types"
 import type { AppState } from "../state"
+import type { VimCursorState } from "../vim-diff/types"
+import { detectReviewScope } from "../features/ai-review"
 
 /**
  * All available actions in the app.
@@ -409,6 +412,33 @@ export const actions: Action[] = [
     available: () => true,
   },
   
+  // Claude
+  {
+    id: "claude-discuss",
+    // Label adapts to current scope: selection > folder > file. The
+    // handler dispatches on the same detection.
+    label: (state, vimState) => {
+      const scope = detectReviewScope(state, vimState)
+      switch (scope.kind) {
+        case "selection": return "Claude: Discuss selection"
+        case "folder":    return "Claude: Discuss folder"
+        case "file":      return "Claude: Discuss file"
+        case "none":      return "Claude: Discuss (nothing to send)"
+      }
+    },
+    description: "Open a Claude Code chat about the active scope (selection, folder, or file)",
+    category: "claude",
+    available: (state, vimState) =>
+      state.files.length > 0 && detectReviewScope(state, vimState).kind !== "none",
+  },
+  {
+    id: "claude-discuss-full",
+    label: "Claude: Discuss whole diff",
+    description: "Open a Claude Code chat about the whole diff (ignored files excluded)",
+    category: "claude",
+    available: (state) => state.files.length > 0,
+  },
+
   // External tools
   {
     id: "diff-difftastic",
@@ -434,8 +464,14 @@ export const actions: Action[] = [
 ]
 
 /**
- * Get actions available in current state
+ * Get actions available in current state, with labels resolved to strings.
+ * Callers (palette render, fuzzy filter) can treat the result as plain data.
  */
-export function getAvailableActions(state: AppState): Action[] {
-  return actions.filter(a => a.available(state))
+export function getAvailableActions(
+  state: AppState,
+  vimState?: VimCursorState,
+): ResolvedAction[] {
+  return actions
+    .filter(a => a.available(state, vimState))
+    .map(a => ({ ...a, label: resolveActionLabel(a, state, vimState) }))
 }

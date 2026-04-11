@@ -7,6 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
+import type { VimCursorState } from "../../vim-diff/types"
 import {
   closeActionMenu,
   setActionMenuQuery,
@@ -18,6 +19,7 @@ import { fuzzyFilter } from "../../utils/fuzzy"
 
 export interface ActionMenuInputContext {
   readonly state: AppState
+  getVimState: () => VimCursorState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   executeAction: (actionId: string) => void
@@ -35,7 +37,7 @@ export function handleInput(
     return false
   }
 
-  const availableActions = getAvailableActions(ctx.state)
+  const availableActions = getAvailableActions(ctx.state, ctx.getVimState())
   const filteredActions = ctx.state.actionMenu.query
     ? fuzzyFilter(ctx.state.actionMenu.query, availableActions, (a) => [
         a.label,

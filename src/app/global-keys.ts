@@ -139,6 +139,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     if (
       actionMenu.handleInput(key, {
         state: ctx.getState(),
+        getVimState: ctx.getVimState,
         setState: ctx.setState,
         render: ctx.render,
         executeAction: ctx.executeAction,
