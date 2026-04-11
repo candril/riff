@@ -36,6 +36,7 @@ import * as fileNavigation from "../features/file-navigation"
 import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
+import * as aiReview from "../features/ai-review"
 
 export interface GlobalKeyContext {
   // State access
@@ -77,6 +78,7 @@ export interface GlobalKeyContext {
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
+  aiReviewContext: aiReview.AiReviewContext
 }
 
 /**
@@ -266,6 +268,28 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           return
         }
         // Other keys are ignored while dialog is open
+        return
+      }
+    }
+
+    // ========== DRAFT REVIEW DIALOG (y/e/d/Esc, spec 036) ==========
+    {
+      const dialogState = ctx.getState()
+      if (dialogState.draftReview) {
+        if (key.name === "y" || key.name === "Y" || key.name === "return") {
+          void aiReview.handleApproveDraftedComment(ctx.aiReviewContext)
+          return
+        } else if (key.name === "e" || key.name === "E") {
+          void aiReview.handleEditDraftedComment(ctx.aiReviewContext)
+          return
+        } else if (key.name === "d" || key.name === "D") {
+          void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
+          return
+        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
+          aiReview.handleCancelDraftReview(ctx.aiReviewContext)
+          return
+        }
+        // Swallow all other keys — this is a modal dialog.
         return
       }
     }
@@ -492,6 +516,19 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gc") {
         externalTools.handleCheckoutAndEdit(ctx.externalToolsContext)
+        return
+      } else if (sequence === "gd") {
+        // spec 036: review the drafted inline comment. Silently no-op
+        // when no draft is pending so the chord doesn't feel broken.
+        if (ctx.getState().draftNotification) {
+          void aiReview.handleReviewDraftedComment(ctx.aiReviewContext)
+        }
+        return
+      } else if (sequence === "gD!") {
+        // spec 036: discard the drafted inline comment.
+        if (ctx.getState().draftNotification) {
+          void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
+        }
         return
       } else if (sequence === "gP!" || sequence === "gp!") {
         if (s.appMode === "pr" && s.prInfo) {

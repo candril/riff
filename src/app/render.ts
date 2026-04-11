@@ -18,6 +18,8 @@ import {
   SyncPreview,
   SearchPrompt,
   ConfirmDialog,
+  DraftNotification,
+  DraftReviewDialog,
   gatherSyncItems,
 } from "../components"
 import type { VimDiffView } from "../components"
@@ -298,6 +300,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               message: state.confirmDialog.message,
               details: state.confirmDialog.details,
             })
+          : null,
+        state.draftReview
+          ? DraftReviewDialog({ review: state.draftReview })
+          : null,
+        // Hide the corner notification while the review dialog is up so
+        // the two overlays don't stack on top of each other.
+        state.draftNotification && !state.draftReview
+          ? DraftNotification({ notification: state.draftNotification })
           : null,
 
       )

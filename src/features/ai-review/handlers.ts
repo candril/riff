@@ -16,8 +16,8 @@
  * then launches `claude` either in a tmux split pane or inline.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
@@ -31,6 +31,8 @@ import {
   buildFolderContextMd,
   buildMultiContextMd,
   AI_REVIEW_SYSTEM_PROMPT,
+  DRAFT_PATH_PLACEHOLDER,
+  RIFF_COMMENT_COMMAND,
 } from "./format"
 import { launchClaudeWithContext } from "./launch"
 import {
@@ -385,8 +387,31 @@ export async function handleAiReviewFull(ctx: AiReviewContext): Promise<void> {
 
 async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
   try {
-    const systemPromptPath = writeSystemPromptFile()
-    await launchClaudeWithContext(path, systemPromptPath, {
+    // Compute the draft-comment path for this PR scope and bake it into
+    // the system prompt so Claude knows exactly where to write. Local mode
+    // gets a scope-specific path too — Claude rarely drafts there, but the
+    // prompt still needs a concrete path to reference.
+    const state = ctx.getState()
+    const draftPath = draftPathFor({
+      mode: ctx.mode,
+      prInfo: ctx.prInfo,
+      source: state.source,
+    })
+    const systemPromptPath = writeSystemPromptFile(draftPath)
+
+    // Install the `/riff-comment` slash command (spec 036) into the
+    // project-scoped commands dir. Overwrites on every launch so edits
+    // to RIFF_COMMENT_COMMAND ship immediately. Cleanup is registered
+    // lazily so it fires once on riff exit regardless of how many times
+    // the user launches AI Review.
+    ensureRiffCommentCommandInstalled()
+
+    // Make sure the parent dir exists so Claude's pre-authorized Write
+    // grant lands without a "permission denied" if the user hasn't
+    // opened AI Review for this PR yet.
+    mkdirSync(dirname(draftPath), { recursive: true })
+
+    await launchClaudeWithContext(path, systemPromptPath, draftPath, {
       suspendRenderer: ctx.suspendRenderer,
       resumeRenderer: ctx.resumeRenderer,
       render: ctx.render,
@@ -401,21 +426,112 @@ async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
   }
 }
 
+// ---------- /riff-comment slash command install ----------
+
 /**
- * Write the static review directives to a file claude can load via
- * `--append-system-prompt-file`. Always overwritten — the content is a
- * compile-time constant, so a stale file from a previous version gets
- * refreshed on next launch.
+ * Absolute path of the project-scoped `/riff-comment` command file. Cached
+ * on first install so the cleanup hook can delete it without recomputing.
+ */
+let riffCommentCommandPath: string | null = null
+let cleanupRegistered = false
+
+function riffCommentCommandFilePath(): string {
+  return join(process.cwd(), ".claude", "commands", "riff-comment.md")
+}
+
+/**
+ * Write `<cwd>/.claude/commands/riff-comment.md` and register a process
+ * exit hook to remove it on clean shutdown. Idempotent — calling this
+ * multiple times per session only triggers one registration.
+ *
+ * The file is intentionally project-scoped (not `~/.claude/commands/`):
+ * Claude Code has no `--commands-dir` flag and `CLAUDE_CONFIG_DIR`
+ * redirects auth/settings too, so true session-scoping isn't available.
+ * Project-scoped keeps the residue contained to the repo the user is
+ * actively reviewing, and the exit hook removes it on clean shutdown.
+ *
+ * Residue surfaces only if riff crashes; the file is a single
+ * well-named markdown the user can trivially delete.
+ */
+function ensureRiffCommentCommandInstalled(): void {
+  const path = riffCommentCommandFilePath()
+  try {
+    mkdirSync(join(process.cwd(), ".claude", "commands"), { recursive: true })
+    writeFileSync(path, RIFF_COMMENT_COMMAND, "utf8")
+    riffCommentCommandPath = path
+  } catch {
+    // Best-effort. Couldn't write (permissions, read-only fs, etc.) —
+    // the drafting protocol in the system prompt still works, just without
+    // the `/riff-comment` fast path.
+    return
+  }
+
+  if (!cleanupRegistered) {
+    cleanupRegistered = true
+    const cleanup = (): void => {
+      if (riffCommentCommandPath === null) return
+      try {
+        unlinkSync(riffCommentCommandPath)
+      } catch {
+        // File already gone or not writable — nothing to do.
+      }
+      riffCommentCommandPath = null
+    }
+    // Fires on normal Node.js shutdown and on re-thrown uncaught
+    // exceptions. SIGINT/SIGTERM don't auto-trigger `exit`, so we wire
+    // those explicitly.
+    process.on("exit", cleanup)
+    process.on("SIGINT", () => {
+      cleanup()
+      process.exit(130)
+    })
+    process.on("SIGTERM", () => {
+      cleanup()
+      process.exit(143)
+    })
+  }
+}
+
+/**
+ * Write the review directives to a file claude can load via
+ * `--append-system-prompt-file`. Always overwritten — the content is
+ * effectively a compile-time constant with one per-launch substitution
+ * (the draft-comment path), so a stale file from a previous version or a
+ * different PR gets refreshed on next launch.
  *
  * Lives at the root of `.git/riff-ai-review/` (not inside a per-PR scope
- * dir) so it's shared across all review sessions in this repo.
+ * dir) so the `--append-system-prompt-file` flag always points at the
+ * same well-known location.
  */
-function writeSystemPromptFile(): string {
+function writeSystemPromptFile(draftPath: string): string {
   const root = resolveContextRoot()
   mkdirSync(root, { recursive: true })
   const path = join(root, "system-prompt.md")
-  writeFileSync(path, AI_REVIEW_SYSTEM_PROMPT, "utf8")
+  const prompt = AI_REVIEW_SYSTEM_PROMPT.replaceAll(
+    DRAFT_PATH_PLACEHOLDER,
+    draftPath,
+  )
+  writeFileSync(path, prompt, "utf8")
   return path
+}
+
+/**
+ * Compute the absolute path where Claude is instructed to write the
+ * drafted PR comment, for the current scope. Exported so the post-draft
+ * handler and the background poller can check for the file's existence
+ * without re-deriving the slugging rules.
+ *
+ * Return is deterministic for a given (mode, prInfo, source) tuple and
+ * matches the directory layout in `writeContextFile`.
+ */
+export function draftPathFor(input: {
+  mode: "local" | "pr"
+  prInfo: PrInfo | null
+  source: string
+}): string {
+  const root = resolveContextRoot()
+  const scope = scopeDirName(input.mode, input.prInfo, input.source)
+  return join(root, scope, "draft-comment.json")
 }
 
 /**

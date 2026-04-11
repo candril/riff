@@ -475,6 +475,8 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
     handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),
     handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
+    handleReviewDraftedComment: () => aiReview.handleReviewDraftedComment(aiReviewContext),
+    handleDiscardDraftedComment: () => aiReview.handleDiscardDraftedComment(aiReviewContext),
     handleShowAllFiles: () => {
       vimState = createCursorState()
       createLineMapping()
@@ -804,6 +806,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreviewOpenContext,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
+    aiReviewContext,
   })
 
   renderer.keyInput.on("keypress", handleKeypress)
@@ -822,6 +825,11 @@ export async function createApp(options: AppOptions = {}) {
         // Silently ignore
       })
   }
+
+  // Start the Claude-drafted-comment poller (spec 036). It self-guards on
+  // PR mode, so calling it unconditionally here is fine. The interval is
+  // unref'd internally so it won't hold the event loop open.
+  aiReview.startDraftPoller(aiReviewContext)
 
   return {
     renderer,

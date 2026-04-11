@@ -874,25 +874,40 @@ export interface SubmitResult {
 }
 
 /**
- * Submit a single comment immediately to GitHub (like "Add single comment")
+ * Submit a single comment immediately to GitHub (like "Add single comment").
+ *
+ * If `range` is provided, the comment is posted as a multi-line review
+ * comment spanning `range.startLine`..`comment.line` inclusive. Used by the
+ * AI-drafted comment flow (spec 036) so Claude can flag a block of code
+ * instead of just one line.
  */
 export async function submitSingleComment(
   owner: string,
   repo: string,
   prNumber: number,
   comment: Comment,
-  commitSha: string
+  commitSha: string,
+  range?: { startLine: number; startSide: "LEFT" | "RIGHT" }
 ): Promise<SubmitResult> {
   try {
-    // Use -F for line (integer) and -f for strings
-    // side must be uppercase: LEFT or RIGHT
-    const result = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments \
-      -f body=${comment.body} \
-      -f path=${comment.filename} \
-      -F line=${comment.line} \
-      -f side=${comment.side} \
-      -f commit_id=${commitSha}`.json() as { id: number; html_url: string }
-    
+    // Use -F for integer fields and -f for strings. `side` / `start_side`
+    // must be uppercase: LEFT or RIGHT.
+    const result = range
+      ? await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments \
+          -f body=${comment.body} \
+          -f path=${comment.filename} \
+          -F line=${comment.line} \
+          -f side=${comment.side} \
+          -F start_line=${range.startLine} \
+          -f start_side=${range.startSide} \
+          -f commit_id=${commitSha}`.json() as { id: number; html_url: string }
+      : await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments \
+          -f body=${comment.body} \
+          -f path=${comment.filename} \
+          -F line=${comment.line} \
+          -f side=${comment.side} \
+          -f commit_id=${commitSha}`.json() as { id: number; html_url: string }
+
     return {
       success: true,
       githubId: result.id,

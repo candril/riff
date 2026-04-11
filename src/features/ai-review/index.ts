@@ -8,8 +8,17 @@
 export {
   handleAiReviewContextAware,
   handleAiReviewFull,
+  draftPathFor,
   type AiReviewContext,
 } from "./handlers"
+export {
+  handleReviewDraftedComment,
+  handleApproveDraftedComment,
+  handleEditDraftedComment,
+  handleDiscardDraftedComment,
+  handleCancelDraftReview,
+  startDraftPoller,
+} from "./post-draft"
 export {
   detectReviewScope,
   collectMultiSelectionFiles,

@@ -40,6 +40,8 @@ export interface ActionHandlers {
   handleAddPrComment: () => Promise<void>
   handleAiReviewContextAware: () => Promise<void>
   handleAiReviewFull: () => Promise<void>
+  handleReviewDraftedComment: () => Promise<void>
+  handleDiscardDraftedComment: () => Promise<void>
 }
 
 export interface ExecuteContext {
@@ -214,6 +216,14 @@ export async function executeAction(
 
     case "claude-discuss-full":
       await handlers.handleAiReviewFull()
+      break
+
+    case "claude-review-drafted-comment":
+      await handlers.handleReviewDraftedComment()
+      break
+
+    case "claude-discard-drafted-comment":
+      await handlers.handleDiscardDraftedComment()
       break
   }
 }

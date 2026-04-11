@@ -248,6 +248,56 @@ export interface AppState {
   
   // Confirmation dialog state
   confirmDialog: ConfirmDialogState | null
+
+  // Claude drafted-comment notification (spec 036). Non-null when the
+  // background poller has detected a valid `draft-comment.json` for the
+  // current PR. Pinned bottom-right, does not auto-dismiss.
+  draftNotification: DraftNotificationState | null
+
+  // Claude drafted-comment review dialog (spec 036). Non-null when the
+  // user has triggered "review drafted comment" (via Ctrl+p, `gd`, or the
+  // action menu). Captures the full draft so the dialog can render the
+  // body and re-post it on approval without another disk read.
+  draftReview: DraftReviewDialogState | null
+}
+
+/**
+ * Display-only snapshot of a Claude-drafted inline PR comment (spec 036).
+ * The full draft lives on disk at `draftPathFor(...)`; we store just
+ * enough here to render the notification. The review action re-reads and
+ * re-validates from disk so we always post what's actually there.
+ */
+export interface DraftNotificationState {
+  filename: string
+  line: number
+  startLine?: number
+  side: "LEFT" | "RIGHT"
+  /** First ~140 chars of the draft body, newlines collapsed. */
+  bodyPreview: string
+  /** mtimeMs of the draft file at the last successful load. Used by the
+   * poller to skip unchanged ticks. */
+  mtimeMs: number
+}
+
+/**
+ * Modal state for the drafted-comment review dialog (spec 036). Opened
+ * when the user triggers "review drafted comment"; drives the bigger
+ * preview + `y` / `e` / `d` / `Esc` key handling in
+ * `src/app/global-keys.ts`.
+ *
+ * We inline the draft fields instead of importing `DraftCommentFile` from
+ * `features/ai-review/post-draft.ts` to keep `state.ts` dependency-free
+ * (that module imports from `state.ts` itself).
+ */
+export interface DraftReviewDialogState {
+  filename: string
+  side: "LEFT" | "RIGHT"
+  line: number
+  startLine?: number
+  body: string
+  draftedAt: string
+  /** Absolute path to the JSON file on disk, used on approve/discard. */
+  draftPath: string
 }
 
 /**
@@ -382,6 +432,8 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     confirmDialog: null,
+    draftNotification: null,
+    draftReview: null,
   }
 }
 
@@ -1352,6 +1404,38 @@ export function closeConfirmDialog(state: AppState): AppState {
     ...state,
     confirmDialog: null,
   }
+}
+
+// ============================================================================
+// Draft Notification State (spec 036)
+// ============================================================================
+
+/** Replace the drafted-comment notification (or set it for the first time). */
+export function setDraftNotification(
+  state: AppState,
+  notification: DraftNotificationState,
+): AppState {
+  return { ...state, draftNotification: notification }
+}
+
+/** Clear the drafted-comment notification. Idempotent. */
+export function clearDraftNotification(state: AppState): AppState {
+  if (state.draftNotification === null) return state
+  return { ...state, draftNotification: null }
+}
+
+/** Open the drafted-comment review dialog with the given draft snapshot. */
+export function openDraftReview(
+  state: AppState,
+  review: DraftReviewDialogState,
+): AppState {
+  return { ...state, draftReview: review }
+}
+
+/** Close the drafted-comment review dialog. Idempotent. */
+export function closeDraftReview(state: AppState): AppState {
+  if (state.draftReview === null) return state
+  return { ...state, draftReview: null }
 }
 
 // ============================================================================

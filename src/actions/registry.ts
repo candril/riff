@@ -442,6 +442,24 @@ export const actions: Action[] = [
     category: "claude",
     available: (state) => state.files.length > 0,
   },
+  {
+    id: "claude-review-drafted-comment",
+    label: "Claude: Review drafted comment",
+    description: "Open the review dialog for the inline PR comment Claude drafted (gd)",
+    shortcut: "gd",
+    category: "claude",
+    // Gated on the poller having already detected a valid draft. The
+    // predicate is just a state read — no disk I/O per menu render.
+    available: (state) => state.appMode === "pr" && state.draftNotification !== null,
+  },
+  {
+    id: "claude-discard-drafted-comment",
+    label: "Claude: Discard drafted comment",
+    description: "Delete Claude's drafted comment and clear the notification (gD)",
+    shortcut: "gD",
+    category: "claude",
+    available: (state) => state.appMode === "pr" && state.draftNotification !== null,
+  },
 
   // External tools
   {

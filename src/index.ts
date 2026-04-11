@@ -3,6 +3,7 @@
 
 import { createApp } from "./app"
 import { loadPrSession, type PrInfo } from "./providers/github"
+import { resolveCurrentPr } from "./providers/current-pr"
 import { resolveStorageWithConfirmation } from "./storage"
 import * as readline from "readline"
 import packageJson from "../package.json"
@@ -31,6 +32,7 @@ const HELP_TEXT = `
 
 \x1b[1mTARGETS\x1b[0m
     \x1b[36m(no argument)\x1b[0m              Review uncommitted changes (working directory)
+    \x1b[36mpr\x1b[0m                        Review PR for current branch/bookmark
     \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123)
     \x1b[36m<revision>\x1b[0m                Review local commits (e.g., HEAD~3, main..HEAD, @-)
     \x1b[36mgh:<owner>/<repo>#<pr>\x1b[0m   Review PR from any GitHub repository
@@ -39,6 +41,9 @@ const HELP_TEXT = `
 \x1b[1mEXAMPLES\x1b[0m
     \x1b[2m# Review uncommitted changes\x1b[0m
     $ riff
+
+    \x1b[2m# Review PR for the current branch/bookmark\x1b[0m
+    $ riff pr
 
     \x1b[2m# Review a PR in the current repo\x1b[0m
     $ riff 123
@@ -186,6 +191,11 @@ export function parseArgs(args: string[]): CliArgs {
     return { type: "local" }
   }
 
+  // Current branch's PR: "pr"
+  if (target === "pr") {
+    return { target, type: "pr" }
+  }
+
   // PR number: "#123" or "123"
   const prMatch = target.match(/^#?(\d+)$/)
   if (prMatch) {
@@ -278,6 +288,10 @@ async function main() {
 
   try {
     if (args.type === "pr") {
+      if (!args.prNumber) {
+        console.log("Resolving PR for current branch...")
+        args.prNumber = await resolveCurrentPr()
+      }
       // Fetch PR and persist comments to markdown files
       console.log(`Fetching PR #${args.prNumber}...`)
       const { prInfo, diff, comments, viewedStatuses, headSha } = await loadPrSession(
