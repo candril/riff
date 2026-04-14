@@ -44,6 +44,8 @@ export interface ReviewPreviewState {
   error?: string
   /** Overall review comment/body */
   body: string
+  /** Cursor position within body (0..body.length) */
+  cursorOffset: number
   /** IDs of comments to exclude from submission */
   excludedCommentIds: Set<string>
   /** Currently highlighted comment index for selection */
@@ -102,15 +104,15 @@ export interface CommentsSearchState {
  */
 export interface ThreadPreviewState {
   open: boolean
-  /** Comments to display in the thread preview */
-  comments: Comment[]
   /** Filename where the thread is located */
   filename: string
   /** Line number in the file */
   line: number
-  /** Index of the comment currently focused for reactions (spec 042).
-   *  Bounded to [0, comments.length-1]. */
-  focusedIndex: number
+  /** Which side (LEFT/RIGHT) — scopes the comment filter */
+  side: "LEFT" | "RIGHT"
+  /** Index of the currently highlighted comment. Target of actions
+   *  (d, S, r, e, x) and of the palette React… submenu (spec 042). */
+  highlightedIndex: number
 }
 
 /**
@@ -389,6 +391,7 @@ export function createInitialState(
       selectedEvent: "COMMENT",
       loading: false,
       body: "",
+      cursorOffset: 0,
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
       focusedSection: "input",
@@ -424,10 +427,10 @@ export function createInitialState(
     },
     threadPreview: {
       open: false,
-      comments: [],
       filename: "",
       line: 0,
-      focusedIndex: 0,
+      side: "RIGHT",
+      highlightedIndex: 0,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -552,12 +555,15 @@ export function enterPrView(state: AppState): AppState {
 
 /**
  * Switch to the diff view, preserving file selection (spec 041).
+ * Clears any reaction target inherited from the PR view so the React…
+ * palette entry doesn't linger in contexts where it can't act (spec 042).
  */
 export function enterDiffView(state: AppState): AppState {
   return {
     ...state,
     viewMode: "diff",
     focusedPanel: "diff",
+    reactionTarget: null,
   }
 }
 
@@ -1187,6 +1193,7 @@ export function openReviewPreview(state: AppState): AppState {
       loading: false,
       error: undefined,
       body: "",
+      cursorOffset: 0,
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
       focusedSection: "input",
@@ -1379,14 +1386,41 @@ export function setReviewEvent(state: AppState, event: "COMMENT" | "APPROVE" | "
 }
 
 /**
- * Update review body text
+ * Update review body text and cursor position.
+ * If cursorOffset is omitted, defaults to the end of the new body.
  */
-export function setReviewBody(state: AppState, body: string): AppState {
+export function setReviewBody(
+  state: AppState,
+  body: string,
+  cursorOffset?: number
+): AppState {
+  const nextCursor = Math.max(
+    0,
+    Math.min(body.length, cursorOffset ?? body.length)
+  )
   return {
     ...state,
     reviewPreview: {
       ...state.reviewPreview,
       body,
+      cursorOffset: nextCursor,
+    },
+  }
+}
+
+/**
+ * Update cursor position within the review body (clamped).
+ */
+export function setReviewCursor(state: AppState, cursorOffset: number): AppState {
+  const nextCursor = Math.max(
+    0,
+    Math.min(state.reviewPreview.body.length, cursorOffset)
+  )
+  return {
+    ...state,
+    reviewPreview: {
+      ...state.reviewPreview,
+      cursorOffset: nextCursor,
     },
   }
 }
@@ -1921,33 +1955,35 @@ export function setPRCommentInputError(state: AppState, error: string | null): A
 // ============================================================================
 
 /**
- * Open the thread preview for a specific line's comments.
+ * Open the thread preview for a specific line/side. Comments are derived
+ * live via `getThreadPreviewComments` — we only stash the anchor here.
  *
- * Also points `reactionTarget` at the root comment so the palette's
- * "React…" action becomes available immediately (spec 042). We pick the
- * first comment in the thread — callers hand us comments in thread order.
+ * Also points `reactionTarget` at the first comment in the thread so the
+ * palette's "React…" action becomes available immediately (spec 042).
  */
 export function openThreadPreview(
   state: AppState,
-  comments: Comment[],
   filename: string,
-  line: number
+  line: number,
+  side: "LEFT" | "RIGHT"
 ): AppState {
-  const focused = comments[0]
-  const reactionTarget = focused?.githubId
-    ? ({ kind: "review-comment" as const, githubId: focused.githubId })
-    : null
-  return {
+  const nextState: AppState = {
     ...state,
     threadPreview: {
       open: true,
-      comments,
       filename,
       line,
-      focusedIndex: 0,
+      side,
+      highlightedIndex: 0,
     },
-    reactionTarget,
   }
+  // Compute the reaction target from the derived comment list of the new
+  // state (so we use the same filter as the renderer).
+  const first = getThreadPreviewComments(nextState)[0]
+  const reactionTarget: ReactionTarget | null = first?.githubId
+    ? { kind: "review-comment", githubId: first.githubId }
+    : null
+  return { ...nextState, reactionTarget }
 }
 
 /**
@@ -1966,22 +2002,51 @@ export function closeThreadPreview(state: AppState): AppState {
 }
 
 /**
- * Move the thread-preview focus up or down (j/k). Keeps the reaction
- * target in sync so `Ctrl+p` → React… targets whichever comment is
- * visually focused. No-op for local-only comments (no githubId yet).
+ * Derive the comments to show in the thread preview from current state.
+ * Returns a stable-ordered list: root comments on the anchor line/side, plus
+ * all transitive replies.
  */
-export function moveThreadPreviewFocus(state: AppState, delta: number): AppState {
+export function getThreadPreviewComments(state: AppState): Comment[] {
   const tp = state.threadPreview
-  if (!tp.open || tp.comments.length === 0) return state
-  const nextIndex = Math.max(0, Math.min(tp.comments.length - 1, tp.focusedIndex + delta))
-  if (nextIndex === tp.focusedIndex) return state
-  const focused = tp.comments[nextIndex]
-  const reactionTarget = focused?.githubId
-    ? ({ kind: "review-comment" as const, githubId: focused.githubId })
+  if (!tp.open) return []
+  const rootComments = state.comments.filter(
+    (c) => c.filename === tp.filename && c.line === tp.line && c.side === tp.side && !c.inReplyTo
+  )
+  if (rootComments.length === 0) return []
+  const threadIds = new Set(rootComments.map((c) => c.id))
+  let added = true
+  while (added) {
+    added = false
+    for (const c of state.comments) {
+      if (!threadIds.has(c.id) && c.inReplyTo && threadIds.has(c.inReplyTo)) {
+        threadIds.add(c.id)
+        added = true
+      }
+    }
+  }
+  return state.comments.filter((c) => threadIds.has(c.id))
+}
+
+/**
+ * Move the highlighted comment in the thread preview by delta, clamped against
+ * the current derived comment list. Also re-points `reactionTarget` at the
+ * newly highlighted comment so the palette's React… submenu acts on it
+ * (spec 042).
+ */
+export function moveThreadPreviewHighlight(state: AppState, delta: number): AppState {
+  const tp = state.threadPreview
+  if (!tp.open) return state
+  const derived = getThreadPreviewComments(state)
+  if (derived.length === 0) return state
+  const next = Math.max(0, Math.min(derived.length - 1, tp.highlightedIndex + delta))
+  if (next === tp.highlightedIndex) return state
+  const highlighted = derived[next]
+  const reactionTarget: ReactionTarget | null = highlighted?.githubId
+    ? { kind: "review-comment", githubId: highlighted.githubId }
     : null
   return {
     ...state,
-    threadPreview: { ...tp, focusedIndex: nextIndex },
+    threadPreview: { ...tp, highlightedIndex: next },
     reactionTarget,
   }
 }
@@ -2183,22 +2248,13 @@ export function applyReactionToggle(
 
   switch (target.kind) {
     case "review-comment": {
+      // ThreadPreview derives its comments live from state.comments via
+      // getThreadPreviewComments, so updating comments here is enough —
+      // the modal's ReactionRow re-renders from the same source.
       const comments = state.comments.map(c =>
         c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
       )
-      // The thread preview holds a snapshot of its comments (not a live
-      // projection of state.comments), so we have to flow the update
-      // through both arrays or the ReactionRow inside the modal goes stale.
-      const tp = state.threadPreview
-      const nextTp = tp.open
-        ? {
-            ...tp,
-            comments: tp.comments.map(c =>
-              c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
-            ),
-          }
-        : tp
-      return { ...state, comments, threadPreview: nextTp }
+      return { ...state, comments }
     }
     case "issue-comment": {
       if (!state.prInfo?.conversationComments) return state

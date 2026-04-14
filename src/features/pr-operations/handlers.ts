@@ -19,7 +19,7 @@ import {
 } from "../../state"
 import { gatherSyncItems, type ValidatedComment } from "../../components"
 import { saveComment } from "../../storage"
-import { flattenThreadsForNav, groupIntoThreads } from "../../utils/threads"
+import { flattenThreadsForNav, groupIntoThreads, type Thread } from "../../utils/threads"
 import {
   updateComment,
   submitReply,
@@ -178,20 +178,26 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
 /**
  * Toggle the resolved state of the selected thread
  */
-export async function handleToggleThreadResolved(ctx: PrOperationsContext): Promise<void> {
+export async function handleToggleThreadResolved(
+  ctx: PrOperationsContext,
+  explicitThread?: Thread
+): Promise<void> {
   const state = ctx.getState()
 
-  // Get current selection
-  const visibleComments = getVisibleComments(state)
-  const threads = groupIntoThreads(visibleComments)
-  const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-  const selectedNav = navItems[state.selectedCommentIndex]
+  let thread: Thread | undefined = explicitThread
 
-  if (!selectedNav?.thread) {
-    return
+  if (!thread) {
+    // Fall back to currently-selected thread in comments view
+    const visibleComments = getVisibleComments(state)
+    const threads = groupIntoThreads(visibleComments)
+    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
+    const selectedNav = navItems[state.selectedCommentIndex]
+    thread = selectedNav?.thread
   }
 
-  const thread = selectedNav.thread
+  if (!thread) {
+    return
+  }
   const rootComment = thread.comments[0]
   if (!rootComment) return
 

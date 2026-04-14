@@ -34,14 +34,11 @@ export function ReactionRow({ reactions }: ReactionRowProps) {
 
 function ReactionPill({ reaction }: { reaction: ReactionSummary }) {
   const meta = REACTION_META[reaction.content]
-  const bg = reaction.viewerHasReacted ? theme.surface1 : undefined
-  const fg = reaction.viewerHasReacted ? theme.text : theme.subtext1
+  // "You reacted" is signalled by text weight/color, not a background —
+  // the emoji renders cleaner without a block of color behind it.
+  const fg = reaction.viewerHasReacted ? theme.blue : theme.subtext1
   return Box(
-    {
-      flexDirection: "row",
-      paddingX: 1,
-      backgroundColor: bg,
-    },
+    { flexDirection: "row", paddingX: 1 },
     Text({ content: `${meta.emoji} ${reaction.count}`, fg })
   )
 }

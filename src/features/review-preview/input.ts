@@ -14,6 +14,7 @@ import {
   setReviewEvent,
   toggleReviewSection,
   setReviewBody,
+  setReviewCursor,
   moveReviewHighlight,
   toggleReviewComment,
 } from "../../state"
@@ -93,23 +94,110 @@ export function handleInput(
 
   // Section-specific key handling
   if (section === "input") {
-    // Ctrl+j adds newline
-    if (key.name === "j" && key.ctrl) {
-      ctx.setState((s) => setReviewBody(s, s.reviewPreview.body + "\n"))
+    const body = ctx.state.reviewPreview.body
+    const cursor = ctx.state.reviewPreview.cursorOffset
+
+    // Cursor navigation
+    if (key.name === "left") {
+      ctx.setState((s) => setReviewCursor(s, s.reviewPreview.cursorOffset - 1))
       ctx.render()
       return true
     }
-    // Backspace removes last character
+    if (key.name === "right") {
+      ctx.setState((s) => setReviewCursor(s, s.reviewPreview.cursorOffset + 1))
+      ctx.render()
+      return true
+    }
+    if (key.name === "up") {
+      const prevNewline = body.lastIndexOf("\n", cursor - 1)
+      if (prevNewline === -1) {
+        ctx.setState((s) => setReviewCursor(s, 0))
+      } else {
+        const lineStart = prevNewline + 1
+        const col = cursor - lineStart
+        const prevLineStart = body.lastIndexOf("\n", prevNewline - 1) + 1
+        const prevLineLen = prevNewline - prevLineStart
+        ctx.setState((s) =>
+          setReviewCursor(s, prevLineStart + Math.min(col, prevLineLen))
+        )
+      }
+      ctx.render()
+      return true
+    }
+    if (key.name === "down") {
+      const nextNewline = body.indexOf("\n", cursor)
+      if (nextNewline === -1) {
+        ctx.setState((s) => setReviewCursor(s, s.reviewPreview.body.length))
+      } else {
+        const lineStart = body.lastIndexOf("\n", cursor - 1) + 1
+        const col = cursor - lineStart
+        const nextLineStart = nextNewline + 1
+        const nextNextNewline = body.indexOf("\n", nextLineStart)
+        const nextLineLen =
+          (nextNextNewline === -1 ? body.length : nextNextNewline) - nextLineStart
+        ctx.setState((s) =>
+          setReviewCursor(s, nextLineStart + Math.min(col, nextLineLen))
+        )
+      }
+      ctx.render()
+      return true
+    }
+    if (key.name === "home" || (key.name === "a" && key.ctrl)) {
+      const lineStart = body.lastIndexOf("\n", cursor - 1) + 1
+      ctx.setState((s) => setReviewCursor(s, lineStart))
+      ctx.render()
+      return true
+    }
+    if (key.name === "end" || (key.name === "e" && key.ctrl)) {
+      const nextNewline = body.indexOf("\n", cursor)
+      const lineEnd = nextNewline === -1 ? body.length : nextNewline
+      ctx.setState((s) => setReviewCursor(s, lineEnd))
+      ctx.render()
+      return true
+    }
+
+    // Ctrl+j adds newline at cursor
+    if (key.name === "j" && key.ctrl) {
+      ctx.setState((s) => {
+        const b = s.reviewPreview.body
+        const c = s.reviewPreview.cursorOffset
+        return setReviewBody(s, b.slice(0, c) + "\n" + b.slice(c), c + 1)
+      })
+      ctx.render()
+      return true
+    }
+    // Backspace removes character before cursor
     if (key.name === "backspace") {
-      if (ctx.state.reviewPreview.body.length > 0) {
-        ctx.setState((s) => setReviewBody(s, s.reviewPreview.body.slice(0, -1)))
+      if (cursor > 0) {
+        ctx.setState((s) => {
+          const b = s.reviewPreview.body
+          const c = s.reviewPreview.cursorOffset
+          return setReviewBody(s, b.slice(0, c - 1) + b.slice(c), c - 1)
+        })
+        ctx.render()
+      }
+      return true
+    }
+    // Delete removes character after cursor
+    if (key.name === "delete") {
+      if (cursor < body.length) {
+        ctx.setState((s) => {
+          const b = s.reviewPreview.body
+          const c = s.reviewPreview.cursorOffset
+          return setReviewBody(s, b.slice(0, c) + b.slice(c + 1), c)
+        })
         ctx.render()
       }
       return true
     }
     // Type characters (but not 1/2/3 which select type)
     if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-      ctx.setState((s) => setReviewBody(s, s.reviewPreview.body + key.sequence))
+      const ch = key.sequence
+      ctx.setState((s) => {
+        const b = s.reviewPreview.body
+        const c = s.reviewPreview.cursorOffset
+        return setReviewBody(s, b.slice(0, c) + ch + b.slice(c), c + ch.length)
+      })
       ctx.render()
       return true
     }

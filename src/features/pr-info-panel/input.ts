@@ -21,6 +21,7 @@ import {
   setPRCommentInputText,
   setPRCommentInputLoading,
   setPRCommentInputError,
+  setReactionTarget,
 } from "../../state"
 import { submitPrComment } from "../../providers/github"
 
@@ -48,6 +49,9 @@ export interface PRInfoPanelInputContext {
   onJumpToLocation?: (filename: string, line: number) => void
   // Callback to activate a commit (for commits section Enter)
   onActivateCommit?: (sha: string) => void
+  // Toggle resolved state of a review thread by root comment id.
+  // Used by `x` in the Conversation section.
+  onToggleThreadResolved?: (rootCommentId: string) => void
 }
 
 /**
@@ -55,6 +59,18 @@ export interface PRInfoPanelInputContext {
  * Returns true if the key was handled (panel is open), false otherwise.
  */
 export function handleInput(
+  key: KeyEvent,
+  ctx: PRInfoPanelInputContext
+): boolean {
+  const handled = handleInputInner(key, ctx)
+  // After every consumed key, sync state.reactionTarget to whatever the
+  // panel is focused on now — keeps Ctrl+p → React… targeting the
+  // visually-focused item (spec 042).
+  if (handled) syncReactionTarget(ctx)
+  return handled
+}
+
+function handleInputInner(
   key: KeyEvent,
   ctx: PRInfoPanelInputContext
 ): boolean {
@@ -111,6 +127,18 @@ export function handleInput(
       }
       ctx.render()
       return true
+
+    case "x": {
+      // x: toggle resolved state of the focused review thread. Only
+      // meaningful when a review-thread row is focused — pr-comment and
+      // review-header don't have resolution state. The handler is a no-op
+      // for anything else.
+      if (!panel || panel.getActiveSection() !== 'conversation') return true
+      const flat = panel.getSelectedFlatItem?.()
+      if (!flat || flat.type !== 'review-thread') return true
+      ctx.onToggleThreadResolved?.(flat.data.id)
+      return true
+    }
 
     case "z":
       // Fold commands: za, zm, zr, zM, zR
@@ -485,4 +513,18 @@ function handleCommentInput(
       }
       return
   }
+}
+
+/**
+ * Pull the current reaction target from the panel and mirror it into
+ * state (spec 042). Called after every consumed key so the palette's
+ * React… entry targets whichever item is visually focused right now.
+ */
+function syncReactionTarget(ctx: PRInfoPanelInputContext): void {
+  const panel = ctx.getPanel()
+  const target = panel?.getReactionTarget?.() ?? null
+  // setReactionTarget is identity-checked — it no-ops when the target
+  // is the same, so we don't thrash renders on e.g. repeated `j`s that
+  // land on the same item class.
+  ctx.setState(s => setReactionTarget(s, target))
 }

@@ -37,7 +37,9 @@ import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
+import * as threadMotion from "../features/thread-motion"
 import type { ReactionTarget } from "../types"
+import { groupIntoThreads } from "../utils/threads"
 
 export interface GlobalKeyContext {
   // State access
@@ -83,6 +85,7 @@ export interface GlobalKeyContext {
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   aiReviewContext: aiReview.AiReviewContext
+  threadMotionContext: threadMotion.ThreadMotionContext
 }
 
 /**
@@ -223,6 +226,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         state: ctx.getState(),
         setState: ctx.setState,
         render: ctx.render,
+        handleReply: () => commentsFeature.handleAddComment(ctx.commentsContext),
+        handleDelete: (comment) =>
+          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
+        handleSubmit: (comment) =>
+          commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
+        handleToggleResolved: (thread) =>
+          prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
+        handleJumpAdjacent: (direction) =>
+          threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
       })
     ) {
       return
@@ -256,6 +268,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         onActivateCommit: (sha) => {
           // Activate commit (set viewing commit)
           ctx.onCommitSelected(sha)
+        },
+        onToggleThreadResolved: (rootCommentId) => {
+          // Resolve the review thread whose root has this id. Built from
+          // live state.comments so mutations/refresh reflect immediately.
+          const state = ctx.getState()
+          const threads = groupIntoThreads(state.comments)
+          const thread = threads.find((t) => t.id === rootCommentId)
+          if (!thread) return
+          void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
       })
     ) {
@@ -495,6 +516,18 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       } else if (sequence === "[o") {
         fileNavigation.navigateToOutdatedFile(-1, ctx.fileNavContext)
         return
+      } else if (sequence === "]r") {
+        threadMotion.navigateToThread(1, false, ctx.threadMotionContext)
+        return
+      } else if (sequence === "[r") {
+        threadMotion.navigateToThread(-1, false, ctx.threadMotionContext)
+        return
+      } else if (sequence === "]R!") {
+        threadMotion.navigateToThread(1, true, ctx.threadMotionContext)
+        return
+      } else if (sequence === "[R!") {
+        threadMotion.navigateToThread(-1, true, ctx.threadMotionContext)
+        return
       } else if (sequence === "gS!" || sequence === "gs!") {
         reviewPreview.handleOpenReviewPreview(ctx.reviewPreviewOpenContext)
         return
@@ -700,31 +733,18 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         const vimState = ctx.getVimState()
         const anchor = lineMapping.getCommentAnchor(vimState.line)
         if (!anchor) return false
-        
-        // Find root comments on this line
-        const rootComments = s.comments.filter(
-          (c) => c.filename === anchor.filename && c.line === anchor.line && c.side === anchor.side && !c.inReplyTo
+
+        // Bail if no root comments on this anchor
+        const hasRoot = s.comments.some(
+          (c) =>
+            c.filename === anchor.filename &&
+            c.line === anchor.line &&
+            c.side === anchor.side &&
+            !c.inReplyTo
         )
-        if (rootComments.length === 0) return false
-        
-        // Collect root comments AND all transitive replies
-        // (replies may have line=undefined/0 since GitHub REST API doesn't set line on replies)
-        const threadIds = new Set(rootComments.map(c => c.id))
-        let added = true
-        while (added) {
-          added = false
-          for (const c of s.comments) {
-            if (!threadIds.has(c.id) && c.inReplyTo && threadIds.has(c.inReplyTo)) {
-              threadIds.add(c.id)
-              added = true
-            }
-          }
-        }
-        const threadComments = s.comments.filter(c => threadIds.has(c.id))
-        
-        if (threadComments.length === 0) return false
-        
-        ctx.setState((s) => openThreadPreview(s, threadComments, anchor.filename, anchor.line))
+        if (!hasRoot) return false
+
+        ctx.setState((s) => openThreadPreview(s, anchor.filename, anchor.line, anchor.side))
         ctx.render()
         return true
       },

@@ -27,7 +27,7 @@ import type { FileTreePanel } from "../components/FileTreePanel"
 import type { CommentsViewPanel } from "../components/CommentsViewPanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getSelectedFile, getVisibleComments, getReviewProgress } from "../state"
+import { getSelectedFile, getVisibleComments, getReviewProgress, getThreadPreviewComments } from "../state"
 import type { AppState } from "../state"
 import { filterCommentsBySearch } from "../features/comments-view/search"
 import type { VimCursorState } from "../vim-diff/types"
@@ -282,11 +282,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           : null,
         state.threadPreview.open
           ? ThreadPreview({
-              comments: state.threadPreview.comments,
+              comments: getThreadPreviewComments(state),
               filename: state.threadPreview.filename,
               line: state.threadPreview.line,
+              highlightedIndex: state.threadPreview.highlightedIndex,
               renderer: ctx.renderer,
-              focusedIndex: state.threadPreview.focusedIndex,
             })
           : null,
         state.filePicker.open

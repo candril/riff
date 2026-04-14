@@ -863,7 +863,7 @@ export async function loadPrSession(
   }
 
   // Fetch all data in parallel (including viewed statuses and extended info)
-  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments, extendedInfo] = await Promise.all([
+  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments, extendedInfo, metaReactions] = await Promise.all([
     getPrInfo(prNumber, resolvedOwner, resolvedRepo),
     getPrDiff(prNumber, resolvedOwner, resolvedRepo),
     getPrComments(resolvedOwner!, resolvedRepo!, prNumber),
@@ -871,17 +871,29 @@ export async function loadPrSession(
     fetchViewedStatuses(resolvedOwner!, resolvedRepo!, prNumber),
     getPrConversationComments(resolvedOwner!, resolvedRepo!, prNumber),
     getPrExtendedInfo(prNumber, resolvedOwner!, resolvedRepo!),
+    fetchPrMetaReactions(resolvedOwner!, resolvedRepo!, prNumber),
   ])
-  
+
   // Fetch checks (requires headSha from first batch)
   const checks = await getPrChecks(resolvedOwner!, resolvedRepo!, headSha)
-  
-  // Attach conversation comments, extended info, and checks to prInfo
-  prInfo.conversationComments = conversationComments
+
+  // Attach conversation comments, extended info, checks, and reactions.
+  // Reactions for PR body / conversation / reviews come from a dedicated
+  // GraphQL call (spec 042) since REST doesn't expose viewerHasReacted.
+  prInfo.conversationComments = conversationComments.map(c => ({
+    ...c,
+    reactions: metaReactions.issueCommentsById.get(c.id) ?? [],
+  }))
   prInfo.commits = extendedInfo.commits
-  prInfo.reviews = extendedInfo.reviews
+  prInfo.reviews = extendedInfo.reviews.map(r => ({
+    ...r,
+    reactions: r.databaseId !== undefined
+      ? metaReactions.reviewsByDatabaseId.get(r.databaseId) ?? []
+      : [],
+  }))
   prInfo.requestedReviewers = extendedInfo.requestedReviewers
   prInfo.checks = checks
+  prInfo.bodyReactions = metaReactions.body
 
   // Build source identifier for this PR
   const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`

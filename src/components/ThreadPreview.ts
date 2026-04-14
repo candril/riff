@@ -16,10 +16,10 @@ export interface ThreadPreviewProps {
   comments: Comment[]
   filename: string
   line: number
+  /** Index of the currently highlighted comment. Drives the visual
+   *  highlight AND the React… palette action target (spec 042). */
+  highlightedIndex: number
   renderer: CliRenderer
-  /** Index in `comments` of the focused entry — drives the React… palette
-   *  action target and the visual focus marker (spec 042). */
-  focusedIndex: number
 }
 
 // Shared syntax style for markdown rendering (lazy init)
@@ -88,20 +88,24 @@ function formatTimeAgo(isoDate: string): string {
   return date.toLocaleDateString([], { month: "short", day: "numeric" })
 }
 
-export function ThreadPreview({ comments, filename, line, renderer, focusedIndex }: ThreadPreviewProps) {
+function buildHintLine(canSubmit: boolean): string {
+  const parts = ["j/k nav", "^n/^p thread", "r reply", "e edit", "d del", "x resolve", "^p React"]
+  if (canSubmit) parts.push("S submit")
+  parts.push("Esc close")
+  return parts.join("  ")
+}
+
+export function ThreadPreview({ comments, filename, line, highlightedIndex, renderer }: ThreadPreviewProps) {
   const threads = groupIntoThreads(comments)
   const shortFilename = filename.split("/").pop() || filename
-
-  // Precompute visual index for each comment so the focus marker survives
-  // thread grouping. Grouping is shallow (flat list across one thread in
-  // practice), so this is just a lookup into `comments`.
-  const visualIndexById = new Map<string, number>()
-  let i = 0
-  for (const thread of threads) {
-    for (const c of thread.comments) {
-      visualIndexById.set(c.id, i++)
-    }
-  }
+  // Flatten threads -> display order (matches comments[] order), so we can
+  // map highlightedIndex (into comments[]) onto a rendered row.
+  const displayOrder: Comment[] = threads.flatMap((t) => t.comments)
+  const highlightedId = displayOrder[highlightedIndex]?.id
+  const highlightedComment = comments[highlightedIndex]
+  const canSubmit = highlightedComment
+    ? highlightedComment.status === "local" || highlightedComment.localEdit !== undefined
+    : false
 
   return Box(
     {
@@ -152,61 +156,74 @@ export function ThreadPreview({ comments, filename, line, renderer, focusedIndex
             const author = comment.author || "you"
             const statusColor = getStatusColor(comment.status)
             const connector = isRoot ? "" : "\u2514 "
-            const isFocused = visualIndexById.get(comment.id) === focusedIndex
+            const isHighlighted = comment.id === highlightedId
 
             return Box(
               {
-                flexDirection: "column",
+                flexDirection: "row",
                 paddingLeft: isRoot ? 0 : 2,
+                backgroundColor: isHighlighted ? theme.surface0 : undefined,
               },
-              // Header row: focus marker + connector + author + time + status
+              // Highlight gutter
+              Text({
+                content: isHighlighted ? "▸ " : "  ",
+                fg: isHighlighted ? theme.blue : theme.overlay0,
+              }),
               Box(
-                { flexDirection: "row" },
-                Text({
-                  content: isFocused ? "\u25B8 " : "  ",
-                  fg: isFocused ? theme.yellow : colors.textDim,
-                }),
-                !isRoot
-                  ? Text({ content: connector, fg: colors.textDim })
-                  : null,
-                Text({ content: `@${author}`, fg: theme.blue }),
-                Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
-                Text({ content: ` [${comment.status}]`, fg: statusColor }),
-                isRoot && thread.resolved
-                  ? Text({ content: " \u2713", fg: theme.green })
-                  : null
-              ),
-              // Body (markdown rendered)
-              Box(
-                {
-                  paddingLeft: isRoot ? 2 : 4,
-                },
-                new MarkdownRenderable(renderer, {
-                  id: `thread-preview-body-${comment.id}`,
-                  content: comment.localEdit ?? comment.body,
-                  syntaxStyle: getSyntaxStyle(),
-                })
-              ),
-              // Reactions row (spec 042). Hidden when empty.
-              Box(
-                {
-                  paddingLeft: isRoot ? 2 : 4,
-                },
-                ReactionRow({ reactions: comment.reactions })
+                { flexDirection: "column", flexGrow: 1 },
+                // Header row: connector + author + time + status
+                Box(
+                  { flexDirection: "row" },
+                  !isRoot
+                    ? Text({ content: connector, fg: colors.textDim })
+                    : null,
+                  Text({ content: `@${author}`, fg: theme.blue }),
+                  Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
+                  Text({ content: ` [${comment.status}]`, fg: statusColor }),
+                  comment.localEdit !== undefined
+                    ? Text({ content: " *edited", fg: colors.commentPending })
+                    : null,
+                  isRoot && thread.resolved
+                    ? Text({ content: " \u2713", fg: theme.green })
+                    : null
+                ),
+                // Body (markdown rendered)
+                Box(
+                  {
+                    paddingLeft: isRoot ? 2 : 4,
+                  },
+                  new MarkdownRenderable(renderer, {
+                    id: `thread-preview-body-${comment.id}`,
+                    content: comment.localEdit ?? comment.body,
+                    syntaxStyle: getSyntaxStyle(),
+                  })
+                ),
+                // Reactions row (spec 042). Hidden when empty.
+                Box(
+                  {
+                    paddingLeft: isRoot ? 2 : 4,
+                  },
+                  ReactionRow({ reactions: comment.reactions })
+                )
               )
             )
           })
         )
       ),
 
-      // Footer
+      // Footer — action hints
       Box(
         {
           flexDirection: "row",
+          justifyContent: "space-between",
           paddingX: 2,
           paddingY: 1,
           backgroundColor: theme.mantle,
         },
+        Text({
+          content: buildHintLine(canSubmit),
+          fg: theme.overlay0,
+        }),
         Text({
           content: `${comments.length} comment${comments.length !== 1 ? "s" : ""}`,
           fg: theme.overlay0,

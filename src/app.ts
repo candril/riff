@@ -41,6 +41,7 @@ import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
 import * as prOperations from "./features/pr-operations"
+import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
 import * as reactions from "./features/reactions"
 import { reactionContentFromRowId } from "./features/action-menu"
@@ -95,6 +96,12 @@ export async function createApp(options: AppOptions = {}) {
     mode === "pr" && prInfo
       ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments)
       : null
+
+  // Seed the reaction target from the panel's initial focus so `Ctrl+p` →
+  // React… is available on the very first frame in PR mode (spec 042).
+  if (prInfoPanel) {
+    state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
+  }
 
   // ===== HELPERS =====
   // searchHandler is defined later, but we need a reference in createLineMapping
@@ -464,6 +471,17 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
   }
 
+  const threadMotionContext: threadMotion.ThreadMotionContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    setVimState: (s) => { vimState = s },
+    getLineMapping: () => lineMapping,
+    ensureCursorVisible,
+    render,
+    fileNavContext,
+  }
+
   // ===== ACTION EXECUTION =====
   const actionHandlers: actionMenu.ActionHandlers = {
     quit,
@@ -828,6 +846,7 @@ export async function createApp(options: AppOptions = {}) {
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
     aiReviewContext,
+    threadMotionContext,
   })
 
   renderer.keyInput.on("keypress", handleKeypress)

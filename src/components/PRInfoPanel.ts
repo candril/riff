@@ -14,7 +14,8 @@ import {
 } from "@opentui/core"
 import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
-import type { Comment } from "../types"
+import type { Comment, ReactionSummary, ReactionTarget } from "../types"
+import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { colors, theme } from "../theme"
 
@@ -40,11 +41,14 @@ type FlatConversationItem =
  */
 interface ReviewWithThreads {
   id: string
+  /** Numeric REST id — needed to build a `{kind:"review"}` reaction target (spec 042) */
+  databaseId?: number
   author: string
   state: PrReview["state"]
   body?: string
   submittedAt?: string
   threads: ReviewThread[]
+  reactions?: ReactionSummary[]
 }
 
 /**
@@ -52,6 +56,10 @@ interface ReviewWithThreads {
  */
 interface ReviewThread {
   id: string
+  /** Root comment's numeric GitHub id — needed to build a
+   *  `{kind:"review-comment"}` reaction target (spec 042). Undefined for
+   *  local (not-yet-synced) threads. */
+  githubId?: number
   filename: string
   line: number
   author: string
@@ -61,6 +69,7 @@ interface ReviewThread {
   isResolved: boolean
   diffHunk?: string
   replies: Comment[]
+  reactions?: ReactionSummary[]
 }
 
 // Shared syntax style for markdown rendering (lazy init)
@@ -381,6 +390,40 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * Derive the reaction target for the currently-focused item (spec 042).
+   * Returns null for sections/items that don't carry reactions (checks,
+   * files, commits, pending-reviewer).
+   *
+   * - Description section → the PR body.
+   * - Conversation section:
+   *   - pr-comment → the issue comment.
+   *   - review-header → the review summary (requires databaseId).
+   *   - review-thread → the root inline comment (requires githubId).
+   */
+  getReactionTarget(): ReactionTarget | null {
+    if (this.activeSection === 'description') {
+      return { kind: "issue", prNumber: this.prInfo.number }
+    }
+    if (this.activeSection !== 'conversation') return null
+    const flat = this.getSelectedFlatItem()
+    if (!flat) return null
+    switch (flat.type) {
+      case 'pr-comment':
+        return { kind: "issue-comment", githubId: flat.data.id }
+      case 'review-header':
+        return flat.data.databaseId !== undefined
+          ? { kind: "review", reviewId: flat.data.databaseId, prNumber: this.prInfo.number }
+          : null
+      case 'review-thread':
+        return flat.data.githubId !== undefined
+          ? { kind: "review-comment", githubId: flat.data.githubId }
+          : null
+      case 'pending-reviewer':
+        return null
+    }
+  }
+
+  /**
    * Get the item count for the current section (not including header)
    */
   private getItemCount(): number {
@@ -425,6 +468,7 @@ export class PRInfoPanelClass {
       
       const thread: ReviewThread = {
         id: comment.id,
+        githubId: comment.githubId,
         filename: comment.filename,
         line: comment.line,
         author: comment.author ?? 'you',
@@ -434,6 +478,7 @@ export class PRInfoPanelClass {
         isResolved: comment.isThreadResolved ?? false,
         diffHunk: comment.diffHunk,
         replies: [],
+        reactions: comment.reactions,
       }
       threadMap.set(comment.id, thread)
     }
@@ -478,11 +523,13 @@ export class PRInfoPanelClass {
       
       const reviewWithThreads: ReviewWithThreads = {
         id: review.id,
+        databaseId: review.databaseId,
         author: review.author,
         state: review.state,
         body: review.body,
         submittedAt: review.submittedAt,
         threads: [], // Will be populated below
+        reactions: review.reactions,
       }
       
       // Find threads that belong to this review
@@ -1108,15 +1155,65 @@ export class PRInfoPanelClass {
         content: "No description provided",
         fg: theme.overlay0,
       }))
+      this.appendReactionRow(container, this.prInfo.bodyReactions)
       return
     }
-    
+
     const md = new MarkdownRenderable(this.renderer, {
       id: "pr-info-description",
       content: this.prInfo.body,
       syntaxStyle: getSyntaxStyle(),
     })
     container.add(md)
+    this.appendReactionRow(container, this.prInfo.bodyReactions)
+  }
+
+  /**
+   * Format reactions as a single compact line like "👍2 ❤️1". Empty string
+   * if there are no reactions. Used in collapsed conversation rows where a
+   * full pill list would blow out the single-line height (spec 042).
+   */
+  private formatInlineReactions(reactions: ReactionSummary[] | undefined): string {
+    if (!reactions) return ""
+    const visible = reactions.filter(r => r.count > 0)
+    if (visible.length === 0) return ""
+    return visible.map(r => `${REACTION_META[r.content].emoji}${r.count}`).join(" ")
+  }
+
+  /**
+   * Append a compact inline reaction row to a container. No-op when the
+   * reactions list is empty (spec 042). Uses imperative BoxRenderable /
+   * TextRenderable to match the rest of this panel.
+   */
+  private appendReactionRow(
+    container: BoxRenderable,
+    reactions: ReactionSummary[] | undefined,
+    indent: number = 0,
+  ): void {
+    if (!reactions) return
+    const visible = reactions.filter(r => r.count > 0 || r.viewerHasReacted)
+    if (visible.length === 0) return
+
+    const row = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      paddingLeft: indent,
+    })
+    for (const r of visible) {
+      const meta = REACTION_META[r.content]
+      const pill = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        paddingX: 1,
+        marginRight: 1,
+      })
+      pill.add(new TextRenderable(this.renderer, {
+        content: `${meta.emoji} ${r.count}`,
+        // "You reacted" → blue accent on the text; no background so the
+        // emoji doesn't sit inside a color block.
+        fg: r.viewerHasReacted ? theme.blue : theme.subtext1,
+      }))
+      row.add(pill)
+    }
+    container.add(row)
   }
 
   /**
@@ -1265,19 +1362,29 @@ export class PRInfoPanelClass {
         }
         row.add(bodyText)
 
+        const reactionSummary = this.formatInlineReactions(comment.reactions)
+        if (reactionSummary) {
+          row.add(new TextRenderable(this.renderer, {
+            content: `  ${reactionSummary}`,
+            fg: theme.overlay1,
+            flexShrink: 0,
+          }))
+        }
+
         row.add(new TextRenderable(this.renderer, {
           content: `  ${formatTimeAgo(comment.createdAt).padStart(4)}`,
           fg: theme.overlay0,
           flexShrink: 0,
         }))
-        
+
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
-        
+
         if (isExpanded) {
           this.buildExpandedCommentBody(container, comment.body, 4)
+          this.appendReactionRow(container, comment.reactions, 4)
         }
-        
+
       } else if (item.type === 'review-header') {
         const review = item.data
         const isExpanded = this.expandedContent.has(review.id)
@@ -1327,6 +1434,15 @@ export class PRInfoPanelClass {
         }
         row.add(bodyText)
 
+        const reviewReactionSummary = this.formatInlineReactions(review.reactions)
+        if (reviewReactionSummary) {
+          row.add(new TextRenderable(this.renderer, {
+            content: `  ${reviewReactionSummary}`,
+            fg: theme.overlay1,
+            flexShrink: 0,
+          }))
+        }
+
         if (review.submittedAt) {
           row.add(new TextRenderable(this.renderer, {
             content: `  ${formatTimeAgo(review.submittedAt).padStart(4)}`,
@@ -1334,7 +1450,7 @@ export class PRInfoPanelClass {
             flexShrink: 0,
           }))
         }
-        
+
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
         
@@ -1342,7 +1458,10 @@ export class PRInfoPanelClass {
         if (isExpanded && hasBody) {
           this.buildExpandedCommentBody(container, review.body!, 4)
         }
-        
+        if (isExpanded) {
+          this.appendReactionRow(container, review.reactions, 4)
+        }
+
       } else if (item.type === 'review-thread') {
         const thread = item.data
         const isExpanded = this.expandedContent.has(thread.id)
@@ -1398,7 +1517,16 @@ export class PRInfoPanelClass {
             flexShrink: 0,
           }))
         }
-        
+
+        const threadReactionSummary = this.formatInlineReactions(thread.reactions)
+        if (threadReactionSummary) {
+          row.add(new TextRenderable(this.renderer, {
+            content: `  ${threadReactionSummary}`,
+            fg: theme.overlay1,
+            flexShrink: 0,
+          }))
+        }
+
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
         
@@ -1417,7 +1545,8 @@ export class PRInfoPanelClass {
           
           // Comment body
           this.buildExpandedCommentBody(container, thread.body, 6)
-          
+          this.appendReactionRow(container, thread.reactions, 6)
+
           // Replies
           for (const reply of thread.replies) {
             const replyHeader = new BoxRenderable(this.renderer, {
@@ -1435,11 +1564,13 @@ export class PRInfoPanelClass {
               fg: theme.overlay0,
             }))
             container.add(replyHeader)
-            
+
             this.buildExpandedCommentBody(container, reply.body, 8)
+            this.appendReactionRow(container, reply.reactions, 8)
           }
         }
-        
+
+
       } else {
         // Pending reviewers — one selectable block with a header row and
         // the reviewers wrapped onto as many name-rows as needed so the
@@ -1624,7 +1755,8 @@ export class PRInfoPanelClass {
     
     // Thread root comment body
     this.buildExpandedCommentBody(container, thread.body, indent + 2)
-    
+    this.appendReactionRow(container, thread.reactions, indent + 2)
+
     // Replies
     for (const reply of thread.replies) {
       const replyHeader = new BoxRenderable(this.renderer, {
@@ -1642,8 +1774,9 @@ export class PRInfoPanelClass {
         fg: theme.overlay0,
       }))
       container.add(replyHeader)
-      
+
       this.buildExpandedCommentBody(container, reply.body, indent + 4)
+      this.appendReactionRow(container, reply.reactions, indent + 4)
     }
   }
 

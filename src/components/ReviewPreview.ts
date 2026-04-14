@@ -35,6 +35,14 @@ const eventColors: Record<ReviewEvent, string> = {
   REQUEST_CHANGES: theme.peach,
 }
 
+function renderBodyWithCursor(body: string, cursorOffset: number, focused: boolean): string {
+  if (!focused) {
+    return body || "(optional)"
+  }
+  const c = Math.max(0, Math.min(body.length, cursorOffset))
+  return body.slice(0, c) + "█" + body.slice(c)
+}
+
 function canSubmit(
   state: ReviewPreviewState,
   includedCount: number,
@@ -151,8 +159,8 @@ export function ReviewPreview({
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ 
-          content: "Summary" + (isFocused("input") ? " (editing)" : ""), 
+        Text({
+          content: "Summary" + (isFocused("input") ? " (editing)" : ""),
           fg: isFocused("input") ? theme.text : theme.subtext0,
         }),
         Box(
@@ -164,10 +172,8 @@ export function ReviewPreview({
             borderStyle: "single",
             borderColor: isFocused("input") ? theme.subtext0 : theme.surface1,
           },
-          Text({ 
-            content: state.body 
-              ? (isFocused("input") ? state.body + "█" : state.body)
-              : (isFocused("input") ? "█" : "(optional)"), 
+          Text({
+            content: renderBodyWithCursor(state.body, state.cursorOffset, isFocused("input")),
             fg: state.body ? theme.text : theme.overlay0,
           })
         )
@@ -202,14 +208,17 @@ export function ReviewPreview({
             const preview = vc.comment.body.replace(/\s+/g, " ").slice(0, 40)
             
             return Box(
-              { 
+              {
                 id: `review-comment-${vc.comment.id}`,
                 flexDirection: "row",
                 height: 1,
                 paddingX: 1,
                 backgroundColor: isHighlighted ? theme.surface0 : undefined,
               },
-              Text({ id: `review-comment-cb-${vc.comment.id}`, content: `${checkbox} `, fg: checkboxColor }),
+              Box(
+                { width: 2, height: 1, flexShrink: 0 },
+                Text({ id: `review-comment-cb-${vc.comment.id}`, content: checkbox, fg: checkboxColor })
+              ),
               Text({ id: `review-comment-file-${vc.comment.id}`, content: `${filename}:${vc.comment.line ?? "?"} `, fg: theme.blue }),
               Text({ id: `review-comment-preview-${vc.comment.id}`, content: preview + (vc.comment.body.length > 40 ? "…" : ""), fg: theme.subtext0 })
             )
