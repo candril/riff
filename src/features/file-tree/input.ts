@@ -78,7 +78,7 @@ export function handleInput(
         } else if (typeof highlightedItem.fileIndex === "number") {
           ctx.setState((s) => {
             const selected = selectFile(s, highlightedItem.fileIndex!)
-            return { ...selected, focusedPanel: s.viewMode === "diff" ? "diff" as const : "comments" as const }
+            return { ...selected, focusedPanel: selected.viewMode === "comments" ? "comments" as const : "diff" as const }
           })
           ctx.onFileSelected()
           setTimeout(() => {
@@ -133,7 +133,7 @@ export function handleInput(
     case "escape":
       ctx.setState((s) => {
         const cleared = clearFileSelection(s)
-        return { ...cleared, focusedPanel: s.viewMode === "diff" ? "diff" as const : "comments" as const }
+        return { ...cleared, focusedPanel: cleared.viewMode === "comments" ? "comments" as const : "diff" as const }
       })
       ctx.onFileSelected()
       ctx.render()

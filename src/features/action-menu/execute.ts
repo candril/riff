@@ -188,7 +188,7 @@ export async function executeAction(
     case "show-all-files":
       setState((s) => {
         const cleared = clearFileSelection(s)
-        return { ...cleared, focusedPanel: s.viewMode === "diff" ? "diff" as const : "comments" as const }
+        return { ...cleared, focusedPanel: cleared.viewMode === "comments" ? "comments" as const : "diff" as const }
       })
       handlers.handleShowAllFiles()
       render()

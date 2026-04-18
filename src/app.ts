@@ -86,7 +86,11 @@ export async function createApp(options: AppOptions = {}) {
   let lineMapping: DiffLineMapping = buildLineMapping(initialState)
   let currentHeadSha = initialHeadSha
   let cachedCurrentUser: string | null = null
-  let prInfoPanel: PRInfoPanelClass | null = null
+  // Persistent for PR sessions (spec 041); null in local mode.
+  let prInfoPanel: PRInfoPanelClass | null =
+    mode === "pr" && prInfo
+      ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments)
+      : null
 
   // ===== HELPERS =====
   // searchHandler is defined later, but we need a reference in createLineMapping
@@ -120,7 +124,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   renderer.addPostProcessFn(() => {
-    if (state.prInfoPanel.open) {
+    if (state.viewMode === "pr") {
       renderer.setCursorPosition(0, 0, false)
     } else if (state.actionMenu.open) {
       positionCursorInSearch("action-menu-search", state.actionMenu.query.length)
@@ -207,7 +211,6 @@ export async function createApp(options: AppOptions = {}) {
     getSearchState: () => searchState,
     getCachedCurrentUser: () => cachedCurrentUser,
     getPrInfoPanel: () => prInfoPanel,
-    setPrInfoPanel: (panel) => { prInfoPanel = panel },
     renderer,
     fileTreePanel,
     vimDiffView,
@@ -371,8 +374,6 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,
-    setPanelInstance: (panel) => { prInfoPanel = panel },
-    createPanelInstance: (info, files, comments) => new PRInfoPanelClass(renderer, info, files, comments),
   }
 
   const foldsContext: folds.FoldsContext = {

@@ -1,6 +1,10 @@
 {
-  "id": "ecda7f17-c670-4daa-a23b-94fc69c11537",
-  "source": "local",
-  "createdAt": "2026-03-21T12:10:46.777Z",
-  "updatedAt": "2026-03-21T12:10:46.778Z"
+  "id": "37f6c12d-6fcc-4a9b-97f2-65144c994c82",
+  "source": "gh:DigitecGalaxus/isomorph#6893",
+  "createdAt": "2026-04-18T11:54:38.169Z",
+  "updatedAt": "2026-04-18T11:54:38.169Z",
+  "prNumber": 6893,
+  "owner": "DigitecGalaxus",
+  "repo": "isomorph",
+  "reviewMode": "single"
 }

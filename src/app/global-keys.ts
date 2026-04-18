@@ -410,7 +410,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         if (key.ctrl) {
           ctx.setState((s) => ({
             ...s,
-            focusedPanel: s.viewMode === "diff" ? "diff" : "comments",
+            focusedPanel: s.viewMode === "comments" ? "comments" : "diff",
           }))
           ctx.render()
           setTimeout(() => {

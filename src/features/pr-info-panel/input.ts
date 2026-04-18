@@ -12,9 +12,9 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
-import { 
-  closePRInfoPanel, 
-  showToast, 
+import {
+  closePRInfoPanel,
+  showToast,
   clearToast,
   openPRCommentInput,
   closePRCommentInput,
@@ -58,11 +58,18 @@ export function handleInput(
   key: KeyEvent,
   ctx: PRInfoPanelInputContext
 ): boolean {
-  if (!ctx.state.prInfoPanel.open) {
+  if (ctx.state.viewMode !== "pr") {
     return false
   }
 
-  // Handle PR comment input mode
+  // When the tree sidebar has focus (spec 041: the tree is visible
+  // alongside the PR view), let tree key handling run — except for the
+  // sub-modal below, which always wins.
+  if (!ctx.state.prInfoPanel.commentInputOpen && ctx.state.focusedPanel === "tree") {
+    return false
+  }
+
+  // Handle PR comment input mode (sub-modal within the PR view)
   if (ctx.state.prInfoPanel.commentInputOpen) {
     handleCommentInput(key, ctx)
     return true
@@ -71,11 +78,15 @@ export function handleInput(
   const panel = ctx.getPanel()
 
   switch (key.name) {
-    case "escape":
-    case "q":
+    case "i":
+      // i toggles back to diff view (spec 041).
       ctx.setState(closePRInfoPanel)
       ctx.render()
       return true
+
+    case "tab":
+      // Tab cycles pr → diff → comments (handled by global toggleViewMode).
+      return false
 
     case "c":
       // 'c' in conversation section opens comment input
@@ -99,14 +110,6 @@ export function handleInput(
         panel.collapseSelectedThread()
       }
       ctx.render()
-      return true
-
-    case "tab":
-      // Tab/Shift+Tab to cycle sections
-      if (panel) {
-        const delta = key.shift ? -1 : 1
-        panel.cycleSection(delta)
-      }
       return true
 
     case "z":
@@ -401,7 +404,18 @@ export function handleInput(
     clearPendingKey()
   }
 
-  // Capture all other keys when panel is open
+  // Let truly global keys fall through (spec 041):
+  //  - q / escape (quit / toast-clear)
+  //  - Ctrl+P action menu, Ctrl+F file picker, Ctrl+B tree toggle,
+  //    Ctrl+E tree expand, Ctrl+L exit-tree, Ctrl+G file-path toast.
+  if (key.name === "q" || key.name === "escape") {
+    return false
+  }
+  if (key.ctrl && (key.name === "p" || key.name === "f" || key.name === "b" || key.name === "e" || key.name === "l" || key.name === "g")) {
+    return false
+  }
+
+  // Capture all other keys while in PR view
   return true
 }
 

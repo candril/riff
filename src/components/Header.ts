@@ -1,7 +1,44 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
-import type { PrInfo, PrCommit } from "../providers/github"
+import type { PrInfo, PrCommit, PrCheck } from "../providers/github"
+
+/**
+ * Compact summary of CI check status shown in the PR-mode header
+ * (spec 041). Returns null when there are no checks so the indicator is
+ * omitted entirely.
+ */
+function summarizeChecks(checks?: PrCheck[]): { text: string; color: string } | null {
+  if (!checks?.length) return null
+  let pass = 0
+  let fail = 0
+  let pending = 0
+  for (const c of checks) {
+    if (c.status !== "completed") {
+      pending++
+      continue
+    }
+    switch (c.conclusion) {
+      case "success":
+      case "skipped":
+      case "neutral":
+        pass++
+        break
+      case "failure":
+      case "timed_out":
+      case "cancelled":
+      case "action_required":
+        fail++
+        break
+      default:
+        pending++
+    }
+  }
+  if (fail > 0) return { text: `✗ ${fail}`, color: theme.red }
+  if (pending > 0) return { text: `○ ${pending}`, color: theme.yellow }
+  if (pass > 0) return { text: "✓", color: theme.green }
+  return null
+}
 
 export interface HeaderProps {
   title?: string
@@ -94,9 +131,13 @@ export function Header({
           ? Text({ content: commitFilterText, fg: theme.peach })
           : Text({ content: prInfo.title, fg: colors.text })
       ),
-      // Right side: progress + stats for selected file
+      // Right side: checks summary + progress + stats for selected file
       Box(
         { flexDirection: "row", gap: 2, flexShrink: 0 },
+        (() => {
+          const c = summarizeChecks(prInfo.checks)
+          return c ? Text({ content: c.text, fg: c.color }) : null
+        })(),
         progressText ? Text({ content: progressText, fg: progressColor }) : null,
         selectedFile
           ? Box(

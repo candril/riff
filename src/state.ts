@@ -12,9 +12,10 @@ import type { IgnoreMatcher } from "./utils/ignore"
 export type UIMode = "normal" | "comment-input" | "comments-list"
 
 /**
- * Main view mode - which content to show
+ * Main view mode - which content to show.
+ * "pr" is only reachable in PR mode (spec 041).
  */
-export type ViewMode = "diff" | "comments"
+export type ViewMode = "pr" | "diff" | "comments"
 
 /**
  * Cached file content (full file, not just diff)
@@ -115,7 +116,6 @@ export interface ThreadPreviewState {
 export type PRInfoPanelSection = 'description' | 'checks' | 'conversation' | 'files' | 'commits'
 
 export interface PRInfoPanelState {
-  open: boolean
   scrollOffset: number
   loading: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
@@ -285,10 +285,14 @@ export function createInitialState(
     appMode,
     files,
     fileTree,
-    viewMode: "diff",
+    viewMode: appMode === "pr" ? "pr" : "diff",
     selectedFileIndex: null,        // Default: no file selected, show all
     treeHighlightIndex: 0,          // Start highlight at first item
-    showFilePanel: files.length > 1,
+    // In PR mode we open on the PR overview (spec 041), so the tree
+    // sidebar starts hidden and the user reveals it with Ctrl+B. In
+    // local mode the diff is the first thing shown, so keep the tree
+    // visible when there's more than one file to navigate.
+    showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
     mode: "normal",
@@ -344,11 +348,10 @@ export function createInitialState(
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
     prInfoPanel: {
-      open: false,
       scrollOffset: 0,
       loading: false,
-      activeSection: 'commits',
-      cursorIndex: 0,
+      activeSection: 'description',
+      cursorIndex: -1,
       commentInputOpen: false,
       commentInputText: "",
       commentInputLoading: false,
@@ -377,12 +380,16 @@ export function createInitialState(
 }
 
 /**
- * Select a file (scopes views to that file)
+ * Select a file (scopes views to that file).
+ * If the app is in PR view, automatically switches to diff view — picking
+ * a file from tree, file picker, Enter-on-files-section, etc. all funnel
+ * through here so the view switch is one rule (spec 041).
  */
 export function selectFile(state: AppState, index: number | null): AppState {
   if (index !== null && (index < 0 || index >= state.files.length)) return state
   return {
     ...state,
+    viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
     selectedFileIndex: index,
     cursorLine: 1,  // Reset cursor when changing file
     selectedCommentIndex: 0,  // Reset comment selection
@@ -395,6 +402,7 @@ export function selectFile(state: AppState, index: number | null): AppState {
 export function clearFileSelection(state: AppState): AppState {
   return {
     ...state,
+    viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
     selectedFileIndex: null,
     cursorLine: 1,
     selectedCommentIndex: 0,
@@ -413,13 +421,55 @@ export function moveTreeHighlight(state: AppState, delta: number, maxIndex: numb
 }
 
 /**
- * Toggle view mode between diff and comments
+ * Cycle main view mode.
+ *
+ * In PR mode this is a three-way cycle: pr → diff → comments → pr
+ * (spec 041). In local mode it collapses to the original two-way toggle
+ * diff ↔ comments.
  */
 export function toggleViewMode(state: AppState): AppState {
+  const isPrMode = state.appMode === "pr"
+  let next: ViewMode
+  switch (state.viewMode) {
+    case "pr":
+      next = "diff"
+      break
+    case "diff":
+      next = "comments"
+      break
+    case "comments":
+      next = isPrMode ? "pr" : "diff"
+      break
+  }
   return {
     ...state,
-    viewMode: state.viewMode === "diff" ? "comments" : "diff",
-    focusedPanel: state.viewMode === "diff" ? "comments" : "diff",
+    viewMode: next,
+    focusedPanel: next === "comments" ? "comments" : "diff",
+  }
+}
+
+/**
+ * Switch to the PR overview. Clears file selection so the PR view isn't
+ * scoped to an individual file (spec 041). No-op outside PR mode.
+ */
+export function enterPrView(state: AppState): AppState {
+  if (state.appMode !== "pr") return state
+  return {
+    ...state,
+    viewMode: "pr",
+    selectedFileIndex: null,
+    focusedPanel: "diff",
+  }
+}
+
+/**
+ * Switch to the diff view, preserving file selection (spec 041).
+ */
+export function enterDiffView(state: AppState): AppState {
+  return {
+    ...state,
+    viewMode: "diff",
+    focusedPanel: "diff",
   }
 }
 
@@ -1539,17 +1589,17 @@ export function isFileStale(state: AppState, filename: string): boolean {
 // ============================================================================
 
 /**
- * Open the PR info panel
+ * Enter PR overview (spec 041). Resets panel cursor to the top section
+ * so the user lands at a predictable starting point.
  */
 export function openPRInfoPanel(state: AppState): AppState {
   return {
-    ...state,
+    ...enterPrView(state),
     prInfoPanel: {
-      open: true,
       scrollOffset: 0,
-      loading: true,
-      activeSection: 'commits',
-      cursorIndex: 0,
+      loading: false,
+      activeSection: 'description',
+      cursorIndex: -1,
       commentInputOpen: false,
       commentInputText: "",
       commentInputLoading: false,
@@ -1572,16 +1622,10 @@ export function setPRInfoPanelLoading(state: AppState, loading: boolean): AppSta
 }
 
 /**
- * Close the PR info panel
+ * Leave PR overview (spec 041). Returns to the diff view.
  */
 export function closePRInfoPanel(state: AppState): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      open: false,
-    },
-  }
+  return enterDiffView(state)
 }
 
 /**

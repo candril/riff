@@ -24,7 +24,7 @@ import { colors, theme } from "../theme"
 type ConversationItem = 
   | { type: 'pr-comment'; data: PrConversationComment }
   | { type: 'review'; data: ReviewWithThreads }
-  | { type: 'pending-reviewer'; data: string }
+  | { type: 'pending-reviewer'; data: string[] }
 
 /**
  * Flattened conversation item (for navigation when reviews are expanded)
@@ -33,7 +33,7 @@ type FlatConversationItem =
   | { type: 'pr-comment'; data: PrConversationComment }
   | { type: 'review-header'; data: ReviewWithThreads }
   | { type: 'review-thread'; data: ReviewThread; parentReview: ReviewWithThreads }
-  | { type: 'pending-reviewer'; data: string }
+  | { type: 'pending-reviewer'; data: string[] }
 
 /**
  * A review with its code comment threads
@@ -170,40 +170,30 @@ function getReviewIcon(state: PrReview["state"]): { icon: string; color: string 
  * Build reviewer display for metadata section.
  * Shows each reviewer's most recent relevant review state.
  */
-function buildReviewerSummary(reviews: PrReview[], requestedReviewers: string[]): { icon: string; name: string; color: string }[] {
-  // Get the most recent meaningful review per author
+function buildReviewerSummary(reviews: PrReview[], _requestedReviewers: string[]): { icon: string; name: string; color: string }[] {
+  // Show only reviewers who actually submitted a review. Pending/
+  // requested reviewers are already visible in the Conversation section
+  // and just duplicate noise in this header. Includes COMMENTED so
+  // anyone who engaged shows up, even without an approve/reject call.
   const reviewsByAuthor = new Map<string, PrReview>()
-  
-  // Sort reviews by date (most recent first)
+
   const sortedReviews = [...reviews].sort((a, b) => {
     const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
     const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
     return dateB - dateA
   })
-  
-  // Keep only the most recent review per author (excluding COMMENTED and DISMISSED)
+
   for (const review of sortedReviews) {
     if (reviewsByAuthor.has(review.author)) continue
-    // Skip pure comment reviews - they don't represent a review decision
-    if (review.state === "COMMENTED" || review.state === "DISMISSED") continue
+    if (review.state === "DISMISSED" || review.state === "PENDING") continue
     reviewsByAuthor.set(review.author, review)
   }
-  
+
   const result: { icon: string; name: string; color: string }[] = []
-  
-  // Add reviewers with their status
   for (const [author, review] of reviewsByAuthor) {
     const { icon, color } = getReviewIcon(review.state)
     result.push({ icon, name: author, color })
   }
-  
-  // Add pending reviewers (requested but haven't reviewed yet)
-  for (const reviewer of requestedReviewers) {
-    if (!reviewsByAuthor.has(reviewer)) {
-      result.push({ icon: "○", name: reviewer, color: theme.yellow })
-    }
-  }
-  
   return result
 }
 
@@ -531,14 +521,15 @@ export class PRInfoPanelClass {
       })
     }
     
-    // Add pending reviewers at the end
+    // Collapse all pending reviewers into a single item at the end.
+    // Listing each as its own row bloats the section (spec 041 polish).
     const requestedReviewers = this.prInfo.requestedReviewers ?? []
     const submittedReviews = this.prInfo.reviews ?? []
     const pendingReviewers = requestedReviewers.filter(
       r => !submittedReviews.some(rev => rev.author === r)
     )
-    for (const reviewer of pendingReviewers) {
-      items.push({ type: 'pending-reviewer', data: reviewer })
+    if (pendingReviewers.length > 0) {
+      items.push({ type: 'pending-reviewer', data: pendingReviewers })
     }
     
     // Sort items by date (pending reviewers go at the end since they have no date)
@@ -864,10 +855,10 @@ export class PRInfoPanelClass {
       case 'review':
         return item.data.id
       case 'pending-reviewer':
-        return `pending-${item.data}`
+        return `pending-${item.data.join(",")}`
     }
   }
-  
+
   /**
    * Get the string id for a flat conversation item
    */
@@ -880,7 +871,7 @@ export class PRInfoPanelClass {
       case 'review-thread':
         return item.data.id
       case 'pending-reviewer':
-        return `pending-${item.data}`
+        return `pending-${item.data.join(",")}`
     }
   }
   
@@ -1245,34 +1236,39 @@ export class PRInfoPanelClass {
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
           height: 1,
+          overflow: "hidden",
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
-        
+
         const expandIcon = isExpanded ? "▼" : "▶"
-        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: "PR ", fg: theme.overlay1 }))
-        
+        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0, flexShrink: 0 }))
+        row.add(new TextRenderable(this.renderer, { content: "PR ", fg: theme.overlay1, flexShrink: 0 }))
+
         const authorText = new TextRenderable(this.renderer, {
           content: `@${comment.author}`,
           fg: isBot ? theme.overlay0 : (isSelected ? theme.blue : theme.sapphire),
+          flexShrink: 0,
         })
         row.add(authorText)
-        
+
         let bodyText: TextRenderable
         if (isExpanded) {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
         } else {
           const bodyPreview = truncate(cleanBodyPreview(comment.body), getBodyPreviewWidth())
           bodyText = new TextRenderable(this.renderer, {
             content: `  ${bodyPreview}`,
             fg: isBot ? theme.overlay0 : (isSelected ? theme.text : theme.subtext1),
+            flexGrow: 1,
+            flexShrink: 1,
           })
         }
         row.add(bodyText)
-        
+
         row.add(new TextRenderable(this.renderer, {
-          content: `  ${formatTimeAgo(comment.createdAt)}`,
+          content: `  ${formatTimeAgo(comment.createdAt).padStart(4)}`,
           fg: theme.overlay0,
+          flexShrink: 0,
         }))
         
         container.add(row)
@@ -1292,44 +1288,50 @@ export class PRInfoPanelClass {
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
           height: 1,
+          overflow: "hidden",
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
-        
+
         const expandIcon = isExpanded ? "▼" : "▶"
-        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: `${stateIcon}  `, fg: stateColor }))
-        
+        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0, flexShrink: 0 }))
+        row.add(new TextRenderable(this.renderer, { content: `${stateIcon}  `, fg: stateColor, flexShrink: 0 }))
+
         const authorText = new TextRenderable(this.renderer, {
           content: `@${review.author}`,
           fg: isSelected ? theme.blue : theme.sapphire,
+          flexShrink: 0,
         })
         row.add(authorText)
-        
-        const stateLabel = review.state === "CHANGES_REQUESTED" 
-          ? "requested changes" 
-          : review.state === "APPROVED" 
-            ? "approved" 
+
+        const stateLabel = review.state === "CHANGES_REQUESTED"
+          ? "requested changes"
+          : review.state === "APPROVED"
+            ? "approved"
             : "commented"
         row.add(new TextRenderable(this.renderer, {
           content: `  ${stateLabel}`,
           fg: theme.subtext0,
+          flexShrink: 0,
         }))
-        
+
         let bodyText: TextRenderable
         if (!isExpanded && hasThreads) {
           bodyText = new TextRenderable(this.renderer, {
             content: `  (${review.threads.length} ${review.threads.length === 1 ? 'thread' : 'threads'})`,
             fg: theme.overlay0,
+            flexGrow: 1,
+            flexShrink: 1,
           })
         } else {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
         }
         row.add(bodyText)
-        
+
         if (review.submittedAt) {
           row.add(new TextRenderable(this.renderer, {
-            content: `  ${formatTimeAgo(review.submittedAt)}`,
+            content: `  ${formatTimeAgo(review.submittedAt).padStart(4)}`,
             fg: theme.overlay0,
+            flexShrink: 0,
           }))
         }
         
@@ -1349,45 +1351,51 @@ export class PRInfoPanelClass {
         const row = new BoxRenderable(this.renderer, {
           flexDirection: "row",
           height: 1,
+          overflow: "hidden",
           paddingLeft: 2,  // Indent to show it's under a review
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
-        
+
         // Thread icon
         const icon = thread.isResolved ? "✓" : (isExpanded ? "▼" : "▶")
         const iconColor = thread.isResolved ? theme.green : theme.subtext0
-        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor }))
-        
+        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor, flexShrink: 0 }))
+
         // File:line - use more width on wider terminals
         const fileLineWidth = Math.min(40, Math.max(20, Math.floor(getTerminalWidth() * 0.25)))
         const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, fileLineWidth - 5) // Leave room for :line
         row.add(new TextRenderable(this.renderer, {
           content: ` ${fileShort}:${thread.line}  `,
           fg: theme.yellow,
+          flexShrink: 0,
         }))
-        
+
         const authorText = new TextRenderable(this.renderer, {
           content: `@${thread.author}`,
           fg: isSelected ? theme.blue : theme.sapphire,
+          flexShrink: 0,
         })
         row.add(authorText)
-        
+
         let bodyText: TextRenderable
         if (isExpanded) {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1 })
+          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
         } else {
           const bodyPreview = truncate(cleanBodyPreview(thread.body), getThreadBodyPreviewWidth())
           bodyText = new TextRenderable(this.renderer, {
             content: `  ${bodyPreview}`,
             fg: isSelected ? theme.text : theme.subtext1,
+            flexGrow: 1,
+            flexShrink: 1,
           })
         }
         row.add(bodyText)
-        
+
         if (hasReplies && !isExpanded) {
           row.add(new TextRenderable(this.renderer, {
             content: `  (${thread.replies.length + 1})`,
             fg: theme.overlay0,
+            flexShrink: 0,
           }))
         }
         
@@ -1433,32 +1441,67 @@ export class PRInfoPanelClass {
         }
         
       } else {
-        // Pending reviewer
-        const reviewer = item.data
-        
-        const row = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          height: 1,
+        // Pending reviewers — one selectable block with a header row and
+        // the reviewers wrapped onto as many name-rows as needed so the
+        // list stays scannable without flooding the section with N
+        // identical "awaiting review" rows.
+        const reviewers = item.data
+
+        const block = new BoxRenderable(this.renderer, {
+          flexDirection: "column",
+          marginTop: 1,
           backgroundColor: isSelected ? theme.surface1 : undefined,
         })
-        
-        row.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.subtext0 }))
-        row.add(new TextRenderable(this.renderer, { content: "○  ", fg: theme.yellow }))
-        
+
+        const headerRow = new BoxRenderable(this.renderer, {
+          flexDirection: "row",
+          height: 1,
+        })
+        headerRow.add(new TextRenderable(this.renderer, { content: "○ ", fg: theme.yellow, flexShrink: 0 }))
         const authorText = new TextRenderable(this.renderer, {
-          content: `@${reviewer}`,
-          fg: isSelected ? theme.blue : theme.sapphire,
-        })
-        row.add(authorText)
-        
-        const bodyText = new TextRenderable(this.renderer, {
-          content: "  awaiting review",
+          content: `awaiting review (${reviewers.length})`,
           fg: theme.yellow,
+          flexShrink: 0,
         })
-        row.add(bodyText)
-        
-        container.add(row)
-        rows.push({ container: row, primary: authorText, secondary: bodyText })
+        headerRow.add(authorText)
+        block.add(headerRow)
+
+        // Pack names into rows; leave 4 cols of left indent and a small
+        // right gutter so the wrap matches terminal width.
+        const LEFT_INDENT = 4
+        const RIGHT_GUTTER = 4
+        const available = Math.max(20, getTerminalWidth() - LEFT_INDENT - RIGHT_GUTTER)
+        const chunks: string[][] = []
+        let current: string[] = []
+        let currentWidth = 0
+        for (const name of reviewers) {
+          const piece = `@${name}`
+          const pieceWidth = piece.length + 2 // trailing 2-space separator
+          if (current.length > 0 && currentWidth + pieceWidth > available) {
+            chunks.push(current)
+            current = []
+            currentWidth = 0
+          }
+          current.push(piece)
+          currentWidth += pieceWidth
+        }
+        if (current.length > 0) chunks.push(current)
+
+        for (const chunk of chunks) {
+          const nameRow = new BoxRenderable(this.renderer, {
+            flexDirection: "row",
+            height: 1,
+            paddingLeft: LEFT_INDENT,
+          })
+          nameRow.add(new TextRenderable(this.renderer, {
+            content: chunk.join("  "),
+            fg: isSelected ? theme.blue : theme.sapphire,
+          }))
+          block.add(nameRow)
+        }
+
+        container.add(block)
+        rows.push({ container: block, primary: authorText })
       }
     }
     
@@ -1721,30 +1764,15 @@ export class PRInfoPanelClass {
     const prInfo = this.prInfo
     const statusInfo = getStatusInfo(prInfo.state, prInfo.isDraft)
 
-    // Main container
+    // Main container — inline flex child of the main content row (spec 041,
+    // previously an absolute overlay).
     const container = new BoxRenderable(this.renderer, {
       id: "pr-info-panel",
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
+      flexGrow: 1,
       height: "100%",
       flexDirection: "column",
       backgroundColor: theme.base,
     })
-
-    // Header
-    const header = new BoxRenderable(this.renderer, {
-      height: 1,
-      width: "100%",
-      backgroundColor: theme.mantle,
-      paddingLeft: 1,
-      flexDirection: "row",
-      justifyContent: "space-between",
-    })
-    header.add(new TextRenderable(this.renderer, { content: "PR Info", fg: colors.primary }))
-    header.add(new TextRenderable(this.renderer, { content: "Esc to close ", fg: theme.overlay0 }))
-    container.add(header)
 
     // Scroll box
     const scrollBox = new ScrollBoxRenderable(this.renderer, {
@@ -1803,16 +1831,21 @@ export class PRInfoPanelClass {
     changesRow.add(new TextRenderable(this.renderer, { content: ` (${prInfo.changedFiles} files)`, fg: theme.subtext0 }))
     basicInfo.add(changesRow)
 
-    // Reviews row (if there are any reviews or requested reviewers)
+    // Reviews row — always rendered so the metadata block has a
+    // predictable shape. Shows "no reviews yet" when nobody has
+    // submitted a review (pending/requested reviewers are listed in the
+    // Conversation section, not here).
     const reviewerSummary = buildReviewerSummary(prInfo.reviews ?? [], prInfo.requestedReviewers ?? [])
+    const reviewsRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
+    reviewsRow.add(new TextRenderable(this.renderer, { content: "Reviews".padEnd(12), fg: theme.overlay0 }))
     if (reviewerSummary.length > 0) {
-      const reviewsRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-      reviewsRow.add(new TextRenderable(this.renderer, { content: "Reviews".padEnd(12), fg: theme.overlay0 }))
       for (const reviewer of reviewerSummary) {
         reviewsRow.add(new TextRenderable(this.renderer, { content: `${reviewer.icon} ${reviewer.name}  `, fg: reviewer.color }))
       }
-      basicInfo.add(reviewsRow)
+    } else {
+      reviewsRow.add(new TextRenderable(this.renderer, { content: "no reviews yet", fg: theme.overlay0 }))
     }
+    basicInfo.add(reviewsRow)
 
     // Separator before sections
     const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })

@@ -46,8 +46,8 @@ export interface RenderContext {
   getLineMapping: () => DiffLineMapping
   getSearchState: () => SearchState
   getCachedCurrentUser: () => string | null
+  /** Returns the persistent PRInfoPanel instance (PR mode only; null in local mode). */
   getPrInfoPanel: () => PRInfoPanelClass | null
-  setPrInfoPanel: (panel: PRInfoPanelClass | null) => void
   // UI panels
   renderer: CliRenderer
   fileTreePanel: FileTreePanel
@@ -107,8 +107,20 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // Main content based on view mode
     let content
+    const prInfoPanelInstance = ctx.getPrInfoPanel()
     if (state.error) {
       content = Text({ content: `Error: ${state.error}`, fg: colors.error })
+    } else if (state.viewMode === "pr" && prInfoPanelInstance) {
+      // PR overview (spec 041): mount the panel inline next to the tree.
+      content = Box(
+        {
+          id: "main-content-row",
+          width: "100%",
+          height: "100%",
+          flexDirection: "row",
+        },
+        prInfoPanelInstance.getContainer()
+      )
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })
     } else if (state.viewMode === "comments") {
@@ -304,22 +316,16 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       }
     }
 
-    // Add PR info panel overlay if open
-    const prInfoPanel = ctx.getPrInfoPanel()
-    if (state.prInfoPanel.open && prInfoPanel) {
-      if (!prInfoPanel.getContainer().parent) {
-        ctx.renderer.root.add(prInfoPanel.getContainer())
-      }
-      // Update comment input overlay
-      prInfoPanel.updateCommentInput(
+    // Keep the PR-level comment input overlay (a modal *inside* the PR
+    // panel) in sync whenever the panel exists — it renders itself only
+    // when `commentInputOpen` is true.
+    if (prInfoPanelInstance) {
+      prInfoPanelInstance.updateCommentInput(
         state.prInfoPanel.commentInputOpen,
         state.prInfoPanel.commentInputText,
         state.prInfoPanel.commentInputLoading,
         state.prInfoPanel.commentInputError
       )
-    } else if (prInfoPanel && prInfoPanel.getContainer().parent) {
-      prInfoPanel.destroy()
-      ctx.setPrInfoPanel(null)
     }
   }
 }
