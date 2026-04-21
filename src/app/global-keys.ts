@@ -177,39 +177,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
-    // ========== PR INFO PANEL (captures all input when open) ==========
-    if (
-      prInfoPanelFeature.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: ctx.getPrInfoPanel,
-        onJumpToFile: (filename) => {
-          // Jump to file by filename
-          const state = ctx.getState()
-          const fileIndex = state.files.findIndex((f) => f.filename === filename)
-          if (fileIndex !== -1) {
-            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
-          }
-        },
-        onJumpToLocation: (filename, line) => {
-          // Jump to file:line (for code comments)
-          const state = ctx.getState()
-          const fileIndex = state.files.findIndex((f) => f.filename === filename)
-          if (fileIndex !== -1) {
-            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
-            // TODO: Also scroll to the specific line
-          }
-        },
-        onActivateCommit: (sha) => {
-          // Activate commit (set viewing commit)
-          ctx.onCommitSelected(sha)
-        },
-      })
-    ) {
-      return
-    }
-
     // ========== SYNC PREVIEW (captures all input when open) ==========
     if (
       syncPreview.handleInput(key, {
@@ -251,6 +218,40 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         state: ctx.getState(),
         setState: ctx.setState,
         render: ctx.render,
+      })
+    ) {
+      return
+    }
+
+    // ========== PR INFO PANEL (captures input while viewing PR overview) ==========
+    // Runs after all modal overlays so they get first crack at keys like 1/2/3.
+    if (
+      prInfoPanelFeature.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        getPanel: ctx.getPrInfoPanel,
+        onJumpToFile: (filename) => {
+          // Jump to file by filename
+          const state = ctx.getState()
+          const fileIndex = state.files.findIndex((f) => f.filename === filename)
+          if (fileIndex !== -1) {
+            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
+          }
+        },
+        onJumpToLocation: (filename, line) => {
+          // Jump to file:line (for code comments)
+          const state = ctx.getState()
+          const fileIndex = state.files.findIndex((f) => f.filename === filename)
+          if (fileIndex !== -1) {
+            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
+            // TODO: Also scroll to the specific line
+          }
+        },
+        onActivateCommit: (sha) => {
+          // Activate commit (set viewing commit)
+          ctx.onCommitSelected(sha)
+        },
       })
     ) {
       return
