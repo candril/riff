@@ -336,6 +336,13 @@ export const actions: Action[] = [
     category: "github",
     available: (state) => state.viewMode === "comments" && state.comments.length > 0,
   },
+  {
+    id: "react",
+    label: "React…",
+    description: "Add or remove a reaction on the focused comment",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.reactionTarget !== null,
+  },
 
   // View
   {

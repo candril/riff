@@ -17,7 +17,10 @@ import {
   clearToast,
   toggleShowHiddenFiles,
   openCommentsSearch,
+  openActionSubmenu,
+  getReactionsForTarget,
 } from "../../state"
+import { REACTION_META } from "../../types"
 
 /**
  * Handlers that the action executor needs access to.
@@ -225,5 +228,60 @@ export async function executeAction(
     case "claude-discard-drafted-comment":
       await handlers.handleDiscardDraftedComment()
       break
+
+    case "react": {
+      // Open the react submenu rather than executing — the palette stays
+      // open and the selected row's Enter handler fires the toggle.
+      const target = state.reactionTarget
+      if (!target) break
+      setState((s) =>
+        openActionSubmenu(s, {
+          kind: "react",
+          target,
+          title: reactSubmenuTitle(s),
+        })
+      )
+      render()
+      break
+    }
   }
+}
+
+/**
+ * Build the submenu title for the React… submenu. Surfaces what the user is
+ * about to react on so they're not toggling into the void.
+ */
+function reactSubmenuTitle(state: AppState): string {
+  const target = state.reactionTarget
+  if (!target) return "React"
+  switch (target.kind) {
+    case "review-comment": {
+      const c = state.comments.find(c => c.githubId === target.githubId)
+      if (!c) return "React"
+      const author = c.author ? `@${c.author}` : ""
+      const where = `${c.filename}:${c.line}`
+      return author ? `React on ${where} (${author})` : `React on ${where}`
+    }
+    case "issue-comment": {
+      const c = state.prInfo?.conversationComments?.find(c => c.id === target.githubId)
+      const author = c?.author ? ` (@${c.author})` : ""
+      return `React on conversation comment${author}`
+    }
+    case "review": {
+      const r = state.prInfo?.reviews?.find(r => r.databaseId === target.reviewId)
+      const author = r?.author ? ` (@${r.author})` : ""
+      return `React on review${author}`
+    }
+    case "issue":
+      return `React on PR #${target.prNumber}`
+  }
+}
+
+/** Small helper exported for tests/debugging: describe the current
+ * reaction set as a tiny comma-separated string. Not used at runtime yet. */
+export function describeReactions(state: AppState): string {
+  const t = state.reactionTarget
+  if (!t) return ""
+  const rs = getReactionsForTarget(state, t)
+  return rs.map(r => `${REACTION_META[r.content].emoji}${r.count}`).join(" ")
 }

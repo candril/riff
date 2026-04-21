@@ -10,12 +10,16 @@ import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import type { Comment } from "../types"
 import { groupIntoThreads } from "../utils/threads"
+import { ReactionRow } from "./ReactionRow"
 
 export interface ThreadPreviewProps {
   comments: Comment[]
   filename: string
   line: number
   renderer: CliRenderer
+  /** Index in `comments` of the focused entry — drives the React… palette
+   *  action target and the visual focus marker (spec 042). */
+  focusedIndex: number
 }
 
 // Shared syntax style for markdown rendering (lazy init)
@@ -84,9 +88,20 @@ function formatTimeAgo(isoDate: string): string {
   return date.toLocaleDateString([], { month: "short", day: "numeric" })
 }
 
-export function ThreadPreview({ comments, filename, line, renderer }: ThreadPreviewProps) {
+export function ThreadPreview({ comments, filename, line, renderer, focusedIndex }: ThreadPreviewProps) {
   const threads = groupIntoThreads(comments)
   const shortFilename = filename.split("/").pop() || filename
+
+  // Precompute visual index for each comment so the focus marker survives
+  // thread grouping. Grouping is shallow (flat list across one thread in
+  // practice), so this is just a lookup into `comments`.
+  const visualIndexById = new Map<string, number>()
+  let i = 0
+  for (const thread of threads) {
+    for (const c of thread.comments) {
+      visualIndexById.set(c.id, i++)
+    }
+  }
 
   return Box(
     {
@@ -120,7 +135,7 @@ export function ThreadPreview({ comments, filename, line, renderer }: ThreadPrev
           backgroundColor: theme.mantle,
         },
         Text({ content: `${shortFilename}:${line}`, fg: theme.text }),
-        Text({ content: "Esc/Enter to close", fg: theme.overlay0 })
+        Text({ content: "j/k · Ctrl+p React · Esc close", fg: theme.overlay0 })
       ),
 
       // Thread comments
@@ -137,15 +152,20 @@ export function ThreadPreview({ comments, filename, line, renderer }: ThreadPrev
             const author = comment.author || "you"
             const statusColor = getStatusColor(comment.status)
             const connector = isRoot ? "" : "\u2514 "
+            const isFocused = visualIndexById.get(comment.id) === focusedIndex
 
             return Box(
               {
                 flexDirection: "column",
                 paddingLeft: isRoot ? 0 : 2,
               },
-              // Header row: connector + author + time + status
+              // Header row: focus marker + connector + author + time + status
               Box(
                 { flexDirection: "row" },
+                Text({
+                  content: isFocused ? "\u25B8 " : "  ",
+                  fg: isFocused ? theme.yellow : colors.textDim,
+                }),
                 !isRoot
                   ? Text({ content: connector, fg: colors.textDim })
                   : null,
@@ -166,6 +186,13 @@ export function ThreadPreview({ comments, filename, line, renderer }: ThreadPrev
                   content: comment.localEdit ?? comment.body,
                   syntaxStyle: getSyntaxStyle(),
                 })
+              ),
+              // Reactions row (spec 042). Hidden when empty.
+              Box(
+                {
+                  paddingLeft: isRoot ? 2 : 4,
+                },
+                ReactionRow({ reactions: comment.reactions })
               )
             )
           })

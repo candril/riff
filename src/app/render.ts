@@ -40,6 +40,8 @@ import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
+import { getSubmenuRows } from "../features/action-menu"
+import type { ActionMenuMode } from "../components"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -192,6 +194,13 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       ? fuzzyFilter(state.actionMenu.query, availableActions, (a) => [a.label, a.id, a.description])
       : availableActions
 
+    // Resolve the palette's render mode. In submenu mode we swap out the
+    // action list for the submenu rows (already filtered by query inside
+    // getSubmenuRows).
+    const actionMenuMode: ActionMenuMode = state.actionMenu.submenu
+      ? { kind: "submenu", title: state.actionMenu.submenu.title, rows: getSubmenuRows(state) }
+      : { kind: "actions", actions: filteredActions }
+
     // Get filtered files for file picker
     const filteredFiles = filePicker.getFilteredFiles(state)
 
@@ -243,7 +252,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.actionMenu.open
           ? ActionMenu({
               query: state.actionMenu.query,
-              actions: filteredActions,
+              mode: actionMenuMode,
               selectedIndex: state.actionMenu.selectedIndex,
             })
           : null,
@@ -277,6 +286,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               filename: state.threadPreview.filename,
               line: state.threadPreview.line,
               renderer: ctx.renderer,
+              focusedIndex: state.threadPreview.focusedIndex,
             })
           : null,
         state.filePicker.open

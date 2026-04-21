@@ -4,6 +4,7 @@ export {
   type ResolvedAction,
   type ActionCategory,
   type ActionMenuState,
+  type ActionSubmenu,
   createActionMenuState,
   resolveActionLabel,
 } from "./types"

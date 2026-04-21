@@ -42,6 +42,9 @@ import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
 import * as prOperations from "./features/pr-operations"
 import * as refresh from "./features/refresh"
+import * as reactions from "./features/reactions"
+import { reactionContentFromRowId } from "./features/action-menu"
+import type { ReactionTarget } from "./types"
 
 // Vim navigation imports
 import type { VimCursorState } from "./vim-diff/types"
@@ -716,6 +719,23 @@ export async function createApp(options: AppOptions = {}) {
     })
   }
 
+  // Bridges the React… submenu's Enter key to the reaction toggle handler
+  // (spec 042). Called from the action-menu input handler after the
+  // palette has closed.
+  async function handleToggleReaction(target: ReactionTarget, rowId: string) {
+    const content = reactionContentFromRowId(rowId)
+    if (!content) return
+    await reactions.toggleReaction(
+      {
+        getState: () => state,
+        setState: (fn) => { state = fn(state) },
+        render,
+      },
+      target,
+      content,
+    )
+  }
+
   // ===== COMMIT SELECTION =====
   async function handleCommitSelected(sha: string | null) {
     if (sha === null) {
@@ -796,6 +816,7 @@ export async function createApp(options: AppOptions = {}) {
     updateFileTreePanel,
     handleExpandDivider,
     executeAction,
+    onToggleReaction: handleToggleReaction,
     onCommitSelected: handleCommitSelected,
     foldsContext,
     fileNavContext,

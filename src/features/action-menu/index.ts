@@ -9,6 +9,7 @@
 
 export { handleInput, type ActionMenuInputContext } from "./input"
 export { executeAction, type ActionHandlers, type ExecuteContext } from "./execute"
+export { getSubmenuRows, reactionContentFromRowId } from "./submenu"
 
 // Re-export state operations that callers might need
 export { openActionMenu, closeActionMenu } from "../../state"

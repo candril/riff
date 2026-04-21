@@ -1,8 +1,8 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
-import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats } from "./types"
+import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
-import { type ActionMenuState, createActionMenuState } from "./actions"
+import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
 import type { IgnoreMatcher } from "./utils/ignore"
 
@@ -108,6 +108,9 @@ export interface ThreadPreviewState {
   filename: string
   /** Line number in the file */
   line: number
+  /** Index of the comment currently focused for reactions (spec 042).
+   *  Bounded to [0, comments.length-1]. */
+  focusedIndex: number
 }
 
 /**
@@ -259,6 +262,12 @@ export interface AppState {
   // action menu). Captures the full draft so the dialog can render the
   // body and re-post it on approval without another disk read.
   draftReview: DraftReviewDialogState | null
+
+  // What the palette's "React…" action targets right now (spec 042).
+  // Views set this when they focus a reactable item (e.g. ThreadPreview's
+  // focused comment) and clear it when they're dismissed. Null means the
+  // React action is not available in this context.
+  reactionTarget: ReactionTarget | null
 }
 
 /**
@@ -418,6 +427,7 @@ export function createInitialState(
       comments: [],
       filename: "",
       line: 0,
+      focusedIndex: 0,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -434,6 +444,7 @@ export function createInitialState(
     confirmDialog: null,
     draftNotification: null,
     draftReview: null,
+    reactionTarget: null,
   }
 }
 
@@ -1075,6 +1086,7 @@ export function openActionMenu(state: AppState): AppState {
       open: true,
       query: "",
       selectedIndex: 0,
+      submenu: null,
     },
   }
 }
@@ -1088,6 +1100,40 @@ export function closeActionMenu(state: AppState): AppState {
     actionMenu: {
       ...state.actionMenu,
       open: false,
+      query: "",
+      selectedIndex: 0,
+      submenu: null,
+    },
+  }
+}
+
+/**
+ * Swap the palette into a submenu. Resets query + selection so fuzzy
+ * matching and up/down start fresh inside the new context (spec 042).
+ */
+export function openActionSubmenu(state: AppState, submenu: ActionSubmenu): AppState {
+  return {
+    ...state,
+    actionMenu: {
+      ...state.actionMenu,
+      submenu,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+/**
+ * Back out of a submenu to the main action list. Query/selection reset
+ * so the user doesn't see a filter they didn't type.
+ */
+export function closeActionSubmenu(state: AppState): AppState {
+  if (state.actionMenu.submenu === null) return state
+  return {
+    ...state,
+    actionMenu: {
+      ...state.actionMenu,
+      submenu: null,
       query: "",
       selectedIndex: 0,
     },
@@ -1875,7 +1921,11 @@ export function setPRCommentInputError(state: AppState, error: string | null): A
 // ============================================================================
 
 /**
- * Open the thread preview for a specific line's comments
+ * Open the thread preview for a specific line's comments.
+ *
+ * Also points `reactionTarget` at the root comment so the palette's
+ * "React…" action becomes available immediately (spec 042). We pick the
+ * first comment in the thread — callers hand us comments in thread order.
  */
 export function openThreadPreview(
   state: AppState,
@@ -1883,6 +1933,10 @@ export function openThreadPreview(
   filename: string,
   line: number
 ): AppState {
+  const focused = comments[0]
+  const reactionTarget = focused?.githubId
+    ? ({ kind: "review-comment" as const, githubId: focused.githubId })
+    : null
   return {
     ...state,
     threadPreview: {
@@ -1890,12 +1944,15 @@ export function openThreadPreview(
       comments,
       filename,
       line,
+      focusedIndex: 0,
     },
+    reactionTarget,
   }
 }
 
 /**
- * Close the thread preview
+ * Close the thread preview. Clears the reaction target so the "React…"
+ * palette entry disappears while no thread is visible (spec 042).
  */
 export function closeThreadPreview(state: AppState): AppState {
   return {
@@ -1904,6 +1961,28 @@ export function closeThreadPreview(state: AppState): AppState {
       ...state.threadPreview,
       open: false,
     },
+    reactionTarget: null,
+  }
+}
+
+/**
+ * Move the thread-preview focus up or down (j/k). Keeps the reaction
+ * target in sync so `Ctrl+p` → React… targets whichever comment is
+ * visually focused. No-op for local-only comments (no githubId yet).
+ */
+export function moveThreadPreviewFocus(state: AppState, delta: number): AppState {
+  const tp = state.threadPreview
+  if (!tp.open || tp.comments.length === 0) return state
+  const nextIndex = Math.max(0, Math.min(tp.comments.length - 1, tp.focusedIndex + delta))
+  if (nextIndex === tp.focusedIndex) return state
+  const focused = tp.comments[nextIndex]
+  const reactionTarget = focused?.githubId
+    ? ({ kind: "review-comment" as const, githubId: focused.githubId })
+    : null
+  return {
+    ...state,
+    threadPreview: { ...tp, focusedIndex: nextIndex },
+    reactionTarget,
   }
 }
 
@@ -2018,5 +2097,153 @@ export function setViewingCommit(
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     expandedDividers: new Set(),
+  }
+}
+
+// ============================================================================
+// Reactions (spec 042)
+// ============================================================================
+
+/**
+ * Declare what the palette's "React…" action should act on. Called by views
+ * whenever their focused reactable item changes.
+ */
+export function setReactionTarget(state: AppState, target: ReactionTarget | null): AppState {
+  // Identity check to avoid pointless re-renders when a view re-declares
+  // the same target on every focus/hover tick.
+  const cur = state.reactionTarget
+  if (cur === target) return state
+  if (cur && target && reactionTargetsEqual(cur, target)) return state
+  return { ...state, reactionTarget: target }
+}
+
+function reactionTargetsEqual(a: ReactionTarget, b: ReactionTarget): boolean {
+  if (a.kind !== b.kind) return false
+  switch (a.kind) {
+    case "review-comment":
+    case "issue-comment":
+      return a.githubId === (b as typeof a).githubId
+    case "review":
+      return a.reviewId === (b as typeof a).reviewId && a.prNumber === (b as typeof a).prNumber
+    case "issue":
+      return a.prNumber === (b as typeof a).prNumber
+  }
+}
+
+/**
+ * Apply a reaction toggle to a target, optimistically or to reflect a
+ * server response. The toggle handler calls this twice: first optimistically
+ * with `wasReacted` = the *previous* viewerHasReacted value, then again (to
+ * invert) if the network call fails.
+ *
+ * `reactionId` is only meaningful when adding — carry it into state so a
+ * subsequent remove doesn't need an extra GET to find the viewer's reaction
+ * id.
+ */
+export function applyReactionToggle(
+  state: AppState,
+  target: ReactionTarget,
+  content: ReactionContent,
+  nextReacted: boolean,
+  reactionId: number | undefined,
+): AppState {
+  const mutate = (existing: ReactionSummary[] | undefined): ReactionSummary[] => {
+    const list = existing ? [...existing] : []
+    const idx = list.findIndex(r => r.content === content)
+    if (idx === -1) {
+      // No existing entry — add one if we're transitioning to "reacted".
+      if (!nextReacted) return list
+      list.push({ content, count: 1, viewerHasReacted: true, viewerReactionId: reactionId })
+      return list
+    }
+    const cur = list[idx]!
+    const wasReacted = cur.viewerHasReacted
+    if (wasReacted === nextReacted) {
+      // No change in viewer state; still honor an incoming reactionId so
+      // a remove after the add has it cached.
+      if (reactionId !== undefined) {
+        list[idx] = { ...cur, viewerReactionId: reactionId }
+      }
+      return list
+    }
+    const delta = nextReacted ? 1 : -1
+    const nextCount = Math.max(0, cur.count + delta)
+    if (nextCount === 0 && !nextReacted) {
+      list.splice(idx, 1)
+      return list
+    }
+    list[idx] = {
+      ...cur,
+      count: nextCount,
+      viewerHasReacted: nextReacted,
+      viewerReactionId: nextReacted ? reactionId : undefined,
+    }
+    return list
+  }
+
+  switch (target.kind) {
+    case "review-comment": {
+      const comments = state.comments.map(c =>
+        c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
+      )
+      // The thread preview holds a snapshot of its comments (not a live
+      // projection of state.comments), so we have to flow the update
+      // through both arrays or the ReactionRow inside the modal goes stale.
+      const tp = state.threadPreview
+      const nextTp = tp.open
+        ? {
+            ...tp,
+            comments: tp.comments.map(c =>
+              c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
+            ),
+          }
+        : tp
+      return { ...state, comments, threadPreview: nextTp }
+    }
+    case "issue-comment": {
+      if (!state.prInfo?.conversationComments) return state
+      const next = state.prInfo.conversationComments.map(c =>
+        c.id === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
+      )
+      return { ...state, prInfo: { ...state.prInfo, conversationComments: next } }
+    }
+    case "review": {
+      if (!state.prInfo?.reviews) return state
+      const next = state.prInfo.reviews.map(r =>
+        r.databaseId === target.reviewId ? { ...r, reactions: mutate(r.reactions) } : r
+      )
+      return { ...state, prInfo: { ...state.prInfo, reviews: next } }
+    }
+    case "issue": {
+      if (!state.prInfo) return state
+      return {
+        ...state,
+        prInfo: { ...state.prInfo, bodyReactions: mutate(state.prInfo.bodyReactions) },
+      }
+    }
+  }
+}
+
+/**
+ * Look up the current reaction list for a target (so the submenu can
+ * render counts + "you reacted" tags). Returns [] when the target can't
+ * be found (stale after a refresh race, for example).
+ */
+export function getReactionsForTarget(state: AppState, target: ReactionTarget): ReactionSummary[] {
+  switch (target.kind) {
+    case "review-comment": {
+      const comment = state.comments.find(c => c.githubId === target.githubId)
+      return comment?.reactions ?? []
+    }
+    case "issue-comment": {
+      const c = state.prInfo?.conversationComments?.find(c => c.id === target.githubId)
+      return c?.reactions ?? []
+    }
+    case "review": {
+      const r = state.prInfo?.reviews?.find(r => r.databaseId === target.reviewId)
+      return r?.reactions ?? []
+    }
+    case "issue":
+      return state.prInfo?.bodyReactions ?? []
   }
 }

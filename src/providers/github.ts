@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
-import type { Comment, ReviewSession } from "../types"
+import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
+import { REACTION_CONTENT } from "../types"
 
 // ============================================================================
 // Helpers
@@ -69,6 +70,7 @@ export interface PrInfo {
   requestedReviewers?: string[]
   conversationComments?: PrConversationComment[]
   checks?: PrCheck[]
+  bodyReactions?: ReactionSummary[]
 }
 
 export interface PrCommit {
@@ -86,6 +88,7 @@ export interface PrReview {
   body?: string  // Review summary comment
   submittedAt?: string
   url?: string
+  reactions?: ReactionSummary[]
 }
 
 /**
@@ -113,6 +116,7 @@ export interface PrConversationComment {
   updatedAt: string
   url: string
   isBot: boolean
+  reactions?: ReactionSummary[]
 }
 
 export interface PrComment {
@@ -130,10 +134,13 @@ export interface PrComment {
   // Thread info
   inReplyToId?: number
   threadId?: number
-  
+
   // GraphQL thread info (for resolution)
   graphqlThreadId?: string  // node_id for GraphQL API
   isThreadResolved?: boolean
+
+  // Reactions from GraphQL reactionGroups (spec 042)
+  reactions?: ReactionSummary[]
 }
 
 /**
@@ -517,7 +524,41 @@ export async function getPrHeadSha(
 }
 
 /**
- * Thread info from GraphQL (for resolution state)
+ * Raw reactionGroups node as returned by GitHub GraphQL.
+ */
+interface RawReactionGroup {
+  content: string
+  viewerHasReacted: boolean
+  reactors: { totalCount: number }
+}
+
+/**
+ * Convert GitHub's GraphQL reactionGroups array into riff's ReactionSummary[].
+ * Drops unknown content values (future GitHub additions) and zero-count groups
+ * — the palette submenu fabricates rows for the full 8-reaction set anyway,
+ * so we only carry non-empty state.
+ */
+function parseReactionGroups(groups: RawReactionGroup[] | undefined): ReactionSummary[] {
+  if (!groups) return []
+  const known = new Set<string>(REACTION_CONTENT)
+  const out: ReactionSummary[] = []
+  for (const g of groups) {
+    if (!known.has(g.content)) continue
+    const count = g.reactors?.totalCount ?? 0
+    if (count === 0 && !g.viewerHasReacted) continue
+    out.push({
+      content: g.content as ReactionContent,
+      count,
+      viewerHasReacted: Boolean(g.viewerHasReacted),
+    })
+  }
+  return out
+}
+
+/**
+ * Thread info from GraphQL (for resolution state + reactions).
+ * We pull every comment in the thread (not just the root) so reactions can
+ * be attached to replies too (spec 042).
  */
 interface GraphQLThreadInfo {
   id: string  // node_id for GraphQL mutations
@@ -525,12 +566,15 @@ interface GraphQLThreadInfo {
   path: string
   line: number | null
   comments: {
-    nodes: Array<{ databaseId: number }>
+    nodes: Array<{
+      databaseId: number
+      reactionGroups?: RawReactionGroup[]
+    }>
   }
 }
 
 /**
- * Fetch PR review threads via GraphQL (includes resolution state)
+ * Fetch PR review threads via GraphQL (includes resolution state + reactions)
  */
 async function getPrReviewThreads(
   owner: string,
@@ -547,9 +591,14 @@ async function getPrReviewThreads(
               isResolved
               path
               line
-              comments(first: 1) {
+              comments(first: 50) {
                 nodes {
                   databaseId
+                  reactionGroups {
+                    content
+                    viewerHasReacted
+                    reactors(first: 0) { totalCount }
+                  }
                 }
               }
             }
@@ -558,13 +607,101 @@ async function getPrReviewThreads(
       }
     }
   `
-  
+
   try {
     const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
     return result?.data?.repository?.pullRequest?.reviewThreads?.nodes || []
   } catch {
     // Fall back gracefully if GraphQL fails
     return []
+  }
+}
+
+/**
+ * Reactions for the PR-info-panel surfaces (spec 042). Fetched in a single
+ * GraphQL round-trip so we can attach them to PrInfo.bodyReactions,
+ * conversationComments[].reactions, and reviews[].reactions without
+ * round-tripping each surface separately.
+ */
+export interface PrMetaReactions {
+  body: ReactionSummary[]
+  issueCommentsById: Map<number, ReactionSummary[]>
+  reviewsByDatabaseId: Map<number, ReactionSummary[]>
+}
+
+/**
+ * Fetch reactions for the PR body, issue (conversation) comments, and
+ * review summaries. REST responses for these entities include aggregated
+ * counts but not `viewerHasReacted`, so GraphQL is the only viable source.
+ * Failure degrades gracefully to an empty bundle — reactions are additive.
+ */
+export async function fetchPrMetaReactions(
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<PrMetaReactions> {
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          reactionGroups {
+            content
+            viewerHasReacted
+            reactors(first: 0) { totalCount }
+          }
+          comments(first: 100) {
+            nodes {
+              databaseId
+              reactionGroups {
+                content
+                viewerHasReacted
+                reactors(first: 0) { totalCount }
+              }
+            }
+          }
+          reviews(first: 100) {
+            nodes {
+              databaseId
+              reactionGroups {
+                content
+                viewerHasReacted
+                reactors(first: 0) { totalCount }
+              }
+            }
+          }
+        }
+      }
+    }
+  `
+
+  const empty: PrMetaReactions = {
+    body: [],
+    issueCommentsById: new Map(),
+    reviewsByDatabaseId: new Map(),
+  }
+
+  try {
+    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    const pr = result?.data?.repository?.pullRequest
+    if (!pr) return empty
+
+    const body = parseReactionGroups(pr.reactionGroups)
+    const issueCommentsById = new Map<number, ReactionSummary[]>()
+    for (const node of pr.comments?.nodes ?? []) {
+      if (node.databaseId) {
+        issueCommentsById.set(node.databaseId, parseReactionGroups(node.reactionGroups))
+      }
+    }
+    const reviewsByDatabaseId = new Map<number, ReactionSummary[]>()
+    for (const node of pr.reviews?.nodes ?? []) {
+      if (node.databaseId) {
+        reviewsByDatabaseId.set(node.databaseId, parseReactionGroups(node.reactionGroups))
+      }
+    }
+
+    return { body, issueCommentsById, reviewsByDatabaseId }
+  } catch {
+    return empty
   }
 }
 
@@ -586,10 +723,19 @@ export async function getPrComments(
     
     // Build a map from first comment ID to thread info
     const threadByFirstCommentId = new Map<number, GraphQLThreadInfo>()
+    // Reactions by comment databaseId — every comment in every thread, not
+    // just roots (spec 042).
+    const reactionsByCommentId = new Map<number, ReactionSummary[]>()
     for (const thread of threads) {
-      const firstCommentId = thread.comments?.nodes?.[0]?.databaseId
+      const nodes = thread.comments?.nodes ?? []
+      const firstCommentId = nodes[0]?.databaseId
       if (firstCommentId) {
         threadByFirstCommentId.set(firstCommentId, thread)
+      }
+      for (const node of nodes) {
+        if (node.databaseId) {
+          reactionsByCommentId.set(node.databaseId, parseReactionGroups(node.reactionGroups))
+        }
       }
     }
 
@@ -598,7 +744,7 @@ export async function getPrComments(
       // Find thread info for this comment
       // If this is a root comment (no in_reply_to_id), check if it's in our map
       const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
-      
+
       return {
         id: c.id,
         body: c.body,
@@ -616,6 +762,7 @@ export async function getPrComments(
         // GraphQL thread info (only available on root comments)
         graphqlThreadId: thread?.id,
         isThreadResolved: thread?.isResolved,
+        reactions: reactionsByCommentId.get(c.id) ?? [],
       }
     })
 
@@ -694,6 +841,7 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
     isThreadResolved: c.isThreadResolved, // Thread resolution state (only on root comments)
     author: c.author, // Preserve original author
     inReplyTo: c.inReplyToId ? `gh-${c.inReplyToId}` : undefined,
+    reactions: c.reactions,
   }
 }
 
@@ -1141,6 +1289,101 @@ export async function submitReview(
       success: false,
       error: extractShellError(err),
     }
+  }
+}
+
+// ============================================================================
+// Reactions (spec 042)
+// ============================================================================
+
+export interface AddReactionResult {
+  success: boolean
+  reactionId?: number
+  error?: string
+}
+
+export interface RemoveReactionResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Build the REST path for a reaction target. All four reactable surfaces
+ * mount reactions at `<target>/reactions`; POST creates, DELETE at
+ * `<target>/reactions/<id>` removes.
+ */
+function reactionPath(
+  target: ReactionTarget,
+  owner: string,
+  repo: string,
+): string {
+  switch (target.kind) {
+    case "review-comment":
+      return `repos/${owner}/${repo}/pulls/comments/${target.githubId}/reactions`
+    case "issue-comment":
+      return `repos/${owner}/${repo}/issues/comments/${target.githubId}/reactions`
+    case "review":
+      return `repos/${owner}/${repo}/pulls/${target.prNumber}/reviews/${target.reviewId}/reactions`
+    case "issue":
+      return `repos/${owner}/${repo}/issues/${target.prNumber}/reactions`
+  }
+}
+
+/**
+ * Add a reaction to a PR-side entity. Returns the new reaction's REST id
+ * so callers can stash it for fast removal later (spec 042).
+ */
+export async function addReaction(
+  target: ReactionTarget,
+  content: ReactionContent,
+  owner: string,
+  repo: string,
+): Promise<AddReactionResult> {
+  try {
+    const path = reactionPath(target, owner, repo)
+    const result = await $`gh api -X POST ${path} -f content=${content}`.json() as { id: number }
+    return { success: true, reactionId: result.id }
+  } catch (err) {
+    return { success: false, error: extractShellError(err) }
+  }
+}
+
+/**
+ * Remove a reaction. If `reactionId` is known (e.g. stashed from a prior
+ * add in this session), we DELETE it directly. If it isn't — the viewer
+ * reacted before riff was loaded and we only know they reacted, not the
+ * reaction id — list the reactions on the target, find the viewer's, and
+ * delete that one. Two round-trips for this rarer case.
+ */
+export async function removeReaction(
+  target: ReactionTarget,
+  content: ReactionContent,
+  owner: string,
+  repo: string,
+  reactionId: number | undefined,
+): Promise<RemoveReactionResult> {
+  try {
+    const basePath = reactionPath(target, owner, repo)
+    let id = reactionId
+    if (id === undefined) {
+      const currentUser = await getCurrentUser()
+      const reactions = await $`gh api --paginate ${basePath}?content=${content}`.json() as Array<{
+        id: number
+        content: string
+        user?: { login?: string }
+      }>
+      const mine = reactions.find(r => r.content === content && r.user?.login === currentUser)
+      if (!mine) {
+        // Nothing to delete — treat as success so the optimistic UI
+        // stays consistent with the real server state.
+        return { success: true }
+      }
+      id = mine.id
+    }
+    await $`gh api -X DELETE ${basePath}/${id}`.quiet()
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: extractShellError(err) }
   }
 }
 

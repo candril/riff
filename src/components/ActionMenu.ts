@@ -2,17 +2,47 @@ import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { ResolvedAction } from "../actions"
 
+/**
+ * A row in a submenu (e.g. the React… submenu). Rendered flat, without
+ * category headers, and with per-row trailing metadata (count, "you
+ * reacted"). Each submenu kind is responsible for building these rows
+ * before passing them in.
+ */
+export interface SubmenuRow {
+  /** Stable identifier used by input handling */
+  id: string
+  /** Leading glyph (emoji for reactions) */
+  icon?: string
+  /** Primary label, left-aligned */
+  label: string
+  /** Trailing text, right-aligned (count, hint) */
+  trailing?: string
+  /** When true, render with the "viewer already acted" accent */
+  accented?: boolean
+}
+
+export type ActionMenuMode =
+  | { kind: "actions"; actions: ResolvedAction[] }
+  | { kind: "submenu"; title: string; hint?: string; rows: SubmenuRow[] }
+
 export interface ActionMenuProps {
   query: string
-  actions: ResolvedAction[]
   selectedIndex: number
+  mode: ActionMenuMode
 }
 
 /**
  * Action menu overlay (command palette)
- * Styled similar to OpenCode's command menu
+ * Styled similar to OpenCode's command menu. Supports a "submenu" mode
+ * (spec 042) that replaces the action list with a flat, titled row set
+ * while the palette stays open.
  */
-export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
+export function ActionMenu({ query, selectedIndex, mode }: ActionMenuProps) {
+  const headerLabel = mode.kind === "submenu" ? mode.title : "Commands"
+  const headerHint = mode.kind === "submenu"
+    ? (mode.hint ?? "esc to back")
+    : "esc"
+
   return Box(
     {
       id: "action-menu-overlay",
@@ -21,6 +51,9 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
       position: "absolute",
       top: 0,
       left: 0,
+      // Sits above other modal overlays (ThreadPreview uses 50) so the
+      // palette is reachable while a thread is visible (spec 042).
+      zIndex: 100,
     },
     // Dim background overlay
     Box({
@@ -41,20 +74,20 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
         flexDirection: "column",
         backgroundColor: theme.mantle,
       },
-      // Header row: Commands + esc
+      // Header row: title + esc hint
       Box(
-        { 
+        {
           flexDirection: "row",
           justifyContent: "space-between",
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ content: "Commands", fg: theme.subtext0 }),
-        Text({ content: "esc", fg: theme.overlay0 })
+        Text({ content: headerLabel, fg: theme.subtext0 }),
+        Text({ content: headerHint, fg: theme.overlay0 })
       ),
       // Search input (cursor positioned via postProcess in app.ts)
       Box(
-        { 
+        {
           id: "action-menu-search",
           flexDirection: "row",
           paddingX: 2,
@@ -64,15 +97,47 @@ export function ActionMenu({ query, actions, selectedIndex }: ActionMenuProps) {
           ? Text({ content: query, fg: theme.text })
           : Text({ content: "Search", fg: theme.overlay0 })
       ),
-      // Actions list
-      Box(
-        { 
-          flexDirection: "column",
-          paddingBottom: 1,
-        },
-        ...renderGroupedActions(actions, selectedIndex)
-      )
+      // List body
+      mode.kind === "actions"
+        ? Box(
+            {
+              flexDirection: "column",
+              paddingBottom: 1,
+            },
+            ...renderGroupedActions(mode.actions, selectedIndex)
+          )
+        : Box(
+            {
+              flexDirection: "column",
+              paddingBottom: 1,
+            },
+            ...mode.rows.map((row, i) =>
+              SubmenuRowView({ row, selected: i === selectedIndex })
+            )
+          )
     )
+  )
+}
+
+function SubmenuRowView({ row, selected }: { row: SubmenuRow; selected: boolean }) {
+  const bg = selected ? "#585b70" : undefined
+  const fg = selected ? theme.text : (row.accented ? theme.text : theme.subtext1)
+  const trailFg = row.accented ? theme.green : theme.overlay0
+
+  const leftLabel = row.icon ? `${row.icon}  ${row.label}` : row.label
+
+  return Box(
+    {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      backgroundColor: bg,
+      paddingX: 2,
+      width: "100%",
+    },
+    Text({ content: leftLabel, fg }),
+    row.trailing
+      ? Text({ content: row.trailing, fg: trailFg })
+      : null
   )
 }
 

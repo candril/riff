@@ -1,5 +1,6 @@
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
+import type { ReactionTarget } from "../types"
 
 /**
  * Action category for grouping in menu
@@ -49,6 +50,14 @@ export function resolveActionLabel(
 }
 
 /**
+ * Submenu modes that can temporarily replace the action list while the
+ * palette is open (spec 042). Today only reactions use this; new submenu
+ * kinds can be added as discriminated cases.
+ */
+export type ActionSubmenu =
+  | { kind: "react"; target: ReactionTarget; title: string }
+
+/**
  * Action menu state
  */
 export interface ActionMenuState {
@@ -58,6 +67,8 @@ export interface ActionMenuState {
   query: string
   /** Currently selected index */
   selectedIndex: number
+  /** Active submenu overlay (null = normal action list) */
+  submenu: ActionSubmenu | null
 }
 
 /**
@@ -68,5 +79,6 @@ export function createActionMenuState(): ActionMenuState {
     open: false,
     query: "",
     selectedIndex: 0,
+    submenu: null,
   }
 }

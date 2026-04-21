@@ -1,4 +1,53 @@
 /**
+ * GitHub reaction content values (spec 042).
+ */
+export const REACTION_CONTENT = [
+  "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes",
+] as const
+export type ReactionContent = typeof REACTION_CONTENT[number]
+
+/**
+ * Display metadata for each reaction. The label is what the command-palette
+ * submenu matches against for fuzzy search, so "rocket" matches 🚀,
+ * "thumbs" matches 👍/👎, etc.
+ */
+export const REACTION_META: Record<ReactionContent, { emoji: string; label: string }> = {
+  "+1":     { emoji: "👍", label: "Thumbs up" },
+  "-1":     { emoji: "👎", label: "Thumbs down" },
+  laugh:    { emoji: "😄", label: "Laugh" },
+  confused: { emoji: "😕", label: "Confused" },
+  heart:    { emoji: "❤️",  label: "Heart" },
+  hooray:   { emoji: "🎉", label: "Hooray" },
+  rocket:   { emoji: "🚀", label: "Rocket" },
+  eyes:     { emoji: "👀", label: "Eyes" },
+}
+
+/**
+ * Aggregated reaction state for a single content value on a single reactable
+ * item. `viewerReactionId` is only populated after an add through riff —
+ * GraphQL's `reactionGroups` gives us `viewerHasReacted` but not the
+ * per-reaction REST id. Without it, the remove path has to do a lookup
+ * (spec 042).
+ */
+export interface ReactionSummary {
+  content: ReactionContent
+  count: number
+  viewerHasReacted: boolean
+  viewerReactionId?: number
+}
+
+/**
+ * Identifies which GitHub entity a reaction targets. The action menu's
+ * "React…" submenu carries this so the toggle handler knows which REST
+ * endpoint to hit.
+ */
+export type ReactionTarget =
+  | { kind: "review-comment"; githubId: number }
+  | { kind: "issue-comment"; githubId: number }
+  | { kind: "review"; reviewId: number; prNumber: number }
+  | { kind: "issue"; prNumber: number }
+
+/**
  * A comment on a specific line in a diff.
  * Stored as individual markdown files with YAML frontmatter.
  */
@@ -13,7 +62,7 @@ export interface Comment {
 
   // Link to specific revision
   commit?: string // Git commit hash or jj change ID
-  
+
   // Code context - the diff hunk or line the comment refers to
   diffHunk?: string // Diff context from GitHub (or extracted locally)
 
@@ -25,7 +74,11 @@ export interface Comment {
   isThreadResolved?: boolean // Thread resolution state (only on root comments)
   author?: string // GitHub username (for others' comments)
   inReplyTo?: string // Parent comment ID for threads
-  
+
+  // Reactions (spec 042). Populated from GraphQL `reactionGroups` on PR load
+  // and updated optimistically during toggles. Undefined/empty = no reactions.
+  reactions?: ReactionSummary[]
+
   // Local edits to synced comments (body differs from what's on GitHub)
   // When set, this is the edited version; body contains the original GitHub version
   localEdit?: string

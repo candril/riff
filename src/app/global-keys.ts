@@ -37,6 +37,7 @@ import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
+import type { ReactionTarget } from "../types"
 
 export interface GlobalKeyContext {
   // State access
@@ -66,6 +67,9 @@ export interface GlobalKeyContext {
   updateFileTreePanel: () => void
   handleExpandDivider: () => Promise<boolean>
   executeAction: (id: string) => void
+  /** Toggle a reaction on a target — fired when the user presses Enter
+   *  on a React… submenu row (spec 042). */
+  onToggleReaction: (target: ReactionTarget, rowId: string) => void
   // Commit selection handler
   onCommitSelected: (sha: string | null) => void
   // Feature contexts (passed through for delegation)
@@ -145,6 +149,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         setState: ctx.setState,
         render: ctx.render,
         executeAction: ctx.executeAction,
+        onToggleReaction: ctx.onToggleReaction,
       })
     ) {
       return
