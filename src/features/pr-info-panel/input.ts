@@ -61,6 +61,10 @@ export interface PRInfoPanelInputContext {
   // panel even though the panel captures `r`/`o`/`y` standalone for its
   // own section-scoped semantics.
   executeAction?: (id: string) => void
+  // Push current location onto the jumplist before navigating away (spec
+  // 038). Called BEFORE closePRInfoPanel so the entry captures
+  // viewMode="pr" — otherwise back-jump can't return to the PR view.
+  recordJump?: () => void
 }
 
 /**
@@ -102,6 +106,14 @@ function handleInputInner(
 
   const panel = ctx.getPanel()
 
+  // Ctrl-modified keys never match the section-scoped letter handlers
+  // below — fall through so Ctrl-O (jumplist back), Ctrl-I (forward),
+  // Ctrl-P (palette), etc. reach the global handler. Without this guard
+  // Ctrl-O would hit `case "o":` and trigger "open in browser" (spec 038).
+  if (key.ctrl) {
+    return false
+  }
+
   // Resolve `g`-prefixed chords before the switch so the panel's standalone
   // `r`/`o`/`y` handlers (expand-section / open-focused / copy-focused)
   // don't swallow the chord key.
@@ -128,13 +140,13 @@ function handleInputInner(
 
   switch (key.name) {
     case "i":
-      // i toggles back to diff view (spec 041).
-      ctx.setState(closePRInfoPanel)
-      ctx.render()
-      return true
+      // Bare `i` toggles pr ↔ diff — let the global handler run
+      // toggleViewMode.
+      return false
 
     case "tab":
-      // Tab cycles pr → diff → comments (handled by global toggleViewMode).
+      // Tab now means jumplist forward (spec 038); falls through to the
+      // global handler.
       return false
 
     case "c":
@@ -269,6 +281,7 @@ function handleInputInner(
           case 'files': {
             const file = panel.getSelectedFile()
             if (file && ctx.onJumpToFile) {
+              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onJumpToFile(file.filename)
@@ -278,6 +291,7 @@ function handleInputInner(
           case 'commits': {
             const commit = panel.getSelectedCommit()
             if (commit && ctx.onActivateCommit) {
+              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onActivateCommit(commit.sha)
@@ -288,6 +302,7 @@ function handleInputInner(
             // Enter on conversation: jump to code location or open in browser
             const location = panel.getSelectedCommentLocation()
             if (location && ctx.onJumpToLocation) {
+              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onJumpToLocation(location.filename, location.line)
@@ -501,14 +516,11 @@ function handleInputInner(
 
   }
 
-  // Let truly global keys fall through (spec 041):
-  //  - q / escape (quit / toast-clear)
-  //  - Ctrl+P action menu, Ctrl+F file picker, Ctrl+B tree toggle,
-  //    Ctrl+E tree expand, Ctrl+L exit-tree, Ctrl+G file-path toast.
-  if (key.name === "q" || key.name === "escape") {
-    return false
-  }
-  if (key.ctrl && (key.name === "p" || key.name === "f" || key.name === "b" || key.name === "e" || key.name === "l" || key.name === "g")) {
+  // Let truly global keys fall through: q / escape (quit / toast-clear),
+  // `tab` for jumplist forward (spec 038; terminal input collapses Ctrl-I
+  // to Tab), and `i` for the global view-cycle. Ctrl-modified keys are
+  // already handled by the early-return at the top of this function.
+  if (key.name === "q" || key.name === "escape" || key.name === "tab" || key.name === "i") {
     return false
   }
 

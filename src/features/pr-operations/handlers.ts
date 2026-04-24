@@ -11,7 +11,6 @@ import type { PrInfo, SubmitResult } from "../../providers/github"
 import {
   showToast,
   clearToast,
-  getVisibleComments,
   setThreadResolved,
   closeReviewPreview,
   setReviewPreviewLoading,
@@ -19,7 +18,7 @@ import {
 } from "../../state"
 import { gatherSyncItems, type ValidatedComment } from "../../components"
 import { saveComment } from "../../storage"
-import { flattenThreadsForNav, groupIntoThreads, type Thread } from "../../utils/threads"
+import { type Thread } from "../../utils/threads"
 import {
   updateComment,
   submitReply,
@@ -176,28 +175,14 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
 }
 
 /**
- * Toggle the resolved state of the selected thread
+ * Toggle the resolved state of the given thread
  */
 export async function handleToggleThreadResolved(
   ctx: PrOperationsContext,
-  explicitThread?: Thread
+  thread: Thread
 ): Promise<void> {
   const state = ctx.getState()
 
-  let thread: Thread | undefined = explicitThread
-
-  if (!thread) {
-    // Fall back to currently-selected thread in comments view
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-    const selectedNav = navItems[state.selectedCommentIndex]
-    thread = selectedNav?.thread
-  }
-
-  if (!thread) {
-    return
-  }
   const rootComment = thread.comments[0]
   if (!rootComment) return
 

@@ -102,8 +102,19 @@ spec 010; that panel is retired.
 #### Motion between threads
 
 - `]r` / `[r` — jump cursor in the diff to the next / previous commented
-  line. Pushes a jumplist entry (see spec 038).
+  line **and open the inline thread overlay there**. Works from any line,
+  including lines without a comment — this is the keyboard entry point
+  for "open the comment view on this file" without first having to land
+  on a commented line. Pushes a jumplist entry (see spec 038).
 - `]R` / `[R` — like `]r`/`[r` but skipping resolved threads.
+- Within the overlay:
+  - `j` / `k` — moves the highlighted comment within the *current* thread.
+    Does **not** push a jumplist entry (no diff-cursor movement, no
+    file/line change).
+  - `Ctrl-n` / `Ctrl-p` — closes the current overlay and opens the
+    next / previous thread (cursor follows in the diff). Pushes a
+    jumplist entry — equivalent to `]r` / `[r` with the overlay already
+    open.
 
 #### Retirement of comments-view panel
 

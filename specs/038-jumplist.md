@@ -30,6 +30,12 @@ do not produce jumps.
   - Search match jump (`/`, `n`, `N`)
   - PR-info-panel "jump to file" and "jump to file:line"
   - Thread preview → open-in-diff
+  - `]r` / `[r` and `]R` / `[R` thread motion (spec 039 — note these
+    *also* open the inline comment overlay at the destination)
+  - Cross-thread navigation while the inline comment overlay is open
+    (`Ctrl-n` / `Ctrl-p` in spec 039 — closes current overlay and opens
+    the next/previous thread). Within-thread `j` / `k` (highlight move
+    between comments of the same thread) does **not** push.
 - Applying a jump restores: file selection, viewing commit, view mode, and
   vim cursor line.
 - Jumplist is capped at 100 entries; oldest entries evicted FIFO.
@@ -124,6 +130,9 @@ Call sites (by file):
 - `src/features/search/*` — on match jump and `n` / `N`
 - `src/features/pr-info-panel/*` — `onJumpToFile` / `onJumpToLocation`
 - `src/features/thread-preview/*` — when opening thread from diff
+- `src/features/thread-motion/*` (spec 039) — `]r`/`[r`/`]R`/`[R`
+- `src/features/inline-comment-overlay/*` (spec 039) — `Ctrl-n` / `Ctrl-p`
+  cross-thread step
 
 A shared helper `recordJumpBefore(ctx)` in `jumplist/index.ts` avoids
 duplicating the capture-then-push dance.

@@ -15,7 +15,6 @@ import {
   deleteComment,
   showToast,
   clearToast,
-  getVisibleComments,
   showConfirmDialog,
   closeConfirmDialog,
 } from "../../state"
@@ -27,7 +26,6 @@ import {
   parseEditorOutput,
 } from "../../utils/editor"
 import { exitVisualMode, getSelectionRange } from "../../vim-diff/cursor-state"
-import { flattenThreadsForNav, groupIntoThreads } from "../../utils/threads"
 import {
   getCurrentUser,
   getPrHeadSha,
@@ -229,39 +227,28 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
 }
 
 /**
- * Get the comment under cursor (in diff view) or selected comment (in comments view)
+ * Get the comment under cursor in the diff view.
  */
 export function getCurrentComment(ctx: CommentsContext): Comment | null {
   const state = ctx.getState()
   const vimState = ctx.getVimState()
   const lineMapping = ctx.getLineMapping()
 
-  if (state.viewMode === "comments") {
-    // In comments view, use selected comment
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-    const selectedNav = navItems[state.selectedCommentIndex]
-    return selectedNav?.comment ?? null
-  } else {
-    // In diff view, find comment for current cursor position
-    const anchor = lineMapping.getCommentAnchor(vimState.line)
-    if (!anchor) return null
+  const anchor = lineMapping.getCommentAnchor(vimState.line)
+  if (!anchor) return null
 
-    // Find submittable comments on this line:
-    // - local comments (not yet on GitHub)
-    // - synced comments with localEdit (pending update)
-    const submittableComments = state.comments.filter(
-      (c) =>
-        c.filename === anchor.filename &&
-        c.line === anchor.line &&
-        c.side === anchor.side &&
-        (c.status === "local" || c.localEdit !== undefined)
-    )
+  // Find submittable comments on this line:
+  // - local comments (not yet on GitHub)
+  // - synced comments with localEdit (pending update)
+  const submittableComments = state.comments.filter(
+    (c) =>
+      c.filename === anchor.filename &&
+      c.line === anchor.line &&
+      c.side === anchor.side &&
+      (c.status === "local" || c.localEdit !== undefined)
+  )
 
-    // Return the last submittable comment (most recent)
-    return submittableComments[submittableComments.length - 1] ?? null
-  }
+  return submittableComments[submittableComments.length - 1] ?? null
 }
 
 /**

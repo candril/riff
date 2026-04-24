@@ -5,8 +5,6 @@ export { DiffView, type DiffViewProps, getScrollBox, getDiffRenderable } from ".
 export { VimDiffView, type VimDiffViewOptions } from "./VimDiffView"
 export { FileTree, type FileTreeProps, getFlatTreeItems, getVisibleFlatTreeItems } from "./FileTree"
 export { CommentsList, type CommentsListProps } from "./CommentsList"
-export { CommentsView, type CommentsViewProps, getCommentsViewScrollBox } from "./CommentsView"
-export { CommentsViewPanel, type CommentsViewPanelOptions } from "./CommentsViewPanel"
 export { Gutter, GUTTER_WIDTH, CURSOR_COL, COMMENT_COL } from "./Gutter"
 export { CursorIndicator, type CursorIndicatorOptions } from "./CursorIndicator"
 export { CommentIndicators, type CommentIndicatorsOptions } from "./CommentIndicators"

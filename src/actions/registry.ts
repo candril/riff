@@ -329,14 +329,6 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
-    id: "search-comments",
-    label: "Search Comments",
-    description: "Filter comments by body, author, or filename",
-    shortcut: "/",
-    category: "github",
-    available: (state) => state.viewMode === "comments" && state.comments.length > 0,
-  },
-  {
     id: "react",
     label: "React…",
     description: "Add or remove a reaction on the focused comment",
@@ -348,8 +340,8 @@ export const actions: Action[] = [
   {
     id: "toggle-view",
     label: "Toggle View",
-    description: "Switch between diff and comments view",
-    shortcut: "Tab",
+    description: "Cycle between PR / diff / comments view",
+    shortcut: "i",
     category: "view",
     available: () => true,
   },

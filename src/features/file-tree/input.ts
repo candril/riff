@@ -32,6 +32,8 @@ export interface FileTreeInputContext {
   onFileSelected: () => void
   // Toggle viewed status for a file
   toggleViewedForFile: (filename: string) => Promise<boolean>
+  // Push current location onto the jumplist before selecting (spec 038).
+  recordJump?: () => void
 }
 
 /**
@@ -82,14 +84,12 @@ export function handleInput(
           // Committing to a single file is treated as exiting multi-select:
           // the user made a concrete "view this one" choice, so the pending
           // V-mode range gets torn down.
-          ctx.setState((s) => {
-            const selected = selectFile(s, highlightedItem.fileIndex!)
-            return {
-              ...selected,
-              focusedPanel: selected.viewMode === "comments" ? "comments" as const : "diff" as const,
-              treeSelectionAnchor: null,
-            }
-          })
+          ctx.recordJump?.()
+          ctx.setState((s) => ({
+            ...selectFile(s, highlightedItem.fileIndex!),
+            focusedPanel: "diff" as const,
+            treeSelectionAnchor: null,
+          }))
           ctx.onFileSelected()
           setTimeout(() => {
             ctx.render() // Re-render to update VimDiffView
@@ -148,10 +148,7 @@ export function handleInput(
         ctx.updatePanel()
         return true
       }
-      ctx.setState((s) => {
-        const cleared = clearFileSelection(s)
-        return { ...cleared, focusedPanel: cleared.viewMode === "comments" ? "comments" as const : "diff" as const }
-      })
+      ctx.setState((s) => ({ ...clearFileSelection(s), focusedPanel: "diff" as const }))
       ctx.onFileSelected()
       ctx.render()
       setTimeout(() => {

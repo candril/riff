@@ -24,6 +24,8 @@ export interface FilePickerInputContext {
   render: () => void
   // Called after file selection to reset vim state and rebuild mapping
   onFileSelected: () => void
+  // Push current location onto the jumplist before navigating (spec 038).
+  recordJump?: () => void
 }
 
 /**
@@ -65,6 +67,7 @@ export function handleInput(
     case "enter": {
       const selectedFile = filteredFiles[ctx.state.filePicker.selectedIndex]
       if (selectedFile) {
+        ctx.recordJump?.()
         ctx.setState((s) => {
           let newState = closeFilePicker(s)
 

@@ -16,7 +16,6 @@ import {
   showToast,
   clearToast,
   toggleShowHiddenFiles,
-  openCommentsSearch,
   openActionSubmenu,
   getReactionsForTarget,
 } from "../../state"
@@ -70,14 +69,6 @@ export async function executeAction(
 
     case "find-files":
       setState(openFilePicker)
-      render()
-      break
-
-    case "search-comments":
-      setState((s) => {
-        const withView = s.viewMode === "comments" ? s : { ...s, viewMode: "comments" as const, focusedPanel: "comments" as const }
-        return openCommentsSearch(withView)
-      })
       render()
       break
 
@@ -193,10 +184,7 @@ export async function executeAction(
       break
 
     case "show-all-files":
-      setState((s) => {
-        const cleared = clearFileSelection(s)
-        return { ...cleared, focusedPanel: cleared.viewMode === "comments" ? "comments" as const : "diff" as const }
-      })
+      setState((s) => ({ ...clearFileSelection(s), focusedPanel: "diff" as const }))
       handlers.handleShowAllFiles()
       render()
       break

@@ -5,6 +5,8 @@ import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
 import type { IgnoreMatcher } from "./utils/ignore"
+import type { JumpListState } from "./features/jumplist/types"
+import { createJumpListState } from "./features/jumplist/types"
 
 /**
  * UI mode for the app
@@ -15,7 +17,7 @@ export type UIMode = "normal" | "comment-input" | "comments-list"
  * Main view mode - which content to show.
  * "pr" is only reachable in PR mode (spec 041).
  */
-export type ViewMode = "pr" | "diff" | "comments"
+export type ViewMode = "pr" | "diff"
 
 /**
  * Cached file content (full file, not just diff)
@@ -87,16 +89,6 @@ export interface FilePickerState {
   query: string
   /** Currently selected index */
   selectedIndex: number
-}
-
-/**
- * Comments search state
- */
-export interface CommentsSearchState {
-  /** Whether the search is active */
-  active: boolean
-  /** Current search query */
-  query: string
 }
 
 /**
@@ -181,16 +173,14 @@ export interface AppState {
   // UI state
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
-  focusedPanel: "tree" | "diff" | "comments"
+  focusedPanel: "tree" | "diff"
   mode: UIMode
 
   // Diff view state
   cursorLine: number                // Selected line in diff view
 
-  // Comments view state
-  selectedCommentIndex: number      // Selected comment in comments view
+  // Comment thread state
   collapsedThreadIds: Set<string>   // Thread IDs that are collapsed (root comment ID)
-  commentsSearch: CommentsSearchState // Search/filter in comments view
 
   // Comment state - comments stored separately from session
   session: ReviewSession | null
@@ -283,6 +273,10 @@ export interface AppState {
   // overlay's highlighted comment) and clear it when they're dismissed.
   // Null means the React action is not available in this context.
   reactionTarget: ReactionTarget | null
+
+  // App-level jumplist (spec 038). Records "big" navigation events so
+  // Ctrl-O/Ctrl-I can retrace them. See features/jumplist/.
+  jumpList: JumpListState
 }
 
 /**
@@ -377,12 +371,7 @@ export function createInitialState(
     focusedPanel: "diff",
     mode: "normal",
     cursorLine: 1,
-    selectedCommentIndex: 0,
     collapsedThreadIds: new Set(),
-    commentsSearch: {
-      active: false,
-      query: "",
-    },
     session,
     comments,
     commentInputLine: null,
@@ -464,6 +453,7 @@ export function createInitialState(
     draftNotification: null,
     draftReview: null,
     reactionTarget: null,
+    jumpList: createJumpListState(),
   }
 }
 
@@ -480,7 +470,6 @@ export function selectFile(state: AppState, index: number | null): AppState {
     viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
     selectedFileIndex: index,
     cursorLine: 1,  // Reset cursor when changing file
-    selectedCommentIndex: 0,  // Reset comment selection
   }
 }
 
@@ -493,7 +482,6 @@ export function clearFileSelection(state: AppState): AppState {
     viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
     selectedFileIndex: null,
     cursorLine: 1,
-    selectedCommentIndex: 0,
   }
 }
 
@@ -530,28 +518,16 @@ export function clearTreeSelectionAnchor(state: AppState): AppState {
 /**
  * Cycle main view mode.
  *
- * In PR mode this is a three-way cycle: pr → diff → comments → pr
- * (spec 041). In local mode it collapses to the original two-way toggle
- * diff ↔ comments.
+ * In PR mode this toggles pr ↔ diff. In local mode it's a no-op
+ * (only "diff" exists outside PR mode).
  */
 export function toggleViewMode(state: AppState): AppState {
-  const isPrMode = state.appMode === "pr"
-  let next: ViewMode
-  switch (state.viewMode) {
-    case "pr":
-      next = "diff"
-      break
-    case "diff":
-      next = "comments"
-      break
-    case "comments":
-      next = isPrMode ? "pr" : "diff"
-      break
-  }
+  if (state.appMode !== "pr") return state
+  const next: ViewMode = state.viewMode === "pr" ? "diff" : "pr"
   return {
     ...state,
     viewMode: next,
-    focusedPanel: next === "comments" ? "comments" : "diff",
+    focusedPanel: "diff",
   }
 }
 
@@ -616,17 +592,9 @@ export function toggleFilePanelExpanded(state: AppState): AppState {
  */
 export function toggleFocus(state: AppState): AppState {
   if (!state.showFilePanel) return state
-  
-  // Cycle: tree -> diff/comments -> tree
-  if (state.focusedPanel === "tree") {
-    return {
-      ...state,
-      focusedPanel: state.viewMode === "diff" ? "diff" : "comments",
-    }
-  }
   return {
     ...state,
-    focusedPanel: "tree",
+    focusedPanel: state.focusedPanel === "tree" ? "diff" : "tree",
   }
 }
 
@@ -763,17 +731,6 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
     ...state,
     comments: newComments,
     collapsedThreadIds: newCollapsed,
-  }
-}
-
-/**
- * Move comments view selection
- */
-export function moveCommentSelection(state: AppState, delta: number, maxIndex: number): AppState {
-  const newIndex = Math.max(0, Math.min(state.selectedCommentIndex + delta, maxIndex))
-  return {
-    ...state,
-    selectedCommentIndex: newIndex,
   }
 }
 
@@ -1595,51 +1552,6 @@ export function moveFilePickerSelection(state: AppState, delta: number, maxIndex
       ...state.filePicker,
       selectedIndex: newIndex,
     },
-  }
-}
-
-// ============================================================================
-// Comments Search
-// ============================================================================
-
-/**
- * Open comments search
- */
-export function openCommentsSearch(state: AppState): AppState {
-  return {
-    ...state,
-    commentsSearch: {
-      active: true,
-      query: "",
-    },
-  }
-}
-
-/**
- * Close comments search and clear query
- */
-export function closeCommentsSearch(state: AppState): AppState {
-  return {
-    ...state,
-    commentsSearch: {
-      active: false,
-      query: "",
-    },
-    selectedCommentIndex: 0,
-  }
-}
-
-/**
- * Update comments search query
- */
-export function setCommentsSearchQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    commentsSearch: {
-      ...state.commentsSearch,
-      query,
-    },
-    selectedCommentIndex: 0, // Reset selection when query changes
   }
 }
 

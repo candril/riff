@@ -8,7 +8,6 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileTreePanel } from "../../components/FileTreePanel"
-import type { CommentsViewPanel } from "../../components/CommentsViewPanel"
 import type { VimDiffView } from "../../components"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
@@ -16,14 +15,8 @@ import {
   toggleFileFold,
   expandAllFiles,
   collapseAllFiles,
-  toggleThreadCollapsed,
-  expandThread,
-  collapseThread,
-  getVisibleComments,
 } from "../../state"
 import { toggleNodeExpansion } from "../../utils/file-tree"
-import { groupIntoThreads, flattenThreadsForNav } from "../../utils/threads"
-import { getFilteredNavItems } from "../comments-view/input"
 
 export interface FoldsContext {
   // State access
@@ -37,7 +30,6 @@ export interface FoldsContext {
   rebuildLineMapping: () => void
   // Panels
   getFileTreePanel: () => FileTreePanel
-  getCommentsViewPanel: () => CommentsViewPanel
   getVimDiffView: () => VimDiffView
   // Update helpers
   updateFileTreePanel: () => void
@@ -90,16 +82,6 @@ export function handleGoToTop(ctx: FoldsContext): void {
     return
   }
 
-  if (state.focusedPanel === "comments") {
-    ctx.setState((s) => ({ ...s, selectedCommentIndex: 0 }))
-    const scrollBox = ctx.getCommentsViewPanel().getScrollBox()
-    if (scrollBox) {
-      scrollBox.scrollTop = 0
-    }
-    ctx.render()
-    return
-  }
-
   // Diff view - go to first line
   ctx.setVimState({ ...ctx.getVimState(), line: 0, col: 0 })
   ctx.getVimDiffView().updateCursor(ctx.getVimState())
@@ -117,17 +99,6 @@ export function handleGoToBottom(ctx: FoldsContext): void {
     ctx.setState((s) => ({ ...s, treeHighlightIndex: Math.max(0, flatItems.length - 1) }))
     ctx.updateFileTreePanel()
     ctx.getFileTreePanel().ensureHighlightVisible()
-    return
-  }
-
-  if (state.focusedPanel === "comments") {
-    const navItems = getFilteredNavItems(state)
-    ctx.setState((s) => ({ ...s, selectedCommentIndex: Math.max(0, navItems.length - 1) }))
-    const scrollBox = ctx.getCommentsViewPanel().getScrollBox()
-    if (scrollBox) {
-      scrollBox.scrollTop = scrollBox.scrollHeight
-    }
-    ctx.render()
     return
   }
 
@@ -164,18 +135,6 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
           break
         }
       }
-    }
-    return
-  }
-
-  if (state.focusedPanel === "comments") {
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-    const selectedNav = navItems[state.selectedCommentIndex]
-    if (selectedNav?.thread) {
-      ctx.setState((s) => toggleThreadCollapsed(s, selectedNav.thread!.id))
-      ctx.render()
     }
     return
   }
@@ -234,18 +193,6 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
     return
   }
 
-  if (state.focusedPanel === "comments") {
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-    const selectedNav = navItems[state.selectedCommentIndex]
-    if (selectedNav?.thread) {
-      ctx.setState((s) => expandThread(s, selectedNav.thread!.id))
-      ctx.render()
-    }
-    return
-  }
-
   // Diff view - expand file in all-files mode
   if (state.selectedFileIndex !== null) return
 
@@ -290,18 +237,6 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
     return
   }
 
-  if (state.focusedPanel === "comments") {
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const navItems = flattenThreadsForNav(threads, state.selectedFileIndex === null, state.collapsedThreadIds)
-    const selectedNav = navItems[state.selectedCommentIndex]
-    if (selectedNav?.thread) {
-      ctx.setState((s) => collapseThread(s, selectedNav.thread!.id))
-      ctx.render()
-    }
-    return
-  }
-
   // Diff view - collapse file in all-files mode
   if (state.selectedFileIndex !== null) return
 
@@ -338,12 +273,6 @@ export function handleExpandAllFolds(ctx: FoldsContext): void {
     return
   }
 
-  if (state.focusedPanel === "comments") {
-    ctx.setState((s) => ({ ...s, collapsedThreadIds: new Set() }))
-    ctx.render()
-    return
-  }
-
   // Diff view - expand all files
   const currentFilename = getFilenameAtCursor(ctx)
   ctx.setState(expandAllFiles)
@@ -376,15 +305,6 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
       return collapseAllFiles(withTree)
     })
     ctx.rebuildLineMapping()
-    ctx.render()
-    return
-  }
-
-  if (state.focusedPanel === "comments") {
-    const visibleComments = getVisibleComments(state)
-    const threads = groupIntoThreads(visibleComments)
-    const allThreadIds = new Set(threads.map((t) => t.id))
-    ctx.setState((s) => ({ ...s, collapsedThreadIds: allThreadIds }))
     ctx.render()
     return
   }

@@ -16,7 +16,6 @@ import type { SearchHandler } from "../vim-diff/search-handler"
 import type { VimDiffView } from "../components"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
-import type { CommentsViewPanel } from "../components/CommentsViewPanel"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 
@@ -29,7 +28,6 @@ import * as reviewPreview from "../features/review-preview"
 import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
 import * as fileTreeFeature from "../features/file-tree"
-import * as commentsView from "../features/comments-view"
 import * as diffView from "../features/diff-view"
 import * as folds from "../features/folds"
 import * as fileNavigation from "../features/file-navigation"
@@ -38,6 +36,7 @@ import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
 import * as threadMotion from "../features/thread-motion"
+import * as jumplist from "../features/jumplist"
 import type { ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
 
@@ -57,7 +56,6 @@ export interface GlobalKeyContext {
   renderer: { console: { toggle: () => void } }
   vimDiffView: VimDiffView
   fileTreePanel: FileTreePanel
-  commentsViewPanel: CommentsViewPanel
   getPrInfoPanel: () => PRInfoPanelClass | null
   // Vim handlers
   vimHandler: VimMotionHandler
@@ -137,6 +135,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
   }
 
+  // Snapshot the current location into the jumplist. Call BEFORE a
+  // navigation mutates state — the entry is the location we'll jump back
+  // to with Ctrl-O (spec 038).
+  function recordJump() {
+    ctx.setState((s) => jumplist.pushCurrent(s, ctx.getVimState()))
+  }
+
+  const jumpApplyCtx: jumplist.JumpApplyContext = {
+    setState: ctx.setState,
+    setVimState: ctx.setVimState,
+    rebuildLineMapping: ctx.rebuildLineMapping,
+    ensureCursorVisible: ctx.ensureCursorVisible,
+    render: ctx.render,
+    onCommitSelected: ctx.onCommitSelected,
+  }
+
   return function handleKeypress(key: KeyEvent) {
     // F12 toggles debug console
     if (key.name === "f12") {
@@ -168,6 +182,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setVimState(createCursorState())
           ctx.rebuildLineMapping()
         },
+        recordJump,
       })
     ) {
       return
@@ -179,7 +194,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         state: ctx.getState(),
         setState: ctx.setState,
         render: ctx.render,
-        onCommitSelected: ctx.onCommitSelected,
+        onCommitSelected: (sha) => {
+          recordJump()
+          ctx.onCommitSelected(sha)
+        },
       })
     ) {
       return
@@ -254,7 +272,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         render: ctx.render,
         getPanel: ctx.getPrInfoPanel,
         onJumpToFile: (filename) => {
-          // Jump to file by filename
+          // Jump to file by filename. recordJump runs inside the panel
+          // input handler BEFORE closePRInfoPanel, so the jump captures
+          // viewMode="pr" — back-jump can return to the PR view.
           const state = ctx.getState()
           const fileIndex = state.files.findIndex((f) => f.filename === filename)
           if (fileIndex !== -1) {
@@ -262,7 +282,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           }
         },
         onJumpToLocation: (filename, line) => {
-          // Jump to file:line (for code comments)
+          // Jump to file:line (for code comments). See note on
+          // onJumpToFile re: jumplist push timing.
           const state = ctx.getState()
           const fileIndex = state.files.findIndex((f) => f.filename === filename)
           if (fileIndex !== -1) {
@@ -274,7 +295,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           void externalTools.handleOpenFileAtLine(ctx.externalToolsContext, filename, line)
         },
         onActivateCommit: (sha) => {
-          // Activate commit (set viewing commit)
+          // Activate commit (set viewing commit). Jump push happens in
+          // the panel input handler before closePRInfoPanel.
           ctx.onCommitSelected(sha)
         },
         onToggleThreadResolved: (rootCommentId) => {
@@ -287,6 +309,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
         executeAction: ctx.executeAction,
+        recordJump,
       })
     ) {
       return
@@ -335,37 +358,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
-    // ========== COMMENTS SEARCH (captures all input when active) ==========
-    if (
-      commentsView.handleSearchInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: () => ctx.commentsViewPanel,
-        getVimState: ctx.getVimState,
-        setVimState: ctx.setVimState,
-        getLineMapping: ctx.getLineMapping,
-        rebuildLineMapping: () => {
-          ctx.setVimState(createCursorState())
-          ctx.rebuildLineMapping()
-          return ctx.getLineMapping()
-        },
-        ensureCursorVisible: ctx.ensureCursorVisible,
-        handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
-        handleSubmitSingleComment: (comment) =>
-          commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
-        handleToggleThreadResolved: () =>
-          prOperations.handleToggleThreadResolved(ctx.prOperationsContext),
-        handleDeleteComment: (comment) =>
-          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
-      })
-    ) {
-      return
-    }
 
     // ========== GLOBAL KEYS (work in any mode) ==========
     const state = ctx.getState()
     switch (key.name) {
+      case "o":
+        if (key.ctrl) {
+          // Ctrl-O: back in jumplist (spec 038).
+          const result = jumplist.back(ctx.getState(), ctx.getVimState())
+          if (result) {
+            ctx.setState(() => result.state)
+            jumplist.apply(result.jump, jumpApplyCtx)
+          }
+          return
+        }
+        break
+
       case "p":
         if (key.ctrl) {
           ctx.setState(openActionMenu)
@@ -416,9 +424,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "i":
-        // Open PR info panel (only for PR mode)
-        if (state.appMode === "pr" && state.prInfo) {
-          prInfoPanelFeature.handleOpenPRInfoPanel(ctx.prInfoPanelOpenContext)
+        // Bare `i` toggles between PR overview and diff (PR mode only;
+        // no-op in local mode). Ctrl-I arrives as `tab` and is forward-
+        // jump (spec 038), so we explicitly require !key.ctrl here to
+        // keep the two distinct. Use `gi` to jump straight to PR view.
+        if (!key.ctrl) {
+          recordJump()
+          ctx.setState(toggleViewMode)
+          ctx.render()
           return
         }
         break
@@ -453,10 +466,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         break
 
-      case "tab":
-        ctx.setState(toggleViewMode)
-        ctx.render()
+      case "tab": {
+        // Tab and Ctrl-I are indistinguishable in terminal input; both
+        // mean forward-jump in the jumplist (spec 038). The previous
+        // view-toggle binding moved to bare `i`.
+        const result = jumplist.forward(ctx.getState())
+        if (result) {
+          ctx.setState(() => result.state)
+          jumplist.apply(result.jump, jumpApplyCtx)
+        }
         return
+      }
 
       case "backspace":
         // Ctrl+h produces backspace in most terminals
@@ -473,7 +493,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           // multi-select so it doesn't linger as dormant state.
           ctx.setState((s) => ({
             ...s,
-            focusedPanel: s.viewMode === "comments" ? "comments" : "diff",
+            focusedPanel: "diff",
             treeSelectionAnchor: null,
           }))
           ctx.render()
@@ -494,6 +514,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       const s = ctx.getState()
 
       if (sequence === "]f") {
+        recordJump()
         if (s.selectedFileIndex === null) {
           // All-files view: move cursor to next file header
           ctx.vimHandler.moveToFile("next")
@@ -504,6 +525,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "[f") {
+        recordJump()
         if (s.selectedFileIndex === null) {
           // All-files view: move cursor to previous file header
           ctx.vimHandler.moveToFile("prev")
@@ -514,27 +536,35 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "]u") {
+        recordJump()
         fileNavigation.navigateToUnviewedFile(1, ctx.fileNavContext)
         return
       } else if (sequence === "[u") {
+        recordJump()
         fileNavigation.navigateToUnviewedFile(-1, ctx.fileNavContext)
         return
       } else if (sequence === "]o") {
+        recordJump()
         fileNavigation.navigateToOutdatedFile(1, ctx.fileNavContext)
         return
       } else if (sequence === "[o") {
+        recordJump()
         fileNavigation.navigateToOutdatedFile(-1, ctx.fileNavContext)
         return
       } else if (sequence === "]r") {
+        recordJump()
         threadMotion.navigateToThread(1, false, ctx.threadMotionContext)
         return
       } else if (sequence === "[r") {
+        recordJump()
         threadMotion.navigateToThread(-1, false, ctx.threadMotionContext)
         return
       } else if (sequence === "]R!") {
+        recordJump()
         threadMotion.navigateToThread(1, true, ctx.threadMotionContext)
         return
       } else if (sequence === "[R!") {
+        recordJump()
         threadMotion.navigateToThread(-1, true, ctx.threadMotionContext)
         return
       } else if (sequence === "gS!" || sequence === "gs!") {
@@ -551,6 +581,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gi") {
         if (s.appMode === "pr" && s.prInfo) {
+          recordJump()
           prInfoPanelFeature.handleOpenPRInfoPanel(ctx.prInfoPanelOpenContext)
         }
         return
@@ -589,9 +620,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.refreshContext.handleRefresh()
         return
       } else if (sequence === "gg") {
+        recordJump()
         folds.handleGoToTop(ctx.foldsContext)
         return
       } else if (sequence === "gG!" || sequence === "G!") {
+        recordJump()
         folds.handleGoToBottom(ctx.foldsContext)
         return
       } else if (sequence === "za") {
@@ -624,6 +657,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       if (sequence === "]g") {
         // Next commit
         if (s.commits.length > 0) {
+          recordJump()
           if (s.viewingCommit === null) {
             // All → first commit
             ctx.onCommitSelected(s.commits[0]!.sha)
@@ -641,6 +675,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       } else if (sequence === "[g") {
         // Prev commit
         if (s.commits.length > 0) {
+          recordJump()
           if (s.viewingCommit === null) {
             // All → last commit
             ctx.onCommitSelected(s.commits[s.commits.length - 1]!.sha)
@@ -688,38 +723,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         },
         toggleViewedForFile: (filename: string) =>
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
+        recordJump,
       })
     ) {
       return
     }
 
-    // ========== COMMENTS VIEW FOCUSED ==========
-    if (
-      commentsView.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: () => ctx.commentsViewPanel,
-        getVimState: ctx.getVimState,
-        setVimState: ctx.setVimState,
-        getLineMapping: ctx.getLineMapping,
-        rebuildLineMapping: () => {
-          ctx.setVimState(createCursorState())
-          ctx.rebuildLineMapping()
-          return ctx.getLineMapping()
-        },
-        ensureCursorVisible: ctx.ensureCursorVisible,
-        handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
-        handleSubmitSingleComment: (comment) =>
-          commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
-        handleToggleThreadResolved: () =>
-          prOperations.handleToggleThreadResolved(ctx.prOperationsContext),
-        handleDeleteComment: (comment) =>
-          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
-      })
-    ) {
-      return
-    }
 
     // ========== DIFF VIEW FOCUSED ==========
     diffView.handleInput(key, {

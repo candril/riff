@@ -24,17 +24,13 @@ import {
 } from "../components"
 import type { VimDiffView } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
-import type { CommentsViewPanel } from "../components/CommentsViewPanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments } from "../state"
 import type { AppState } from "../state"
-import { filterCommentsBySearch } from "../features/comments-view/search"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
-import type { CommentsSearchState } from "../state"
-import { theme } from "../theme"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
@@ -56,36 +52,8 @@ export interface RenderContext {
   renderer: CliRenderer
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
-  commentsViewPanel: CommentsViewPanel
   // Helper
   updateFileTreePanel: () => void
-}
-
-/**
- * Comments search prompt — shown at the bottom of the screen (like diff SearchPrompt)
- */
-function CommentsSearchPrompt({ searchState }: { searchState: CommentsSearchState }) {
-  const prefix = "/"
-  const displayText = searchState.active
-    ? `${prefix}${searchState.query}`
-    : `${prefix}${searchState.query}`
-
-  return Box(
-    {
-      height: 1,
-      width: "100%",
-      backgroundColor: theme.surface0,
-      flexDirection: "row",
-      paddingLeft: 1,
-    },
-    Text({
-      content: displayText,
-      fg: theme.text,
-    }),
-    searchState.active
-      ? Text({ content: "█", fg: theme.text })
-      : null,
-  )
 }
 
 /**
@@ -99,12 +67,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const searchState = ctx.getSearchState()
 
     const selectedFile = getSelectedFile(state)
-    let visibleComments = getVisibleComments(state)
-
-    // Apply comment search filter
-    if (state.commentsSearch.query) {
-      visibleComments = filterCommentsBySearch(visibleComments, state.commentsSearch.query)
-    }
+    const visibleComments = getVisibleComments(state)
 
     // Update file tree panel state
     ctx.updateFileTreePanel()
@@ -127,24 +90,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })
-    } else if (state.viewMode === "comments") {
-      ctx.commentsViewPanel.update(
-        visibleComments,
-        state.selectedCommentIndex,
-        selectedFile?.filename ?? null,
-        state.commentsSearch.query ? new Set() : state.collapsedThreadIds,
-        state.commentsSearch
-      )
-
-      content = Box(
-        {
-          id: "main-content-row",
-          width: "100%",
-          height: "100%",
-          flexDirection: "row",
-        },
-        ctx.commentsViewPanel.getContainer()
-      )
     } else {
       // Diff view
       const loadingFiles = new Set<string>()
@@ -235,9 +180,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         ),
         (searchState.active || searchState.pattern) && state.viewMode === "diff"
           ? SearchPrompt({ searchState })
-          : (state.commentsSearch.active || state.commentsSearch.query) && state.viewMode === "comments"
-            ? CommentsSearchPrompt({ searchState: state.commentsSearch })
-            : null,
+          : null,
         StatusBar({
           searchInfo:
             searchState.pattern && state.viewMode === "diff"

@@ -33,7 +33,6 @@ import * as prInfoPanelFeature from "./features/pr-info-panel"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
-import * as commentsView from "./features/comments-view"
 import * as diffView from "./features/diff-view"
 import * as folds from "./features/folds"
 import * as fileNavigation from "./features/file-navigation"
@@ -82,7 +81,7 @@ export async function createApp(options: AppOptions = {}) {
     headSha: options.headSha,
   })
 
-  const { renderer, fileTreePanel, vimDiffView, commentsViewPanel } = await initializeRenderer()
+  const { renderer, fileTreePanel, vimDiffView } = await initializeRenderer()
 
   // ===== MUTABLE STATE =====
   let state: AppState = initialState
@@ -226,7 +225,6 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     fileTreePanel,
     vimDiffView,
-    commentsViewPanel,
     updateFileTreePanel,
   })
 
@@ -400,7 +398,6 @@ export async function createApp(options: AppOptions = {}) {
     getLineMapping: () => lineMapping,
     rebuildLineMapping: () => { createLineMapping() },
     getFileTreePanel: () => fileTreePanel,
-    getCommentsViewPanel: () => commentsViewPanel,
     getVimDiffView: () => vimDiffView,
     updateFileTreePanel,
     ensureCursorVisible,
@@ -828,7 +825,6 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     vimDiffView,
     fileTreePanel,
-    commentsViewPanel,
     getPrInfoPanel: () => prInfoPanel,
     vimHandler,
     searchHandler,

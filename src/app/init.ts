@@ -9,7 +9,6 @@ import { createCliRenderer } from "@opentui/core"
 import { registerSyntaxParsers } from "../syntax-parsers"
 import { VimDiffView, PRInfoPanelClass } from "../components"
 import { FileTreePanel } from "../components/FileTreePanel"
-import { CommentsViewPanel } from "../components/CommentsViewPanel"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
@@ -52,7 +51,6 @@ export interface InitResult {
   renderer: Awaited<ReturnType<typeof createCliRenderer>>
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
-  commentsViewPanel: CommentsViewPanel
 }
 
 /**
@@ -210,7 +208,6 @@ export async function initializeRenderer(): Promise<{
   renderer: Awaited<ReturnType<typeof createCliRenderer>>
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
-  commentsViewPanel: CommentsViewPanel
 }> {
   // Register additional syntax highlighting parsers
   registerSyntaxParsers()
@@ -225,7 +222,6 @@ export async function initializeRenderer(): Promise<{
 
   const fileTreePanel = new FileTreePanel({ renderer, width: 35 })
   const vimDiffView = new VimDiffView({ renderer })
-  const commentsViewPanel = new CommentsViewPanel({ renderer })
 
-  return { renderer, fileTreePanel, vimDiffView, commentsViewPanel }
+  return { renderer, fileTreePanel, vimDiffView }
 }

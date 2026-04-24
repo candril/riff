@@ -21,7 +21,8 @@ const HELP_SECTIONS = [
   {
     title: "Views & Panels",
     keys: [
-      ["Tab", "Toggle diff / comments view"],
+      ["i", "Toggle PR overview / diff (PR mode)"],
+      ["Ctrl+o / Ctrl+i", "Jumplist back / forward (Tab = forward)"],
       ["Ctrl+b", "Toggle file tree panel"],
       ["Ctrl+e", "Expand file tree (full width)"],
       ["Ctrl+f", "Find files (fuzzy)"],
@@ -55,14 +56,14 @@ const HELP_SECTIONS = [
     ],
   },
   {
-    title: "Comments View",
+    title: "Comment Threads",
     keys: [
-      ["Enter", "Jump to comment location"],
-      ["x", "Toggle thread resolved"],
-      ["h / l", "Collapse / expand thread"],
-      ["r", "Reply to thread"],
-      ["d", "Delete comment"],
-      ["/", "Search/filter comments"],
+      ["]r / [r", "Next / previous thread (opens overlay)"],
+      ["]R / [R", "Same, skipping resolved threads"],
+      ["Enter", "Open inline comment overlay on this line"],
+      ["x", "Toggle thread resolved (in overlay)"],
+      ["r", "Reply (in overlay)"],
+      ["d", "Delete comment (in overlay)"],
     ],
   },
   {
