@@ -8,6 +8,7 @@
 
 export {
   handleOpenFileInEditor,
+  handleOpenFileAtLine,
   handleOpenExternalDiff,
   handleCheckoutAndEdit,
   type ExternalToolsContext,

@@ -102,6 +102,27 @@ export interface PrCheck {
   detailsUrl: string | null
   startedAt: string | null
   completedAt: string | null
+  // Session-local (spec 043). Populated lazily when the user expands a
+  // failed check. Not persisted; not flowed through app state.
+  annotations?: PrCheckAnnotation[]
+  annotationsStatus?: "idle" | "loading" | "loaded" | "error"
+}
+
+/**
+ * Structured error/warning entry attached to a check run (spec 043).
+ * GitHub Actions auto-produces these from `::error file=…::` workflow
+ * commands; third-party tools push them via the Checks API.
+ */
+export interface PrCheckAnnotation {
+  path: string
+  startLine: number
+  endLine: number
+  startColumn?: number
+  endColumn?: number
+  level: "notice" | "warning" | "failure"
+  message: string
+  title?: string
+  rawDetailsUrl?: string
 }
 
 /**
@@ -368,6 +389,53 @@ export async function getPrChecks(
       startedAt: c.started_at || null,
       completedAt: c.completed_at || null,
     }))
+  })
+}
+
+/**
+ * Fetch annotations for a single check run (spec 043). Capped at 100
+ * entries post-filter so a pathological build can't balloon memory.
+ */
+export async function getPrCheckAnnotations(
+  owner: string,
+  repo: string,
+  checkRunId: number,
+): Promise<PrCheckAnnotation[]> {
+  return safeGhCommand(async () => {
+    const result = await $`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations --paginate`.json() as any[]
+    const raw = Array.isArray(result) ? result : []
+    const mapped: PrCheckAnnotation[] = []
+    // Dedupe within a single check — matrix builds (e.g. .NET's multiple
+    // target frameworks) fire the same compiler annotation once per
+    // build pass. The user still sees the error N times if N checks
+    // fail, which is what they want; we only collapse *within* a check.
+    const seen = new Set<string>()
+    for (const a of raw) {
+      if (!a?.path) continue
+      // Actions emits synthetic workflow-level annotations with
+      // `path=".github"` (e.g. "Process completed with exit code 1.").
+      // They duplicate — and bury — the real compiler/test failures
+      // emitted on the same check. Drop them (spec 043).
+      if (a.path === ".github") continue
+      const level = (a.annotation_level as PrCheckAnnotation["level"]) ?? "failure"
+      const message = a.message ?? ""
+      const key = `${a.path}|${a.start_line ?? 0}|${a.start_column ?? ""}|${level}|${message}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      mapped.push({
+        path: a.path,
+        startLine: a.start_line ?? 0,
+        endLine: a.end_line ?? a.start_line ?? 0,
+        startColumn: a.start_column ?? undefined,
+        endColumn: a.end_column ?? undefined,
+        level,
+        message,
+        title: a.title ?? undefined,
+        rawDetailsUrl: a.raw_details_url ?? undefined,
+      })
+      if (mapped.length >= 100) break
+    }
+    return mapped
   })
 }
 

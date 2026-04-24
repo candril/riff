@@ -230,6 +230,10 @@ export async function createApp(options: AppOptions = {}) {
     updateFileTreePanel,
   })
 
+  // Give the panel a way to request a re-render from async transitions
+  // it owns (e.g., annotation fetches — spec 043).
+  prInfoPanel?.setOnExternalRerender(() => render())
+
   // ===== VIM HANDLERS =====
   const vimHandler = new VimMotionHandler({
     getMapping: () => lineMapping,

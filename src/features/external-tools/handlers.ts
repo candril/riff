@@ -74,6 +74,75 @@ function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | und
 }
 
 /**
+ * Open a specific file at a specific line in $EDITOR (spec 043).
+ * Used for jumping from a CI check annotation to its source location.
+ *
+ * Strategy:
+ *  1. If the file exists in the working copy, open the real file
+ *     in-place so edits persist.
+ *  2. Otherwise — common in jj repos where the bookmark is fetched
+ *     but `@` is elsewhere, so the working copy lacks the PR's
+ *     files — fall back to a read-only snapshot fetched from the
+ *     PR head on GitHub. Toasts so the user knows it's read-only.
+ */
+export async function handleOpenFileAtLine(
+  ctx: ExternalToolsContext,
+  filename: string,
+  lineNumber: number,
+): Promise<void> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+  const workingCopy = Bun.file(filename)
+
+  if (await workingCopy.exists()) {
+    ctx.suspendRenderer()
+    try {
+      const args = lineNumber > 0 ? [editor, `+${lineNumber}`, filename] : [editor, filename]
+      const proc = Bun.spawn(args, {
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      })
+      await proc.exited
+    } finally {
+      ctx.resumeRenderer()
+      ctx.render()
+    }
+    return
+  }
+
+  // Not in working copy — try fetching the PR-head version.
+  let content: string | null = null
+  if (ctx.mode === "pr" && ctx.prInfo) {
+    content = await getPrFileContent(
+      ctx.prInfo.owner,
+      ctx.prInfo.repo,
+      ctx.prInfo.number,
+      filename,
+    )
+  }
+
+  if (content === null) {
+    ctx.setState((s) => showToast(s, `Could not read ${filename}`, "error"))
+    ctx.render()
+    setTimeout(() => {
+      ctx.setState(clearToast)
+      ctx.render()
+    }, 3000)
+    return
+  }
+
+  ctx.setState((s) => showToast(s, "Read-only snapshot — file not at @", "info"))
+  ctx.render()
+  ctx.suspendRenderer()
+  try {
+    await openFileInEditor(filename, content, lineNumber > 0 ? lineNumber : undefined)
+  } finally {
+    ctx.resumeRenderer()
+    ctx.render()
+  }
+}
+
+/**
  * Open the current file in $EDITOR (gf)
  * Works from: single file view, all files view (file at cursor), file tree
  */

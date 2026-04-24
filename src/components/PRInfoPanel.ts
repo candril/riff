@@ -12,7 +12,8 @@ import {
   RGBA,
   type CliRenderer,
 } from "@opentui/core"
-import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck } from "../providers/github"
+import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
+import { getPrCheckAnnotations } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
@@ -35,6 +36,15 @@ type FlatConversationItem =
   | { type: 'review-header'; data: ReviewWithThreads }
   | { type: 'review-thread'; data: ReviewThread; parentReview: ReviewWithThreads }
   | { type: 'pending-reviewer'; data: string[] }
+
+/**
+ * Flattened check item (spec 043). Mirrors how the conversation section
+ * flattens reviews+threads for single-axis cursor nav.
+ */
+type FlatCheckItem =
+  | { kind: 'check'; check: PrCheck }
+  | { kind: 'annotation'; check: PrCheck; annotation: PrCheckAnnotation }
+  | { kind: 'placeholder'; check: PrCheck; placeholder: 'loading' | 'empty' | 'error' }
 
 /**
  * A review with its code comment threads
@@ -294,6 +304,20 @@ interface SectionConfig {
 const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'checks', 'conversation', 'files', 'commits']
 
 /**
+ * A check is "failing" in the sense that expanding it to view annotations
+ * makes sense (spec 043). `neutral` and `skipped` don't qualify even
+ * though they're technically non-success.
+ */
+function isFailingCheck(check: PrCheck): boolean {
+  if (check.status !== "completed") return false
+  return (
+    check.conclusion === "failure" ||
+    check.conclusion === "timed_out" ||
+    check.conclusion === "action_required"
+  )
+}
+
+/**
  * PR Info Panel - class-based for efficient updates
  */
 export class PRInfoPanelClass {
@@ -322,6 +346,12 @@ export class PRInfoPanelClass {
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
+
+  // Checks expand state (spec 043) — per-session only, not persisted.
+  private expandedCheckIds: Set<number> = new Set()
+  private flatCheckItems: FlatCheckItem[] = []
+  // Signals a re-render to the outer app (set by app.ts).
+  private onExternalRerender: (() => void) | null = null
   
   // Section containers (for rebuilding on section change)
   private sectionsContainer: BoxRenderable | null = null
@@ -347,6 +377,7 @@ export class PRInfoPanelClass {
     // Build conversation items
     this.conversationItems = this.buildConversationItems()
     this.refreshFlatItems()
+    this.refreshFlatCheckItems()
     
     // Build the panel
     const { container, scrollBox } = this.build()
@@ -431,7 +462,7 @@ export class PRInfoPanelClass {
       case 'description':
         return 0  // Description has no items, just expanded content
       case 'checks':
-        return this.prInfo.checks?.length ?? 0
+        return this.flatCheckItems.length
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
@@ -629,6 +660,34 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * Rebuild flat check items list — checks + any inline annotation /
+   * placeholder rows for currently-expanded failing checks (spec 043).
+   */
+  private refreshFlatCheckItems(): void {
+    const flat: FlatCheckItem[] = []
+    const checks = this.prInfo.checks ?? []
+    for (const check of checks) {
+      flat.push({ kind: 'check', check })
+      if (!this.expandedCheckIds.has(check.id)) continue
+      if (!isFailingCheck(check)) continue
+
+      const status = check.annotationsStatus ?? 'idle'
+      if (status === 'loading') {
+        flat.push({ kind: 'placeholder', check, placeholder: 'loading' })
+      } else if (status === 'error') {
+        flat.push({ kind: 'placeholder', check, placeholder: 'error' })
+      } else if (check.annotations && check.annotations.length > 0) {
+        for (const annotation of check.annotations) {
+          flat.push({ kind: 'annotation', check, annotation })
+        }
+      } else if (status === 'loaded') {
+        flat.push({ kind: 'placeholder', check, placeholder: 'empty' })
+      }
+    }
+    this.flatCheckItems = flat
+  }
+
+  /**
    * Move cursor within current section
    * Returns true if cursor moved, false if at boundary
    * Cursor -1 = section header, 0+ = items
@@ -705,7 +764,7 @@ export class PRInfoPanelClass {
       case 'description':
         return 0
       case 'checks':
-        return this.prInfo.checks?.length ?? 0
+        return this.flatCheckItems.length
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
@@ -805,7 +864,121 @@ export class PRInfoPanelClass {
    */
   getSelectedCheck(): PrCheck | undefined {
     if (this.activeSection !== 'checks' || this.cursorIndex < 0) return undefined
-    return this.prInfo.checks?.[this.cursorIndex]
+    return this.flatCheckItems[this.cursorIndex]?.check
+  }
+
+  /**
+   * When the cursor is on an annotation row, return that annotation and
+   * its parent check. `null` when the cursor is elsewhere (including on
+   * a check row itself) (spec 043).
+   */
+  getSelectedAnnotation(): { check: PrCheck; annotation: PrCheckAnnotation } | null {
+    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return null
+    const item = this.flatCheckItems[this.cursorIndex]
+    if (!item || item.kind !== 'annotation') return null
+    return { check: item.check, annotation: item.annotation }
+  }
+
+  /**
+   * Toggle expansion of a failing check. Kicks off an annotations fetch
+   * on first expand (spec 043).
+   */
+  toggleCheckExpansion(checkId: number): void {
+    if (this.expandedCheckIds.has(checkId)) {
+      this.expandedCheckIds.delete(checkId)
+    } else {
+      this.expandedCheckIds.add(checkId)
+      const check = this.prInfo.checks?.find(c => c.id === checkId)
+      if (check && !check.annotationsStatus && isFailingCheck(check)) {
+        void this.fetchAnnotationsFor(check)
+      }
+    }
+    this.refreshFlatCheckItems()
+    this.rebuildSections()
+  }
+
+  /**
+   * Expand the currently-selected check row (no-op on annotation rows
+   * or already-expanded / non-failing checks). Used by `l` in the
+   * checks section, mirroring conversation (spec 043).
+   */
+  expandSelectedCheck(): void {
+    const check = this.getSelectedCheckRow()
+    if (!check || !isFailingCheck(check)) return
+    if (this.expandedCheckIds.has(check.id)) return
+    this.toggleCheckExpansion(check.id)
+  }
+
+  /**
+   * Collapse the currently-selected check row. If the cursor is on one
+   * of that check's annotation rows, collapse its parent check and move
+   * the cursor back onto the check row (spec 043).
+   */
+  collapseSelectedCheck(): void {
+    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return
+    const item = this.flatCheckItems[this.cursorIndex]
+    if (!item) return
+    const check = item.check
+    if (!this.expandedCheckIds.has(check.id)) return
+
+    const parentIndex = this.flatCheckItems.findIndex(
+      i => i.kind === 'check' && i.check.id === check.id,
+    )
+    this.toggleCheckExpansion(check.id)
+    if (parentIndex >= 0 && this.cursorIndex !== parentIndex) {
+      this.updateItemRow(this.activeSection, this.cursorIndex, false)
+      this.cursorIndex = parentIndex
+      this.updateItemRow(this.activeSection, this.cursorIndex, true)
+      this.rebuildSections()
+    }
+  }
+
+  /**
+   * Like `getSelectedCheck`, but returns the check *only* when the
+   * cursor is actually on the check's row (not on one of its
+   * annotations). Used by the expand/collapse keys so e.g. pressing
+   * `l` on a deep annotation row doesn't re-expand the parent.
+   */
+  private getSelectedCheckRow(): PrCheck | undefined {
+    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return undefined
+    const item = this.flatCheckItems[this.cursorIndex]
+    if (!item || item.kind !== 'check') return undefined
+    return item.check
+  }
+
+  /**
+   * Lazy fetch of annotations for a single check. Mutates the check in
+   * place (session-local state — app state does not carry annotations).
+   * Rebuilds the panel on transitions so the user sees
+   * loading → loaded/empty/error (spec 043).
+   */
+  private async fetchAnnotationsFor(check: PrCheck): Promise<void> {
+    check.annotationsStatus = "loading"
+    this.refreshFlatCheckItems()
+    this.rebuildSections()
+    this.onExternalRerender?.()
+    try {
+      const annotations = await getPrCheckAnnotations(
+        this.prInfo.owner,
+        this.prInfo.repo,
+        check.id,
+      )
+      check.annotations = annotations
+      check.annotationsStatus = "loaded"
+    } catch {
+      check.annotationsStatus = "error"
+    }
+    this.refreshFlatCheckItems()
+    this.rebuildSections()
+    this.onExternalRerender?.()
+  }
+
+  /**
+   * Allow the outer app to register a callback so async state transitions
+   * inside the panel (annotation fetches) trigger a full app re-render.
+   */
+  setOnExternalRerender(cb: (() => void) | null): void {
+    this.onExternalRerender = cb
   }
 
   /**
@@ -1245,12 +1418,13 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Build checks content
+   * Build checks content. Renders checks plus, for expanded failing
+   * checks, inline annotation rows below them (spec 043).
    */
   private buildChecksContent(container: BoxRenderable, isActive: boolean): void {
     const rows: ItemRowRefs[] = []
     const checks = this.prInfo.checks ?? []
-    
+
     if (checks.length === 0) {
       container.add(new TextRenderable(this.renderer, {
         content: "No checks configured",
@@ -1258,50 +1432,149 @@ export class PRInfoPanelClass {
       }))
       return
     }
-    
-    for (let i = 0; i < checks.length; i++) {
-      const check = checks[i]!
+
+    this.refreshFlatCheckItems()
+
+    for (let i = 0; i < this.flatCheckItems.length; i++) {
+      const item = this.flatCheckItems[i]!
       const isSelected = isActive && i === this.cursorIndex
-      const { icon, color } = this.getCheckStatusDisplay(check)
-      
-      const row = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: isSelected ? theme.surface1 : undefined,
-      })
-      
-      // Status icon
-      row.add(new TextRenderable(this.renderer, {
-        content: `${icon} `,
-        fg: color,
-      }))
-      
-      // Check name
-      const nameText = new TextRenderable(this.renderer, {
-        content: check.name,
-        fg: isSelected ? theme.text : theme.subtext1,
-      })
-      row.add(nameText)
-      
-      // Status text (for non-completed or failed)
-      let statusText = ""
-      if (check.status !== "completed") {
-        statusText = ` (${check.status})`
-      } else if (check.conclusion && check.conclusion !== "success") {
-        statusText = ` (${check.conclusion})`
+
+      if (item.kind === 'check') {
+        rows.push(this.buildCheckRow(container, item.check, isSelected))
+      } else if (item.kind === 'annotation') {
+        rows.push(this.buildAnnotationRow(container, item.annotation, isSelected))
+      } else {
+        rows.push(this.buildPlaceholderRow(container, item.placeholder, isSelected))
       }
-      
-      const statusTextEl = new TextRenderable(this.renderer, {
-        content: statusText,
-        fg: theme.overlay0,
-      })
-      row.add(statusTextEl)
-      
-      container.add(row)
-      rows.push({ container: row, primary: nameText, secondary: statusTextEl })
     }
-    
+
     this.itemRows.set('checks', rows)
+  }
+
+  private buildCheckRow(container: BoxRenderable, check: PrCheck, isSelected: boolean): ItemRowRefs {
+    const { icon, color } = this.getCheckStatusDisplay(check)
+    const expandable = isFailingCheck(check)
+    const expanded = this.expandedCheckIds.has(check.id)
+
+    const row = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+      backgroundColor: isSelected ? theme.surface1 : undefined,
+    })
+
+    row.add(new TextRenderable(this.renderer, {
+      content: `${icon} `,
+      fg: color,
+    }))
+
+    const nameText = new TextRenderable(this.renderer, {
+      content: check.name,
+      fg: isSelected ? theme.text : theme.subtext1,
+    })
+    row.add(nameText)
+
+    let statusText = ""
+    if (check.status !== "completed") {
+      statusText = ` (${check.status})`
+    } else if (check.conclusion && check.conclusion !== "success") {
+      statusText = ` (${check.conclusion})`
+    }
+
+    const statusTextEl = new TextRenderable(this.renderer, {
+      content: statusText,
+      fg: theme.overlay0,
+    })
+    row.add(statusTextEl)
+
+    if (expandable) {
+      const count = check.annotations?.length
+      const suffix = count !== undefined && count > 0 ? ` [${count}]` : ""
+      row.add(new TextRenderable(this.renderer, {
+        content: `  ${expanded ? "▼" : "▶"}${suffix}`,
+        fg: theme.overlay0,
+      }))
+    }
+
+    container.add(row)
+    return { container: row, primary: nameText, secondary: statusTextEl }
+  }
+
+  private buildAnnotationRow(container: BoxRenderable, annotation: PrCheckAnnotation, isSelected: boolean): ItemRowRefs {
+    // Two visual lines per annotation — path on line 1, message indented
+    // on line 2. Long paths + long messages each get a full-width budget
+    // and the row is still a single cursor stop (spec 043).
+    const outer = new BoxRenderable(this.renderer, {
+      flexDirection: "column",
+      backgroundColor: isSelected ? theme.surface1 : undefined,
+    })
+
+    const bulletColor =
+      annotation.level === "failure" ? theme.red :
+      annotation.level === "warning" ? theme.yellow :
+      theme.subtext0
+
+    // Line 1: bullet + path:line[:col]. Omit the trailing `:0` when the
+    // annotation is file-level (GitHub uses start_line=0 as "whole file").
+    const locText = annotation.startLine > 0
+      ? (annotation.startColumn !== undefined
+          ? `${annotation.path}:${annotation.startLine}:${annotation.startColumn}`
+          : `${annotation.path}:${annotation.startLine}`)
+      : annotation.path
+
+    const pathRow = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+    })
+    pathRow.add(new TextRenderable(this.renderer, {
+      content: "  ",
+      fg: theme.overlay0,
+    }))
+    pathRow.add(new TextRenderable(this.renderer, {
+      content: "• ",
+      fg: bulletColor,
+    }))
+    const pathText = new TextRenderable(this.renderer, {
+      content: locText,
+      fg: isSelected ? theme.text : theme.subtext1,
+    })
+    pathRow.add(pathText)
+    outer.add(pathRow)
+
+    // Line 2: message (first line only; long messages get truncated
+    // by the terminal).
+    const firstLine = (annotation.message || "").split("\n")[0] ?? ""
+    const msgRow = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+    })
+    const msgEl = new TextRenderable(this.renderer, {
+      content: firstLine ? `      ${firstLine}` : "",
+      fg: theme.overlay0,
+    })
+    msgRow.add(msgEl)
+    outer.add(msgRow)
+
+    container.add(outer)
+    return { container: outer, primary: pathText, secondary: msgEl }
+  }
+
+  private buildPlaceholderRow(container: BoxRenderable, kind: 'loading' | 'empty' | 'error', isSelected: boolean): ItemRowRefs {
+    const content =
+      kind === 'loading' ? "  Loading annotations…" :
+      kind === 'empty'   ? "  No annotations — press o to open log" :
+                           "  Could not fetch annotations"
+    const row = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+      backgroundColor: isSelected ? theme.surface1 : undefined,
+    })
+    const text = new TextRenderable(this.renderer, {
+      content,
+      fg: theme.overlay0,
+    })
+    row.add(text)
+    container.add(row)
+    return { container: row, primary: text }
   }
 
   /**

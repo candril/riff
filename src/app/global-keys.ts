@@ -265,6 +265,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             // TODO: Also scroll to the specific line
           }
         },
+        onOpenFileAtLine: (filename, line) => {
+          void externalTools.handleOpenFileAtLine(ctx.externalToolsContext, filename, line)
+        },
         onActivateCommit: (sha) => {
           // Activate commit (set viewing commit)
           ctx.onCommitSelected(sha)
@@ -278,6 +281,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           if (!thread) return
           void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
+        executeAction: ctx.executeAction,
       })
     ) {
       return
@@ -576,7 +580,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.executeAction("create-pr")
         }
         return
-      } else if (sequence === "gR!" || sequence === "gr!") {
+      } else if (sequence === "gr") {
         ctx.refreshContext.handleRefresh()
         return
       } else if (sequence === "gg") {

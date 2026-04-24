@@ -47,11 +47,20 @@ export interface PRInfoPanelInputContext {
   onJumpToFile?: (filename: string) => void
   // Callback to jump to file:line (for conversation code comments)
   onJumpToLocation?: (filename: string, line: number) => void
+  // Callback to open a specific file at a specific line in $EDITOR,
+  // bypassing the diff view (spec 043). Used for check annotations —
+  // the file may not even be in the PR diff.
+  onOpenFileAtLine?: (filename: string, line: number) => void
   // Callback to activate a commit (for commits section Enter)
   onActivateCommit?: (sha: string) => void
   // Toggle resolved state of a review thread by root comment id.
   // Used by `x` in the Conversation section.
   onToggleThreadResolved?: (rootCommentId: string) => void
+  // Dispatch a global action by id. Used so chord shortcuts like `gr`
+  // (refresh), `go` (open in browser), `gy` (copy PR URL) work inside the
+  // panel even though the panel captures `r`/`o`/`y` standalone for its
+  // own section-scoped semantics.
+  executeAction?: (id: string) => void
 }
 
 /**
@@ -93,6 +102,30 @@ function handleInputInner(
 
   const panel = ctx.getPanel()
 
+  // Resolve `g`-prefixed chords before the switch so the panel's standalone
+  // `r`/`o`/`y` handlers (expand-section / open-focused / copy-focused)
+  // don't swallow the chord key.
+  if (pendingKey === "g") {
+    clearPendingKey()
+    switch (key.name) {
+      case "g":
+        if (panel) panel.getScrollBox().scrollTo(0)
+        return true
+      case "r":
+        ctx.executeAction?.("refresh")
+        return true
+      case "o":
+        ctx.executeAction?.("open-in-browser")
+        return true
+      case "y":
+        ctx.executeAction?.("copy-pr-url")
+        return true
+    }
+    // Unknown g-sequence: swallow to avoid accidentally falling through
+    // into the panel-local `r`/`o`/`y`/etc. handlers below.
+    return true
+  }
+
   switch (key.name) {
     case "i":
       // i toggles back to diff view (spec 041).
@@ -113,17 +146,23 @@ function handleInputInner(
       return true
 
     case "l":
-      // l: expand selected conversation item
-      if (panel && panel.getActiveSection() === 'conversation') {
-        panel.expandSelectedThread()
+      // l: expand selected item — conversation threads, or (spec 043)
+      // failing checks into their annotation list.
+      if (panel) {
+        const section = panel.getActiveSection()
+        if (section === 'conversation') panel.expandSelectedThread()
+        else if (section === 'checks') panel.expandSelectedCheck()
       }
       ctx.render()
       return true
 
     case "h":
-      // h: collapse selected conversation item
-      if (panel && panel.getActiveSection() === 'conversation') {
-        panel.collapseSelectedThread()
+      // h: collapse selected item — conversation threads, or (spec 043)
+      // expanded check annotation lists.
+      if (panel) {
+        const section = panel.getActiveSection()
+        if (section === 'conversation') panel.collapseSelectedThread()
+        else if (section === 'checks') panel.collapseSelectedCheck()
       }
       ctx.render()
       return true
@@ -147,18 +186,19 @@ function handleInputInner(
       return true
 
     case "a":
-      // za - toggle current section or thread/comment
+      // za - toggle current section, conversation thread, or (spec 043)
+      // check annotation list.
       if (panel) {
         if (panel.isOnSectionHeader()) {
-          // On section header: toggle section expand/collapse
           panel.toggleSection()
         } else {
           const section = panel.getActiveSection()
           if (section === 'conversation') {
-            // On conversation item: toggle thread/comment expand
             panel.toggleSelectedThread()
+          } else if (section === 'checks') {
+            const check = panel.getSelectedCheck()
+            if (check) panel.toggleCheckExpansion(check.id)
           } else {
-            // On other items: toggle section
             panel.toggleSection()
           }
         }
@@ -194,8 +234,33 @@ function handleInputInner(
         const section = panel.getActiveSection()
         switch (section) {
           case 'checks': {
-            // Open check details URL in browser
+            // Enter on an annotation opens the file at that line in
+            // $EDITOR (spec 043). We deliberately don't route through
+            // the diff view — error sites are often in code the PR
+            // didn't touch, so the file isn't in `state.files`. Enter
+            // on a failing check row toggles its annotation list
+            // (same "no location → toggle expand" pattern conversation
+            // uses); Enter on any other check row opens the browser.
+            const ann = panel.getSelectedAnnotation()
+            if (ann && ctx.onOpenFileAtLine) {
+              // Don't close the panel — $EDITOR is external, and on
+              // return the user wants to stay on the annotation they
+              // just inspected (spec 043).
+              ctx.onOpenFileAtLine(ann.annotation.path, ann.annotation.startLine)
+              break
+            }
             const check = panel.getSelectedCheck()
+            if (check && panel.getSelectedAnnotation() === null) {
+              if (check.status === "completed" && (
+                check.conclusion === "failure" ||
+                check.conclusion === "timed_out" ||
+                check.conclusion === "action_required"
+              )) {
+                panel.toggleCheckExpansion(check.id)
+                ctx.render()
+                break
+              }
+            }
             if (check?.detailsUrl) {
               Bun.spawn(["open", check.detailsUrl])
             }
@@ -242,6 +307,14 @@ function handleInputInner(
         const section = panel.getActiveSection()
         switch (section) {
           case 'checks': {
+            // `o` on an annotation prefers the raw log line URL; falls
+            // back to the check's details URL (spec 043).
+            const ann = panel.getSelectedAnnotation()
+            if (ann) {
+              const url = ann.annotation.rawDetailsUrl ?? ann.check.detailsUrl
+              if (url) Bun.spawn(["open", url])
+              break
+            }
             const check = panel.getSelectedCheck()
             if (check?.detailsUrl) {
               Bun.spawn(["open", check.detailsUrl])
@@ -297,6 +370,16 @@ function handleInputInner(
           let copied = false
           switch (section) {
             case 'checks': {
+              // `y` on an annotation copies `path:line`; on a check row
+              // copies the check's details URL (spec 043).
+              const ann = panel.getSelectedAnnotation()
+              if (ann) {
+                const loc = `${ann.annotation.path}:${ann.annotation.startLine}`
+                Bun.spawn(["sh", "-c", `echo -n "${loc}" | pbcopy`])
+                ctx.setState((s) => showToast(s, `Copied ${loc}`, "success"))
+                copied = true
+                break
+              }
               const check = panel.getSelectedCheck()
               if (check?.detailsUrl) {
                 Bun.spawn(["sh", "-c", `echo -n "${check.detailsUrl}" | pbcopy`])
@@ -416,20 +499,6 @@ function handleInputInner(
       return true
     }
 
-  }
-
-  // Handle second key of g-sequence (for gg)
-  if (pendingKey === "g" && key.name === "g") {
-    clearPendingKey()
-    if (panel) {
-      panel.getScrollBox().scrollTo(0)
-    }
-    return true
-  }
-
-  // Clear pending key on any other input
-  if (pendingKey) {
-    clearPendingKey()
   }
 
   // Let truly global keys fall through (spec 041):
