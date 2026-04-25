@@ -51,8 +51,9 @@ export function ActionMenu({ query, selectedIndex, mode }: ActionMenuProps) {
       position: "absolute",
       top: 0,
       left: 0,
-      // Sits above other modal overlays (ThreadPreview uses 50) so the
-      // palette is reachable while a thread is visible (spec 042).
+      // Sits above other modal overlays (the InlineCommentOverlay uses
+      // 50) so the palette is reachable while a thread is visible
+      // (spec 042).
       zIndex: 100,
     },
     // Dim background overlay

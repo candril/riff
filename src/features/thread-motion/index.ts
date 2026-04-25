@@ -11,7 +11,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
 import { handleSelectFile } from "../file-navigation"
-import { openThreadPreview } from "../../state"
+import { openInlineCommentOverlay } from "../../state"
 
 export interface ThreadAnchor {
   filename: string
@@ -147,21 +147,25 @@ export function navigateToThread(
 }
 
 /**
- * Move the thread-preview overlay to the next/prev thread without closing.
- * Moves the vim cursor too so the underlying diff stays in sync.
+ * Move the inline comment overlay to the next/prev thread without
+ * closing it. Moves the vim cursor too so the underlying diff stays in
+ * sync.
  */
 export function jumpOverlayToAdjacentThread(
   direction: 1 | -1,
   ctx: ThreadMotionContext
 ): void {
   const state = ctx.getState()
-  if (!state.threadPreview.open) return
+  if (!state.inlineCommentOverlay.open) return
 
   const skipResolved = false
   const anchors = getThreadAnchors(state, skipResolved)
   if (anchors.length === 0) return
 
-  const from = { filename: state.threadPreview.filename, line: state.threadPreview.line }
+  const from = {
+    filename: state.inlineCommentOverlay.filename,
+    line: state.inlineCommentOverlay.line,
+  }
   const target = findThreadAnchor(anchors, from, direction)
   if (!target) return
 
@@ -182,7 +186,11 @@ export function jumpOverlayToAdjacentThread(
     }
   }
 
-  // Update the overlay to point at the new thread
-  ctx.setState((s) => openThreadPreview(s, target.filename, target.line, target.side))
+  // Reposition the overlay onto the new thread (view mode — adjacent
+  // navigation is read-first; the user can still drop into compose
+  // with `r` once the overlay is here).
+  ctx.setState((s) =>
+    openInlineCommentOverlay(s, target.filename, target.line, target.side, "view")
+  )
   ctx.render()
 }

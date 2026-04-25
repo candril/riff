@@ -34,7 +34,10 @@ export interface DiffViewInputContext {
   handleExpandDivider: () => void
   handleToggleViewed: (advanceToNext: boolean) => void
   handleSubmitSingleComment: (comment: Comment) => void
-  handleOpenThreadPreview: () => boolean  // Returns true if thread preview was opened
+  /** spec 039: open the inline comment overlay. `view` requires an
+   *  existing thread on the cursor's anchor; `compose` only requires
+   *  the line to be commentable. Returns true when the overlay opened. */
+  handleOpenInlineOverlay: (mode: "view" | "compose") => boolean
 }
 
 /**
@@ -62,15 +65,28 @@ export function handleInput(
     return true
   }
 
-  // Handle 'c' for comment (not handled by vim handler)
+  // Handle 'c' for comment (not handled by vim handler).
+  // Visual-line selections still drop into $EDITOR via handleAddComment
+  // so multi-line context is preserved; single-line `c` opens the
+  // inline overlay in compose mode (spec 039).
   if (key.name === "c" && !key.ctrl) {
-    ctx.handleAddComment()
+    const vimState = ctx.getVimState()
+    if (vimState.mode === "visual-line") {
+      ctx.handleAddComment()
+      return true
+    }
+    if (!ctx.handleOpenInlineOverlay("compose")) {
+      // Not a commentable line — fall back to the editor flow which
+      // searches forward for the first commentable line in range.
+      ctx.handleAddComment()
+    }
     return true
   }
 
-  // Handle Enter: show thread preview if comments exist, otherwise expand/collapse dividers
+  // Handle Enter: show inline overlay if comments exist, otherwise
+  // expand/collapse dividers (spec 039).
   if (key.name === "return" || key.name === "enter") {
-    if (!ctx.handleOpenThreadPreview()) {
+    if (!ctx.handleOpenInlineOverlay("view")) {
       ctx.handleExpandDivider()
     }
     return true

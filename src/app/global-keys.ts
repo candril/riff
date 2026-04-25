@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openThreadPreview, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -26,7 +26,7 @@ import * as commitPicker from "../features/commit-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
-import * as threadPreview from "../features/thread-preview"
+import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
 import * as fileTreeFeature from "../features/file-tree"
 import * as commentsView from "../features/comments-view"
@@ -220,13 +220,18 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
-    // ========== THREAD PREVIEW (captures all input when open) ==========
+    // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
     if (
-      threadPreview.handleInput(key, {
-        state: ctx.getState(),
+      inlineCommentOverlay.handleInput(key, {
+        getState: ctx.getState,
         setState: ctx.setState,
         render: ctx.render,
-        handleReply: () => commentsFeature.handleAddComment(ctx.commentsContext),
+        source: ctx.commentsContext.source,
+        getCachedCurrentUser: ctx.commentsContext.getCachedCurrentUser,
+        handleReplyExternal: () =>
+          commentsFeature.handleAddComment(ctx.commentsContext),
+        handleEditExternal: () =>
+          commentsFeature.handleAddComment(ctx.commentsContext),
         handleDelete: (comment) =>
           commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
         handleSubmit: (comment) =>
@@ -731,24 +736,32 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
       handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),
-      handleOpenThreadPreview: () => {
+      handleOpenInlineOverlay: (mode) => {
+        // spec 039: Enter opens the overlay in view mode if there's an
+        // existing thread on this anchor; `c` opens it in compose mode
+        // on any commentable line. Returns true when the overlay was
+        // opened so the caller can fall back (e.g. Enter → expand
+        // divider) when this is a no-op.
         const s = ctx.getState()
         const lineMapping = ctx.getLineMapping()
         const vimState = ctx.getVimState()
         const anchor = lineMapping.getCommentAnchor(vimState.line)
         if (!anchor) return false
 
-        // Bail if no root comments on this anchor
-        const hasRoot = s.comments.some(
-          (c) =>
-            c.filename === anchor.filename &&
-            c.line === anchor.line &&
-            c.side === anchor.side &&
-            !c.inReplyTo
-        )
-        if (!hasRoot) return false
+        if (mode === "view") {
+          const hasRoot = s.comments.some(
+            (c) =>
+              c.filename === anchor.filename &&
+              c.line === anchor.line &&
+              c.side === anchor.side &&
+              !c.inReplyTo
+          )
+          if (!hasRoot) return false
+        }
 
-        ctx.setState((s) => openThreadPreview(s, anchor.filename, anchor.line, anchor.side))
+        ctx.setState((st) =>
+          openInlineCommentOverlay(st, anchor.filename, anchor.line, anchor.side, mode)
+        )
         ctx.render()
         return true
       },

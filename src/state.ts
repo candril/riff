@@ -100,19 +100,32 @@ export interface CommentsSearchState {
 }
 
 /**
- * Thread preview state (quick view of comment thread from diff view)
+ * Inline comment overlay state (spec 039).
+ *
+ * Single surface for every comment action — read, reply, edit, delete,
+ * resolve, submit. Opened with `Enter` on a commented line (view mode)
+ * or `c` on any line (compose mode). Replaces the read-only ThreadPreview
+ * modal that used to fill this slot.
  */
-export interface ThreadPreviewState {
+export type InlineCommentOverlayMode = "view" | "compose" | "edit"
+
+export interface InlineCommentOverlayState {
   open: boolean
+  mode: InlineCommentOverlayMode
   /** Filename where the thread is located */
   filename: string
   /** Line number in the file */
   line: number
   /** Which side (LEFT/RIGHT) — scopes the comment filter */
   side: "LEFT" | "RIGHT"
-  /** Index of the currently highlighted comment. Target of actions
-   *  (d, S, r, e, x) and of the palette React… submenu (spec 042). */
+  /** Index of the currently highlighted comment in the derived thread.
+   *  Target of view-mode actions (d, S, R, E, x) and of the palette
+   *  React… submenu (spec 042). */
   highlightedIndex: number
+  /** Draft body shown in the inline composer when in compose / edit mode. */
+  input: string
+  /** Comment id being edited (only meaningful in edit mode). */
+  editingId: string | null
 }
 
 /**
@@ -234,8 +247,8 @@ export interface AppState {
   // PR info panel state
   prInfoPanel: PRInfoPanelState
   
-  // Thread preview state (quick view from diff view)
-  threadPreview: ThreadPreviewState
+  // Inline comment overlay state (spec 039 — actionable thread overlay)
+  inlineCommentOverlay: InlineCommentOverlayState
   
   // Ignore patterns state
   ignoredFiles: Set<string>          // Filenames matching ignore patterns
@@ -266,9 +279,9 @@ export interface AppState {
   draftReview: DraftReviewDialogState | null
 
   // What the palette's "React…" action targets right now (spec 042).
-  // Views set this when they focus a reactable item (e.g. ThreadPreview's
-  // focused comment) and clear it when they're dismissed. Null means the
-  // React action is not available in this context.
+  // Views set this when they focus a reactable item (e.g. the inline
+  // overlay's highlighted comment) and clear it when they're dismissed.
+  // Null means the React action is not available in this context.
   reactionTarget: ReactionTarget | null
 }
 
@@ -425,12 +438,15 @@ export function createInitialState(
       commentInputLoading: false,
       commentInputError: null,
     },
-    threadPreview: {
+    inlineCommentOverlay: {
       open: false,
+      mode: "view",
       filename: "",
       line: 0,
       side: "RIGHT",
       highlightedIndex: 0,
+      input: "",
+      editingId: null,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -1955,31 +1971,36 @@ export function setPRCommentInputError(state: AppState, error: string | null): A
 // ============================================================================
 
 /**
- * Open the thread preview for a specific line/side. Comments are derived
- * live via `getThreadPreviewComments` — we only stash the anchor here.
+ * Open the inline comment overlay (spec 039) for a specific line/side.
+ * Comments are derived live via `getInlineCommentOverlayComments` — we
+ * only stash the anchor here.
  *
  * Also points `reactionTarget` at the first comment in the thread so the
  * palette's "React…" action becomes available immediately (spec 042).
  */
-export function openThreadPreview(
+export function openInlineCommentOverlay(
   state: AppState,
   filename: string,
   line: number,
-  side: "LEFT" | "RIGHT"
+  side: "LEFT" | "RIGHT",
+  mode: InlineCommentOverlayMode = "view"
 ): AppState {
   const nextState: AppState = {
     ...state,
-    threadPreview: {
+    inlineCommentOverlay: {
       open: true,
+      mode,
       filename,
       line,
       side,
       highlightedIndex: 0,
+      input: "",
+      editingId: null,
     },
   }
   // Compute the reaction target from the derived comment list of the new
   // state (so we use the same filter as the renderer).
-  const first = getThreadPreviewComments(nextState)[0]
+  const first = getInlineCommentOverlayComments(nextState)[0]
   const reactionTarget: ReactionTarget | null = first?.githubId
     ? { kind: "review-comment", githubId: first.githubId }
     : null
@@ -1987,30 +2008,34 @@ export function openThreadPreview(
 }
 
 /**
- * Close the thread preview. Clears the reaction target so the "React…"
- * palette entry disappears while no thread is visible (spec 042).
+ * Close the inline comment overlay. Clears the reaction target so the
+ * "React…" palette entry disappears while no thread is visible
+ * (spec 042).
  */
-export function closeThreadPreview(state: AppState): AppState {
+export function closeInlineCommentOverlay(state: AppState): AppState {
   return {
     ...state,
-    threadPreview: {
-      ...state.threadPreview,
+    inlineCommentOverlay: {
+      ...state.inlineCommentOverlay,
       open: false,
+      mode: "view",
+      input: "",
+      editingId: null,
     },
     reactionTarget: null,
   }
 }
 
 /**
- * Derive the comments to show in the thread preview from current state.
- * Returns a stable-ordered list: root comments on the anchor line/side, plus
- * all transitive replies.
+ * Derive the comments to show in the inline overlay from current state.
+ * Returns a stable-ordered list: root comments on the anchor line/side,
+ * plus all transitive replies.
  */
-export function getThreadPreviewComments(state: AppState): Comment[] {
-  const tp = state.threadPreview
-  if (!tp.open) return []
+export function getInlineCommentOverlayComments(state: AppState): Comment[] {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return []
   const rootComments = state.comments.filter(
-    (c) => c.filename === tp.filename && c.line === tp.line && c.side === tp.side && !c.inReplyTo
+    (c) => c.filename === ov.filename && c.line === ov.line && c.side === ov.side && !c.inReplyTo
   )
   if (rootComments.length === 0) return []
   const threadIds = new Set(rootComments.map((c) => c.id))
@@ -2028,26 +2053,93 @@ export function getThreadPreviewComments(state: AppState): Comment[] {
 }
 
 /**
- * Move the highlighted comment in the thread preview by delta, clamped against
- * the current derived comment list. Also re-points `reactionTarget` at the
- * newly highlighted comment so the palette's React… submenu acts on it
- * (spec 042).
+ * Move the highlighted comment in the overlay by delta, clamped against
+ * the current derived comment list. Also re-points `reactionTarget` at
+ * the newly highlighted comment so the palette's React… submenu acts on
+ * it (spec 042).
  */
-export function moveThreadPreviewHighlight(state: AppState, delta: number): AppState {
-  const tp = state.threadPreview
-  if (!tp.open) return state
-  const derived = getThreadPreviewComments(state)
+export function moveInlineCommentOverlayHighlight(state: AppState, delta: number): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  const derived = getInlineCommentOverlayComments(state)
   if (derived.length === 0) return state
-  const next = Math.max(0, Math.min(derived.length - 1, tp.highlightedIndex + delta))
-  if (next === tp.highlightedIndex) return state
+  const next = Math.max(0, Math.min(derived.length - 1, ov.highlightedIndex + delta))
+  if (next === ov.highlightedIndex) return state
   const highlighted = derived[next]
   const reactionTarget: ReactionTarget | null = highlighted?.githubId
     ? { kind: "review-comment", githubId: highlighted.githubId }
     : null
   return {
     ...state,
-    threadPreview: { ...tp, highlightedIndex: next },
+    inlineCommentOverlay: { ...ov, highlightedIndex: next },
     reactionTarget,
+  }
+}
+
+/**
+ * Switch the overlay into compose mode (replying or new comment).
+ */
+export function startInlineCompose(state: AppState, prefill: string = ""): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      mode: "compose",
+      input: prefill,
+      editingId: null,
+    },
+  }
+}
+
+/**
+ * Switch the overlay into edit mode for a specific comment.
+ */
+export function startInlineEdit(
+  state: AppState,
+  commentId: string,
+  prefill: string
+): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      mode: "edit",
+      input: prefill,
+      editingId: commentId,
+    },
+  }
+}
+
+/**
+ * Drop back to view mode without submitting; clears the draft.
+ */
+export function cancelInlineComposer(state: AppState): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      mode: "view",
+      input: "",
+      editingId: null,
+    },
+  }
+}
+
+/**
+ * Replace the composer draft (used as the user types).
+ */
+export function setInlineCommentInput(state: AppState, input: string): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  return {
+    ...state,
+    inlineCommentOverlay: { ...ov, input },
   }
 }
 
@@ -2248,9 +2340,9 @@ export function applyReactionToggle(
 
   switch (target.kind) {
     case "review-comment": {
-      // ThreadPreview derives its comments live from state.comments via
-      // getThreadPreviewComments, so updating comments here is enough —
-      // the modal's ReactionRow re-renders from the same source.
+      // The inline overlay derives its comments live from state.comments
+      // via getInlineCommentOverlayComments, so updating comments here is
+      // enough — the overlay's ReactionRow re-renders from the same source.
       const comments = state.comments.map(c =>
         c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
       )
