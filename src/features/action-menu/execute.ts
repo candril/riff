@@ -8,6 +8,7 @@
 import type { AppState } from "../../state"
 import {
   openFilePicker,
+  openCommentsPicker,
   openCommitPicker,
   toggleFilePanel,
   toggleFilePanelExpanded,
@@ -70,6 +71,13 @@ export async function executeAction(
     case "find-files":
       setState(openFilePicker)
       render()
+      break
+
+    case "find-comments":
+      if (state.comments.length > 0) {
+        setState(openCommentsPicker)
+        render()
+      }
       break
 
     case "select-commit":

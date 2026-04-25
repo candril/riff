@@ -34,6 +34,8 @@ const HELP_SECTIONS = [
     title: "Diff Actions",
     keys: [
       ["c", "Add comment on line"],
+      ["C", "Add comment via $EDITOR"],
+      ["E", "Edit comment thread via $EDITOR"],
       ["V", "Visual line select"],
       ["v", "Mark file as viewed"],
       ["za", "Toggle file/hunk fold"],
@@ -52,7 +54,6 @@ const HELP_SECTIONS = [
       ["gy", "Copy PR URL"],
       ["gP", "Edit PR title/body"],
       ["gr", "Refresh from GitHub"],
-      ["C", "Add PR comment"],
     ],
   },
   {
@@ -60,6 +61,7 @@ const HELP_SECTIONS = [
     keys: [
       ["]r / [r", "Next / previous thread (opens overlay)"],
       ["]R / [R", "Same, skipping resolved threads"],
+      ["gC", "Find a comment (PR-wide picker)"],
       ["Enter", "Open inline comment overlay on this line"],
       ["x", "Toggle thread resolved (in overlay)"],
       ["r", "Reply (in overlay)"],

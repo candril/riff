@@ -14,6 +14,7 @@ import {
   InlineCommentOverlay,
   Toast,
   FilePicker,
+  CommentsPicker,
   CommitPicker,
   SyncPreview,
   SearchPrompt,
@@ -34,6 +35,7 @@ import type { SearchState } from "../vim-diff/search-state"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
+import * as commentsPickerFeature from "../features/comments-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
@@ -240,6 +242,13 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               query: state.filePicker.query,
               files: filteredFiles,
               selectedIndex: state.filePicker.selectedIndex,
+            })
+          : null,
+        state.commentsPicker.open
+          ? CommentsPicker({
+              query: state.commentsPicker.query,
+              entries: commentsPickerFeature.getFilteredEntries(state),
+              selectedIndex: state.commentsPicker.selectedIndex,
             })
           : null,
         state.commitPicker.open

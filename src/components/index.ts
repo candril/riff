@@ -13,6 +13,7 @@ export { ReviewPreviewPanel, type ReviewPreviewPanelOptions } from "./ReviewPrev
 export { ReviewPreview, type ReviewPreviewProps, type ValidatedComment, type ReviewEvent, canSubmit } from "./ReviewPreview"
 export { Toast, type ToastProps, type ToastType } from "./Toast"
 export { FilePicker, type FilePickerProps, type FilteredFile } from "./FilePicker"
+export { CommentsPicker, type CommentsPickerProps } from "./CommentsPicker"
 export { SyncPreview, type SyncPreviewProps, type SyncItem, gatherSyncItems } from "./SyncPreview"
 export { PRInfoPanelClass } from "./PRInfoPanel"
 export { SearchPrompt, type SearchPromptProps } from "./SearchPrompt"

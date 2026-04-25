@@ -92,6 +92,16 @@ export interface FilePickerState {
 }
 
 /**
+ * Comments picker state (spec 044). PR-wide fuzzy picker over every
+ * comment in the diff. Triggered by `gC`. Shape mirrors FilePickerState.
+ */
+export interface CommentsPickerState {
+  open: boolean
+  query: string
+  selectedIndex: number
+}
+
+/**
  * Inline comment overlay state (spec 039).
  *
  * Single surface for every comment action — read, reply, edit, delete,
@@ -229,6 +239,9 @@ export interface AppState {
   
   // File picker state
   filePicker: FilePickerState
+
+  // Comments picker state (spec 044)
+  commentsPicker: CommentsPickerState
   
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
@@ -411,6 +424,11 @@ export function createInitialState(
       type: "info",
     },
     filePicker: {
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+    commentsPicker: {
       open: false,
       query: "",
       selectedIndex: 0,
@@ -1550,6 +1568,62 @@ export function moveFilePickerSelection(state: AppState, delta: number, maxIndex
     ...state,
     filePicker: {
       ...state.filePicker,
+      selectedIndex: newIndex,
+    },
+  }
+}
+
+// ============================================================================
+// Comments Picker State (spec 044)
+// ============================================================================
+
+export function openCommentsPicker(state: AppState): AppState {
+  return {
+    ...state,
+    commentsPicker: {
+      open: true,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+export function closeCommentsPicker(state: AppState): AppState {
+  return {
+    ...state,
+    commentsPicker: {
+      ...state.commentsPicker,
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+  }
+}
+
+export function setCommentsPickerQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    commentsPicker: {
+      ...state.commentsPicker,
+      query,
+      selectedIndex: 0,
+    },
+  }
+}
+
+/** Wraps around at both ends, mirroring moveFilePickerSelection. */
+export function moveCommentsPickerSelection(
+  state: AppState,
+  delta: number,
+  maxIndex: number
+): AppState {
+  let newIndex = state.commentsPicker.selectedIndex + delta
+  if (newIndex < 0) newIndex = maxIndex
+  else if (newIndex > maxIndex) newIndex = 0
+  return {
+    ...state,
+    commentsPicker: {
+      ...state.commentsPicker,
       selectedIndex: newIndex,
     },
   }

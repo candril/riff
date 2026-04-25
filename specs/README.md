@@ -63,6 +63,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 033 | [Comment Sync](./033-comment-sync.md) | Ready | Sync edits and replies to GitHub |
 | 034 | [Delete Comments](./034-delete-comments.md) | Draft | Delete comments with safeguard confirmation |
 | 042 | [Comment Reactions](./042-comment-reactions.md) | Draft | Add/remove GitHub reactions on PR comments, body, reviews |
+| 044 | [Comments Picker](./044-comments-picker.md) | Draft | `gC` fuzzy modal across all comments in the diff |
 
 ## MVP Path
 

@@ -21,6 +21,7 @@ import { getVisibleFlatTreeItems } from "../components"
 
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
+import * as commentsPicker from "../features/comments-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
@@ -183,6 +184,30 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.rebuildLineMapping()
         },
         recordJump,
+      })
+    ) {
+      return
+    }
+
+    // ========== COMMENTS PICKER (captures all input when open, spec 044) ==========
+    if (
+      commentsPicker.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        recordJump,
+        onSelectComment: (comment) => {
+          commentsPicker.jumpToComment(comment, {
+            getState: ctx.getState,
+            setState: ctx.setState,
+            getVimState: ctx.getVimState,
+            setVimState: ctx.setVimState,
+            getLineMapping: ctx.getLineMapping,
+            ensureCursorVisible: ctx.ensureCursorVisible,
+            render: ctx.render,
+            fileNavContext: ctx.fileNavContext,
+          })
+        },
       })
     ) {
       return
@@ -360,8 +385,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
 
     // ========== GLOBAL KEYS (work in any mode) ==========
+    // When a chord is mid-sequence (e.g. user typed `g` and we're
+    // waiting for the second key), single-key handlers must NOT fire on
+    // the second key — they'd steal it from the chord matcher below.
+    // This is what previously broke `gC` (Shift+C → "add-pr-comment"),
+    // `gi` (bare `i` → toggleViewMode), etc.
     const state = ctx.getState()
-    switch (key.name) {
+    if (!pendingKey) switch (key.name) {
       case "o":
         if (key.ctrl) {
           // Ctrl-O: back in jumplist (spec 038).
@@ -407,9 +437,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
 
       case "c":
-        // C (shift+c): Add PR-level conversation comment
-        if (key.shift && state.appMode === "pr" && state.prInfo) {
-          ctx.executeAction("add-pr-comment")
+        // C (shift+c): Add an inline comment via $EDITOR. Falls back
+        // silently if the cursor isn't on a commentable line. PR-level
+        // conversation comments are command-palette only.
+        if (key.shift) {
+          void commentsFeature.handleAddComment(ctx.commentsContext)
           return
         }
         break
@@ -462,6 +494,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         if (key.ctrl && state.showFilePanel) {
           ctx.setState(toggleFilePanelExpanded)
           ctx.render()
+          return
+        }
+        // E (shift+e): Edit the comment thread on the current line via
+        // $EDITOR. Same flow as `C` — handleAddComment shows the thread
+        // for editing and includes a reply box. No-op when the cursor
+        // isn't on a commented/commentable line.
+        if (key.shift) {
+          void commentsFeature.handleAddComment(ctx.commentsContext)
           return
         }
         break
@@ -595,6 +635,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gc") {
         externalTools.handleCheckoutAndEdit(ctx.externalToolsContext)
+        return
+      } else if (sequence === "gC!" || sequence === "gc!") {
+        // spec 044: Open comments picker. Silent no-op when nothing to
+        // search so the chord doesn't flash an empty modal. Both `gC!`
+        // and `gc!` are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        if (s.comments.length > 0) {
+          ctx.setState(commentsPicker.openCommentsPicker)
+          ctx.render()
+        }
         return
       } else if (sequence === "gd") {
         // spec 036: review the drafted inline comment. Silently no-op

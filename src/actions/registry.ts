@@ -20,6 +20,14 @@ export const actions: Action[] = [
     available: (state) => state.files.length > 0,
   },
   {
+    id: "find-comments",
+    label: "Find Comments",
+    description: "Search all comments in the diff (PR-wide)",
+    shortcut: "gC",
+    category: "navigation",
+    available: (state) => state.comments.length > 0,
+  },
+  {
     id: "next-file",
     label: "Next File",
     description: "Jump to next file",
@@ -284,7 +292,6 @@ export const actions: Action[] = [
     id: "add-pr-comment",
     label: "Add PR Comment",
     description: "Post a conversation comment on the PR (not tied to code)",
-    shortcut: "C",
     category: "github",
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
