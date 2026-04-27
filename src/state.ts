@@ -44,10 +44,9 @@ export interface ReviewPreviewState {
   selectedEvent: ReviewEvent
   loading: boolean
   error?: string
-  /** Overall review comment/body */
+  /** Overall review comment/body. Mirrored from the textarea via
+   *  ReviewSummaryComposer's onContentChange. */
   body: string
-  /** Cursor position within body (0..body.length) */
-  cursorOffset: number
   /** IDs of comments to exclude from submission */
   excludedCommentIds: Set<string>
   /** Currently highlighted comment index for selection */
@@ -114,13 +113,15 @@ export type InlineCommentOverlayMode = "view" | "compose" | "edit"
 export interface InlineCommentOverlayState {
   open: boolean
   mode: InlineCommentOverlayMode
-  /** Filename where the thread is located */
+  /** Filename the panel is scoped to. View mode shows every comment in
+   *  this file; compose/edit mode anchors a new comment / edit at
+   *  (filename, line, side). */
   filename: string
-  /** Line number in the file */
+  /** Line number — only meaningful for compose/edit mode. */
   line: number
-  /** Which side (LEFT/RIGHT) — scopes the comment filter */
+  /** Which side (LEFT/RIGHT) — only meaningful for compose/edit mode. */
   side: "LEFT" | "RIGHT"
-  /** Index of the currently highlighted comment in the derived thread.
+  /** Index of the currently highlighted comment in the derived list.
    *  Target of view-mode actions (d, S, R, E, x) and of the palette
    *  React… submenu (spec 042). */
   highlightedIndex: number
@@ -128,6 +129,9 @@ export interface InlineCommentOverlayState {
   input: string
   /** Comment id being edited (only meaningful in edit mode). */
   editingId: string | null
+  /** Wider layout when the panel is the user's primary focus
+   *  (toggle with Ctrl-e, mirrors the file tree's expand). */
+  expanded: boolean
 }
 
 /**
@@ -183,7 +187,7 @@ export interface AppState {
   // UI state
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
-  focusedPanel: "tree" | "diff"
+  focusedPanel: "tree" | "diff" | "comments"
   mode: UIMode
 
   // Diff view state
@@ -406,10 +410,9 @@ export function createInitialState(
       selectedEvent: "COMMENT",
       loading: false,
       body: "",
-      cursorOffset: 0,
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
-      focusedSection: "input",
+      focusedSection: "comments",
       pendingReview: null,
       pendingReviewLoading: false,
     },
@@ -454,6 +457,7 @@ export function createInitialState(
       highlightedIndex: 0,
       input: "",
       editingId: null,
+      expanded: false,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -1184,10 +1188,9 @@ export function openReviewPreview(state: AppState): AppState {
       loading: false,
       error: undefined,
       body: "",
-      cursorOffset: 0,
       excludedCommentIds: new Set(),
       highlightedIndex: 0,
-      focusedSection: "input",
+      focusedSection: "comments",
       // Use app-level pending review (already loaded when PR opened)
       pendingReview: state.pendingReview,
       pendingReviewLoading: false,
@@ -1377,41 +1380,16 @@ export function setReviewEvent(state: AppState, event: "COMMENT" | "APPROVE" | "
 }
 
 /**
- * Update review body text and cursor position.
- * If cursorOffset is omitted, defaults to the end of the new body.
+ * Update review body text. The textarea owns the live cursor — this
+ * mutator is only used to mirror the textarea's content into state and
+ * to flush the latest value at submit time.
  */
-export function setReviewBody(
-  state: AppState,
-  body: string,
-  cursorOffset?: number
-): AppState {
-  const nextCursor = Math.max(
-    0,
-    Math.min(body.length, cursorOffset ?? body.length)
-  )
+export function setReviewBody(state: AppState, body: string): AppState {
   return {
     ...state,
     reviewPreview: {
       ...state.reviewPreview,
       body,
-      cursorOffset: nextCursor,
-    },
-  }
-}
-
-/**
- * Update cursor position within the review body (clamped).
- */
-export function setReviewCursor(state: AppState, cursorOffset: number): AppState {
-  const nextCursor = Math.max(
-    0,
-    Math.min(state.reviewPreview.body.length, cursorOffset)
-  )
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      cursorOffset: nextCursor,
     },
   }
 }
@@ -1982,7 +1960,11 @@ export function openInlineCommentOverlay(
       highlightedIndex: 0,
       input: "",
       editingId: null,
+      expanded: state.inlineCommentOverlay.expanded,
     },
+    // When opening from the diff, focus the panel so it's the active
+    // surface — the user's intent is to interact with comments.
+    focusedPanel: state.focusedPanel === "tree" ? state.focusedPanel : "comments",
   }
   // Compute the reaction target from the derived comment list of the new
   // state (so we use the same filter as the renderer).
@@ -2008,34 +1990,48 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
       input: "",
       editingId: null,
     },
+    // Hand focus back to the diff (or stay on tree). The panel can't
+    // own focus while it's hidden.
+    focusedPanel: state.focusedPanel === "comments" ? "diff" : state.focusedPanel,
     reactionTarget: null,
   }
 }
 
 /**
- * Derive the comments to show in the inline overlay from current state.
- * Returns a stable-ordered list: root comments on the anchor line/side,
- * plus all transitive replies.
+ * Derive the panel's "current scope file": the user's selected file in
+ * single-file view, or null in all-files view. Returning null lets the
+ * caller decide between "show every comment" and "show nothing".
+ */
+export function getCommentsPanelScopeFilename(state: AppState): string | null {
+  if (state.selectedFileIndex !== null) {
+    return state.files[state.selectedFileIndex]?.filename ?? null
+  }
+  return null
+}
+
+/**
+ * Derive the comments to show in the side panel — every comment in the
+ * panel's current scope, ordered by source line so threads sit next to
+ * the lines they comment on. Replies stay grouped with their roots
+ * (the GitHub schema gives replies the same `line` as their root, so
+ * the line-then-creation sort below keeps thread order intact).
+ *
+ * Scope follows the user's current file: single-file view → that file;
+ * all-files view → every comment. Compose / edit modes share this list
+ * — the composer is anchored at (filename, line, side) but the
+ * surrounding panel still shows the file's whole conversation.
  */
 export function getInlineCommentOverlayComments(state: AppState): Comment[] {
-  const ov = state.inlineCommentOverlay
-  if (!ov.open) return []
-  const rootComments = state.comments.filter(
-    (c) => c.filename === ov.filename && c.line === ov.line && c.side === ov.side && !c.inReplyTo
-  )
-  if (rootComments.length === 0) return []
-  const threadIds = new Set(rootComments.map((c) => c.id))
-  let added = true
-  while (added) {
-    added = false
-    for (const c of state.comments) {
-      if (!threadIds.has(c.id) && c.inReplyTo && threadIds.has(c.inReplyTo)) {
-        threadIds.add(c.id)
-        added = true
-      }
-    }
-  }
-  return state.comments.filter((c) => threadIds.has(c.id))
+  if (!state.inlineCommentOverlay.open) return []
+  const scope = getCommentsPanelScopeFilename(state)
+  const pool = scope === null
+    ? state.comments
+    : state.comments.filter((c) => c.filename === scope)
+  return [...pool].sort((a, b) => {
+    if (a.filename !== b.filename) return a.filename.localeCompare(b.filename)
+    if (a.line !== b.line) return a.line - b.line
+    return a.createdAt.localeCompare(b.createdAt)
+  })
 }
 
 /**

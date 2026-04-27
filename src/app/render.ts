@@ -24,11 +24,15 @@ import {
   gatherSyncItems,
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
+import {
+  syncReviewSummarySession,
+  endReviewSummarySession,
+} from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments } from "../state"
+import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -45,6 +49,7 @@ import type { ActionMenuMode } from "../components"
 export interface RenderContext {
   // Mutable state accessors
   getState: () => AppState
+  setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   getLineMapping: () => DiffLineMapping
   getSearchState: () => SearchState
@@ -173,7 +178,36 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       } else {
         endComposerSession()
       }
-      ctx.vimDiffView.setSuspendCursor(composerActive)
+
+      // Same dance for the review summary textarea — it owns the live
+      // value while the modal is open, and mirrors back into
+      // `state.reviewPreview.body` so canSubmit stays accurate.
+      const reviewActive = state.reviewPreview.open
+      if (reviewActive) {
+        syncReviewSummarySession(
+          ctx.renderer,
+          // The session resets only when the modal closes/reopens;
+          // section toggles just flip focus.
+          "review-preview-open",
+          state.reviewPreview.body,
+          state.reviewPreview.focusedSection === "input",
+          (value) => {
+            ctx.setState((s) =>
+              s.reviewPreview.open && s.reviewPreview.body !== value
+                ? { ...s, reviewPreview: { ...s.reviewPreview, body: value } }
+                : s
+            )
+            // Trigger a re-render so the footer's submit-enabled state
+            // reflects the new body. The session-key short-circuit
+            // prevents this from looping back into setText.
+            render()
+          }
+        )
+      } else {
+        endReviewSummarySession()
+      }
+
+      ctx.vimDiffView.setSuspendCursor(composerActive || reviewActive)
     }
 
     ctx.renderer.root.add(
@@ -237,6 +271,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               ),
               state: state.reviewPreview,
               isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
+              renderer: ctx.renderer,
             })
           : null,
         state.syncPreview.open
@@ -248,11 +283,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.inlineCommentOverlay.open
           ? InlineCommentOverlay({
               comments: getInlineCommentOverlayComments(state),
-              filename: state.inlineCommentOverlay.filename,
+              scopeFilename: getCommentsPanelScopeFilename(state),
+              composeFilename: state.inlineCommentOverlay.filename,
               line: state.inlineCommentOverlay.line,
               mode: state.inlineCommentOverlay.mode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
               editingId: state.inlineCommentOverlay.editingId,
+              focused: state.focusedPanel === "comments",
+              expanded: state.inlineCommentOverlay.expanded,
               renderer: ctx.renderer,
             })
           : null,

@@ -33,7 +33,7 @@ const HELP_SECTIONS = [
   {
     title: "Diff Actions",
     keys: [
-      ["c", "Add comment on line"],
+      ["Ctrl+t", "Toggle comments panel"],
       ["C", "Add comment via $EDITOR"],
       ["E", "Edit comment thread via $EDITOR"],
       ["V", "Visual line select"],

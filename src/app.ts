@@ -217,6 +217,7 @@ export async function createApp(options: AppOptions = {}) {
   // ===== RENDER =====
   const render = createRenderFunction({
     getState: () => state,
+    setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getSearchState: () => searchState,

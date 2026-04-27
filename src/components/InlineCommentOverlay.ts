@@ -1,11 +1,13 @@
 /**
- * InlineCommentOverlay — actionable thread overlay (spec 039).
+ * InlineCommentOverlay — file-scoped comments side panel (spec 039).
  *
- * Replaces the read-only `ThreadPreview` modal that used to sit on
- * `Enter`. The overlay is the single surface where every comment action
- * happens: read, reply (inline), edit (inline), delete, resolve, react,
- * submit. It opens with `Enter` on a commented line (view mode) or `c`
- * on any diff line (compose mode).
+ * Right-anchored side panel that lists every comment in the panel's
+ * current file, grouped into threads. Single surface for read / reply /
+ * edit / delete / resolve / submit / react.
+ *
+ * Toggled with `Ctrl-t` from the diff (mirrors `Ctrl-b` for the file
+ * tree on the opposite side). Focusable like the file tree: `Ctrl-l`
+ * enters from the diff, `Ctrl-h` exits, `Ctrl-e` widens it.
  *
  * Rendering only — keystrokes live in
  * `src/features/inline-comment-overlay/input.ts`.
@@ -16,66 +18,69 @@ import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import type { Comment } from "../types"
 import type { InlineCommentOverlayMode } from "../state"
-import { groupIntoThreads } from "../utils/threads"
+import { groupIntoThreads, type Thread } from "../utils/threads"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
 
 export interface InlineCommentOverlayProps {
   comments: Comment[]
-  filename: string
+  /** Scope shown in the header — the user's currently selected file,
+   *  or null in all-files view (header reads "all files"). */
+  scopeFilename: string | null
+  /** Anchor file for compose/edit mode (where a new comment lands). */
+  composeFilename: string
+  /** Anchor line for compose/edit mode. Ignored in view mode. */
   line: number
-  /** Drives panel layout — view shows hints; compose/edit show composer. */
   mode: InlineCommentOverlayMode
-  /** Currently highlighted comment index. Targets actions and the
-   *  palette React… submenu (spec 042). */
+  /** Currently highlighted comment index in the displayOrder list. */
   highlightedIndex: number
-  /** Comment id being edited (edit mode) */
+  /** Comment id being edited (edit mode). */
   editingId: string | null
+  /** True when the panel itself is the focused surface — drives
+   *  border color so it visibly differs from "panel open but
+   *  user is driving the diff". */
+  focused: boolean
+  /** Wider layout (Ctrl-e). */
+  expanded: boolean
   renderer: CliRenderer
 }
 
 /**
- * Cache of MarkdownRenderable instances by comment id. Reusing the same
- * instance across renders avoids re-parsing markdown / re-tokenizing
- * code blocks on every keystroke, which was the cause of the visible
- * flicker on threads with multiple comments. Entries are kept for the
- * lifetime of the process — comments rarely number in the thousands and
- * rebuild on app restart, so a leak here is academic.
+ * Build a MarkdownRenderable for a comment body. We tried caching by
+ * id to avoid re-parsing on every render, but reusing the same
+ * Renderable instance across renders smeared its position (the body
+ * text bled into adjacent comment headers — see CleanShot 2026-04-27
+ * 17.38). OpenTUI's reconciliation expects fresh instances per render
+ * tied to a stable `id`, so we instantiate every frame and rely on
+ * the id-keyed reconciliation to be cheap enough.
  */
-const markdownCache = new Map<string, MarkdownRenderable>()
-
-function getCachedMarkdown(
+function buildMarkdown(
   renderer: CliRenderer,
   id: string,
   content: string
 ): MarkdownRenderable {
-  let inst = markdownCache.get(id)
-  if (!inst) {
-    inst = new MarkdownRenderable(renderer, {
-      id,
-      content,
-      syntaxStyle: getSyntaxStyle(),
-    })
-    markdownCache.set(id, inst)
-  } else if (inst.content !== content) {
-    inst.content = content
-  }
-  return inst
+  return new MarkdownRenderable(renderer, {
+    id,
+    content,
+    syntaxStyle: getSyntaxStyle(),
+  })
 }
 
 /**
- * Side-panel width. Picked so the panel is comfortable for prose (long
- * enough to fit a typical comment line) without crowding the diff. The
- * panel caps at half the terminal so very narrow terminals still show
- * some diff to the left of it.
+ * Side-panel widths. The narrow target keeps the diff readable on
+ * normal terminals; the expanded target (Ctrl-e) gives prose room when
+ * the user is actively reading / writing comments. Both cap at half
+ * the terminal width so very narrow terminals still show some diff.
  */
-const PANEL_WIDTH_TARGET = 72
+const PANEL_WIDTH_TARGET = 64
+const PANEL_WIDTH_EXPANDED = 96
 const PANEL_WIDTH_MIN = 48
 
-function getPanelWidth(): number {
+function getPanelWidth(expanded: boolean): number {
   const cols = process.stdout.columns || 120
-  const half = Math.floor(cols / 2)
-  return Math.max(PANEL_WIDTH_MIN, Math.min(PANEL_WIDTH_TARGET, half))
+  const target = expanded ? PANEL_WIDTH_EXPANDED : PANEL_WIDTH_TARGET
+  const cap = Math.floor(cols * (expanded ? 0.7 : 0.5))
+  return Math.max(PANEL_WIDTH_MIN, Math.min(target, cap))
 }
 
 let sharedSyntaxStyle: SyntaxStyle | null = null
@@ -137,83 +142,106 @@ function formatTimeAgo(isoDate: string): string {
   return date.toLocaleDateString([], { month: "short", day: "numeric" })
 }
 
-/** Ordered list of (key, label) pairs rendered in the footer hint row.
- *  Mirrors the PRInfoPanel pattern (yellow key glyph + subtext0 label). */
 type Hint = readonly [string, string]
 
-function viewModeHints(canSubmit: boolean, hasComments: boolean): Hint[] {
-  if (!hasComments) {
-    return [
-      ["r", "new"],
-      ["c/Esc", "close"],
-    ]
+function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolean): Hint[] {
+  if (!focused) {
+    return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
   }
-  const hints: Hint[] = [
-    ["j/k", "nav"],
-    ["J/K", "thread"],
-    ["r", "reply"],
-    ["e", "edit"],
-    ["d", "del"],
-    ["x", "resolve"],
-  ]
-  if (canSubmit) hints.push(["S", "submit"])
-  hints.push(["c/Esc", "close"])
+  const hints: Hint[] = [["n", "new"]]
+  if (hasComments) {
+    hints.push(["j/k", "nav"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"])
+    if (canSubmit) hints.push(["S", "submit"])
+  }
+  hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["Ctrl-t/Esc", "close"])
   return hints
 }
 
-/**
- * Render a footer-style hint row. Each pair lives in its own Box with a
- * `marginRight` so spacing is layout-driven instead of leaning on
- * trailing whitespace inside Text nodes (which OpenTUI's flex row
- * collapses unreliably between adjacent Text children).
- */
 function renderHintRow(hints: Hint[]) {
-  return Box(
-    { flexDirection: "row" },
-    ...hints.map(([key, label], i) =>
-      Box(
-        {
-          flexDirection: "row",
-          marginRight: i === hints.length - 1 ? 0 : 2,
-        },
-        Text({ content: key, fg: theme.yellow }),
-        Text({ content: " ", fg: theme.subtext0 }),
-        Text({ content: label, fg: theme.subtext0 })
-      )
-    )
-  )
+  // PRInfoPanel pattern: rows must declare `height: 1` or OpenTUI's
+  // column flex won't measure Text height, and the parent stacks
+  // siblings on top of each other (or wraps Text columns weirdly).
+  const children = []
+  for (let i = 0; i < hints.length; i++) {
+    const [key, label] = hints[i]!
+    children.push(Text({ content: key, fg: theme.yellow }))
+    children.push(Text({
+      content: i === hints.length - 1 ? ` ${label}` : ` ${label}  `,
+      fg: theme.subtext0,
+    }))
+  }
+  return Box({ flexDirection: "row", height: 1 }, ...children)
+}
+
+/**
+ * Decide how many threads to render around the highlighted comment.
+ * We render a fixed window so very long files don't dump every comment
+ * into the layout — the side panel itself clips the rest. We always
+ * include enough leading threads that the highlighted one ends up in
+ * roughly the middle.
+ */
+function pickVisibleThreads(
+  threads: Thread[],
+  displayOrder: Comment[],
+  highlightedIndex: number,
+  windowSize: number
+): { threads: Thread[]; before: number; after: number } {
+  if (threads.length <= windowSize) {
+    return { threads, before: 0, after: 0 }
+  }
+  const highlightedId = displayOrder[highlightedIndex]?.id
+  const highlightedThreadIdx = highlightedId
+    ? threads.findIndex((t) => t.comments.some((c) => c.id === highlightedId))
+    : 0
+  const half = Math.floor(windowSize / 2)
+  const start = Math.max(0, Math.min(threads.length - windowSize, highlightedThreadIdx - half))
+  const end = Math.min(threads.length, start + windowSize)
+  return {
+    threads: threads.slice(start, end),
+    before: start,
+    after: threads.length - end,
+  }
 }
 
 export function InlineCommentOverlay({
   comments,
-  filename,
+  scopeFilename,
+  composeFilename,
   line,
   mode,
   highlightedIndex,
   editingId,
+  focused,
+  expanded,
   renderer,
 }: InlineCommentOverlayProps) {
   const threads = groupIntoThreads(comments)
-  const shortFilename = filename.split("/").pop() || filename
+  const headerLabel = scopeFilename
+    ? scopeFilename.split("/").pop() || scopeFilename
+    : "all files"
   const displayOrder: Comment[] = threads.flatMap((t) => t.comments)
   const highlightedId = displayOrder[highlightedIndex]?.id
-  const highlightedComment = comments[highlightedIndex]
+  const highlightedComment = displayOrder[highlightedIndex]
   const canSubmit = highlightedComment
     ? highlightedComment.status === "local" || highlightedComment.localEdit !== undefined
     : false
   const isComposing = mode === "compose" || mode === "edit"
+  const composeFile = composeFilename.split("/").pop() || composeFilename
   const composerLabel =
     mode === "edit"
       ? "Editing comment"
-      : comments.length > 0
-        ? "Reply"
-        : "New comment"
+      : highlightedComment && highlightedComment.line === line && highlightedComment.filename === composeFilename
+        ? `Reply @ ${composeFile}:${line}`
+        : `New comment @ ${composeFile}:${line}`
 
-  const panelWidth = getPanelWidth()
+  const panelWidth = getPanelWidth(expanded)
 
-  // Right-anchored side panel. Sits over the diff without dimming it so
-  // the cursor line stays in view while the user reads/replies. A left
-  // border line separates it visually from the diff content underneath.
+  // Cap the rendered thread count when not expanded — the panel itself
+  // clips overflow but mounting hundreds of MarkdownRenderables is a
+  // measurable cost on first paint.
+  const maxVisibleThreads = expanded ? 80 : 24
+  const visible = pickVisibleThreads(threads, displayOrder, highlightedIndex, maxVisibleThreads)
+
   return Box(
     {
       position: "absolute",
@@ -222,47 +250,39 @@ export function InlineCommentOverlay({
       width: panelWidth,
       height: "100%",
       zIndex: 50,
-      flexDirection: "row",
+      flexDirection: "column",
+      backgroundColor: theme.base,
+      overflow: "hidden",
+      borderStyle: "single",
+      borderColor: focused ? colors.primary : colors.border,
     },
-    // Left edge separator
-    Box({
-      width: 1,
-      height: "100%",
-      backgroundColor: theme.surface0,
-    }),
+    // Header — file + comment count. Mirrors FileTreePanel: 1-row tall,
+    // single-column padding, mantle background. Focus is signalled by
+    // the border + header text color.
     Box(
       {
-        flexGrow: 1,
-        flexDirection: "column",
-        backgroundColor: theme.base,
-        height: "100%",
-        overflow: "hidden",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        height: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor: theme.mantle,
       },
-      // Header — left: anchor; right: mode label OR comment count
-      // (in view mode the count is more useful than the static "Thread"
-      // word and saves a row at the bottom).
-      Box(
-        {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          paddingX: 2,
-          paddingY: 1,
-          backgroundColor: theme.mantle,
-        },
-        Text({ content: `${shortFilename}:${line}`, fg: theme.text }),
-        Text({
-          content: isComposing
-            ? mode === "edit"
-              ? "Editing"
-              : "Composing"
-            : comments.length > 0
-              ? `${comments.length} comment${comments.length !== 1 ? "s" : ""}`
-              : "New comment",
-          fg: theme.overlay0,
-        })
-      ),
+      Text({
+        content: headerLabel,
+        fg: focused ? colors.primary : colors.textMuted,
+      }),
+      Text({
+        content: isComposing
+          ? mode === "edit"
+            ? "Editing"
+            : "Composing"
+          : `${comments.length} comment${comments.length !== 1 ? "s" : ""}`,
+        fg: theme.overlay0,
+      })
+    ),
 
-      // Thread comments (or empty-state hint)
+      // Thread list (or empty-state hint).
       comments.length > 0
         ? Box(
             {
@@ -270,79 +290,110 @@ export function InlineCommentOverlay({
               paddingX: 2,
               paddingY: 1,
               gap: 1,
+              flexGrow: 1,
             },
-            ...threads.flatMap((thread) =>
-              thread.comments.map((comment, i) => {
+            visible.before > 0
+              ? Text({
+                  content: `↑ ${visible.before} earlier thread${visible.before !== 1 ? "s" : ""}`,
+                  fg: theme.overlay0,
+                })
+              : null,
+            ...visible.threads.flatMap((thread) => {
+              const root = thread.comments[0]!
+              // Show filename in the divider too when the panel is
+              // unscoped (all-files view) — otherwise threads from
+              // different files run together with no separator.
+              const threadHeader = scopeFilename === null
+                ? `─ ${(root.filename.split("/").pop() || root.filename)}:${root.line}`
+                : `─ line ${root.line}`
+              return [
+              Box(
+                { flexDirection: "row", height: 1, marginTop: 1 },
+                Text({
+                  content: threadHeader,
+                  fg: theme.overlay0,
+                }),
+                thread.resolved
+                  ? Text({ content: "  ✓ resolved", fg: theme.green })
+                  : null
+              ),
+              ...thread.comments.map((comment, i) => {
                 const isRoot = i === 0
                 const author = comment.author || "you"
                 const statusColor = getStatusColor(comment.status)
-                const connector = isRoot ? "" : "\u2514 "
+                const connector = isRoot ? "" : "└ "
                 const isHighlighted = comment.id === highlightedId
                 const isBeingEdited = comment.id === editingId
 
+                // Each visual line is its own Box with `height: 1`
+                // (PRInfoPanel pattern). Without explicit per-row
+                // height, OpenTUI's column flex doesn't measure Text
+                // and the rows stack on row 0 of the comment Box.
+                // The body uses a MarkdownRenderable, which self-
+                // measures correctly, so its wrapper Box doesn't need
+                // a fixed height.
+                const bodyIndent = isRoot ? 4 : 6
+                const hasReactions =
+                  comment.reactions !== undefined && comment.reactions.length > 0
                 return Box(
                   {
-                    flexDirection: "row",
+                    flexDirection: "column",
                     paddingLeft: isRoot ? 0 : 2,
                     backgroundColor: isHighlighted ? theme.surface0 : undefined,
                   },
-                  // Highlight gutter
-                  Text({
-                    content: isHighlighted ? "▸ " : "  ",
-                    fg: isHighlighted ? theme.blue : theme.overlay0,
-                  }),
                   Box(
-                    { flexDirection: "column", flexGrow: 1 },
-                    // Header row: connector + author + time + status
-                    Box(
-                      { flexDirection: "row" },
-                      !isRoot
-                        ? Text({ content: connector, fg: colors.textDim })
-                        : null,
-                      Text({ content: `@${author}`, fg: theme.blue }),
-                      Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
-                      Text({ content: ` [${comment.status}]`, fg: statusColor }),
-                      comment.localEdit !== undefined
-                        ? Text({ content: " *edited", fg: colors.commentPending })
-                        : null,
-                      isBeingEdited
-                        ? Text({ content: " (editing)", fg: theme.yellow })
-                        : null,
-                      isRoot && thread.resolved
-                        ? Text({ content: " \u2713", fg: theme.green })
-                        : null
-                    ),
-                    // Body (markdown rendered). When a comment is being
-                    // edited inline we still render the original body so
-                    // the user sees what they're changing — the draft is
-                    // shown in the composer below.
-                    Box(
-                      { paddingLeft: isRoot ? 2 : 4 },
-                      getCachedMarkdown(
-                        renderer,
-                        `inline-overlay-body-${comment.id}`,
-                        comment.localEdit ?? comment.body
-                      )
-                    ),
-                    // Reactions row (spec 042). Hidden when empty.
-                    Box(
-                      { paddingLeft: isRoot ? 2 : 4 },
-                      ReactionRow({ reactions: comment.reactions })
+                    { flexDirection: "row", height: 1 },
+                    Text({
+                      content: isHighlighted ? "▸ " : "  ",
+                      fg: isHighlighted ? theme.blue : theme.overlay0,
+                    }),
+                    !isRoot
+                      ? Text({ content: connector, fg: colors.textDim })
+                      : null,
+                    Text({ content: `@${author}`, fg: theme.blue }),
+                    Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
+                    Text({ content: ` [${comment.status}]`, fg: statusColor }),
+                    comment.localEdit !== undefined
+                      ? Text({ content: " *edited", fg: colors.commentPending })
+                      : null,
+                    isBeingEdited
+                      ? Text({ content: " (editing)", fg: theme.yellow })
+                      : null
+                  ),
+                  Box(
+                    { paddingLeft: bodyIndent },
+                    buildMarkdown(
+                      renderer,
+                      `inline-overlay-body-${comment.id}`,
+                      comment.localEdit ?? comment.body
                     )
-                  )
+                  ),
+                  hasReactions
+                    ? Box(
+                        { flexDirection: "row", height: 1, paddingLeft: bodyIndent },
+                        ReactionRow({ reactions: comment.reactions })
+                      )
+                    : null
                 )
-              })
-            )
+              }),
+              ]
+            }),
+            visible.after > 0
+              ? Text({
+                  content: `↓ ${visible.after} more thread${visible.after !== 1 ? "s" : ""}`,
+                  fg: theme.overlay0,
+                })
+              : null
           )
         : Box(
             { flexDirection: "column", paddingX: 2, paddingY: 1 },
             Text({
-              content: "No comments here yet. Press c to start a new comment.",
+              content: "No comments in this file yet.",
               fg: theme.overlay0,
             })
           ),
 
-      // Inline composer (compose / edit modes)
+      // Inline composer (compose / edit modes).
       isComposing
         ? Box(
             { flexDirection: "column", paddingX: 2, paddingY: 1 },
@@ -354,22 +405,24 @@ export function InlineCommentOverlay({
           )
         : null,
 
-      // Footer — action hints (PR-info-panel style: yellow key, muted label).
-      Box(
-        {
-          flexDirection: "row",
-          paddingX: 2,
-          paddingY: 1,
-          backgroundColor: theme.mantle,
-        },
-        isComposing
-          ? renderHintRow([
-              ["Ctrl-s", "save"],
-              ["Ctrl-j", "newline"],
-              ["Esc", "cancel"],
-            ])
-          : renderHintRow(viewModeHints(canSubmit, comments.length > 0))
-      )
+    // Footer hints. Different set when focused vs unfocused so the
+    // user always knows the next move. 1-row tall to match the header
+    // and FileTreePanel's tight shell.
+    Box(
+      {
+        flexDirection: "row",
+        height: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor: theme.mantle,
+      },
+      isComposing
+        ? renderHintRow([
+            ["Ctrl-s", "save"],
+            ["Ctrl-j", "newline"],
+            ["Esc", "cancel"],
+          ])
+        : renderHintRow(viewModeHints(canSubmit, comments.length > 0, focused))
     )
   )
 }

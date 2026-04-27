@@ -53,6 +53,10 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   /** Ctrl-n / Ctrl-p — jump to next/previous thread, repositioning the
    *  overlay. */
   handleJumpAdjacent: (direction: 1 | -1) => void
+  /** `n` from the panel — start a new comment anchored at the diff
+   *  cursor's current line. The overlay layer doesn't know about line
+   *  mapping or vim state, so this is wired up at the app level. */
+  handleStartNewComment: () => void
 }
 
 export function handleInput(
@@ -65,21 +69,39 @@ export function handleInput(
   const ov = state.inlineCommentOverlay
   const threadComments = getInlineCommentOverlayComments(state)
 
+  // Compose/edit always captures (the textarea owns input).
   if (ov.mode === "compose" || ov.mode === "edit") {
     return handleComposerInput(key, ctx)
   }
 
-  // View mode below.
+  // View mode: only act when the panel is the focused surface.
+  // Otherwise the user is driving the diff/tree and the panel is
+  // just visible — let those handlers process the key.
+  if (state.focusedPanel !== "comments") {
+    return false
+  }
 
-  // If the overlay is open without an explicit thread (e.g. opened by
-  // `c` on a virgin line) we still want all the actions to make sense.
-  // `S`/`d`/`x`/etc. silently no-op when there's no highlighted comment.
   const highlighted: Comment | undefined = threadComments[ov.highlightedIndex]
 
-  // If all comments were deleted while the overlay was open, close it
-  // unless we're sitting on an empty anchor for compose ('c' opened it).
-  if (threadComments.length === 0 && ov.mode === "view") {
-    ctx.setState(closeInlineCommentOverlay)
+  // Ctrl-h — hand focus back to the diff (mirror of file tree's exit).
+  // Terminals deliver bare Ctrl-h as `backspace`; we accept both shapes
+  // because some emulators (and kitty-protocol terminals) preserve the
+  // `h` form.
+  if (key.name === "backspace" || (key.ctrl && key.name === "h")) {
+    ctx.setState((s) => ({ ...s, focusedPanel: "diff" }))
+    ctx.render()
+    return true
+  }
+
+  // Ctrl-e — toggle expanded width (mirror of file tree's Ctrl-e).
+  if (key.ctrl && key.name === "e") {
+    ctx.setState((s) => ({
+      ...s,
+      inlineCommentOverlay: {
+        ...s.inlineCommentOverlay,
+        expanded: !s.inlineCommentOverlay.expanded,
+      },
+    }))
     ctx.render()
     return true
   }
@@ -88,6 +110,13 @@ export function handleInput(
   // (the React… submenu targets the highlighted comment — spec 042).
   if (key.ctrl && key.name === "p") {
     return false
+  }
+
+  // Ctrl-t — toggle close (mirrors the diff-view's open binding).
+  if (key.ctrl && key.name === "t") {
+    ctx.setState(closeInlineCommentOverlay)
+    ctx.render()
+    return true
   }
 
   if (key.name === "escape") {
@@ -126,14 +155,17 @@ export function handleInput(
         ctx.handleJumpAdjacent(1)
         return true
       }
+      // Bare `n` starts a new comment at the diff cursor's line —
+      // mirrors the diff's `n`-for-new convention but only fires while
+      // the panel is the focused surface so vim's `n` (search-next)
+      // stays available everywhere else. preventDefault so the textarea
+      // (focused during the sync re-render) doesn't also see this `n`.
+      if (!key.shift) {
+        key.preventDefault()
+        ctx.handleStartNewComment()
+        return true
+      }
       break
-
-    case "c":
-      // `c` toggles the panel — pressing it again from view mode closes
-      // the overlay. Compose/reply is on `r`.
-      ctx.setState(closeInlineCommentOverlay)
-      ctx.render()
-      return true
 
     case "r":
       if (key.shift) {
@@ -143,8 +175,27 @@ export function handleInput(
         ctx.handleReplyExternal()
         return true
       }
-      // r — inline reply: drop into composer
-      ctx.setState((s) => startInlineCompose(s))
+      // r — inline reply: re-anchor to the highlighted thread's
+      // (file, line, side) so the new comment lands in the right place,
+      // then drop into the composer. Without re-anchoring, replying
+      // after j/k navigation (or in all-files view, after crossing
+      // files) would attach to whatever the panel was originally
+      // opened on. preventDefault so the textarea (focused during the
+      // sync re-render) doesn't also see this `r`.
+      key.preventDefault()
+      if (highlighted) {
+        ctx.setState((s) => startInlineCompose({
+          ...s,
+          inlineCommentOverlay: {
+            ...s.inlineCommentOverlay,
+            filename: highlighted.filename,
+            line: highlighted.line,
+            side: highlighted.side,
+          },
+        }))
+      } else {
+        ctx.setState((s) => startInlineCompose(s))
+      }
       ctx.render()
       return true
 
@@ -158,8 +209,11 @@ export function handleInput(
       }
       // e — inline edit. Only the highlighted comment can be edited
       // and only if it has a body to edit (defensive — every comment
-      // has a body, but mid-mutation states might race).
+      // has a body, but mid-mutation states might race). preventDefault
+      // so the textarea (focused during the sync re-render) doesn't
+      // also see this `e`.
       if (highlighted) {
+        key.preventDefault()
         const prefill = highlighted.localEdit ?? highlighted.body
         ctx.setState((s) => startInlineEdit(s, highlighted.id, prefill))
         ctx.render()

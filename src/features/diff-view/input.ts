@@ -38,6 +38,13 @@ export interface DiffViewInputContext {
    *  existing thread on the cursor's anchor; `compose` only requires
    *  the line to be commentable. Returns true when the overlay opened. */
   handleOpenInlineOverlay: (mode: "view" | "compose") => boolean
+  /** Open the panel in view mode with no specific anchor — used when
+   *  `Ctrl-t` is pressed off a commentable line so the toggle still
+   *  succeeds and the user sees the file's existing threads. */
+  handleOpenPanelView: () => void
+  /** Close the comments side panel — paired with `handleOpenInlineOverlay`
+   *  so `Ctrl-t` can toggle. */
+  handleClosePanel: () => void
 }
 
 /**
@@ -65,19 +72,31 @@ export function handleInput(
     return true
   }
 
-  // Handle 'c' for comment (not handled by vim handler).
-  // Visual-line selections still drop into $EDITOR via handleAddComment
-  // so multi-line context is preserved; single-line `c` opens the
-  // inline overlay in compose mode (spec 039).
+  // Ctrl-t toggles the comments side panel — open in view mode, close
+  // if already open. Pure toggle: never starts a draft. New comments
+  // are started with `n` from inside the panel, not from the diff.
+  // Mirrors Ctrl-b for the file tree on the opposite side.
+  if (key.name === "t" && key.ctrl && !key.shift) {
+    if (ctx.state.inlineCommentOverlay.open) {
+      ctx.handleClosePanel()
+    } else {
+      ctx.handleOpenPanelView()
+    }
+    return true
+  }
+
+  // `c` opens the comments panel and starts a new comment on the cursor's
+  // line. Visual-line drops into $EDITOR so multi-line context is
+  // preserved. preventDefault stops the textarea (focused during the
+  // sync re-render) from also seeing this keystroke.
   if (key.name === "c" && !key.ctrl) {
+    key.preventDefault()
     const vimState = ctx.getVimState()
     if (vimState.mode === "visual-line") {
       ctx.handleAddComment()
       return true
     }
     if (!ctx.handleOpenInlineOverlay("compose")) {
-      // Not a commentable line — fall back to the editor flow which
-      // searches forward for the first commentable line in range.
       ctx.handleAddComment()
     }
     return true

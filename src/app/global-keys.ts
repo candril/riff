@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -283,6 +283,36 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
+        handleStartNewComment: () => {
+          // Start a new comment for the diff cursor's current line.
+          // Silently no-op when the cursor isn't on a commentable line —
+          // the panel hint footer already advertises `n`, so the user
+          // can move the cursor and try again.
+          const lineMapping = ctx.getLineMapping()
+          const vimState = ctx.getVimState()
+          const anchor = lineMapping.getCommentAnchor(vimState.line)
+          if (!anchor) {
+            ctx.setState((s) =>
+              showToast(s, "Move cursor to a commentable line first", "info")
+            )
+            ctx.render()
+            setTimeout(() => {
+              ctx.setState(clearToast)
+              ctx.render()
+            }, 2500)
+            return
+          }
+          ctx.setState((s) =>
+            openInlineCommentOverlay(
+              s,
+              anchor.filename,
+              anchor.line,
+              anchor.side,
+              "compose"
+            )
+          )
+          ctx.render()
+        },
       })
     ) {
       return
@@ -519,23 +549,36 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
 
       case "backspace":
-        // Ctrl+h produces backspace in most terminals
-        if (state.showFilePanel && state.mode === "normal" && state.focusedPanel !== "tree") {
-          ctx.setState((s) => ({ ...s, focusedPanel: "tree" }))
-          ctx.render()
-          return
+        // Ctrl-h moves focus one panel left: comments → diff → tree.
+        // Terminals deliver bare Ctrl-h as backspace.
+        if (state.mode === "normal") {
+          if (state.focusedPanel === "comments") {
+            ctx.setState((s) => ({ ...s, focusedPanel: "diff" }))
+            ctx.render()
+            return
+          }
+          if (state.showFilePanel && state.focusedPanel === "diff") {
+            ctx.setState((s) => ({ ...s, focusedPanel: "tree" }))
+            ctx.render()
+            return
+          }
         }
         break
 
       case "l":
         if (key.ctrl) {
-          // Ctrl+l leaves the tree panel — tear down any active V-mode
-          // multi-select so it doesn't linger as dormant state.
-          ctx.setState((s) => ({
-            ...s,
-            focusedPanel: "diff",
-            treeSelectionAnchor: null,
-          }))
+          // Ctrl-l moves focus one panel right: tree → diff → comments.
+          // From tree we also drop any visual-line selection so it
+          // doesn't linger as dormant state.
+          ctx.setState((s) => {
+            if (s.focusedPanel === "tree") {
+              return { ...s, focusedPanel: "diff", treeSelectionAnchor: null }
+            }
+            if (s.focusedPanel === "diff" && s.inlineCommentOverlay.open) {
+              return { ...s, focusedPanel: "comments" }
+            }
+            return s
+          })
           ctx.render()
           setTimeout(() => {
             ctx.render()
@@ -823,6 +866,29 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         )
         ctx.render()
         return true
+      },
+      handleOpenPanelView: () => {
+        // Open in view mode without an anchor — use the cursor's file
+        // (or the currently selected file) so the panel scopes
+        // correctly. Anchor line is 0; compose actions inside the
+        // panel will re-anchor to the highlighted thread.
+        const s = ctx.getState()
+        const lineMapping = ctx.getLineMapping()
+        const vimState = ctx.getVimState()
+        const cursorLine = lineMapping.getLine(vimState.line)
+        const filename =
+          cursorLine?.filename ??
+          (s.selectedFileIndex !== null
+            ? s.files[s.selectedFileIndex]?.filename ?? ""
+            : "")
+        ctx.setState((st) =>
+          openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
+        )
+        ctx.render()
+      },
+      handleClosePanel: () => {
+        ctx.setState((st) => closeInlineCommentOverlay(st))
+        ctx.render()
       },
     })
   }

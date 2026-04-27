@@ -1,16 +1,21 @@
 /**
  * Review preview - balanced UI for submitting reviews
- * 
+ *
  * Controls:
- * - 1/2/3: Select review type
+ * - 1/2/3 (in comments section): Select review type
  * - Tab: Toggle between summary and comments
- * - Enter: Submit
- * - Ctrl+j: Newline in summary
- * - j/k, Space: Navigate and toggle comments
+ * - Ctrl-s: Submit
+ * - j/k, Space (in comments section): Navigate and toggle comments
+ *
+ * The summary input is an OpenTUI `TextareaRenderable` (singleton in
+ * ReviewSummaryComposer), so paste, undo/redo, word jumps, etc. work
+ * for free.
  */
 
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
+import { getReviewSummaryRenderable } from "./ReviewSummaryComposer"
 
 import type { Comment } from "../types"
 import type { ReviewPreviewState, ReviewPreviewSection } from "../state"
@@ -27,20 +32,13 @@ export interface ReviewPreviewProps {
   comments: ValidatedComment[]
   state: ReviewPreviewState
   isOwnPr?: boolean
+  renderer: CliRenderer
 }
 
 const eventColors: Record<ReviewEvent, string> = {
   COMMENT: theme.blue,
   APPROVE: theme.green,
   REQUEST_CHANGES: theme.peach,
-}
-
-function renderBodyWithCursor(body: string, cursorOffset: number, focused: boolean): string {
-  if (!focused) {
-    return body || "(optional)"
-  }
-  const c = Math.max(0, Math.min(body.length, cursorOffset))
-  return body.slice(0, c) + "█" + body.slice(c)
 }
 
 function canSubmit(
@@ -55,11 +53,13 @@ function canSubmit(
   return true
 }
 
-export function ReviewPreview({ 
-  comments, 
-  state, 
+export function ReviewPreview({
+  comments,
+  state,
   isOwnPr = false,
+  renderer,
 }: ReviewPreviewProps) {
+  const textarea = getReviewSummaryRenderable(renderer)
   const validComments = comments.filter(c => c.valid)
   const includedCount = validComments.filter(c => !state.excludedCommentIds.has(c.comment.id)).length
   const submitAllowed = canSubmit(state, includedCount, isOwnPr)
@@ -166,16 +166,13 @@ export function ReviewPreview({
         Box(
           {
             paddingX: 1,
-            paddingY: 1,
+            paddingY: 0,
             marginTop: 1,
-            minHeight: 2,
+            minHeight: 3,
             borderStyle: "single",
             borderColor: isFocused("input") ? theme.subtext0 : theme.surface1,
           },
-          Text({
-            content: renderBodyWithCursor(state.body, state.cursorOffset, isFocused("input")),
-            fg: state.body ? theme.text : theme.overlay0,
-          })
+          textarea
         )
       ),
       
@@ -246,14 +243,14 @@ export function ReviewPreview({
           ? Text({ content: "Submitting...", fg: theme.yellow })
           : state.error 
             ? Text({ content: state.error, fg: theme.red })
-              : Text({ content: hint || "Tab: switch · Ctrl+j: newline", fg: hint ? theme.yellow : theme.overlay0 }),
+              : Text({ content: hint || "Tab: switch · Ctrl-s: submit", fg: hint ? theme.yellow : theme.overlay0 }),
         Box(
           {
             paddingX: 2,
             backgroundColor: submitAllowed && !state.loading ? selectedColor : theme.surface1,
           },
-          Text({ 
-            content: "Enter", 
+          Text({
+            content: "Ctrl-s",
             fg: submitAllowed && !state.loading ? theme.base : theme.overlay0,
           })
         )
