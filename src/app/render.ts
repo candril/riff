@@ -23,6 +23,7 @@ import {
   DraftReviewDialog,
   gatherSyncItems,
 } from "../components"
+import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import type { VimDiffView } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
@@ -156,6 +157,25 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
+    // Drive the composer textarea's lifecycle from overlay state. We do
+    // this BEFORE building the next tree so the textarea is focused /
+    // seeded by the time it's mounted into the layout. Suspending the
+    // diff view's terminal-cursor post-process keeps the textarea's
+    // cursor visible — otherwise the diff would re-claim it after the
+    // textarea's renderCursor pass.
+    {
+      const ov = state.inlineCommentOverlay
+      const composerActive =
+        ov.open && (ov.mode === "compose" || ov.mode === "edit")
+      if (composerActive) {
+        const key = `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`
+        syncComposerSession(ctx.renderer, key, ov.input, ov.mode as "compose" | "edit")
+      } else {
+        endComposerSession()
+      }
+      ctx.vimDiffView.setSuspendCursor(composerActive)
+    }
+
     ctx.renderer.root.add(
       Box(
         {
@@ -232,7 +252,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               line: state.inlineCommentOverlay.line,
               mode: state.inlineCommentOverlay.mode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
-              input: state.inlineCommentOverlay.input,
               editingId: state.inlineCommentOverlay.editingId,
               renderer: ctx.renderer,
             })

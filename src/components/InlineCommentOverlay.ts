@@ -29,14 +29,54 @@ export interface InlineCommentOverlayProps {
   /** Currently highlighted comment index. Targets actions and the
    *  palette React… submenu (spec 042). */
   highlightedIndex: number
-  /** Current composer draft (compose / edit modes) */
-  input: string
   /** Comment id being edited (edit mode) */
   editingId: string | null
   renderer: CliRenderer
 }
 
-const OVERLAY_WIDTH = 92
+/**
+ * Cache of MarkdownRenderable instances by comment id. Reusing the same
+ * instance across renders avoids re-parsing markdown / re-tokenizing
+ * code blocks on every keystroke, which was the cause of the visible
+ * flicker on threads with multiple comments. Entries are kept for the
+ * lifetime of the process — comments rarely number in the thousands and
+ * rebuild on app restart, so a leak here is academic.
+ */
+const markdownCache = new Map<string, MarkdownRenderable>()
+
+function getCachedMarkdown(
+  renderer: CliRenderer,
+  id: string,
+  content: string
+): MarkdownRenderable {
+  let inst = markdownCache.get(id)
+  if (!inst) {
+    inst = new MarkdownRenderable(renderer, {
+      id,
+      content,
+      syntaxStyle: getSyntaxStyle(),
+    })
+    markdownCache.set(id, inst)
+  } else if (inst.content !== content) {
+    inst.content = content
+  }
+  return inst
+}
+
+/**
+ * Side-panel width. Picked so the panel is comfortable for prose (long
+ * enough to fit a typical comment line) without crowding the diff. The
+ * panel caps at half the terminal so very narrow terminals still show
+ * some diff to the left of it.
+ */
+const PANEL_WIDTH_TARGET = 72
+const PANEL_WIDTH_MIN = 48
+
+function getPanelWidth(): number {
+  const cols = process.stdout.columns || 120
+  const half = Math.floor(cols / 2)
+  return Math.max(PANEL_WIDTH_MIN, Math.min(PANEL_WIDTH_TARGET, half))
+}
 
 let sharedSyntaxStyle: SyntaxStyle | null = null
 function getSyntaxStyle(): SyntaxStyle {
@@ -104,8 +144,8 @@ type Hint = readonly [string, string]
 function viewModeHints(canSubmit: boolean, hasComments: boolean): Hint[] {
   if (!hasComments) {
     return [
-      ["c", "new"],
-      ["Esc", "close"],
+      ["r", "new"],
+      ["c/Esc", "close"],
     ]
   }
   const hints: Hint[] = [
@@ -117,7 +157,7 @@ function viewModeHints(canSubmit: boolean, hasComments: boolean): Hint[] {
     ["x", "resolve"],
   ]
   if (canSubmit) hints.push(["S", "submit"])
-  hints.push(["Esc", "close"])
+  hints.push(["c/Esc", "close"])
   return hints
 }
 
@@ -150,7 +190,6 @@ export function InlineCommentOverlay({
   line,
   mode,
   highlightedIndex,
-  input,
   editingId,
   renderer,
 }: InlineCommentOverlayProps) {
@@ -170,34 +209,33 @@ export function InlineCommentOverlay({
         ? "Reply"
         : "New comment"
 
+  const panelWidth = getPanelWidth()
+
+  // Right-anchored side panel. Sits over the diff without dimming it so
+  // the cursor line stays in view while the user reads/replies. A left
+  // border line separates it visually from the diff content underneath.
   return Box(
     {
       position: "absolute",
       top: 0,
-      left: 0,
-      width: "100%",
+      right: 0,
+      width: panelWidth,
       height: "100%",
       zIndex: 50,
-      justifyContent: "center",
-      alignItems: "center",
+      flexDirection: "row",
     },
-    // Dim background — keeps the diff visible behind the overlay while
-    // muting it so focus is on the thread.
+    // Left edge separator
     Box({
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
+      width: 1,
       height: "100%",
-      backgroundColor: "#00000080",
+      backgroundColor: theme.surface0,
     }),
-    // Modal body
     Box(
       {
-        width: OVERLAY_WIDTH,
+        flexGrow: 1,
         flexDirection: "column",
         backgroundColor: theme.base,
-        maxHeight: "85%",
+        height: "100%",
         overflow: "hidden",
       },
       // Header — left: anchor; right: mode label OR comment count
@@ -280,11 +318,11 @@ export function InlineCommentOverlay({
                     // shown in the composer below.
                     Box(
                       { paddingLeft: isRoot ? 2 : 4 },
-                      new MarkdownRenderable(renderer, {
-                        id: `inline-overlay-body-${comment.id}`,
-                        content: comment.localEdit ?? comment.body,
-                        syntaxStyle: getSyntaxStyle(),
-                      })
+                      getCachedMarkdown(
+                        renderer,
+                        `inline-overlay-body-${comment.id}`,
+                        comment.localEdit ?? comment.body
+                      )
                     ),
                     // Reactions row (spec 042). Hidden when empty.
                     Box(
@@ -310,9 +348,8 @@ export function InlineCommentOverlay({
             { flexDirection: "column", paddingX: 2, paddingY: 1 },
             CommentComposer({
               mode: mode === "edit" ? "edit" : "compose",
-              text: input,
               label: composerLabel,
-              width: OVERLAY_WIDTH - 4,
+              renderer,
             })
           )
         : null,

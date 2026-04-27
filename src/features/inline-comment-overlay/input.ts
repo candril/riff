@@ -30,6 +30,7 @@ import {
   setInlineCommentInput,
 } from "../../state"
 import { groupIntoThreads } from "../../utils/threads"
+import { readComposerValue } from "../../components/CommentComposer"
 import {
   submitInlineDraft,
   submitInlineEditDraft,
@@ -128,11 +129,9 @@ export function handleInput(
       break
 
     case "c":
-      // Start a new comment / reply on this anchor without dropping
-      // out of the overlay. Useful when opened with `c` on an empty
-      // line, but also lets users add a reply after viewing the
-      // thread without re-pressing `r`.
-      ctx.setState((s) => startInlineCompose(s))
+      // `c` toggles the panel — pressing it again from view mode closes
+      // the overlay. Compose/reply is on `r`.
+      ctx.setState(closeInlineCommentOverlay)
       ctx.render()
       return true
 
@@ -204,14 +203,22 @@ function handleComposerInput(
   const state = ctx.getState()
   const ov = state.inlineCommentOverlay
 
+  // Esc — cancel back to view mode (or close if there's nothing behind).
+  // We `preventDefault` so the focused textarea doesn't also process it.
   if (key.name === "escape") {
+    key.preventDefault()
     ctx.setState(cancelInlineComposer)
     ctx.render()
     return true
   }
 
-  // Ctrl-s — submit draft.
+  // Ctrl-s — submit. Pull the textarea's live value into state first so
+  // the submit handlers (which still read `ov.input`) see what the user
+  // actually typed.
   if (key.ctrl && key.name === "s") {
+    key.preventDefault()
+    const value = readComposerValue()
+    ctx.setState((s) => setInlineCommentInput(s, value))
     if (ov.mode === "edit") {
       void submitInlineEditDraft(ctx)
     } else {
@@ -220,47 +227,11 @@ function handleComposerInput(
     return true
   }
 
-  // Ctrl-j — newline (terminals don't deliver bare Enter as input
-  // reliably inside our key stream, so we follow the same convention
-  // as the PR-comment input in the info panel).
-  if (key.ctrl && key.name === "j") {
-    ctx.setState((s) =>
-      setInlineCommentInput(s, s.inlineCommentOverlay.input + "\n")
-    )
-    ctx.render()
-    return true
-  }
-
-  // Backspace — drop last char.
-  if (key.name === "backspace") {
-    if (ov.input.length > 0) {
-      ctx.setState((s) =>
-        setInlineCommentInput(s, s.inlineCommentOverlay.input.slice(0, -1))
-      )
-      ctx.render()
-    }
-    return true
-  }
-
-  // Enter — newline (matches the convention of the PR-comment composer
-  // and gives users a familiar Markdown-author flow). Submit is `Ctrl-s`.
-  if (key.name === "return" || key.name === "enter") {
-    ctx.setState((s) =>
-      setInlineCommentInput(s, s.inlineCommentOverlay.input + "\n")
-    )
-    ctx.render()
-    return true
-  }
-
-  // Printable character — append.
-  if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-    ctx.setState((s) =>
-      setInlineCommentInput(s, s.inlineCommentOverlay.input + key.sequence)
-    )
-    ctx.render()
-    return true
-  }
-
-  // Swallow everything else (modal).
+  // All other keys flow to the focused TextareaRenderable via OpenTUI's
+  // internal renderable dispatch — that's where typing, paste, Ctrl-w,
+  // arrow keys, undo/redo, mouse selection, etc. are handled. We return
+  // `true` to short-circuit our own outer handler chain (so global keys
+  // don't fire) but skip `preventDefault` so the textarea still sees
+  // the event.
   return true
 }

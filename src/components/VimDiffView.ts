@@ -198,7 +198,11 @@ export class VimDiffView {
   
   // Visibility state - when false, hide cursor
   private visible: boolean = true
-  
+  // When true, positionTerminalCursor leaves the cursor alone — used so
+  // an active text input (e.g. inline comment composer) can own the
+  // terminal cursor without being clobbered by the diff post-process.
+  private suspendCursor: boolean = false
+
   // File sections for all-files mode (multi-renderable architecture)
   private fileSections: FileSection[] = []
   // Map of section index -> renderables
@@ -1146,10 +1150,24 @@ export class VimDiffView {
   }
 
   /**
+   * When set, positionTerminalCursor becomes a no-op so another
+   * renderable (e.g. a focused TextareaRenderable) can keep ownership
+   * of the native terminal cursor it set during the render pass.
+   */
+  setSuspendCursor(suspend: boolean): void {
+    this.suspendCursor = suspend
+  }
+
+  /**
    * Position the native terminal cursor at the current vim cursor position.
    * Called as a post-process function after each render.
    */
   private positionTerminalCursor(): void {
+    // Yield the cursor to whoever owns it (e.g. the inline comment
+    // composer's textarea). Without this our post-process fires after
+    // the textarea's renderCursor and would erase its cursor.
+    if (this.suspendCursor) return
+
     // Hide cursor when view is not visible
     if (!this.visible) {
       this.renderer.setCursorPosition(0, 0, false)
