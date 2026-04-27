@@ -696,22 +696,30 @@ export class PRInfoPanelClass {
     const maxIndex = this.getMaxCursorIndex()
     // Min is -1 (header), max is the last item index
     const newIndex = Math.max(-1, Math.min(maxIndex, this.cursorIndex + delta))
-    
+
     if (newIndex === this.cursorIndex) return false
-    
+
+    const wasOnHeader = this.cursorIndex === -1
+    const isOnHeader = newIndex === -1
+
     // Update old row (deselect) - only for items, not header
     if (this.cursorIndex >= 0) {
       this.updateItemRow(this.activeSection, this.cursorIndex, false)
     }
-    
+
     // Update new row (select) - only for items, not header
     this.cursorIndex = newIndex
     if (this.cursorIndex >= 0) {
       this.updateItemRow(this.activeSection, this.cursorIndex, true)
     }
-    
-    // Rebuild to update header highlight
-    this.rebuildSections()
+
+    // Section header highlight only changes when the cursor crosses
+    // the header / item boundary — skip the rebuild otherwise so j/k
+    // inside a section doesn't tear down + rebuild every renderable
+    // (which causes visible flicker on markdown bodies in particular).
+    if (wasOnHeader !== isOnHeader) {
+      this.rebuildSections()
+    }
     return true
   }
 
