@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast } from "../state"
+import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -312,6 +312,42 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             )
           )
           ctx.render()
+        },
+        handleOpenInEditor: (comment) => {
+          void externalTools.handleOpenFileAtLine(
+            ctx.externalToolsContext,
+            comment.filename,
+            comment.line
+          )
+        },
+        syncCursorToHighlight: () => {
+          // Mirror j/k navigation in the panel onto the diff cursor: jump
+          // to the source line of the highlighted comment so the diff
+          // scrolls along with the panel. Cross-file moves switch files
+          // first in single-file view.
+          const s = ctx.getState()
+          const ov = s.inlineCommentOverlay
+          if (!ov.open) return
+          const derived = getInlineCommentOverlayDisplayOrder(s)
+          const highlighted = derived[ov.highlightedIndex]
+          if (!highlighted) return
+
+          const inSingleFileView = s.selectedFileIndex !== null
+          const targetFileIndex = s.files.findIndex((f) => f.filename === highlighted.filename)
+          if (
+            inSingleFileView &&
+            targetFileIndex !== -1 &&
+            targetFileIndex !== s.selectedFileIndex
+          ) {
+            fileNavigation.handleSelectFile(targetFileIndex, ctx.fileNavContext)
+          }
+
+          const mapping = ctx.getLineMapping()
+          const visualLine = mapping.findLineForComment(highlighted)
+          if (visualLine !== null) {
+            ctx.setVimState({ ...ctx.getVimState(), line: visualLine })
+            ctx.ensureCursorVisible()
+          }
         },
       })
     ) {

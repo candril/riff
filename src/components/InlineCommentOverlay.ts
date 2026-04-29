@@ -17,10 +17,20 @@ import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import type { Comment } from "../types"
-import type { InlineCommentOverlayMode } from "../state"
+import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, type Thread } from "../utils/threads"
+import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
+
+const MENTION_VISIBLE_LIMIT = 6
+
+export function getFilteredMentionCandidates(
+  candidates: readonly string[],
+  query: string
+): string[] {
+  return fuzzyFilter(query, [...candidates], (c) => c).slice(0, MENTION_VISIBLE_LIMIT)
+}
 
 export interface InlineCommentOverlayProps {
   comments: Comment[]
@@ -42,6 +52,15 @@ export interface InlineCommentOverlayProps {
   focused: boolean
   /** Wider layout (Ctrl-e). */
   expanded: boolean
+  /** Active @mention picker session (null when no `@<query>` trigger). */
+  mentionPicker: MentionPickerState | null
+  /** Full PR-participant pool — filtered against `mentionPicker.query`
+   *  to produce the visible candidate list. Empty in local-diff mode. */
+  mentionCandidates: readonly string[]
+  /** Root comment ids the user has expanded (`za`/Enter). Resolved
+   *  threads expand to show body + replies; outdated threads expand to
+   *  reveal the stored diff hunk. */
+  expandedThreadIds: ReadonlySet<string>
   renderer: CliRenderer
 }
 
@@ -150,7 +169,7 @@ function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolea
   }
   const hints: Hint[] = [["n", "new"]]
   if (hasComments) {
-    hints.push(["j/k", "nav"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"])
+    hints.push(["j/k", "nav"], ["za", "expand"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
     if (canSubmit) hints.push(["S", "submit"])
   }
   hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["Ctrl-t/Esc", "close"])
@@ -203,6 +222,71 @@ function pickVisibleThreads(
   }
 }
 
+function renderMentionPicker(
+  picker: MentionPickerState,
+  candidates: readonly string[]
+) {
+  const filtered = getFilteredMentionCandidates(candidates, picker.query)
+  if (filtered.length === 0) {
+    return Box(
+      {
+        flexDirection: "column",
+        marginTop: 1,
+        paddingX: 1,
+        paddingY: 0,
+        backgroundColor: theme.surface0,
+        borderStyle: "single",
+        borderColor: theme.overlay0,
+      },
+      Text({
+        content: picker.query
+          ? `No match for @${picker.query}`
+          : "No participants to mention",
+        fg: theme.overlay0,
+      })
+    )
+  }
+  // Clamp the highlight in case the candidate list shrank since the
+  // last keystroke (e.g. user deleted a character that broadened the
+  // match set, then typed one that narrowed it again).
+  const selected = Math.min(picker.selectedIndex, filtered.length - 1)
+  return Box(
+    {
+      flexDirection: "column",
+      marginTop: 1,
+      paddingX: 1,
+      paddingY: 0,
+      backgroundColor: theme.surface0,
+      borderStyle: "single",
+      borderColor: theme.blue,
+    },
+    Box(
+      { flexDirection: "row", height: 1 },
+      Text({ content: "@mention", fg: theme.blue })
+    ),
+    ...filtered.map((name, i) =>
+      Box(
+        {
+          flexDirection: "row",
+          height: 1,
+          backgroundColor: i === selected ? theme.surface1 : undefined,
+        },
+        Text({
+          content: i === selected ? "▸ " : "  ",
+          fg: i === selected ? theme.blue : theme.overlay0,
+        }),
+        Text({ content: `@${name}`, fg: theme.text })
+      )
+    ),
+    Box(
+      { flexDirection: "row", height: 1 },
+      Text({ content: "↑↓ nav  ", fg: theme.overlay0 }),
+      Text({ content: "Tab/⏎ accept  ", fg: theme.overlay0 }),
+      Text({ content: "Esc dismiss", fg: theme.overlay0 })
+    )
+  )
+}
+
 export function InlineCommentOverlay({
   comments,
   scopeFilename,
@@ -213,13 +297,21 @@ export function InlineCommentOverlay({
   editingId,
   focused,
   expanded,
+  mentionPicker,
+  mentionCandidates,
+  expandedThreadIds,
   renderer,
 }: InlineCommentOverlayProps) {
   const threads = groupIntoThreads(comments)
   const headerLabel = scopeFilename
     ? scopeFilename.split("/").pop() || scopeFilename
     : "all files"
-  const displayOrder: Comment[] = threads.flatMap((t) => t.comments)
+  // Resolved threads collapse to root only — keeps the panel scannable
+  // when long-since-resolved discussions accumulate. Must mirror
+  // `getInlineCommentOverlayDisplayOrder` so j/k indices align.
+  const displayOrder: Comment[] = threads.flatMap((t) =>
+    t.resolved ? [t.comments[0]!] : t.comments
+  )
   const highlightedId = displayOrder[highlightedIndex]?.id
   const highlightedComment = displayOrder[highlightedIndex]
   const canSubmit = highlightedComment
@@ -306,18 +398,60 @@ export function InlineCommentOverlay({
               const threadHeader = scopeFilename === null
                 ? `─ ${(root.filename.split("/").pop() || root.filename)}:${root.line}`
                 : `─ line ${root.line}`
+              // Resolved threads collapse to a single header row by
+              // default. `za`/Enter on a resolved thread expands it to
+              // reveal the body + replies. Non-resolved threads always
+              // show their body. Original-code context for outdated
+              // threads is opt-in via `o` (opens the file in $EDITOR).
+              const totalCount = thread.comments.length
+              const isExpanded = expandedThreadIds.has(thread.id)
+              const visibleComments =
+                thread.resolved && !isExpanded ? [] : thread.comments
+              const isThreadHighlighted =
+                thread.resolved && !isExpanded && root.id === highlightedId
               return [
               Box(
-                { flexDirection: "row", height: 1, marginTop: 1 },
-                Text({
-                  content: threadHeader,
-                  fg: theme.overlay0,
-                }),
-                thread.resolved
-                  ? Text({ content: "  ✓ resolved", fg: theme.green })
-                  : null
+                {
+                  flexDirection: "row",
+                  height: 1,
+                  marginTop: 1,
+                  backgroundColor: isThreadHighlighted ? theme.surface0 : undefined,
+                },
+                // Filename group — flexShrink:1 so the *filename* truncates
+                // when the row is too narrow, instead of every child being
+                // compressed (which dropped letters mid-word).
+                Box(
+                  { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
+                  thread.resolved
+                    ? Text({
+                        content: isThreadHighlighted ? "▸ " : "  ",
+                        fg: isThreadHighlighted ? theme.blue : theme.overlay0,
+                      })
+                    : null,
+                  Text({
+                    content: threadHeader,
+                    fg: theme.overlay0,
+                  })
+                ),
+                // Badges group — flexShrink:0 so author / resolved / outdated
+                // labels stay readable even on narrow panels.
+                Box(
+                  { flexDirection: "row", flexShrink: 0 },
+                  thread.resolved
+                    ? Text({ content: `  @${root.author || "you"}`, fg: theme.blue })
+                    : null,
+                  thread.resolved
+                    ? Text({
+                        content: totalCount > 1 ? `  ✓ ${totalCount}` : "  ✓",
+                        fg: theme.green,
+                      })
+                    : null,
+                  thread.outdated
+                    ? Text({ content: "  ⊘", fg: theme.peach })
+                    : null
+                )
               ),
-              ...thread.comments.map((comment, i) => {
+              ...visibleComments.map((comment, i) => {
                 const isRoot = i === 0
                 const author = comment.author || "you"
                 const statusColor = getStatusColor(comment.status)
@@ -401,7 +535,10 @@ export function InlineCommentOverlay({
               mode: mode === "edit" ? "edit" : "compose",
               label: composerLabel,
               renderer,
-            })
+            }),
+            isComposing && mentionPicker
+              ? renderMentionPicker(mentionPicker, mentionCandidates)
+              : null
           )
         : null,
 

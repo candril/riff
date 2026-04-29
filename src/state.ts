@@ -1,6 +1,7 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
+import { groupIntoThreads } from "./utils/threads"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
@@ -132,6 +133,27 @@ export interface InlineCommentOverlayState {
   /** Wider layout when the panel is the user's primary focus
    *  (toggle with Ctrl-e, mirrors the file tree's expand). */
   expanded: boolean
+  /** When typing `@<query>` in the composer, this opens an in-overlay
+   *  picker of PR participants. `null` when no trigger is active. */
+  mentionPicker: MentionPickerState | null
+  /** Root comment ids the user has explicitly expanded. Resolved threads
+   *  collapse to a single header row by default; `za`/Enter toggles a
+   *  thread into this set, revealing its body + replies. Outdated
+   *  threads use the same set to reveal the original diff hunk. Cleared
+   *  when the panel closes. */
+  expandedThreadIds: ReadonlySet<string>
+}
+
+/**
+ * Active `@mention` autocomplete session inside the composer. The
+ * picker is driven by the textarea's content/cursor change events;
+ * `atOffset` records where the triggering `@` sits in the buffer so
+ * accepting a candidate can replace `@<query>` with `@<username> `.
+ */
+export interface MentionPickerState {
+  query: string
+  selectedIndex: number
+  atOffset: number
 }
 
 /**
@@ -458,6 +480,8 @@ export function createInitialState(
       input: "",
       editingId: null,
       expanded: false,
+      mentionPicker: null,
+      expandedThreadIds: new Set(),
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -1961,16 +1985,33 @@ export function openInlineCommentOverlay(
       input: "",
       editingId: null,
       expanded: state.inlineCommentOverlay.expanded,
+      mentionPicker: null,
+      // Fresh per-open expansion state — the user starts with everything
+      // collapsed so the panel stays scannable.
+      expandedThreadIds: new Set(),
     },
     // When opening from the diff, focus the panel so it's the active
     // surface — the user's intent is to interact with comments.
     focusedPanel: state.focusedPanel === "tree" ? state.focusedPanel : "comments",
   }
-  // Compute the reaction target from the derived comment list of the new
-  // state (so we use the same filter as the renderer).
-  const first = getInlineCommentOverlayComments(nextState)[0]
-  const reactionTarget: ReactionTarget | null = first?.githubId
-    ? { kind: "review-comment", githubId: first.githubId }
+  // Highlight the thread anchored at (filename, line, side) when one
+  // exists — so opening from a commented diff line lands on that thread
+  // instead of the file's first one. Falls back to 0 (compose at a
+  // freshly-anchored line, or no thread on this anchor yet).
+  const displayOrder = getInlineCommentOverlayDisplayOrder(nextState)
+  const anchorIdx = displayOrder.findIndex(
+    (c) => c.filename === filename && c.line === line && c.side === side && !c.inReplyTo
+  )
+  const highlightedIndex = anchorIdx >= 0 ? anchorIdx : 0
+  nextState.inlineCommentOverlay = {
+    ...nextState.inlineCommentOverlay,
+    highlightedIndex,
+  }
+  // Reaction target tracks the highlighted comment (so "React…" in the
+  // palette acts on what the user actually sees selected).
+  const highlighted = displayOrder[highlightedIndex]
+  const reactionTarget: ReactionTarget | null = highlighted?.githubId
+    ? { kind: "review-comment", githubId: highlighted.githubId }
     : null
   return { ...nextState, reactionTarget }
 }
@@ -1989,6 +2030,8 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
       mode: "view",
       input: "",
       editingId: null,
+      mentionPicker: null,
+      expandedThreadIds: new Set(),
     },
     // Hand focus back to the diff (or stay on tree). The panel can't
     // own focus while it's hidden.
@@ -2035,15 +2078,46 @@ export function getInlineCommentOverlayComments(state: AppState): Comment[] {
 }
 
 /**
+ * The navigable display order for the inline comment overlay's `j/k` and
+ * for openOverlay's anchor → highlight matching. Resolved threads collapse
+ * to their root only, so navigation jumps between threads instead of
+ * stepping through hidden replies. The panel renders the same set.
+ */
+export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] {
+  const all = getInlineCommentOverlayComments(state)
+  if (all.length === 0) return all
+  const threads = groupIntoThreads(all)
+  return threads.flatMap((t) => (t.resolved ? [t.comments[0]!] : t.comments))
+}
+
+/**
  * Move the highlighted comment in the overlay by delta, clamped against
  * the current derived comment list. Also re-points `reactionTarget` at
  * the newly highlighted comment so the palette's React… submenu acts on
  * it (spec 042).
  */
+/**
+ * Toggle a thread's "expanded" state in the inline comment overlay.
+ * Resolved threads collapse to a one-line header by default; once expanded
+ * the panel renders their body + replies. Outdated threads use the same
+ * flag to reveal the original `diffHunk`.
+ */
+export function toggleInlineCommentOverlayExpand(state: AppState, threadId: string): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  const next = new Set(ov.expandedThreadIds)
+  if (next.has(threadId)) next.delete(threadId)
+  else next.add(threadId)
+  return {
+    ...state,
+    inlineCommentOverlay: { ...ov, expandedThreadIds: next },
+  }
+}
+
 export function moveInlineCommentOverlayHighlight(state: AppState, delta: number): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
-  const derived = getInlineCommentOverlayComments(state)
+  const derived = getInlineCommentOverlayDisplayOrder(state)
   if (derived.length === 0) return state
   const next = Math.max(0, Math.min(derived.length - 1, ov.highlightedIndex + delta))
   if (next === ov.highlightedIndex) return state
@@ -2071,6 +2145,7 @@ export function startInlineCompose(state: AppState, prefill: string = ""): AppSt
       mode: "compose",
       input: prefill,
       editingId: null,
+      mentionPicker: null,
     },
   }
 }
@@ -2092,6 +2167,7 @@ export function startInlineEdit(
       mode: "edit",
       input: prefill,
       editingId: commentId,
+      mentionPicker: null,
     },
   }
 }
@@ -2109,6 +2185,7 @@ export function cancelInlineComposer(state: AppState): AppState {
       mode: "view",
       input: "",
       editingId: null,
+      mentionPicker: null,
     },
   }
 }
@@ -2122,6 +2199,65 @@ export function setInlineCommentInput(state: AppState, input: string): AppState 
   return {
     ...state,
     inlineCommentOverlay: { ...ov, input },
+  }
+}
+
+/**
+ * Open or refresh the @mention picker session. Resets selection to the
+ * top whenever the query changes so the highest-scoring candidate is
+ * always primed for `Enter`/`Tab`.
+ */
+export function setMentionPicker(
+  state: AppState,
+  picker: { query: string; atOffset: number } | null
+): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  if (picker === null) {
+    if (ov.mentionPicker === null) return state
+    return {
+      ...state,
+      inlineCommentOverlay: { ...ov, mentionPicker: null },
+    }
+  }
+  // Preserve selection when only the cursor twitched but the trigger
+  // is the same — otherwise typing characters would visibly snap the
+  // user's chosen entry back to the top.
+  const prev = ov.mentionPicker
+  if (prev && prev.query === picker.query && prev.atOffset === picker.atOffset) {
+    return state
+  }
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      mentionPicker: { ...picker, selectedIndex: 0 },
+    },
+  }
+}
+
+/**
+ * Move the mention picker selection. Caller passes the candidate count
+ * so we can clamp without re-deriving the list here.
+ */
+export function moveMentionPickerSelection(
+  state: AppState,
+  delta: number,
+  candidateCount: number
+): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open || !ov.mentionPicker || candidateCount === 0) return state
+  const cur = ov.mentionPicker.selectedIndex
+  let next = cur + delta
+  if (next < 0) next = candidateCount - 1
+  else if (next >= candidateCount) next = 0
+  if (next === cur) return state
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      mentionPicker: { ...ov.mentionPicker, selectedIndex: next },
+    },
   }
 }
 

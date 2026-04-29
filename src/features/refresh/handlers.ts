@@ -38,6 +38,10 @@ export interface RefreshContext {
   setVimState: (s: VimCursorState) => void
   setSearchState: (s: SearchState) => void
   rebuildLineMapping: () => void
+  // Rebuild the persistent PR info panel against the current state
+  // (PRInfoPanelClass holds prInfo/files/comments in private fields set
+  // in its constructor, so a refresh has to swap the instance).
+  recreatePrInfoPanel: () => void
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -145,6 +149,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Clear search state
       ctx.setSearchState(createSearchState())
+
+      // Swap in a fresh PR info panel — it caches prInfo/files/comments
+      // internally and won't pick up the new data otherwise.
+      ctx.recreatePrInfoPanel()
 
       ctx.setState((s) => showToast(s, "Refreshed", "success"))
     } else {

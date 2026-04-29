@@ -10,6 +10,7 @@ export interface Thread {
   line: number
   comments: Comment[]           // Root + replies, chronological order
   resolved: boolean
+  outdated: boolean             // GitHub flagged this thread as outdated (line moved)
 }
 
 /**
@@ -58,6 +59,7 @@ export function groupIntoThreads(comments: Comment[]): Thread[] {
       line: root.line,
       comments: threadComments,
       resolved: root.isThreadResolved ?? false, // Use resolved state from root comment
+      outdated: root.outdated ?? false, // Outdated state from root comment
     }
   })
   

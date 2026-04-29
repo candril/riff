@@ -76,10 +76,14 @@ export function handleInput(
   // if already open. Pure toggle: never starts a draft. New comments
   // are started with `n` from inside the panel, not from the diff.
   // Mirrors Ctrl-b for the file tree on the opposite side.
+  //
+  // When the cursor is on a line with an existing thread, we open
+  // anchored at that line so the panel highlights the matching thread —
+  // otherwise we open the generic file-scoped view.
   if (key.name === "t" && key.ctrl && !key.shift) {
     if (ctx.state.inlineCommentOverlay.open) {
       ctx.handleClosePanel()
-    } else {
+    } else if (!ctx.handleOpenInlineOverlay("view")) {
       ctx.handleOpenPanelView()
     }
     return true

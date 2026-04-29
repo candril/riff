@@ -365,6 +365,13 @@ export async function createApp(options: AppOptions = {}) {
     setVimState: (s) => { vimState = s },
     setSearchState: (s) => { searchState = s },
     rebuildLineMapping: () => { createLineMapping() },
+    recreatePrInfoPanel: () => {
+      if (state.appMode !== "pr" || !state.prInfo) return
+      prInfoPanel?.destroy()
+      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments)
+      prInfoPanel.setOnExternalRerender(() => render())
+      state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
+    },
     mode,
     target: options.target,
     prInfo: prInfo ?? null,

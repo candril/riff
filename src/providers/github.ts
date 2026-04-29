@@ -159,6 +159,9 @@ export interface PrComment {
   // GraphQL thread info (for resolution)
   graphqlThreadId?: string  // node_id for GraphQL API
   isThreadResolved?: boolean
+  // GraphQL `isOutdated` — set on the thread root, inherited by replies in
+  // the second pass below.
+  isOutdated?: boolean
 
   // Reactions from GraphQL reactionGroups (spec 042)
   reactions?: ReactionSummary[]
@@ -631,6 +634,7 @@ function parseReactionGroups(groups: RawReactionGroup[] | undefined): ReactionSu
 interface GraphQLThreadInfo {
   id: string  // node_id for GraphQL mutations
   isResolved: boolean
+  isOutdated: boolean
   path: string
   line: number | null
   comments: {
@@ -657,6 +661,7 @@ async function getPrReviewThreads(
             nodes {
               id
               isResolved
+              isOutdated
               path
               line
               comments(first: 50) {
@@ -830,6 +835,11 @@ export async function getPrComments(
         // GraphQL thread info (only available on root comments)
         graphqlThreadId: thread?.id,
         isThreadResolved: thread?.isResolved,
+        // Prefer GraphQL — falls back to inferring from REST when the
+        // thread lookup didn't resolve (e.g. deeply paginated PRs that
+        // overflow the 100-thread cap). REST sets `line=null` and only
+        // populates `original_line` when the comment is outdated.
+        isOutdated: thread?.isOutdated ?? (c.line === null && c.original_line != null),
         reactions: reactionsByCommentId.get(c.id) ?? [],
       }
     })
@@ -907,6 +917,7 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
     githubThreadId: c.graphqlThreadId, // For GraphQL resolve/unresolve mutations
     githubReviewId: c.threadId, // The pull_request_review_id linking to parent review
     isThreadResolved: c.isThreadResolved, // Thread resolution state (only on root comments)
+    outdated: c.isOutdated, // Thread anchor lines no longer match HEAD
     author: c.author, // Preserve original author
     inReplyTo: c.inReplyToId ? `gh-${c.inReplyToId}` : undefined,
     reactions: c.reactions,

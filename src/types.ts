@@ -72,6 +72,10 @@ export interface Comment {
   githubThreadId?: string // GitHub's node_id for the review thread (for GraphQL API)
   githubReviewId?: number // The pull_request_review_id that this comment belongs to
   isThreadResolved?: boolean // Thread resolution state (only on root comments)
+  // Thread is outdated on GitHub — its anchor lines no longer match the
+  // current PR head. Only set on root comments; replies inherit via the
+  // surrounding Thread.
+  outdated?: boolean
   author?: string // GitHub username (for others' comments)
   inReplyTo?: string // Parent comment ID for threads
 

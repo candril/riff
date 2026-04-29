@@ -24,13 +24,23 @@ import {
   closeInlineCommentOverlay,
   moveInlineCommentOverlayHighlight,
   getInlineCommentOverlayComments,
+  getInlineCommentOverlayDisplayOrder,
   startInlineCompose,
   startInlineEdit,
   cancelInlineComposer,
   setInlineCommentInput,
+  setMentionPicker,
+  moveMentionPickerSelection,
+  toggleInlineCommentOverlayExpand,
 } from "../../state"
 import { groupIntoThreads } from "../../utils/threads"
-import { readComposerValue } from "../../components/CommentComposer"
+import {
+  readComposerValue,
+  readComposerCursorOffset,
+  replaceComposerRange,
+} from "../../components/CommentComposer"
+import { collectMentionCandidates } from "../../utils/mentions"
+import { getFilteredMentionCandidates } from "../../components/InlineCommentOverlay"
 import {
   submitInlineDraft,
   submitInlineEditDraft,
@@ -57,6 +67,41 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  cursor's current line. The overlay layer doesn't know about line
    *  mapping or vim state, so this is wired up at the app level. */
   handleStartNewComment: () => void
+  /** Move the diff cursor to the highlighted comment's source line so
+   *  the diff stays in sync as the user navigates threads with j/k.
+   *  Wired at the app level (needs lineMapping + vim state). */
+  syncCursorToHighlight: () => void
+  /** `o` — open the highlighted comment's file in $EDITOR at its
+   *  anchored line. Most useful for outdated threads where the line is
+   *  no longer in the diff but still exists in the working copy. */
+  handleOpenInEditor: (comment: Comment) => void
+}
+
+// `za` chord state, scoped to the panel input handler. Cleared after the
+// follow-up key arrives or the timeout expires so a stray `z` doesn't get
+// interpreted as half a chord across unrelated keystrokes.
+let pendingZ = false
+let pendingZTimeout: ReturnType<typeof setTimeout> | null = null
+function clearPendingZ() {
+  pendingZ = false
+  if (pendingZTimeout) {
+    clearTimeout(pendingZTimeout)
+    pendingZTimeout = null
+  }
+}
+
+/**
+ * Find the root comment id for a thread containing `commentId`. Used by
+ * the expand toggle, which keys on root id.
+ */
+function findThreadRootId(comments: Comment[], commentId: string): string | null {
+  const c = comments.find((x) => x.id === commentId)
+  if (!c) return null
+  if (!c.inReplyTo) return c.id
+  // Replies inherit the root from their parent chain; in practice the
+  // groupIntoThreads logic ensures inReplyTo points at the root.
+  const parent = comments.find((x) => x.id === c.inReplyTo)
+  return parent ? findThreadRootId(comments, parent.id) : c.id
 }
 
 export function handleInput(
@@ -67,7 +112,10 @@ export function handleInput(
   if (!state.inlineCommentOverlay.open) return false
 
   const ov = state.inlineCommentOverlay
+  // displayOrder: matches j/k navigation (resolved threads collapse to root).
+  // threadComments: unfiltered, used for thread-level lookups like resolve.
   const threadComments = getInlineCommentOverlayComments(state)
+  const displayOrder = getInlineCommentOverlayDisplayOrder(state)
 
   // Compose/edit always captures (the textarea owns input).
   if (ov.mode === "compose" || ov.mode === "edit") {
@@ -81,7 +129,7 @@ export function handleInput(
     return false
   }
 
-  const highlighted: Comment | undefined = threadComments[ov.highlightedIndex]
+  const highlighted: Comment | undefined = displayOrder[ov.highlightedIndex]
 
   // Ctrl-h — hand focus back to the diff (mirror of file tree's exit).
   // Terminals deliver bare Ctrl-h as `backspace`; we accept both shapes
@@ -120,8 +168,41 @@ export function handleInput(
   }
 
   if (key.name === "escape") {
+    clearPendingZ()
     ctx.setState(closeInlineCommentOverlay)
     ctx.render()
+    return true
+  }
+
+  // za chord (vim-style "toggle fold") — expand/collapse the highlighted
+  // thread. Resolved threads reveal their body + replies; outdated threads
+  // reveal the original diff hunk.
+  const toggleHighlightedThread = () => {
+    if (!highlighted) return
+    const rootId = findThreadRootId(threadComments, highlighted.id) ?? highlighted.id
+    ctx.setState((s) => toggleInlineCommentOverlayExpand(s, rootId))
+    ctx.render()
+  }
+
+  if (pendingZ) {
+    clearPendingZ()
+    if (key.name === "a" && !key.ctrl && !key.shift) {
+      toggleHighlightedThread()
+      return true
+    }
+    // Anything else after `z` cancels the chord; fall through so the key
+    // still gets processed normally.
+  }
+
+  if (key.name === "z" && !key.ctrl && !key.shift) {
+    pendingZ = true
+    pendingZTimeout = setTimeout(clearPendingZ, 500)
+    return true
+  }
+
+  // Enter is an alias for `za` — toggle expand on the highlighted thread.
+  if (key.name === "return" || key.name === "enter") {
+    toggleHighlightedThread()
     return true
   }
 
@@ -134,6 +215,7 @@ export function handleInput(
         return true
       }
       ctx.setState((s) => moveInlineCommentOverlayHighlight(s, 1))
+      ctx.syncCursorToHighlight()
       ctx.render()
       return true
 
@@ -145,6 +227,7 @@ export function handleInput(
         return true
       }
       ctx.setState((s) => moveInlineCommentOverlayHighlight(s, -1))
+      ctx.syncCursorToHighlight()
       ctx.render()
       return true
 
@@ -244,6 +327,16 @@ export function handleInput(
         }
       }
       return true
+
+    case "o":
+      // Open the highlighted comment's file in $EDITOR at its line.
+      // Not gated on outdated specifically — works for any thread, just
+      // happens to be the only way to inspect outdated context.
+      if (!key.ctrl && !key.shift && highlighted) {
+        key.preventDefault()
+        ctx.handleOpenInEditor(highlighted)
+      }
+      return true
   }
 
   // Everything else is swallowed while the overlay is open (modal).
@@ -256,6 +349,16 @@ function handleComposerInput(
 ): boolean {
   const state = ctx.getState()
   const ov = state.inlineCommentOverlay
+
+  // @mention picker — intercept navigation/commit keys while the picker
+  // is open. Done before generic Esc/Ctrl-s handling so the picker can
+  // own those keys. Typing characters falls through to the textarea so
+  // the query expands naturally; the textarea's onContentChange then
+  // updates the picker via render-time activity dispatch.
+  if (ov.mentionPicker) {
+    const handled = handleMentionPickerInput(key, ctx, ov.mentionPicker)
+    if (handled) return true
+  }
 
   // Esc — cancel back to view mode (or close if there's nothing behind).
   // We `preventDefault` so the focused textarea doesn't also process it.
@@ -289,3 +392,84 @@ function handleComposerInput(
   // the event.
   return true
 }
+
+/**
+ * Handle keys while the @mention picker is open. Returns `true` if the
+ * picker consumed the key, leaving the outer composer handler to skip
+ * its own logic. Typing characters returns `false` so they flow to the
+ * textarea (extending the query, which the activity callback then
+ * re-runs through `detectMentionTrigger`).
+ */
+function handleMentionPickerInput(
+  key: KeyEvent,
+  ctx: InlineCommentOverlayInputContext,
+  picker: NonNullable<AppState["inlineCommentOverlay"]["mentionPicker"]>
+): boolean {
+  const state = ctx.getState()
+  const candidates = collectMentionCandidates(state)
+  const filtered = getFilteredMentionCandidates(candidates, picker.query)
+
+  // Esc — dismiss the picker but leave the composer (and the typed
+  // `@<query>`) intact. preventDefault so the textarea doesn't also
+  // see Esc and the surrounding handler doesn't cancel compose.
+  if (key.name === "escape") {
+    key.preventDefault()
+    ctx.setState((s) => setMentionPicker(s, null))
+    ctx.render()
+    return true
+  }
+
+  if (key.name === "up" || (key.ctrl && key.name === "p")) {
+    key.preventDefault()
+    if (filtered.length > 0) {
+      ctx.setState((s) => moveMentionPickerSelection(s, -1, filtered.length))
+      ctx.render()
+    }
+    return true
+  }
+
+  if (key.name === "down" || (key.ctrl && key.name === "n")) {
+    key.preventDefault()
+    if (filtered.length > 0) {
+      ctx.setState((s) => moveMentionPickerSelection(s, 1, filtered.length))
+      ctx.render()
+    }
+    return true
+  }
+
+  // Tab or Enter — accept the highlighted candidate. Only commit when
+  // the picker has at least one match; otherwise fall through so Enter
+  // inserts a newline and Tab inserts a tab in the textarea.
+  if ((key.name === "tab" || key.name === "return" || key.name === "enter") && filtered.length > 0) {
+    key.preventDefault()
+    const idx = Math.min(picker.selectedIndex, filtered.length - 1)
+    const username = filtered[idx]
+    if (!username) return true
+    acceptMention(ctx, picker.atOffset, username)
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Replace the active `@<query>` with `@<username> ` in the textarea
+ * and close the picker. The textarea's onContentChange fires after
+ * `replaceComposerRange`, which re-runs `detectMentionTrigger`; with
+ * the trailing space the regex no longer matches, so the picker stays
+ * closed.
+ */
+function acceptMention(
+  ctx: InlineCommentOverlayInputContext,
+  atOffset: number,
+  username: string
+): void {
+  const cursor = readComposerCursorOffset()
+  replaceComposerRange(atOffset, cursor, `@${username} `)
+  // Defensive: clear the picker explicitly even though the activity
+  // callback will also clear it. Avoids a one-frame flash if the event
+  // ordering ever changes.
+  ctx.setState((s) => setMentionPicker(s, null))
+  ctx.render()
+}
+

@@ -25,6 +25,11 @@ import {
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import {
+  collectMentionCandidates,
+  detectMentionTrigger,
+} from "../utils/mentions"
+import { setMentionPicker } from "../state"
+import {
   syncReviewSummarySession,
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
@@ -174,7 +179,21 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         ov.open && (ov.mode === "compose" || ov.mode === "edit")
       if (composerActive) {
         const key = `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`
-        syncComposerSession(ctx.renderer, key, ov.input, ov.mode as "compose" | "edit")
+        syncComposerSession(
+          ctx.renderer,
+          key,
+          ov.input,
+          ov.mode as "compose" | "edit",
+          (text, cursorOffset) => {
+            // Detect `@<query>` against the live textarea state. The
+            // mention picker is feature-gated to PR mode (no candidates
+            // in local diff review) — `setMentionPicker` short-circuits
+            // when there's nothing to set.
+            const trigger = detectMentionTrigger(text, cursorOffset)
+            ctx.setState((s) => setMentionPicker(s, trigger))
+            render()
+          }
+        )
       } else {
         endComposerSession()
       }
@@ -291,6 +310,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               editingId: state.inlineCommentOverlay.editingId,
               focused: state.focusedPanel === "comments",
               expanded: state.inlineCommentOverlay.expanded,
+              mentionPicker: state.inlineCommentOverlay.mentionPicker,
+              mentionCandidates: collectMentionCandidates(state),
+              expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
               renderer: ctx.renderer,
             })
           : null,

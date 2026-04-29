@@ -427,6 +427,7 @@ function toMarkdown(comment: Comment): string {
   if (comment.githubUrl) lines.push(`githubUrl: ${comment.githubUrl}`)
   if (comment.githubThreadId) lines.push(`githubThreadId: ${comment.githubThreadId}`)
   if (comment.isThreadResolved !== undefined) lines.push(`isThreadResolved: ${comment.isThreadResolved}`)
+  if (comment.outdated !== undefined) lines.push(`outdated: ${comment.outdated}`)
   if (comment.author) lines.push(`author: ${comment.author}`)
   if (comment.inReplyTo) lines.push(`inReplyTo: ${comment.inReplyTo}`)
 
@@ -474,6 +475,7 @@ function parseComment(meta: Record<string, string>, body: string): Comment {
     githubUrl: meta.githubUrl || undefined,
     githubThreadId: meta.githubThreadId || undefined,
     isThreadResolved: meta.isThreadResolved === "true" ? true : meta.isThreadResolved === "false" ? false : undefined,
+    outdated: meta.outdated === "true" ? true : meta.outdated === "false" ? false : undefined,
     author: meta.author || undefined,
     inReplyTo: meta.inReplyTo || undefined,
   }

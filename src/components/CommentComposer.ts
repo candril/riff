@@ -29,8 +29,17 @@ export interface CommentComposerProps {
 const PLACEHOLDER_COMPOSE = "Type a comment… (Ctrl-s to save, Esc to cancel)"
 const PLACEHOLDER_EDIT = "Edit comment… (Ctrl-s to save, Esc to cancel)"
 
+/**
+ * Activity callback shape — fires after every content or cursor change
+ * so the @mention picker can detect whether the user is typing a
+ * trigger. Receives the textarea's current plain text and absolute
+ * cursor offset.
+ */
+type ComposerActivityCallback = (text: string, cursorOffset: number) => void
+
 let composerInstance: TextareaRenderable | null = null
 let lastSyncKey: string | null = null
+let activityCallback: ComposerActivityCallback | null = null
 
 function ensureComposer(renderer: CliRenderer): TextareaRenderable {
   if (!composerInstance) {
@@ -49,6 +58,12 @@ function ensureComposer(renderer: CliRenderer): TextareaRenderable {
       minHeight: 3,
       maxHeight: 12,
     })
+    const dispatch = () => {
+      if (!activityCallback || !composerInstance) return
+      activityCallback(composerInstance.plainText, composerInstance.cursorOffset)
+    }
+    composerInstance.onContentChange = dispatch
+    composerInstance.onCursorChange = dispatch
   }
   return composerInstance
 }
@@ -66,9 +81,13 @@ export function syncComposerSession(
   renderer: CliRenderer,
   key: string,
   initialValue: string,
-  mode: "compose" | "edit"
+  mode: "compose" | "edit",
+  onActivity?: ComposerActivityCallback
 ): void {
   const ta = ensureComposer(renderer)
+  // Refresh the activity hook on every render so the closure always
+  // points at the latest setState/render. Cheap and avoids stale state.
+  activityCallback = onActivity ?? null
   if (lastSyncKey === key) return
   lastSyncKey = key
   ta.placeholder = mode === "edit" ? PLACEHOLDER_EDIT : PLACEHOLDER_COMPOSE
@@ -85,7 +104,34 @@ export function readComposerValue(): string {
 export function endComposerSession(): void {
   if (lastSyncKey === null) return
   lastSyncKey = null
+  activityCallback = null
   composerInstance?.blur()
+}
+
+/** Read the textarea's current cursor offset (0 if not yet mounted). */
+export function readComposerCursorOffset(): number {
+  return composerInstance?.cursorOffset ?? 0
+}
+
+/**
+ * Splice `replacement` over the half-open range `[start, end)` of the
+ * textarea's plain text and place the cursor immediately after the
+ * inserted text. Used by the @mention picker to swap `@<query>` for
+ * `@<username> ` on accept. `replaceText` (vs `setText`) preserves the
+ * undo stack as a single edit so Ctrl-z rolls the mention back.
+ */
+export function replaceComposerRange(
+  start: number,
+  end: number,
+  replacement: string
+): void {
+  if (!composerInstance) return
+  const text = composerInstance.plainText
+  const safeStart = Math.max(0, Math.min(text.length, start))
+  const safeEnd = Math.max(safeStart, Math.min(text.length, end))
+  const next = text.slice(0, safeStart) + replacement + text.slice(safeEnd)
+  composerInstance.replaceText(next)
+  composerInstance.cursorOffset = safeStart + replacement.length
 }
 
 export function CommentComposer({ mode, label, renderer }: CommentComposerProps) {
