@@ -216,6 +216,18 @@ export class VimDiffView {
   // Expected scroll position - set by external scroll logic to avoid stale reads
   // When set, positionTerminalCursor uses this instead of scrollBox.scrollTop
   private expectedScrollTop: number | null = null
+
+  // Scroll preservation across content rebuilds (folds, mark-as-read,
+  // comments). A rebuild() throws away the old scrollBox and creates a
+  // fresh one at scrollTop=0, which makes the view jump to the top. We
+  // capture the previous scrollTop here and re-apply it in the
+  // post-process pass — the only point where the new scrollBox's layout
+  // (and therefore its clamping range) is settled. `pendingCursorReveal`
+  // then runs the cursor-reveal callback so a moved cursor is brought back
+  // into view after the scroll is restored.
+  private pendingScrollTop: number | null = null
+  private pendingCursorReveal: boolean = false
+  private onContentRebuilt: (() => void) | null = null
   
   // Sticky file header - shows current file name when its header scrolls out of view
   private stickyHeaderBox: BoxRenderable | null = null
@@ -243,11 +255,23 @@ export class VimDiffView {
     // Register post-process function to position cursor after each render
     this.cursorPostProcess = () => {
       // Check if renderer dimensions changed (resize occurred)
-      if (this.renderer.width !== this.lastRendererWidth || 
+      if (this.renderer.width !== this.lastRendererWidth ||
           this.renderer.height !== this.lastRendererHeight) {
         this.lastRendererWidth = this.renderer.width
         this.lastRendererHeight = this.renderer.height
         // Dimensions changed - recalculate on next frame to allow layout to settle
+      }
+      // After a content rebuild, restore the previous scroll position and
+      // reveal the cursor now that the new scrollBox has laid out. Doing
+      // this here (rather than synchronously in rebuild()) means scrollTop
+      // clamps against the real content height instead of snapping to 0.
+      if (this.pendingScrollTop !== null && this.scrollBox) {
+        this.scrollBox.scrollTop = this.pendingScrollTop
+        this.pendingScrollTop = null
+      }
+      if (this.pendingCursorReveal) {
+        this.pendingCursorReveal = false
+        this.onContentRebuilt?.()
       }
       this.positionTerminalCursor()
     }
@@ -384,6 +408,17 @@ export class VimDiffView {
   }
 
   /**
+   * Register a callback invoked after a content rebuild, once the new
+   * scrollBox has laid out (in the post-process pass). The app wires this
+   * to `ensureCursorVisible()` so that operations which rebuild the diff
+   * (fold toggle, mark-as-read, comments) keep the cursor in view instead
+   * of snapping the viewport to the top.
+   */
+  setOnContentRebuilt(cb: () => void): void {
+    this.onContentRebuilt = cb
+  }
+
+  /**
    * Convert a cursor line (mapping index) to the visual row in the scrollbox.
    * In single-file mode, the visual row equals the cursor line.
    * In all-files mode, file headers are separate components, and collapsed
@@ -493,6 +528,12 @@ export class VimDiffView {
    * Rebuild the entire view
    */
   private rebuild(): void {
+    // Capture the outgoing scroll position before the old scrollBox is
+    // discarded. It's re-applied in the post-process pass once the new
+    // scrollBox has laid out (see cursorPostProcess), so content changes
+    // don't snap the viewport back to the top.
+    const prevScrollTop = this.scrollBox?.scrollTop ?? null
+
     // Clear container and section renderables
     for (const child of this.container.getChildren()) {
       this.container.remove(child.id)
@@ -529,12 +570,19 @@ export class VimDiffView {
 
     // Determine mode: single file or all files
     const isAllFilesMode = this.selectedFileIndex === null
-    
+
     if (isAllFilesMode) {
       this.rebuildAllFilesMode()
     } else {
       this.rebuildSingleFileMode()
     }
+
+    // Defer scroll restoration + cursor reveal to the post-process pass,
+    // where the freshly-built scrollBox has a settled layout (and thus a
+    // valid clamp range). Without this, the new scrollBox stays at
+    // scrollTop=0 and the view jumps to the top on every content change.
+    this.pendingScrollTop = prevScrollTop
+    this.pendingCursorReveal = true
   }
 
   /**

@@ -185,6 +185,13 @@ export async function createApp(options: AppOptions = {}) {
     vimDiffView.setExpectedScrollTop(effectiveScrollTop)
   }
 
+  // When the diff view rebuilds its content (folds, mark-as-read,
+  // comments), it restores the prior scroll position and then asks us to
+  // bring the cursor back into view — in the post-process pass, where the
+  // new scrollBox's layout is settled. This keeps the viewport on the
+  // cursor line instead of jumping to the top.
+  vimDiffView.setOnContentRebuilt(ensureCursorVisible)
+
   function updateFileTreePanel() {
     // Calculate file panel width based on expanded state
     const normalWidth = 35

@@ -1,10 +1,6 @@
 {
-  "id": "fa5f2e41-8ab5-4224-8d6a-8c032b60e4d8",
-  "source": "gh:candril/jj-test#2",
-  "createdAt": "2026-04-27T18:45:21.715Z",
-  "updatedAt": "2026-04-27T18:45:21.715Z",
-  "prNumber": 2,
-  "owner": "candril",
-  "repo": "jj-test",
-  "reviewMode": "single"
+  "id": "88337aa9-e270-466f-a2f5-f78be73c4620",
+  "source": "local",
+  "createdAt": "2026-06-24T12:28:56.943Z",
+  "updatedAt": "2026-06-24T12:28:56.943Z"
 }
