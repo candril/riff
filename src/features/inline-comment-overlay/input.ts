@@ -77,6 +77,12 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   handleOpenInEditor: (comment: Comment) => void
 }
 
+// Half-page jump for Ctrl-d / Ctrl-u. Measured in displayOrder entries
+// (comments) rather than rows — the panel's scroll follows the
+// highlighted comment, so moving the highlight several entries scrolls
+// the view by roughly a screenful.
+const SCROLL_STEP = 6
+
 // `za` chord state, scoped to the panel input handler. Cleared after the
 // follow-up key arrives or the timeout expires so a stray `z` doesn't get
 // interpreted as half a chord across unrelated keystrokes.
@@ -167,7 +173,20 @@ export function handleInput(
     return true
   }
 
-  if (key.name === "escape") {
+  // Ctrl-d / Ctrl-u — half-page scroll. The window follows the
+  // highlighted comment, so jumping the highlight several entries
+  // scrolls the view. Handled before the `d` (delete) case so Ctrl-d
+  // never deletes.
+  if (key.ctrl && (key.name === "d" || key.name === "u")) {
+    const delta = key.name === "d" ? SCROLL_STEP : -SCROLL_STEP
+    ctx.setState((s) => moveInlineCommentOverlayHighlight(s, delta))
+    ctx.syncCursorToHighlight()
+    ctx.render()
+    return true
+  }
+
+  // q / Esc — close the panel.
+  if (key.name === "escape" || (key.name === "q" && !key.ctrl && !key.shift && !key.meta)) {
     clearPendingZ()
     ctx.setState(closeInlineCommentOverlay)
     ctx.render()

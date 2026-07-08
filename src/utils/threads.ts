@@ -29,6 +29,21 @@ export interface ThreadNavItem {
 }
 
 /**
+ * Whether a thread renders collapsed (header only) in the inline comment
+ * overlay. `toggledThreadIds` holds the threads the user has flipped away
+ * from their default fold state with `za`: resolved threads default to
+ * collapsed (keeps long-since-resolved discussions scannable), every other
+ * thread defaults to expanded. Navigation (display order) and rendering
+ * both key off this so j/k only lands on drawn comments.
+ */
+export function isThreadCollapsed(
+  thread: Thread,
+  toggledThreadIds: ReadonlySet<string>
+): boolean {
+  return thread.resolved !== toggledThreadIds.has(thread.id)
+}
+
+/**
  * Group comments into threads by file and line.
  * Returns threads sorted by filename, then line number.
  */

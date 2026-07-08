@@ -18,7 +18,7 @@ import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import type { Comment } from "../types"
 import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
-import { groupIntoThreads, type Thread } from "../utils/threads"
+import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
 import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
@@ -169,10 +169,10 @@ function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolea
   }
   const hints: Hint[] = [["n", "new"]]
   if (hasComments) {
-    hints.push(["j/k", "nav"], ["za", "expand"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
+    hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
     if (canSubmit) hints.push(["S", "submit"])
   }
-  hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["Ctrl-t/Esc", "close"])
+  hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["q", "close"])
   return hints
 }
 
@@ -193,27 +193,36 @@ function renderHintRow(hints: Hint[]) {
 }
 
 /**
- * Decide how many threads to render around the highlighted comment.
- * We render a fixed window so very long files don't dump every comment
- * into the layout — the side panel itself clips the rest. We always
- * include enough leading threads that the highlighted one ends up in
- * roughly the middle.
+ * Decide which threads to render around the highlighted comment.
+ *
+ * This doubles as the panel's scroll model. The clipping viewport is
+ * rebuilt every frame with its content pinned at the top — only content
+ * near the top of the column is on-screen. So we render *starting* a
+ * couple of threads above the highlighted one: that keeps the highlighted
+ * thread near the top of the viewport (with a little preceding context)
+ * and, because the start point follows the cursor, the view scrolls as
+ * the user moves through threads with j/k. `windowSize` caps how many
+ * threads mount at once — the viewport clips whatever runs past the
+ * bottom.
+ *
+ * Note this is thread-granular: navigating *within* a very tall thread
+ * (many replies) doesn't re-scroll, so a deep reply in an oversized
+ * thread can fall below the fold. Pixel-accurate scroll-off would need a
+ * persistent panel that reads real layout offsets (cf. FileTreePanel).
  */
+const WINDOW_LEAD = 2
+
 function pickVisibleThreads(
   threads: Thread[],
   displayOrder: Comment[],
   highlightedIndex: number,
   windowSize: number
 ): { threads: Thread[]; before: number; after: number } {
-  if (threads.length <= windowSize) {
-    return { threads, before: 0, after: 0 }
-  }
   const highlightedId = displayOrder[highlightedIndex]?.id
   const highlightedThreadIdx = highlightedId
     ? threads.findIndex((t) => t.comments.some((c) => c.id === highlightedId))
     : 0
-  const half = Math.floor(windowSize / 2)
-  const start = Math.max(0, Math.min(threads.length - windowSize, highlightedThreadIdx - half))
+  const start = Math.max(0, highlightedThreadIdx - WINDOW_LEAD)
   const end = Math.min(threads.length, start + windowSize)
   return {
     threads: threads.slice(start, end),
@@ -306,11 +315,12 @@ export function InlineCommentOverlay({
   const headerLabel = scopeFilename
     ? scopeFilename.split("/").pop() || scopeFilename
     : "all files"
-  // Resolved threads collapse to root only — keeps the panel scannable
-  // when long-since-resolved discussions accumulate. Must mirror
-  // `getInlineCommentOverlayDisplayOrder` so j/k indices align.
+  // A collapsed thread is one navigable item (its root header); an
+  // expanded thread exposes every comment. Must mirror
+  // `getInlineCommentOverlayDisplayOrder` and the `visibleComments` rule
+  // below so j/k indices align with what's drawn.
   const displayOrder: Comment[] = threads.flatMap((t) =>
-    t.resolved ? [t.comments[0]!] : t.comments
+    isThreadCollapsed(t, expandedThreadIds) ? [t.comments[0]!] : t.comments
   )
   const highlightedId = displayOrder[highlightedIndex]?.id
   const highlightedComment = displayOrder[highlightedIndex]
@@ -328,8 +338,8 @@ export function InlineCommentOverlay({
 
   const panelWidth = getPanelWidth(expanded)
 
-  // Cap the rendered thread count when not expanded — the panel itself
-  // clips overflow but mounting hundreds of MarkdownRenderables is a
+  // Cap the rendered thread count when not expanded — the viewport
+  // clips overflow, but mounting hundreds of MarkdownRenderables is a
   // measurable cost on first paint.
   const maxVisibleThreads = expanded ? 80 : 24
   const visible = pickVisibleThreads(threads, displayOrder, highlightedIndex, maxVisibleThreads)
@@ -374,15 +384,39 @@ export function InlineCommentOverlay({
       })
     ),
 
-      // Thread list (or empty-state hint).
+      // Thread list (or empty-state hint). Two nested boxes reproduce a
+      // scroll viewport without a ScrollBox — deliberately, since we
+      // never actually scroll (the panel is rebuilt every frame and we
+      // fake scrolling by windowing which threads render, so a real
+      // scrollbar's thumb would just recompute and flicker each frame
+      // while showing a bogus position).
+      //
+      //  - Outer box: `overflow: hidden` on a flexGrow child of the
+      //    fixed-height panel — a clipping viewport (this is exactly what
+      //    ScrollBox's viewport is under the hood).
+      //  - Inner box: `flexShrink: 0` so the comment stack keeps each
+      //    box at its text's natural height and simply overflows, instead
+      //    of the flex column compressing them below that height — which
+      //    crushed the Text renderables into each other (the "scramble"
+      //    that a smaller terminal font hid by giving the panel more rows).
       comments.length > 0
         ? Box(
             {
               flexDirection: "column",
-              paddingX: 2,
-              paddingY: 1,
-              gap: 1,
+              overflow: "hidden",
               flexGrow: 1,
+              width: "100%",
+              paddingLeft: 2,
+              paddingRight: 2,
+              paddingTop: 1,
+              paddingBottom: 1,
+            },
+            Box(
+            {
+              flexDirection: "column",
+              width: "100%",
+              flexShrink: 0,
+              gap: 1,
             },
             visible.before > 0
               ? Text({
@@ -398,17 +432,16 @@ export function InlineCommentOverlay({
               const threadHeader = scopeFilename === null
                 ? `─ ${(root.filename.split("/").pop() || root.filename)}:${root.line}`
                 : `─ line ${root.line}`
-              // Resolved threads collapse to a single header row by
-              // default. `za`/Enter on a resolved thread expands it to
-              // reveal the body + replies. Non-resolved threads always
-              // show their body. Original-code context for outdated
-              // threads is opt-in via `o` (opens the file in $EDITOR).
+              // Collapsed threads render as a single header row; `za`/Enter
+              // folds/unfolds. Resolved threads default to collapsed
+              // (scannable), everything else defaults to expanded — the
+              // `expandedThreadIds` set flips that default. Original-code
+              // context for outdated threads is opt-in via `o` (opens the
+              // file in $EDITOR).
               const totalCount = thread.comments.length
-              const isExpanded = expandedThreadIds.has(thread.id)
-              const visibleComments =
-                thread.resolved && !isExpanded ? [] : thread.comments
-              const isThreadHighlighted =
-                thread.resolved && !isExpanded && root.id === highlightedId
+              const isCollapsed = isThreadCollapsed(thread, expandedThreadIds)
+              const visibleComments = isCollapsed ? [] : thread.comments
+              const isThreadHighlighted = isCollapsed && root.id === highlightedId
               return [
               Box(
                 {
@@ -422,7 +455,9 @@ export function InlineCommentOverlay({
                 // compressed (which dropped letters mid-word).
                 Box(
                   { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
-                  thread.resolved
+                  // Collapsed threads are the navigable item, so they carry
+                  // the highlight caret on the header itself.
+                  isCollapsed
                     ? Text({
                         content: isThreadHighlighted ? "▸ " : "  ",
                         fg: isThreadHighlighted ? theme.blue : theme.overlay0,
@@ -433,11 +468,11 @@ export function InlineCommentOverlay({
                     fg: theme.overlay0,
                   })
                 ),
-                // Badges group — flexShrink:0 so author / resolved / outdated
-                // labels stay readable even on narrow panels.
+                // Badges group — flexShrink:0 so author / count / resolved /
+                // outdated labels stay readable even on narrow panels.
                 Box(
                   { flexDirection: "row", flexShrink: 0 },
-                  thread.resolved
+                  isCollapsed
                     ? Text({ content: `  @${root.author || "you"}`, fg: theme.blue })
                     : null,
                   thread.resolved
@@ -445,7 +480,12 @@ export function InlineCommentOverlay({
                         content: totalCount > 1 ? `  ✓ ${totalCount}` : "  ✓",
                         fg: theme.green,
                       })
-                    : null,
+                    : isCollapsed
+                      ? Text({
+                          content: totalCount > 1 ? `  ⋯ ${totalCount}` : "  ⋯",
+                          fg: theme.overlay0,
+                        })
+                      : null,
                   thread.outdated
                     ? Text({ content: "  ⊘", fg: theme.peach })
                     : null
@@ -518,6 +558,7 @@ export function InlineCommentOverlay({
                   fg: theme.overlay0,
                 })
               : null
+            )
           )
         : Box(
             { flexDirection: "column", paddingX: 2, paddingY: 1 },

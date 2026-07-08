@@ -1,7 +1,7 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
-import { groupIntoThreads } from "./utils/threads"
+import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
@@ -2079,15 +2079,20 @@ export function getInlineCommentOverlayComments(state: AppState): Comment[] {
 
 /**
  * The navigable display order for the inline comment overlay's `j/k` and
- * for openOverlay's anchor → highlight matching. Resolved threads collapse
- * to their root only, so navigation jumps between threads instead of
- * stepping through hidden replies. The panel renders the same set.
+ * for openOverlay's anchor → highlight matching. A collapsed thread is one
+ * navigable item (its root); an expanded thread exposes every comment. This
+ * must mirror the panel's `visibleComments` rule exactly — otherwise j/k
+ * steps onto comments that aren't drawn (or skips ones that are), which
+ * reads as "j/k only lands on roots".
  */
 export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] {
   const all = getInlineCommentOverlayComments(state)
   if (all.length === 0) return all
   const threads = groupIntoThreads(all)
-  return threads.flatMap((t) => (t.resolved ? [t.comments[0]!] : t.comments))
+  const toggled = state.inlineCommentOverlay.expandedThreadIds
+  return threads.flatMap((t) =>
+    isThreadCollapsed(t, toggled) ? [t.comments[0]!] : t.comments
+  )
 }
 
 /**
@@ -2098,9 +2103,10 @@ export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] 
  */
 /**
  * Toggle a thread's "expanded" state in the inline comment overlay.
- * Resolved threads collapse to a one-line header by default; once expanded
- * the panel renders their body + replies. Outdated threads use the same
- * flag to reveal the original `diffHunk`.
+ * `za`/Enter folds/unfolds the thread. Resolved threads default to
+ * collapsed (a one-line header); everything else defaults to expanded —
+ * the set flips that default. Outdated threads use the same flag to reveal
+ * the original `diffHunk`.
  */
 export function toggleInlineCommentOverlayExpand(state: AppState, threadId: string): AppState {
   const ov = state.inlineCommentOverlay
@@ -2108,9 +2114,24 @@ export function toggleInlineCommentOverlayExpand(state: AppState, threadId: stri
   const next = new Set(ov.expandedThreadIds)
   if (next.has(threadId)) next.delete(threadId)
   else next.add(threadId)
-  return {
+  const nextState: AppState = {
     ...state,
     inlineCommentOverlay: { ...ov, expandedThreadIds: next },
+  }
+  // Keep the highlight on the toggled thread. Collapsing drops its replies
+  // from the display order, so an index that pointed at a reply would
+  // otherwise land on an unrelated later comment — snap to the root.
+  const displayOrder = getInlineCommentOverlayDisplayOrder(nextState)
+  const rootIdx = displayOrder.findIndex((c) => c.id === threadId)
+  if (rootIdx === -1) return nextState
+  const highlighted = displayOrder[rootIdx]
+  const reactionTarget: ReactionTarget | null = highlighted?.githubId
+    ? { kind: "review-comment", githubId: highlighted.githubId }
+    : null
+  return {
+    ...nextState,
+    inlineCommentOverlay: { ...nextState.inlineCommentOverlay, highlightedIndex: rootIdx },
+    reactionTarget,
   }
 }
 
