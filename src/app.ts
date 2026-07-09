@@ -42,6 +42,7 @@ import * as aiReview from "./features/ai-review"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
+import { startCommentPoll } from "./features/comment-poll"
 import * as reactions from "./features/reactions"
 import { reactionContentFromRowId } from "./features/action-menu"
 import type { ReactionTarget } from "./types"
@@ -885,6 +886,18 @@ export async function createApp(options: AppOptions = {}) {
   // PR mode, so calling it unconditionally here is fine. The interval is
   // unref'd internally so it won't hold the event loop open.
   aiReview.startDraftPoller(aiReviewContext)
+
+  // Silently poll GitHub for new / updated review comments so replies show up
+  // without a manual refresh. Self-guards on PR mode; interval is unref'd.
+  startCommentPoll({
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    recreatePrInfoPanel: refreshContext.recreatePrInfoPanel,
+    mode,
+    prInfo: prInfo ?? null,
+    headSha: currentHeadSha,
+  })
 
   return {
     renderer,

@@ -925,6 +925,24 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
 }
 
 /**
+ * Fetch just the PR review comments (root + replies) as our `Comment` type,
+ * without touching the diff, checks, reviews, or local markdown storage.
+ *
+ * This is the lightweight read the background comment poller ticks on — it
+ * must stay cheap enough to run every minute, so it deliberately skips the
+ * heavy `loadPrSession` work and does no disk I/O.
+ */
+export async function fetchPrReviewComments(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  headSha: string
+): Promise<Comment[]> {
+  const prComments = await getPrComments(owner, repo, prNumber)
+  return prComments.map((c) => convertPrComment(c, headSha))
+}
+
+/**
  * Load a GitHub PR - fetches data and persists to local markdown storage
  */
 export async function loadPrSession(
