@@ -40,6 +40,7 @@ import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import type { ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
+import { openTextInEditor } from "../utils/editor"
 
 export interface GlobalKeyContext {
   // State access
@@ -319,6 +320,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             comment.filename,
             comment.line
           )
+        },
+        openDraftInEditor: async (current) => {
+          ctx.externalToolsContext.suspendRenderer()
+          try {
+            return await openTextInEditor(current)
+          } finally {
+            ctx.externalToolsContext.resumeRenderer()
+          }
         },
         syncCursorToHighlight: () => {
           // Mirror j/k navigation in the panel onto the diff cursor: jump

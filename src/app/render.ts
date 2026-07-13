@@ -245,6 +245,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           branchInfo: state.branchInfo,
           viewingCommit: state.viewingCommit,
           commits: state.commits,
+          lastRefreshedAt: state.lastRefreshedAt,
         }),
         Box(
           {

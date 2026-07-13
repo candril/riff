@@ -100,6 +100,20 @@ export function readComposerValue(): string {
   return composerInstance?.plainText ?? ""
 }
 
+/**
+ * Overwrite the textarea's text and place the cursor at the end, then
+ * refocus. Used when a draft is edited out-of-band in $EDITOR (Ctrl-g)
+ * and the result needs to flow back into the live composer. Does not
+ * change `lastSyncKey`, so the render pass's `syncComposerSession`
+ * treats the same session as already-seeded and won't trample this value.
+ */
+export function setComposerValue(text: string): void {
+  if (!composerInstance) return
+  composerInstance.setText(text)
+  composerInstance.cursorOffset = text.length
+  composerInstance.focus()
+}
+
 /** Tear down the current composer session — overlay is closing. */
 export function endComposerSession(): void {
   if (lastSyncKey === null) return
@@ -163,9 +177,7 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
     Box(
       { flexDirection: "row", paddingX: 1 },
       Text({
-        content: mode === "edit"
-          ? "Ctrl-s save · Esc cancel"
-          : "Ctrl-s save · Esc cancel",
+        content: "Ctrl-s save · Ctrl-g $EDITOR · Esc cancel",
         fg: theme.overlay0,
       })
     )

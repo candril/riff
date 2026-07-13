@@ -51,6 +51,15 @@ export interface HeaderProps {
   viewingCommit?: string | null
   /** All available commits (for showing count) */
   commits?: PrCommit[]
+  /** ISO time the diff/comments were last pulled from the source. */
+  lastRefreshedAt?: string | null
+}
+
+/** Compact "last refreshed" indicator, e.g. "↻ 14:23". Null when unknown. */
+function formatRefreshed(iso?: string | null): string | null {
+  if (!iso) return null
+  const t = new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  return `↻ ${t}`
 }
 
 export function Header({
@@ -62,7 +71,9 @@ export function Header({
   branchInfo,
   viewingCommit,
   commits,
+  lastRefreshedAt,
 }: HeaderProps = {}) {
+  const refreshedText = formatRefreshed(lastRefreshedAt)
   // Scope text
   const scopeText = selectedFile 
     ? selectedFile.filename 
@@ -138,6 +149,7 @@ export function Header({
           const c = summarizeChecks(prInfo.checks)
           return c ? Text({ content: c.text, fg: c.color }) : null
         })(),
+        refreshedText ? Text({ content: refreshedText, fg: theme.overlay0 }) : null,
         progressText ? Text({ content: progressText, fg: progressColor }) : null,
         selectedFile
           ? Box(
@@ -188,9 +200,10 @@ export function Header({
         : null,
       Text({ content: scopeText, fg: colors.text })
     ),
-    // Right side: progress + stats for selected file
+    // Right side: last-refreshed + progress + stats for selected file
     Box(
       { flexDirection: "row", gap: 2, flexShrink: 0 },
+      refreshedText ? Text({ content: refreshedText, fg: theme.overlay0 }) : null,
       progressText ? Text({ content: progressText, fg: progressColor }) : null,
       selectedFile
         ? Box(

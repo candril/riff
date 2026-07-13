@@ -466,6 +466,50 @@ export async function openCommentEditor(
 }
 
 /**
+ * Open $EDITOR seeded with `initial` to edit a raw comment draft, and
+ * return the edited text. Used by the inline composer's "edit in $EDITOR"
+ * escape hatch (Ctrl-g) so a long or structured comment can be written
+ * with full editor power and pulled back into the textarea.
+ *
+ * Returns the edited content (trailing newline trimmed) on save, or
+ * `null` if the editor exited with an error. An empty buffer is a valid
+ * result (the user cleared the draft), not a cancel.
+ */
+export async function openTextInEditor(initial: string): Promise<string | null> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+
+  const tmpFile = join(tmpdir(), `riff-draft-${randomUUID()}.md`)
+  await Bun.write(tmpFile, initial)
+
+  const proc = Bun.spawn([editor, tmpFile], {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  const exitCode = await proc.exited
+
+  const cleanup = async () => {
+    try {
+      const { unlink } = await import("fs/promises")
+      await unlink(tmpFile)
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  if (exitCode !== 0) {
+    await cleanup()
+    return null
+  }
+
+  const editedContent = await Bun.file(tmpFile).text()
+  await cleanup()
+
+  return editedContent.replace(/\n+$/, "")
+}
+
+/**
  * Open $EDITOR for a PR-level conversation comment (not attached to code).
  * Returns the comment body, or null if cancelled/empty.
  */

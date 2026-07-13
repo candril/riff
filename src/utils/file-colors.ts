@@ -94,6 +94,10 @@ const extensionMap: Record<string, string> = {
   bash: "bash",
   zsh: "bash",
   fish: "bash",
+  // Avro: .avdl highlights as Java, .avsc/.avpr are JSON (see VimDiffView).
+  avdl: "java",
+  avsc: "json",
+  avpr: "json",
 }
 
 // Special filename patterns

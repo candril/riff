@@ -1614,6 +1614,11 @@ function getFiletypeFromPath(path: string): string | undefined {
     sh: "bash",
     bash: "bash",
     zsh: "bash",
+    // Avro has no tree-sitter parser: .avdl is close enough to Java to
+    // borrow its highlighting, and .avsc/.avpr are literally JSON.
+    avdl: "java",
+    avsc: "json",
+    avpr: "json",
   }
 
   return extMap[ext]

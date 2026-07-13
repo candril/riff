@@ -38,6 +38,7 @@ import {
   readComposerValue,
   readComposerCursorOffset,
   replaceComposerRange,
+  setComposerValue,
 } from "../../components/CommentComposer"
 import { collectMentionCandidates } from "../../utils/mentions"
 import { getFilteredMentionCandidates } from "../../components/InlineCommentOverlay"
@@ -75,6 +76,11 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  anchored line. Most useful for outdated threads where the line is
    *  no longer in the diff but still exists in the working copy. */
   handleOpenInEditor: (comment: Comment) => void
+  /** Ctrl-g from the composer — hand the in-progress draft off to
+   *  $EDITOR, suspending the TUI, and resolve with the edited text
+   *  (or null if the editor errored). Wired at the app level because it
+   *  needs renderer suspend/resume. */
+  openDraftInEditor: (current: string) => Promise<string | null>
 }
 
 // Half-page jump for Ctrl-d / Ctrl-u. Measured in displayOrder entries
@@ -377,6 +383,24 @@ function handleComposerInput(
   if (ov.mentionPicker) {
     const handled = handleMentionPickerInput(key, ctx, ov.mentionPicker)
     if (handled) return true
+  }
+
+  // Ctrl-g — hand the draft off to $EDITOR (like shell Ctrl-x Ctrl-e).
+  // The textarea's live value is the source of truth (the user may have
+  // typed since compose/edit started), and the edited result flows back
+  // into the same textarea so Ctrl-s still submits it.
+  if (key.ctrl && key.name === "g") {
+    key.preventDefault()
+    const current = readComposerValue()
+    void (async () => {
+      const edited = await ctx.openDraftInEditor(current)
+      if (edited !== null) {
+        setComposerValue(edited)
+        ctx.setState((s) => setInlineCommentInput(s, edited))
+      }
+      ctx.render()
+    })()
+    return true
   }
 
   // Esc — cancel back to view mode (or close if there's nothing behind).

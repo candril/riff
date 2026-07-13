@@ -107,21 +107,27 @@ export function startCommentPoll(ctx: CommentPollContext): () => void {
       const fetched = await fetchPrReviewComments(owner, repo, number, ctx.headSha)
 
       const sig = signature(fetched)
-      if (sig === lastSig) return
+      const changed = sig !== lastSig
 
       // Don't clobber an open composer; retry on a later tick by leaving
-      // lastSig untouched so the change is still considered "new".
+      // lastSig untouched so the change is still considered "new". Also
+      // holds off the freshness stamp — it'll land on the next idle tick.
       if (isComposing(ctx.getState())) return
 
-      lastSig = sig
-      ctx.setState((s) => ({ ...s, comments: mergeComments(s.comments, fetched) }))
+      if (changed) {
+        lastSig = sig
+        ctx.setState((s) => ({ ...s, comments: mergeComments(s.comments, fetched) }))
 
-      // Refresh the PR info panel's cached counts, but not while it's the
-      // active view — recreating it would jump the user's scroll position.
-      if (ctx.getState().viewMode !== "pr") {
-        ctx.recreatePrInfoPanel()
+        // Refresh the PR info panel's cached counts, but not while it's the
+        // active view — recreating it would jump the user's scroll position.
+        if (ctx.getState().viewMode !== "pr") {
+          ctx.recreatePrInfoPanel()
+        }
       }
 
+      // Stamp "last refreshed" on every successful tick, changed or not, so
+      // the header reflects that comments were confirmed current just now.
+      ctx.setState((s) => ({ ...s, lastRefreshedAt: new Date().toISOString() }))
       ctx.render()
     } catch {
       // Transient gh/network failure — swallow and try again next tick.
