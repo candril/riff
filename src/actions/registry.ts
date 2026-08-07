@@ -449,9 +449,9 @@ export const actions: Action[] = [
     available: (state) => state.files.length > 0,
   },
   {
-    id: "claude-review-drafted-comment",
-    label: "Claude: Review drafted comment",
-    description: "Open the review dialog for the inline PR comment Claude drafted (gd)",
+    id: "claude-copy-drafted-comment",
+    label: "Claude: Copy drafted comment",
+    description: "Copy Claude's drafted inline PR comment and clear it (gd)",
     shortcut: "gd",
     category: "claude",
     // Gated on the poller having already detected a valid draft. The
@@ -460,7 +460,7 @@ export const actions: Action[] = [
   },
   {
     id: "claude-discard-drafted-comment",
-    label: "Claude: Discard drafted comment",
+    label: "Claude: Dismiss drafted comment",
     description: "Delete Claude's drafted comment and clear the notification (gD)",
     shortcut: "gD",
     category: "claude",

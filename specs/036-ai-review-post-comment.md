@@ -2,13 +2,19 @@
 
 **Status**: Draft
 
+> **Revision (2026-08-07)**: the in-riff approve/edit/post flow was dropped.
+> Riff no longer posts drafted comments — `gd` copies the draft body to the
+> clipboard, clears the draft, and the user pastes it into GitHub themselves. The `DraftReviewDialog`, the
+> `$EDITOR` round-trip, and the `submitSingleComment` path are gone; the
+> drafting protocol, poller, and notification are unchanged. Sections below
+> that describe posting are kept as the original design record.
+
 ## Description
 
 Close the loop on the existing AI Review feature: after chatting with Claude
-about a file or selection, let Claude **draft** an inline PR review comment,
-and let riff **post** it under the user's `gh` identity after an explicit
-approval. Drafting happens inside the Claude chat; approval, editing, and
-posting happen inside riff.
+about a file or selection, let Claude **draft** an inline PR review comment
+and let riff hand it to the user, ready to paste. Drafting happens inside the
+Claude chat; riff surfaces the draft and copies it on one keystroke.
 
 Flow:
 
@@ -24,30 +30,25 @@ Flow:
    prompt that tells Claude: "follow the drafting protocol from your
    system prompt, don't deliberate, write the JSON now".
 4. Claude writes `draft-comment.json` and tells the user "Draft written —
-   press `gd` in riff to review".
+   press `gd` in riff to copy it".
 5. Riff, polling the draft path every ~1.5s, detects the file and shows
    a **persistent notification** in the bottom-right corner:
 
-       ┌ Claude drafted a comment ──────────────┐
+       ┌────────────────────────────────────────┐
+       │ Claude drafted a comment               │
        │ src/app.ts:42-48                       │
-       │ "Use pattern xyz — works better here…" │
-       │                                        │
-       │ gd review  ·  gD discard               │
+       │ Use pattern xyz — works better here…   │
+       │ gd copy  ·  gD dismiss                 │
        └────────────────────────────────────────┘
 
    The notification persists while the user continues navigating — unlike
    the existing transient `Toast`, it does **not** auto-dismiss.
-6. User presses **`gd`** (or runs `Ctrl+p` → "Claude: Review drafted
-   comment"). Riff opens a **bigger review dialog** with four options:
-
-       y / Enter  → post the comment
-       e          → open $EDITOR on the body, update the draft, re-show
-       d          → discard (delete the draft file, clear notification)
-       n / Esc    → cancel (close dialog, draft file preserved)
-
-7. On post success: comment lands on GitHub, draft file is deleted,
-   notification disappears. On failure: draft file is preserved, toast
-   shows the error, notification stays so the user can retry.
+6. User presses **`gd`** (or runs `Ctrl+p` → "Claude: Copy drafted
+   comment"). Riff re-reads and re-validates the draft from disk, puts the
+   body on the clipboard, deletes the draft file, and toasts "Comment
+   copied". A failed copy leaves the draft untouched.
+7. `gD` (or "Claude: Dismiss drafted comment") clears a draft the user
+   doesn't want to copy at all.
 
 ## Out of Scope
 
@@ -156,14 +157,10 @@ Flow:
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `gd` | Notification visible (global) | Open the review dialog |
-| `gD` | Notification visible (global) | Discard the draft |
-| `Ctrl+p` → Review | Notification visible | Open the review dialog |
-| `Ctrl+p` → Discard | Notification visible | Delete draft, clear notification |
-| `y` / `Y` / `Enter` | In review dialog | Post the drafted comment |
-| `e` / `E` | In review dialog | Open body in `$EDITOR` |
-| `d` / `D` | In review dialog | Discard the draft |
-| `n` / `N` / `Esc` | In review dialog | Cancel (draft preserved) |
+| `gd` | Notification visible (global) | Copy the draft body, then clear it |
+| `gD` | Notification visible (global) | Delete draft, clear notification |
+| `Ctrl+p` → Copy | Notification visible | Copy the draft body, then clear it |
+| `Ctrl+p` → Dismiss | Notification visible | Delete draft, clear notification |
 | `/riff-comment <feedback>` | Inside Claude chat | Fast-path draft command |
 
 ## Technical Notes

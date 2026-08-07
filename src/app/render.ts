@@ -20,7 +20,6 @@ import {
   SearchPrompt,
   ConfirmDialog,
   DraftNotification,
-  DraftReviewDialog,
   gatherSyncItems,
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
@@ -346,12 +345,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               details: state.confirmDialog.details,
             })
           : null,
-        state.draftReview
-          ? DraftReviewDialog({ review: state.draftReview })
-          : null,
-        // Hide the corner notification while the review dialog is up so
-        // the two overlays don't stack on top of each other.
-        state.draftNotification && !state.draftReview
+        state.draftNotification
           ? DraftNotification({ notification: state.draftNotification })
           : null,
 

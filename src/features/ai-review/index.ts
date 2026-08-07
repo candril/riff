@@ -12,11 +12,8 @@ export {
   type AiReviewContext,
 } from "./handlers"
 export {
-  handleReviewDraftedComment,
-  handleApproveDraftedComment,
-  handleEditDraftedComment,
+  handleCopyDraftedComment,
   handleDiscardDraftedComment,
-  handleCancelDraftReview,
   startDraftPoller,
 } from "./post-draft"
 export {

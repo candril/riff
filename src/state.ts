@@ -306,12 +306,6 @@ export interface AppState {
   // current PR. Pinned bottom-right, does not auto-dismiss.
   draftNotification: DraftNotificationState | null
 
-  // Claude drafted-comment review dialog (spec 036). Non-null when the
-  // user has triggered "review drafted comment" (via Ctrl+p, `gd`, or the
-  // action menu). Captures the full draft so the dialog can render the
-  // body and re-post it on approval without another disk read.
-  draftReview: DraftReviewDialogState | null
-
   // What the palette's "React…" action targets right now (spec 042).
   // Views set this when they focus a reactable item (e.g. the inline
   // overlay's highlighted comment) and clear it when they're dismissed.
@@ -339,27 +333,6 @@ export interface DraftNotificationState {
   /** mtimeMs of the draft file at the last successful load. Used by the
    * poller to skip unchanged ticks. */
   mtimeMs: number
-}
-
-/**
- * Modal state for the drafted-comment review dialog (spec 036). Opened
- * when the user triggers "review drafted comment"; drives the bigger
- * preview + `y` / `e` / `d` / `Esc` key handling in
- * `src/app/global-keys.ts`.
- *
- * We inline the draft fields instead of importing `DraftCommentFile` from
- * `features/ai-review/post-draft.ts` to keep `state.ts` dependency-free
- * (that module imports from `state.ts` itself).
- */
-export interface DraftReviewDialogState {
-  filename: string
-  side: "LEFT" | "RIGHT"
-  line: number
-  startLine?: number
-  body: string
-  draftedAt: string
-  /** Absolute path to the JSON file on disk, used on approve/discard. */
-  draftPath: string
 }
 
 /**
@@ -503,7 +476,6 @@ export function createInitialState(
     commitDiffCache: new Map(),
     confirmDialog: null,
     draftNotification: null,
-    draftReview: null,
     reactionTarget: null,
     jumpList: createJumpListState(),
   }
@@ -1503,19 +1475,6 @@ export function clearDraftNotification(state: AppState): AppState {
   return { ...state, draftNotification: null }
 }
 
-/** Open the drafted-comment review dialog with the given draft snapshot. */
-export function openDraftReview(
-  state: AppState,
-  review: DraftReviewDialogState,
-): AppState {
-  return { ...state, draftReview: review }
-}
-
-/** Close the drafted-comment review dialog. Idempotent. */
-export function closeDraftReview(state: AppState): AppState {
-  if (state.draftReview === null) return state
-  return { ...state, draftReview: null }
-}
 
 // ============================================================================
 // File Picker State

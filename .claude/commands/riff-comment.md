@@ -1,12 +1,12 @@
 ---
 name: riff-comment
-description: Draft an inline PR review comment for riff to post (spec 036)
+description: Draft an inline PR review comment for the user to post (spec 036)
 disable-model-invocation: true
 ---
 
 You're pair-reviewing a PR with the user inside riff. They want you to
-turn a piece of feedback into an inline PR review comment that riff will
-post under their identity.
+turn a piece of feedback into an inline PR review comment that they will
+post themselves.
 
 Follow the drafting protocol from your system prompt — the draft path,
 JSON schema, and "don't run gh" rules are already defined there. Do not
@@ -27,14 +27,13 @@ Be fast:
    exact lines being replaced). Otherwise, draft a plain comment
    anchored at the first row of the selection.
 4. Write the draft JSON immediately and then tell the user:
-   "Draft written — press `gd` in riff to review, or Ctrl+p → Review
-   drafted comment."
+   "Draft written — press `gd` in riff to copy it."
 5. If it's ambiguous which lines are meant (and no Draft anchor section
    exists), ask **one** clarifying question before drafting. Don't
    deliberate beyond that.
 
-Do not run `gh`, `git`, or any shell command to post. Riff will post
-the comment after the user explicitly approves.
+Do not run `gh`, `git`, or any shell command to post. The user posts
+the comment themselves after copying it out of riff.
 
 User feedback to turn into a review comment:
 $ARGUMENTS

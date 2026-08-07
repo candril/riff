@@ -92,13 +92,13 @@ export const DRAFT_PATH_PLACEHOLDER = "{{DRAFT_COMMENT_PATH}}"
  */
 export const RIFF_COMMENT_COMMAND = `---
 name: riff-comment
-description: Draft an inline PR review comment for riff to post (spec 036)
+description: Draft an inline PR review comment for the user to post (spec 036)
 disable-model-invocation: true
 ---
 
 You're pair-reviewing a PR with the user inside riff. They want you to
-turn a piece of feedback into an inline PR review comment that riff will
-post under their identity.
+turn a piece of feedback into an inline PR review comment that they will
+post themselves.
 
 Follow the drafting protocol from your system prompt — the draft path,
 JSON schema, and "don't run gh" rules are already defined there. Do not
@@ -119,14 +119,13 @@ Be fast:
    exact lines being replaced). Otherwise, draft a plain comment
    anchored at the first row of the selection.
 4. Write the draft JSON immediately and then tell the user:
-   "Draft written — press \`gd\` in riff to review, or Ctrl+p → Review
-   drafted comment."
+   "Draft written — press \`gd\` in riff to copy it."
 5. If it's ambiguous which lines are meant (and no Draft anchor section
    exists), ask **one** clarifying question before drafting. Don't
    deliberate beyond that.
 
-Do not run \`gh\`, \`git\`, or any shell command to post. Riff will post
-the comment after the user explicitly approves.
+Do not run \`gh\`, \`git\`, or any shell command to post. The user posts
+the comment themselves after copying it out of riff.
 
 User feedback to turn into a review comment:
 $ARGUMENTS
@@ -144,7 +143,8 @@ $ARGUMENTS
  * Also contains the "draft a review comment" protocol (spec 036): when the
  * user asks for a review comment to be drafted, Claude writes a strict JSON
  * blob to `DRAFT_PATH_PLACEHOLDER` (substituted per-launch). Riff's
- * background poller detects the file and surfaces a notification.
+ * background poller detects the file and surfaces a notification the user
+ * can copy the body from.
  *
  * Kept as a plain exported string so `handlers.ts` can write it out verbatim.
  */
@@ -203,10 +203,10 @@ export const AI_REVIEW_SYSTEM_PROMPT = [
   "- `startLine` is optional: include it only when the comment spans more",
   "  than one line. `startLine` must be <= `line` and on the same side.",
   "- After saving the draft, tell the user: \"Draft written. Riff will show",
-  "  a notification — approve it there.\"",
+  "  a notification — press `gd` there to copy it.\"",
   "- Do **not** run `gh`, `git`, or any other shell command to post the",
-  "  comment. Riff will post it under the user's identity after they",
-  "  explicitly approve.",
+  "  comment. The user copies the draft out of riff and posts it",
+  "  themselves.",
   "- If the user asks you to revise the draft, simply overwrite the same",
   "  file — riff picks up the new contents on its next poll tick.",
   "",

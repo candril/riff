@@ -43,7 +43,7 @@ export interface ActionHandlers {
   handleAddPrComment: () => Promise<void>
   handleAiReviewContextAware: () => Promise<void>
   handleAiReviewFull: () => Promise<void>
-  handleReviewDraftedComment: () => Promise<void>
+  handleCopyDraftedComment: () => Promise<void>
   handleDiscardDraftedComment: () => Promise<void>
 }
 
@@ -217,8 +217,8 @@ export async function executeAction(
       await handlers.handleAiReviewFull()
       break
 
-    case "claude-review-drafted-comment":
-      await handlers.handleReviewDraftedComment()
+    case "claude-copy-drafted-comment":
+      await handlers.handleCopyDraftedComment()
       break
 
     case "claude-discard-drafted-comment":

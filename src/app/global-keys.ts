@@ -431,28 +431,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
     }
 
-    // ========== DRAFT REVIEW DIALOG (y/e/d/Esc, spec 036) ==========
-    {
-      const dialogState = ctx.getState()
-      if (dialogState.draftReview) {
-        if (key.name === "y" || key.name === "Y" || key.name === "return") {
-          void aiReview.handleApproveDraftedComment(ctx.aiReviewContext)
-          return
-        } else if (key.name === "e" || key.name === "E") {
-          void aiReview.handleEditDraftedComment(ctx.aiReviewContext)
-          return
-        } else if (key.name === "d" || key.name === "D") {
-          void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
-          return
-        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
-          aiReview.handleCancelDraftReview(ctx.aiReviewContext)
-          return
-        }
-        // Swallow all other keys — this is a modal dialog.
-        return
-      }
-    }
-
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
     if (search.handleInput(key, { searchState: ctx.getSearchState(), searchHandler: ctx.searchHandler })) {
       return
@@ -735,14 +713,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "gd") {
-        // spec 036: review the drafted inline comment. Silently no-op
-        // when no draft is pending so the chord doesn't feel broken.
+        // spec 036: copy the drafted inline comment to the clipboard and
+        // clear it. Silently no-op when no draft is pending so the chord
+        // doesn't feel broken.
         if (ctx.getState().draftNotification) {
-          void aiReview.handleReviewDraftedComment(ctx.aiReviewContext)
+          void aiReview.handleCopyDraftedComment(ctx.aiReviewContext)
         }
         return
-      } else if (sequence === "gD!") {
-        // spec 036: discard the drafted inline comment.
+      } else if (sequence === "gD!" || sequence === "gd!") {
+        // spec 036: dismiss the drafted inline comment without copying.
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
         if (ctx.getState().draftNotification) {
           void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
         }
