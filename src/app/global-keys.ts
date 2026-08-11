@@ -38,7 +38,7 @@ import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
 import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
-import type { ReactionTarget } from "../types"
+import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
 import { openTextInEditor } from "../utils/editor"
 
@@ -68,6 +68,8 @@ export interface GlobalKeyContext {
   ensureCursorVisible: () => void
   updateFileTreePanel: () => void
   handleExpandDivider: () => Promise<boolean>
+  handleYank: (options: { raw: boolean }) => void
+  handleCopyCommentLink: (comment?: Comment | null) => Promise<void>
   executeAction: (id: string) => void
   /** Toggle a reaction on a target — fired when the user presses Enter
    *  on a React… submenu row (spec 042). */
@@ -313,6 +315,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             )
           )
           ctx.render()
+        },
+        handleCopyLink: (comment) => {
+          void ctx.handleCopyCommentLink(comment)
         },
         handleOpenInEditor: (comment) => {
           void externalTools.handleOpenFileAtLine(
@@ -696,6 +701,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.executeAction("copy-pr-url")
         }
         return
+      } else if (sequence === "gY!" || sequence === "gy!") {
+        // Copy a GitHub permalink for the selection / current line / file.
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        ctx.executeAction("copy-permalink")
+        return
       } else if (sequence === "gf") {
         externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
         return
@@ -860,6 +871,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       searchHandler: ctx.searchHandler,
       getCurrentComment: () => commentsFeature.getCurrentComment(ctx.commentsContext),
       handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
+      handleYank: ctx.handleYank,
       handleExpandDivider: ctx.handleExpandDivider,
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
@@ -874,7 +886,26 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         const lineMapping = ctx.getLineMapping()
         const vimState = ctx.getVimState()
         const anchor = lineMapping.getCommentAnchor(vimState.line)
-        if (!anchor) return false
+        if (!anchor) {
+          // Say why rather than no-op: an expanded line looks exactly as
+          // commentable as any other, so silence reads as a broken key.
+          if (mode === "compose" && lineMapping.isOutsideDiff(vimState.line)) {
+            ctx.setState((st) =>
+              showToast(
+                st,
+                "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
+                "info",
+              )
+            )
+            ctx.render()
+            setTimeout(() => {
+              ctx.setState(clearToast)
+              ctx.render()
+            }, 3500)
+            return true
+          }
+          return false
+        }
 
         if (mode === "view") {
           const hasRoot = s.comments.some(

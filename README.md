@@ -122,6 +122,11 @@ basePath = "~/code"
 # Hide files from review (still accessible via toggle)
 [ignore]
 patterns = ["package-lock.json", "*.generated.*"]
+
+# Extra @mention candidates — teams and bots, which the GitHub user
+# lookup can't return. Repo contributors are fetched automatically.
+[mentions]
+extra = ["my-org/backend-team"]
 ```
 
 ## Requirements

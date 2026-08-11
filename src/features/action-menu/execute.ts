@@ -21,6 +21,7 @@ import {
   getReactionsForTarget,
 } from "../../state"
 import { REACTION_META } from "../../types"
+import { copyToClipboard } from "../../utils/clipboard"
 
 /**
  * Handlers that the action executor needs access to.
@@ -44,6 +45,12 @@ export interface ActionHandlers {
   handleAiReviewContextAware: () => Promise<void>
   handleAiReviewFull: () => Promise<void>
   handleCopyDraftedComment: () => Promise<void>
+  handleCopyPermalink: (options: { includeLines: boolean }) => Promise<void>
+  handleCopyPrDiffLink: () => Promise<void>
+  handleCopyCommentLink: () => Promise<void>
+  handleYank: (options: { raw: boolean }) => void
+  /** Resolves false when the cursor isn't on a collapsed-context divider. */
+  handleExpandDivider: () => Promise<boolean>
   handleDiscardDraftedComment: () => Promise<void>
 }
 
@@ -165,18 +172,55 @@ export async function executeAction(
 
     case "copy-pr-url":
       if (state.prInfo) {
-        const url = state.prInfo.url
-        // Use pbcopy on macOS, xclip on Linux
-        const proc = Bun.spawn(["pbcopy"], { stdin: "pipe" })
-        proc.stdin.write(url)
-        proc.stdin.end()
-        setState((s) => showToast(s, "PR URL copied to clipboard", "success"))
+        const copied = await copyToClipboard(state.prInfo.url)
+        setState((s) =>
+          copied.ok
+            ? showToast(s, "PR URL copied to clipboard", "success")
+            : showToast(s, `Copy failed: ${copied.error}`, "error")
+        )
         render()
         setTimeout(() => {
           setState(clearToast)
           render()
         }, 2000)
       }
+      break
+
+    case "copy-permalink":
+      await handlers.handleCopyPermalink({ includeLines: true })
+      break
+
+    case "copy-file-permalink":
+      await handlers.handleCopyPermalink({ includeLines: false })
+      break
+
+    case "yank":
+      handlers.handleYank({ raw: false })
+      break
+
+    case "yank-raw":
+      handlers.handleYank({ raw: true })
+      break
+
+    case "expand-context": {
+      const expanded = await handlers.handleExpandDivider()
+      if (!expanded) {
+        setState((s) => showToast(s, "Put the cursor on a \"… lines\" divider first", "info"))
+        render()
+        setTimeout(() => {
+          setState(clearToast)
+          render()
+        }, 2500)
+      }
+      break
+    }
+
+    case "copy-comment-link":
+      await handlers.handleCopyCommentLink()
+      break
+
+    case "copy-pr-diff-link":
+      await handlers.handleCopyPrDiffLink()
       break
 
     case "add-pr-comment":

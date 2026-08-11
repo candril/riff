@@ -3,6 +3,9 @@ import { saveComment, saveSession, loadComments, deleteCommentFile } from "../st
 import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_CONTENT } from "../types"
 
+/** Up to 300 mentionable users — see `getMentionableUsers`. */
+const MENTIONABLE_PAGES = 3
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -12,36 +15,68 @@ import { REACTION_CONTENT } from "../types"
  * Bun's ShellError has stderr which contains the actual error,
  * while message is just "Failed with exit code N".
  */
+/**
+ * Turn a failed `gh` invocation into something a toast can show.
+ *
+ * `gh` prints the API's JSON body on **stdout** and only a terse
+ * "Validation Failed (HTTP 422)" on stderr, so reading stderr alone loses
+ * the one part that says what actually went wrong.
+ */
 function extractShellError(err: unknown): string {
   if (err && typeof err === "object") {
-    // Check for Bun ShellError which has stderr
-    const shellErr = err as { stderr?: Buffer; message?: string }
-    if (shellErr.stderr) {
-      const stderrStr = shellErr.stderr.toString().trim()
-      // Try to parse JSON error from gh cli (GitHub API errors)
-      const jsonMatch = stderrStr.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0])
-          if (parsed.message) {
-            return parsed.message
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      }
-      // Return raw stderr if no JSON found
-      if (stderrStr) {
-        return stderrStr
-      }
-    }
-    // Fallback to message
-    if (shellErr.message) {
-      return shellErr.message
-    }
+    const shellErr = err as { stdout?: Buffer; stderr?: Buffer; message?: string }
+    const detail = describeApiError(shellErr.stdout) ?? describeApiError(shellErr.stderr)
+    if (detail) return detail
+
+    const stderrStr = shellErr.stderr?.toString().trim()
+    if (stderrStr) return stderrStr
+    if (shellErr.message) return shellErr.message
   }
   return err instanceof Error ? err.message : String(err)
 }
+
+/**
+ * Known GitHub validation failures, phrased as something the user can act on.
+ * Matched on the API's own wording; anything unrecognised passes through.
+ */
+const API_ERROR_HINTS: { match: RegExp; hint: string }[] = [
+  {
+    match: /line.*could not be resolved|could not be resolved.*line/i,
+    hint: "GitHub can't anchor a comment there — the line is outside the diff",
+  },
+  {
+    match: /one pending review per pull request/i,
+    hint: "You already have an unsubmitted review on GitHub — submit or discard it first",
+  },
+  {
+    match: /commit_id.*not.*part of the pull request|no commit found/i,
+    hint: "The PR has moved on — refresh (gr) and try again",
+  },
+]
+
+function describeApiError(buf?: Buffer): string | null {
+  if (!buf) return null
+  const jsonMatch = buf.toString().match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return null
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      message?: string
+      errors?: { message?: string; field?: string }[]
+    }
+    const specific = (parsed.errors ?? [])
+      .map((e) => (e.field && e.message ? `${e.field} ${e.message}` : e.message))
+      .filter((m): m is string => Boolean(m))
+
+    const raw = specific.length > 0 ? specific.join("; ") : parsed.message
+    if (!raw) return null
+
+    return API_ERROR_HINTS.find((h) => h.match.test(raw))?.hint ?? raw
+  } catch {
+    return null
+  }
+}
+
 
 // ============================================================================
 // Types
@@ -56,6 +91,11 @@ export interface PrInfo {
   isDraft?: boolean
   headRef: string // Branch name
   baseRef: string // Target branch (e.g., "main")
+  /** Owner of the repo the head branch lives in. Differs from `owner` for
+   *  fork PRs, where the branch only exists on the fork. */
+  headRepoOwner?: string
+  /** Name of the repo the head branch lives in (usually same as `repo`). */
+  headRepoName?: string
   owner: string
   repo: string
   url: string
@@ -256,7 +296,7 @@ export async function getPrInfo(
   return safeGhCommand(async () => {
     const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
 
-    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,url,additions,deletions,changedFiles,createdAt,updatedAt,reviews,commits`.json()
+    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,headRepository,headRepositoryOwner,url,additions,deletions,changedFiles,createdAt,updatedAt,reviews,commits`.json()
 
     // Get owner/repo if not provided
     let finalOwner = owner
@@ -303,6 +343,8 @@ export async function getPrInfo(
       isDraft: result.isDraft,
       headRef: result.headRefName,
       baseRef: result.baseRefName,
+      headRepoOwner: result.headRepositoryOwner?.login || undefined,
+      headRepoName: result.headRepository?.name || undefined,
       owner: finalOwner!,
       repo: finalRepo!,
       url: result.url,
@@ -921,6 +963,107 @@ function convertPrComment(c: PrComment, prHeadSha: string): Comment {
     author: c.author, // Preserve original author
     inReplyTo: c.inReplyToId ? `gh-${c.inReplyToId}` : undefined,
     reactions: c.reactions,
+  }
+}
+
+/**
+ * Fetch the users GitHub would accept as @mentions in this repo — the same
+ * pool its own comment box autocompletes from (contributors + collaborators).
+ *
+ * Best-effort: returns an empty list when the call fails (offline, no access),
+ * because the caller falls back to the participants it derived from the PR.
+ *
+ * Capped at MENTIONABLE_PAGES pages: the pool is a convenience list that gets
+ * fuzzy-filtered down to a handful of visible rows, so exhausting a repo with
+ * thousands of contributors would cost round-trips nobody benefits from.
+ */
+export async function getMentionableUsers(
+  owner: string,
+  repo: string,
+): Promise<string[]> {
+  const query = `query($owner:String!,$repo:String!,$cursor:String){
+    repository(owner:$owner,name:$repo){
+      mentionableUsers(first:100,after:$cursor){
+        nodes{login}
+        pageInfo{hasNextPage endCursor}
+      }
+    }
+  }`
+
+  const logins: string[] = []
+  let cursor: string | null = null
+
+  for (let page = 0; page < MENTIONABLE_PAGES; page++) {
+    const cursorArgs = cursor ? ["-F", `cursor=${cursor}`] : []
+    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} ${cursorArgs}`
+      .quiet()
+      .nothrow()
+    if (result.exitCode !== 0) break
+
+    const parsed = safeJson(result.stdout.toString()) as {
+      data?: { repository?: { mentionableUsers?: {
+        nodes?: { login?: string }[]
+        pageInfo?: { hasNextPage?: boolean; endCursor?: string }
+      } } }
+    } | null
+
+    const page_ = parsed?.data?.repository?.mentionableUsers
+    if (!page_) break
+
+    for (const node of page_.nodes ?? []) {
+      if (node.login) logins.push(node.login)
+    }
+
+    if (!page_.pageInfo?.hasNextPage || !page_.pageInfo.endCursor) break
+    cursor = page_.pageInfo.endCursor
+  }
+
+  return logins
+}
+
+/**
+ * Ask GitHub for mentionable users matching `query`. This is the escape hatch
+ * for orgs bigger than the prefetch cap: the roster riff caches is a prefix of
+ * the repo's mentionable users, so someone who has never touched this repo
+ * won't be in it, but they will be here.
+ *
+ * GitHub matches the fragment against both login and display name, so
+ * "koeck" finds `hkoeck` as well as a user named "Koeck".
+ */
+export async function searchMentionableUsers(
+  owner: string,
+  repo: string,
+  query: string,
+): Promise<string[]> {
+  // The variable is `q`, not `query`: `gh api graphql` uses `query` for the
+  // document itself, so a variable of that name silently replaces it.
+  const gql = `query($owner:String!,$repo:String!,$q:String!){
+    repository(owner:$owner,name:$repo){
+      mentionableUsers(first:20,query:$q){
+        nodes{login}
+      }
+    }
+  }`
+
+  const result = await $`gh api graphql -f query=${gql} -F owner=${owner} -F repo=${repo} -F q=${query}`
+    .quiet()
+    .nothrow()
+  if (result.exitCode !== 0) return []
+
+  const parsed = safeJson(result.stdout.toString()) as {
+    data?: { repository?: { mentionableUsers?: { nodes?: { login?: string }[] } } }
+  } | null
+
+  return (parsed?.data?.repository?.mentionableUsers?.nodes ?? [])
+    .map((n) => n.login)
+    .filter((login): login is string => Boolean(login))
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
   }
 }
 

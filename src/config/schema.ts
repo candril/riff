@@ -24,9 +24,22 @@ export interface StorageConfig {
 }
 
 /**
+ * Mention configuration - extra @mention candidates
+ */
+export interface MentionsConfig {
+  /**
+   * Handles to offer in the @mention picker on top of the ones riff can
+   * discover itself. Teams (`org/team`) live here because the GitHub API
+   * riff queries only returns users.
+   */
+  extra: string[]
+}
+
+/**
  * Root configuration
  */
 export interface Config {
   ignore: IgnoreConfig
   storage: StorageConfig
+  mentions: MentionsConfig
 }

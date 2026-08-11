@@ -1,17 +1,35 @@
 /**
- * Mention candidates — derive the unique set of GitHub usernames the
- * user might want to @-mention in a comment, drawn from the loaded PR
- * data and existing comments. We don't hit the GitHub API at typing
- * time; everything here is data we already have in `AppState`.
+ * Mention candidates — the unique set of handles the user might want to
+ * @-mention in a comment, assembled from three sources and offered in
+ * descending order of how likely they are to be the one you want:
  *
- * Order: PR author first, then requested reviewers, then review
- * authors, then conversation/review comment authors. Highest-signal
- * names appear first when the query is empty.
+ *   1. PR participants derived from `AppState` — author, requested
+ *      reviewers, review and comment authors. Instant and offline.
+ *   2. `mentions.extra` from the config — teams (`org/team`) and bots that
+ *      the GitHub user query below can't return.
+ *   3. The repo's mentionable users, fetched in the background (spec 046).
+ *      Complete, but it only shows up once the fetch lands.
+ *
+ * Nothing here blocks: this runs synchronously on every render, so the
+ * fetched pool arrives via `state.mentionableUsers` rather than an await.
  */
 
 import type { AppState } from "../state"
+import { loadConfig } from "../config"
 
-const MENTION_TRIGGER_RE = /(?:^|\s)@([A-Za-z0-9-]*)$/
+// Team handles contain a slash (`org/team`), so the trigger has to survive
+// one — otherwise typing past it silently dismisses the picker.
+const MENTION_TRIGGER_RE = /(?:^|\s)@([A-Za-z0-9\-/]*)$/
+
+/**
+ * Config extras, read once. `collectMentionCandidates` runs on every render,
+ * and `loadConfig` re-reads the TOML from disk on every call.
+ */
+let extras: string[] | null = null
+function configuredExtras(): string[] {
+  extras ??= loadConfig().mentions.extra
+  return extras
+}
 
 export function collectMentionCandidates(state: AppState): string[] {
   const seen = new Set<string>()
@@ -20,8 +38,11 @@ export function collectMentionCandidates(state: AppState): string[] {
     if (!name) return
     const trimmed = name.trim()
     if (!trimmed || trimmed === "you") return
-    if (seen.has(trimmed)) return
-    seen.add(trimmed)
+    // GitHub handles are case-insensitive, so dedupe on a folded key while
+    // keeping the first spelling we saw (the PR data's, which is canonical).
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
     out.push(trimmed)
   }
 
@@ -33,6 +54,8 @@ export function collectMentionCandidates(state: AppState): string[] {
     pr.conversationComments?.forEach((c) => push(c.author))
   }
   state.comments.forEach((c) => push(c.author))
+  configuredExtras().forEach(push)
+  state.mentionableUsers.forEach(push)
   return out
 }
 

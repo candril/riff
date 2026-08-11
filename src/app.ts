@@ -39,6 +39,9 @@ import * as fileNavigation from "./features/file-navigation"
 import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
+import * as permalink from "./features/permalink"
+import { startMentionPrefetch } from "./features/mentions"
+import * as yank from "./features/yank"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
@@ -480,6 +483,28 @@ export async function createApp(options: AppOptions = {}) {
     options,
   }
 
+  const yankContext: yank.YankContext = {
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    setVimState: (s) => {
+      vimState = s
+      vimDiffView.updateCursor(vimState)
+    },
+    getLineMapping: () => lineMapping,
+    render,
+  }
+
+  const permalinkContext: permalink.PermalinkContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    getLineMapping: () => lineMapping,
+    render,
+    mode,
+    prInfo: prInfo ?? null,
+    getHeadSha: () => currentHeadSha,
+  }
+
   const prOperationsContext: prOperations.PrOperationsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -515,6 +540,11 @@ export async function createApp(options: AppOptions = {}) {
     handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
     handleCopyDraftedComment: () => aiReview.handleCopyDraftedComment(aiReviewContext),
     handleDiscardDraftedComment: () => aiReview.handleDiscardDraftedComment(aiReviewContext),
+    handleCopyPermalink: (opts) => permalink.handleCopyPermalink(permalinkContext, opts),
+    handleCopyPrDiffLink: () => permalink.handleCopyPrDiffLink(permalinkContext),
+    handleCopyCommentLink: () => permalink.handleCopyCommentLink(permalinkContext),
+    handleExpandDivider,
+    handleYank: (opts: { raw: boolean }) => yank.handleYank(yankContext, opts),
     handleShowAllFiles: () => {
       vimState = createCursorState()
       createLineMapping()
@@ -849,6 +879,8 @@ export async function createApp(options: AppOptions = {}) {
     ensureCursorVisible,
     updateFileTreePanel,
     handleExpandDivider,
+    handleYank: (opts: { raw: boolean }) => yank.handleYank(yankContext, opts),
+    handleCopyCommentLink: (comment) => permalink.handleCopyCommentLink(permalinkContext, comment),
     executeAction,
     onToggleReaction: handleToggleReaction,
     onCommitSelected: handleCommitSelected,
@@ -881,6 +913,15 @@ export async function createApp(options: AppOptions = {}) {
         // Silently ignore
       })
   }
+
+  // Fetch the repo's @mention pool in the background (spec 046). Silent and
+  // best-effort — the picker works off PR participants until it lands.
+  startMentionPrefetch({
+    setState: (fn) => { state = fn(state) },
+    render,
+    mode,
+    prInfo: prInfo ?? null,
+  })
 
   // Start the Claude-drafted-comment poller (spec 036). It self-guards on
   // PR mode, so calling it unconditionally here is fine. The interval is

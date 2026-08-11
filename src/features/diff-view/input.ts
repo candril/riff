@@ -31,6 +31,8 @@ export interface DiffViewInputContext {
   getCurrentComment: () => Comment | null
   // Handlers
   handleAddComment: () => void
+  /** `raw` keeps the +/- gutter; otherwise the code is copied as it reads. */
+  handleYank: (options: { raw: boolean }) => void
   handleExpandDivider: () => void
   handleToggleViewed: (advanceToNext: boolean) => void
   handleSubmitSingleComment: (comment: Comment) => void
@@ -86,6 +88,14 @@ export function handleInput(
     } else if (!ctx.handleOpenInlineOverlay("view")) {
       ctx.handleOpenPanelView()
     }
+    return true
+  }
+
+  // `y` yanks the visual-line selection, or the cursor's line in normal
+  // mode. `Y` yanks the same rows with their diff markers intact.
+  if ((key.name === "y" || key.name === "Y") && !key.ctrl) {
+    key.preventDefault()
+    ctx.handleYank({ raw: key.shift || key.name === "Y" })
     return true
   }
 

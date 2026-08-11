@@ -23,7 +23,7 @@ import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
 
-const MENTION_VISIBLE_LIMIT = 6
+export const MENTION_VISIBLE_LIMIT = 6
 
 export function getFilteredMentionCandidates(
   candidates: readonly string[],
@@ -57,6 +57,8 @@ export interface InlineCommentOverlayProps {
   /** Full PR-participant pool — filtered against `mentionPicker.query`
    *  to produce the visible candidate list. Empty in local-diff mode. */
   mentionCandidates: readonly string[]
+  /** Fragment currently being looked up on GitHub, or null when idle. */
+  mentionSearchQuery: string | null
   /** Root comment ids the user has expanded (`za`/Enter). Resolved
    *  threads expand to show body + replies; outdated threads expand to
    *  reveal the stored diff hunk. */
@@ -231,9 +233,20 @@ function pickVisibleThreads(
   }
 }
 
+/**
+ * Distinguish "nobody matches" from "still asking GitHub" — the lookup takes
+ * about half a second, and without the hint that reads as a dead picker.
+ */
+function emptyPickerMessage(query: string, searchQuery: string | null): string {
+  if (!query) return "No participants to mention"
+  if (searchQuery === query) return `Searching GitHub for @${query}…`
+  return `No match for @${query}`
+}
+
 function renderMentionPicker(
   picker: MentionPickerState,
-  candidates: readonly string[]
+  candidates: readonly string[],
+  searchQuery: string | null
 ) {
   const filtered = getFilteredMentionCandidates(candidates, picker.query)
   if (filtered.length === 0) {
@@ -248,9 +261,7 @@ function renderMentionPicker(
         borderColor: theme.overlay0,
       },
       Text({
-        content: picker.query
-          ? `No match for @${picker.query}`
-          : "No participants to mention",
+        content: emptyPickerMessage(picker.query, searchQuery),
         fg: theme.overlay0,
       })
     )
@@ -308,6 +319,7 @@ export function InlineCommentOverlay({
   expanded,
   mentionPicker,
   mentionCandidates,
+  mentionSearchQuery,
   expandedThreadIds,
   renderer,
 }: InlineCommentOverlayProps) {
@@ -578,7 +590,7 @@ export function InlineCommentOverlay({
               renderer,
             }),
             isComposing && mentionPicker
-              ? renderMentionPicker(mentionPicker, mentionCandidates)
+              ? renderMentionPicker(mentionPicker, mentionCandidates, mentionSearchQuery)
               : null
           )
         : null,

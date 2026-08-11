@@ -72,6 +72,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  the diff stays in sync as the user navigates threads with j/k.
    *  Wired at the app level (needs lineMapping + vim state). */
   syncCursorToHighlight: () => void
+  /** `y` — copy a GitHub link to the highlighted comment. */
+  handleCopyLink: (comment: Comment) => void
   /** `o` — open the highlighted comment's file in $EDITOR at its
    *  anchored line. Most useful for outdated threads where the line is
    *  no longer in the diff but still exists in the working copy. */
@@ -170,6 +172,13 @@ export function handleInput(
   // (the React… submenu targets the highlighted comment — spec 042).
   if (key.ctrl && key.name === "p") {
     return false
+  }
+
+  // `y` — copy a link to the highlighted comment. The panel is where the
+  // user is looking at a specific thread, so no target resolution needed.
+  if (key.name === "y" && !key.ctrl) {
+    if (highlighted) ctx.handleCopyLink(highlighted)
+    return true
   }
 
   // Ctrl-t — toggle close (mirrors the diff-view's open binding).

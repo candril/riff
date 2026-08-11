@@ -36,4 +36,7 @@ export const defaultConfig: Config = {
   storage: {
     repos: {},
   },
+  mentions: {
+    extra: [],
+  },
 }

@@ -43,6 +43,11 @@ export interface DiffLine {
   /** Line number in new file (undefined for headers/hunks/deletions) */
   newLineNum?: number
 
+  /** Revealed by expanding a collapsed region, so it sits outside every
+   *  hunk. GitHub can't resolve a comment anchor here — verified against the
+   *  API, which answers 422 "line could not be resolved". */
+  expanded?: boolean
+
   /** Which file this belongs to (for all-files view) */
   fileIndex?: number
   /** Filename (for headers and content tracking) */

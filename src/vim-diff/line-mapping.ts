@@ -83,6 +83,9 @@ export class DiffLineMapping {
     const line = this.lines[visualIndex]
     if (!line || !this.isCommentable(visualIndex)) return null
     if (!line.filename) return null
+    // Expanded context is outside the diff, and GitHub refuses to anchor
+    // there — no anchor is the honest answer.
+    if (line.expanded) return null
 
     const lineNum = line.type === "deletion" ? line.oldLineNum : line.newLineNum
     if (lineNum === undefined) return null
@@ -92,6 +95,14 @@ export class DiffLineMapping {
       line: lineNum,
       side: line.type === "deletion" ? "LEFT" : "RIGHT",
     }
+  }
+
+  /**
+   * True for a line that is only on screen because the user expanded a
+   * collapsed region. Callers use it to explain why commenting is refused.
+   */
+  isOutsideDiff(visualIndex: number): boolean {
+    return this.lines[visualIndex]?.expanded === true
   }
 
   /**
@@ -510,6 +521,7 @@ export class DiffLineMapping {
             rawLine: ` ${lineContent}`,
             oldLineNum: lineNum,
             newLineNum: lineNum,
+            expanded: true,
             fileIndex,
             filename,
           })

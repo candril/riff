@@ -28,6 +28,7 @@ import {
   detectMentionTrigger,
 } from "../utils/mentions"
 import { setMentionPicker } from "../state"
+import { requestMentionSearch } from "../features/mentions"
 import {
   syncReviewSummarySession,
   endReviewSummarySession,
@@ -190,6 +191,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             // when there's nothing to set.
             const trigger = detectMentionTrigger(text, cursorOffset)
             ctx.setState((s) => setMentionPicker(s, trigger))
+            if (trigger) {
+              // Widen the pool for fragments the cached roster can't cover
+              // (large orgs) — debounced, so this is a no-op most keystrokes.
+              requestMentionSearch(
+                { setState: ctx.setState, render },
+                trigger.query,
+                collectMentionCandidates(ctx.getState()),
+              )
+            }
             render()
           }
         )
@@ -312,6 +322,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               expanded: state.inlineCommentOverlay.expanded,
               mentionPicker: state.inlineCommentOverlay.mentionPicker,
               mentionCandidates: collectMentionCandidates(state),
+              mentionSearchQuery: state.mentionSearchQuery,
               expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
               renderer: ctx.renderer,
             })

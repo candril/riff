@@ -9,6 +9,10 @@ const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
+const MENTIONABLE_FILE = "mentionable-users.json"
+
+/** How long a cached mentionable-user roster stays fresh. */
+const MENTIONABLE_TTL_MS = 24 * 60 * 60 * 1000
 
 // Cached resolved storage directory per source
 const resolvedStorageDirs = new Map<string, string>()
@@ -90,7 +94,7 @@ async function getGitRemoteUrl(path: string): Promise<string | null> {
  * Get current repo's GitHub remote info (owner/repo).
  * Returns null if not a git repo or no GitHub remote.
  */
-async function getCurrentRepoInfo(): Promise<{ owner: string; repo: string } | null> {
+export async function getCurrentRepoInfo(): Promise<{ owner: string; repo: string } | null> {
   if (currentRepoChecked) {
     return currentRepoOwner && currentRepoName
       ? { owner: currentRepoOwner, repo: currentRepoName }
@@ -645,6 +649,59 @@ export async function deleteSession(): Promise<void> {
   } catch {
     // File may not exist
   }
+}
+
+// ============================================================================
+// Mentionable-user cache - one JSON file per repo checkout
+// ============================================================================
+
+interface MentionableCache {
+  [ownerRepo: string]: { fetchedAt: string; logins: string[] }
+}
+
+async function readMentionableCache(): Promise<MentionableCache> {
+  const file = Bun.file(join(LOCAL_STORAGE_DIR, MENTIONABLE_FILE))
+  if (!(await file.exists())) return {}
+  try {
+    const data = (await file.json()) as MentionableCache
+    return data && typeof data === "object" ? data : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Cached @mention candidates for a repo, or null when absent or older than
+ * MENTIONABLE_TTL_MS. Stale entries are treated as missing so the caller
+ * refetches; contributors trickle in slowly enough that a day-old list is
+ * still a fine thing to show while the refetch runs.
+ */
+export async function loadMentionableUsers(
+  owner: string,
+  repo: string
+): Promise<{ logins: string[]; stale: boolean } | null> {
+  const cache = await readMentionableCache()
+  const entry = cache[`${owner}/${repo}`]
+  if (!entry || !Array.isArray(entry.logins)) return null
+
+  const age = Date.now() - new Date(entry.fetchedAt).getTime()
+  return { logins: entry.logins, stale: !(age >= 0 && age < MENTIONABLE_TTL_MS) }
+}
+
+/**
+ * Cache @mention candidates for a repo. Keyed by owner/repo because riff can
+ * open a PR from a different repo than the checkout it runs in.
+ */
+export async function saveMentionableUsers(
+  owner: string,
+  repo: string,
+  logins: string[]
+): Promise<void> {
+  const cache = await readMentionableCache()
+  cache[`${owner}/${repo}`] = { fetchedAt: new Date().toISOString(), logins }
+
+  await mkdir(LOCAL_STORAGE_DIR, { recursive: true })
+  await Bun.write(join(LOCAL_STORAGE_DIR, MENTIONABLE_FILE), JSON.stringify(cache, null, 2))
 }
 
 // ============================================================================

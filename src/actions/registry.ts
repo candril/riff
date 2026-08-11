@@ -3,6 +3,7 @@ import { resolveActionLabel } from "./types"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { detectReviewScope } from "../features/ai-review"
+import { detectPermalinkScope } from "../features/permalink"
 
 /**
  * All available actions in the app.
@@ -197,12 +198,42 @@ export const actions: Action[] = [
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
   {
+    id: "yank",
+    label: (state, vimState) =>
+      vimState?.mode === "visual-line" ? "Yank Selection" : "Yank Line",
+    description: "Copy the selection (or cursor line) to the clipboard, without the +/- gutter",
+    shortcut: "y",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "yank-raw",
+    label: (state, vimState) =>
+      vimState?.mode === "visual-line"
+        ? "Yank Selection (with diff markers)"
+        : "Yank Line (with diff markers)",
+    description: "Copy the selection (or cursor line) keeping the +/- gutter",
+    shortcut: "Y",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
     id: "mark-viewed",
     label: "Mark File Viewed",
     description: "Toggle file as viewed and advance to next",
     shortcut: "v",
     category: "navigation",
     available: (state) => state.files.length > 0,
+  },
+
+  // Context expansion
+  {
+    id: "expand-context",
+    label: "Expand Context",
+    description: "Reveal the unchanged lines hidden behind the divider at the cursor (they can then be commented on)",
+    shortcut: "Enter",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
 
   // Folds
@@ -334,6 +365,53 @@ export const actions: Action[] = [
     shortcut: "gy",
     category: "github",
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
+  },
+  {
+    id: "copy-permalink",
+    // Label names the scope the link will cover, mirroring how the
+    // Claude actions announce theirs.
+    label: (state, vimState) => {
+      switch (detectPermalinkScope(state, vimState)) {
+        case "selection": return "Copy Permalink (selection)"
+        case "line":      return "Copy Permalink (current line)"
+        case "file":      return "Copy Permalink (file)"
+      }
+    },
+    description: "Copy a GitHub link to the selection, current line, or file, pinned to the branch",
+    shortcut: "gY",
+    category: "github",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "copy-comment-link",
+    label: "Copy Comment Link",
+    description: "Copy a GitHub link to the focused comment or thread",
+    shortcut: "y (comments panel)",
+    category: "github",
+    available: (state) =>
+      state.appMode === "pr" &&
+      state.prInfo !== null &&
+      (state.reactionTarget !== null || state.comments.some((c) => c.githubId)),
+  },
+  {
+    id: "copy-pr-diff-link",
+    // The diff view has no range anchor, so a selection and a cursor line
+    // both land on a single row — the label says line either way.
+    label: (state, vimState) =>
+      detectPermalinkScope(state, vimState) === "file"
+        ? "Copy PR Diff Link (file)"
+        : "Copy PR Diff Link (line)",
+    description: "Copy a link to this change in the PR's Files-changed view",
+    category: "github",
+    available: (state) =>
+      state.appMode === "pr" && state.prInfo !== null && state.files.length > 0,
+  },
+  {
+    id: "copy-file-permalink",
+    label: "Copy Permalink (whole file)",
+    description: "Copy a GitHub link to the current file, without a line anchor",
+    category: "github",
+    available: (state) => state.files.length > 0,
   },
   {
     id: "react",

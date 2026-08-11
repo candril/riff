@@ -115,7 +115,27 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
   }
 
   if (!anchor) {
-    // No commentable lines in selection
+    // Expanded context sits outside every hunk, and GitHub answers 422
+    // "line could not be resolved" there — better to say so now than after
+    // the user has written the comment.
+    let outsideDiff = false
+    for (let i = startLine; i <= endLine && !outsideDiff; i++) {
+      outsideDiff = lineMapping.isOutsideDiff(i)
+    }
+    if (outsideDiff) {
+      ctx.setState((s) =>
+        showToast(
+          s,
+          "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
+          "info",
+        )
+      )
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 3500)
+    }
     return
   }
 

@@ -29,6 +29,7 @@ import {
   type DraftNotificationState,
 } from "../../state"
 import type { DiffFile } from "../../utils/diff-parser"
+import { copyToClipboard } from "../../utils/clipboard"
 import type { AiReviewContext } from "./handlers"
 import { draftPathFor } from "./handlers"
 
@@ -171,7 +172,7 @@ export async function handleCopyDraftedComment(
     return
   }
 
-  const copied = copyToClipboard(loaded.draft.body)
+  const copied = await copyToClipboard(loaded.draft.body)
   if (!copied.ok) {
     toastError(ctx, `Couldn't copy to clipboard: ${copied.error}`)
     return
@@ -371,25 +372,6 @@ function summarizeBody(body: string): string {
   const flat = body.replace(/\s+/g, " ").trim()
   if (flat.length <= BODY_PREVIEW_CHARS) return flat
   return flat.slice(0, BODY_PREVIEW_CHARS - 1) + "…"
-}
-
-/**
- * Spawn the platform clipboard command and pipe the body into it.
- * Failures are reported rather than thrown so the caller can toast them.
- */
-function copyToClipboard(text: string): { ok: true } | { ok: false; error: string } {
-  const cmd =
-    process.platform === "darwin"
-      ? ["pbcopy"]
-      : ["xclip", "-selection", "clipboard"]
-  try {
-    const proc = Bun.spawn(cmd, { stdin: "pipe" })
-    proc.stdin.write(text)
-    proc.stdin.end()
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: errMsg(err) }
-  }
 }
 
 function errMsg(err: unknown): string {

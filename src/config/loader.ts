@@ -46,6 +46,7 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
   const config: Config = {
     ignore: { ...defaultConfig.ignore },
     storage: { ...defaultConfig.storage },
+    mentions: { ...defaultConfig.mentions },
   }
 
   // Merge ignore section
@@ -79,6 +80,16 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
         if (typeof value === "string") {
           config.storage.repos[key] = value
         }
+      }
+    }
+  }
+
+  // Merge mentions section
+  if (parsed.mentions && typeof parsed.mentions === "object") {
+    const mentions = parsed.mentions as Record<string, unknown>
+    if (Array.isArray(mentions.extra)) {
+      config.mentions = {
+        extra: mentions.extra.filter((h): h is string => typeof h === "string"),
       }
     }
   }

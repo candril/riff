@@ -1,6 +1,11 @@
 import { $ } from "bun"
 
-async function detectCurrentBranch(): Promise<string> {
+/**
+ * Name of the branch (git) or nearest bookmark (jj) the working copy is on.
+ * Throws when the repo has neither — a detached HEAD in a colocated jj repo
+ * with no bookmarks, for instance.
+ */
+export async function detectCurrentBranch(): Promise<string> {
   try {
     const out = await $`jj bookmark list -r 'heads(::@ & bookmarks())' -T 'name ++ "\n"'`
       .quiet()
