@@ -38,8 +38,14 @@ export function getFilteredFiles(state: AppState): FilteredFile[] {
     return { file, index, viewed, commentCount }
   })
 
+  // Basename first: a query is almost always aimed at the file, not the
+  // directories above it, so `input` should rank `a/b/input.ts` over
+  // `input/deeply/nested/other.ts`.
   return state.filePicker.query
-    ? fuzzyFilter(state.filePicker.query, allFiles, (f) => [f.file.filename])
+    ? fuzzyFilter(state.filePicker.query, allFiles, (f) => [
+        f.file.filename.split("/").pop() ?? f.file.filename,
+        f.file.filename,
+      ])
     : allFiles
 }
 

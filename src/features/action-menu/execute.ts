@@ -36,6 +36,7 @@ export interface ActionHandlers {
   handleDeleteComment: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
+  handleOpenFileInTmuxWindow: () => Promise<void>
   handleCheckoutAndEdit: () => Promise<void>
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
   handleShowAllFiles: () => void
@@ -229,6 +230,10 @@ export async function executeAction(
 
     case "open-in-editor":
       handlers.handleOpenFileInEditor()
+      break
+
+    case "open-in-tmux-window":
+      handlers.handleOpenFileInTmuxWindow()
       break
 
     case "checkout-and-edit":

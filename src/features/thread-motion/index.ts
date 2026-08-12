@@ -10,7 +10,7 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
-import { handleSelectFile } from "../file-navigation"
+import { handleSelectFile, ensureFileExpanded } from "../file-navigation"
 import { openInlineCommentOverlay } from "../../state"
 
 export interface ThreadAnchor {
@@ -129,6 +129,8 @@ export function navigateToThread(
   if (inSingleFileView && targetFileIndex !== -1 && targetFileIndex !== state.selectedFileIndex) {
     // Cross-file in single-file view: switch files first, then position cursor
     handleSelectFile(targetFileIndex, ctx.fileNavContext)
+  } else {
+    ensureFileExpanded(target.filename, ctx.fileNavContext)
   }
 
   // Move vim cursor to the anchor line on the (now-current) line mapping
@@ -174,6 +176,8 @@ export function jumpOverlayToAdjacentThread(
 
   if (inSingleFileView && targetFileIndex !== -1 && targetFileIndex !== state.selectedFileIndex) {
     handleSelectFile(targetFileIndex, ctx.fileNavContext)
+  } else {
+    ensureFileExpanded(target.filename, ctx.fileNavContext)
   }
 
   const rootComment = state.comments.find((c) => c.id === target.rootCommentId)

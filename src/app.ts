@@ -534,6 +534,7 @@ export async function createApp(options: AppOptions = {}) {
     handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
+    handleOpenFileInTmuxWindow: () => externalTools.handleOpenFileInTmuxWindow(externalToolsContext),
     handleCheckoutAndEdit: () => externalTools.handleCheckoutAndEdit(externalToolsContext),
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
     handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),

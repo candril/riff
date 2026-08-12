@@ -62,7 +62,7 @@ const HELP_SECTIONS = [
       ["]r / [r", "Next / previous thread (opens overlay)"],
       ["]R / [R", "Same, skipping resolved threads"],
       ["gC", "Find a comment (PR-wide picker)"],
-      ["Enter", "Open inline comment overlay on this line"],
+      ["Enter", "Open thread view (diff line, picker, overview)"],
       ["x", "Toggle thread resolved (in overlay)"],
       ["r", "Reply (in overlay)"],
       ["d", "Delete comment (in overlay)"],
@@ -72,6 +72,7 @@ const HELP_SECTIONS = [
     title: "Other",
     keys: [
       ["gf", "Open file in $EDITOR"],
+      ["gF", "Open file in a new tmux window"],
       ["gc", "Checkout & edit (PR)"],
       ["g?", "Toggle this help"],
       ["q", "Quit"],

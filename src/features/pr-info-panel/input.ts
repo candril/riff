@@ -24,10 +24,35 @@ import {
   setReactionTarget,
 } from "../../state"
 import { submitPrComment } from "../../providers/github"
+import { copyToClipboard } from "../../utils/clipboard"
 
 // Key sequence state for multi-key commands (e.g., "gg" for go to top)
 let pendingKey: string | null = null
 let pendingTimeout: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * The key handler is synchronous, so the copy runs detached. The toast waits
+ * for the helper to exit rather than firing optimistically: a "copied" toast
+ * over an empty clipboard is worse than a late one.
+ */
+function copyAndToast(
+  ctx: PRInfoPanelInputContext,
+  text: string,
+  message: string,
+): void {
+  void copyToClipboard(text).then((copied) => {
+    ctx.setState((s) =>
+      copied.ok
+        ? showToast(s, message, "success")
+        : showToast(s, `Copy failed: ${copied.error}`, "error"),
+    )
+    ctx.render()
+    setTimeout(() => {
+      ctx.setState(clearToast)
+      ctx.render()
+    }, 2000)
+  })
+}
 
 function clearPendingKey(): void {
   pendingKey = null
@@ -45,8 +70,6 @@ export interface PRInfoPanelInputContext {
   getPanel: () => PRInfoPanelClass | null
   // Callback to jump to file (for files section Enter)
   onJumpToFile?: (filename: string) => void
-  // Callback to jump to file:line (for conversation code comments)
-  onJumpToLocation?: (filename: string, line: number) => void
   // Callback to open a specific file at a specific line in $EDITOR,
   // bypassing the diff view (spec 043). Used for check annotations —
   // the file may not even be in the PR diff.
@@ -56,6 +79,11 @@ export interface PRInfoPanelInputContext {
   // Toggle resolved state of a review thread by root comment id.
   // Used by `x` in the Conversation section.
   onToggleThreadResolved?: (rootCommentId: string) => void
+  // Open the inline comment overlay (the thread view) on a review thread,
+  // identified by its root comment id. Enter in the Conversation section
+  // uses this so a thread opens the same surface here as it does from the
+  // diff and from the comments picker.
+  onOpenThread?: (rootCommentId: string) => void
   // Dispatch a global action by id. Used so chord shortcuts like `gr`
   // (refresh), `go` (open in browser), `gy` (copy PR URL) work inside the
   // panel even though the panel captures `r`/`o`/`y` standalone for its
@@ -299,17 +327,21 @@ function handleInputInner(
             break
           }
           case 'conversation': {
-            // Enter on conversation: jump to code location or open in browser
-            const location = panel.getSelectedCommentLocation()
-            if (location && ctx.onJumpToLocation) {
+            // Enter on a thread opens the thread view (the inline comment
+            // overlay) on its anchor — same surface Enter gives on a
+            // commented diff line and on a comments-picker hit.
+            const flat = panel.getSelectedFlatItem?.()
+            if (flat?.type === 'review-thread' && ctx.onOpenThread) {
               ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
-              ctx.onJumpToLocation(location.filename, location.line)
-            } else {
-              // PR comment or review header (no code location) - toggle expand
-              panel.toggleSelectedThread()
+              ctx.onOpenThread(flat.data.id)
+              break
             }
+            // Anything else (PR comment, review header, pending reviewers)
+            // has no thread of its own — expand it in place. For a review
+            // header that reveals its threads, which Enter then opens.
+            panel.toggleSelectedThread()
             break
           }
         }
@@ -377,8 +409,7 @@ function handleInputInner(
       if (panel && ctx.state.prInfo) {
         if (key.shift) {
           // Y = copy PR URL
-          Bun.spawn(["sh", "-c", `echo -n "${ctx.state.prInfo.url}" | pbcopy`])
-          ctx.setState((s) => showToast(s, "PR URL copied", "success"))
+          copyAndToast(ctx, ctx.state.prInfo.url, "PR URL copied")
         } else {
           // y = copy based on section
           const section = panel.getActiveSection()
@@ -390,15 +421,13 @@ function handleInputInner(
               const ann = panel.getSelectedAnnotation()
               if (ann) {
                 const loc = `${ann.annotation.path}:${ann.annotation.startLine}`
-                Bun.spawn(["sh", "-c", `echo -n "${loc}" | pbcopy`])
-                ctx.setState((s) => showToast(s, `Copied ${loc}`, "success"))
+                copyAndToast(ctx, loc, `Copied ${loc}`)
                 copied = true
                 break
               }
               const check = panel.getSelectedCheck()
               if (check?.detailsUrl) {
-                Bun.spawn(["sh", "-c", `echo -n "${check.detailsUrl}" | pbcopy`])
-                ctx.setState((s) => showToast(s, `Copied ${check.name} URL`, "success"))
+                copyAndToast(ctx, check.detailsUrl, `Copied ${check.name} URL`)
                 copied = true
               }
               break
@@ -406,8 +435,7 @@ function handleInputInner(
             case 'commits': {
               const commit = panel.getSelectedCommit()
               if (commit) {
-                Bun.spawn(["sh", "-c", `echo -n "${commit.sha}" | pbcopy`])
-                ctx.setState((s) => showToast(s, `Copied ${commit.sha}`, "success"))
+                copyAndToast(ctx, commit.sha, `Copied ${commit.sha}`)
                 copied = true
               }
               break
@@ -415,8 +443,7 @@ function handleInputInner(
             case 'files': {
               const file = panel.getSelectedFile()
               if (file) {
-                Bun.spawn(["sh", "-c", `echo -n "${file.filename}" | pbcopy`])
-                ctx.setState((s) => showToast(s, `Copied ${file.filename}`, "success"))
+                copyAndToast(ctx, file.filename, `Copied ${file.filename}`)
                 copied = true
               }
               break
@@ -429,8 +456,7 @@ function handleInputInner(
                   ? item.data.body 
                   : (item.data.body || item.data.threads[0]?.body || '')
                 if (body) {
-                  Bun.spawn(["sh", "-c", `echo -n "${body.replace(/"/g, '\\"')}" | pbcopy`])
-                  ctx.setState((s) => showToast(s, "Comment copied", "success"))
+                  copyAndToast(ctx, body, "Comment copied")
                   copied = true
                 }
               }
@@ -439,15 +465,9 @@ function handleInputInner(
           }
           if (!copied) {
             // Default: copy PR URL
-            Bun.spawn(["sh", "-c", `echo -n "${ctx.state.prInfo.url}" | pbcopy`])
-            ctx.setState((s) => showToast(s, "PR URL copied", "success"))
+            copyAndToast(ctx, ctx.state.prInfo.url, "PR URL copied")
           }
         }
-        ctx.render()
-        setTimeout(() => {
-          ctx.setState(clearToast)
-          ctx.render()
-        }, 2000)
       }
       return true
     }

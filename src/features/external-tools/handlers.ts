@@ -11,7 +11,13 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
 import { showToast, clearToast } from "../../state"
 import { getVisibleFlatTreeItems } from "../../components"
-import { openFileInEditor, openExternalDiffViewer } from "../../utils/editor"
+import {
+  openFileInEditor,
+  openExternalDiffViewer,
+  openInTmuxWindow,
+  insideTmux,
+  writeSnapshotFile,
+} from "../../utils/editor"
 import { getFileContent, getOldFileContent } from "../../providers/local"
 import { getPrFileContent, getPrBaseFileContent } from "../../providers/github"
 import { findLocalRepoPath, checkoutPR } from "../../utils/repo-path"
@@ -197,6 +203,68 @@ export async function handleOpenFileInEditor(ctx: ExternalToolsContext): Promise
     ctx.setState((s) => showToast(s, `Error: ${msg}`, "error"))
     ctx.render()
   }
+}
+
+function toast(
+  ctx: ExternalToolsContext,
+  message: string,
+  variant: "info" | "error" | "success",
+  ms = 3000,
+): void {
+  ctx.setState((s) => showToast(s, message, variant))
+  ctx.render()
+  setTimeout(() => {
+    ctx.setState(clearToast)
+    ctx.render()
+  }, ms)
+}
+
+/**
+ * Open the current file in $EDITOR in a new tmux window (gF).
+ *
+ * Unlike `gf` this leaves riff running, so the diff stays on screen next to
+ * the editor. Prefers the working copy — a file riff hands to another window
+ * should be the one edits actually persist to — and only falls back to a
+ * read-only PR snapshot when the working copy doesn't have it.
+ */
+export async function handleOpenFileInTmuxWindow(ctx: ExternalToolsContext): Promise<void> {
+  if (!insideTmux()) {
+    toast(ctx, "Not running inside tmux", "info")
+    return
+  }
+
+  const [filename, lineNumber] = getCurrentFile(ctx)
+  if (!filename) {
+    toast(ctx, "No file selected", "info")
+    return
+  }
+
+  if (await Bun.file(filename).exists()) {
+    const opened = await openInTmuxWindow(filename, lineNumber, { cwd: process.cwd() })
+    if (!opened.ok) {
+      toast(ctx, `tmux: ${opened.error}`, "error")
+      return
+    }
+    toast(ctx, `Opened ${filename} in a new tmux window`, "success", 2000)
+    return
+  }
+
+  const content = ctx.mode === "pr" && ctx.prInfo
+    ? await getPrFileContent(ctx.prInfo.owner, ctx.prInfo.repo, ctx.prInfo.number, filename)
+    : await getFileContent(filename)
+
+  if (content === null) {
+    toast(ctx, `Could not fetch ${filename}`, "error")
+    return
+  }
+
+  const snapshot = await writeSnapshotFile(filename, content)
+  const opened = await openInTmuxWindow(snapshot, lineNumber, { removeWhenClosed: true })
+  if (!opened.ok) {
+    toast(ctx, `tmux: ${opened.error}`, "error")
+    return
+  }
+  toast(ctx, `Opened ${filename} in tmux — read-only snapshot`, "info")
 }
 
 /**

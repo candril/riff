@@ -354,6 +354,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             targetFileIndex !== s.selectedFileIndex
           ) {
             fileNavigation.handleSelectFile(targetFileIndex, ctx.fileNavContext)
+          } else {
+            fileNavigation.ensureFileExpanded(highlighted.filename, ctx.fileNavContext)
           }
 
           const mapping = ctx.getLineMapping()
@@ -386,15 +388,23 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
           }
         },
-        onJumpToLocation: (filename, line) => {
-          // Jump to file:line (for code comments). See note on
-          // onJumpToFile re: jumplist push timing.
-          const state = ctx.getState()
-          const fileIndex = state.files.findIndex((f) => f.filename === filename)
-          if (fileIndex !== -1) {
-            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
-            // TODO: Also scroll to the specific line
-          }
+        onOpenThread: (rootCommentId) => {
+          // Enter on a Conversation thread lands on the thread view. The
+          // panel already closed (back into the diff), so reuse the
+          // comments-picker jump: switch file, park the cursor on the
+          // anchor line, open the inline comment overlay.
+          const comment = ctx.getState().comments.find((c) => c.id === rootCommentId)
+          if (!comment) return
+          commentsPicker.jumpToComment(comment, {
+            getState: ctx.getState,
+            setState: ctx.setState,
+            getVimState: ctx.getVimState,
+            setVimState: ctx.setVimState,
+            getLineMapping: ctx.getLineMapping,
+            ensureCursorVisible: ctx.ensureCursorVisible,
+            render: ctx.render,
+            fileNavContext: ctx.fileNavContext,
+          })
         },
         onOpenFileAtLine: (filename, line) => {
           void externalTools.handleOpenFileAtLine(ctx.externalToolsContext, filename, line)
@@ -709,6 +719,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gf") {
         externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
+        return
+      } else if (sequence === "gF!" || sequence === "gf!") {
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        externalTools.handleOpenFileInTmuxWindow(ctx.externalToolsContext)
         return
       } else if (sequence === "gc") {
         externalTools.handleCheckoutAndEdit(ctx.externalToolsContext)

@@ -11,7 +11,7 @@ import type { Comment } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { openInlineCommentOverlay, showToast, clearToast } from "../../state"
-import { handleSelectFile, type FileNavigationContext } from "../file-navigation"
+import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 
 export {
   handleInput,
@@ -65,6 +65,8 @@ export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext):
   const inSingleFileView = state.selectedFileIndex !== null
   if (inSingleFileView && targetFileIndex !== state.selectedFileIndex) {
     handleSelectFile(targetFileIndex, ctx.fileNavContext)
+  } else {
+    ensureFileExpanded(comment.filename, ctx.fileNavContext)
   }
 
   const mapping = ctx.getLineMapping()

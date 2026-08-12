@@ -15,5 +15,6 @@ export {
   toggleViewedForFile,
   handleToggleViewed,
   handleSelectFile,
+  ensureFileExpanded,
   type FileNavigationContext,
 } from "./handlers"

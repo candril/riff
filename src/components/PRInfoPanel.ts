@@ -133,6 +133,22 @@ function formatTimeAgo(isoDate: string): string {
 }
 
 /**
+ * Width of the relative-time column in the Conversation section. Sized
+ * for the widest string `formatTimeAgo` produces ("11mo") so the times
+ * line up across rows that otherwise have very different shapes.
+ */
+const TIME_COLUMN_WIDTH = 4
+
+/**
+ * Last activity on a thread. The time column reads as "when did this
+ * last move", so a thread reports its newest reply rather than when it
+ * was opened — an old thread with a fresh reply shouldn't look stale.
+ */
+function threadActivityAt(thread: ReviewThread): string {
+  return thread.replies[thread.replies.length - 1]?.createdAt ?? thread.createdAt
+}
+
+/**
  * Format a date/time for commits
  */
 function formatDateTime(isoDate: string): string {
@@ -263,11 +279,11 @@ function getBodyPreviewWidth(): number {
 
 /**
  * Calculate available width for thread rows (has file:line prefix).
- * Thread rows have: indent (4) + icon (2) + file:line (padded 24) + author (~15) + reply count (~6) + padding (~6)
+ * Thread rows have: indent (4) + icon (2) + file:line (padded 24) + author (~15) + reply count (~6) + time (6) + padding (~6)
  */
 function getThreadBodyPreviewWidth(): number {
   const termWidth = getTerminalWidth()
-  const reserved = 57
+  const reserved = 63
   return Math.max(15, termWidth - reserved)
 }
 
@@ -1009,22 +1025,6 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Get the jump location for the selected conversation item (file/line for code comments)
-   */
-  getSelectedCommentLocation(): { filename: string; line: number } | undefined {
-    const flatItem = this.getSelectedFlatItem()
-    if (!flatItem) return undefined
-    
-    if (flatItem.type === 'review-thread') {
-      return { filename: flatItem.data.filename, line: flatItem.data.line }
-    } else if (flatItem.type === 'review-header' && flatItem.data.threads.length > 0) {
-      const firstThread = flatItem.data.threads[0]!
-      return { filename: firstThread.filename, line: firstThread.line }
-    }
-    return undefined // PR comments have no code location
-  }
-
-  /**
    * Toggle expand/collapse for the selected conversation item.
    * - For PR comments: toggles full body display
    * - For reviews: toggles threads visibility (flattens them as navigable items)
@@ -1350,6 +1350,19 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * Append the row's relative timestamp. Every conversation row ends with
+   * this column so the times form a single right-aligned strip down the
+   * section; the preceding flex-grown body is what pushes it to the edge.
+   */
+  private addTimeColumn(row: BoxRenderable, isoDate: string): void {
+    row.add(new TextRenderable(this.renderer, {
+      content: `  ${formatTimeAgo(isoDate).padStart(TIME_COLUMN_WIDTH)}`,
+      fg: theme.overlay0,
+      flexShrink: 0,
+    }))
+  }
+
+  /**
    * Format reactions as a single compact line like "👍2 ❤️1". Empty string
    * if there are no reactions. Used in collapsed conversation rows where a
    * full pill list would blow out the single-line height (spec 042).
@@ -1652,11 +1665,7 @@ export class PRInfoPanelClass {
           }))
         }
 
-        row.add(new TextRenderable(this.renderer, {
-          content: `  ${formatTimeAgo(comment.createdAt).padStart(4)}`,
-          fg: theme.overlay0,
-          flexShrink: 0,
-        }))
+        this.addTimeColumn(row, comment.createdAt)
 
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
@@ -1725,11 +1734,7 @@ export class PRInfoPanelClass {
         }
 
         if (review.submittedAt) {
-          row.add(new TextRenderable(this.renderer, {
-            content: `  ${formatTimeAgo(review.submittedAt).padStart(4)}`,
-            fg: theme.overlay0,
-            flexShrink: 0,
-          }))
+          this.addTimeColumn(row, review.submittedAt)
         }
 
         container.add(row)
@@ -1808,6 +1813,8 @@ export class PRInfoPanelClass {
           }))
         }
 
+        this.addTimeColumn(row, threadActivityAt(thread))
+
         container.add(row)
         rows.push({ container: row, primary: authorText, secondary: bodyText })
         
@@ -1839,11 +1846,14 @@ export class PRInfoPanelClass {
             replyHeader.add(new TextRenderable(this.renderer, {
               content: `@${reply.author ?? 'you'}`,
               fg: theme.sapphire,
+              flexShrink: 0,
             }))
             replyHeader.add(new TextRenderable(this.renderer, {
-              content: `  ${formatTimeAgo(reply.createdAt)}`,
-              fg: theme.overlay0,
+              content: "",
+              flexGrow: 1,
+              flexShrink: 1,
             }))
+            this.addTimeColumn(replyHeader, reply.createdAt)
             container.add(replyHeader)
 
             this.buildExpandedCommentBody(container, reply.body, 8)

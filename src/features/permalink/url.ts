@@ -37,7 +37,39 @@ export function buildPermalinkUrl(target: PermalinkTarget): string {
   const path = encodePathish(target.path)
   const base = `${target.origin}/${target.owner}/${target.repo}/blob/${ref}/${path}`
   const anchor = lineAnchor(target.startLine, target.endLine)
-  return anchor ? `${base}#${anchor}` : base
+  if (!anchor) return base
+  // A file-level link is better off rendered, so `?plain=1` is added only
+  // when there are lines to land on.
+  const query = rendersInsteadOfSource(target.path) ? "?plain=1" : ""
+  return `${base}${query}#${anchor}`
+}
+
+/**
+ * Extensions GitHub renders as prose on the blob page instead of showing the
+ * source. The rendered view carries no line numbers, so an `#L20` anchor
+ * resolves to nothing and the reader lands at the top of the document —
+ * `?plain=1` forces the source view, where the anchor works.
+ */
+const RENDERED_EXTENSIONS = new Set([
+  "md", "markdown", "mdown", "mkd", "mkdn", "mdwn", "mdtxt", "mdtext",
+  "livemd", "ronn", "workbook",
+  "rst",
+  "adoc", "asciidoc", "asc",
+  "org",
+  "textile",
+  "rdoc",
+  "pod",
+  "creole",
+  "mediawiki", "wiki",
+  "csv", "tsv",
+  "ipynb",
+])
+
+function rendersInsteadOfSource(path: string): boolean {
+  const name = path.slice(path.lastIndexOf("/") + 1)
+  const dot = name.lastIndexOf(".")
+  if (dot <= 0) return false
+  return RENDERED_EXTENSIONS.has(name.slice(dot + 1).toLowerCase())
 }
 
 /** "L12", "L12-L20", or "" when there is no line range. */

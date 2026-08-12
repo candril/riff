@@ -132,6 +132,14 @@ export const actions: Action[] = [
     available: (state) => state.files.length > 0,
   },
   {
+    id: "open-in-tmux-window",
+    label: "Open in Editor (tmux window)",
+    description: "Open current file in $EDITOR in a new tmux window, keeping riff running",
+    shortcut: "gF",
+    category: "navigation",
+    available: (state) => state.files.length > 0 && Boolean(process.env.TMUX),
+  },
+  {
     id: "checkout-and-edit",
     label: "Checkout & Edit",
     description: "Checkout PR branch and open file in $EDITOR",

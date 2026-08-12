@@ -16,6 +16,7 @@ import {
   isFileViewed,
   setFileViewedStatus,
   collapseFile,
+  toggleFileFold,
   getSelectedFile,
   showToast,
   clearToast,
@@ -468,4 +469,21 @@ export async function handleToggleViewed(
   if (advanceToNext && !inAllFilesView && newViewed) {
     navigateToUnviewedFile(1, ctx)
   }
+}
+
+/**
+ * Expand `filename` when the all-files view has it folded shut.
+ *
+ * A collapsed file contributes only its header to the line mapping, so a
+ * jump aimed at one of its lines (thread motion, comments picker, the
+ * comment panel's cursor sync) would find no visual line and leave the
+ * cursor where it was.
+ */
+export function ensureFileExpanded(filename: string, ctx: FileNavigationContext): void {
+  const state = ctx.getState()
+  if (state.selectedFileIndex !== null) return
+  if (!state.collapsedFiles.has(filename)) return
+
+  ctx.setState((s) => toggleFileFold(s, filename))
+  ctx.createLineMapping()
 }
