@@ -4,6 +4,7 @@
  * Handles opening files in external editors and diff viewers.
  */
 
+import { $ } from "bun"
 import { join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
@@ -19,7 +20,11 @@ import {
   writeSnapshotFile,
 } from "../../utils/editor"
 import { getFileContent, getOldFileContent } from "../../providers/local"
-import { getPrFileContent, getPrBaseFileContent } from "../../providers/github"
+import {
+  getPrFileContent,
+  getPrBaseFileContent,
+  type FileContentResult,
+} from "../../providers/github"
 import { findLocalRepoPath, checkoutPR } from "../../utils/repo-path"
 import { loadConfig } from "../../config"
 
@@ -39,6 +44,9 @@ export interface ExternalToolsContext {
   // Mode and PR info
   mode: "local" | "pr"
   prInfo: PrInfo | null
+  /** SHA of the PR head riff loaded the diff at. Empty in local mode.
+   *  Passing it spares a `gh pr view` (GraphQL) per file open. */
+  getHeadSha: () => string
   // Options for local diff target
   options: { target?: string }
 }
@@ -80,6 +88,58 @@ function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | und
 }
 
 /**
+ * Whether the checkout in front of us is the revision riff is showing.
+ *
+ * In local mode the working copy *is* the diff. In PR mode it only matches
+ * when the PR branch is actually checked out — otherwise the file on disk is
+ * some other revision, and opening it would quietly show unrelated lines
+ * under the diff's line numbers. Cheap enough to ask every time: it's a
+ * local `git rev-parse`, no API.
+ */
+async function workingCopyIsAtHead(ctx: ExternalToolsContext): Promise<boolean> {
+  if (ctx.mode !== "pr") return true
+
+  const headSha = ctx.getHeadSha()
+  if (!headSha) return false
+
+  const local = await $`git rev-parse HEAD`.quiet().nothrow()
+  return local.exitCode === 0 && local.stdout.toString().trim() === headSha
+}
+
+/** The real file, when it's both present and the right revision. */
+async function canOpenInPlace(ctx: ExternalToolsContext, filename: string): Promise<boolean> {
+  return (await workingCopyIsAtHead(ctx)) && (await Bun.file(filename).exists())
+}
+
+/**
+ * Open the real file in $EDITOR and block until it exits.
+ *
+ * Preferred over a snapshot wherever the working copy has the file: edits to
+ * a temp copy are silently discarded when the editor closes.
+ */
+async function openInPlace(
+  ctx: ExternalToolsContext,
+  filename: string,
+  lineNumber?: number,
+): Promise<void> {
+  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
+  const args = lineNumber ? [editor, `+${lineNumber}`, filename] : [editor, filename]
+
+  ctx.suspendRenderer()
+  try {
+    const proc = Bun.spawn(args, {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    })
+    await proc.exited
+  } finally {
+    ctx.resumeRenderer()
+    ctx.render()
+  }
+}
+
+/**
  * Open a specific file at a specific line in $EDITOR (spec 043).
  * Used for jumping from a CI check annotation to its source location.
  *
@@ -96,52 +156,22 @@ export async function handleOpenFileAtLine(
   filename: string,
   lineNumber: number,
 ): Promise<void> {
-  const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
-  const workingCopy = Bun.file(filename)
-
-  if (await workingCopy.exists()) {
-    ctx.suspendRenderer()
-    try {
-      const args = lineNumber > 0 ? [editor, `+${lineNumber}`, filename] : [editor, filename]
-      const proc = Bun.spawn(args, {
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
-      })
-      await proc.exited
-    } finally {
-      ctx.resumeRenderer()
-      ctx.render()
-    }
+  if (await Bun.file(filename).exists()) {
+    await openInPlace(ctx, filename, lineNumber > 0 ? lineNumber : undefined)
     return
   }
 
   // Not in working copy — try fetching the PR-head version.
-  let content: string | null = null
-  if (ctx.mode === "pr" && ctx.prInfo) {
-    content = await getPrFileContent(
-      ctx.prInfo.owner,
-      ctx.prInfo.repo,
-      ctx.prInfo.number,
-      filename,
-    )
-  }
-
-  if (content === null) {
-    ctx.setState((s) => showToast(s, `Could not read ${filename}`, "error"))
-    ctx.render()
-    setTimeout(() => {
-      ctx.setState(clearToast)
-      ctx.render()
-    }, 3000)
+  const fetched = await fetchHeadContent(ctx, filename)
+  if (!fetched.ok) {
+    toast(ctx, `Could not read ${filename} — ${fetched.error}`, "error", 4000)
     return
   }
 
-  ctx.setState((s) => showToast(s, "Read-only snapshot — file not at @", "info"))
-  ctx.render()
+  toast(ctx, "Read-only snapshot — file not at @", "info")
   ctx.suspendRenderer()
   try {
-    await openFileInEditor(filename, content, lineNumber > 0 ? lineNumber : undefined)
+    await openFileInEditor(filename, fetched.content, lineNumber > 0 ? lineNumber : undefined)
   } finally {
     ctx.resumeRenderer()
     ctx.render()
@@ -149,59 +179,69 @@ export async function handleOpenFileAtLine(
 }
 
 /**
+ * The file as it exists at the revision riff is showing. PR mode goes to
+ * GitHub at the loaded head; local mode reads the working tree.
+ */
+async function fetchHeadContent(
+  ctx: ExternalToolsContext,
+  filename: string,
+): Promise<FileContentResult> {
+  if (ctx.mode === "pr" && ctx.prInfo) {
+    return getPrFileContent(
+      ctx.prInfo.owner,
+      ctx.prInfo.repo,
+      ctx.prInfo.number,
+      filename,
+      ctx.getHeadSha(),
+    )
+  }
+  const content = await getFileContent(filename)
+  return content === null
+    ? { ok: false, error: "not in the working tree" }
+    : { ok: true, content }
+}
+
+/**
  * Open the current file in $EDITOR (gf)
  * Works from: single file view, all files view (file at cursor), file tree
+ *
+ * The working copy wins when it has the file — both because edits to a
+ * snapshot are thrown away, and because it needs no network at all, so `gf`
+ * keeps working when GitHub doesn't.
  */
 export async function handleOpenFileInEditor(ctx: ExternalToolsContext): Promise<void> {
-  const state = ctx.getState()
   const [filename, lineNumber] = getCurrentFile(ctx)
 
   if (!filename) {
-    ctx.setState((s) => showToast(s, "No file selected", "info"))
-    ctx.render()
+    toast(ctx, "No file selected", "info", 2000)
     return
   }
 
-  // Fetch the file content
-  let content: string | null = null
+  if (await canOpenInPlace(ctx, filename)) {
+    ctx.setState(clearToast)
+    await openInPlace(ctx, filename, lineNumber)
+    return
+  }
 
   ctx.setState((s) => showToast(s, `Opening ${filename}...`, "info"))
   ctx.render()
 
   try {
-    if (ctx.mode === "pr" && ctx.prInfo) {
-      // Fetch from GitHub (head version)
-      content = await getPrFileContent(
-        ctx.prInfo.owner,
-        ctx.prInfo.repo,
-        ctx.prInfo.number,
-        filename
-      )
-    } else {
-      // Fetch from local (current working tree version)
-      content = await getFileContent(filename)
-    }
-
-    if (content === null) {
-      ctx.setState((s) => showToast(s, `Could not fetch ${filename}`, "error"))
-      ctx.render()
+    const fetched = await fetchHeadContent(ctx, filename)
+    if (!fetched.ok) {
+      toast(ctx, `Could not fetch ${filename} — ${fetched.error}`, "error", 4000)
       return
     }
 
-    // Suspend the TUI and open editor
     ctx.setState(clearToast)
     ctx.suspendRenderer()
-
-    await openFileInEditor(filename, content, lineNumber)
-
-    // Resume the TUI
+    await openFileInEditor(filename, fetched.content, lineNumber)
     ctx.resumeRenderer()
     ctx.render()
   } catch (err) {
     ctx.resumeRenderer()
     const msg = err instanceof Error ? err.message : "Unknown error"
-    ctx.setState((s) => showToast(s, `Error: ${msg}`, "error"))
-    ctx.render()
+    toast(ctx, `Error: ${msg}`, "error")
   }
 }
 
@@ -239,7 +279,7 @@ export async function handleOpenFileInTmuxWindow(ctx: ExternalToolsContext): Pro
     return
   }
 
-  if (await Bun.file(filename).exists()) {
+  if (await canOpenInPlace(ctx, filename)) {
     const opened = await openInTmuxWindow(filename, lineNumber, { cwd: process.cwd() })
     if (!opened.ok) {
       toast(ctx, `tmux: ${opened.error}`, "error")
@@ -249,16 +289,13 @@ export async function handleOpenFileInTmuxWindow(ctx: ExternalToolsContext): Pro
     return
   }
 
-  const content = ctx.mode === "pr" && ctx.prInfo
-    ? await getPrFileContent(ctx.prInfo.owner, ctx.prInfo.repo, ctx.prInfo.number, filename)
-    : await getFileContent(filename)
-
-  if (content === null) {
-    toast(ctx, `Could not fetch ${filename}`, "error")
+  const fetched = await fetchHeadContent(ctx, filename)
+  if (!fetched.ok) {
+    toast(ctx, `Could not fetch ${filename} — ${fetched.error}`, "error", 4000)
     return
   }
 
-  const snapshot = await writeSnapshotFile(filename, content)
+  const snapshot = await writeSnapshotFile(filename, fetched.content)
   const opened = await openInTmuxWindow(snapshot, lineNumber, { removeWhenClosed: true })
   if (!opened.ok) {
     toast(ctx, `tmux: ${opened.error}`, "error")
@@ -290,16 +327,20 @@ export async function handleOpenExternalDiff(
   try {
     let oldContent: string | null = null
     let newContent: string | null = null
+    let failure = "no content on either side"
 
     if (ctx.mode === "pr" && ctx.prInfo) {
       // For PRs, fetch both base and head versions from GitHub
       const { owner, repo, number: prNumber } = ctx.prInfo
-      const [baseContent, headContent] = await Promise.all([
-        getPrBaseFileContent(owner, repo, prNumber, filename),
-        getPrFileContent(owner, repo, prNumber, filename),
+      const [base, head] = await Promise.all([
+        getPrBaseFileContent(owner, repo, prNumber, filename, ctx.prInfo.baseRef),
+        getPrFileContent(owner, repo, prNumber, filename, ctx.getHeadSha()),
       ])
-      oldContent = baseContent
-      newContent = headContent
+      oldContent = base.ok ? base.content : null
+      newContent = head.ok ? head.content : null
+      // Both sides missing is the failure case; report the head's reason,
+      // since a new file legitimately has no base.
+      if (!head.ok) failure = head.error
     } else {
       // For local diffs, get old (HEAD/@-) and new (working copy) versions
       oldContent = await getOldFileContent(filename, ctx.options.target)
@@ -307,8 +348,7 @@ export async function handleOpenExternalDiff(
     }
 
     if (oldContent === null && newContent === null) {
-      ctx.setState((s) => showToast(s, `Could not fetch ${filename}`, "error"))
-      ctx.render()
+      toast(ctx, `Could not fetch ${filename} — ${failure}`, "error", 4000)
       return
     }
 

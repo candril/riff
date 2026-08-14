@@ -39,4 +39,11 @@ export const defaultConfig: Config = {
   mentions: {
     extra: [],
   },
+  poll: {
+    // Comment activity moves on the order of minutes, and every tick costs
+    // GraphQL quota. 5 minutes plus refresh-on-focus keeps replies current
+    // without spending the budget on an idle pane.
+    interval: 300,
+    onFocus: true,
+  },
 }

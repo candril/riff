@@ -47,6 +47,7 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     ignore: { ...defaultConfig.ignore },
     storage: { ...defaultConfig.storage },
     mentions: { ...defaultConfig.mentions },
+    poll: { ...defaultConfig.poll },
   }
 
   // Merge ignore section
@@ -91,6 +92,19 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
       config.mentions = {
         extra: mentions.extra.filter((h): h is string => typeof h === "string"),
       }
+    }
+  }
+
+  // Merge poll section
+  if (parsed.poll && typeof parsed.poll === "object") {
+    const poll = parsed.poll as Record<string, unknown>
+    // Negative intervals would mean "poll constantly" once fed to a timer;
+    // clamp to 0, which is the documented way to turn polling off.
+    if (typeof poll.interval === "number" && Number.isFinite(poll.interval)) {
+      config.poll.interval = Math.max(0, Math.floor(poll.interval))
+    }
+    if (typeof poll.onFocus === "boolean") {
+      config.poll.onFocus = poll.onFocus
     }
   }
 

@@ -17,6 +17,8 @@ import {
 } from "./state"
 import { type AppMode, type Comment } from "./types"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
+import { setupFocusReporting } from "./utils/focus-reporting"
+import { loadConfig } from "./config"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
@@ -87,6 +89,8 @@ export async function createApp(options: AppOptions = {}) {
 
   const { renderer, fileTreePanel, vimDiffView } = await initializeRenderer()
 
+  let stopFocusReporting: (() => void) | null = null
+
   // ===== MUTABLE STATE =====
   let state: AppState = initialState
   let vimState: VimCursorState = createCursorState()
@@ -119,6 +123,9 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function quit() {
+    // Mode 1004 outlives the process if we don't turn it off — the shell that
+    // gets the terminal back would start receiving focus escape sequences.
+    stopFocusReporting?.()
     renderer.destroy()
     process.exit(0)
   }
@@ -260,6 +267,36 @@ export async function createApp(options: AppOptions = {}) {
     },
   })
 
+  /**
+   * Both versions of a file, for expanding context beyond the diff hunks.
+   * PR mode pins to the head riff loaded and the PR's base ref rather than
+   * re-resolving either — each lookup would be a `gh pr view`, i.e. a
+   * GraphQL request, on every expand.
+   */
+  async function fetchFileVersions(
+    filename: string,
+  ): Promise<{ ok: true; newContent: string; oldContent: string | null } | { ok: false; error: string }> {
+    if (state.appMode === "pr" && state.prInfo) {
+      const { owner, repo, number, baseRef } = state.prInfo
+      const [head, base] = await Promise.all([
+        getPrFileContent(owner, repo, number, filename, currentHeadSha),
+        getPrBaseFileContent(owner, repo, number, filename, baseRef),
+      ])
+      // A file added by the PR has no base version; that's not a failure.
+      return head.ok
+        ? { ok: true, newContent: head.content, oldContent: base.ok ? base.content : null }
+        : { ok: false, error: head.error }
+    }
+
+    const [newContent, oldContent] = await Promise.all([
+      getFileContent(filename),
+      getOldFileContent(filename),
+    ])
+    return newContent === null
+      ? { ok: false, error: "Could not read file from the working tree" }
+      : { ok: true, newContent, oldContent }
+  }
+
   const searchHandler = new SearchHandler({
     getMapping: () => lineMapping,
     getSearchState: () => searchState,
@@ -279,22 +316,11 @@ export async function createApp(options: AppOptions = {}) {
       render()
 
       try {
-        let newContent: string | null = null
-        let oldContent: string | null = null
-
-        if (state.appMode === "pr" && state.prInfo) {
-          ;[newContent, oldContent] = await Promise.all([
-            getPrFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
-            getPrBaseFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
-          ])
+        const fetched = await fetchFileVersions(filename)
+        if (fetched.ok) {
+          state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
         } else {
-          ;[newContent, oldContent] = await Promise.all([getFileContent(filename), getOldFileContent(filename)])
-        }
-
-        if (newContent !== null) {
-          state = setFileContent(state, filename, newContent, oldContent)
-        } else {
-          state = setFileContentError(state, filename, "Could not fetch file content")
+          state = setFileContentError(state, filename, fetched.error)
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error"
@@ -332,25 +358,14 @@ export async function createApp(options: AppOptions = {}) {
       render()
 
       try {
-        let newContent: string | null = null
-        let oldContent: string | null = null
-
-        if (state.appMode === "pr" && state.prInfo) {
-          ;[newContent, oldContent] = await Promise.all([
-            getPrFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
-            getPrBaseFileContent(state.prInfo.owner, state.prInfo.repo, state.prInfo.number, filename),
-          ])
-        } else {
-          ;[newContent, oldContent] = await Promise.all([getFileContent(filename), getOldFileContent(filename)])
-        }
-
-        if (newContent === null) {
-          state = setFileContentError(state, filename, "Could not fetch file content")
+        const fetched = await fetchFileVersions(filename)
+        if (!fetched.ok) {
+          state = setFileContentError(state, filename, fetched.error)
           render()
           return false
         }
 
-        state = setFileContent(state, filename, newContent, oldContent)
+        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error"
         state = setFileContentError(state, filename, msg)
@@ -467,6 +482,7 @@ export async function createApp(options: AppOptions = {}) {
     resumeRenderer: () => renderer.resume(),
     mode,
     prInfo: prInfo ?? null,
+    getHeadSha: () => currentHeadSha,
     options,
   }
 
@@ -931,7 +947,8 @@ export async function createApp(options: AppOptions = {}) {
 
   // Silently poll GitHub for new / updated review comments so replies show up
   // without a manual refresh. Self-guards on PR mode; interval is unref'd.
-  startCommentPoll({
+  const pollConfig = loadConfig().poll
+  const commentPoll = startCommentPoll({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,
@@ -939,7 +956,17 @@ export async function createApp(options: AppOptions = {}) {
     mode,
     prInfo: prInfo ?? null,
     headSha: currentHeadSha,
+    intervalSeconds: pollConfig.interval,
+    onFocus: pollConfig.onFocus,
   })
+
+  // Focus reporting drives the poller: no point spending API quota on a pane
+  // the user switched away from, and coming back should show current comments
+  // without waiting out the interval. Only enabled when the poller will act
+  // on it, so terminals without focus support are unaffected either way.
+  if (pollConfig.onFocus && pollConfig.interval > 0) {
+    stopFocusReporting = setupFocusReporting(renderer, commentPoll.setFocused)
+  }
 
   return {
     renderer,

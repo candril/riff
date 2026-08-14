@@ -256,6 +256,71 @@ async function safeGhCommand<T>(cmd: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * A file fetch that can say why it failed.
+ *
+ * Worth a type rather than `string | null`: that collapsed rate limits, auth
+ * failures, and genuine 404s into one indistinguishable null, and the
+ * rate-limit case is the one that actually strands people. `gh pr view
+ * --json` runs on GraphQL, whose quota drains independently of REST, so a
+ * healthy `gh api` is no evidence the next call will land.
+ */
+export type FileContentResult =
+  | { ok: true; content: string }
+  | { ok: false; error: string }
+
+/**
+ * Explain a failed `gh` call in terms the user can act on, for the paths
+ * that surface straight into a toast.
+ */
+async function describeGhFailure(error: unknown): Promise<string> {
+  const text = extractShellError(error)
+
+  if (/rate limit/i.test(text)) {
+    const resetAt = await rateLimitResetTime()
+    return resetAt
+      ? `GitHub API rate limit exceeded — resets at ${resetAt}`
+      : "GitHub API rate limit exceeded"
+  }
+  if (/gh auth login/i.test(text)) {
+    return "Not logged in to GitHub — run: gh auth login"
+  }
+  if (/\b404\b|not found/i.test(text)) {
+    return "Not on GitHub at this revision"
+  }
+
+  return text.split("\n").find((line) => line.trim())?.trim() || "Unknown error"
+}
+
+/**
+ * When the soonest-exhausted quota comes back, as a local clock time.
+ * "Try again later" is useless without a number, and `gh api rate_limit` is
+ * itself unmetered so asking costs nothing.
+ */
+async function rateLimitResetTime(): Promise<string | null> {
+  const result = await $`gh api rate_limit`.quiet().nothrow()
+  if (result.exitCode !== 0) return null
+
+  try {
+    const resources = JSON.parse(result.stdout.toString()).resources as Record<
+      string,
+      { remaining: number; reset: number }
+    >
+    // GraphQL and REST reset on separate clocks; the earliest exhausted one
+    // is the honest answer to "when can I retry".
+    const resets = Object.values(resources)
+      .filter((r) => r.remaining === 0)
+      .map((r) => r.reset)
+    if (resets.length === 0) return null
+    return new Date(Math.min(...resets) * 1000).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch {
+    return null
+  }
+}
+
 // ============================================================================
 // GitHub API functions
 // ============================================================================
@@ -690,10 +755,88 @@ interface GraphQLThreadInfo {
 /**
  * Fetch PR review threads via GraphQL (includes resolution state + reactions)
  */
-async function getPrReviewThreads(
+/**
+ * How many comments per thread to pull reactions for.
+ *
+ * This number is the single biggest lever on riff's GraphQL budget. GitHub
+ * prices a query by its *nested* node count — `reviewThreads(first:100)` x
+ * `comments(first:N)` costs roughly `100 * N / 100` points — so the depth
+ * here multiplies straight into the hourly 5000-point quota. Measured
+ * against a real PR: N=50 costs 51 points, N=1 costs 2.
+ */
+/**
+ * Resolution state for a PR's review threads, keyed by root comment id.
+ */
+export interface ReviewThreadState {
+  rootCommentId: number
+  isResolved: boolean
+  isOutdated: boolean
+}
+
+/**
+ * The cheapest question riff can ask about review threads — measured at 1
+ * GraphQL point, since nothing nested is requested beyond the root id.
+ *
+ * Exists for the poller's idle path: resolving a thread doesn't touch any
+ * comment's `updated_at`, so a conditional REST check on the comments can't
+ * see it. This fills that gap without re-fetching bodies.
+ */
+export async function getPrThreadStates(
   owner: string,
   repo: string,
   prNumber: number
+): Promise<ReviewThreadState[]> {
+  const query = `
+    query($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          reviewThreads(first: 100) {
+            nodes {
+              isResolved
+              isOutdated
+              comments(first: 1) { nodes { databaseId } }
+            }
+          }
+        }
+      }
+    }
+  `
+
+  try {
+    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    const nodes = result?.data?.repository?.pullRequest?.reviewThreads?.nodes ?? []
+    return nodes.flatMap((node: any) => {
+      const rootCommentId = node?.comments?.nodes?.[0]?.databaseId
+      return rootCommentId
+        ? [{
+            rootCommentId,
+            isResolved: Boolean(node.isResolved),
+            isOutdated: Boolean(node.isOutdated),
+          }]
+        : []
+    })
+  } catch {
+    // Same graceful degradation as getPrReviewThreads — resolution state is
+    // additive, and a failed poll tick should not disturb what's on screen.
+    return []
+  }
+}
+
+export const THREAD_COMMENTS_FULL = 50
+
+/**
+ * Depth for the background poller, which runs on a timer and would otherwise
+ * spend the whole quota on its own. Root comments still carry reactions;
+ * replies come back without them, so `mergeComments` keeps whatever the
+ * previous full fetch already established.
+ */
+export const THREAD_COMMENTS_PROBE = 1
+
+async function getPrReviewThreads(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  commentsPerThread: number = THREAD_COMMENTS_FULL
 ): Promise<GraphQLThreadInfo[]> {
   const query = `
     query($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -706,7 +849,7 @@ async function getPrReviewThreads(
               isOutdated
               path
               line
-              comments(first: 50) {
+              comments(first: ${commentsPerThread}) {
                 nodes {
                   databaseId
                   reactionGroups {
@@ -826,14 +969,15 @@ export async function fetchPrMetaReactions(
 export async function getPrComments(
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  commentsPerThread: number = THREAD_COMMENTS_FULL
 ): Promise<PrComment[]> {
   return safeGhCommand(async () => {
     // Fetch REST comments and GraphQL threads in parallel
     // Use --paginate to fetch ALL comments (GitHub defaults to 30 per page)
     const [restComments, threads] = await Promise.all([
       $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as Promise<any[]>,
-      getPrReviewThreads(owner, repo, prNumber),
+      getPrReviewThreads(owner, repo, prNumber, commentsPerThread),
     ])
     
     // Build a map from first comment ID to thread info
@@ -1079,9 +1223,10 @@ export async function fetchPrReviewComments(
   owner: string,
   repo: string,
   prNumber: number,
-  headSha: string
+  headSha: string,
+  commentsPerThread: number = THREAD_COMMENTS_FULL
 ): Promise<Comment[]> {
-  const prComments = await getPrComments(owner, repo, prNumber)
+  const prComments = await getPrComments(owner, repo, prNumber, commentsPerThread)
   return prComments.map((c) => convertPrComment(c, headSha))
 }
 
@@ -1219,22 +1364,21 @@ export async function getPrFileContent(
   owner: string,
   repo: string,
   prNumber: number,
-  filename: string
-): Promise<string | null> {
-  return safeGhCommand(async () => {
-    // Get the PR head SHA first
-    const headSha = await getPrHeadSha(prNumber, owner, repo)
-    
-    // Fetch file content at that SHA
-    const result = await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${headSha}`.json()
-    
-    if (result.encoding === "base64" && result.content) {
-      // Decode base64 content
-      return Buffer.from(result.content, "base64").toString("utf-8")
-    }
-    
-    return null
-  }).catch(() => null)
+  filename: string,
+  headSha?: string
+): Promise<FileContentResult> {
+  try {
+    // Resolving the head costs a `gh pr view` — a GraphQL call, on the quota
+    // riff's pollers already lean on. Callers that loaded the diff know the
+    // revision, so pass it and skip the round trip.
+    const ref = headSha || (await getPrHeadSha(prNumber, owner, repo))
+    return decodeContentsResponse(
+      await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
+      filename
+    )
+  } catch (error) {
+    return { ok: false, error: await describeGhFailure(error) }
+  }
 }
 
 /**
@@ -1244,22 +1388,35 @@ export async function getPrBaseFileContent(
   owner: string,
   repo: string,
   prNumber: number,
+  filename: string,
+  baseRef?: string
+): Promise<FileContentResult> {
+  try {
+    const ref = baseRef || (await getPrInfo(prNumber, owner, repo)).baseRef
+    return decodeContentsResponse(
+      await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
+      filename
+    )
+  } catch (error) {
+    return { ok: false, error: await describeGhFailure(error) }
+  }
+}
+
+interface ContentsResponse {
+  encoding?: string
+  content?: string
+}
+
+function decodeContentsResponse(
+  result: ContentsResponse,
   filename: string
-): Promise<string | null> {
-  return safeGhCommand(async () => {
-    // Get the PR base ref (e.g., "main")
-    const prInfo = await getPrInfo(prNumber, owner, repo)
-    
-    // Fetch file content at the base ref
-    const result = await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${prInfo.baseRef}`.json()
-    
-    if (result.encoding === "base64" && result.content) {
-      // Decode base64 content
-      return Buffer.from(result.content, "base64").toString("utf-8")
-    }
-    
-    return null
-  }).catch(() => null)
+): FileContentResult {
+  if (result.encoding === "base64" && result.content) {
+    return { ok: true, content: Buffer.from(result.content, "base64").toString("utf-8") }
+  }
+  // Blobs over 1 MB come back with an empty body and encoding "none"; the
+  // contents API can't serve them at all.
+  return { ok: false, error: `GitHub returned no content for ${filename}` }
 }
 
 // ============================================================================

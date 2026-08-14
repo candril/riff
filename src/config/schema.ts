@@ -36,10 +36,28 @@ export interface MentionsConfig {
 }
 
 /**
+ * Background comment poll configuration
+ */
+export interface PollConfig {
+  /**
+   * Seconds between background checks for new/updated review comments.
+   * 0 disables polling entirely (`gr` still refreshes on demand).
+   */
+  interval: number
+  /**
+   * Skip ticks while the terminal is unfocused, and refresh on focus-in
+   * instead. Needs a terminal that supports focus reporting; harmless
+   * elsewhere, since riff then just never hears about a focus change.
+   */
+  onFocus: boolean
+}
+
+/**
  * Root configuration
  */
 export interface Config {
   ignore: IgnoreConfig
   storage: StorageConfig
   mentions: MentionsConfig
+  poll: PollConfig
 }

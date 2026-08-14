@@ -176,6 +176,28 @@ src/
     └── OmniSearch.ts     # Fuzzy finder
 ```
 
+## Configuration
+
+`~/.config/riff/config.toml`, merged over `src/config/defaults.ts`.
+
+```toml
+[poll]
+interval = 300   # Seconds between background comment checks (0 disables)
+onFocus = true   # Skip ticks while the terminal is unfocused; refresh on focus-in
+```
+
+### GitHub API budget
+
+GraphQL is metered in **points, not requests** — GitHub prices a query by its
+nested node count, and the quota is 5000/hour, separate from REST's 5000.
+Nesting is what costs: `reviewThreads(first:100)` x `comments(first:50)` is 51
+points, while two sibling 100-node connections are 2. Anything on a timer must
+be costed before it ships (`rateLimit { cost }` in the query reports it).
+
+Current measured costs: full thread fetch 51, probe-depth thread fetch 2,
+`getPrThreadStates` 1, `fetchPrMetaReactions` 2, `fetchViewedStatuses` 1.
+Note that `gh pr view --json …` is GraphQL, not REST.
+
 ## Actions
 
 Actions are commands that can be triggered via the action menu (`Ctrl+p`) or keyboard shortcuts.
