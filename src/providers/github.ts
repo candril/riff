@@ -1,5 +1,6 @@
 import { $ } from "bun"
 import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
+import { getCurrentRepoRef } from "./repo"
 import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_CONTENT } from "../types"
 
@@ -329,13 +330,11 @@ async function rateLimitResetTime(): Promise<string | null> {
  * Get current repo's owner and name from gh CLI
  */
 export async function getCurrentRepo(): Promise<{ owner: string; repo: string }> {
-  return safeGhCommand(async () => {
-    const result = await $`gh repo view --json owner,name`.json()
-    return {
-      owner: result.owner.login,
-      repo: result.name,
-    }
-  })
+  const ref = await getCurrentRepoRef()
+  if (!ref) {
+    throw new Error("Not in a git repository. Specify full repo: riff gh:owner/repo#123")
+  }
+  return ref
 }
 
 /**
@@ -348,158 +347,6 @@ export async function getCurrentUser(): Promise<string> {
   } catch {
     return "@you"
   }
-}
-
-/**
- * Fetch PR metadata
- */
-export async function getPrInfo(
-  prNumber: number,
-  owner?: string,
-  repo?: string
-): Promise<PrInfo> {
-  return safeGhCommand(async () => {
-    const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
-
-    const result = await $`gh pr view ${prNumber} ${repoArgs} --json number,title,body,author,state,isDraft,headRefName,baseRefName,headRepository,headRepositoryOwner,url,additions,deletions,changedFiles,createdAt,updatedAt,reviews,commits`.json()
-
-    // Get owner/repo if not provided
-    let finalOwner = owner
-    let finalRepo = repo
-    if (!owner || !repo) {
-      const current = await getCurrentRepo()
-      finalOwner = current.owner
-      finalRepo = current.repo
-    }
-
-    // Fetch REST reviews in parallel for numeric IDs (best-effort)
-    const restReviews = await $`gh api --paginate repos/${finalOwner}/${finalRepo}/pulls/${prNumber}/reviews`.json().catch(() => [] as any[]) as any[]
-    const nodeIdToDbId = new Map<string, number>()
-    for (const r of restReviews) {
-      if (r.node_id && r.id) {
-        nodeIdToDbId.set(r.node_id, r.id)
-      }
-    }
-
-    // Parse all reviews (no deduplication — consumers handle that where needed)
-    const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
-      id: r.id,
-      databaseId: nodeIdToDbId.get(r.id),
-      author: r.author?.login || "unknown",
-      state: r.state as PrReview["state"],
-      body: r.body || undefined,
-      submittedAt: r.submittedAt,
-    }))
-
-    // Parse commits (newest first)
-    const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
-      sha: c.oid.slice(0, 7),
-      message: c.messageHeadline,
-      author: c.authors?.[0]?.login || c.authors?.[0]?.name || "unknown",
-      date: c.committedDate,
-    })).reverse()
-
-    return {
-      number: result.number,
-      title: result.title,
-      body: result.body || "",
-      author: result.author.login,
-      state: result.state.toLowerCase() as "open" | "closed" | "merged",
-      isDraft: result.isDraft,
-      headRef: result.headRefName,
-      baseRef: result.baseRefName,
-      headRepoOwner: result.headRepositoryOwner?.login || undefined,
-      headRepoName: result.headRepository?.name || undefined,
-      owner: finalOwner!,
-      repo: finalRepo!,
-      url: result.url,
-      additions: result.additions,
-      deletions: result.deletions,
-      changedFiles: result.changedFiles,
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
-      reviews,
-      commits,
-    }
-  })
-}
-
-/**
- * Fetch extended PR info (commits, reviews, requested reviewers)
- */
-export async function getPrExtendedInfo(
-  prNumber: number,
-  owner: string,
-  repo: string
-): Promise<{ commits: PrCommit[]; reviews: PrReview[]; requestedReviewers: string[] }> {
-  return safeGhCommand(async () => {
-    // Fetch commits, reviews, and requested reviewers via GraphQL
-    // Also fetch reviews from REST API to get numeric IDs (for matching with comment.githubReviewId)
-    const [result, restReviews] = await Promise.all([
-      $`gh pr view ${prNumber} -R ${owner}/${repo} --json commits,reviews,reviewRequests`.json(),
-      $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json().catch(() => [] as any[]),
-    ])
-
-    // Build a map from GraphQL node_id to REST numeric id
-    const nodeIdToDbId = new Map<string, number>()
-    for (const r of (restReviews as any[])) {
-      if (r.node_id && r.id) {
-        nodeIdToDbId.set(r.node_id, r.id)
-      }
-    }
-
-    const commits: PrCommit[] = (result.commits || []).map((c: any) => ({
-      sha: c.oid.slice(0, 7),
-      message: c.messageHeadline,
-      author: c.authors?.[0]?.login || c.authors?.[0]?.name || "unknown",
-      date: c.committedDate,
-    })).reverse() // Newest first
-
-    const reviews: PrReview[] = (result.reviews || []).map((r: any) => ({
-      id: r.id,
-      databaseId: nodeIdToDbId.get(r.id),
-      author: r.author?.login || "unknown",
-      state: r.state as PrReview["state"],
-      body: r.body || undefined,
-      submittedAt: r.submittedAt,
-    }))
-
-    const requestedReviewers: string[] = (result.reviewRequests || []).map((r: any) => 
-      r.login || r.name || "unknown"
-    )
-
-    return {
-      commits,
-      reviews,
-      requestedReviewers,
-    }
-  })
-}
-
-/**
- * Fetch check runs for a PR (CI/CD status)
- */
-export async function getPrChecks(
-  owner: string,
-  repo: string,
-  headSha: string
-): Promise<PrCheck[]> {
-  return safeGhCommand(async () => {
-    const result = await $`gh api repos/${owner}/${repo}/commits/${headSha}/check-runs`.json() as {
-      total_count: number
-      check_runs: any[]
-    }
-
-    return (result.check_runs || []).map((c: any) => ({
-      id: c.id,
-      name: c.name,
-      status: c.status as PrCheck["status"],
-      conclusion: c.conclusion as PrCheck["conclusion"],
-      detailsUrl: c.details_url || c.html_url || null,
-      startedAt: c.started_at || null,
-      completedAt: c.completed_at || null,
-    }))
-  })
 }
 
 /**
@@ -876,94 +723,6 @@ async function getPrReviewThreads(
 }
 
 /**
- * Reactions for the PR-info-panel surfaces (spec 042). Fetched in a single
- * GraphQL round-trip so we can attach them to PrInfo.bodyReactions,
- * conversationComments[].reactions, and reviews[].reactions without
- * round-tripping each surface separately.
- */
-export interface PrMetaReactions {
-  body: ReactionSummary[]
-  issueCommentsById: Map<number, ReactionSummary[]>
-  reviewsByDatabaseId: Map<number, ReactionSummary[]>
-}
-
-/**
- * Fetch reactions for the PR body, issue (conversation) comments, and
- * review summaries. REST responses for these entities include aggregated
- * counts but not `viewerHasReacted`, so GraphQL is the only viable source.
- * Failure degrades gracefully to an empty bundle — reactions are additive.
- */
-export async function fetchPrMetaReactions(
-  owner: string,
-  repo: string,
-  prNumber: number,
-): Promise<PrMetaReactions> {
-  const query = `
-    query($owner: String!, $repo: String!, $prNumber: Int!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $prNumber) {
-          reactionGroups {
-            content
-            viewerHasReacted
-            reactors(first: 0) { totalCount }
-          }
-          comments(first: 100) {
-            nodes {
-              databaseId
-              reactionGroups {
-                content
-                viewerHasReacted
-                reactors(first: 0) { totalCount }
-              }
-            }
-          }
-          reviews(first: 100) {
-            nodes {
-              databaseId
-              reactionGroups {
-                content
-                viewerHasReacted
-                reactors(first: 0) { totalCount }
-              }
-            }
-          }
-        }
-      }
-    }
-  `
-
-  const empty: PrMetaReactions = {
-    body: [],
-    issueCommentsById: new Map(),
-    reviewsByDatabaseId: new Map(),
-  }
-
-  try {
-    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
-    const pr = result?.data?.repository?.pullRequest
-    if (!pr) return empty
-
-    const body = parseReactionGroups(pr.reactionGroups)
-    const issueCommentsById = new Map<number, ReactionSummary[]>()
-    for (const node of pr.comments?.nodes ?? []) {
-      if (node.databaseId) {
-        issueCommentsById.set(node.databaseId, parseReactionGroups(node.reactionGroups))
-      }
-    }
-    const reviewsByDatabaseId = new Map<number, ReactionSummary[]>()
-    for (const node of pr.reviews?.nodes ?? []) {
-      if (node.databaseId) {
-        reviewsByDatabaseId.set(node.databaseId, parseReactionGroups(node.reactionGroups))
-      }
-    }
-
-    return { body, issueCommentsById, reviewsByDatabaseId }
-  } catch {
-    return empty
-  }
-}
-
-/**
  * Fetch PR review comments (inline comments on diff)
  */
 export async function getPrComments(
@@ -974,85 +733,109 @@ export async function getPrComments(
 ): Promise<PrComment[]> {
   return safeGhCommand(async () => {
     // Fetch REST comments and GraphQL threads in parallel
-    // Use --paginate to fetch ALL comments (GitHub defaults to 30 per page)
     const [restComments, threads] = await Promise.all([
-      $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as Promise<any[]>,
+      fetchRestReviewComments(owner, repo, prNumber),
       getPrReviewThreads(owner, repo, prNumber, commentsPerThread),
     ])
-    
-    // Build a map from first comment ID to thread info
-    const threadByFirstCommentId = new Map<number, GraphQLThreadInfo>()
-    // Reactions by comment databaseId — every comment in every thread, not
-    // just roots (spec 042).
-    const reactionsByCommentId = new Map<number, ReactionSummary[]>()
-    for (const thread of threads) {
-      const nodes = thread.comments?.nodes ?? []
-      const firstCommentId = nodes[0]?.databaseId
-      if (firstCommentId) {
-        threadByFirstCommentId.set(firstCommentId, thread)
-      }
-      for (const node of nodes) {
-        if (node.databaseId) {
-          reactionsByCommentId.set(node.databaseId, parseReactionGroups(node.reactionGroups))
-        }
-      }
-    }
-
-    // First pass: convert all comments
-    const comments: PrComment[] = restComments.map((c: any) => {
-      // Find thread info for this comment
-      // If this is a root comment (no in_reply_to_id), check if it's in our map
-      const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
-
-      return {
-        id: c.id,
-        body: c.body,
-        path: c.path,
-        line: c.line || c.original_line,
-        side: c.side || "RIGHT",
-        author: c.user.login,
-        createdAt: c.created_at,
-        updatedAt: c.updated_at,
-        url: c.html_url,
-        diffHunk: c.diff_hunk,
-        inReplyToId: c.in_reply_to_id,
-        // GitHub's pull_request_review_id groups comments into a thread
-        threadId: c.pull_request_review_id,
-        // GraphQL thread info (only available on root comments)
-        graphqlThreadId: thread?.id,
-        isThreadResolved: thread?.isResolved,
-        // Prefer GraphQL — falls back to inferring from REST when the
-        // thread lookup didn't resolve (e.g. deeply paginated PRs that
-        // overflow the 100-thread cap). REST sets `line=null` and only
-        // populates `original_line` when the comment is outdated.
-        isOutdated: thread?.isOutdated ?? (c.line === null && c.original_line != null),
-        reactions: reactionsByCommentId.get(c.id) ?? [],
-      }
-    })
-
-    // Second pass: replies often have line=null from the REST API.
-    // Inherit line/side/path from the root comment in the same thread.
-    const byId = new Map<number, PrComment>()
-    for (const c of comments) byId.set(c.id, c)
-
-    for (const c of comments) {
-      if (c.inReplyToId && !c.line) {
-        // Walk up the reply chain to find the root with a valid line
-        let parent = byId.get(c.inReplyToId)
-        while (parent) {
-          if (parent.line) {
-            c.line = parent.line
-            c.side = parent.side
-            c.path = parent.path
-            break
-          }
-          parent = parent.inReplyToId ? byId.get(parent.inReplyToId) : undefined
-        }
-      }
-    }
-
-    return comments
+    return mergeReviewComments(restComments, threads)
   })
+}
+
+/**
+ * Raw review comments straight off REST. `--paginate` because GitHub caps a
+ * page at 30 and a busy PR blows past that.
+ */
+export async function fetchRestReviewComments(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<any[]> {
+  return safeGhCommand(
+    async () => await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as any[]
+  )
+}
+
+/**
+ * Fold GraphQL thread state (resolution, outdated-ness, reactions) into the
+ * REST comment records, which are the ones carrying `diff_hunk` and the
+ * reply chain.
+ */
+export function mergeReviewComments(
+  restComments: any[],
+  threads: GraphQLThreadInfo[]
+): PrComment[] {
+  // Build a map from first comment ID to thread info
+  const threadByFirstCommentId = new Map<number, GraphQLThreadInfo>()
+  // Reactions by comment databaseId — every comment in every thread, not
+  // just roots (spec 042).
+  const reactionsByCommentId = new Map<number, ReactionSummary[]>()
+  for (const thread of threads) {
+    const nodes = thread.comments?.nodes ?? []
+    const firstCommentId = nodes[0]?.databaseId
+    if (firstCommentId) {
+      threadByFirstCommentId.set(firstCommentId, thread)
+    }
+    for (const node of nodes) {
+      if (node.databaseId) {
+        reactionsByCommentId.set(node.databaseId, parseReactionGroups(node.reactionGroups))
+      }
+    }
+  }
+
+  // First pass: convert all comments
+  const comments: PrComment[] = restComments.map((c: any) => {
+    // Find thread info for this comment
+    // If this is a root comment (no in_reply_to_id), check if it's in our map
+    const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
+
+    return {
+      id: c.id,
+      body: c.body,
+      path: c.path,
+      line: c.line || c.original_line,
+      side: c.side || "RIGHT",
+      author: c.user.login,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+      url: c.html_url,
+      diffHunk: c.diff_hunk,
+      inReplyToId: c.in_reply_to_id,
+      // GitHub's pull_request_review_id groups comments into a thread
+      threadId: c.pull_request_review_id,
+      // GraphQL thread info (only available on root comments)
+      graphqlThreadId: thread?.id,
+      isThreadResolved: thread?.isResolved,
+      // Prefer GraphQL — falls back to inferring from REST when the
+      // thread lookup didn't resolve (e.g. deeply paginated PRs that
+      // overflow the 100-thread cap). REST sets `line=null` and only
+      // populates `original_line` when the comment is outdated.
+      isOutdated: thread?.isOutdated ?? (c.line === null && c.original_line != null),
+      reactions: reactionsByCommentId.get(c.id) ?? [],
+    }
+  })
+
+  // Second pass: replies often have line=null from the REST API.
+  // Inherit line/side/path from the root comment in the same thread.
+  const byId = new Map<number, PrComment>()
+  for (const c of comments) byId.set(c.id, c)
+
+  for (const c of comments) {
+    if (c.inReplyToId && !c.line) {
+      // Walk up the reply chain to find the root with a valid line
+      let parent = byId.get(c.inReplyToId)
+      while (parent) {
+        if (parent.line) {
+          c.line = parent.line
+          c.side = parent.side
+          c.path = parent.path
+          break
+        }
+        parent = parent.inReplyToId ? byId.get(parent.inReplyToId) : undefined
+      }
+    }
+  }
+
+  return comments
 }
 
 /**
@@ -1230,6 +1013,259 @@ export async function fetchPrReviewComments(
   return prComments.map((c) => convertPrComment(c, headSha))
 }
 
+// ============================================================================
+// Consolidated PR fetch
+// ============================================================================
+
+/**
+ * Everything about a PR that lives behind GitHub's GraphQL `pullRequest` node.
+ *
+ * Startup used to assemble this from seven separate `gh` invocations —
+ * `gh pr view` twice, three `gh api graphql` queries, and two REST calls —
+ * each paying its own process spawn and API round-trip, several of them
+ * fetching the very same commits and reviews. They're one query now.
+ */
+const PR_BUNDLE_QUERY = `
+  query($owner: String!, $repo: String!, $prNumber: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        number title body state isDraft url
+        additions deletions changedFiles createdAt updatedAt
+        headRefName baseRefName headRefOid
+        author { login __typename }
+        headRepository { name }
+        headRepositoryOwner { login }
+        reactionGroups { content viewerHasReacted reactors(first: 0) { totalCount } }
+        commits(first: 100) {
+          nodes { commit {
+            oid messageHeadline committedDate
+            authors(first: 1) { nodes { user { login } name } }
+          } }
+        }
+        reviews(first: 100) {
+          nodes {
+            id databaseId state body submittedAt url
+            author { login __typename }
+            reactionGroups { content viewerHasReacted reactors(first: 0) { totalCount } }
+          }
+        }
+        reviewRequests(first: 50) {
+          nodes { requestedReviewer {
+            __typename
+            ... on User { login }
+            ... on Bot { login }
+            ... on Mannequin { login }
+            ... on Team { name }
+          } }
+        }
+        comments(first: 100) {
+          nodes {
+            databaseId body createdAt updatedAt url
+            author { login __typename }
+            reactionGroups { content viewerHasReacted reactors(first: 0) { totalCount } }
+          }
+        }
+        reviewThreads(first: 100) {
+          nodes {
+            id isResolved isOutdated path line
+            comments(first: ${THREAD_COMMENTS_FULL}) {
+              nodes {
+                databaseId
+                reactionGroups { content viewerHasReacted reactors(first: 0) { totalCount } }
+              }
+            }
+          }
+        }
+        files(first: 100) {
+          nodes { path viewerViewedState }
+          pageInfo { hasNextPage endCursor }
+        }
+        headCommit: commits(last: 1) {
+          nodes { commit { statusCheckRollup { contexts(first: 100) { nodes {
+            ... on CheckRun {
+              databaseId name status conclusion detailsUrl startedAt completedAt
+            }
+          } } } } }
+        }
+      }
+    }
+  }
+`
+
+export interface PrBundle {
+  /** Fully populated — commits, reviews, reviewers, conversation, checks, reactions. */
+  prInfo: PrInfo
+  headSha: string
+  threads: GraphQLThreadInfo[]
+  viewedStatuses: Map<string, boolean>
+}
+
+export async function fetchPrBundle(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<PrBundle> {
+  return safeGhCommand(async () => {
+    const result = await $`gh api graphql -f query=${PR_BUNDLE_QUERY} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
+    const pr = result?.data?.repository?.pullRequest
+    if (!pr) {
+      throw new Error(`PR #${prNumber} not found in ${owner}/${repo}`)
+    }
+
+    const commits: PrCommit[] = (pr.commits?.nodes ?? []).map((n: any) => {
+      const author = n.commit?.authors?.nodes?.[0]
+      return {
+        sha: n.commit.oid.slice(0, 7),
+        message: n.commit.messageHeadline,
+        author: author?.user?.login || author?.name || "unknown",
+        date: n.commit.committedDate,
+      }
+    }).reverse() // Newest first
+
+    const reviews: PrReview[] = (pr.reviews?.nodes ?? []).map((r: any) => ({
+      id: r.id,
+      databaseId: r.databaseId ?? undefined,
+      author: authorLogin(r.author),
+      state: r.state as PrReview["state"],
+      body: r.body || undefined,
+      submittedAt: r.submittedAt ?? undefined,
+      url: r.url ?? undefined,
+      reactions: parseReactionGroups(r.reactionGroups),
+    }))
+
+    const requestedReviewers: string[] = (pr.reviewRequests?.nodes ?? [])
+      // A reviewer the token can't resolve comes back null.
+      .filter((n: any) => n?.requestedReviewer)
+      .map((n: any) => {
+        const reviewer = n.requestedReviewer
+        // Teams have no login; everyone else goes through the same bot-suffix
+        // normalization as review authors, so the panel can match the two lists.
+        return reviewer.login ? authorLogin(reviewer) : reviewer.name || "unknown"
+      })
+
+    const conversationComments: PrConversationComment[] = (pr.comments?.nodes ?? []).map((c: any) => ({
+      id: c.databaseId,
+      body: c.body,
+      author: authorLogin(c.author),
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      url: c.url,
+      isBot: isBotAuthor(c.author),
+      reactions: parseReactionGroups(c.reactionGroups),
+    }))
+
+    const rollup = pr.headCommit?.nodes?.[0]?.commit?.statusCheckRollup
+    const checks: PrCheck[] = (rollup?.contexts?.nodes ?? [])
+      // Legacy commit statuses share the connection with check runs; they have
+      // no databaseId and no annotations, and riff has never shown them.
+      .filter((n: any) => n?.databaseId != null)
+      .map((n: any) => ({
+        id: n.databaseId,
+        name: n.name,
+        status: normalizeCheckStatus(n.status),
+        conclusion: normalizeCheckConclusion(n.conclusion),
+        detailsUrl: n.detailsUrl || null,
+        startedAt: n.startedAt || null,
+        completedAt: n.completedAt || null,
+      }))
+      // The rollup hands them back in its own order; newest-first is what the
+      // panel has always shown.
+      .sort((a: PrCheck, b: PrCheck) => b.id - a.id)
+
+    const prInfo: PrInfo = {
+      number: pr.number,
+      title: pr.title,
+      body: pr.body || "",
+      author: authorLogin(pr.author),
+      state: String(pr.state).toLowerCase() as PrInfo["state"],
+      isDraft: pr.isDraft,
+      headRef: pr.headRefName,
+      baseRef: pr.baseRefName,
+      headRepoOwner: pr.headRepositoryOwner?.login || undefined,
+      headRepoName: pr.headRepository?.name || undefined,
+      owner,
+      repo,
+      url: pr.url,
+      additions: pr.additions,
+      deletions: pr.deletions,
+      changedFiles: pr.changedFiles,
+      createdAt: pr.createdAt,
+      updatedAt: pr.updatedAt,
+      commits,
+      reviews,
+      requestedReviewers,
+      conversationComments,
+      checks,
+      bodyReactions: parseReactionGroups(pr.reactionGroups),
+    }
+
+    const viewedStatuses = new Map<string, boolean>()
+    for (const file of pr.files?.nodes ?? []) {
+      viewedStatuses.set(file.path, file.viewerViewedState === "VIEWED")
+    }
+    // PRs over 100 files are rare enough to pay a second round-trip for.
+    const filesPageInfo = pr.files?.pageInfo
+    if (filesPageInfo?.hasNextPage && filesPageInfo?.endCursor) {
+      for (const [path, viewed] of await fetchRemainingViewedStatuses(
+        owner, repo, prNumber, filesPageInfo.endCursor
+      )) {
+        viewedStatuses.set(path, viewed)
+      }
+    }
+
+    return {
+      prInfo,
+      headSha: pr.headRefOid,
+      threads: pr.reviewThreads?.nodes ?? [],
+      viewedStatuses,
+    }
+  })
+}
+
+/**
+ * GraphQL hands back a bot's bare login (`dependabot`), where REST and
+ * GitHub's own UI both write it `dependabot[bot]`. Comment authorship is
+ * matched against those forms elsewhere, so settle on the suffixed one.
+ */
+function authorLogin(author: { login?: string; __typename?: string } | null | undefined): string {
+  const login = author?.login
+  if (!login) return "unknown"
+  return isBotAuthor(author) && !login.endsWith("[bot]") ? `${login}[bot]` : login
+}
+
+function isBotAuthor(author: { login?: string; __typename?: string } | null | undefined): boolean {
+  return author?.__typename === "Bot" || Boolean(author?.login?.endsWith("[bot]"))
+}
+
+/**
+ * GraphQL reports check state as SCREAMING_CASE with more states than the
+ * REST `check-runs` vocabulary riff's UI is written against.
+ */
+function normalizeCheckStatus(status: string | null): PrCheck["status"] {
+  switch (status) {
+    case "COMPLETED":
+      return "completed"
+    case "IN_PROGRESS":
+      return "in_progress"
+    default:
+      return "queued"
+  }
+}
+
+function normalizeCheckConclusion(conclusion: string | null): PrCheck["conclusion"] {
+  switch (conclusion) {
+    case "STARTUP_FAILURE":
+      return "failure"
+    case "STALE":
+      return "neutral"
+    case null:
+    case undefined:
+      return null
+    default:
+      return conclusion.toLowerCase() as PrCheck["conclusion"]
+  }
+}
+
 /**
  * Load a GitHub PR - fetches data and persists to local markdown storage
  */
@@ -1247,38 +1283,17 @@ export async function loadPrSession(
     resolvedRepo = current.repo
   }
 
-  // Fetch all data in parallel (including viewed statuses and extended info)
-  const [prInfo, diff, prComments, headSha, viewedStatuses, conversationComments, extendedInfo, metaReactions] = await Promise.all([
-    getPrInfo(prNumber, resolvedOwner, resolvedRepo),
+  // Two round-trips: everything behind the `pullRequest` node in one GraphQL
+  // query, plus the patch and the REST review comments (the only source for
+  // `diff_hunk` and the reply chain) alongside it.
+  const [bundle, diff, restComments] = await Promise.all([
+    fetchPrBundle(resolvedOwner!, resolvedRepo!, prNumber),
     getPrDiff(prNumber, resolvedOwner, resolvedRepo),
-    getPrComments(resolvedOwner!, resolvedRepo!, prNumber),
-    getPrHeadSha(prNumber, resolvedOwner, resolvedRepo),
-    fetchViewedStatuses(resolvedOwner!, resolvedRepo!, prNumber),
-    getPrConversationComments(resolvedOwner!, resolvedRepo!, prNumber),
-    getPrExtendedInfo(prNumber, resolvedOwner!, resolvedRepo!),
-    fetchPrMetaReactions(resolvedOwner!, resolvedRepo!, prNumber),
+    fetchRestReviewComments(resolvedOwner!, resolvedRepo!, prNumber),
   ])
 
-  // Fetch checks (requires headSha from first batch)
-  const checks = await getPrChecks(resolvedOwner!, resolvedRepo!, headSha)
-
-  // Attach conversation comments, extended info, checks, and reactions.
-  // Reactions for PR body / conversation / reviews come from a dedicated
-  // GraphQL call (spec 042) since REST doesn't expose viewerHasReacted.
-  prInfo.conversationComments = conversationComments.map(c => ({
-    ...c,
-    reactions: metaReactions.issueCommentsById.get(c.id) ?? [],
-  }))
-  prInfo.commits = extendedInfo.commits
-  prInfo.reviews = extendedInfo.reviews.map(r => ({
-    ...r,
-    reactions: r.databaseId !== undefined
-      ? metaReactions.reviewsByDatabaseId.get(r.databaseId) ?? []
-      : [],
-  }))
-  prInfo.requestedReviewers = extendedInfo.requestedReviewers
-  prInfo.checks = checks
-  prInfo.bodyReactions = metaReactions.body
+  const { prInfo, headSha, viewedStatuses } = bundle
+  const prComments = mergeReviewComments(restComments, bundle.threads)
 
   // Build source identifier for this PR
   const prSource = `gh:${resolvedOwner}/${resolvedRepo}#${prNumber}`
@@ -1289,11 +1304,8 @@ export async function loadPrSession(
   // Build a set of GitHub IDs we're fetching (as numbers)
   const fetchedGithubIds = new Set<number>(prComments.map(c => c.id))
   
-  // Convert GitHub comments and save/update them
-  for (const prComment of prComments) {
-    const comment = convertPrComment(prComment, headSha)
-    await saveComment(comment, prSource)
-  }
+  const githubComments = prComments.map((c) => convertPrComment(c, headSha))
+  await Promise.all(githubComments.map((comment) => saveComment(comment, prSource)))
   
   // Merge: GitHub comments + local comments (that aren't already on GitHub)
   const comments: Comment[] = []
@@ -1323,15 +1335,9 @@ export async function loadPrSession(
   }
   
   // Delete local comment files that are now on GitHub
-  for (const commentId of localCommentsToDelete) {
-    await deleteCommentFile(commentId, prSource)
-  }
-  
-  // Add newly fetched GitHub comments
-  for (const prComment of prComments) {
-    const comment = convertPrComment(prComment, headSha)
-    comments.push(comment)
-  }
+  await Promise.all(localCommentsToDelete.map((id) => deleteCommentFile(id, prSource)))
+
+  comments.push(...githubComments)
   
   // Sort by createdAt
   comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -1381,6 +1387,29 @@ export async function getPrFileContent(
   }
 }
 
+const baseRefCache = new Map<string, Promise<string>>()
+
+/**
+ * The PR's base branch, memoized for the session. Only the fallback for a
+ * caller that has no `baseRef` to hand — a PR can't change base under a
+ * running review without a refresh.
+ */
+function getPrBaseRef(owner: string, repo: string, prNumber: number): Promise<string> {
+  const key = `${owner}/${repo}#${prNumber}`
+  const cached = baseRefCache.get(key)
+  if (cached) return cached
+
+  const pending = $`gh pr view ${prNumber} -R ${owner}/${repo} --json baseRefName`
+    .json()
+    .then((result: any) => result.baseRefName as string)
+    .catch((err) => {
+      baseRefCache.delete(key)
+      throw err
+    })
+  baseRefCache.set(key, pending)
+  return pending
+}
+
 /**
  * Get the "old" version of a file (base branch version)
  */
@@ -1392,7 +1421,7 @@ export async function getPrBaseFileContent(
   baseRef?: string
 ): Promise<FileContentResult> {
   try {
-    const ref = baseRef || (await getPrInfo(prNumber, owner, repo)).baseRef
+    const ref = baseRef || (await getPrBaseRef(owner, repo, prNumber))
     return decodeContentsResponse(
       await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
       filename
@@ -1883,82 +1912,48 @@ export interface ViewedFileStatus {
   viewerViewedState: ViewerViewedState
 }
 
+const VIEWED_STATUS_PAGE_QUERY = `
+  query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        files(first: 100, after: $cursor) {
+          nodes { path viewerViewedState }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+  }
+`
+
 /**
- * Fetch viewed statuses for all files in a PR via GraphQL.
- * Returns a map from filename to viewed boolean.
+ * Continue a viewed-status listing past the first page of files that
+ * `fetchPrBundle` already carries. Only PRs over 100 files get here.
  */
-export async function fetchViewedStatuses(
+async function fetchRemainingViewedStatuses(
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  cursor: string
 ): Promise<Map<string, boolean>> {
-  const query = `
-    query($owner: String!, $repo: String!, $prNumber: Int!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $prNumber) {
-          files(first: 100) {
-            nodes {
-              path
-              viewerViewedState
-            }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-          }
-        }
-      }
-    }
-  `
-  
   const statuses = new Map<string, boolean>()
-  
+
   try {
-    const result = await $`gh api graphql -f query=${query} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
-    const files = result?.data?.repository?.pullRequest?.files?.nodes || []
-    
-    for (const file of files) {
-      // viewerViewedState: "VIEWED" | "UNVIEWED" | "DISMISSED"
-      // Consider "VIEWED" as viewed, anything else as not viewed
-      statuses.set(file.path, file.viewerViewedState === "VIEWED")
-    }
-    
-    // Handle pagination for large PRs (100+ files)
-    let pageInfo = result?.data?.repository?.pullRequest?.files?.pageInfo
-    while (pageInfo?.hasNextPage && pageInfo?.endCursor) {
-      const paginatedQuery = `
-        query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $prNumber) {
-              files(first: 100, after: $cursor) {
-                nodes {
-                  path
-                  viewerViewedState
-                }
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-              }
-            }
-          }
-        }
-      `
-      
-      const nextResult = await $`gh api graphql -f query=${paginatedQuery} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber} -F cursor=${pageInfo.endCursor}`.json() as any
-      const nextFiles = nextResult?.data?.repository?.pullRequest?.files?.nodes || []
-      
-      for (const file of nextFiles) {
+    while (true) {
+      const result = await $`gh api graphql -f query=${VIEWED_STATUS_PAGE_QUERY} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber} -F cursor=${cursor}`.json() as any
+      const files = result?.data?.repository?.pullRequest?.files
+
+      for (const file of files?.nodes ?? []) {
+        // viewerViewedState: "VIEWED" | "UNVIEWED" | "DISMISSED"
         statuses.set(file.path, file.viewerViewedState === "VIEWED")
       }
-      
-      pageInfo = nextResult?.data?.repository?.pullRequest?.files?.pageInfo
+
+      if (!files?.pageInfo?.hasNextPage || !files.pageInfo.endCursor) {
+        return statuses
+      }
+      cursor = files.pageInfo.endCursor
     }
-    
-    return statuses
-  } catch (err) {
-    // Return empty map on error (fail gracefully)
-    console.error("Failed to fetch viewed statuses:", err)
+  } catch {
+    // Partial statuses beat none — the rest just show as unviewed.
     return statuses
   }
 }

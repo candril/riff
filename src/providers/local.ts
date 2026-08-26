@@ -3,10 +3,20 @@ import type { PrCommit } from "./github"
 
 export type VcsType = "git" | "jj" | "none"
 
+let vcsProbe: Promise<VcsType> | null = null
+
 /**
- * Detect which version control system is in use
+ * Detect which version control system is in use.
+ *
+ * Memoized: every local-diff entry point starts by asking, and the answer
+ * costs two process spawns that can't change under a running session.
  */
-export async function detectVcs(): Promise<VcsType> {
+export function detectVcs(): Promise<VcsType> {
+  vcsProbe ??= probeVcs()
+  return vcsProbe
+}
+
+async function probeVcs(): Promise<VcsType> {
   try {
     // Check for jj first (it also has .git)
     const jjResult = await $`jj root`.quiet().nothrow()
@@ -123,12 +133,19 @@ export async function getBranchInfo(target?: string): Promise<string | null> {
  * Get branch info for jj repositories
  */
 async function getJjBranchInfo(): Promise<string | null> {
-  // Check if current change has a bookmark directly on it
-  const currentBookmarkResult = await $`jj log -r '@' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow()
-  const currentBookmark = currentBookmarkResult.exitCode === 0 ? currentBookmarkResult.text().trim() : ""
-  
-  // Get trunk bookmark
-  const trunkResult = await $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow()
+  // One template per revset rather than one call per field — the working
+  // copy's bookmark, change id and description all come out of the same log.
+  const workingCopyTemplate =
+    'bookmarks.map(|b| b.name()).join(", ") ++ "\\x00" ++ change_id.shortest(6) ++ "\\x00" ++ description.first_line()'
+
+  const [workingCopyResult, trunkResult] = await Promise.all([
+    $`jj log -r '@' --no-graph -T ${workingCopyTemplate}`.quiet().nothrow(),
+    $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow(),
+  ])
+
+  const [currentBookmark = "", changeId = "", desc = ""] = (
+    workingCopyResult.exitCode === 0 ? workingCopyResult.text() : ""
+  ).split("\x00").map((field) => field.trim())
   const trunk = trunkResult.exitCode === 0 ? trunkResult.text().trim() : ""
 
   // If current change has a bookmark, use that
@@ -138,13 +155,6 @@ async function getJjBranchInfo(): Promise<string | null> {
     }
     return currentBookmark
   }
-
-  // No bookmark on current change - use change ID and optionally description
-  const changeIdResult = await $`jj log -r '@' --no-graph -T 'change_id.shortest(6)'`.quiet().nothrow()
-  const changeId = changeIdResult.exitCode === 0 ? changeIdResult.text().trim() : ""
-
-  const descResult = await $`jj log -r '@' --no-graph -T 'description.first_line()'`.quiet().nothrow()
-  const desc = descResult.exitCode === 0 ? descResult.text().trim() : ""
 
   if (!changeId) {
     return trunk ? `→ ${trunk}` : null

@@ -77,6 +77,9 @@ export async function createApp(options: AppOptions = {}) {
   const { mode = "local", prInfo } = options
 
   // ===== INITIALIZATION =====
+  // State first, renderer second: the renderer starts reading stdin as soon
+  // as it exists, and a key typed before the keypress handler is wired up is
+  // read and dropped. Loading first keeps that window shut.
   const { state: initialState, source, headSha: initialHeadSha } = await initializeAppState({
     mode,
     target: options.target,

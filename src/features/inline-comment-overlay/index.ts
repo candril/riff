@@ -14,5 +14,6 @@ export {
 export {
   submitInlineDraft,
   submitInlineEditDraft,
+  buildComposerEditorContext,
   type InlineComposerHandlersContext,
 } from "./handlers"

@@ -171,6 +171,12 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
       diffContent: contextLines.length > 0 ? contextLines.join("\n") : file.content,
       filePath: anchor.filename,
       line: anchor.line,
+      side: anchor.side,
+      // The selection is the closest context there is; without one, fall
+      // back to slicing the file diff around the anchor.
+      contextHunk: contextLines.length > 0 ? contextLines.join("\n") : undefined,
+      fullDiff: file.content,
+      changeStatus: file.status,
       thread,
       username,
     })

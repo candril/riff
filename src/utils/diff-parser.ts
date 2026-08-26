@@ -26,8 +26,14 @@ export function parseDiff(diff: string): DiffFile[] {
   for (const fileDiff of fileDiffs) {
     const lines = fileDiff.split("\n")
 
-    // Parse header: "a/path/to/file b/path/to/file"
-    const headerMatch = lines[0]?.match(/a\/(.*?) b\/(.*)/)
+    // Parse header: "a/path/to/file b/path/to/file".
+    //
+    // The prefixes aren't always `a/` and `b/` — `diff.mnemonicPrefix`
+    // (which plenty of people set globally) swaps in `i/` `w/` `c/` `o/`
+    // depending on what's being compared. Matching `a/`…`b/` literally
+    // made riff report "No changes to display" for every file in those
+    // repos, so accept any single-letter prefix.
+    const headerMatch = lines[0]?.match(/^[a-z]\/(.*?) [a-z]\/(.*)$/)
     if (!headerMatch) continue
 
     const oldPath = headerMatch[1] ?? ""

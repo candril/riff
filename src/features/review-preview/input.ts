@@ -9,7 +9,7 @@
  *
  * What still lives here is the modal-level chrome:
  *  - Esc: close
- *  - Ctrl-s: submit (mirrors the inline-comment composer's convention)
+ *  - Enter / Ctrl-s: submit
  *  - Tab: toggle focus between the summary input and the comments list
  *  - 1/2/3 (in comments section): pick review type
  *  - j/k/Space (in comments section): navigate / toggle comments
@@ -71,12 +71,18 @@ export function handleInput(
     return true
   }
 
-  // Ctrl-s submits from anywhere in the modal. We pull the textarea's
-  // live value into state first so the submit handler (which reads
-  // `state.reviewPreview.body`) sees what the user actually typed —
-  // the onContentChange mirror is asynchronous and may lag the very
-  // last keystroke.
-  if (key.ctrl && key.name === "s") {
+  // Enter and Ctrl-s both submit, from either section. Enter keeps the
+  // common path — open, pick a type, confirm — on the home row; Ctrl-s
+  // stays for the muscle memory it shares with the inline-comment
+  // composer. preventDefault stops the summary textarea from turning
+  // Enter into a newline; Ctrl-J (`linefeed`) is the newline now, which
+  // the textarea already binds by default.
+  //
+  // We pull the textarea's live value into state first so the submit
+  // handler (which reads `state.reviewPreview.body`) sees what the user
+  // actually typed — the onContentChange mirror is asynchronous and may
+  // lag the very last keystroke.
+  if ((key.ctrl && key.name === "s") || (key.name === "return" && !key.ctrl && !key.meta)) {
     key.preventDefault()
     if (!ctx.state.reviewPreview.loading) {
       const value = readReviewSummaryValue()
@@ -138,8 +144,8 @@ export function handleInput(
     return true
   }
 
-  // Input section: everything not caught above (Esc / Ctrl-s / Tab)
-  // flows to the focused TextareaRenderable. Returning true here
+  // Input section: everything not caught above (Esc / Enter / Ctrl-s /
+  // Tab) flows to the focused TextareaRenderable. Returning true here
   // short-circuits our outer handler chain (so global keys don't
   // fire) while leaving `preventDefault` unset so the textarea still
   // sees the event.

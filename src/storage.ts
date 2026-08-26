@@ -3,6 +3,7 @@ import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
 import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
 import { loadConfig } from "./config"
+import { getCurrentRepoRef } from "./providers/repo"
 
 const LOCAL_STORAGE_DIR = ".riff"
 const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
@@ -16,11 +17,6 @@ const MENTIONABLE_TTL_MS = 24 * 60 * 60 * 1000
 
 // Cached resolved storage directory per source
 const resolvedStorageDirs = new Map<string, string>()
-
-// Current repo info (cached)
-let currentRepoOwner: string | null = null
-let currentRepoName: string | null = null
-let currentRepoChecked = false
 
 // ============================================================================
 // Path utilities
@@ -95,25 +91,7 @@ async function getGitRemoteUrl(path: string): Promise<string | null> {
  * Returns null if not a git repo or no GitHub remote.
  */
 export async function getCurrentRepoInfo(): Promise<{ owner: string; repo: string } | null> {
-  if (currentRepoChecked) {
-    return currentRepoOwner && currentRepoName
-      ? { owner: currentRepoOwner, repo: currentRepoName }
-      : null
-  }
-
-  currentRepoChecked = true
-
-  try {
-    const result = (await Bun.$`gh repo view --json owner,name`.quiet().json()) as {
-      owner: { login: string }
-      name: string
-    }
-    currentRepoOwner = result.owner.login
-    currentRepoName = result.name
-    return { owner: currentRepoOwner, repo: currentRepoName }
-  } catch {
-    return null
-  }
+  return getCurrentRepoRef()
 }
 
 /**

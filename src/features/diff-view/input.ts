@@ -99,17 +99,13 @@ export function handleInput(
     return true
   }
 
-  // `c` opens the comments panel and starts a new comment on the cursor's
-  // line. Visual-line drops into $EDITOR so multi-line context is
-  // preserved. preventDefault stops the textarea (focused during the
-  // sync re-render) from also seeing this keystroke.
+  // `c` opens the comments panel and starts a new comment, anchored on
+  // the cursor's line or — in visual-line mode — the first commentable
+  // line of the selection. `C` is the $EDITOR route. preventDefault stops
+  // the textarea (focused during the sync re-render) from also seeing
+  // this keystroke.
   if (key.name === "c" && !key.ctrl) {
     key.preventDefault()
-    const vimState = ctx.getVimState()
-    if (vimState.mode === "visual-line") {
-      ctx.handleAddComment()
-      return true
-    }
     if (!ctx.handleOpenInlineOverlay("compose")) {
       ctx.handleAddComment()
     }

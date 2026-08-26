@@ -16,12 +16,42 @@ export interface EditorOptions {
   filePath: string
   /** Line number being commented on */
   line: number
+  /** Which side of the diff the anchor sits on. */
+  side?: "LEFT" | "RIGHT"
   /** Existing comment to edit (optional) - DEPRECATED, use thread instead */
   existingComment?: string
   /** Thread of comments on this line */
   thread?: Comment[]
   /** Current username (GitHub username or "@you" for local) */
   username?: string
+  /** Diff rows around the anchor. Falls back to slicing `diffContent`
+   *  when the caller has no line mapping to slice with. */
+  contextHunk?: string
+  /** Whole-file diff. Defaults to `diffContent`, which is only the
+   *  selection when the comment came from a visual-line range. */
+  fullDiff?: string
+  /** The anchored row itself, `+`/`-` marker intact. */
+  anchorLine?: string
+  /** File status ("modified", "added", …) for the anchor header. */
+  changeStatus?: string
+}
+
+/**
+ * Context handed to `openTextInEditor` so the composer's Ctrl-g
+ * hand-off shows the same thread and diff the `C` route builds.
+ */
+export interface DraftEditorContext {
+  filePath: string
+  line: number
+  side: "LEFT" | "RIGHT"
+  contextHunk?: string
+  fullDiff?: string
+  anchorLine?: string
+  /** Comments already on this anchor. Read-only in this buffer — only
+   *  the text above the marker is read back. */
+  thread?: Comment[]
+  username?: string
+  changeStatus?: string
 }
 
 export interface EditorResult {
@@ -33,9 +63,21 @@ export interface EditorResult {
 
 // Markers for parsing (markdown format with HTML comments)
 const MARKER_COMMENT_END = "<!-- Write your comment above this line -->"
+const MARKER_ANCHOR = "## Commenting on"
 const MARKER_THREAD = "## Thread"
 const MARKER_CONTEXT = "## Context"
 const MARKER_FULL_CHANGE = "## Full Change"
+
+/**
+ * Wrap `text` as markdown inline code, widening the fence past any
+ * backtick run inside it — diff rows carry template literals.
+ */
+function inlineCode(text: string): string {
+  const longest = Math.max(0, ...[...text.matchAll(/`+/g)].map((m) => m[0].length))
+  const fence = "`".repeat(longest + 1)
+  const pad = longest > 0 ? " " : ""
+  return `${fence}${pad}${text}${pad}${fence}`
+}
 
 /**
  * Get short ID for display (first 8 chars or gh-id)
@@ -236,7 +278,7 @@ function buildThreadComment(
   indent: string = ""
 ): string[] {
   const lines: string[] = []
-  const author = comment.author || (isEditable ? username : "unknown")
+  const author = (comment.author || (isEditable ? username : "unknown")).replace(/^@/, "")
   const time = formatRelativeTime(comment.createdAt)
   const status = getStatusText(comment)
   
@@ -301,39 +343,107 @@ function buildCommentFileContent(options: EditorOptions): string {
   lines.push(MARKER_COMMENT_END)
   lines.push("")
   
-  // Thread section (if there are existing comments)
+  lines.push(...buildContextSections(options, true))
+
+  return lines.join("\n")
+}
+
+/**
+ * The sections below the write-your-comment marker: the anchor header,
+ * the existing thread, a few diff rows around the anchor, and the whole
+ * file diff. Shared by the `C`/`E` buffer and the composer's Ctrl-g
+ * hand-off so both routes carry the same context.
+ *
+ * `editableThread` gates the `edit:<id>` markers — only the `C` route
+ * reads thread edits back, so the Ctrl-g buffer renders every comment
+ * read-only rather than silently dropping edits made there.
+ */
+function buildContextSections(options: EditorOptions, editableThread: boolean): string[] {
+  const lines: string[] = []
+  const username = options.username || "@you"
+  const thread = options.thread || []
+
+  lines.push(MARKER_ANCHOR)
+  lines.push("")
+  lines.push(`- **File:** \`${options.filePath}\`` +
+    (options.changeStatus ? ` (${options.changeStatus})` : ""))
+  lines.push(`- **Line:** ${options.line}` + (options.side ? ` (${options.side})` : ""))
+  if (options.anchorLine) {
+    lines.push(`- **Code:** ${inlineCode(options.anchorLine)}`)
+  }
+  lines.push("")
+
   if (thread.length > 0) {
     lines.push(MARKER_THREAD)
     lines.push("")
-    
+
     for (const comment of thread) {
       // Your own comments are editable (local, pending, or synced with local edits)
       const isYours = comment.author === username || !comment.author
-      const isEditable = isYours
+      const isEditable = editableThread && isYours
       const isReply = comment.inReplyTo !== undefined
       const indent = isReply ? "    " : ""  // 4 spaces for reply indent
-      
+
       lines.push(...buildThreadComment(comment, username, isEditable, indent))
     }
   }
-  
-  // Context section (3 lines around target) in a diff code block
-  const contextHunk = extractContextHunk(options.diffContent, options.line, 3)
+
+  // Context section (a few rows around the anchor) in a diff code block
+  const contextHunk =
+    options.contextHunk ?? extractContextHunk(options.diffContent, options.line, 3)
   if (contextHunk.trim()) {
     lines.push(MARKER_CONTEXT)
     lines.push("")
     lines.push("```diff")
-    lines.push(contextHunk)
+    lines.push(contextHunk.trimEnd())
     lines.push("```")
     lines.push("")
   }
-  
+
   // Full change section in a diff code block
-  lines.push(MARKER_FULL_CHANGE)
+  const fullDiff = options.fullDiff ?? options.diffContent
+  if (fullDiff.trim()) {
+    lines.push(MARKER_FULL_CHANGE)
+    lines.push("")
+    lines.push("```diff")
+    lines.push(fullDiff.trimEnd())
+    lines.push("```")
+  }
+
+  return lines
+}
+
+/**
+ * Buffer for the composer's Ctrl-g hand-off: the in-progress draft on
+ * top, everything riff knows about the anchor below it. Only the text
+ * above the marker flows back into the composer.
+ */
+function buildDraftFileContent(initial: string, context: DraftEditorContext): string {
+  const lines: string[] = []
+
+  lines.push(initial)
   lines.push("")
-  lines.push("```diff")
-  lines.push(options.diffContent)
-  lines.push("```")
+  lines.push(MARKER_COMMENT_END)
+  lines.push("<!-- Everything below is context from riff and is discarded on save. -->")
+  lines.push("")
+
+  lines.push(
+    ...buildContextSections(
+      {
+        diffContent: context.fullDiff ?? "",
+        filePath: context.filePath,
+        line: context.line,
+        side: context.side,
+        thread: context.thread,
+        username: context.username,
+        contextHunk: context.contextHunk,
+        fullDiff: context.fullDiff,
+        anchorLine: context.anchorLine,
+        changeStatus: context.changeStatus,
+      },
+      false,
+    ),
+  )
 
   return lines.join("\n")
 }
@@ -371,6 +481,7 @@ export function parseEditorOutput(content: string): EditorResult {
   const commentEndIdx = content.indexOf(MARKER_COMMENT_END)
   
   // Find section markers
+  const anchorIdx = content.indexOf(MARKER_ANCHOR)
   const threadIdx = content.indexOf(MARKER_THREAD)
   const contextIdx = content.indexOf(MARKER_CONTEXT)
   const fullChangeIdx = content.indexOf(MARKER_FULL_CHANGE)
@@ -381,7 +492,7 @@ export function parseEditorOutput(content: string): EditorResult {
     replyEndIdx = commentEndIdx
   } else {
     // Fallback: find the earliest section marker
-    const markers = [threadIdx, contextIdx, fullChangeIdx].filter(i => i !== -1)
+    const markers = [anchorIdx, threadIdx, contextIdx, fullChangeIdx].filter(i => i !== -1)
     replyEndIdx = markers.length > 0 ? Math.min(...markers) : content.length
   }
   
@@ -471,15 +582,23 @@ export async function openCommentEditor(
  * escape hatch (Ctrl-g) so a long or structured comment can be written
  * with full editor power and pulled back into the textarea.
  *
+ * With `context`, the buffer also carries the anchor header, thread and
+ * diff that the `C` route shows — writing a comment in nvim shouldn't
+ * mean writing it blind. Everything below the marker is discarded on
+ * read-back, so the draft stays the only thing the composer receives.
+ *
  * Returns the edited content (trailing newline trimmed) on save, or
  * `null` if the editor exited with an error. An empty buffer is a valid
  * result (the user cleared the draft), not a cancel.
  */
-export async function openTextInEditor(initial: string): Promise<string | null> {
+export async function openTextInEditor(
+  initial: string,
+  context?: DraftEditorContext
+): Promise<string | null> {
   const editor = process.env.EDITOR || process.env.VISUAL || "nvim"
 
   const tmpFile = join(tmpdir(), `riff-draft-${randomUUID()}.md`)
-  await Bun.write(tmpFile, initial)
+  await Bun.write(tmpFile, context ? buildDraftFileContent(initial, context) : initial)
 
   const proc = Bun.spawn([editor, tmpFile], {
     stdin: "inherit",
@@ -505,6 +624,8 @@ export async function openTextInEditor(initial: string): Promise<string | null> 
 
   const editedContent = await Bun.file(tmpFile).text()
   await cleanup()
+
+  if (context) return parseEditorOutput(editedContent).newReply
 
   return editedContent.replace(/\n+$/, "")
 }

@@ -108,7 +108,7 @@ export class DiffLineMapping {
   /**
    * Find visual line for a comment (reverse lookup)
    */
-  findLineForComment(comment: Comment): number | null {
+  findLineForComment(comment: Pick<Comment, "filename" | "line" | "side">): number | null {
     for (let i = 0; i < this.lines.length; i++) {
       const line = this.lines[i]!
       if (line.filename === comment.filename) {

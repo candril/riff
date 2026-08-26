@@ -295,7 +295,7 @@ function renderMentionPicker(
           content: i === selected ? "▸ " : "  ",
           fg: i === selected ? theme.blue : theme.overlay0,
         }),
-        Text({ content: `@${name}`, fg: theme.text })
+        Text({ content: displayAuthor(name), fg: theme.text })
       )
     ),
     Box(
@@ -305,6 +305,15 @@ function renderMentionPicker(
       Text({ content: "Esc dismiss", fg: theme.overlay0 })
     )
   )
+}
+
+/**
+ * Comments written offline are stored with the placeholder author `@you`,
+ * already `@`-prefixed, while GitHub logins are bare. Prefixing blindly
+ * rendered the local ones as `@@you`.
+ */
+function displayAuthor(author: string): string {
+  return author.startsWith("@") ? author : `@${author}`
 }
 
 export function InlineCommentOverlay({
@@ -536,7 +545,7 @@ export function InlineCommentOverlay({
                     !isRoot
                       ? Text({ content: connector, fg: colors.textDim })
                       : null,
-                    Text({ content: `@${author}`, fg: theme.blue }),
+                    Text({ content: displayAuthor(author), fg: theme.blue }),
                     Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
                     Text({ content: ` [${comment.status}]`, fg: statusColor }),
                     comment.localEdit !== undefined
@@ -580,10 +589,16 @@ export function InlineCommentOverlay({
             })
           ),
 
-      // Inline composer (compose / edit modes).
+      // Inline composer (compose / edit modes). `flexShrink: 0` — the
+      // thread viewport above has a huge flex basis (its inner stack
+      // never shrinks), and Yoga spreads the overflow across every
+      // shrinkable sibling by basis, so without this the composer lost
+      // rows too: its label row collapsed onto the textarea (label and
+      // placeholder glyphs interleaved) and its bottom edge slid under
+      // the footer.
       isComposing
         ? Box(
-            { flexDirection: "column", paddingX: 2, paddingY: 1 },
+            { flexDirection: "column", paddingX: 2, paddingY: 1, flexShrink: 0 },
             CommentComposer({
               mode: mode === "edit" ? "edit" : "compose",
               label: composerLabel,
@@ -608,7 +623,8 @@ export function InlineCommentOverlay({
       },
       isComposing
         ? renderHintRow([
-            ["Ctrl-s", "save"],
+            ["Enter", "save"],
+            ["Ctrl-p", "save & publish"],
             ["Ctrl-j", "newline"],
             ["Esc", "cancel"],
           ])

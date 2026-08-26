@@ -67,31 +67,29 @@ export async function initializeAppState(options: InitOptions): Promise<{
   const source =
     mode === "pr" && prInfo ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}` : target ?? "local"
 
-  // Get diff content
-  let rawDiff = ""
-  let description = ""
-  let error: string | null = null
-  let comments: Comment[] = []
+  const isPreloadedPr = mode === "pr" && preloadedDiff !== undefined
 
-  if (mode === "pr" && preloadedDiff !== undefined) {
-    rawDiff = preloadedDiff
-    description = prInfo ? `#${prInfo.number}: ${prInfo.title}` : "Pull Request"
-    comments = preloadedComments ?? []
-  } else {
-    try {
-      rawDiff = await getLocalDiff(target)
-      description = await getDiffDescription(target)
-    } catch (err) {
-      error = err instanceof Error ? err.message : "Unknown error"
-    }
-    comments = await loadComments(source)
-  }
+  // Nothing below depends on anything else below, and in local mode each
+  // entry costs a process spawn — so ask for all of it at once.
+  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses] =
+    await Promise.all([
+      isPreloadedPr ? null : loadLocalDiff(target),
+      mode === "local" ? getBranchInfo(target) : null,
+      mode === "local" ? getLocalCommits(target).catch(() => []) : null,
+      isPreloadedPr ? null : loadComments(source),
+      loadOrCreateSession(source),
+      loadViewedStatuses(source),
+    ])
 
-  // Get branch info for local mode
-  let branchInfo: string | null = null
-  if (mode === "local") {
-    branchInfo = await getBranchInfo(target)
-  }
+  const rawDiff = isPreloadedPr ? preloadedDiff! : localDiff!.diff
+  const description = isPreloadedPr
+    ? prInfo
+      ? `#${prInfo.number}: ${prInfo.title}`
+      : "Pull Request"
+    : localDiff!.description
+  const error = isPreloadedPr ? null : localDiff!.error
+  const comments = isPreloadedPr ? preloadedComments ?? [] : loadedComments!
+  const branchInfo = localBranchInfo
 
   // Parse diff and build tree
   const files = sortFiles(parseDiff(rawDiff))
@@ -101,27 +99,18 @@ export async function initializeAppState(options: InitOptions): Promise<{
   const config = loadConfig()
   const ignoreMatcher = new IgnoreMatcher(config.ignore.patterns)
 
-  // Load or create session
-  const session = await loadOrCreateSession(source)
-
   // Initialize state (with ignore matcher)
   let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null, ignoreMatcher)
 
   // Set branch info for local mode
   state = { ...state, branchInfo }
 
-  // Load commits for the diff range
+  // Commits for the diff range: PR mode gets them with the rest of the PR,
+  // local mode enumerated them above.
   if (mode === "pr" && prInfo?.commits && prInfo.commits.length > 0) {
-    // PR mode: commits already available from prInfo (loaded via getPrExtendedInfo or getPrInfo)
     state = { ...state, commits: prInfo.commits }
-  } else if (mode === "local") {
-    // Local mode: enumerate commits from git/jj
-    try {
-      const commits = await getLocalCommits(target)
-      state = { ...state, commits }
-    } catch {
-      // Silently ignore — commits just won't be available
-    }
+  } else if (localCommits) {
+    state = { ...state, commits: localCommits }
   }
 
   // Collapse resolved threads by default
@@ -129,7 +118,6 @@ export async function initializeAppState(options: InitOptions): Promise<{
   state = collapseResolvedThreads(state, threads)
 
   // Load viewed file statuses (merge local + GitHub)
-  const localViewedStatuses = await loadViewedStatuses(source)
   state = loadFileStatuses(state, localViewedStatuses)
 
   // In PR mode, merge GitHub viewed statuses
@@ -178,6 +166,28 @@ export async function initializeAppState(options: InitOptions): Promise<{
   }
 
   return { state, source, headSha: headSha ?? "" }
+}
+
+/**
+ * The local diff and its description, with a failure to read either surfaced
+ * as state rather than thrown — riff still opens, showing the error.
+ */
+async function loadLocalDiff(
+  target: string | undefined
+): Promise<{ diff: string; description: string; error: string | null }> {
+  try {
+    const [diff, description] = await Promise.all([
+      getLocalDiff(target),
+      getDiffDescription(target),
+    ])
+    return { diff, description, error: null }
+  } catch (err) {
+    return {
+      diff: "",
+      description: "",
+      error: err instanceof Error ? err.message : "Unknown error",
+    }
+  }
 }
 
 /**

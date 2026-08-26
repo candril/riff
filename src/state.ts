@@ -2134,6 +2134,39 @@ export function toggleInlineCommentOverlayExpand(state: AppState, threadId: stri
   }
 }
 
+/**
+ * Select a specific comment in the overlay — used after saving a draft so
+ * the highlight lands on what was just written instead of staying where
+ * the user happened to be. A reply inside a collapsed thread isn't in the
+ * display order, so its thread root is selected instead: that's the row
+ * actually on screen.
+ */
+export function highlightInlineComment(state: AppState, commentId: string): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+
+  const derived = getInlineCommentOverlayDisplayOrder(state)
+  let next = derived.findIndex((c) => c.id === commentId)
+  if (next === -1) {
+    const thread = groupIntoThreads(getInlineCommentOverlayComments(state)).find((t) =>
+      t.comments.some((c) => c.id === commentId)
+    )
+    const rootId = thread?.comments[0]?.id
+    if (rootId) next = derived.findIndex((c) => c.id === rootId)
+  }
+  if (next === -1) return state
+
+  const highlighted = derived[next]
+  const reactionTarget: ReactionTarget | null = highlighted?.githubId
+    ? { kind: "review-comment", githubId: highlighted.githubId }
+    : null
+  return {
+    ...state,
+    inlineCommentOverlay: { ...ov, highlightedIndex: next },
+    reactionTarget,
+  }
+}
+
 export function moveInlineCommentOverlayHighlight(state: AppState, delta: number): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state

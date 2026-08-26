@@ -149,12 +149,24 @@ export function SyncPreview({ items, state }: SyncPreviewProps) {
         Text({ content: "esc", fg: theme.overlay0 })
       ),
       
-      // Content
+      // Content. The two-box split is the same viewport trick
+      // `InlineCommentOverlay` uses: the outer box clips, the inner one
+      // keeps every row at its natural height. Without `flexShrink: 0`
+      // the modal's `maxHeight` makes the flex column compress each item
+      // below its content height, and its location/body Texts land on the
+      // same row — legible as interleaved characters, not as a scroll.
       Box(
         {
           flexDirection: "column",
+          overflow: "hidden",
+          flexShrink: 1,
           paddingX: 2,
           paddingY: 1,
+        },
+        Box(
+        {
+          flexDirection: "column",
+          flexShrink: 0,
           gap: 1,
         },
         
@@ -260,8 +272,9 @@ export function SyncPreview({ items, state }: SyncPreviewProps) {
             })
           ))
         ) : null
+        )
       ),
-      
+
       // Footer
       Box(
         {

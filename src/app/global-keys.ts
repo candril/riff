@@ -13,6 +13,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
+import { getSelectionRange, exitVisualMode } from "../vim-diff/cursor-state"
 import type { VimDiffView } from "../components"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -327,9 +328,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           )
         },
         openDraftInEditor: async (current) => {
+          const s = ctx.getState()
+          const username =
+            (s.appMode === "pr" && ctx.commentsContext.getCachedCurrentUser()) || "@you"
+          const context = inlineCommentOverlay.buildComposerEditorContext(
+            s,
+            ctx.getLineMapping(),
+            username
+          )
           ctx.externalToolsContext.suspendRenderer()
           try {
-            return await openTextInEditor(current)
+            return await openTextInEditor(current, context)
           } finally {
             ctx.externalToolsContext.resumeRenderer()
           }
@@ -900,11 +909,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         const s = ctx.getState()
         const lineMapping = ctx.getLineMapping()
         const vimState = ctx.getVimState()
-        const anchor = lineMapping.getCommentAnchor(vimState.line)
+        // A visual-line selection anchors on the first commentable line
+        // it covers — the same rule `handleAddComment` uses for `C`, so
+        // both routes land the comment in the same place.
+        const [scanStart, scanEnd] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
+        let anchor = lineMapping.getCommentAnchor(scanStart)
+        for (let i = scanStart; i <= scanEnd && !anchor; i++) {
+          anchor = lineMapping.getCommentAnchor(i)
+        }
         if (!anchor) {
           // Say why rather than no-op: an expanded line looks exactly as
           // commentable as any other, so silence reads as a broken key.
-          if (mode === "compose" && lineMapping.isOutsideDiff(vimState.line)) {
+          let outsideDiff = false
+          for (let i = scanStart; i <= scanEnd && !outsideDiff; i++) {
+            outsideDiff = lineMapping.isOutsideDiff(i)
+          }
+          if (mode === "compose" && outsideDiff) {
             ctx.setState((st) =>
               showToast(
                 st,
@@ -933,8 +953,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           if (!hasRoot) return false
         }
 
+        // The selection has served its purpose; leave visual mode so the
+        // highlight doesn't linger behind the composer.
+        if (vimState.mode === "visual-line") {
+          ctx.setVimState(exitVisualMode(vimState))
+        }
+
         ctx.setState((st) =>
-          openInlineCommentOverlay(st, anchor.filename, anchor.line, anchor.side, mode)
+          openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode)
         )
         ctx.render()
         return true

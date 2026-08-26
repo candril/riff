@@ -26,8 +26,12 @@ export interface CommentComposerProps {
   renderer: CliRenderer
 }
 
-const PLACEHOLDER_COMPOSE = "Type a comment… (Ctrl-s to save, Esc to cancel)"
-const PLACEHOLDER_EDIT = "Edit comment… (Ctrl-s to save, Esc to cancel)"
+// Save/publish/newline/cancel hints live in the overlay footer; only
+// Ctrl-g is named here because the footer has no room for it at the
+// default panel width. Keep these short — the textarea is ~50 columns
+// and a wrapped placeholder eats the typing area.
+const PLACEHOLDER_COMPOSE = "Type a comment… (Ctrl-g for $EDITOR)"
+const PLACEHOLDER_EDIT = "Edit comment… (Ctrl-g for $EDITOR)"
 
 /**
  * Activity callback shape — fires after every content or cursor change
@@ -159,9 +163,11 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
       borderStyle: "single",
       borderColor: theme.blue,
     },
+    // `height: 1` so the row keeps its line under flex pressure — without
+    // it the label collapses to zero rows and paints over the textarea.
     label
       ? Box(
-          { flexDirection: "row", paddingX: 1 },
+          { flexDirection: "row", height: 1, paddingX: 1 },
           Text({ content: label, fg: theme.blue })
         )
       : null,
@@ -173,13 +179,6 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
         minHeight: 3,
       },
       textarea
-    ),
-    Box(
-      { flexDirection: "row", paddingX: 1 },
-      Text({
-        content: "Ctrl-s save · Ctrl-g $EDITOR · Esc cancel",
-        fg: theme.overlay0,
-      })
     )
   )
 }

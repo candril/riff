@@ -8,8 +8,9 @@
  *    `x` resolve, `S` submit, `Ctrl-n`/`Ctrl-p` adjacent thread,
  *    `Ctrl-p` falls through (palette). `Esc` closes.
  *  - **compose / edit**: char input flows into `state.inlineCommentOverlay.input`.
- *    `Ctrl-s` flushes the draft (delegating to handlers); `Ctrl-j`
- *    inserts a newline; `Esc` cancels back to view mode.
+ *    `Enter` / `Ctrl-s` flush the draft (delegating to handlers);
+ *    `Ctrl-p` (and `Ctrl-Enter`) flush it and push it to GitHub;
+ *    `Ctrl-j` inserts a newline; `Esc` cancels back to view mode.
  *
  * Heavy lifting (delete / submit / resolve / adjacent jump / `$EDITOR`
  * reply / `$EDITOR` edit) is delegated through the context so this
@@ -421,18 +422,35 @@ function handleComposerInput(
     return true
   }
 
-  // Ctrl-s — submit. Pull the textarea's live value into state first so
-  // the submit handlers (which still read `ov.input`) see what the user
-  // actually typed.
-  if (key.ctrl && key.name === "s") {
+  // Enter / Ctrl-s save the draft locally; Ctrl-p ("post") saves and
+  // pushes it to GitHub in one keystroke. Ctrl-J stays the newline.
+  // Enter can afford to be the save key here because saving is local —
+  // publishing is the deliberate chord, not the bare one.
+  //
+  // Ctrl-Enter is bound to publish as well, but only terminals sending
+  // the kitty `CSI 13;5u` form deliver it; tmux drops the modifier
+  // unless `extended-keys on`, and it then arrives indistinguishable
+  // from a bare Enter and silently degrades to save-only. Ctrl-p is a
+  // plain control byte, so it survives every terminal and multiplexer —
+  // that's the one the hint rows name.
+  //
+  // Ctrl-p doesn't collide with the command palette: the palette is
+  // unreachable from compose mode, which swallows everything it doesn't
+  // handle, and the textarea binds no Ctrl-p of its own.
+  //
+  // preventDefault keeps the textarea from turning Enter into a newline.
+  // The live textarea value goes into state first so the submit handlers
+  // (which still read `ov.input`) see what the user actually typed.
+  const publish = (key.ctrl && key.name === "p") || (key.ctrl && key.name === "return")
+  const saveChord = publish || (key.ctrl && key.name === "s") || key.name === "return"
+  if (saveChord) {
     key.preventDefault()
     const value = readComposerValue()
     ctx.setState((s) => setInlineCommentInput(s, value))
-    if (ov.mode === "edit") {
-      void submitInlineEditDraft(ctx)
-    } else {
-      void submitInlineDraft(ctx)
-    }
+    const saving = ov.mode === "edit" ? submitInlineEditDraft(ctx) : submitInlineDraft(ctx)
+    void saving.then((saved) => {
+      if (publish && saved) ctx.handleSubmit(saved)
+    })
     return true
   }
 

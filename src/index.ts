@@ -2,7 +2,7 @@
 // This allows the tree-sitter worker to be found in compiled binaries
 
 import { createApp } from "./app"
-import { loadPrSession, type PrInfo } from "./providers/github"
+import { getCurrentRepo, loadPrSession } from "./providers/github"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { resolveStorageWithConfirmation } from "./storage"
 import * as readline from "readline"
@@ -99,9 +99,10 @@ const HELP_TEXT = `
     i                         Show PR info panel
 
     \x1b[1mActions\x1b[0m
-    Space                     Open action picker
-    R                         Refresh data from source
-    Ctrl+s                    Submit pending comments to GitHub
+    Ctrl+p                    Open command palette
+    gr                        Refresh data from source
+    gS                        Submit review (Enter submits, Ctrl-J newline)
+    gs                        Sync edits/replies to GitHub
     ?                         Show help
     q                         Quit
 
@@ -292,17 +293,23 @@ async function main() {
         console.log("Resolving PR for current branch...")
         args.prNumber = await resolveCurrentPr()
       }
-      // Fetch PR and persist comments to markdown files
+
+      // Settle storage before fetching: the confirmation prompt is answered
+      // up front rather than after a wait, and the resolved path is cached
+      // for the comment files the fetch is about to write.
+      const { owner, repo } =
+        args.owner && args.repo
+          ? { owner: args.owner, repo: args.repo }
+          : await getCurrentRepo()
+      const source = `gh:${owner}/${repo}#${args.prNumber}`
+      await confirmStorageLocation(source)
+
       console.log(`Fetching PR #${args.prNumber}...`)
       const { prInfo, diff, comments, viewedStatuses, headSha } = await loadPrSession(
         args.prNumber!,
-        args.owner,
-        args.repo
+        owner,
+        repo
       )
-
-      // Build source identifier and confirm storage location
-      const source = `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
-      await confirmStorageLocation(source)
 
       await createApp({
         mode: "pr",

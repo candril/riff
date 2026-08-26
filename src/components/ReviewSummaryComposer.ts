@@ -18,7 +18,7 @@ import { TextareaRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
 
-const PLACEHOLDER = "Summary (optional) — Ctrl-s to submit, Esc to cancel"
+const PLACEHOLDER = "Summary (optional) — Enter to submit, Ctrl-J for a newline, Esc to cancel"
 
 let composerInstance: TextareaRenderable | null = null
 let lastSyncKey: string | null = null

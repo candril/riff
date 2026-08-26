@@ -4,7 +4,7 @@
  * Controls:
  * - 1/2/3 (in comments section): Select review type
  * - Tab: Toggle between summary and comments
- * - Ctrl-s: Submit
+ * - Enter / Ctrl-s: Submit
  * - j/k, Space (in comments section): Navigate and toggle comments
  *
  * The summary input is an OpenTUI `TextareaRenderable` (singleton in
@@ -243,14 +243,14 @@ export function ReviewPreview({
           ? Text({ content: "Submitting...", fg: theme.yellow })
           : state.error 
             ? Text({ content: state.error, fg: theme.red })
-              : Text({ content: hint || "Tab: switch · Ctrl-s: submit", fg: hint ? theme.yellow : theme.overlay0 }),
+              : Text({ content: hint || "Tab: switch · Enter: submit", fg: hint ? theme.yellow : theme.overlay0 }),
         Box(
           {
             paddingX: 2,
             backgroundColor: submitAllowed && !state.loading ? selectedColor : theme.surface1,
           },
           Text({
-            content: "Ctrl-s",
+            content: "Enter",
             fg: submitAllowed && !state.loading ? theme.base : theme.overlay0,
           })
         )
