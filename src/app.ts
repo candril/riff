@@ -44,6 +44,7 @@ import * as aiReview from "./features/ai-review"
 import * as permalink from "./features/permalink"
 import { startMentionPrefetch } from "./features/mentions"
 import * as yank from "./features/yank"
+import * as jumplist from "./features/jumplist"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
@@ -56,6 +57,8 @@ import type { ReactionTarget } from "./types"
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler } from "./vim-diff/motion-handler"
 import { createSearchState, type SearchState } from "./vim-diff/search-state"
+import { createFlashState, type FlashState } from "./vim-diff/flash-state"
+import { FlashHandler } from "./vim-diff/flash-handler"
 import { SearchHandler } from "./vim-diff/search-handler"
 import { createCursorState } from "./vim-diff/cursor-state"
 import type { DiffLineMapping } from "./vim-diff/line-mapping"
@@ -98,6 +101,7 @@ export async function createApp(options: AppOptions = {}) {
   let state: AppState = initialState
   let vimState: VimCursorState = createCursorState()
   let searchState: SearchState = createSearchState()
+  let flashState: FlashState = createFlashState()
   let lineMapping: DiffLineMapping = buildLineMapping(initialState)
   let currentHeadSha = initialHeadSha
   let cachedCurrentUser: string | null = null
@@ -242,6 +246,7 @@ export async function createApp(options: AppOptions = {}) {
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getSearchState: () => searchState,
+    getFlashState: () => flashState,
     getCachedCurrentUser: () => cachedCurrentUser,
     getPrInfoPanel: () => prInfoPanel,
     renderer,
@@ -346,6 +351,21 @@ export async function createApp(options: AppOptions = {}) {
 
   // Assign searchHandler reference for use in createLineMapping
   searchHandlerRef = searchHandler
+
+  const flashHandler = new FlashHandler({
+    getMapping: () => lineMapping,
+    getFlashState: () => flashState,
+    setFlashState: (newState) => { flashState = newState },
+    getCursor: () => vimState,
+    setCursor: (line, col) => {
+      vimState = { ...vimState, line, col, desiredCol: null }
+      ensureCursorVisible()
+      vimDiffView.updateCursor(vimState)
+    },
+    getVisibleRegion: () => vimDiffView.getVisibleRegion(),
+    recordJump: () => { state = jumplist.pushCurrent(state, vimState) },
+    onUpdate: () => { render() },
+  })
 
   // ===== EXPAND DIVIDER =====
   async function handleExpandDivider(): Promise<boolean> {
@@ -888,12 +908,14 @@ export async function createApp(options: AppOptions = {}) {
     getLineMapping: () => lineMapping,
     rebuildLineMapping: createLineMapping,
     getSearchState: () => searchState,
+    getFlashState: () => flashState,
     renderer,
     vimDiffView,
     fileTreePanel,
     getPrInfoPanel: () => prInfoPanel,
     vimHandler,
     searchHandler,
+    flashHandler,
     render,
     quit,
     ensureCursorVisible,

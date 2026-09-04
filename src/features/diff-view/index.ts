@@ -7,6 +7,7 @@
  * - V for visual line mode
  * - v for toggle viewed
  * - / ? * # n N for search
+ * - s for flash jump
  * - S for submit comment
  * - Enter for divider expansion
  */

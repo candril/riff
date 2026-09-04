@@ -18,6 +18,7 @@ import {
   CommitPicker,
   SyncPreview,
   SearchPrompt,
+  FlashPrompt,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -42,6 +43,7 @@ import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
+import type { FlashState } from "../vim-diff/flash-state"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
@@ -58,6 +60,7 @@ export interface RenderContext {
   getVimState: () => VimCursorState
   getLineMapping: () => DiffLineMapping
   getSearchState: () => SearchState
+  getFlashState: () => FlashState
   getCachedCurrentUser: () => string | null
   /** Returns the persistent PRInfoPanel instance (PR mode only; null in local mode). */
   getPrInfoPanel: () => PRInfoPanelClass | null
@@ -78,6 +81,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const vimState = ctx.getVimState()
     const lineMapping = ctx.getLineMapping()
     const searchState = ctx.getSearchState()
+    const flashState = ctx.getFlashState()
+
+    ctx.vimDiffView.setFlashState(flashState)
 
     const selectedFile = getSelectedFile(state)
     const visibleComments = getVisibleComments(state)
@@ -263,9 +269,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           },
           content
         ),
-        (searchState.active || searchState.pattern) && state.viewMode === "diff"
-          ? SearchPrompt({ searchState })
-          : null,
+        flashState.active && state.viewMode === "diff"
+          ? FlashPrompt({ flashState })
+          : (searchState.active || searchState.pattern) && state.viewMode === "diff"
+            ? SearchPrompt({ searchState })
+            : null,
         StatusBar({
           searchInfo:
             searchState.pattern && state.viewMode === "diff"

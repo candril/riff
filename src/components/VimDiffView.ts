@@ -17,7 +17,9 @@ import {
   RGBA,
   BoxRenderable,
   TextRenderable,
+  TextAttributes,
   type CliRenderer,
+  type OptimizedBuffer,
   type ScrollBoxRenderable,
   type LineColorConfig,
   type LineSign,
@@ -29,6 +31,8 @@ import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
 import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-state"
+import type { FlashState } from "../vim-diff/flash-state"
+import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange } from "../vim-diff/cursor-state"
 
 // Shared syntax style for diff rendering
@@ -111,6 +115,42 @@ function lineColToOffset(
 // Default background color (must provide both gutter and content to avoid Bun crash)
 const defaultBg = theme.base
 
+const SPACE_CODE_POINT = 32
+
+/** How far flash's backdrop pulls text towards the background it sits on. */
+const FLASH_BACKDROP_STRENGTH = 0.7
+const flashMatchFg = RGBA.fromHex(theme.text)
+const flashMatchBg = RGBA.fromHex(theme.surface1)
+const flashLabelFg = RGBA.fromHex(theme.base)
+const flashLabelBg = RGBA.fromHex(theme.red)
+
+/**
+ * Fade a run of cells towards their own background, leaving the background
+ * itself alone — the diff's add/delete tinting stays readable underneath.
+ */
+function dimCells(buffer: OptimizedBuffer, y: number, fromX: number, toX: number): void {
+  const { fg, bg } = buffer.buffers
+  for (let x = fromX; x < toX; x++) {
+    const i = (y * buffer.width + x) * 4
+    for (let channel = 0; channel < 3; channel++) {
+      const at = i + channel
+      fg[at] = fg[at]! + (bg[at]! - fg[at]!) * FLASH_BACKDROP_STRENGTH
+    }
+  }
+}
+
+/**
+ * Repaint a cell in new colors, keeping the glyph the renderer already put
+ * there. Reading the glyph back beats re-deriving it from the line mapping:
+ * whatever is on screen is what gets highlighted.
+ */
+function recolorCell(buffer: OptimizedBuffer, x: number, y: number, fg: RGBA, bg: RGBA): void {
+  const { char, attributes } = buffer.buffers
+  const i = y * buffer.width + x
+  const glyph = char[i]!
+  buffer.drawChar(glyph === 0 ? SPACE_CODE_POINT : glyph, x, y, fg, bg, attributes[i]!)
+}
+
 /**
  * Represents a file section in all-files mode
  * Each section gets its own CodeRenderable for proper syntax highlighting
@@ -122,9 +162,22 @@ interface FileSection {
   startLine: number  // global visual line index (inclusive)
   endLine: number    // global visual line index (inclusive)
   lineCount: number  // number of lines in this section (content only, excludes header)
+  maxLineNumber: number  // largest source line number in the section (gutter width)
   additions: number
   deletions: number
   collapsed: boolean  // whether this file is collapsed (fold closed)
+}
+
+/**
+ * One rendered row of the diff, resolved to screen coordinates.
+ */
+interface VisibleRow {
+  /** Visual line index, or -1 for a row that holds no mapping line */
+  line: number
+  /** 0-indexed terminal row */
+  screenY: number
+  /** 0-indexed terminal column where the line's content starts */
+  contentX: number
 }
 
 /**
@@ -184,6 +237,7 @@ export class VimDiffView {
   private fileStatuses: Map<string, FileReviewStatus> = new Map()
   private loadingFiles: Set<string> = new Set()
   private searchState: SearchState | null = null
+  private flashState: FlashState | null = null
   
   // Last cursor position for highlight removal
   private lastCursorLine: number = -1
@@ -253,7 +307,7 @@ export class VimDiffView {
     this.lastRendererHeight = this.renderer.height
     
     // Register post-process function to position cursor after each render
-    this.cursorPostProcess = () => {
+    this.cursorPostProcess = (buffer) => {
       // Check if renderer dimensions changed (resize occurred)
       if (this.renderer.width !== this.lastRendererWidth ||
           this.renderer.height !== this.lastRendererHeight) {
@@ -273,7 +327,12 @@ export class VimDiffView {
         this.pendingCursorReveal = false
         this.onContentRebuilt?.()
       }
+      // Read the scroll position before positionTerminalCursor consumes
+      // `expectedScrollTop` — the flash overlay has to line up with the
+      // cursor, so both must resolve the viewport the same way.
+      const scrollTop = this.expectedScrollTop ?? this.scrollBox?.scrollTop ?? 0
       this.positionTerminalCursor()
+      this.renderFlashOverlay(buffer, scrollTop)
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
   }
@@ -507,6 +566,7 @@ export class VimDiffView {
           startLine: i + 1,  // Content starts after header
           endLine: i + 1,    // Will be updated
           lineCount: 0,
+          maxLineNumber: 0,
           additions: file?.additions ?? 0,
           deletions: file?.deletions ?? 0,
           collapsed: line.isCollapsed ?? false,
@@ -520,7 +580,17 @@ export class VimDiffView {
       currentSection.lineCount = currentSection.endLine - currentSection.startLine + 1
       sections.push(currentSection)
     }
-    
+
+    for (const section of sections) {
+      for (let i = section.startLine; i <= section.endLine; i++) {
+        const line = this.lineMapping.getLine(i)
+        const lineNum = line?.newLineNum ?? line?.oldLineNum
+        if (lineNum !== undefined && lineNum > section.maxLineNumber) {
+          section.maxLineNumber = lineNum
+        }
+      }
+    }
+
     return sections
   }
 
@@ -1207,6 +1277,189 @@ export class VimDiffView {
   }
 
   /**
+   * Set flash jump state. Null (or an inactive state) removes the overlay.
+   */
+  setFlashState(flashState: FlashState | null): void {
+    const next = flashState?.active ? flashState : null
+    if (next === this.flashState) return
+    this.flashState = next
+    this.renderer.requestRender()
+  }
+
+  /**
+   * The slice of the diff currently on screen, for flash to search.
+   * Returns null when there is nothing rendered yet.
+   */
+  getVisibleRegion(): FlashRegion | null {
+    if (!this.scrollBox) return null
+
+    const scrollTop = this.expectedScrollTop ?? this.scrollBox.scrollTop
+    const rows = this.visibleRows(scrollTop)
+    if (rows.length === 0) return null
+
+    // The gutter is per-file in all-files mode, so the widest one bounds the
+    // column window that is certainly on screen for every visible row.
+    const widestGutter = Math.max(...rows.map((row) => row.contentX))
+    const scrollLeft = this.scrollBox.scrollLeft
+
+    return {
+      lines: rows.map((row) => row.line).filter((line) => line >= 0),
+      startCol: scrollLeft,
+      endCol: scrollLeft + Math.max(0, this.renderer.width - widestGutter),
+    }
+  }
+
+  /**
+   * Terminal column where a section's content starts, ignoring horizontal
+   * scroll (callers subtract `scrollLeft` themselves).
+   *
+   * Read off the CodeRenderable rather than re-derived from the gutter
+   * width: `.x` is absolute and already includes the scroll translate, so
+   * adding `scrollLeft` back recovers the unscrolled origin. Recomputing
+   * the gutter drifts from what OpenTUI actually laid out — it uses the
+   * renderable's own `virtualLineCount` and sign widths, which riff can
+   * only approximate — and every column on screen shifts with it.
+   */
+  private contentOriginX(sectionIdx: number | null): number | null {
+    const code = sectionIdx === null
+      ? this.codeRenderable
+      : this.sectionRenderables.get(sectionIdx)?.code
+    if (!code) return null
+    const origin = code.x + (this.scrollBox?.scrollLeft ?? 0)
+    return origin > 0 ? origin : null
+  }
+
+  /**
+   * Fallback content origin for the frames before layout settles, using
+   * OpenTUI's gutter formula: max(minWidth, digits + paddingRight + 1)
+   * plus the sign column.
+   */
+  private estimateContentOriginX(lineCount: number, maxLineNumber: number): number {
+    const maxLineNum = Math.max(lineCount, maxLineNumber)
+    const digits = maxLineNum > 0 ? Math.floor(Math.log10(maxLineNum)) + 1 : 1
+    const gutterWidth = Math.max(this.gutterMinWidth, digits + 1 + 1) + 1
+    return (this.filePanelVisible ? this.filePanelWidth : 0) + gutterWidth
+  }
+
+  /**
+   * Walk the on-screen rows, mapping each back to its visual line and to the
+   * terminal cell where that line's first content column is drawn.
+   * `line` is -1 for rows that hold no mapping line.
+   */
+  private visibleRows(scrollTop: number): VisibleRow[] {
+    if (!this.scrollBox || !this.lineMapping) return []
+
+    const viewportHeight = Math.floor(this.scrollBox.height)
+    if (viewportHeight <= 0) return []
+
+    // The app header owns terminal row 0; the scrollbox starts below it.
+    const headerHeight = 1
+    const rows: VisibleRow[] = []
+
+    const push = (line: number, visualRow: number, contentX: number): void => {
+      const visualLine = visualRow - scrollTop
+      if (visualLine < 0 || visualLine >= viewportHeight) return
+      rows.push({ line, screenY: headerHeight + visualLine, contentX })
+    }
+
+    // Single-file mode: visual rows and mapping lines are 1:1.
+    if (this.fileSections.length === 0) {
+      const contentX = this.contentOriginX(null)
+        ?? this.estimateContentOriginX(this.lineMapping.lineCount, this.maxLineNumber)
+      const first = Math.max(0, scrollTop)
+      const last = Math.min(this.lineMapping.lineCount - 1, scrollTop + viewportHeight - 1)
+      for (let line = first; line <= last; line++) {
+        push(line, line, contentX)
+      }
+      return rows
+    }
+
+    // All-files mode: each section is a header row plus its content rows,
+    // and a collapsed section contributes the header alone.
+    let visualRow = 0
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      if (visualRow - scrollTop >= viewportHeight) break
+      const section = this.fileSections[sectionIdx]!
+
+      const contentRows = section.collapsed
+        ? 0
+        : Math.max(0, section.endLine - section.startLine + 1)
+
+      // Skip whole sections that scrolled off the top rather than walking
+      // their lines — this runs every frame while flash is up.
+      if (visualRow + 1 + contentRows <= scrollTop) {
+        visualRow += 1 + contentRows
+        continue
+      }
+
+      const contentX = this.contentOriginX(sectionIdx)
+        ?? this.estimateContentOriginX(section.lineCount, section.maxLineNumber)
+      push(section.startLine - 1, visualRow, contentX)
+      visualRow++
+
+      for (let line = section.startLine; line < section.startLine + contentRows; line++) {
+        if (visualRow - scrollTop >= viewportHeight) break
+        push(line, visualRow, contentX)
+        visualRow++
+      }
+    }
+
+    return rows
+  }
+
+  /**
+   * Draw flash's backdrop and jump labels straight onto the frame buffer.
+   *
+   * Overlaying here rather than restyling the content keeps the labels off
+   * the CodeRenderable: no rebuild, no re-highlight, and a label can sit on
+   * top of a character without shifting the columns the cursor is measured
+   * against.
+   */
+  private renderFlashOverlay(buffer: OptimizedBuffer, scrollTop: number): void {
+    const flash = this.flashState
+    if (!flash?.active || !this.visible || !this.scrollBox) return
+
+    const rows = this.visibleRows(scrollTop)
+    if (rows.length === 0) return
+
+    const rightEdge = Math.min(buffer.width, this.renderer.width)
+    for (const row of rows) {
+      if (row.screenY >= buffer.height) continue
+      dimCells(buffer, row.screenY, Math.max(0, row.contentX), rightEdge)
+    }
+
+    const rowByLine = new Map(rows.map((row) => [row.line, row]))
+    const scrollLeft = this.scrollBox.scrollLeft
+
+    for (const match of flash.matches) {
+      const row = rowByLine.get(match.line)
+      if (!row || row.screenY >= buffer.height) continue
+
+      for (let col = match.startCol; col < match.endCol; col++) {
+        const x = row.contentX + col - scrollLeft
+        if (x < row.contentX || x >= rightEdge) continue
+        recolorCell(buffer, x, row.screenY, flashMatchFg, flashMatchBg)
+      }
+
+      if (!match.label) continue
+
+      // The label overlays the match's first character — where the cursor
+      // will land. flash.nvim puts it one past the match instead, which
+      // reads as pointing at the wrong character.
+      const labelX = row.contentX + match.startCol - scrollLeft
+      if (labelX < row.contentX || labelX >= rightEdge) continue
+      buffer.setCell(
+        labelX,
+        row.screenY,
+        match.label,
+        flashLabelFg,
+        flashLabelBg,
+        TextAttributes.BOLD
+      )
+    }
+  }
+
+  /**
    * Position the native terminal cursor at the current vim cursor position.
    * Called as a post-process function after each render.
    */
@@ -1267,68 +1520,33 @@ export class VimDiffView {
       return
     }
 
-    // Calculate screen position using layout measurements
-    // 
-    // Layout structure (from top-left):
-    // - Row 1: Header (1 row)
-    // - Row 2+: Main content area containing:
-    //   - Column 1-35: FileTreePanel (when visible)
-    //   - Column 36+: VimDiffView container -> ScrollBox -> LineNumberRenderable -> CodeRenderable
-    // - Last row: StatusBar (1 row)
+    // Screen position:
+    // - Row 0 is the app header, so the scrollbox starts at terminal row 2
+    // - contentOriginX is where the cursor's own section draws column 0
+    // - +1 because terminal coordinates are 1-indexed
     //
-    // The container's position within its parent gives us the X offset
-    // The gutter (LineNumberRenderable) width tells us where code content starts
-    
-    // Header is 1 row, so content starts at terminal row 2
+    // In all-files mode each section has its own gutter width, so the origin
+    // has to come from the section holding the cursor. A file-header line
+    // sits at `startLine - 1`, outside every section's range, and falls back
+    // to the estimate.
     const headerHeight = 1
-    
-    // Get file panel offset from the external state
-    // The container.x is relative to its direct parent, not absolute screen position
-    // So we use the known file panel width from setFilePanelVisible()
-    const filePanelOffset = this.filePanelVisible ? this.filePanelWidth : 0
-    
-    // Calculate gutter width to match OpenTUI's LineNumberRenderable
-    // Formula: max(minWidth, digits + paddingRight + 1) + maxBeforeWidth + maxAfterWidth
-    // 
-    // In all-files mode, each section has its own LineNumberRenderable with its own gutter width.
-    // OpenTUI calculates width from max(virtualLineCount, max(custom line numbers)).
-    // We need to find the section containing the cursor and use its line count.
-    // 
-    // We use: minWidth=gutterMinWidth, paddingRight=1, maxBeforeWidth=1 (sign column), maxAfterWidth=0
-    let sectionLineCount = this.lineMapping?.lineCount ?? 0
-    let sectionMaxLineNum = this.maxLineNumber
-    
-    if (isAllFilesMode) {
-      // Find the section containing the current cursor line
-      const cursorSection = this.fileSections.find(
-        s => line >= s.startLine && line <= s.endLine
+
+    const cursorSectionIdx = isAllFilesMode
+      ? this.fileSections.findIndex(s => line >= s.startLine && line <= s.endLine)
+      : null
+
+    const contentOriginX =
+      (cursorSectionIdx === -1 ? null : this.contentOriginX(cursorSectionIdx))
+      ?? this.estimateContentOriginX(
+        cursorSectionIdx === null || cursorSectionIdx === -1
+          ? this.lineMapping?.lineCount ?? 0
+          : this.fileSections[cursorSectionIdx]!.lineCount,
+        cursorSectionIdx === null || cursorSectionIdx === -1
+          ? this.maxLineNumber
+          : this.fileSections[cursorSectionIdx]!.maxLineNumber
       )
-      if (cursorSection) {
-        // Use section's line count for virtualLineCount
-        sectionLineCount = cursorSection.lineCount
-        // Find max source line number within this section
-        sectionMaxLineNum = 0
-        for (let globalLine = cursorSection.startLine; globalLine <= cursorSection.endLine; globalLine++) {
-          const mappingLine = this.lineMapping?.getLine(globalLine)
-          const lineNum = mappingLine?.newLineNum ?? mappingLine?.oldLineNum
-          if (lineNum !== undefined && lineNum > sectionMaxLineNum) {
-            sectionMaxLineNum = lineNum
-          }
-        }
-      }
-    }
-    
-    const maxLineNum = Math.max(sectionLineCount, sectionMaxLineNum)
-    const digits = maxLineNum > 0 ? Math.floor(Math.log10(maxLineNum)) + 1 : 1
-    const baseWidth = Math.max(this.gutterMinWidth, digits + 1 + 1)  // digits + paddingRight + 1
-    const gutterWidth = baseWidth + 1  // + maxBeforeWidth (sign column)
-    
-    // Screen position calculation:
-    // - filePanelOffset: width of file panel (0 if hidden)
-    // - gutterWidth: width of line number gutter
-    // - visualCol: 0-indexed column in content
-    // - +1: terminal coordinates are 1-indexed
-    const screenX = filePanelOffset + gutterWidth + visualCol + 1
+
+    const screenX = contentOriginX + visualCol + 1
     const screenY = headerHeight + visualLine + 1
 
     // Set terminal cursor to block style and position it

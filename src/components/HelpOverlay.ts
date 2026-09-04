@@ -42,6 +42,7 @@ const HELP_SECTIONS = [
       ["zR / zM", "Expand / collapse all"],
       ["/", "Search in diff"],
       ["n / N", "Next / prev search match"],
+      ["s", "Flash jump to a visible match"],
     ],
   },
   {

@@ -11,8 +11,10 @@ import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOver
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
+import type { FlashState } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
+import type { FlashHandler } from "../vim-diff/flash-handler"
 import { getSelectionRange, exitVisualMode } from "../vim-diff/cursor-state"
 import type { VimDiffView } from "../components"
 import type { PRInfoPanelClass } from "../components"
@@ -29,6 +31,7 @@ import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
 import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
+import * as flash from "../features/flash"
 import * as fileTreeFeature from "../features/file-tree"
 import * as diffView from "../features/diff-view"
 import * as folds from "../features/folds"
@@ -55,6 +58,8 @@ export interface GlobalKeyContext {
   rebuildLineMapping: () => void
   // Search state
   getSearchState: () => SearchState
+  // Flash jump state (spec 022)
+  getFlashState: () => FlashState
   // UI
   renderer: { console: { toggle: () => void } }
   vimDiffView: VimDiffView
@@ -63,6 +68,7 @@ export interface GlobalKeyContext {
   // Vim handlers
   vimHandler: VimMotionHandler
   searchHandler: SearchHandler
+  flashHandler: FlashHandler
   // Helpers
   render: () => void
   quit: () => void
@@ -453,6 +459,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         // Other keys are ignored while dialog is open
         return
       }
+    }
+
+    // ========== FLASH JUMP (captures all input while active, spec 022) ==========
+    if (flash.handleInput(key, { flashState: ctx.getFlashState(), flashHandler: ctx.flashHandler })) {
+      return
     }
 
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
@@ -893,6 +904,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       vimDiffView: ctx.vimDiffView,
       searchState: ctx.getSearchState(),
       searchHandler: ctx.searchHandler,
+      flashHandler: ctx.flashHandler,
       getCurrentComment: () => commentsFeature.getCurrentComment(ctx.commentsContext),
       handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
       handleYank: ctx.handleYank,

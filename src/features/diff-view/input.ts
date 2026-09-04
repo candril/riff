@@ -12,6 +12,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import { VimMotionHandler, type KeyEvent as VimKeyEvent } from "../../vim-diff/motion-handler"
 import type { SearchHandler } from "../../vim-diff/search-handler"
 import type { SearchState } from "../../vim-diff/search-state"
+import type { FlashHandler } from "../../vim-diff/flash-handler"
 import type { VimDiffView } from "../../components"
 import { enterVisualLineMode, exitVisualMode } from "../../vim-diff/cursor-state"
 
@@ -27,6 +28,8 @@ export interface DiffViewInputContext {
   // Search
   searchState: SearchState
   searchHandler: SearchHandler
+  // Flash jump (spec 022)
+  flashHandler: FlashHandler
   // Get current comment at cursor
   getCurrentComment: () => Comment | null
   // Handlers
@@ -180,6 +183,14 @@ export function handleInput(
     } else {
       ctx.vimHandler.repeatSearch(key.shift)
     }
+    return true
+  }
+
+  // `s` enters flash jump mode (spec 022). Checked after the vim handler
+  // so it can't shadow a motion, and before `S` below, which submits.
+  if (key.name === "s" && !key.shift && !key.ctrl && !key.meta) {
+    key.preventDefault()
+    ctx.flashHandler.start()
     return true
   }
 
