@@ -207,6 +207,7 @@ export interface AppState {
   treeSelectionAnchor: string | null
 
   // UI state
+  showHelp: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments"
@@ -393,6 +394,7 @@ export function createInitialState(
     // sidebar starts hidden and the user reveals it with Ctrl+B. In
     // local mode the diff is the first thing shown, so keep the tree
     // visible when there's more than one file to navigate.
+    showHelp: false,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
@@ -601,6 +603,16 @@ export function enterDiffView(state: AppState): AppState {
 export function getSelectedFile(state: AppState): DiffFile | null {
   if (state.selectedFileIndex === null) return null
   return state.files[state.selectedFileIndex] ?? null
+}
+
+/**
+ * Toggle the keymap overlay
+ */
+export function toggleHelp(state: AppState): AppState {
+  return {
+    ...state,
+    showHelp: !state.showHelp,
+  }
 }
 
 /**

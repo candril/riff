@@ -19,6 +19,7 @@ import {
   SyncPreview,
   SearchPrompt,
   FlashPrompt,
+  HelpOverlay,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -357,6 +358,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               viewingCommit: state.viewingCommit,
             })
           : null,
+        state.showHelp ? HelpOverlay() : null,
         state.confirmDialog
           ? ConfirmDialog({
               title: state.confirmDialog.title,

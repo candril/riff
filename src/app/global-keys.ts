@@ -7,7 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { openActionMenu, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -472,6 +472,19 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
 
 
+    // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
+    if (ctx.getState().showHelp && !pendingKey) {
+      if (key.name === "escape" || key.name === "q") {
+        ctx.setState(toggleHelp)
+        ctx.render()
+        return
+      }
+      // `g` still has to reach the chord matcher, or `g?` couldn't close it.
+      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
+        return
+      }
+    }
+
     // ========== GLOBAL KEYS (work in any mode) ==========
     // When a chord is mid-sequence (e.g. user typed `g` and we're
     // waiting for the second key), single-key handlers must NOT fire on
@@ -568,7 +581,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         if (key.ctrl) {
           ctx.setState((s) => {
             const toggled = toggleFilePanel(s)
-            return toggled.showFilePanel ? { ...toggled, focusedPanel: "tree" } : toggled
+            if (toggled.showFilePanel) return { ...toggled, focusedPanel: "tree" }
+            // A hidden tree must not keep focus: keys would keep going to a
+            // panel nobody can see, and typing into the void reaches `q`.
+            return s.focusedPanel === "tree" ? { ...toggled, focusedPanel: "diff" } : toggled
           })
           ctx.render()
           setTimeout(() => {
@@ -814,8 +830,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleCloseFoldAtCursor(ctx.foldsContext)
         return
       } else if (sequence === "g?" || sequence === "g?!") {
-        // Open action menu (single source of truth for keybindings)
-        ctx.setState(openActionMenu)
+        ctx.setState(toggleHelp)
         ctx.render()
         return
       }

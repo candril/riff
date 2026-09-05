@@ -67,51 +67,65 @@ const HELP_TEXT = `
     \x1b[33m-v, --version\x1b[0m             Show version number
 
 \x1b[1mKEYBOARD SHORTCUTS\x1b[0m
+    \x1b[2mPress \x1b[0mg?\x1b[2m in the app for the keymap, \x1b[0mCtrl+p\x1b[2m for every action
+    available right now with its shortcut.\x1b[0m
+
     \x1b[1mNavigation\x1b[0m
-    j/k                       Scroll down/up
-    h/l                       Scroll left/right
+    j/k  h/l                  Move down/up, left/right
+    w/b/e                     By word
     Ctrl+d / Ctrl+u           Half page down/up
-    Ctrl+f / Ctrl+b           Full page down/up
     gg / G                    Go to top/bottom
     ]c / [c                   Next/previous hunk
     ]f / [f                   Next/previous file
-    ]F / [F                   Next/previous unreviewed file
+    ]u / [u                   Next/previous unviewed file
+    ]g / [g                   Next/previous commit's diff
+    s                         Flash jump to a visible match
+    Ctrl+o / Ctrl+i           Jumplist back/forward
 
     \x1b[1mPanels\x1b[0m
-    Ctrl+n                    Toggle file tree panel
-    Ctrl+p                    Focus file tree panel
-    Enter                     Select file (in file tree)
-    Tab                       Toggle between panels
+    Ctrl+b                    Toggle file tree panel
+    Ctrl+t                    Toggle comments panel
+    Ctrl+h / Ctrl+l           Move focus left/right
+    Ctrl+e                    Expand focused panel to full width
+    Ctrl+f                    Find files (fuzzy)
+    i                         Toggle PR overview / diff
 
     \x1b[1mReview Actions\x1b[0m
-    v                         Toggle file as viewed
-    V                         Mark all files as viewed
-    c                         Add comment on current line
-    e                         Edit comment under cursor
-    d                         Delete comment under cursor
-    Ctrl+/                    Toggle comment resolved status
+    v                         Mark file as viewed
+    V                         Visual line select
+    c / C                     Comment on the line, inline / via $EDITOR
+    Enter                     Open the thread here, or reveal context lines
+    ]r / [r                   Next/previous comment thread
+    x / r / d                 Resolve / reply / delete (comments panel)
+    y / Y                     Yank line or selection, without / with markers
 
-    \x1b[1mViews & Search\x1b[0m
-    Ctrl+k                    Open omni search (files, symbols, actions)
-    /                         Search in current view
-    n / N                     Next/previous search match
-    o                         Open file in external editor
-    i                         Show PR info panel
+    \x1b[1mSearch & Folds\x1b[0m
+    /  ?                      Search forward/backward
+    n / N                     Next/previous match
+    za / zo / zc              Toggle / open / close fold at cursor
+    zR / zM                   Open / close every fold
 
-    \x1b[1mActions\x1b[0m
-    Ctrl+p                    Open command palette
-    gr                        Refresh data from source
+    \x1b[1mGitHub\x1b[0m
     gS                        Submit review (Enter submits, Ctrl-J newline)
     gs                        Sync edits/replies to GitHub
-    ?                         Show help
+    gr                        Refresh from GitHub
+    gi                        PR overview panel
+    go / gy / gY              Open PR / copy its URL / copy permalink
+    gP                        Create PR (local) or edit PR title & body
+    gf / gF                   Open file in $EDITOR / in a new tmux window
+
+    \x1b[1mGeneral\x1b[0m
+    Ctrl+p                    Action menu
+    g?                        Keymap overlay
     q                         Quit
 
 \x1b[1mCONFIGURATION\x1b[0m
     Config file: ~/.config/riff/config.toml
 
     Environment variables:
-    \x1b[33mRIFF_CONFIG\x1b[0m               Override config file path
-    \x1b[33mEDITOR\x1b[0m                    Editor for opening files (default: $VISUAL or vim)
+    \x1b[33mEDITOR\x1b[0m                    Editor for comments, PR bodies and gf
+                              (falls back to $VISUAL, then nvim)
+    \x1b[33mGH_REPO\x1b[0m                   owner/repo override for repo detection
 
     Storage config example:
     \x1b[2m[storage]
@@ -123,6 +137,13 @@ const HELP_TEXT = `
     Ignore patterns example:
     \x1b[2m[ignore]
     patterns = ["package-lock.json", "*.generated.*"]\x1b[0m
+
+    Background comment poll:
+    \x1b[2m[poll]
+    interval = 300  # seconds between checks; 0 disables
+    onFocus = true  # only poll while the terminal has focus\x1b[0m
+
+    Full documentation: \x1b[36mhttps://candril.github.io/riff/\x1b[0m
 
 \x1b[1mSTORAGE\x1b[0m
     Comments and session data are stored in:

@@ -11,89 +11,86 @@ const HELP_SECTIONS = [
     keys: [
       ["j / k", "Move down / up"],
       ["h / l", "Move left / right"],
-      ["w / b", "Next / previous word"],
+      ["w / b / e", "By word"],
+      ["f / t", "Find / till character"],
+      ["Ctrl+d / Ctrl+u", "Half page down / up"],
       ["gg / G", "Go to top / bottom"],
-      ["Ctrl+d / Ctrl+u", "Page down / up"],
       ["]c / [c", "Next / previous hunk"],
       ["]f / [f", "Next / previous file"],
+      ["]u / [u", "Next / previous unviewed file"],
+      ["]o / [o", "Next / previous outdated file"],
+      ["]g / [g", "Next / previous commit's diff"],
     ],
   },
   {
-    title: "Views & Panels",
+    title: "Search & Jump",
     keys: [
-      ["i", "Toggle PR overview / diff (PR mode)"],
-      ["Ctrl+o / Ctrl+i", "Jumplist back / forward (Tab = forward)"],
-      ["Ctrl+b", "Toggle file tree panel"],
-      ["Ctrl+e", "Expand file tree (full width)"],
+      ["/ ?", "Search forward / backward"],
+      ["n / N", "Next / previous match"],
+      ["* / #", "Search word under cursor"],
+      ["s", "Flash jump to a visible match"],
+      ["Ctrl+o / Ctrl+i", "Jumplist back / forward"],
+    ],
+  },
+  {
+    title: "Folds & Context",
+    keys: [
+      ["za", "Toggle fold at cursor"],
+      ["zo / zc", "Open / close fold"],
+      ["zR / zM", "Open / close every fold"],
+      ["Enter", "Reveal hidden context lines"],
+    ],
+  },
+  {
+    title: "Panels & Files",
+    keys: [
+      ["Ctrl+b", "Toggle file tree"],
+      ["Ctrl+e", "Expand panel to full width"],
+      ["Ctrl+t", "Toggle comments panel"],
+      ["Ctrl+h / Ctrl+l", "Focus panel left / right"],
       ["Ctrl+f", "Find files (fuzzy)"],
       ["Ctrl+g", "Show current file path"],
-      ["Ctrl+p", "Open action menu"],
-    ],
-  },
-  {
-    title: "Diff Actions",
-    keys: [
-      ["Ctrl+t", "Toggle comments panel"],
-      ["C", "Add comment via $EDITOR"],
-      ["E", "Edit comment thread via $EDITOR"],
-      ["V", "Visual line select"],
       ["v", "Mark file as viewed"],
-      ["za", "Toggle file/hunk fold"],
-      ["zR / zM", "Expand / collapse all"],
-      ["/", "Search in diff"],
-      ["n / N", "Next / prev search match"],
-      ["s", "Flash jump to a visible match"],
+      ["V", "Visual line select"],
     ],
   },
   {
-    title: "GitHub (PR mode)",
+    title: "Comments",
+    keys: [
+      ["c / C", "Comment inline / via $EDITOR"],
+      ["E", "Edit thread via $EDITOR"],
+      ["]r / [r", "Next / previous thread"],
+      ["]R / [R", "Same, skipping resolved"],
+      ["gC", "Find a comment (PR-wide)"],
+      ["x / r / d", "Resolve / reply / delete"],
+      ["S", "Post the highlighted comment"],
+      ["y / Y", "Yank line or selection"],
+      ["gd / gD", "Copy / dismiss Claude's draft"],
+    ],
+  },
+  {
+    title: "GitHub & Other",
     keys: [
       ["gS", "Submit review"],
-      ["gs", "Sync edits/replies"],
-      ["gi", "Show PR info"],
-      ["go", "Open PR in browser"],
-      ["gy", "Copy PR URL"],
-      ["gP", "Edit PR title/body"],
+      ["gs", "Sync edits / replies"],
       ["gr", "Refresh from GitHub"],
-    ],
-  },
-  {
-    title: "Comment Threads",
-    keys: [
-      ["]r / [r", "Next / previous thread (opens overlay)"],
-      ["]R / [R", "Same, skipping resolved threads"],
-      ["gC", "Find a comment (PR-wide picker)"],
-      ["Enter", "Open thread view (diff line, picker, overview)"],
-      ["x", "Toggle thread resolved (in overlay)"],
-      ["r", "Reply (in overlay)"],
-      ["d", "Delete comment (in overlay)"],
-    ],
-  },
-  {
-    title: "Other",
-    keys: [
-      ["gf", "Open file in $EDITOR"],
-      ["gF", "Open file in a new tmux window"],
+      ["i / gi", "PR overview"],
+      ["go / gy", "Open PR / copy its URL"],
+      ["gY", "Copy permalink"],
+      ["gP", "Create / edit PR"],
       ["gc", "Checkout & edit (PR)"],
-      ["g?", "Toggle this help"],
+      ["gf / gF", "Open file in $EDITOR / tmux"],
+      ["Ctrl+p", "Action menu"],
       ["q", "Quit"],
     ],
   },
 ]
 
 /**
- * Help overlay showing all keybindings
- * Uses dimmed background without border (like presto but without the box border)
+ * The keymap overlay behind `g?`. A cheat sheet, not an inventory — the action
+ * menu (Ctrl+p) is the exhaustive, state-aware list.
  */
-export function HelpOverlay({ onClose }: HelpOverlayProps = {}) {
-  // Calculate total rows needed
-  let totalRows = 0
-  for (const section of HELP_SECTIONS) {
-    totalRows += 1 // title
-    totalRows += section.keys.length
-    totalRows += 1 // spacing
-  }
-
+export function HelpOverlay(_props: HelpOverlayProps = {}) {
   return Box(
     {
       id: "help-overlay",
@@ -120,8 +117,8 @@ export function HelpOverlay({ onClose }: HelpOverlayProps = {}) {
         flexDirection: "column",
         backgroundColor: theme.base,
         padding: 2,
-        minWidth: 70,
-        maxWidth: 90,
+        minWidth: 80,
+        maxWidth: 104,
       },
       // Title
       Box(

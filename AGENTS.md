@@ -130,15 +130,23 @@ await $`gh api repos/${owner}/${repo}/pulls/${pr}/comments \
 
 ### Local Storage
 
-Review sessions stored in `.riff/`:
+Review data lives in `.riff/` at the repo root (`~/.riff/` outside a repo).
+There is no repo-local config file — configuration is only
+`~/.config/riff/config.toml`.
 
 ```
 .riff/
-├── sessions/
-│   ├── local-abc123.json      # Local diff session
-│   └── gh-owner-repo-123.json # GitHub PR session
-└── config.toml                # (optional) local config override
+├── comments/
+│   └── gh-owner-repo-123/     # one markdown file per comment, YAML frontmatter
+│       └── <uuid>.md
+├── gh-owner-repo-123/
+│   └── viewed.json            # viewed state + the commit it was viewed at
+├── mentionable-users.json     # cached @mention roster (24h TTL)
+└── session.json               # current review session
 ```
+
+The directory name is the source with its punctuation flattened:
+`gh:owner/repo#123` → `gh-owner-repo-123`.
 
 ## File Structure
 

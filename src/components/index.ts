@@ -18,6 +18,7 @@ export { SyncPreview, type SyncPreviewProps, type SyncItem, gatherSyncItems } fr
 export { PRInfoPanelClass } from "./PRInfoPanel"
 export { SearchPrompt, type SearchPromptProps } from "./SearchPrompt"
 export { FlashPrompt, type FlashPromptProps } from "./FlashPrompt"
+export { HelpOverlay, type HelpOverlayProps } from "./HelpOverlay"
 export { InlineCommentOverlay, type InlineCommentOverlayProps } from "./InlineCommentOverlay"
 export { CommentComposer, type CommentComposerProps } from "./CommentComposer"
 export { ReactionRow, type ReactionRowProps } from "./ReactionRow"
