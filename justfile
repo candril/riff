@@ -57,3 +57,11 @@ clean:
 # Show outdated dependencies
 outdated:
     bun outdated
+
+# Run the documentation site locally
+site-dev:
+    cd site && bun run dev
+
+# Build the documentation site
+site-build:
+    cd site && bun run build

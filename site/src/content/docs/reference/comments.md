@@ -1,0 +1,152 @@
+---
+title: Comments & Threads
+description: Where a comment can go, where it lives before it's published, and what happens to it after.
+---
+
+A comment in riff is a file on your disk until you decide otherwise. That's the whole design: an
+interrupted review is a directory of Markdown files, not a lost tab.
+
+## Writing one
+
+| From | Key |
+| --- | --- |
+| The diff, on the cursor's line | `c` |
+| The diff, on a range | `V` to select, then `c` |
+| The diff, in `$EDITOR` | `C` |
+| The comments panel | `n` |
+| A reply to the focused thread | `r`, or `R` for `$EDITOR` |
+| A PR-level comment, not on any code | **Add PR Comment** in `Ctrl+p` |
+
+The draft opens in the comments panel with the anchor shown above it. `Enter` or `Ctrl+s` saves
+it locally, `Ctrl+p` saves and posts it in one go, `Ctrl+j` is a newline, and `Ctrl+g` moves the
+half-written draft into `$EDITOR` and brings the result back.
+
+### Mentions
+
+`@` in a draft opens a picker over the repo's contributors, fetched once and cached for a day.
+Teams and bots can't be discovered through the API riff queries, so list the ones you use in
+[`mentions.extra`](/riff/reference/configuration/#mentions) and they'll show up alongside.
+
+## Where a comment can go
+
+GitHub decides this, and it's narrower than the web UI suggests:
+
+| Line | Commentable |
+| --- | --- |
+| Added or deleted | yes |
+| Unchanged, but inside a hunk the diff shows | yes |
+| Unchanged, only visible because you expanded a divider | **no** |
+| The file as a whole | yes |
+
+The last row of that table is why riff refuses an expanded line up front instead of letting you
+write a paragraph and then showing you a 422. No public API can anchor a review comment outside
+every hunk — the web UI manages it by re-resolving positions server-side, and that path isn't
+exposed. Expanding context is for reading.
+
+When GitHub does reject something, riff shows GitHub's own message rather than `gh`'s generic
+"Validation Failed", with a hint for the three failures that actually happen: an unresolvable
+line, a pending review already open on the PR, and a stale head commit.
+
+## Local, pending, synced
+
+Every comment carries a status:
+
+- **local** — written by you, on disk, invisible to everyone else.
+- **pending** — submitted as part of a review that GitHub hasn't published yet.
+- **synced** — live on GitHub.
+
+Editing a synced comment doesn't overwrite it; the edit is kept alongside the original until you
+`gs`, so the panel can show you the two and a failed sync can't lose your text.
+
+Publishing is always explicit:
+
+| Key | What goes up |
+| --- | --- |
+| `gS` | Every local comment, batched into one review, with a verdict |
+| `gs` | Edits to synced comments, replies, resolutions |
+| `Ctrl+p` in a draft | That one comment, immediately |
+| `S` on a comment | The same, from the panel |
+
+See [GitHub Workflow](/riff/reference/github/) for what each of those actually sends.
+
+## Threads
+
+Replies group into threads under their root comment. `]r`/`[r` walks them across the whole diff
+and opens each; `]R`/`[R` skips resolved ones. `gC` is a fuzzy search over every comment in the
+PR — author, body, file — for when you remember the sentence but not the file.
+
+In the panel, with a thread focused:
+
+- `x` toggles resolved. Resolved threads collapse to their root so they stop taking up the
+  screen; `za` opens one back up.
+- `r` replies, re-anchoring to that thread's file and line first — so replying after you've
+  navigated elsewhere still lands in the right place.
+- `e` edits your own comment, `d` deletes it (with a confirmation).
+- `y` copies a GitHub link to the comment.
+- `o` opens its file at its line in `$EDITOR`.
+
+### Outdated threads
+
+A thread whose anchor no longer matches the PR head is marked outdated. It keeps the diff hunk it
+was written against, and `za` shows you that hunk — usually the only way left to work out what
+the comment meant. `]o`/`[o` navigates files in the same situation: ones you marked viewed that
+have changed since.
+
+### Reactions
+
+`React…` in the action menu adds or removes a reaction on whatever comment is focused — in the
+panel, the picker, or the PR overview. Reactions come down with the PR and update optimistically.
+
+## On disk
+
+Comments are Markdown files with YAML frontmatter, under `.riff/` in the repo:
+
+```text
+.riff/
+├── comments/
+│   └── gh-owner-repo-123/
+│       ├── <uuid>.md
+│       └── <uuid>.md
+├── gh-owner-repo-123/
+│   └── viewed.json
+├── mentionable-users.json
+└── session.json
+```
+
+One file per comment:
+
+````markdown
+---
+id: 6f1c…
+filename: src/api/client.ts
+line: 19
+side: RIGHT
+createdAt: 2026-03-04T10:12:00.000Z
+status: local
+commit: 3b1f2ad
+---
+
+does this keep the abort signal?
+
+<!-- context -->
+```diff
+@@ -18,7 +18,9 @@
+-  const res = await fetch(url)
++  const res = await limiter.run(() => fetch(url))
+```
+````
+
+Which means a draft is greppable, diffable, and editable in your editor if you'd rather. Deleting
+the directory throws away unpublished work and nothing else.
+
+Where `.riff/` ends up for a PR from a repo you're not sitting in is the
+[storage](/riff/reference/configuration/#storage) config's job.
+
+## Claude-drafted comments
+
+riff never posts on Claude's behalf. When a Claude Code session drafts an inline comment, riff
+raises a notification; `gd` copies it to your clipboard and clears it, `gD` discards it. What you
+do with the text after that is a normal comment, written by you.
+
+The Claude actions in `Ctrl+p` go the other way — they hand a scope (the selection, the file, the
+folder, a multi-select, or the whole diff) to a Claude Code session to talk about.

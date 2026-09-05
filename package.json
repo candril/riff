@@ -2,6 +2,11 @@
   "name": "riff",
   "version": "0.1.0",
   "description": "Terminal-based code review companion",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/candril/riff.git"
+  },
+  "homepage": "https://candril.github.io/riff/",
   "module": "src/index.ts",
   "type": "module",
   "private": true,

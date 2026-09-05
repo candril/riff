@@ -1,0 +1,18 @@
+/* Catppuccin Mocha — the palette riff itself renders in (src/theme.ts). */
+:root {
+  --sl-color-accent-low: #2a2340;
+  --sl-color-accent: #cba6f7;
+  --sl-color-accent-high: #e4d4fb;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #ece2fb;
+  --sl-color-accent: #7c4dd1;
+  --sl-color-accent-high: #3d2168;
+}
+
+/* Terminal sketches are drawn as box-art in code blocks; keep the lines
+   tight so a full-height layout doesn't scroll off on a laptop. */
+.tui-sketch pre {
+  line-height: 1.25;
+}

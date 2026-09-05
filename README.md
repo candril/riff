@@ -2,6 +2,8 @@
 
 A terminal-based code review companion built with [OpenTUI](https://github.com/neurocyte/opentui). Review GitHub PRs and local changes with vim-style navigation and minimal distractions.
 
+📖 **[Documentation](https://candril.github.io/riff/)**
+
 ## Highlights
 
 - **Vim-style navigation** - Navigate diffs with `hjkl`, `w/b`, `/` search, and more
