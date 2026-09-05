@@ -1,0 +1,28 @@
+# The README demo: hold | keys | keycap | caption. Rendered by `just demo-gif`
+# (scripts/demo.sh). `hold` is seconds, or `auto` to let the caption's word count set the
+# dwell — prefer `auto`, and spend an explicit number only where a frame needs to breathe.
+#
+# Keys are tmux send-keys tokens (a letter, Enter, Escape, C-b …) sent one at a time;
+# `type:"text"` types the quoted text into a composer. Fold `Escape` into the next step's
+# keys instead of spending a frame on it.
+#
+# The keycap and caption are drawn on a panel low over the frame. Give every step a
+# caption: a step without one drops the panel, and it reads as a glitch. Keep captions
+# short — every word is dwell time, and a minute is already a long loop.
+#
+# Starts on the PR overview of the fixture PR (riff opens PR mode there).
+
+4.0  |                          |      | the PR itself: description, threads, checks, commits, files
+auto | i                        | i    | the diff — every file, one buffer, Tree-sitter colours
+auto | C-b                      | ^B   | the file tree, with viewed state per file
+auto | C-b ] c ] c              | ]c   | hunk to hunk; ]f file to file, ]u to the next unviewed
+auto | ] r Enter                | ]r ↵ | the next thread, opened where it was written
+auto | r type:"Agreed — forwarding the signal in acquire(), test coming." Enter | r ↵ | reply in place; saved locally, nothing on GitHub yet
+auto | J                        | J    | the next thread. x resolves, d deletes, y copies a link
+auto | Escape s r e t r y a b   | s    | flash: type what you can see…
+auto | a                        | a    | …press the label, and the cursor is there
+auto | V j j c                  | V c  | a comment on a range
+auto | type:"Clamp this too — Retry-After can be an HTTP date, and Number() of that is NaN." Enter | ↵ | drafted, on disk, yours until you publish
+auto | Escape g S               | gS   | the review preview: everything pending, one verdict, one review
+auto | Escape C-p               | ^P   | every action that applies right now, with its key
+5.0  | Escape g ?               | g?   | the keymap. Nothing has to be memorised.

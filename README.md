@@ -1,150 +1,125 @@
-# riff
+<p align="center">
+  <img src="site/src/assets/logo.png" alt="riff" width="160" />
+</p>
 
-A terminal-based code review companion built with [OpenTUI](https://github.com/neurocyte/opentui). Review GitHub PRs and local changes with vim-style navigation and minimal distractions.
+<h1 align="center">riff</h1>
 
-📖 **[Documentation](https://candril.github.io/riff/)**
+<p align="center">Review the diff where you wrote it. PRs, branches, working-copy changes — with vim motions, inline comments, and no browser tab.</p>
 
-## Highlights
+<p align="center"><a href="https://candril.github.io/riff/">Documentation</a></p>
 
-- **Vim-style navigation** - Navigate diffs with `hjkl`, `w/b`, `/` search, and more
-- **GitHub PR integration** - Fetch PRs, submit reviews, sync comments via `gh` CLI
-- **Local diff support** - Review uncommitted changes, branches, or jj revsets
-- **Inline comments** - Add comments to specific lines, batch or submit immediately
-- **File tree panel** - Browse changed files with fold/unfold and viewed tracking
-- **Commit-by-commit review** - Filter diff to view changes from individual commits
-- **Syntax highlighting** - Full syntax highlighting via Tree-sitter
+> [!CAUTION]
+> riff is young, spec-first, and was largely written with an AI pair. It talks to GitHub through the [`gh` CLI](https://cli.github.com/) and it *writes* — comments, reviews, resolutions, PR bodies. Point it at a PR you don't mind poking at, and expect rough edges.
 
-## Installation
+```sh
+git clone https://github.com/candril/riff.git && cd riff
+bun install && bun run build   # → dist/riff
+riff                           # review your uncommitted changes
+```
 
-```bash
-# Clone and install
+<img src="site/src/assets/riff-demo.gif" alt="riff demo" width="100%" />
+
+---
+
+### One diff, four ways to name it
+
+riff takes a target and works out what you meant — a PR number, a revset, a URL, or nothing at all:
+
+```sh
+riff                    # uncommitted changes in the working copy
+riff pr                 # the PR for the current branch or bookmark
+riff 123                # PR #123 in this repo
+riff HEAD~3             # the last three commits
+riff main..feature      # a branch comparison
+riff @-                 # a jj revset
+riff gh:facebook/react#1234
+```
+
+Local and PR mode are the same app. Every motion, fold and comment key works in both; PR mode just has GitHub on the other end.
+
+### The diff reads like a buffer
+
+`j k h l`, `w b e`, `f t ; ,`, `0 ^ $`, `gg G`, `Ctrl+d`/`Ctrl+u` — the motions your fingers already know. `]c`/`[c` steps hunks, `]f`/`[f` files, `]u`/`[u` the files you haven't looked at yet. `za` folds a file or a hunk, `zR`/`zM` do the lot. `Ctrl+o`/`Ctrl+i` walk a real jumplist. `s` is a flash jump: type what you can see, press the label.
+
+<img src="site/src/assets/screenshots/tree.png" alt="The diff with the file tree open: changed files with their status on the left, the syntax-highlighted diff on the right" width="100%" />
+
+### Comment on the line, not on a web form
+
+`c` opens the comments panel anchored to the cursor's line; `V` first if it's about a range. `C` hands the draft to `$EDITOR` instead. Comments land in `.riff/` in your repo as Markdown files — yours until you publish, so half a review survives a closed terminal.
+
+`]r`/`[r` walks every thread in the diff, `Enter` opens the one under the cursor. In the panel: `r` replies, `e` edits, `x` resolves, `d` deletes, `y` copies a link.
+
+<img src="site/src/assets/screenshots/thread.png" alt="The comments panel beside the diff, showing a review thread with a reply" width="100%" />
+
+### Publish deliberately
+
+Nothing reaches GitHub until you say so. `gS` opens the review preview — approve, request changes, or comment, every pending comment batched into one review. `gs` syncs the smaller stuff: edits to comments you already posted, replies, resolutions. `S` posts a single comment when it can't wait.
+
+<img src="site/src/assets/screenshots/review-preview.png" alt="The review preview: pending comments on one side, the summary and verdict on the other" width="100%" />
+
+### The PR, without leaving
+
+`i` toggles between the diff and the PR overview: description, conversation, checks, approvals, commits, files. A failing check expands into its annotations and `Enter` opens the offending line in `$EDITOR`. `]g`/`[g` narrows the diff to one commit at a time.
+
+<img src="site/src/assets/screenshots/overview.png" alt="The PR overview: metadata, the rendered description, conversation threads, checks and files" width="100%" />
+
+### Everything the keyboard can reach
+
+`Ctrl+p` lists every action that applies right now with its shortcut; `g?` draws the keymap. `gf` opens the file at the cursor in `$EDITOR` (`gF` in a new tmux window), `gY` copies a permalink, `gP` creates or edits the PR, `v` marks a file viewed — GitHub's own viewed state, in PR mode. Lock files and generated code stay folded out of the review.
+
+<img src="site/src/assets/screenshots/action-menu.png" alt="The action menu: a fuzzy list of every available action with its key" width="100%" />
+
+## Install
+
+riff is a [Bun](https://bun.sh) application that compiles to a single binary:
+
+```sh
 git clone https://github.com/candril/riff.git
 cd riff
 bun install
-
-# Build standalone binary
-bun run build
-
-# Or run directly
-bun run src/index.ts
+bun run build          # → dist/riff
+cp dist/riff ~/.local/bin/
 ```
 
-## Usage
-
-```bash
-# Review uncommitted changes
-riff
-
-# Review a GitHub PR (in current repo)
-riff 123
-riff #123
-
-# Review last 3 commits
-riff HEAD~3
-
-# Review changes between branches
-riff main..feature-branch
-
-# Review jj revset
-riff @-
-
-# Review PR from any repo
-riff gh:facebook/react#1234
-riff https://github.com/facebook/react/pull/1234
-```
-
-## Key Features
-
-### GitHub PR Review
-
-Review PRs directly in your terminal with full comment support:
-
-- **Submit reviews** (`gS`) - Approve, request changes, or comment with batched comments
-- **Sync edits** (`gs`) - Edit existing comments or reply to threads, then sync to GitHub
-- **PR info panel** (`gi`) - View PR description, conversation, files, and commits
-- **Open in browser** (`go`) - Quick jump to PR on GitHub
-- **Refresh** (`gr`) - Pull latest changes and comments from GitHub
-
-### Local Diff Review
-
-Works with both git and jj (jujutsu):
-
-- Review uncommitted changes, specific commits, or branch comparisons
-- Add comments locally (stored in `.riff/` directory)
-- Create PRs from local changes (`gP`)
-
-### Navigation
-
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Move down / up |
-| `h` / `l` | Move left / right |
-| `w` / `b` | Next / previous word |
-| `gg` / `G` | Go to top / bottom |
-| `Ctrl+d` / `Ctrl+u` | Page down / up |
-| `]c` / `[c` | Next / previous hunk |
-| `]f` / `[f` | Next / previous file |
-
-### Views & Actions
-
-| Key | Action |
-|-----|--------|
-| `Tab` | Toggle diff / comments view |
-| `Ctrl+b` | Toggle file tree panel |
-| `Ctrl+f` | Find files (fuzzy search) |
-| `Ctrl+g` | Select commit to view |
-| `Ctrl+p` | Open action menu |
-| `c` | Add comment on current line |
-| `v` | Mark file as viewed |
-| `/` | Search in diff |
-| `g?` | Show help overlay |
-| `q` | Quit |
-
-### Folds
-
-| Key | Action |
-|-----|--------|
-| `za` | Toggle file/hunk fold |
-| `zo` / `zc` | Open / close fold |
-| `zR` / `zM` | Expand / collapse all |
+You'll want [`gh`](https://cli.github.com/) authenticated for anything GitHub, and `git` or [`jj`](https://github.com/jj-vcs/jj) for local diffs. See the [installation guide](https://candril.github.io/riff/guide/installation/).
 
 ## Configuration
 
-Config file: `~/.config/riff/config.toml`
+`~/.config/riff/config.toml`, everything optional:
 
 ```toml
-# Map remote repos to local clones
-[storage.repos]
-"facebook/react" = "~/code/react"
-
-# Auto-detect repos under a base path
-[storage]
-basePath = "~/code"
-
-# Hide files from review (still accessible via toggle)
 [ignore]
-patterns = ["package-lock.json", "*.generated.*"]
+patterns = ["package-lock.json", "*.generated.*"]   # replaces the defaults
 
-# Extra @mention candidates — teams and bots, which the GitHub user
-# lookup can't return. Repo contributors are fetched automatically.
+[storage]
+basePath = "~/code"                                  # find clones by repo name
+
+[storage.repos]
+"facebook/react" = "~/code/react"                    # or map them explicitly
+
 [mentions]
-extra = ["my-org/backend-team"]
+extra = ["my-org/backend-team"]                      # teams the @ picker can't discover
+
+[poll]
+interval = 300                                       # seconds between comment checks; 0 disables
+onFocus = true                                       # only while the terminal has focus
 ```
 
-## Requirements
-
-- [Bun](https://bun.sh) runtime
-- [`gh` CLI](https://cli.github.com/) for GitHub features
-- `git` or `jj` for local diff features
+The [configuration reference](https://candril.github.io/riff/reference/configuration/) has the rest.
 
 ## Development
 
-```bash
-just dev       # Run with hot reload
-just test      # Run tests
-just typecheck # Type check
-just build     # Build standalone binary
+```sh
+just dev        # run from source with hot reload
+just test
+just typecheck
+just build      # standalone binary
+just site-dev   # the docs site
+just shots      # re-record the docs screenshots (see docs/screenshots.md)
+just demo-gif   # re-record the README demo
 ```
+
+Features are specified before they are built — see [`specs/`](specs/) — and [AGENTS.md](AGENTS.md) describes the codebase.
 
 ## License
 

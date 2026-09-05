@@ -1,0 +1,32 @@
+# Screenshot recipes: name | keys, sent to a fresh launch of riff on the fixture PR
+# (see docs/screenshots.md). Keys are tmux send-keys tokens: a letter, a string, Enter,
+# Escape, Space, C-p …; `wait` pauses for a background load; `type:"text"` types text.
+# riff opens PR mode on the overview; `i` switches to the diff.
+
+# ── PR ────────────────────────────────────────────────────────────────────────
+overview         |
+checks           | j j j j l
+diff             | i
+tree             | i C-b
+
+# ── Reading ───────────────────────────────────────────────────────────────────
+hunks            | i ] c ] c ] c
+folds            | i z M
+flash            | i s l i m i t
+search           | i / r e t r y Enter n
+commit           | i ] g
+commit-picker    | i C-p type:"select commit" Enter
+
+# ── Comments ──────────────────────────────────────────────────────────────────
+thread           | i ] r
+outdated         | i ] r ] r
+compose          | i ] c ] c j j c type:"Does this keep the abort signal while queued?"
+visual           | i ] c ] c V j j j
+comments-picker  | i g C
+review-preview   | i ] c ] c j j c type:"Does this keep the abort signal while queued?" Enter Escape g S
+sync-preview     | i ] r Enter r type:"Forwarding the signal now." Enter Escape g s
+
+# ── Everything else ───────────────────────────────────────────────────────────
+action-menu      | i C-p
+file-picker      | i C-f
+help             | i g ?

@@ -60,8 +60,8 @@ riff
 ```
 
 With no argument riff reviews your uncommitted changes — nothing is sent anywhere, comments stay
-on disk, and you can learn the keymap on a diff you already understand. `Ctrl+p` (or `g?`) lists every
-action available right now with its shortcut, `q` quits.
+on disk, and you can learn the keymap on a diff you already understand. `Ctrl+p` lists every action
+available right now with its shortcut, `g?` shows the keymap, `q` quits.
 
 Then point it at a real PR:
 

@@ -22,6 +22,8 @@ docks left, the comments panel right, and the PR overview replaces the diff enti
 `Ctrl+h` and `Ctrl+l` move focus across that row. `Ctrl+e` blows the focused side panel up to
 full width when a path is too long or a thread too deep to read in a column.
 
+![The file tree beside the diff](../../../assets/screenshots/tree.png)
+
 ## The diff
 
 Syntax-highlighted through Tree-sitter, with a cursor that sits on an actual line — which is what
@@ -55,6 +57,8 @@ you're there. `Backspace` un-types, `Esc` or `Enter` leaves without moving.
 It's the fast path when the target is already visible — you type the characters and the label in
 one motion instead of `/pattern<CR>nnn`. For anything off screen, use `/`.
 
+![Flash labels over the diff](../../../assets/screenshots/flash.png)
+
 ### Search
 
 `/` and `?` search the rendered diff in either direction, `n`/`N` repeat, `*`/`#` take the word
@@ -82,8 +86,8 @@ GitHub's own viewed checkbox, read at startup and written back, so it agrees wit
 
 ## Comments panel
 
-`Ctrl+t`, or automatically when you land on a thread with `]r` or press `c` to write one. It
-shows the threads for the current file — or the thread you jumped to — as a conversation:
+`Ctrl+t`, `Enter` on a line that has a thread, or `c` to write one. It shows the threads for the
+current file — or the one you opened — as a conversation:
 author, age, resolution state, replies, reactions.
 
 Threads collapse to their root comment when resolved, and `za` opens them back up. An **outdated**
@@ -92,6 +96,8 @@ originally written against, so the comment still makes sense.
 
 Composing happens in the same panel: `n` for a new comment, `r` to reply, `e` to edit. `Ctrl+g`
 escalates a draft to `$EDITOR` mid-sentence and drops the result back in.
+
+![The comments panel](../../../assets/screenshots/thread.png)
 
 ## PR overview
 
@@ -110,6 +116,8 @@ escalates a draft to `$EDITOR` mid-sentence and drops the result back in.
 Sections fold with `za`, `zm`/`zr`, `zM`/`zR`. Reactions can be added to whatever is focused via
 the action menu.
 
+![The PR overview](../../../assets/screenshots/overview.png)
+
 ## Commit filtering
 
 `]g` narrows the diff to the first commit, `]g` again to the second, and past the last one it
@@ -119,13 +127,25 @@ picking one out of a fuzzy list instead.
 Useful on a PR whose commits are actually a sequence of arguments rather than a pile of
 autosaves.
 
+![The diff filtered to one commit](../../../assets/screenshots/commit.png)
+
 ## Action menu
 
-`Ctrl+p` — or `g?`. Type to filter, `Enter` to run. It only lists what applies right now: no
+`Ctrl+p`. Type to filter, `Enter` to run. It only lists what applies right now: no
 **Submit Review** on a local diff, no **Open in Editor (tmux window)** outside tmux, no
 **Copy drafted comment** without a draft. It also carries the actions that have no key of their
 own — creating a PR comment, viewing the file through `difftastic`, `delta` or `nvim` diff mode,
 toggling hidden files, reactions, and the Claude Code handoffs.
+
+![The action menu](../../../assets/screenshots/action-menu.png)
+
+## Keymap overlay
+
+`g?` draws the cheat sheet over whatever you were looking at — motions, jumps, folds, panels,
+comments, GitHub — and `g?`, `Esc` or `q` puts it away. It's the short version; the action menu
+is the exhaustive one.
+
+![The keymap overlay](../../../assets/screenshots/help.png)
 
 ## Toasts and dialogs
 

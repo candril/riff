@@ -21,6 +21,8 @@ The draft opens in the comments panel with the anchor shown above it. `Enter` or
 it locally, `Ctrl+p` saves and posts it in one go, `Ctrl+j` is a newline, and `Ctrl+g` moves the
 half-written draft into `$EDITOR` and brings the result back.
 
+![Composing a range comment](../../../assets/screenshots/visual.png)
+
 ### Mentions
 
 `@` in a draft opens a picker over the repo's contributors, fetched once and cached for a day.
@@ -71,9 +73,12 @@ See [GitHub Workflow](/riff/reference/github/) for what each of those actually s
 
 ## Threads
 
-Replies group into threads under their root comment. `]r`/`[r` walks them across the whole diff
-and opens each; `]R`/`[R` skips resolved ones. `gC` is a fuzzy search over every comment in the
+Replies group into threads under their root comment. `]r`/`[r` walks the cursor from thread to
+thread across the whole diff, `Enter` opens the one you're on, and once the panel is open `J`/`K`
+move it along; `]R`/`[R` skip resolved ones. `gC` is a fuzzy search over every comment in the
 PR — author, body, file — for when you remember the sentence but not the file.
+
+![The comments picker](../../../assets/screenshots/comments-picker.png)
 
 In the panel, with a thread focused:
 

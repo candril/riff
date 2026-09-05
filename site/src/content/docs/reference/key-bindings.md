@@ -6,9 +6,11 @@ description: Every key riff binds, by the surface it applies to.
 Keys are contextual: the same letter means different things in the diff, in the comments panel
 and in the PR overview. Each table below is one surface.
 
-The list riff itself considers authoritative is the action menu — `Ctrl+p`, or `g?`. It shows
-only what applies to the state you're in, with the shortcut next to it. Bindings are not
-configurable yet.
+`g?` opens the keymap overlay — this page, condensed, without leaving the app. `Ctrl+p` opens the
+action menu, which is the authoritative list: it shows only what applies to the state you're in,
+with the shortcut next to it. Bindings are not configurable yet.
+
+![The keymap overlay](../../../assets/screenshots/help.png)
 
 ## Motions
 
@@ -35,7 +37,7 @@ In the diff. These follow vim, including the ones you only notice when they're m
 | `]f` `[f` | Next, previous file |
 | `]u` `[u` | Next, previous unviewed file |
 | `]o` `[o` | Next, previous outdated file — viewed, but changed since |
-| `]r` `[r` | Next, previous comment thread — opens it |
+| `]r` `[r` | Next, previous comment thread |
 | `]R` `[R` | Same, skipping resolved threads |
 | `]g` `[g` | Next, previous commit's diff; wraps back to the full diff |
 | `s` | Flash jump — search what's on screen, press a label to land |
@@ -90,10 +92,10 @@ From the diff:
 | `c` | Comment on the cursor's line, or on the visual-line selection |
 | `C` | The same, drafted in `$EDITOR` |
 | `E` | Edit the thread on this line in `$EDITOR` |
-| `Enter` | Open the thread on this line |
+| `Enter` | Open the thread on this line in the comments panel |
 | `gC` | Fuzzy picker over every comment in the PR |
 
-In the **comments panel** (focused — `Ctrl+t`, or arriving via `]r`):
+In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 
 | Key | Action |
 | --- | --- |
@@ -184,7 +186,8 @@ takes the same keys: type to filter, `↑`/`↓` or `Ctrl+p`/`Ctrl+n` to move, `
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+p` `g?` | Action menu |
+| `Ctrl+p` | Action menu |
+| `g?` | Keymap overlay (`Esc` or `q` closes) |
 | `Ctrl+o` | Jump back |
 | `q` | Quit |
 | `y` / `n` | Answer a confirmation dialog |

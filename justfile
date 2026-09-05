@@ -65,3 +65,11 @@ site-dev:
 # Build the documentation site
 site-build:
     cd site && bun run build
+
+# Take every docs screenshot from the fixture PR, unattended (tmux + python3/Pillow)
+shots *names:
+    bash scripts/shots.sh {{names}}
+
+# Record the README demo gif from the fixture PR, unattended (tmux + python3/Pillow)
+demo-gif:
+    bash scripts/demo.sh

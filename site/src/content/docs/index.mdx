@@ -7,21 +7,8 @@ head:
     content: riff — code review in the terminal
 hero:
   image:
-    html: |
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="riff logo" width="220" height="220">
-        <rect width="256" height="256" rx="56" fill="#1e1e2e"/>
-        <rect x="36" y="44" width="14" height="168" rx="7" fill="#313244"/>
-        <rect x="64" y="52" width="104" height="18" rx="6" fill="#45475a"/>
-        <rect x="64" y="80" width="132" height="18" rx="6" fill="#f38ba8" opacity=".85"/>
-        <rect x="64" y="108" width="88" height="18" rx="6" fill="#f38ba8" opacity=".45"/>
-        <rect x="64" y="136" width="146" height="18" rx="6" fill="#a6e3a1" opacity=".85"/>
-        <rect x="64" y="164" width="96" height="18" rx="6" fill="#a6e3a1" opacity=".45"/>
-        <rect x="64" y="192" width="120" height="18" rx="6" fill="#45475a"/>
-        <rect x="132" y="120" width="96" height="62" rx="14" fill="#1e1e2e" stroke="#cba6f7" stroke-width="6"/>
-        <circle cx="156" cy="151" r="6" fill="#cba6f7"/>
-        <circle cx="180" cy="151" r="6" fill="#cba6f7"/>
-        <circle cx="204" cy="151" r="6" fill="#cba6f7"/>
-      </svg>
+    file: ../../assets/logo.png
+    alt: riff logo
   tagline: Review the diff where you wrote it. PRs, branches, working-copy changes — with vim motions, inline comments, and no browser tab.
   actions:
     - text: Get Started
@@ -49,6 +36,8 @@ bun install && bun run build   # → dist/riff
 riff                           # review your uncommitted changes
 ```
 
+![The README demo](../../assets/riff-demo.gif)
+
 ## One diff, four ways to name it
 
 riff takes a target and works out what you meant. A PR number, a revset, a URL, or nothing at
@@ -69,23 +58,7 @@ PR mode just has GitHub on the other end of it.
 
 ## The diff reads like a buffer
 
-<div class="tui-sketch">
-
-```text
- riff · #412 Add rate limiting                        3 files · 2 threads
-┌──────────────────┬────────────────────────────────────────────────────┐
-│ ▾ src/           │  @@ -18,7 +18,9 @@ export async function fetch(    │
-│   ▾ api/         │  18   const url = base + path                      │
-│     ● client.ts  │  19 - const res = await fetch(url)                 │
-│       limiter.ts │  19 + const res = await limiter.run(() =>          │
-│   ✓ index.ts     │  20 +   fetch(url))                                │
-│                  │  21   if (!res.ok) throw new ApiError(res)         │
-│                  │  ╰─ 💬 ada  does this keep the abort signal?       │
-└──────────────────┴────────────────────────────────────────────────────┘
- ]c next hunk   ]f next file   v viewed   c comment   Ctrl+p actions
-```
-
-</div>
+![The diff with the file tree open](../../assets/screenshots/tree.png)
 
 `j k h l`, `w b e`, `f t ; ,`, `0 ^ $`, `gg G`, `Ctrl+d`/`Ctrl+u` — the motions are the ones your
 fingers already know. `]c`/`[c` steps hunks, `]f`/`[f` files, `]u`/`[u` the files you haven't
@@ -98,23 +71,10 @@ a real jumplist, so every jump is undoable.
 range. `C` hands the draft to `$EDITOR` instead. Comments land in `.riff/` in your repo — they
 are yours until you decide to publish, so half a review survives a closed terminal.
 
-<div class="tui-sketch">
+![A thread in the comments panel](../../assets/screenshots/thread.png)
 
-```text
-┌─ Comments · src/api/client.ts ───────────────────────────────────────┐
-│ ▾ ada · 2h ago                                          unresolved   │
-│   does this keep the abort signal?                                   │
-│   ↳ you · draft                                                      │
-│     good catch — `limiter.run` forwards it, test added in 3b1f       │
-│                                                                      │
-│   r reply   e edit   x resolve   d delete   y copy link   Ctrl+s save│
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-</div>
-
-`]r`/`[r` walks every thread in the diff and opens each one as you land on it; `]R`/`[R` skips the
-resolved ones. `gC` is a fuzzy picker over every comment in the PR.
+`]r`/`[r` walks every thread in the diff, `Enter` opens the one under the cursor; `]R`/`[R` skips
+the resolved ones. `gC` is a fuzzy picker over every comment in the PR.
 
 ## Publish deliberately
 
@@ -122,6 +82,8 @@ Nothing reaches GitHub until you say so. `gS` opens the review preview — appro
 or comment, with every pending comment batched into one review. `gs` syncs the smaller stuff:
 edits to comments you already posted, replies to other people's threads, resolutions. `S` posts a
 single comment immediately when it can't wait.
+
+![The review preview](../../assets/screenshots/review-preview.png)
 
 ## Everything the keyboard can reach
 
@@ -177,6 +139,8 @@ single comment immediately when it can't wait.
     uses.
   </Card>
 </CardGrid>
+
+![The action menu](../../assets/screenshots/action-menu.png)
 
 ## Install
 

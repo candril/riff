@@ -50,6 +50,8 @@ comments as a follow-up review. A stranded pending review is also the reason sin
 posting sometimes fails with `user_id can only have one pending review per pull request` —
 submitting or discarding it clears the jam.
 
+![The review preview](../../../assets/screenshots/review-preview.png)
+
 ### `gs` — sync changes
 
 The maintenance pass, with no review event attached:
@@ -59,6 +61,8 @@ The maintenance pass, with no review event attached:
 - thread resolutions.
 
 `gs` opens a preview of exactly what will be sent; `Enter` confirms, `Esc` cancels.
+
+![The sync preview](../../../assets/screenshots/sync-preview.png)
 
 ### Post one comment now
 

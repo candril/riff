@@ -19,6 +19,8 @@ full list of targets.
 riff fetches the diff, the commits, the review threads and GitHub's viewed state in one round
 trip, then drops you on the first file.
 
+![The PR overview](../../../assets/screenshots/overview.png)
+
 ## Read the diff
 
 The cursor is a real cursor, on a real line — comments anchor to it, so it moves the way you'd
@@ -44,6 +46,8 @@ that divider expands them so you can read the surrounding code.
 Don't scroll to find something you can already see: `s` starts a
 [flash jump](/riff/reference/views/#flash-jump), and `/` is the search you already know.
 
+![Flash jump labels](../../../assets/screenshots/flash.png)
+
 ## Say something
 
 Put the cursor on the line and press `c`. The comments panel opens with a draft anchored there.
@@ -60,13 +64,15 @@ Inside the draft:
 
 Prefer to write in `$EDITOR` from the start? `C` skips the panel.
 
+![Composing a comment](../../../assets/screenshots/compose.png)
+
 Saved drafts live in `.riff/` in the repo. Close the terminal, come back tomorrow, and the review
 is where you left it.
 
 ## Read what everyone else said
 
-`]r` jumps to the next thread in the diff and opens it; `[r` goes back. `]R`/`[R` do the same but
-skip resolved threads, which is usually what you want on a PR that has been round the loop a few
+`]r` puts the cursor on the next thread in the diff and `Enter` opens it; `[r` goes back. `]R`/`[R`
+do the same but skip resolved threads, which is usually what you want on a PR that has been round the loop a few
 times. `gC` opens a fuzzy picker over every comment in the PR when you know roughly what you're
 looking for.
 
@@ -105,6 +111,8 @@ Two different actions, deliberately:
 
 Both open a preview first. Nothing is sent until you confirm in it.
 
+![The review preview](../../../assets/screenshots/review-preview.png)
+
 ## Everything else
 
 `Ctrl+p` is the answer to "can riff do X". It lists every action that applies to the state you're
@@ -112,5 +120,5 @@ in right now, with its shortcut — creating a PR from local changes (`gP`), cop
 (`gY`), opening the file in your editor (`gf`), viewing the file through `difftastic` or `delta`,
 handing the selection to Claude Code, and the rest.
 
-`g?` is the same menu, for when your hand is already on `g`. `q` quits — your drafts
-are already on disk.
+`g?` draws the keymap over the diff when you'd rather see the shape of it than search. `q`
+quits — your drafts are already on disk.
