@@ -26,8 +26,8 @@ nix profile install github:candril/riff     # keep it
 ```
 
 Or as a flake input — `inputs.riff.url = "github:candril/riff"`, then
-`inputs.riff.packages.${system}.default`. The flake is deliberately unlocked and re-exports
-the package from the tap, so it always resolves to the latest release.
+`inputs.riff.packages.${system}.default`. The flake packages the release binary; the release
+workflow writes its `release.json`, so `nix run` and `nix flake update` land on the newest release.
 
 The package wraps `gh` and `git` onto the binary's `PATH`, so nothing else is needed.
 
