@@ -207,6 +207,10 @@ export interface AppState {
   treeSelectionAnchor: string | null
 
   // UI state
+  /** File-tree path filter (`/` in the tree). Empty when off. */
+  treeFilter: string
+  /** True while the filter prompt is capturing keys. */
+  treeFilterInput: boolean
   showHelp: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
@@ -394,6 +398,8 @@ export function createInitialState(
     // sidebar starts hidden and the user reveals it with Ctrl+B. In
     // local mode the diff is the first thing shown, so keep the tree
     // visible when there's more than one file to navigate.
+    treeFilter: "",
+    treeFilterInput: false,
     showHelp: false,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
@@ -603,6 +609,29 @@ export function enterDiffView(state: AppState): AppState {
 export function getSelectedFile(state: AppState): DiffFile | null {
   if (state.selectedFileIndex === null) return null
   return state.files[state.selectedFileIndex] ?? null
+}
+
+/**
+ * Open the file-tree filter prompt, keeping whatever is already filtered so
+ * `/` can refine rather than restart.
+ */
+export function startTreeFilter(state: AppState): AppState {
+  return { ...state, treeFilterInput: true }
+}
+
+/** Type into the filter. The highlight is clamped by the tree renderer. */
+export function setTreeFilter(state: AppState, treeFilter: string): AppState {
+  return { ...state, treeFilter, treeHighlightIndex: 0 }
+}
+
+/** Accept the filter and go back to navigating what it left. */
+export function commitTreeFilter(state: AppState): AppState {
+  return { ...state, treeFilterInput: false }
+}
+
+/** Drop the filter entirely. */
+export function clearTreeFilter(state: AppState): AppState {
+  return { ...state, treeFilter: "", treeFilterInput: false, treeHighlightIndex: 0 }
 }
 
 /**

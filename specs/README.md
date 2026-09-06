@@ -65,6 +65,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 042 | [Comment Reactions](./042-comment-reactions.md) | Draft | Add/remove GitHub reactions on PR comments, body, reviews |
 | 044 | [Comments Picker](./044-comments-picker.md) | Draft | `gC` fuzzy modal across all comments in the diff |
 | 049 | [Local Review Lifecycle](./049-local-review-lifecycle.md) | Done | `riff comments` CLI, Claude handoff, clear, resolved-locally never published |
+| 050 | [Tree Filter & Flash to a File](./050-tree-filter-and-file-flash.md) | Done | `/` filters the file tree by path; `s` jumps to a file header |
 
 ## MVP Path
 

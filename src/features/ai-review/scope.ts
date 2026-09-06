@@ -53,12 +53,7 @@ export function detectReviewScope(
 
   // 2-4. Tree-panel scopes.
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(
-      state.fileTree,
-      state.files,
-      state.ignoredFiles,
-      state.showHiddenFiles,
-    )
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
 
     // 2. Tree multi-select: count the files inside the range (skipping dirs
     // and ignored files). If the anchor row has vanished or the range
@@ -145,12 +140,7 @@ export function collectMultiSelectionFiles(
  */
 export function getTreeMultiSelectionFilenames(state: AppState): Set<string> {
   if (state.treeSelectionAnchor === null) return new Set()
-  const flatItems = getVisibleFlatTreeItems(
-    state.fileTree,
-    state.files,
-    state.ignoredFiles,
-    state.showHiddenFiles,
-  )
+  const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
   const files = collectMultiSelectionFiles(state, flatItems)
   return new Set(files.map((f) => f.filename))
 }

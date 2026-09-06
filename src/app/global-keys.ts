@@ -112,7 +112,7 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 
   if (state.focusedPanel === "tree") {
     // From file tree - use highlighted item
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (highlightedItem) {
       return highlightedItem.node.path
@@ -470,6 +470,29 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+
+    const dispatchToTree = (): boolean =>
+      fileTreeFeature.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        getPanel: () => ctx.fileTreePanel,
+        updatePanel: ctx.updateFileTreePanel,
+        onFileSelected: () => {
+          ctx.setVimState(createCursorState())
+          ctx.rebuildLineMapping()
+        },
+        toggleViewedForFile: (filename: string) =>
+          fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
+        recordJump,
+      })
+
+    // ========== FILE TREE FILTER PROMPT (captures input while open) ==========
+    // Before the global single-key handlers, or typing a path would toggle
+    // the PR view on `i` and quit on `q`.
+    if (ctx.getState().treeFilterInput && dispatchToTree()) {
+      return
+    }
 
     // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
     if (ctx.getState().showHelp && !pendingKey) {
@@ -889,22 +912,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
 
     // ========== TREE PANEL FOCUSED ==========
-    if (
-      fileTreeFeature.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: () => ctx.fileTreePanel,
-        updatePanel: ctx.updateFileTreePanel,
-        onFileSelected: () => {
-          ctx.setVimState(createCursorState())
-          ctx.rebuildLineMapping()
-        },
-        toggleViewedForFile: (filename: string) =>
-          fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
-        recordJump,
-      })
-    ) {
+    if (dispatchToTree()) {
       return
     }
 

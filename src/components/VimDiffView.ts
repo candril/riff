@@ -185,8 +185,8 @@ interface VisibleRow {
  * Clean, minimal design matching ReviewPreview style
  * Uses minWidth: "100%" to ensure all headers stretch to full width
  */
-function FileHeader(props: { filename: string; additions: number; deletions: number; collapsed?: boolean; viewed?: boolean }): ReturnType<typeof Box> {
-  const { filename, additions, deletions, collapsed, viewed } = props
+function FileHeader(props: { filename: string; additions: number; deletions: number; collapsed?: boolean; viewed?: boolean; nameId?: string }): ReturnType<typeof Box> {
+  const { filename, additions, deletions, collapsed, viewed, nameId } = props
   
   // Fold indicator: > for collapsed, v for expanded
   const foldIcon = collapsed ? "▶" : "▼"
@@ -206,8 +206,9 @@ function FileHeader(props: { filename: string; additions: number; deletions: num
     Text({ content: foldIcon, fg: collapsed ? theme.overlay1 : theme.overlay0 }),
     // Viewed indicator
     Text({ content: viewedIndicator, fg: viewed ? theme.green : theme.overlay0 }),
-    // Filename (dimmed if viewed)
-    Text({ content: filename, fg: viewed ? theme.overlay1 : theme.blue }),
+    // Filename (dimmed if viewed). The id lets flash find the column the
+    // path actually starts at — it is a jump target in the all-files view.
+    Text({ id: nameId, content: filename, fg: viewed ? theme.overlay1 : theme.blue }),
     // Stats
     Text({ content: `+${additions}`, fg: theme.green }),
     Text({ content: `-${deletions}`, fg: theme.red }),
@@ -804,6 +805,7 @@ export class VimDiffView {
             deletions: section.deletions,
             collapsed: true,
             viewed: isViewed,
+            nameId: `section-${sectionIdx}-name`,
           }),
         )
       } else {
@@ -821,6 +823,7 @@ export class VimDiffView {
             deletions: section.deletions,
             collapsed: false,
             viewed: isViewed,
+            nameId: `section-${sectionIdx}-name`,
           }),
           // Code content
           h(LineNumberRenderable, {
@@ -1320,6 +1323,19 @@ export class VimDiffView {
    * renderable's own `virtualLineCount` and sign widths, which riff can
    * only approximate — and every column on screen shifts with it.
    */
+  /**
+   * Terminal column where a section header's filename starts, unscrolled.
+   * Read off the Text renderable for the same reason as `contentOriginX`:
+   * re-deriving it from the header's padding and gaps drifts from what
+   * OpenTUI laid out.
+   */
+  private headerNameOriginX(sectionIdx: number): number | null {
+    const name = this.renderer.root.findDescendantById(`section-${sectionIdx}-name`)
+    if (!name) return null
+    const origin = name.x + (this.scrollBox?.scrollLeft ?? 0)
+    return origin > 0 ? origin : null
+  }
+
   private contentOriginX(sectionIdx: number | null): number | null {
     const code = sectionIdx === null
       ? this.codeRenderable
@@ -1394,7 +1410,9 @@ export class VimDiffView {
 
       const contentX = this.contentOriginX(sectionIdx)
         ?? this.estimateContentOriginX(section.lineCount, section.maxLineNumber)
-      push(section.startLine - 1, visualRow, contentX)
+      // The header row's path sits left of the code gutter, so flash's
+      // overlay needs that column, not the section's.
+      push(section.startLine - 1, visualRow, this.headerNameOriginX(sectionIdx) ?? contentX)
       visualRow++
 
       for (let line = section.startLine; line < section.startLine + contentRows; line++) {

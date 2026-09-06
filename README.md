@@ -39,7 +39,7 @@ Local and PR mode are the same app. Every motion, fold and comment key works in 
 
 ### The diff reads like a buffer
 
-`j k h l`, `w b e`, `f t ; ,`, `0 ^ $`, `gg G`, `Ctrl+d`/`Ctrl+u` — the motions your fingers already know. `]c`/`[c` steps hunks, `]f`/`[f` files, `]u`/`[u` the files you haven't looked at yet. `za` folds a file or a hunk, `zR`/`zM` do the lot. `Ctrl+o`/`Ctrl+i` walk a real jumplist. `s` is a flash jump: type what you can see, press the label.
+`j k h l`, `w b e`, `f t ; ,`, `0 ^ $`, `gg G`, `Ctrl+d`/`Ctrl+u` — the motions your fingers already know. `]c`/`[c` steps hunks, `]f`/`[f` files, `]u`/`[u` the files you haven't looked at yet. `za` folds a file or a hunk, `zR`/`zM` do the lot. `Ctrl+o`/`Ctrl+i` walk a real jumplist. `s` is a flash jump: type what you can see — a line, or a file's path — and press the label. `/` in the file tree filters it by path.
 
 <img src="site/src/assets/screenshots/tree.png" alt="The diff with the file tree open: changed files with their status on the left, the syntax-highlighted diff on the right" width="100%" />
 

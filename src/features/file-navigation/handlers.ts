@@ -55,12 +55,7 @@ export interface FileNavigationContext {
  * Respects ignore patterns — when hidden files are not shown, ignored files are excluded.
  */
 function getFilesInTreeOrder(state: AppState): number[] {
-  const flatItems = getVisibleFlatTreeItems(
-    state.fileTree,
-    state.files,
-    state.ignoredFiles,
-    state.showHiddenFiles
-  )
+  const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
   return flatItems
     .filter((item) => item.fileIndex !== undefined)
     .map((item) => item.fileIndex!)
@@ -70,12 +65,7 @@ function getFilesInTreeOrder(state: AppState): number[] {
  * Get the visible flat tree items for the given state (respects ignore patterns).
  */
 function getVisibleItems(state: AppState) {
-  return getVisibleFlatTreeItems(
-    state.fileTree,
-    state.files,
-    state.ignoredFiles,
-    state.showHiddenFiles
-  )
+  return getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
 }
 
 /**

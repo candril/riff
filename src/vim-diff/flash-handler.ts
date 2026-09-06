@@ -21,8 +21,13 @@ export interface FlashRegion {
   endCol: number
 }
 
-/** Line types that hold code — flash never labels headers or fold markers. */
-const JUMPABLE_TYPES = new Set(["context", "addition", "deletion"])
+/**
+ * What flash will label. Code lines, plus the file headers of the all-files
+ * view: their content is the full path, so `s` doubles as "jump to a file"
+ * without a second keymap to learn. (A single-file mapping has no header
+ * line, so this costs nothing there.) Fold markers and spacing stay out.
+ */
+const JUMPABLE_TYPES = new Set(["context", "addition", "deletion", "file-header"])
 
 export interface FlashHandlerOptions {
   getMapping: () => DiffLineMapping

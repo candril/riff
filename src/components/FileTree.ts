@@ -1,7 +1,7 @@
 import { Box, Text, ScrollBox } from "@opentui/core"
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
-import { flattenTree } from "../utils/file-tree"
+import { flattenTree, filterTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
 import { getFileColor } from "../utils/file-colors"
 
@@ -188,9 +188,10 @@ export function getVisibleFlatTreeItems(
   fileTree: FileTreeNode[],
   files: DiffFile[],
   ignoredFiles: Set<string>,
-  showHiddenFiles: boolean
+  showHiddenFiles: boolean,
+  treeFilter = ""
 ): FlatTreeItem[] {
-  let flatItems = flattenTree(fileTree, files)
+  let flatItems = flattenTree(filterTree(fileTree, treeFilter), files)
   if (!showHiddenFiles && ignoredFiles.size > 0) {
     // Filter out ignored file nodes
     flatItems = flatItems.filter((item) => {

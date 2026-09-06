@@ -99,7 +99,7 @@ const HELP_TEXT = `
     ]u / [u                   Next/previous unviewed file
     ]o / [o                   Next/previous outdated file (viewed, then changed)
     ]g / [g                   Next/previous commit's diff
-    s                         Flash jump to a visible match
+    s                         Flash jump — to a match, or a file by its path
     Ctrl+o / Ctrl+i           Jumplist back/forward
 
     \x1b[1mPanels\x1b[0m
@@ -109,6 +109,7 @@ const HELP_TEXT = `
     Ctrl+e                    Expand focused panel to full width
     Ctrl+f                    Find files (fuzzy)
     Ctrl+g                    Show the current file's path
+    /                         Filter the file tree by path (tree focused)
     i                         Toggle PR overview / diff (PR mode)
     Esc                       Leave single-file view
 

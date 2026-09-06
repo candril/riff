@@ -95,7 +95,7 @@ export function handleGoToBottom(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     ctx.setState((s) => ({ ...s, treeHighlightIndex: Math.max(0, flatItems.length - 1) }))
     ctx.updateFileTreePanel()
     ctx.getFileTreePanel().ensureHighlightVisible()
@@ -116,7 +116,7 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 
@@ -169,7 +169,7 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 
@@ -213,7 +213,7 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
   const state = ctx.getState()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (!highlightedItem) return
 

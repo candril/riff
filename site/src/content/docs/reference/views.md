@@ -54,6 +54,9 @@ diff shortens as you work through it.
 Every match gets a single home-row label drawn on the cell the cursor would land on; press it and
 you're there. `Backspace` un-types, `Esc` or `Enter` leaves without moving.
 
+In the all-files view the file headers are targets too, and a header's text is its full path — so
+`s` then part of a path jumps to that file, without a second key to remember.
+
 It's the fast path when the target is already visible — you type the characters and the label in
 one motion instead of `/pattern<CR>nnn`. For anything off screen, use `/`.
 
@@ -74,8 +77,13 @@ Files matched by your [ignore patterns](/riff/reference/configuration/#ignore) a
 files, generated code, snapshots. **Toggle Hidden Files** in the action menu brings them back
 when you actually do need to look at the lockfile.
 
-`Ctrl+f` is the fuzzy picker over the same list, which is usually faster than navigating the
-tree.
+`/` with the tree focused filters it by path: the header turns into a prompt, the tree narrows as
+you type (loosely, against the whole path), `Enter` keeps the filter, `Esc` drops it. Matching
+directories come back expanded, so nothing hides in a fold, and your own expansion state returns
+with the filter cleared.
+
+`Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
+picker when you just want the file.
 
 ### Viewed state
 

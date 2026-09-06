@@ -40,7 +40,7 @@ In the diff. These follow vim, including the ones you only notice when they're m
 | `]r` `[r` | Next, previous comment thread |
 | `]R` `[R` | Same, skipping resolved threads |
 | `]g` `[g` | Next, previous commit's diff; wraps back to the full diff |
-| `s` | Flash jump — search what's on screen, press a label to land |
+| `s` | Flash jump — search what's on screen, press a label to land (file headers included) |
 | `Ctrl+o` `Ctrl+i` | Jumplist back, forward (`Tab` is forward too) |
 
 Every one of these records a jumplist entry, so `Ctrl+o` undoes it.
@@ -81,7 +81,12 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
 
 In the **file tree**: `j`/`k` moves, `l`/`Enter` opens a file or expands a folder, `h` collapses,
-`v` toggles viewed, `Esc` hands focus back to the diff.
+`v` toggles viewed, `/` filters by path, `Esc` hands focus back to the diff.
+
+Filtering: `/` opens a prompt in the panel header, typing narrows the tree live (loosely, against
+the whole path — `apicl` finds `src/api/client.ts`), `Enter` keeps the filter and returns to
+navigating it, `Esc` drops it. With a filter applied, `Esc` clears that before the next `Esc`
+leaves the panel.
 
 ## Comments
 

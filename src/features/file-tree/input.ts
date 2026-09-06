@@ -9,6 +9,10 @@ import type { AppState } from "../../state"
 import type { FileTreePanel } from "../../components/FileTreePanel"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
+  startTreeFilter,
+  setTreeFilter,
+  commitTreeFilter,
+  clearTreeFilter,
   moveTreeHighlight,
   updateFileTree,
   selectFile,
@@ -48,13 +52,21 @@ export function handleInput(
     return false
   }
 
-  const flatItems = getVisibleFlatTreeItems(
-    ctx.state.fileTree,
-    ctx.state.files,
-    ctx.state.ignoredFiles,
-    ctx.state.showHiddenFiles
-  )
+  const flatItems = getVisibleFlatTreeItems(ctx.state.fileTree, ctx.state.files, ctx.state.ignoredFiles, ctx.state.showHiddenFiles, ctx.state.treeFilter)
   const panel = ctx.getPanel()
+
+  // The filter prompt owns every key while it is open.
+  if (ctx.state.treeFilterInput) {
+    return handleFilterInput(key, ctx)
+  }
+
+  // `/` filters the tree by path, the same key that searches the diff.
+  if (key.name === "/" || key.sequence === "/") {
+    ctx.setState(startTreeFilter)
+    ctx.updatePanel()
+    ctx.render()
+    return true
+  }
 
   switch (key.name) {
     case "j":
@@ -146,6 +158,14 @@ export function handleInput(
       if (ctx.state.treeSelectionAnchor !== null) {
         ctx.setState(clearTreeSelectionAnchor)
         ctx.updatePanel()
+        return true
+      }
+      // Then the path filter — Escape shouldn't drop the panel and the
+      // filter in one press.
+      if (ctx.state.treeFilter) {
+        ctx.setState(clearTreeFilter)
+        ctx.updatePanel()
+        ctx.render()
         return true
       }
       ctx.setState((s) => ({ ...clearFileSelection(s), focusedPanel: "diff" as const }))
@@ -245,4 +265,36 @@ export function handleInput(
   }
 
   return false
+}
+
+/**
+ * Keys while the `/` prompt is open: type to narrow, Enter to keep the
+ * filter and go back to navigating it, Escape to drop it. Backspace on an
+ * empty query closes the prompt the way it opened.
+ */
+function handleFilterInput(key: KeyEvent, ctx: FileTreeInputContext): boolean {
+  const done = (updater: (s: AppState) => AppState): boolean => {
+    ctx.setState(updater)
+    ctx.updatePanel()
+    ctx.render()
+    return true
+  }
+
+  if (key.name === "escape") return done(clearTreeFilter)
+  if (key.name === "return" || key.name === "enter") return done(commitTreeFilter)
+
+  if (key.name === "backspace") {
+    const filter = ctx.state.treeFilter
+    if (filter.length === 0) return done(commitTreeFilter)
+    return done((s) => setTreeFilter(s, filter.slice(0, -1)))
+  }
+
+  // Printable characters only: a stray Ctrl-chord shouldn't land in the query.
+  const char = key.sequence
+  if (char && char.length === 1 && !key.ctrl && !key.meta && char >= " ") {
+    return done((s) => setTreeFilter(s, s.treeFilter + char))
+  }
+
+  // Swallow everything else — the prompt is modal while it is open.
+  return true
 }

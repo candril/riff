@@ -1,4 +1,5 @@
 import type { DiffFile } from "./diff-parser"
+import { fuzzyMatch } from "./fuzzy"
 
 /**
  * Represents a node in the file tree
@@ -134,6 +135,34 @@ function collapseSingleChildDirs(nodes: FileTreeNode[], depth: number): FileTree
       depth,
     }
   })
+}
+
+/**
+ * Narrow a tree to the files whose path matches `query`, keeping the
+ * directories on the way to each one.
+ *
+ * Matching is the same fuzzy match the pickers use, run against the full
+ * path, so `apicl` finds `src/api/client.ts`. Surviving directories come
+ * back expanded: a filter that hid its own results behind a fold would be
+ * useless, and the user's own expansion state is left untouched for when
+ * the filter is cleared.
+ */
+export function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
+  if (!query.trim()) return nodes
+
+  const keep = (node: FileTreeNode): FileTreeNode | null => {
+    if (!node.isDirectory) {
+      return fuzzyMatch(query, node.path) > 0 ? node : null
+    }
+    const children = node.children.map(keep).filter((c): c is FileTreeNode => c !== null)
+    if (children.length === 0) {
+      // A directory can still match on its own name — show what's inside it.
+      return fuzzyMatch(query, node.path) > 0 ? { ...node, expanded: true } : null
+    }
+    return { ...node, children, expanded: true }
+  }
+
+  return nodes.map(keep).filter((n): n is FileTreeNode => n !== null)
 }
 
 /**

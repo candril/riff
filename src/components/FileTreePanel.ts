@@ -13,7 +13,7 @@ import {
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
-import { flattenTree } from "../utils/file-tree"
+import { flattenTree, filterTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
 
 export interface FileTreePanelOptions {
@@ -162,6 +162,7 @@ export class FileTreePanel {
   private currentCollapsedFiles: Set<string> = new Set()
   private currentIgnoredFiles: Set<string> = new Set()
   private currentShowHidden: boolean = false
+  private currentFilter: string = ""
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private multiSelectedFilenames: Set<string> = new Set()  // V-mode tree selection
@@ -252,7 +253,9 @@ export class FileTreePanel {
     collapsedFiles?: Set<string>,
     ignoredFiles?: Set<string>,
     showHiddenFiles?: boolean,
-    multiSelectedFilenames?: Set<string>
+    multiSelectedFilenames?: Set<string>,
+    treeFilter = "",
+    treeFilterInput = false
   ): void {
     const newIgnored = ignoredFiles ?? new Set<string>()
     const newShowHidden = showHiddenFiles ?? false
@@ -262,7 +265,8 @@ export class FileTreePanel {
       files !== this.currentFiles ||
       fileTree !== this.currentFileTree ||
       newIgnored !== this.currentIgnoredFiles ||
-      newShowHidden !== this.currentShowHidden
+      newShowHidden !== this.currentShowHidden ||
+      treeFilter !== this.currentFilter
 
     this.currentFiles = files
     this.currentFileTree = fileTree
@@ -270,6 +274,7 @@ export class FileTreePanel {
     this.currentCollapsedFiles = collapsedFiles ?? new Set()
     this.currentIgnoredFiles = newIgnored
     this.currentShowHidden = newShowHidden
+    this.currentFilter = treeFilter
     this.multiSelectedFilenames = newMulti
     this.highlightIndex = highlightIndex
     this.selectedFileIndex = selectedFileIndex
@@ -288,15 +293,24 @@ export class FileTreePanel {
 
     const hiddenCount = newIgnored.size
 
-    // Update header with progress
+    // Update header with progress. While filtering, the header is the prompt:
+    // the panel is narrow, and a separate input row would cost a file row.
     const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
-    const scopeText = `Files${progressText}`
+    const scopeText = treeFilter || treeFilterInput
+      ? `/${treeFilter}${treeFilterInput ? "▏" : ""}`
+      : `Files${progressText}`
     this.headerText.content = scopeText
-    this.headerText.fg = focused ? colors.primary : colors.textMuted
+    this.headerText.fg = treeFilterInput
+      ? colors.warning
+      : treeFilter
+        ? colors.secondary
+        : focused
+          ? colors.primary
+          : colors.textMuted
     this.container.borderColor = focused ? colors.primary : colors.border
 
     // Get flat items, filtering out ignored files (unless showing hidden)
-    let flatItems = flattenTree(fileTree, files)
+    let flatItems = flattenTree(filterTree(fileTree, treeFilter), files)
     if (!newShowHidden && hiddenCount > 0) {
       flatItems = flatItems.filter(item => {
         // Keep directory nodes (they might contain non-ignored files)

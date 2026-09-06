@@ -101,7 +101,7 @@ describe("FlashHandler", () => {
     handler.start()
     handler.handleChar("c")
 
-    expect(flashState.matches.map((m) => m.line)).toEqual([1])
+    expect(flashState.matches.map((m) => m.line)).toEqual([0, 1])
   })
 
   test("backspace un-types, and on an empty pattern leaves flash mode", () => {

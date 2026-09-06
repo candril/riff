@@ -62,7 +62,7 @@ function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | und
 
   if (state.focusedPanel === "tree") {
     // From file tree - use highlighted file
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles)
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (highlightedItem && !highlightedItem.node.isDirectory) {
       return [highlightedItem.node.path, undefined]

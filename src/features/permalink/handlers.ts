@@ -284,12 +284,7 @@ function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Target | n
   const lineMapping = ctx.getLineMapping()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(
-      state.fileTree,
-      state.files,
-      state.ignoredFiles,
-      state.showHiddenFiles,
-    )
+    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
     const highlighted = flatItems[state.treeHighlightIndex]
     if (!highlighted || highlighted.node.isDirectory) return null
     return { filename: highlighted.node.path }

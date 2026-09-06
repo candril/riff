@@ -236,7 +236,9 @@ export async function createApp(options: AppOptions = {}) {
       state.collapsedFiles,
       state.ignoredFiles,
       state.showHiddenFiles,
-      aiReview.getTreeMultiSelectionFilenames(state)
+      aiReview.getTreeMultiSelectionFilenames(state),
+      state.treeFilter,
+      state.treeFilterInput
     )
     fileTreePanel.visible = state.showFilePanel
     vimDiffView.setFilePanelVisible(state.showFilePanel, panelWidth)
