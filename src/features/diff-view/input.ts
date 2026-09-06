@@ -37,6 +37,8 @@ export interface DiffViewInputContext {
   /** `raw` keeps the +/- gutter; otherwise the code is copied as it reads. */
   handleYank: (options: { raw: boolean }) => void
   handleExpandDivider: () => void
+  /** Esc with nothing else to dismiss — leave single-file view. */
+  showAllFiles: () => void
   handleToggleViewed: (advanceToNext: boolean) => void
   handleSubmitSingleComment: (comment: Comment) => void
   /** spec 039: open the inline comment overlay. `view` requires an
@@ -148,6 +150,12 @@ export function handleInput(
     // Clear search highlights (if any)
     if (ctx.searchState.pattern) {
       ctx.searchHandler.clearSearch()
+      return true
+    }
+    // Nothing transient left to dismiss: back out of single-file view, the
+    // shortcut the action menu has always advertised for "Show All Files".
+    if (ctx.state.selectedFileIndex !== null) {
+      ctx.showAllFiles()
       return true
     }
   }

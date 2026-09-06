@@ -78,7 +78,7 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Ctrl+f` | Fuzzy file picker |
 | `Ctrl+g` | Show the current file's path |
 | `v` | Mark the file viewed and advance to the next unviewed |
-| `Esc` | Leave single-file view, back to all files |
+| `Esc` | Leave single-file view — after clearing a selection or search highlights |
 
 In the **file tree**: `j`/`k` moves, `l`/`Enter` opens a file or expands a folder, `h` collapses,
 `v` toggles viewed, `Esc` hands focus back to the diff.

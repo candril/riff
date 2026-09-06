@@ -68,7 +68,9 @@ const HELP_TEXT = `
     \x1b[33m-v, --version\x1b[0m             Show version number
 
 \x1b[1mLOCAL COMMENTS\x1b[0m
-    \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.\x1b[0m
+    \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.
+    In the app, x marks a local thread resolved — resolved local threads are never
+    published — and "Clear Local Comments" (Ctrl+p) deletes them all.\x1b[0m
     riff comments [--json] [TARGET]         List local comments
     riff comments resolve <id> [TARGET]     Mark a thread done (it will never be published)
     riff comments unresolve <id> [TARGET]   Reopen it
@@ -89,11 +91,13 @@ const HELP_TEXT = `
     \x1b[1mNavigation\x1b[0m
     j/k  h/l                  Move down/up, left/right
     w/b/e                     By word
+    f/t  ;/,                  Find character on the line, repeat
     Ctrl+d / Ctrl+u           Half page down/up
     gg / G                    Go to top/bottom
     ]c / [c                   Next/previous hunk
     ]f / [f                   Next/previous file
     ]u / [u                   Next/previous unviewed file
+    ]o / [o                   Next/previous outdated file (viewed, then changed)
     ]g / [g                   Next/previous commit's diff
     s                         Flash jump to a visible match
     Ctrl+o / Ctrl+i           Jumplist back/forward
@@ -104,33 +108,53 @@ const HELP_TEXT = `
     Ctrl+h / Ctrl+l           Move focus left/right
     Ctrl+e                    Expand focused panel to full width
     Ctrl+f                    Find files (fuzzy)
-    i                         Toggle PR overview / diff
+    Ctrl+g                    Show the current file's path
+    i                         Toggle PR overview / diff (PR mode)
+    Esc                       Leave single-file view
 
-    \x1b[1mReview Actions\x1b[0m
+    \x1b[1mReviewing\x1b[0m
     v                         Mark file as viewed
     V                         Visual line select
     c / C                     Comment on the line, inline / via $EDITOR
+    y / Y                     Yank line or selection, without / with markers
     Enter                     Open the thread here, or reveal context lines
     ]r / [r                   Next/previous comment thread
-    x / r / d                 Resolve / reply / delete (comments panel)
-    y / Y                     Yank line or selection, without / with markers
+    ]R / [R                   Same, skipping resolved threads
+    gC                        Find a comment (fuzzy, whole review)
+
+    \x1b[1mComments panel\x1b[0m
+    x                         Toggle the thread resolved
+    r / e / d                 Reply / edit / delete
+    y                         Copy a link to the comment
+    o                         Open its file in $EDITOR at its line
+    S                         Post this comment now (PR mode)
+
+    \x1b[1mWriting a comment\x1b[0m
+    Enter / Ctrl-s            Save the draft locally
+    Ctrl-p                    Save and publish it now (PR mode)
+    Ctrl-j                    Newline
+    Ctrl-g                    Continue in $EDITOR
+    @                         Mention picker
 
     \x1b[1mSearch & Folds\x1b[0m
     /  ?                      Search forward/backward
     n / N                     Next/previous match
+    *  #                      Search the word under the cursor
     za / zo / zc              Toggle / open / close fold at cursor
     zR / zM                   Open / close every fold
 
     \x1b[1mGitHub\x1b[0m
     gS                        Submit review (Enter submits, Ctrl-J newline)
-    gs                        Sync edits/replies to GitHub
-    gr                        Refresh from GitHub
+    gs                        Sync edits/replies/resolutions to GitHub
     gi                        PR overview panel
     go / gy / gY              Open PR / copy its URL / copy permalink
     gP                        Create PR (local) or edit PR title & body
-    gf / gF                   Open file in $EDITOR / in a new tmux window
+    gc                        Checkout the PR branch, open the file in $EDITOR
 
     \x1b[1mGeneral\x1b[0m
+    gr                        Refresh diff, commits and comments
+    gf / gF                   Open file in $EDITOR / in a new tmux window
+    gd / gD                   Copy / dismiss a comment Claude drafted
     Ctrl+p                    Action menu
     g?                        Keymap overlay
     q                         Quit
@@ -157,7 +181,8 @@ const HELP_TEXT = `
     Background comment poll:
     \x1b[2m[poll]
     interval = 300  # seconds between checks; 0 disables
-    onFocus = true  # only poll while the terminal has focus\x1b[0m
+    onFocus = true  # skip ticks while unfocused, refresh on focus-in
+                    # (in local mode this is what re-reads the diff and .riff/)\x1b[0m
 
     Full documentation: \x1b[36mhttps://candril.github.io/riff/\x1b[0m
 

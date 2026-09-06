@@ -923,6 +923,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
       handleYank: ctx.handleYank,
       handleExpandDivider: ctx.handleExpandDivider,
+      showAllFiles: () => ctx.executeAction("show-all-files"),
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
       handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),

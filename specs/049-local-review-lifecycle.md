@@ -84,6 +84,11 @@ and no `S submit` in the panel.
 **Focus refresh** — `app.ts` wires `setupFocusReporting` to `handleRefresh`
 in local mode when `poll.onFocus` is set (it was PR-only before).
 
+**`--help`** — the shortcut list was accurate but partial; it now covers the
+comments panel, the composer, `]o`/`[o`, `]R`/`[R`, `gC`, `gc`, `gd`/`gD`,
+`Ctrl+g` and `Esc`, and `Esc` actually leaves single-file view now (the
+`show-all-files` action advertised the shortcut but nothing bound it).
+
 ### P2
 
 - `riff comments` on a PR target lists the local-only comments of that PR
