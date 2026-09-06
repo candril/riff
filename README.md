@@ -9,12 +9,11 @@
 <p align="center"><a href="https://candril.github.io/riff/">Documentation</a></p>
 
 > [!CAUTION]
-> riff is young, spec-first, and was largely written with an AI pair. It talks to GitHub through the [`gh` CLI](https://cli.github.com/) and it *writes* — comments, reviews, resolutions, PR bodies. Point it at a PR you don't mind poking at, and expect rough edges.
+> **Spec-driven, AI-generated.** Every feature in riff starts as a numbered spec in [`specs/`](specs/), and the code and this documentation were generated from those specs with an AI pair. Use it with care: riff *writes* to GitHub — comments, reviews, thread resolutions, PR titles and bodies. Nothing leaves your machine until you press `gS`, `gs` or `S`, so start on a working copy (`riff` with no argument), then on a PR you don't mind poking at.
 
 ```sh
-git clone https://github.com/candril/riff.git && cd riff
-bun install && bun run build   # → dist/riff
-riff                           # review your uncommitted changes
+brew install candril/tap/riff           # or: nix run github:candril/riff
+riff                                    # review your uncommitted changes
 ```
 
 <img src="site/src/assets/riff-demo.gif" alt="riff demo" width="100%" />
@@ -82,17 +81,24 @@ and say *"look at the riff comments"* in any session: it reads them with `riff c
 
 ## Install
 
-riff is a [Bun](https://bun.sh) application that compiles to a single binary:
-
 ```sh
-git clone https://github.com/candril/riff.git
-cd riff
-bun install
-bun run build          # → dist/riff
-cp dist/riff ~/.local/bin/
+brew install candril/tap/riff
 ```
 
-You'll want [`gh`](https://cli.github.com/) authenticated for anything GitHub, and `git` or [`jj`](https://github.com/jj-vcs/jj) for local diffs. See the [installation guide](https://candril.github.io/riff/guide/installation/).
+```sh
+nix run github:candril/riff              # try it; `nix profile install github:candril/riff` keeps it
+```
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/candril/riff/main/scripts/install.sh | bash
+```
+
+All three install the same binary — the one attached to the latest
+[release](https://github.com/candril/riff/releases), verified against its `SHA256SUMS` — prebuilt
+for macOS (Apple Silicon, Intel) and Linux (x64, arm64). The installer puts it in `/usr/local/bin`;
+`RIFF_INSTALL_DIR=~/.local/bin` moves it, `RIFF_VERSION=0.1.0` pins it. Needs the [GitHub CLI](https://cli.github.com), logged in, and `git` or [`jj`](https://github.com/jj-vcs/jj).
+
+From source, with [Bun](https://bun.sh): `git clone https://github.com/candril/riff.git && cd riff && bun install && just install-bin`.
 
 ## Configuration
 
@@ -135,3 +141,7 @@ Features are specified before they are built — see [`specs/`](specs/) — and 
 ## License
 
 MIT
+
+---
+
+<p align="center"><sub>One of five terminal tools from <a href="https://github.com/candril">candril</a> — one spec-first process, the same three installers:<br><a href="https://candril.github.io/lane/">lane</a> (Jira) · <a href="https://candril.github.io/monq/">monq</a> (MongoDB) · <a href="https://candril.github.io/presto/">presto</a> (pull requests) · <a href="https://candril.github.io/riff/">riff</a> (code review) · <a href="https://candril.github.io/topiq/">topiq</a> (Kafka)</sub></p>

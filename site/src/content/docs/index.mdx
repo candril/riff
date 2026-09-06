@@ -24,16 +24,12 @@ hero:
 import { CardGrid, Card, Aside } from '@astrojs/starlight/components'
 
 <Aside type="caution">
-riff is young and built spec-first — every feature traces to a numbered spec in
-[`specs/`](https://github.com/candril/riff/tree/main/specs). It talks to GitHub through the
-[`gh` CLI](https://cli.github.com/) and it *writes*: comments, reviews, resolutions, PR bodies.
-Point it at a PR you don't mind poking at, and expect rough edges.
+**Spec-driven, AI-generated.** Every feature in riff starts as a numbered spec in [`specs/`](https://github.com/candril/riff/tree/main/specs), and the code and this documentation were generated from those specs with an AI pair. Use it with care: riff *writes* to GitHub — comments, reviews, thread resolutions, PR titles and bodies. Nothing leaves your machine until you press `gS`, `gs` or `S`, so start on a working copy (`riff` with no argument), then on a PR you don't mind poking at.
 </Aside>
 
 ```sh
-git clone https://github.com/candril/riff.git && cd riff
-bun install && bun run build   # → dist/riff
-riff                           # review your uncommitted changes
+brew install candril/tap/riff           # or: nix run github:candril/riff
+riff                                    # review your uncommitted changes
 ```
 
 ![The README demo](../../assets/riff-demo.gif)
@@ -145,8 +141,9 @@ single comment immediately when it can't wait.
 ## Install
 
 ```sh
-git clone https://github.com/candril/riff.git
-cd riff && bun install && bun run build
+brew install candril/tap/riff            # or: nix run github:candril/riff
+curl -fsSL https://raw.githubusercontent.com/candril/riff/main/scripts/install.sh | bash
 ```
 
-See the [installation guide](/riff/guide/installation/) for requirements and first run.
+See the [installation guide](/riff/guide/installation/) for the Nix flake, the installer's
+variables, requirements and first run.

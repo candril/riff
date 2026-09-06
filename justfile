@@ -77,3 +77,29 @@ demo-gif:
 # Regenerate the plugin's SKILL.md from src/cli/skill.ts (the source of truth)
 sync-skill:
     bun -e 'import { RIFF_COMMENTS_SKILL } from "./src/cli/skill.ts"; await Bun.write("plugins/riff/skills/riff-comments/SKILL.md", RIFF_COMMENTS_SKILL)'
+
+# Build and install the binary to ~/.local/bin
+#
+# `install` replaces the inode deliberately: copying over the existing file keeps it, and
+# macOS kills a running binary whose cached code signature no longer matches — silently,
+# exit 137.
+install-bin: build
+    mkdir -p ~/.local/bin
+    install -m 755 dist/riff ~/.local/bin/riff
+    @~/.local/bin/riff --version >/dev/null || (echo "installed binary does not run" && exit 1)
+    @echo "installed: ~/.local/bin/riff $(~/.local/bin/riff --version)"
+
+# Tag a release: just release 0.2.0 (pushing the tag is what builds and publishes it)
+#
+# The tag is the version a released binary reports, so package.json and CHANGELOG.md are
+# checked against it here rather than after four runners have built the wrong number.
+# jj cannot create git tags, hence plain `git tag` against the colocated repo.
+release version:
+    @grep -q '"version": "{{version}}"' package.json || (echo "package.json is not {{version}}" && exit 1)
+    @grep -q '^## \[{{version}}\]' CHANGELOG.md || (echo "CHANGELOG.md has no [{{version}}] section" && exit 1)
+    @test -z "$(jj diff --name-only)" || (echo "working copy has uncommitted changes" && exit 1)
+    just typecheck
+    just test
+    git tag v{{version}}
+    @echo "tagged v{{version}} at $(git rev-parse --short HEAD)"
+    @echo "publish it with: git push origin v{{version}}"

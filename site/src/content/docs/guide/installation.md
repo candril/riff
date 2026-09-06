@@ -1,41 +1,67 @@
 ---
 title: Installation
-description: Build riff, check the tools it leans on, and open your first diff.
+description: Install riff, check the tools it leans on, and open your first diff.
 ---
 
-riff is a [Bun](https://bun.sh) application that compiles to a single binary. There are no
-prebuilt releases yet, so installing means cloning and building — which takes about as long as
-`bun install` does.
+## Install
 
-## Build it
+Prebuilt binaries for macOS (Apple Silicon and Intel) and Linux (x64 and arm64), by any of three
+routes. All three install the same binary: the one attached to the latest
+[release](https://github.com/candril/riff/releases), verified against its `SHA256SUMS`.
+
+### Homebrew
+
+```sh
+brew install candril/tap/riff
+```
+
+The tap is [candril/homebrew-tap](https://github.com/candril/homebrew-tap); `brew upgrade` picks
+up new releases.
+
+### Nix
+
+```sh
+nix run github:candril/riff                 # run it once
+nix profile install github:candril/riff     # keep it
+```
+
+Or as a flake input — `inputs.riff.url = "github:candril/riff"`, then
+`inputs.riff.packages.${system}.default`. The flake is deliberately unlocked and re-exports
+the package from the tap, so it always resolves to the latest release.
+
+The package wraps `gh` and `git` onto the binary's `PATH`, so nothing else is needed.
+
+### Installer script
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/candril/riff/main/scripts/install.sh | bash
+```
+
+The installer detects your platform, downloads the latest release, verifies its SHA256 against the
+release's `SHA256SUMS`, and puts `riff` in `/usr/local/bin`. Two variables change that:
+
+```sh
+RIFF_INSTALL_DIR=~/.local/bin …   # somewhere else on your PATH
+RIFF_VERSION=0.1.0 …              # a specific release
+```
+
+Or download `riff-<os>-<arch>.gz` from the releases page by hand, `gunzip` it, and put it on
+your `PATH`.
+
+### From source
+
+riff is a [Bun](https://bun.sh) application, so a clone runs as it is:
 
 ```sh
 git clone https://github.com/candril/riff.git
 cd riff
 bun install
-bun run build          # → dist/riff, a standalone binary
+bun scripts/build.ts   # → dist/riff, a standalone binary
 ```
 
-Put the binary somewhere on your `PATH`:
-
-```sh
-cp dist/riff ~/.local/bin/riff
-```
-
-With [just](https://github.com/casey/just), `just build` does the same thing, `just dev` runs
-from source with hot reload, and `just run <target>` runs it once without building.
-
-### Other platforms
-
-The build script cross-compiles, which is what the release binaries will eventually come from:
-
-```sh
-bun run build:all             # macOS arm64 + x64, Linux x64
-bun run build:macos-arm64     # or one at a time
-bun run build:linux-x64
-```
-
-Each target writes `dist/riff-<os>-<arch>`.
+With [just](https://github.com/casey/just): `just build`, or `just install-bin` to build and
+install it to `~/.local/bin`. `just dev` runs from source with hot reload, `just run <target>`
+runs it once without building.
 
 ## Requirements
 

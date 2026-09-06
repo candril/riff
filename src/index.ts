@@ -7,13 +7,13 @@ import { resolveCurrentPr } from "./providers/current-pr"
 import { resolveStorageWithConfirmation } from "./storage"
 import { runCommentsCli } from "./cli/comments"
 import * as readline from "readline"
-import packageJson from "../package.json"
+import { version } from "./version"
 
 // ============================================================================
 // Version
 // ============================================================================
 
-const VERSION = packageJson.version
+const VERSION = version
 
 // ============================================================================
 // CLI Help
