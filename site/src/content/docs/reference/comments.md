@@ -156,14 +156,21 @@ Where `.riff/` ends up for a PR from a repo you're not sitting in is the
 `riff` on the working copy, `c` on the lines, `q` — the comments are in `.riff/comments/local/`
 and nothing else happens. Three ways to take it from there:
 
-**Act on them with Claude.** Install the skill once —
+**Act on them with Claude.** Install riff's plugin once —
+
+```sh
+claude plugin marketplace add candril/riff
+claude plugin install riff@riff
+```
+
+— or, without a marketplace, drop the skill straight in:
 
 ```sh
 riff comments install-skill            # this repo
 riff comments install-skill --global   # ~/.claude, every repo
 ```
 
-— then in any Claude Code session in the repo: *"look at the riff comments"*. It reads them with
+Either way, in any Claude Code session in the repo: *"look at the riff comments"*. It reads them with
 `riff comments --json` (anchor, body, the diff hunk they were written against), makes the
 changes, and retires each one as it goes:
 

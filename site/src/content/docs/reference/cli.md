@@ -80,6 +80,18 @@ The comments a review stored in `.riff/`, from the shell. Never touches GitHub.
 `HEAD~3`, `123`, `gh:owner/repo#123`). `<id>` is the full id or the 8-character prefix the files
 are named by. See [a review without GitHub](/riff/reference/comments/#a-review-without-github).
 
+### The Claude Code plugin
+
+The riff repo is a plugin marketplace, so the skill can be installed the usual way instead:
+
+```sh
+claude plugin marketplace add candril/riff
+claude plugin install riff@riff
+```
+
+One skill, `riff-comments`, ~80 tokens always-on. `riff comments install-skill` writes the same
+file directly if you'd rather not add a marketplace.
+
 ## Exit and errors
 
 `q` quits. Draft comments are already on disk — there's nothing to save on the way out.

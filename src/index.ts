@@ -77,6 +77,11 @@ const HELP_TEXT = `
     riff comments install-skill [--global]  Install the Claude Code skill for working through them
                                             (this repo, or ~/.claude for every repo)
 
+    \x1b[2mOr install riff's Claude Code plugin once, for every repo:\x1b[0m
+    $ claude plugin marketplace add candril/riff
+    $ claude plugin install riff@riff
+    \x1b[2mThen, in any Claude session: "look at the riff comments".\x1b[0m
+
 \x1b[1mKEYBOARD SHORTCUTS\x1b[0m
     \x1b[2mPress \x1b[0mg?\x1b[2m in the app for the keymap, \x1b[0mCtrl+p\x1b[2m for every action
     available right now with its shortcut.\x1b[0m

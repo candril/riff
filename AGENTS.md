@@ -151,7 +151,9 @@ The directory name is the source with its punctuation flattened:
 `riff comments [list|resolve|unresolve|remove|clear|install-skill]` operates
 on those files from the command line (`src/cli/comments.ts`, spec 049), and
 `install-skill` writes the Claude Code skill in `src/cli/skill.ts` that
-drives it. A thread resolved while still local is never published —
+drives it. The same skill ships as a plugin (`plugins/riff/`, with the repo
+as its marketplace via `.claude-plugin/marketplace.json`); `just sync-skill`
+regenerates the plugin copy and a test fails if the two drift. A thread resolved while still local is never published —
 `isLocallyResolved` in `src/utils/publishable.ts` is the single rule, used by
 every path that sends comments to GitHub.
 

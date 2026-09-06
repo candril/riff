@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+    "name": "riff",
+    "description": "Claude Code plugins for riff, the terminal code-review companion",
+    "owner": {
+        "name": "candril",
+        "url": "https://github.com/candril/riff"
+    },
+    "plugins": [
+        {
+            "name": "riff",
+            "source": "./plugins/riff",
+            "description": "Work through the local code-review comments riff keeps in .riff/ — read them with the riff CLI, act on each one, then resolve or remove it."
+        }
+    ]
+}

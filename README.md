@@ -65,7 +65,14 @@ Nothing reaches GitHub until you say so. `gS` opens the review preview — appro
 
 ### A review without GitHub
 
-`riff` on the working copy, comments on the lines, `q`. Install the skill once — `riff comments install-skill` (or `--global`) — and any Claude Code session in the repo picks them up from "look at the riff comments": it reads them with `riff comments --json`, makes the changes, and retires each with `riff comments resolve <id>`. A thread resolved locally is never published. `riff comments clear` (or **Clear Local Comments**) wipes the rest.
+`riff` on the working copy, comments on the lines, `q`. Then let Claude Code work through them — install riff's plugin once:
+
+```sh
+claude plugin marketplace add candril/riff
+claude plugin install riff@riff
+```
+
+and say *"look at the riff comments"* in any session: it reads them with `riff comments --json`, makes the changes, and retires each with `riff comments resolve <id>`. (`riff comments install-skill` drops the same skill in without a marketplace.) A thread resolved locally is never published; `riff comments clear` — or **Clear Local Comments** — wipes the rest.
 
 ### Everything the keyboard can reach
 

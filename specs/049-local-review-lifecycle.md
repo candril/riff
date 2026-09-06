@@ -16,10 +16,13 @@ This spec closes the loop:
   command line — list (`--json` for machines), resolve, unresolve, remove,
   clear — so a Claude Code session can work through a local review and
   retire each comment itself.
-- **A skill, not a handoff.** `riff comments install-skill [--global]`
-  writes `.claude/skills/riff-comments/SKILL.md`. After that, any Claude
-  session in the repo picks the work up from "look at the riff comments" —
-  riff neither launches Claude nor prepares a context file for it.
+- **A skill, not a handoff.** riff ships a Claude Code plugin (the repo is
+  its own marketplace): `claude plugin marketplace add candril/riff` then
+  `claude plugin install riff@riff`. `riff comments install-skill
+  [--global]` writes the same skill straight into `.claude/skills/` for
+  anyone who'd rather not add a marketplace. Either way, any Claude session
+  picks the work up from "look at the riff comments" — riff neither launches
+  Claude nor prepares a context file for it.
 - **Resolved locally means done.** A thread resolved with `x` before it was
   ever published is never published: not by `gS`, not by `gs`, not by `S`
   or `Ctrl-p` in the composer. It is the local review's "handled" state.
@@ -66,6 +69,13 @@ submission, sync preview, single-comment post, and the `sync-changes` /
 **Actions** — `clear-local-comments` (general, confirmation dialog). No
 Claude-launching action: the skill in `src/cli/skill.ts` is the whole
 integration, and it drives the CLI from a session the user already has.
+
+**Plugin** — `.claude-plugin/marketplace.json` makes the repo a marketplace
+holding one plugin, `plugins/riff/`, whose only component is the
+`riff-comments` skill. The skill exists twice — the string the binary writes
+and the file the plugin ships — because neither can read the other at
+runtime; `src/cli/skill.test.ts` fails if they drift, and `just sync-skill`
+regenerates the file.
 
 **Hints** — `InlineCommentOverlay` takes `appMode`; local mode gets
 `Enter save · Ctrl-j newline · Ctrl-g $EDITOR · Esc cancel` while composing

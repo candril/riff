@@ -73,3 +73,7 @@ shots *names:
 # Record the README demo gif from the fixture PR, unattended (tmux + python3/Pillow)
 demo-gif:
     bash scripts/demo.sh
+
+# Regenerate the plugin's SKILL.md from src/cli/skill.ts (the source of truth)
+sync-skill:
+    bun -e 'import { RIFF_COMMENTS_SKILL } from "./src/cli/skill.ts"; await Bun.write("plugins/riff/skills/riff-comments/SKILL.md", RIFF_COMMENTS_SKILL)'
