@@ -6,7 +6,7 @@
 
 <p align="center">Review the diff where you wrote it. PRs, branches, working-copy changes — with vim motions, inline comments, and no browser tab.</p>
 
-<p align="center"><a href="https://candril.github.io/riff/">Documentation</a></p>
+<p align="center"><a href="https://candril.github.io/riff/"><strong>Documentation</strong></a> · <a href="https://candril.github.io/riff/guide/installation/">Install</a> · <a href="https://candril.github.io/riff/reference/key-bindings/">Key bindings</a> · <a href="https://candril.github.io/riff/reference/comments/">Comments &amp; threads</a></p>
 
 > [!CAUTION]
 > **Spec-driven, AI-generated.** Every feature in riff starts as a numbered spec in [`specs/`](specs/), and the code and this documentation were generated from those specs with an AI pair. Use it with care: riff *writes* to GitHub — comments, reviews, thread resolutions, PR titles and bodies. Nothing leaves your machine until you press `gS`, `gs` or `S`, so start on a working copy (`riff` with no argument), then on a PR you don't mind poking at.
