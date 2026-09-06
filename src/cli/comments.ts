@@ -13,7 +13,7 @@
  *   riff comments unresolve <id> [<target>]
  *   riff comments remove <id> [<target>]
  *   riff comments clear [<target>]
- *   riff comments install-skill
+ *   riff comments install-skill [--global]
  *
  * `<target>` is the same argument `riff` itself takes (nothing, a revision,
  * a PR number, `gh:owner/repo#N`) and selects which comment set to operate
@@ -21,8 +21,6 @@
  * named by.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
 import type { Comment } from "../types"
 import {
   loadComments,
@@ -31,7 +29,7 @@ import {
   clearLocalComments,
   commentFilePath,
 } from "../storage"
-import { RIFF_COMMENTS_SKILL, RIFF_COMMENTS_SKILL_PATH } from "../features/ai-review/format"
+import { installSkill } from "./skill"
 
 export interface CommentsCliOptions {
   /** Resolve `<target>` to the storage source id (`local`, `HEAD~3`, `gh:o/r#1`). */
@@ -44,7 +42,12 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   const verb = words[0] && VERBS.has(words[0]) ? words[0] : "list"
   const rest = verb === "list" && words[0] !== "list" ? words : words.slice(1)
 
-  if (verb === "install-skill") return installSkill()
+  if (verb === "install-skill") {
+    const path = installSkill(argv.includes("--global"))
+    console.log(`Installed ${path}`)
+    console.log("In a Claude Code session here, ask it to look at the riff comments.")
+    return 0
+  }
 
   const needsId = verb === "resolve" || verb === "unresolve" || verb === "remove"
   const id = needsId ? rest[0] : undefined
@@ -140,15 +143,3 @@ function notFound(id: string): number {
   return 1
 }
 
-/**
- * Put the skill into the current repo's `.claude/skills/` so a Claude Code
- * session there knows how to work through local comments with this CLI.
- * Explicit and permanent, unlike the per-launch install the TUI does.
- */
-function installSkill(): number {
-  const path = join(process.cwd(), RIFF_COMMENTS_SKILL_PATH)
-  mkdirSync(join(path, ".."), { recursive: true })
-  writeFileSync(path, RIFF_COMMENTS_SKILL, "utf8")
-  console.log(`Installed ${RIFF_COMMENTS_SKILL_PATH}`)
-  return 0
-}

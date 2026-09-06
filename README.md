@@ -65,7 +65,7 @@ Nothing reaches GitHub until you say so. `gS` opens the review preview — appro
 
 ### A review without GitHub
 
-`riff` on the working copy, comments on the lines, `q`. Then hand them to Claude Code — **Claude: Act on local comments** in the action menu, or in any session with the skill from `riff comments install-skill` — and it works through them, retiring each with `riff comments resolve <id>`. A thread resolved locally is never published. `riff comments clear` (or **Clear Local Comments**) wipes the rest.
+`riff` on the working copy, comments on the lines, `q`. Install the skill once — `riff comments install-skill` (or `--global`) — and any Claude Code session in the repo picks them up from "look at the riff comments": it reads them with `riff comments --json`, makes the changes, and retires each with `riff comments resolve <id>`. A thread resolved locally is never published. `riff comments clear` (or **Clear Local Comments**) wipes the rest.
 
 ### Everything the keyboard can reach
 

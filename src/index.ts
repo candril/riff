@@ -74,7 +74,8 @@ const HELP_TEXT = `
     riff comments unresolve <id> [TARGET]   Reopen it
     riff comments remove <id> [TARGET]      Delete one comment
     riff comments clear [TARGET]            Delete every local comment
-    riff comments install-skill             Add the Claude Code skill that works through them
+    riff comments install-skill [--global]  Install the Claude Code skill for working through them
+                                            (this repo, or ~/.claude for every repo)
 
 \x1b[1mKEYBOARD SHORTCUTS\x1b[0m
     \x1b[2mPress \x1b[0mg?\x1b[2m in the app for the keymap, \x1b[0mCtrl+p\x1b[2m for every action

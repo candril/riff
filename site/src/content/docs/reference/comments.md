@@ -156,22 +156,26 @@ Where `.riff/` ends up for a PR from a repo you're not sitting in is the
 `riff` on the working copy, `c` on the lines, `q` — the comments are in `.riff/comments/local/`
 and nothing else happens. Three ways to take it from there:
 
-**Act on them with Claude.** `Ctrl+p` → **Claude: Act on N local comments** opens a Claude Code
-session with every open thread — file, line, body, the diff it was written against — and the
-skill that tells it how to retire each one:
+**Act on them with Claude.** Install the skill once —
 
 ```sh
-riff comments --json                 # what's open, machine-readable
+riff comments install-skill            # this repo
+riff comments install-skill --global   # ~/.claude, every repo
+```
+
+— then in any Claude Code session in the repo: *"look at the riff comments"*. It reads them with
+`riff comments --json` (anchor, body, the diff hunk they were written against), makes the
+changes, and retires each one as it goes:
+
+```sh
 riff comments resolve 29a00758       # done — the thread will never be published
 riff comments remove 29a00758        # or delete it outright
 ```
 
-Come back to riff and the resolved ones are folded, the removed ones gone: with
+riff doesn't launch Claude and doesn't hand anything over; the skill and the CLI are the whole
+integration. Come back to riff and the resolved ones are folded, the removed ones gone: with
 [`poll.onFocus`](/riff/reference/configuration/#poll) on, a local session re-reads the diff and
 `.riff/` when the terminal regains focus, and `gr` does it on demand.
-
-`riff comments install-skill` writes the same skill into the repo's `.claude/skills/` for any
-Claude Code session there, not just the one riff launches.
 
 **Clear them.** `Ctrl+p` → **Clear Local Comments** deletes every local comment for the review
 after a confirmation; `riff comments clear` does it from the shell. Synced comments are never

@@ -583,7 +583,6 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
     handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),
     handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
-    handleAiReviewAddressComments: () => aiReview.handleAiReviewAddressComments(aiReviewContext),
     handleCopyDraftedComment: () => aiReview.handleCopyDraftedComment(aiReviewContext),
     handleDiscardDraftedComment: () => aiReview.handleDiscardDraftedComment(aiReviewContext),
     handleCopyPermalink: (opts) => permalink.handleCopyPermalink(permalinkContext, opts),

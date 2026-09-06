@@ -33,13 +33,8 @@ import {
   AI_REVIEW_SYSTEM_PROMPT,
   DRAFT_PATH_PLACEHOLDER,
   RIFF_COMMENT_COMMAND,
-  RIFF_COMMENTS_SKILL,
-  RIFF_COMMENTS_SKILL_PATH,
-  buildLocalCommentsContextMd,
 } from "./format"
 import { launchClaudeWithContext } from "./launch"
-import { commentFilePath } from "../../storage"
-import { publishableLocalComments } from "../../utils/publishable"
 import {
   detectReviewScope,
   collectFilesUnderDirectory,
@@ -388,59 +383,9 @@ export async function handleAiReviewFull(ctx: AiReviewContext): Promise<void> {
   await launchSafely(ctx, path)
 }
 
-// ---------- act on local comments (spec 049) ----------
-
-/**
- * Hand every open local thread to Claude as a work list, with the skill
- * that teaches it to retire each one through `riff comments`. Threads
- * resolved locally are already done and stay out of the list.
- */
-export async function handleAiReviewAddressComments(ctx: AiReviewContext): Promise<void> {
-  const state = ctx.getState()
-  const open = publishableLocalComments(state.comments)
-  if (open.length === 0) {
-    ctx.setState((s) => showToast(s, "No open local comments", "info"))
-    ctx.render()
-    scheduleToastClear(ctx)
-    return
-  }
-
-  const paths = new Map<string, string>()
-  for (const c of open) paths.set(c.id, await commentFilePath(c.id, state.source))
-
-  const path = writeContextFile({
-    mode: ctx.mode,
-    prInfo: ctx.prInfo,
-    source: state.source,
-    kind: "comments",
-    content: buildLocalCommentsContextMd({
-      all: state.comments,
-      comments: open,
-      mode: ctx.mode,
-      prInfo: ctx.prInfo,
-      localTarget: ctx.options.target,
-      paths,
-    }),
-  })
-
-  ensureSessionFileInstalled(join(process.cwd(), RIFF_COMMENTS_SKILL_PATH), RIFF_COMMENTS_SKILL)
-
-  const threads = open.filter((c) => !c.inReplyTo).length
-  ctx.setState((s) => showToast(s, `Opening Claude with ${threads} open comment${threads === 1 ? "" : "s"}`, "info"))
-  ctx.render()
-
-  await launchSafely(
-    ctx,
-    path,
-    `I've put my local review comments at ${path}. Work through them using the riff-comments skill: ` +
-      `make each change, then retire the comment with \`riff comments resolve <id>\` (or remove it). ` +
-      `Summarise per comment when done.`,
-  )
-}
-
 // ---------- shared launch + error handling ----------
 
-async function launchSafely(ctx: AiReviewContext, path: string, opener?: string): Promise<void> {
+async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
   try {
     // Compute the draft-comment path for this PR scope and bake it into
     // the system prompt so Claude knows exactly where to write. Local mode
@@ -470,7 +415,7 @@ async function launchSafely(ctx: AiReviewContext, path: string, opener?: string)
       suspendRenderer: ctx.suspendRenderer,
       resumeRenderer: ctx.resumeRenderer,
       render: ctx.render,
-    }, opener)
+    })
     ctx.setState(clearToast)
     ctx.render()
   } catch (err) {
@@ -650,7 +595,7 @@ interface WriteInput {
   mode: "local" | "pr"
   prInfo: PrInfo | null
   source: string
-  kind: "file" | "folder" | "full" | "multi" | "comments"
+  kind: "file" | "folder" | "full" | "multi"
   filename?: string
   content: string
 }
@@ -684,8 +629,6 @@ function writeContextFile(input: WriteInput): string {
   let basename: string
   if (input.kind === "full") {
     basename = "full.md"
-  } else if (input.kind === "comments") {
-    basename = "comments.md"
   } else if (input.kind === "multi") {
     // Only ever one active hand-picked selection at a time — deterministic
     // name means re-invoking overwrites rather than accumulating.

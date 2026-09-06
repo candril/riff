@@ -74,7 +74,7 @@ The comments a review stored in `.riff/`, from the shell. Never touches GitHub.
 | `riff comments unresolve <id> [target]` | Reopen it |
 | `riff comments remove <id> [target]` | Delete one comment |
 | `riff comments clear [target]` | Delete every local comment for the target |
-| `riff comments install-skill` | Add the Claude Code skill that works through them |
+| `riff comments install-skill [--global]` | Install the Claude Code skill that works through them — this repo, or `~/.claude` for all of them |
 
 `target` is the same argument `riff` takes and picks the comment set (`local` when omitted, or
 `HEAD~3`, `123`, `gh:owner/repo#123`). `<id>` is the full id or the 8-character prefix the files

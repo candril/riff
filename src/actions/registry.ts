@@ -550,17 +550,6 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.draftNotification !== null,
   },
 
-  {
-    id: "claude-address-comments",
-    label: (state) => {
-      const n = publishableLocalComments(state.comments).filter((c) => !c.inReplyTo).length
-      return n === 1 ? "Claude: Act on 1 local comment" : `Claude: Act on ${n} local comments`
-    },
-    description: "Hand the open local comments to Claude Code to fix, retiring each with `riff comments` as it goes",
-    category: "claude",
-    available: (state) => publishableLocalComments(state.comments).length > 0,
-  },
-
   // Local review housekeeping (spec 049)
   {
     id: "clear-local-comments",

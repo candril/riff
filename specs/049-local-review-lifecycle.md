@@ -15,11 +15,11 @@ This spec closes the loop:
 - **Comments are a work list.** `riff comments` exposes them from the
   command line — list (`--json` for machines), resolve, unresolve, remove,
   clear — so a Claude Code session can work through a local review and
-  retire each comment itself. A skill (`riff comments install-skill`, or
-  installed for the session by the TUI action) teaches it the protocol.
-- **"Claude: Act on local comments"** in the action menu hands the open
-  local threads to Claude with their diff context and the retire command
-  for each.
+  retire each comment itself.
+- **A skill, not a handoff.** `riff comments install-skill [--global]`
+  writes `.claude/skills/riff-comments/SKILL.md`. After that, any Claude
+  session in the repo picks the work up from "look at the riff comments" —
+  riff neither launches Claude nor prepares a context file for it.
 - **Resolved locally means done.** A thread resolved with `x` before it was
   ever published is never published: not by `gS`, not by `gs`, not by `S`
   or `Ctrl-p` in the composer. It is the local review's "handled" state.
@@ -53,7 +53,7 @@ This spec closes the loop:
 | `riff comments unresolve <id> [<target>]` | Reopen it |
 | `riff comments remove <id> [<target>]` | Delete one comment file |
 | `riff comments clear [<target>]` | Delete every local comment for the target |
-| `riff comments install-skill` | Write `.claude/skills/riff-comments/SKILL.md` into the repo |
+| `riff comments install-skill [--global]` | Write `.claude/skills/riff-comments/SKILL.md` into the repo, or into `~/.claude` for every repo |
 
 `<target>` is the same argument `riff` takes; `<id>` is the full id or the
 8-character prefix the files are named by. Nothing here touches GitHub.
@@ -63,9 +63,9 @@ This spec closes the loop:
 submission, sync preview, single-comment post, and the `sync-changes` /
 `submit-comment` availability predicates.
 
-**Actions** — `clear-local-comments` (general, confirmation dialog) and
-`claude-address-comments` (claude; context file `comments.md`, skill
-installed for the session, custom opener).
+**Actions** — `clear-local-comments` (general, confirmation dialog). No
+Claude-launching action: the skill in `src/cli/skill.ts` is the whole
+integration, and it drives the CLI from a session the user already has.
 
 **Hints** — `InlineCommentOverlay` takes `appMode`; local mode gets
 `Enter save · Ctrl-j newline · Ctrl-g $EDITOR · Esc cancel` while composing
@@ -77,8 +77,8 @@ in local mode when `poll.onFocus` is set (it was PR-only before).
 ### P2
 
 - `riff comments` on a PR target lists the local-only comments of that PR
-  review — already works through the shared source resolution, undocumented
-  in the skill.
+  review — already works through the shared source resolution, mentioned in
+  the skill only as "pass the target you reviewed with".
 
 ### P3
 
@@ -90,8 +90,10 @@ in local mode when `poll.onFocus` is set (it was PR-only before).
   `isThreadResolved`, same field GitHub threads use; replies inherit it.
   `isLocallyResolved` only vetoes when the root is `status: local` — a
   resolved *synced* thread is GitHub's state and doesn't block a local reply.
-- The session-scoped install of the skill reuses the `/riff-comment`
-  command's exit-hook cleanup (`ensureSessionFileInstalled`), so both files
-  vanish when riff exits cleanly.
+- The skill install is explicit and permanent — nothing riff cleans up.
+  Files riff *does* install for a session (the `/riff-comment` slash command
+  behind the existing Claude review actions) are removed on quit together
+  with any directory they created; the renderer's teardown drops the process
+  exit hook, so `quit()` calls `removeSessionFiles()` directly.
 - `riff comments` is dispatched before `parseArgs`, so `comments` can't be
   used as a revision name — acceptable.

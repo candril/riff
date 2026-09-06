@@ -58,8 +58,8 @@ export async function launchClaudeWithContext(
   systemPromptPath: string,
   draftPath: string,
   ctx: LaunchContext,
-  opener = `I've put code-review context at ${contextPath}. Please read it, then wait for my question.`,
 ): Promise<LaunchResult> {
+  const opener = `I've put code-review context at ${contextPath}. Please read it, then wait for my question.`
   const args = buildClaudeArgs(systemPromptPath, draftPath, opener)
 
   if (process.env.TMUX) {
