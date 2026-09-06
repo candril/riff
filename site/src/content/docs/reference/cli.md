@@ -63,6 +63,23 @@ guess — see [storage](/riff/reference/configuration/#storage).
 | `-h`, `--help` | Usage, targets and examples |
 | `-v`, `--version` | Version number |
 
+## `riff comments`
+
+The comments a review stored in `.riff/`, from the shell. Never touches GitHub.
+
+| Command | |
+| --- | --- |
+| `riff comments [--json] [target]` | List local comments — `--json` adds `resolved`, `diffHunk` and the file path |
+| `riff comments resolve <id> [target]` | Mark a thread done; it will never be published |
+| `riff comments unresolve <id> [target]` | Reopen it |
+| `riff comments remove <id> [target]` | Delete one comment |
+| `riff comments clear [target]` | Delete every local comment for the target |
+| `riff comments install-skill` | Add the Claude Code skill that works through them |
+
+`target` is the same argument `riff` takes and picks the comment set (`local` when omitted, or
+`HEAD~3`, `123`, `gh:owner/repo#123`). `<id>` is the full id or the 8-character prefix the files
+are named by. See [a review without GitHub](/riff/reference/comments/#a-review-without-github).
+
 ## Exit and errors
 
 `q` quits. Draft comments are already on disk — there's nothing to save on the way out.

@@ -7,6 +7,7 @@
  */
 
 import { Box, Text } from "@opentui/core"
+import { isLocallyResolved } from "../utils/publishable"
 import { theme } from "../theme"
 import type { Comment } from "../types"
 
@@ -38,6 +39,9 @@ export function gatherSyncItems(comments: Comment[]): SyncItem[] {
       })
     }
     
+    // A thread resolved locally is closed business — nothing in it syncs.
+    if (isLocallyResolved(comment, comments)) continue
+
     // Replies: local comments with inReplyTo pointing to a synced comment
     if (comment.status === "local" && comment.inReplyTo) {
       const parent = comments.find(c => c.id === comment.inReplyTo)

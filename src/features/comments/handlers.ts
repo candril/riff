@@ -19,7 +19,8 @@ import {
   closeConfirmDialog,
 } from "../../state"
 import { createComment } from "../../types"
-import { saveComment, deleteCommentFile } from "../../storage"
+import { saveComment, deleteCommentFile, clearLocalComments } from "../../storage"
+import { isLocallyResolved, publishableLocalComments } from "../../utils/publishable"
 import {
   openCommentEditor,
   extractDiffHunk,
@@ -297,6 +298,12 @@ export async function handleSubmitSingleComment(
     return
   }
 
+  if (isLocallyResolved(toSubmit, state.comments)) {
+    ctx.setState((s) => showToast(s, "Thread is resolved locally — reopen it with x to post", "info"))
+    ctx.render()
+    return
+  }
+
   // Check if this is an edit to a synced comment
   const isEdit = toSubmit.status === "synced" && toSubmit.localEdit !== undefined
 
@@ -514,4 +521,43 @@ async function performDelete(ctx: CommentsContext, toDelete: Comment): Promise<v
     ctx.setState(clearToast)
     ctx.render()
   }, 3000)
+}
+
+
+/**
+ * Delete every local comment for this review, resolved or not (spec 049).
+ * Synced comments stay — they're GitHub's. Confirmed first: the files are
+ * the only copy.
+ */
+export async function handleClearLocalComments(ctx: CommentsContext): Promise<void> {
+  const state = ctx.getState()
+  const count = state.comments.filter((c) => c.status === "local").length
+  if (count === 0) {
+    ctx.setState((s) => showToast(s, "No local comments to clear", "info"))
+    ctx.render()
+    return
+  }
+
+  ctx.setState((s) =>
+    showConfirmDialog(s, {
+      title: "Clear Local Comments",
+      message: `Delete ${count} local comment${count === 1 ? "" : "s"}? They were never sent to GitHub.`,
+      onConfirm: () => {
+        void (async () => {
+          const removed = await clearLocalComments(ctx.source)
+          ctx.setState((s2) => ({
+            ...closeConfirmDialog(s2),
+            comments: s2.comments.filter((c) => c.status !== "local"),
+          }))
+          ctx.setState((s2) => showToast(s2, `Removed ${removed} local comment${removed === 1 ? "" : "s"}`, "success"))
+          ctx.render()
+        })()
+      },
+      onCancel: () => {
+        ctx.setState(closeConfirmDialog)
+        ctx.render()
+      },
+    })
+  )
+  ctx.render()
 }

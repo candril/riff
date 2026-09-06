@@ -16,7 +16,7 @@
  * then launches `claude` either in a tmux split pane or inline.
  */
 
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
@@ -33,8 +33,13 @@ import {
   AI_REVIEW_SYSTEM_PROMPT,
   DRAFT_PATH_PLACEHOLDER,
   RIFF_COMMENT_COMMAND,
+  RIFF_COMMENTS_SKILL,
+  RIFF_COMMENTS_SKILL_PATH,
+  buildLocalCommentsContextMd,
 } from "./format"
 import { launchClaudeWithContext } from "./launch"
+import { commentFilePath } from "../../storage"
+import { publishableLocalComments } from "../../utils/publishable"
 import {
   detectReviewScope,
   collectFilesUnderDirectory,
@@ -383,9 +388,59 @@ export async function handleAiReviewFull(ctx: AiReviewContext): Promise<void> {
   await launchSafely(ctx, path)
 }
 
+// ---------- act on local comments (spec 049) ----------
+
+/**
+ * Hand every open local thread to Claude as a work list, with the skill
+ * that teaches it to retire each one through `riff comments`. Threads
+ * resolved locally are already done and stay out of the list.
+ */
+export async function handleAiReviewAddressComments(ctx: AiReviewContext): Promise<void> {
+  const state = ctx.getState()
+  const open = publishableLocalComments(state.comments)
+  if (open.length === 0) {
+    ctx.setState((s) => showToast(s, "No open local comments", "info"))
+    ctx.render()
+    scheduleToastClear(ctx)
+    return
+  }
+
+  const paths = new Map<string, string>()
+  for (const c of open) paths.set(c.id, await commentFilePath(c.id, state.source))
+
+  const path = writeContextFile({
+    mode: ctx.mode,
+    prInfo: ctx.prInfo,
+    source: state.source,
+    kind: "comments",
+    content: buildLocalCommentsContextMd({
+      all: state.comments,
+      comments: open,
+      mode: ctx.mode,
+      prInfo: ctx.prInfo,
+      localTarget: ctx.options.target,
+      paths,
+    }),
+  })
+
+  ensureSessionFileInstalled(join(process.cwd(), RIFF_COMMENTS_SKILL_PATH), RIFF_COMMENTS_SKILL)
+
+  const threads = open.filter((c) => !c.inReplyTo).length
+  ctx.setState((s) => showToast(s, `Opening Claude with ${threads} open comment${threads === 1 ? "" : "s"}`, "info"))
+  ctx.render()
+
+  await launchSafely(
+    ctx,
+    path,
+    `I've put my local review comments at ${path}. Work through them using the riff-comments skill: ` +
+      `make each change, then retire the comment with \`riff comments resolve <id>\` (or remove it). ` +
+      `Summarise per comment when done.`,
+  )
+}
+
 // ---------- shared launch + error handling ----------
 
-async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
+async function launchSafely(ctx: AiReviewContext, path: string, opener?: string): Promise<void> {
   try {
     // Compute the draft-comment path for this PR scope and bake it into
     // the system prompt so Claude knows exactly where to write. Local mode
@@ -415,7 +470,7 @@ async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
       suspendRenderer: ctx.suspendRenderer,
       resumeRenderer: ctx.resumeRenderer,
       render: ctx.render,
-    })
+    }, opener)
     ctx.setState(clearToast)
     ctx.render()
   } catch (err) {
@@ -432,63 +487,96 @@ async function launchSafely(ctx: AiReviewContext, path: string): Promise<void> {
  * Absolute path of the project-scoped `/riff-comment` command file. Cached
  * on first install so the cleanup hook can delete it without recomputing.
  */
-let riffCommentCommandPath: string | null = null
 let cleanupRegistered = false
+const sessionFiles = new Set<string>()
 
 function riffCommentCommandFilePath(): string {
   return join(process.cwd(), ".claude", "commands", "riff-comment.md")
 }
 
 /**
- * Write `<cwd>/.claude/commands/riff-comment.md` and register a process
- * exit hook to remove it on clean shutdown. Idempotent — calling this
- * multiple times per session only triggers one registration.
- *
- * The file is intentionally project-scoped (not `~/.claude/commands/`):
- * Claude Code has no `--commands-dir` flag and `CLAUDE_CONFIG_DIR`
- * redirects auth/settings too, so true session-scoping isn't available.
- * Project-scoped keeps the residue contained to the repo the user is
- * actively reviewing, and the exit hook removes it on clean shutdown.
- *
- * Residue surfaces only if riff crashes; the file is a single
- * well-named markdown the user can trivially delete.
+ * Write `<cwd>/.claude/commands/riff-comment.md` for this session.
+ * See `ensureSessionFileInstalled` for why it is project-scoped and
+ * removed on exit.
  */
 function ensureRiffCommentCommandInstalled(): void {
-  const path = riffCommentCommandFilePath()
+  ensureSessionFileInstalled(riffCommentCommandFilePath(), RIFF_COMMENT_COMMAND)
+}
+
+/**
+ * Write a file into the reviewed repo for the lifetime of this riff
+ * process and register one exit hook that removes everything installed
+ * this way. Idempotent per path.
+ *
+ * Files are intentionally project-scoped (not `~/.claude/…`): Claude Code
+ * has no per-invocation commands/skills dir flag and `CLAUDE_CONFIG_DIR`
+ * redirects auth and settings too, so true session-scoping isn't
+ * available. Project-scoped keeps the residue contained to the repo being
+ * reviewed, and the exit hook removes it on clean shutdown. Residue
+ * surfaces only if riff crashes, as a well-named markdown file the user
+ * can delete — or keep, with `riff comments install-skill`.
+ */
+function ensureSessionFileInstalled(path: string, content: string): void {
   try {
-    mkdirSync(join(process.cwd(), ".claude", "commands"), { recursive: true })
-    writeFileSync(path, RIFF_COMMENT_COMMAND, "utf8")
-    riffCommentCommandPath = path
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, content, "utf8")
+    sessionFiles.add(path)
   } catch {
-    // Best-effort. Couldn't write (permissions, read-only fs, etc.) —
-    // the drafting protocol in the system prompt still works, just without
-    // the `/riff-comment` fast path.
+    // Best-effort: couldn't write (permissions, read-only fs). The protocol
+    // in the system prompt / context file still works, just without the
+    // installed fast path.
     return
   }
 
   if (!cleanupRegistered) {
     cleanupRegistered = true
-    const cleanup = (): void => {
-      if (riffCommentCommandPath === null) return
-      try {
-        unlinkSync(riffCommentCommandPath)
-      } catch {
-        // File already gone or not writable — nothing to do.
-      }
-      riffCommentCommandPath = null
-    }
-    // Fires on normal Node.js shutdown and on re-thrown uncaught
-    // exceptions. SIGINT/SIGTERM don't auto-trigger `exit`, so we wire
-    // those explicitly.
-    process.on("exit", cleanup)
+    // The renderer's teardown drops process `exit` listeners, so a clean
+    // quit removes the files explicitly (`removeSessionFiles` from
+    // app.ts). These hooks are the fallback for every other way out.
+    process.on("exit", removeSessionFiles)
     process.on("SIGINT", () => {
-      cleanup()
+      removeSessionFiles()
       process.exit(130)
     })
     process.on("SIGTERM", () => {
-      cleanup()
+      removeSessionFiles()
       process.exit(143)
     })
+  }
+}
+
+/**
+ * Remove every file installed for this session (slash command, skill).
+ * Safe to call more than once.
+ */
+export function removeSessionFiles(): void {
+  for (const file of sessionFiles) {
+    try {
+      unlinkSync(file)
+    } catch {
+      // Already gone or not writable — nothing to do.
+    }
+    pruneEmptyDirs(dirname(file))
+  }
+  sessionFiles.clear()
+}
+
+/**
+ * Walk up from `dir` removing directories we emptied — an abandoned
+ * `.claude/skills/riff-comments/` is residue too. `rmdirSync` refuses a
+ * non-empty directory, which is exactly the guard needed to stop at
+ * anything the user actually keeps there.
+ */
+function pruneEmptyDirs(dir: string): void {
+  const stop = process.cwd()
+  let current = dir
+  while (current.startsWith(stop) && current !== stop) {
+    try {
+      rmdirSync(current)
+    } catch {
+      return
+    }
+    current = dirname(current)
   }
 }
 
@@ -562,7 +650,7 @@ interface WriteInput {
   mode: "local" | "pr"
   prInfo: PrInfo | null
   source: string
-  kind: "file" | "folder" | "full" | "multi"
+  kind: "file" | "folder" | "full" | "multi" | "comments"
   filename?: string
   content: string
 }
@@ -596,6 +684,8 @@ function writeContextFile(input: WriteInput): string {
   let basename: string
   if (input.kind === "full") {
     basename = "full.md"
+  } else if (input.kind === "comments") {
+    basename = "comments.md"
   } else if (input.kind === "multi") {
     // Only ever one active hand-picked selection at a time — deterministic
     // name means re-invoking overwrites rather than accumulating.

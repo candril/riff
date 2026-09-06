@@ -67,7 +67,9 @@ Prefer to write in `$EDITOR` from the start? `C` skips the panel.
 ![Composing a comment](../../../assets/screenshots/compose.png)
 
 Saved drafts live in `.riff/` in the repo. Close the terminal, come back tomorrow, and the review
-is where you left it.
+is where you left it. On a local diff they're also a to-do list: `Ctrl+p` → **Claude: Act on
+local comments** hands them to Claude Code, and `x` marks a thread done — see
+[a review without GitHub](/riff/reference/comments/#a-review-without-github).
 
 ## Read what everyone else said
 

@@ -60,6 +60,10 @@ Every comment carries a status:
 Editing a synced comment doesn't overwrite it; the edit is kept alongside the original until you
 `gs`, so the panel can show you the two and a failed sync can't lose your text.
 
+A local thread you resolve with `x` is **done, not pending**: it is never published — not by
+`gS`, not by `gs`, not by `S`. That's how a local review says "handled", and why resolving is
+safe to do before anything has left the machine.
+
 Publishing is always explicit:
 
 | Key | What goes up |
@@ -146,6 +150,35 @@ the directory throws away unpublished work and nothing else.
 
 Where `.riff/` ends up for a PR from a repo you're not sitting in is the
 [storage](/riff/reference/configuration/#storage) config's job.
+
+## A review without GitHub
+
+`riff` on the working copy, `c` on the lines, `q` — the comments are in `.riff/comments/local/`
+and nothing else happens. Three ways to take it from there:
+
+**Act on them with Claude.** `Ctrl+p` → **Claude: Act on N local comments** opens a Claude Code
+session with every open thread — file, line, body, the diff it was written against — and the
+skill that tells it how to retire each one:
+
+```sh
+riff comments --json                 # what's open, machine-readable
+riff comments resolve 29a00758       # done — the thread will never be published
+riff comments remove 29a00758        # or delete it outright
+```
+
+Come back to riff and the resolved ones are folded, the removed ones gone: with
+[`poll.onFocus`](/riff/reference/configuration/#poll) on, a local session re-reads the diff and
+`.riff/` when the terminal regains focus, and `gr` does it on demand.
+
+`riff comments install-skill` writes the same skill into the repo's `.claude/skills/` for any
+Claude Code session there, not just the one riff launches.
+
+**Clear them.** `Ctrl+p` → **Clear Local Comments** deletes every local comment for the review
+after a confirmation; `riff comments clear` does it from the shell. Synced comments are never
+touched.
+
+**Or just leave them.** Opening the PR later neither imports nor removes them — a PR review
+keeps its own set under `.riff/comments/gh-owner-repo-123/`.
 
 ## Claude-drafted comments
 

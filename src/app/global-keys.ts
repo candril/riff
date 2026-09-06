@@ -7,6 +7,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
+import { reviewCandidates } from "../utils/publishable"
 import { openActionMenu, toggleHelp, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -259,9 +260,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         render: ctx.render,
         getValidatedComments: () =>
           commentsFeature.validateCommentsForSubmit(
-            currentState.comments.filter(
-              (c) => (c.status === "local" || c.status === "pending") && !c.inReplyTo
-            ),
+            reviewCandidates(currentState.comments),
             currentState.files
           ),
         isOwnPr:

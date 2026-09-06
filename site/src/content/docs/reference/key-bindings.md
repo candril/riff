@@ -125,7 +125,7 @@ While **writing** a comment:
 | `Esc` | Cancel |
 
 `Ctrl+Enter` also posts, in the terminals that can send it. `Ctrl+p` is the one that works
-everywhere, tmux included.
+everywhere, tmux included. In local mode both just save — there's nothing to post to.
 
 ## GitHub
 

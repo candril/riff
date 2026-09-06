@@ -114,7 +114,9 @@ interval = 300   # seconds; 0 disables it
 onFocus = true
 ```
 
-`gr` refreshes on demand regardless.
+`gr` refreshes on demand regardless. In local mode there is nothing to poll, but `onFocus` still
+re-reads the diff and `.riff/` when the terminal regains focus — which is what makes a Claude
+session retiring comments through `riff comments` show up without a keypress.
 
 ## API budget
 

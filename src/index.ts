@@ -5,6 +5,7 @@ import { createApp } from "./app"
 import { getCurrentRepo, loadPrSession } from "./providers/github"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { resolveStorageWithConfirmation } from "./storage"
+import { runCommentsCli } from "./cli/comments"
 import * as readline from "readline"
 import packageJson from "../package.json"
 
@@ -65,6 +66,15 @@ const HELP_TEXT = `
 \x1b[1mOPTIONS\x1b[0m
     \x1b[33m-h, --help\x1b[0m                Show this help message
     \x1b[33m-v, --version\x1b[0m             Show version number
+
+\x1b[1mLOCAL COMMENTS\x1b[0m
+    \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.\x1b[0m
+    riff comments [--json] [TARGET]         List local comments
+    riff comments resolve <id> [TARGET]     Mark a thread done (it will never be published)
+    riff comments unresolve <id> [TARGET]   Reopen it
+    riff comments remove <id> [TARGET]      Delete one comment
+    riff comments clear [TARGET]            Delete every local comment
+    riff comments install-skill             Add the Claude Code skill that works through them
 
 \x1b[1mKEYBOARD SHORTCUTS\x1b[0m
     \x1b[2mPress \x1b[0mg?\x1b[2m in the app for the keymap, \x1b[0mCtrl+p\x1b[2m for every action
@@ -285,6 +295,13 @@ async function promptConfirm(message: string): Promise<boolean> {
  */
 async function confirmStorageLocation(source: string): Promise<void> {
   await resolveStorageWithConfirmation(source, async (repoPath, ownerRepo) => {
+    // No one to ask: `riff comments` run from a script or a Claude session
+    // has no TTY, and a readline prompt there would hang forever. An
+    // auto-detected clone is the best guess we have — take it.
+    if (!process.stdin.isTTY) {
+      console.log(`Using ${repoPath} for ${ownerRepo}`)
+      return true
+    }
     console.log(`\nFound local clone for ${ownerRepo}:`)
     console.log(`  ${repoPath}`)
     const confirmed = await promptConfirm("Use this location? [Y/n] ")
@@ -297,7 +314,35 @@ async function confirmStorageLocation(source: string): Promise<void> {
 // Main
 // ============================================================================
 
+/**
+ * The storage source id for a CLI target — the same mapping the TUI uses,
+ * so `riff comments` sees exactly the comments `riff <target>` shows.
+ */
+async function resolveSourceForCli(target: string | undefined): Promise<string> {
+  const parsed = parseArgs(target ? [target] : [])
+  if (parsed.type !== "pr") {
+    const source = parsed.target ?? "local"
+    await confirmStorageLocation(source)
+    return source
+  }
+  const prNumber = parsed.prNumber ?? (await resolveCurrentPr())
+  const { owner, repo } =
+    parsed.owner && parsed.repo ? { owner: parsed.owner, repo: parsed.repo } : await getCurrentRepo()
+  const source = `gh:${owner}/${repo}#${prNumber}`
+  await confirmStorageLocation(source)
+  return source
+}
+
 async function main() {
+  if (process.argv[2] === "comments") {
+    try {
+      process.exit(await runCommentsCli(process.argv.slice(3), { resolveSource: resolveSourceForCli }))
+    } catch (error) {
+      console.error("riff comments:", error instanceof Error ? error.message : error)
+      process.exit(1)
+    }
+  }
+
   const args = parseArgs(process.argv.slice(2))
 
   // Handle flags

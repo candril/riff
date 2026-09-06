@@ -25,6 +25,7 @@ import {
   gatherSyncItems,
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
+import { reviewCandidates } from "../utils/publishable"
 import {
   collectMentionCandidates,
   detectMentionTrigger,
@@ -302,9 +303,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.reviewPreview.open
           ? ReviewPreview({
               comments: commentsFeature.validateCommentsForSubmit(
-                state.comments.filter(
-                  (c) => (c.status === "local" || c.status === "pending") && !c.inReplyTo
-                ),
+                reviewCandidates(state.comments),
                 state.files
               ),
               state: state.reviewPreview,
@@ -325,6 +324,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               composeFilename: state.inlineCommentOverlay.filename,
               line: state.inlineCommentOverlay.line,
               mode: state.inlineCommentOverlay.mode,
+              appMode: state.appMode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
               editingId: state.inlineCommentOverlay.editingId,
               focused: state.focusedPanel === "comments",

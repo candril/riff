@@ -42,6 +42,8 @@ export interface InlineCommentOverlayProps {
   /** Anchor line for compose/edit mode. Ignored in view mode. */
   line: number
   mode: InlineCommentOverlayMode
+  /** Local diffs have nowhere to publish to — hints must not promise it. */
+  appMode: "local" | "pr"
   /** Currently highlighted comment index in the displayOrder list. */
   highlightedIndex: number
   /** Comment id being edited (edit mode). */
@@ -165,14 +167,15 @@ function formatTimeAgo(isoDate: string): string {
 
 type Hint = readonly [string, string]
 
-function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolean): Hint[] {
+function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolean, appMode: "local" | "pr"): Hint[] {
   if (!focused) {
     return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
   }
   const hints: Hint[] = [["n", "new"]]
   if (hasComments) {
     hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
-    if (canSubmit) hints.push(["S", "submit"])
+    // Nothing to submit to in local mode; the key is a no-op there.
+    if (canSubmit && appMode === "pr") hints.push(["S", "submit"])
   }
   hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["q", "close"])
   return hints
@@ -322,6 +325,7 @@ export function InlineCommentOverlay({
   composeFilename,
   line,
   mode,
+  appMode,
   highlightedIndex,
   editingId,
   focused,
@@ -622,13 +626,22 @@ export function InlineCommentOverlay({
         backgroundColor: theme.mantle,
       },
       isComposing
-        ? renderHintRow([
-            ["Enter", "save"],
-            ["Ctrl-p", "save & publish"],
-            ["Ctrl-j", "newline"],
-            ["Esc", "cancel"],
-          ])
-        : renderHintRow(viewModeHints(canSubmit, comments.length > 0, focused))
+        ? renderHintRow(
+            appMode === "pr"
+              ? [
+                  ["Enter", "save"],
+                  ["Ctrl-p", "save & publish"],
+                  ["Ctrl-j", "newline"],
+                  ["Esc", "cancel"],
+                ]
+              : [
+                  ["Enter", "save"],
+                  ["Ctrl-j", "newline"],
+                  ["Ctrl-g", "$EDITOR"],
+                  ["Esc", "cancel"],
+                ],
+          )
+        : renderHintRow(viewModeHints(canSubmit, comments.length > 0, focused, appMode))
     )
   )
 }

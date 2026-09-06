@@ -441,7 +441,10 @@ function handleComposerInput(
   // preventDefault keeps the textarea from turning Enter into a newline.
   // The live textarea value goes into state first so the submit handlers
   // (which still read `ov.input`) see what the user actually typed.
-  const publish = (key.ctrl && key.name === "p") || (key.ctrl && key.name === "return")
+  // Publishing needs a PR on the other end; in local mode the chord just saves.
+  const publish =
+    ctx.getState().appMode === "pr" &&
+    ((key.ctrl && key.name === "p") || (key.ctrl && key.name === "return"))
   const saveChord = publish || (key.ctrl && key.name === "s") || key.name === "return"
   if (saveChord) {
     key.preventDefault()

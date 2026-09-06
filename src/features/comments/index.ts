@@ -14,5 +14,6 @@ export {
   getCurrentComment,
   handleSubmitSingleComment,
   handleDeleteComment,
+  handleClearLocalComments,
   type CommentsContext,
 } from "./handlers"

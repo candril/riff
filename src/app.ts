@@ -133,6 +133,10 @@ export async function createApp(options: AppOptions = {}) {
     // Mode 1004 outlives the process if we don't turn it off — the shell that
     // gets the terminal back would start receiving focus escape sequences.
     stopFocusReporting?.()
+    // Files installed into the repo for a Claude session (slash command,
+    // skill) — the renderer's teardown drops the exit hook that would
+    // otherwise remove them.
+    aiReview.removeSessionFiles()
     renderer.destroy()
     process.exit(0)
   }
@@ -571,6 +575,7 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenSyncPreview: () => syncPreview.handleOpenSyncPreview(syncPreviewOpenContext),
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
+    handleClearLocalComments: () => commentsFeature.handleClearLocalComments(commentsContext),
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleOpenFileInTmuxWindow: () => externalTools.handleOpenFileInTmuxWindow(externalToolsContext),
@@ -578,6 +583,7 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
     handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),
     handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
+    handleAiReviewAddressComments: () => aiReview.handleAiReviewAddressComments(aiReviewContext),
     handleCopyDraftedComment: () => aiReview.handleCopyDraftedComment(aiReviewContext),
     handleDiscardDraftedComment: () => aiReview.handleDiscardDraftedComment(aiReviewContext),
     handleCopyPermalink: (opts) => permalink.handleCopyPermalink(permalinkContext, opts),
@@ -991,6 +997,16 @@ export async function createApp(options: AppOptions = {}) {
   // on it, so terminals without focus support are unaffected either way.
   if (pollConfig.onFocus && pollConfig.interval > 0) {
     stopFocusReporting = setupFocusReporting(renderer, commentPoll.setFocused)
+  } else if (pollConfig.onFocus && mode === "local") {
+    // A local review has nothing to poll, but it does have a working copy
+    // and a .riff/ that something else — an editor, a Claude session
+    // retiring comments through `riff comments` — changes while riff is in
+    // the background. Coming back re-reads both; it's local disk, no quota.
+    let focused = true
+    stopFocusReporting = setupFocusReporting(renderer, (next) => {
+      if (next && !focused) void refresh.handleRefresh(refreshContext)
+      focused = next
+    })
   }
 
   return {

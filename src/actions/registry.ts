@@ -4,6 +4,7 @@ import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { detectReviewScope } from "../features/ai-review"
 import { detectPermalinkScope } from "../features/permalink"
+import { publishableLocalComments } from "../utils/publishable"
 
 /**
  * All available actions in the app.
@@ -301,13 +302,10 @@ export const actions: Action[] = [
     description: "Sync local comments, edits, and replies to GitHub",
     shortcut: "gs",
     category: "github",
-    available: (state) => 
-      state.appMode === "pr" && 
-      state.comments.some(c => 
-        (c.status === "synced" && c.localEdit) ||
-        (c.status === "local" && c.inReplyTo && state.comments.find(p => p.id === c.inReplyTo)?.githubId) ||
-        (c.status === "local" && !c.inReplyTo)
-      ),
+    available: (state) =>
+      state.appMode === "pr" &&
+      (state.comments.some((c) => c.status === "synced" && c.localEdit) ||
+        publishableLocalComments(state.comments).length > 0),
   },
   {
     id: "submit-comment",
@@ -315,9 +313,8 @@ export const actions: Action[] = [
     description: "Post current comment immediately",
     shortcut: "S",
     category: "github",
-    available: (state) => 
-      state.appMode === "pr" && 
-      state.comments.some(c => c.status === "local"),
+    available: (state) =>
+      state.appMode === "pr" && publishableLocalComments(state.comments).length > 0,
   },
   {
     id: "delete-comment",
@@ -551,6 +548,26 @@ export const actions: Action[] = [
     shortcut: "gD",
     category: "claude",
     available: (state) => state.appMode === "pr" && state.draftNotification !== null,
+  },
+
+  {
+    id: "claude-address-comments",
+    label: (state) => {
+      const n = publishableLocalComments(state.comments).filter((c) => !c.inReplyTo).length
+      return n === 1 ? "Claude: Act on 1 local comment" : `Claude: Act on ${n} local comments`
+    },
+    description: "Hand the open local comments to Claude Code to fix, retiring each with `riff comments` as it goes",
+    category: "claude",
+    available: (state) => publishableLocalComments(state.comments).length > 0,
+  },
+
+  // Local review housekeeping (spec 049)
+  {
+    id: "clear-local-comments",
+    label: "Clear Local Comments",
+    description: "Delete every local (never published) comment for this review, resolved or not",
+    category: "general",
+    available: (state) => state.comments.some((c) => c.status === "local"),
   },
 
   // External tools

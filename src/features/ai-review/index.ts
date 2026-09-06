@@ -8,6 +8,8 @@
 export {
   handleAiReviewContextAware,
   handleAiReviewFull,
+  handleAiReviewAddressComments,
+  removeSessionFiles,
   draftPathFor,
   type AiReviewContext,
 } from "./handlers"

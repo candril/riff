@@ -1,4 +1,4 @@
-import { join, dirname } from "path"
+import { join, dirname, resolve } from "path"
 import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
 import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
@@ -553,6 +553,26 @@ export async function deleteCommentFile(commentId: string, source: string): Prom
   } catch {
     // File may not exist
   }
+}
+
+/**
+ * Absolute path of a comment's markdown file — handed to Claude so it can
+ * delete a comment once it has acted on it (spec 049).
+ */
+export async function commentFilePath(commentId: string, source: string): Promise<string> {
+  const baseDir = await getStorageDir(source)
+  return resolve(join(baseDir, COMMENTS_DIR, sourceToDir(source), `${shortId(commentId)}.md`))
+}
+
+/**
+ * Delete every local (never synced) comment file for a source, resolved or
+ * not. Synced comments are GitHub's and stay. Returns how many were removed.
+ */
+export async function clearLocalComments(source: string): Promise<number> {
+  const comments = await loadComments(source)
+  const local = comments.filter((c) => c.status === "local")
+  await Promise.all(local.map((c) => deleteCommentFile(c.id, source)))
+  return local.length
 }
 
 /**

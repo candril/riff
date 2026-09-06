@@ -1,0 +1,154 @@
+/**
+ * `riff comments …` — local review comments from the command line (spec 049).
+ *
+ * The TUI is where comments get written; this is how something else acts on
+ * them afterwards — a Claude Code session working through a local review,
+ * or the user tidying up. Everything here touches only `.riff/` on disk and
+ * never GitHub: `resolve` marks a thread done (a resolved local thread is
+ * never published), `remove` deletes the file, `clear` deletes every local
+ * one. Synced comments are GitHub's and are left alone.
+ *
+ *   riff comments [list] [--json] [<target>]
+ *   riff comments resolve <id> [<target>]
+ *   riff comments unresolve <id> [<target>]
+ *   riff comments remove <id> [<target>]
+ *   riff comments clear [<target>]
+ *   riff comments install-skill
+ *
+ * `<target>` is the same argument `riff` itself takes (nothing, a revision,
+ * a PR number, `gh:owner/repo#N`) and selects which comment set to operate
+ * on. `<id>` accepts the full id or the 8-character prefix the files are
+ * named by.
+ */
+
+import { mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
+import type { Comment } from "../types"
+import {
+  loadComments,
+  saveComment,
+  deleteCommentFile,
+  clearLocalComments,
+  commentFilePath,
+} from "../storage"
+import { RIFF_COMMENTS_SKILL, RIFF_COMMENTS_SKILL_PATH } from "../features/ai-review/format"
+
+export interface CommentsCliOptions {
+  /** Resolve `<target>` to the storage source id (`local`, `HEAD~3`, `gh:o/r#1`). */
+  resolveSource: (target: string | undefined) => Promise<string>
+}
+
+export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): Promise<number> {
+  const json = argv.includes("--json")
+  const words = argv.filter((a) => !a.startsWith("-"))
+  const verb = words[0] && VERBS.has(words[0]) ? words[0] : "list"
+  const rest = verb === "list" && words[0] !== "list" ? words : words.slice(1)
+
+  if (verb === "install-skill") return installSkill()
+
+  const needsId = verb === "resolve" || verb === "unresolve" || verb === "remove"
+  const id = needsId ? rest[0] : undefined
+  const target = needsId ? rest[1] : rest[0]
+  if (needsId && !id) {
+    console.error(`riff comments ${verb}: missing <id>`)
+    return 2
+  }
+
+  const source = await opts.resolveSource(target)
+  const comments = await loadComments(source)
+
+  switch (verb) {
+    case "list":
+      return list(comments, source, json)
+    case "clear": {
+      const n = await clearLocalComments(source)
+      console.log(json ? JSON.stringify({ removed: n }) : `Removed ${n} local comment${n === 1 ? "" : "s"}`)
+      return 0
+    }
+    case "remove": {
+      const found = findLocal(comments, id!)
+      if (!found) return notFound(id!)
+      await deleteCommentFile(found.id, source)
+      console.log(json ? JSON.stringify({ removed: found.id }) : `Removed ${label(found)}`)
+      return 0
+    }
+    case "resolve":
+    case "unresolve": {
+      const found = findLocal(comments, id!)
+      if (!found) return notFound(id!)
+      const root = found.inReplyTo ? (comments.find((c) => c.id === found.inReplyTo) ?? found) : found
+      const resolved = verb === "resolve"
+      await saveComment({ ...root, isThreadResolved: resolved }, source)
+      console.log(
+        json ? JSON.stringify({ id: root.id, resolved }) : `${resolved ? "Resolved" : "Reopened"} ${label(root)}`,
+      )
+      return 0
+    }
+  }
+  return 2
+}
+
+const VERBS = new Set(["list", "resolve", "unresolve", "remove", "clear", "install-skill"])
+
+async function list(comments: Comment[], source: string, json: boolean): Promise<number> {
+  const local = comments.filter((c) => c.status === "local")
+  if (json) {
+    const rows = await Promise.all(
+      local.map(async (c) => ({
+        id: c.id,
+        shortId: c.id.slice(0, 8),
+        file: c.filename,
+        line: c.line,
+        side: c.side,
+        body: c.body,
+        resolved: rootOf(c, comments).isThreadResolved === true,
+        inReplyTo: c.inReplyTo ?? null,
+        diffHunk: c.diffHunk ?? null,
+        path: await commentFilePath(c.id, source),
+      })),
+    )
+    console.log(JSON.stringify({ source, comments: rows }, null, 2))
+    return 0
+  }
+  if (local.length === 0) {
+    console.log(`No local comments for ${source}`)
+    return 0
+  }
+  for (const c of local) {
+    const done = rootOf(c, comments).isThreadResolved ? " [resolved]" : ""
+    const reply = c.inReplyTo ? "  ↳ " : ""
+    console.log(`${c.id.slice(0, 8)}  ${reply}${c.filename}:${c.line}${done}`)
+    for (const line of c.body.split("\n")) console.log(`          ${line}`)
+  }
+  return 0
+}
+
+function findLocal(comments: Comment[], id: string): Comment | undefined {
+  return comments.find((c) => c.status === "local" && (c.id === id || c.id.startsWith(id)))
+}
+
+function rootOf(c: Comment, all: Comment[]): Comment {
+  return c.inReplyTo ? (all.find((p) => p.id === c.inReplyTo) ?? c) : c
+}
+
+function label(c: Comment): string {
+  return `${c.id.slice(0, 8)} (${c.filename}:${c.line})`
+}
+
+function notFound(id: string): number {
+  console.error(`No local comment matching ${id}`)
+  return 1
+}
+
+/**
+ * Put the skill into the current repo's `.claude/skills/` so a Claude Code
+ * session there knows how to work through local comments with this CLI.
+ * Explicit and permanent, unlike the per-launch install the TUI does.
+ */
+function installSkill(): number {
+  const path = join(process.cwd(), RIFF_COMMENTS_SKILL_PATH)
+  mkdirSync(join(path, ".."), { recursive: true })
+  writeFileSync(path, RIFF_COMMENTS_SKILL, "utf8")
+  console.log(`Installed ${RIFF_COMMENTS_SKILL_PATH}`)
+  return 0
+}

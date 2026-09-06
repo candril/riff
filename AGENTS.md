@@ -148,6 +148,12 @@ There is no repo-local config file — configuration is only
 The directory name is the source with its punctuation flattened:
 `gh:owner/repo#123` → `gh-owner-repo-123`.
 
+`riff comments [list|resolve|unresolve|remove|clear|install-skill]` operates
+on those files from the command line (`src/cli/comments.ts`, spec 049). A
+thread resolved while still local is never published — `isLocallyResolved`
+in `src/utils/publishable.ts` is the single rule, used by every path that
+sends comments to GitHub.
+
 ## File Structure
 
 ```
@@ -246,4 +252,6 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Toggle File Panel | Ctrl+b | Show/hide file tree |
 | Expand File Panel | Ctrl+e | Toggle file panel full width |
 | Help | g? | Show keyboard shortcuts |
+| Clear Local Comments | — | Delete every local (unpublished) comment for this review |
+| Claude: Act on local comments | — | Hand open local threads to Claude Code; it retires each via `riff comments` |
 | Quit | q | Exit riff |

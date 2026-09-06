@@ -6,6 +6,7 @@
  * - buildPrContextMd: the whole review, minus ignored/generated files
  */
 
+import type { Comment } from "../../types"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
@@ -643,4 +644,89 @@ function buildDraftAnchorBlock(anchor: SelectionAnchor, filename: string): strin
           "",
         ]),
   ].join("\n")
+}
+
+
+// ---------- local review comments → Claude (spec 049) ----------
+
+export const RIFF_COMMENTS_SKILL_PATH = ".claude/skills/riff-comments/SKILL.md"
+
+/**
+ * The skill a Claude Code session uses to work through a local riff review
+ * with the `riff comments` CLI. Installed per launch by the TUI action
+ * (removed on exit), or permanently with `riff comments install-skill`.
+ */
+export const RIFF_COMMENTS_SKILL = `---
+name: riff-comments
+description: Work through the local code-review comments riff keeps in .riff/ — list them, act on each one in the code, then resolve or remove it with the riff CLI. Use when the user asks to address, fix, apply or work through riff comments, review notes, or a local review.
+---
+
+# Working through riff's local comments
+
+riff stores review comments as files under \`.riff/comments/\`. A comment is
+local until published; the user wants the local ones acted on, then retired.
+
+1. List them: \`riff comments --json\` (add the same target the user reviewed
+   with — a revision, a PR number — if they mention one). Each row has
+   \`shortId\`, \`file\`, \`line\`, \`side\`, \`body\`, \`resolved\`, \`inReplyTo\` and
+   \`diffHunk\`, the diff context the comment was written against.
+2. Skip rows with \`resolved: true\` — they are already done.
+3. For each open comment, read the file around \`line\`, make the change the
+   comment asks for (or explain why not), and keep changes minimal.
+4. Retire the comment as soon as it is handled:
+   - \`riff comments resolve <shortId>\` — done; keeps the note, marks it resolved.
+   - \`riff comments remove <shortId>\` — delete it outright.
+   Replies belong to their root comment; resolving the root resolves the thread.
+5. When everything is handled, summarise what changed per comment. Do not
+   touch synced (GitHub) comments; the CLI won't either.
+
+Never run \`gh\` or push anything: a local review stays local, and resolved
+local comments are never published by riff.
+`
+
+export interface LocalCommentsContextInput {
+  /** Every comment riff knows about, for thread lookups. */
+  all: Comment[]
+  /** The open local comments to act on (roots and replies). */
+  comments: Comment[]
+  mode: "local" | "pr"
+  prInfo: PrInfo | null
+  localTarget: string | undefined
+  /** Absolute comment-file path per comment id. */
+  paths: Map<string, string>
+}
+
+/**
+ * The context file behind "Claude: Act on local comments": every open local
+ * thread with its anchor, body, diff context, and the CLI call that retires
+ * it. The behavioural rules live in the skill; this is the work list.
+ */
+export function buildLocalCommentsContextMd(input: LocalCommentsContextInput): string {
+  const roots = input.comments.filter((c) => !c.inReplyTo)
+  const sections: string[] = [
+    buildHeader({
+      title: "Local review comments to act on",
+      mode: input.mode,
+      prInfo: input.prInfo,
+      localTarget: input.localTarget,
+      extras: [`**Open threads:** ${roots.length}`],
+    }),
+    "",
+    "Work through every thread below. When one is handled, retire it with the",
+    "command given under it — `resolve` keeps the note and marks it done,",
+    "`remove` deletes it. Resolved threads are never published, so this is",
+    "safe to do as you go.",
+    "",
+  ]
+  for (const root of roots) {
+    const replies = input.comments.filter((c) => c.inReplyTo === root.id)
+    const id = root.id.slice(0, 8)
+    sections.push(`## \`${root.filename}:${root.line}\` (${root.side === "LEFT" ? "old" : "new"} side) — \`${id}\``, "")
+    sections.push(root.body.trim(), "")
+    for (const r of replies) sections.push(`> **reply:** ${r.body.trim().replace(/\n/g, "\n> ")}`, "")
+    if (root.diffHunk) sections.push("```diff", root.diffHunk.trimEnd(), "```", "")
+    sections.push(`Comment file: \`${input.paths.get(root.id) ?? ""}\``)
+    sections.push(`Retire with: \`riff comments resolve ${id}\` or \`riff comments remove ${id}\``, "")
+  }
+  return sections.join("\n")
 }

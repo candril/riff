@@ -95,7 +95,8 @@ thread — one anchored to a line the branch has since moved past — expands to
 originally written against, so the comment still makes sense.
 
 Composing happens in the same panel: `n` for a new comment, `r` to reply, `e` to edit. `Ctrl+g`
-escalates a draft to `$EDITOR` mid-sentence and drops the result back in.
+escalates a draft to `$EDITOR` mid-sentence and drops the result back in. In a local review the
+footer stops offering to publish — `Ctrl+p` there just saves.
 
 ![The comments panel](../../../assets/screenshots/thread.png)
 

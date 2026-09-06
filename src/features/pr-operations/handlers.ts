@@ -18,6 +18,7 @@ import {
 } from "../../state"
 import { gatherSyncItems, type ValidatedComment } from "../../components"
 import { saveComment } from "../../storage"
+import { publishableLocalComments } from "../../utils/publishable"
 import { type Thread } from "../../utils/threads"
 import {
   updateComment,
@@ -251,10 +252,11 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     return
   }
 
-  // Get all local comments, excluding user-deselected ones, replies, and invalid comments
-  const allLocalComments = state.comments.filter(
-    (c) =>
-      c.status === "local" && !c.inReplyTo && !state.reviewPreview.excludedCommentIds.has(c.id)
+  // Open local roots only: replies ride on their thread, user-deselected
+  // ones stay home, and a thread resolved locally is done, not review
+  // material (spec 049).
+  const allLocalComments = publishableLocalComments(state.comments).filter(
+    (c) => !c.inReplyTo && !state.reviewPreview.excludedCommentIds.has(c.id)
   )
 
   // Only submit comments that are valid (file exists in diff)

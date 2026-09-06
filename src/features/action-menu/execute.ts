@@ -34,6 +34,7 @@ export interface ActionHandlers {
   handleOpenSyncPreview: () => void
   handleSubmitSingleComment: () => Promise<void>
   handleDeleteComment: () => Promise<void>
+  handleClearLocalComments: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
   handleOpenFileInTmuxWindow: () => Promise<void>
@@ -45,6 +46,7 @@ export interface ActionHandlers {
   handleAddPrComment: () => Promise<void>
   handleAiReviewContextAware: () => Promise<void>
   handleAiReviewFull: () => Promise<void>
+  handleAiReviewAddressComments: () => Promise<void>
   handleCopyDraftedComment: () => Promise<void>
   handleCopyPermalink: (options: { includeLines: boolean }) => Promise<void>
   handleCopyPrDiffLink: () => Promise<void>
@@ -138,6 +140,10 @@ export async function executeAction(
 
     case "delete-comment":
       await handlers.handleDeleteComment()
+      break
+
+    case "clear-local-comments":
+      await handlers.handleClearLocalComments()
       break
 
     case "create-pr":
@@ -264,6 +270,10 @@ export async function executeAction(
 
     case "claude-discuss-full":
       await handlers.handleAiReviewFull()
+      break
+
+    case "claude-address-comments":
+      await handlers.handleAiReviewAddressComments()
       break
 
     case "claude-copy-drafted-comment":
