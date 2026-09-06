@@ -69,7 +69,7 @@ The comments a review stored in `.riff/`, from the shell. Never touches GitHub.
 
 | Command | |
 | --- | --- |
-| `riff comments [--json] [target]` | List local comments — `--json` adds `resolved`, `diffHunk` and the file path |
+| `riff comments [--json] [target]` | List local comments; `--json` is the machine-readable form (below) |
 | `riff comments resolve <id> [target]` | Mark a thread done; it will never be published |
 | `riff comments unresolve <id> [target]` | Reopen it |
 | `riff comments remove <id> [target]` | Delete one comment |
@@ -79,6 +79,17 @@ The comments a review stored in `.riff/`, from the shell. Never touches GitHub.
 `target` is the same argument `riff` takes and picks the comment set (`local` when omitted, or
 `HEAD~3`, `123`, `gh:owner/repo#123`). `<id>` is the full id or the 8-character prefix the files
 are named by. See [a review without GitHub](/riff/reference/comments/#a-review-without-github).
+
+### What `--json` carries
+
+Enough to act on a review without opening anything: `counts`, the repo `root`, and a `threads`
+array — replies already nested under their root comment — where each thread has `id`, `file`,
+`line`, `side`, `resolved`, `body`, `replies`, the `diffHunk` the reviewer saw, `code` (that line
+as it reads in the working copy *now*), `context` (the numbered lines around it, `>` marking the
+anchor), `commentFile`, and the literal `resolve` / `remove` commands that retire it.
+
+`code` and `context` are `null` for a `LEFT`-side anchor — the line was deleted, so the working
+copy can't show it and `diffHunk` is the record.
 
 ### The Claude Code plugin
 

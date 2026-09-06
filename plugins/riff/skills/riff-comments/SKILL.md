@@ -15,27 +15,41 @@ then retired.
 riff comments --json
 ```
 
-Run it from the repo root. Each row has `shortId`, `file`, `line`, `side`,
-`body`, `resolved`, `inReplyTo`, `diffHunk` (the diff the comment was
-written against) and `path` (the comment file itself).
+One call, from anywhere in the repo, and it has everything — don't grep for
+the comments and don't open the comment files:
 
-If the review was of something other than the working copy, pass the same
-target the user reviewed with — `riff comments --json HEAD~3`,
-`riff comments --json 123`.
+- `counts` — `threads`, `open`, `resolved`.
+- `threads[]` — one entry per thread, already grouped:
+  - `id` — the short id every other command takes
+  - `file`, `line`, `side` — where it is anchored
+  - `body` and `replies[]` — what was said
+  - `code` — that line as it reads in the working copy *now*
+  - `context` — the numbered lines around it, `>` marking the anchor
+  - `diffHunk` — the diff the reviewer was looking at
+  - `resolve` / `remove` — the exact command to retire it
+  - `commentFile` — the markdown file, if you ever need the raw note
+
+Open a file only when `context` isn't enough to make the change safely.
+A `code` of `null` means the anchor can't be shown from the working copy
+(a deleted line, or a review of another revision) — use `diffHunk` then.
+
+If the user reviewed something other than the working copy, pass the same
+target: `riff comments --json HEAD~3`, `riff comments --json 123`.
 
 ## Act on them
 
-Skip rows with `resolved: true` — those are done. For every open comment:
+Skip threads with `resolved: true` — those are done. For each open thread:
 
-1. Read the file around `line`; `diffHunk` shows what the reviewer saw.
-2. Make the change it asks for, or explain why you didn't. Keep it minimal
-   and in the style of the surrounding code.
-3. Retire the comment immediately, so the list always reflects what's left:
-   - `riff comments resolve <shortId>` — handled. The note stays, marked
-     resolved, and a resolved local thread is never published.
-   - `riff comments remove <shortId>` — delete it outright.
+1. Make the change its `body` asks for, using `context` to place it. Keep
+   it minimal and in the style of the surrounding code.
+2. Retire it straight away, with the command the thread carries:
+   - `resolve` — handled. The note stays, marked resolved, and a resolved
+     local thread is never published.
+   - `remove` — delete it outright.
+3. Move to the next one. Don't re-run `--json` between threads; you already
+   have them all.
 
-Replies belong to their root comment; resolving the root closes the thread.
+Replies belong to their root thread; resolving the root closes the thread.
 
 ## Rules
 

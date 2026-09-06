@@ -51,7 +51,7 @@ This spec closes the loop:
 
 | Command | Effect |
 | --- | --- |
-| `riff comments [list] [--json] [<target>]` | Local comments for the target, with `resolved`, `inReplyTo`, `diffHunk`, file `path` |
+| `riff comments [list] [--json] [<target>]` | Local comments for the target; `--json` returns threads with their replies, the anchored `code` and `context` from the working copy, `diffHunk`, and the `resolve` / `remove` commands |
 | `riff comments resolve <id> [<target>]` | Mark the thread done (root's `isThreadResolved: true`) |
 | `riff comments unresolve <id> [<target>]` | Reopen it |
 | `riff comments remove <id> [<target>]` | Delete one comment file |
@@ -112,3 +112,13 @@ comments panel, the composer, `]o`/`[o`, `]R`/`[R`, `gC`, `gc`, `gd`/`gD`,
   exit hook, so `quit()` calls `removeSessionFiles()` directly.
 - `riff comments` is dispatched before `parseArgs`, so `comments` can't be
   used as a revision name — acceptable.
+- The JSON is shaped for an agent reading it once: threads instead of loose
+  comments, the anchor's current source line and its neighbours (one file read
+  per commented file, cheaper than the agent grepping), and the retire command
+  as a literal string so nothing has to be assembled.
+- Two storage bugs surfaced while testing `riff comments` from a
+  subdirectory, both pre-dating this spec: `Bun.file(dir).exists()` is false
+  for directories, so `findRepoRoot`/`isValidRepo` never matched a repo, and
+  `.riff` was resolved relative to the working directory. A review started at
+  the root was therefore invisible — to the CLI *and* to the TUI — from any
+  subdirectory, which also quietly created a second `.riff` there.

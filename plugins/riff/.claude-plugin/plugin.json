@@ -1,8 +1,8 @@
 {
     "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
     "name": "riff",
-    "version": "0.1.0",
-    "description": "Work through the local code-review comments riff keeps in .riff/ — read them with the riff CLI, act on each one, then resolve or remove it.",
+    "version": "0.2.0",
+    "description": "Work through the local code-review comments riff keeps in .riff/ \u2014 read them with the riff CLI, act on each one, then resolve or remove it.",
     "author": {
         "name": "candril",
         "url": "https://github.com/candril/riff"

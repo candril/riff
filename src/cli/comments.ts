@@ -21,6 +21,7 @@
  * named by.
  */
 
+import { join } from "node:path"
 import type { Comment } from "../types"
 import {
   loadComments,
@@ -28,6 +29,7 @@ import {
   deleteCommentFile,
   clearLocalComments,
   commentFilePath,
+  findRepoRoot,
 } from "../storage"
 import { installSkill } from "./skill"
 
@@ -96,21 +98,7 @@ const VERBS = new Set(["list", "resolve", "unresolve", "remove", "clear", "insta
 async function list(comments: Comment[], source: string, json: boolean): Promise<number> {
   const local = comments.filter((c) => c.status === "local")
   if (json) {
-    const rows = await Promise.all(
-      local.map(async (c) => ({
-        id: c.id,
-        shortId: c.id.slice(0, 8),
-        file: c.filename,
-        line: c.line,
-        side: c.side,
-        body: c.body,
-        resolved: rootOf(c, comments).isThreadResolved === true,
-        inReplyTo: c.inReplyTo ?? null,
-        diffHunk: c.diffHunk ?? null,
-        path: await commentFilePath(c.id, source),
-      })),
-    )
-    console.log(JSON.stringify({ source, comments: rows }, null, 2))
+    console.log(JSON.stringify(await buildReport(local, comments, source), null, 2))
     return 0
   }
   if (local.length === 0) {
@@ -124,6 +112,94 @@ async function list(comments: Comment[], source: string, json: boolean): Promise
     for (const line of c.body.split("\n")) console.log(`          ${line}`)
   }
   return 0
+}
+
+/** Lines of context shown either side of a comment's anchor. */
+const CONTEXT_RADIUS = 4
+
+/**
+ * Everything an agent needs to act on a review without going looking: threads
+ * rather than loose comments, the anchored code as it stands in the worktree,
+ * and the command that retires each one. Reading the anchors costs one file
+ * read per commented file, which is cheaper than the agent grepping for them.
+ */
+async function buildReport(local: Comment[], all: Comment[], source: string) {
+  const root = (await findRepoRoot()) ?? process.cwd()
+  const roots = local.filter((c) => !c.inReplyTo)
+  const fileCache = new Map<string, string[] | null>()
+
+  const threads = await Promise.all(
+    roots.map(async (c) => {
+      const anchor = await anchorFor(c, root, fileCache)
+      const id = c.id.slice(0, 8)
+      return {
+        id,
+        file: c.filename,
+        line: c.line,
+        side: c.side,
+        resolved: c.isThreadResolved === true,
+        createdAt: c.createdAt,
+        body: c.body,
+        ...anchor,
+        replies: local
+          .filter((r) => r.inReplyTo === c.id)
+          .map((r) => ({ id: r.id.slice(0, 8), createdAt: r.createdAt, body: r.body })),
+        diffHunk: c.diffHunk ?? null,
+        commentFile: await commentFilePath(c.id, source),
+        resolve: `riff comments resolve ${id}`,
+        remove: `riff comments remove ${id}`,
+      }
+    }),
+  )
+
+  const open = threads.filter((t) => !t.resolved)
+  return {
+    source,
+    root,
+    counts: { threads: threads.length, open: open.length, resolved: threads.length - open.length },
+    syncedComments: all.length - local.length,
+    threads,
+  }
+}
+
+/**
+ * The commented line as it reads in the working copy right now, with its
+ * neighbours. Only for RIGHT-side anchors: a LEFT-side comment points at a
+ * line that was deleted, so the worktree can't show it — `diffHunk` is the
+ * record there. Missing files (deleted since, or a diff of another revision)
+ * simply carry no anchor.
+ */
+async function anchorFor(
+  c: Comment,
+  root: string,
+  cache: Map<string, string[] | null>,
+): Promise<{ code: string | null; context: string[] | null }> {
+  if (c.side !== "RIGHT") return { code: null, context: null }
+
+  let lines = cache.get(c.filename)
+  if (lines === undefined) {
+    lines = await readLines(join(root, c.filename))
+    cache.set(c.filename, lines)
+  }
+  if (!lines || c.line < 1 || c.line > lines.length) return { code: null, context: null }
+
+  const from = Math.max(1, c.line - CONTEXT_RADIUS)
+  const to = Math.min(lines.length, c.line + CONTEXT_RADIUS)
+  const context: string[] = []
+  for (let n = from; n <= to; n++) {
+    context.push(`${n === c.line ? ">" : " "} ${n}| ${lines[n - 1]}`)
+  }
+  return { code: lines[c.line - 1] ?? null, context }
+}
+
+async function readLines(path: string): Promise<string[] | null> {
+  try {
+    const file = Bun.file(path)
+    if (!(await file.exists())) return null
+    return (await file.text()).split("\n")
+  } catch {
+    return null
+  }
 }
 
 function findLocal(comments: Comment[], id: string): Comment | undefined {

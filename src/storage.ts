@@ -1,6 +1,7 @@
 import { join, dirname, resolve } from "path"
 import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
+import { existsSync } from "fs"
 import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
 import { loadConfig } from "./config"
 import { getCurrentRepoRef } from "./providers/repo"
@@ -11,6 +12,20 @@ const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
 const MENTIONABLE_FILE = "mentionable-users.json"
+
+/**
+ * `<repo root>/.riff`, so a review is the same one whether riff (or `riff
+ * comments`) runs from the root or three directories down. Falls back to the
+ * working directory outside a repo, where there is no root to anchor to.
+ */
+function localStorageDir(startPath: string = process.cwd()): string {
+  let current = resolve(startPath)
+  while (current !== dirname(current)) {
+    if (isRepoDir(current)) return join(current, LOCAL_STORAGE_DIR)
+    current = dirname(current)
+  }
+  return join(resolve(startPath), LOCAL_STORAGE_DIR)
+}
 
 /** How long a cached mentionable-user roster stays fresh. */
 const MENTIONABLE_TTL_MS = 24 * 60 * 60 * 1000
@@ -35,24 +50,25 @@ function expandPath(p: string): string {
 /**
  * Find the repository root by looking for .git or .jj directory
  */
-async function findRepoRoot(startPath: string = process.cwd()): Promise<string | null> {
-  let current = startPath
+export async function findRepoRoot(startPath: string = process.cwd()): Promise<string | null> {
+  let current = resolve(startPath)
 
-  while (current !== "/") {
-    const gitPath = join(current, ".git")
-    const jjPath = join(current, ".jj")
-
-    const gitFile = Bun.file(gitPath)
-    const jjFile = Bun.file(jjPath)
-
-    if ((await gitFile.exists()) || (await jjFile.exists())) {
-      return current
-    }
-
+  while (current !== dirname(current)) {
+    if (isRepoDir(current)) return current
     current = dirname(current)
   }
 
-  return null
+  return isRepoDir(current) ? current : null
+}
+
+/**
+ * A repository lives here? `.git` is a directory in a normal clone and a file
+ * in a worktree or submodule, and `.jj` is always a directory — `existsSync`
+ * covers all three, which `Bun.file().exists()` does not: it is false for any
+ * directory, so this check failed on every ordinary repo.
+ */
+function isRepoDir(path: string): boolean {
+  return existsSync(join(path, ".git")) || existsSync(join(path, ".jj"))
 }
 
 /**
@@ -60,11 +76,7 @@ async function findRepoRoot(startPath: string = process.cwd()): Promise<string |
  */
 async function isValidRepo(path: string): Promise<boolean> {
   try {
-    const gitPath = join(path, ".git")
-    const jjPath = join(path, ".jj")
-    const gitFile = Bun.file(gitPath)
-    const jjFile = Bun.file(jjPath)
-    return (await gitFile.exists()) || (await jjFile.exists())
+    return isRepoDir(path)
   } catch {
     return false
   }
@@ -230,7 +242,7 @@ export async function resolveStorageDir(source: string): Promise<RepoResolution>
     const isLocal = await isCurrentRepo(source)
     if (isLocal) {
       return {
-        path: LOCAL_STORAGE_DIR,
+        path: localStorageDir(),
         source: "cwd",
         needsConfirmation: false,
       }
@@ -254,7 +266,7 @@ export async function resolveStorageDir(source: string): Promise<RepoResolution>
   const isLocal = await isCurrentRepo(source)
   if (isLocal) {
     return {
-      path: LOCAL_STORAGE_DIR,
+      path: localStorageDir(),
       source: "cwd",
       needsConfirmation: false,
     }
@@ -591,7 +603,7 @@ export async function updateComment(comment: Comment, source: string): Promise<v
  * Load session metadata
  */
 export async function loadSession(source: string): Promise<ReviewSession | null> {
-  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
+  const filepath = join(localStorageDir(), SESSION_FILE)
   const file = Bun.file(filepath)
 
   if (!(await file.exists())) {
@@ -614,9 +626,9 @@ export async function loadSession(source: string): Promise<ReviewSession | null>
  * Save session metadata
  */
 export async function saveSession(session: ReviewSession): Promise<void> {
-  await mkdir(LOCAL_STORAGE_DIR, { recursive: true })
+  await mkdir(localStorageDir(), { recursive: true })
 
-  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
+  const filepath = join(localStorageDir(), SESSION_FILE)
   session.updatedAt = new Date().toISOString()
 
   await Bun.write(filepath, JSON.stringify(session, null, 2))
@@ -640,7 +652,7 @@ export async function loadOrCreateSession(source: string): Promise<ReviewSession
  * Delete session file
  */
 export async function deleteSession(): Promise<void> {
-  const filepath = join(LOCAL_STORAGE_DIR, SESSION_FILE)
+  const filepath = join(localStorageDir(), SESSION_FILE)
 
   try {
     await unlink(filepath)
@@ -658,7 +670,7 @@ interface MentionableCache {
 }
 
 async function readMentionableCache(): Promise<MentionableCache> {
-  const file = Bun.file(join(LOCAL_STORAGE_DIR, MENTIONABLE_FILE))
+  const file = Bun.file(join(localStorageDir(), MENTIONABLE_FILE))
   if (!(await file.exists())) return {}
   try {
     const data = (await file.json()) as MentionableCache
@@ -698,8 +710,8 @@ export async function saveMentionableUsers(
   const cache = await readMentionableCache()
   cache[`${owner}/${repo}`] = { fetchedAt: new Date().toISOString(), logins }
 
-  await mkdir(LOCAL_STORAGE_DIR, { recursive: true })
-  await Bun.write(join(LOCAL_STORAGE_DIR, MENTIONABLE_FILE), JSON.stringify(cache, null, 2))
+  await mkdir(localStorageDir(), { recursive: true })
+  await Bun.write(join(localStorageDir(), MENTIONABLE_FILE), JSON.stringify(cache, null, 2))
 }
 
 // ============================================================================
@@ -710,7 +722,7 @@ export async function saveMentionableUsers(
  * Get the path for viewed status file
  */
 function getViewedFilePath(source: string): string {
-  return join(LOCAL_STORAGE_DIR, sourceToDir(source), VIEWED_FILE)
+  return join(localStorageDir(), sourceToDir(source), VIEWED_FILE)
 }
 
 /**
@@ -739,7 +751,7 @@ export async function saveViewedStatuses(
   source: string, 
   statuses: Map<string, FileReviewStatus>
 ): Promise<void> {
-  const dirPath = join(LOCAL_STORAGE_DIR, sourceToDir(source))
+  const dirPath = join(localStorageDir(), sourceToDir(source))
   await mkdir(dirPath, { recursive: true })
 
   const filepath = getViewedFilePath(source)
