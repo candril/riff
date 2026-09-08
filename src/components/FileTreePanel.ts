@@ -385,21 +385,7 @@ export class FileTreePanel {
     this.syncFilterInput(treeFilter, treeFilterInput)
     this.container.borderColor = focused ? colors.primary : colors.border
 
-    // Get flat items, filtering out ignored files (unless showing hidden)
-    let flatItems = flattenTree(filterTree(fileTree, treeFilter), files)
-    if (!newShowHidden && hiddenCount > 0) {
-      flatItems = flatItems.filter(item => {
-        // Keep directory nodes (they might contain non-ignored files)
-        if (item.node.isDirectory) return true
-        // Filter out ignored file nodes
-        if (item.node.file && newIgnored.has(item.node.file.filename)) return false
-        return true
-      })
-      // Remove directory nodes that have no visible children
-      flatItems = removeEmptyDirs(flatItems, files, newIgnored)
-      // Re-index
-      flatItems.forEach((item, i) => { item.index = i })
-    }
+    const flatItems = this.visibleItems()
 
     if (structureChanged) {
       // Rebuild all items
@@ -727,18 +713,32 @@ export class FileTreePanel {
     if (this.width === width) return
     this.width = width
     this.container.width = width
-    // Force rebuild items to recalculate truncation
-    // Must apply the same ignore filtering as update()
-    let flatItems = flattenTree(this.currentFileTree, this.currentFiles)
-    if (!this.currentShowHidden && this.currentIgnoredFiles.size > 0) {
-      flatItems = flatItems.filter(item => {
-        if (item.node.isDirectory) return true
-        if (item.node.file && this.currentIgnoredFiles.has(item.node.file.filename)) return false
-        return true
-      })
-      flatItems = removeEmptyDirs(flatItems, this.currentFiles, this.currentIgnoredFiles)
-      flatItems.forEach((item, i) => { item.index = i })
-    }
-    this.rebuildItems(flatItems)
+    // Rebuild so the new width can re-truncate every label.
+    this.rebuildItems(this.visibleItems())
+  }
+
+  /**
+   * The rows the panel should be showing: the tree narrowed by the path
+   * filter, minus ignored files and the directories left empty by dropping
+   * them. Every rebuild goes through here — a rebuild that derived the list
+   * differently (a width change used to skip the filter) left rows on screen
+   * that the next style-only update had no reason to touch.
+   */
+  private visibleItems(): FlatTreeItem[] {
+    let flatItems = flattenTree(
+      filterTree(this.currentFileTree, this.currentFilter),
+      this.currentFiles
+    )
+    if (this.currentShowHidden || this.currentIgnoredFiles.size === 0) return flatItems
+
+    flatItems = flatItems.filter((item) => {
+      // Keep directory nodes (they might contain non-ignored files)
+      if (item.node.isDirectory) return true
+      if (item.node.file && this.currentIgnoredFiles.has(item.node.file.filename)) return false
+      return true
+    })
+    flatItems = removeEmptyDirs(flatItems, this.currentFiles, this.currentIgnoredFiles)
+    flatItems.forEach((item, i) => { item.index = i })
+    return flatItems
   }
 }

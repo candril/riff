@@ -649,17 +649,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
 
       case "backspace":
-        // A tree filter is the first thing backspace takes down, from
-        // wherever you are — it is the state most easily forgotten about,
-        // and it silently hides files from everything that reads the tree.
-        if (state.treeFilter && !state.treeFilterInput) {
-          ctx.setState(clearTreeFilter)
-          ctx.updateFileTreePanel()
-          ctx.render()
-          return
-        }
         // Ctrl-h moves focus one panel left: comments → diff → tree.
-        // Terminals deliver bare Ctrl-h as backspace.
+        // Terminals deliver bare Ctrl-h as backspace, so this key is both
+        // things at once — and walking back to the tree has to come first,
+        // or returning to look at what the filter left would drop it.
         if (state.mode === "normal") {
           if (state.focusedPanel === "comments") {
             ctx.setState((s) => ({ ...s, focusedPanel: "diff" }))
@@ -671,6 +664,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             ctx.render()
             return
           }
+        }
+        // Nowhere left to move: a tree filter is the next thing backspace
+        // takes down — it is the state most easily forgotten about, and it
+        // silently hides files from everything that reads the tree.
+        if (state.treeFilter && !state.treeFilterInput) {
+          ctx.setState(clearTreeFilter)
+          ctx.updateFileTreePanel()
+          ctx.render()
+          return
         }
         break
 

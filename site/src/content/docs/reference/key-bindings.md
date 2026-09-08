@@ -88,9 +88,9 @@ the whole path — `apicl` finds `src/api/client.ts`), `Enter` keeps the filter 
 navigating it, `Esc` drops it. It's a real text field, so `Ctrl+w`, word jumps, paste and undo all
 work.
 
-`Backspace` clears an applied filter from anywhere — the tree or the diff — before it does
-anything else. `Esc` in the tree clears it too, after any multi-select and before leaving the
-panel.
+`Backspace` (the same key as `Ctrl+h`) walks focus left first, so coming back to the tree keeps
+the filter; once there is nowhere left to move it clears an applied filter. `Esc` in the tree
+clears it too, after any multi-select and before leaving the panel.
 
 ## Comments
 

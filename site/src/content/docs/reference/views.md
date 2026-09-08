@@ -79,7 +79,7 @@ when you actually do need to look at the lockfile.
 
 `/` with the tree focused filters it by path: the header turns into a text field, the tree narrows
 as you type (loosely, against the whole path), `Enter` keeps the filter, `Esc` drops it, and
-`Backspace` from anywhere — tree or diff — clears it. Editing keys behave as they do in any input
+`Backspace` in the tree clears it. Editing keys behave as they do in any input
 (`Ctrl+w` deletes a word). Matching directories come back expanded, so nothing hides in a fold,
 and your own expansion state returns with the filter cleared.
 
