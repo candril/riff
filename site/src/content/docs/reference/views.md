@@ -83,6 +83,10 @@ as you type (loosely, against the whole path), `Enter` keeps the filter, `Esc` d
 (`Ctrl+w` deletes a word). Matching directories come back expanded, so nothing hides in a fold,
 and your own expansion state returns with the filter cleared.
 
+The all-files diff narrows with the tree — while a filter is on it lists exactly the files the
+sidebar does, so `/` is how you read a subset of a large PR end to end. Opening a single file
+still shows that file whole.
+
 `Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
 picker when you just want the file.
 

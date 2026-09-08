@@ -104,6 +104,9 @@ export async function createApp(options: AppOptions = {}) {
   let searchState: SearchState = createSearchState()
   let flashState: FlashState = createFlashState()
   let lineMapping: DiffLineMapping = buildLineMapping(initialState)
+  // Tree filter the current mapping was built against, so a filter change can
+  // be spotted from the panel update every filter path already goes through.
+  let mappedTreeFilter: string = initialState.treeFilter
   let currentHeadSha = initialHeadSha
   let cachedCurrentUser: string | null = null
   // Persistent for PR sessions (spec 041); null in local mode.
@@ -124,6 +127,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     lineMapping = buildLineMapping(state)
+    mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
     searchHandlerRef?.refreshMatches()
@@ -224,6 +228,16 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   function updateFileTreePanel() {
+    // The all-files diff lists the files the tree lists, so narrowing the
+    // tree narrows it too — and the cursor goes back to the top, since the
+    // line it sat on belongs to a different file now.
+    if (mappedTreeFilter !== state.treeFilter) {
+      createLineMapping()
+      if (state.selectedFileIndex === null) {
+        vimState = { ...vimState, line: 0, col: 0, desiredCol: null, selectionAnchor: null }
+      }
+    }
+
     // Calculate file panel width based on expanded state
     const normalWidth = 35
     const terminalWidth = process.stdout.columns || 80
@@ -250,6 +264,9 @@ export async function createApp(options: AppOptions = {}) {
       state.treeFilterInput
     )
     fileTreePanel.visible = state.showFilePanel
+    vimDiffView.setEmptyMessage(
+      state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display"
+    )
     vimDiffView.setFilePanelVisible(state.showFilePanel, panelWidth)
     vimDiffView.setVisible(state.viewMode === "diff")
   }

@@ -11,7 +11,7 @@ import { VimDiffView, PRInfoPanelClass } from "../components"
 import { FileTreePanel } from "../components/FileTreePanel"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
-import { buildFileTree } from "../utils/file-tree"
+import { buildFileTree, filteredFilenames } from "../utils/file-tree"
 import {
   createInitialState,
   collapseResolvedThreads,
@@ -208,6 +208,7 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
     fileContents,
     collapsedFiles: state.collapsedFiles,
     collapsedHunks: state.collapsedHunks,
+    visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
   })
 }
 

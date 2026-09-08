@@ -166,6 +166,28 @@ export function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[]
 }
 
 /**
+ * The files the tree filter leaves standing, or null when no filter is set.
+ *
+ * Derived from the filtered tree rather than by re-matching each path, so it
+ * agrees with the sidebar in the case a directory matches on its own name and
+ * brings everything under it along.
+ */
+export function filteredFilenames(
+  nodes: FileTreeNode[],
+  query: string
+): Set<string> | null {
+  if (!query.trim()) return null
+
+  const filenames = new Set<string>()
+  const walk = (node: FileTreeNode): void => {
+    if (node.file) filenames.add(node.file.filename)
+    for (const child of node.children) walk(child)
+  }
+  for (const node of filterTree(nodes, query)) walk(node)
+  return filenames
+}
+
+/**
  * Flatten tree for rendering (respects expanded state)
  */
 export function flattenTree(

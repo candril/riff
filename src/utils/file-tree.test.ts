@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildFileTree, filterTree, flattenTree } from "./file-tree"
+import { buildFileTree, filteredFilenames, filterTree, flattenTree } from "./file-tree"
 import type { DiffFile } from "./diff-parser"
 
 function file(filename: string): DiffFile {
@@ -69,5 +69,24 @@ describe("filterTree", () => {
     const before = JSON.stringify(tree)
     filterTree(tree, "client")
     expect(JSON.stringify(tree)).toBe(before)
+  })
+})
+
+describe("filteredFilenames", () => {
+  const names = (query: string) => filteredFilenames(buildFileTree(files), query)
+
+  test("no filter means no restriction", () => {
+    expect(names("")).toBeNull()
+    expect(names("   ")).toBeNull()
+  })
+
+  test("lists exactly the files the filtered tree renders", () => {
+    expect([...names("client")!]).toEqual(visiblePaths("client"))
+    expect([...names("api")!]).toEqual(visiblePaths("api"))
+    expect([...names("srcts")!]).toEqual(visiblePaths("srcts"))
+  })
+
+  test("a query nothing matches restricts to nothing", () => {
+    expect([...names("zzzz")!]).toEqual([])
   })
 })

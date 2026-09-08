@@ -12,6 +12,7 @@ export class DiffLineMapping {
   private fileContents: Map<string, string>
   private collapsedFiles: Set<string>
   private collapsedHunks: Set<string>
+  private visibleFiles: ReadonlySet<string> | undefined
 
   constructor(
     files: DiffFile[],
@@ -23,6 +24,7 @@ export class DiffLineMapping {
     this.fileContents = options?.fileContents ?? new Map()
     this.collapsedFiles = options?.collapsedFiles ?? new Set()
     this.collapsedHunks = options?.collapsedHunks ?? new Set()
+    this.visibleFiles = options?.visibleFiles
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
@@ -433,6 +435,7 @@ export class DiffLineMapping {
 
     for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
       const file = files[fileIndex]!
+      if (this.visibleFiles && !this.visibleFiles.has(file.filename)) continue
       const isCollapsed = this.collapsedFiles.has(file.filename)
 
       // File header (always shown, even when collapsed)

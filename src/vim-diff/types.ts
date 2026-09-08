@@ -165,4 +165,8 @@ export interface DiffLineMappingOptions {
   collapsedFiles?: Set<string>
   /** Set of collapsed hunk keys ("filename:hunkIndex") */
   collapsedHunks?: Set<string>
+  /** Filenames the all-files view is restricted to, or undefined for all of
+   *  them. Set from the file-tree filter so the diff lists what the tree
+   *  lists. Indices into `files` stay untouched — only rows are dropped. */
+  visibleFiles?: ReadonlySet<string>
 }

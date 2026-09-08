@@ -630,7 +630,7 @@ export class VimDiffView {
             justifyContent: "center",
             alignItems: "center",
           },
-          Text({ content: "No changes to display", fg: colors.textDim })
+          Text({ content: this.emptyMessage, fg: colors.textDim })
         )
       )
       this.scrollBox = null
@@ -1261,6 +1261,18 @@ export class VimDiffView {
   // Track whether file panel is visible (set via setFilePanelVisible)
   private filePanelVisible: boolean = true
   private filePanelWidth: number = 35
+
+  private emptyMessage: string = "No changes to display"
+
+  /**
+   * What to show when there is nothing to render. A tree filter that matches
+   * nothing empties the view, and "no changes" would read as a claim about
+   * the diff rather than about the filter. Read at rebuild time, which a
+   * filter change always triggers.
+   */
+  setEmptyMessage(message: string): void {
+    this.emptyMessage = message
+  }
   
   /**
    * Set file panel visibility (needed for cursor position calculation)
