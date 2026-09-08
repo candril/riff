@@ -14,6 +14,7 @@ import {
   clearToast,
   createInitialState,
   type AppState,
+  setTreeFilter,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -213,6 +214,14 @@ export async function createApp(options: AppOptions = {}) {
   // new scrollBox's layout is settled. This keeps the viewport on the
   // cursor line instead of jumping to the top.
   vimDiffView.setOnContentRebuilt(ensureCursorVisible)
+
+  // The filter box owns its text while typing; state mirrors every keystroke
+  // so the tree narrows live and every highlight lookup sees the same list.
+  fileTreePanel.setOnFilterChange((value: string) => {
+    state = setTreeFilter(state, value)
+    updateFileTreePanel()
+    render()
+  })
 
   function updateFileTreePanel() {
     // Calculate file panel width based on expanded state

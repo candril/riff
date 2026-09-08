@@ -4,6 +4,8 @@
  */
 
 import {
+  InputRenderable,
+  InputRenderableEvents,
   BoxRenderable,
   TextRenderable,
   ScrollBoxRenderable,
@@ -144,6 +146,17 @@ export class FileTreePanel {
   private renderer: CliRenderer
   private container: BoxRenderable
   private headerText: TextRenderable
+  /**
+   * The `/` filter box. A real OpenTUI input rather than a hand-rolled
+   * prompt, so Ctrl-w, word jumps, paste, undo and selection all behave the
+   * way they do in every other text field.
+   */
+  private header: BoxRenderable
+  /** The `/` shown beside the filter box, so typing reads like the label. */
+  private filterPrefix: TextRenderable
+  private filterInput: InputRenderable
+  private filterFocused: boolean = false
+  private onFilterChange: ((value: string) => void) | null = null
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
   private itemRenderables: Map<string, { 
@@ -188,12 +201,42 @@ export class FileTreePanel {
       width: "100%",
       paddingLeft: 1,
       backgroundColor: theme.mantle,
+      // The filter prompt puts a `/` beside the input box; without an
+      // explicit direction they stack instead of sitting side by side.
+      flexDirection: "row",
     })
     this.headerText = new TextRenderable(this.renderer, {
+      id: "file-tree-header-text",
       content: "Files (0)",
       fg: colors.textMuted,
+      // The header lays its children out in a row for the filter prompt;
+      // a Text with no basis measures as zero wide there.
+      flexGrow: 1,
     })
+    this.header = header
     header.add(this.headerText)
+
+    this.filterInput = new InputRenderable(this.renderer, {
+      id: "file-tree-filter",
+      placeholder: "filter by path…",
+      placeholderColor: theme.overlay0,
+      backgroundColor: theme.mantle,
+      textColor: theme.text,
+      focusedBackgroundColor: theme.mantle,
+      focusedTextColor: theme.text,
+      cursorColor: theme.yellow,
+      flexGrow: 1,
+      visible: false,
+    })
+    this.filterInput.on(InputRenderableEvents.INPUT, (value: string) => {
+      this.onFilterChange?.(value)
+    })
+    this.filterPrefix = new TextRenderable(this.renderer, {
+      id: "file-tree-filter-prefix",
+      content: "/",
+      fg: colors.secondary,
+    })
+
     this.container.add(header)
 
     // Create scroll box
@@ -219,6 +262,43 @@ export class FileTreePanel {
       width: "100%",
     })
     this.scrollBox.add(this.content)
+  }
+
+  /**
+   * Where the filter box sends what the user types. Set from app.ts, which
+   * owns the state the tree is filtered from.
+   */
+  setOnFilterChange(callback: (value: string) => void): void {
+    this.onFilterChange = callback
+  }
+
+  /**
+   * Swap the header row between its label and the `/` input. They share one
+   * row, so mounting both leaves them fighting for the width and neither
+   * reads. Focus is taken only on the way in, so a re-render mid-typing
+   * doesn't reset the cursor, and the value is seeded from state — `/` on an
+   * applied filter refines it rather than starting over.
+   */
+  private syncFilterInput(treeFilter: string, treeFilterInput: boolean): void {
+    if (treeFilterInput === this.filterFocused) return
+    this.filterFocused = treeFilterInput
+
+    if (treeFilterInput) {
+      this.header.remove(this.headerText.id)
+      this.filterPrefix.visible = true
+      this.filterInput.visible = true
+      this.header.add(this.filterPrefix)
+      this.header.add(this.filterInput)
+      this.filterInput.value = treeFilter
+      this.filterInput.focus()
+    } else {
+      this.filterInput.blur()
+      this.header.remove(this.filterPrefix.id)
+      this.header.remove(this.filterInput.id)
+      this.filterPrefix.visible = false
+      this.filterInput.visible = false
+      this.header.add(this.headerText)
+    }
   }
 
   getContainer(): BoxRenderable {
@@ -296,17 +376,13 @@ export class FileTreePanel {
     // Update header with progress. While filtering, the header is the prompt:
     // the panel is narrow, and a separate input row would cost a file row.
     const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
-    const scopeText = treeFilter || treeFilterInput
-      ? `/${treeFilter}${treeFilterInput ? "▏" : ""}`
-      : `Files${progressText}`
-    this.headerText.content = scopeText
-    this.headerText.fg = treeFilterInput
-      ? colors.warning
-      : treeFilter
-        ? colors.secondary
-        : focused
-          ? colors.primary
-          : colors.textMuted
+    this.headerText.content = treeFilter ? `/${treeFilter}` : `Files${progressText}`
+    this.headerText.fg = treeFilter
+      ? colors.secondary
+      : focused
+        ? colors.primary
+        : colors.textMuted
+    this.syncFilterInput(treeFilter, treeFilterInput)
     this.container.borderColor = focused ? colors.primary : colors.border
 
     // Get flat items, filtering out ignored files (unless showing hidden)

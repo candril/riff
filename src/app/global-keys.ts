@@ -8,6 +8,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
+import { clearTreeFilter } from "../state"
 import { openActionMenu, toggleHelp, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -645,6 +646,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
 
       case "backspace":
+        // A tree filter is the first thing backspace takes down, from
+        // wherever you are — it is the state most easily forgotten about,
+        // and it silently hides files from everything that reads the tree.
+        if (state.treeFilter && !state.treeFilterInput) {
+          ctx.setState(clearTreeFilter)
+          ctx.updateFileTreePanel()
+          ctx.render()
+          return
+        }
         // Ctrl-h moves focus one panel left: comments → diff → tree.
         // Terminals deliver bare Ctrl-h as backspace.
         if (state.mode === "normal") {

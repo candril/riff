@@ -83,10 +83,14 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 In the **file tree**: `j`/`k` moves, `l`/`Enter` opens a file or expands a folder, `h` collapses,
 `v` toggles viewed, `/` filters by path, `Esc` hands focus back to the diff.
 
-Filtering: `/` opens a prompt in the panel header, typing narrows the tree live (loosely, against
+Filtering: `/` opens an input in the panel header, typing narrows the tree live (loosely, against
 the whole path — `apicl` finds `src/api/client.ts`), `Enter` keeps the filter and returns to
-navigating it, `Esc` drops it. With a filter applied, `Esc` clears that before the next `Esc`
-leaves the panel.
+navigating it, `Esc` drops it. It's a real text field, so `Ctrl+w`, word jumps, paste and undo all
+work.
+
+`Backspace` clears an applied filter from anywhere — the tree or the diff — before it does
+anything else. `Esc` in the tree clears it too, after any multi-select and before leaving the
+panel.
 
 ## Comments
 

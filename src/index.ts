@@ -110,6 +110,7 @@ const HELP_TEXT = `
     Ctrl+f                    Find files (fuzzy)
     Ctrl+g                    Show the current file's path
     /                         Filter the file tree by path (tree focused)
+    Backspace                 Clear that filter, from anywhere
     i                         Toggle PR overview / diff (PR mode)
     Esc                       Leave single-file view
 

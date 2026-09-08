@@ -32,13 +32,19 @@ flash's existing labelling for the jump. Neither adds a keymap to learn —
 
 **Tree filter**
 
-- `/` with the tree focused opens a prompt in the panel header; the header
-  becomes `/query` with a cursor while typing.
+- `/` with the tree focused opens a real `InputRenderable` in the panel
+  header, beside a `/` prefix. Being an actual input, it comes with Ctrl-w,
+  word jumps, paste, undo and selection; riff intercepts only Enter and
+  Escape and leaves every other key to it.
 - Typing narrows the tree live. Matching is `fuzzyMatch` against the **full
   path**, so `apicl` finds `src/api/client.ts` and a directory name matches
   everything under it.
 - `Enter` keeps the filter and returns to navigating it; `Esc` drops it.
   `Backspace` on an empty query closes the prompt.
+- **`Backspace` clears an applied filter from anywhere** — the tree, the
+  diff, wherever. A filter is the state most easily forgotten about, and it
+  hides files from everything that reads the tree, so it is the first thing
+  that key takes down (before moving focus left).
 - With a filter applied, `Esc` clears it before the next `Esc` leaves the
   panel — one layer per press, after the multi-select anchor.
 - Surviving directories are returned expanded (a filter that hid its results
@@ -77,3 +83,12 @@ flash's existing labelling for the jump. Neither adds a keymap to learn —
   runs near the end of the chain.
 - `filterTree` returns new nodes for the directories it keeps and shares the
   file nodes; nothing mutates the tree in state.
+- The header row swaps its occupant — label out, prefix + input in — rather
+  than hiding one behind the other: sharing the row leaves them fighting for
+  the width and neither reads. It also needs an explicit `flexDirection:
+  "row"`, and the label a `flexGrow`, or a Text in that row measures as zero
+  wide.
+- Opening the prompt focuses the input inside the same keypress, so the `/`
+  needs `preventDefault` or it is typed into the box it just opened — which
+  looked like a broken matcher, since `/src/api` still fuzzy-matches enough
+  paths to seem plausible.

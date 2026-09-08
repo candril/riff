@@ -62,6 +62,9 @@ export function handleInput(
 
   // `/` filters the tree by path, the same key that searches the diff.
   if (key.name === "/" || key.sequence === "/") {
+    // Opening the prompt focuses the input in this same keypress, so without
+    // this the `/` itself would be typed into it.
+    key.preventDefault()
     ctx.setState(startTreeFilter)
     ctx.updatePanel()
     ctx.render()
@@ -268,12 +271,18 @@ export function handleInput(
 }
 
 /**
- * Keys while the `/` prompt is open: type to narrow, Enter to keep the
- * filter and go back to navigating it, Escape to drop it. Backspace on an
- * empty query closes the prompt the way it opened.
+ * Keys while the `/` prompt is open.
+ *
+ * Only the two that mean something to riff are taken: Enter keeps the filter
+ * and hands navigation back, Escape drops it. Everything else is left to the
+ * focused `InputRenderable` — that is where Ctrl-w, word jumps, paste, undo
+ * and selection come from. Returning true short-circuits riff's own handler
+ * chain without `preventDefault`, so the input still sees the key (the same
+ * arrangement the comment composer uses).
  */
 function handleFilterInput(key: KeyEvent, ctx: FileTreeInputContext): boolean {
   const done = (updater: (s: AppState) => AppState): boolean => {
+    key.preventDefault()
     ctx.setState(updater)
     ctx.updatePanel()
     ctx.render()
@@ -283,18 +292,10 @@ function handleFilterInput(key: KeyEvent, ctx: FileTreeInputContext): boolean {
   if (key.name === "escape") return done(clearTreeFilter)
   if (key.name === "return" || key.name === "enter") return done(commitTreeFilter)
 
-  if (key.name === "backspace") {
-    const filter = ctx.state.treeFilter
-    if (filter.length === 0) return done(commitTreeFilter)
-    return done((s) => setTreeFilter(s, filter.slice(0, -1)))
+  // Backspace on an empty query closes the prompt the way it opened.
+  if (key.name === "backspace" && ctx.state.treeFilter.length === 0) {
+    return done(commitTreeFilter)
   }
 
-  // Printable characters only: a stray Ctrl-chord shouldn't land in the query.
-  const char = key.sequence
-  if (char && char.length === 1 && !key.ctrl && !key.meta && char >= " ") {
-    return done((s) => setTreeFilter(s, s.treeFilter + char))
-  }
-
-  // Swallow everything else — the prompt is modal while it is open.
   return true
 }
