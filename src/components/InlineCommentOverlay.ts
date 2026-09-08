@@ -19,6 +19,7 @@ import { theme, colors } from "../theme"
 import type { Comment } from "../types"
 import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
+import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
@@ -87,6 +88,25 @@ function buildMarkdown(
     content,
     syntaxStyle: getSyntaxStyle(),
   })
+}
+
+/**
+ * Stand-in rows for the pictures a comment carries — the panel can't draw
+ * them, so it names them and `O` opens them in the browser. Numbered only
+ * when there is more than one, since the number is there to tell the reader
+ * which of several `O` is about to open.
+ */
+function imageRows(images: readonly CommentImage[], indent: number) {
+  return images.map((image, i) =>
+    Box(
+      { flexDirection: "row", height: 1, paddingLeft: indent },
+      Text({ content: "▣ ", fg: theme.overlay0 }),
+      images.length > 1
+        ? Text({ content: `${i + 1}. `, fg: theme.overlay0 })
+        : null,
+      Text({ content: image.label, fg: theme.sapphire })
+    )
+  )
 }
 
 /**
@@ -167,13 +187,20 @@ function formatTimeAgo(isoDate: string): string {
 
 type Hint = readonly [string, string]
 
-function viewModeHints(canSubmit: boolean, hasComments: boolean, focused: boolean, appMode: "local" | "pr"): Hint[] {
+function viewModeHints(
+  canSubmit: boolean,
+  hasComments: boolean,
+  focused: boolean,
+  appMode: "local" | "pr",
+  hasImages: boolean
+): Hint[] {
   if (!focused) {
     return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
   }
   const hints: Hint[] = [["n", "new"]]
   if (hasComments) {
     hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
+    if (hasImages) hints.push(["O", "image"])
     // Nothing to submit to in local mode; the key is a no-op there.
     if (canSubmit && appMode === "pr") hints.push(["S", "submit"])
   }
@@ -351,6 +378,9 @@ export function InlineCommentOverlay({
   const highlightedComment = displayOrder[highlightedIndex]
   const canSubmit = highlightedComment
     ? highlightedComment.status === "local" || highlightedComment.localEdit !== undefined
+    : false
+  const highlightedHasImages = highlightedComment
+    ? extractCommentImages(highlightedComment.localEdit ?? highlightedComment.body).images.length > 0
     : false
   const isComposing = mode === "compose" || mode === "edit"
   const composeFile = composeFilename.split("/").pop() || composeFilename
@@ -532,6 +562,7 @@ export function InlineCommentOverlay({
                 // measures correctly, so its wrapper Box doesn't need
                 // a fixed height.
                 const bodyIndent = isRoot ? 4 : 6
+                const body = extractCommentImages(comment.localEdit ?? comment.body)
                 const hasReactions =
                   comment.reactions !== undefined && comment.reactions.length > 0
                 return Box(
@@ -559,14 +590,17 @@ export function InlineCommentOverlay({
                       ? Text({ content: " (editing)", fg: theme.yellow })
                       : null
                   ),
-                  Box(
-                    { paddingLeft: bodyIndent },
-                    buildMarkdown(
-                      renderer,
-                      `inline-overlay-body-${comment.id}`,
-                      comment.localEdit ?? comment.body
-                    )
-                  ),
+                  body.text
+                    ? Box(
+                        { paddingLeft: bodyIndent },
+                        buildMarkdown(
+                          renderer,
+                          `inline-overlay-body-${comment.id}`,
+                          body.text
+                        )
+                      )
+                    : null,
+                  ...imageRows(body.images, bodyIndent),
                   hasReactions
                     ? Box(
                         { flexDirection: "row", height: 1, paddingLeft: bodyIndent },
@@ -641,7 +675,9 @@ export function InlineCommentOverlay({
                   ["Esc", "cancel"],
                 ],
           )
-        : renderHintRow(viewModeHints(canSubmit, comments.length > 0, focused, appMode))
+        : renderHintRow(
+            viewModeHints(canSubmit, comments.length > 0, focused, appMode, highlightedHasImages)
+          )
     )
   )
 }

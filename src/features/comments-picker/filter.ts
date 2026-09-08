@@ -8,15 +8,28 @@
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import { fuzzyFilter } from "../../utils/fuzzy"
+import { extractCommentImages } from "../../utils/comment-images"
 
 export interface CommentsPickerEntry {
   comment: Comment
-  /** First non-empty trimmed line of the body, used in the row preview. */
+  /** One-line stand-in for the body, used in the row preview. */
   preview: string
   /** True if this comment has no parent (root of a thread). */
   isRoot: boolean
   /** Resolved status of the *thread* this comment belongs to. */
   threadResolved: boolean
+}
+
+/**
+ * One line to stand for the whole comment. Images are lifted out first —
+ * a pasted screenshot is a line of `<img>` attributes, which would fill the
+ * preview with markup and hide whatever the author actually wrote.
+ */
+function preview(body: string): string {
+  const { text, images } = extractCommentImages(body)
+  const line = firstLine(text)
+  if (line) return line
+  return images.length > 0 ? `▣ ${images[0]!.label}` : ""
 }
 
 function firstLine(body: string): string {
@@ -44,7 +57,7 @@ export function buildEntries(state: AppState): CommentsPickerEntry[] {
     const rootId = c.inReplyTo ?? c.id
     return {
       comment: c,
-      preview: firstLine(c.body),
+      preview: preview(c.body),
       isRoot: !c.inReplyTo,
       threadResolved: rootResolved.get(rootId) ?? false,
     }

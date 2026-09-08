@@ -79,6 +79,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  anchored line. Most useful for outdated threads where the line is
    *  no longer in the diff but still exists in the working copy. */
   handleOpenInEditor: (comment: Comment) => void
+  /** `O` — open the images the highlighted comment carries in the browser. */
+  handleOpenImages: (comment: Comment) => void
   /** Ctrl-g from the composer — hand the in-progress draft off to
    *  $EDITOR, suspending the TUI, and resolve with the edited text
    *  (or null if the editor errored). Wired at the app level because it
@@ -364,12 +366,17 @@ export function handleInput(
       return true
 
     case "o":
-      // Open the highlighted comment's file in $EDITOR at its line.
-      // Not gated on outdated specifically — works for any thread, just
-      // happens to be the only way to inspect outdated context.
-      if (!key.ctrl && !key.shift && highlighted) {
-        key.preventDefault()
-        ctx.handleOpenInEditor(highlighted)
+      if (key.ctrl) return true
+      key.preventDefault()
+      if (highlighted) {
+        // O — the panel can only name a comment's images; the browser is
+        // where they can actually be seen (and, for a private repo, the
+        // only place authenticated to fetch them at all).
+        if (key.shift) ctx.handleOpenImages(highlighted)
+        // o — open the comment's file in $EDITOR at its line. Not gated on
+        // outdated specifically — works for any thread, just happens to be
+        // the only way to inspect outdated context.
+        else ctx.handleOpenInEditor(highlighted)
       }
       return true
   }

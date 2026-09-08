@@ -93,6 +93,13 @@ In the panel, with a thread focused:
 - `e` edits your own comment, `d` deletes it (with a confirmation).
 - `y` copies a GitHub link to the comment.
 - `o` opens its file at its line in `$EDITOR`.
+- `O` opens the images the comment carries in your browser.
+
+### Images
+
+riff can't draw a screenshot in the terminal, and GitHub serves attachments to a browser session,
+so on a private repo it can't even fetch them. A comment's images show up as `▣` rows naming each
+one — alt text, or the file name — and `O` hands them to your browser, which is signed in.
 
 ### Outdated threads
 

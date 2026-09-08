@@ -333,6 +333,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             comment.line
           )
         },
+        handleOpenImages: (comment) => {
+          inlineCommentOverlay.openCommentImages(ctx, comment)
+        },
         openDraftInEditor: async (current) => {
           const s = ctx.getState()
           const username =

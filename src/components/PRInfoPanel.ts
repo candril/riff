@@ -18,6 +18,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
+import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { colors, theme } from "../theme"
 
 /**
@@ -1340,12 +1341,16 @@ export class PRInfoPanelClass {
       return
     }
 
-    const md = new MarkdownRenderable(this.renderer, {
-      id: "pr-info-description",
-      content: this.prInfo.body,
-      syntaxStyle: getSyntaxStyle(),
-    })
-    container.add(md)
+    const body = extractCommentImages(this.prInfo.body)
+    if (body.text) {
+      const md = new MarkdownRenderable(this.renderer, {
+        id: "pr-info-description",
+        content: body.text,
+        syntaxStyle: getSyntaxStyle(),
+      })
+      container.add(md)
+    }
+    this.appendImageRows(container, body.images, 0)
     this.appendReactionRow(container, this.prInfo.bodyReactions)
   }
 
@@ -1941,14 +1946,37 @@ export class PRInfoPanelClass {
       marginTop: 1,
       marginBottom: 1,
     })
-    
-    const md = new MarkdownRenderable(this.renderer, {
-      content: body,
-      syntaxStyle: getSyntaxStyle(),
-    })
-    bodyBox.add(md)
-    
+
+    const parsed = extractCommentImages(body)
+    if (parsed.text) {
+      const md = new MarkdownRenderable(this.renderer, {
+        content: parsed.text,
+        syntaxStyle: getSyntaxStyle(),
+      })
+      bodyBox.add(md)
+    }
+    this.appendImageRows(bodyBox, parsed.images, 0)
+
     container.add(bodyBox)
+  }
+
+  /**
+   * Name the pictures the body carried. The panel can't draw them, and the
+   * raw `<img>` HTML GitHub pastes in reads as a wall of attributes; the
+   * section's Enter binding already opens the item on github.com, which is
+   * where the image can actually be looked at.
+   */
+  private appendImageRows(
+    container: BoxRenderable,
+    images: readonly CommentImage[],
+    indent: number
+  ): void {
+    for (const image of images) {
+      container.add(new TextRenderable(this.renderer, {
+        content: `${" ".repeat(indent)}▣ ${image.label}`,
+        fg: theme.sapphire,
+      }))
+    }
   }
 
   /**

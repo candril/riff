@@ -14,6 +14,7 @@ export {
 export {
   submitInlineDraft,
   submitInlineEditDraft,
+  openCommentImages,
   buildComposerEditorContext,
   type InlineComposerHandlersContext,
 } from "./handlers"

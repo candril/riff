@@ -11,12 +11,15 @@ import type { Comment } from "../../types"
 import {
   addComment,
   cancelInlineComposer,
+  clearToast,
   highlightInlineComment,
   showToast,
 } from "../../state"
 import { createComment } from "../../types"
 import { saveComment } from "../../storage"
 import { extractDiffHunk, type DraftEditorContext } from "../../utils/editor"
+import { extractCommentImages } from "../../utils/comment-images"
+import { openUrl } from "../../utils/open-url"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 
 export interface InlineComposerHandlersContext {
@@ -133,6 +136,50 @@ export async function submitInlineEditDraft(
   ctx.render()
   await saveComment(updated, ctx.source)
   return updated
+}
+
+/**
+ * Open every image the comment carries in the browser.
+ *
+ * The browser is the only viewer that works: riff cannot draw the picture in
+ * the panel, and GitHub's attachment URLs are authenticated by browser
+ * session, so on a private repo nothing else can even fetch them.
+ */
+export function openCommentImages(
+  ctx: ToastContext,
+  comment: Comment
+): void {
+  const { images } = extractCommentImages(comment.localEdit ?? comment.body)
+  if (images.length === 0) {
+    toast(ctx, "No images in this comment", "info")
+    return
+  }
+
+  const opened = images.filter((image) => openUrl(image.url)).length
+  if (opened === 0) {
+    toast(ctx, "Could not open the image", "error")
+    return
+  }
+  toast(
+    ctx,
+    opened === 1 ? `Opened ${images[0]!.label}` : `Opened ${opened} images`,
+    "success"
+  )
+}
+
+type ToastContext = Pick<InlineComposerHandlersContext, "setState" | "render">
+
+function toast(
+  ctx: ToastContext,
+  message: string,
+  kind: "info" | "error" | "success"
+): void {
+  ctx.setState((s) => showToast(s, message, kind))
+  ctx.render()
+  setTimeout(() => {
+    ctx.setState(clearToast)
+    ctx.render()
+  }, 2500)
 }
 
 /** Diff rows shown either side of the anchor in the Ctrl-g buffer. */
