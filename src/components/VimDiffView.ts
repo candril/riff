@@ -763,6 +763,7 @@ export class VimDiffView {
         h(CodeRenderable, {
           id: "diff-code",
           content,
+          width: this.contentColumns(content),
           filetype,
           syntaxStyle: getSyntaxStyle(),
           drawUnstyledText: true,
@@ -899,6 +900,7 @@ export class VimDiffView {
             h(CodeRenderable, {
               id: `code-${sectionIdx}`,
               content,
+              width: this.contentColumns(content),
               filetype: section.filetype,
               syntaxStyle: getSyntaxStyle(),
               drawUnstyledText: true,
@@ -2112,6 +2114,25 @@ export class VimDiffView {
 
     this.lineSignsCache = signs
     return signs
+  }
+
+  /**
+   * Widest rendered row of a content string.
+   *
+   * The code renderable clamps its own width to whatever space its parent
+   * offers when yoga measures it "at most" — so left to itself it is
+   * never wider than the viewport, the scrollable content is never wider
+   * than the window, and scrolling sideways moves a handful of columns
+   * and stops. Handing it the width its longest line needs is what makes
+   * the rest of the line reachable at all.
+   */
+  private contentColumns(content: string): number {
+    let widest = 1
+    for (const line of content.split("\n")) {
+      const width = Bun.stringWidth(line)
+      if (width > widest) widest = width
+    }
+    return widest
   }
 
   /**
