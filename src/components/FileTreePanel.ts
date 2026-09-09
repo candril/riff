@@ -417,7 +417,12 @@ export class FileTreePanel {
       if (!node.name) continue
       
       const isHighlighted = index === this.highlightIndex && this.focused
-      const isSelected = item.fileIndex === this.selectedFileIndex
+      // Unfocused, the highlight is still where the diff cursor is. It
+      // shows as the "you are here" background rather than the cursor's,
+      // so the tree answers which file you are in without claiming focus.
+      const isSelected =
+        item.fileIndex === this.selectedFileIndex ||
+        (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
       const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
 
       // Compute viewed status - different for files vs directories
@@ -454,13 +459,13 @@ export class FileTreePanel {
             : colors.text
 
       // Background priority (darker → lighter):
-      //   cursor highlight > multi-select range > currently-open file > none
+      //   cursor highlight > multi-select range > the file you are in > none
       const bgColor = isHighlighted
         ? colors.selection                 // surface2 — cursor
         : isMultiSelected
           ? theme.surface1                 // V-mode range member
           : isSelected
-            ? theme.surface0               // currently-open file (subtle)
+            ? theme.surface0               // the file you are in (subtle)
             : undefined
 
       // Create box for this item
@@ -547,7 +552,12 @@ export class FileTreePanel {
       if (!node.name) continue
       
       const isHighlighted = index === this.highlightIndex && this.focused
-      const isSelected = item.fileIndex === this.selectedFileIndex
+      // Unfocused, the highlight is still where the diff cursor is. It
+      // shows as the "you are here" background rather than the cursor's,
+      // so the tree answers which file you are in without claiming focus.
+      const isSelected =
+        item.fileIndex === this.selectedFileIndex ||
+        (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
       const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
 
       const renderables = this.itemRenderables.get(String(index))
@@ -587,7 +597,7 @@ export class FileTreePanel {
             : colors.text
 
       // Background priority (same as rebuildItems):
-      //   cursor highlight > multi-select range > currently-open file > none
+      //   cursor highlight > multi-select range > the file you are in > none
       const bgColor = isHighlighted
         ? colors.selection
         : isMultiSelected

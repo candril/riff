@@ -124,6 +124,13 @@ const SPACE_CODE_POINT = 32
  */
 const SIDE_SCROLL_OFF = 8
 
+/**
+ * Rows kept between the cursor and the top or bottom edge. Shared with the
+ * app's cursor reveal: the two have to agree on what "in view" means, or
+ * scrolling the view and moving the cursor fight each other.
+ */
+export const VERTICAL_SCROLL_OFF = 5
+
 /** Fallback gutter background — the `bg` the gutter renderable is given. */
 const gutterBg = RGBA.fromHex(theme.mantle)
 const gutterFg = RGBA.fromHex(theme.overlay0)
@@ -277,6 +284,20 @@ export function buildWrapIndex(code: CodeRenderable): WrapIndex | null {
 }
 
 /**
+ * The mapping line nearest a visible row, searching outwards — the row a
+ * scroll lands on can be a spacer that belongs to no line.
+ */
+function nearestMappedLine(rows: VisibleRow[], index: number): number | null {
+  for (let step = 0; step < rows.length; step++) {
+    const before = rows[index - step]
+    if (before && before.line >= 0) return before.line
+    const after = rows[index + step]
+    if (after && after.line >= 0) return after.line
+  }
+  return null
+}
+
+/**
  * One rendered row of the diff, resolved to screen coordinates.
  */
 interface VisibleRow {
@@ -420,6 +441,7 @@ export class VimDiffView {
   private pendingScrollTop: number | null = null
   private pendingCursorReveal: boolean = false
   private onContentRebuilt: (() => void) | null = null
+  private onCursorScrolledAway: ((line: number) => void) | null = null
   
   // Line data mirrored out of the last build so the pinned gutter can
   // repaint from it every frame — rebuilding these per frame would walk
@@ -489,6 +511,7 @@ export class VimDiffView {
       this.positionTerminalCursor()
 
       const rows = this.visible ? this.visibleRows(scrollTop) : []
+      this.dragCursorIntoView(rows, scrollTop)
       this.renderGutterOverlay(buffer, rows)
       this.renderOverflowMarkers(buffer, rows)
       this.renderWrapMarkers(buffer, rows)
@@ -636,6 +659,51 @@ export class VimDiffView {
    */
   setOnContentRebuilt(cb: () => void): void {
     this.onContentRebuilt = cb
+  }
+
+  /**
+   * Register a callback for when the viewport moves out from under the
+   * cursor — a mouse wheel scroll, which nothing else in riff hears about.
+   * It is handed the line the cursor should be dragged to.
+   */
+  setOnCursorScrolledAway(cb: (line: number) => void): void {
+    this.onCursorScrolledAway = cb
+  }
+
+  /**
+   * Pull the cursor back onto the screen after the view scrolled without
+   * it. vim keeps the cursor in the window, and riff has a second reason
+   * to: the cursor is what the file tree, the comment anchors and `c`
+   * follow, so a cursor left off screen makes the whole view lie about
+   * where you are.
+   */
+  private dragCursorIntoView(rows: VisibleRow[], scrollTop: number): void {
+    if (!this.onCursorScrolledAway || !this.cursorState || !this.scrollBox) return
+    // A rebuild has its own reveal pass; don't race it.
+    if (this.pendingScrollTop !== null || this.pendingCursorReveal) return
+    if (rows.length === 0) return
+
+    const viewportHeight = Math.floor(this.scrollBox.height)
+    if (viewportHeight <= 0) return
+
+    const cursorRow = this.cursorLineToVisualRow(this.cursorState.line, this.cursorState.col)
+    if (cursorRow < 0) return
+
+    // No margin against the ends of the diff: there are no rows there to
+    // keep in reserve, and the cursor reveal cannot honour one either — so
+    // insisting on it here would drag the cursor off the first line.
+    const margin = Math.min(VERTICAL_SCROLL_OFF, Math.max(0, Math.floor(viewportHeight / 2) - 1))
+    const maxScrollTop = Math.max(0, this.scrollBox.scrollHeight - viewportHeight)
+    const first = scrollTop + (scrollTop <= 0 ? 0 : margin)
+    const last = scrollTop + viewportHeight - 1 - (scrollTop >= maxScrollTop ? 0 : margin)
+    if (cursorRow >= first && cursorRow <= last) return
+
+    // rows[i] is the row at scrollTop + i, so the offset indexes it.
+    const target = Math.min(Math.max(cursorRow < first ? first : last, scrollTop), scrollTop + rows.length - 1)
+    const line = nearestMappedLine(rows, target - scrollTop)
+    if (line === null || line === this.cursorState.line) return
+
+    this.onCursorScrolledAway(line)
   }
 
   /**

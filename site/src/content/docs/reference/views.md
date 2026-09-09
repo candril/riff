@@ -44,6 +44,9 @@ for reading. They are not commentable: GitHub cannot anchor a review comment to 
 every hunk, so riff [refuses up front](/riff/reference/comments/#where-a-comment-can-go) rather
 than after you've written it.
 
+Scrolling with the mouse takes the cursor with it, the way vim keeps the cursor in the window —
+so the tree, `c` and the comment anchors keep agreeing on where you are.
+
 ### Long lines
 
 The diff does not wrap by default: a wrapped line takes several rows, and one row per line is the
@@ -122,7 +125,9 @@ The all-files diff narrows with the tree — while a filter is on it lists exact
 sidebar does, so `/` is how you read a subset of a large PR end to end.
 
 `Enter` on a file scrolls the diff to it and leaves the rest of the diff in place: picking a file
-is navigation, not a decision to review it alone.
+is navigation, not a decision to review it alone. The highlight runs the other way too — moving
+through the diff moves the tree's highlight to the file you are in, and scrolls the tree to show
+it. A file inside a collapsed folder is left alone rather than unfolded.
 
 `Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
 picker when you just want the file.

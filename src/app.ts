@@ -1,5 +1,6 @@
 import type { KeyEvent } from "@opentui/core"
-import { PRInfoPanelClass } from "./components"
+import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
+import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
 import { getFileContent, getOldFileContent, getLocalCommitDiff } from "./providers/local"
 import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment } from "./providers/github"
 import {
@@ -173,7 +174,7 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   // ===== VIEWPORT & SCROLL =====
-  const SCROLL_OFF = 5
+  const SCROLL_OFF = VERTICAL_SCROLL_OFF
 
   function getViewportHeight(): number {
     const scrollBox = vimDiffView.getScrollBox()
@@ -215,6 +216,14 @@ export async function createApp(options: AppOptions = {}) {
     // the other axis: `$`, `w` or a search match past the right edge
     // would otherwise move the cursor somewhere the viewport isn't.
     vimDiffView.revealColumn(vimState.line, vimState.col)
+
+    // The tree follows from here rather than from the render pass: a
+    // motion updates the cursor and the viewport without re-rendering the
+    // app, so `j` would never have reached the tree at all.
+    if (syncTreeHighlightToCursor()) {
+      refreshFileTreePanel()
+      fileTreePanel.ensureHighlightVisible()
+    }
   }
 
   // When the diff view rebuilds its content (folds, mark-as-read,
@@ -224,6 +233,25 @@ export async function createApp(options: AppOptions = {}) {
   // cursor line instead of jumping to the top.
   vimDiffView.setOnContentRebuilt(ensureCursorVisible)
 
+  // A mouse wheel moves the viewport and nothing else — no key is pressed,
+  // so no handler runs. Dragging the cursor along keeps it in the window
+  // the way vim does, and carries the tree highlight with it.
+  //
+  // The cursor is moved to fit the view here, never the other way round:
+  // calling ensureCursorVisible would scroll the view back and fight the
+  // wheel.
+  vimDiffView.setOnCursorScrolledAway((line) => {
+    const content = lineMapping.getLineContent(line)
+    vimState = {
+      ...vimState,
+      line,
+      col: Math.min(vimState.col, Math.max(0, content.length - 1)),
+      selectionAnchor: vimState.mode === "visual-line" ? vimState.selectionAnchor : null,
+    }
+    vimDiffView.updateCursor(vimState)
+    render()
+  })
+
   // The filter box owns its text while typing; state mirrors every keystroke
   // so the tree narrows live and every highlight lookup sees the same list.
   fileTreePanel.setOnFilterChange((value: string) => {
@@ -232,28 +260,43 @@ export async function createApp(options: AppOptions = {}) {
     render()
   })
 
-  function updateFileTreePanel() {
-    // The all-files diff lists the files the tree lists, so narrowing the
-    // tree narrows it too — and the cursor goes back to the top, since the
-    // line it sat on belongs to a different file now.
-    if (mappedTreeFilter !== state.treeFilter) {
-      createLineMapping()
-      if (state.selectedFileIndex === null) {
-        vimState = { ...vimState, line: 0, col: 0, desiredCol: null, selectionAnchor: null }
-      }
-    }
+  /**
+   * Point the tree at the file the diff cursor is in.
+   *
+   * Only in the all-files view, and only while the tree is not the panel
+   * being driven: `j`/`k` there moves the highlight without moving the
+   * diff, and a multi-select range would be dragged out from under the
+   * user. A file inside a collapsed directory is left alone rather than
+   * expanded — scrolling past it should not undo a fold.
+   *
+   * Returns true when the highlight moved, so the panel can scroll it
+   * into view.
+   */
+  function syncTreeHighlightToCursor(): boolean {
+    if (state.selectedFileIndex !== null) return false
+    if (state.focusedPanel === "tree" || state.treeSelectionAnchor !== null) return false
 
-    // Calculate file panel width based on expanded state
-    const normalWidth = 35
-    const terminalWidth = process.stdout.columns || 80
-    const expandedWidth = Math.floor(terminalWidth * 0.45)  // 45% of terminal width
-    const panelWidth = state.filePanelExpanded ? expandedWidth : normalWidth
+    const filename = lineMapping.getLine(vimState.line)?.filename
+    if (!filename) return false
 
-    // Update panel width if it changed
-    if (fileTreePanel.getWidth() !== panelWidth) {
-      fileTreePanel.setWidth(panelWidth)
-    }
+    const items = getVisibleFlatTreeItems(
+      state.fileTree,
+      state.files,
+      state.ignoredFiles,
+      state.showHiddenFiles,
+      state.treeFilter
+    )
+    const index = items.findIndex(
+      (item) => item.fileIndex !== undefined && state.files[item.fileIndex]?.filename === filename
+    )
+    if (index === -1 || index === state.treeHighlightIndex) return false
 
+    state = { ...state, treeHighlightIndex: index }
+    return true
+  }
+
+  /** Push the current state into the tree panel. */
+  function refreshFileTreePanel(): void {
     fileTreePanel.update(
       state.files,
       state.fileTree,
@@ -268,6 +311,36 @@ export async function createApp(options: AppOptions = {}) {
       state.treeFilter,
       state.treeFilterInput
     )
+  }
+
+  function updateFileTreePanel() {
+    // The all-files diff lists the files the tree lists, so narrowing the
+    // tree narrows it too — and the cursor goes back to the top, since the
+    // line it sat on belongs to a different file now.
+    if (mappedTreeFilter !== state.treeFilter) {
+      createLineMapping()
+      if (state.selectedFileIndex === null) {
+        vimState = { ...vimState, line: 0, col: 0, desiredCol: null, selectionAnchor: null }
+      }
+    }
+
+    const followedCursor = syncTreeHighlightToCursor()
+
+    // Calculate file panel width based on expanded state
+    const normalWidth = 35
+    const terminalWidth = process.stdout.columns || 80
+    const expandedWidth = Math.floor(terminalWidth * 0.45)  // 45% of terminal width
+    const panelWidth = state.filePanelExpanded ? expandedWidth : normalWidth
+
+    // Update panel width if it changed
+    if (fileTreePanel.getWidth() !== panelWidth) {
+      fileTreePanel.setWidth(panelWidth)
+    }
+
+    refreshFileTreePanel()
+    if (followedCursor) {
+      fileTreePanel.ensureHighlightVisible()
+    }
     fileTreePanel.visible = state.showFilePanel
     vimDiffView.setEmptyMessage(
       state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display"
