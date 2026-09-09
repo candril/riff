@@ -124,6 +124,28 @@ const SPACE_CODE_POINT = 32
  */
 const SIDE_SCROLL_OFF = 8
 
+/** Fallback gutter background — the `bg` the gutter renderable is given. */
+const gutterBg = RGBA.fromHex(theme.mantle)
+const gutterFg = RGBA.fromHex(theme.overlay0)
+const headerBg = RGBA.fromHex(theme.surface0)
+const headerDimFg = RGBA.fromHex(theme.overlay1)
+const headerFoldFg = RGBA.fromHex(theme.overlay0)
+const headerViewedFg = RGBA.fromHex(theme.green)
+const headerNameFg = RGBA.fromHex(theme.blue)
+const headerAdditionsFg = RGBA.fromHex(theme.green)
+const headerDeletionsFg = RGBA.fromHex(theme.red)
+
+/** Parsed once per hex string — the overlay repaints every frame. */
+const rgbaCache = new Map<string, RGBA>()
+function rgba(color: string | RGBA): RGBA {
+  if (typeof color !== "string") return color
+  const cached = rgbaCache.get(color)
+  if (cached) return cached
+  const parsed = RGBA.fromHex(color)
+  rgbaCache.set(color, parsed)
+  return parsed
+}
+
 /** How far flash's backdrop pulls text towards the background it sits on. */
 const FLASH_BACKDROP_STRENGTH = 0.7
 const flashMatchFg = RGBA.fromHex(theme.text)
@@ -291,6 +313,13 @@ export class VimDiffView {
   private pendingCursorReveal: boolean = false
   private onContentRebuilt: (() => void) | null = null
   
+  // Line data mirrored out of the last build so the pinned gutter can
+  // repaint from it every frame — rebuilding these per frame would walk
+  // the whole mapping on every keystroke.
+  private lineNumbersCache: Map<number, number> = new Map()
+  private hideLineNumbersCache: Set<number> = new Set()
+  private lineSignsCache: Map<number, LineSign> = new Map()
+  private lineColorsCache: Map<number, LineColorConfig> = new Map()
   /** Display width of each mapping line's content; 0 where nothing is drawn. */
   private lineWidths: number[] = []
 
@@ -343,7 +372,13 @@ export class VimDiffView {
       // cursor, so both must resolve the viewport the same way.
       const scrollTop = this.expectedScrollTop ?? this.scrollBox?.scrollTop ?? 0
       this.positionTerminalCursor()
-      this.renderFlashOverlay(buffer, scrollTop)
+
+      const scrolledSideways = (this.scrollBox?.scrollLeft ?? 0) > 0
+      const rows = this.visible && (scrolledSideways || (this.flashState?.active ?? false))
+        ? this.visibleRows(scrollTop)
+        : []
+      this.renderGutterOverlay(buffer, rows)
+      this.renderFlashOverlay(buffer, rows)
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
   }
@@ -1593,6 +1628,90 @@ export class VimDiffView {
   }
 
   /**
+   * Repaint the gutter at the pane's left edge while scrolled sideways.
+   *
+   * The gutter renderable lives inside the scrolling content, so without
+   * this the line numbers and comment signs slide out of view exactly
+   * when a long line is being read. What the repaint covers is the
+   * columns that have already scrolled past, so no code is lost — and it
+   * is what makes the visible window start at `scrollLeft` rather than
+   * `scrollLeft` minus the gutter's width (see `codeWindow`).
+   */
+  private renderGutterOverlay(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
+    const bounds = this.paneBounds()
+    if (!bounds || !this.lineMapping) return
+    if ((this.scrollBox?.scrollLeft ?? 0) <= 0) return
+
+    const inSections = this.fileSections.length > 0
+
+    for (const row of rows) {
+      if (row.screenY >= buffer.height || row.line < 0) continue
+
+      const line = this.lineMapping.getLine(row.line)
+      if (inSections && line?.type === "file-header") {
+        this.drawPinnedFileHeader(buffer, row, bounds)
+        continue
+      }
+
+      const width = Math.min(row.contentX, bounds.right) - bounds.left
+      if (width <= 0) continue
+
+      const bg = rgba(this.lineColorsCache.get(row.line)?.gutter ?? gutterBg)
+      buffer.fillRect(bounds.left, row.screenY, width, 1, bg)
+
+      // Mirrors the gutter renderable's own layout: the sign occupies the
+      // first column (riff reserves it on every section), and the line
+      // number is right-aligned inside the remaining space, one column of
+      // padding short of the code.
+      const sign = this.lineSignsCache.get(row.line)
+      if (sign?.before) {
+        buffer.drawText(sign.before, bounds.left, row.screenY, rgba(sign.beforeColor ?? gutterFg), bg)
+      }
+
+      const lineNumber = this.lineNumbersCache.get(row.line)
+      if (lineNumber !== undefined && !this.hideLineNumbersCache.has(row.line)) {
+        const text = String(lineNumber)
+        const x = bounds.left + width - text.length - 1
+        if (x > bounds.left) {
+          buffer.drawText(text, x, row.screenY, gutterFg, bg)
+        }
+      }
+    }
+  }
+
+  /**
+   * Redraw a file header's label at the pane's left edge. The header row
+   * stretches to the content's width, so scrolling sideways otherwise
+   * leaves a blank bar where the filename was.
+   */
+  private drawPinnedFileHeader(
+    buffer: OptimizedBuffer,
+    row: VisibleRow,
+    bounds: { left: number; right: number }
+  ): void {
+    const section = this.fileSections.find((candidate) => candidate.startLine - 1 === row.line)
+    if (!section) return
+
+    const viewed = this.fileStatuses.get(section.filename)?.viewed ?? false
+    buffer.fillRect(bounds.left, row.screenY, bounds.right - bounds.left, 1, headerBg)
+
+    // paddingX + gap of the FileHeader component this stands in for.
+    let x = bounds.left + 1
+    const put = (text: string, fg: RGBA): void => {
+      const room = bounds.right - x
+      if (room <= 0) return
+      buffer.drawText(text.slice(0, room), x, row.screenY, fg, headerBg)
+      x += text.length + 1
+    }
+
+    put(section.collapsed ? "▶" : "▼", section.collapsed ? headerDimFg : headerFoldFg)
+    put(viewed ? "✓" : " ", viewed ? headerViewedFg : headerFoldFg)
+    put(section.filename, viewed ? headerDimFg : headerNameFg)
+    put(`+${section.additions}`, headerAdditionsFg)
+    put(`-${section.deletions}`, headerDeletionsFg)
+  }
+
+  /**
    * Draw flash's backdrop and jump labels straight onto the frame buffer.
    *
    * Overlaying here rather than restyling the content keeps the labels off
@@ -1600,14 +1719,12 @@ export class VimDiffView {
    * top of a character without shifting the columns the cursor is measured
    * against.
    */
-  private renderFlashOverlay(buffer: OptimizedBuffer, scrollTop: number): void {
+  private renderFlashOverlay(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
     const flash = this.flashState
     if (!flash?.active || !this.visible || !this.scrollBox) return
-
-    const rows = this.visibleRows(scrollTop)
     if (rows.length === 0) return
 
-    const rightEdge = Math.min(buffer.width, this.renderer.width)
+    const rightEdge = Math.min(buffer.width, this.paneBounds()?.right ?? this.renderer.width)
     for (const row of rows) {
       if (row.screenY >= buffer.height) continue
       dimCells(buffer, row.screenY, Math.max(0, row.contentX), rightEdge)
@@ -1821,6 +1938,8 @@ export class VimDiffView {
       }
     }
     
+    this.lineNumbersCache = lineNumbers
+    this.hideLineNumbersCache = hideLineNumbers
     return { lineNumbers, hideLineNumbers }
   }
 
@@ -1905,6 +2024,7 @@ export class VimDiffView {
       content: cursorContentBg,
     })
 
+    this.lineColorsCache = lineColors
     return lineColors
   }
 
@@ -1947,6 +2067,7 @@ export class VimDiffView {
       }
     }
 
+    this.lineSignsCache = signs
     return signs
   }
 
