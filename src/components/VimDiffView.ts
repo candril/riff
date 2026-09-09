@@ -117,6 +117,13 @@ const defaultBg = theme.base
 
 const SPACE_CODE_POINT = 32
 
+/**
+ * Columns of context kept between the cursor and the edge it is heading
+ * for, so a horizontal move shows what comes next instead of stopping the
+ * cursor dead on the last visible column (vim's `sidescrolloff`).
+ */
+const SIDE_SCROLL_OFF = 8
+
 /** How far flash's backdrop pulls text towards the background it sits on. */
 const FLASH_BACKDROP_STRENGTH = 0.7
 const flashMatchFg = RGBA.fromHex(theme.text)
@@ -284,6 +291,9 @@ export class VimDiffView {
   private pendingCursorReveal: boolean = false
   private onContentRebuilt: (() => void) | null = null
   
+  /** Display width of each mapping line's content; 0 where nothing is drawn. */
+  private lineWidths: number[] = []
+
   // Sticky file header - shows current file name when its header scrolls out of view
   private stickyHeaderBox: BoxRenderable | null = null
   private stickyHeaderFoldText: TextRenderable | null = null
@@ -638,6 +648,8 @@ export class VimDiffView {
       this.codeRenderable = null
       return
     }
+
+    this.buildLineWidths()
 
     // Determine mode: single file or all files
     const isAllFilesMode = this.selectedFileIndex === null
@@ -1325,6 +1337,131 @@ export class VimDiffView {
   }
 
   /**
+   * Index of the section a mapping line belongs to, or null in
+   * single-file mode. -1 when the line is a file header, which sits
+   * between sections rather than inside one.
+   */
+  private sectionIndexForLine(line: number): number | null {
+    if (this.fileSections.length === 0) return null
+    return this.fileSections.findIndex((s) => line >= s.startLine && line <= s.endLine)
+  }
+
+  /**
+   * The terminal columns the scrollable area occupies. Read off the
+   * scrollbox's viewport rather than the container so the vertical
+   * scrollbar's columns aren't counted as code.
+   */
+  private paneBounds(): { left: number; right: number } | null {
+    const viewport = this.scrollBox?.viewport
+    if (!viewport || viewport.width <= 0) return null
+    return { left: viewport.x, right: viewport.x + viewport.width }
+  }
+
+  /**
+   * The slice of a line the pane can show: `width` columns starting at
+   * `firstCol`.
+   *
+   * The gutter scrolls away with the content, so it is repainted over the
+   * pane's left edge (`renderGutterOverlay`). What that repaint covers is
+   * exactly the columns already scrolled past, which is what makes the
+   * visible window `[scrollLeft, scrollLeft + width)` at every scroll
+   * position instead of drifting by the gutter's width.
+   */
+  private codeWindow(line: number): { firstCol: number; width: number; originX: number } | null {
+    const bounds = this.paneBounds()
+    if (!bounds || !this.scrollBox) return null
+
+    const sectionIdx = this.sectionIndexForLine(line)
+    const originX = this.sectionContentOriginX(sectionIdx)
+    const width = bounds.right - originX
+    if (width <= 0) return null
+
+    return { firstCol: this.scrollBox.scrollLeft, width, originX }
+  }
+
+  /**
+   * Unscrolled content origin for the section holding a line, falling
+   * back to the estimate for the frames before layout settles and for
+   * rows (file headers) that belong to no section.
+   */
+  private sectionContentOriginX(sectionIdx: number | null): number {
+    const measured = sectionIdx === -1 ? null : this.contentOriginX(sectionIdx)
+    if (measured !== null) return measured
+
+    const orphan = sectionIdx === null || sectionIdx === -1
+    return this.estimateContentOriginX(
+      orphan ? this.lineMapping?.lineCount ?? 0 : this.fileSections[sectionIdx]!.lineCount,
+      orphan ? this.maxLineNumber : this.fileSections[sectionIdx]!.maxLineNumber
+    )
+  }
+
+  /**
+   * Scroll horizontally until `col` is inside the window, keeping
+   * SIDE_SCROLL_OFF columns of lookahead where the window is wide enough
+   * to spare them. This is the horizontal half of the cursor reveal: the
+   * diff never wraps, so without it `$`, `w` and a search match past the
+   * right edge move the cursor somewhere the viewport isn't.
+   */
+  revealColumn(line: number, col: number): void {
+    if (!this.scrollBox) return
+
+    const window = this.codeWindow(line)
+    if (!window) return
+
+    const margin = Math.min(SIDE_SCROLL_OFF, Math.max(0, Math.floor(window.width / 2) - 1))
+
+    if (col < window.firstCol + margin) {
+      this.scrollBox.scrollLeft = Math.max(0, col - margin)
+    } else if (col > window.firstCol + window.width - 1 - margin) {
+      this.scrollBox.scrollLeft = col - window.width + 1 + margin
+    }
+  }
+
+  /** Scroll the code window sideways by whole columns (`zh`, `zl`). */
+  scrollColumnsBy(delta: number): void {
+    if (!this.scrollBox) return
+    this.scrollBox.scrollLeft = Math.max(0, this.scrollBox.scrollLeft + delta)
+  }
+
+  /** Half a code window, for the screen-wise scrolls (`zH`, `zL`). */
+  halfColumnWindow(line: number): number {
+    return Math.max(1, Math.floor((this.codeWindow(line)?.width ?? 2) / 2))
+  }
+
+  /** Put a column against the left (`zs`) or right (`ze`) edge. */
+  scrollColumnToEdge(line: number, col: number, edge: "start" | "end"): void {
+    if (!this.scrollBox) return
+    const window = this.codeWindow(line)
+    if (!window) return
+    this.scrollBox.scrollLeft = edge === "start" ? col : Math.max(0, col - window.width + 1)
+  }
+
+  /**
+   * The column closest to `col` that the window actually shows, so an
+   * explicit horizontal scroll drags the cursor along instead of leaving
+   * it off screen.
+   */
+  clampColumnToWindow(line: number, col: number): number {
+    const window = this.codeWindow(line)
+    if (!window) return col
+    const lastOnLine = Math.max(0, (this.lineWidths[line] ?? 0) - 1)
+    const clamped = Math.min(Math.max(col, window.firstCol), window.firstCol + window.width - 1)
+    return Math.min(clamped, lastOnLine)
+  }
+
+  /**
+   * Cursor column and total width for the status bar, or null when the
+   * line fits the window and there is nothing worth reporting.
+   */
+  getColumnStatus(line: number, col: number): { col: number; total: number } | null {
+    const total = this.lineWidths[line] ?? 0
+    if (total === 0) return null
+    const window = this.codeWindow(line)
+    if (!window || total <= window.width) return null
+    return { col: col + 1, total }
+  }
+
+  /**
    * Terminal column where a section's content starts, ignoring horizontal
    * scroll (callers subtract `scrollLeft` themselves).
    *
@@ -1561,23 +1698,20 @@ export class VimDiffView {
     // to the estimate.
     const headerHeight = 1
 
-    const cursorSectionIdx = isAllFilesMode
-      ? this.fileSections.findIndex(s => line >= s.startLine && line <= s.endLine)
-      : null
-
-    const contentOriginX =
-      (cursorSectionIdx === -1 ? null : this.contentOriginX(cursorSectionIdx))
-      ?? this.estimateContentOriginX(
-        cursorSectionIdx === null || cursorSectionIdx === -1
-          ? this.lineMapping?.lineCount ?? 0
-          : this.fileSections[cursorSectionIdx]!.lineCount,
-        cursorSectionIdx === null || cursorSectionIdx === -1
-          ? this.maxLineNumber
-          : this.fileSections[cursorSectionIdx]!.maxLineNumber
-      )
+    const contentOriginX = this.sectionContentOriginX(this.sectionIndexForLine(line))
 
     const screenX = contentOriginX + visualCol + 1
     const screenY = headerHeight + visualLine + 1
+
+    // Past the right edge the cursor would be drawn over whatever sits
+    // beside the diff — the comments panel, or the terminal's last
+    // column. Sidescroll normally keeps it inside; an explicit `zl` or a
+    // resize can still put it out here.
+    const bounds = this.paneBounds()
+    if (bounds && screenX - 1 >= bounds.right) {
+      this.renderer.setCursorPosition(0, 0, false)
+      return
+    }
 
     // Set terminal cursor to block style and position it
     this.renderer.setCursorStyle({ style: "block", blinking: false })
@@ -1796,6 +1930,27 @@ export class VimDiffView {
     }
 
     return signs
+  }
+
+  /**
+   * Display width of every line's content, for the overflow markers.
+   * File headers and dividers are drawn by something other than the code
+   * renderable, so they get 0 and never claim to run off the edge.
+   */
+  private buildLineWidths(): void {
+    const widths: number[] = []
+    if (this.lineMapping) {
+      for (let i = 0; i < this.lineMapping.lineCount; i++) {
+        const line = this.lineMapping.getLine(i)
+        const measurable =
+          line?.type === "addition" ||
+          line?.type === "deletion" ||
+          line?.type === "context" ||
+          line?.type === "no-newline"
+        widths[i] = measurable ? Bun.stringWidth(line.content) : 0
+      }
+    }
+    this.lineWidths = widths
   }
 
   /**

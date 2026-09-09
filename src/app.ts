@@ -210,6 +210,11 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     vimDiffView.setExpectedScrollTop(effectiveScrollTop)
+
+    // The diff never wraps, so a long line needs the same treatment on
+    // the other axis: `$`, `w` or a search match past the right edge
+    // would otherwise move the cursor somewhere the viewport isn't.
+    vimDiffView.revealColumn(vimState.line, vimState.col)
   }
 
   // When the diff view rebuilds its content (folds, mark-as-read,
