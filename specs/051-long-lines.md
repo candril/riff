@@ -49,7 +49,8 @@ is the shape a diff is scanned in.
   the cursor's column against the left or right edge. The cursor follows
   the scroll rather than being left off screen.
 - `gl` peeks the cursor's whole line, wrapped and syntax-highlighted, in an
-  overlay — the escape hatch for a line not worth scrolling through. The
+  overlay — or, on a markdown table row, the table it belongs to as a grid
+  (spec 053) — the escape hatch for a line not worth scrolling through. The
   content is cut to the rows the window has, so a minified line cannot grow
   the box past the terminal.
 

@@ -261,17 +261,9 @@ export const actions: Action[] = [
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
   {
-    id: "peek-table",
-    label: "Peek Table",
-    description: "Draw the markdown table under the cursor as a grid",
-    shortcut: "gt",
-    category: "view",
-    available: (state) => state.viewMode === "diff" && state.files.length > 0,
-  },
-  {
     id: "peek-line",
     label: "Peek Line",
-    description: "Show the cursor's line in full, wrapped, over the diff",
+    description: "Show the line in full over the diff — or the table it belongs to, as a grid",
     shortcut: "gl",
     category: "view",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,

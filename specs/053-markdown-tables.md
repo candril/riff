@@ -22,8 +22,8 @@ drawn rather than to the file, an unaligned source stops mattering.
 
 - Rendering the table with borders *in place of* the diff's source. A
   comment anchors to a line, and a bordered table collapses N source lines
-  into a different number of rows with no line to point at. `gt` puts the
-  grid in an overlay instead, where nothing has to anchor.
+  into a different number of rows with no line to point at. The peek puts
+  the grid in an overlay instead, where nothing has to anchor.
 - Rewriting the HTML inside cells in the diff. There the source *is* the
   artefact under review; the overlay and the comment renderer are free to
   interpret it.
@@ -51,8 +51,10 @@ drawn rather than to the file, an unaligned source stops mattering.
 ### P2 - The grid
 
 Alignment cannot help a cell holding a paragraph, and a review table —
-approaches against pros and cons — is all paragraphs. `gt` draws the table
-under the cursor as a grid in an overlay:
+approaches against pros and cons — is all paragraphs. `gl` on a table row
+draws the whole table as a grid in an overlay rather than that one row:
+the row on its own is the least readable line in the file, and the two
+overlays would otherwise be two keys answering one question.
 
 - Cells wrap to their column; a row grows to its tallest cell.
 - `<li>` becomes a bullet on its own line, with its continuation lines

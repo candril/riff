@@ -368,24 +368,23 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             })
           : null,
         state.showHelp ? HelpOverlay() : null,
-        state.showTablePeek && state.viewMode === "diff"
+        state.showLinePeek && state.viewMode === "diff"
           ? (() => {
+              // A table row on its own is the least readable line in the
+              // file; the peek shows the table it belongs to instead.
               const table = buildTablePeek(
                 lineMapping,
                 vimState.line,
                 Math.max(24, ctx.renderer.width - 8)
               )
-              return table
-                ? TablePeek({
-                    lines: table.lines,
-                    rowCount: table.rowCount,
-                    terminalHeight: ctx.renderer.height,
-                  })
-                : null
-            })()
-          : null,
-        state.showLinePeek && state.viewMode === "diff"
-          ? (() => {
+              if (table) {
+                return TablePeek({
+                  lines: table.lines,
+                  rowCount: table.rowCount,
+                  terminalHeight: ctx.renderer.height,
+                })
+              }
+
               const line = lineMapping.getLine(vimState.line)
               return line
                 ? LinePeek({

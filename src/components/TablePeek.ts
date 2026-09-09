@@ -63,7 +63,7 @@ export function TablePeek({ lines, rowCount, terminalHeight }: TablePeekProps) {
       ...shown.map((line) => Box({ height: 1 }, Text({ content: line, fg: colors.text }))),
       Box(
         { height: 1, marginTop: 1 },
-        Text({ content: "Press gt or Esc to close", fg: colors.textDim })
+        Text({ content: "Press gl or Esc to close", fg: colors.textDim })
       )
     )
   )

@@ -53,9 +53,9 @@ A table in a `.md` file is padded onto one grid before it is drawn, so the colum
 when the source doesn't — and a `-` row sits cell-for-cell above the `+` row that replaced it,
 which is what makes a one-cell change visible at all.
 
-`gt` draws the table under the cursor as a real grid instead: cells wrap, a row grows to its
-tallest cell, and `<li>` becomes a bullet on its own line. That is where you check a table reads
-right — the diff beside it, still showing source, is where you say so.
+`gl` on a table row draws the whole table as a real grid instead of the row's source: cells wrap,
+a row grows to its tallest cell, and `<li>` becomes a bullet on its own line. That is where you
+check a table reads right — the diff beside it, still showing source, is where you say so.
 
 The alignment is display only. The file is untouched, `y` yanks what the file says, and nothing
 about the line count changes, so comments still anchor where you put them. Tables inside a fenced
@@ -87,7 +87,7 @@ else keeps working, the cursor and comment anchors included. Set `wrap = true` u
 the config file to start that way.
 
 When a line is long enough that scrolling through it is more work than reading it is worth, `gl`
-shows the whole thing wrapped in an overlay, still syntax-highlighted — the alignment the diff has
+shows it whole in an overlay, still syntax-highlighted — the alignment the diff has
 to keep doesn't matter there. `Esc` closes it. For the truly pathological ones, `gf` opens the file in `$EDITOR`, and
 generated files belong in [ignore patterns](/riff/reference/configuration/#ignore) rather than in
 a review.

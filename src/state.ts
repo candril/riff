@@ -214,8 +214,6 @@ export interface AppState {
   showHelp: boolean
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
-  /** `gt` — the table under the cursor, drawn as a grid. */
-  showTablePeek: boolean
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
   /** Pad markdown table cells onto a shared grid in the diff. */
@@ -410,7 +408,6 @@ export function createInitialState(
     treeFilterInput: false,
     showHelp: false,
     showLinePeek: false,
-    showTablePeek: false,
     wrapLines: false,
     alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
@@ -653,16 +650,6 @@ export function toggleHelp(state: AppState): AppState {
   return {
     ...state,
     showHelp: !state.showHelp,
-  }
-}
-
-/**
- * Toggle the rendered-table overlay
- */
-export function toggleTablePeek(state: AppState): AppState {
-  return {
-    ...state,
-    showTablePeek: !state.showTablePeek,
   }
 }
 
