@@ -82,6 +82,39 @@ function findFileStartLine(lineMapping: DiffLineMapping, filename: string): numb
 }
 
 /**
+ * Move the cursor to a file's header in the all-files diff and point the
+ * tree at it, without narrowing the view to that file.
+ *
+ * Picking a file is a navigation act, not a decision to review it alone:
+ * the surrounding diff stays on screen, and `]f`, `Esc` and the scroll
+ * position all keep meaning what they meant. Falls back to opening the
+ * file on its own when the diff has no row for it — a hidden or ignored
+ * file is not in the mapping to scroll to.
+ */
+export function revealFile(fileIndex: number, ctx: FileNavigationContext): void {
+  const state = ctx.getState()
+  const file = state.files[fileIndex]
+  if (!file) return
+
+  const targetLine = findFileStartLine(ctx.getLineMapping(), file.filename)
+  if (targetLine === null) {
+    handleSelectFile(fileIndex, ctx)
+    return
+  }
+
+  ctx.setVimState({ ...ctx.getVimState(), line: targetLine, col: 0, desiredCol: null })
+  ctx.getVimDiffView().updateCursor(ctx.getVimState())
+  ctx.ensureCursorVisible()
+
+  const treeIndex = getVisibleItems(state).findIndex((item) => item.fileIndex === fileIndex)
+  if (treeIndex !== -1) {
+    ctx.setState((s) => ({ ...s, treeHighlightIndex: treeIndex }))
+  }
+
+  ctx.render()
+}
+
+/**
  * Navigate to next/previous file selection.
  */
 export function navigateFileSelection(direction: 1 | -1, ctx: FileNavigationContext): void {

@@ -627,6 +627,15 @@ export async function createApp(options: AppOptions = {}) {
       vimState = createCursorState()
       createLineMapping()
     },
+    handleOpenFileAlone: () => {
+      // The tree and the picker scroll the whole diff now, so this is the
+      // way into the single-file view.
+      const filename = lineMapping.getLine(vimState.line)?.filename
+      const fileIndex = filename ? state.files.findIndex((f) => f.filename === filename) : -1
+      if (fileIndex !== -1) {
+        fileNavigation.handleSelectFile(fileIndex, fileNavContext)
+      }
+    },
     handleEditPr: async () => {
       if (!prInfo) return
 

@@ -117,6 +117,13 @@ export const actions: Action[] = [
     available: (state) => state.commits.length > 0,
   },
   {
+    id: "open-file-alone",
+    label: "Open File Alone",
+    description: "Review only the file at the cursor, without the rest of the diff",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.selectedFileIndex === null && state.files.length > 0,
+  },
+  {
     id: "show-all-files",
     label: "Show All Files",
     description: "Exit single-file view and show all files",

@@ -210,6 +210,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setVimState(createCursorState())
           ctx.rebuildLineMapping()
         },
+        revealFile: (fileIndex: number) =>
+          fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
         recordJump,
       })
     ) {
@@ -501,6 +503,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setVimState(createCursorState())
           ctx.rebuildLineMapping()
         },
+        revealFile: (fileIndex: number) =>
+          fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
         toggleViewedForFile: (filename: string) =>
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
         recordJump,

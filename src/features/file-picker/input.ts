@@ -24,6 +24,8 @@ export interface FilePickerInputContext {
   render: () => void
   // Called after file selection to reset vim state and rebuild mapping
   onFileSelected: () => void
+  /** Scroll the all-files diff to a file instead of narrowing to it. */
+  revealFile: (fileIndex: number) => void
   // Push current location onto the jumplist before navigating (spec 038).
   recordJump?: () => void
 }
@@ -90,14 +92,19 @@ export function handleInput(
             }
           }
 
-          // Select the file
-          newState = selectFile(newState, selectedFile.index)
-          return newState
+          // Already reviewing one file alone: swap which one, rather than
+          // dropping the user back into the whole diff.
+          return s.selectedFileIndex !== null
+            ? selectFile(newState, selectedFile.index)
+            : newState
         })
 
-        // Reset vim cursor and rebuild line mapping
-        ctx.onFileSelected()
-        ctx.render()
+        if (ctx.state.selectedFileIndex !== null) {
+          ctx.onFileSelected()
+          ctx.render()
+        } else {
+          ctx.revealFile(selectedFile.index)
+        }
       }
       return true
     }

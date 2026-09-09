@@ -34,6 +34,8 @@ export interface FileTreeInputContext {
   updatePanel: () => void
   // Called after file selection to reset vim state
   onFileSelected: () => void
+  /** Scroll the all-files diff to a file instead of narrowing to it. */
+  revealFile: (fileIndex: number) => void
   // Toggle viewed status for a file
   toggleViewedForFile: (filename: string) => Promise<boolean>
   // Push current location onto the jumplist before selecting (spec 038).
@@ -96,19 +98,26 @@ export function handleInput(
             return updateFileTree(s, newTree)
           })
         } else if (typeof highlightedItem.fileIndex === "number") {
-          // Committing to a single file is treated as exiting multi-select:
-          // the user made a concrete "view this one" choice, so the pending
+          // Opening a file is treated as exiting multi-select: the user
+          // made a concrete "take me to this one" choice, so the pending
           // V-mode range gets torn down.
           ctx.recordJump?.()
+          const narrowed = ctx.state.selectedFileIndex !== null
           ctx.setState((s) => ({
-            ...selectFile(s, highlightedItem.fileIndex!),
+            // Already reviewing one file alone: swap which one. Otherwise
+            // the diff stays whole and the cursor goes to the file.
+            ...(narrowed ? selectFile(s, highlightedItem.fileIndex!) : s),
             focusedPanel: "diff" as const,
             treeSelectionAnchor: null,
           }))
-          ctx.onFileSelected()
-          setTimeout(() => {
-            ctx.render() // Re-render to update VimDiffView
-          }, 0)
+          if (narrowed) {
+            ctx.onFileSelected()
+            setTimeout(() => {
+              ctx.render() // Re-render to update VimDiffView
+            }, 0)
+          } else {
+            ctx.revealFile(highlightedItem.fileIndex)
+          }
         }
       }
       ctx.render()

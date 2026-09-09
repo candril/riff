@@ -31,8 +31,10 @@ makes `c` able to anchor a comment, and `y` able to yank without the `+`/`-` gut
 
 Two shapes:
 
-- **All files**, one after another, with foldable file headers. This is the default.
-- **Single file**, when you pick one from the tree or the file picker. `Esc` goes back.
+- **All files**, one after another, with foldable file headers. This is the default, and picking a
+  file in the tree or the picker scrolls to it here rather than leaving it.
+- **Single file**, for reviewing one file with nothing else on screen. **Open File Alone** in the
+  action menu narrows to the file at the cursor; `Esc` goes back.
 
 Threads that exist on a line show as a marker in the gutter and a preview under it, so you can
 read a conversation without opening anything. `Enter` opens the thread properly.
@@ -117,8 +119,10 @@ as you type (loosely, against the whole path), `Enter` keeps the filter, `Esc` d
 and your own expansion state returns with the filter cleared.
 
 The all-files diff narrows with the tree — while a filter is on it lists exactly the files the
-sidebar does, so `/` is how you read a subset of a large PR end to end. Opening a single file
-still shows that file whole.
+sidebar does, so `/` is how you read a subset of a large PR end to end.
+
+`Enter` on a file scrolls the diff to it and leaves the rest of the diff in place: picking a file
+is navigation, not a decision to review it alone.
 
 `Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
 picker when you just want the file.

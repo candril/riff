@@ -43,6 +43,7 @@ export interface ActionHandlers {
   handleCheckoutAndEdit: () => Promise<void>
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
   handleShowAllFiles: () => void
+  handleOpenFileAlone: () => void
   handleEditPr: () => Promise<void>
   handleCreatePr: () => Promise<void>
   handleAddPrComment: () => Promise<void>
@@ -255,6 +256,10 @@ export async function executeAction(
     case "peek-line":
       setState(toggleLinePeek)
       render()
+      break
+
+    case "open-file-alone":
+      handlers.handleOpenFileAlone()
       break
 
     case "show-all-files":
