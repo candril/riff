@@ -51,6 +51,7 @@ const fileColorMap: Record<string, string> = {
   markdown: theme.lavender,
   
   // Config files
+  terraform: theme.mauve,
   dockerfile: theme.blue,
   makefile: theme.green,
 }
@@ -94,6 +95,10 @@ const extensionMap: Record<string, string> = {
   bash: "bash",
   zsh: "bash",
   fish: "bash",
+  tf: "terraform",
+  tfvars: "terraform",
+  hcl: "terraform",
+  tfstate: "json",
   // Avro: .avdl highlights as Java, .avsc/.avpr are JSON (see VimDiffView).
   avdl: "java",
   avsc: "json",

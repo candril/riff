@@ -2589,6 +2589,10 @@ export function getFiletypeFromPath(path: string): string | undefined {
     sh: "bash",
     bash: "bash",
     zsh: "bash",
+    tf: "terraform",
+    tfvars: "terraform",
+    hcl: "terraform",
+    tfstate: "json",
     // Avro has no tree-sitter parser: .avdl is close enough to Java to
     // borrow its highlighting, and .avsc/.avpr are literally JSON.
     avdl: "java",

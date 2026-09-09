@@ -173,6 +173,20 @@ const cppParser: FiletypeParserOptions = {
   },
 }
 
+// Terraform parser - the HCL grammar plus Terraform-specific nodes, so it
+// also serves plain .hcl files. Terraform's queries inherit hcl's, which
+// OpenTUI does not resolve, so both are listed.
+const terraformParser: FiletypeParserOptions = {
+  filetype: "terraform",
+  wasm: "https://github.com/tree-sitter-grammars/tree-sitter-hcl/releases/download/v1.2.0/tree-sitter-terraform.wasm",
+  queries: {
+    highlights: [
+      "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/hcl/highlights.scm",
+      "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/terraform/highlights.scm",
+    ],
+  },
+}
+
 /**
  * Register all additional syntax parsers.
  * This must be called BEFORE creating the CLI renderer.
@@ -194,5 +208,6 @@ export function registerSyntaxParsers(): void {
     javaParser,
     cParser,
     cppParser,
+    terraformParser,
   ])
 }
