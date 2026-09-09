@@ -44,10 +44,10 @@ than after you've written it.
 
 ### Long lines
 
-The diff does not wrap: a wrapped line would break the one-line-per-row alignment the gutter, the
-cursor and every anchor depend on. Long lines scroll sideways instead, and the cursor drags the
-view with it — `$`, `w` or a search match past the right edge brings its column into view, with a
-few columns of lookahead, the way `sidescrolloff` does in vim.
+The diff does not wrap by default: a wrapped line takes several rows, and one row per line is the
+shape you scan a diff for. Long lines scroll sideways instead, and the cursor drags the view with
+it — `$`, `w` or a search match past the right edge brings its column into view, with a few
+columns of lookahead, the way `sidescrolloff` does in vim.
 
 `zl` and `zh` scroll one column, `zL` and `zH` half a screen, and `zs`/`ze` put the cursor's
 column against the left or right edge. The line numbers and comment markers stay pinned at the
@@ -59,6 +59,12 @@ you are, and how much line is left.
 A line that continues past the right edge ends in a dim `›`, and one with content scrolled off to
 the left gets a `‹` in the gutter's padding — so a truncated line never reads as a line that
 simply ends there.
+
+`zw` soft-wraps the whole diff instead, if you would rather pay that cost than scroll. Wrapping
+breaks on words, and a row a line continues onto is marked `↳` in the gutter, so a wrapped line
+never reads as a new one. Everything
+else keeps working, the cursor and comment anchors included. Set `wrap = true` under `[diff]` in
+the config file to start that way.
 
 When a line is long enough that scrolling through it is more work than reading it is worth, `gl`
 shows the whole thing wrapped in an overlay, still syntax-highlighted — the alignment the diff has

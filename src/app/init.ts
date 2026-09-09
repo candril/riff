@@ -103,7 +103,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null, ignoreMatcher)
 
   // Set branch info for local mode
-  state = { ...state, branchInfo }
+  state = { ...state, branchInfo, wrapLines: config.diff.wrap }
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,
   // local mode enumerated them above.

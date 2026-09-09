@@ -31,7 +31,7 @@ import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
 import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-state"
-import type { FlashState } from "../vim-diff/flash-state"
+import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange } from "../vim-diff/cursor-state"
 
@@ -210,6 +210,73 @@ interface FileSection {
 }
 
 /**
+ * The wrap map opentui hands back, indexed by visual row.
+ *
+ * Two spellings, because opentui renamed these: 0.1.81 returns
+ * `lineStarts`/`lineWidths`, newer builds `lineStartCols`/`lineWidthCols`.
+ * `lineSources` is the same in both.
+ */
+interface WrappedLineInfo {
+  lineStarts?: ArrayLike<number>
+  lineWidths?: ArrayLike<number>
+  lineStartCols?: ArrayLike<number>
+  lineWidthCols?: ArrayLike<number>
+  lineSources?: ArrayLike<number>
+}
+
+/**
+ * Where each visual row of a section came from once the text has wrapped:
+ * the logical line it belongs to, and the slice of that line it shows.
+ */
+export interface WrapIndex {
+  rows: number
+  /** visual row -> section-local logical line */
+  sources: number[]
+  /** visual row -> first column of the line drawn on it */
+  startCols: number[]
+  /** visual row -> columns held */
+  widths: number[]
+  /** section-local logical line -> its first visual row */
+  firstRow: number[]
+}
+
+/**
+ * Read the wrap map off a laid-out code renderable. Rows are contiguous
+ * per logical line, so one pass gives both directions of the mapping.
+ */
+export function buildWrapIndex(code: CodeRenderable): WrapIndex | null {
+  const info = code.lineInfo as unknown as WrappedLineInfo | undefined
+  const sources = info?.lineSources
+  const starts = info?.lineStarts ?? info?.lineStartCols
+  const widths = info?.lineWidths ?? info?.lineWidthCols
+  if (!sources || !starts || !widths) return null
+
+  const index: WrapIndex = {
+    rows: sources.length,
+    sources: [],
+    startCols: [],
+    widths: [],
+    firstRow: [],
+  }
+
+  let origin = 0
+  let previous = -1
+  for (let row = 0; row < sources.length; row++) {
+    const line = sources[row]!
+    if (line !== previous) {
+      index.firstRow[line] = row
+      origin = starts[row]!
+      previous = line
+    }
+    index.sources[row] = line
+    index.startCols[row] = starts[row]! - origin
+    index.widths[row] = widths[row]!
+  }
+
+  return index
+}
+
+/**
  * One rendered row of the diff, resolved to screen coordinates.
  */
 interface VisibleRow {
@@ -219,6 +286,13 @@ interface VisibleRow {
   screenY: number
   /** 0-indexed terminal column where the line's content starts */
   contentX: number
+  /**
+   * The columns of `line` this row shows. Unwrapped that is the scrolled
+   * window, wrapped it is the row's own slice — which lets one formula,
+   * `contentX + col - startCol`, place a column in either mode.
+   */
+  startCol: number
+  endCol: number
 }
 
 /**
@@ -254,6 +328,28 @@ function FileHeader(props: { filename: string; additions: number; deletions: num
     Text({ content: `+${additions}`, fg: theme.green }),
     Text({ content: `-${deletions}`, fg: theme.red }),
   )
+}
+
+/**
+ * Which of a line's rows holds a column, as an offset from the line's
+ * first row, and the column that row starts at. Without an index — wrap
+ * off, or a section that has not laid out — every line is one row.
+ */
+export function wrapRowForColumn(
+  index: WrapIndex | null,
+  localLine: number,
+  col: number
+): { row: number; startCol: number } {
+  const first = index?.firstRow[localLine]
+  if (!index || first === undefined) return { row: localLine, startCol: 0 }
+
+  let row = first
+  for (let candidate = first; candidate < index.rows; candidate++) {
+    if (index.sources[candidate] !== localLine) break
+    row = candidate
+    if (col < index.startCols[candidate]! + Math.max(1, index.widths[candidate]!)) break
+  }
+  return { row, startCol: index.startCols[row]! }
 }
 
 export interface VimDiffViewOptions {
@@ -335,6 +431,13 @@ export class VimDiffView {
   /** Display width of each mapping line's content; 0 where nothing is drawn. */
   private lineWidths: number[] = []
 
+  // Soft wrap. Off, every row is one line and the whole view keeps that
+  // assumption; on, the row math routes through a per-section WrapIndex
+  // built from what opentui actually laid out.
+  private wrapEnabled: boolean = false
+  private wrapDirty: boolean = false
+  private wrapIndexes: Map<number, WrapIndex> = new Map()
+
   // Sticky file header - shows current file name when its header scrolls out of view
   private stickyHeaderBox: BoxRenderable | null = null
   private stickyHeaderFoldText: TextRenderable | null = null
@@ -388,6 +491,7 @@ export class VimDiffView {
       const rows = this.visible ? this.visibleRows(scrollTop) : []
       this.renderGutterOverlay(buffer, rows)
       this.renderOverflowMarkers(buffer, rows)
+      this.renderWrapMarkers(buffer, rows)
       this.renderFlashOverlay(buffer, rows)
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
@@ -444,6 +548,7 @@ export class VimDiffView {
     const loadingChanged = !this.setsEqual(this.loadingFiles, newLoadingFiles)
     
     const contentChanged = 
+      this.wrapDirty ||
       this.files !== files || 
       this.selectedFileIndex !== selectedFileIndex ||
       this.lineMapping !== lineMapping ||
@@ -540,15 +645,16 @@ export class VimDiffView {
    * files take only 1 row (the header), so the visual row may differ.
    * Returns -1 if the line is not found.
    */
-  cursorLineToVisualRow(cursorLine: number): number {
-    // Single-file mode: 1:1 mapping
+  cursorLineToVisualRow(cursorLine: number, cursorCol: number = 0): number {
+    // Single-file mode: one row per line, unless the line wrapped
     if (this.fileSections.length === 0) {
-      return cursorLine
+      return this.wrapRowForColumn(null, cursorLine, cursorCol).row
     }
 
     // All-files mode: calculate visual row accounting for headers and collapsed sections
     let screenRow = 0
-    for (const section of this.fileSections) {
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
       const headerRow = 1 // FileHeader component is always 1 row
 
       // Find the header line for this section
@@ -579,11 +685,14 @@ export class VimDiffView {
       // Expanded: check if cursor is in this section's content
       if (cursorLine >= section.startLine && cursorLine <= section.endLine) {
         const localLine = cursorLine - section.startLine
-        return screenRow + headerRow + localLine
+        return screenRow + headerRow + this.wrapRowForColumn(sectionIdx, localLine, cursorCol).row
       }
 
       // Skip past this section
-      const sectionContentLines = Math.max(0, section.endLine - section.startLine + 1)
+      const sectionContentLines = this.sectionRows(
+        sectionIdx,
+        Math.max(0, section.endLine - section.startLine + 1)
+      )
       screenRow += headerRow + sectionContentLines
     }
 
@@ -666,6 +775,8 @@ export class VimDiffView {
     }
     this.sectionRenderables.clear()
     this.fileSections = []
+    this.wrapIndexes.clear()
+    this.wrapDirty = false
     // Clear sticky header references (the box was already removed above)
     this.stickyHeaderBox = null
     this.stickyHeaderFoldText = null
@@ -739,7 +850,9 @@ export class VimDiffView {
         width: "100%",
         height: "100%",
         scrollY: true,
-        scrollX: true,
+        // Wrapped, the content is clamped to the viewport's width, which
+        // is what makes it wrap there rather than running off the side.
+        scrollX: !this.wrapEnabled,
         verticalScrollbarOptions: {
           showArrows: false,
           trackOptions: {
@@ -763,12 +876,12 @@ export class VimDiffView {
         h(CodeRenderable, {
           id: "diff-code",
           content,
-          width: this.contentColumns(content),
+          width: this.wrapEnabled ? undefined : this.contentColumns(content),
           filetype,
           syntaxStyle: getSyntaxStyle(),
           drawUnstyledText: true,
           conceal: false,
-          wrapMode: "none",  // Disable line wrapping - use horizontal scroll instead
+          wrapMode: this.wrapEnabled ? "word" : "none",
         })
       )
     )
@@ -780,6 +893,20 @@ export class VimDiffView {
     this.hideHorizontalScrollbar()
     this.lineNumberRenderable = this.container.findDescendantById("diff-line-numbers") as LineNumberRenderable | null
     this.codeRenderable = this.container.findDescendantById("diff-code") as CodeRenderable | null
+    if (this.codeRenderable) this.watchWrapChanges(null, this.codeRenderable)
+  }
+
+  /**
+   * Drop a section's wrap map when it relays out. A resize or a content
+   * change moves every row boundary, and the cursor is placed from this.
+   * The listener dies with the renderable the next rebuild replaces.
+   */
+  private watchWrapChanges(sectionIdx: number | null, code: CodeRenderable): void {
+    if (!this.wrapEnabled) return
+    const key = sectionIdx ?? -1
+    code.on("line-info-change", () => {
+      this.wrapIndexes.delete(key)
+    })
   }
 
   /**
@@ -900,12 +1027,12 @@ export class VimDiffView {
             h(CodeRenderable, {
               id: `code-${sectionIdx}`,
               content,
-              width: this.contentColumns(content),
+              width: this.wrapEnabled ? undefined : this.contentColumns(content),
               filetype: section.filetype,
               syntaxStyle: getSyntaxStyle(),
               drawUnstyledText: true,
               conceal: false,
-              wrapMode: "none",  // Disable line wrapping - use horizontal scroll instead
+              wrapMode: this.wrapEnabled ? "word" : "none",
             })
           )
         )
@@ -921,7 +1048,9 @@ export class VimDiffView {
         width: "100%",
         height: "100%",
         scrollY: true,
-        scrollX: true,
+        // Wrapped, the content is clamped to the viewport's width, which
+        // is what makes it wrap there rather than running off the side.
+        scrollX: !this.wrapEnabled,
         verticalScrollbarOptions: {
           showArrows: false,
           trackOptions: {
@@ -952,6 +1081,7 @@ export class VimDiffView {
       const code = this.container.findDescendantById(`code-${sectionIdx}`) as CodeRenderable | null
       if (lineNumber && code) {
         this.sectionRenderables.set(sectionIdx, { lineNumber, code })
+        this.watchWrapChanges(sectionIdx, code)
       }
     }
     
@@ -1268,7 +1398,8 @@ export class VimDiffView {
     let visualRow = 0
     let stickySection: FileSection | null = null
     
-    for (const section of this.fileSections) {
+    for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
+      const section = this.fileSections[sectionIdx]!
       const headerRow = visualRow
       
       if (headerRow < scrollTop) {
@@ -1279,10 +1410,10 @@ export class VimDiffView {
         break
       }
       
-      // Advance past this section: 1 for header + content lines
+      // Advance past this section: 1 for header + content rows
       visualRow += 1  // header row
       if (!section.collapsed) {
-        visualRow += section.lineCount
+        visualRow += this.sectionRows(sectionIdx, section.lineCount)
       }
     }
     
@@ -1389,16 +1520,100 @@ export class VimDiffView {
     const rows = this.visibleRows(scrollTop)
     if (rows.length === 0) return null
 
+    const lines = rows.map((row) => row.line).filter((line) => line >= 0)
+
+    // Wrapped, every column of a visible row is on screen, so the region
+    // is bounded by the widest row rather than by a scroll position.
+    if (this.wrapEnabled) {
+      return {
+        lines,
+        startCol: 0,
+        endCol: Math.max(...rows.map((row) => row.endCol)),
+      }
+    }
+
     // The gutter is per-file in all-files mode, so the widest one bounds the
     // column window that is certainly on screen for every visible row.
     const widestGutter = Math.max(...rows.map((row) => row.contentX))
     const scrollLeft = this.scrollBox.scrollLeft
+    const paneRight = this.paneBounds()?.right ?? this.renderer.width
 
     return {
-      lines: rows.map((row) => row.line).filter((line) => line >= 0),
+      lines,
       startCol: scrollLeft,
-      endCol: scrollLeft + Math.max(0, this.renderer.width - widestGutter),
+      endCol: scrollLeft + Math.max(0, paneRight - widestGutter),
     }
+  }
+
+  /**
+   * Turn soft wrap on or off. Wrapped, the diff shows every column of
+   * every line at the cost of the row-per-line alignment — so the row
+   * math has to come from what opentui laid out rather than from the
+   * mapping's line count. Rebuilds, because the wrap mode and the
+   * horizontal scrolling it replaces are fixed when the tree is built.
+   */
+  setWrap(enabled: boolean): void {
+    if (this.wrapEnabled === enabled) return
+    this.wrapEnabled = enabled
+    this.wrapDirty = true
+    this.wrapIndexes.clear()
+    if (this.scrollBox) {
+      this.scrollBox.scrollLeft = 0
+    }
+  }
+
+  /** Whether the diff is currently wrapping. */
+  isWrapping(): boolean {
+    return this.wrapEnabled
+  }
+
+  /**
+   * The wrap map for a section (null keys the single-file renderable), or
+   * null while wrap is off or the section has not laid out yet — callers
+   * then fall back to one row per line, which is what the view is doing
+   * anyway at that point.
+   */
+  private wrapIndex(sectionIdx: number | null): WrapIndex | null {
+    if (!this.wrapEnabled) return null
+
+    const key = sectionIdx ?? -1
+    const cached = this.wrapIndexes.get(key)
+    if (cached) return cached
+
+    const code = sectionIdx === null
+      ? this.codeRenderable
+      : this.sectionRenderables.get(sectionIdx)?.code
+    if (!code) return null
+
+    // Not cached when absent: the layout that produces it may not have
+    // happened yet, and the retry costs one call per section per frame.
+    const index = buildWrapIndex(code)
+    if (index) this.wrapIndexes.set(key, index)
+    return index
+  }
+
+  /** Rows a section occupies, wrapped; `fallback` is its unwrapped count. */
+  private sectionRows(sectionIdx: number, fallback: number): number {
+    return this.wrapIndex(sectionIdx)?.rows ?? fallback
+  }
+
+  /** A mapping line as its own section numbers it. */
+  private localLineFor(sectionIdx: number | null, line: number): number {
+    if (sectionIdx === null || sectionIdx === -1) return line
+    return line - this.fileSections[sectionIdx]!.startLine
+  }
+
+  /**
+   * Which of a line's rows holds a column, as an offset from the line's
+   * first row, and the column that row starts at. Unwrapped this is
+   * always row 0 starting at column 0.
+   */
+  private wrapRowForColumn(
+    sectionIdx: number | null,
+    localLine: number,
+    col: number
+  ): { row: number; startCol: number } {
+    return wrapRowForColumn(this.wrapIndex(sectionIdx === -1 ? null : sectionIdx), localLine, col)
   }
 
   /**
@@ -1468,7 +1683,7 @@ export class VimDiffView {
    * right edge move the cursor somewhere the viewport isn't.
    */
   revealColumn(line: number, col: number): void {
-    if (!this.scrollBox) return
+    if (!this.scrollBox || this.wrapEnabled) return
 
     const window = this.codeWindow(line)
     if (!window) return
@@ -1484,7 +1699,7 @@ export class VimDiffView {
 
   /** Scroll the code window sideways by whole columns (`zh`, `zl`). */
   scrollColumnsBy(delta: number): void {
-    if (!this.scrollBox) return
+    if (!this.scrollBox || this.wrapEnabled) return
     this.scrollBox.scrollLeft = Math.max(0, this.scrollBox.scrollLeft + delta)
   }
 
@@ -1495,7 +1710,7 @@ export class VimDiffView {
 
   /** Put a column against the left (`zs`) or right (`ze`) edge. */
   scrollColumnToEdge(line: number, col: number, edge: "start" | "end"): void {
-    if (!this.scrollBox) return
+    if (!this.scrollBox || this.wrapEnabled) return
     const window = this.codeWindow(line)
     if (!window) return
     this.scrollBox.scrollLeft = edge === "start" ? col : Math.max(0, col - window.width + 1)
@@ -1507,6 +1722,7 @@ export class VimDiffView {
    * it off screen.
    */
   clampColumnToWindow(line: number, col: number): number {
+    if (this.wrapEnabled) return col
     const window = this.codeWindow(line)
     if (!window) return col
     const lastOnLine = Math.max(0, (this.lineWidths[line] ?? 0) - 1)
@@ -1519,6 +1735,7 @@ export class VimDiffView {
    * line fits the window and there is nothing worth reporting.
    */
   getColumnStatus(line: number, col: number): { col: number; total: number } | null {
+    if (this.wrapEnabled) return null
     const total = this.lineWidths[line] ?? 0
     if (total === 0) return null
     const window = this.codeWindow(line)
@@ -1572,9 +1789,10 @@ export class VimDiffView {
   }
 
   /**
-   * Walk the on-screen rows, mapping each back to its visual line and to the
-   * terminal cell where that line's first content column is drawn.
-   * `line` is -1 for rows that hold no mapping line.
+   * Walk the on-screen rows, mapping each back to its mapping line, to the
+   * terminal cell where that line's content starts, and to the columns of
+   * the line the row shows. `line` is -1 for rows that hold no mapping
+   * line.
    */
   private visibleRows(scrollTop: number): VisibleRow[] {
     if (!this.scrollBox || !this.lineMapping) return []
@@ -1585,21 +1803,43 @@ export class VimDiffView {
     // The app header owns terminal row 0; the scrollbox starts below it.
     const headerHeight = 1
     const rows: VisibleRow[] = []
+    const scrollLeft = this.scrollBox.scrollLeft
+    const paneRight = this.paneBounds()?.right ?? this.renderer.width
 
-    const push = (line: number, visualRow: number, contentX: number): void => {
+    const push = (
+      line: number,
+      visualRow: number,
+      contentX: number,
+      startCol: number,
+      columns: number
+    ): void => {
       const visualLine = visualRow - scrollTop
       if (visualLine < 0 || visualLine >= viewportHeight) return
-      rows.push({ line, screenY: headerHeight + visualLine, contentX })
+      rows.push({
+        line,
+        screenY: headerHeight + visualLine,
+        contentX,
+        startCol,
+        endCol: startCol + columns,
+      })
     }
 
-    // Single-file mode: visual rows and mapping lines are 1:1.
+    // Single-file mode: one row per line, or the section's wrap map.
     if (this.fileSections.length === 0) {
       const contentX = this.contentOriginX(null)
         ?? this.estimateContentOriginX(this.lineMapping.lineCount, this.maxLineNumber)
+      const window = Math.max(0, paneRight - contentX)
+      const index = this.wrapIndex(null)
+      const total = index?.rows ?? this.lineMapping.lineCount
       const first = Math.max(0, scrollTop)
-      const last = Math.min(this.lineMapping.lineCount - 1, scrollTop + viewportHeight - 1)
-      for (let line = first; line <= last; line++) {
-        push(line, line, contentX)
+      const last = Math.min(total - 1, scrollTop + viewportHeight - 1)
+
+      for (let row = first; row <= last; row++) {
+        if (index) {
+          push(index.sources[row] ?? -1, row, contentX, index.startCols[row]!, index.widths[row]!)
+        } else {
+          push(row, row, contentX, scrollLeft, window)
+        }
       }
       return rows
     }
@@ -1611,12 +1851,13 @@ export class VimDiffView {
       if (visualRow - scrollTop >= viewportHeight) break
       const section = this.fileSections[sectionIdx]!
 
+      const index = section.collapsed ? null : this.wrapIndex(sectionIdx)
       const contentRows = section.collapsed
         ? 0
-        : Math.max(0, section.endLine - section.startLine + 1)
+        : index?.rows ?? Math.max(0, section.endLine - section.startLine + 1)
 
       // Skip whole sections that scrolled off the top rather than walking
-      // their lines — this runs every frame while flash is up.
+      // their lines — this runs on every frame.
       if (visualRow + 1 + contentRows <= scrollTop) {
         visualRow += 1 + contentRows
         continue
@@ -1624,19 +1865,58 @@ export class VimDiffView {
 
       const contentX = this.contentOriginX(sectionIdx)
         ?? this.estimateContentOriginX(section.lineCount, section.maxLineNumber)
+      const window = Math.max(0, paneRight - contentX)
       // The header row's path sits left of the code gutter, so flash's
       // overlay needs that column, not the section's.
-      push(section.startLine - 1, visualRow, this.headerNameOriginX(sectionIdx) ?? contentX)
+      push(
+        section.startLine - 1,
+        visualRow,
+        this.headerNameOriginX(sectionIdx) ?? contentX,
+        scrollLeft,
+        window
+      )
       visualRow++
 
-      for (let line = section.startLine; line < section.startLine + contentRows; line++) {
+      for (let row = 0; row < contentRows; row++) {
         if (visualRow - scrollTop >= viewportHeight) break
-        push(line, visualRow, contentX)
+        if (index) {
+          push(
+            section.startLine + (index.sources[row] ?? 0),
+            visualRow,
+            contentX,
+            index.startCols[row]!,
+            index.widths[row]!
+          )
+        } else {
+          push(section.startLine + row, visualRow, contentX, scrollLeft, window)
+        }
         visualRow++
       }
     }
 
     return rows
+  }
+
+  /**
+   * Mark the rows a wrapped line continues onto.
+   *
+   * The gutter draws a line number once per line, so a continuation row
+   * is blank there and its text starts hard against the same column a new
+   * row would — which reads as a new row. vim solves this with
+   * `showbreak`; the marker goes in the gutter's padding column, where it
+   * costs no code.
+   */
+  private renderWrapMarkers(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
+    if (!this.wrapEnabled) return
+    const bounds = this.paneBounds()
+    if (!bounds) return
+
+    for (const row of rows) {
+      if (row.line < 0 || row.startCol <= 0) continue
+      if (row.screenY >= buffer.height) continue
+      if (row.contentX - 1 < bounds.left) continue
+      drawMarker(buffer, row.contentX - 1, row.screenY, "↳", overflowFg)
+    }
   }
 
   /**
@@ -1650,7 +1930,8 @@ export class VimDiffView {
    */
   private renderOverflowMarkers(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
     const bounds = this.paneBounds()
-    if (!bounds) return
+    // Wrapped, nothing runs off an edge.
+    if (!bounds || this.wrapEnabled) return
 
     const scrollLeft = this.scrollBox?.scrollLeft ?? 0
 
@@ -1775,34 +2056,47 @@ export class VimDiffView {
       dimCells(buffer, row.screenY, Math.max(0, row.contentX), rightEdge)
     }
 
-    const rowByLine = new Map(rows.map((row) => [row.line, row]))
-    const scrollLeft = this.scrollBox.scrollLeft
-
+    // Walked per row rather than per match: a wrapped line is several
+    // rows, each showing a different slice of it, so the row decides
+    // which of a match's columns it draws.
+    const matchesByLine = new Map<number, FlashMatch[]>()
     for (const match of flash.matches) {
-      const row = rowByLine.get(match.line)
-      if (!row || row.screenY >= buffer.height) continue
+      const existing = matchesByLine.get(match.line)
+      if (existing) existing.push(match)
+      else matchesByLine.set(match.line, [match])
+    }
 
-      for (let col = match.startCol; col < match.endCol; col++) {
-        const x = row.contentX + col - scrollLeft
-        if (x < row.contentX || x >= rightEdge) continue
-        recolorCell(buffer, x, row.screenY, flashMatchFg, flashMatchBg)
+    for (const row of rows) {
+      if (row.screenY >= buffer.height) continue
+      const matches = matchesByLine.get(row.line)
+      if (!matches) continue
+
+      for (const match of matches) {
+        const from = Math.max(match.startCol, row.startCol)
+        const to = Math.min(match.endCol, row.endCol)
+        for (let col = from; col < to; col++) {
+          const x = row.contentX + col - row.startCol
+          if (x < row.contentX || x >= rightEdge) continue
+          recolorCell(buffer, x, row.screenY, flashMatchFg, flashMatchBg)
+        }
+
+        // The label overlays the match's first character — where the
+        // cursor will land. flash.nvim puts it one past the match
+        // instead, which reads as pointing at the wrong character.
+        if (!match.label) continue
+        if (match.startCol < row.startCol || match.startCol >= row.endCol) continue
+
+        const labelX = row.contentX + match.startCol - row.startCol
+        if (labelX < row.contentX || labelX >= rightEdge) continue
+        buffer.setCell(
+          labelX,
+          row.screenY,
+          match.label,
+          flashLabelFg,
+          flashLabelBg,
+          TextAttributes.BOLD
+        )
       }
-
-      if (!match.label) continue
-
-      // The label overlays the match's first character — where the cursor
-      // will land. flash.nvim puts it one past the match instead, which
-      // reads as pointing at the wrong character.
-      const labelX = row.contentX + match.startCol - scrollLeft
-      if (labelX < row.contentX || labelX >= rightEdge) continue
-      buffer.setCell(
-        labelX,
-        row.screenY,
-        match.label,
-        flashLabelFg,
-        flashLabelBg,
-        TextAttributes.BOLD
-      )
     }
   }
 
@@ -1842,7 +2136,7 @@ export class VimDiffView {
     this.updateStickyHeader(scrollTop)
 
     // Calculate visual line relative to scroll position
-    const visualRow = this.cursorLineToVisualRow(line)
+    const visualRow = this.cursorLineToVisualRow(line, col)
     if (visualRow < 0) {
       this.renderer.setCursorPosition(0, 0, false)
       return
@@ -1858,8 +2152,16 @@ export class VimDiffView {
       return
     }
 
-    // Visual column relative to viewport (subtract horizontal scroll)
-    const visualCol = col - scrollLeft
+    // Visual column relative to the row the cursor is on: wrapped, that
+    // row starts partway into the line; unwrapped, it starts at the
+    // horizontal scroll position.
+    const cursorSection = this.sectionIndexForLine(line)
+    const { startCol } = this.wrapRowForColumn(
+      cursorSection,
+      this.localLineFor(cursorSection, line),
+      col
+    )
+    const visualCol = col - startCol - scrollLeft
 
     // Skip if cursor column is not visible
     if (visualCol < 0) {
@@ -1878,7 +2180,7 @@ export class VimDiffView {
     // to the estimate.
     const headerHeight = 1
 
-    const contentOriginX = this.sectionContentOriginX(this.sectionIndexForLine(line))
+    const contentOriginX = this.sectionContentOriginX(cursorSection)
 
     const screenX = contentOriginX + visualCol + 1
     const screenY = headerHeight + visualLine + 1
@@ -2119,12 +2421,11 @@ export class VimDiffView {
   /**
    * Widest rendered row of a content string.
    *
-   * The code renderable clamps its own width to whatever space its parent
-   * offers when yoga measures it "at most" — so left to itself it is
-   * never wider than the viewport, the scrollable content is never wider
-   * than the window, and scrolling sideways moves a handful of columns
-   * and stops. Handing it the width its longest line needs is what makes
-   * the rest of the line reachable at all.
+   * The code renderable clamps itself to the space its parent offers when
+   * yoga measures it "at most" — so without an explicit width it is never
+   * wider than the viewport, and horizontal scrolling has almost nothing
+   * to scroll. Wrapped, the clamp is exactly what we want, so no width is
+   * set there.
    */
   private contentColumns(content: string): number {
     let widest = 1

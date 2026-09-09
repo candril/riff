@@ -53,10 +53,23 @@ export interface PollConfig {
 }
 
 /**
+ * Diff rendering configuration
+ */
+export interface DiffConfig {
+  /**
+   * Soft-wrap long lines instead of scrolling sideways. Off by default:
+   * wrapping costs the row-per-line alignment that makes the diff read
+   * like a diff.
+   */
+  wrap: boolean
+}
+
+/**
  * Root configuration
  */
 export interface Config {
   ignore: IgnoreConfig
+  diff: DiffConfig
   storage: StorageConfig
   mentions: MentionsConfig
   poll: PollConfig

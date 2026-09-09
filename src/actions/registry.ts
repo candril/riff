@@ -246,6 +246,14 @@ export const actions: Action[] = [
   },
 
   {
+    id: "toggle-wrap",
+    label: "Toggle Line Wrap",
+    description: "Soft-wrap long lines instead of scrolling sideways",
+    shortcut: "zw",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
     id: "peek-line",
     label: "Peek Line",
     description: "Show the cursor's line in full, wrapped, over the diff",

@@ -33,6 +33,9 @@ export const defaultConfig: Config = {
   ignore: {
     patterns: defaultIgnorePatterns,
   },
+  diff: {
+    wrap: false,
+  },
   storage: {
     repos: {},
   },

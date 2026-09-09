@@ -14,6 +14,7 @@ import {
   toggleFilePanelExpanded,
   toggleViewMode,
   toggleLinePeek,
+  toggleWrapLines,
   clearFileSelection,
   showToast,
   clearToast,
@@ -244,6 +245,11 @@ export async function executeAction(
 
     case "checkout-and-edit":
       handlers.handleCheckoutAndEdit()
+      break
+
+    case "toggle-wrap":
+      setState(toggleWrapLines)
+      render()
       break
 
     case "peek-line":

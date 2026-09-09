@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -893,6 +893,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "zm") {
         folds.handleCollapseAllFolds(ctx.foldsContext)
+        return
+      } else if (sequence === "zw") {
+        // The rebuild the toggle forces brings the cursor back into view
+        // itself, once the new scrollbox has laid out.
+        ctx.setState(toggleWrapLines)
+        ctx.render()
         return
       } else if (sequence === "zl" || sequence === "zh") {
         scrollColumns(sequence === "zl" ? 1 : -1)

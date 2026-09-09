@@ -26,6 +26,9 @@ extra = ["my-org/backend-team", "dependabot"]
 [poll]
 interval = 300
 onFocus = true
+
+[diff]
+wrap = false
 ```
 
 ## ignore
@@ -54,6 +57,17 @@ patterns = [
   "**/__snapshots__/**",
 ]
 ```
+
+## diff
+
+```toml
+[diff]
+wrap = false
+```
+
+`wrap` soft-wraps long lines instead of scrolling sideways, the same thing `zw` toggles at
+runtime. Off by default — see [long lines](/riff/reference/views/#long-lines) for what wrapping
+costs.
 
 ## storage
 

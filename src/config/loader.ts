@@ -45,6 +45,7 @@ export function loadConfig(): Config {
 function mergeConfig(parsed: Record<string, unknown>): Config {
   const config: Config = {
     ignore: { ...defaultConfig.ignore },
+    diff: { ...defaultConfig.diff },
     storage: { ...defaultConfig.storage },
     mentions: { ...defaultConfig.mentions },
     poll: { ...defaultConfig.poll },
@@ -58,6 +59,14 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
       config.ignore = {
         patterns: ignore.patterns.filter((p): p is string => typeof p === "string"),
       }
+    }
+  }
+
+  // Merge diff section
+  if (parsed.diff && typeof parsed.diff === "object") {
+    const diff = parsed.diff as Record<string, unknown>
+    if (typeof diff.wrap === "boolean") {
+      config.diff.wrap = diff.wrap
     }
   }
 

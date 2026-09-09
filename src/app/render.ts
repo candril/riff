@@ -122,6 +122,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         }
       }
 
+      ctx.vimDiffView.setWrap(state.wrapLines)
       ctx.vimDiffView.update(
         state.files,
         state.selectedFileIndex,

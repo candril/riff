@@ -214,6 +214,8 @@ export interface AppState {
   showHelp: boolean
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
+  /** `zw` — soft-wrap long lines instead of scrolling sideways. */
+  wrapLines: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments"
@@ -404,6 +406,7 @@ export function createInitialState(
     treeFilterInput: false,
     showHelp: false,
     showLinePeek: false,
+    wrapLines: false,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
@@ -644,6 +647,16 @@ export function toggleHelp(state: AppState): AppState {
   return {
     ...state,
     showHelp: !state.showHelp,
+  }
+}
+
+/**
+ * Toggle soft wrap
+ */
+export function toggleWrapLines(state: AppState): AppState {
+  return {
+    ...state,
+    wrapLines: !state.wrapLines,
   }
 }
 

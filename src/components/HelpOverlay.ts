@@ -24,6 +24,7 @@ const HELP_SECTIONS = [
       ["zL / zH", "Scroll half a screen right / left"],
       ["zs / ze", "Cursor column to left / right edge"],
       ["gl", "Peek the whole line, wrapped"],
+      ["zw", "Toggle soft wrap"],
     ],
   },
   {
