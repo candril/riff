@@ -68,6 +68,9 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     if (typeof diff.wrap === "boolean") {
       config.diff.wrap = diff.wrap
     }
+    if (typeof diff.alignMarkdownTables === "boolean") {
+      config.diff.alignMarkdownTables = diff.alignMarkdownTables
+    }
   }
 
   // Merge storage section

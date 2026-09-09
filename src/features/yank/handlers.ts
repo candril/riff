@@ -35,7 +35,9 @@ export async function handleYank(ctx: YankContext, options: { raw: boolean }): P
   for (let i = start; i <= end; i++) {
     const line = lineMapping.getLine(i)
     if (!line || SKIPPED_TYPES.has(line.type)) continue
-    collected.push(options.raw ? line.rawLine : line.content)
+    // `content` may be a display transform (an aligned markdown table);
+    // the clipboard should get what the file says.
+    collected.push(options.raw ? line.rawLine : line.sourceContent ?? line.content)
   }
 
   if (collected.length === 0) {

@@ -371,7 +371,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               const line = lineMapping.getLine(vimState.line)
               return line
                 ? LinePeek({
-                    content: line.content,
+                    // The file's own text: the padding an aligned table
+                    // carries is there to line up columns in the diff, and
+                    // in a wrapped overlay it is only whitespace.
+                    content: line.sourceContent ?? line.content,
                     lineNumber: line.newLineNum ?? line.oldLineNum,
                     filetype: line.filename ? getFiletypeFromPath(line.filename) : undefined,
                     terminalWidth: ctx.renderer.width,

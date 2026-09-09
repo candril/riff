@@ -216,6 +216,8 @@ export interface AppState {
   showLinePeek: boolean
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
+  /** Pad markdown table cells onto a shared grid in the diff. */
+  alignMarkdownTables: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments"
@@ -407,6 +409,7 @@ export function createInitialState(
     showHelp: false,
     showLinePeek: false,
     wrapLines: false,
+    alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",

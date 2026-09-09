@@ -37,6 +37,10 @@ export interface DiffLine {
   content: string
   /** Original line from diff (with +/- prefix) */
   rawLine: string
+  /** What the file actually says, when `content` is a display transform
+   *  (an aligned markdown table). Yank and anything else that means the
+   *  text rather than its columns reads this first. */
+  sourceContent?: string
 
   /** Line number in old file (undefined for headers/hunks/additions) */
   oldLineNum?: number
@@ -163,6 +167,8 @@ export interface DiffLineMappingOptions {
   fileContents?: Map<string, string>
   /** Set of collapsed file names (for all-files mode) */
   collapsedFiles?: Set<string>
+  /** Pad markdown table cells onto a shared grid (display only). */
+  alignMarkdownTables?: boolean
   /** Set of collapsed hunk keys ("filename:hunkIndex") */
   collapsedHunks?: Set<string>
   /** Filenames the all-files view is restricted to, or undefined for all of

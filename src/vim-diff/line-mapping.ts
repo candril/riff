@@ -2,6 +2,7 @@
  * DiffLineMapping - Maps visual lines to diff lines to file/line numbers
  */
 
+import { alignMarkdownTables } from "../utils/markdown-tables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
 import type { DiffLine, CommentAnchor, SearchMatch, DiffLineMappingOptions } from "./types"
@@ -30,6 +31,25 @@ export class DiffLineMapping {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
     } else if (mode === "all") {
       this.lines = this.parseAllFiles(files)
+    }
+
+    if (options?.alignMarkdownTables !== false) {
+      this.alignTables()
+    }
+  }
+
+  /**
+   * Pad markdown table cells onto a shared grid, in place.
+   *
+   * A display transform, not an edit: the row count is untouched, so every
+   * line number, hunk and comment anchor still points where it did, and
+   * `content` stays the one truth for columns (search, motions, the
+   * cursor). The file's own text moves to `sourceContent`.
+   */
+  private alignTables(): void {
+    for (const { index, content } of alignMarkdownTables(this.lines)) {
+      const line = this.lines[index]!
+      this.lines[index] = { ...line, content, sourceContent: line.content }
     }
   }
 

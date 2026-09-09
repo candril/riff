@@ -899,9 +899,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleCollapseAllFolds(ctx.foldsContext)
         return
       } else if (sequence === "zw") {
-        // The rebuild the toggle forces brings the cursor back into view
-        // itself, once the new scrollbox has laid out.
+        // The mapping is rebuilt because markdown table padding is applied
+        // there and is dropped while wrapping. The view's own rebuild
+        // brings the cursor back into view once it has laid out.
         ctx.setState(toggleWrapLines)
+        ctx.rebuildLineMapping()
         ctx.render()
         return
       } else if (sequence === "zl" || sequence === "zh") {

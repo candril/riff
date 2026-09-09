@@ -47,6 +47,17 @@ than after you've written it.
 Scrolling with the mouse takes the cursor with it, the way vim keeps the cursor in the window —
 so the tree, `c` and the comment anchors keep agreeing on where you are.
 
+### Markdown tables
+
+A table in a `.md` file is padded onto one grid before it is drawn, so the columns line up even
+when the source doesn't — and a `-` row sits cell-for-cell above the `+` row that replaced it,
+which is what makes a one-cell change visible at all.
+
+It is display only. The file is untouched, `y` yanks what the file says, and nothing about the
+line count changes, so comments still anchor where you put them. Tables inside a fenced code
+block are left alone. `alignMarkdownTables = false` under `[diff]` turns it off, and so does soft
+wrap — padding a table only helps while its columns are still columns.
+
 ### Long lines
 
 The diff does not wrap by default: a wrapped line takes several rows, and one row per line is the

@@ -35,6 +35,7 @@ export const defaultConfig: Config = {
   },
   diff: {
     wrap: false,
+    alignMarkdownTables: true,
   },
   storage: {
     repos: {},

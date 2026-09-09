@@ -62,6 +62,12 @@ export interface DiffConfig {
    * like a diff.
    */
   wrap: boolean
+  /**
+   * Pad markdown table cells onto a shared grid so the columns line up and
+   * a changed cell is visible against the row it replaced. Display only —
+   * the file is untouched, and `y` still yanks its text.
+   */
+  alignMarkdownTables: boolean
 }
 
 /**

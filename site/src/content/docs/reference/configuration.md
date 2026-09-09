@@ -29,6 +29,7 @@ onFocus = true
 
 [diff]
 wrap = false
+alignMarkdownTables = true
 ```
 
 ## ignore
@@ -63,7 +64,12 @@ patterns = [
 ```toml
 [diff]
 wrap = false
+alignMarkdownTables = true
 ```
+
+`alignMarkdownTables` pads the cells of a markdown table onto a shared grid so its columns line
+up in the diff — display only, and on by default. See
+[markdown tables](/riff/reference/views/#markdown-tables).
 
 `wrap` soft-wraps long lines instead of scrolling sideways, the same thing `zw` toggles at
 runtime. Off by default — see [long lines](/riff/reference/views/#long-lines) for what wrapping

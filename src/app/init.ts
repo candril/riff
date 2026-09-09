@@ -103,7 +103,12 @@ export async function initializeAppState(options: InitOptions): Promise<{
   let state = createInitialState(files, fileTree, source, description, error, session, comments, mode, prInfo ?? null, ignoreMatcher)
 
   // Set branch info for local mode
-  state = { ...state, branchInfo, wrapLines: config.diff.wrap }
+  state = {
+    ...state,
+    branchInfo,
+    wrapLines: config.diff.wrap,
+    alignMarkdownTables: config.diff.alignMarkdownTables,
+  }
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,
   // local mode enumerated them above.
@@ -209,6 +214,10 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
     collapsedFiles: state.collapsedFiles,
     collapsedHunks: state.collapsedHunks,
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
+    // Wrapped, the padding is worse than useless: it is the widest cell in
+    // the table spent on every row, wrapping into blank lines, and the
+    // column it was lining up has been broken across rows anyway.
+    alignMarkdownTables: state.alignMarkdownTables && !state.wrapLines,
   })
 }
 

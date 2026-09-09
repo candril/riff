@@ -68,6 +68,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 050 | [Tree Filter & Flash to a File](./050-tree-filter-and-file-flash.md) | Done | `/` filters the file tree by path; `s` jumps to a file header |
 | 051 | [Long Lines](./051-long-lines.md) | Done | Sidescroll, pinned gutter, overflow markers, `gl` peek, `zw` wrap |
 | 052 | [Tree and Diff in Step](./052-tree-and-diff-in-step.md) | Done | Picking a file scrolls the diff; the tree and cursor follow each other |
+| 053 | [Markdown Tables](./053-markdown-tables.md) | Done | Table cells padded onto one grid so a changed cell is visible |
 
 ## MVP Path
 
