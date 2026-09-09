@@ -103,7 +103,9 @@ one — alt text, or the file name — and `O` hands them to your browser, which
 
 ### HTML in comments
 
-Comment bodies render as markdown, tables included. The HTML people write in GitHub comments is
+Comment bodies render as markdown. Tables are drawn with wrapping cells — a row grows to its
+tallest cell rather than losing everything past the first line, which is what the underlying
+renderer does on its own. The HTML people write in GitHub comments is
 translated first, since the markdown renderer would otherwise print the tags: `<br>` becomes a
 line break (a middle dot inside a table cell, where a newline would end the row), `<b>`/`<i>`/
 `<code>` become their markdown equivalents, an `<a href>` becomes a link, and a `<details>` block

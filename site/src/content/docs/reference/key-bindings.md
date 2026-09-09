@@ -40,6 +40,7 @@ These are for moving the view on its own.
 | `zL` `zH` | Scroll half a screen right, left |
 | `zs` `ze` | Put the cursor's column at the left, right edge |
 | `gl` | Peek the cursor's whole line, wrapped, over the diff |
+| `gt` | Peek the markdown table under the cursor as a grid |
 | `zw` | Toggle soft wrap for the whole diff |
 
 ## Jumping

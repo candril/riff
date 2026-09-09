@@ -14,6 +14,7 @@ import {
   toggleFilePanelExpanded,
   toggleViewMode,
   toggleLinePeek,
+  toggleTablePeek,
   toggleWrapLines,
   clearFileSelection,
   showToast,
@@ -250,6 +251,11 @@ export async function executeAction(
 
     case "toggle-wrap":
       setState(toggleWrapLines)
+      render()
+      break
+
+    case "peek-table":
+      setState(toggleTablePeek)
       render()
       break
 

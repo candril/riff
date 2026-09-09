@@ -20,13 +20,13 @@ drawn rather than to the file, an unaligned source stops mattering.
 
 ## Out of Scope
 
-- Rendering the table with borders in the diff. A comment anchors to a
-  line, and a bordered table collapses N source lines into a different
-  number of rows with no line to point at. `MarkdownRenderable` already
-  draws real tables in comments and the PR description, where nothing has
-  to anchor.
-- Interpreting the HTML inside cells (`<br>`, `<b>`, `<details>`). In the
-  diff the source *is* the artefact under review.
+- Rendering the table with borders *in place of* the diff's source. A
+  comment anchors to a line, and a bordered table collapses N source lines
+  into a different number of rows with no line to point at. `gt` puts the
+  grid in an overlay instead, where nothing has to anchor.
+- Rewriting the HTML inside cells in the diff. There the source *is* the
+  artefact under review; the overlay and the comment renderer are free to
+  interpret it.
 - Reformatting the file. Nothing here writes.
 
 ## Capabilities
@@ -47,6 +47,23 @@ drawn rather than to the file, an unaligned source stops mattering.
 - `[diff] alignMarkdownTables = false` turns it off, and so does soft wrap
   (`zw`): padding is the widest cell in the table spent on every row, and
   wrapping breaks the column it was lining up anyway.
+
+### P2 - The grid
+
+Alignment cannot help a cell holding a paragraph, and a review table —
+approaches against pros and cons — is all paragraphs. `gt` draws the table
+under the cursor as a grid in an overlay:
+
+- Cells wrap to their column; a row grows to its tallest cell.
+- `<li>` becomes a bullet on its own line, with its continuation lines
+  hanging under it — a list crammed into a cell is why these rows are long.
+- The new side only: a deleted row belongs to the version being replaced,
+  and mixing both into one grid would show a table that never existed.
+
+The same renderer replaces OpenTUI's table rendering in comments and PR
+descriptions, through `MarkdownRenderable`'s `renderNode` hook. Its own
+gives each cell exactly one row and cuts the rest — silently, so a comment
+with a table in it was losing most of its text.
 
 ## Technical Notes
 
@@ -83,9 +100,12 @@ fence cannot be detected, which is the accepted limit.
 ### File Structure
 
 ```
-src/utils/markdown-tables.ts        # detection, splitting, padding
-src/utils/markdown-tables.test.ts
-src/vim-diff/line-mapping.ts        # applies the transform
-src/vim-diff/types.ts               # DiffLine.sourceContent
-src/features/yank/handlers.ts       # yanks sourceContent
+src/utils/markdown-tables.ts             # detection, splitting, padding
+src/utils/markdown-table-render.ts       # the wrapping grid
+src/vim-diff/line-mapping.ts             # applies the transform
+src/vim-diff/types.ts                    # DiffLine.sourceContent
+src/features/yank/handlers.ts            # yanks sourceContent
+src/features/diff-view/table-peek.ts     # gt, from the diff's rows
+src/components/TablePeek.ts              # the overlay
+src/components/markdown-tables-in-markdown.ts  # comments and PR bodies
 ```

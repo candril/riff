@@ -21,6 +21,7 @@ import {
   FlashPrompt,
   HelpOverlay,
   LinePeek,
+  TablePeek,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -39,6 +40,7 @@ import {
 } from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
 import { getFiletypeFromPath } from "../components/VimDiffView"
+import { buildTablePeek } from "../features/diff-view/table-peek"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
@@ -366,6 +368,22 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             })
           : null,
         state.showHelp ? HelpOverlay() : null,
+        state.showTablePeek && state.viewMode === "diff"
+          ? (() => {
+              const table = buildTablePeek(
+                lineMapping,
+                vimState.line,
+                Math.max(24, ctx.renderer.width - 8)
+              )
+              return table
+                ? TablePeek({
+                    lines: table.lines,
+                    rowCount: table.rowCount,
+                    terminalHeight: ctx.renderer.height,
+                  })
+                : null
+            })()
+          : null,
         state.showLinePeek && state.viewMode === "diff"
           ? (() => {
               const line = lineMapping.getLine(vimState.line)

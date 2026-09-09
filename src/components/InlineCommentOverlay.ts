@@ -21,6 +21,7 @@ import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
+import { tableRenderer } from "./markdown-tables-in-markdown"
 import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
@@ -86,6 +87,7 @@ function buildMarkdown(
 ): MarkdownRenderable {
   return new MarkdownRenderable(renderer, {
     id,
+    renderNode: tableRenderer(renderer, () => renderer.width),
     // The renderer has no case for HTML tokens, so the tags people write
     // in GitHub comments would land here verbatim.
     content: softenCommentHtml(content),

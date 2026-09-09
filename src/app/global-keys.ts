@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, toggleTablePeek, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -517,14 +517,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
-    // ========== LINE PEEK (modal: gl toggles it, Esc or q closes) ==========
-    if (ctx.getState().showLinePeek && !pendingKey) {
+    // ========== PEEK OVERLAYS (modal: gl / gt toggle, Esc or q closes) ==========
+    if ((ctx.getState().showLinePeek || ctx.getState().showTablePeek) && !pendingKey) {
       if (key.name === "escape" || key.name === "q") {
-        ctx.setState(toggleLinePeek)
+        ctx.setState((s) => (s.showLinePeek ? toggleLinePeek(s) : toggleTablePeek(s)))
         ctx.render()
         return
       }
-      // `g` still has to reach the chord matcher, or `gl` couldn't close it.
+      // `g` still has to reach the chord matcher, or `gl`/`gt` couldn't close it.
       if (!(key.name === "g" && !key.ctrl && !key.shift)) {
         return
       }
@@ -865,6 +865,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         } else if (s.appMode === "local") {
           ctx.executeAction("create-pr")
         }
+        return
+      } else if (sequence === "gt") {
+        // The table under the cursor as a grid. Its source is the only
+        // thing a comment can anchor to, so the diff keeps showing that.
+        ctx.setState(toggleTablePeek)
+        ctx.render()
         return
       } else if (sequence === "gl") {
         // The whole line, wrapped, for when scrolling through it sideways

@@ -46,14 +46,21 @@ const CONTENT_TYPES = new Set(["addition", "deletion", "context"])
  * Lines that are already aligned produce no entry.
  */
 export function alignMarkdownTables(lines: readonly AlignableLine[]): AlignedRow[] {
-  const changes: AlignedRow[] = []
+  return tableBlocks(lines).flatMap((block) => alignBlock(lines, block))
+}
+
+/**
+ * Every run of table rows in the given lines, as indices into them. A run
+ * is two or more consecutive rows: one line starting with a pipe is more
+ * likely prose than a table.
+ */
+export function tableBlocks(lines: readonly AlignableLine[]): number[][] {
+  const blocks: number[][] = []
   const fenced = fencedLines(lines)
 
   let block: number[] = []
   const flush = (): void => {
-    if (block.length >= 2) {
-      changes.push(...alignBlock(lines, block))
-    }
+    if (block.length >= 2) blocks.push(block)
     block = []
   }
 
@@ -74,7 +81,15 @@ export function alignMarkdownTables(lines: readonly AlignableLine[]): AlignedRow
   }
   flush()
 
-  return changes
+  return blocks
+}
+
+/** The table around a line, or null when the line is not in one. */
+export function findTableBlock(
+  lines: readonly AlignableLine[],
+  index: number
+): number[] | null {
+  return tableBlocks(lines).find((block) => block.includes(index)) ?? null
 }
 
 /**
@@ -160,7 +175,7 @@ function columnAlignments(
   return alignments
 }
 
-function isDelimiterRow(cells: readonly string[]): boolean {
+export function isDelimiterRow(cells: readonly string[]): boolean {
   return cells.length > 0 && cells.every((cell) => DELIMITER_CELL.test(cell))
 }
 

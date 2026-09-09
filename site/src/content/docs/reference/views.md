@@ -53,9 +53,13 @@ A table in a `.md` file is padded onto one grid before it is drawn, so the colum
 when the source doesn't — and a `-` row sits cell-for-cell above the `+` row that replaced it,
 which is what makes a one-cell change visible at all.
 
-It is display only. The file is untouched, `y` yanks what the file says, and nothing about the
-line count changes, so comments still anchor where you put them. Tables inside a fenced code
-block are left alone. `alignMarkdownTables = false` under `[diff]` turns it off, and so does soft
+`gt` draws the table under the cursor as a real grid instead: cells wrap, a row grows to its
+tallest cell, and `<li>` becomes a bullet on its own line. That is where you check a table reads
+right — the diff beside it, still showing source, is where you say so.
+
+The alignment is display only. The file is untouched, `y` yanks what the file says, and nothing
+about the line count changes, so comments still anchor where you put them. Tables inside a fenced
+code block are left alone. `alignMarkdownTables = false` under `[diff]` turns it off, and so does soft
 wrap — padding a table only helps while its columns are still columns.
 
 ### Long lines
