@@ -19,6 +19,7 @@ import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
+import { softenCommentHtml } from "../utils/comment-html"
 import { colors, theme } from "../theme"
 
 /**
@@ -1345,7 +1346,7 @@ export class PRInfoPanelClass {
     if (body.text) {
       const md = new MarkdownRenderable(this.renderer, {
         id: "pr-info-description",
-        content: body.text,
+        content: softenCommentHtml(body.text),
         syntaxStyle: getSyntaxStyle(),
       })
       container.add(md)
@@ -1950,7 +1951,7 @@ export class PRInfoPanelClass {
     const parsed = extractCommentImages(body)
     if (parsed.text) {
       const md = new MarkdownRenderable(this.renderer, {
-        content: parsed.text,
+        content: softenCommentHtml(parsed.text),
         syntaxStyle: getSyntaxStyle(),
       })
       bodyBox.add(md)

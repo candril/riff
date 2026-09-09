@@ -69,6 +69,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 051 | [Long Lines](./051-long-lines.md) | Done | Sidescroll, pinned gutter, overflow markers, `gl` peek, `zw` wrap |
 | 052 | [Tree and Diff in Step](./052-tree-and-diff-in-step.md) | Done | Picking a file scrolls the diff; the tree and cursor follow each other |
 | 053 | [Markdown Tables](./053-markdown-tables.md) | Done | Table cells padded onto one grid so a changed cell is visible |
+| 054 | [HTML in Comments](./054-html-in-comments.md) | Done | `<br>`, `<details>`, `<b>`, `<a>` translated instead of printed raw |
 
 ## MVP Path
 

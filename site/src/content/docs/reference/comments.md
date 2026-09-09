@@ -101,6 +101,17 @@ riff can't draw a screenshot in the terminal, and GitHub serves attachments to a
 so on a private repo it can't even fetch them. A comment's images show up as `▣` rows naming each
 one — alt text, or the file name — and `O` hands them to your browser, which is signed in.
 
+### HTML in comments
+
+Comment bodies render as markdown, tables included. The HTML people write in GitHub comments is
+translated first, since the markdown renderer would otherwise print the tags: `<br>` becomes a
+line break (a middle dot inside a table cell, where a newline would end the row), `<b>`/`<i>`/
+`<code>` become their markdown equivalents, an `<a href>` becomes a link, and a `<details>` block
+is shown open with its summary as a heading — there is nothing to click in a terminal.
+
+Tags with no obvious meaning are left as they are rather than guessed at, and anything inside a
+code span or fence is untouched: there, the tag is the text the author meant to write.
+
 ### Outdated threads
 
 A thread whose anchor no longer matches the PR head is marked outdated. It keeps the diff hunk it

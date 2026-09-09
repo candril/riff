@@ -120,7 +120,7 @@ function tidy(text: string): string {
 
 /** Character ranges covered by fenced code blocks — an `<img>` shown as an
  *  example there is the text the author meant to write, not an attachment. */
-function fencedRanges(source: string): Array<[number, number]> {
+export function fencedRanges(source: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = []
   let offset = 0
   let openedAt: number | null = null
