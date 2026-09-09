@@ -136,6 +136,21 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 }
 
 export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void {
+  /**
+   * Scroll the diff sideways and bring the cursor with it. Leaving the
+   * cursor behind would hide it the moment it left the window, which is
+   * how vim behaves too.
+   */
+  function scrollColumns(delta: number): void {
+    ctx.vimDiffView.scrollColumnsBy(delta)
+    const vimState = ctx.getVimState()
+    const col = ctx.vimDiffView.clampColumnToWindow(vimState.line, vimState.col)
+    if (col !== vimState.col) {
+      ctx.setVimState({ ...vimState, col, desiredCol: null })
+    }
+    ctx.render()
+  }
+
   // Key sequence tracking
   let pendingKey: string | null = null
   let pendingTimeout: ReturnType<typeof setTimeout> | null = null
@@ -859,6 +874,24 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "zm") {
         folds.handleCollapseAllFolds(ctx.foldsContext)
+        return
+      } else if (sequence === "zl" || sequence === "zh") {
+        scrollColumns(sequence === "zl" ? 1 : -1)
+        return
+      } else if (sequence === "zL!" || sequence === "zl!" || sequence === "zH!" || sequence === "zh!") {
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        const forward = sequence === "zL!" || sequence === "zl!"
+        scrollColumns(ctx.vimDiffView.halfColumnWindow(ctx.getVimState().line) * (forward ? 1 : -1))
+        return
+      } else if (sequence === "zs" || sequence === "ze") {
+        const vimState = ctx.getVimState()
+        ctx.vimDiffView.scrollColumnToEdge(
+          vimState.line,
+          vimState.col,
+          sequence === "zs" ? "start" : "end"
+        )
+        ctx.render()
         return
       } else if (sequence === "zo") {
         folds.handleOpenFoldAtCursor(ctx.foldsContext)

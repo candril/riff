@@ -20,6 +20,9 @@ const HELP_SECTIONS = [
       ["]u / [u", "Next / previous unviewed file"],
       ["]o / [o", "Next / previous outdated file"],
       ["]g / [g", "Next / previous commit's diff"],
+      ["zl / zh", "Scroll one column right / left"],
+      ["zL / zH", "Scroll half a screen right / left"],
+      ["zs / ze", "Cursor column to left / right edge"],
     ],
   },
   {

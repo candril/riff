@@ -42,6 +42,20 @@ for reading. They are not commentable: GitHub cannot anchor a review comment to 
 every hunk, so riff [refuses up front](/riff/reference/comments/#where-a-comment-can-go) rather
 than after you've written it.
 
+### Long lines
+
+The diff does not wrap: a wrapped line would break the one-line-per-row alignment the gutter, the
+cursor and every anchor depend on. Long lines scroll sideways instead, and the cursor drags the
+view with it — `$`, `w` or a search match past the right edge brings its column into view, with a
+few columns of lookahead, the way `sidescrolloff` does in vim.
+
+`zl` and `zh` scroll one column, `zL` and `zH` half a screen, and `zs`/`ze` put the cursor's
+column against the left or right edge. The line numbers and comment markers stay pinned at the
+left while you scroll; only the code moves.
+
+There is no horizontal scrollbar. One long line anywhere makes the content wider than the
+viewport, and the bar would then sit across the bottom of the diff for the rest of the review.
+
 ### Folds
 
 `za` toggles what's under the cursor: a file header folds the whole file away, a hunk header

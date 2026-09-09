@@ -29,6 +29,17 @@ In the diff. These follow vim, including the ones you only notice when they're m
 | `V` | Visual line mode — select a range for a comment or a yank |
 | `Esc` | Leave visual mode, or clear search highlights |
 
+## Long lines
+
+The diff scrolls sideways rather than wrapping, and moving the cursor carries the view with it.
+These are for moving the view on its own.
+
+| Key | Action |
+| --- | --- |
+| `zl` `zh` | Scroll one column right, left |
+| `zL` `zH` | Scroll half a screen right, left |
+| `zs` `ze` | Put the cursor's column at the left, right edge |
+
 ## Jumping
 
 | Key | Action |
