@@ -731,6 +731,7 @@ export class VimDiffView {
 
     // Get references to the renderables for later updates
     this.scrollBox = this.container.findDescendantById("diff-scroll") as ScrollBoxRenderable | null
+    this.hideHorizontalScrollbar()
     this.lineNumberRenderable = this.container.findDescendantById("diff-line-numbers") as LineNumberRenderable | null
     this.codeRenderable = this.container.findDescendantById("diff-code") as CodeRenderable | null
   }
@@ -896,6 +897,7 @@ export class VimDiffView {
     
     // Get references
     this.scrollBox = this.container.findDescendantById("diff-scroll") as ScrollBoxRenderable | null
+    this.hideHorizontalScrollbar()
     
     // Store section renderables for updates
     for (let sectionIdx = 0; sectionIdx < this.fileSections.length; sectionIdx++) {
@@ -912,6 +914,22 @@ export class VimDiffView {
     
     // Create sticky file header overlay (positioned absolutely over the scroll area)
     this.createStickyHeader()
+  }
+
+  /**
+   * Drop the horizontal scrollbar.
+   *
+   * One long line anywhere in the diff makes the content wider than the
+   * viewport, and the bar then sits across the bottom of every file for
+   * the rest of the review — a row of screen spent on a control nobody
+   * drags, in OpenTUI's default grey rather than the diff's palette.
+   * Hiding it sets `display: none` on the bar, so the row goes back to
+   * the diff; `scrollLeft` is untouched by its visibility.
+   */
+  private hideHorizontalScrollbar(): void {
+    if (this.scrollBox) {
+      this.scrollBox.horizontalScrollBar.visible = false
+    }
   }
 
   /**
