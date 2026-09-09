@@ -9,9 +9,18 @@ export interface StatusBarProps {
     pattern: string
     wrapped?: boolean
   } | null
+  /**
+   * Cursor column and the line's full width, set only while the line is
+   * wider than the window — how far a long line runs is invisible once
+   * it leaves the screen.
+   */
+  columnInfo?: {
+    col: number
+    total: number
+  } | null
 }
 
-export function StatusBar({ searchInfo }: StatusBarProps = {}) {
+export function StatusBar({ searchInfo, columnInfo }: StatusBarProps = {}) {
   // Build right side content
   const rightContent: ReturnType<typeof Text>[] = []
   
@@ -29,6 +38,15 @@ export function StatusBar({ searchInfo }: StatusBarProps = {}) {
     }
   }
   
+  if (columnInfo) {
+    if (rightContent.length > 0) {
+      rightContent.push(Text({ content: "  ", fg: colors.statusBarFg }))
+    }
+    rightContent.push(
+      Text({ content: `col ${columnInfo.col}/${columnInfo.total}`, fg: theme.overlay1 })
+    )
+  }
+
   return Box(
     {
       height: 1,

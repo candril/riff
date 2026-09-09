@@ -286,6 +286,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                   wrapped: searchState.wrapped,
                 }
               : null,
+          columnInfo:
+            state.viewMode === "diff"
+              ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
+              : null,
         }),
         state.actionMenu.open
           ? ActionMenu({
