@@ -25,7 +25,9 @@ Navigate between files in a multi-file diff. Shows a collapsible file tree panel
 - **Toggle file panel**: `Ctrl+b` to show/hide file tree sidebar
 - **Tree view**: Display files in a folder hierarchy
 - **Folder collapsing**: Merge single-child folders (e.g., `foo/bar/` shown as one node)
-- **Select from tree**: Navigate with j/k, Enter to jump
+- **Select from tree**: Navigate with j/k, Enter to jump. Enter scrolls the
+  all-files diff to the file rather than narrowing to it — see
+  [052](./052-tree-and-diff-in-step.md)
 - **Change indicators**: Color-code added/modified/deleted files
 - **Expand/collapse folders**: Toggle folder expansion
 
