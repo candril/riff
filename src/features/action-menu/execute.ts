@@ -13,6 +13,7 @@ import {
   toggleFilePanel,
   toggleFilePanelExpanded,
   toggleViewMode,
+  toggleLinePeek,
   clearFileSelection,
   showToast,
   clearToast,
@@ -243,6 +244,11 @@ export async function executeAction(
 
     case "checkout-and-edit":
       handlers.handleCheckoutAndEdit()
+      break
+
+    case "peek-line":
+      setState(toggleLinePeek)
+      render()
       break
 
     case "show-all-files":

@@ -245,6 +245,15 @@ export const actions: Action[] = [
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
 
+  {
+    id: "peek-line",
+    label: "Peek Line",
+    description: "Show the cursor's line in full, wrapped, over the diff",
+    shortcut: "gl",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+
   // Folds
   {
     id: "toggle-fold",

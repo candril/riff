@@ -212,6 +212,8 @@ export interface AppState {
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
   showHelp: boolean
+  /** `gl` — the cursor's line in full, wrapped, over the diff. */
+  showLinePeek: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments"
@@ -401,6 +403,7 @@ export function createInitialState(
     treeFilter: "",
     treeFilterInput: false,
     showHelp: false,
+    showLinePeek: false,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
@@ -641,6 +644,16 @@ export function toggleHelp(state: AppState): AppState {
   return {
     ...state,
     showHelp: !state.showHelp,
+  }
+}
+
+/**
+ * Toggle the full-line overlay
+ */
+export function toggleLinePeek(state: AppState): AppState {
+  return {
+    ...state,
+    showLinePeek: !state.showLinePeek,
   }
 }
 

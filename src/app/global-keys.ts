@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter } from "../state"
-import { openActionMenu, toggleHelp, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -513,6 +513,19 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== LINE PEEK (modal: gl toggles it, Esc or q closes) ==========
+    if (ctx.getState().showLinePeek && !pendingKey) {
+      if (key.name === "escape" || key.name === "q") {
+        ctx.setState(toggleLinePeek)
+        ctx.render()
+        return
+      }
+      // `g` still has to reach the chord matcher, or `gl` couldn't close it.
+      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
+        return
+      }
+    }
+
     // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
     if (ctx.getState().showHelp && !pendingKey) {
       if (key.name === "escape" || key.name === "q") {
@@ -848,6 +861,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         } else if (s.appMode === "local") {
           ctx.executeAction("create-pr")
         }
+        return
+      } else if (sequence === "gl") {
+        // The whole line, wrapped, for when scrolling through it sideways
+        // is more work than reading it is worth.
+        ctx.setState(toggleLinePeek)
+        ctx.render()
         return
       } else if (sequence === "gr") {
         ctx.refreshContext.handleRefresh()

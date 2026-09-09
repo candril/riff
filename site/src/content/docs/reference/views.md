@@ -60,6 +60,12 @@ A line that continues past the right edge ends in a dim `›`, and one with cont
 the left gets a `‹` in the gutter's padding — so a truncated line never reads as a line that
 simply ends there.
 
+When a line is long enough that scrolling through it is more work than reading it is worth, `gl`
+shows the whole thing wrapped in an overlay, still syntax-highlighted — the alignment the diff has
+to keep doesn't matter there. `Esc` closes it. For the truly pathological ones, `gf` opens the file in `$EDITOR`, and
+generated files belong in [ignore patterns](/riff/reference/configuration/#ignore) rather than in
+a review.
+
 There is no horizontal scrollbar. One long line anywhere makes the content wider than the
 viewport, and the bar would then sit across the bottom of the diff for the rest of the review.
 

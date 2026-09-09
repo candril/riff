@@ -20,6 +20,7 @@ import {
   SearchPrompt,
   FlashPrompt,
   HelpOverlay,
+  LinePeek,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -37,6 +38,7 @@ import {
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
+import { getFiletypeFromPath } from "../components/VimDiffView"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
@@ -363,6 +365,20 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             })
           : null,
         state.showHelp ? HelpOverlay() : null,
+        state.showLinePeek && state.viewMode === "diff"
+          ? (() => {
+              const line = lineMapping.getLine(vimState.line)
+              return line
+                ? LinePeek({
+                    content: line.content,
+                    lineNumber: line.newLineNum ?? line.oldLineNum,
+                    filetype: line.filename ? getFiletypeFromPath(line.filename) : undefined,
+                    terminalWidth: ctx.renderer.width,
+                    terminalHeight: ctx.renderer.height,
+                  })
+                : null
+            })()
+          : null,
         state.confirmDialog
           ? ConfirmDialog({
               title: state.confirmDialog.title,

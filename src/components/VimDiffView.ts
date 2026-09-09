@@ -38,7 +38,7 @@ import { getSelectionRange } from "../vim-diff/cursor-state"
 // Shared syntax style for diff rendering
 let sharedSyntaxStyle: SyntaxStyle | null = null
 
-function getSyntaxStyle(): SyntaxStyle {
+export function getSyntaxStyle(): SyntaxStyle {
   if (!sharedSyntaxStyle) {
     sharedSyntaxStyle = SyntaxStyle.fromStyles({
       // Code syntax highlighting
@@ -2163,7 +2163,7 @@ export class VimDiffView {
 /**
  * Get filetype for syntax highlighting from filename
  */
-function getFiletypeFromPath(path: string): string | undefined {
+export function getFiletypeFromPath(path: string): string | undefined {
   const ext = path.split(".").pop()?.toLowerCase()
   if (!ext) return undefined
 
