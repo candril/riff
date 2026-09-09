@@ -53,6 +53,10 @@ few columns of lookahead, the way `sidescrolloff` does in vim.
 column against the left or right edge. The line numbers and comment markers stay pinned at the
 left while you scroll; only the code moves.
 
+A line that continues past the right edge ends in a dim `›`, and one with content scrolled off to
+the left gets a `‹` in the gutter's padding — so a truncated line never reads as a line that
+simply ends there.
+
 There is no horizontal scrollbar. One long line anywhere makes the content wider than the
 viewport, and the bar would then sit across the bottom of the diff for the rest of the review.
 

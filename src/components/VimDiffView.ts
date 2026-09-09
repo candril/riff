@@ -135,6 +135,8 @@ const headerNameFg = RGBA.fromHex(theme.blue)
 const headerAdditionsFg = RGBA.fromHex(theme.green)
 const headerDeletionsFg = RGBA.fromHex(theme.red)
 
+const overflowFg = RGBA.fromHex(theme.overlay1)
+
 /** Parsed once per hex string — the overlay repaints every frame. */
 const rgbaCache = new Map<string, RGBA>()
 function rgba(color: string | RGBA): RGBA {
@@ -178,6 +180,16 @@ function recolorCell(buffer: OptimizedBuffer, x: number, y: number, fg: RGBA, bg
   const i = y * buffer.width + x
   const glyph = char[i]!
   buffer.drawChar(glyph === 0 ? SPACE_CODE_POINT : glyph, x, y, fg, bg, attributes[i]!)
+}
+
+/**
+ * Draw a glyph over a cell, keeping the background the renderer already
+ * put there — a marker sits on a diff line whose tint it must not break.
+ */
+function drawMarker(buffer: OptimizedBuffer, x: number, y: number, glyph: string, fg: RGBA): void {
+  const { bg } = buffer.buffers
+  const i = (y * buffer.width + x) * 4
+  buffer.drawText(glyph, x, y, fg, RGBA.fromValues(bg[i]!, bg[i + 1]!, bg[i + 2]!, bg[i + 3]!))
 }
 
 /**
@@ -373,11 +385,9 @@ export class VimDiffView {
       const scrollTop = this.expectedScrollTop ?? this.scrollBox?.scrollTop ?? 0
       this.positionTerminalCursor()
 
-      const scrolledSideways = (this.scrollBox?.scrollLeft ?? 0) > 0
-      const rows = this.visible && (scrolledSideways || (this.flashState?.active ?? false))
-        ? this.visibleRows(scrollTop)
-        : []
+      const rows = this.visible ? this.visibleRows(scrollTop) : []
       this.renderGutterOverlay(buffer, rows)
+      this.renderOverflowMarkers(buffer, rows)
       this.renderFlashOverlay(buffer, rows)
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
@@ -1625,6 +1635,39 @@ export class VimDiffView {
     }
 
     return rows
+  }
+
+  /**
+   * Mark the lines that run past an edge.
+   *
+   * Without this a truncated line is indistinguishable from one that
+   * happens to end there, which is the question the horizontal scrollbar
+   * was answering badly. `›` takes the last column, the way vim's
+   * `listchars=extends` does; `‹` goes in the gutter's padding column, so
+   * it costs no code at all.
+   */
+  private renderOverflowMarkers(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
+    const bounds = this.paneBounds()
+    if (!bounds) return
+
+    const scrollLeft = this.scrollBox?.scrollLeft ?? 0
+
+    for (const row of rows) {
+      if (row.line < 0 || row.screenY >= buffer.height) continue
+
+      const lineWidth = this.lineWidths[row.line] ?? 0
+      if (lineWidth === 0) continue
+
+      const window = bounds.right - row.contentX
+      if (window <= 0) continue
+
+      if (lineWidth > scrollLeft + window && bounds.right - 1 < buffer.width) {
+        drawMarker(buffer, bounds.right - 1, row.screenY, "›", overflowFg)
+      }
+      if (scrollLeft > 0 && row.contentX - 1 >= bounds.left) {
+        drawMarker(buffer, row.contentX - 1, row.screenY, "‹", overflowFg)
+      }
+    }
   }
 
   /**
