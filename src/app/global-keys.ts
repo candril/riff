@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { visibleFeedEvents, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -95,6 +95,8 @@ export interface GlobalKeyContext {
   externalToolsContext: externalTools.ExternalToolsContext
   prOperationsContext: prOperations.PrOperationsContext
   refreshContext: { handleRefresh: () => Promise<void> }
+  /** Loading the feed's own data (spec 070). */
+  feedLoadContext: feed.FeedLoadContext
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
@@ -133,7 +135,7 @@ function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
     case "state":
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed":
-      return []
+      return visibleFeedEvents(state).map((_, index) => String(index))
     default:
       return []
   }
@@ -406,6 +408,55 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.render()
       }, 2000)
     })
+  }
+
+  /**
+   * What the feed needs to act: where its rows lead, and the files of a
+   * commit row that has just been opened (spec 070).
+   */
+  function feedContext(): feed.FeedInputContext {
+    return {
+      state: ctx.getState(),
+      setState: ctx.setState,
+      render: ctx.render,
+      onOpenEvent: (event) => {
+        const target = event.target
+        if (!target) return
+        recordJump()
+        switch (target.kind) {
+          case "commit":
+            // The diff, scoped to that commit — `]g`/`[g` already know how.
+            ctx.setState((s) => switchView(s, "diff"))
+            ctx.onCommitSelected(target.sha)
+            return
+          case "comment": {
+            const comment = ctx.getState().comments.find((c) => c.id === target.commentId)
+            if (!comment) return
+            ctx.setState((s) => switchView(s, "diff"))
+            commentsPicker.jumpToComment(comment, {
+              getState: ctx.getState,
+              setState: ctx.setState,
+              getVimState: ctx.getVimState,
+              setVimState: ctx.setVimState,
+              getLineMapping: ctx.getLineMapping,
+              ensureCursorVisible: ctx.ensureCursorVisible,
+              render: ctx.render,
+              fileNavContext: ctx.fileNavContext,
+            })
+            return
+          }
+          case "check":
+          case "url": {
+            const url = target.kind === "check" ? target.url : target.url
+            if (url) Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
+            return
+          }
+        }
+      },
+      onExpandCommit: (sha) => {
+        void feed.loadCommitFiles(ctx.feedLoadContext, sha)
+      },
+    }
   }
 
   return function handleKeypress(key: KeyEvent) {
@@ -720,14 +771,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
-    // ========== FEED (captures its filter prompt, spec 065) ==========
-    if (
-      feed.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-      })
-    ) {
+    // ========== FEED (owns its keys while it is the view, specs 065, 070) ==========
+    if (feed.handleInput(key, feedContext())) {
       return
     }
 
@@ -921,6 +966,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         recordJump()
         ctx.setState(() => switched)
         ctx.render()
+        // The feed's timeline is fetched the first time it is asked for: a
+        // PR nobody opens the feed on costs nothing (spec 070).
+        if (switched.viewMode === "feed" && switched.feed.events.length === 0 && !switched.feed.loading) {
+          void feed.loadFeed(ctx.feedLoadContext)
+        }
         return
       }
 
@@ -1227,6 +1277,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         folds.handleGoToBottom(ctx.foldsContext)
         return
       } else if (sequence === "za") {
+        // In the feed, `za` opens a commit row into the files it touched.
+        if (s.viewMode === "feed") {
+          feed.toggleExpandedRow(feedContext())
+          return
+        }
         folds.handleToggleFoldAtCursor(ctx.foldsContext)
         return
       } else if (sequence === "zR!" || sequence === "zr!") {

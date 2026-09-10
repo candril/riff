@@ -56,6 +56,8 @@ export interface RefreshContext {
   revealCursor: () => void
   /** Recompute the surviving search pattern's matches against the new mapping. */
   refreshSearchMatches: () => void
+  /** Re-read the activity feed's timeline (spec 070). */
+  reloadFeed: () => void
   // The head riff is showing. Reading it before the reload is what makes a
   // force-push detectable; writing it back keeps context expansion pointed
   // at a commit that still exists.
@@ -132,6 +134,8 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           seenCommentIds: new Set<string>(),
           visitRebased: forcePushed,
         }
+        // The feed's events describe the data that was just replaced; its
+        // filters and row are the reader's and survive (spec 070).
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
 
@@ -175,6 +179,14 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Collapse viewed files
       ctx.setState((s) => collapseViewedFiles(s))
+
+      // The stream is rebuilt from the new data — from the timeline again
+      // when the feed is what the reader is looking at.
+      ctx.setState((s) => ({
+        ...s,
+        feed: { ...s.feed, events: [], commitFiles: new Map() },
+      }))
+      if (ctx.getState().viewMode === "feed") ctx.reloadFeed()
 
       // Swap in a fresh PR info panel — it caches prInfo/files/comments
       // internally and won't pick up the new data otherwise.

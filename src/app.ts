@@ -58,6 +58,7 @@ import * as jumplist from "./features/jumplist"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
+import * as feedFeature from "./features/feed"
 import { startCommentPoll } from "./features/comment-poll"
 import * as reactions from "./features/reactions"
 import { reactionContentFromRowId } from "./features/action-menu"
@@ -595,6 +596,7 @@ export async function createApp(options: AppOptions = {}) {
       vimDiffView.updateCursor(vimState)
     },
     refreshSearchMatches: () => { searchHandler.refreshMatches() },
+    reloadFeed: () => { void feedFeature.loadFeed(feedLoadContext) },
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
     recreatePrInfoPanel: () => {
@@ -1098,6 +1100,12 @@ export async function createApp(options: AppOptions = {}) {
     setTimeout(() => { state = clearToast(state); render() }, 1500)
   }
 
+  const feedLoadContext: feedFeature.FeedLoadContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+  }
+
   // ===== KEYBOARD INPUT =====
   const handleKeypress = createKeyHandler({
     getState: () => state,
@@ -1131,6 +1139,7 @@ export async function createApp(options: AppOptions = {}) {
     externalToolsContext,
     prOperationsContext,
     refreshContext: { handleRefresh: () => refresh.handleRefresh(refreshContext) },
+    feedLoadContext,
     reviewPreviewOpenContext,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,

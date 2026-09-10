@@ -1,0 +1,275 @@
+/**
+ * The activity feed's events (spec 070).
+ *
+ * The overview says what a PR *is*. What *happened* — and what happened
+ * since you left — had no home: the conversation knows about comments and
+ * nothing else, so commits, approvals, resolutions, checks turning green and
+ * force-pushes were invisible without opening a browser.
+ *
+ * Events come from three places riff already talks to, merged by time:
+ * GitHub's timeline (the only source that reports a force-push at all), the
+ * check runs, and the review comments riff has anyway.
+ */
+
+import type { Comment } from "../types"
+import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
+
+export type FeedEventType =
+  | "commit"
+  | "comment"
+  | "review"
+  | "thread"
+  | "check"
+  | "push"
+  | "ready"
+
+export interface FeedEvent {
+  id: string
+  type: FeedEventType
+  /** When it happened. The feed is newest first. */
+  at: string
+  /** Who did it, where one person did. */
+  actor?: string
+  /** The row's own words — "approved", "fix: handle empty hunks". */
+  title: string
+  /** The dimmer trailing half — a file:line, a check's result, counts. */
+  detail?: string
+  /** What `Enter` opens: the comment, the commit, the check. */
+  target?: FeedTarget
+}
+
+export type FeedTarget =
+  | { kind: "comment"; commentId: string }
+  | { kind: "commit"; sha: string }
+  | { kind: "check"; url: string | null }
+  | { kind: "url"; url: string }
+
+/** The filters the number keys toggle, in the order the header lists them. */
+export const FEED_TYPES: { key: string; type: FeedEventType; label: string }[] = [
+  { key: "1", type: "commit", label: "commits" },
+  { key: "2", type: "comment", label: "comments" },
+  { key: "3", type: "review", label: "reviews" },
+  { key: "4", type: "check", label: "checks" },
+  { key: "5", type: "thread", label: "threads" },
+]
+
+/**
+ * A raw timeline entry, as `GET /issues/{n}/timeline` returns it. Only the
+ * handful of events riff shows are read; the rest are ignored rather than
+ * typed.
+ */
+export interface TimelineEntry {
+  event?: string
+  created_at?: string
+  actor?: { login?: string }
+  commit_id?: string
+  sha?: string
+  message?: string
+  ref?: string
+  state?: string
+  submitted_at?: string
+  body?: string
+  html_url?: string
+  user?: { login?: string }
+}
+
+/**
+ * Turn everything riff knows into one stream, newest first.
+ *
+ * Timestamps are the only ordering: a commit pushed after a review lands
+ * above it whatever order the APIs answered in.
+ */
+export function buildFeed(input: {
+  timeline: readonly TimelineEntry[]
+  comments: readonly Comment[]
+  checks: readonly PrCheck[]
+  commits: readonly PrCommit[]
+  prInfo: PrInfo | null
+}): FeedEvent[] {
+  const events: FeedEvent[] = [
+    ...fromTimeline(input.timeline, input.commits),
+    ...fromComments(input.comments),
+    ...fromChecks(input.checks),
+  ]
+
+  const seen = new Set<string>()
+  return events
+    .filter((event) => {
+      if (seen.has(event.id)) return false
+      seen.add(event.id)
+      return true
+    })
+    .sort((a, b) => b.at.localeCompare(a.at))
+}
+
+function fromTimeline(
+  timeline: readonly TimelineEntry[],
+  commits: readonly PrCommit[]
+): FeedEvent[] {
+  const events: FeedEvent[] = []
+  const commitBySha = new Map(commits.map((commit) => [commit.sha, commit]))
+
+  for (const entry of timeline) {
+    const at = entry.created_at ?? entry.submitted_at
+    const actor = entry.actor?.login ?? entry.user?.login
+
+    switch (entry.event) {
+      case "committed": {
+        const sha = (entry.sha ?? entry.commit_id ?? "").slice(0, 7)
+        if (!sha) break
+        const known = commitBySha.get(sha)
+        events.push({
+          id: `commit:${sha}`,
+          type: "commit",
+          at: at ?? known?.date ?? "",
+          actor: known?.author ?? actor,
+          title: known?.message ?? firstLine(entry.message ?? sha),
+          detail: sha,
+          target: { kind: "commit", sha },
+        })
+        break
+      }
+      case "reviewed": {
+        if (!at) break
+        events.push({
+          id: `review:${at}:${actor ?? ""}`,
+          type: "review",
+          at,
+          actor,
+          title: reviewVerb(entry.state),
+          detail: entry.body ? firstLine(entry.body) : undefined,
+          target: entry.html_url ? { kind: "url", url: entry.html_url } : undefined,
+        })
+        break
+      }
+      case "head_ref_force_pushed": {
+        if (!at) break
+        events.push({
+          id: `push:${at}`,
+          type: "push",
+          at,
+          actor,
+          title: "force-pushed",
+          detail: "the branch was rewritten",
+        })
+        break
+      }
+      case "ready_for_review": {
+        if (!at) break
+        events.push({ id: `ready:${at}`, type: "ready", at, actor, title: "ready for review" })
+        break
+      }
+      case "head_ref_restored":
+      case "head_ref_deleted": {
+        if (!at) break
+        events.push({
+          id: `${entry.event}:${at}`,
+          type: "push",
+          at,
+          actor,
+          title: entry.event === "head_ref_deleted" ? "branch deleted" : "branch restored",
+          detail: entry.ref,
+        })
+        break
+      }
+    }
+  }
+
+  return events
+}
+
+function fromComments(comments: readonly Comment[]): FeedEvent[] {
+  const events: FeedEvent[] = []
+
+  for (const comment of comments) {
+    events.push({
+      id: `comment:${comment.id}`,
+      type: "comment",
+      at: comment.createdAt,
+      actor: comment.author ?? "you",
+      title: firstLine(comment.body),
+      detail: `${comment.filename}:${comment.line}`,
+      target: { kind: "comment", commentId: comment.id },
+    })
+
+    // A thread that got resolved is its own event: it is the answer to the
+    // comment, and reading "resolved" is what tells you not to look again.
+    if (comment.isThreadResolved && !comment.inReplyTo) {
+      events.push({
+        id: `thread:${comment.id}`,
+        type: "thread",
+        at: comment.createdAt,
+        actor: comment.author ?? "you",
+        title: "resolved",
+        detail: `${comment.filename}:${comment.line}`,
+        target: { kind: "comment", commentId: comment.id },
+      })
+    }
+  }
+
+  return events
+}
+
+function fromChecks(checks: readonly PrCheck[]): FeedEvent[] {
+  return checks
+    .filter((check) => check.completedAt || check.startedAt)
+    .map((check) => ({
+      id: `check:${check.id}`,
+      type: "check" as const,
+      at: check.completedAt ?? check.startedAt ?? "",
+      title: check.name,
+      detail: checkResult(check),
+      target: { kind: "check" as const, url: check.detailsUrl },
+    }))
+}
+
+function checkResult(check: PrCheck): string {
+  if (check.status !== "completed") return check.status === "queued" ? "queued" : "running"
+  switch (check.conclusion) {
+    case "success":
+      return "✓ passing"
+    case null:
+      return "done"
+    default:
+      return `✗ ${check.conclusion}`
+  }
+}
+
+function reviewVerb(state: string | undefined): string {
+  switch (state?.toUpperCase()) {
+    case "APPROVED":
+      return "approved"
+    case "CHANGES_REQUESTED":
+      return "requested changes"
+    case "DISMISSED":
+      return "review dismissed"
+    default:
+      return "commented"
+  }
+}
+
+function firstLine(text: string): string {
+  const line = text.split("\n").find((candidate) => candidate.trim().length > 0) ?? ""
+  return line.trim()
+}
+
+/**
+ * What the feed shows right now: the types that are on, narrowed by the
+ * text filter, and by "unseen" when that is asked for.
+ */
+export function visibleFeed(
+  events: readonly FeedEvent[],
+  options: { types: ReadonlySet<string>; filter: string; unseenIds?: ReadonlySet<string> }
+): FeedEvent[] {
+  const needle = options.filter.toLowerCase()
+  return events.filter((event) => {
+    if (options.types.size > 0 && !options.types.has(event.type)) return false
+    if (options.unseenIds && !isUnseenEvent(event, options.unseenIds)) return false
+    if (!needle) return true
+    return `${event.title} ${event.detail ?? ""} ${event.actor ?? ""}`.toLowerCase().includes(needle)
+  })
+}
+
+function isUnseenEvent(event: FeedEvent, unseenIds: ReadonlySet<string>): boolean {
+  return event.target?.kind === "comment" && unseenIds.has(event.target.commentId)
+}

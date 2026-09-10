@@ -91,6 +91,7 @@ const HELP_SECTIONS = [
       ["gs", "Sync edits / replies"],
       ["gr", "Refresh from GitHub"],
       ["i / a / d", "PR state / feed / diff"],
+      ["1-5 / 0 / u", "Feed: type filters, all, unseen"],
       ["go / gy", "Open PR / copy its URL"],
       ["gY", "Copy permalink"],
       ["gP", "Create / edit PR"],

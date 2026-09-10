@@ -140,7 +140,8 @@ There is no repo-local config file — configuration is only
 │   └── gh-owner-repo-123/     # one markdown file per comment, YAML frontmatter
 │       └── <uuid>.md
 ├── gh-owner-repo-123/
-│   └── viewed.json            # viewed state + the commit it was viewed at
+│   ├── viewed.json            # viewed state + the commit it was viewed at
+│   └── visit.json             # when you last looked, and what you had read
 ├── mentionable-users.json     # cached @mention roster (24h TTL)
 └── session.json               # current review session
 ```
@@ -213,7 +214,9 @@ be costed before it ships (`rateLimit { cost }` in the query reports it).
 
 Current measured costs: full thread fetch 51, probe-depth thread fetch 2,
 `getPrThreadStates` 1, `fetchPrMetaReactions` 2, `fetchViewedStatuses` 1.
-Note that `gh pr view --json …` is GraphQL, not REST.
+Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
+timeline (spec 070) is REST and paginated, and only fetched when the feed is
+opened or refreshed.
 
 ## Actions
 
@@ -246,12 +249,14 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Show File Path | Ctrl+g | Display current file path as toast |
 | Open in Editor | gf | Open current file in $EDITOR |
 | Open in Editor (tmux window) | gF | Open current file in $EDITOR in a new tmux window, riff keeps running |
-| Refresh | gr | Reload diff, commits, and comments |
+| Refresh | gr | Reload diff, commits, and comments — keeping your place |
 | Submit Review | gS | Submit review (PR mode) |
 | Sync Changes | gs | Sync local comments/edits/replies |
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
 | PR Info | gi | Show PR details |
+| PR state / feed / diff | i / a / d | The three views; the same key again goes back |
+| Filter | Ctrl+f | Narrow whatever has focus |
 | Toggle File Panel | Ctrl+b | Show/hide file tree |
 | Expand File Panel | Ctrl+e | Toggle file panel full width |
 | Help | g? | Show keyboard shortcuts |

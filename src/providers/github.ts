@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
 import { getCurrentRepoRef } from "./repo"
+import type { TimelineEntry } from "../utils/feed"
 import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_CONTENT } from "../types"
 
@@ -755,6 +756,23 @@ export async function fetchRestReviewComments(
 ): Promise<any[]> {
   return safeGhCommand(
     async () => await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/comments`.json() as any[]
+  )
+}
+
+/**
+ * The PR's timeline (spec 070): commits, reviews, force-pushes, renames,
+ * ready-for-review — one paginated REST call, and the only source that
+ * reports a force-push at all, which is why it is worth a request riff does
+ * not otherwise make.
+ */
+export async function fetchPrTimeline(
+  owner: string,
+  repo: string,
+  prNumber: number
+): Promise<TimelineEntry[]> {
+  return safeGhCommand(
+    async () =>
+      (await $`gh api --paginate repos/${owner}/${repo}/issues/${prNumber}/timeline`.json()) as TimelineEntry[]
   )
 }
 

@@ -9,6 +9,8 @@ import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import type { VisitWatermark } from "./utils/visit"
+import type { FeedEvent } from "./utils/feed"
+import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
 
 /**
@@ -205,6 +207,19 @@ export interface FeedState {
   filterInput: boolean
   /** Ids of the rows expanded into their detail (a commit's files). */
   expandedIds: ReadonlySet<string>
+  /** Narrowed to what arrived since the last visit (specs 069, 070). */
+  unseenOnly: boolean
+  /** The stream itself, newest first. Empty until the timeline lands. */
+  events: readonly FeedEvent[]
+  loading: boolean
+  /** Files of an expanded commit row, fetched when it is opened. */
+  commitFiles: ReadonlyMap<string, CommitFileSummary[]>
+}
+
+export interface CommitFileSummary {
+  filename: string
+  additions: number
+  deletions: number
 }
 
 export function createFeedState(): FeedState {
@@ -214,7 +229,78 @@ export function createFeedState(): FeedState {
     filter: "",
     filterInput: false,
     expandedIds: new Set<string>(),
+    unseenOnly: false,
+    events: [],
+    loading: false,
+    commitFiles: new Map(),
   }
+}
+
+/** What the feed is showing right now, after its filters (spec 070). */
+export function visibleFeedEvents(state: AppState): FeedEvent[] {
+  return visibleFeed(state.feed.events, {
+    types: state.feed.types,
+    filter: state.feed.filter,
+    unseenIds: state.feed.unseenOnly
+      ? new Set(unseenIn(state, state.comments).map((comment) => comment.id))
+      : undefined,
+  })
+}
+
+/** Move the feed's highlight, clamped to what is on screen. */
+export function moveFeedHighlight(state: AppState, delta: number): AppState {
+  const max = Math.max(0, visibleFeedEvents(state).length - 1)
+  const highlightIndex = Math.max(0, Math.min(max, state.feed.highlightIndex + delta))
+  return highlightIndex === state.feed.highlightIndex
+    ? state
+    : { ...state, feed: { ...state.feed, highlightIndex } }
+}
+
+/**
+ * Toggle one event type on or off. A row of types with none selected means
+ * all of them, which is what `0` returns to.
+ */
+export function toggleFeedType(state: AppState, type: string): AppState {
+  const types = new Set(state.feed.types)
+  if (types.has(type)) types.delete(type)
+  else types.add(type)
+  return { ...state, feed: { ...state.feed, types, highlightIndex: 0 } }
+}
+
+export function showAllFeedTypes(state: AppState): AppState {
+  return {
+    ...state,
+    feed: { ...state.feed, types: new Set<string>(), unseenOnly: false, highlightIndex: 0 },
+  }
+}
+
+export function toggleFeedUnseen(state: AppState): AppState {
+  return {
+    ...state,
+    feed: { ...state.feed, unseenOnly: !state.feed.unseenOnly, highlightIndex: 0 },
+  }
+}
+
+/** Open or close a row's detail — a commit's files (spec 070). */
+export function toggleFeedRowExpanded(state: AppState, id: string): AppState {
+  const expandedIds = new Set(state.feed.expandedIds)
+  if (expandedIds.has(id)) expandedIds.delete(id)
+  else expandedIds.add(id)
+  return { ...state, feed: { ...state.feed, expandedIds } }
+}
+
+export function setFeedEvents(state: AppState, events: readonly FeedEvent[]): AppState {
+  return { ...state, feed: { ...state.feed, events, loading: false } }
+}
+
+export function setFeedCommitFiles(
+  state: AppState,
+  sha: string,
+  files: CommitFileSummary[]
+): AppState {
+  const commitFiles = new Map(state.feed.commitFiles)
+  commitFiles.set(sha, files)
+  return { ...state, feed: { ...state.feed, commitFiles } }
 }
 
 /**

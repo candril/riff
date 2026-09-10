@@ -217,6 +217,31 @@ whatever is focused via the action menu.
 
 ![The PR overview](../../../assets/screenshots/overview.png)
 
+## Feed
+
+`a` opens it: one row per event, newest first — commits, comments, reviews, resolved threads,
+check runs, pushes and force-pushes, merged by time. It answers "what happened, and what happened
+since I left" without the browser.
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Move |
+| `1`–`5` | Toggle a type: commits, comments, reviews, checks, threads |
+| `0` | Back to everything |
+| `u` | Only what you have not seen ([the watermark](/riff/reference/github/#since-your-last-visit)) |
+| `Ctrl+f` | Filter the rows by text |
+| `za` | Open a commit into the files it touched |
+| `Enter` | Go to what the row is about |
+| `s` | Label the rows and jump to one |
+
+`Enter` is a way in, not a second comments panel: a commit opens the diff scoped to that commit,
+a comment opens its thread, a check opens what it says. `a` comes back to the feed with the same
+row still selected. A commit's files are fetched when its row is opened, not on arrival, and the
+timeline itself is read the first time you ask for the feed and again when you refresh.
+
+The events come from GitHub's timeline API — the only source that reports a force-push at all —
+merged with the checks and comments riff already has.
+
 ## Commit filtering
 
 `]g` narrows the diff to the first commit, `]g` again to the second, and past the last one it

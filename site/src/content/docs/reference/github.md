@@ -74,7 +74,7 @@ review.
 
 | Key | Action |
 | --- | --- |
-| `gr` | Refresh — diff, commits, comments, checks |
+| `gr` | Refresh — diff, commits, comments, checks, the feed |
 | `gi` / `i` | PR overview |
 | `a` / `d` | The feed / the diff |
 | `go` | Open the PR in a browser |
@@ -143,7 +143,8 @@ memory of your reading, kept in `.riff/` beside the viewed statuses.
 
 Worth knowing if you keep several riff panes open: GitHub meters GraphQL in **points**, not
 requests — 5000 an hour, on a quota separate from REST's 5000 — and it prices a query by its
-nested node count. riff's measured costs are 51 points for a full thread fetch, 2 for a
+nested node count. The feed's timeline is REST rather than GraphQL, so it spends from the other budget, and only
+when you open the feed. riff's measured costs are 51 points for a full thread fetch, 2 for a
 probe-depth one, 1 for the poll's thread-state check, 2 for metadata reactions, 1 for viewed
 statuses. Note that `gh pr view --json …` is GraphQL too, not REST.
 

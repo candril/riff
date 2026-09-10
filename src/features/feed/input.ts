@@ -1,19 +1,34 @@
 /**
- * Feed input handling (specs 064, 065).
+ * Feed input handling (specs 064, 065, 070).
  *
- * The feed's own keys arrive with spec 070; what is here is the filter
- * prompt, which works the same way every prompt in riff does — riff takes
- * Enter and Escape, the input widget takes everything else.
+ * The feed is a way in, not a second comments panel: `Enter` takes you where
+ * the thing lives — a commit to the diff scoped to it, a comment to its
+ * thread, a check to what it says — and the feed keeps its row so `a` comes
+ * back to it.
  */
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
-import { clearViewFilter, commitViewFilter } from "../../state"
+import {
+  clearViewFilter,
+  commitViewFilter,
+  moveFeedHighlight,
+  showAllFeedTypes,
+  toggleFeedRowExpanded,
+  toggleFeedType,
+  toggleFeedUnseen,
+  visibleFeedEvents,
+} from "../../state"
+import { FEED_TYPES, type FeedEvent } from "../../utils/feed"
 
 export interface FeedInputContext {
   readonly state: AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  /** Open what a row is about (spec 070). */
+  onOpenEvent: (event: FeedEvent) => void
+  /** Fetch the files of a commit row that was just expanded. */
+  onExpandCommit: (sha: string) => void
 }
 
 export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
@@ -32,5 +47,77 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
     return true
   }
 
+  // Ctrl-modified keys belong to the global handler — Ctrl-p, Ctrl-f, the
+  // jumplist — so only bare keys are read here.
+  if (key.ctrl || key.meta) return false
+
+  const events = visibleFeedEvents(ctx.state)
+  const highlighted = events[ctx.state.feed.highlightIndex]
+
+  switch (key.name) {
+    case "j":
+    case "down":
+      ctx.setState((s) => moveFeedHighlight(s, 1))
+      ctx.render()
+      return true
+
+    case "k":
+    case "up":
+      ctx.setState((s) => moveFeedHighlight(s, -1))
+      ctx.render()
+      return true
+
+    case "g":
+      // `gg` and `G` are the global chords; a bare `g` starts one, so let it
+      // through rather than swallowing half a sequence.
+      return false
+
+    case "u":
+      ctx.setState(toggleFeedUnseen)
+      ctx.render()
+      return true
+
+    case "return":
+    case "enter":
+      if (highlighted) ctx.onOpenEvent(highlighted)
+      return true
+
+    case "a":
+      // `za` opens a commit row into its files; a bare `a` is the view key.
+      return false
+
+    case "0":
+      ctx.setState(showAllFeedTypes)
+      ctx.render()
+      return true
+  }
+
+  const typeKey = FEED_TYPES.find((entry) => entry.key === key.name)
+  if (typeKey) {
+    ctx.setState((s) => toggleFeedType(s, typeKey.type))
+    ctx.render()
+    return true
+  }
+
   return false
+}
+
+/**
+ * `za` on a feed row. Lives outside the switch because the chord is resolved
+ * by the global key handler, which owns `z`.
+ */
+export function toggleExpandedRow(ctx: FeedInputContext): boolean {
+  const events = visibleFeedEvents(ctx.state)
+  const highlighted = events[ctx.state.feed.highlightIndex]
+  if (!highlighted) return false
+
+  const wasExpanded = ctx.state.feed.expandedIds.has(highlighted.id)
+  ctx.setState((s) => toggleFeedRowExpanded(s, highlighted.id))
+  // The files are fetched when the row is opened, not on arrival: a feed of
+  // forty commits would otherwise be forty requests nobody asked for.
+  if (!wasExpanded && highlighted.target?.kind === "commit") {
+    ctx.onExpandCommit(highlighted.target.sha)
+  }
+  ctx.render()
+  return true
 }

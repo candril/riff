@@ -45,6 +45,7 @@ import {
   setViewFilter,
   markCommentsSeen,
   unseenIn,
+  visibleFeedEvents,
 } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import {
@@ -212,6 +213,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         prInfoPanelInstance.getContainer()
       )
     } else if (state.viewMode === "feed") {
+      const feedEvents = visibleFeedEvents(state)
       content = Box(
         {
           id: "main-content-row",
@@ -219,7 +221,17 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           height: "100%",
           flexDirection: "row",
         },
-        FeedView({ rows: [] })
+        FeedView({
+          events: feedEvents,
+          feed: state.feed,
+          unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+          flashLabels:
+            flashState.active && flashState.surface === "feed"
+              ? new Map(flashState.rows.map((row) => [Number(row.id), row.label]))
+              : new Map(),
+          renderer: ctx.renderer,
+          loading: state.feed.loading,
+        })
       )
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })
