@@ -97,6 +97,19 @@ switches itself over to reviewing the PR it just made.
 
 `gP` in PR mode edits the existing title and body through the same template.
 
+## Whose move is it
+
+The header's right side starts with a verdict on the PR: `✓ mergeable`, or who is holding it —
+`! conflicts`, `! behind main`, `! changes requested`, `! checks failing`, `! 2 open threads` for
+the author; `? needs review`, `? blocked` for someone else; `· checks running`, `· waiting for
+GitHub` for a machine; `⇢ auto-merge (squash)` and `◌ draft` for nobody. The glyphs are the ones
+[presto](https://github.com/candril/presto) uses, so a reader of both sees one thing.
+
+An open comment thread outranks whatever GitHub says: this is a team that blocks by commenting
+rather than by requesting changes, so an unresolved thread is the author's move even while GitHub
+reports the PR as merely awaiting review. A draft gets no verdict at all — branch protection is
+not evaluated for drafts, and what GitHub reports about one cannot be trusted.
+
 ## Viewed status
 
 `v` writes GitHub's own viewed checkbox, and riff reads it at startup. Marking a file viewed in

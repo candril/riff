@@ -2,12 +2,50 @@ import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PrInfo, PrCommit, PrCheck } from "../providers/github"
+import type { MergeReading, MergeVerdict } from "../utils/merge-verdict"
 
 /**
  * Compact summary of CI check status shown in the PR-mode header
  * (spec 041). Returns null when there are no checks so the indicator is
  * omitted entirely.
  */
+/**
+ * The verdict's one glyph: whose move it is. A tick for nobody's, a bang
+ * for the author's, a question mark for someone else's, a dot for a
+ * machine's — the same four presto uses, so a reader of both sees one thing.
+ */
+function mergeGlyph(verdict: MergeVerdict): string {
+  switch (verdict) {
+    case "ready":
+      return "✓"
+    case "author":
+      return "!"
+    case "others":
+      return "?"
+    case "auto-merge":
+      return "⇢"
+    case "draft":
+      return "◌"
+    default:
+      return "·"
+  }
+}
+
+function mergeColor(verdict: MergeVerdict): string {
+  switch (verdict) {
+    case "ready":
+      return theme.green
+    case "author":
+      return theme.yellow
+    case "others":
+      return theme.blue
+    case "auto-merge":
+      return theme.mauve
+    default:
+      return theme.overlay0
+  }
+}
+
 function summarizeChecks(checks?: PrCheck[]): { text: string; color: string } | null {
   if (!checks?.length) return null
   let pass = 0
@@ -53,6 +91,8 @@ export interface HeaderProps {
   commits?: PrCommit[]
   /** ISO time the diff/comments were last pulled from the source. */
   lastRefreshedAt?: string | null
+  /** Whose move it is — can this land, and if not, who is holding it. */
+  merge?: MergeReading | null
 }
 
 /** Compact "last refreshed" indicator, e.g. "↻ 14:23". Null when unknown. */
@@ -64,6 +104,7 @@ function formatRefreshed(iso?: string | null): string | null {
 
 export function Header({
   title = "riff",
+  merge,
   selectedFile,
   totalFiles,
   prInfo,
@@ -146,9 +187,11 @@ export function Header({
           ? Text({ content: commitFilterText, fg: theme.peach })
           : Text({ content: prInfo.title, fg: colors.text })
       ),
-      // Right side: checks summary + progress + stats for selected file
+      // Right side: whose move it is, checks summary, progress, stats for
+      // the selected file
       Box(
         { flexDirection: "row", gap: 2, flexShrink: 0 },
+        merge ? Text({ content: `${mergeGlyph(merge.verdict)} ${merge.text}`, fg: mergeColor(merge.verdict) }) : null,
         (() => {
           const c = summarizeChecks(prInfo.checks)
           return c ? Text({ content: c.text, fg: c.color }) : null

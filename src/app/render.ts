@@ -56,6 +56,7 @@ import {
 import type { VimDiffView } from "../components"
 import { getFiletypeFromPath } from "../components/VimDiffView"
 import { buildTablePeek } from "../features/diff-view/table-peek"
+import { mergeReading } from "../utils/merge-verdict"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -427,6 +428,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           viewingCommit: state.viewingCommit,
           commits: state.commits,
           lastRefreshedAt: state.lastRefreshedAt,
+          merge: state.prInfo
+            ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments)
+            : null,
         }),
         Box(
           {

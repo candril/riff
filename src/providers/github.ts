@@ -109,6 +109,14 @@ export interface PrInfo {
   changedFiles: number
   createdAt?: string
   updatedAt?: string
+  /** GitHub's own reading of whether this can merge — UNKNOWN while it is
+   *  still computing it, null on the paths that do not ask. */
+  mergeStateStatus?: MergeStateStatus | null
+  /** GitHub's review decision. Null while approvals stand has been seen on
+   *  a live PR, so it is never the only word on reviews. */
+  reviewDecision?: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null
+  /** The method auto-merge is armed with, or null when it is off. */
+  autoMergeMethod?: string | null
   // Extended info (loaded separately)
   commits?: PrCommit[]
   reviews?: PrReview[]
@@ -117,6 +125,17 @@ export interface PrInfo {
   checks?: PrCheck[]
   bodyReactions?: ReactionSummary[]
 }
+
+/** How a PR's head sits against its base, as GitHub reports it. */
+export type MergeStateStatus =
+  | "BEHIND"
+  | "BLOCKED"
+  | "CLEAN"
+  | "DIRTY"
+  | "DRAFT"
+  | "HAS_HOOKS"
+  | "UNKNOWN"
+  | "UNSTABLE"
 
 export interface PrCommit {
   sha: string        // Short SHA (7 chars)
@@ -1124,6 +1143,7 @@ const PR_BUNDLE_QUERY = `
         number title body state isDraft url
         additions deletions changedFiles createdAt updatedAt
         headRefName baseRefName headRefOid
+        mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
         author { login __typename }
         headRepository { name }
         headRepositoryOwner { login }
@@ -1283,6 +1303,9 @@ export async function fetchPrBundle(
       changedFiles: pr.changedFiles,
       createdAt: pr.createdAt,
       updatedAt: pr.updatedAt,
+      mergeStateStatus: pr.mergeStateStatus ?? null,
+      reviewDecision: pr.reviewDecision ?? null,
+      autoMergeMethod: pr.autoMergeRequest?.mergeMethod?.toLowerCase() ?? null,
       commits,
       reviews,
       requestedReviewers,
