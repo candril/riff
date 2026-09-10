@@ -64,6 +64,24 @@ export class SearchEngine {
   }
 
   /**
+   * Whether a file's raw diff text has a match on one of its content rows.
+   *
+   * Used to decide whether a collapsed file is worth opening, so only its
+   * code counts — a hit on `diff --git`, `@@` or `+++` would open a file the
+   * user cannot see the match in.
+   */
+  diffContainsMatch(diff: string, regex: RegExp): boolean {
+    for (const raw of diff.split("\n")) {
+      const marker = raw[0]
+      if (marker !== " " && marker !== "+" && marker !== "-") continue
+      if (raw.startsWith("+++") || raw.startsWith("---")) continue
+      regex.lastIndex = 0
+      if (regex.test(raw.slice(1))) return true
+    }
+    return false
+  }
+
+  /**
    * Find all matches in the visual line mapping (diff lines only).
    * This searches the visible content without needing full file content.
    */

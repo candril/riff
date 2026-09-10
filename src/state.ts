@@ -1130,6 +1130,20 @@ export function collapseFile(state: AppState, filename: string): AppState {
 }
 
 /**
+ * Expand a set of files, whatever their viewed status.
+ */
+export function expandFiles(state: AppState, filenames: string[]): AppState {
+  const newCollapsed = new Set(state.collapsedFiles)
+  for (const filename of filenames) {
+    newCollapsed.delete(filename)
+  }
+  return {
+    ...state,
+    collapsedFiles: newCollapsed,
+  }
+}
+
+/**
  * Collapse all viewed files
  */
 export function collapseViewedFiles(state: AppState): AppState {

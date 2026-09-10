@@ -8,6 +8,7 @@ import {
   setFileContent,
   setFileContentError,
   toggleDividerExpansion,
+  expandFiles,
   openActionMenu,
   setPendingReview,
   setViewingCommit,
@@ -460,6 +461,14 @@ export async function createApp(options: AppOptions = {}) {
         state = toggleDividerExpansion(state, dividerKey)
         createLineMapping()
       }
+    },
+    getCollapsedFiles: () =>
+      state.files
+        .filter((file) => state.collapsedFiles.has(file.filename))
+        .map((file) => ({ filename: file.filename, diff: file.content })),
+    expandFiles: (filenames) => {
+      state = expandFiles(state, filenames)
+      createLineMapping()
     },
     onUpdate: () => {
       render()

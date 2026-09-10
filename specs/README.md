@@ -71,6 +71,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 053 | [Markdown Tables](./053-markdown-tables.md) | Done | Cells padded onto one grid in the diff; `gt` draws the table with wrapping cells |
 | 054 | [HTML in Comments](./054-html-in-comments.md) | Done | `<br>`, `<details>`, `<b>`, `<a>` translated instead of printed raw |
 | 055 | [Visual Selection & Text Objects](./055-visual-selection-and-text-objects.md) | Done | `v` selects charwise, `i`/`a` text objects, viewed moves to `x` |
+| 056 | [Search Resume & Collapsed Files](./056-search-resume-and-collapsed-files.md) | Done | `n` revives the pattern after Esc; a search opens the collapsed files it hits |
 
 ## MVP Path
 

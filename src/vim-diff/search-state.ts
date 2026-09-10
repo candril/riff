@@ -63,6 +63,12 @@ export interface SearchState {
   
   /** Whether search wrapped around */
   wrapped: boolean
+
+  /** The last confirmed pattern. Outlives the highlights, so `n` can pick
+   *  the search back up after Escape cleared them. */
+  lastPattern: string
+  /** The direction that pattern was searched in, for the same reason. */
+  lastDirection: "forward" | "backward"
 }
 
 /**
@@ -82,25 +88,18 @@ export function createSearchState(): SearchState {
     error: null,
     loading: false,
     wrapped: false,
+    lastPattern: "",
+    lastDirection: "forward",
   }
 }
 
 /**
- * Reset search state but preserve pattern (for n/N navigation)
+ * Drop the pattern and the highlights, keeping what `n` needs to resume.
  */
-export function clearActiveSearch(state: SearchState): SearchState {
+export function clearSearchKeepingLast(state: SearchState): SearchState {
   return {
-    ...state,
-    active: false,
-    promptValue: "",
-    error: null,
-    loading: false,
+    ...createSearchState(),
+    lastPattern: state.lastPattern,
+    lastDirection: state.lastDirection,
   }
-}
-
-/**
- * Clear all search state including pattern and highlights
- */
-export function clearAllSearch(): SearchState {
-  return createSearchState()
 }

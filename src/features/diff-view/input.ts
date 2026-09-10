@@ -179,13 +179,10 @@ export function handleInput(
     return true
   }
 
-  // Handle 'n' and 'N' for search repeat
+  // `n` / `N` walk the matches — reviving the last pattern when Escape has
+  // already cleared its highlights.
   if (key.name === "n" && !key.ctrl) {
-    if (ctx.searchState.pattern) {
-      ctx.searchHandler.jumpToMatch(key.shift ? "prev" : "next")
-    } else {
-      ctx.vimHandler.repeatSearch(key.shift)
-    }
+    ctx.searchHandler.jumpToMatch(key.shift ? "prev" : "next")
     return true
   }
 
