@@ -538,14 +538,28 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,
+    getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
+    getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
+    getMapping: () => lineMapping,
     rebuildLineMapping: () => { createLineMapping() },
+    revealCursor: () => {
+      ensureCursorVisible()
+      vimDiffView.updateCursor(vimState)
+    },
+    refreshSearchMatches: () => { searchHandler.refreshMatches() },
+    getHeadSha: () => currentHeadSha,
+    setHeadSha: (sha) => { currentHeadSha = sha },
     recreatePrInfoPanel: () => {
       if (state.appMode !== "pr" || !state.prInfo) return
+      // The panel is where the reader was, not just what it shows: rebuilt
+      // from scratch it would drop them back on the collapsed description.
+      const panelPosition = prInfoPanel?.capturePosition()
       prInfoPanel?.destroy()
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments)
       prInfoPanel.setOnExternalRerender(() => render())
+      if (panelPosition) prInfoPanel.restorePosition(panelPosition)
       state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
       // Fresh PR data can carry references riff has never looked up.
       startReferencePrefetch(referenceContext)

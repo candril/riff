@@ -78,7 +78,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 060 | [Code Under an Outdated Comment](./060-code-under-an-outdated-comment.md) | Done | `c` in the comments panel draws the code a comment was written against |
 | 061 | [Kept Drafts](./061-kept-drafts.md) | Done | Esc keeps a half-written comment on its line; the composer picks it back up |
 | 062 | [Plan: Review Surfaces](./062-review-surfaces-plan.md) | Plan | Orchestrates 063–070: three views, one key apart |
-| 063 | [Refresh in Place](./063-refresh-in-place.md) | Ready | `gr` changes the data and nothing else |
+| 063 | [Refresh in Place](./063-refresh-in-place.md) | Done | `gr` changes the data and nothing else |
 | 064 | [Surfaces & View Switching](./064-surfaces-and-view-switching.md) | Ready | `i` state, `a` feed, `d` diff; focus routing and per-view position |
 | 065 | [Text Inputs & Filters](./065-text-inputs-and-filters.md) | Ready | Real input widgets everywhere; `Ctrl-f` filters the focused view |
 | 066 | [Flash Everywhere](./066-flash-everywhere.md) | Ready | `s` jumps to a visible row in the tree, info panel and feed |

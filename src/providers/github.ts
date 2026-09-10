@@ -1093,6 +1093,12 @@ export async function fetchPrReviewComments(
  * each paying its own process spawn and API round-trip, several of them
  * fetching the very same commits and reviews. They're one query now.
  */
+/**
+ * How many commits the PR bundle asks for. Exported because a truncated
+ * list can't answer "is this head still in the PR" — see `wasForcePushed`.
+ */
+export const PR_COMMITS_FETCH_LIMIT = 100
+
 const PR_BUNDLE_QUERY = `
   query($owner: String!, $repo: String!, $prNumber: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -1104,7 +1110,7 @@ const PR_BUNDLE_QUERY = `
         headRepository { name }
         headRepositoryOwner { login }
         reactionGroups { content viewerHasReacted reactors(first: 0) { totalCount } }
-        commits(first: 100) {
+        commits(first: ${PR_COMMITS_FETCH_LIMIT}) {
           nodes { commit {
             oid messageHeadline committedDate
             authors(first: 1) { nodes { user { login } name } }

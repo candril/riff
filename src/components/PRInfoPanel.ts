@@ -333,6 +333,20 @@ interface SectionConfig {
 const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'checks', 'conversation', 'files', 'commits']
 
 /**
+ * Everything about the panel that is the reader's rather than the PR's,
+ * so a rebuilt panel can be handed it back.
+ */
+export interface PRInfoPanelPosition {
+  activeSection: PRInfoPanelSection
+  cursorIndex: number
+  expandedSections: Set<PRInfoPanelSection>
+  expandedThreads: Set<string>
+  expandedContent: Set<string>
+  expandedCheckIds: Set<number>
+  scrollTop: number
+}
+
+/**
  * A check is "failing" in the sense that expanding it to view annotations
  * makes sense (spec 043). `neutral` and `skipped` don't qualify even
  * though they're technically non-success.
@@ -436,6 +450,40 @@ export class PRInfoPanelClass {
    */
   getActiveSection(): PRInfoPanelSection {
     return this.activeSection
+  }
+
+  /**
+   * Where the reader is in the panel. Refreshed PR data means a new panel
+   * instance (the old one caches prInfo, files and comments), so the two
+   * halves of this pair are what carries the reader across it (spec 063).
+   */
+  capturePosition(): PRInfoPanelPosition {
+    return {
+      activeSection: this.activeSection,
+      cursorIndex: this.cursorIndex,
+      expandedSections: new Set(this.expandedSections),
+      expandedThreads: new Set(this.expandedThreads),
+      expandedContent: new Set(this.expandedContent),
+      expandedCheckIds: new Set(this.expandedCheckIds),
+      scrollTop: this.scrollBox.scrollTop,
+    }
+  }
+
+  restorePosition(position: PRInfoPanelPosition): void {
+    this.activeSection = position.activeSection
+    this.expandedSections = new Set(position.expandedSections)
+    this.expandedThreads = new Set(position.expandedThreads)
+    this.expandedContent = new Set(position.expandedContent)
+    this.expandedCheckIds = new Set(position.expandedCheckIds)
+
+    // The section can have fewer items than it had — a review that was
+    // resolved away, a check that finished and folded its annotations.
+    this.refreshFlatItems()
+    this.refreshFlatCheckItems()
+    this.cursorIndex = Math.min(position.cursorIndex, this.getMaxCursorIndex())
+
+    this.rebuildSections()
+    this.scrollBox.scrollTop = position.scrollTop
   }
 
   /**

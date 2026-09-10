@@ -118,6 +118,10 @@ onFocus = true
 re-reads the diff and `.riff/` when the terminal regains focus — which is what makes a Claude
 session retiring comments through `riff comments` show up without a keypress.
 
+A refresh changes the data and nothing else: the view you were in, the file you had open, your
+folds, your search and the line you were reading all come back. When the line itself is gone —
+deleted, or carried off by a force-push — riff lands on the nearest one in that file and says so.
+
 ## API budget
 
 Worth knowing if you keep several riff panes open: GitHub meters GraphQL in **points**, not

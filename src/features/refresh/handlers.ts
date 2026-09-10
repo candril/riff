@@ -1,13 +1,15 @@
 /**
  * Refresh feature handlers
  *
- * Full reload of PR data, diff, and comments from scratch.
+ * Full reload of PR data, diff, and comments from scratch — carrying the
+ * reader's position across it (spec 063).
  */
 
 import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github"
 import type { AppMode } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
+import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { SearchState } from "../../vim-diff/search-state"
 import type { IgnoreMatcher } from "../../utils/ignore"
 import {
@@ -19,14 +21,22 @@ import {
   updateFileStatuses,
   collapseViewedFiles,
 } from "../../state"
-import { loadPrSession } from "../../providers/github"
+import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments, loadViewedStatuses } from "../../storage"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
 import { createCursorState } from "../../vim-diff/cursor-state"
-import { createSearchState } from "../../vim-diff/search-state"
+import {
+  capturePosition,
+  refreshMessage,
+  relocate,
+  restorePosition,
+  restoreSearch,
+  wasForcePushed,
+  type RefreshPosition,
+} from "./position"
 
 export interface RefreshContext {
   // State access
@@ -34,10 +44,22 @@ export interface RefreshContext {
   setState: (updater: (s: AppState) => AppState) => void
   // Render
   render: () => void
-  // Reset vim state
+  // Vim / search state
+  getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
+  getSearchState: () => SearchState
   setSearchState: (s: SearchState) => void
+  getMapping: () => DiffLineMapping
   rebuildLineMapping: () => void
+  /** Scroll the restored cursor into view and redraw the cursor line. */
+  revealCursor: () => void
+  /** Recompute the surviving search pattern's matches against the new mapping. */
+  refreshSearchMatches: () => void
+  // The head riff is showing. Reading it before the reload is what makes a
+  // force-push detectable; writing it back keeps context expansion pointed
+  // at a commit that still exists.
+  getHeadSha: () => string
+  setHeadSha: (sha: string) => void
   // Rebuild the persistent PR info panel against the current state
   // (PRInfoPanelClass holds prInfo/files/comments in private fields set
   // in its constructor, so a refresh has to swap the instance).
@@ -53,15 +75,19 @@ export interface RefreshContext {
  */
 export async function handleRefresh(ctx: RefreshContext): Promise<void> {
   const state = ctx.getState()
+  const position = capturePosition(state, ctx.getVimState(), ctx.getMapping(), ctx.getSearchState())
 
   // Show loading toast
   ctx.setState((s) => showToast(s, "Refreshing...", "info"))
   ctx.render()
 
   try {
+    let forcePushed = false
+
     if (state.appMode === "pr" && state.prInfo) {
       // PR mode - reload PR data
       const { owner, repo, number: prNumber } = state.prInfo
+      const previousHeadSha = ctx.getHeadSha()
       const {
         prInfo: newPrInfo,
         diff: newDiff,
@@ -69,6 +95,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         viewedStatuses,
         headSha,
       } = await loadPrSession(prNumber, owner, repo)
+
+      forcePushed = wasForcePushed(previousHeadSha, newPrInfo.commits ?? [], PR_COMMITS_FETCH_LIMIT)
+      ctx.setHeadSha(headSha)
 
       // Parse diff into files
       const newFiles = sortFiles(parseDiff(newDiff))
@@ -91,15 +120,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         )
         // Set commits from refreshed PR info
         const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
-        // Auto-collapse ignored files
-        if (withCommits.ignoredFiles.size > 0) {
-          const newCollapsed = new Set(withCommits.collapsedFiles)
-          for (const filename of withCommits.ignoredFiles) {
-            newCollapsed.add(filename)
-          }
-          return { ...withCommits, collapsedFiles: newCollapsed }
-        }
-        return withCommits
+        return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
 
       // Collapse resolved threads
@@ -143,18 +164,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       // Collapse viewed files
       ctx.setState((s) => collapseViewedFiles(s))
 
-      // Reset cursor and rebuild line mapping
-      ctx.setVimState(createCursorState())
-      ctx.rebuildLineMapping()
-
-      // Clear search state
-      ctx.setSearchState(createSearchState())
-
       // Swap in a fresh PR info panel — it caches prInfo/files/comments
       // internally and won't pick up the new data otherwise.
       ctx.recreatePrInfoPanel()
-
-      ctx.setState((s) => showToast(s, "Refreshed", "success"))
     } else {
       // Local mode - reload diff, commits, and branch info
       const [newDiff, newDescription, newBranchInfo, newCommits, newComments] = await Promise.all([
@@ -171,33 +183,33 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.setState(() => {
         const prevState = ctx.getState()
         const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, newComments, "local", null, prevState.ignoreMatcher)
-        
+
         // Set branch info and commits
         const withBranchAndCommits = {
           ...newState,
           branchInfo: newBranchInfo,
           commits: newCommits,
         }
-        
-        // Auto-collapse ignored files
-        if (withBranchAndCommits.ignoredFiles.size > 0) {
-          const newCollapsed = new Set(withBranchAndCommits.collapsedFiles)
-          for (const filename of withBranchAndCommits.ignoredFiles) {
-            newCollapsed.add(filename)
-          }
-          return { ...withBranchAndCommits, collapsedFiles: newCollapsed }
-        }
-        return withBranchAndCommits
+
+        return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
       })
 
-      ctx.setVimState(createCursorState())
-      ctx.rebuildLineMapping()
-      ctx.setSearchState(createSearchState())
-
-      ctx.setState((s) => showToast(s, "Refreshed", "success"))
+      // Viewed marks live on disk, not in the diff — a reload that skipped
+      // them would drop every file's review status.
+      const threads = groupIntoThreads(newComments)
+      ctx.setState((s) => collapseResolvedThreads(s, threads))
+      const localViewedStatuses = await loadViewedStatuses(state.source)
+      ctx.setState((s) => collapseViewedFiles(loadFileStatuses(s, localViewedStatuses)))
     }
 
+    const landed = restoreCursor(ctx, position)
+    const { message, type } = refreshMessage(landed, position.anchor, forcePushed)
+    ctx.setState((s) => showToast(s, message, type))
+
     ctx.render()
+    // After the render: the view has to hold the new rows before the cursor
+    // line can be turned into a row to scroll to.
+    ctx.revealCursor()
 
     // Auto-clear toast
     setTimeout(() => {
@@ -215,4 +227,30 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.render()
     }, 4000)
   }
+}
+
+/**
+ * Put the cursor back on the row the anchor points at. The search pattern is
+ * restored first so that rebuilding the mapping recomputes its matches, and
+ * the match the cursor sits on is picked up once it has landed.
+ */
+function restoreCursor(ctx: RefreshContext, position: RefreshPosition) {
+  ctx.setSearchState(restoreSearch(position.search))
+  ctx.rebuildLineMapping()
+
+  const { line, landing } = relocate(ctx.getMapping(), position.anchor)
+  ctx.setVimState({ ...createCursorState(), line, col: position.anchor?.col ?? 0 })
+  ctx.refreshSearchMatches()
+
+  return landing
+}
+
+function collapseIgnoredFiles(state: AppState): AppState {
+  if (state.ignoredFiles.size === 0) return state
+
+  const collapsedFiles = new Set(state.collapsedFiles)
+  for (const filename of state.ignoredFiles) {
+    collapsedFiles.add(filename)
+  }
+  return { ...state, collapsedFiles }
 }
