@@ -12,7 +12,7 @@ import {
   openCommitPicker,
   toggleFilePanel,
   toggleFilePanelExpanded,
-  toggleViewMode,
+  switchView,
   toggleLinePeek,
   toggleWrapLines,
   clearFileSelection,
@@ -110,7 +110,7 @@ export async function executeAction(
       break
 
     case "toggle-view":
-      setState(toggleViewMode)
+      setState((s) => switchView(s, "state"))
       render()
       break
 

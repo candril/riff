@@ -15,10 +15,11 @@ import { createJumpListState } from "./features/jumplist/types"
 export type UIMode = "normal" | "comment-input" | "comments-list"
 
 /**
- * Main view mode - which content to show.
- * "pr" is only reachable in PR mode (spec 041).
+ * Which of the three surfaces is on screen (spec 064): the PR's state, the
+ * feed of what happened to it, or the diff. State and feed describe a pull
+ * request, so only the diff exists in local mode.
  */
-export type ViewMode = "pr" | "diff"
+export type ViewMode = "state" | "feed" | "diff"
 
 /**
  * Cached file content (full file, not just diff)
@@ -177,6 +178,31 @@ export interface PRInfoPanelState {
 }
 
 /**
+ * The feed's own position: which row is highlighted, which event types are
+ * shown, and the text it is narrowed by. Kept in app state rather than in
+ * the view so it survives a rebuild of the view (specs 064, 070).
+ */
+export interface FeedState {
+  highlightIndex: number
+  /** Empty means every type — the `[0] all` the header advertises. */
+  types: ReadonlySet<string>
+  filter: string
+  filterInput: boolean
+  /** Ids of the rows expanded into their detail (a commit's files). */
+  expandedIds: ReadonlySet<string>
+}
+
+export function createFeedState(): FeedState {
+  return {
+    highlightIndex: 0,
+    types: new Set<string>(),
+    filter: "",
+    filterInput: false,
+    expandedIds: new Set<string>(),
+  }
+}
+
+/**
  * Commit picker state
  */
 export interface CommitPickerState {
@@ -201,6 +227,9 @@ export interface AppState {
 
   // View mode and file selection
   viewMode: ViewMode
+  // The view `i`/`a`/`d` return to when the key of the current view is
+  // pressed again. One slot, not a stack (spec 064).
+  previousView: ViewMode | null
   selectedFileIndex: number | null  // null = no file selected, show all
   treeHighlightIndex: number        // Highlighted item in tree (for navigation)
   // Tree multi-select (visual-line mode in the sidebar). When non-null,
@@ -296,6 +325,10 @@ export interface AppState {
   
   // PR info panel state
   prInfoPanel: PRInfoPanelState
+
+  // Activity feed state — the feed keeps its own row and filters across
+  // view switches and refreshes (specs 064, 070).
+  feed: FeedState
   
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
@@ -406,7 +439,8 @@ export function createInitialState(
     appMode,
     files,
     fileTree,
-    viewMode: appMode === "pr" ? "pr" : "diff",
+    viewMode: appMode === "pr" ? "state" : "diff",
+    previousView: null,
     selectedFileIndex: null,        // Default: no file selected, show all
     treeHighlightIndex: 0,          // Start highlight at first item
     treeSelectionAnchor: null,      // No multi-select active
@@ -477,6 +511,7 @@ export function createInitialState(
     },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
+    feed: createFeedState(),
     prInfoPanel: {
       scrollOffset: 0,
       loading: false,
@@ -533,7 +568,7 @@ export function selectFile(state: AppState, index: number | null): AppState {
   if (index !== null && (index < 0 || index >= state.files.length)) return state
   return {
     ...state,
-    viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
+    viewMode: state.viewMode === "state" ? "diff" : state.viewMode,
     selectedFileIndex: index,
     cursorLine: 1,  // Reset cursor when changing file
   }
@@ -545,7 +580,7 @@ export function selectFile(state: AppState, index: number | null): AppState {
 export function clearFileSelection(state: AppState): AppState {
   return {
     ...state,
-    viewMode: state.viewMode === "pr" ? "diff" : state.viewMode,
+    viewMode: state.viewMode === "state" ? "diff" : state.viewMode,
     selectedFileIndex: null,
     cursorLine: 1,
   }
@@ -582,33 +617,33 @@ export function clearTreeSelectionAnchor(state: AppState): AppState {
 }
 
 /**
- * Cycle main view mode.
+ * Go to a view, or back out of it (spec 064).
  *
- * In PR mode this toggles pr ↔ diff. In local mode it's a no-op
- * (only "diff" exists outside PR mode).
+ * Pressing the key of the view you are in returns you to the one you came
+ * from — one slot of history, not a stack, so `i i i` means something a
+ * reader can predict. State and feed are no-ops in local mode: there is no
+ * pull request to describe.
  */
-export function toggleViewMode(state: AppState): AppState {
-  if (state.appMode !== "pr") return state
-  const next: ViewMode = state.viewMode === "pr" ? "diff" : "pr"
-  return {
-    ...state,
-    viewMode: next,
-    focusedPanel: "diff",
+export function switchView(state: AppState, target: ViewMode): AppState {
+  if (target !== "diff" && state.appMode !== "pr") return state
+  if (state.viewMode !== target) {
+    return { ...state, viewMode: target, previousView: state.viewMode, focusedPanel: "diff" }
   }
+
+  const back = state.previousView
+  if (!back || back === target) return state
+  return { ...state, viewMode: back, previousView: target, focusedPanel: "diff" }
 }
 
 /**
- * Switch to the PR overview. Clears file selection so the PR view isn't
- * scoped to an individual file (spec 041). No-op outside PR mode.
+ * Switch to the PR overview. No-op outside PR mode.
+ *
+ * The file selection stays as the diff left it: the diff is a view of its
+ * own now, and it keeps its place while you are looking at something else
+ * (spec 064).
  */
 export function enterPrView(state: AppState): AppState {
-  if (state.appMode !== "pr") return state
-  return {
-    ...state,
-    viewMode: "pr",
-    selectedFileIndex: null,
-    focusedPanel: "diff",
-  }
+  return switchView(state, "state")
 }
 
 /**

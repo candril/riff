@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -236,6 +236,97 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     ensureCursorVisible: ctx.ensureCursorVisible,
     render: ctx.render,
     onCommitSelected: ctx.onCommitSelected,
+  }
+
+  /**
+   * The comments panel, opened on whatever the diff cursor is pointing at.
+   * Both live here rather than in the diff's own key handling because
+   * `Ctrl-t` reaches them from every view (spec 064).
+   */
+  function openCommentsOverlay(mode: "view" | "compose" | "edit"): boolean {
+    // spec 039: Enter opens the overlay in view mode if there's an
+    // existing thread on this anchor; `c` opens it in compose mode
+    // on any commentable line. Returns true when the overlay was
+    // opened so the caller can fall back (e.g. Enter → expand
+    // divider) when this is a no-op.
+    const s = ctx.getState()
+    const lineMapping = ctx.getLineMapping()
+    const vimState = ctx.getVimState()
+    // A visual-line selection anchors on the first commentable line
+    // it covers — the same rule `handleAddComment` uses for `C`, so
+    // both routes land the comment in the same place.
+    const [scanStart, scanEnd] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
+    let anchor = lineMapping.getCommentAnchor(scanStart)
+    for (let i = scanStart; i <= scanEnd && !anchor; i++) {
+      anchor = lineMapping.getCommentAnchor(i)
+    }
+    if (!anchor) {
+      // Say why rather than no-op: an expanded line looks exactly as
+      // commentable as any other, so silence reads as a broken key.
+      let outsideDiff = false
+      for (let i = scanStart; i <= scanEnd && !outsideDiff; i++) {
+        outsideDiff = lineMapping.isOutsideDiff(i)
+      }
+      if (mode === "compose" && outsideDiff) {
+        ctx.setState((st) =>
+          showToast(
+            st,
+            "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
+            "info",
+          )
+        )
+        ctx.render()
+        setTimeout(() => {
+          ctx.setState(clearToast)
+          ctx.render()
+        }, 3500)
+        return true
+      }
+      return false
+    }
+
+    if (mode === "view") {
+      const hasRoot = s.comments.some(
+        (c) =>
+          c.filename === anchor.filename &&
+          c.line === anchor.line &&
+          c.side === anchor.side &&
+          !c.inReplyTo
+      )
+      if (!hasRoot) return false
+    }
+
+    // The selection has served its purpose; leave visual mode so the
+    // highlight doesn't linger behind the composer.
+    if (isVisualMode(vimState)) {
+      ctx.setVimState(exitVisualMode(vimState))
+    }
+
+    ctx.setState((st) =>
+      openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode)
+    )
+    ctx.render()
+    return true
+  }
+
+  function openCommentsPanelForCursor(): void {
+    // Open in view mode without an anchor — use the cursor's file
+    // (or the currently selected file) so the panel scopes
+    // correctly. Anchor line is 0; compose actions inside the
+    // panel will re-anchor to the highlighted thread.
+    const s = ctx.getState()
+    const lineMapping = ctx.getLineMapping()
+    const vimState = ctx.getVimState()
+    const cursorLine = lineMapping.getLine(vimState.line)
+    const filename =
+      cursorLine?.filename ??
+      (s.selectedFileIndex !== null
+        ? s.files[s.selectedFileIndex]?.filename ?? ""
+        : "")
+    ctx.setState((st) =>
+      openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
+    )
+    ctx.render()
   }
 
   return function handleKeypress(key: KeyEvent) {
@@ -695,15 +786,31 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "i":
-        // Bare `i` toggles between PR overview and diff (PR mode only;
-        // no-op in local mode). Ctrl-I arrives as `tab` and is forward-
-        // jump (spec 038), so we explicitly require !key.ctrl here to
-        // keep the two distinct. Use `gi` to jump straight to PR view.
-        // Inside a selection `i` opens a text object instead (spec 055).
-        if (!key.ctrl && !(state.focusedPanel === "diff" && isVisualMode(ctx.getVimState()))) {
-          recordJump()
-          ctx.setState(toggleViewMode)
-          ctx.render()
+      case "a":
+      case "d": {
+        // The three surfaces are one key apart, from any of them, and the
+        // key of the view you are in takes you back where you came from
+        // (spec 064). Ctrl-I arrives as `tab` and means jumplist-forward,
+        // and inside a selection `i`/`a` open a text object (spec 055), so
+        // both are left to their owners.
+        if (key.ctrl || key.shift) break
+        if (state.focusedPanel === "diff" && isVisualMode(ctx.getVimState())) break
+
+        const target = key.name === "i" ? "state" : key.name === "a" ? "feed" : "diff"
+        const switched = switchView(state, target)
+        if (switched === state) break
+        recordJump()
+        ctx.setState(() => switched)
+        ctx.render()
+        return
+      }
+
+      case "t":
+        // Ctrl-t opens the comments panel on what the diff cursor is
+        // pointing at, from every view. Closing it is the panel's own
+        // binding, so this only ever opens.
+        if (key.ctrl && !key.shift) {
+          if (!openCommentsOverlay("view")) openCommentsPanelForCursor()
           return
         }
         break
@@ -1113,94 +1220,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
       handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),
-      handleOpenInlineOverlay: (mode) => {
-        // spec 039: Enter opens the overlay in view mode if there's an
-        // existing thread on this anchor; `c` opens it in compose mode
-        // on any commentable line. Returns true when the overlay was
-        // opened so the caller can fall back (e.g. Enter → expand
-        // divider) when this is a no-op.
-        const s = ctx.getState()
-        const lineMapping = ctx.getLineMapping()
-        const vimState = ctx.getVimState()
-        // A visual-line selection anchors on the first commentable line
-        // it covers — the same rule `handleAddComment` uses for `C`, so
-        // both routes land the comment in the same place.
-        const [scanStart, scanEnd] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
-        let anchor = lineMapping.getCommentAnchor(scanStart)
-        for (let i = scanStart; i <= scanEnd && !anchor; i++) {
-          anchor = lineMapping.getCommentAnchor(i)
-        }
-        if (!anchor) {
-          // Say why rather than no-op: an expanded line looks exactly as
-          // commentable as any other, so silence reads as a broken key.
-          let outsideDiff = false
-          for (let i = scanStart; i <= scanEnd && !outsideDiff; i++) {
-            outsideDiff = lineMapping.isOutsideDiff(i)
-          }
-          if (mode === "compose" && outsideDiff) {
-            ctx.setState((st) =>
-              showToast(
-                st,
-                "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
-                "info",
-              )
-            )
-            ctx.render()
-            setTimeout(() => {
-              ctx.setState(clearToast)
-              ctx.render()
-            }, 3500)
-            return true
-          }
-          return false
-        }
-
-        if (mode === "view") {
-          const hasRoot = s.comments.some(
-            (c) =>
-              c.filename === anchor.filename &&
-              c.line === anchor.line &&
-              c.side === anchor.side &&
-              !c.inReplyTo
-          )
-          if (!hasRoot) return false
-        }
-
-        // The selection has served its purpose; leave visual mode so the
-        // highlight doesn't linger behind the composer.
-        if (isVisualMode(vimState)) {
-          ctx.setVimState(exitVisualMode(vimState))
-        }
-
-        ctx.setState((st) =>
-          openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode)
-        )
-        ctx.render()
-        return true
-      },
-      handleOpenPanelView: () => {
-        // Open in view mode without an anchor — use the cursor's file
-        // (or the currently selected file) so the panel scopes
-        // correctly. Anchor line is 0; compose actions inside the
-        // panel will re-anchor to the highlighted thread.
-        const s = ctx.getState()
-        const lineMapping = ctx.getLineMapping()
-        const vimState = ctx.getVimState()
-        const cursorLine = lineMapping.getLine(vimState.line)
-        const filename =
-          cursorLine?.filename ??
-          (s.selectedFileIndex !== null
-            ? s.files[s.selectedFileIndex]?.filename ?? ""
-            : "")
-        ctx.setState((st) =>
-          openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
-        )
-        ctx.render()
-      },
-      handleClosePanel: () => {
-        ctx.setState((st) => closeInlineCommentOverlay(st))
-        ctx.render()
-      },
+      handleOpenInlineOverlay: openCommentsOverlay,
+      handleOpenPanelView: openCommentsPanelForCursor,
     })
   }
 }

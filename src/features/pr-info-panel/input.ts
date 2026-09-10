@@ -115,7 +115,7 @@ function handleInputInner(
   key: KeyEvent,
   ctx: PRInfoPanelInputContext
 ): boolean {
-  if (ctx.state.viewMode !== "pr") {
+  if (ctx.state.viewMode !== "state") {
     return false
   }
 
@@ -140,6 +140,38 @@ function handleInputInner(
   // Ctrl-O would hit `case "o":` and trigger "open in browser" (spec 038).
   if (key.ctrl) {
     return false
+  }
+
+  if (pendingKey === "z") {
+    clearPendingKey()
+    if (!panel) return true
+    switch (key.name) {
+      case "a":
+        // Toggle the section, or the thread / check the cursor is on.
+        if (panel.isOnSectionHeader()) {
+          panel.toggleSection()
+        } else {
+          const section = panel.getActiveSection()
+          if (section === 'conversation') {
+            panel.toggleSelectedThread()
+          } else if (section === 'checks') {
+            const check = panel.getSelectedCheck()
+            if (check) panel.toggleCheckExpansion(check.id)
+          } else {
+            panel.toggleSection()
+          }
+        }
+        return true
+      case "m":
+        if (key.shift) panel.collapseAllSections()
+        else panel.collapseSection()
+        return true
+      case "r":
+        if (key.shift) panel.expandAllSections()
+        else panel.expandSection()
+        return true
+    }
+    return true
   }
 
   // Resolve `g`-prefixed chords before the switch so the panel's standalone
@@ -168,8 +200,8 @@ function handleInputInner(
 
   switch (key.name) {
     case "i":
-      // Bare `i` toggles pr ↔ diff — let the global handler run
-      // toggleViewMode.
+      // Bare `i` is the view router's — it takes you back to wherever you
+      // came from (spec 064).
       return false
 
     case "tab":
@@ -220,51 +252,11 @@ function handleInputInner(
     }
 
     case "z":
-      // Fold commands: za, zm, zr, zM, zR
-      // We need to capture the next key for these
-      // For now, handle single-key variants
-      return true
-
-    case "a":
-      // za - toggle current section, conversation thread, or (spec 043)
-      // check annotation list.
-      if (panel) {
-        if (panel.isOnSectionHeader()) {
-          panel.toggleSection()
-        } else {
-          const section = panel.getActiveSection()
-          if (section === 'conversation') {
-            panel.toggleSelectedThread()
-          } else if (section === 'checks') {
-            const check = panel.getSelectedCheck()
-            if (check) panel.toggleCheckExpansion(check.id)
-          } else {
-            panel.toggleSection()
-          }
-        }
-      }
-      return true
-
-    case "m":
-      // zm/zM - collapse section(s)
-      if (panel) {
-        if (key.shift) {
-          panel.collapseAllSections()
-        } else {
-          panel.collapseSection()
-        }
-      }
-      return true
-
-    case "r":
-      // zr/zR - expand section(s)
-      if (panel) {
-        if (key.shift) {
-          panel.expandAllSections()
-        } else {
-          panel.expandSection()
-        }
-      }
+      // Fold commands: za, zm, zr, zM, zR — a real chord, so that the
+      // letters they end in stay free for the keys that reach every view
+      // (`a` is the feed, spec 064).
+      pendingKey = "z"
+      pendingTimeout = setTimeout(clearPendingKey, 500)
       return true
 
     case "return":
@@ -507,10 +499,10 @@ function handleInputInner(
       return true
 
     case "d":
-      // Ctrl+d: page down
-      if (key.ctrl && panel) {
-        panel.getScrollBox().scrollBy(10)
-      }
+      // Ctrl+d pages down; bare `d` is the diff, and belongs to the view
+      // router (spec 064).
+      if (!key.ctrl) return false
+      if (panel) panel.getScrollBox().scrollBy(10)
       return true
 
     case "u":
@@ -538,9 +530,16 @@ function handleInputInner(
 
   // Let truly global keys fall through: q / escape (quit / toast-clear),
   // `tab` for jumplist forward (spec 038; terminal input collapses Ctrl-I
-  // to Tab), and `i` for the global view-cycle. Ctrl-modified keys are
-  // already handled by the early-return at the top of this function.
-  if (key.name === "q" || key.name === "escape" || key.name === "tab" || key.name === "i") {
+  // to Tab), and `i` / `a` for the view router (spec 064). Ctrl-modified
+  // keys are already handled by the early-return at the top of this
+  // function.
+  if (
+    key.name === "q" ||
+    key.name === "escape" ||
+    key.name === "tab" ||
+    key.name === "i" ||
+    key.name === "a"
+  ) {
     return false
   }
 

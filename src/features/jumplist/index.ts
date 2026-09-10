@@ -10,7 +10,7 @@
  */
 
 import type { AppState } from "../../state"
-import { selectFile, clearFileSelection, enterPrView, enterDiffView } from "../../state"
+import { selectFile, clearFileSelection, switchView, enterDiffView } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Jump, JumpListState } from "./types"
@@ -168,15 +168,10 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   ctx.setState((s) => {
     let next = s
 
-    // View mode first — entering PR view clears file selection per state.ts.
+    // The view the jump was taken in comes back first: the file selection
+    // and cursor below are read against it.
     if (next.viewMode !== jump.viewMode) {
-      if (jump.viewMode === "pr") {
-        next = enterPrView(next)
-      } else if (jump.viewMode === "diff") {
-        next = enterDiffView(next)
-      } else {
-        next = { ...next, viewMode: jump.viewMode }
-      }
+      next = jump.viewMode === "diff" ? enterDiffView(next) : switchView(next, jump.viewMode)
     }
 
     // File selection — resolve by filename if the index is stale.

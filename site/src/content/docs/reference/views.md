@@ -170,6 +170,21 @@ footer stops offering to publish — `Ctrl+p` there just saves.
 
 ![The comments panel](../../../assets/screenshots/thread.png)
 
+## Three views, one key apart
+
+A pull request is read as three surfaces, and each keeps its own place:
+
+| Key | View | What it answers |
+| --- | --- | --- |
+| `i` | PR state | What is true about this PR now |
+| `a` | Feed | What happened to it |
+| `d` | Diff | What changed |
+
+Any of the three keys works from any of them, and pressing the key of the view you are already in
+takes you back to the one you came from. Leaving a view keeps its position: the diff its cursor
+and scroll, the PR state its section and row. Local mode has only the diff — there is no pull
+request to have a state or a feed.
+
 ## PR overview
 
 `i` toggles it, `gi` goes straight there. It replaces the diff with the PR itself:

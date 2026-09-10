@@ -88,7 +88,7 @@ const HELP_SECTIONS = [
       ["gS", "Submit review"],
       ["gs", "Sync edits / replies"],
       ["gr", "Refresh from GitHub"],
-      ["i / gi", "PR overview"],
+      ["i / a / d", "PR state / feed / diff"],
       ["go / gy", "Open PR / copy its URL"],
       ["gY", "Copy permalink"],
       ["gP", "Create / edit PR"],

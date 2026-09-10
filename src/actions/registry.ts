@@ -481,7 +481,7 @@ export const actions: Action[] = [
   {
     id: "toggle-view",
     label: "Toggle View",
-    description: "Cycle between PR / diff / comments view",
+    description: "Switch between the PR state and the diff",
     shortcut: "i",
     category: "view",
     available: () => true,

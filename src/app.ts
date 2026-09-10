@@ -166,7 +166,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   renderer.addPostProcessFn(() => {
-    if (state.viewMode === "pr") {
+    if (state.viewMode !== "diff") {
       renderer.setCursorPosition(0, 0, false)
     } else if (state.actionMenu.open) {
       positionCursorInSearch("action-menu-search", state.actionMenu.query.length)

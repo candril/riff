@@ -26,6 +26,7 @@ import {
   HunkPeek,
   ConfirmDialog,
   DraftNotification,
+  FeedView,
   gatherSyncItems,
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
@@ -107,7 +108,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const prInfoPanelInstance = ctx.getPrInfoPanel()
     if (state.error) {
       content = Text({ content: `Error: ${state.error}`, fg: colors.error })
-    } else if (state.viewMode === "pr" && prInfoPanelInstance) {
+    } else if (state.viewMode === "state" && prInfoPanelInstance) {
       // PR overview (spec 041): mount the panel inline next to the tree.
       content = Box(
         {
@@ -117,6 +118,16 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           flexDirection: "row",
         },
         prInfoPanelInstance.getContainer()
+      )
+    } else if (state.viewMode === "feed") {
+      content = Box(
+        {
+          id: "main-content-row",
+          width: "100%",
+          height: "100%",
+          flexDirection: "row",
+        },
+        FeedView({ rows: [] })
       )
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })

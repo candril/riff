@@ -157,7 +157,7 @@ everywhere, tmux included. In local mode both just save — there's nothing to p
 | `gs` | Sync edits, replies and resolutions |
 | `gr` | Refresh diff, commits and comments |
 | `gi` | PR overview panel |
-| `i` | Toggle diff ↔ PR overview |
+| `i` / `a` / `d` | PR state / feed / diff — the same key again goes back |
 | `go` | Open the PR in a browser |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, line, or file |

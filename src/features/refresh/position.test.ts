@@ -147,7 +147,7 @@ describe("restoring the view", () => {
     const before = { ...stateWith(files), appMode: "pr" as const, viewMode: "diff" as const }
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
 
-    const reloaded = { ...stateWith(files), appMode: "pr" as const, viewMode: "pr" as const }
+    const reloaded = { ...stateWith(files), appMode: "pr" as const, viewMode: "state" as const }
     expect(restorePosition(reloaded, position).viewMode).toBe("diff")
   })
 

@@ -45,13 +45,10 @@ export interface DiffViewInputContext {
    *  existing thread on the cursor's anchor; `compose` only requires
    *  the line to be commentable. Returns true when the overlay opened. */
   handleOpenInlineOverlay: (mode: "view" | "compose") => boolean
-  /** Open the panel in view mode with no specific anchor — used when
-   *  `Ctrl-t` is pressed off a commentable line so the toggle still
-   *  succeeds and the user sees the file's existing threads. */
+  /** Open the panel in view mode with no specific anchor — used when the
+   *  cursor is off a commentable line so the user still sees the file's
+   *  existing threads. */
   handleOpenPanelView: () => void
-  /** Close the comments side panel — paired with `handleOpenInlineOverlay`
-   *  so `Ctrl-t` can toggle. */
-  handleClosePanel: () => void
 }
 
 /**
@@ -76,23 +73,6 @@ export function handleInput(
 
   // Let vim handler try first
   if (ctx.vimHandler.handleKey(vimKey)) {
-    return true
-  }
-
-  // Ctrl-t toggles the comments side panel — open in view mode, close
-  // if already open. Pure toggle: never starts a draft. New comments
-  // are started with `n` from inside the panel, not from the diff.
-  // Mirrors Ctrl-b for the file tree on the opposite side.
-  //
-  // When the cursor is on a line with an existing thread, we open
-  // anchored at that line so the panel highlights the matching thread —
-  // otherwise we open the generic file-scoped view.
-  if (key.name === "t" && key.ctrl && !key.shift) {
-    if (ctx.state.inlineCommentOverlay.open) {
-      ctx.handleClosePanel()
-    } else if (!ctx.handleOpenInlineOverlay("view")) {
-      ctx.handleOpenPanelView()
-    }
     return true
   }
 

@@ -212,7 +212,7 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
 
       // Refresh the PR info panel's cached counts, but not while it's the
       // active view — recreating it would jump the user's scroll position.
-      if (ctx.getState().viewMode !== "pr") {
+      if (ctx.getState().viewMode !== "state") {
         ctx.recreatePrInfoPanel()
       }
     }
@@ -232,7 +232,7 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
       const comments = applyThreadStates(s.comments, states)
       return comments === s.comments ? s : { ...s, comments }
     })
-    if (ctx.getState().viewMode !== "pr") {
+    if (ctx.getState().viewMode !== "state") {
       ctx.recreatePrInfoPanel()
     }
   }

@@ -76,6 +76,7 @@ review.
 | --- | --- |
 | `gr` | Refresh — diff, commits, comments, checks |
 | `gi` / `i` | PR overview |
+| `a` / `d` | The feed / the diff |
 | `go` | Open the PR in a browser |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, the line, or the file |
