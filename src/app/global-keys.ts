@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { visibleFeedEvents, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -87,7 +87,8 @@ export interface GlobalKeyContext {
    *  on a React… submenu row (spec 042). */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
   // Commit selection handler
-  onCommitSelected: (sha: string | null) => void
+  /** Scope the diff to a commit — and, when named, scroll to one of its files. */
+  onCommitSelected: (sha: string | null, filename?: string) => void
   // Feature contexts (passed through for delegation)
   foldsContext: folds.FoldsContext
   fileNavContext: fileNavigation.FileNavigationContext
@@ -135,7 +136,7 @@ function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
     case "state":
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed":
-      return visibleFeedEvents(state).map((_, index) => String(index))
+      return visibleFeedRows(state).map((_, index) => String(index))
     default:
       return []
   }
@@ -453,6 +454,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             return
           }
         }
+      },
+      onOpenCommitFile: (sha, filename) => {
+        recordJump()
+        ctx.setState((s) => switchView(s, "diff"))
+        ctx.onCommitSelected(sha, filename)
       },
       onExpandCommit: (sha) => {
         void feed.loadCommitFiles(ctx.feedLoadContext, sha)
@@ -1415,6 +1421,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       handleYank: ctx.handleYank,
       handleExpandDivider: ctx.handleExpandDivider,
       showAllFiles: () => ctx.executeAction("show-all-files"),
+      showAllCommits: () => ctx.onCommitSelected(null),
       handleToggleViewed: (advanceToNext: boolean) =>
         fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
       handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),

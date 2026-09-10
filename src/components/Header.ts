@@ -85,9 +85,13 @@ export function Header({
   const commitFilterText = (() => {
     if (!commits || commits.length === 0) return null
     if (viewingCommit === null || viewingCommit === undefined) return null
-    const commit = commits.find(c => c.sha === viewingCommit)
-    if (!commit) return viewingCommit.slice(0, 7)
-    return `${commit.sha}: ${commit.message}`
+    // Named as a mode, not just as a commit: the reader has to know they
+    // are looking at one commit's slice of the diff, and how to leave it.
+    const index = commits.findIndex(c => c.sha === viewingCommit)
+    const commit = commits[index]
+    const position = index === -1 ? "" : ` ${index + 1}/${commits.length}`
+    if (!commit) return `commit${position} · ${viewingCommit.slice(0, 7)} · esc: all commits`
+    return `commit${position} · ${commit.sha} ${commit.message} · esc: all commits`
   })()
 
   // Review progress text (e.g., "3/5 reviewed" or "3/5 reviewed (1 outdated)")

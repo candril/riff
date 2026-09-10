@@ -219,19 +219,20 @@ whatever is focused via the action menu.
 
 ## Feed
 
-`a` opens it: one row per event, newest first — commits, comments, reviews, resolved threads,
-check runs, pushes and force-pushes, merged by time. It answers "what happened, and what happened
+`a` opens it: one row per event, newest first — commits, comments, reviews, check runs, pushes
+and force-pushes, merged by time. A comment whose thread has been resolved carries a `✓` and reads
+dimmer; a comment new since your last visit carries a `●`. It answers "what happened, and what happened
 since I left" without the browser.
 
 | Key | Action |
 | --- | --- |
 | `j` / `k` | Move |
-| `c` `m` `r` `b` `t` `p` | Toggle a type: commits, comments, reviews, checks (builds), threads, pushes |
+| `c` `m` `r` `b` `t` `p` | Toggle a type: commits, comments, reviews, checks (builds), resolved comments, pushes |
 | `u` | Only what you have not seen ([the watermark](/riff/reference/github/#since-your-last-visit)) |
 | `/` | Filter the rows by text |
 | `Esc` | Everything again — every type, seen or not, no text |
-| `za` | Open a commit into the files it touched |
-| `Enter` | Go to what the row is about |
+| `za` | Open a commit (`▸`) into the files it touched; `j` walks into them |
+| `Enter` | Go to what the row is about — on a file of an open commit, that commit's diff at that file |
 | `s` | Label the rows and jump to one |
 
 `Enter` is a way in, not a second comments panel: a commit opens the diff scoped to that commit,

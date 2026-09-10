@@ -23,9 +23,11 @@ export interface StatusBarProps {
     col: number
     total: number
   } | null
+  /** The diff is scoped to one commit: the hints are the ones for leaving. */
+  commitScoped?: boolean
 }
 
-export function StatusBar({ searchInfo, columnInfo, selectionInfo }: StatusBarProps = {}) {
+export function StatusBar({ searchInfo, columnInfo, selectionInfo, commitScoped }: StatusBarProps = {}) {
   // Build right side content
   const rightContent: ReturnType<typeof Text>[] = []
   
@@ -70,7 +72,9 @@ export function StatusBar({ searchInfo, columnInfo, selectionInfo }: StatusBarPr
               : `-- VISUAL --  ${selectionInfo.lines} ${selectionInfo.lines === 1 ? "line" : "lines"}`,
           fg: theme.mauve,
         })
-      : Text({ content: "Ctrl+p: commands", fg: colors.statusBarFg }),
+      : commitScoped
+        ? Text({ content: "esc: all commits   ]g / [g: next / previous commit", fg: theme.peach })
+        : Text({ content: "Ctrl+p: commands", fg: colors.statusBarFg }),
     rightContent.length > 0 
       ? Box({ flexDirection: "row" }, ...rightContent)
       : null

@@ -2663,6 +2663,25 @@ export class PRInfoPanelClass {
       content: `${prInfo.headRef} → ${prInfo.baseRef}`,
       fg: theme.subtext0,
     }))
+    // Who has approved — the one review state that decides whether this
+    // can merge, and the header line only carries the checks.
+    // A later review from the same person supersedes an earlier one: an
+    // approval followed by "changes requested" is not an approval.
+    const latestByAuthor = new Map<string, PrReview>()
+    for (const review of [...(prInfo.reviews ?? [])].sort((a, b) =>
+      (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "")
+    )) {
+      if (review.state !== "COMMENTED" && review.state !== "PENDING") latestByAuthor.set(review.author, review)
+    }
+    const approvers = [...latestByAuthor.values()]
+      .filter((review) => review.state === "APPROVED")
+      .map((review) => review.author)
+    if (approvers.length > 0) {
+      metaRow.add(new TextRenderable(this.renderer, {
+        content: `   ✓ ${approvers.map((name) => `@${name}`).join(" ")}`,
+        fg: theme.green,
+      }))
+    }
     content.add(metaRow)
 
     // Separator before sections

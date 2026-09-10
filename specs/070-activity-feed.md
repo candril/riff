@@ -24,7 +24,7 @@ turning green and force-pushes are invisible unless you go to the browser.
 
 ```
   Feed          42 events · all types                        ● 5 unseen
-   c commits   m comments   r reviews   b checks   t threads   p pushes   u unseen   / filter
+   c commits   m comments   r reviews   b checks   t resolved   p pushes   u unseen   / filter
  ────────────────────────────────────────────────────────────────────────────────────
    20m     review    @carol   approved
    40m     check     CI / test                        ✓ passing  (was failing)
@@ -36,9 +36,11 @@ turning green and force-pushes are invisible unless you go to the browser.
     3h     push      force-pushed · 3 commits replaced
 ```
 
-- Row types: commit, comment, review, thread resolved, check run, push and
-  force-push, ready-for-review. Title and description edits are collected but
-  off by default.
+- Row types: commit, comment, review, check run, push and force-push,
+  ready-for-review. A resolved thread is a `✓` on its comments rather than a
+  row: the timeline does not say when it was resolved, and a row needs a
+  time that is true. `t` narrows to those comments. Title and description
+  edits are collected but off by default.
 - A letter per type toggles it — its initial where free, `b` for checks
   because `k` moves up, `m` for comments because `c` went to commits.
   `u` narrows to unseen (spec 069), `/` filters by text (spec 065), and

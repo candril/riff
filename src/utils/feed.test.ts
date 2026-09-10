@@ -35,6 +35,18 @@ const comments: Comment[] = [
     createdAt: "2026-01-10T11:00:00Z",
     status: "synced",
     author: "alice",
+    isThreadResolved: true,
+  },
+  {
+    id: "c2",
+    filename: "parser.ts",
+    line: 88,
+    side: "RIGHT",
+    body: "fixed in a3f2c19",
+    createdAt: "2026-01-10T11:30:00Z",
+    status: "synced",
+    author: "bob",
+    inReplyTo: "c1",
   },
 ]
 
@@ -62,6 +74,7 @@ describe("what happened, newest first", () => {
   test("one stream out of the timeline, the comments and the checks", () => {
     expect(feed().map((event) => `${event.type} ${event.title}`)).toEqual([
       "review approved",
+      "comment fixed in a3f2c19",
       "comment this drops the last line",
       "check CI / test",
       "commit fix: handle empty hunks",
@@ -82,6 +95,14 @@ describe("what happened, newest first", () => {
 
   test("timeline events riff has nothing to say about are left out", () => {
     expect(feed().some((event) => event.title.includes("label"))).toBe(false)
+  })
+
+  test("a resolved thread is a mark on its comments, every reply included", () => {
+    const marked = feed().filter((event) => event.resolved).map((event) => event.title)
+
+    // Not an event of its own: the timeline never says when it was resolved.
+    expect(marked).toEqual(["fixed in a3f2c19", "this drops the last line"])
+    expect(feed().some((event) => event.title === "resolved")).toBe(false)
   })
 
   test("a force-push is in there — no other source reports one", () => {
@@ -108,6 +129,13 @@ describe("narrowing the feed", () => {
   test("the text filter reads the row, not the ids", () => {
     expect(visibleFeed(events, { types: new Set(), filter: "empty hunks" }).length).toBe(1)
     expect(visibleFeed(events, { types: new Set(), filter: "carol" }).length).toBe(1)
+  })
+
+  test("`resolved` is the slice of comments whose thread was answered", () => {
+    const settled = visibleFeed(events, { types: new Set(["resolved"]), filter: "" })
+
+    expect(settled.every((event) => event.type === "comment" && event.resolved)).toBe(true)
+    expect(settled.length).toBe(2)
   })
 
   test("unseen narrows to the comments that arrived since the last visit", () => {

@@ -18,10 +18,12 @@ export type FeedEventType =
   | "commit"
   | "comment"
   | "review"
-  | "thread"
   | "check"
   | "push"
   | "ready"
+
+/** The filters the letters toggle. "resolved" is a slice of the comments. */
+export type FeedFilterType = FeedEventType | "resolved"
 
 export interface FeedEvent {
   id: string
@@ -38,6 +40,12 @@ export interface FeedEvent {
   note?: string
   /** The one thing that sits at the right edge: a check's result. */
   trailing?: string
+  /**
+   * The thread this comment is in has been resolved. A mark on the row
+   * rather than an event of its own: GitHub's timeline does not say when a
+   * thread was resolved, and a row needs a time that is true.
+   */
+  resolved?: boolean
   /** What `Enter` opens: the comment, the commit, the check. */
   target?: FeedTarget
 }
@@ -54,12 +62,12 @@ export type FeedTarget =
  * by their other name, and `c` was taken by commits before comments got to
  * it.
  */
-export const FEED_TYPES: { key: string; type: FeedEventType; label: string }[] = [
+export const FEED_TYPES: { key: string; type: FeedFilterType; label: string }[] = [
   { key: "c", type: "commit", label: "commits" },
   { key: "m", type: "comment", label: "comments" },
   { key: "r", type: "review", label: "reviews" },
   { key: "b", type: "check", label: "checks" },
-  { key: "t", type: "thread", label: "threads" },
+  { key: "t", type: "resolved", label: "resolved" },
   { key: "p", type: "push", label: "pushes" },
 ]
 
@@ -188,35 +196,20 @@ function fromTimeline(
 }
 
 function fromComments(comments: readonly Comment[]): FeedEvent[] {
-  const events: FeedEvent[] = []
-
-  for (const comment of comments) {
-    events.push({
-      id: `comment:${comment.id}`,
-      type: "comment",
-      at: comment.createdAt,
-      actor: comment.author ?? "you",
-      lead: `${comment.filename}:${comment.line}`,
-      title: firstLine(comment.body),
-      target: { kind: "comment", commentId: comment.id },
-    })
-
-    // A thread that got resolved is its own event: it is the answer to the
-    // comment, and reading "resolved" is what tells you not to look again.
-    if (comment.isThreadResolved && !comment.inReplyTo) {
-      events.push({
-        id: `thread:${comment.id}`,
-        type: "thread",
-        at: comment.createdAt,
-        actor: comment.author ?? "you",
-        lead: `${comment.filename}:${comment.line}`,
-        title: "resolved",
-        target: { kind: "comment", commentId: comment.id },
-      })
-    }
-  }
-
-  return events
+  // Resolution lives on the root; every reply in the thread inherits it.
+  const resolvedRoots = new Set(
+    comments.filter((c) => !c.inReplyTo && c.isThreadResolved).map((c) => c.id)
+  )
+  return comments.map((comment) => ({
+    id: `comment:${comment.id}`,
+    type: "comment" as const,
+    at: comment.createdAt,
+    actor: comment.author ?? "you",
+    lead: `${comment.filename}:${comment.line}`,
+    title: firstLine(comment.body),
+    resolved: resolvedRoots.has(comment.inReplyTo ?? comment.id),
+    target: { kind: "comment" as const, commentId: comment.id },
+  }))
 }
 
 function fromChecks(checks: readonly PrCheck[]): FeedEvent[] {
@@ -272,7 +265,11 @@ export function visibleFeed(
 ): FeedEvent[] {
   const needle = options.filter.toLowerCase()
   return events.filter((event) => {
-    if (options.types.size > 0 && !options.types.has(event.type)) return false
+    if (options.types.size > 0) {
+      const wanted =
+        options.types.has(event.type) || (options.types.has("resolved") && event.resolved === true)
+      if (!wanted) return false
+    }
     if (options.unseenIds && !isUnseenEvent(event, options.unseenIds)) return false
     if (!needle) return true
     return [event.lead, event.title, event.note, event.trailing, event.actor]

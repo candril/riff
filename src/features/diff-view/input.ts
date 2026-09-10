@@ -39,6 +39,8 @@ export interface DiffViewInputContext {
   handleExpandDivider: () => void
   /** Esc with nothing else to dismiss — leave single-file view. */
   showAllFiles: () => void
+  /** Esc after that — leave the commit the diff is scoped to. */
+  showAllCommits: () => void
   handleToggleViewed: (advanceToNext: boolean) => void
   handleSubmitSingleComment: (comment: Comment) => void
   /** spec 039: open the inline comment overlay. `view` requires an
@@ -131,6 +133,12 @@ export function handleInput(
     // shortcut the action menu has always advertised for "Show All Files".
     if (ctx.state.selectedFileIndex !== null) {
       ctx.showAllFiles()
+      return true
+    }
+    // And then out of a single commit's slice of the diff, the widest of
+    // the three scopes — the header names Esc as the way back.
+    if (ctx.state.viewingCommit !== null) {
+      ctx.showAllCommits()
       return true
     }
   }

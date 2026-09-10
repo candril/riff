@@ -470,6 +470,10 @@ export class VimDiffView {
   private pendingScrollTop: number | null = null
   private pendingCursorReveal: boolean = false
   private onContentRebuilt: (() => void) | null = null
+  // A one-shot placement to run after the next rebuild has settled its
+  // scroll — "open with this file at the top" cannot be done before the
+  // post-process pass has restored the old scroll position over it.
+  private afterNextRebuild: (() => void) | null = null
   private onCursorScrolledAway: ((line: number) => void) | null = null
   
   // Line data mirrored out of the last build so the pinned gutter can
@@ -532,6 +536,9 @@ export class VimDiffView {
       if (this.pendingCursorReveal) {
         this.pendingCursorReveal = false
         this.onContentRebuilt?.()
+        const once = this.afterNextRebuild
+        this.afterNextRebuild = null
+        once?.()
       }
       // Read the scroll position before positionTerminalCursor consumes
       // `expectedScrollTop` — the flash overlay has to line up with the
@@ -687,6 +694,11 @@ export class VimDiffView {
    * (fold toggle, mark-as-read, comments) keep the cursor in view instead
    * of snapping the viewport to the top.
    */
+  /** Run once, after the next content rebuild has laid out and scrolled. */
+  onceRebuilt(cb: () => void): void {
+    this.afterNextRebuild = cb
+  }
+
   setOnContentRebuilt(cb: () => void): void {
     this.onContentRebuilt = cb
   }

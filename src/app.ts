@@ -1043,7 +1043,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== COMMIT SELECTION =====
-  async function handleCommitSelected(sha: string | null) {
+  async function handleCommitSelected(sha: string | null, filename?: string) {
     if (sha === null) {
       // Switch back to all commits
       state = setViewingCommit(state, null)
@@ -1089,6 +1089,16 @@ export async function createApp(options: AppOptions = {}) {
     state = setViewingCommit(state, sha)
     vimState = createCursorState()
     createLineMapping()
+
+    // Asked for from a file row: the commit's diff, at that file — with the
+    // file at the top of the window, since it is the whole reason for
+    // coming. The view restores its old scroll after the rebuild the new
+    // commit triggers, so the placement waits for that.
+    const fileIndex = filename ? state.files.findIndex((file) => file.filename === filename) : -1
+    if (fileIndex !== -1) {
+      vimDiffView.onceRebuilt(() => vimDiffView.scrollCursorTo(vimState.line, "top"))
+      fileNavigation.revealFile(fileIndex, fileNavContext)
+    }
 
     // Show toast with commit info
     const commit = state.commits.find(c => c.sha === sha)

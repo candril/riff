@@ -3,11 +3,13 @@ import type { CliRenderer } from "@opentui/core"
 import { colors, theme } from "../theme"
 import { PromptInput } from "./PromptInput"
 import { FEED_TYPES, type FeedEvent } from "../utils/feed"
-import type { CommitFileSummary, FeedState } from "../state"
+import type { CommitFileSummary, FeedRow, FeedState } from "../state"
 
 export interface FeedViewProps {
   /** The events the filters left, newest first. */
   events: FeedEvent[]
+  /** The same, as drawn: a commit's files sit under it once it is open. */
+  rows: FeedRow[]
   feed: FeedState
   /** Comments that arrived since the last visit (spec 069). */
   unseenIds: ReadonlySet<string>
@@ -21,7 +23,6 @@ const TYPE_LABEL: Record<FeedEvent["type"], string> = {
   commit: "commit",
   comment: "comment",
   review: "review",
-  thread: "resolved",
   check: "check",
   push: "push",
   ready: "ready",
@@ -33,6 +34,7 @@ const TYPE_LABEL: Record<FeedEvent["type"], string> = {
  */
 export function FeedView({
   events,
+  rows,
   feed,
   unseenIds,
   flashLabels,
@@ -60,8 +62,10 @@ export function FeedView({
             fg: colors.textDim,
           }),
         ]
-      : events.flatMap((event, index) =>
-          eventRows(event, index, events[index - 1], feed, unseenIds, flashLabels, leadWidth)
+      : rows.flatMap((row, index) =>
+          row.kind === "file"
+            ? [fileRow(row, index, feed, flashLabels)]
+            : eventRows(row.event, index, previousEvent(rows, index), feed, unseenIds, flashLabels, leadWidth)
         ))
   )
 }
@@ -147,15 +151,23 @@ function eventRows(
   const cells = [
     Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
     Text({ content: timeCell.padStart(TIME_WIDTH), fg: colors.textDim }),
-    Text({ content: unseen ? " ● " : "   ", fg: theme.blue }),
+    // One cell for the row's state: new to you, or answered.
+    unseen
+      ? Text({ content: " ● ", fg: theme.blue })
+      : event.resolved
+        ? Text({ content: " ✓ ", fg: theme.green })
+        : Text({ content: "   ", fg: theme.blue }),
     Text({ content: TYPE_LABEL[event.type].padEnd(TYPE_WIDTH), fg: typeColor(event.type) }),
   ]
   // Both columns are reserved on every row and blank where there is nothing
   // to say — a check has no actor, a review no file — so the words start on
   // one straight edge whatever the row is about.
+  // A commit row can open into its files, and says so in front of its sha.
+  const foldable = event.target?.kind === "commit"
+  const fold = foldable ? (feed.expandedIds.has(event.id) ? "▾ " : "▸ ") : ""
   cells.push(
     Text({ content: fitRight(event.actor ? `@${event.actor}` : "", ACTOR_WIDTH) + "  ", fg: theme.subtext0 }),
-    Text({ content: fitLeft(event.lead ?? "", leadWidth) + "  ", fg: colors.textDim })
+    Text({ content: fitLeft(fold + (event.lead ?? ""), leadWidth) + "  ", fg: colors.textDim })
   )
 
   const rows = [
@@ -169,7 +181,11 @@ function eventRows(
       Box({ flexDirection: "row", flexShrink: 0 }, ...cells),
       Box(
         { flexDirection: "row", flexGrow: 1, flexShrink: 1, overflow: "hidden" },
-        Text({ content: event.title, fg: selected ? colors.text : theme.subtext1 }),
+        Text({
+          content: event.title,
+          // An answered comment reads as settled — dimmer, not gone.
+          fg: selected ? colors.text : event.resolved ? colors.textDim : theme.subtext1,
+        }),
         event.note
           ? Text({ content: `  ${event.note}`, fg: colors.textDim })
           : Text({ content: "", fg: colors.textDim })
@@ -186,13 +202,55 @@ function eventRows(
     ),
   ]
 
-  // An expanded commit shows the files it touched, fetched when it opened.
-  if (event.target?.kind === "commit" && feed.expandedIds.has(event.id)) {
-    const files = feed.commitFiles.get(event.target.sha)
-    rows.push(...commitFileRows(files))
+  // Opened before its files have arrived: say so, on a line that is not a
+  // row — there is nothing to land on yet.
+  if (foldable && feed.expandedIds.has(event.id) && event.target?.kind === "commit" && !feed.commitFiles.has(event.target.sha)) {
+    rows.push(
+      Box(
+        { flexDirection: "row", height: 1 },
+        Text({ content: `${" ".repeat(FILE_INDENT)}loading…`, fg: colors.textDim })
+      )
+    )
   }
 
   return rows
+}
+
+const FILE_INDENT = 2 + TIME_WIDTH + 3 + TYPE_WIDTH + ACTOR_WIDTH + 2
+
+/** One file of an opened commit — a row of its own, so it can be picked. */
+function fileRow(
+  row: Extract<FeedRow, { kind: "file" }>,
+  index: number,
+  feed: FeedState,
+  flashLabels: ReadonlyMap<number, string>
+) {
+  const selected = index === feed.highlightIndex
+  const label = flashLabels.get(index)
+  return Box(
+    {
+      flexDirection: "row",
+      height: 1,
+      width: "100%",
+      backgroundColor: selected ? theme.surface1 : undefined,
+    },
+    Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
+    Text({
+      content: `${" ".repeat(FILE_INDENT - 2)}${row.last ? "└" : "├"} ${row.file.filename}`,
+      fg: selected ? colors.text : theme.subtext0,
+    }),
+    Text({ content: `  +${row.file.additions}`, fg: theme.green }),
+    Text({ content: ` -${row.file.deletions}`, fg: theme.red })
+  )
+}
+
+/** The event above this row, for the time gutter's "only where it changes". */
+function previousEvent(rows: FeedRow[], index: number): FeedEvent | undefined {
+  for (let i = index - 1; i >= 0; i--) {
+    const row = rows[i]!
+    if (row.kind === "event") return row.event
+  }
+  return undefined
 }
 
 /** Cut from the right, with an ellipsis — for names. */
@@ -227,32 +285,12 @@ function fitLeft(text: string, width: number): string {
 function leadWidthFor(events: FeedEvent[]): number {
   let widest = 0
   for (const event of events) {
-    if (event.lead) widest = Math.max(widest, Bun.stringWidth(event.lead))
+    if (!event.lead) continue
+    // A commit's lead carries its fold mark in front of the sha.
+    const fold = event.target?.kind === "commit" ? 2 : 0
+    widest = Math.max(widest, Bun.stringWidth(event.lead) + fold)
   }
   return Math.min(36, Math.max(8, widest))
-}
-
-function commitFileRows(files: readonly CommitFileSummary[] | undefined) {
-  if (!files) {
-    return [
-      Box(
-        { flexDirection: "row", height: 1 },
-        Text({ content: `${" ".repeat(2 + TIME_WIDTH + 3 + TYPE_WIDTH + ACTOR_WIDTH + 2)}loading…`, fg: colors.textDim })
-      ),
-    ]
-  }
-
-  return files.map((file, index) =>
-    Box(
-      { flexDirection: "row", height: 1 },
-      Text({
-        content: `${" ".repeat(2 + TIME_WIDTH + 3 + TYPE_WIDTH + ACTOR_WIDTH + 2)}${index === files.length - 1 ? "└" : "├"} ${file.filename}`,
-        fg: theme.subtext0,
-      }),
-      Text({ content: `  +${file.additions}`, fg: theme.green }),
-      Text({ content: ` -${file.deletions}`, fg: theme.red })
-    )
-  )
 }
 
 function typeColor(type: FeedEvent["type"]): string {

@@ -247,9 +247,32 @@ export function visibleFeedEvents(state: AppState): FeedEvent[] {
   })
 }
 
+/**
+ * A row of the feed as drawn and navigated: an event, or one file of a
+ * commit that has been opened. The highlight indexes these, so `j` walks
+ * into a commit's files and `Enter` on one lands in that file (spec 070).
+ */
+export type FeedRow =
+  | { kind: "event"; event: FeedEvent }
+  | { kind: "file"; event: FeedEvent; sha: string; file: CommitFileSummary; last: boolean }
+
+export function visibleFeedRows(state: AppState): FeedRow[] {
+  const rows: FeedRow[] = []
+  for (const event of visibleFeedEvents(state)) {
+    rows.push({ kind: "event", event })
+    const target = event.target
+    if (target?.kind !== "commit" || !state.feed.expandedIds.has(event.id)) continue
+    const files = state.feed.commitFiles.get(target.sha) ?? []
+    files.forEach((file, index) => {
+      rows.push({ kind: "file", event, sha: target.sha, file, last: index === files.length - 1 })
+    })
+  }
+  return rows
+}
+
 /** Move the feed's highlight, clamped to what is on screen. */
 export function moveFeedHighlight(state: AppState, delta: number): AppState {
-  const max = Math.max(0, visibleFeedEvents(state).length - 1)
+  const max = Math.max(0, visibleFeedRows(state).length - 1)
   const highlightIndex = Math.max(0, Math.min(max, state.feed.highlightIndex + delta))
   return highlightIndex === state.feed.highlightIndex
     ? state

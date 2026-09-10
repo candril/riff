@@ -46,6 +46,7 @@ import {
   markCommentsSeen,
   unseenIn,
   visibleFeedEvents,
+  visibleFeedRows,
 } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import {
@@ -214,6 +215,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
     } else if (state.viewMode === "feed") {
       const feedEvents = visibleFeedEvents(state)
+      const feedRows = visibleFeedRows(state)
       content = Box(
         {
           id: "main-content-row",
@@ -223,6 +225,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         },
         FeedView({
           events: feedEvents,
+          rows: feedRows,
           feed: state.feed,
           unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
           flashLabels:
@@ -452,6 +455,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
               : null,
           selectionInfo: selectionStatus(vimState),
+          commitScoped: state.viewMode === "diff" && state.viewingCommit !== null,
         }),
         state.actionMenu.open
           ? ActionMenu({

@@ -18,7 +18,7 @@ import {
   toggleFeedRowExpanded,
   toggleFeedType,
   toggleFeedUnseen,
-  visibleFeedEvents,
+  visibleFeedRows,
 } from "../../state"
 import { FEED_TYPES, type FeedEvent } from "../../utils/feed"
 
@@ -30,6 +30,8 @@ export interface FeedInputContext {
   chordPending: boolean
   /** Open what a row is about (spec 070). */
   onOpenEvent: (event: FeedEvent) => void
+  /** Open the diff scoped to a commit, at one of its files. */
+  onOpenCommitFile: (sha: string, filename: string) => void
   /** Fetch the files of a commit row that was just expanded. */
   onExpandCommit: (sha: string) => void
 }
@@ -55,8 +57,7 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
   // of a chord: `gr` must refresh, not toggle reviews.
   if (key.ctrl || key.meta || ctx.chordPending) return false
 
-  const events = visibleFeedEvents(ctx.state)
-  const highlighted = events[ctx.state.feed.highlightIndex]
+  const highlighted = visibleFeedRows(ctx.state)[ctx.state.feed.highlightIndex]
 
   switch (key.name) {
     case "j":
@@ -83,7 +84,8 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
 
     case "return":
     case "enter":
-      if (highlighted) ctx.onOpenEvent(highlighted)
+      if (highlighted?.kind === "file") ctx.onOpenCommitFile(highlighted.sha, highlighted.file.filename)
+      else if (highlighted) ctx.onOpenEvent(highlighted.event)
       return true
 
     case "escape": {
@@ -121,16 +123,23 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
  * by the global key handler, which owns `z`.
  */
 export function toggleExpandedRow(ctx: FeedInputContext): boolean {
-  const events = visibleFeedEvents(ctx.state)
-  const highlighted = events[ctx.state.feed.highlightIndex]
+  const rows = visibleFeedRows(ctx.state)
+  const highlighted = rows[ctx.state.feed.highlightIndex]
   if (!highlighted) return false
 
-  const wasExpanded = ctx.state.feed.expandedIds.has(highlighted.id)
-  ctx.setState((s) => toggleFeedRowExpanded(s, highlighted.id))
+  // On a file, `za` folds the commit it belongs to — and the highlight goes
+  // back onto that commit rather than onto whatever slides into its place.
+  const event = highlighted.event
+  const wasExpanded = ctx.state.feed.expandedIds.has(event.id)
+  ctx.setState((s) => toggleFeedRowExpanded(s, event.id))
+  if (highlighted.kind === "file") {
+    const parent = rows.findIndex((row) => row.kind === "event" && row.event.id === event.id)
+    if (parent !== -1) ctx.setState((s) => ({ ...s, feed: { ...s.feed, highlightIndex: parent } }))
+  }
   // The files are fetched when the row is opened, not on arrival: a feed of
   // forty commits would otherwise be forty requests nobody asked for.
-  if (!wasExpanded && highlighted.target?.kind === "commit") {
-    ctx.onExpandCommit(highlighted.target.sha)
+  if (!wasExpanded && event.target?.kind === "commit") {
+    ctx.onExpandCommit(event.target.sha)
   }
   ctx.render()
   return true
