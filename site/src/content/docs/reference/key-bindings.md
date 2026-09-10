@@ -89,7 +89,8 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Ctrl+h` | Move focus left: comments → diff → tree |
 | `Ctrl+l` | Move focus right: tree → diff → comments |
 | `Ctrl+t` | Toggle the comments panel |
-| `Ctrl+f` | Fuzzy file picker; in the PR overview, feed and comments panel, a filter over their rows |
+| `Ctrl+f` | Fuzzy file picker, from every view |
+| `/` | Filter the list that has focus — tree, PR overview, feed, comments panel; search, in the diff |
 | `Ctrl+g` | Show the current file's path |
 | `v` | Mark the file viewed and advance to the next unviewed |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
@@ -159,7 +160,7 @@ everywhere, tmux included. In local mode both just save — there's nothing to p
 | `gr` | Refresh diff, commits and comments |
 | `gi` | PR overview panel |
 | `i` / `a` / `d` | PR state / feed / diff — the same key again goes back |
-| `c` `m` `r` `b` `t` `p` `a` `u` | In the feed: filter by type, all, unseen only |
+| `c` `m` `r` `b` `t` `p` `u` | In the feed: toggle a type, unseen only; `Esc` puts everything back |
 | `za` | In the feed: open a commit into its files |
 | `go` | Open the PR in a browser |
 | `gy` | Copy the PR URL |

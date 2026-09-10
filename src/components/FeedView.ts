@@ -100,8 +100,10 @@ function filterRow(feed: FeedState, renderer: CliRenderer) {
     )
   }
 
+  // A toggle that is on is said in full colour, one that is off in dim —
+  // the key letter is the only accent, so the row reads as a legend.
   const toggle = (key: string, label: string, on: boolean) => [
-    Text({ content: ` ${key} `, fg: on ? theme.base : theme.peach, bg: on ? theme.peach : undefined }),
+    Text({ content: ` ${key} `, fg: on ? theme.peach : colors.textDim }),
     Text({ content: `${label}   `, fg: on ? colors.text : colors.textDim }),
   ]
   const narrowed = feed.types.size > 0 || feed.unseenOnly || feed.filter.length > 0
@@ -109,10 +111,11 @@ function filterRow(feed: FeedState, renderer: CliRenderer) {
   return Box(
     { flexDirection: "row", height: 1, width: "100%" },
     ...FEED_TYPES.flatMap(({ key, type, label }) => toggle(key, label, feed.types.has(type))),
-    ...toggle("a", "all", !narrowed),
     ...toggle("u", "unseen", feed.unseenOnly),
-    feed.filter
-      ? Text({ content: ` /${feed.filter}`, fg: theme.peach })
+    Text({ content: " / ", fg: colors.textDim }),
+    Text({ content: feed.filter ? `${feed.filter}   ` : "filter   ", fg: feed.filter ? colors.text : colors.textDim }),
+    narrowed
+      ? Text({ content: " esc all", fg: colors.textDim })
       : Text({ content: "", fg: colors.textDim })
   )
 }
@@ -147,14 +150,13 @@ function eventRows(
     Text({ content: unseen ? " ● " : "   ", fg: theme.blue }),
     Text({ content: TYPE_LABEL[event.type].padEnd(TYPE_WIDTH), fg: typeColor(event.type) }),
   ]
-  // A check has no actor; its name takes the column rather than leaving a
-  // hole in front of it.
-  if (event.actor !== undefined) {
-    cells.push(Text({ content: fitRight(`@${event.actor}`, ACTOR_WIDTH) + "  ", fg: theme.subtext0 }))
-  }
-  if (event.lead !== undefined) {
-    cells.push(Text({ content: fitLeft(event.lead, leadWidth) + "  ", fg: colors.textDim }))
-  }
+  // Both columns are reserved on every row and blank where there is nothing
+  // to say — a check has no actor, a review no file — so the words start on
+  // one straight edge whatever the row is about.
+  cells.push(
+    Text({ content: fitRight(event.actor ? `@${event.actor}` : "", ACTOR_WIDTH) + "  ", fg: theme.subtext0 }),
+    Text({ content: fitLeft(event.lead ?? "", leadWidth) + "  ", fg: colors.textDim })
+  )
 
   const rows = [
     Box(

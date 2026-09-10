@@ -506,6 +506,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               mentionSearchQuery: state.mentionSearchQuery,
               expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
               unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+              filter: state.inlineCommentOverlay.filter,
+              filterInput: state.inlineCommentOverlay.filterInput,
               renderer: ctx.renderer,
             })
           : null,

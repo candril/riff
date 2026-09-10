@@ -16,6 +16,7 @@ import type { PreviewRow } from "../../utils/previews"
 import {
   clearViewFilter,
   commitViewFilter,
+  startViewFilter,
   closePRInfoPanel,
   showToast,
   clearToast,
@@ -217,6 +218,15 @@ function handleInputInner(
     }
     // Unknown g-sequence: swallow to avoid accidentally falling through
     // into the panel-local `r`/`o`/`y`/etc. handlers below.
+    return true
+  }
+
+  // `/` narrows the panel's rows (spec 065), the key the tree uses for the
+  // same thing. Opening it focuses the input in this same keypress.
+  if (key.name === "/" || key.sequence === "/") {
+    key.preventDefault()
+    ctx.setState(startViewFilter)
+    ctx.render()
     return true
   }
 

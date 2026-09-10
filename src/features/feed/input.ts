@@ -14,6 +14,7 @@ import {
   commitViewFilter,
   moveFeedHighlight,
   showAllFeedTypes,
+  startViewFilter,
   toggleFeedRowExpanded,
   toggleFeedType,
   toggleFeedUnseen,
@@ -85,9 +86,9 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
       if (highlighted) ctx.onOpenEvent(highlighted)
       return true
 
-    case "a": {
-      // `a` is "all" while the feed is narrowed, and the view key — back
-      // where you came from — once it is not. One key, read in order.
+    case "escape": {
+      // Esc puts everything back: every type, seen or not, no text. When
+      // nothing is narrowed it is the global Esc (a toast, say).
       const f = ctx.state.feed
       if (f.types.size > 0 || f.unseenOnly || f.filter) {
         ctx.setState(showAllFeedTypes)
@@ -96,6 +97,13 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
       }
       return false
     }
+  }
+
+  if ((key.name === "/" || key.sequence === "/") && !key.shift) {
+    key.preventDefault()
+    ctx.setState(startViewFilter)
+    ctx.render()
+    return true
   }
 
   const typeKey = FEED_TYPES.find((entry) => entry.key === key.name)

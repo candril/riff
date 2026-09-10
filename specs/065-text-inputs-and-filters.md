@@ -12,13 +12,13 @@ themselves. The file-tree filter is the exception — it focuses a real
 `InputRenderable`, which is why word deletion, word motions, paste, undo and
 selection all work there and nowhere else.
 
-Every text entry should be that input, and `Ctrl-f` should mean the same
+Every text entry should be that input, and `/` should mean the same
 thing — *narrow what I am looking at* — in every view.
 
 ## Out of Scope
 
 - The comment composer, which is already a real textarea.
-- A query language. `Ctrl-f` filters by substring; the feed's type filters
+- A query language. `/` filters by substring; the feed's type filters
   are separate keys (spec 070).
 
 ## Capabilities
@@ -33,10 +33,11 @@ thing — *narrow what I am looking at* — in every view.
 - Incremental behaviour is unchanged: search still moves the cursor as you
   type, pickers still filter per keystroke. The input reports changes; the
   feature reacts.
-- `Ctrl-f` opens the filter for whatever has focus — rows in the feed,
-  sections and rows in the info panel, comments in the panel. In the diff
-  and the tree it stays the fuzzy file picker: the quick jump is the thing
-  wanted there, and the tree's own filter is `/`.
+- `/` opens the filter for whatever list has focus — the tree, the rows of
+  the feed, the sections and rows of the info panel, the comments in the
+  panel — the key the tree already used. In the diff it is search, which
+  is the same question asked of text. `Ctrl-f` is the fuzzy file picker,
+  from every view: the quick jump is one key, everywhere.
 - `Esc` cancels and restores what was there; `Enter` accepts. The same two
   keys everywhere.
 

@@ -16,6 +16,7 @@
 import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
+import { PromptInput } from "./PromptInput"
 import type { Comment } from "../types"
 import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
@@ -76,6 +77,9 @@ export interface InlineCommentOverlayProps {
   expandedThreadIds: ReadonlySet<string>
   /** Comments that arrived since the reader's last visit (spec 069). */
   unseenIds: ReadonlySet<string>
+  /** The `/` filter over the panel's comments, and whether it is being typed. */
+  filter: string
+  filterInput: boolean
   renderer: CliRenderer
 }
 
@@ -384,6 +388,8 @@ export function InlineCommentOverlay({
   mentionSearchQuery,
   expandedThreadIds,
   unseenIds,
+  filter,
+  filterInput,
   renderer,
 }: InlineCommentOverlayProps) {
   const threads = groupIntoThreads(comments)
@@ -450,18 +456,28 @@ export function InlineCommentOverlay({
         paddingRight: 1,
         backgroundColor: theme.mantle,
       },
-      Text({
-        content: headerLabel,
-        fg: focused ? colors.primary : colors.textMuted,
-      }),
-      Text({
-        content: isComposing
-          ? mode === "edit"
-            ? "Editing"
-            : "Composing"
-          : `${comments.length} comment${comments.length !== 1 ? "s" : ""}`,
-        fg: theme.overlay0,
-      })
+      // While `/` is open the header is the prompt, as it is in the tree;
+      // once accepted, the filter stays visible beside the count.
+      filterInput
+        ? Box(
+            { flexDirection: "row", flexGrow: 1 },
+            Text({ content: "/", fg: colors.secondary }),
+            PromptInput(renderer)
+          )
+        : Text({
+            content: filter ? `${headerLabel}  /${filter}` : headerLabel,
+            fg: focused ? colors.primary : colors.textMuted,
+          }),
+      filterInput
+        ? null
+        : Text({
+            content: isComposing
+              ? mode === "edit"
+                ? "Editing"
+                : "Composing"
+              : `${comments.length} comment${comments.length !== 1 ? "s" : ""}`,
+            fg: theme.overlay0,
+          })
     ),
 
       // Thread list (or empty-state hint). Two nested boxes reproduce a

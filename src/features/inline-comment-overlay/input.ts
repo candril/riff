@@ -210,10 +210,13 @@ export function handleInput(
     return false
   }
 
-  // Ctrl-f narrows the panel to the comments that match (spec 065). The
-  // overlay owns the keyboard while it is focused, so the global handler
-  // never sees this one.
+  // Ctrl-f is the file picker, from here as from everywhere: let it through.
   if (key.ctrl && key.name === "f") {
+    return false
+  }
+
+  // `/` narrows the panel to the comments that match (spec 065).
+  if ((key.name === "/" || key.sequence === "/") && !key.ctrl) {
     key.preventDefault()
     ctx.setState(startViewFilter)
     ctx.render()

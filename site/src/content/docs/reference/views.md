@@ -166,7 +166,8 @@ GitHub's own viewed checkbox, read at startup and written back, so it agrees wit
 current file — or the one you opened — as a conversation:
 author, age, resolution state, replies, reactions.
 
-Threads collapse to their root comment when resolved, and `za` opens them back up. An **outdated**
+`/` narrows the panel to the threads whose author, text or file match. Threads collapse to their
+root comment when resolved, and `za` opens them back up. An **outdated**
 thread — one anchored to a line the branch has since moved past — expands to show the hunk it was
 originally written against, so the comment still makes sense.
 
@@ -210,7 +211,7 @@ and a one-glance summary, bar the description, which is open:
 - **Commits** — the ones the PR carries.
 - **Files** — the changed list, with viewed state.
 
-Sections fold with `za`, `zm`/`zr`, `zM`/`zR`. `s` labels the rows to jump to one, `Ctrl+f`
+Sections fold with `za`, `zm`/`zr`, `zM`/`zR`. `s` labels the rows to jump to one, `/`
 narrows them, and `d` on a file row opens the diff at that file. Reactions can be added to
 whatever is focused via the action menu.
 
@@ -226,9 +227,9 @@ since I left" without the browser.
 | --- | --- |
 | `j` / `k` | Move |
 | `c` `m` `r` `b` `t` `p` | Toggle a type: commits, comments, reviews, checks (builds), threads, pushes |
-| `a` | Back to everything — and, once nothing is narrowed, back to the view you came from |
 | `u` | Only what you have not seen ([the watermark](/riff/reference/github/#since-your-last-visit)) |
-| `Ctrl+f` | Filter the rows by text |
+| `/` | Filter the rows by text |
+| `Esc` | Everything again — every type, seen or not, no text |
 | `za` | Open a commit into the files it touched |
 | `Enter` | Go to what the row is about |
 | `s` | Label the rows and jump to one |

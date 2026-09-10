@@ -24,7 +24,7 @@ turning green and force-pushes are invisible unless you go to the browser.
 
 ```
   Feed          42 events · all types                        ● 5 unseen
-   c commits   m comments   r reviews   b checks   t threads   p pushes   a all   u unseen
+   c commits   m comments   r reviews   b checks   t threads   p pushes   u unseen   / filter
  ────────────────────────────────────────────────────────────────────────────────────
    20m     review    @carol   approved
    40m     check     CI / test                        ✓ passing  (was failing)
@@ -41,9 +41,8 @@ turning green and force-pushes are invisible unless you go to the browser.
   off by default.
 - A letter per type toggles it — its initial where free, `b` for checks
   because `k` moves up, `m` for comments because `c` went to commits.
-  `a` returns to all (and, once nothing is narrowed, is the view key
-  again), `u` narrows to unseen (spec 069), `Ctrl-f` filters by text
-  (spec 065).
+  `u` narrows to unseen (spec 069), `/` filters by text (spec 065), and
+  `Esc` puts everything back. `a` is only ever the view key.
 - `za` expands a commit into its file list with per-file `+/−`. The files are
   fetched when the row is expanded, not on arrival.
 - `Enter` opens what the row is about: a commit → the diff scoped to it, a

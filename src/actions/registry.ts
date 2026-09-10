@@ -480,7 +480,8 @@ export const actions: Action[] = [
   {
     id: "filter-view",
     label: "Filter",
-    description: "Narrow the rows of the info panel, the feed, or the comments panel",
+    description: "Narrow the list that has focus",
+    shortcut: "/",
     category: "navigation",
     available: () => true,
   },
