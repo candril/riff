@@ -21,6 +21,8 @@ import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
+import { annotateReferences } from "../utils/references"
+import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { fuzzyFilter } from "../utils/fuzzy"
 import { ReactionRow } from "./ReactionRow"
@@ -89,8 +91,13 @@ function buildMarkdown(
     id,
     renderNode: tableRenderer(renderer, () => renderer.width),
     // The renderer has no case for HTML tokens, so the tags people write
-    // in GitHub comments would land here verbatim.
-    content: softenCommentHtml(content),
+    // in GitHub comments would land here verbatim. A bare `#412` gets the
+    // title of what it points at, once riff has been told (spec 059).
+    content: annotateReferences(
+      softenCommentHtml(content),
+      resolvedReferences(),
+      referenceRepo(),
+    ),
     syntaxStyle: getSyntaxStyle(),
   })
 }

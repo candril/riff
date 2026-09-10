@@ -46,6 +46,7 @@ import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
 import * as permalink from "./features/permalink"
 import { startMentionPrefetch } from "./features/mentions"
+import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
 import * as jumplist from "./features/jumplist"
 import * as prOperations from "./features/pr-operations"
@@ -546,6 +547,8 @@ export async function createApp(options: AppOptions = {}) {
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments)
       prInfoPanel.setOnExternalRerender(() => render())
       state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
+      // Fresh PR data can carry references riff has never looked up.
+      startReferencePrefetch(referenceContext)
     },
     mode,
     target: options.target,
@@ -1101,6 +1104,16 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
   })
 
+  // Resolve the PRs and issues the description and comments point at (spec
+  // 059). Same deal: the panels read the answers as they render.
+  const referenceContext = {
+    getState: () => state,
+    render,
+    mode,
+    prInfo: prInfo ?? null,
+  }
+  startReferencePrefetch(referenceContext)
+
   // Start the Claude-drafted-comment poller (spec 036). It self-guards on
   // PR mode, so calling it unconditionally here is fine. The interval is
   // unref'd internally so it won't hold the event loop open.
@@ -1112,7 +1125,12 @@ export async function createApp(options: AppOptions = {}) {
   const commentPoll = startCommentPoll({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
-    render,
+    // The poll renders only when the comments actually changed, which is
+    // exactly when a reference riff has not seen can have arrived.
+    render: () => {
+      render()
+      startReferencePrefetch(referenceContext)
+    },
     recreatePrInfoPanel: refreshContext.recreatePrInfoPanel,
     mode,
     prInfo: prInfo ?? null,

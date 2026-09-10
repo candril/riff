@@ -20,6 +20,8 @@ import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
+import { annotateReferences } from "../utils/references"
+import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { colors, theme } from "../theme"
 
@@ -119,6 +121,14 @@ function getSyntaxStyle(): SyntaxStyle {
 /**
  * Format a relative time string (compact, no "ago")
  */
+/**
+ * A body with its `#412`s answered — the title and state of what they point
+ * at, where riff has been told (spec 059).
+ */
+function withReferences(body: string): string {
+  return annotateReferences(body, resolvedReferences(), referenceRepo())
+}
+
 function formatTimeAgo(isoDate: string): string {
   const date = new Date(isoDate)
   const now = new Date()
@@ -1347,7 +1357,7 @@ export class PRInfoPanelClass {
     if (body.text) {
       const md = new MarkdownRenderable(this.renderer, {
         id: "pr-info-description",
-        content: softenCommentHtml(body.text),
+        content: withReferences(softenCommentHtml(body.text)),
         renderNode: tableRenderer(this.renderer, () => this.container.width),
         syntaxStyle: getSyntaxStyle(),
       })
@@ -1953,7 +1963,7 @@ export class PRInfoPanelClass {
     const parsed = extractCommentImages(body)
     if (parsed.text) {
       const md = new MarkdownRenderable(this.renderer, {
-        content: softenCommentHtml(parsed.text),
+        content: withReferences(softenCommentHtml(parsed.text)),
         renderNode: tableRenderer(this.renderer, () => this.container.width),
         syntaxStyle: getSyntaxStyle(),
       })

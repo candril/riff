@@ -5,6 +5,9 @@ import type { Comment, ReviewSession, ReactionContent, ReactionSummary, Reaction
 import { REACTION_CONTENT } from "../types"
 
 /** Up to 300 mentionable users — see `getMentionableUsers`. */
+/** References resolved per GraphQL call — GitHub caps a query's node count. */
+const REFERENCE_BATCH = 25
+
 const MENTIONABLE_PAGES = 3
 
 // ============================================================================
@@ -946,6 +949,71 @@ export async function getMentionableUsers(
   }
 
   return logins
+}
+
+/**
+ * Titles and states for the pull requests and issues a batch of comments
+ * point at (spec 059).
+ *
+ * One query for the lot, aliased per reference — a comment thread routinely
+ * mentions a dozen, and a round trip each would be slower than the panel they
+ * are being drawn into.
+ *
+ * Best-effort like everything else here: unknown numbers, deleted issues and
+ * a failed call all come back as "riff has no answer", and the reference is
+ * left as the author wrote it.
+ */
+export async function getReferenceTitles(
+  keys: readonly string[],
+): Promise<Map<string, { title: string; state: string; pull: boolean }>> {
+  const resolved = new Map<string, { title: string; state: string; pull: boolean }>()
+  if (keys.length === 0) return resolved
+
+  const parsed = keys
+    .map((key) => {
+      const match = key.match(/^([\w.-]+)\/([\w.-]+)#(\d+)$/)
+      return match ? { key, owner: match[1]!, repo: match[2]!, number: Number(match[3]) } : null
+    })
+    .filter((entry): entry is { key: string; owner: string; repo: string; number: number } => entry !== null)
+
+  for (let start = 0; start < parsed.length; start += REFERENCE_BATCH) {
+    const batch = parsed.slice(start, start + REFERENCE_BATCH)
+    const fields = batch
+      .map(
+        (entry, index) =>
+          `r${index}: repository(owner:${JSON.stringify(entry.owner)},name:${JSON.stringify(entry.repo)}){` +
+          `issueOrPullRequest(number:${entry.number}){` +
+          `__typename ... on PullRequest{title state isDraft} ... on Issue{title state}}}`,
+      )
+      .join("\n")
+
+    // The exit code is ignored on purpose: one unknown number in the batch
+    // makes `gh` exit non-zero while still printing every answer it did get.
+    const result = await $`gh api graphql -f query=${`query{${fields}}`}`.quiet().nothrow()
+
+    const data = (safeJson(result.stdout.toString()) as {
+      data?: Record<string, { issueOrPullRequest?: {
+        __typename?: string
+        title?: string
+        state?: string
+        isDraft?: boolean
+      } } | null>
+    } | null)?.data
+    if (!data) continue
+
+    for (const [index, entry] of batch.entries()) {
+      const node = data[`r${index}`]?.issueOrPullRequest
+      if (!node?.title || !node.state) continue
+      const pull = node.__typename === "PullRequest"
+      resolved.set(entry.key, {
+        title: node.title,
+        state: pull && node.isDraft && node.state === "OPEN" ? "draft" : node.state.toLowerCase(),
+        pull,
+      })
+    }
+  }
+
+  return resolved
 }
 
 /**

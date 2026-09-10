@@ -74,6 +74,8 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 056 | [Search Resume & Collapsed Files](./056-search-resume-and-collapsed-files.md) | Done | `n` revives the pattern after Esc; a search opens the collapsed files it hits |
 | 057 | [Following Links](./057-following-links.md) | Done | `gf` follows the link under the cursor; `ge`/`gE` open the current file |
 | 058 | [Mermaid Diagrams](./058-mermaid-diagrams.md) | Done | `gl` draws a mermaid block; `Tab` swaps between the new and old version |
+| 059 | [Resolved References](./059-resolved-references.md) | Done | `#412` and pasted GitHub URLs carry the title and state of what they point at |
+| 060 | [Code Under an Outdated Comment](./060-code-under-an-outdated-comment.md) | Draft | Show the hunk an outdated comment was written against |
 
 ## MVP Path
 
