@@ -142,6 +142,9 @@ export interface InlineCommentOverlayState {
    *  threads use the same set to reveal the original diff hunk. Cleared
    *  when the panel closes. */
   expandedThreadIds: ReadonlySet<string>
+  /** The comment whose original code is on show over the panel (spec 060),
+   *  or null. */
+  codePeekId: string | null
 }
 
 /**
@@ -491,6 +494,7 @@ export function createInitialState(
       expanded: false,
       mentionPicker: null,
       expandedThreadIds: new Set(),
+      codePeekId: null,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -2083,6 +2087,7 @@ export function openInlineCommentOverlay(
       highlightedIndex: 0,
       input: "",
       editingId: null,
+      codePeekId: null,
       expanded: state.inlineCommentOverlay.expanded,
       mentionPicker: null,
       // Fresh per-open expansion state — the user starts with everything
@@ -2131,6 +2136,7 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
       editingId: null,
       mentionPicker: null,
       expandedThreadIds: new Set(),
+      codePeekId: null,
     },
     // Hand focus back to the diff (or stay on tree). The panel can't
     // own focus while it's hidden.
@@ -2207,6 +2213,16 @@ export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] 
  * the set flips that default. Outdated threads use the same flag to reveal
  * the original `diffHunk`.
  */
+/**
+ * Show (or put away) the code the highlighted comment was written against
+ * (spec 060).
+ */
+export function setCommentCodePeek(state: AppState, id: string | null): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  return { ...state, inlineCommentOverlay: { ...ov, codePeekId: id } }
+}
+
 export function toggleInlineCommentOverlayExpand(state: AppState, threadId: string): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state

@@ -23,6 +23,7 @@ import {
   LinePeek,
   TablePeek,
   DiagramPeek,
+  HunkPeek,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -43,6 +44,7 @@ import type { VimDiffView } from "../components"
 import { getFiletypeFromPath } from "../components/VimDiffView"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
+import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
@@ -417,6 +419,27 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                     content: line.sourceContent ?? line.content,
                     lineNumber: line.newLineNum ?? line.oldLineNum,
                     filetype: line.filename ? getFiletypeFromPath(line.filename) : undefined,
+                    terminalWidth: ctx.renderer.width,
+                    terminalHeight: ctx.renderer.height,
+                  })
+                : null
+            })()
+          : null,
+        state.inlineCommentOverlay.open && state.inlineCommentOverlay.codePeekId !== null
+          ? (() => {
+              // Over the panel, not the diff: the comment is in the panel and
+              // the code it was written against may be nowhere else (spec 060).
+              const hunk = commentHunk(
+                getInlineCommentOverlayComments(state),
+                state.inlineCommentOverlay.codePeekId
+              )
+              return hunk
+                ? HunkPeek({
+                    hunk: hunk.hunk,
+                    filename: hunk.filename,
+                    line: hunk.line,
+                    outdated: hunk.outdated,
+                    fromRoot: hunk.fromRoot,
                     terminalWidth: ctx.renderer.width,
                     terminalHeight: ctx.renderer.height,
                   })

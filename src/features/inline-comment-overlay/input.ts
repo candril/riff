@@ -33,7 +33,11 @@ import {
   setMentionPicker,
   moveMentionPickerSelection,
   toggleInlineCommentOverlayExpand,
+  setCommentCodePeek,
+  showToast,
+  clearToast,
 } from "../../state"
+import { commentHunk } from "./hunk"
 import { groupIntoThreads } from "../../utils/threads"
 import {
   readComposerValue,
@@ -147,6 +151,16 @@ export function handleInput(
   }
 
   const highlighted: Comment | undefined = displayOrder[ov.highlightedIndex]
+
+  // The code peek sits over the panel: while it is up, it owns the keys
+  // (spec 060).
+  if (ov.codePeekId !== null) {
+    if (key.name === "escape" || key.name === "q" || key.name === "c") {
+      ctx.setState((s) => setCommentCodePeek(s, null))
+      ctx.render()
+    }
+    return true
+  }
 
   // Ctrl-h — hand focus back to the diff (mirror of file tree's exit).
   // Terminals deliver bare Ctrl-h as `backspace`; we accept both shapes
@@ -364,6 +378,27 @@ export function handleInput(
         }
       }
       return true
+
+    case "c": {
+      // The code this comment was written against — the only copy of it
+      // riff has once the thread has gone outdated (spec 060).
+      if (key.ctrl || key.shift || !highlighted) return true
+      key.preventDefault()
+      if (!commentHunk(threadComments, highlighted.id)) {
+        ctx.setState((s) =>
+          showToast(s, "No stored context for this comment", "info")
+        )
+        ctx.render()
+        setTimeout(() => {
+          ctx.setState(clearToast)
+          ctx.render()
+        }, 2000)
+        return true
+      }
+      ctx.setState((s) => setCommentCodePeek(s, highlighted.id))
+      ctx.render()
+      return true
+    }
 
     case "o":
       if (key.ctrl) return true

@@ -21,6 +21,7 @@ import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
+import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { annotateReferences } from "../utils/references"
 import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
@@ -204,7 +205,8 @@ function viewModeHints(
   hasComments: boolean,
   focused: boolean,
   appMode: "local" | "pr",
-  hasImages: boolean
+  hasImages: boolean,
+  hasCode: boolean
 ): Hint[] {
   if (!focused) {
     return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
@@ -212,6 +214,7 @@ function viewModeHints(
   const hints: Hint[] = [["n", "new"]]
   if (hasComments) {
     hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
+    if (hasCode) hints.push(["c", "code"])
     if (hasImages) hints.push(["O", "image"])
     // Nothing to submit to in local mode; the key is a no-op there.
     if (canSubmit && appMode === "pr") hints.push(["S", "submit"])
@@ -394,6 +397,8 @@ export function InlineCommentOverlay({
   const highlightedHasImages = highlightedComment
     ? extractCommentImages(highlightedComment.localEdit ?? highlightedComment.body).images.length > 0
     : false
+  const highlightedHasCode =
+    highlightedComment !== undefined && commentHunk(comments, highlightedComment.id) !== null
   const isComposing = mode === "compose" || mode === "edit"
   const composeFile = composeFilename.split("/").pop() || composeFilename
   const composerLabel =
@@ -503,8 +508,8 @@ export function InlineCommentOverlay({
               // folds/unfolds. Resolved threads default to collapsed
               // (scannable), everything else defaults to expanded — the
               // `expandedThreadIds` set flips that default. Original-code
-              // context for outdated threads is opt-in via `o` (opens the
-              // file in $EDITOR).
+              // context for outdated threads is `c`, which draws the stored
+              // hunk over the panel (spec 060).
               const totalCount = thread.comments.length
               const isCollapsed = isThreadCollapsed(thread, expandedThreadIds)
               const visibleComments = isCollapsed ? [] : thread.comments
@@ -688,7 +693,14 @@ export function InlineCommentOverlay({
                 ],
           )
         : renderHintRow(
-            viewModeHints(canSubmit, comments.length > 0, focused, appMode, highlightedHasImages)
+            viewModeHints(
+              canSubmit,
+              comments.length > 0,
+              focused,
+              appMode,
+              highlightedHasImages,
+              highlightedHasCode
+            )
           )
     )
   )
