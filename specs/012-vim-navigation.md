@@ -20,6 +20,9 @@ Replace the current DiffRenderable-based diff view with a custom renderer built 
 **Navigation:**
 - **Basic motions**: `j/k` line movement, `h/l` character movement (track column)
 - **Page navigation**: `Ctrl-d/u` half-page, `Ctrl-f/b` full page, `gg/G` top/bottom
+- **Position the view**: `zz/zt/zb` put the cursor's row at the centre, top or
+  bottom of the window, keeping the scroll-off margin so the next motion
+  doesn't undo the scroll
 - **Word motions**: `w/e/b` word forward/end/back, `W/E/B` WORD motions
 - **Line motions**: `0` start of line, `^` first non-space, `$` end of line
 - **Find in line**: `f{char}` find forward, `F{char}` find back, `t/T` till variants, `;/,` repeat

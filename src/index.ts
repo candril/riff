@@ -155,7 +155,9 @@ const HELP_TEXT = `
 
     \x1b[1mGeneral\x1b[0m
     gr                        Refresh diff, commits and comments
-    gf / gF                   Open file in $EDITOR / in a new tmux window
+    gf / gF                   Follow the link under the cursor / in a tmux window
+    gx                        Open the URL under the cursor in a browser
+    ge / gE                   Open the current file in $EDITOR / in a tmux window
     gd / gD                   Copy / dismiss a comment Claude drafted
     Ctrl+p                    Action menu
     g?                        Keymap overlay

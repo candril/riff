@@ -1,5 +1,5 @@
 /**
- * External tools handlers (gf to open in editor, gd to open in diff viewer)
+ * External tools handlers (ge to open in editor, gd to open in diff viewer)
  *
  * Handles opening files in external editors and diff viewers.
  */
@@ -202,11 +202,11 @@ async function fetchHeadContent(
 }
 
 /**
- * Open the current file in $EDITOR (gf)
+ * Open the current file in $EDITOR (ge)
  * Works from: single file view, all files view (file at cursor), file tree
  *
  * The working copy wins when it has the file — both because edits to a
- * snapshot are thrown away, and because it needs no network at all, so `gf`
+ * snapshot are thrown away, and because it needs no network at all, so `ge`
  * keeps working when GitHub doesn't.
  */
 export async function handleOpenFileInEditor(ctx: ExternalToolsContext): Promise<void> {
@@ -260,22 +260,33 @@ function toast(
 }
 
 /**
- * Open the current file in $EDITOR in a new tmux window (gF).
+ * Open the current file in $EDITOR in a new tmux window (gE).
  *
- * Unlike `gf` this leaves riff running, so the diff stays on screen next to
+ * Unlike `ge` this leaves riff running, so the diff stays on screen next to
  * the editor. Prefers the working copy — a file riff hands to another window
  * should be the one edits actually persist to — and only falls back to a
  * read-only PR snapshot when the working copy doesn't have it.
  */
 export async function handleOpenFileInTmuxWindow(ctx: ExternalToolsContext): Promise<void> {
-  if (!insideTmux()) {
-    toast(ctx, "Not running inside tmux", "info")
-    return
-  }
-
   const [filename, lineNumber] = getCurrentFile(ctx)
   if (!filename) {
     toast(ctx, "No file selected", "info")
+    return
+  }
+  await handleOpenPathInTmuxWindow(ctx, filename, lineNumber)
+}
+
+/**
+ * The same, for a path riff was pointed at rather than one it is showing —
+ * a link followed out of the diff (spec 057).
+ */
+export async function handleOpenPathInTmuxWindow(
+  ctx: ExternalToolsContext,
+  filename: string,
+  lineNumber?: number,
+): Promise<void> {
+  if (!insideTmux()) {
+    toast(ctx, "Not running inside tmux", "info")
     return
   }
 

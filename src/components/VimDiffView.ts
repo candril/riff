@@ -1796,6 +1796,38 @@ export class VimDiffView {
   }
 
   /** Scroll the code window sideways by whole columns (`zh`, `zl`). */
+  /**
+   * Park the cursor's row where `zz`, `zt` and `zb` want it.
+   *
+   * The margin is the one `ensureCursorVisible` and `dragCursorIntoView`
+   * work to, so the scroll survives the next keystroke instead of being
+   * pulled straight back.
+   */
+  scrollCursorTo(line: number, where: "center" | "top" | "bottom"): void {
+    if (!this.scrollBox) return
+
+    const row = this.cursorLineToVisualRow(line, this.cursorState?.col ?? 0)
+    if (row < 0) return
+
+    const viewportHeight = Math.floor(this.scrollBox.height)
+    if (viewportHeight <= 0) return
+
+    const margin = Math.min(VERTICAL_SCROLL_OFF, Math.max(0, Math.floor(viewportHeight / 2) - 1))
+    const target =
+      where === "center"
+        ? row - Math.floor(viewportHeight / 2)
+        : where === "top"
+          ? row - margin
+          : row - viewportHeight + 1 + margin
+
+    const maxScroll = Math.max(0, this.scrollBox.scrollHeight - viewportHeight)
+    const scrollTop = Math.max(0, Math.min(maxScroll, target))
+
+    this.scrollBox.scrollTop = scrollTop
+    this.setExpectedScrollTop(scrollTop)
+    this.renderer.requestRender()
+  }
+
   scrollColumnsBy(delta: number): void {
     if (!this.scrollBox || this.wrapEnabled) return
     this.scrollBox.scrollLeft = Math.max(0, this.scrollBox.scrollLeft + delta)

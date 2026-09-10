@@ -8,7 +8,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
-import { clearTreeFilter } from "../state"
+import { clearTreeFilter, expandFiles } from "../state"
 import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -40,6 +40,7 @@ import * as folds from "../features/folds"
 import * as fileNavigation from "../features/file-navigation"
 import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
+import * as followLink from "../features/follow-link"
 import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
 import * as threadMotion from "../features/thread-motion"
@@ -168,6 +169,64 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
   // to with Ctrl-O (spec 038).
   function recordJump() {
     ctx.setState((s) => jumplist.pushCurrent(s, ctx.getVimState()))
+  }
+
+  const followLinkContext: followLink.FollowLinkContext = {
+    setState: ctx.setState,
+    getVimState: ctx.getVimState,
+    getLineMapping: ctx.getLineMapping,
+    render: ctx.render,
+    jumpToFile: (candidates, line) => {
+      const state = ctx.getState()
+      const filename = candidates.find((candidate) =>
+        state.files.some((file) => file.filename === candidate)
+      )
+      if (!filename) return false
+      const fileIndex = state.files.findIndex((file) => file.filename === filename)
+
+      recordJump()
+      // A file marked viewed is folded shut; a link to it means to read it.
+      if (state.collapsedFiles.has(filename)) {
+        ctx.setState((s) => expandFiles(s, [filename]))
+        ctx.rebuildLineMapping()
+      }
+      fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
+
+      if (line !== undefined) {
+        const visualLine = ctx.getLineMapping().findVisualLineForFileLine(filename, line)
+        if (visualLine !== null) {
+          ctx.setVimState({ ...ctx.getVimState(), line: visualLine, col: 0, desiredCol: null })
+          ctx.ensureCursorVisible()
+        }
+      }
+
+      ctx.render()
+      return true
+    },
+    openPath: (candidates, line, tmux) => {
+      void (async () => {
+        // The reading that exists on disk wins; with neither there, the first
+        // is the one the fetch-from-GitHub fallback should ask for.
+        let target = candidates[0]!
+        for (const candidate of candidates) {
+          if (await Bun.file(candidate).exists()) {
+            target = candidate
+            break
+          }
+        }
+
+        if (tmux) {
+          await externalTools.handleOpenPathInTmuxWindow(ctx.externalToolsContext, target, line)
+          return
+        }
+        await externalTools.handleOpenFileAtLine(ctx.externalToolsContext, target, line ?? 0)
+      })()
+    },
+    openUrl: (url) => {
+      const opener =
+        process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open"
+      Bun.spawn([opener, url], { stdout: "ignore", stderr: "ignore" })
+    },
   }
 
   const jumpApplyCtx: jumplist.JumpApplyContext = {
@@ -838,9 +897,20 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.executeAction("copy-permalink")
         return
       } else if (sequence === "gf") {
-        externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
+        followLink.handleFollowLink(followLinkContext)
         return
       } else if (sequence === "gF!" || sequence === "gf!") {
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        followLink.handleFollowLink(followLinkContext, { tmux: true })
+        return
+      } else if (sequence === "gx") {
+        followLink.handleFollowLink(followLinkContext, { urlsOnly: true })
+        return
+      } else if (sequence === "ge") {
+        externalTools.handleOpenFileInEditor(ctx.externalToolsContext)
+        return
+      } else if (sequence === "gE!" || sequence === "ge!") {
         // Both spellings are accepted because terminals differ in whether
         // shift+letter reports the key name as lower- or uppercase.
         externalTools.handleOpenFileInTmuxWindow(ctx.externalToolsContext)
@@ -936,6 +1006,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           vimState.line,
           vimState.col,
           sequence === "zs" ? "start" : "end"
+        )
+        ctx.render()
+        return
+      } else if (sequence === "zz" || sequence === "zt" || sequence === "zb") {
+        ctx.vimDiffView.scrollCursorTo(
+          ctx.getVimState().line,
+          sequence === "zz" ? "center" : sequence === "zt" ? "top" : "bottom"
         )
         ctx.render()
         return

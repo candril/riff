@@ -72,6 +72,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 054 | [HTML in Comments](./054-html-in-comments.md) | Done | `<br>`, `<details>`, `<b>`, `<a>` translated instead of printed raw |
 | 055 | [Visual Selection & Text Objects](./055-visual-selection-and-text-objects.md) | Done | `v` selects charwise, `i`/`a` text objects, viewed moves to `x` |
 | 056 | [Search Resume & Collapsed Files](./056-search-resume-and-collapsed-files.md) | Done | `n` revives the pattern after Esc; a search opens the collapsed files it hits |
+| 057 | [Following Links](./057-following-links.md) | Done | `gf` follows the link under the cursor; `ge`/`gE` open the current file |
 
 ## MVP Path
 
