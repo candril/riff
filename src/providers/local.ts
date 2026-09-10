@@ -268,7 +268,7 @@ export async function getFileContent(
 async function getJjFileContent(filename: string, target?: string): Promise<string> {
   if (!target) {
     // Current working copy version
-    const result = await $`jj file show ${filename}`.nothrow()
+    const result = await $`jj file show ${filename}`.quiet().nothrow()
     if (result.exitCode !== 0) {
       // Try reading from working directory directly
       const file = Bun.file(filename)
@@ -453,13 +453,13 @@ export async function getLocalCommitDiff(sha: string, target?: string): Promise<
 
   if (vcs === "jj") {
     // For jj, the sha is a short commit id
-    const result = await $`jj diff --git -r ${sha}`.nothrow()
+    const result = await $`jj diff --git -r ${sha}`.quiet().nothrow()
     if (result.exitCode !== 0) return ""
     return result.text()
   }
 
   // git: show just the diff for that commit
-  const result = await $`git show ${sha} --format= --patch`.nothrow()
+  const result = await $`git show ${sha} --format= --patch`.quiet().nothrow()
   if (result.exitCode !== 0) return ""
   return result.text()
 }

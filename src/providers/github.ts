@@ -482,7 +482,7 @@ export async function deletePendingReview(
   reviewId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await $`gh api -X DELETE repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}`
+    await $`gh api -X DELETE repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}`.quiet()
     return { success: true }
   } catch (err) {
     return { success: false, error: extractShellError(err) }
@@ -528,7 +528,7 @@ export async function editPullRequest(
 ): Promise<void> {
   return safeGhCommand(async () => {
     const repoArgs = owner && repo ? ["-R", `${owner}/${repo}`] : []
-    await $`gh pr edit ${prNumber} ${repoArgs} --title ${title} --body ${body}`
+    await $`gh pr edit ${prNumber} ${repoArgs} --title ${title} --body ${body}`.quiet()
   })
 }
 
