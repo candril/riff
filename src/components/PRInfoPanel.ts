@@ -361,8 +361,11 @@ export class PRInfoPanelClass {
   private activeSection: PRInfoPanelSection = 'description'
   private cursorIndex: number = -1  // -1 = on section header
   
-  // Expanded state per section (checks collapsed by default, others open)
-  private expandedSections: Set<PRInfoPanelSection> = new Set(['description', 'conversation', 'files', 'commits'] as PRInfoPanelSection[])
+  // Every section starts collapsed: the panel's job on arrival is to say
+  // what there is — five headers with their counts — and let you open the
+  // one you came for. Expanded-by-default made the second visit a wall of
+  // things you had already read (spec 062).
+  private expandedSections: Set<PRInfoPanelSection> = new Set()
   
   // Thread expanded state (by thread root comment id) - shows replies
   private expandedThreads: Set<string> = new Set()

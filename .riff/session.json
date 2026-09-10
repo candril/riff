@@ -1,6 +1,10 @@
 {
-  "id": "88337aa9-e270-466f-a2f5-f78be73c4620",
-  "source": "local",
-  "createdAt": "2026-06-24T12:28:56.943Z",
-  "updatedAt": "2026-06-24T12:28:56.943Z"
+  "id": "e9c3699f-08aa-4af6-a4ea-5db30cae5c96",
+  "source": "gh:cli/cli#14391",
+  "createdAt": "2026-09-10T11:17:52.071Z",
+  "updatedAt": "2026-09-10T11:17:52.071Z",
+  "prNumber": 14391,
+  "owner": "cli",
+  "repo": "cli",
+  "reviewMode": "single"
 }
