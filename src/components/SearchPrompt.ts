@@ -54,7 +54,7 @@ export function SearchPrompt({ searchState, renderer }: SearchPromptProps) {
     // While typing, the field itself; once confirmed, the pattern it left
     // behind (the field has moved on to whatever opens next).
     searchState.active
-      ? PromptInput(renderer)
+      ? PromptInput(renderer, "search")
       : Text({ content: searchState.pattern, fg: promptColor }),
     
     // Loading indicator

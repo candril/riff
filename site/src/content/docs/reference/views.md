@@ -246,8 +246,9 @@ merged with the checks and comments riff already has.
 ## Commit filtering
 
 `]g` narrows the diff to the first commit, `]g` again to the second, and past the last one it
-wraps back to the whole diff; `[g` goes the other way. The action menu has **Select Commit** for
-picking one out of a fuzzy list instead.
+wraps back to the whole diff; `[g` goes the other way. `Ctrl+g` picks one out of a fuzzy list
+instead. While the diff is one commit's slice, the header says so — `commit 2/5 · 7e8f200 …` —
+and `Esc` takes you back to the whole diff.
 
 Useful on a PR whose commits are actually a sequence of arguments rather than a pile of
 autosaves.

@@ -113,6 +113,7 @@ export const actions: Action[] = [
   {
     id: "select-commit",
     label: "Select Commit",
+    shortcut: "Ctrl+g",
     description: "Filter diff to a single commit's changes",
     category: "navigation",
     available: (state) => state.commits.length > 0,
@@ -522,7 +523,6 @@ export const actions: Action[] = [
     id: "show-file-path",
     label: "Show File Path",
     description: "Display the current file path",
-    shortcut: "Ctrl+g",
     category: "view",
     available: (state) => state.files.length > 0,
   },

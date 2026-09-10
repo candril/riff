@@ -462,7 +462,7 @@ export function InlineCommentOverlay({
         ? Box(
             { flexDirection: "row", flexGrow: 1 },
             Text({ content: "/", fg: colors.secondary }),
-            PromptInput(renderer)
+            PromptInput(renderer, "comments-filter")
           )
         : Text({
             content: filter ? `${headerLabel}  /${filter}` : headerLabel,

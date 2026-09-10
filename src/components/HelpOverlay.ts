@@ -66,7 +66,7 @@ const HELP_SECTIONS = [
       ["Ctrl+h / Ctrl+l", "Focus panel left / right"],
       ["Ctrl+f", "Find files (fuzzy)"],
       ["/", "Filter the list that has focus; search in the diff"],
-      ["Ctrl+g", "Show current file path"],
+      ["Ctrl+g", "Pick a commit to scope the diff to"],
       ["x", "Mark file as viewed"],
     ],
   },

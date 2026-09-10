@@ -100,7 +100,7 @@ function filterRow(feed: FeedState, renderer: CliRenderer) {
     return Box(
       { flexDirection: "row", height: 1, width: "100%" },
       Text({ content: "/", fg: colors.secondary }),
-      PromptInput(renderer)
+      PromptInput(renderer, "feed-filter")
     )
   }
 

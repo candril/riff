@@ -95,8 +95,12 @@ export function ActionMenu({ renderer, selectedIndex, mode }: ActionMenuProps) {
           flexDirection: "row",
           paddingX: 2,
           paddingBottom: 1,
+          // One row, always: the shared input has no height of its own, and
+          // a box that has to measure it can come out wrong when the field
+          // has just moved here from another prompt.
+          height: 1,
         },
-        PromptInput(renderer)
+        PromptInput(renderer, "action-menu")
       ),
       // List body
       mode.kind === "actions"

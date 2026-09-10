@@ -92,7 +92,7 @@ export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) 
           paddingBottom: 1,
           height: 1,
         },
-        PromptInput(renderer)
+        PromptInput(renderer, "file-picker")
       ),
       // Files list (scrolling window)
       Box(

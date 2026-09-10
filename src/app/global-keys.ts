@@ -920,11 +920,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "g":
-        if (key.ctrl && state.files.length > 0) {
-          // Show file path toast (like nvim Ctrl+g)
-          const filePath = getCurrentFilePath(ctx)
-          if (filePath) {
-            ctx.setState((s) => showToast(s, filePath, "info"))
+        // Ctrl-g is the commit picker — `g` is riff's letter for commits
+        // (`]g`, `[g`), and the picker was two keystrokes and a search away
+        // in the palette. The file-path toast it used to show is still there
+        // as Show File Path.
+        if (key.ctrl) {
+          if (state.commits.length > 0) {
+            key.preventDefault()
+            ctx.setState(openCommitPicker)
             ctx.render()
           }
           return
