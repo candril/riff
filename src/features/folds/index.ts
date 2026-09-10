@@ -14,6 +14,7 @@ export {
   handleGoToTop,
   handleGoToBottom,
   handleToggleFoldAtCursor,
+  handleToggleFileBlocks,
   handleOpenFoldAtCursor,
   handleCloseFoldAtCursor,
   handleExpandAllFolds,

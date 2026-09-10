@@ -1307,6 +1307,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         folds.handleToggleFoldAtCursor(ctx.foldsContext)
         return
+      } else if (sequence === "zA!" || sequence === "za!") {
+        // Every fenced block in this file at once (spec 073).
+        folds.handleToggleFileBlocks(ctx.foldsContext)
+        return
       } else if (sequence === "zR!" || sequence === "zr!") {
         folds.handleExpandAllFolds(ctx.foldsContext)
         return

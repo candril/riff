@@ -1,5 +1,5 @@
 /**
- * Fenced code blocks in a diff (spec 058).
+ * Fenced code blocks in a diff (specs 058, 073).
  *
  * A block is read one side at a time. The rows between ``` and ``` are a mix
  * of context, additions and deletions; the version that will exist after the
@@ -84,4 +84,92 @@ export function blockContent(
     if (onSide(lines[i]!, side)) rows.push(i)
   }
   return rows
+}
+
+/**
+ * A block as a fold (spec 073). Where `findFencedBlock` reads one block on
+ * one side of the diff — the peek's question — this lists every block in
+ * the rows as drawn, which is what folding needs: the fold hides rows,
+ * whichever side they are on.
+ */
+export interface FoldableBlock {
+  /** Stable across rebuilds: the file, the side, and the fence's line. */
+  id: string
+  filename: string
+  /** Row of the opening fence, and of the closing one. */
+  start: number
+  end: number
+  info: string
+  /** Rows between the fences. */
+  size: number
+}
+
+export interface FoldableLine extends FencedLine {
+  sourceContent?: string
+  oldLineNum?: number
+  newLineNum?: number
+}
+
+/**
+ * Every fenced block in the rows as they stand.
+ *
+ * A block is only a block when both of its fences are there: a fence whose
+ * partner is outside the hunk is a run of text riff has no business folding
+ * away. Nor does one reach across a file boundary.
+ */
+export function findFoldableBlocks(lines: readonly FoldableLine[]): FoldableBlock[] {
+  const blocks: FoldableBlock[] = []
+  let open: { row: number; marker: string; info: string } | null = null
+
+  for (let row = 0; row < lines.length; row++) {
+    const line = lines[row]!
+    if (line.type === "file-header" || line.type === "spacing") {
+      open = null
+      continue
+    }
+    if (!isContent(line.type)) continue
+
+    const fence = (line.sourceContent ?? line.content).trim().match(FENCE)
+    if (!fence) continue
+    const marker = fence[1]![0]!
+    const info = (fence[2] ?? "").trim()
+
+    if (!open) {
+      open = { row, marker, info }
+      continue
+    }
+    // A closing fence is the same character and carries no info string.
+    if (marker !== open.marker || info.length > 0) continue
+
+    blocks.push({
+      id: blockId(lines[open.row]!, open.row),
+      filename: line.filename ?? "",
+      start: open.row,
+      end: row,
+      info: open.info,
+      size: row - open.row - 1,
+    })
+    open = null
+  }
+
+  return blocks
+}
+
+/** The block a row is in — its fences included — or null. */
+export function blockAt(blocks: readonly FoldableBlock[], row: number): FoldableBlock | null {
+  return blocks.find((block) => row >= block.start && row <= block.end) ?? null
+}
+
+/**
+ * A block's identity, which has to survive a rebuilt mapping: a rebuild
+ * renumbers every row, but not the file's own line numbers.
+ */
+function blockId(fence: FoldableLine, row: number): string {
+  const side = fence.type === "deletion" ? "LEFT" : "RIGHT"
+  const lineNum = side === "LEFT" ? fence.oldLineNum : fence.newLineNum
+  return `${fence.filename ?? ""}:${side}:${lineNum ?? `row${row}`}`
+}
+
+function isContent(type: string): boolean {
+  return type === "context" || type === "addition" || type === "deletion"
 }

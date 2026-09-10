@@ -71,6 +71,9 @@ export interface DiffLine {
   
   /** Number of lines in this hunk (for collapsed display) */
   hunkLineCount?: number
+
+  /** This row stands for a folded fenced block (spec 073). */
+  blockFoldId?: string
 }
 
 /**
@@ -180,6 +183,8 @@ export interface DiffLineMappingOptions {
   alignMarkdownTables?: boolean
   /** Set of collapsed hunk keys ("filename:hunkIndex") */
   collapsedHunks?: Set<string>
+  /** Ids of folded fenced blocks (spec 073). */
+  collapsedBlocks?: ReadonlySet<string>
   /** Filenames the all-files view is restricted to, or undefined for all of
    *  them. Set from the file-tree filter so the diff lists what the tree
    *  lists. Indices into `files` stay untouched — only rows are dropped. */

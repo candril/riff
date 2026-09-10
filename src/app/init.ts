@@ -225,6 +225,7 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
     fileContents,
     collapsedFiles: state.collapsedFiles,
     collapsedHunks: state.collapsedHunks,
+    collapsedBlocks: state.collapsedBlocks,
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     // Wrapped, the padding is worse than useless: it is the widest cell in
     // the table spent on every row, wrapping into blank lines, and the

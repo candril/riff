@@ -436,6 +436,10 @@ export interface AppState {
   
   // Collapsed hunks (key: "filename:hunkIndex")
   collapsedHunks: Set<string>
+
+  // Folded fenced blocks in the diff, by their own id (spec 073): a
+  // forty-line mermaid fence is one thing, and folds like one.
+  collapsedBlocks: ReadonlySet<string>
   
   // Action menu state
   actionMenu: ActionMenuState
@@ -631,6 +635,7 @@ export function createInitialState(
     expandedDividers: new Set(),
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
+    collapsedBlocks: new Set<string>(),
     actionMenu: createActionMenuState(),
     reviewPreview: {
       open: false,
@@ -996,6 +1001,22 @@ export function toggleWrapLines(state: AppState): AppState {
     ...state,
     wrapLines: !state.wrapLines,
   }
+}
+
+/** Fold or unfold one fenced block (spec 073). */
+export function toggleBlockFold(state: AppState, id: string): AppState {
+  const collapsedBlocks = new Set(state.collapsedBlocks)
+  if (collapsedBlocks.has(id)) collapsedBlocks.delete(id)
+  else collapsedBlocks.add(id)
+  return { ...state, collapsedBlocks }
+}
+
+export function setBlockFolds(state: AppState, ids: readonly string[]): AppState {
+  return { ...state, collapsedBlocks: new Set(ids) }
+}
+
+export function expandAllBlocks(state: AppState): AppState {
+  return state.collapsedBlocks.size === 0 ? state : { ...state, collapsedBlocks: new Set<string>() }
 }
 
 /**

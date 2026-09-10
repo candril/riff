@@ -99,6 +99,11 @@ viewport, and the bar would then sit across the bottom of the diff for the rest 
 
 ### Folds
 
+`za` on a fenced code block folds it to its opening fence — ```` ```mermaid  ▸ 23 lines ```` —
+so the prose around a forty-line diagram is readable; `za` again opens it, `zA` does every block
+in the file at once, and `zR`/`zM` take blocks with them. A block only folds when both its fences
+are on screen: a fence whose partner is outside the hunk is text, not a block.
+
 `za` toggles what's under the cursor: a file header folds the whole file away, a hunk header
 folds the hunk. `zR` and `zM` do the whole diff at once. Marking a file viewed folds it, so the
 diff shortens as you work through it.

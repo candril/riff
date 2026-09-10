@@ -45,6 +45,7 @@ export interface RefreshPosition {
   alignMarkdownTables: boolean
   collapsedFiles: Set<string>
   collapsedHunks: Set<string>
+  collapsedBlocks: Set<string>
   expandedDividers: Set<string>
   collapsedThreadIds: Set<string>
   prInfoPanel: AppState["prInfoPanel"]
@@ -78,6 +79,7 @@ export function capturePosition(
     alignMarkdownTables: state.alignMarkdownTables,
     collapsedFiles: new Set(state.collapsedFiles),
     collapsedHunks: new Set(state.collapsedHunks),
+    collapsedBlocks: new Set(state.collapsedBlocks),
     expandedDividers: new Set(state.expandedDividers),
     collapsedThreadIds: new Set(state.collapsedThreadIds),
     prInfoPanel: state.prInfoPanel,
@@ -114,6 +116,7 @@ export function restorePosition(state: AppState, position: RefreshPosition): App
     alignMarkdownTables: position.alignMarkdownTables,
     collapsedFiles: new Set(position.collapsedFiles),
     collapsedHunks: new Set(position.collapsedHunks),
+    collapsedBlocks: new Set(position.collapsedBlocks),
     expandedDividers: new Set(position.expandedDividers),
     collapsedThreadIds: new Set(position.collapsedThreadIds),
     prInfoPanel: position.prInfoPanel,

@@ -88,6 +88,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 070 | [Activity Feed](./070-activity-feed.md) | Done | `a` shows what happened, filterable by type |
 | 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list |
 | 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
+| 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
 
 ## MVP Path
 

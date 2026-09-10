@@ -42,7 +42,8 @@ const HELP_SECTIONS = [
   {
     title: "Folds & Context",
     keys: [
-      ["za", "Toggle fold at cursor"],
+      ["za", "Toggle fold at cursor (file, hunk, code block)"],
+      ["zA", "Fold every code block in this file"],
       ["zo / zc", "Open / close fold"],
       ["zR / zM", "Open / close every fold"],
       ["Enter", "Reveal hidden context lines"],

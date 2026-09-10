@@ -72,7 +72,8 @@ Every one of these records a jumplist entry, so `Ctrl+o` undoes it.
 
 | Key | Action |
 | --- | --- |
-| `za` | Toggle the fold at the cursor — file header or hunk |
+| `za` | Toggle the fold at the cursor — file header, hunk, or fenced code block |
+| `zA` | Fold or unfold every fenced code block in this file |
 | `zo` `zc` | Open, close it |
 | `zR` `zr` | Open every fold |
 | `zM` `zm` | Close every fold |

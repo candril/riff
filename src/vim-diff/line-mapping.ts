@@ -3,6 +3,7 @@
  */
 
 import { alignMarkdownTables } from "../utils/markdown-tables"
+import { findFoldableBlocks, blockAt, type FoldableBlock } from "../utils/fenced-blocks"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
 import type { DiffLine, CommentAnchor, SearchMatch, DiffLineMappingOptions } from "./types"
@@ -13,6 +14,7 @@ export class DiffLineMapping {
   private fileContents: Map<string, string>
   private collapsedFiles: Set<string>
   private collapsedHunks: Set<string>
+  private collapsedBlocks: ReadonlySet<string>
   private visibleFiles: ReadonlySet<string> | undefined
 
   constructor(
@@ -25,6 +27,7 @@ export class DiffLineMapping {
     this.fileContents = options?.fileContents ?? new Map()
     this.collapsedFiles = options?.collapsedFiles ?? new Set()
     this.collapsedHunks = options?.collapsedHunks ?? new Set()
+    this.collapsedBlocks = options?.collapsedBlocks ?? new Set()
     this.visibleFiles = options?.visibleFiles
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
@@ -36,6 +39,11 @@ export class DiffLineMapping {
     if (options?.alignMarkdownTables !== false) {
       this.alignTables()
     }
+
+    // After the tables, before anything reads a row: a folded fence is one
+    // row where its lines were, so every index below it must already count
+    // it that way.
+    if (this.collapsedBlocks.size > 0) this.foldBlocks()
   }
 
   /**
@@ -51,6 +59,64 @@ export class DiffLineMapping {
       const line = this.lines[index]!
       this.lines[index] = { ...line, content, sourceContent: line.content }
     }
+  }
+
+  /**
+   * Replace each folded fence with a single row standing for it (spec 073).
+   * The row keeps the opening fence's file and line number, so a comment
+   * anchor and the cursor still point where they did.
+   */
+  private foldBlocks(): void {
+    const folded: DiffLine[] = []
+    const blocks = findFoldableBlocks(this.lines)
+    let skipTo = -1
+
+    for (let row = 0; row < this.lines.length; row++) {
+      if (row <= skipTo) continue
+      const line = this.lines[row]!
+      const block = blocks.find((candidate) => candidate.start === row)
+      if (!block || !this.collapsedBlocks.has(block.id)) {
+        folded.push({ ...line, visualIndex: folded.length })
+        continue
+      }
+
+      const label = block.info ? `\`\`\`${block.info}` : "```"
+      folded.push({
+        ...line,
+        visualIndex: folded.length,
+        content: `${label}  ▸ ${block.size} line${block.size === 1 ? "" : "s"}`,
+        blockFoldId: block.id,
+      })
+      skipTo = block.end
+    }
+
+    this.lines = folded
+  }
+
+  /** The fenced blocks in the rows as they stand (spec 073). */
+  get foldableBlocks(): FoldableBlock[] {
+    return findFoldableBlocks(this.lines)
+  }
+
+  /**
+   * The block a row falls in, fences included (spec 073).
+   *
+   * A folded block is one row whose closing fence is not in the mapping at
+   * all, so it cannot be found by scanning for fences — it carries its id.
+   */
+  blockAtLine(visualIndex: number): FoldableBlock | null {
+    const line = this.lines[visualIndex]
+    if (line?.blockFoldId) {
+      return {
+        id: line.blockFoldId,
+        filename: line.filename ?? "",
+        start: visualIndex,
+        end: visualIndex,
+        info: "",
+        size: 0,
+      }
+    }
+    return blockAt(this.foldableBlocks, visualIndex)
   }
 
   /**

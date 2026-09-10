@@ -15,6 +15,9 @@ import {
   toggleFileFold,
   expandAllFiles,
   collapseAllFiles,
+  toggleBlockFold,
+  setBlockFolds,
+  expandAllBlocks,
 } from "../../state"
 import { toggleNodeExpansion } from "../../utils/file-tree"
 
@@ -146,6 +149,10 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
     return
   }
 
+  // A fenced block the cursor is in folds before the file does: a mermaid
+  // fence is the thing in the way, and the file is what is left (spec 073).
+  if (toggleBlockAtCursor(ctx)) return
+
   // In all-files mode, try to toggle file fold
   if (state.selectedFileIndex === null) {
     const currentLine = ctx.getLineMapping().getLine(ctx.getVimState().line)
@@ -160,6 +167,50 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
       ctx.render()
     }
   }
+}
+
+/**
+ * The fenced block the cursor is in, folded or unfolded — answering whether
+ * there was one (spec 073). The cursor stays on the fence, which is the row
+ * that remains either way.
+ */
+function toggleBlockAtCursor(ctx: FoldsContext): boolean {
+  const row = ctx.getVimState().line
+  const block = ctx.getLineMapping().blockAtLine(row)
+  if (!block) return false
+
+  ctx.setState((s) => toggleBlockFold(s, block.id))
+  ctx.rebuildLineMapping()
+  ctx.setVimState({ ...ctx.getVimState(), line: block.start, col: 0, desiredCol: null })
+  ctx.ensureCursorVisible()
+  ctx.render()
+  return true
+}
+
+/**
+ * Every fenced block of the file under the cursor, folded or unfolded
+ * together (`zA`) — a document that is mostly diagrams reads as prose.
+ */
+export function handleToggleFileBlocks(ctx: FoldsContext): void {
+  const mapping = ctx.getLineMapping()
+  const filename = mapping.getLine(ctx.getVimState().line)?.filename
+  const blocks = mapping.foldableBlocks.filter(
+    (block) => !filename || block.filename === filename
+  )
+  if (blocks.length === 0) return
+
+  const state = ctx.getState()
+  const anyOpen = blocks.some((block) => !state.collapsedBlocks.has(block.id))
+  const ids = new Set(state.collapsedBlocks)
+  for (const block of blocks) {
+    if (anyOpen) ids.add(block.id)
+    else ids.delete(block.id)
+  }
+
+  ctx.setState((s) => setBlockFolds(s, [...ids]))
+  ctx.rebuildLineMapping()
+  ctx.ensureCursorVisible()
+  ctx.render()
 }
 
 /**
@@ -190,6 +241,13 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
         }
       }
     }
+    return
+  }
+
+  // A folded block under the cursor opens first (spec 073).
+  const openBlock = ctx.getLineMapping().blockAtLine(ctx.getVimState().line)
+  if (openBlock && state.collapsedBlocks.has(openBlock.id)) {
+    toggleBlockAtCursor(ctx)
     return
   }
 
@@ -237,6 +295,13 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
     return
   }
 
+  // An open block under the cursor closes first (spec 073).
+  const closeBlock = ctx.getLineMapping().blockAtLine(ctx.getVimState().line)
+  if (closeBlock && !state.collapsedBlocks.has(closeBlock.id)) {
+    toggleBlockAtCursor(ctx)
+    return
+  }
+
   // Diff view - collapse file in all-files mode
   if (state.selectedFileIndex !== null) return
 
@@ -273,9 +338,10 @@ export function handleExpandAllFolds(ctx: FoldsContext): void {
     return
   }
 
-  // Diff view - expand all files
+  // Diff view - expand all files, and every fenced block with them: "show
+  // me everything" means everything (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
-  ctx.setState(expandAllFiles)
+  ctx.setState((s) => expandAllBlocks(expandAllFiles(s)))
   ctx.rebuildLineMapping()
   if (currentFilename) {
     const headerLine = findFileHeaderLine(ctx, currentFilename)
@@ -309,9 +375,11 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
     return
   }
 
-  // Diff view - collapse all files
+  // Diff view - collapse all files, and fold every block, so opening one
+  // file back up shows its prose rather than its diagrams (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
-  ctx.setState(collapseAllFiles)
+  const blockIds = ctx.getLineMapping().foldableBlocks.map((block) => block.id)
+  ctx.setState((s) => setBlockFolds(collapseAllFiles(s), blockIds))
   ctx.rebuildLineMapping()
   if (currentFilename) {
     const headerLine = findFileHeaderLine(ctx, currentFilename)
