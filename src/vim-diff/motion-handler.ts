@@ -7,8 +7,13 @@ import type { DiffLineMapping } from "./line-mapping"
 import {
   moveCursorToLine,
   moveCursorToCol,
-  enterVisualLineMode,
+  enterVisualMode,
   exitVisualMode,
+  isVisualMode,
+  switchVisualMode,
+  swapSelectionEnds,
+  selectSpan,
+  setPendingTextObject,
   addToJumpList,
   jumpBack,
   jumpForward,
@@ -18,6 +23,7 @@ import {
   setPendingFindChar,
   completeFindChar,
 } from "./cursor-state"
+import { resolveTextObject } from "./text-objects"
 
 export interface KeyEvent {
   name: string
@@ -66,9 +72,14 @@ export class VimMotionHandler {
       return this.handlePendingFindChar(key, state, mapping)
     }
 
+    // Handle pending text object (i/a waiting for its object key)
+    if (state.pendingTextObject) {
+      return this.handlePendingTextObject(key, state, mapping)
+    }
+
     // Escape - exit visual mode
     if (key.name === "escape") {
-      if (state.mode === "visual-line") {
+      if (isVisualMode(state)) {
         this.setState(exitVisualMode(state))
         this.onCursorMove()
         return true
@@ -76,10 +87,33 @@ export class VimMotionHandler {
       return false
     }
 
-    // V - enter visual line mode
-    if (key.name === "v" && key.shift) {
-      this.setState(enterVisualLineMode(state))
+    // v / V - charwise and linewise visual mode. Pressing the mode that is
+    // already active leaves visual mode; pressing the other one reshapes the
+    // selection without losing its ends, as vim does.
+    if (key.name === "v" && !key.ctrl) {
+      const wanted = key.shift ? "visual-line" : "visual"
+      if (state.mode === wanted) {
+        this.setState(exitVisualMode(state))
+      } else if (isVisualMode(state)) {
+        this.setState(switchVisualMode(state, wanted))
+      } else {
+        this.setState(enterVisualMode(state, wanted))
+      }
       this.onCursorMove()
+      return true
+    }
+
+    // o - put the cursor on the other end of the selection
+    if (key.name === "o" && !key.ctrl && !key.shift && isVisualMode(state)) {
+      this.setState(swapSelectionEnds(state))
+      this.onCursorMove()
+      return true
+    }
+
+    // i / a - start a text object. Only inside a selection: `i` toggles the
+    // PR overview otherwise.
+    if ((key.name === "i" || key.name === "a") && !key.ctrl && !key.shift && isVisualMode(state)) {
+      this.setState(setPendingTextObject(state, key.name))
       return true
     }
 
@@ -259,6 +293,44 @@ export class VimMotionHandler {
     }
 
     return false
+  }
+
+  /**
+   * Resolve the object key that follows `i`/`a` and select what it names.
+   * An object that resolves to nothing leaves the selection as it was.
+   */
+  private handlePendingTextObject(
+    key: KeyEvent,
+    state: VimCursorState,
+    mapping: DiffLineMapping
+  ): boolean {
+    const cleared = setPendingTextObject(state, null)
+    if (key.name === "escape") {
+      this.setState(cleared)
+      return true
+    }
+
+    const char = key.sequence?.length === 1 ? key.sequence : key.name
+    if (!char || char.length !== 1) {
+      this.setState(cleared)
+      return true
+    }
+
+    const span = resolveTextObject(
+      mapping,
+      state.line,
+      state.col,
+      state.pendingTextObject!.scope,
+      char
+    )
+    if (!span) {
+      this.setState(cleared)
+      return true
+    }
+
+    this.setState(selectSpan(cleared, span))
+    this.onCursorMove()
+    return true
   }
 
   /**

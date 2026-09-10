@@ -70,6 +70,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 052 | [Tree and Diff in Step](./052-tree-and-diff-in-step.md) | Done | Picking a file scrolls the diff; the tree and cursor follow each other |
 | 053 | [Markdown Tables](./053-markdown-tables.md) | Done | Cells padded onto one grid in the diff; `gt` draws the table with wrapping cells |
 | 054 | [HTML in Comments](./054-html-in-comments.md) | Done | `<br>`, `<details>`, `<b>`, `<a>` translated instead of printed raw |
+| 055 | [Visual Selection & Text Objects](./055-visual-selection-and-text-objects.md) | Done | `v` selects charwise, `i`/`a` text objects, viewed moves to `x` |
 
 ## MVP Path
 

@@ -14,7 +14,7 @@ import type { SearchHandler } from "../../vim-diff/search-handler"
 import type { SearchState } from "../../vim-diff/search-state"
 import type { FlashHandler } from "../../vim-diff/flash-handler"
 import type { VimDiffView } from "../../components"
-import { enterVisualLineMode, exitVisualMode } from "../../vim-diff/cursor-state"
+import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 
 export interface DiffViewInputContext {
   readonly state: AppState
@@ -96,8 +96,9 @@ export function handleInput(
     return true
   }
 
-  // `y` yanks the visual-line selection, or the cursor's line in normal
-  // mode. `Y` yanks the same rows with their diff markers intact.
+  // `y` yanks the selection — its exact characters when it is charwise —
+  // or the cursor's line in normal mode. `Y` yanks whole rows with their
+  // diff markers intact.
   if ((key.name === "y" || key.name === "Y") && !key.ctrl) {
     key.preventDefault()
     ctx.handleYank({ raw: key.shift || key.name === "Y" })
@@ -105,8 +106,8 @@ export function handleInput(
   }
 
   // `c` opens the comments panel and starts a new comment, anchored on
-  // the cursor's line or — in visual-line mode — the first commentable
-  // line of the selection. `C` is the $EDITOR route. preventDefault stops
+  // the cursor's line or — with a selection — its first commentable
+  // line. `C` is the $EDITOR route. preventDefault stops
   // the textarea (focused during the sync re-render) from also seeing
   // this keystroke.
   if (key.name === "c" && !key.ctrl) {
@@ -126,23 +127,17 @@ export function handleInput(
     return true
   }
 
-  // Handle 'V' for visual line mode (explicit check)
-  if (key.name === "v" && key.shift) {
-    ctx.setVimState(enterVisualLineMode(ctx.getVimState()))
-    ctx.vimDiffView.updateCursor(ctx.getVimState())
-    return true
-  }
-
-  // Handle 'v' for toggle viewed status (lowercase, no shift)
-  if (key.name === "v" && !key.shift && !key.ctrl) {
-    ctx.handleToggleViewed(true) // Advance to next unviewed after marking
+  // `x` toggles the file's viewed status and moves on. `v` and `V` are the
+  // visual modes (spec 055), handled by the vim handler above.
+  if (key.name === "x" && !key.shift && !key.ctrl) {
+    ctx.handleToggleViewed(true)
     return true
   }
 
   // Handle escape to exit visual mode OR clear search
   if (key.name === "escape") {
     const vimState = ctx.getVimState()
-    if (vimState.mode === "visual-line") {
+    if (isVisualMode(vimState)) {
       ctx.setVimState(exitVisualMode(vimState))
       ctx.vimDiffView.updateCursor(ctx.getVimState())
       return true

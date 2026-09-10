@@ -17,6 +17,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { FlatTreeItem } from "../../utils/file-tree"
 import { getVisibleFlatTreeItems } from "../../components"
+import { isVisualMode } from "../../vim-diff/cursor-state"
 
 export type ReviewScopeKind = "selection" | "multi" | "folder" | "file" | "none"
 
@@ -35,7 +36,7 @@ export type ReviewScope =
  * Detect which kind of review scope the user is "aiming at" right now.
  *
  * Priority order (first match wins):
- *   1. diff-view visual-line mode           → selection
+ *   1. diff-view selection (v or V)         → selection
  *   2. tree focused + tree multi-select     → multi
  *   3. tree focused + directory highlighted → folder
  *   4. tree focused + file highlighted      → file
@@ -46,8 +47,8 @@ export function detectReviewScope(
   state: AppState,
   vimState?: VimCursorState,
 ): ReviewScope {
-  // 1. Diff-view visual-line takes precedence when active.
-  if (vimState?.mode === "visual-line" && vimState.selectionAnchor !== null) {
+  // 1. A diff-view selection takes precedence when active.
+  if (vimState && isVisualMode(vimState) && vimState.selectionAnchor !== null) {
     return { kind: "selection" }
   }
 

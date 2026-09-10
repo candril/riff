@@ -33,7 +33,16 @@ import type { VimCursorState } from "../vim-diff/types"
 import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-state"
 import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
-import { getSelectionRange } from "../vim-diff/cursor-state"
+import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
+
+/** Structural rows a selection skips — the same ones yank leaves out. */
+const SELECTION_SKIPPED_TYPES = new Set([
+  "file-header",
+  "hunk-header",
+  "divider",
+  "spacing",
+  "no-newline",
+])
 
 // Shared syntax style for diff rendering
 let sharedSyntaxStyle: SyntaxStyle | null = null
@@ -161,6 +170,7 @@ const flashMatchFg = RGBA.fromHex(theme.text)
 const flashMatchBg = RGBA.fromHex(theme.surface1)
 const flashLabelFg = RGBA.fromHex(theme.base)
 const flashLabelBg = RGBA.fromHex(theme.red)
+const selectionBg = RGBA.fromHex(theme.surface1)
 
 /**
  * Fade a run of cells towards their own background, leaving the background
@@ -187,6 +197,25 @@ function recolorCell(buffer: OptimizedBuffer, x: number, y: number, fg: RGBA, bg
   const i = y * buffer.width + x
   const glyph = char[i]!
   buffer.drawChar(glyph === 0 ? SPACE_CODE_POINT : glyph, x, y, fg, bg, attributes[i]!)
+}
+
+/**
+ * Repaint a cell's background, keeping its glyph and its foreground — a
+ * selection must not flatten the syntax colors it runs over.
+ */
+function highlightCell(buffer: OptimizedBuffer, x: number, y: number, bg: RGBA): void {
+  const { char, fg, attributes } = buffer.buffers
+  const i = y * buffer.width + x
+  const at = i * 4
+  const glyph = char[i]!
+  buffer.drawChar(
+    glyph === 0 ? SPACE_CODE_POINT : glyph,
+    x,
+    y,
+    RGBA.fromValues(fg[at]!, fg[at + 1]!, fg[at + 2]!, fg[at + 3]!),
+    bg,
+    attributes[i]!
+  )
 }
 
 /**
@@ -515,6 +544,7 @@ export class VimDiffView {
       this.renderGutterOverlay(buffer, rows)
       this.renderOverflowMarkers(buffer, rows)
       this.renderWrapMarkers(buffer, rows)
+      this.renderSelectionOverlay(buffer, rows)
       this.renderFlashOverlay(buffer, rows)
     }
     this.renderer.addPostProcessFn(this.cursorPostProcess)
@@ -2106,6 +2136,43 @@ export class VimDiffView {
   }
 
   /**
+   * Paint a charwise selection over the rows that show it.
+   *
+   * Overlaying beats injecting ranges through `onHighlight` the way search
+   * does: assigning that callback marks the highlights dirty, and the
+   * re-highlight is a full tree-sitter re-parse of the section — once per
+   * keystroke while the selection grows.
+   */
+  private renderSelectionOverlay(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
+    if (!this.visible || !this.cursorState || !this.lineMapping) return
+    const selection = getCharSelection(this.cursorState)
+    if (!selection) return
+
+    const rightEdge = Math.min(buffer.width, this.paneBounds()?.right ?? this.renderer.width)
+
+    for (const row of rows) {
+      if (row.line < selection.startLine || row.line > selection.endLine) continue
+      if (row.screenY >= buffer.height) continue
+
+      const line = this.lineMapping.getLine(row.line)
+      // The rows yank leaves out are the rows a selection must not claim.
+      if (!line || SELECTION_SKIPPED_TYPES.has(line.type)) continue
+
+      const from = Math.max(row.startCol, row.line === selection.startLine ? selection.startCol : 0)
+      const to = Math.min(
+        row.endCol,
+        row.line === selection.endLine ? selection.endCol + 1 : line.content.length
+      )
+
+      for (let col = from; col < to; col++) {
+        const x = row.contentX + col - row.startCol
+        if (x < row.contentX || x >= rightEdge) continue
+        highlightCell(buffer, x, row.screenY, selectionBg)
+      }
+    }
+  }
+
+  /**
    * Draw flash's backdrop and jump labels straight onto the frame buffer.
    *
    * Overlaying here rather than restyling the content keeps the labels off
@@ -2409,8 +2476,11 @@ export class VimDiffView {
       }
     }
 
-    // Second pass: visual selection
-    const selectionRange = getSelectionRange(this.cursorState)
+    // Second pass: visual selection. Charwise selections are painted over
+    // the rendered rows instead (renderSelectionOverlay) — they cover part
+    // of a line, which a line color cannot say.
+    const selectionRange =
+      this.cursorState.mode === "visual-line" ? getSelectionRange(this.cursorState) : null
     if (selectionRange) {
       const [start, end] = selectionRange
       for (let i = start; i <= end; i++) {

@@ -26,7 +26,7 @@ import {
   extractDiffHunk,
   parseEditorOutput,
 } from "../../utils/editor"
-import { exitVisualMode, getSelectionRange } from "../../vim-diff/cursor-state"
+import { exitVisualMode, getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
 import {
   getCurrentUser,
   getPrHeadSha,
@@ -243,7 +243,7 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
   } finally {
     // Exit visual mode if we were in it
     const currentVimState = ctx.getVimState()
-    if (currentVimState.mode === "visual-line") {
+    if (isVisualMode(currentVimState)) {
       ctx.setVimState(exitVisualMode(currentVimState))
     }
 

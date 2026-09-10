@@ -2,6 +2,11 @@ import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 
 export interface StatusBarProps {
+  /** The live selection: which visual mode, and how much it covers. */
+  selectionInfo?: {
+    mode: "visual" | "visual-line"
+    lines: number
+  } | null
   /** Search match info, e.g., "1/5" or "No matches" */
   searchInfo?: {
     current: number
@@ -20,7 +25,7 @@ export interface StatusBarProps {
   } | null
 }
 
-export function StatusBar({ searchInfo, columnInfo }: StatusBarProps = {}) {
+export function StatusBar({ searchInfo, columnInfo, selectionInfo }: StatusBarProps = {}) {
   // Build right side content
   const rightContent: ReturnType<typeof Text>[] = []
   
@@ -57,7 +62,15 @@ export function StatusBar({ searchInfo, columnInfo }: StatusBarProps = {}) {
       flexDirection: "row",
       justifyContent: "space-between",
     },
-    Text({ content: "Ctrl+p: commands", fg: colors.statusBarFg }),
+    selectionInfo
+      ? Text({
+          content:
+            selectionInfo.mode === "visual-line"
+              ? `-- VISUAL LINE --  ${selectionInfo.lines} ${selectionInfo.lines === 1 ? "line" : "lines"}`
+              : `-- VISUAL --  ${selectionInfo.lines} ${selectionInfo.lines === 1 ? "line" : "lines"}`,
+          fg: theme.mauve,
+        })
+      : Text({ content: "Ctrl+p: commands", fg: colors.statusBarFg }),
     rightContent.length > 0 
       ? Box({ flexDirection: "row" }, ...rightContent)
       : null

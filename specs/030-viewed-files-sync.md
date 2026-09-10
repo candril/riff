@@ -22,7 +22,7 @@ Sync "viewed" file status with GitHub's native "Viewed" checkbox feature. Show w
 ### P1 - MVP
 
 - **Viewed indicator**: Show checkbox-style icon when file is marked as viewed
-- **Toggle viewed**: `v` to mark/unmark current file as viewed
+- **Toggle viewed**: `x` to mark/unmark current file as viewed
 - **Changed indicator**: Show warning icon if file changed since marked viewed
 - **Persist locally**: Save viewed status in session (existing from spec 005)
 
@@ -429,7 +429,7 @@ export async function loadPRWithViewedStatus(
 
 | Key | Action |
 |-----|--------|
-| `v` | Toggle viewed status for current file |
+| `x` | Toggle viewed status for current file |
 | `V` | Mark all files as viewed (P3) |
 | `u` | Mark all files as unviewed (P3) |
 | `]u` | Jump to next unviewed file |

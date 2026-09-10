@@ -17,6 +17,7 @@ import type { Comment } from "../../types"
 import { showToast, clearToast } from "../../state"
 import { getVisibleFlatTreeItems } from "../../components"
 import { copyToClipboard } from "../../utils/clipboard"
+import { getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
 import { buildPermalinkUrl, buildPrDiffUrl, lineAnchor, type RepoRef } from "./url"
 import { repoRefForPr, resolveLocalRepoRef, fileDiffersAtRef } from "./repo-ref"
 import { linkForComment, linkForFocusedTarget } from "./comment-link"
@@ -44,7 +45,7 @@ export function detectPermalinkScope(
   state: AppState,
   vimState?: VimCursorState,
 ): PermalinkScope {
-  if (vimState?.mode === "visual-line" && vimState.selectionAnchor !== null) {
+  if (vimState && isVisualMode(vimState) && vimState.selectionAnchor !== null) {
     return "selection"
   }
   if (state.focusedPanel === "tree") return "file"
@@ -231,14 +232,7 @@ function resolveDiffTarget(ctx: PermalinkContext): DiffTarget | null {
   if (!fileOnly) return null
   if (state.focusedPanel === "tree" || state.viewMode !== "diff") return fileOnly
 
-  const start =
-    vimState.mode === "visual-line" && vimState.selectionAnchor !== null
-      ? Math.min(vimState.selectionAnchor, vimState.line)
-      : vimState.line
-  const end =
-    vimState.mode === "visual-line" && vimState.selectionAnchor !== null
-      ? Math.max(vimState.selectionAnchor, vimState.line)
-      : vimState.line
+  const [start, end] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
 
   for (let i = start; i <= end; i++) {
     const anchor = lineMapping.getCommentAnchor(i)
@@ -298,9 +292,9 @@ function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Target | n
 
   if (!includeLines || state.viewMode !== "diff") return { filename }
 
-  if (vimState.mode === "visual-line" && vimState.selectionAnchor !== null) {
-    const start = Math.min(vimState.selectionAnchor, vimState.line)
-    const end = Math.max(vimState.selectionAnchor, vimState.line)
+  const selection = getSelectionRange(vimState)
+  if (selection) {
+    const [start, end] = selection
     const numbers: number[] = []
     for (let i = start; i <= end; i++) {
       const line = lineMapping.getLine(i)

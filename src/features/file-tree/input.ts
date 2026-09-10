@@ -189,23 +189,23 @@ export function handleInput(
       return true
 
     case "v": {
-      // Shift+v → enter / exit tree multi-select mode. Idempotent: a second
-      // V while already in multi-select clears it. opentui delivers V as
-      // `name: "v", shift: true` (same pattern as the diff view handler).
-      if (key.shift) {
-        const anchorItem = flatItems[ctx.state.treeHighlightIndex]
-        if (!anchorItem) return true
-        if (ctx.state.treeSelectionAnchor !== null) {
-          ctx.setState(clearTreeSelectionAnchor)
-        } else {
-          const anchorPath = anchorItem.node.path
-          ctx.setState((s) => setTreeSelectionAnchor(s, anchorPath))
-        }
-        ctx.updatePanel()
-        return true
+      // Enter / exit tree multi-select. Idempotent: a second press clears
+      // the anchor. `v` and `V` both do it — a row is the smallest thing the
+      // tree can select, so there is no charwise reading of it here.
+      const anchorItem = flatItems[ctx.state.treeHighlightIndex]
+      if (!anchorItem) return true
+      if (ctx.state.treeSelectionAnchor !== null) {
+        ctx.setState(clearTreeSelectionAnchor)
+      } else {
+        const anchorPath = anchorItem.node.path
+        ctx.setState((s) => setTreeSelectionAnchor(s, anchorPath))
       }
+      ctx.updatePanel()
+      return true
+    }
 
-      // With multi-select active, `v` bulk-toggles every selected file and
+    case "x": {
+      // With multi-select active, `x` bulk-toggles every selected file and
       // discards the selection. Directory rows inside the range are skipped
       // by the collector, so the behaviour is "operate on the file rows the
       // user highlighted".

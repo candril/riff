@@ -94,7 +94,7 @@ export interface SearchMatch {
 /**
  * Vim editing mode
  */
-export type VimMode = "normal" | "visual-line"
+export type VimMode = "normal" | "visual" | "visual-line"
 
 /**
  * State of the vim cursor and navigation
@@ -108,8 +108,13 @@ export interface VimCursorState {
   /** Current mode */
   mode: VimMode
 
-  /** Line where V was pressed (for visual-line mode) */
+  /** Line where v or V was pressed. Set in both visual modes, so anything
+   *  that only needs the line span of a selection reads it directly. */
   selectionAnchor: number | null
+
+  /** Column where v was pressed. Charwise mode only; read through
+   *  `getCharSelection`. */
+  selectionAnchorCol: number | null
 
   /** Jump list for Ctrl-o/Ctrl-i */
   jumpList: number[]
@@ -126,6 +131,10 @@ export interface VimCursorState {
 
   /** Desired column for vertical movement (column memory) */
   desiredCol: number | null
+
+  /** Pending text object: `i` or `a` was pressed in visual mode and the
+   *  object key has yet to arrive. */
+  pendingTextObject: { scope: "i" | "a" } | null
 
   /** Pending character for f/F/t/T motions */
   pendingFindChar: {

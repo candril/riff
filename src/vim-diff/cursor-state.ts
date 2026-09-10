@@ -2,7 +2,8 @@
  * VimCursorState - Manages cursor position, mode, and selection
  */
 
-import type { VimCursorState, VimMode } from "./types"
+import type { VimCursorState } from "./types"
+import type { TextObjectSpan } from "./text-objects"
 
 /**
  * Create initial cursor state
@@ -13,24 +14,36 @@ export function createCursorState(): VimCursorState {
     col: 0,
     mode: "normal",
     selectionAnchor: null,
+    selectionAnchorCol: null,
     jumpList: [],
     jumpIndex: -1,
     marks: new Map(),
     lastSearch: null,
     searchDirection: "forward",
     desiredCol: null,
+    pendingTextObject: null,
     pendingFindChar: null,
     lastFindChar: null,
   }
 }
 
 /**
- * Get selection range (sorted start/end)
+ * Whether a selection is being made, in either visual mode.
+ */
+export function isVisualMode(state: VimCursorState): boolean {
+  return state.mode === "visual" || state.mode === "visual-line"
+}
+
+/**
+ * Get the line span of the selection (sorted start/end).
+ *
+ * Charwise selections answer here too, with the lines they touch: a comment
+ * anchor and a permalink can only address whole lines anyway.
  */
 export function getSelectionRange(
   state: VimCursorState
 ): [number, number] | null {
-  if (state.mode !== "visual-line" || state.selectionAnchor === null) {
+  if (!isVisualMode(state) || state.selectionAnchor === null) {
     return null
   }
 
@@ -40,13 +53,117 @@ export function getSelectionRange(
 }
 
 /**
- * Enter visual line mode
+ * A charwise selection, normalized so start comes before end. `endCol` is
+ * inclusive, as vim's selection is.
  */
-export function enterVisualLineMode(state: VimCursorState): VimCursorState {
+export interface CharSelection {
+  startLine: number
+  startCol: number
+  endLine: number
+  endCol: number
+}
+
+export function getCharSelection(state: VimCursorState): CharSelection | null {
+  if (
+    state.mode !== "visual" ||
+    state.selectionAnchor === null ||
+    state.selectionAnchorCol === null
+  ) {
+    return null
+  }
+
+  const anchorFirst =
+    state.selectionAnchor < state.line ||
+    (state.selectionAnchor === state.line && state.selectionAnchorCol <= state.col)
+
+  return anchorFirst
+    ? {
+        startLine: state.selectionAnchor,
+        startCol: state.selectionAnchorCol,
+        endLine: state.line,
+        endCol: state.col,
+      }
+    : {
+        startLine: state.line,
+        startCol: state.col,
+        endLine: state.selectionAnchor,
+        endCol: state.selectionAnchorCol,
+      }
+}
+
+/**
+ * Enter a visual mode, anchoring on the cursor.
+ */
+export function enterVisualMode(
+  state: VimCursorState,
+  mode: "visual" | "visual-line"
+): VimCursorState {
   return {
     ...state,
-    mode: "visual-line",
+    mode,
     selectionAnchor: state.line,
+    selectionAnchorCol: mode === "visual" ? state.col : null,
+  }
+}
+
+/**
+ * Switch the live selection between charwise and linewise, keeping its ends.
+ */
+export function switchVisualMode(
+  state: VimCursorState,
+  mode: "visual" | "visual-line"
+): VimCursorState {
+  if (!isVisualMode(state)) return enterVisualMode(state, mode)
+  return {
+    ...state,
+    mode,
+    selectionAnchorCol:
+      mode === "visual" ? state.selectionAnchorCol ?? state.col : null,
+  }
+}
+
+/**
+ * Put the cursor on the other end of the selection (vim's `o`).
+ */
+export function swapSelectionEnds(state: VimCursorState): VimCursorState {
+  if (!isVisualMode(state) || state.selectionAnchor === null) return state
+  return {
+    ...state,
+    line: state.selectionAnchor,
+    col: state.selectionAnchorCol ?? state.col,
+    selectionAnchor: state.line,
+    selectionAnchorCol: state.mode === "visual" ? state.col : null,
+    desiredCol: null,
+  }
+}
+
+/**
+ * Select a span resolved from a text object, entering the mode it needs.
+ * The cursor lands on the end of the span, as vim leaves it.
+ */
+export function selectSpan(
+  state: VimCursorState,
+  span: TextObjectSpan
+): VimCursorState {
+  if (span.kind === "linewise") {
+    return {
+      ...state,
+      mode: "visual-line",
+      selectionAnchor: span.startLine,
+      selectionAnchorCol: null,
+      line: span.endLine,
+      desiredCol: null,
+    }
+  }
+
+  return {
+    ...state,
+    mode: "visual",
+    selectionAnchor: span.startLine,
+    selectionAnchorCol: span.startCol,
+    line: span.endLine,
+    col: span.endCol,
+    desiredCol: null,
   }
 }
 
@@ -58,6 +175,21 @@ export function exitVisualMode(state: VimCursorState): VimCursorState {
     ...state,
     mode: "normal",
     selectionAnchor: null,
+    selectionAnchorCol: null,
+    pendingTextObject: null,
+  }
+}
+
+/**
+ * Set (or clear) the pending `i`/`a` waiting for its object key.
+ */
+export function setPendingTextObject(
+  state: VimCursorState,
+  scope: "i" | "a" | null
+): VimCursorState {
+  return {
+    ...state,
+    pendingTextObject: scope ? { scope } : null,
   }
 }
 

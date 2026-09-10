@@ -47,6 +47,7 @@ import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
+import { getSelectionRange } from "../vim-diff/cursor-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -295,6 +296,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             state.viewMode === "diff"
               ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
               : null,
+          selectionInfo: selectionStatus(vimState),
         }),
         state.actionMenu.open
           ? ActionMenu({
@@ -439,4 +441,16 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
     }
   }
+}
+
+/**
+ * What the status bar says about a live selection, or nothing when there
+ * isn't one.
+ */
+function selectionStatus(
+  vimState: VimCursorState
+): { mode: "visual" | "visual-line"; lines: number } | null {
+  const range = getSelectionRange(vimState)
+  if (!range || vimState.mode === "normal") return null
+  return { mode: vimState.mode, lines: range[1] - range[0] + 1 }
 }

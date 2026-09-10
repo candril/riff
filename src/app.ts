@@ -62,7 +62,7 @@ import { createSearchState, type SearchState } from "./vim-diff/search-state"
 import { createFlashState, type FlashState } from "./vim-diff/flash-state"
 import { FlashHandler } from "./vim-diff/flash-handler"
 import { SearchHandler } from "./vim-diff/search-handler"
-import { createCursorState } from "./vim-diff/cursor-state"
+import { createCursorState, isVisualMode } from "./vim-diff/cursor-state"
 import type { DiffLineMapping } from "./vim-diff/line-mapping"
 
 export interface AppOptions {
@@ -102,6 +102,8 @@ export async function createApp(options: AppOptions = {}) {
   // ===== MUTABLE STATE =====
   let state: AppState = initialState
   let vimState: VimCursorState = createCursorState()
+  /** The mode the status bar was last drawn for. */
+  let lastCursorMode = vimState.mode
   let searchState: SearchState = createSearchState()
   let flashState: FlashState = createFlashState()
   let lineMapping: DiffLineMapping = buildLineMapping(initialState)
@@ -246,7 +248,7 @@ export async function createApp(options: AppOptions = {}) {
       ...vimState,
       line,
       col: Math.min(vimState.col, Math.max(0, content.length - 1)),
-      selectionAnchor: vimState.mode === "visual-line" ? vimState.selectionAnchor : null,
+      selectionAnchor: isVisualMode(vimState) ? vimState.selectionAnchor : null,
     }
     vimDiffView.updateCursor(vimState)
     render()
@@ -382,6 +384,11 @@ export async function createApp(options: AppOptions = {}) {
     onCursorMove: () => {
       ensureCursorVisible()
       vimDiffView.updateCursor(vimState)
+      // The status bar names the visual mode and the size of the selection,
+      // and only a full render rebuilds it. Normal-mode motions keep the
+      // fast path — nothing up there changes as the cursor moves.
+      if (isVisualMode(vimState) || lastCursorMode !== vimState.mode) render()
+      lastCursorMode = vimState.mode
     },
   })
 

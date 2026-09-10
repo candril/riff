@@ -47,6 +47,15 @@ const HELP_SECTIONS = [
     ],
   },
   {
+    title: "Selection",
+    keys: [
+      ["v / V", "Select by character / by line"],
+      ["o", "Jump to the selection's other end"],
+      ['iw aw i" i(', "Word, string, bracket pair"],
+      ["ih af i+ i-", "Hunk, file, run of added / deleted"],
+    ],
+  },
+  {
     title: "Panels & Files",
     keys: [
       ["Ctrl+b", "Toggle file tree"],
@@ -55,8 +64,7 @@ const HELP_SECTIONS = [
       ["Ctrl+h / Ctrl+l", "Focus panel left / right"],
       ["Ctrl+f", "Find files (fuzzy)"],
       ["Ctrl+g", "Show current file path"],
-      ["v", "Mark file as viewed"],
-      ["V", "Visual line select"],
+      ["x", "Mark file as viewed"],
     ],
   },
   {
@@ -139,7 +147,7 @@ export function HelpOverlay(_props: HelpOverlayProps = {}) {
         // Left column
         Box(
           { flexDirection: "column", flexGrow: 1 },
-          ...HELP_SECTIONS.slice(0, 3).map((section) =>
+          ...HELP_SECTIONS.slice(0, 4).map((section) =>
             Box(
               { flexDirection: "column", marginBottom: 1 },
               Text({ content: section.title, fg: theme.lavender }),
@@ -156,7 +164,7 @@ export function HelpOverlay(_props: HelpOverlayProps = {}) {
         // Right column
         Box(
           { flexDirection: "column", flexGrow: 1 },
-          ...HELP_SECTIONS.slice(3).map((section) =>
+          ...HELP_SECTIONS.slice(4).map((section) =>
             Box(
               { flexDirection: "column", marginBottom: 1 },
               Text({ content: section.title, fg: theme.lavender }),

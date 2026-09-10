@@ -15,8 +15,8 @@ Mark files as viewed/reviewed while going through a diff. This status persists l
 
 ### P1 - MVP
 
-- **Mark viewed**: Press `v` to mark current file as viewed
-- **Unmark viewed**: Press `v` again to toggle off
+- **Mark viewed**: Press `x` to mark current file as viewed
+- **Unmark viewed**: Press `x` again to toggle off
 - **Visual indicator**: Show checkmark or different color for viewed files
 - **Progress tracking**: Show "3/5 files reviewed" in header
 - **Persist locally**: Save viewed status in `.riff/` session
@@ -140,7 +140,7 @@ function renderProgress(files: DiffFile[], statuses: FileReviewStatus[]) {
 
 | Key | Action |
 |-----|--------|
-| `v` | Toggle viewed status for current file |
+| `x` | Toggle viewed status for current file |
 | `]F` | Jump to next unreviewed file (P2) |
 | `[F` | Jump to previous unreviewed file (P2) |
 | `V` | Mark all files as viewed (P3) |

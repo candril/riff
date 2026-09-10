@@ -5,6 +5,7 @@ import type { VimCursorState } from "../vim-diff/types"
 import { detectReviewScope } from "../features/ai-review"
 import { detectPermalinkScope } from "../features/permalink"
 import { publishableLocalComments } from "../utils/publishable"
+import { isVisualMode } from "../vim-diff/cursor-state"
 
 /**
  * All available actions in the app.
@@ -208,15 +209,24 @@ export const actions: Action[] = [
   {
     id: "visual-select",
     label: "Visual Line Select",
-    description: "Select lines for multi-line comment",
+    description: "Select whole lines — for a multi-line comment, a permalink or a yank",
     shortcut: "V",
+    category: "navigation",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
+    id: "visual-select-char",
+    label: "Visual Select",
+    description:
+      "Select by character. `i`/`a` then w, \", (, {, [, h (hunk), f (file) or +/- take a text object",
+    shortcut: "v",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
   {
     id: "yank",
     label: (state, vimState) =>
-      vimState?.mode === "visual-line" ? "Yank Selection" : "Yank Line",
+      vimState && isVisualMode(vimState) ? "Yank Selection" : "Yank Line",
     description: "Copy the selection (or cursor line) to the clipboard, without the +/- gutter",
     shortcut: "y",
     category: "navigation",
@@ -225,7 +235,7 @@ export const actions: Action[] = [
   {
     id: "yank-raw",
     label: (state, vimState) =>
-      vimState?.mode === "visual-line"
+      vimState && isVisualMode(vimState)
         ? "Yank Selection (with diff markers)"
         : "Yank Line (with diff markers)",
     description: "Copy the selection (or cursor line) keeping the +/- gutter",
@@ -237,7 +247,7 @@ export const actions: Action[] = [
     id: "mark-viewed",
     label: "Mark File Viewed",
     description: "Toggle file as viewed and advance to next",
-    shortcut: "v",
+    shortcut: "x",
     category: "navigation",
     available: (state) => state.files.length > 0,
   },

@@ -17,7 +17,7 @@ import type { FlashState } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
-import { getSelectionRange, exitVisualMode } from "../vim-diff/cursor-state"
+import { getSelectionRange, exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
 import type { VimDiffView } from "../components"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -491,6 +491,20 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== TEXT OBJECT (i/a waiting for its object key, spec 055) ==========
+    // Ahead of every single-key handler: `vif`'s `f` would otherwise open the
+    // file picker and `vi{`'s `{` would reach nobody at all.
+    if (ctx.getVimState().pendingTextObject && ctx.getState().focusedPanel === "diff") {
+      ctx.vimHandler.handleKey({
+        name: key.name,
+        sequence: key.sequence,
+        ctrl: key.ctrl,
+        shift: key.shift,
+      })
+      ctx.render()
+      return
+    }
+
 
     const dispatchToTree = (): boolean =>
       fileTreeFeature.handleInput(key, {
@@ -619,7 +633,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         // no-op in local mode). Ctrl-I arrives as `tab` and is forward-
         // jump (spec 038), so we explicitly require !key.ctrl here to
         // keep the two distinct. Use `gi` to jump straight to PR view.
-        if (!key.ctrl) {
+        // Inside a selection `i` opens a text object instead (spec 055).
+        if (!key.ctrl && !(state.focusedPanel === "diff" && isVisualMode(ctx.getVimState()))) {
           recordJump()
           ctx.setState(toggleViewMode)
           ctx.render()
@@ -1069,7 +1084,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
         // The selection has served its purpose; leave visual mode so the
         // highlight doesn't linger behind the composer.
-        if (vimState.mode === "visual-line") {
+        if (isVisualMode(vimState)) {
           ctx.setVimState(exitVisualMode(vimState))
         }
 

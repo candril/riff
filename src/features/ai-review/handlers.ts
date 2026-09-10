@@ -25,6 +25,7 @@ import type { PrInfo } from "../../providers/github"
 import type { DiffFile } from "../../utils/diff-parser"
 import { showToast, clearToast, clearTreeSelectionAnchor } from "../../state"
 import { getVisibleFlatTreeItems } from "../../components"
+import { getSelectionRange } from "../../vim-diff/cursor-state"
 import {
   buildFileContextMd,
   buildPrContextMd,
@@ -132,11 +133,11 @@ function resolveSelectionInFile(
   file: DiffFile,
 ): { start: number; end: number } | null {
   const vimState = ctx.getVimState()
-  if (vimState.mode !== "visual-line" || vimState.selectionAnchor === null) return null
+  const selection = getSelectionRange(vimState)
+  if (!selection) return null
 
   const lineMapping = ctx.getLineMapping()
-  const start = Math.min(vimState.selectionAnchor, vimState.line)
-  const end = Math.max(vimState.selectionAnchor, vimState.line)
+  const [start, end] = selection
 
   // Require at least one line in the selection to belong to this file.
   let touchesFile = false

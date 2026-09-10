@@ -108,7 +108,7 @@ focus_file_panel = "ctrl+p"
 select_file = "enter"
 
 # Review actions
-toggle_viewed = "v"
+toggle_viewed = "x"
 mark_all_viewed = "V"
 add_comment = "c"
 edit_comment = "e"
