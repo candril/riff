@@ -299,6 +299,11 @@ export interface AppState {
   
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
+
+  /** Comment drafts abandoned with Esc, by anchor (or by comment id when
+   *  editing). Session-only: a draft is a thought in progress, not a
+   *  review artefact (spec 061). */
+  commentDrafts: ReadonlyMap<string, string>
   
   // Ignore patterns state
   ignoredFiles: Set<string>          // Filenames matching ignore patterns
@@ -482,6 +487,7 @@ export function createInitialState(
       commentInputLoading: false,
       commentInputError: null,
     },
+    commentDrafts: new Map(),
     inlineCommentOverlay: {
       open: false,
       mode: "view",
@@ -2085,7 +2091,9 @@ export function openInlineCommentOverlay(
       line,
       side,
       highlightedIndex: 0,
-      input: "",
+      // Opening straight into the composer picks up a draft left on this
+      // line (spec 061); view mode has nothing to prefill.
+      input: mode === "compose" ? commentDraftFor(state, filename, line, side) : "",
       editingId: null,
       codePeekId: null,
       expanded: state.inlineCommentOverlay.expanded,
@@ -2312,7 +2320,8 @@ export function startInlineCompose(state: AppState, prefill: string = ""): AppSt
     inlineCommentOverlay: {
       ...ov,
       mode: "compose",
-      input: prefill,
+      // A draft abandoned on this line comes back rather than being lost.
+      input: prefill || commentDraftFor(state, ov.filename, ov.line, ov.side),
       editingId: null,
       mentionPicker: null,
     },
@@ -2334,7 +2343,7 @@ export function startInlineEdit(
     inlineCommentOverlay: {
       ...ov,
       mode: "edit",
-      input: prefill,
+      input: state.commentDrafts.get(`edit:${commentId}`) || prefill,
       editingId: commentId,
       mentionPicker: null,
     },
@@ -2344,6 +2353,53 @@ export function startInlineEdit(
 /**
  * Drop back to view mode without submitting; clears the draft.
  */
+/**
+ * Where a draft is remembered: the line it was written against, or the
+ * comment it was editing.
+ */
+function draftKey(ov: InlineCommentOverlayState): string {
+  return ov.editingId ? `edit:${ov.editingId}` : anchorKey(ov.filename, ov.line, ov.side)
+}
+
+function anchorKey(filename: string, line: number, side: "LEFT" | "RIGHT"): string {
+  return `${filename}:${line}:${side}`
+}
+
+/**
+ * Keep what the composer had when it was dismissed, so `n` on the same line
+ * picks the sentence back up (spec 061). An empty draft forgets instead —
+ * Esc on an empty composer is how you throw one away.
+ */
+export function rememberCommentDraft(state: AppState, text: string): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+
+  const drafts = new Map(state.commentDrafts)
+  if (text.trim()) drafts.set(draftKey(ov), text)
+  else drafts.delete(draftKey(ov))
+  return { ...state, commentDrafts: drafts }
+}
+
+/** Drop the draft for whatever the composer is on — it has been saved. */
+export function forgetCommentDraft(state: AppState): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+
+  const drafts = new Map(state.commentDrafts)
+  if (!drafts.delete(draftKey(ov))) return state
+  return { ...state, commentDrafts: drafts }
+}
+
+/** The draft waiting on a line, if any. */
+export function commentDraftFor(
+  state: AppState,
+  filename: string,
+  line: number,
+  side: "LEFT" | "RIGHT"
+): string {
+  return state.commentDrafts.get(anchorKey(filename, line, side)) ?? ""
+}
+
 export function cancelInlineComposer(state: AppState): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state

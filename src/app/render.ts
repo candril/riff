@@ -48,7 +48,7 @@ import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename } from "../state"
+import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { getSelectionRange } from "../vim-diff/cursor-state"
@@ -342,6 +342,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               appMode: state.appMode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
               editingId: state.inlineCommentOverlay.editingId,
+              draft: commentDraftFor(
+                state,
+                state.inlineCommentOverlay.filename,
+                state.inlineCommentOverlay.line,
+                state.inlineCommentOverlay.side
+              ),
               focused: state.focusedPanel === "comments",
               expanded: state.inlineCommentOverlay.expanded,
               mentionPicker: state.inlineCommentOverlay.mentionPicker,

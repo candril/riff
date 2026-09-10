@@ -11,6 +11,7 @@ import type { Comment } from "../../types"
 import {
   addComment,
   cancelInlineComposer,
+  forgetCommentDraft,
   clearToast,
   highlightInlineComment,
   showToast,
@@ -71,6 +72,7 @@ export async function submitInlineDraft(
   }
 
   ctx.setState((s) => addComment(s, comment))
+  ctx.setState(forgetCommentDraft)
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, comment.id))
   ctx.render()
@@ -130,6 +132,7 @@ export async function submitInlineEditDraft(
     ...s,
     comments: s.comments.map((c) => (c.id === target.id ? updated : c)),
   }))
+  ctx.setState(forgetCommentDraft)
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, updated.id))
   ctx.setState((s) => showToast(s, "Comment updated", "success"))

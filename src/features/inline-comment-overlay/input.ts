@@ -34,6 +34,7 @@ import {
   moveMentionPickerSelection,
   toggleInlineCommentOverlayExpand,
   setCommentCodePeek,
+  rememberCommentDraft,
   showToast,
   clearToast,
 } from "../../state"
@@ -455,12 +456,23 @@ function handleComposerInput(
     return true
   }
 
-  // Esc — cancel back to view mode (or close if there's nothing behind).
+  // Esc — cancel back to view mode, keeping what was typed as a draft on
+  // this line (spec 061). The textarea's live value is the source of truth:
+  // state mirrors keystrokes, but reading the composer cannot be stale.
   // We `preventDefault` so the focused textarea doesn't also process it.
   if (key.name === "escape") {
     key.preventDefault()
-    ctx.setState(cancelInlineComposer)
+    const draft = readComposerValue()
+    ctx.setState((s) => cancelInlineComposer(rememberCommentDraft(s, draft)))
     ctx.render()
+    if (draft.trim()) {
+      ctx.setState((s) => showToast(s, "Draft kept for this line", "info"))
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2000)
+    }
     return true
   }
 

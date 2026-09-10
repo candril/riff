@@ -54,6 +54,9 @@ export interface InlineCommentOverlayProps {
   highlightedIndex: number
   /** Comment id being edited (edit mode). */
   editingId: string | null
+  /** A draft left on the composer's anchor line, waiting to be resumed
+   *  (spec 061). Empty when there is none. */
+  draft: string
   /** True when the panel itself is the focused surface — drives
    *  border color so it visibly differs from "panel open but
    *  user is driving the diff". */
@@ -206,12 +209,13 @@ function viewModeHints(
   focused: boolean,
   appMode: "local" | "pr",
   hasImages: boolean,
-  hasCode: boolean
+  hasCode: boolean,
+  hasDraft: boolean
 ): Hint[] {
   if (!focused) {
     return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
   }
-  const hints: Hint[] = [["n", "new"]]
+  const hints: Hint[] = [["n", hasDraft ? "draft" : "new"]]
   if (hasComments) {
     hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
     if (hasCode) hints.push(["c", "code"])
@@ -370,6 +374,7 @@ export function InlineCommentOverlay({
   appMode,
   highlightedIndex,
   editingId,
+  draft,
   focused,
   expanded,
   mentionPicker,
@@ -699,7 +704,8 @@ export function InlineCommentOverlay({
               focused,
               appMode,
               highlightedHasImages,
-              highlightedHasCode
+              highlightedHasCode,
+              draft.length > 0
             )
           )
     )
