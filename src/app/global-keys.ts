@@ -1107,6 +1107,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         recordJump()
         threadMotion.navigateToThread(-1, false, ctx.threadMotionContext)
         return
+      } else if (sequence === "]n") {
+        // The comments that arrived since your last visit, in order (spec 069).
+        recordJump()
+        threadMotion.navigateToThread(1, false, ctx.threadMotionContext, true)
+        return
+      } else if (sequence === "[n") {
+        recordJump()
+        threadMotion.navigateToThread(-1, false, ctx.threadMotionContext, true)
+        return
       } else if (sequence === "]R!") {
         recordJump()
         threadMotion.navigateToThread(1, true, ctx.threadMotionContext)

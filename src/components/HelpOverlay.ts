@@ -75,6 +75,7 @@ const HELP_SECTIONS = [
       ["c / C", "Comment inline / via $EDITOR"],
       ["E", "Edit thread via $EDITOR"],
       ["]r / [r", "Next / previous thread"],
+      ["]n / [n", "Next / previous unseen comment"],
       ["]R / [R", "Same, skipping resolved"],
       ["gC", "Find a comment (PR-wide)"],
       ["x / r / d", "Resolve / reply / delete"],

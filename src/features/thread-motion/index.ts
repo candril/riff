@@ -7,6 +7,7 @@
  */
 
 import type { AppState } from "../../state"
+import { unseenIn } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
@@ -35,12 +36,21 @@ export interface ThreadMotionContext {
 /**
  * Get all root-comment anchors in the PR, sorted by (filename, line).
  */
-export function getThreadAnchors(state: AppState, skipResolved: boolean): ThreadAnchor[] {
+export function getThreadAnchors(
+  state: AppState,
+  skipResolved: boolean,
+  /** Only threads carrying a comment you have not seen (spec 069). */
+  unseenOnly = false
+): ThreadAnchor[] {
+  const unseen = unseenOnly
+    ? new Set(unseenIn(state, state.comments).map((c) => c.inReplyTo ?? c.id))
+    : null
   const anchors: ThreadAnchor[] = []
   for (const c of state.comments) {
     if (c.inReplyTo) continue
     const resolved = c.isThreadResolved ?? false
     if (skipResolved && resolved) continue
+    if (unseen && !unseen.has(c.id)) continue
     anchors.push({
       filename: c.filename,
       line: c.line,
@@ -111,10 +121,11 @@ function getCurrentPosition(
 export function navigateToThread(
   direction: 1 | -1,
   skipResolved: boolean,
-  ctx: ThreadMotionContext
+  ctx: ThreadMotionContext,
+  unseenOnly = false
 ): ThreadAnchor | null {
   const state = ctx.getState()
-  const anchors = getThreadAnchors(state, skipResolved)
+  const anchors = getThreadAnchors(state, skipResolved, unseenOnly)
   if (anchors.length === 0) return null
 
   const lineMapping = ctx.getLineMapping()

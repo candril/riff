@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
-import { getFileContent, getOldFileContent, getLocalCommitDiff } from "./providers/local"
+import { getFileContent, getOldFileContent, getLocalCommitDiff, filesChangedBetween } from "./providers/local"
 import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment } from "./providers/github"
 import {
   setFileContentLoading,
@@ -17,6 +17,7 @@ import {
   createInitialState,
   promptOpen,
   setViewFilter,
+  filesWithUnseenComments,
   type AppState,
   setTreeFilter,
 } from "./state"
@@ -25,6 +26,8 @@ import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
+import { markVisit } from "./utils/visit"
+import { saveVisitSync } from "./storage"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
@@ -171,6 +174,11 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function quit() {
+    // Leave the watermark: this is the "last time I looked" the next visit
+    // measures against (spec 069). Written on the way out and on refresh,
+    // never continuously — a live watermark would answer "since a moment
+    // ago", which is never useful.
+    writeVisitWatermark()
     // Mode 1004 outlives the process if we don't turn it off — the shell that
     // gets the terminal back would start receiving focus escape sequences.
     stopFocusReporting?.()
@@ -180,6 +188,11 @@ export async function createApp(options: AppOptions = {}) {
     aiReview.removeSessionFiles()
     renderer.destroy()
     process.exit(0)
+  }
+
+  function writeVisitWatermark(): void {
+    if (state.appMode !== "pr") return
+    saveVisitSync(state.source, markVisit(state.comments, currentHeadSha, state.seenCommentIds))
   }
 
   // ===== POST-PROCESS (cursor positioning) =====
@@ -330,7 +343,9 @@ export async function createApp(options: AppOptions = {}) {
       state.treeFilterInput,
       flashState.active && flashState.surface === "tree"
         ? new Map(flashState.rows.map((row) => [Number(row.id), row.label]))
-        : new Map()
+        : new Map(),
+      filesWithUnseenComments(state),
+      state.filesChangedSinceVisit
     )
   }
 
@@ -1127,6 +1142,23 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== INITIAL RENDER =====
   render()
+
+  // What moved since the last visit (spec 069): the files, from one git
+  // call, and — when the branch was rewritten under the reader — a word
+  // about why riff is not answering that question at all.
+  if (state.visit && state.appMode === "pr") {
+    if (state.visitRebased) {
+      state = showToast(state, "Rebased since your last visit — going by times instead", "info")
+      render()
+      setTimeout(() => { state = clearToast(state); render() }, 4000)
+    } else {
+      void filesChangedBetween(state.visit.lastSeenHeadSha, currentHeadSha).then((changed) => {
+        if (changed.size === 0) return
+        state = { ...state, filesChangedSinceVisit: changed }
+        render()
+      })
+    }
+  }
 
   // Load pending review asynchronously for PR mode
   if (mode === "pr" && prInfo) {

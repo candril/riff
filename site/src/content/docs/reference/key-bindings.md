@@ -51,6 +51,7 @@ These are for moving the view on its own.
 | `]u` `[u` | Next, previous unviewed file |
 | `]o` `[o` | Next, previous outdated file — viewed, but changed since |
 | `]r` `[r` | Next, previous comment thread |
+| `]n` `[n` | Next, previous comment you have not seen |
 | `]R` `[R` | Same, skipping resolved threads |
 | `]g` `[g` | Next, previous commit's diff; wraps back to the full diff |
 | `s` | Flash jump — search what's on screen, press a label to land (file headers included) |

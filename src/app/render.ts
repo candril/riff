@@ -43,6 +43,8 @@ import {
   setCommentsPickerQuery,
   setCommitPickerQuery,
   setViewFilter,
+  markCommentsSeen,
+  unseenIn,
 } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import {
@@ -354,6 +356,20 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         endReviewSummarySession()
       }
 
+      // What is on screen has been read (spec 069): the comments the panel
+      // is showing, and the threads of an open Conversation section. Being
+      // in the PR is not the same as having read it, so nothing else counts.
+      if (state.visit) {
+        const seen: string[] = []
+        if (state.inlineCommentOverlay.open) {
+          for (const comment of getInlineCommentOverlayComments(state)) seen.push(comment.id)
+        }
+        if (state.viewMode === "state" && prInfoPanelInstance?.isSectionExpandedNamed("conversation")) {
+          for (const comment of state.comments) seen.push(comment.id)
+        }
+        ctx.setState((s) => markCommentsSeen(s, seen))
+      }
+
       // Flash labels, painted by whichever surface is being labelled
       // (spec 066). The diff draws its own, straight onto the frame.
       prInfoPanelInstance?.setFlashLabels(
@@ -477,6 +493,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               mentionCandidates: collectMentionCandidates(state),
               mentionSearchQuery: state.mentionSearchQuery,
               expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
+              unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
               renderer: ctx.renderer,
             })
           : null,

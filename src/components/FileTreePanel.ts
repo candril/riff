@@ -178,6 +178,10 @@ export class FileTreePanel {
   private currentFilter: string = ""
   /** Flash labels by flat row index, while `s` is labelling (spec 066). */
   private currentFlashLabels: ReadonlyMap<number, string> = new Map()
+  /** Files carrying a comment that arrived since your last visit (spec 069). */
+  private currentUnseenFiles: ReadonlySet<string> = new Set()
+  /** And the ones whose content moved since then. */
+  private currentChangedSinceVisit: ReadonlySet<string> = new Set()
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private multiSelectedFilenames: Set<string> = new Set()  // V-mode tree selection
@@ -338,9 +342,13 @@ export class FileTreePanel {
     multiSelectedFilenames?: Set<string>,
     treeFilter = "",
     treeFilterInput = false,
-    flashLabels: ReadonlyMap<number, string> = new Map()
+    flashLabels: ReadonlyMap<number, string> = new Map(),
+    unseenFiles: ReadonlySet<string> = new Set(),
+    changedSinceVisit: ReadonlySet<string> = new Set()
   ): void {
     this.currentFlashLabels = flashLabels
+    this.currentUnseenFiles = unseenFiles
+    this.currentChangedSinceVisit = changedSinceVisit
     const newIgnored = ignoredFiles ?? new Set<string>()
     const newShowHidden = showHiddenFiles ?? false
     const newMulti = multiSelectedFilenames ?? new Set<string>()
@@ -650,8 +658,17 @@ export class FileTreePanel {
       renderables.markerText.fg = flashLabel ? colors.flashLabel : markerColor
       renderables.statusText.content = `${statusIndicator} `
       renderables.statusText.fg = statusColor
-      renderables.text.content = `${indent}${icon}${displayName}`
-      renderables.text.fg = nameFg
+      // Two marks for "since you last looked": a dot for something said
+      // here, a caret for content that moved (spec 069).
+      const marksFile = (names: ReadonlySet<string>): boolean =>
+        node.file
+          ? names.has(node.file.filename)
+          : [...names].some((name) => name.startsWith(node.path + "/"))
+      const unseen = marksFile(this.currentUnseenFiles)
+      const moved = marksFile(this.currentChangedSinceVisit)
+      const marks = `${unseen ? " ●" : ""}${moved ? " ▴" : ""}`
+      renderables.text.content = `${indent}${icon}${displayName}${marks}`
+      renderables.text.fg = unseen && !node.isDirectory ? colors.commentLocal : nameFg
     }
   }
 

@@ -74,6 +74,8 @@ export interface InlineCommentOverlayProps {
    *  threads expand to show body + replies; outdated threads expand to
    *  reveal the stored diff hunk. */
   expandedThreadIds: ReadonlySet<string>
+  /** Comments that arrived since the reader's last visit (spec 069). */
+  unseenIds: ReadonlySet<string>
   renderer: CliRenderer
 }
 
@@ -381,6 +383,7 @@ export function InlineCommentOverlay({
   mentionCandidates,
   mentionSearchQuery,
   expandedThreadIds,
+  unseenIds,
   renderer,
 }: InlineCommentOverlayProps) {
   const threads = groupIntoThreads(comments)
@@ -565,6 +568,11 @@ export function InlineCommentOverlay({
                       : null,
                   thread.outdated
                     ? Text({ content: "  ⊘", fg: theme.peach })
+                    : null,
+                  // Something in this thread arrived since your last visit
+                  // (spec 069).
+                  thread.comments.some((comment) => unseenIds.has(comment.id))
+                    ? Text({ content: "  ●", fg: theme.blue })
                     : null
                 )
               ),

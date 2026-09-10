@@ -123,6 +123,22 @@ A refresh changes the data and nothing else: the view you were in, the file you 
 folds, your search and the line you were reading all come back. When the line itself is gone —
 deleted, or carried off by a force-push — riff lands on the nearest one in that file and says so.
 
+## Since your last visit
+
+riff remembers, per PR, when you last had it open and what had been read by then. What arrived
+since is marked: a dot on the file in the tree, on the thread in the comments panel, and `]n` /
+`[n` walk the unread comments across files the way `]r` / `[r` walk threads. A `▴` marks a file
+whose content moved since that visit.
+
+A comment counts as read once it has been on screen — in the comments panel, or in an open
+Conversation section. Opening the PR does not mark everything read, and the marks stay put for
+the whole session: reading takes effect at your *next* visit, which is the question this
+answers. The mark itself is written when riff exits and when you refresh, never continuously.
+
+When the branch was rewritten since that visit, riff says **rebased** and falls back to times
+rather than claiming that forty files changed. Nothing here is sent to GitHub — it is riff's own
+memory of your reading, kept in `.riff/` beside the viewed statuses.
+
 ## API budget
 
 Worth knowing if you keep several riff panes open: GitHub meters GraphQL in **points**, not

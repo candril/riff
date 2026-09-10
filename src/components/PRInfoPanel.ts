@@ -1039,6 +1039,11 @@ export class PRInfoPanelClass {
     return this.expandedSections.has(this.activeSection)
   }
 
+  /** Whether a named section is open, whichever one has the cursor. */
+  isSectionExpandedNamed(section: PRInfoPanelSection): boolean {
+    return this.expandedSections.has(section)
+  }
+
   /**
    * Get selected commit
    */

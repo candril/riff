@@ -12,6 +12,7 @@ import { FileTreePanel } from "../components/FileTreePanel"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree, filteredFilenames } from "../utils/file-tree"
+import { wasRebased } from "../utils/visit"
 import {
   createInitialState,
   collapseResolvedThreads,
@@ -20,9 +21,10 @@ import {
   collapseViewedFiles,
   type AppState,
 } from "../state"
-import { loadOrCreateSession, loadComments, loadViewedStatuses } from "../storage"
+import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit } from "../storage"
 import { type Comment, type AppMode } from "../types"
 import type { PrInfo } from "../providers/github"
+import { PR_COMMITS_FETCH_LIMIT } from "../providers/github"
 import { groupIntoThreads } from "../utils/threads"
 import { getTreeSitterClient } from "@opentui/core"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -80,6 +82,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       loadOrCreateSession(source),
       loadViewedStatuses(source),
     ])
+  const visit = mode === "pr" ? await loadVisit(source) : null
 
   const rawDiff = isPreloadedPr ? preloadedDiff! : localDiff!.diff
   const description = isPreloadedPr
@@ -156,6 +159,15 @@ export async function initializeAppState(options: InitOptions): Promise<{
       }
     }
     state = updateFileStatuses(state, mergedStatuses)
+  }
+
+  // When riff last had this PR open, and what had been read by then (spec
+  // 069). A rewritten branch makes "changed since then" unanswerable from
+  // commits, so it is noted rather than guessed at.
+  state = {
+    ...state,
+    visit,
+    visitRebased: wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT),
   }
 
   // Collapse viewed files initially

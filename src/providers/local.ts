@@ -357,6 +357,21 @@ export async function getOldFileContent(
 // ============================================================================
 
 /**
+ * The files that changed between two commits, for "what moved since I last
+ * looked" (spec 069). Empty when either commit is not in the local object
+ * store — a PR riff has only fetched the diff of has no history to compare.
+ */
+export async function filesChangedBetween(from: string, to: string): Promise<Set<string>> {
+  if (!from || !to || from === to) return new Set()
+  try {
+    const out = await $`git diff --name-only ${from} ${to}`.quiet().text()
+    return new Set(out.trim().split("\n").filter(Boolean))
+  } catch {
+    return new Set()
+  }
+}
+
+/**
  * List commits in the local diff range.
  * Returns commits in newest-first order matching PrCommit shape.
  */

@@ -1,16 +1,18 @@
 import { join, dirname, resolve } from "path"
 import { homedir } from "os"
 import { mkdir, readdir, unlink } from "fs/promises"
-import { existsSync } from "fs"
+import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
 import { loadConfig } from "./config"
 import { getCurrentRepoRef } from "./providers/repo"
+import type { VisitWatermark } from "./utils/visit"
 
 const LOCAL_STORAGE_DIR = ".riff"
 const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
 const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
+const VISIT_FILE = "visit.json"
 const MENTIONABLE_FILE = "mentionable-users.json"
 
 /**
@@ -723,6 +725,52 @@ export async function saveMentionableUsers(
  */
 function getViewedFilePath(source: string): string {
   return join(localStorageDir(), sourceToDir(source), VIEWED_FILE)
+}
+
+function getVisitFilePath(source: string): string {
+  return join(localStorageDir(), sourceToDir(source), VISIT_FILE)
+}
+
+/**
+ * When this PR was last open, and what had been read by then (spec 069).
+ * Missing on a first visit, which is not the same as "nothing is new" —
+ * callers treat a null watermark as "there is nothing to compare against".
+ */
+export async function loadVisit(source: string): Promise<VisitWatermark | null> {
+  const file = Bun.file(getVisitFilePath(source))
+  if (!(await file.exists())) return null
+
+  try {
+    const data = (await file.json()) as Partial<VisitWatermark>
+    if (typeof data.lastVisitAt !== "string") return null
+    return {
+      lastVisitAt: data.lastVisitAt,
+      lastSeenHeadSha: typeof data.lastSeenHeadSha === "string" ? data.lastSeenHeadSha : "",
+      seenCommentIds: Array.isArray(data.seenCommentIds)
+        ? data.seenCommentIds.filter((id): id is string => typeof id === "string")
+        : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function saveVisit(source: string, visit: VisitWatermark): Promise<void> {
+  await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
+  await Bun.write(getVisitFilePath(source), JSON.stringify(visit, null, 2))
+}
+
+/**
+ * The same write, synchronously — riff calls `process.exit` the moment it
+ * has torn the renderer down, and an awaited write never gets to flush.
+ */
+export function saveVisitSync(source: string, visit: VisitWatermark): void {
+  try {
+    mkdirSync(join(localStorageDir(), sourceToDir(source)), { recursive: true })
+    writeFileSync(getVisitFilePath(source), JSON.stringify(visit, null, 2))
+  } catch {
+    // A watermark that cannot be written is not worth failing the exit over.
+  }
 }
 
 /**

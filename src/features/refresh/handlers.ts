@@ -23,10 +23,11 @@ import {
 } from "../../state"
 import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
-import { loadComments, loadViewedStatuses } from "../../storage"
+import { loadComments, loadViewedStatuses, saveVisit } from "../../storage"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
+import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import {
   capturePosition,
@@ -99,6 +100,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       forcePushed = wasForcePushed(previousHeadSha, newPrInfo.commits ?? [], PR_COMMITS_FETCH_LIMIT)
       ctx.setHeadSha(headSha)
 
+      const visit = markVisit(state.comments, headSha, state.seenCommentIds)
+      void saveVisit(state.source, visit)
+
       // Parse diff into files
       const newFiles = sortFiles(parseDiff(newDiff))
       const newFileTree = buildFileTree(newFiles)
@@ -118,8 +122,16 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           newPrInfo,
           prevState.ignoreMatcher
         )
-        // Set commits from refreshed PR info
-        const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
+        // Set commits from refreshed PR info, and re-mark the visit: a
+        // refresh is a look, so what was on screen up to now has been seen
+        // and only what the reload brings is new (spec 069).
+        const withCommits = {
+          ...newState,
+          commits: newPrInfo.commits ?? [],
+          visit,
+          seenCommentIds: new Set<string>(),
+          visitRebased: forcePushed,
+        }
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
 

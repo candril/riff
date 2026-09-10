@@ -84,7 +84,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 066 | [Flash Everywhere](./066-flash-everywhere.md) | Done | `s` jumps to a visible row in the tree, info panel and feed |
 | 067 | [Info Panel](./067-info-panel.md) | Done | Metadata trimmed, sections at a glance, previews slot |
 | 068 | [Preview Links](./068-preview-links.md) | Done | Preview URLs as a list you can open and copy, configurable |
-| 069 | [Visit Watermark](./069-visit-watermark.md) | Ready | Per-PR memory of your last visit; unseen markers and `]n` |
+| 069 | [Visit Watermark](./069-visit-watermark.md) | Done | Per-PR memory of your last visit; unseen markers and `]n` |
 | 070 | [Activity Feed](./070-activity-feed.md) | Ready | `a` shows what happened, filterable by type |
 
 ## MVP Path
