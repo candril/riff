@@ -1,0 +1,61 @@
+/**
+ * The mermaid block under the cursor, drawn (spec 058).
+ *
+ * The new side is what the peek opens on — a review is about what the change
+ * will leave behind — and the old one is a keypress away, because the useful
+ * question about a changed diagram is what moved.
+ */
+
+import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { findFencedBlock, blockContent, sideOf, type DiffSide } from "../../utils/fenced-blocks"
+import { renderMermaid } from "../../utils/mermaid"
+
+export interface PeekedDiagram {
+  /** The drawing, or nothing when riff cannot draw this one. */
+  lines: string[]
+  kind: "flowchart" | "sequence" | "unsupported"
+  /** The block's own text, shown when there is no drawing. */
+  source: string[]
+  side: DiffSide
+  /** Whether the other side of the diff has a version of this block. */
+  hasOther: boolean
+  note?: string
+}
+
+const MERMAID = /^mermaid$/i
+
+export function buildMermaidPeek(
+  mapping: DiffLineMapping,
+  line: number,
+  side: DiffSide,
+): PeekedDiagram | null {
+  const lines = mapping.allLines
+
+  // The span is found on the side the cursor is standing on, then read on
+  // whichever side is being shown: a cursor parked on a deleted row still
+  // opens the diagram the change arrives at.
+  const cursorSide = sideOf(lines[line])
+  const block =
+    findFencedBlock(lines, line, cursorSide) ??
+    findFencedBlock(lines, line, cursorSide === "new" ? "old" : "new")
+  if (!block || !MERMAID.test(block.info)) return null
+
+  const rows = blockContent(lines, block, side)
+  const other = blockContent(lines, block, side === "new" ? "old" : "new")
+
+  const source = rows.map((row) => {
+    const content = lines[row]!
+    // The file's own text: a diff row may be padded for display.
+    return content.sourceContent ?? content.content
+  })
+
+  const render = renderMermaid(source.join("\n"))
+  return {
+    lines: render.lines,
+    kind: render.kind,
+    source,
+    side,
+    hasOther: other.length > 0,
+    note: render.note,
+  }
+}

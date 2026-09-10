@@ -24,7 +24,7 @@ const HELP_SECTIONS = [
       ["zL / zH", "Scroll half a screen right / left"],
       ["zs / ze", "Cursor column to left / right edge"],
       ["zz / zt / zb", "Cursor row to centre / top / bottom"],
-      ["gl", "Peek the line — or its table, as a grid"],
+      ["gl", "Peek the line, its table, or a diagram"],
       ["zw", "Toggle soft wrap"],
     ],
   },

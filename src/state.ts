@@ -214,6 +214,8 @@ export interface AppState {
   showHelp: boolean
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
+  /** Which version of a changed block the peek is drawing (spec 058). */
+  peekSide: "new" | "old"
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
   /** Pad markdown table cells onto a shared grid in the diff. */
@@ -408,6 +410,7 @@ export function createInitialState(
     treeFilterInput: false,
     showHelp: false,
     showLinePeek: false,
+    peekSide: "new",
     wrapLines: false,
     alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
@@ -670,6 +673,19 @@ export function toggleLinePeek(state: AppState): AppState {
   return {
     ...state,
     showLinePeek: !state.showLinePeek,
+    // Every peek opens on the version the change arrives at.
+    peekSide: "new",
+  }
+}
+
+/**
+ * Swap the peek between the version the change arrives at and the one it
+ * replaces (spec 058).
+ */
+export function togglePeekSide(state: AppState): AppState {
+  return {
+    ...state,
+    peekSide: state.peekSide === "new" ? "old" : "new",
   }
 }
 

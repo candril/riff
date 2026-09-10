@@ -22,6 +22,7 @@ import {
   HelpOverlay,
   LinePeek,
   TablePeek,
+  DiagramPeek,
   ConfirmDialog,
   DraftNotification,
   gatherSyncItems,
@@ -41,6 +42,7 @@ import {
 import type { VimDiffView } from "../components"
 import { getFiletypeFromPath } from "../components/VimDiffView"
 import { buildTablePeek } from "../features/diff-view/table-peek"
+import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
@@ -372,6 +374,22 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.showHelp ? HelpOverlay() : null,
         state.showLinePeek && state.viewMode === "diff"
           ? (() => {
+              // A mermaid block is source for a picture; the peek draws the
+              // picture (spec 058).
+              const diagram = buildMermaidPeek(lineMapping, vimState.line, state.peekSide)
+              if (diagram) {
+                return DiagramPeek({
+                  lines: diagram.lines,
+                  source: diagram.source,
+                  kind: diagram.kind,
+                  side: diagram.side,
+                  hasOther: diagram.hasOther,
+                  note: diagram.note,
+                  terminalWidth: ctx.renderer.width,
+                  terminalHeight: ctx.renderer.height,
+                })
+              }
+
               // A table row on its own is the least readable line in the
               // file; the peek shows the table it belongs to instead.
               const table = buildTablePeek(

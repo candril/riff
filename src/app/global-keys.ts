@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, toggleViewMode, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -594,6 +594,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     if (ctx.getState().showLinePeek && !pendingKey) {
       if (key.name === "escape" || key.name === "q") {
         ctx.setState(toggleLinePeek)
+        ctx.render()
+        return
+      }
+      // Tab swaps a drawn diagram between the version the change arrives at
+      // and the one it replaces (spec 058).
+      if (key.name === "tab") {
+        ctx.setState(togglePeekSide)
         ctx.render()
         return
       }
