@@ -395,12 +395,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               const table = buildTablePeek(
                 lineMapping,
                 vimState.line,
-                Math.max(24, ctx.renderer.width - 8)
+                Math.max(24, ctx.renderer.width - 8),
+                state.peekSide
               )
               if (table) {
                 return TablePeek({
                   lines: table.lines,
                   rowCount: table.rowCount,
+                  side: table.side,
+                  hasOther: table.hasOther,
                   terminalHeight: ctx.renderer.height,
                 })
               }

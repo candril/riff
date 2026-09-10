@@ -61,7 +61,10 @@ graph TD
 
 - The peek opens on the new side. `Tab` swaps to the old one and back; the
   header names which is on show, and the footer only offers `Tab` when the
-  block exists on both sides.
+  block reads differently on the two sides.
+- A markdown table (spec 053) answers to the same key, for the same reason:
+  the peek draws the version the change arrives at, and `Tab` shows the one it
+  replaces.
 - A block riff cannot draw shows its source instead, with the reason.
 
 ## Technical Notes

@@ -67,6 +67,9 @@ descriptions, through `MarkdownRenderable`'s `renderNode` hook. Its own
 gives each cell exactly one row and cuts the rest — silently, so a comment
 with a table in it was losing most of its text.
 
+- The peek draws the version the change arrives at; `Tab` shows the one it
+  replaces, where the table changed (spec 058).
+
 ## Technical Notes
 
 ### Display transform, not an edit

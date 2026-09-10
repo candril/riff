@@ -6,6 +6,10 @@ export interface TablePeekProps {
   lines: string[]
   /** How many source rows the table has, for the header. */
   rowCount: number
+  /** Which version of a changed table is on show. */
+  side: "new" | "old"
+  /** Whether Tab has another version to switch to. */
+  hasOther: boolean
   terminalHeight: number
 }
 
@@ -19,7 +23,7 @@ const MAX_ROWS = 30
  * unreadable. This is where you check that it reads right; the diff next
  * to it is where you say so.
  */
-export function TablePeek({ lines, rowCount, terminalHeight }: TablePeekProps) {
+export function TablePeek({ lines, rowCount, side, hasOther, terminalHeight }: TablePeekProps) {
   const room = Math.max(3, Math.min(MAX_ROWS, terminalHeight - 6))
   const shown = lines.length > room ? [...lines.slice(0, room - 1), "…"] : lines
   const width = Math.max(...shown.map((line) => line.length), 20)
@@ -56,6 +60,12 @@ export function TablePeek({ lines, rowCount, terminalHeight }: TablePeekProps) {
       Box(
         { height: 1, marginBottom: 1, flexDirection: "row", gap: 1 },
         Text({ content: "table", fg: colors.primary }),
+        hasOther
+          ? Text({
+              content: side === "new" ? "as changed" : "before the change",
+              fg: side === "new" ? theme.green : theme.peach,
+            })
+          : null,
         Text({ content: `${rowCount} rows`, fg: colors.textDim })
       ),
       // Pre-rendered, so each row is one Text of its own: an absolutely
@@ -63,7 +73,12 @@ export function TablePeek({ lines, rowCount, terminalHeight }: TablePeekProps) {
       ...shown.map((line) => Box({ height: 1 }, Text({ content: line, fg: colors.text }))),
       Box(
         { height: 1, marginTop: 1 },
-        Text({ content: "Press gl or Esc to close", fg: colors.textDim })
+        Text({
+          content: hasOther
+            ? `Tab: ${side === "new" ? "previous" : "current"} version · gl or Esc to close`
+            : "Press gl or Esc to close",
+          fg: colors.textDim,
+        })
       )
     )
   )

@@ -24,6 +24,15 @@ export interface PeekedDiagram {
 
 const MERMAID = /^mermaid$/i
 
+/** Whether the block reads differently on the two sides of the diff. */
+function changed(lines: readonly { type: string }[], block: { start: number; end: number }): boolean {
+  for (let i = block.start + 1; i < block.end; i++) {
+    const type = lines[i]?.type
+    if (type === "addition" || type === "deletion") return true
+  }
+  return false
+}
+
 export function buildMermaidPeek(
   mapping: DiffLineMapping,
   line: number,
@@ -61,7 +70,7 @@ export function buildMermaidPeek(
     kind: render.kind,
     source,
     side: shown,
-    hasOther: other.length > 0 && rows.length > 0,
+    hasOther: other.length > 0 && rows.length > 0 && changed(lines, block),
     note: render.note,
   }
 }
