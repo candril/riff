@@ -40,8 +40,14 @@ export function buildMermaidPeek(
     findFencedBlock(lines, line, cursorSide === "new" ? "old" : "new")
   if (!block || !MERMAID.test(block.info)) return null
 
-  const rows = blockContent(lines, block, side)
-  const other = blockContent(lines, block, side === "new" ? "old" : "new")
+  const otherSide = side === "new" ? "old" : "new"
+  const other = blockContent(lines, block, otherSide)
+
+  // A block that was added whole has nothing on the other side; asking for it
+  // shows the version that does exist rather than an empty box.
+  const shown = blockContent(lines, block, side).length > 0 ? side : otherSide
+  const rows = blockContent(lines, block, shown)
+  if (rows.length === 0) return null
 
   const source = rows.map((row) => {
     const content = lines[row]!
@@ -54,8 +60,8 @@ export function buildMermaidPeek(
     lines: render.lines,
     kind: render.kind,
     source,
-    side,
-    hasOther: other.length > 0,
+    side: shown,
+    hasOther: other.length > 0 && rows.length > 0,
     note: render.note,
   }
 }

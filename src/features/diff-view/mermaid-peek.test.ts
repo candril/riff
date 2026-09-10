@@ -118,6 +118,28 @@ describe("a block added whole", () => {
     expect(peek.hasOther).toBe(false)
     expect(peek.lines.length).toBeGreaterThan(0)
   })
+
+  test("and asking for it anyway shows the version that exists", () => {
+    const added = new DiffLineMapping(
+      [
+        diffFile(
+          "notes.md",
+          `@@ -1,1 +1,5 @@
+ # Notes
++\`\`\`mermaid
++graph LR
++  A --> B
++\`\`\``,
+        ),
+      ],
+      "single",
+      0,
+    )
+
+    const peek = buildMermaidPeek(added, 3, "old")!
+    expect(peek.side).toBe("new")
+    expect(peek.source).toEqual(["graph LR", "  A --> B"])
+  })
 })
 
 describe("a diagram riff cannot draw", () => {
