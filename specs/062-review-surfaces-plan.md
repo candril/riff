@@ -1,6 +1,6 @@
 # Plan: Review Surfaces
 
-**Status**: Plan
+**Status**: Done
 
 Orchestrates specs 063–070. Each is implementable on its own; this says in
 what order and why, and records the decisions the specs assume.
@@ -53,7 +53,7 @@ all. The end state is three views, one key apart, each keeping its place:
 | 069 | [Visit Watermark](./069-visit-watermark.md) | "Since your last visit" as data | `]n` jumps to the first comment you have not seen |
 | 070 | [Activity Feed](./070-activity-feed.md) | The feed itself | `a` answers "what happened" without the browser |
 
-**063 first**, because it is independent, small, and fixes a daily
+All eight are implemented. **063 first**, because it is independent, small, and fixes a daily
 irritation. **064 next and alone** — it is the seam everything else hangs
 off, and `app/global-keys.ts` is already an 1100-line capture chain, so no
 feature rides along with it. **065 and 066** are then free-standing
