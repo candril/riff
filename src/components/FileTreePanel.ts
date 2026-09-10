@@ -176,6 +176,8 @@ export class FileTreePanel {
   private currentIgnoredFiles: Set<string> = new Set()
   private currentShowHidden: boolean = false
   private currentFilter: string = ""
+  /** Flash labels by flat row index, while `s` is labelling (spec 066). */
+  private currentFlashLabels: ReadonlyMap<number, string> = new Map()
   private highlightIndex: number = 0      // Navigation highlight
   private selectedFileIndex: number | null = null  // Actual selection (scopes views)
   private multiSelectedFilenames: Set<string> = new Set()  // V-mode tree selection
@@ -335,8 +337,10 @@ export class FileTreePanel {
     showHiddenFiles?: boolean,
     multiSelectedFilenames?: Set<string>,
     treeFilter = "",
-    treeFilterInput = false
+    treeFilterInput = false,
+    flashLabels: ReadonlyMap<number, string> = new Map()
   ): void {
+    this.currentFlashLabels = flashLabels
     const newIgnored = ignoredFiles ?? new Set<string>()
     const newShowHidden = showHiddenFiles ?? false
     const newMulti = multiSelectedFilenames ?? new Set<string>()
@@ -640,9 +644,10 @@ export class FileTreePanel {
       const displayName = truncate(node.name, availableWidth)
 
       // Update properties
+      const flashLabel = this.currentFlashLabels.get(index)
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.markerText.content = `${marker} `
-      renderables.markerText.fg = markerColor
+      renderables.markerText.content = flashLabel ? `${flashLabel} ` : `${marker} `
+      renderables.markerText.fg = flashLabel ? colors.flashLabel : markerColor
       renderables.statusText.content = `${statusIndicator} `
       renderables.statusText.fg = statusColor
       renderables.text.content = `${indent}${icon}${displayName}`

@@ -15,6 +15,7 @@ const HELP_SECTIONS = [
       ["f / t", "Find / till character"],
       ["Ctrl+d / Ctrl+u", "Half page down / up"],
       ["gg / G", "Go to top / bottom"],
+      ["s", "Flash jump — labels rows in a list"],
       ["]c / [c", "Next / previous hunk"],
       ["]f / [f", "Next / previous file"],
       ["]u / [u", "Next / previous unviewed file"],

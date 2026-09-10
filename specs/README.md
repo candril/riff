@@ -81,7 +81,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 063 | [Refresh in Place](./063-refresh-in-place.md) | Done | `gr` changes the data and nothing else |
 | 064 | [Surfaces & View Switching](./064-surfaces-and-view-switching.md) | Done | `i` state, `a` feed, `d` diff; focus routing and per-view position |
 | 065 | [Text Inputs & Filters](./065-text-inputs-and-filters.md) | Done | Real input widgets everywhere; `Ctrl-f` filters the focused view |
-| 066 | [Flash Everywhere](./066-flash-everywhere.md) | Ready | `s` jumps to a visible row in the tree, info panel and feed |
+| 066 | [Flash Everywhere](./066-flash-everywhere.md) | Done | `s` jumps to a visible row in the tree, info panel and feed |
 | 067 | [Info Panel](./067-info-panel.md) | Ready | Metadata trimmed, sections at a glance, previews slot |
 | 068 | [Preview Links](./068-preview-links.md) | Ready | Preview URLs as a list you can open and copy, configurable |
 | 069 | [Visit Watermark](./069-visit-watermark.md) | Ready | Per-PR memory of your last visit; unseen markers and `]n` |

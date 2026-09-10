@@ -13,7 +13,7 @@ import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapL
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
-import type { FlashState } from "../vim-diff/flash-state"
+import type { FlashState, FlashSurface } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
@@ -108,6 +108,51 @@ export interface GlobalKeyContext {
  * - Single file view: selected file path
  * - All files view: file at cursor position
  */
+/**
+ * Which list `s` labels, or null when the diff has the cursor and its own
+ * search-then-label flavour applies (spec 066).
+ */
+function flashSurface(state: AppState): FlashSurface | null {
+  if (state.viewMode === "state") return "state"
+  if (state.viewMode === "feed") return "feed"
+  if (state.focusedPanel === "tree") return "tree"
+  return null
+}
+
+function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
+  switch (flashSurface(state)) {
+    case "tree":
+      return getVisibleFlatTreeItems(
+        state.fileTree,
+        state.files,
+        state.ignoredFiles,
+        state.showHiddenFiles,
+        state.treeFilter
+      ).map((_, index) => String(index))
+    case "state":
+      return ctx.getPrInfoPanel()?.flashTargets() ?? []
+    case "feed":
+      return []
+    default:
+      return []
+  }
+}
+
+/**
+ * Keys the surface acts on, kept out of the label alphabet so a mistyped
+ * jump cancels rather than marking a file viewed or resolving a thread.
+ */
+function reservedKeysFor(surface: FlashSurface): string {
+  switch (surface) {
+    case "tree":
+      return "vx"
+    case "state":
+      return "xc"
+    default:
+      return ""
+  }
+}
+
 function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
   const state = ctx.getState()
   const lineMapping = ctx.getLineMapping()
@@ -334,6 +379,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     // F12 toggles debug console
     if (key.name === "f12") {
       ctx.renderer.console.toggle()
+      return
+    }
+
+    // ========== FLASH JUMP (captures all input while active, specs 022, 066) ==========
+    // Ahead of the panels: a label is typed into whichever surface is being
+    // labelled, and that surface's own keys must not see it first.
+    if (flash.handleInput(key, { flashState: ctx.getFlashState(), flashHandler: ctx.flashHandler })) {
       return
     }
 
@@ -643,11 +695,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
     }
 
-    // ========== FLASH JUMP (captures all input while active, spec 022) ==========
-    if (flash.handleInput(key, { flashState: ctx.getFlashState(), flashHandler: ctx.flashHandler })) {
-      return
-    }
-
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
     if (search.handleInput(key, { searchState: ctx.getSearchState(), searchHandler: ctx.searchHandler })) {
       return
@@ -824,6 +871,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.render()
         return
       }
+
+      case "s":
+        // `s` labels the rows of whatever list has focus and the next key
+        // jumps (spec 066). The diff keeps its own flavour — type first,
+        // then pick — and is handled where the diff's keys are.
+        if (!key.ctrl && !key.shift && !isVisualMode(ctx.getVimState())) {
+          const surface = flashSurface(state)
+          if (surface) {
+            key.preventDefault()
+            ctx.flashHandler.startList(surface, flashTargets(state, ctx), reservedKeysFor(surface))
+            ctx.render()
+            return
+          }
+        }
+        break
 
       case "t":
         // Ctrl-t opens the comments panel on what the diff cursor is

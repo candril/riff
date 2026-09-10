@@ -354,6 +354,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         endReviewSummarySession()
       }
 
+      // Flash labels, painted by whichever surface is being labelled
+      // (spec 066). The diff draws its own, straight onto the frame.
+      prInfoPanelInstance?.setFlashLabels(
+        flashState.active && flashState.surface === "state"
+          ? new Map(flashState.rows.map((row) => [row.id, row.label]))
+          : new Map()
+      )
+
       // The info panel's filter box is the panel's own, like the tree's:
       // both are persistent panels rather than overlays rebuilt per render.
       prInfoPanelInstance?.syncFilterInput(

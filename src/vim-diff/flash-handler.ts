@@ -8,8 +8,14 @@
 
 import type { DiffLineMapping } from "./line-mapping"
 import type { VimCursorState } from "./types"
-import type { FlashMatch, FlashState } from "./flash-state"
-import { assignLabels, createFlashState, findLabelledMatch } from "./flash-state"
+import type { FlashMatch, FlashRow, FlashState, FlashSurface } from "./flash-state"
+import {
+  assignLabels,
+  createFlashState,
+  findLabelledMatch,
+  findLabelledRow,
+  labelRows,
+} from "./flash-state"
 
 /** The slice of the diff currently on screen. */
 export interface FlashRegion {
@@ -38,6 +44,8 @@ export interface FlashHandlerOptions {
   getVisibleRegion: () => FlashRegion | null
   /** Snapshot the pre-jump position so Ctrl-O comes back here (spec 038). */
   recordJump: () => void
+  /** Put the cursor on a labelled row of a list surface (spec 066). */
+  jumpToRow: (surface: FlashSurface, id: string) => void
   onUpdate: () => void
 }
 
@@ -49,7 +57,18 @@ export class FlashHandler {
    * typed — flash.nvim shows the backdrop straight away, matches follow.
    */
   start(): void {
-    this.opts.setFlashState({ active: true, pattern: "", matches: [] })
+    this.opts.setFlashState({ ...createFlashState(), active: true, surface: "diff" })
+    this.opts.onUpdate()
+  }
+
+  /**
+   * Enter flash mode on a list: every visible row is labelled at once, and
+   * the next keystroke either jumps or cancels (spec 066).
+   */
+  startList(surface: FlashSurface, ids: string[], reserved = ""): void {
+    const rows = labelRows(ids, reserved)
+    if (rows.length === 0) return
+    this.opts.setFlashState({ ...createFlashState(), active: true, surface, rows })
     this.opts.onUpdate()
   }
 
@@ -59,6 +78,13 @@ export class FlashHandler {
   handleChar(char: string): void {
     const state = this.opts.getFlashState()
     if (!state.active) return
+
+    if (state.surface !== "diff") {
+      const row = findLabelledRow(state.rows, char)
+      if (row) this.jumpToRow(state.surface, row)
+      else this.cancel()
+      return
+    }
 
     const labelled = findLabelledMatch(state.matches, char)
     if (labelled) {
@@ -119,6 +145,7 @@ export class FlashHandler {
     }
 
     this.opts.setFlashState({
+      ...createFlashState(),
       active: true,
       pattern,
       matches: assignLabels({
@@ -128,6 +155,12 @@ export class FlashHandler {
       }),
     })
 
+    this.opts.onUpdate()
+  }
+
+  private jumpToRow(surface: FlashSurface, row: FlashRow): void {
+    this.opts.setFlashState(createFlashState())
+    this.opts.jumpToRow(surface, row.id)
     this.opts.onUpdate()
   }
 

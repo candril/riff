@@ -415,6 +415,10 @@ export class PRInfoPanelClass {
   
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
+
+  // Flash labels by row id, while `s` is labelling (spec 066), and the
+  // header texts they are painted onto.
+  private flashLabels: ReadonlyMap<string, string> = new Map()
   
   // Footer container for dynamic updates
   private footer: BoxRenderable | null = null
@@ -1402,6 +1406,60 @@ export class PRInfoPanelClass {
     
     // Rebuild
     this.buildSections(this.sectionsContainer)
+    this.applyFlashLabels()
+  }
+
+  /**
+   * Every row `s` can jump to: the five section headers, plus the rows of
+   * the sections that are open (spec 066). Ids are the panel's own.
+   */
+  flashTargets(): string[] {
+    const ids: string[] = []
+    for (const section of ALL_SECTIONS) {
+      ids.push(section)
+      if (!this.expandedSections.has(section)) continue
+      const count = this.getItemCountForSection(section)
+      for (let i = 0; i < count; i++) ids.push(`${section}:${i}`)
+    }
+    return ids
+  }
+
+  /** Put the cursor on the row a label picked. */
+  flashJump(id: string): void {
+    const [name, index] = id.split(":")
+    const section = ALL_SECTIONS.find((candidate) => candidate === name)
+    if (!section) return
+
+    this.setActiveSection(section)
+    this.activeSection = section
+    this.cursorIndex = index === undefined ? -1 : Math.min(Number(index), this.getMaxCursorIndex())
+    this.rebuildSections()
+  }
+
+  /** Show or hide the labels. */
+  setFlashLabels(labels: ReadonlyMap<string, string>): void {
+    this.flashLabels = labels
+    this.rebuildSections()
+  }
+
+  /**
+   * Paint the labels onto the rows the section builders have already made —
+   * one pass over the refs they leave behind, rather than a branch in each
+   * of them. The label goes in front of the row, so nothing it says is lost.
+   */
+  private applyFlashLabels(): void {
+    if (this.flashLabels.size === 0) return
+
+    for (const [section, rows] of this.itemRows) {
+      rows.forEach((row, index) => {
+        const label = this.flashLabels.get(`${section}:${index}`)
+        if (!label) return
+        row.container.add(
+          new TextRenderable(this.renderer, { content: `${label} `, fg: colors.flashLabel }),
+          0
+        )
+      })
+    }
   }
 
   /**
@@ -1441,6 +1499,13 @@ export class PRInfoPanelClass {
         height: 1,
         backgroundColor: headerHighlighted ? theme.surface0 : undefined,
       })
+      const headerLabel = this.flashLabels.get(config.id)
+      if (headerLabel) {
+        headerRow.add(new TextRenderable(this.renderer, {
+          content: `${headerLabel} `,
+          fg: colors.flashLabel,
+        }))
+      }
       headerRow.add(new TextRenderable(this.renderer, {
         content: `${indicator}  ${config.title} (${config.count})`,
         fg: isActive ? theme.blue : theme.overlay0,

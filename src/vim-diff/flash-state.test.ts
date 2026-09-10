@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { assignLabels, findLabelledMatch, FLASH_LABELS } from "./flash-state"
+import {
+  assignLabels,
+  findLabelledMatch,
+  findLabelledRow,
+  labelRows,
+  FLASH_LABELS,
+} from "./flash-state"
 
 /** Build the `getLineContent` a label assignment needs from a line table. */
 function content(lines: Record<number, string>) {
@@ -95,5 +101,32 @@ describe("findLabelledMatch", () => {
 
   test("ignores unlabelled matches", () => {
     expect(findLabelledMatch(matches, "s")).toBeNull()
+  })
+})
+
+describe("labelling a list's rows", () => {
+  test("every row gets a label, top to bottom", () => {
+    const rows = labelRows(["0", "1", "2"])
+
+    expect(rows.map((row) => row.label)).toEqual(["a", "s", "d"])
+    expect(findLabelledRow(rows, "d")?.id).toBe("2")
+  })
+
+  test("keys the surface acts on stay out of the alphabet", () => {
+    const rows = labelRows(["0", "1"], "as")
+
+    expect(rows.map((row) => row.label)).toEqual(["d", "f"])
+    expect(findLabelledRow(rows, "a")).toBeNull()
+  })
+
+  test("uppercase jumps too", () => {
+    expect(findLabelledRow(labelRows(["only"]), "A")?.id).toBe("only")
+  })
+
+  test("rows past the end of the alphabet go unlabelled rather than sharing", () => {
+    const rows = labelRows(Array.from({ length: 40 }, (_, i) => String(i)))
+
+    expect(rows.length).toBe(26)
+    expect(new Set(rows.map((row) => row.label)).size).toBe(26)
   })
 })

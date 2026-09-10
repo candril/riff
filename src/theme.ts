@@ -72,6 +72,9 @@ export const colors = {
   error: theme.red,
   info: theme.sapphire,
 
+  // Flash jump labels (specs 022, 066)
+  flashLabel: theme.red,
+
   // Comments
   commentMarker: theme.mauve,
   commentLocal: theme.blue,

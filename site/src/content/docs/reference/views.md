@@ -113,6 +113,12 @@ In the all-files view the file headers are targets too, and a header's text is i
 It's the fast path when the target is already visible — you type the characters and the label in
 one motion instead of `/pattern<CR>nnn`. For anything off screen, use `/`.
 
+`s` works in the lists too — the file tree, the PR overview's sections and rows, the feed. There
+it labels **every visible row at once** and the next keystroke jumps: there are rarely forty rows
+on screen, so a label each is enough and it costs one keypress. Any key that is not a label
+cancels, and the keys the list would act on (`v`/`x` in the tree, `x`/`c` in the overview) are
+kept out of the alphabet, so a mistyped jump never marks a file viewed or resolves a thread.
+
 ![Flash labels over the diff](../../../assets/screenshots/flash.png)
 
 ### Search

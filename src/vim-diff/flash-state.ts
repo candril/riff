@@ -24,22 +24,60 @@ export interface FlashMatch {
 }
 
 /**
+ * Which surface flash is labelling (spec 066). The diff narrows first and
+ * labels what is left, because labelling sixty rows of code is noise; a list
+ * labels every visible row at once, because there are rarely forty of them
+ * and it costs one keypress.
+ */
+export type FlashSurface = "diff" | "tree" | "state" | "feed"
+
+/** A labelled row of a list surface. The id is that surface's own. */
+export interface FlashRow {
+  id: string
+  label: string
+}
+
+/**
  * State for flash mode
  */
 export interface FlashState {
   /** Whether flash mode is capturing input */
   active: boolean
-  /** Characters typed so far */
+  /** What is being labelled */
+  surface: FlashSurface
+  /** Characters typed so far (diff only — a list labels straight away) */
   pattern: string
   /** Labelled matches, in document order */
   matches: FlashMatch[]
+  /** Labelled rows, in list mode */
+  rows: FlashRow[]
 }
 
 /**
  * Create initial/reset flash state
  */
 export function createFlashState(): FlashState {
-  return { active: false, pattern: "", matches: [] }
+  return { active: false, surface: "diff", pattern: "", matches: [], rows: [] }
+}
+
+/**
+ * Label a list's visible rows, top to bottom. Keys the surface would act on
+ * are left out of the alphabet, so a mistyped jump never resolves a thread
+ * or marks a file viewed — it just cancels.
+ */
+export function labelRows(ids: string[], reserved = ""): FlashRow[] {
+  const taken = new Set(reserved.toLowerCase().split(""))
+  const alphabet = FLASH_LABELS.split("").filter((char) => !taken.has(char))
+  return ids.flatMap((id, index) => {
+    const label = alphabet[index]
+    return label ? [{ id, label }] : []
+  })
+}
+
+/** The row a keypress jumps to, if it is one of the labels. */
+export function findLabelledRow(rows: FlashRow[], char: string): FlashRow | null {
+  const key = char.toLowerCase()
+  return rows.find((row) => row.label === key) ?? null
 }
 
 export interface AssignLabelsOptions {

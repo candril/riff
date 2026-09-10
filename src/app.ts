@@ -307,7 +307,10 @@ export async function createApp(options: AppOptions = {}) {
       state.showHiddenFiles,
       aiReview.getTreeMultiSelectionFilenames(state),
       state.treeFilter,
-      state.treeFilterInput
+      state.treeFilterInput,
+      flashState.active && flashState.surface === "tree"
+        ? new Map(flashState.rows.map((row) => [Number(row.id), row.label]))
+        : new Map()
     )
   }
 
@@ -487,6 +490,18 @@ export async function createApp(options: AppOptions = {}) {
     },
     getVisibleRegion: () => vimDiffView.getVisibleRegion(),
     recordJump: () => { state = jumplist.pushCurrent(state, vimState) },
+    jumpToRow: (surface, id) => {
+      state = jumplist.pushCurrent(state, vimState)
+      if (surface === "tree") {
+        state = { ...state, treeHighlightIndex: Number(id), focusedPanel: "tree" }
+        updateFileTreePanel()
+      } else if (surface === "state") {
+        prInfoPanel?.flashJump(id)
+        state = { ...state, reactionTarget: prInfoPanel?.getReactionTarget() ?? null }
+      } else if (surface === "feed") {
+        state = { ...state, feed: { ...state.feed, highlightIndex: Number(id) } }
+      }
+    },
     onUpdate: () => { render() },
   })
 

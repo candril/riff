@@ -548,15 +548,16 @@ function handleInputInner(
 
   // Let truly global keys fall through: q / escape (quit / toast-clear),
   // `tab` for jumplist forward (spec 038; terminal input collapses Ctrl-I
-  // to Tab), and `i` / `a` for the view router (spec 064). Ctrl-modified
-  // keys are already handled by the early-return at the top of this
-  // function.
+  // to Tab), `i` / `a` for the view router (spec 064) and `s` for flash
+  // (spec 066). Ctrl-modified keys are already handled by the early-return
+  // at the top of this function.
   if (
     key.name === "q" ||
     key.name === "escape" ||
     key.name === "tab" ||
     key.name === "i" ||
-    key.name === "a"
+    key.name === "a" ||
+    key.name === "s"
   ) {
     return false
   }

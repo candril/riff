@@ -33,6 +33,7 @@ function harness(lines: string[], cursor: { line: number; col: number } = { line
     getCursor: () => vimState,
     setCursor: (line, col) => { vimState = { ...vimState, line, col } },
     getVisibleRegion: () => region,
+    jumpToRow: () => {},
     recordJump: () => { jumpsRecorded++ },
     onUpdate: () => {},
   })
@@ -94,7 +95,8 @@ describe("FlashHandler", () => {
       getCursor: () => createCursorState(),
       setCursor: () => {},
       getVisibleRegion: () => ({ lines: [0, 1], startCol: 0, endCol: 200 }),
-      recordJump: () => {},
+      jumpToRow: () => {},
+    recordJump: () => {},
       onUpdate: () => {},
     })
 
@@ -143,7 +145,8 @@ describe("FlashHandler", () => {
       getCursor: () => createCursorState(),
       setCursor: () => {},
       getVisibleRegion: () => ({ lines: [1], startCol: 0, endCol: 200 }),
-      recordJump: () => {},
+      jumpToRow: () => {},
+    recordJump: () => {},
       onUpdate: () => {},
     })
 
