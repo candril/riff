@@ -28,12 +28,16 @@ export interface FeedEvent {
   type: FeedEventType
   /** When it happened. The feed is newest first. */
   at: string
-  /** Who did it, where one person did. */
+  /** Who did it, where one person did. Checks have no one. */
   actor?: string
+  /** What the row is about, ahead of its words: a file:line, a sha. */
+  lead?: string
   /** The row's own words — "approved", "fix: handle empty hunks". */
   title: string
-  /** The dimmer trailing half — a file:line, a check's result, counts. */
-  detail?: string
+  /** A dim aside after the words — a review's summary line. */
+  note?: string
+  /** The one thing that sits at the right edge: a check's result. */
+  trailing?: string
   /** What `Enter` opens: the comment, the commit, the check. */
   target?: FeedTarget
 }
@@ -44,13 +48,19 @@ export type FeedTarget =
   | { kind: "check"; url: string | null }
   | { kind: "url"; url: string }
 
-/** The filters the number keys toggle, in the order the header lists them. */
+/**
+ * The filters, in the order the header lists them, each on a letter of its
+ * own word. The first letter where it is free; `k` is move-up, so checks go
+ * by their other name, and `c` was taken by commits before comments got to
+ * it.
+ */
 export const FEED_TYPES: { key: string; type: FeedEventType; label: string }[] = [
-  { key: "1", type: "commit", label: "commits" },
-  { key: "2", type: "comment", label: "comments" },
-  { key: "3", type: "review", label: "reviews" },
-  { key: "4", type: "check", label: "checks" },
-  { key: "5", type: "thread", label: "threads" },
+  { key: "c", type: "commit", label: "commits" },
+  { key: "m", type: "comment", label: "comments" },
+  { key: "r", type: "review", label: "reviews" },
+  { key: "b", type: "check", label: "checks" },
+  { key: "t", type: "thread", label: "threads" },
+  { key: "p", type: "push", label: "pushes" },
 ]
 
 /**
@@ -123,8 +133,8 @@ function fromTimeline(
           type: "commit",
           at: at ?? known?.date ?? "",
           actor: known?.author ?? actor,
+          lead: sha,
           title: known?.message ?? firstLine(entry.message ?? sha),
-          detail: sha,
           target: { kind: "commit", sha },
         })
         break
@@ -137,7 +147,7 @@ function fromTimeline(
           at,
           actor,
           title: reviewVerb(entry.state),
-          detail: entry.body ? firstLine(entry.body) : undefined,
+          note: entry.body ? firstLine(entry.body) : undefined,
           target: entry.html_url ? { kind: "url", url: entry.html_url } : undefined,
         })
         break
@@ -150,7 +160,6 @@ function fromTimeline(
           at,
           actor,
           title: "force-pushed",
-          detail: "the branch was rewritten",
         })
         break
       }
@@ -168,7 +177,7 @@ function fromTimeline(
           at,
           actor,
           title: entry.event === "head_ref_deleted" ? "branch deleted" : "branch restored",
-          detail: entry.ref,
+          note: entry.ref,
         })
         break
       }
@@ -187,8 +196,8 @@ function fromComments(comments: readonly Comment[]): FeedEvent[] {
       type: "comment",
       at: comment.createdAt,
       actor: comment.author ?? "you",
+      lead: `${comment.filename}:${comment.line}`,
       title: firstLine(comment.body),
-      detail: `${comment.filename}:${comment.line}`,
       target: { kind: "comment", commentId: comment.id },
     })
 
@@ -200,8 +209,8 @@ function fromComments(comments: readonly Comment[]): FeedEvent[] {
         type: "thread",
         at: comment.createdAt,
         actor: comment.author ?? "you",
+        lead: `${comment.filename}:${comment.line}`,
         title: "resolved",
-        detail: `${comment.filename}:${comment.line}`,
         target: { kind: "comment", commentId: comment.id },
       })
     }
@@ -218,7 +227,7 @@ function fromChecks(checks: readonly PrCheck[]): FeedEvent[] {
       type: "check" as const,
       at: check.completedAt ?? check.startedAt ?? "",
       title: check.name,
-      detail: checkResult(check),
+      trailing: checkResult(check),
       target: { kind: "check" as const, url: check.detailsUrl },
     }))
 }
@@ -266,7 +275,11 @@ export function visibleFeed(
     if (options.types.size > 0 && !options.types.has(event.type)) return false
     if (options.unseenIds && !isUnseenEvent(event, options.unseenIds)) return false
     if (!needle) return true
-    return `${event.title} ${event.detail ?? ""} ${event.actor ?? ""}`.toLowerCase().includes(needle)
+    return [event.lead, event.title, event.note, event.trailing, event.actor]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(needle)
   })
 }
 

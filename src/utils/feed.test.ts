@@ -72,12 +72,12 @@ describe("what happened, newest first", () => {
   test("a commit row carries what riff already knows about the commit", () => {
     const commit = feed().find((event) => event.type === "commit")
 
-    expect(commit).toMatchObject({ actor: "alice", detail: "a3f2c19" })
+    expect(commit).toMatchObject({ actor: "alice", lead: "a3f2c19" })
     expect(commit?.target).toEqual({ kind: "commit", sha: "a3f2c19" })
   })
 
   test("a check says what it turned into", () => {
-    expect(feed().find((event) => event.type === "check")?.detail).toBe("✓ passing")
+    expect(feed().find((event) => event.type === "check")?.trailing).toBe("✓ passing")
   })
 
   test("timeline events riff has nothing to say about are left out", () => {

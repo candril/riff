@@ -267,10 +267,18 @@ export function toggleFeedType(state: AppState, type: string): AppState {
   return { ...state, feed: { ...state.feed, types, highlightIndex: 0 } }
 }
 
+/** Everything again: every type, seen or not, no text (spec 070). */
 export function showAllFeedTypes(state: AppState): AppState {
   return {
     ...state,
-    feed: { ...state.feed, types: new Set<string>(), unseenOnly: false, highlightIndex: 0 },
+    feed: {
+      ...state.feed,
+      types: new Set<string>(),
+      unseenOnly: false,
+      filter: "",
+      filterInput: false,
+      highlightIndex: 0,
+    },
   }
 }
 

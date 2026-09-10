@@ -61,6 +61,15 @@ export type ActionSubmenu =
   | { kind: "preview"; links: { label: string; url: string }[]; action: "open" | "copy"; title: string }
 
 /**
+ * Whether Escape from a submenu goes back to the action list or all the way
+ * out: a submenu opened from the palette returns to it, one opened directly
+ * — a preview row's picker — has no list behind it to return to.
+ */
+export function submenuOpenedFromPalette(submenu: ActionSubmenu): boolean {
+  return submenu.kind === "react"
+}
+
+/**
  * Action menu state
  */
 export interface ActionMenuState {

@@ -150,9 +150,8 @@ is navigation, not a decision to review it alone. The highlight runs the other w
 through the diff moves the tree's highlight to the file you are in, and scrolls the tree to show
 it. A file inside a collapsed folder is left alone rather than unfolded.
 
-`Ctrl+f` filters whatever has focus, and in the diff that is the tree — the same prompt `/` opens,
-from wherever you are. **Find Files** in the action menu is the fuzzy picker over the same list:
-the filter when you want the tree to stay, the picker when you just want the file.
+`Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
+picker when you just want the file.
 
 ### Viewed state
 
@@ -226,8 +225,8 @@ since I left" without the browser.
 | Key | Action |
 | --- | --- |
 | `j` / `k` | Move |
-| `1`–`5` | Toggle a type: commits, comments, reviews, checks, threads |
-| `0` | Back to everything |
+| `c` `m` `r` `b` `t` `p` | Toggle a type: commits, comments, reviews, checks (builds), threads, pushes |
+| `a` | Back to everything — and, once nothing is narrowed, back to the view you came from |
 | `u` | Only what you have not seen ([the watermark](/riff/reference/github/#since-your-last-visit)) |
 | `Ctrl+f` | Filter the rows by text |
 | `za` | Open a commit into the files it touched |

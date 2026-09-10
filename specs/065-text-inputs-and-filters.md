@@ -33,9 +33,10 @@ thing — *narrow what I am looking at* — in every view.
 - Incremental behaviour is unchanged: search still moves the cursor as you
   type, pickers still filter per keystroke. The input reports changes; the
   feature reacts.
-- `Ctrl-f` opens the filter for whatever has focus — files in the diff and
-  tree, rows in the feed, sections and rows in the info panel, comments in
-  the panel.
+- `Ctrl-f` opens the filter for whatever has focus — rows in the feed,
+  sections and rows in the info panel, comments in the panel. In the diff
+  and the tree it stays the fuzzy file picker: the quick jump is the thing
+  wanted there, and the tree's own filter is `/`.
 - `Esc` cancels and restores what was there; `Enter` accepts. The same two
   keys everywhere.
 

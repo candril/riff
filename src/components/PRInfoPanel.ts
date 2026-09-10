@@ -2493,6 +2493,13 @@ export class PRInfoPanelClass {
       }))
       return
     }
+
+    // One column for the names, so the counts after them line up: as wide as
+    // the longest name, and no wider than the room the counts leave.
+    const nameWidth = Math.min(
+      getListItemWidth() - 12,
+      Math.max(...this.visibleFiles.map((file) => Bun.stringWidth(file.filename)))
+    )
     
     for (let i = 0; i < this.visibleFiles.length; i++) {
       const file = this.visibleFiles[i]!
@@ -2504,8 +2511,9 @@ export class PRInfoPanelClass {
         backgroundColor: isSelected ? theme.surface1 : undefined,
       })
       
+      const name = truncate(file.filename, nameWidth)
       const filenameText = new TextRenderable(this.renderer, {
-        content: truncate(file.filename, getListItemWidth()),
+        content: name + " ".repeat(Math.max(0, nameWidth - Bun.stringWidth(name))),
         fg: isSelected ? theme.text : theme.subtext1,
       })
       row.add(filenameText)

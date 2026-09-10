@@ -89,7 +89,7 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Ctrl+h` | Move focus left: comments → diff → tree |
 | `Ctrl+l` | Move focus right: tree → diff → comments |
 | `Ctrl+t` | Toggle the comments panel |
-| `Ctrl+f` | Filter what has focus — files, panel rows, feed rows, comments |
+| `Ctrl+f` | Fuzzy file picker; in the PR overview, feed and comments panel, a filter over their rows |
 | `Ctrl+g` | Show the current file's path |
 | `v` | Mark the file viewed and advance to the next unviewed |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
@@ -159,7 +159,7 @@ everywhere, tmux included. In local mode both just save — there's nothing to p
 | `gr` | Refresh diff, commits and comments |
 | `gi` | PR overview panel |
 | `i` / `a` / `d` | PR state / feed / diff — the same key again goes back |
-| `1`–`5` `0` `u` | In the feed: filter by type, all types, unseen only |
+| `c` `m` `r` `b` `t` `p` `a` `u` | In the feed: filter by type, all, unseen only |
 | `za` | In the feed: open a commit into its files |
 | `go` | Open the PR in a browser |
 | `gy` | Copy the PR URL |
@@ -206,8 +206,7 @@ files.
 Every fuzzy picker — files, comments (`gC`), commits, the action menu (`Ctrl+p`) — takes the same
 keys: type to filter, `↑`/`↓` or `Ctrl+p`/`Ctrl+n` to move, `Enter` to choose, `Esc` to cancel.
 They all type into the same input widget, so `Ctrl+w` deletes a word, `Ctrl+u` the line, and
-word motions, paste, undo and selection work in every one of them — the filter prompts (`Ctrl+f`,
-`/` in the tree) included.
+word motions, paste, undo and selection work in every one of them — the filter prompts included.
 
 ## Global
 

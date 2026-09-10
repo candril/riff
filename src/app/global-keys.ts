@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { visibleFeedEvents, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { visibleFeedEvents, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, filterTarget, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -419,6 +419,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       state: ctx.getState(),
       setState: ctx.setState,
       render: ctx.render,
+      chordPending: pendingKey !== null,
       onOpenEvent: (event) => {
         const target = event.target
         if (!target) return
@@ -902,13 +903,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "f":
-        // Ctrl-f narrows whatever has focus (spec 065): the files in the
-        // diff and tree, the rows of the info panel or the feed, the
-        // comments in the panel.
+        // Ctrl-f is the quick jump to a file from the diff and the tree —
+        // the tree's own filter is `/` there, and is a different thing. In
+        // the info panel, the feed and the comments panel, where there is
+        // no file to jump to, it narrows the rows (spec 065).
         if (key.ctrl) {
           key.preventDefault()
-          ctx.setState(startViewFilter)
-          ctx.updateFileTreePanel()
+          if (filterTarget(state) === "tree") {
+            if (state.files.length > 0) ctx.setState(openFilePicker)
+          } else {
+            ctx.setState(startViewFilter)
+          }
           ctx.render()
           return
         }

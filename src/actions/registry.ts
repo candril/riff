@@ -18,6 +18,7 @@ export const actions: Action[] = [
     id: "find-files",
     label: "Find Files",
     description: "Jump to a file in the diff",
+    shortcut: "Ctrl+f",
     category: "navigation",
     available: (state) => state.files.length > 0,
   },
@@ -479,8 +480,7 @@ export const actions: Action[] = [
   {
     id: "filter-view",
     label: "Filter",
-    description: "Narrow whatever has focus — files, rows, comments",
-    shortcut: "Ctrl+f",
+    description: "Narrow the rows of the info panel, the feed, or the comments panel",
     category: "navigation",
     available: () => true,
   },

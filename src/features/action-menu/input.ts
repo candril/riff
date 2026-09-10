@@ -22,6 +22,7 @@ import { getAvailableActions } from "../../actions"
 import { getVisualActionOrder } from "../../components"
 import { fuzzyFilter } from "../../utils/fuzzy"
 import { getSubmenuRows, reactionContentFromRowId } from "./submenu"
+import { submenuOpenedFromPalette } from "../../actions/types"
 
 export interface ActionMenuInputContext {
   readonly state: AppState
@@ -79,7 +80,7 @@ export function handleInput(
   switch (key.name) {
     case "escape":
       consume()
-      if (submenu) {
+      if (submenu && submenuOpenedFromPalette(submenu)) {
         ctx.setState(closeActionSubmenu)
       } else {
         ctx.setState(closeActionMenu)

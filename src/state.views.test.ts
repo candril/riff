@@ -9,6 +9,8 @@ import {
   commitViewFilter,
   clearViewFilter,
   openInlineCommentOverlay,
+  toggleFeedType,
+  showAllFeedTypes,
   type AppState,
 } from "./state"
 import type { DiffFile } from "./utils/diff-parser"
@@ -122,5 +124,16 @@ describe("what Ctrl-f narrows", () => {
       filterInput: false,
     })
     expect(clearViewFilter(filtering).prInfoPanel.filter).toBe("")
+  })
+})
+
+describe("the feed's filters", () => {
+  test("a letter toggles its type, and `a` puts everything back", () => {
+    const narrowed = toggleFeedType(switchView(prState(), "feed"), "commit")
+    expect(narrowed.feed.types).toEqual(new Set(["commit"]))
+    expect(toggleFeedType(narrowed, "commit").feed.types.size).toBe(0)
+
+    const all = showAllFeedTypes(setViewFilter(startViewFilter(narrowed), "x"))
+    expect(all.feed).toMatchObject({ types: new Set(), unseenOnly: false, filter: "" })
   })
 })

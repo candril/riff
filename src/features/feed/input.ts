@@ -25,6 +25,8 @@ export interface FeedInputContext {
   readonly state: AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  /** A `g`/`z`/`]` chord is half-typed: its second key is not a filter. */
+  chordPending: boolean
   /** Open what a row is about (spec 070). */
   onOpenEvent: (event: FeedEvent) => void
   /** Fetch the files of a commit row that was just expanded. */
@@ -48,8 +50,9 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
   }
 
   // Ctrl-modified keys belong to the global handler — Ctrl-p, Ctrl-f, the
-  // jumplist — so only bare keys are read here.
-  if (key.ctrl || key.meta) return false
+  // jumplist — so only bare keys are read here, and never the second half
+  // of a chord: `gr` must refresh, not toggle reviews.
+  if (key.ctrl || key.meta || ctx.chordPending) return false
 
   const events = visibleFeedEvents(ctx.state)
   const highlighted = events[ctx.state.feed.highlightIndex]
@@ -82,14 +85,17 @@ export function handleInput(key: KeyEvent, ctx: FeedInputContext): boolean {
       if (highlighted) ctx.onOpenEvent(highlighted)
       return true
 
-    case "a":
-      // `za` opens a commit row into its files; a bare `a` is the view key.
+    case "a": {
+      // `a` is "all" while the feed is narrowed, and the view key — back
+      // where you came from — once it is not. One key, read in order.
+      const f = ctx.state.feed
+      if (f.types.size > 0 || f.unseenOnly || f.filter) {
+        ctx.setState(showAllFeedTypes)
+        ctx.render()
+        return true
+      }
       return false
-
-    case "0":
-      ctx.setState(showAllFeedTypes)
-      ctx.render()
-      return true
+    }
   }
 
   const typeKey = FEED_TYPES.find((entry) => entry.key === key.name)

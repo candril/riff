@@ -39,6 +39,7 @@ export function FeedView({
   renderer,
   loading,
 }: FeedViewProps) {
+  const leadWidth = leadWidthFor(events)
   return Box(
     {
       id: "feed-view",
@@ -59,7 +60,9 @@ export function FeedView({
             fg: colors.textDim,
           }),
         ]
-      : events.flatMap((event, index) => eventRows(event, index, feed, unseenIds, flashLabels)))
+      : events.flatMap((event, index) =>
+          eventRows(event, index, events[index - 1], feed, unseenIds, flashLabels, leadWidth)
+        ))
   )
 }
 
@@ -97,32 +100,61 @@ function filterRow(feed: FeedState, renderer: CliRenderer) {
     )
   }
 
+  const toggle = (key: string, label: string, on: boolean) => [
+    Text({ content: ` ${key} `, fg: on ? theme.base : theme.peach, bg: on ? theme.peach : undefined }),
+    Text({ content: `${label}   `, fg: on ? colors.text : colors.textDim }),
+  ]
+  const narrowed = feed.types.size > 0 || feed.unseenOnly || feed.filter.length > 0
+
   return Box(
     { flexDirection: "row", height: 1, width: "100%" },
-    ...FEED_TYPES.map(({ key, type, label }) =>
-      Text({
-        content: `[${key}] ${label}  `,
-        fg: feed.types.has(type) ? theme.blue : colors.textDim,
-      })
-    ),
-    Text({ content: "[0] all  ", fg: feed.types.size === 0 ? theme.blue : colors.textDim }),
-    Text({ content: "[u] unseen", fg: feed.unseenOnly ? theme.blue : colors.textDim }),
+    ...FEED_TYPES.flatMap(({ key, type, label }) => toggle(key, label, feed.types.has(type))),
+    ...toggle("a", "all", !narrowed),
+    ...toggle("u", "unseen", feed.unseenOnly),
     feed.filter
-      ? Text({ content: `   /${feed.filter}`, fg: theme.peach })
+      ? Text({ content: ` /${feed.filter}`, fg: theme.peach })
       : Text({ content: "", fg: colors.textDim })
   )
 }
 
+/** Column widths, in cells. The actor gets an ellipsis, never a collision. */
+const TIME_WIDTH = 4
+const TYPE_WIDTH = 9
+const ACTOR_WIDTH = 13
+
 function eventRows(
   event: FeedEvent,
   index: number,
+  previous: FeedEvent | undefined,
   feed: FeedState,
   unseenIds: ReadonlySet<string>,
-  flashLabels: ReadonlyMap<number, string>
+  flashLabels: ReadonlyMap<number, string>,
+  leadWidth: number
 ) {
   const selected = index === feed.highlightIndex
   const unseen = event.target?.kind === "comment" && unseenIds.has(event.target.commentId)
   const label = flashLabels.get(index)
+
+  // The time is a gutter, not a column: it is only written where it changes,
+  // so thirty rows from the same hour read as one group rather than thirty
+  // repetitions of "3h".
+  const time = timeAgo(event.at)
+  const timeCell = previous && timeAgo(previous.at) === time ? "" : time
+
+  const cells = [
+    Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
+    Text({ content: timeCell.padStart(TIME_WIDTH), fg: colors.textDim }),
+    Text({ content: unseen ? " ● " : "   ", fg: theme.blue }),
+    Text({ content: TYPE_LABEL[event.type].padEnd(TYPE_WIDTH), fg: typeColor(event.type) }),
+  ]
+  // A check has no actor; its name takes the column rather than leaving a
+  // hole in front of it.
+  if (event.actor !== undefined) {
+    cells.push(Text({ content: fitRight(`@${event.actor}`, ACTOR_WIDTH) + "  ", fg: theme.subtext0 }))
+  }
+  if (event.lead !== undefined) {
+    cells.push(Text({ content: fitLeft(event.lead, leadWidth) + "  ", fg: colors.textDim }))
+  }
 
   const rows = [
     Box(
@@ -132,24 +164,21 @@ function eventRows(
         width: "100%",
         backgroundColor: selected ? theme.surface1 : undefined,
       },
-      // The left columns keep their width whatever the row says; only the
-      // title gives way, so the times and types stay in a straight line.
-      Box(
-        { flexDirection: "row", flexShrink: 0 },
-        Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
-        Text({ content: timeAgo(event.at).padStart(4), fg: colors.textDim }),
-        Text({ content: unseen ? "  ●  " : "     ", fg: theme.blue }),
-        Text({ content: TYPE_LABEL[event.type].padEnd(9), fg: typeColor(event.type) }),
-        Text({ content: (event.actor ? `@${event.actor}` : "").padEnd(14), fg: theme.subtext0 })
-      ),
+      Box({ flexDirection: "row", flexShrink: 0 }, ...cells),
       Box(
         { flexDirection: "row", flexGrow: 1, flexShrink: 1, overflow: "hidden" },
-        Text({ content: event.title, fg: selected ? colors.text : theme.subtext1 })
+        Text({ content: event.title, fg: selected ? colors.text : theme.subtext1 }),
+        event.note
+          ? Text({ content: `  ${event.note}`, fg: colors.textDim })
+          : Text({ content: "", fg: colors.textDim })
       ),
-      event.detail
+      event.trailing
         ? Box(
             { flexDirection: "row", flexShrink: 0 },
-            Text({ content: `  ${event.detail}`, fg: colors.textDim })
+            Text({
+              content: `  ${event.trailing}`,
+              fg: event.trailing.startsWith("✓") ? theme.green : event.trailing.startsWith("✗") ? theme.red : colors.textDim,
+            })
           )
         : null
     ),
@@ -164,12 +193,49 @@ function eventRows(
   return rows
 }
 
+/** Cut from the right, with an ellipsis — for names. */
+function fitRight(text: string, width: number): string {
+  const w = Bun.stringWidth(text)
+  if (w <= width) return text + " ".repeat(width - w)
+  let out = ""
+  for (const ch of text) {
+    if (Bun.stringWidth(out + ch) > width - 1) break
+    out += ch
+  }
+  return out + "…" + " ".repeat(Math.max(0, width - Bun.stringWidth(out) - 1))
+}
+
+/** Cut from the left, with an ellipsis — for paths, whose tail is the name. */
+function fitLeft(text: string, width: number): string {
+  const w = Bun.stringWidth(text)
+  if (w <= width) return text + " ".repeat(width - w)
+  let out = ""
+  for (const ch of [...text].reverse()) {
+    if (Bun.stringWidth(ch + out) > width - 1) break
+    out = ch + out
+  }
+  return "…" + out + " ".repeat(Math.max(0, width - Bun.stringWidth(out) - 1))
+}
+
+/**
+ * The lead column is as wide as the longest lead on screen, within reason:
+ * a `file:line` column that grows to fit a 70-character path would push
+ * every row's words off the right edge.
+ */
+function leadWidthFor(events: FeedEvent[]): number {
+  let widest = 0
+  for (const event of events) {
+    if (event.lead) widest = Math.max(widest, Bun.stringWidth(event.lead))
+  }
+  return Math.min(36, Math.max(8, widest))
+}
+
 function commitFileRows(files: readonly CommitFileSummary[] | undefined) {
   if (!files) {
     return [
       Box(
         { flexDirection: "row", height: 1 },
-        Text({ content: "                   loading…", fg: colors.textDim })
+        Text({ content: `${" ".repeat(2 + TIME_WIDTH + 3 + TYPE_WIDTH + ACTOR_WIDTH + 2)}loading…`, fg: colors.textDim })
       ),
     ]
   }
@@ -178,7 +244,7 @@ function commitFileRows(files: readonly CommitFileSummary[] | undefined) {
     Box(
       { flexDirection: "row", height: 1 },
       Text({
-        content: `                   ${index === files.length - 1 ? "└" : "├"} ${file.filename}`,
+        content: `${" ".repeat(2 + TIME_WIDTH + 3 + TYPE_WIDTH + ACTOR_WIDTH + 2)}${index === files.length - 1 ? "└" : "├"} ${file.filename}`,
         fg: theme.subtext0,
       }),
       Text({ content: `  +${file.additions}`, fg: theme.green }),
