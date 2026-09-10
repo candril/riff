@@ -2,6 +2,7 @@ import { $ } from "bun"
 import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
 import { getCurrentRepoRef } from "./repo"
 import type { TimelineEntry } from "../utils/feed"
+import { readStack, type StackInfo } from "../utils/stack"
 import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_CONTENT } from "../types"
 
@@ -784,6 +785,54 @@ export async function fetchRestReviewComments(
  * reports a force-push at all, which is why it is worth a request riff does
  * not otherwise make.
  */
+/**
+ * Whether this PR's base is another open PR's branch, and how that base has
+ * moved since this PR branched (spec 072). Three REST calls, only the first
+ * of them for a PR that turns out not to be stacked.
+ */
+export async function fetchStackInfo(
+  owner: string,
+  repo: string,
+  baseRef: string,
+  headSha: string
+): Promise<StackInfo | null> {
+  // Best effort throughout: a stack that cannot be read is shown as no
+  // stack, never as a failure to open the PR.
+  const quiet = async <T,>(cmd: () => Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await cmd()
+    } catch {
+      return fallback
+    }
+  }
+
+  // Interpolated, not spelled inline: `&` in a template literal is the
+  // shell's, and would background the call.
+  const byHead = `repos/${owner}/${repo}/pulls?head=${owner}:${baseRef}&state=open`
+  const basePrs = await quiet(async () => (await $`gh api ${byHead}`.json()) as any[], [])
+  const basePr = basePrs[0]
+  if (!basePr?.number || !basePr.head?.sha) return null
+
+  const [compare, commits] = await Promise.all([
+    quiet(
+      async () =>
+        (await $`gh api repos/${owner}/${repo}/compare/${basePr.head.sha}...${headSha}`.json()) as any,
+      null
+    ),
+    quiet(
+      async () => (await $`gh api --paginate repos/${owner}/${repo}/pulls/${basePr.number}/commits`.json()) as any[],
+      []
+    ),
+  ])
+  if (!compare?.merge_base_commit?.sha) return null
+
+  return readStack(
+    { number: basePr.number, title: basePr.title ?? "" },
+    { behindBy: compare.behind_by ?? 0, mergeBase: compare.merge_base_commit.sha },
+    commits.map((commit: any) => ({ sha: String(commit.sha ?? "") }))
+  )
+}
+
 export async function fetchPrTimeline(
   owner: string,
   repo: string,

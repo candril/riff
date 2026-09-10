@@ -18,6 +18,7 @@ import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrChec
 import { getPrCheckAnnotations } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
+import { stackText, type StackInfo } from "../utils/stack"
 import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
@@ -385,6 +386,9 @@ export class PRInfoPanelClass {
 
   // Preview links lifted out of a deploy bot's table (spec 068).
   private previews: PreviewSet | null = null
+
+  // The row naming the PR this one is stacked on (spec 072).
+  private stackText: TextRenderable | null = null
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -1358,6 +1362,14 @@ export class PRInfoPanelClass {
       .filter(Boolean)
       .join(" · ")
     return `${counts}${counts ? "  ·  " : ""}from ${this.previews.author}`
+  }
+
+  /** What this PR is stacked on, and how that base has moved (spec 072). */
+  setStack(stack: StackInfo | null): void {
+    if (!this.stackText) return
+    this.stackText.content = stack ? stackText(stack) : ""
+    this.stackText.fg = stack?.status === "rewritten" ? theme.yellow : theme.subtext0
+    this.stackText.visible = stack !== null
   }
 
   /** The links riff was given for this PR, and where they came from. */
@@ -2683,6 +2695,11 @@ export class PRInfoPanelClass {
       }))
     }
     content.add(metaRow)
+
+    // Stacked on another PR (spec 072): known a moment after the panel is,
+    // so the row is here from the start and says nothing until then.
+    this.stackText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext0 })
+    content.add(this.stackText)
 
     // Separator before sections
     const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })

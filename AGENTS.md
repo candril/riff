@@ -216,7 +216,8 @@ Current measured costs: full thread fetch 51, probe-depth thread fetch 2,
 `getPrThreadStates` 1, `fetchPrMetaReactions` 2, `fetchViewedStatuses` 1.
 Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
 timeline (spec 070) is REST and paginated, and only fetched when the feed is
-opened or refreshed.
+opened or refreshed; so is the stacked-PR check (spec 072), after the first
+render.
 
 ## Actions
 

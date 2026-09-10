@@ -2,7 +2,7 @@ import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, filesChangedBetween } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -141,6 +141,28 @@ export async function createApp(options: AppOptions = {}) {
       render()
     })
     refreshPreviews(panel)
+    void readStack(panel)
+  }
+
+  /**
+   * Whether this PR is stacked on another, and how that base has moved
+   * since this one branched (spec 072). Three REST calls at most, after the
+   * first render — and a word on opening when the base was rewritten, since
+   * that changes what the diff means and is the thing least likely guessed.
+   */
+  async function readStack(panel: PRInfoPanelClass): Promise<void> {
+    if (!state.prInfo) return
+    const { owner, repo, baseRef } = state.prInfo
+    const stack = await fetchStackInfo(owner, repo, baseRef, currentHeadSha)
+    if (prInfoPanel !== panel) return
+    const announce = stack?.status === "rewritten" && state.stack?.status !== "rewritten"
+    state = { ...state, stack }
+    panel.setStack(stack)
+    if (announce && stack) {
+      state = showToast(state, `Stacked on #${stack.basePr.number}, which was rewritten since you branched — rebase`, "info")
+      setTimeout(() => { state = clearToast(state); render() }, 5000)
+    }
+    render()
   }
 
   /**

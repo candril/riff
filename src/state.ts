@@ -9,6 +9,7 @@ import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import type { VisitWatermark } from "./utils/visit"
+import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
@@ -474,6 +475,10 @@ export interface AppState {
   visitRebased: boolean
   // Files whose content moved between the watermark's head and this one.
   filesChangedSinceVisit: ReadonlySet<string>
+
+  // The PR this one is stacked on, if any, and how that base has moved
+  // since this one branched (spec 072). Read after the first render.
+  stack: StackInfo | null
   
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
@@ -661,6 +666,7 @@ export function createInitialState(
     seenCommentIds: new Set<string>(),
     visitRebased: false,
     filesChangedSinceVisit: new Set<string>(),
+    stack: null,
     prInfoPanel: {
       filter: "",
       filterInput: false,

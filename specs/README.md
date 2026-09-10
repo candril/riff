@@ -87,6 +87,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 069 | [Visit Watermark](./069-visit-watermark.md) | Done | Per-PR memory of your last visit; unseen markers and `]n` |
 | 070 | [Activity Feed](./070-activity-feed.md) | Done | `a` shows what happened, filterable by type |
 | 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list |
+| 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
 
 ## MVP Path
 

@@ -110,6 +110,17 @@ rather than by requesting changes, so an unresolved thread is the author's move 
 reports the PR as merely awaiting review. A draft gets no verdict at all — branch protection is
 not evaluated for drafts, and what GitHub reports about one cannot be trusted.
 
+## Stacked PRs
+
+When the base branch is itself an open PR's head, the overview's metadata block says so —
+`stacked on #1217 OSA-62316 import the Swiss address register` — and, when that base has moved
+since this PR branched, which way: **moved on by N commits** (the base grew; the diff is still
+right) or **rewritten since you branched — rebase** (the base was force-pushed, so this PR's diff
+now carries the base's changes as if they were its own; GitHub says `DIRTY`, the header says
+`! conflicts`, and the fix is a rebase onto the base's current head). A rewritten base is worth a
+toast on opening, because it changes what the diff means. Three REST calls, after the first
+render, and only the first of them for a PR that turns out not to be stacked.
+
 ## Viewed status
 
 `v` writes GitHub's own viewed checkbox, and riff reads it at startup. Marking a file viewed in
