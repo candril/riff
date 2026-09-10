@@ -55,7 +55,9 @@ which is what makes a one-cell change visible at all.
 
 `gl` on a table row draws the whole table as a real grid instead of the row's source: cells wrap,
 a row grows to its tallest cell, and `<li>` becomes a bullet on its own line. That is where you
-check a table reads right — the diff beside it, still showing source, is where you say so.
+check a table reads right — the diff beside it, still showing source, is where you say so. A
+table or diagram bigger than the window is a window onto it, not a clip: `hjkl` and the arrows
+scroll, `Ctrl+d`/`Ctrl+u` by half a page, and the header says which rows and columns you are on.
 
 The alignment is display only. The file is untouched, `y` yanks what the file says, and nothing
 about the line count changes, so comments still anchor where you put them. Tables inside a fenced

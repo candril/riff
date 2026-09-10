@@ -12,12 +12,41 @@ export interface DiagramPeekProps {
   /** Whether Tab has another version to switch to. */
   hasOther: boolean
   note?: string
+  /** Where the window onto the drawing sits; clamped to the drawing here. */
+  scroll: { row: number; col: number }
   terminalWidth: number
   terminalHeight: number
 }
 
 /** Header, footer, padding and a row of air above and below the box. */
 const CHROME_ROWS = 6
+
+/**
+ * The part of a drawing a window of `rows` × `cols` shows from a scroll
+ * position, the position clamped to the drawing — and, when it does not
+ * all fit, where the window is, for the header.
+ */
+export function viewport(
+  body: readonly string[],
+  scroll: { row: number; col: number },
+  rows: number,
+  cols: number
+): { lines: string[]; scrollable: boolean; where: string } {
+  const widest = Math.max(0, ...body.map((line) => line.length))
+  const row = Math.max(0, Math.min(scroll.row, Math.max(0, body.length - rows)))
+  const col = Math.max(0, Math.min(scroll.col, Math.max(0, widest - cols)))
+  const lines = body.slice(row, row + rows).map((line) => line.slice(col, col + cols))
+
+  const tall = body.length > rows
+  const wide = widest > cols
+  const where = [
+    tall ? `rows ${row + 1}–${Math.min(body.length, row + rows)} of ${body.length}` : null,
+    wide ? `columns ${col + 1}–${Math.min(widest, col + cols)} of ${widest}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  return { lines, scrollable: tall || wide, where }
+}
 
 /**
  * The mermaid block under the cursor, drawn.
@@ -33,6 +62,7 @@ export function DiagramPeek({
   side,
   hasOther,
   note,
+  scroll,
   terminalWidth,
   terminalHeight,
 }: DiagramPeekProps) {
@@ -41,22 +71,20 @@ export function DiagramPeek({
   const room = Math.max(3, terminalHeight - CHROME_ROWS)
   const columns = Math.max(20, terminalWidth - 8)
 
-  const clipped = body.length > room ? [...body.slice(0, room - 1), "…"] : body
-  const shown = clipped.map((line) => (line.length > columns ? `${line.slice(0, columns - 1)}…` : line))
+  // A window onto the drawing, not a clip of it: what does not fit is a
+  // scroll away rather than gone (hjkl, like the diff).
+  const view = viewport(body, scroll, room, columns)
+  const shown = view.lines
   const width = Math.max(...shown.map((line) => line.length), 24)
-
-  const wide = body.some((line) => line.length > columns)
-  const tall = body.length > room
-  const cut = [wide ? "cut off at the edge" : null, tall ? "too tall for the window" : null]
-    .filter(Boolean)
-    .join(", ")
 
   const footer = [
     hasOther ? `Tab: ${side === "new" ? "previous" : "current"} version` : null,
+    view.scrollable ? "hjkl to scroll" : null,
     "gl or Esc to close",
   ]
     .filter(Boolean)
     .join(" · ")
+  const cut = view.where
 
   return Box(
     {

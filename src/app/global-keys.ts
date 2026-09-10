@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -855,6 +855,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       // and the one it replaces (spec 058).
       if (key.name === "tab") {
         ctx.setState(togglePeekSide)
+        ctx.render()
+        return
+      }
+      // A drawing bigger than the window scrolls under the same keys the
+      // diff does; half a page on Ctrl-d / Ctrl-u.
+      const half = Math.max(1, Math.floor((process.stdout.rows ?? 40) / 2))
+      const step: Record<string, [number, number]> = {
+        j: [1, 0], down: [1, 0], k: [-1, 0], up: [-1, 0],
+        l: [0, 4], right: [0, 4], h: [0, -4], left: [0, -4],
+      }
+      const move = key.ctrl && key.name === "d" ? [half, 0]
+        : key.ctrl && key.name === "u" ? [-half, 0]
+        : !key.ctrl && step[key.name] ? step[key.name] : null
+      if (move) {
+        ctx.setState((s) => scrollPeek(s, move[0]!, move[1]!))
         ctx.render()
         return
       }

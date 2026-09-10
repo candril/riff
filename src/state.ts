@@ -381,6 +381,9 @@ export interface AppState {
   showLinePeek: boolean
   /** Which version of a changed block the peek is drawing (spec 058). */
   peekSide: "new" | "old"
+  /** Where a peek too big for the window is scrolled to, in rows and
+   *  columns of the drawing. The view clamps it to what there is. */
+  peekScroll: { row: number; col: number }
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
   /** Pad markdown table cells onto a shared grid in the diff. */
@@ -603,6 +606,7 @@ export function createInitialState(
     showHelp: false,
     showLinePeek: false,
     peekSide: "new",
+    peekScroll: { row: 0, col: 0 },
     wrapLines: false,
     alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
@@ -1001,8 +1005,24 @@ export function toggleLinePeek(state: AppState): AppState {
   return {
     ...state,
     showLinePeek: !state.showLinePeek,
-    // Every peek opens on the version the change arrives at.
+    // Every peek opens on the version the change arrives at, at its top.
     peekSide: "new",
+    peekScroll: { row: 0, col: 0 },
+  }
+}
+
+/**
+ * Scroll a peek that does not fit. Unbounded here — the view knows the
+ * drawing's size and clamps — but not by so much that a held key runs off.
+ */
+export function scrollPeek(state: AppState, rows: number, cols: number): AppState {
+  const cap = 100_000
+  return {
+    ...state,
+    peekScroll: {
+      row: Math.max(0, Math.min(cap, state.peekScroll.row + rows)),
+      col: Math.max(0, Math.min(cap, state.peekScroll.col + cols)),
+    },
   }
 }
 
@@ -1014,6 +1034,7 @@ export function togglePeekSide(state: AppState): AppState {
   return {
     ...state,
     peekSide: state.peekSide === "new" ? "old" : "new",
+    peekScroll: { row: 0, col: 0 },
   }
 }
 

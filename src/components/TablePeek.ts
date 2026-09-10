@@ -1,5 +1,6 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
+import { viewport } from "./DiagramPeek"
 
 export interface TablePeekProps {
   /** The rendered table, one string per terminal row. */
@@ -10,6 +11,9 @@ export interface TablePeekProps {
   side: "new" | "old"
   /** Whether Tab has another version to switch to. */
   hasOther: boolean
+  /** Where the window onto the table sits; clamped to the table here. */
+  scroll: { row: number; col: number }
+  terminalWidth: number
   terminalHeight: number
 }
 
@@ -23,9 +27,10 @@ const MAX_ROWS = 30
  * unreadable. This is where you check that it reads right; the diff next
  * to it is where you say so.
  */
-export function TablePeek({ lines, rowCount, side, hasOther, terminalHeight }: TablePeekProps) {
+export function TablePeek({ lines, rowCount, side, hasOther, scroll, terminalWidth, terminalHeight }: TablePeekProps) {
   const room = Math.max(3, Math.min(MAX_ROWS, terminalHeight - 6))
-  const shown = lines.length > room ? [...lines.slice(0, room - 1), "…"] : lines
+  const view = viewport(lines, scroll, room, Math.max(20, terminalWidth - 8))
+  const shown = view.lines
   const width = Math.max(...shown.map((line) => line.length), 20)
 
   return Box(
@@ -66,7 +71,8 @@ export function TablePeek({ lines, rowCount, side, hasOther, terminalHeight }: T
               fg: side === "new" ? theme.green : theme.peach,
             })
           : null,
-        Text({ content: `${rowCount} rows`, fg: colors.textDim })
+        Text({ content: `${rowCount} rows`, fg: colors.textDim }),
+        view.where ? Text({ content: `· ${view.where}`, fg: theme.yellow }) : null
       ),
       // Pre-rendered, so each row is one Text of its own: an absolutely
       // positioned box sizes itself as if every child were a single row.

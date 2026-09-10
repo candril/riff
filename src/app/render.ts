@@ -555,6 +555,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                   side: diagram.side,
                   hasOther: diagram.hasOther,
                   note: diagram.note,
+                  scroll: state.peekScroll,
                   terminalWidth: ctx.renderer.width,
                   terminalHeight: ctx.renderer.height,
                 })
@@ -574,6 +575,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                   rowCount: table.rowCount,
                   side: table.side,
                   hasOther: table.hasOther,
+                  scroll: state.peekScroll,
+                  terminalWidth: ctx.renderer.width,
                   terminalHeight: ctx.renderer.height,
                 })
               }
