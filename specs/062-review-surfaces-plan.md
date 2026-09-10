@@ -61,6 +61,21 @@ improvements that make the later views feel finished. **067 → 068** is the
 state view; **069 → 070** is the feed, in that order because the watermark
 is useful on its own and the feed's `unseen` filter needs it.
 
+## How to work this plan
+
+**One spec per session.** Start a context with "implement
+`specs/063-refresh-in-place.md`" — not "do the plan". Each spec is sized to
+be built, verified and committed in one go; taken together they are eight
+features, and 064 in particular has to land with nothing riding on it.
+
+Finishing a spec means: the "Done when" above is true, tests and typecheck
+pass, the behaviour was checked in the running app and not only in tests, the
+spec's status goes `Ready` → `Done`, and its row in `specs/README.md` says
+so.
+
+Pick the next unstarted spec whose dependencies (the arrows under **Order**)
+are already `Done`.
+
 ## Decisions already made
 
 - `a` for the feed, not `f` — `f{char}` is find-char in the diff and does not
