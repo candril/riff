@@ -1,6 +1,6 @@
 # Info Panel
 
-**Status**: Ready
+**Status**: Done
 
 ## Description
 

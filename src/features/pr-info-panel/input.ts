@@ -517,9 +517,21 @@ function handleInputInner(
       return true
 
     case "d":
-      // Ctrl+d pages down; bare `d` is the diff, and belongs to the view
-      // router (spec 064).
-      if (!key.ctrl) return false
+      // Ctrl+d pages down. Bare `d` is the diff: on a file row it opens the
+      // diff at that file (spec 067), anywhere else the view router takes it.
+      if (!key.ctrl) {
+        if (panel && panel.getActiveSection() === 'files') {
+          const file = panel.getSelectedFile()
+          if (file && ctx.onJumpToFile) {
+            ctx.recordJump?.()
+            ctx.setState(closePRInfoPanel)
+            ctx.render()
+            ctx.onJumpToFile(file.filename)
+            return true
+          }
+        }
+        return false
+      }
       if (panel) panel.getScrollBox().scrollBy(10)
       return true
 

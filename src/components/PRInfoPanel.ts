@@ -217,37 +217,6 @@ function getReviewIcon(state: PrReview["state"]): { icon: string; color: string 
 }
 
 /**
- * Build reviewer display for metadata section.
- * Shows each reviewer's most recent relevant review state.
- */
-function buildReviewerSummary(reviews: PrReview[], _requestedReviewers: string[]): { icon: string; name: string; color: string }[] {
-  // Show only reviewers who actually submitted a review. Pending/
-  // requested reviewers are already visible in the Conversation section
-  // and just duplicate noise in this header. Includes COMMENTED so
-  // anyone who engaged shows up, even without an approve/reject call.
-  const reviewsByAuthor = new Map<string, PrReview>()
-
-  const sortedReviews = [...reviews].sort((a, b) => {
-    const dateA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
-    const dateB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
-    return dateB - dateA
-  })
-
-  for (const review of sortedReviews) {
-    if (reviewsByAuthor.has(review.author)) continue
-    if (review.state === "DISMISSED" || review.state === "PENDING") continue
-    reviewsByAuthor.set(review.author, review)
-  }
-
-  const result: { icon: string; name: string; color: string }[] = []
-  for (const [author, review] of reviewsByAuthor) {
-    const { icon, color } = getReviewIcon(review.state)
-    result.push({ icon, name: author, color })
-  }
-  return result
-}
-
-/**
  * Get terminal width (defaults to 80 if unavailable)
  */
 function getTerminalWidth(): number {
@@ -328,6 +297,8 @@ interface SectionConfig {
   id: PRInfoPanelSection
   title: string
   count: number
+  /** Appended inside the header's brackets, e.g. `(2 · 1 hidden)`. */
+  countSuffix?: string
   preview: string
   hasItems: boolean
 }
@@ -385,11 +356,11 @@ export class PRInfoPanelClass {
   private activeSection: PRInfoPanelSection = 'description'
   private cursorIndex: number = -1  // -1 = on section header
   
-  // Every section starts collapsed: the panel's job on arrival is to say
-  // what there is — five headers with their counts — and let you open the
-  // one you came for. Expanded-by-default made the second visit a wall of
-  // things you had already read (spec 062).
-  private expandedSections: Set<PRInfoPanelSection> = new Set()
+  // Sections are collapsed on arrival but for the description: the panel's
+  // job is to say what there is — headers with their counts and a summary
+  // each — and let you open the one you came for, while the one thing you
+  // always want is what the PR says it does (specs 062, 067).
+  private expandedSections: Set<PRInfoPanelSection> = new Set(['description'])
   
   // Thread expanded state (by thread root comment id) - shows replies
   private expandedThreads: Set<string> = new Set()
@@ -399,6 +370,10 @@ export class PRInfoPanelClass {
   
   // Conversation items (computed from prInfo + comments)
   private conversationItems: ConversationItem[] = []
+
+  // Comments another section now speaks for — the deploy bot's preview
+  // table, say (specs 067, 068). Folded away here, never dropped.
+  private hiddenConversationIds: ReadonlySet<string> = new Set()
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -598,6 +573,7 @@ export class PRInfoPanelClass {
     
     // Add PR conversation comments
     for (const comment of this.prInfo.conversationComments ?? []) {
+      if (this.hiddenConversationIds.has(String(comment.id))) continue
       items.push({ type: 'pr-comment', data: comment })
     }
     
@@ -1342,6 +1318,26 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * What a collapsed Conversation header says at a glance (spec 067): what
+   * is still open, since a resolved thread is not something to come back to.
+   */
+  private unresolvedSummary(): string {
+    let unresolved = 0
+    for (const item of this.conversationItems) {
+      if (item.type !== 'review') continue
+      unresolved += item.data.threads.filter((thread) => !thread.isResolved).length
+    }
+    return unresolved > 0 ? `${unresolved} unresolved` : ""
+  }
+
+  /** And what a collapsed Commits header says: when the last one landed. */
+  private lastCommitSummary(): string {
+    const commits = this.visibleCommits
+    const last = commits[commits.length - 1]
+    return last ? `last ${formatTimeAgo(last.date)}` : ""
+  }
+
+  /**
    * Build section configs
    */
   private getSectionConfigs(): SectionConfig[] {
@@ -1371,7 +1367,13 @@ export class PRInfoPanelClass {
         id: 'conversation',
         title: 'Conversation',
         count: conversationCount,
-        preview: "",
+        // A comment whose content has been lifted into a section of its own
+        // is folded away here rather than dropped, and the header says so
+        // (spec 067).
+        countSuffix: this.hiddenConversationIds.size > 0
+          ? ` · ${this.hiddenConversationIds.size} hidden`
+          : undefined,
+        preview: this.unresolvedSummary(),
         hasItems: conversationCount > 0,
       },
       {
@@ -1385,7 +1387,7 @@ export class PRInfoPanelClass {
         id: 'commits',
         title: 'Commits',
         count: commitCount,
-        preview: "",
+        preview: this.lastCommitSummary(),
         hasItems: commitCount > 0,
       },
     ]
@@ -1433,6 +1435,22 @@ export class PRInfoPanelClass {
     this.setActiveSection(section)
     this.activeSection = section
     this.cursorIndex = index === undefined ? -1 : Math.min(Number(index), this.getMaxCursorIndex())
+    this.rebuildSections()
+  }
+
+  /**
+   * Comments a section of its own now speaks for. They are folded out of
+   * Conversation, whose header says how many (specs 067, 068).
+   */
+  setHiddenConversation(ids: ReadonlySet<string>): void {
+    if (ids.size === this.hiddenConversationIds.size) {
+      let same = true
+      for (const id of ids) if (!this.hiddenConversationIds.has(id)) same = false
+      if (same) return
+    }
+    this.hiddenConversationIds = ids
+    this.conversationItems = this.buildConversationItems()
+    this.refreshFlatItems()
     this.rebuildSections()
   }
 
@@ -1507,7 +1525,7 @@ export class PRInfoPanelClass {
         }))
       }
       headerRow.add(new TextRenderable(this.renderer, {
-        content: `${indicator}  ${config.title} (${config.count})`,
+        content: `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`,
         fg: isActive ? theme.blue : theme.overlay0,
       }))
       // Show preview only when collapsed
@@ -2448,7 +2466,6 @@ export class PRInfoPanelClass {
    */
   private build(): { container: BoxRenderable; scrollBox: ScrollBoxRenderable } {
     const prInfo = this.prInfo
-    const statusInfo = getStatusInfo(prInfo.state, prInfo.isDraft)
 
     // Main container — inline flex child of the main content row (spec 041,
     // previously an absolute overlay).
@@ -2494,59 +2511,22 @@ export class PRInfoPanelClass {
     })
     scrollBox.add(content)
 
-    // Title
-    content.add(new TextRenderable(this.renderer, { content: prInfo.title, fg: colors.text }))
-
-    // Separator
-    const separator = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })
-    separator.add(new TextRenderable(this.renderer, { content: "─".repeat(70), fg: theme.surface1 }))
-    content.add(separator)
-
-    // Basic info section (always visible) - single column layout
-    const basicInfo = new BoxRenderable(this.renderer, { flexDirection: "column", width: "100%", marginTop: 1 })
-    content.add(basicInfo)
-
-    // Status row
-    const statusRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    statusRow.add(new TextRenderable(this.renderer, { content: "Status".padEnd(12), fg: theme.overlay0 }))
-    statusRow.add(new TextRenderable(this.renderer, { content: statusInfo.label, fg: statusInfo.color }))
-    basicInfo.add(statusRow)
-
-    // Author row
-    const authorRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    authorRow.add(new TextRenderable(this.renderer, { content: "Author".padEnd(12), fg: theme.overlay0 }))
-    authorRow.add(new TextRenderable(this.renderer, { content: `@${prInfo.author}`, fg: theme.blue }))
-    basicInfo.add(authorRow)
-
-    // Branch row
-    const branchRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    branchRow.add(new TextRenderable(this.renderer, { content: "Branch".padEnd(12), fg: theme.overlay0 }))
-    branchRow.add(new TextRenderable(this.renderer, { content: `${prInfo.headRef} → ${prInfo.baseRef}`, fg: theme.text }))
-    basicInfo.add(branchRow)
-
-    // Changes row
-    const changesRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    changesRow.add(new TextRenderable(this.renderer, { content: "Changes".padEnd(12), fg: theme.overlay0 }))
-    changesRow.add(new TextRenderable(this.renderer, { content: `+${prInfo.additions}`, fg: theme.green }))
-    changesRow.add(new TextRenderable(this.renderer, { content: ` -${prInfo.deletions}`, fg: theme.red }))
-    changesRow.add(new TextRenderable(this.renderer, { content: ` (${prInfo.changedFiles} files)`, fg: theme.subtext0 }))
-    basicInfo.add(changesRow)
-
-    // Reviews row — always rendered so the metadata block has a
-    // predictable shape. Shows "no reviews yet" when nobody has
-    // submitted a review (pending/requested reviewers are listed in the
-    // Conversation section, not here).
-    const reviewerSummary = buildReviewerSummary(prInfo.reviews ?? [], prInfo.requestedReviewers ?? [])
-    const reviewsRow = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    reviewsRow.add(new TextRenderable(this.renderer, { content: "Reviews".padEnd(12), fg: theme.overlay0 }))
-    if (reviewerSummary.length > 0) {
-      for (const reviewer of reviewerSummary) {
-        reviewsRow.add(new TextRenderable(this.renderer, { content: `${reviewer.icon} ${reviewer.name}  `, fg: reviewer.color }))
-      }
-    } else {
-      reviewsRow.add(new TextRenderable(this.renderer, { content: "no reviews yet", fg: theme.overlay0 }))
-    }
-    basicInfo.add(reviewsRow)
+    // What the header line does not already say (spec 067). The title, the
+    // status, the change counts and the review state are all up there or in
+    // the sections below; repeating them spent five rows saying nothing and
+    // pushed the sections off the first screen.
+    const metaRow = new BoxRenderable(this.renderer, {
+      flexDirection: "row",
+      height: 1,
+      width: "100%",
+    })
+    metaRow.add(new TextRenderable(this.renderer, { content: `@${prInfo.author}`, fg: theme.blue }))
+    metaRow.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.overlay0 }))
+    metaRow.add(new TextRenderable(this.renderer, {
+      content: `${prInfo.headRef} → ${prInfo.baseRef}`,
+      fg: theme.subtext0,
+    }))
+    content.add(metaRow)
 
     // Separator before sections
     const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })

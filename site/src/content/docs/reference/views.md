@@ -194,7 +194,9 @@ request to have a state or a feed.
 
 ## PR overview
 
-`i` toggles it, `gi` goes straight there. It replaces the diff with the PR itself:
+`i` toggles it, `gi` goes straight there. It replaces the diff with the PR itself. One metadata
+row — who wrote it and which branch it is — and then the sections, each collapsed with its count
+and a one-glance summary, bar the description, which is open:
 
 - **Description** — the body, rendered.
 - **Conversation** — PR comments and review threads, expandable with `l`, resolvable with `x`,
@@ -206,8 +208,9 @@ request to have a state or a feed.
 - **Commits** — the ones the PR carries.
 - **Files** — the changed list, with viewed state.
 
-Sections fold with `za`, `zm`/`zr`, `zM`/`zR`. Reactions can be added to whatever is focused via
-the action menu.
+Sections fold with `za`, `zm`/`zr`, `zM`/`zR`. `s` labels the rows to jump to one, `Ctrl+f`
+narrows them, and `d` on a file row opens the diff at that file. Reactions can be added to
+whatever is focused via the action menu.
 
 ![The PR overview](../../../assets/screenshots/overview.png)
 
