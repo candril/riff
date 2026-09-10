@@ -24,6 +24,7 @@ import { type AppMode, type Comment } from "./types"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
+import { detectPreviews } from "./utils/previews"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
@@ -135,6 +136,25 @@ export async function createApp(options: AppOptions = {}) {
       state = setViewFilter(state, value)
       render()
     })
+    refreshPreviews(panel)
+  }
+
+  /**
+   * Lift the deploy bot's preview links out of the conversation and into
+   * their own section, folding the comment they came from away (spec 068).
+   */
+  function refreshPreviews(panel: PRInfoPanelClass): void {
+    if (!state.prInfo) return
+    const config = loadConfig().previews
+    const previews = detectPreviews(
+      state.prInfo.conversationComments ?? [],
+      config,
+      state.prInfo.number
+    )
+    panel.setPreviews(previews)
+    panel.setHiddenConversation(
+      previews && config.hideSource ? new Set([previews.commentId]) : new Set()
+    )
   }
 
   // ===== HELPERS =====

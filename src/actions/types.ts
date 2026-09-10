@@ -56,6 +56,9 @@ export function resolveActionLabel(
  */
 export type ActionSubmenu =
   | { kind: "react"; target: ReactionTarget; title: string }
+  /** The links on one preview row, when there is more than one of them and
+   *  riff has to ask which (spec 068). */
+  | { kind: "preview"; links: { label: string; url: string }[]; action: "open" | "copy"; title: string }
 
 /**
  * Action menu state

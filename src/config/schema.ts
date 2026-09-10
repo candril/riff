@@ -71,6 +71,25 @@ export interface DiffConfig {
 }
 
 /**
+ * Preview link detection (spec 068). Deploy bots differ in how they post
+ * where they put a PR, so what counts as a preview is configured rather
+ * than compiled in — with defaults that cover most of them.
+ */
+export interface PreviewsConfig {
+  /** The table column the preview links live in. */
+  tableColumn: string
+  /** Treat a link carrying this PR's number as a preview of it. */
+  matchPrNumber: boolean
+  /** Hosts whose links are previews whatever they carry. `*` wildcards. */
+  hosts: string[]
+  /** An HTML comment id that marks the bot's comment, for the ones the
+   *  two rules above miss. */
+  commentMarker?: string
+  /** Fold the source comment away in Conversation once it is lifted. */
+  hideSource: boolean
+}
+
+/**
  * Root configuration
  */
 export interface Config {
@@ -79,4 +98,5 @@ export interface Config {
   storage: StorageConfig
   mentions: MentionsConfig
   poll: PollConfig
+  previews: PreviewsConfig
 }

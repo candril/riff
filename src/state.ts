@@ -166,7 +166,13 @@ export interface MentionPickerState {
 /**
  * PR info panel state
  */
-export type PRInfoPanelSection = 'description' | 'checks' | 'conversation' | 'files' | 'commits'
+export type PRInfoPanelSection =
+  | 'description'
+  | 'previews'
+  | 'checks'
+  | 'conversation'
+  | 'files'
+  | 'commits'
 
 export interface PRInfoPanelState {
   /** `Ctrl-f`: the text the panel's rows are narrowed to, and whether the

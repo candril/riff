@@ -140,6 +140,34 @@ onFocus = true
 Five minutes is a deliberate default: comment activity moves on the order of minutes, and each
 tick spends GraphQL quota. See the [API budget](/riff/reference/github/#api-budget).
 
+## previews
+
+Deploy bots post where they put a PR as a markdown table, and a table of thirty 110-character
+URLs is unreadable in a terminal. riff lifts the links out of it into a **Previews** section in
+the PR overview: one row per app, labels only, `Enter` to open and `y` to copy. It never ticks a
+deploy checkbox — a row opens and copies, and that is all it does.
+
+```toml
+[previews]
+table_column    = "Preview"                    # default
+match_pr_number = true                         # default
+hosts           = ["*.preview.example.com"]    # optional
+comment_marker  = "preview-links-and-size"     # optional
+hide_source     = true                         # default
+```
+
+| Key | Default | What |
+| --- | --- | --- |
+| `table_column` | `"Preview"` | The column the preview links live in. A table with this column is a preview table, whatever its links look like. |
+| `match_pr_number` | `true` | Without such a column, count links whose host or path carries this PR's number — which is what `preview-pr10747` and Vercel's and Netlify's equivalents all do. |
+| `hosts` | `[]` | Hosts whose links are previews whatever they carry. `*` wildcards a segment. |
+| `comment_marker` | — | An HTML comment id identifying the bot's comment, for the bots the two rules above miss. When set, only comments carrying it are considered. |
+| `hide_source` | `true` | Fold the comment they came from away in Conversation, whose header then says `(5 · 1 hidden)`. |
+
+A link in a row that qualified comes along even when it does not qualify itself — that is how
+the BrowserStack links in a mobile row survive next to the preview URL. Italic cells
+(`*on demand*`, `*building*`) are shown as status rather than as dead links.
+
 ## Environment
 
 | Variable | What |

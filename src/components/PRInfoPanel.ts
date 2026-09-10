@@ -17,6 +17,7 @@ import {
 import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { getPrCheckAnnotations } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
+import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
 import type { PRInfoPanelSection } from "../state"
@@ -303,7 +304,14 @@ interface SectionConfig {
   hasItems: boolean
 }
 
-const ALL_SECTIONS: PRInfoPanelSection[] = ['description', 'checks', 'conversation', 'files', 'commits']
+const ALL_SECTIONS: PRInfoPanelSection[] = [
+  'description',
+  'previews',
+  'checks',
+  'conversation',
+  'files',
+  'commits',
+]
 
 /**
  * Everything about the panel that is the reader's rather than the PR's,
@@ -374,6 +382,9 @@ export class PRInfoPanelClass {
   // Comments another section now speaks for — the deploy bot's preview
   // table, say (specs 067, 068). Folded away here, never dropped.
   private hiddenConversationIds: ReadonlySet<string> = new Set()
+
+  // Preview links lifted out of a deploy bot's table (spec 068).
+  private previews: PreviewSet | null = null
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -553,6 +564,8 @@ export class PRInfoPanelClass {
         return this.visibleFiles.length
       case 'commits':
         return this.visibleCommits.length
+      case 'previews':
+        return this.visiblePreviews.length
     }
   }
 
@@ -875,6 +888,15 @@ export class PRInfoPanelClass {
     return this.filter ? this.files.filter((file) => this.matches(file.filename)) : this.files
   }
 
+  private get visiblePreviews(): PreviewRow[] {
+    const rows = this.previews?.rows ?? []
+    return this.filter
+      ? rows.filter((row) =>
+          this.matches(row.app, row.status, ...row.links.map((link) => link.label))
+        )
+      : rows
+  }
+
   private get visibleCommits(): PrCommit[] {
     const commits = this.prInfo.commits ?? []
     return this.filter
@@ -943,6 +965,8 @@ export class PRInfoPanelClass {
         return this.visibleFiles.length
       case 'commits':
         return this.visibleCommits.length
+      case 'previews':
+        return this.visiblePreviews.length
     }
   }
 
@@ -1318,6 +1342,34 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * A collapsed Previews header says who posted them and when — the rows
+   * themselves are one line per app (spec 068).
+   */
+  private previewsSummary(): string {
+    if (!this.previews) return ""
+    const live = this.visiblePreviews.filter((row) => row.links.length > 0).length
+    const other = this.visiblePreviews.length - live
+    const counts = [live > 0 ? `${live} live` : null, other > 0 ? `${other} on demand` : null]
+      .filter(Boolean)
+      .join(" · ")
+    return `${counts}${counts ? "  ·  " : ""}from ${this.previews.author}`
+  }
+
+  /** The links riff was given for this PR, and where they came from. */
+  setPreviews(previews: PreviewSet | null): void {
+    if (previews === this.previews) return
+    this.previews = previews
+    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.rebuildSections()
+  }
+
+  /** The row the cursor is on, when it is on one (spec 068). */
+  getSelectedPreview(): PreviewRow | undefined {
+    if (this.activeSection !== 'previews' || this.cursorIndex < 0) return undefined
+    return this.visiblePreviews[this.cursorIndex]
+  }
+
+  /**
    * What a collapsed Conversation header says at a glance (spec 067): what
    * is still open, since a resolved thread is not something to come back to.
    */
@@ -1355,6 +1407,13 @@ export class PRInfoPanelClass {
         count: bodyLines,
         preview: bodyLines > 0 ? `${bodyLines} lines` : "empty",
         hasItems: false,
+      },
+      {
+        id: 'previews',
+        title: 'Previews',
+        count: this.visiblePreviews.length,
+        preview: this.previewsSummary(),
+        hasItems: this.visiblePreviews.length > 0,
       },
       {
         id: 'checks',
@@ -1484,7 +1543,7 @@ export class PRInfoPanelClass {
    * Check if a section has selectable items
    */
   private sectionHasItems(section: PRInfoPanelSection): boolean {
-    return section === 'files' || section === 'commits' || section === 'conversation' || section === 'checks'
+    return section !== 'description'
   }
 
   /**
@@ -1560,6 +1619,9 @@ export class PRInfoPanelClass {
     switch (section) {
       case 'description':
         this.buildDescriptionContent(contentBox)
+        break
+      case 'previews':
+        this.buildPreviewsContent(contentBox, isActive)
         break
       case 'checks':
         this.buildChecksContent(contentBox, isActive)
@@ -2354,6 +2416,68 @@ export class PRInfoPanelClass {
   /**
    * Build files content
    */
+  /**
+   * One row per app: its label, then the places it is deployed by name
+   * (spec 068). The URLs themselves are never drawn — that is the whole
+   * point of lifting them out of the table.
+   */
+  private buildPreviewsContent(container: BoxRenderable, isActive: boolean): void {
+    const previews = this.visiblePreviews
+    if (previews.length === 0) {
+      container.add(new TextRenderable(this.renderer, {
+        content: "No preview links in this PR's conversation",
+        fg: theme.overlay0,
+      }))
+      return
+    }
+
+    const rows: ItemRowRefs[] = []
+    // Emoji are two columns wide and one character long, so the label
+    // column is measured the way it is drawn.
+    const width = Math.min(
+      28,
+      Math.max(12, ...previews.map((row) => Bun.stringWidth(row.app) + 2))
+    )
+
+    for (let i = 0; i < previews.length; i++) {
+      const preview = previews[i]!
+      const isSelected = isActive && i === this.cursorIndex
+
+      const row = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        height: 1,
+        backgroundColor: isSelected ? theme.surface1 : undefined,
+      })
+
+      const appText = new TextRenderable(this.renderer, {
+        content: preview.app + " ".repeat(Math.max(1, width - Bun.stringWidth(preview.app))),
+        fg: isSelected ? theme.text : theme.subtext1,
+      })
+      row.add(appText)
+
+      if (preview.links.length > 0) {
+        row.add(new TextRenderable(this.renderer, {
+          content: preview.links.map((link) => link.label).join("  "),
+          fg: theme.blue,
+        }))
+      } else if (preview.status) {
+        row.add(new TextRenderable(this.renderer, { content: preview.status, fg: theme.overlay0 }))
+      }
+
+      if (preview.built) {
+        row.add(new TextRenderable(this.renderer, {
+          content: `  ${preview.built.label}`,
+          fg: theme.overlay0,
+        }))
+      }
+
+      container.add(row)
+      rows.push({ container: row, primary: appText })
+    }
+
+    this.itemRows.set('previews', rows)
+  }
+
   private buildFilesContent(container: BoxRenderable, isActive: boolean): void {
     const rows: ItemRowRefs[] = []
     

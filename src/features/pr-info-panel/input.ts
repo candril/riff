@@ -12,6 +12,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
+import type { PreviewRow } from "../../utils/previews"
 import {
   clearViewFilter,
   commitViewFilter,
@@ -78,6 +79,9 @@ export interface PRInfoPanelInputContext {
   onOpenFileAtLine?: (filename: string, line: number) => void
   // Callback to activate a commit (for commits section Enter)
   onActivateCommit?: (sha: string) => void
+  /** Act on the preview row the cursor is on — open it, or copy it. When
+   *  the row has several links, riff asks which (spec 068). */
+  onPreviewRow?: (action: "open" | "copy", row: PreviewRow) => void
   // Toggle resolved state of a review thread by root comment id.
   // Used by `x` in the Conversation section.
   onToggleThreadResolved?: (rootCommentId: string) => void
@@ -316,6 +320,15 @@ function handleInputInner(
             }
             break
           }
+          case 'previews': {
+            const preview = panel.getSelectedPreview()
+            if (preview) {
+              // The palette's picker takes focus in this same keypress.
+              key.preventDefault()
+              ctx.onPreviewRow?.("open", preview)
+            }
+            break
+          }
           case 'files': {
             const file = panel.getSelectedFile()
             if (file && ctx.onJumpToFile) {
@@ -378,6 +391,15 @@ function handleInputInner(
             }
             break
           }
+          case 'previews': {
+            const preview = panel.getSelectedPreview()
+            if (preview) {
+              // The palette's picker takes focus in this same keypress.
+              key.preventDefault()
+              ctx.onPreviewRow?.("open", preview)
+            }
+            break
+          }
           case 'commits': {
             const commit = panel.getSelectedCommit()
             if (commit) {
@@ -417,7 +439,18 @@ function handleInputInner(
     case "y": {
       // y: Copy based on section, Y: Copy PR URL
       if (panel && ctx.state.prInfo) {
-        if (key.shift) {
+        const preview = panel.getActiveSection() === 'previews' ? panel.getSelectedPreview() : undefined
+        if (preview && preview.links.length > 0) {
+          // `Y` takes every link on the row at once; `y` takes the one link,
+          // or asks which when there are several (spec 068).
+          if (key.shift) {
+            const urls = preview.links.map((link) => link.url).join("\n")
+            copyAndToast(ctx, urls, `Copied ${preview.links.length} URLs`)
+          } else {
+            key.preventDefault()
+            ctx.onPreviewRow?.("copy", preview)
+          }
+        } else if (key.shift) {
           // Y = copy PR URL
           copyAndToast(ctx, ctx.state.prInfo.url, "PR URL copied")
         } else {

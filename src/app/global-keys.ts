@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -23,6 +23,7 @@ import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
+import { copyToClipboard } from "../utils/clipboard"
 
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
@@ -151,6 +152,12 @@ function reservedKeysFor(surface: FlashSurface): string {
     default:
       return ""
   }
+}
+
+/** The platform's "open this the way the desktop would" command. */
+function openerCommand(): string {
+  if (process.platform === "darwin") return "open"
+  return process.platform === "win32" ? "start" : "xdg-open"
 }
 
 function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
@@ -375,6 +382,32 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     ctx.render()
   }
 
+  /**
+   * Open a preview link in the browser, or put it on the clipboard (spec
+   * 068). riff never ticks a deploy checkbox — a row opens and copies, and
+   * that is all it does.
+   */
+  function openPreviewLink(action: "open" | "copy", link: { label: string; url: string }): void {
+    if (action === "open") {
+      Bun.spawn([openerCommand(), link.url], { stdout: "ignore", stderr: "ignore" })
+      return
+    }
+    void copyToClipboard(link.url).then((copied) => {
+      ctx.setState((s) =>
+        showToast(
+          s,
+          copied.ok ? `Copied ${link.label}` : `Copy failed: ${copied.error}`,
+          copied.ok ? "success" : "error"
+        )
+      )
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2000)
+    })
+  }
+
   return function handleKeypress(key: KeyEvent) {
     // F12 toggles debug console
     if (key.name === "f12") {
@@ -398,6 +431,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         render: ctx.render,
         executeAction: ctx.executeAction,
         onToggleReaction: ctx.onToggleReaction,
+        onPreviewLink: openPreviewLink,
       })
     ) {
       return
@@ -662,6 +696,24 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
         executeAction: ctx.executeAction,
+        onPreviewRow: (action, row) => {
+          if (row.links.length === 0) return
+          const only = row.links.length === 1 ? row.links[0]! : null
+          if (only) {
+            openPreviewLink(action, only)
+            return
+          }
+          // Several places for one app: ask which, in the palette's submenu.
+          ctx.setState((s) =>
+            openActionSubmenu(openActionMenu(s), {
+              kind: "preview",
+              links: row.links,
+              action,
+              title: `${action === "open" ? "Open" : "Copy"} — ${row.app}`,
+            })
+          )
+          ctx.render()
+        },
         recordJump,
       })
     ) {

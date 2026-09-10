@@ -43,6 +43,14 @@ export const defaultConfig: Config = {
   mentions: {
     extra: [],
   },
+  previews: {
+    // The two defaults between them cover most deploy bots: a table with a
+    // Preview column, or any link whose host or path carries the PR number.
+    tableColumn: "Preview",
+    matchPrNumber: true,
+    hosts: [],
+    hideSource: true,
+  },
   poll: {
     // Comment activity moves on the order of minutes, and every tick costs
     // GraphQL quota. 5 minutes plus refresh-on-focus keeps replies current

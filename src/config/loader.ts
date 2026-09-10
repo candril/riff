@@ -49,6 +49,7 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     storage: { ...defaultConfig.storage },
     mentions: { ...defaultConfig.mentions },
     poll: { ...defaultConfig.poll },
+    previews: { ...defaultConfig.previews, hosts: [...defaultConfig.previews.hosts] },
   }
 
   // Merge ignore section
@@ -104,6 +105,27 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
       config.mentions = {
         extra: mentions.extra.filter((h): h is string => typeof h === "string"),
       }
+    }
+  }
+
+  // Merge previews section (spec 068). The TOML keys are snake_case, which
+  // is what the spec documents and what the rest of the file looks like.
+  if (parsed.previews && typeof parsed.previews === "object") {
+    const previews = parsed.previews as Record<string, unknown>
+    if (typeof previews.table_column === "string") {
+      config.previews.tableColumn = previews.table_column
+    }
+    if (typeof previews.match_pr_number === "boolean") {
+      config.previews.matchPrNumber = previews.match_pr_number
+    }
+    if (Array.isArray(previews.hosts)) {
+      config.previews.hosts = previews.hosts.filter((h): h is string => typeof h === "string")
+    }
+    if (typeof previews.comment_marker === "string") {
+      config.previews.commentMarker = previews.comment_marker
+    }
+    if (typeof previews.hide_source === "boolean") {
+      config.previews.hideSource = previews.hide_source
     }
   }
 

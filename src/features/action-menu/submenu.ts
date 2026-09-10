@@ -54,6 +54,14 @@ export function getSubmenuRows(state: AppState): SubmenuRow[] {
     case "react":
       rows = buildReactionRows(state)
       break
+    case "preview":
+      rows = submenu.links.map((link, index) => ({
+        id: `preview:${index}`,
+        icon: "🔗",
+        label: link.label,
+        trailing: undefined,
+      }))
+      break
   }
 
   const q = state.actionMenu.query

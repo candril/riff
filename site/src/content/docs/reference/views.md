@@ -199,6 +199,9 @@ row — who wrote it and which branch it is — and then the sections, each coll
 and a one-glance summary, bar the description, which is open:
 
 - **Description** — the body, rendered.
+- **Previews** — where a deploy bot put this PR, one row per app: `Enter` opens, `y` copies, `Y`
+  copies every URL on the row, and a row with several links asks which. Configured in
+  [`[previews]`](/riff/reference/configuration/#previews).
 - **Conversation** — PR comments and review threads, expandable with `l`, resolvable with `x`,
   and `c` writes a new one.
 - **Checks** — status per check. A failing one expands into its annotations, and `Enter` on an

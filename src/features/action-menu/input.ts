@@ -31,6 +31,8 @@ export interface ActionMenuInputContext {
   executeAction: (actionId: string) => void
   /** Called when the user presses Enter on a React… submenu row. */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
+  /** Called when the user picks one of a preview row's links (spec 068). */
+  onPreviewLink: (action: "open" | "copy", link: { label: string; url: string }) => void
 }
 
 /**
@@ -91,6 +93,14 @@ export function handleInput(
       if (submenu) {
         const row = submenuRows[ctx.state.actionMenu.selectedIndex]
         if (!row) return true
+        if (submenu.kind === "preview") {
+          const link = submenu.links[Number(row.id.split(":")[1])]
+          if (!link) return true
+          ctx.setState(closeActionMenu)
+          ctx.render()
+          ctx.onPreviewLink(submenu.action, link)
+          return true
+        }
         if (submenu.kind === "react") {
           const content = reactionContentFromRowId(row.id)
           if (!content) return true
