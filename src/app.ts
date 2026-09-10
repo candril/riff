@@ -15,6 +15,8 @@ import {
   showToast,
   clearToast,
   createInitialState,
+  promptOpen,
+  setViewFilter,
   type AppState,
   setTreeFilter,
 } from "./state"
@@ -126,6 +128,15 @@ export async function createApp(options: AppOptions = {}) {
     state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
   }
 
+  /** Hooks a panel instance — the first or a replacement — up to the app. */
+  function wirePrInfoPanel(panel: PRInfoPanelClass): void {
+    panel.setOnExternalRerender(() => render())
+    panel.setOnFilterChange((value) => {
+      state = setViewFilter(state, value)
+      render()
+    })
+  }
+
   // ===== HELPERS =====
   // searchHandler is defined later, but we need a reference in createLineMapping
   let searchHandlerRef: SearchHandler | null = null
@@ -152,28 +163,11 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== POST-PROCESS (cursor positioning) =====
-  function positionCursorInSearch(elementId: string, queryLength: number) {
-    const searchBox = renderer.root.findDescendantById(elementId) as any
-    if (!searchBox) return
-    // Get the first child (the Text element) — .x/.y are absolute 0-indexed coords
-    const children = searchBox.getChildren?.() ?? []
-    const textChild = children[0]
-    if (textChild) {
-      // setCursorPosition uses 1-indexed coordinates (like ANSI escape codes)
-      renderer.setCursorStyle({ style: "line", blinking: true })
-      renderer.setCursorPosition(textChild.x + queryLength + 1, textChild.y + 1, true)
-    }
-  }
-
+  // Prompts draw their own cursor now that they are real input widgets
+  // (spec 065); the views that have no cursor of their own park it.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff") {
+    if (state.viewMode !== "diff" && !promptOpen(state)) {
       renderer.setCursorPosition(0, 0, false)
-    } else if (state.actionMenu.open) {
-      positionCursorInSearch("action-menu-search", state.actionMenu.query.length)
-    } else if (state.filePicker.open) {
-      positionCursorInSearch("file-picker-search", state.filePicker.query.length)
-    } else if (state.commitPicker.open) {
-      positionCursorInSearch("commit-picker-search", state.commitPicker.query.length)
     }
   })
 
@@ -367,11 +361,13 @@ export async function createApp(options: AppOptions = {}) {
     fileTreePanel,
     vimDiffView,
     updateFileTreePanel,
+    updateSearchPattern: (value) => searchHandler.updatePattern(value),
   })
 
   // Give the panel a way to request a re-render from async transitions
-  // it owns (e.g., annotation fetches — spec 043).
-  prInfoPanel?.setOnExternalRerender(() => render())
+  // it owns (e.g., annotation fetches — spec 043), and somewhere to send
+  // what is typed into its filter box.
+  if (prInfoPanel) wirePrInfoPanel(prInfoPanel)
 
   // ===== VIM HANDLERS =====
   const vimHandler = new VimMotionHandler({
@@ -558,7 +554,7 @@ export async function createApp(options: AppOptions = {}) {
       const panelPosition = prInfoPanel?.capturePosition()
       prInfoPanel?.destroy()
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments)
-      prInfoPanel.setOnExternalRerender(() => render())
+      wirePrInfoPanel(prInfoPanel)
       if (panelPosition) prInfoPanel.restorePosition(panelPosition)
       state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
       // Fresh PR data can carry references riff has never looked up.

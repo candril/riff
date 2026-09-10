@@ -10,7 +10,6 @@ import type { AppState } from "../../state"
 import type { FilteredFile } from "../../components"
 import {
   closeFilePicker,
-  setFilePickerQuery,
   moveFilePickerSelection,
   selectFile,
   updateFileTree,
@@ -53,6 +52,10 @@ export function getFilteredFiles(state: AppState): FilteredFile[] {
 
 /**
  * Handle input when file picker is open.
+ *
+ * The query belongs to the shared prompt field, which sees every key this
+ * handler does not `preventDefault` (spec 065).
+ *
  * Returns true if the key was handled (picker is open), false otherwise.
  */
 export function handleInput(
@@ -64,15 +67,18 @@ export function handleInput(
   }
 
   const filteredFiles = getFilteredFiles(ctx.state)
+  const consume = (): void => key.preventDefault()
 
   switch (key.name) {
     case "escape":
+      consume()
       ctx.setState(closeFilePicker)
       ctx.render()
       return true
 
     case "return":
     case "enter": {
+      consume()
       const selectedFile = filteredFiles[ctx.state.filePicker.selectedIndex]
       if (selectedFile) {
         ctx.recordJump?.()
@@ -110,53 +116,36 @@ export function handleInput(
     }
 
     case "up":
+      consume()
       ctx.setState((s) => moveFilePickerSelection(s, -1, filteredFiles.length - 1))
       ctx.render()
       return true
 
     case "down":
+      consume()
       ctx.setState((s) => moveFilePickerSelection(s, 1, filteredFiles.length - 1))
       ctx.render()
       return true
 
     case "p":
-      // Ctrl+p moves up
+      // Ctrl-p moves up; a bare `p` is a letter of the query.
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveFilePickerSelection(s, -1, filteredFiles.length - 1))
         ctx.render()
-        return true
       }
-      // Otherwise type 'p'
-      ctx.setState((s) => setFilePickerQuery(s, s.filePicker.query + "p"))
-      ctx.render()
       return true
 
     case "n":
-      // Ctrl+n moves down
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveFilePickerSelection(s, 1, filteredFiles.length - 1))
-        ctx.render()
-        return true
-      }
-      // Otherwise type 'n'
-      ctx.setState((s) => setFilePickerQuery(s, s.filePicker.query + "n"))
-      ctx.render()
-      return true
-
-    case "backspace":
-      if (ctx.state.filePicker.query.length > 0) {
-        ctx.setState((s) => setFilePickerQuery(s, s.filePicker.query.slice(0, -1)))
         ctx.render()
       }
       return true
 
     default:
-      // Type characters into search
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState((s) => setFilePickerQuery(s, s.filePicker.query + key.sequence))
-        ctx.render()
-      }
-      // Capture all keys when picker is open
+      // Everything else is typing, and belongs to the prompt field.
       return true
   }
 }

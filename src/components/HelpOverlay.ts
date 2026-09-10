@@ -63,7 +63,7 @@ const HELP_SECTIONS = [
       ["Ctrl+e", "Expand panel to full width"],
       ["Ctrl+t", "Toggle comments panel"],
       ["Ctrl+h / Ctrl+l", "Focus panel left / right"],
-      ["Ctrl+f", "Find files (fuzzy)"],
+      ["Ctrl+f", "Filter what has focus"],
       ["Ctrl+g", "Show current file path"],
       ["x", "Mark file as viewed"],
     ],

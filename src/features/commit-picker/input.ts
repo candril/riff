@@ -10,7 +10,6 @@ import type { AppState } from "../../state"
 import type { FilteredCommit } from "../../components/CommitPicker"
 import {
   closeCommitPicker,
-  setCommitPickerQuery,
   moveCommitPickerSelection,
 } from "../../state"
 import { fuzzyFilter } from "../../utils/fuzzy"
@@ -42,6 +41,10 @@ export function getFilteredCommits(state: AppState): FilteredCommit[] {
 
 /**
  * Handle input when commit picker is open.
+ *
+ * The query belongs to the shared prompt field, which sees every key this
+ * handler does not `preventDefault` (spec 065).
+ *
  * Returns true if the key was handled (picker is open), false otherwise.
  */
 export function handleInput(
@@ -56,14 +59,18 @@ export function handleInput(
   // Total items: 1 ("All commits") + filtered commits
   const maxIndex = filteredCommits.length  // 0 = All commits, 1..N = commits
 
+  const consume = (): void => key.preventDefault()
+
   switch (key.name) {
     case "escape":
+      consume()
       ctx.setState(closeCommitPicker)
       ctx.render()
       return true
 
     case "return":
     case "enter": {
+      consume()
       const selectedIndex = ctx.state.commitPicker.selectedIndex
 
       if (selectedIndex === 0) {
@@ -83,49 +90,36 @@ export function handleInput(
     }
 
     case "up":
+      consume()
       ctx.setState((s) => moveCommitPickerSelection(s, -1, maxIndex))
       ctx.render()
       return true
 
     case "down":
+      consume()
       ctx.setState((s) => moveCommitPickerSelection(s, 1, maxIndex))
       ctx.render()
       return true
 
     case "p":
+      // Ctrl-p moves up; a bare `p` is a letter of the query.
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveCommitPickerSelection(s, -1, maxIndex))
         ctx.render()
-        return true
       }
-      ctx.setState((s) => setCommitPickerQuery(s, s.commitPicker.query + "p"))
-      ctx.render()
       return true
 
     case "n":
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveCommitPickerSelection(s, 1, maxIndex))
-        ctx.render()
-        return true
-      }
-      ctx.setState((s) => setCommitPickerQuery(s, s.commitPicker.query + "n"))
-      ctx.render()
-      return true
-
-    case "backspace":
-      if (ctx.state.commitPicker.query.length > 0) {
-        ctx.setState((s) => setCommitPickerQuery(s, s.commitPicker.query.slice(0, -1)))
         ctx.render()
       }
       return true
 
     default:
-      // Type characters into search
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState((s) => setCommitPickerQuery(s, s.commitPicker.query + key.sequence))
-        ctx.render()
-      }
-      // Capture all keys when picker is open
+      // Everything else is typing, and belongs to the prompt field.
       return true
   }
 }

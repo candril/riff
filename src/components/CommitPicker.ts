@@ -1,9 +1,11 @@
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
+import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
 import type { PrCommit } from "../providers/github"
 
 export interface CommitPickerProps {
-  query: string
+  renderer: CliRenderer
   commits: FilteredCommit[]
   selectedIndex: number
   viewingCommit: string | null
@@ -36,7 +38,7 @@ function formatTimeAgo(isoDate: string): string {
 /**
  * Commit picker overlay for selecting a commit to filter the diff
  */
-export function CommitPicker({ query, commits, selectedIndex, viewingCommit }: CommitPickerProps) {
+export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit }: CommitPickerProps) {
   // Total items = 1 ("All commits") + filtered commits
   const totalItems = 1 + commits.length
 
@@ -87,9 +89,7 @@ export function CommitPicker({ query, commits, selectedIndex, viewingCommit }: C
           paddingX: 2,
           paddingBottom: 1,
         },
-        query
-          ? Text({ content: query, fg: theme.text })
-          : Text({ content: "Type to search commits...", fg: theme.overlay0 })
+        PromptInput(renderer)
       ),
       // Items list
       Box(

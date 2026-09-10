@@ -1,4 +1,6 @@
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
+import { PromptInput } from "./PromptInput"
 import { colors, theme } from "../theme"
 import type { ResolvedAction } from "../actions"
 
@@ -26,7 +28,7 @@ export type ActionMenuMode =
   | { kind: "submenu"; title: string; hint?: string; rows: SubmenuRow[] }
 
 export interface ActionMenuProps {
-  query: string
+  renderer: CliRenderer
   selectedIndex: number
   mode: ActionMenuMode
 }
@@ -37,7 +39,7 @@ export interface ActionMenuProps {
  * (spec 042) that replaces the action list with a flat, titled row set
  * while the palette stays open.
  */
-export function ActionMenu({ query, selectedIndex, mode }: ActionMenuProps) {
+export function ActionMenu({ renderer, selectedIndex, mode }: ActionMenuProps) {
   const headerLabel = mode.kind === "submenu" ? mode.title : "Commands"
   const headerHint = mode.kind === "submenu"
     ? (mode.hint ?? "esc to back")
@@ -94,9 +96,7 @@ export function ActionMenu({ query, selectedIndex, mode }: ActionMenuProps) {
           paddingX: 2,
           paddingBottom: 1,
         },
-        query
-          ? Text({ content: query, fg: theme.text })
-          : Text({ content: "Search", fg: theme.overlay0 })
+        PromptInput(renderer)
       ),
       // List body
       mode.kind === "actions"

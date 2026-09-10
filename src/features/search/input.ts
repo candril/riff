@@ -1,8 +1,10 @@
 /**
  * Search input handling.
  *
- * The search prompt captures all input when active. It delegates to
- * the SearchHandler for actual search logic.
+ * The prompt captures all input while it is up, but only Enter and Escape
+ * mean anything here: the pattern itself is typed into the shared prompt
+ * field, which reports every change to `SearchHandler.updatePattern`
+ * (specs 017, 065).
  */
 
 import type { KeyEvent } from "@opentui/core"
@@ -28,28 +30,20 @@ export function handleInput(
 
   switch (key.name) {
     case "escape":
+      key.preventDefault()
       ctx.searchHandler.cancelSearch()
       return true
 
     case "return":
     case "enter":
+      key.preventDefault()
       ctx.searchHandler.confirmSearch()
       return true
 
-    case "backspace":
-      ctx.searchHandler.handleBackspace()
-      return true
-
     default:
-      // Ctrl+W deletes word backwards
-      if (key.name === "w" && key.ctrl) {
-        ctx.searchHandler.handleDeleteWord()
-        return true
-      }
-      // Type characters into search
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.searchHandler.handleCharInput(key.sequence)
-      }
+      // Everything else is typing, and belongs to the prompt field —
+      // including Ctrl-w and the rest of the editing keys the widget
+      // brings with it (spec 065).
       return true
   }
 }

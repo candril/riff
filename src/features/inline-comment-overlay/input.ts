@@ -22,6 +22,9 @@ import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import type { Thread } from "../../utils/threads"
 import {
+  clearViewFilter,
+  commitViewFilter,
+  startViewFilter,
   closeInlineCommentOverlay,
   moveInlineCommentOverlayHighlight,
   getInlineCommentOverlayComments,
@@ -153,6 +156,21 @@ export function handleInput(
 
   const highlighted: Comment | undefined = displayOrder[ov.highlightedIndex]
 
+  // The `Ctrl-f` prompt owns every key while it is open, bar the two that
+  // close it — the rest belong to the input widget (spec 065).
+  if (ov.filterInput) {
+    if (key.name === "escape") {
+      key.preventDefault()
+      ctx.setState(clearViewFilter)
+      ctx.render()
+    } else if (key.name === "return" || key.name === "enter") {
+      key.preventDefault()
+      ctx.setState(commitViewFilter)
+      ctx.render()
+    }
+    return true
+  }
+
   // The code peek sits over the panel: while it is up, it owns the keys
   // (spec 060).
   if (ov.codePeekId !== null) {
@@ -190,6 +208,16 @@ export function handleInput(
   // (the React… submenu targets the highlighted comment — spec 042).
   if (key.ctrl && key.name === "p") {
     return false
+  }
+
+  // Ctrl-f narrows the panel to the comments that match (spec 065). The
+  // overlay owns the keyboard while it is focused, so the global handler
+  // never sees this one.
+  if (key.ctrl && key.name === "f") {
+    key.preventDefault()
+    ctx.setState(startViewFilter)
+    ctx.render()
+    return true
   }
 
   // `y` — copy a link to the highlighted comment. The panel is where the

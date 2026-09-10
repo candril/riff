@@ -5,11 +5,14 @@
  */
 
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
+import { PromptInput } from "./PromptInput"
 import type { SearchState } from "../vim-diff/search-state"
 
 export interface SearchPromptProps {
   searchState: SearchState
+  renderer: CliRenderer
 }
 
 /**
@@ -18,7 +21,7 @@ export interface SearchPromptProps {
  * Display: "/pattern" or "?pattern"
  * Match count is shown in the StatusBar (right-aligned)
  */
-export function SearchPrompt({ searchState }: SearchPromptProps) {
+export function SearchPrompt({ searchState, renderer }: SearchPromptProps) {
   // Don't render if no search activity
   if (!searchState.active && !searchState.pattern) {
     return Box({ height: 0 })
@@ -46,13 +49,13 @@ export function SearchPrompt({ searchState }: SearchPromptProps) {
       paddingLeft: 1,
     },
     
-    // Search prompt with pattern
-    Text({
-      content: searchState.active
-        ? `${prefix}${searchState.promptValue}`
-        : `${prefix}${searchState.pattern}`,
-      fg: promptColor,
-    }),
+    Text({ content: prefix, fg: promptColor }),
+
+    // While typing, the field itself; once confirmed, the pattern it left
+    // behind (the field has moved on to whatever opens next).
+    searchState.active
+      ? PromptInput(renderer)
+      : Text({ content: searchState.pattern, fg: promptColor }),
     
     // Loading indicator
     loadingIndicator ? Text({

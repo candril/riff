@@ -10,7 +10,6 @@ import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import {
   closeCommentsPicker,
-  setCommentsPickerQuery,
   moveCommentsPickerSelection,
 } from "../../state"
 import { getFilteredEntries } from "./filter"
@@ -35,14 +34,18 @@ export function handleInput(key: KeyEvent, ctx: CommentsPickerInputContext): boo
   const filtered = getFilteredEntries(ctx.state)
   const maxIndex = Math.max(0, filtered.length - 1)
 
+  const consume = (): void => key.preventDefault()
+
   switch (key.name) {
     case "escape":
+      consume()
       ctx.setState(closeCommentsPicker)
       ctx.render()
       return true
 
     case "return":
     case "enter": {
+      consume()
       const entry = filtered[ctx.state.commentsPicker.selectedIndex]
       if (entry) {
         ctx.recordJump?.()
@@ -53,49 +56,36 @@ export function handleInput(key: KeyEvent, ctx: CommentsPickerInputContext): boo
     }
 
     case "up":
+      consume()
       ctx.setState((s) => moveCommentsPickerSelection(s, -1, maxIndex))
       ctx.render()
       return true
 
     case "down":
+      consume()
       ctx.setState((s) => moveCommentsPickerSelection(s, 1, maxIndex))
       ctx.render()
       return true
 
     case "p":
+      // Ctrl-p moves up; a bare `p` is a letter of the query.
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveCommentsPickerSelection(s, -1, maxIndex))
         ctx.render()
-        return true
       }
-      ctx.setState((s) => setCommentsPickerQuery(s, s.commentsPicker.query + "p"))
-      ctx.render()
       return true
 
     case "n":
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveCommentsPickerSelection(s, 1, maxIndex))
-        ctx.render()
-        return true
-      }
-      ctx.setState((s) => setCommentsPickerQuery(s, s.commentsPicker.query + "n"))
-      ctx.render()
-      return true
-
-    case "backspace":
-      if (ctx.state.commentsPicker.query.length > 0) {
-        ctx.setState((s) =>
-          setCommentsPickerQuery(s, s.commentsPicker.query.slice(0, -1))
-        )
         ctx.render()
       }
       return true
 
     default:
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState((s) => setCommentsPickerQuery(s, s.commentsPicker.query + key.sequence))
-        ctx.render()
-      }
+      // Everything else is typing, and belongs to the prompt field.
       return true
   }
 }

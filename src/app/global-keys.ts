@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, toggleWrapLines, openFilePicker, openCommitPicker, startViewFilter, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -34,6 +34,7 @@ import * as reviewPreview from "../features/review-preview"
 import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
 import * as flash from "../features/flash"
+import * as feed from "../features/feed"
 import * as fileTreeFeature from "../features/file-tree"
 import * as diffView from "../features/diff-view"
 import * as folds from "../features/folds"
@@ -615,6 +616,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== FEED (captures its filter prompt, spec 065) ==========
+    if (
+      feed.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+      })
+    ) {
+      return
+    }
+
     // ========== CONFIRMATION DIALOG (y/n to confirm/cancel) ==========
     {
       const dialogState = ctx.getState()
@@ -736,6 +748,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
       case "p":
         if (key.ctrl) {
+          // The prompt takes focus in this same keypress; without this the
+          // key that opened it is typed into it.
+          key.preventDefault()
           ctx.setState(openActionMenu)
           ctx.render()
           return
@@ -743,8 +758,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         break
 
       case "f":
-        if (key.ctrl && state.files.length > 0) {
-          ctx.setState(openFilePicker)
+        // Ctrl-f narrows whatever has focus (spec 065): the files in the
+        // diff and tree, the rows of the info panel or the feed, the
+        // comments in the panel.
+        if (key.ctrl) {
+          key.preventDefault()
+          ctx.setState(startViewFilter)
+          ctx.updateFileTreePanel()
           ctx.render()
           return
         }
@@ -1038,6 +1058,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         // and `gc!` are accepted because terminals differ in whether
         // shift+letter reports the key name as lower- or uppercase.
         if (s.comments.length > 0) {
+          key.preventDefault()
           ctx.setState(commentsPicker.openCommentsPicker)
           ctx.render()
         }

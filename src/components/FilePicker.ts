@@ -1,10 +1,12 @@
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
+import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import { getFileColor } from "../utils/file-colors"
 
 export interface FilePickerProps {
-  query: string
+  renderer: CliRenderer
   files: FilteredFile[]
   selectedIndex: number
 }
@@ -23,7 +25,7 @@ const MAX_VISIBLE = 20
  * File picker overlay for fuzzy file search
  * Styled similar to ActionMenu. Shows a scrolling window of all files.
  */
-export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
+export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) {
   // Compute visible window around selected index
   const total = files.length
   let startIndex = 0
@@ -82,17 +84,15 @@ export function FilePicker({ query, files, selectedIndex }: FilePickerProps) {
           Text({ content: "esc", fg: theme.overlay0 }),
         )
       ),
-      // Search input (cursor positioned via postProcess in app.ts)
       Box(
-        { 
+        {
           id: "file-picker-search",
           flexDirection: "row",
           paddingX: 2,
           paddingBottom: 1,
+          height: 1,
         },
-        query
-          ? Text({ content: query, fg: theme.text })
-          : Text({ content: "Type to search...", fg: theme.overlay0 })
+        PromptInput(renderer)
       ),
       // Files list (scrolling window)
       Box(

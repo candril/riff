@@ -40,8 +40,9 @@ function matchedFiles(): string[] {
   return [...new Set(searchState.matches.map((m) => m.filename ?? ""))]
 }
 
+/** What the prompt field reports as the pattern grows, character by character. */
 function type(pattern: string): void {
-  for (const char of pattern) handler.handleCharInput(char)
+  for (let i = 1; i <= pattern.length; i++) handler.updatePattern(pattern.slice(0, i))
 }
 
 beforeEach(() => {

@@ -88,7 +88,7 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Ctrl+h` | Move focus left: comments → diff → tree |
 | `Ctrl+l` | Move focus right: tree → diff → comments |
 | `Ctrl+t` | Toggle the comments panel |
-| `Ctrl+f` | Fuzzy file picker |
+| `Ctrl+f` | Filter what has focus — files, panel rows, feed rows, comments |
 | `Ctrl+g` | Show the current file's path |
 | `v` | Mark the file viewed and advance to the next unviewed |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
@@ -200,9 +200,11 @@ files.
 
 ## Pickers and menus
 
-Every fuzzy picker — files (`Ctrl+f`), comments (`gC`), commits, the action menu (`Ctrl+p`) —
-takes the same keys: type to filter, `↑`/`↓` or `Ctrl+p`/`Ctrl+n` to move, `Enter` to choose,
-`Esc` to cancel.
+Every fuzzy picker — files, comments (`gC`), commits, the action menu (`Ctrl+p`) — takes the same
+keys: type to filter, `↑`/`↓` or `Ctrl+p`/`Ctrl+n` to move, `Enter` to choose, `Esc` to cancel.
+They all type into the same input widget, so `Ctrl+w` deletes a word, `Ctrl+u` the line, and
+word motions, paste, undo and selection work in every one of them — the filter prompts (`Ctrl+f`,
+`/` in the tree) included.
 
 ## Global
 

@@ -8,6 +8,8 @@ import {
   TextRenderable,
   ScrollBoxRenderable,
   MarkdownRenderable,
+  InputRenderable,
+  InputRenderableEvents,
   SyntaxStyle,
   RGBA,
   type CliRenderer,
@@ -371,6 +373,14 @@ export class PRInfoPanelClass {
   private files: DiffFile[]
   private comments: Comment[]
   
+  // What `Ctrl-f` narrows the panel to: rows whose text contains it, in
+  // every section that has rows (spec 065). Empty means everything.
+  private filter: string = ""
+  private filterInput: InputRenderable
+  private filterRow: BoxRenderable | null = null
+  private filterFocused: boolean = false
+  private onFilterChange: ((value: string) => void) | null = null
+
   // Section state
   private activeSection: PRInfoPanelSection = 'description'
   private cursorIndex: number = -1  // -1 = on section header
@@ -420,6 +430,21 @@ export class PRInfoPanelClass {
     this.files = files
     this.comments = comments
     
+    this.filterInput = new InputRenderable(renderer, {
+      id: "pr-info-filter",
+      placeholder: "filter rows…",
+      placeholderColor: theme.overlay0,
+      backgroundColor: theme.base,
+      textColor: theme.text,
+      focusedBackgroundColor: theme.base,
+      focusedTextColor: theme.text,
+      cursorColor: theme.yellow,
+      flexGrow: 1,
+    })
+    this.filterInput.on(InputRenderableEvents.INPUT, (value: string) => {
+      this.onFilterChange?.(value)
+    })
+
     // Build conversation items
     this.conversationItems = this.buildConversationItems()
     this.refreshFlatItems()
@@ -546,9 +571,9 @@ export class PRInfoPanelClass {
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
-        return this.files.length
+        return this.visibleFiles.length
       case 'commits':
-        return this.prInfo.commits?.length ?? 0
+        return this.visibleCommits.length
     }
   }
 
@@ -714,16 +739,26 @@ export class PRInfoPanelClass {
     
     for (const item of this.conversationItems) {
       if (item.type === 'pr-comment') {
-        flat.push(item)
+        if (this.matches(item.data.author, item.data.body)) flat.push(item)
       } else if (item.type === 'pending-reviewer') {
-        flat.push(item)
-      } else {
+        if (this.matches(item.data.join(" "))) flat.push(item)
+      } else if (
+        // A review matches on its own text or on any thread under it —
+        // otherwise filtering for a filename would hide the review that
+        // holds the comment on it.
+        this.matches(item.data.author, item.data.body, item.data.state) ||
+        item.data.threads.some((thread) =>
+          this.matches(thread.author, thread.body, thread.filename)
+        )
+      ) {
         // Review - add header, then threads if expanded
         flat.push({ type: 'review-header', data: item.data })
         
-        if (this.isContentExpanded(item)) {
+        if (this.isContentExpanded(item) || this.filter) {
           for (const thread of item.data.threads) {
-            flat.push({ type: 'review-thread', data: thread, parentReview: item.data })
+            if (this.matches(thread.author, thread.body, thread.filename)) {
+              flat.push({ type: 'review-thread', data: thread, parentReview: item.data })
+            }
           }
         }
       }
@@ -745,7 +780,9 @@ export class PRInfoPanelClass {
    */
   private refreshFlatCheckItems(): void {
     const flat: FlatCheckItem[] = []
-    const checks = this.prInfo.checks ?? []
+    const checks = (this.prInfo.checks ?? []).filter((check) =>
+      this.matches(check.name, check.conclusion ?? undefined)
+    )
     for (const check of checks) {
       flat.push({ kind: 'check', check })
       if (!this.expandedCheckIds.has(check.id)) continue
@@ -845,6 +882,73 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * What the filter leaves. Rows are matched on the text the reader can
+   * see — a filename, a commit subject, who said what.
+   */
+  private matches(...text: (string | undefined)[]): boolean {
+    if (!this.filter) return true
+    const needle = this.filter.toLowerCase()
+    return text.some((part) => part?.toLowerCase().includes(needle))
+  }
+
+  private get visibleFiles(): DiffFile[] {
+    return this.filter ? this.files.filter((file) => this.matches(file.filename)) : this.files
+  }
+
+  private get visibleCommits(): PrCommit[] {
+    const commits = this.prInfo.commits ?? []
+    return this.filter
+      ? commits.filter((commit) => this.matches(commit.message, commit.sha, commit.author))
+      : commits
+  }
+
+  /**
+   * Narrow the panel to rows containing this text, or clear it with "".
+   * A filter opens every section it matches in: hiding the matches inside
+   * a collapsed header would make the filter look broken.
+   */
+  setFilter(filter: string): void {
+    if (filter === this.filter) return
+    this.filter = filter
+    this.refreshFlatItems()
+    this.refreshFlatCheckItems()
+    if (filter) {
+      for (const section of ALL_SECTIONS) {
+        if (this.getItemCountForSection(section) > 0) this.expandedSections.add(section)
+      }
+    }
+    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.rebuildSections()
+  }
+
+  getFilter(): string {
+    return this.filter
+  }
+
+  /** Where the filter box sends what is typed. Set once, from app.ts. */
+  setOnFilterChange(callback: (value: string) => void): void {
+    this.onFilterChange = callback
+  }
+
+  /**
+   * Show or hide the filter prompt. Focus is taken on the way in only, so a
+   * re-render mid-typing does not reset the cursor, and the field is seeded
+   * from the live filter — reopening refines rather than restarts.
+   */
+  syncFilterInput(open: boolean, filter: string): void {
+    if (open === this.filterFocused) return
+    this.filterFocused = open
+    if (this.filterRow) this.filterRow.visible = open
+
+    if (open) {
+      this.filterInput.value = filter
+      this.filterInput.focus()
+    } else {
+      this.filterInput.blur()
+    }
+  }
+
+  /**
    * Get item count for a specific section
    */
   private getItemCountForSection(section: PRInfoPanelSection): number {
@@ -856,9 +960,9 @@ export class PRInfoPanelClass {
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
-        return this.files.length
+        return this.visibleFiles.length
       case 'commits':
-        return this.prInfo.commits?.length ?? 0
+        return this.visibleCommits.length
     }
   }
 
@@ -936,7 +1040,7 @@ export class PRInfoPanelClass {
    */
   getSelectedCommit(): PrCommit | undefined {
     if (this.activeSection !== 'commits' || this.cursorIndex < 0) return undefined
-    return this.prInfo.commits?.[this.cursorIndex]
+    return this.visibleCommits[this.cursorIndex]
   }
 
   /**
@@ -944,7 +1048,7 @@ export class PRInfoPanelClass {
    */
   getSelectedFile(): DiffFile | undefined {
     if (this.activeSection !== 'files' || this.cursorIndex < 0) return undefined
-    return this.files[this.cursorIndex]
+    return this.visibleFiles[this.cursorIndex]
   }
 
   /**
@@ -1238,8 +1342,8 @@ export class PRInfoPanelClass {
    */
   private getSectionConfigs(): SectionConfig[] {
     const conversationCount = this.conversationItems.length
-    const commitCount = this.prInfo.commits?.length ?? 0
-    const fileCount = this.files.length
+    const commitCount = this.visibleCommits.length
+    const fileCount = this.visibleFiles.length
     const bodyLines = (this.prInfo.body || "").split("\n").filter(l => l.trim()).length
     const checkCount = this.prInfo.checks?.length ?? 0
     const checksStatus = this.getChecksAggregateStatus()
@@ -2170,7 +2274,7 @@ export class PRInfoPanelClass {
   private buildFilesContent(container: BoxRenderable, isActive: boolean): void {
     const rows: ItemRowRefs[] = []
     
-    if (this.files.length === 0) {
+    if (this.visibleFiles.length === 0) {
       container.add(new TextRenderable(this.renderer, {
         content: "No files changed",
         fg: theme.overlay0,
@@ -2178,8 +2282,8 @@ export class PRInfoPanelClass {
       return
     }
     
-    for (let i = 0; i < this.files.length; i++) {
-      const file = this.files[i]!
+    for (let i = 0; i < this.visibleFiles.length; i++) {
+      const file = this.visibleFiles[i]!
       const isSelected = isActive && i === this.cursorIndex
       
       const row = new BoxRenderable(this.renderer, {
@@ -2214,7 +2318,7 @@ export class PRInfoPanelClass {
    * Build commits content
    */
   private buildCommitsContent(container: BoxRenderable, isActive: boolean): void {
-    const commits = this.prInfo.commits ?? []
+    const commits = this.visibleCommits
     const rows: ItemRowRefs[] = []
     
     if (commits.length === 0) {
@@ -2290,6 +2394,21 @@ export class PRInfoPanelClass {
       flexDirection: "column",
       backgroundColor: theme.base,
     })
+
+    // The `Ctrl-f` prompt (spec 065). Hidden until it is opened, and a real
+    // input widget so word deletion, paste and the rest come from OpenTUI.
+    const filterRow = new BoxRenderable(this.renderer, {
+      id: "pr-info-filter-row",
+      height: 1,
+      width: "100%",
+      flexDirection: "row",
+      paddingLeft: 2,
+      visible: false,
+    })
+    filterRow.add(new TextRenderable(this.renderer, { content: "/", fg: colors.secondary }))
+    filterRow.add(this.filterInput)
+    container.add(filterRow)
+    this.filterRow = filterRow
 
     // Scroll box
     const scrollBox = new ScrollBoxRenderable(this.renderer, {

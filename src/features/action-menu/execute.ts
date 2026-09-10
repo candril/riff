@@ -13,6 +13,7 @@ import {
   toggleFilePanel,
   toggleFilePanelExpanded,
   switchView,
+  startViewFilter,
   toggleLinePeek,
   toggleWrapLines,
   clearFileSelection,
@@ -106,6 +107,11 @@ export async function executeAction(
           ? { ...toggled, focusedPanel: "tree" as const }
           : toggled
       })
+      render()
+      break
+
+    case "filter-view":
+      setState(startViewFilter)
       render()
       break
 

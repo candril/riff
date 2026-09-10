@@ -144,8 +144,9 @@ is navigation, not a decision to review it alone. The highlight runs the other w
 through the diff moves the tree's highlight to the file you are in, and scrolls the tree to show
 it. A file inside a collapsed folder is left alone rather than unfolded.
 
-`Ctrl+f` is the fuzzy picker over the same list — the filter when you want the tree to stay, the
-picker when you just want the file.
+`Ctrl+f` filters whatever has focus, and in the diff that is the tree — the same prompt `/` opens,
+from wherever you are. **Find Files** in the action menu is the fuzzy picker over the same list:
+the filter when you want the tree to stay, the picker when you just want the file.
 
 ### Viewed state
 

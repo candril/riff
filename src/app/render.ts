@@ -30,12 +30,20 @@ import {
   gatherSyncItems,
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
+import { syncPromptSession, endPromptSession } from "../components/PromptInput"
 import { reviewCandidates } from "../utils/publishable"
 import {
   collectMentionCandidates,
   detectMentionTrigger,
 } from "../utils/mentions"
-import { setMentionPicker } from "../state"
+import {
+  setMentionPicker,
+  setActionMenuQuery,
+  setFilePickerQuery,
+  setCommentsPickerQuery,
+  setCommitPickerQuery,
+  setViewFilter,
+} from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import {
   syncReviewSummarySession,
@@ -82,6 +90,88 @@ export interface RenderContext {
   vimDiffView: VimDiffView
   // Helper
   updateFileTreePanel: () => void
+  /** Incremental search reacting to what the prompt field reports (spec 065). */
+  updateSearchPattern: (value: string) => void
+}
+
+/**
+ * Which prompt is typing right now, and what it does with what is typed.
+ * Every one-line prompt in riff shares a single input field, so at most one
+ * of these can be open (spec 065).
+ */
+function openPrompt(
+  state: AppState,
+  ctx: RenderContext,
+  render: () => void
+): { key: string; initialValue: string; placeholder?: string; onChange: (value: string) => void } | null {
+  const typeInto = (
+    set: (s: AppState, value: string) => AppState
+  ): ((value: string) => void) => (value) => {
+    ctx.setState((s) => set(s, value))
+    render()
+  }
+
+  if (state.actionMenu.open) {
+    return {
+      key: `action-menu:${state.actionMenu.submenu?.kind ?? ""}`,
+      initialValue: state.actionMenu.query,
+      placeholder: "Search",
+      onChange: typeInto(setActionMenuQuery),
+    }
+  }
+  if (state.filePicker.open) {
+    return {
+      key: "file-picker",
+      initialValue: state.filePicker.query,
+      placeholder: "Type to search…",
+      onChange: typeInto(setFilePickerQuery),
+    }
+  }
+  if (state.commentsPicker.open) {
+    return {
+      key: "comments-picker",
+      initialValue: state.commentsPicker.query,
+      placeholder: "Type to search…",
+      onChange: typeInto(setCommentsPickerQuery),
+    }
+  }
+  if (state.commitPicker.open) {
+    return {
+      key: "commit-picker",
+      initialValue: state.commitPicker.query,
+      placeholder: "Type to search commits…",
+      onChange: typeInto(setCommitPickerQuery),
+    }
+  }
+
+  if (state.inlineCommentOverlay.filterInput) {
+    return {
+      key: "comments-filter",
+      initialValue: state.inlineCommentOverlay.filter,
+      placeholder: "filter comments…",
+      onChange: typeInto(setViewFilter),
+    }
+  }
+  if (state.feed.filterInput) {
+    return {
+      key: "feed-filter",
+      initialValue: state.feed.filter,
+      placeholder: "filter the feed…",
+      onChange: typeInto(setViewFilter),
+    }
+  }
+
+  const searchState = ctx.getSearchState()
+  if (searchState.active) {
+    return {
+      // A fresh prompt seeds the field; typing into the same one does not.
+      key: `search:${searchState.direction}:${searchState.originalLine}:${searchState.originalCol}`,
+      initialValue: searchState.promptValue,
+      onChange: (value) => ctx.updateSearchPattern(value),
+    }
+  }
+
+  return null
 }
 
 /**
@@ -264,7 +354,21 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         endReviewSummarySession()
       }
 
-      ctx.vimDiffView.setSuspendCursor(composerActive || reviewActive)
+      // The info panel's filter box is the panel's own, like the tree's:
+      // both are persistent panels rather than overlays rebuilt per render.
+      prInfoPanelInstance?.syncFilterInput(
+        state.prInfoPanel.filterInput,
+        state.prInfoPanel.filter
+      )
+      prInfoPanelInstance?.setFilter(state.prInfoPanel.filter)
+
+      // And the one-line prompts (spec 065). They all type into the same
+      // field, so exactly one session can be open — whichever prompt is.
+      const prompt = openPrompt(state, ctx, render)
+      if (prompt) syncPromptSession({ renderer: ctx.renderer, ...prompt })
+      else endPromptSession()
+
+      ctx.vimDiffView.setSuspendCursor(composerActive || reviewActive || prompt !== null)
     }
 
     ctx.renderer.root.add(
@@ -295,7 +399,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         flashState.active && state.viewMode === "diff"
           ? FlashPrompt({ flashState })
           : (searchState.active || searchState.pattern) && state.viewMode === "diff"
-            ? SearchPrompt({ searchState })
+            ? SearchPrompt({ searchState, renderer: ctx.renderer })
             : null,
         StatusBar({
           searchInfo:
@@ -315,7 +419,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         }),
         state.actionMenu.open
           ? ActionMenu({
-              query: state.actionMenu.query,
+              renderer: ctx.renderer,
               mode: actionMenuMode,
               selectedIndex: state.actionMenu.selectedIndex,
             })
@@ -370,21 +474,21 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           : null,
         state.filePicker.open
           ? FilePicker({
-              query: state.filePicker.query,
+              renderer: ctx.renderer,
               files: filteredFiles,
               selectedIndex: state.filePicker.selectedIndex,
             })
           : null,
         state.commentsPicker.open
           ? CommentsPicker({
-              query: state.commentsPicker.query,
+              renderer: ctx.renderer,
               entries: commentsPickerFeature.getFilteredEntries(state),
               selectedIndex: state.commentsPicker.selectedIndex,
             })
           : null,
         state.commitPicker.open
           ? CommitPicker({
-              query: state.commitPicker.query,
+              renderer: ctx.renderer,
               commits: filteredCommits,
               selectedIndex: state.commitPicker.selectedIndex,
               viewingCommit: state.viewingCommit,

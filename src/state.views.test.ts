@@ -1,5 +1,16 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, switchView, selectFile, type AppState } from "./state"
+import {
+  createInitialState,
+  switchView,
+  selectFile,
+  filterTarget,
+  startViewFilter,
+  setViewFilter,
+  commitViewFilter,
+  clearViewFilter,
+  openInlineCommentOverlay,
+  type AppState,
+} from "./state"
 import type { DiffFile } from "./utils/diff-parser"
 
 const file: DiffFile = {
@@ -59,5 +70,57 @@ describe("moving between the three surfaces", () => {
     expect(local.viewMode).toBe("diff")
     expect(switchView(local, "state")).toBe(local)
     expect(switchView(local, "feed")).toBe(local)
+  })
+})
+
+describe("what Ctrl-f narrows", () => {
+  test("the file tree, when the diff has focus", () => {
+    const state = switchView(prState(), "diff")
+
+    expect(filterTarget(state)).toBe("tree")
+    const filtering = startViewFilter(state)
+    expect(filtering.treeFilterInput).toBe(true)
+    // A hidden tree cannot show what the filter left.
+    expect(filtering.showFilePanel).toBe(true)
+    expect(setViewFilter(filtering, "limiter").treeFilter).toBe("limiter")
+  })
+
+  test("the info panel's rows, in the state view", () => {
+    const state = prState()
+
+    expect(filterTarget(state)).toBe("state")
+    const filtering = setViewFilter(startViewFilter(state), "client")
+    expect(filtering.prInfoPanel.filterInput).toBe(true)
+    expect(filtering.prInfoPanel.filter).toBe("client")
+    expect(clearViewFilter(filtering).prInfoPanel).toMatchObject({ filter: "", filterInput: false })
+  })
+
+  test("the feed's rows, in the feed", () => {
+    const state = switchView(prState(), "feed")
+
+    expect(filterTarget(state)).toBe("feed")
+    const filtering = setViewFilter(startViewFilter(state), "carol")
+    expect(filtering.feed).toMatchObject({ filter: "carol", filterInput: true, highlightIndex: 0 })
+  })
+
+  test("the comments panel, while it holds the keyboard", () => {
+    const state = {
+      ...openInlineCommentOverlay(switchView(prState(), "diff"), "a.ts", 1, "RIGHT", "view"),
+      focusedPanel: "comments" as const,
+    }
+
+    expect(filterTarget(state)).toBe("comments")
+    const filtering = setViewFilter(startViewFilter(state), "naming")
+    expect(filtering.inlineCommentOverlay).toMatchObject({ filter: "naming", filterInput: true })
+  })
+
+  test("Enter keeps what the filter left, Escape drops it", () => {
+    const filtering = setViewFilter(startViewFilter(prState()), "client")
+
+    expect(commitViewFilter(filtering).prInfoPanel).toMatchObject({
+      filter: "client",
+      filterInput: false,
+    })
+    expect(clearViewFilter(filtering).prInfoPanel.filter).toBe("")
   })
 })

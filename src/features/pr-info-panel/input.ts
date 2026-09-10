@@ -13,6 +13,8 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import {
+  clearViewFilter,
+  commitViewFilter,
   closePRInfoPanel,
   showToast,
   clearToast,
@@ -117,6 +119,22 @@ function handleInputInner(
 ): boolean {
   if (ctx.state.viewMode !== "state") {
     return false
+  }
+
+  // The `Ctrl-f` prompt owns every key while it is open; only the two that
+  // mean something to riff are taken, and the rest reach the input widget
+  // (spec 065).
+  if (ctx.state.prInfoPanel.filterInput) {
+    if (key.name === "escape") {
+      key.preventDefault()
+      ctx.setState(clearViewFilter)
+      ctx.render()
+    } else if (key.name === "return" || key.name === "enter") {
+      key.preventDefault()
+      ctx.setState(commitViewFilter)
+      ctx.render()
+    }
+    return true
   }
 
   // When the tree sidebar has focus (spec 041: the tree is visible

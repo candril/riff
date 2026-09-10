@@ -113,6 +113,9 @@ export interface CommentsPickerState {
 export type InlineCommentOverlayMode = "view" | "compose" | "edit"
 
 export interface InlineCommentOverlayState {
+  /** `Ctrl-f`: what the panel's comments are narrowed to (spec 065). */
+  filter: string
+  filterInput: boolean
   open: boolean
   mode: InlineCommentOverlayMode
   /** Filename the panel is scoped to. View mode shows every comment in
@@ -166,6 +169,10 @@ export interface MentionPickerState {
 export type PRInfoPanelSection = 'description' | 'checks' | 'conversation' | 'files' | 'commits'
 
 export interface PRInfoPanelState {
+  /** `Ctrl-f`: the text the panel's rows are narrowed to, and whether the
+   *  prompt for it is open (spec 065). */
+  filter: string
+  filterInput: boolean
   scrollOffset: number
   loading: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
@@ -513,6 +520,8 @@ export function createInitialState(
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
     feed: createFeedState(),
     prInfoPanel: {
+      filter: "",
+      filterInput: false,
       scrollOffset: 0,
       loading: false,
       activeSection: 'description',
@@ -524,6 +533,8 @@ export function createInitialState(
     },
     commentDrafts: new Map(),
     inlineCommentOverlay: {
+      filter: "",
+      filterInput: false,
       open: false,
       mode: "view",
       filename: "",
@@ -658,6 +669,101 @@ export function enterDiffView(state: AppState): AppState {
     focusedPanel: "diff",
     reactionTarget: null,
   }
+}
+
+/**
+ * Which surface `Ctrl-f` narrows (spec 065). Whatever has focus: the
+ * comments panel while it holds the keyboard, otherwise the view you are
+ * looking at, and the file tree for the diff — filtering "the files" is what
+ * narrowing a diff means.
+ */
+export type FilterTarget = "tree" | "state" | "comments" | "feed"
+
+export function filterTarget(state: AppState): FilterTarget {
+  if (state.inlineCommentOverlay.open && state.focusedPanel === "comments") return "comments"
+  if (state.viewMode === "feed") return "feed"
+  if (state.viewMode === "state") return "state"
+  return "tree"
+}
+
+/** Open the filter prompt of whatever has focus, keeping what it already has. */
+export function startViewFilter(state: AppState): AppState {
+  switch (filterTarget(state)) {
+    case "comments":
+      return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: true } }
+    case "feed":
+      return { ...state, feed: { ...state.feed, filterInput: true } }
+    case "state":
+      return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: true } }
+    case "tree":
+      // A hidden tree cannot show what the filter left.
+      return { ...startTreeFilter(state), showFilePanel: true, focusedPanel: "tree" }
+  }
+}
+
+export function setViewFilter(state: AppState, value: string): AppState {
+  switch (filterTarget(state)) {
+    case "comments":
+      return {
+        ...state,
+        inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: value, highlightedIndex: 0 },
+      }
+    case "feed":
+      return { ...state, feed: { ...state.feed, filter: value, highlightIndex: 0 } }
+    case "state":
+      return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: value } }
+    case "tree":
+      return setTreeFilter(state, value)
+  }
+}
+
+/** Enter: keep what the filter left and hand navigation back. */
+export function commitViewFilter(state: AppState): AppState {
+  switch (filterTarget(state)) {
+    case "comments":
+      return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: false } }
+    case "feed":
+      return { ...state, feed: { ...state.feed, filterInput: false } }
+    case "state":
+      return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: false } }
+    case "tree":
+      return commitTreeFilter(state)
+  }
+}
+
+/** Escape: drop the filter entirely. */
+export function clearViewFilter(state: AppState): AppState {
+  switch (filterTarget(state)) {
+    case "comments":
+      return {
+        ...state,
+        inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: "", filterInput: false },
+      }
+    case "feed":
+      return { ...state, feed: { ...state.feed, filter: "", filterInput: false } }
+    case "state":
+      return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: "", filterInput: false } }
+    case "tree":
+      return clearTreeFilter(state)
+  }
+}
+
+/**
+ * Whether one of the one-line prompts is up. They share a single input
+ * widget, which draws its own cursor — so nothing else should be placing
+ * the terminal cursor while one is open (spec 065).
+ */
+export function promptOpen(state: AppState): boolean {
+  return (
+    state.actionMenu.open ||
+    state.filePicker.open ||
+    state.commentsPicker.open ||
+    state.commitPicker.open ||
+    state.treeFilterInput ||
+    state.feed.filterInput ||
+    state.prInfoPanel.filterInput ||
+    state.inlineCommentOverlay.filterInput
+  )
 }
 
 /**
@@ -1933,6 +2039,8 @@ export function openPRInfoPanel(state: AppState): AppState {
   return {
     ...enterPrView(state),
     prInfoPanel: {
+      filter: "",
+      filterInput: false,
       scrollOffset: 0,
       loading: false,
       activeSection: 'description',
@@ -2120,6 +2228,8 @@ export function openInlineCommentOverlay(
   const nextState: AppState = {
     ...state,
     inlineCommentOverlay: {
+      filter: "",
+      filterInput: false,
       open: true,
       mode,
       filename,
@@ -2215,9 +2325,23 @@ export function getCommentsPanelScopeFilename(state: AppState): string | null {
 export function getInlineCommentOverlayComments(state: AppState): Comment[] {
   if (!state.inlineCommentOverlay.open) return []
   const scope = getCommentsPanelScopeFilename(state)
-  const pool = scope === null
+  const scoped = scope === null
     ? state.comments
     : state.comments.filter((c) => c.filename === scope)
+  // `Ctrl-f` narrows on what the reader can see: who wrote it, what it says,
+  // and which file it is on (spec 065). A reply that matches keeps its
+  // thread — a comment without the exchange around it is unreadable.
+  const needle = state.inlineCommentOverlay.filter.toLowerCase()
+  const hit = (comment: Comment): boolean =>
+    comment.author?.toLowerCase().includes(needle) === true ||
+    comment.body.toLowerCase().includes(needle) ||
+    comment.filename.toLowerCase().includes(needle)
+  const matchedThreads = needle
+    ? new Set(groupIntoThreads(scoped).filter((t) => t.comments.some(hit)).map((t) => t.id))
+    : null
+  const pool = matchedThreads
+    ? scoped.filter((c) => matchedThreads.has(c.inReplyTo ?? c.id))
+    : scoped
   return [...pool].sort((a, b) => {
     if (a.filename !== b.filename) return a.filename.localeCompare(b.filename)
     if (a.line !== b.line) return a.line - b.line

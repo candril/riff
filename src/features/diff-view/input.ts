@@ -137,12 +137,16 @@ export function handleInput(
 
   // Handle '/' for forward search
   if ((key.name === "/" || key.sequence === "/") && !key.ctrl) {
+    // Opening the prompt focuses its input in this same keypress, so without
+    // this the `/` itself would be typed into it.
+    key.preventDefault()
     ctx.searchHandler.startSearch("forward")
     return true
   }
 
   // Handle '?' for backward search
   if ((key.name === "?" || key.sequence === "?") && !key.ctrl) {
+    key.preventDefault()
     ctx.searchHandler.startSearch("backward")
     return true
   }

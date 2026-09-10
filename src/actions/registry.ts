@@ -18,7 +18,6 @@ export const actions: Action[] = [
     id: "find-files",
     label: "Find Files",
     description: "Jump to a file in the diff",
-    shortcut: "Ctrl+f",
     category: "navigation",
     available: (state) => state.files.length > 0,
   },
@@ -475,6 +474,15 @@ export const actions: Action[] = [
     description: "Add or remove a reaction on the focused comment",
     category: "github",
     available: (state) => state.appMode === "pr" && state.reactionTarget !== null,
+  },
+
+  {
+    id: "filter-view",
+    label: "Filter",
+    description: "Narrow whatever has focus — files, rows, comments",
+    shortcut: "Ctrl+f",
+    category: "navigation",
+    available: () => true,
   },
 
   // View

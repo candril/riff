@@ -1,9 +1,11 @@
 import { Box, Text } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
+import { PromptInput } from "./PromptInput"
 import { theme, colors } from "../theme"
 import type { CommentsPickerEntry } from "../features/comments-picker"
 
 export interface CommentsPickerProps {
-  query: string
+  renderer: CliRenderer
   entries: CommentsPickerEntry[]
   selectedIndex: number
 }
@@ -14,7 +16,7 @@ const MAX_VISIBLE = 20
  * Comments picker overlay (spec 044). PR-wide fuzzy search across every
  * comment in the diff. Modeled on FilePicker for visual consistency.
  */
-export function CommentsPicker({ query, entries, selectedIndex }: CommentsPickerProps) {
+export function CommentsPicker({ renderer, entries, selectedIndex }: CommentsPickerProps) {
   const total = entries.length
   let startIndex = 0
   if (total > MAX_VISIBLE) {
@@ -74,9 +76,7 @@ export function CommentsPicker({ query, entries, selectedIndex }: CommentsPicker
           paddingX: 2,
           paddingBottom: 1,
         },
-        query
-          ? Text({ content: query, fg: theme.text })
-          : Text({ content: "Type to search…", fg: theme.overlay0 })
+        PromptInput(renderer)
       ),
       Box(
         {

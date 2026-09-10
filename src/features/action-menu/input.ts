@@ -16,7 +16,6 @@ import type { ReactionTarget } from "../../types"
 import {
   closeActionMenu,
   closeActionSubmenu,
-  setActionMenuQuery,
   moveActionMenuSelection,
 } from "../../state"
 import { getAvailableActions } from "../../actions"
@@ -36,6 +35,11 @@ export interface ActionMenuInputContext {
 
 /**
  * Handle input when action menu is open.
+ *
+ * Only the keys that mean something to the palette are taken; the query
+ * itself belongs to the shared prompt field, which sees every key this
+ * handler does not `preventDefault` (spec 065).
+ *
  * Returns true if the key was handled (menu is open), false otherwise.
  */
 export function handleInput(
@@ -68,8 +72,11 @@ export function handleInput(
     ? Math.max(0, submenuRows.length - 1)
     : Math.max(0, visualActions.length - 1)
 
+  const consume = (): void => key.preventDefault()
+
   switch (key.name) {
     case "escape":
+      consume()
       if (submenu) {
         ctx.setState(closeActionSubmenu)
       } else {
@@ -80,6 +87,7 @@ export function handleInput(
 
     case "return":
     case "enter": {
+      consume()
       if (submenu) {
         const row = submenuRows[ctx.state.actionMenu.selectedIndex]
         if (!row) return true
@@ -110,53 +118,36 @@ export function handleInput(
     }
 
     case "up":
+      consume()
       ctx.setState((s) => moveActionMenuSelection(s, -1, maxIndex))
       ctx.render()
       return true
 
     case "down":
+      consume()
       ctx.setState((s) => moveActionMenuSelection(s, 1, maxIndex))
       ctx.render()
       return true
 
     case "p":
-      // Ctrl+p moves up
+      // Ctrl-p moves up; a bare `p` is a letter of the query.
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveActionMenuSelection(s, -1, maxIndex))
         ctx.render()
-        return true
       }
-      // Otherwise type 'p'
-      ctx.setState((s) => setActionMenuQuery(s, s.actionMenu.query + "p"))
-      ctx.render()
       return true
 
     case "n":
-      // Ctrl+n moves down
       if (key.ctrl) {
+        consume()
         ctx.setState((s) => moveActionMenuSelection(s, 1, maxIndex))
-        ctx.render()
-        return true
-      }
-      // Otherwise type 'n'
-      ctx.setState((s) => setActionMenuQuery(s, s.actionMenu.query + "n"))
-      ctx.render()
-      return true
-
-    case "backspace":
-      if (ctx.state.actionMenu.query.length > 0) {
-        ctx.setState((s) => setActionMenuQuery(s, s.actionMenu.query.slice(0, -1)))
         ctx.render()
       }
       return true
 
     default:
-      // Type characters into search
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState((s) => setActionMenuQuery(s, s.actionMenu.query + key.sequence))
-        ctx.render()
-      }
-      // Capture all keys when menu is open
+      // Everything else is typing, and belongs to the prompt field.
       return true
   }
 }
