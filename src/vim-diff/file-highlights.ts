@@ -13,6 +13,21 @@
 
 import type { SimpleHighlight } from "@opentui/core"
 
+/**
+ * Past this, a file is not parsed for its colours (spec 080).
+ *
+ * A generated bundle or a lock file is where the size comes from, and it
+ * is exactly the file whose colours are worth nothing: nobody reads it,
+ * they look for the one line that changed. Half a megabyte is well past
+ * anything hand-written.
+ */
+export const MAX_HIGHLIGHT_BYTES = 512 * 1024
+
+/** Whether a file is worth parsing for the rows' colours. */
+export function worthHighlighting(content: string): boolean {
+  return content.length <= MAX_HIGHLIGHT_BYTES
+}
+
 /** Character offset of every line start, the first at 0. */
 export function lineStarts(content: string): number[] {
   const offsets = [0]

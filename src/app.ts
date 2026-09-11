@@ -36,6 +36,7 @@ import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
 import type { DiffFile } from "./utils/diff-parser"
+import { MAX_HIGHLIGHT_BYTES } from "./vim-diff/file-highlights"
 
 /**
  * How long the cursor stays in a file before riff reads it for the colours
@@ -251,7 +252,6 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function ensureCursorVisible(): void {
-    requestHighlightSource()
     const scrollBox = vimDiffView.getScrollBox()
     if (!scrollBox) return
 
@@ -425,7 +425,17 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== RENDER =====
-  const render = createRenderFunction({
+  /**
+   * Every frame is also where riff notices the cursor has moved into a
+   * file it has not read yet (spec 080). The check is a lookup and an
+   * early return; the read behind it is debounced.
+   */
+  function render(): void {
+    renderFrame()
+    requestHighlightSource()
+  }
+
+  const renderFrame = createRenderFunction({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
@@ -533,9 +543,17 @@ export async function createApp(options: AppOptions = {}) {
     if (!filename || filename === highlightSourceWanted) return
     highlightSourceWanted = filename
 
+    // A file riff was told not to show — a lock file, generated code — is
+    // not a file riff should read either (spec 080).
+    if (state.ignoredFiles.has(filename)) return
+
     const cached = state.fileContentCache[filename]
     if (cached?.newContent) return
     if (cached?.loading || cached?.error || highlightSourceFailed.has(filename)) return
+
+    // Locally the size is one stat away, so the read never happens at all.
+    // A PR's is not known until it arrives, and the parse declines it then.
+    if (state.appMode === "local" && Bun.file(filename).size > MAX_HIGHLIGHT_BYTES) return
 
     // After a pause, and quietly. Nobody asked for this file — riff wants
     // it to colour the rows — so walking through twenty files with `]f`

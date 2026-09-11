@@ -25,9 +25,8 @@ at, fetched the way riff already fetches one to expand context.
 
 - Parsing every file in the diff. A 200-file PR is 200 parses nobody asked
   for; this is per file, as it comes into view.
-- Highlighting the other side of the diff. A deletion is a line from a file
-  that no longer exists: it is highlighted from the old file's text or not
-  at all, and "not at all" is the first version.
+- Anything riff cannot get the text for. A filetype with no parser, a file
+  too big, a fetch that fails: the rows look exactly as they did before.
 
 ## Capabilities
 
@@ -44,10 +43,13 @@ at, fetched the way riff already fetches one to expand context.
 - riff's own rows keep their own styling: the fold markers and file headers
   are chrome, not source.
 
-### P2
-
-- Deletions highlighted from the old version's text, which riff also
-  fetches for the outdated-comment view.
+- A file riff was told not to show — a lock file, generated code — is not
+  a file riff reads. Nor is one too big to be worth parsing: that is a
+  generated bundle, and its colours are worth nothing.
+- Deletions are highlighted from the old version's text, which arrives in
+  the same read. Without it a deleted line keeps the fragment parse's
+  reading, which is worse than nothing once its neighbours are right —
+  `regionCode` came out with `on` as a keyword inside it.
 
 ## Technical Notes
 
@@ -69,6 +71,9 @@ and the two dozen most recent files kept. The parse is the expensive half,
 not the mapping, which is redone per frame because the rows move with every
 fold.
 
-The text is asked for when the cursor arrives in a file, through the loader
-the expand-context feature already uses — so a file read for its colours is
-also a file already read for its context, and the other way round.
+The text is asked for when the cursor arrives in a file — noticed in the
+render loop, where a lookup and an early return cost nothing — and read
+quietly: no loading state, no error state, 150ms after arriving, so walking
+a review with `]f` reads nothing. The same cache answers the
+expand-context feature, so a file read for its colours is already read for
+its context.

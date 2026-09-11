@@ -1,5 +1,10 @@
 import { test, expect, describe } from "bun:test"
-import { mapFileHighlights, lineStarts } from "./file-highlights"
+import {
+  mapFileHighlights,
+  lineStarts,
+  worthHighlighting,
+  MAX_HIGHLIGHT_BYTES,
+} from "./file-highlights"
 import type { SimpleHighlight } from "@opentui/core"
 
 // A file whose middle is folded away on screen.
@@ -78,5 +83,15 @@ describe("moving a file's highlights onto the rows on screen", () => {
 
   test("line starts are where the lines start", () => {
     expect(lineStarts("ab\ncd\n")).toEqual([0, 3, 6])
+  })
+})
+
+describe("what is worth parsing", () => {
+  test("a file a person wrote", () => {
+    expect(worthHighlighting("x".repeat(200_000))).toBe(true)
+  })
+
+  test("a generated one", () => {
+    expect(worthHighlighting("x".repeat(MAX_HIGHLIGHT_BYTES + 1))).toBe(false)
   })
 })

@@ -247,7 +247,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       ctx.vimDiffView.setFileContents(
         new Map(
           Object.entries(state.fileContentCache).flatMap(([filename, entry]) =>
-            entry?.newContent ? [[filename, entry.newContent] as [string, string]] : []
+            entry?.newContent
+              ? [[filename, { new: entry.newContent, old: entry.oldContent }] as const]
+              : []
           )
         )
       )

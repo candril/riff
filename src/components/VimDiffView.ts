@@ -35,7 +35,7 @@ import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-sta
 import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
-import { mapFileHighlights } from "../vim-diff/file-highlights"
+import { mapFileHighlights, worthHighlighting } from "../vim-diff/file-highlights"
 
 /** Structural rows a selection skips — the same ones yank leaves out. */
 const SELECTION_SKIPPED_TYPES = new Set([
@@ -45,6 +45,23 @@ const SELECTION_SKIPPED_TYPES = new Set([
   "spacing",
   "no-newline",
 ])
+
+/** A file's text on one side of the change, and what tree-sitter made of it. */
+interface SideParse {
+  content: string
+  highlights: SimpleHighlight[] | null
+}
+
+interface FileParse {
+  new?: SideParse
+  old?: SideParse
+}
+
+/** The two versions of a file riff reads together (spec 080). */
+export interface FileVersions {
+  new: string
+  old: string | null
+}
 
 /** How many files' parses are kept at once (spec 080). */
 const FILE_HIGHLIGHT_LIMIT = 24
@@ -445,8 +462,12 @@ export class VimDiffView {
   private searchState: SearchState | null = null
   private flashState: FlashState | null = null
   
-  /** Each file's text and what tree-sitter made of it (spec 080). */
-  private fileHighlights = new Map<string, { content: string; highlights: SimpleHighlight[] | null }>()
+  /**
+   * Each file's text and what tree-sitter made of it, per side (spec 080).
+   * The old version answers for deletion rows, which no longer exist in
+   * the file the new one parses.
+   */
+  private fileHighlights = new Map<string, FileParse>()
   /** Told when a parse lands, so the frame can be drawn again. */
   onFileParsed: (() => void) | undefined
 
@@ -1336,7 +1357,7 @@ export class VimDiffView {
           ? this.mappedHighlights(filename, context.content, lineOffset)
           : null
         const base = fromFile
-          ? [...this.keepUnmappedRows(highlights, context.content, lineOffset), ...fromFile]
+          ? [...this.keepUnmappedRows(filename!, highlights, context.content, lineOffset), ...fromFile]
           : highlights
 
         const own = this.stripOwnRowHighlights(base, context.content, lineOffset)
@@ -1367,14 +1388,26 @@ export class VimDiffView {
    * whatever reading the rows themselves produced.
    */
   private keepUnmappedRows(
+    filename: string,
     highlights: SimpleHighlight[],
     content: string,
     lineOffset: number
   ): SimpleHighlight[] {
+    const entry = this.fileHighlights.get(filename)
+    const answered = new Set<string>()
+    if (entry?.new?.highlights) {
+      answered.add("context")
+      answered.add("addition")
+    }
+    if (entry?.old?.highlights) {
+      answered.add("context")
+      answered.add("deletion")
+    }
+
     const starts = computeLineStartOffsets(content)
     return highlights.filter(([start]) => {
       const row = this.lineMapping?.getLine(lineOffset + rowOfOffset(starts, start))
-      return row?.type !== "context" && row?.type !== "addition"
+      return row ? !answered.has(row.type) : true
     })
   }
 
@@ -1681,12 +1714,23 @@ export class VimDiffView {
    * fragments on screen (spec 080). Parsing is asynchronous; until it lands
    * the rows keep the colours they have.
    */
-  setFileContents(contents: ReadonlyMap<string, string>): void {
-    for (const [filename, content] of contents) {
+  setFileContents(contents: ReadonlyMap<string, FileVersions>): void {
+    for (const [filename, versions] of contents) {
       const parsed = this.fileHighlights.get(filename)
-      if (parsed && parsed.content === content) continue
-      this.fileHighlights.set(filename, { content, highlights: null })
-      void this.parseFile(filename, content)
+      if (parsed && parsed.new?.content === versions.new) continue
+      // A file too big to be worth parsing is also too big to hold on to.
+      if (!worthHighlighting(versions.new)) {
+        this.fileHighlights.delete(filename)
+        continue
+      }
+
+      const entry: FileParse = { new: { content: versions.new, highlights: null } }
+      if (versions.old !== null && worthHighlighting(versions.old)) {
+        entry.old = { content: versions.old, highlights: null }
+      }
+      this.fileHighlights.set(filename, entry)
+      void this.parseFile(filename, "new", versions.new)
+      if (entry.old) void this.parseFile(filename, "old", versions.old!)
     }
 
     // A file's text and its parse are held for as long as the reader is
@@ -1699,7 +1743,7 @@ export class VimDiffView {
     }
   }
 
-  private async parseFile(filename: string, content: string): Promise<void> {
+  private async parseFile(filename: string, side: "new" | "old", content: string): Promise<void> {
     const filetype = getFiletypeFromPath(filename)
     if (!filetype) return
 
@@ -1707,8 +1751,8 @@ export class VimDiffView {
       const result = await getTreeSitterClient().highlightOnce(content, filetype)
       const entry = this.fileHighlights.get(filename)
       // A refresh may have replaced the content while the parse was out.
-      if (!entry || entry.content !== content || !result.highlights) return
-      this.fileHighlights.set(filename, { content, highlights: result.highlights })
+      if (!entry || entry[side]?.content !== content || !result.highlights) return
+      entry[side] = { content, highlights: result.highlights }
       this.updateSearchHighlights()
       this.onFileParsed?.()
     } catch {
@@ -1730,22 +1774,37 @@ export class VimDiffView {
     startLine: number
   ): SimpleHighlight[] | null {
     const entry = this.fileHighlights.get(filename)
-    if (!entry?.highlights || !this.lineMapping) return null
+    if (!entry || !this.lineMapping) return null
 
-    const rowLines: (number | null)[] = []
-    for (let row = 0; row < rowsContent.split("\n").length; row++) {
-      const line = this.lineMapping.getLine(startLine + row)
-      const shows =
-        line && (line.type === "context" || line.type === "addition") ? line.newLineNum ?? null : null
-      rowLines.push(shows)
+    const rows = rowsContent.split("\n").length
+    const lineFor = (side: "new" | "old") => {
+      const lines: (number | null)[] = []
+      for (let row = 0; row < rows; row++) {
+        const line = this.lineMapping?.getLine(startLine + row)
+        const onSide =
+          side === "new"
+            ? line?.type === "context" || line?.type === "addition"
+            : line?.type === "context" || line?.type === "deletion"
+        lines.push(onSide ? (side === "new" ? line?.newLineNum : line?.oldLineNum) ?? null : null)
+      }
+      return lines
     }
 
-    return mapFileHighlights({
-      fileHighlights: entry.highlights,
-      fileContent: entry.content,
-      rowsContent,
-      rowLines,
-    })
+    const mapped: SimpleHighlight[] = []
+    for (const side of ["new", "old"] as const) {
+      const parse = entry[side]
+      if (!parse?.highlights) continue
+      mapped.push(
+        ...mapFileHighlights({
+          fileHighlights: parse.highlights,
+          fileContent: parse.content,
+          rowsContent,
+          rowLines: lineFor(side),
+        })
+      )
+    }
+
+    return entry.new?.highlights || entry.old?.highlights ? mapped : null
   }
 
   setFlashState(flashState: FlashState | null): void {
