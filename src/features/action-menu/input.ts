@@ -33,8 +33,8 @@ export interface ActionMenuInputContext {
   executeAction: (actionId: string) => void
   /** Called when the user presses Enter on a React… submenu row. */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
-  /** Called when the user picks one of a preview row's links (spec 068). */
-  onPreviewLink: (action: "open" | "copy", link: { label: string; url: string }) => void
+  /** Called when the user picks a link out of the links submenu. */
+  onLink: (action: "open" | "copy", link: { label: string; url: string }) => void
 }
 
 /** The link a submenu row stands for, or null when the row is not one. */
@@ -101,20 +101,12 @@ export function handleInput(
       if (submenu) {
         const row = submenuRows[ctx.state.actionMenu.selectedIndex]
         if (!row) return true
-        if (submenu.kind === "preview") {
-          const link = submenu.links[Number(row.id.split(":")[1])]
-          if (!link) return true
-          ctx.setState(closeActionMenu)
-          ctx.render()
-          ctx.onPreviewLink(submenu.action, link)
-          return true
-        }
         if (submenu.kind === "links") {
           const link = linkForRow(submenu, row.id)
           if (!link) return true
           ctx.setState(closeActionMenu)
           ctx.render()
-          ctx.onPreviewLink("open", link)
+          ctx.onLink(submenu.action, link)
           return true
         }
         if (submenu.kind === "react") {
@@ -145,7 +137,7 @@ export function handleInput(
 
     case "y": {
       // A bare `y` is a letter of the query; Ctrl-y copies the link rather
-      // than opening it, the one thing a reader wants that Enter does not.
+      // than doing whatever the key that opened the picker meant.
       if (!key.ctrl || !submenu) return true
       const row = submenuRows[ctx.state.actionMenu.selectedIndex]
       const link = row ? linkForRow(submenu, row.id) : null
@@ -153,7 +145,7 @@ export function handleInput(
       consume()
       ctx.setState(closeActionMenu)
       ctx.render()
-      ctx.onPreviewLink("copy", link)
+      ctx.onLink("copy", link)
       return true
     }
 

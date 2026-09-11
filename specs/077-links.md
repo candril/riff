@@ -46,12 +46,16 @@ cursor, it lists what it found instead.
 - One link is not a question: it opens. None says so, rather than opening an
   empty picker.
 - The same PR named three times in one paragraph is one row.
+- A preview row's links are in there too, the build's own run included —
+  which `Enter` and `y` never reached (spec 068). One picker for links, not
+  one per section that happens to have some.
 
 ## Technical Notes
 
-The picker is the palette's submenu (spec 042), the widget the preview rows
-already borrow — a new `links` kind beside `preview`, so there is one list
-renderer rather than two.
+The picker is the palette's submenu (spec 042). Preview rows had grown their
+own kind of it; there is one `links` kind now, carrying whether `Enter` or
+`y` asked, so a row of deploy URLs and a paragraph full of references come up
+in the same list.
 
 Collection is `findReferences` (spec 059) and a new `findUrls` beside
 `linkAt` in `utils/links.ts`, merged in written order with the references

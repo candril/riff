@@ -25,7 +25,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
 import { copyToClipboard } from "../utils/clipboard"
-import { collectLinks } from "../utils/link-targets"
+import { collectLinks, type LinkTarget } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 
 import * as actionMenu from "../features/action-menu"
@@ -425,11 +425,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
    * asking, and none is worth saying out loud rather than opening an empty
    * picker.
    */
-  function openLinksPicker(text: string, title: string): void {
-    const links = collectLinks(text, {
-      repo: referenceRepo(),
-      resolved: resolvedReferences(),
-    })
+  function openLinksPicker(
+    source: { text: string } | { links: LinkTarget[] },
+    title: string,
+    action: "open" | "copy" = "open",
+  ): void {
+    const links =
+      "links" in source
+        ? source.links
+        : collectLinks(source.text, { repo: referenceRepo(), resolved: resolvedReferences() })
+
     if (links.length === 0) {
       ctx.setState((s) => showToast(s, "No links here", "info"))
       ctx.render()
@@ -440,21 +445,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
     if (links.length === 1) {
-      openPreviewLink("open", links[0]!)
+      openLink(action, links[0]!)
       return
     }
     ctx.setState((s) =>
-      openActionSubmenu(openActionMenu(s), { kind: "links", links, title: `Links — ${title}` })
+      openActionSubmenu(openActionMenu(s), { kind: "links", links, action, title })
     )
     ctx.render()
   }
 
   /**
-   * Open a preview link in the browser, or put it on the clipboard (spec
-   * 068). riff never ticks a deploy checkbox — a row opens and copies, and
-   * that is all it does.
+   * Open a link in the browser, or put it on the clipboard. riff never
+   * ticks a deploy checkbox — a row opens and copies, and that is all it
+   * does (spec 068).
    */
-  function openPreviewLink(action: "open" | "copy", link: { label: string; url: string }): void {
+  function openLink(action: "open" | "copy", link: { label: string; url: string }): void {
     if (action === "open") {
       Bun.spawn([openerCommand(), link.url], { stdout: "ignore", stderr: "ignore" })
       return
@@ -553,7 +558,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         render: ctx.render,
         executeAction: ctx.executeAction,
         onToggleReaction: ctx.onToggleReaction,
-        onPreviewLink: openPreviewLink,
+        onLink: openLink,
       })
     ) {
       return
@@ -671,8 +676,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
         onOpenLinks: (comment) =>
           openLinksPicker(
-            comment.localEdit ?? comment.body,
-            `@${comment.author || "you"}`
+            { text: comment.localEdit ?? comment.body },
+            `Links — @${comment.author || "you"}`
           ),
         getCommentedLines: () => {
           // What the comment replaces, read off the diff rows themselves —
@@ -842,27 +847,18 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         },
         executeAction: ctx.executeAction,
         onOpenLinks: () => {
-          const focused = ctx.getPrInfoPanel()?.focusedText()
+          const focused = ctx.getPrInfoPanel()?.focusedLinks()
           if (!focused) return
-          openLinksPicker(focused.text, focused.title)
+          openLinksPicker(focused, `Links — ${focused.title}`)
         },
         onPreviewRow: (action, row) => {
-          if (row.links.length === 0) return
-          const only = row.links.length === 1 ? row.links[0]! : null
-          if (only) {
-            openPreviewLink(action, only)
-            return
-          }
-          // Several places for one app: ask which, in the palette's submenu.
-          ctx.setState((s) =>
-            openActionSubmenu(openActionMenu(s), {
-              kind: "preview",
-              links: row.links,
-              action,
-              title: `${action === "open" ? "Open" : "Copy"} — ${row.app}`,
-            })
+          // Several places for one app: the same picker every other list of
+          // links uses, told whether it was `Enter` or `y` that asked.
+          openLinksPicker(
+            { links: row.links },
+            `${action === "open" ? "Open" : "Copy"} — ${row.app}`,
+            action
           )
-          ctx.render()
         },
         recordJump,
       })

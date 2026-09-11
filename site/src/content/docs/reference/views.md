@@ -214,7 +214,8 @@ and a one-glance summary, bar the description, which is open:
 
 - **Description** — the body, rendered.
 - **Previews** — where a deploy bot put this PR, one row per app: `Enter` opens, `y` copies, `Y`
-  copies every URL on the row, and a row with several links asks which. Configured in
+  copies every URL on the row, and a row with several links asks which. `gx` lists them all,
+  including the build's own run. Configured in
   [`[previews]`](/riff/reference/configuration/#previews).
 - **Conversation** — PR comments and review threads, expandable with `l`, resolvable with `x`,
   and `c` writes a new one.
@@ -233,8 +234,9 @@ whatever is focused via the action menu.
 
 In the diff, `gx` opens the URL under the cursor. A rendered body has no cursor to put on a
 link, so in the overview and the comments panel `gx` lists what it found instead — the URLs, and
-every `#1213` as the pull request or issue it points at rather than as a number. `Enter` opens,
-`Ctrl+y` copies, and typing narrows the list. One link opens without asking.
+every `#1213` as the pull request or issue it points at rather than as a number. On a preview row
+it lists that row's deploy links. `Enter` opens, `Ctrl+y` copies, and typing narrows the list.
+One link opens without asking.
 
 ![The PR overview](../../../assets/screenshots/overview.png)
 

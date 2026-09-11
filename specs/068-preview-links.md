@@ -40,7 +40,9 @@ what they are — a list of places you can open.
 ```
 
 - `Enter` opens in the browser, `y` copies the URL, `Y` copies every URL on
-  the row. A row with several links opens a picker for both.
+  the row. A row with several links opens a picker for both — the links
+  picker (spec 077), which `gx` opens on the row directly, the build's run
+  URL included.
 - Italic cells (`*on demand*`, `*building*`) are shown as status, not as
   dead links.
 - The source comment is folded away in Conversation when configured.

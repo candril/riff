@@ -18,6 +18,7 @@ import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrChec
 import { getPrCheckAnnotations } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
+import type { LinkTarget } from "../utils/link-targets"
 import { stackText, type StackInfo } from "../utils/stack"
 import type { Comment, ReactionSummary, ReactionTarget } from "../types"
 import { REACTION_META } from "../types"
@@ -1521,13 +1522,18 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * The text `gx` reads links out of: whatever the cursor is on (spec 077).
+   * Where `gx` looks for links: whatever the cursor is on (spec 077).
    *
-   * On a section header that is the section's own subject — the description
-   * for Description — since a header is where the cursor sits by default and
-   * the PR's own body is the text most worth following a link out of.
+   * Usually that is text to read them out of. A preview row is the
+   * exception — its links were lifted out of a table and are already a
+   * list, the build's own run included, which `Enter` and `y` never reach
+   * (spec 068).
+   *
+   * On a section header the subject is the section's own — the description
+   * for Description — since a header is where the cursor sits by default
+   * and the PR's own body is the text most worth following a link out of.
    */
-  focusedText(): { title: string; text: string } | null {
+  focusedLinks(): { title: string; text: string } | { title: string; links: LinkTarget[] } | null {
     switch (this.activeSection) {
       case 'description':
         return { title: "Description", text: this.prInfo.body ?? "" }
@@ -1550,6 +1556,12 @@ export class PRInfoPanelClass {
         if (!item) return null
         const url = item.kind === 'annotation' ? item.annotation.message : item.check.detailsUrl
         return url ? { title: item.check.name, text: url } : null
+      }
+      case 'previews': {
+        const row = this.visiblePreviews[this.cursorIndex]
+        if (!row) return null
+        const built = row.built ? [{ label: row.built.label, url: row.built.url, detail: "built" }] : []
+        return { title: row.app, links: [...row.links, ...built] }
       }
       default:
         return null
