@@ -12,8 +12,7 @@
 export {
   handleInput,
   getFilteredCommits,
-  inMarkedSpan,
-  markedSpan,
+  markedCommits,
   type CommitPickerInputContext,
 } from "./input"
 

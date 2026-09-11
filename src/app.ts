@@ -35,6 +35,7 @@ import { saveVisitSync } from "./storage"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
+import type { DiffFile } from "./utils/diff-parser"
 
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
@@ -1103,7 +1104,79 @@ export async function createApp(options: AppOptions = {}) {
     return parent?.sha ?? state.prInfo?.baseRef ?? `${sha}^`
   }
 
-  async function handleCommitSelected(sha: string | null, filename?: string, from?: string | null) {
+  /**
+   * Is this scope a run of commits, oldest to newest, with nothing skipped?
+   * A run has one cumulative diff; a selection with gaps does not, and is
+   * read as its commits' patches instead (spec 078).
+   */
+  function contiguousRun(scope: readonly string[]): { oldest: string; newest: string } | null {
+    if (scope.length < 2) return null
+    const positions = scope.map((sha) => state.commits.findIndex((c) => c.sha === sha))
+    if (positions.some((index) => index === -1)) return null
+    const sorted = [...positions].sort((a, b) => a - b)
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i]! !== sorted[i - 1]! + 1) return null
+    }
+    return {
+      oldest: state.commits[sorted[sorted.length - 1]!]!.sha,
+      newest: state.commits[sorted[0]!]!.sha,
+    }
+  }
+
+  /** One commit's patch, from whichever provider this review came from. */
+  async function commitPatch(sha: string): Promise<string> {
+    return state.appMode === "pr" && state.prInfo
+      ? await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
+      : await getLocalCommitDiff(sha, options.target)
+  }
+
+  /**
+   * The files a scope covers. A run is one cumulative diff; commits picked
+   * with gaps between them are their own patches, oldest first, with a file
+   * two of them touched carrying both sets of hunks — which is what
+   * `git log -p` would have shown.
+   */
+  async function scopeFiles(scope: readonly string[]): Promise<DiffFile[]> {
+    const run = contiguousRun(scope)
+    if (run) {
+      const raw = state.appMode === "pr" && state.prInfo
+        ? await fetchCommitRangeDiff(
+            state.prInfo.owner,
+            state.prInfo.repo,
+            parentOfCommit(run.oldest),
+            run.newest
+          )
+        : await getLocalCommitRangeDiff(run.oldest, run.newest)
+      return sortFiles(parseDiff(raw))
+    }
+
+    if (scope.length === 1) return sortFiles(parseDiff(await commitPatch(scope[0]!)))
+
+    const merged = new Map<string, DiffFile>()
+    for (const sha of [...scope].reverse()) {
+      for (const file of parseDiff(await commitPatch(sha))) {
+        const seen = merged.get(file.filename)
+        merged.set(
+          file.filename,
+          seen
+            ? {
+                ...seen,
+                additions: seen.additions + file.additions,
+                deletions: seen.deletions + file.deletions,
+                content: `${seen.content}\n${file.content}`,
+              }
+            : file
+        )
+      }
+    }
+    return sortFiles([...merged.values()])
+  }
+
+  async function handleCommitSelected(
+    sha: string | null,
+    filename?: string,
+    scope?: readonly string[] | null,
+  ) {
     if (sha === null) {
       // Switch back to all commits
       state = setViewingCommit(state, null)
@@ -1116,39 +1189,17 @@ export async function createApp(options: AppOptions = {}) {
       return
     }
 
-    // A span is one scope with one cached diff, keyed by both its ends.
-    const span = from && from !== sha ? { oldest: from, newest: sha } : null
-    const cacheKey = commitScopeKey(sha, from)
+    const shas = scope && scope.length > 0 ? scope : [sha]
+    const cacheKey = commitScopeKey(sha, shas)
 
-    // Check cache first
     if (!state.commitDiffCache.has(cacheKey)) {
-      // Fetch the commit diff
-      state = showToast(state, span ? "Loading commits..." : "Loading commit...", "info")
+      state = showToast(state, shas.length > 1 ? "Loading commits..." : "Loading commit...", "info")
       render()
 
       try {
-        let rawDiff: string
-        if (state.appMode === "pr" && state.prInfo) {
-          rawDiff = span
-            ? await fetchCommitRangeDiff(
-                state.prInfo.owner,
-                state.prInfo.repo,
-                parentOfCommit(span.oldest),
-                span.newest
-              )
-            : await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
-        } else {
-          rawDiff = span
-            ? await getLocalCommitRangeDiff(span.oldest, span.newest)
-            : await getLocalCommitDiff(sha, options.target)
-        }
-
-        const files = sortFiles(parseDiff(rawDiff))
-        const fileTree = buildFileTree(files)
-
-        // Cache the result
+        const files = await scopeFiles(shas)
         const newCache = new Map(state.commitDiffCache)
-        newCache.set(cacheKey, { files, fileTree })
+        newCache.set(cacheKey, { files, fileTree: buildFileTree(files) })
         state = { ...state, commitDiffCache: newCache }
       } catch (err) {
         state = showToast(state, `Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
@@ -1159,7 +1210,7 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // Switch to the commit's diff
-    state = setViewingCommit(state, sha, from)
+    state = setViewingCommit(state, sha, shas)
     vimState = createCursorState()
     createLineMapping()
 
@@ -1176,13 +1227,16 @@ export async function createApp(options: AppOptions = {}) {
     // Show toast with commit info
     const commit = state.commits.find(c => c.sha === sha)
     const commitIdx = state.commits.findIndex(c => c.sha === sha) + 1
-    if (span) {
-      const oldestIdx = state.commits.findIndex(c => c.sha === span.oldest) + 1
+    const run = contiguousRun(shas)
+    if (run) {
+      const oldestIdx = state.commits.findIndex(c => c.sha === run.oldest) + 1
       state = showToast(
         state,
         `Commits ${commitIdx}\u2013${oldestIdx} of ${state.commits.length}`,
         "info"
       )
+    } else if (shas.length > 1) {
+      state = showToast(state, `${shas.length} commits of ${state.commits.length}`, "info")
     } else {
       const msg = commit ? `${commit.sha}: ${commit.message}` : sha
       const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg

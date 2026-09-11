@@ -1,7 +1,15 @@
 import { test, expect, describe } from "bun:test"
-import { markedSpan, inMarkedSpan, getFilteredCommits } from "./input"
-import { createInitialState, openCommitPicker, toggleCommitPickerAnchor, type AppState } from "../../state"
+import { markedCommits, getFilteredCommits, handleInput } from "./input"
+import {
+  createInitialState,
+  openCommitPicker,
+  setViewingCommit,
+  toggleCommitMark,
+  toggleCommitRange,
+  type AppState,
+} from "../../state"
 import type { PrCommit } from "../../providers/github"
+import type { KeyEvent } from "@opentui/core"
 
 // Newest first, as both providers report them.
 const commits: PrCommit[] = [
@@ -11,62 +19,94 @@ const commits: PrCommit[] = [
   { sha: "ddd4444", message: "something else", author: "you", date: "2026-09-11T07:00:00Z" },
 ]
 
-function picker(anchor: string, cursorRow: number): AppState {
-  const open = openCommitPicker({ ...createInitialState([], [], "local", "local changes"), commits })
-  const anchored = toggleCommitPickerAnchor(open, anchor)
-  // Row 0 is "All commits", so a commit's row is its index + 1.
-  return { ...anchored, commitPicker: { ...anchored.commitPicker, selectedIndex: cursorRow + 1 } }
+function base(): AppState {
+  return { ...createInitialState([], [], "local", "local changes"), commits }
 }
 
-describe("marking a span of commits", () => {
-  test("the older end is the one further down the list", () => {
-    const state = picker("aaa1111", 2)
+/** Row 0 is "all commits", so a commit's row is its index + 1. */
+function onRow(state: AppState, row: number): AppState {
+  return { ...state, commitPicker: { ...state.commitPicker, selectedIndex: row + 1 } }
+}
 
-    expect(markedSpan(state, getFilteredCommits(state))).toEqual({
-      oldest: "ccc3333",
-      newest: "aaa1111",
-    })
+function press(state: AppState, key: Partial<KeyEvent>): AppState {
+  let next = state
+  handleInput({ name: "", sequence: "", preventDefault: () => {}, ...key } as unknown as KeyEvent, {
+    state,
+    setState: (fn) => { next = fn(next) },
+    render: () => {},
+    onCommitSelected: () => {},
+  })
+  return next
+}
+
+describe("marking commits", () => {
+  test("space marks one, and marks it back off", () => {
+    const marked = toggleCommitMark(onRow(openCommitPicker(base()), 1), "bbb2222")
+    expect(markedCommits(marked)).toEqual(["bbb2222"])
+    expect(markedCommits(toggleCommitMark(marked, "bbb2222"))).toEqual([])
   })
 
-  test("and it reads the same marked from the other end", () => {
-    const state = picker("ccc3333", 0)
+  test("marks come back newest first, whatever order they were picked in", () => {
+    const state = toggleCommitMark(toggleCommitMark(openCommitPicker(base()), "ccc3333"), "aaa1111")
 
-    expect(markedSpan(state, getFilteredCommits(state))).toEqual({
-      oldest: "ccc3333",
-      newest: "aaa1111",
-    })
+    expect(markedCommits(state)).toEqual(["aaa1111", "ccc3333"])
   })
 
-  test("a span of one is no span — Enter alone already does that", () => {
-    const state = picker("bbb2222", 1)
+  test("V marks the row it starts on, and j drags the run along", () => {
+    const started = toggleCommitRange(onRow(openCommitPicker(base()), 0), "aaa1111")
+    expect(markedCommits(started)).toEqual(["aaa1111"])
 
-    expect(markedSpan(state, getFilteredCommits(state))).toBeNull()
+    const moved = press(press(started, { name: "j" }), { name: "j" })
+    expect(markedCommits(moved)).toEqual(["aaa1111", "bbb2222", "ccc3333"])
   })
 
-  test("the rows in between are the ones the picker marks", () => {
-    const state = picker("aaa1111", 2)
-    const filtered = getFilteredCommits(state)
+  test("V again keeps the run and lets the cursor leave it", () => {
+    const run = press(toggleCommitRange(onRow(openCommitPicker(base()), 0), "aaa1111"), { name: "j" })
+    const stopped = press(run, { name: "v", shift: true })
+    const wandered = press(press(stopped, { name: "j" }), { name: "j" })
 
-    expect([0, 1, 2, 3].map((i) => inMarkedSpan(state, filtered, i))).toEqual([
-      true,
-      true,
-      true,
-      false,
-    ])
+    expect(markedCommits(wandered)).toEqual(["aaa1111", "bbb2222"])
   })
 
-  test("an anchor the query filtered away marks nothing", () => {
-    const state = picker("ddd4444", 0)
-    const narrowed = { ...state, commitPicker: { ...state.commitPicker, query: "middle" } }
-    const filtered = getFilteredCommits(narrowed)
+  test("a run keeps what was marked before it started", () => {
+    const one = toggleCommitMark(openCommitPicker(base()), "ddd4444")
+    const run = press(toggleCommitRange(onRow(one, 0), "aaa1111"), { name: "j" })
 
-    expect(filtered.map((row) => row.commit.sha)).toEqual(["bbb2222"])
-    expect(markedSpan(narrowed, filtered)).toBeNull()
+    expect(markedCommits(run)).toEqual(["aaa1111", "bbb2222", "ddd4444"])
+  })
+})
+
+describe("the picker's modes", () => {
+  test("letters are the list's until `/` asks for them", () => {
+    const state = openCommitPicker(base())
+    expect(state.commitPicker.queryInput).toBe(false)
+
+    const filtering = press(state, { name: "/", sequence: "/" })
+    expect(filtering.commitPicker.queryInput).toBe(true)
+
+    const done = press(filtering, { name: "return" })
+    expect(done.commitPicker.queryInput).toBe(false)
   })
 
-  test("nothing anchored, nothing marked", () => {
-    const state = openCommitPicker({ ...createInitialState([], [], "local", "local changes"), commits })
+  test("reopening shows what is already in scope", () => {
+    const scoped = setViewingCommit(
+      { ...base(), commitDiffCache: new Map([["bbb2222+ccc3333", { files: [], fileTree: [] }]]) },
+      "bbb2222",
+      ["bbb2222", "ccc3333"],
+    )
 
-    expect(markedSpan(state, getFilteredCommits(state))).toBeNull()
+    const reopened = openCommitPicker(scoped)
+
+    expect(markedCommits(reopened)).toEqual(["bbb2222", "ccc3333"])
+    // And the cursor starts on the first of them rather than at the top.
+    expect(reopened.commitPicker.selectedIndex).toBe(2)
+  })
+})
+
+describe("what the filter narrows", () => {
+  test("the query still matches message, sha and author", () => {
+    const state = { ...openCommitPicker(base()), commitPicker: { ...openCommitPicker(base()).commitPicker, query: "middle" } }
+
+    expect(getFilteredCommits(state).map((row) => row.commit.sha)).toEqual(["bbb2222"])
   })
 })

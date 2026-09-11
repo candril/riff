@@ -88,8 +88,8 @@ export interface HeaderProps {
   branchInfo?: string | null
   /** Currently viewing a specific commit (null = all commits) */
   viewingCommit?: string | null
-  /** The oldest commit in scope, when the scope is a span (spec 078). */
-  viewingCommitFrom?: string | null
+  /** Every commit in scope, when more than one is (spec 078). */
+  viewingCommitScope?: string[] | null
   /** The pull request this branch already has, in local mode (spec 079). */
   branchPr?: BranchPr | null
   /** All available commits (for showing count) */
@@ -116,7 +116,7 @@ export function Header({
   reviewProgress,
   branchInfo,
   viewingCommit,
-  viewingCommitFrom,
+  viewingCommitScope,
   commits,
   branchPr,
   lastRefreshedAt,
@@ -139,12 +139,19 @@ export function Header({
     const commit = commits[index]
     const position = index === -1 ? "" : ` ${index + 1}/${commits.length}`
 
-    // A span says how far it reaches rather than naming one subject of the
-    // several it covers (spec 078). The list is newest-first, so the older
-    // end is the higher number.
-    const fromIndex = viewingCommitFrom ? commits.findIndex(c => c.sha === viewingCommitFrom) : -1
-    if (fromIndex !== -1 && index !== -1 && fromIndex !== index) {
-      return `commits ${index + 1}\u2013${fromIndex + 1}/${commits.length} · esc: all commits`
+    // Several commits say how many, or how far they reach when they are a
+    // run, rather than naming one of the subjects they cover (spec 078).
+    if (viewingCommitScope && viewingCommitScope.length > 1) {
+      const positions = viewingCommitScope
+        .map((sha) => commits.findIndex((commit) => commit.sha === sha))
+        .filter((at) => at !== -1)
+        .sort((a, b) => a - b)
+      const run =
+        positions.length > 1 &&
+        positions[positions.length - 1]! - positions[0]! === positions.length - 1
+      return run
+        ? `commits ${positions[0]! + 1}\u2013${positions[positions.length - 1]! + 1}/${commits.length} · esc: all commits`
+        : `${viewingCommitScope.length} commits of ${commits.length} · esc: all commits`
     }
 
     if (!commit) return `commit${position} · ${viewingCommit.slice(0, 7)} · esc: all commits`

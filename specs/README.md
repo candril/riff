@@ -93,7 +93,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 075 | [Diff a File in the Editor](./075-diff-in-editor.md) | Done | `gd` / `gD` open both versions side by side, configurable |
 | 076 | [Suggestions](./076-suggestions.md) | Done | `Ctrl-y` writes a suggestion block for the lines under review |
 | 077 | [Links](./077-links.md) | Done | `gx` lists the links in the PR body or a comment |
-| 078 | [Commit Ranges](./078-commit-ranges.md) | Done | `Ctrl-v` in the commit picker scopes the diff to a span of commits |
+| 078 | [Commit Ranges](./078-commit-ranges.md) | Done | mark commits in the picker and read them as one diff |
 | 079 | [The PR Your Branch Already Has](./079-branch-pr.md) | Done | local mode names the branch's PR and reopens riff on it |
 
 ## MVP Path

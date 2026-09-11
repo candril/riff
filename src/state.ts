@@ -347,10 +347,15 @@ export interface CommitPickerState {
   open: boolean
   /** Current search query */
   query: string
+  /** Whether `/` is open and taking what is typed (spec 078). */
+  queryInput: boolean
   /** Currently selected index (0 = "All commits" option) */
   selectedIndex: number
-  /** Where a span started, while one is being marked (spec 078). */
-  anchorSha: string | null
+  /** The commits marked for the next scope, by sha. */
+  marked: ReadonlySet<string>
+  /** Where `V` started extending, and what was marked before it did. */
+  rangeAnchor: string | null
+  markedBeforeRange: ReadonlySet<string>
 }
 
 /**
@@ -516,8 +521,8 @@ export interface AppState {
   /** The PR the branch already has, in local mode (spec 079). */
   branchPr: BranchPr | null
   viewingCommit: string | null       // null = all commits, else the newest commit in scope
-  /** The oldest commit in scope, when the scope is a span (spec 078). */
-  viewingCommitFrom: string | null
+  /** Every commit in scope, newest first, when more than one is (spec 078). */
+  viewingCommitScope: string[] | null
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
   commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
@@ -725,12 +730,15 @@ export function createInitialState(
     commitPicker: {
       open: false,
       query: "",
+      queryInput: false,
       selectedIndex: 0,
-      anchorSha: null,
+      marked: new Set(),
+      rangeAnchor: null,
+      markedBeforeRange: new Set(),
     },
     branchPr: null,
     viewingCommit: null,
-    viewingCommitFrom: null,
+    viewingCommitScope: null,
     allFiles: files,
     allFileTree: fileTree,
     commitDiffCache: new Map(),
@@ -2931,22 +2939,80 @@ export function toggleShowHiddenFiles(state: AppState): AppState {
 /**
  * Open the commit picker
  */
+/**
+ * Open the picker on what is already in scope: the marks the last visit
+ * made are still there, so reopening shows the selection rather than asking
+ * for it again (spec 078).
+ */
 export function openCommitPicker(state: AppState): AppState {
+  const marked = new Set(state.viewingCommitScope ?? [])
+  const first = state.commits.findIndex((commit) => marked.has(commit.sha))
   return {
     ...state,
     commitPicker: {
       open: true,
       query: "",
-      selectedIndex: 0,
-      anchorSha: null,
+      queryInput: false,
+      // Row 0 is "all commits", so a commit's row is its index + 1.
+      selectedIndex: first === -1 ? 0 : first + 1,
+      marked,
+      rangeAnchor: null,
+      markedBeforeRange: marked,
     },
   }
 }
 
-/** Start marking a span here, or drop the one being marked (spec 078). */
-export function toggleCommitPickerAnchor(state: AppState, sha: string | null): AppState {
-  const anchorSha = state.commitPicker.anchorSha === sha ? null : sha
-  return { ...state, commitPicker: { ...state.commitPicker, anchorSha } }
+/** `Space` — this commit is in the scope, or is not. */
+export function toggleCommitMark(state: AppState, sha: string): AppState {
+  const marked = new Set(state.commitPicker.marked)
+  if (marked.has(sha)) marked.delete(sha)
+  else marked.add(sha)
+  return { ...state, commitPicker: { ...state.commitPicker, marked } }
+}
+
+/**
+ * `V` — start extending a run from here, or stop extending and keep what is
+ * marked, so `j`/`k` move without changing it.
+ */
+export function toggleCommitRange(state: AppState, sha: string): AppState {
+  const picker = state.commitPicker
+  if (picker.rangeAnchor !== null) {
+    return { ...state, commitPicker: { ...picker, rangeAnchor: null, markedBeforeRange: picker.marked } }
+  }
+  const marked = new Set(picker.marked)
+  marked.add(sha)
+  return {
+    ...state,
+    commitPicker: {
+      ...picker,
+      rangeAnchor: sha,
+      markedBeforeRange: picker.marked,
+      marked,
+    },
+  }
+}
+
+/** Everything between the anchor and the cursor, plus what was marked before. */
+export function markCommitRange(state: AppState, shas: readonly string[]): AppState {
+  const marked = new Set(state.commitPicker.markedBeforeRange)
+  for (const sha of shas) marked.add(sha)
+  return { ...state, commitPicker: { ...state.commitPicker, marked } }
+}
+
+/** `/` opens the filter; Esc or Enter closes it and leaves what it found. */
+export function startCommitPickerFilter(state: AppState): AppState {
+  return { ...state, commitPicker: { ...state.commitPicker, queryInput: true } }
+}
+
+export function endCommitPickerFilter(state: AppState, keep: boolean): AppState {
+  return {
+    ...state,
+    commitPicker: {
+      ...state.commitPicker,
+      queryInput: false,
+      query: keep ? state.commitPicker.query : "",
+    },
+  }
 }
 
 /**
@@ -2959,8 +3025,8 @@ export function closeCommitPicker(state: AppState): AppState {
       ...state.commitPicker,
       open: false,
       query: "",
-      selectedIndex: 0,
-      anchorSha: null,
+      queryInput: false,
+      rangeAnchor: null,
     },
   }
 }
@@ -2974,10 +3040,13 @@ export function setCommitPickerQuery(state: AppState, query: string): AppState {
     commitPicker: {
       ...state.commitPicker,
       query,
-      // Narrowing the list moves every row; a span anchored to a row that
-      // may no longer be there is a span nobody can see.
-      anchorSha: null,
-      selectedIndex: 0,
+      // Narrowing moves every row; a run being extended from a row that may
+      // no longer be there is a run nobody can see. The marks stay.
+      rangeAnchor: null,
+      markedBeforeRange: state.commitPicker.marked,
+      // On the first match rather than on "all commits": narrowing is how
+      // you go and find a commit, not how you leave.
+      selectedIndex: 1,
     },
   }
 }
@@ -2999,10 +3068,10 @@ export function moveCommitPickerSelection(state: AppState, delta: number, maxInd
 }
 
 /**
- * How a commit scope is cached: one sha, or the span it covers (spec 078).
+ * How a commit scope is cached: the commits in it, in list order (spec 078).
  */
-export function commitScopeKey(to: string, from?: string | null): string {
-  return from && from !== to ? `${from}..${to}` : to
+export function commitScopeKey(sha: string, scope?: readonly string[] | null): string {
+  return scope && scope.length > 1 ? scope.join("+") : sha
 }
 
 /**
@@ -3013,14 +3082,14 @@ export function commitScopeKey(to: string, from?: string | null): string {
 export function setViewingCommit(
   state: AppState,
   commitSha: string | null,
-  from?: string | null,
+  scope?: readonly string[] | null,
 ): AppState {
   if (commitSha === null) {
     // Restore full PR diff
     return {
       ...state,
       viewingCommit: null,
-      viewingCommitFrom: null,
+      viewingCommitScope: null,
       files: state.allFiles,
       fileTree: state.allFileTree,
       selectedFileIndex: null,
@@ -3032,13 +3101,13 @@ export function setViewingCommit(
   }
 
   // Switch to a specific commit's diff
-  const cached = state.commitDiffCache.get(commitScopeKey(commitSha, from))
+  const cached = state.commitDiffCache.get(commitScopeKey(commitSha, scope))
   if (!cached) return state  // Should not happen — caller caches first
 
   return {
     ...state,
     viewingCommit: commitSha,
-    viewingCommitFrom: from ?? commitSha,
+    viewingCommitScope: scope && scope.length > 1 ? [...scope] : null,
     files: cached.files,
     fileTree: cached.fileTree,
     selectedFileIndex: null,

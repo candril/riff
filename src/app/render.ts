@@ -140,7 +140,7 @@ function openPrompt(
       onChange: typeInto(setCommentsPickerQuery),
     }
   }
-  if (state.commitPicker.open) {
+  if (state.commitPicker.open && state.commitPicker.queryInput) {
     return {
       key: "commit-picker",
       initialValue: state.commitPicker.query,
@@ -433,7 +433,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           reviewProgress: getReviewProgress(state),
           branchInfo: state.branchInfo,
           viewingCommit: state.viewingCommit,
-          viewingCommitFrom: state.viewingCommitFrom,
+          viewingCommitScope: state.viewingCommitScope,
           branchPr: state.branchPr,
           commits: state.commits,
           lastRefreshedAt: state.lastRefreshedAt,
@@ -552,7 +552,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               commits: filteredCommits,
               selectedIndex: state.commitPicker.selectedIndex,
               viewingCommit: state.viewingCommit,
-              marked: (index) => commitPicker.inMarkedSpan(state, filteredCommits, index),
+              marked: state.commitPicker.marked,
+              filtering: state.commitPicker.queryInput,
+              query: state.commitPicker.query,
+              extending: state.commitPicker.rangeAnchor !== null,
             })
           : null,
         state.showHelp ? HelpOverlay() : null,

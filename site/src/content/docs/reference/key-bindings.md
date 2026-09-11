@@ -92,7 +92,7 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `Ctrl+t` | Toggle the comments panel |
 | `Ctrl+f` | Fuzzy file picker, from every view |
 | `/` | Filter the list that has focus — tree, PR overview, feed, comments panel; search, in the diff |
-| `Ctrl+g` | Pick a commit to scope the diff to — `Ctrl+v` there marks a span (`Esc` in the diff leaves it) |
+| `Ctrl+g` | Pick commits to scope the diff to — `Space` marks, `V` marks a run (`Esc` in the diff leaves it) |
 | `v` | Mark the file viewed and advance to the next unviewed |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
 

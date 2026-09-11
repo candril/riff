@@ -10,8 +10,14 @@ export interface CommitPickerProps {
   commits: FilteredCommit[]
   selectedIndex: number
   viewingCommit: string | null
-  /** Rows inside the span being marked, by position in `commits` (spec 078). */
-  marked?: (index: number) => boolean
+  /** Commits marked for the next scope, by sha (spec 078). */
+  marked: ReadonlySet<string>
+  /** Whether `/` is open and taking what is typed. */
+  filtering: boolean
+  /** What `/` has narrowed the list to, once accepted. */
+  query: string
+  /** Whether `V` is extending a run, which changes what j/k do. */
+  extending: boolean
 }
 
 export interface FilteredCommit {
@@ -41,7 +47,16 @@ function formatTimeAgo(isoDate: string): string {
 /**
  * Commit picker overlay for selecting a commit to filter the diff
  */
-export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, marked }: CommitPickerProps) {
+export function CommitPicker({
+  renderer,
+  commits,
+  selectedIndex,
+  viewingCommit,
+  marked,
+  filtering,
+  query,
+  extending,
+}: CommitPickerProps) {
   // Total items = 1 ("All commits") + filtered commits
   const totalItems = 1 + commits.length
 
@@ -81,10 +96,14 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, 
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ content: "Select Commit", fg: theme.subtext0 }),
-        Text({ content: "esc", fg: theme.overlay0 })
+        Text({
+          content: marked.size > 0 ? `Select Commit  ${marked.size} marked` : "Select Commit",
+          fg: theme.subtext0,
+        }),
+        Text({ content: extending ? "V: stop extending" : "esc", fg: theme.overlay0 })
       ),
-      // Search input (cursor positioned via postProcess in app.ts)
+      // The filter is a mode, not the way in: `/` opens it, and what it
+      // found stays visible beside the list once accepted (spec 078).
       Box(
         {
           id: "commit-picker-search",
@@ -96,7 +115,16 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, 
           // has just moved here from another prompt.
           height: 1,
         },
-        PromptInput(renderer, "commit-picker")
+        filtering
+          ? Box(
+              { flexDirection: "row", flexGrow: 1 },
+              Text({ content: "/", fg: theme.subtext0 }),
+              PromptInput(renderer, "commit-picker")
+            )
+          : Text({
+              content: query ? `/${query}` : "/ to filter",
+              fg: query ? theme.subtext0 : theme.overlay0,
+            })
       ),
       // Items list
       Box(
@@ -117,7 +145,7 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, 
             commit: item.commit,
             selected: i + 1 === selectedIndex,
             active: viewingCommit === item.commit.sha,
-            marked: marked?.(i) ?? false,
+            marked: marked.has(item.commit.sha),
           })
         ),
         // Show count if more
@@ -139,7 +167,7 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, 
           paddingTop: 1,
         },
         Text({
-          content: "Ctrl+n/p: navigate  Ctrl+v: mark a span  Enter: select  ]g/[g: cycle",
+          content: "j/k: move  space: mark  V: mark a run  /: filter  Enter: show them",
           fg: theme.overlay0,
         })
       )
@@ -187,7 +215,10 @@ interface CommitRowProps {
  * the same screen line, letter by letter.
  */
 function CommitRow({ commit, selected, active, marked }: CommitRowProps) {
-  const bg = selected ? "#585b70" : undefined
+  // A marked row is coloured, not badged: a column of bars reads as a
+  // decoration, a block of colour reads as a selection (spec 078).
+  const bg = selected ? "#585b70" : marked ? theme.surface0 : undefined
+  const markedFg = marked ? theme.peach : undefined
   return Box(
     {
       flexDirection: "row",
@@ -200,13 +231,13 @@ function CommitRow({ commit, selected, active, marked }: CommitRowProps) {
     },
     Box(
       { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
-      Text({
-        content: marked ? "\u2595 " : active ? "\u25cf " : "  ",
-        fg: marked ? theme.peach : theme.green,
-      }),
-      Text({ content: commit.sha, fg: selected ? theme.peach : theme.yellow }),
+      Text({ content: active ? "\u25cf " : "  ", fg: theme.green }),
+      Text({ content: commit.sha, fg: markedFg ?? (selected ? theme.peach : theme.yellow) }),
       Text({ content: "  ", fg: theme.overlay0 }),
-      Text({ content: commit.message, fg: selected ? theme.text : theme.subtext1 }),
+      Text({
+        content: commit.message,
+        fg: markedFg ?? (selected ? theme.text : theme.subtext1),
+      }),
     ),
     Box(
       // paddingLeft keeps a gap when the subject is long enough to shrink

@@ -285,11 +285,16 @@ wraps back to the whole diff; `[g` goes the other way. `Ctrl+g` picks one out of
 instead. While the diff is one commit's slice, the header says so — `commit 2/5 · 7e8f200 …` —
 and `Esc` takes you back to the whole diff.
 
-`Ctrl+v` in the picker marks a **span**: it anchors at the highlighted commit, moving extends the
-mark, and `Enter` scopes the diff to the whole run — the cumulative diff from the oldest marked
-commit's parent to the newest, not the patches laid end to end. The header reads
-`commits 2–4/7`, and `Ctrl+v` again drops the anchor. Commits that aren't next to each other
-can't be marked: the ones in between decide what the later ones apply to.
+In the picker, `j`/`k` move, `Space` marks the commit under the cursor, and `V` marks a run from
+there — moving drags its end along, `V` again keeps the run and lets the cursor leave it. `Enter`
+scopes the diff to everything marked. Marked rows are coloured rather than badged, and reopening
+the picker shows what is in scope with the cursor on the first of them. The list is read rather
+than searched, so the letters belong to it: `/` is what asks for the filter.
+
+A run of commits shows as one cumulative diff — from the oldest marked commit's parent to the
+newest — and the header reads `commits 2–4/7`. Commits with gaps between them have no such diff,
+so riff shows their patches oldest first, a file two of them touched carrying both sets of hunks,
+and the header reads `3 commits of 7`.
 
 Useful on a PR whose commits are actually a sequence of arguments rather than a pile of
 autosaves — and on the three changes that together moved the parser.

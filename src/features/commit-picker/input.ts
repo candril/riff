@@ -10,8 +10,12 @@ import type { AppState } from "../../state"
 import type { FilteredCommit } from "../../components/CommitPicker"
 import {
   closeCommitPicker,
+  endCommitPickerFilter,
+  markCommitRange,
   moveCommitPickerSelection,
-  toggleCommitPickerAnchor,
+  startCommitPickerFilter,
+  toggleCommitMark,
+  toggleCommitRange,
 } from "../../state"
 import { fuzzyFilter } from "../../utils/fuzzy"
 
@@ -22,9 +26,9 @@ export interface CommitPickerInputContext {
   /**
    * Called when a commit is selected (or "all commits").
    * sha is null for "all commits", otherwise the newest commit in scope;
-   * `from` names the oldest when a span was marked (spec 078).
+   * `scope` lists every commit in it when more than one was marked.
    */
-  onCommitSelected: (sha: string | null, filename?: string, from?: string | null) => void
+  onCommitSelected: (sha: string | null, filename?: string, scope?: readonly string[] | null) => void
 }
 
 /**
@@ -41,50 +45,23 @@ export function getFilteredCommits(state: AppState): FilteredCommit[] {
     : allCommits
 }
 
-/**
- * The span the picker has marked, in list positions: the anchored row and
- * the highlighted one. Null when nothing is anchored, or when the anchor is
- * a row the query has filtered away (spec 078).
- */
-function spanBounds(
-  state: AppState,
-  filtered: FilteredCommit[],
-): { from: number; to: number } | null {
-  const anchor = state.commitPicker.anchorSha
-  if (!anchor) return null
+/** The commits marked for the next scope, newest first (spec 078). */
+export function markedCommits(state: AppState): string[] {
+  return state.commits.filter((commit) => state.commitPicker.marked.has(commit.sha)).map((c) => c.sha)
+}
+
+/** The rows between the anchor `V` set and the cursor, inclusive. */
+function rangeShas(state: AppState, filtered: FilteredCommit[]): string[] {
+  const anchor = state.commitPicker.rangeAnchor
+  if (!anchor) return []
 
   const anchorRow = filtered.find((row) => row.commit.sha === anchor)
   const cursorRow = filtered[state.commitPicker.selectedIndex - 1]
-  if (!anchorRow || !cursorRow) return null
+  if (!anchorRow || !cursorRow) return []
 
-  return {
-    from: Math.min(anchorRow.index, cursorRow.index),
-    to: Math.max(anchorRow.index, cursorRow.index),
-  }
-}
-
-/**
- * The two ends of the marked span, oldest named separately — `state.commits`
- * is newest-first, so the older end is the higher index. Null when the span
- * is one commit, which is what `Enter` alone already does.
- */
-export function markedSpan(
-  state: AppState,
-  filtered: FilteredCommit[],
-): { oldest: string; newest: string } | null {
-  const bounds = spanBounds(state, filtered)
-  if (!bounds || bounds.from === bounds.to) return null
-
-  const oldest = state.commits[bounds.to]
-  const newest = state.commits[bounds.from]
-  return oldest && newest ? { oldest: oldest.sha, newest: newest.sha } : null
-}
-
-/** Whether a row falls inside the span being marked, for the picker's bar. */
-export function inMarkedSpan(state: AppState, filtered: FilteredCommit[], index: number): boolean {
-  const bounds = spanBounds(state, filtered)
-  const row = filtered[index]
-  return bounds !== null && row !== undefined && row.index >= bounds.from && row.index <= bounds.to
+  const from = Math.min(anchorRow.index, cursorRow.index)
+  const to = Math.max(anchorRow.index, cursorRow.index)
+  return state.commits.slice(from, to + 1).map((commit) => commit.sha)
 }
 
 /**
@@ -106,8 +83,53 @@ export function handleInput(
   const filteredCommits = getFilteredCommits(ctx.state)
   // Total items: 1 ("All commits") + filtered commits
   const maxIndex = filteredCommits.length  // 0 = All commits, 1..N = commits
+  const picker = ctx.state.commitPicker
+  const highlighted = filteredCommits[picker.selectedIndex - 1]
 
   const consume = (): void => key.preventDefault()
+
+  // `/` is a mode: while it is open every key is the query's, bar the two
+  // that close it. A list of forty commits is read, not searched, so the
+  // letters belong to the list the rest of the time (spec 078).
+  if (picker.queryInput) {
+    if (key.name === "escape") {
+      consume()
+      ctx.setState((s) => endCommitPickerFilter(s, false))
+      ctx.render()
+    } else if (key.name === "return" || key.name === "enter") {
+      consume()
+      ctx.setState((s) => endCommitPickerFilter(s, true))
+      ctx.render()
+    }
+    return true
+  }
+
+  /** Move, and drag the run along when `V` is extending one. */
+  const move = (delta: number): void => {
+    ctx.setState((s) => {
+      const moved = moveCommitPickerSelection(s, delta, maxIndex)
+      return moved.commitPicker.rangeAnchor
+        ? markCommitRange(moved, rangeShas(moved, getFilteredCommits(moved)))
+        : moved
+    })
+    ctx.render()
+  }
+
+  if (key.name === "/" || key.sequence === "/") {
+    consume()
+    ctx.setState(startCommitPickerFilter)
+    ctx.render()
+    return true
+  }
+
+  if (key.name === "space" || key.sequence === " ") {
+    consume()
+    if (highlighted) {
+      ctx.setState((s) => toggleCommitMark(s, highlighted.commit.sha))
+      ctx.render()
+    }
+    return true
+  }
 
   switch (key.name) {
     case "escape":
@@ -119,74 +141,62 @@ export function handleInput(
     case "return":
     case "enter": {
       consume()
-      const selectedIndex = ctx.state.commitPicker.selectedIndex
-
-      if (selectedIndex === 0) {
+      if (picker.selectedIndex === 0) {
         // "All commits" selected
         ctx.setState(closeCommitPicker)
         ctx.onCommitSelected(null)
         ctx.render()
-      } else {
-        const selectedCommit = filteredCommits[selectedIndex - 1]
-        if (selectedCommit) {
-          // The span runs from the anchor to the cursor; which of the two is
-          // the older end is the list's business, not the reader's.
-          const span = markedSpan(ctx.state, filteredCommits)
-          ctx.setState(closeCommitPicker)
-          ctx.onCommitSelected(
-            span ? span.newest : selectedCommit.commit.sha,
-            undefined,
-            span?.oldest
-          )
-          ctx.render()
-        }
+        return true
       }
-      return true
-    }
-
-    case "v": {
-      // Ctrl-v, not a bare `v`: every letter here belongs to the query.
-      // Only on a commit row — "all commits" is not one end of anything.
-      if (!key.ctrl) return true
-      const highlighted = filteredCommits[ctx.state.commitPicker.selectedIndex - 1]
       if (!highlighted) return true
-      consume()
-      ctx.setState((s) => toggleCommitPickerAnchor(s, highlighted.commit.sha))
+
+      // What is marked, or the row under the cursor when nothing is.
+      const marked = markedCommits(ctx.state)
+      const scope = marked.length > 0 ? marked : [highlighted.commit.sha]
+      ctx.setState(closeCommitPicker)
+      ctx.onCommitSelected(scope[0]!, undefined, scope)
       ctx.render()
       return true
     }
 
-    case "up":
+    case "v":
+      // `V` extends a run from here; `V` again keeps it and lets j/k move
+      // without changing it.
+      if (!key.shift || !highlighted) return true
       consume()
-      ctx.setState((s) => moveCommitPickerSelection(s, -1, maxIndex))
+      ctx.setState((s) => toggleCommitRange(s, highlighted.commit.sha))
       ctx.render()
       return true
 
+    case "j":
     case "down":
       consume()
-      ctx.setState((s) => moveCommitPickerSelection(s, 1, maxIndex))
-      ctx.render()
+      move(1)
+      return true
+
+    case "k":
+    case "up":
+      consume()
+      move(-1)
       return true
 
     case "p":
-      // Ctrl-p moves up; a bare `p` is a letter of the query.
       if (key.ctrl) {
         consume()
-        ctx.setState((s) => moveCommitPickerSelection(s, -1, maxIndex))
-        ctx.render()
+        move(-1)
       }
       return true
 
     case "n":
       if (key.ctrl) {
         consume()
-        ctx.setState((s) => moveCommitPickerSelection(s, 1, maxIndex))
-        ctx.render()
+        move(1)
       }
       return true
 
     default:
-      // Everything else is typing, and belongs to the prompt field.
+      // The picker owns its keys; nothing here falls through to the diff.
+      consume()
       return true
   }
 }
