@@ -210,6 +210,10 @@ footer stops offering to publish — `Ctrl+p` there just saves.
 
 ![The comments panel](../../../assets/screenshots/thread.png)
 
+Picking a file with `Ctrl+f`, or a comment with `gC`, takes you to the diff — from the overview
+and the feed as much as from the diff itself. A file is a thing you read, and reading happens
+there.
+
 ## Three views, one key apart
 
 A pull request is read as three surfaces, and each keeps its own place:

@@ -16,6 +16,7 @@ import {
   highlightInlineComment,
   showToast,
   clearToast,
+  switchView,
 } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 
@@ -56,6 +57,9 @@ export interface CommentsPickerJumpContext {
  */
 export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext): void {
   const state = ctx.getState()
+  // A comment is anchored to a line of the diff, so going to one means
+  // going there — from the overview or the feed as much as from the diff.
+  if (state.viewMode !== "diff") ctx.setState((s) => switchView(s, "diff"))
   const targetFileIndex = state.files.findIndex((f) => f.filename === comment.filename)
 
   if (targetFileIndex === -1) {

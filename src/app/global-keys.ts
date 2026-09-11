@@ -603,8 +603,25 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setVimState(createCursorState())
           ctx.rebuildLineMapping()
         },
-        revealFile: (fileIndex: number) =>
-          fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
+        revealFile: (fileIndex: number) => {
+          // Picking a file is asking to read it, and files live in the
+          // diff: from the overview or the feed, that is where it lands.
+          // The scroll waits for the diff to be built, or it is measured
+          // against a view that is not on screen yet and lands elsewhere.
+          if (ctx.getState().viewMode === "diff") {
+            fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
+            return
+          }
+          ctx.setState((s) => switchView(s, "diff"))
+          ctx.render()
+          // The scroll waits for the rebuild the view switch triggers: the
+          // height is not known until then, and a scroll measured against a
+          // half-built view lands somewhere else.
+          ctx.vimDiffView.onceRebuilt(() =>
+            ctx.vimDiffView.scrollCursorTo(ctx.getVimState().line, "top")
+          )
+          fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
+        },
         recordJump,
       })
     ) {
