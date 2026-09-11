@@ -24,6 +24,44 @@ export interface LinkTarget {
   detail?: string
 }
 
+/**
+ * One place links come from. A body of text to read them out of, or a list
+ * that already is one — a preview row's deploy URLs (spec 068).
+ */
+export type LinkSource =
+  | { title: string; text: string }
+  | { title: string; links: LinkTarget[] }
+
+/**
+ * Every link in the view, the source you are standing on first.
+ *
+ * Collecting only from the focused row means walking the panel before you
+ * can ask — and the picker narrows as you type, so there is no reason to
+ * make you arrive first. Each row says where it came from, since a bare
+ * `galaxus.ch` means nothing without the app it belongs to.
+ */
+export function collectFromSources(
+  sources: readonly LinkSource[],
+  ctx: LinkContext,
+): LinkTarget[] {
+  const seen = new Set<string>()
+  const targets: LinkTarget[] = []
+  // One source needs no saying where each link came from — the picker's own
+  // title already says it.
+  const named = sources.length > 1
+
+  for (const source of sources) {
+    const links = "links" in source ? source.links : collectLinks(source.text, ctx)
+    for (const link of links) {
+      if (seen.has(link.url)) continue
+      seen.add(link.url)
+      targets.push(named ? { ...link, label: `${source.title} · ${link.label}` } : link)
+    }
+  }
+
+  return targets
+}
+
 export interface LinkContext {
   repo: Repo | null
   resolved: ReadonlyMap<string, ResolvedReference>

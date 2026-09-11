@@ -130,7 +130,7 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | `za` / `Enter` | Expand or collapse the highlighted thread |
 | `n` | New comment at the diff cursor's line |
 | `s` | Flash — label every visible comment, next key jumps |
-| `gx` | Pick from the links in the highlighted comment |
+| `gx` | Pick from every link in the panel's comments |
 | `r` `R` | Reply inline, reply in `$EDITOR` |
 | `e` `E` | Edit inline, edit in `$EDITOR` |
 | `d` | Delete the highlighted comment |
@@ -193,7 +193,7 @@ files.
 | `Enter` | Context-dependent: open a check's annotation in `$EDITOR`, expand a failing check, or open the item in a browser |
 | `y` | Copy a link to the focused item |
 | `gg` | Top |
-| `gx` | Pick from the links in the focused item |
+| `gx` | Pick from every link in the overview |
 | `gr` `go` `gy` | Refresh, open in browser, copy PR URL — as everywhere |
 | `s` | Flash — label every row, next key jumps |
 | `q` `Esc` `Tab` `i` | Back to the diff |

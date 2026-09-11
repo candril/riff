@@ -214,8 +214,8 @@ and a one-glance summary, bar the description, which is open:
 
 - **Description** — the body, rendered.
 - **Previews** — where a deploy bot put this PR, one row per app: `Enter` opens, `y` copies, `Y`
-  copies every URL on the row, and a row with several links asks which. `gx` lists them all,
-  including the build's own run. Configured in
+  copies every URL on the row, and a row with several links asks which. `gx` lists every app's
+  links at once, the build's own run included. Configured in
   [`[previews]`](/riff/reference/configuration/#previews).
 - **Conversation** — PR comments and review threads, expandable with `l`, resolvable with `x`,
   and `c` writes a new one.
@@ -233,10 +233,14 @@ whatever is focused via the action menu.
 ### Following a link
 
 In the diff, `gx` opens the URL under the cursor. A rendered body has no cursor to put on a
-link, so in the overview and the comments panel `gx` lists what it found instead — the URLs, and
-every `#1213` as the pull request or issue it points at rather than as a number. On a preview row
-it lists that row's deploy links. `Enter` opens, `Ctrl+y` copies, and typing narrows the list.
-One link opens without asking.
+link, so in the overview and the comments panel `gx` lists every link in the view instead — the
+description, the preview rows, the conversation, the checks, the commits, or every comment the
+panel is showing. Each row says where it came from, and the source you are standing on comes
+first. `#1213` is listed as the pull request or issue it points at rather than as a number.
+`Enter` opens, `Ctrl+y` copies, typing narrows the list. One link opens without asking.
+
+You never have to navigate to a row to reach its link: `gx` and a few letters of what you are
+looking for is the whole motion.
 
 ![The PR overview](../../../assets/screenshots/overview.png)
 

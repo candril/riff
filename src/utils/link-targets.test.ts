@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { collectLinks } from "./link-targets"
+import { collectFromSources, collectLinks } from "./link-targets"
 import type { ResolvedReference } from "./references"
 
 const repo = { owner: "DigitecGalaxus", repo: "Dg.GalaxusAbos" }
@@ -91,5 +91,40 @@ describe("the links in a comment", () => {
 
   test("nothing in, nothing out", () => {
     expect(links("no links at all")).toEqual([])
+  })
+})
+
+describe("every link in the view", () => {
+  test("the focused source first, each row saying where it came from", () => {
+    const found = collectFromSources(
+      [
+        { title: "Shop", links: [{ label: "galaxus.ch", url: "https://galaxus.ch" }] },
+        { title: "Description", text: "see #1213" },
+      ],
+      { repo, resolved },
+    )
+
+    expect(found.map((link) => link.label)).toEqual(["Shop · galaxus.ch", "Description · #1213"])
+  })
+
+  test("a link in two places is listed where you are standing", () => {
+    const found = collectFromSources(
+      [
+        { title: "@alice", text: "https://ci.example.com/8812" },
+        { title: "Description", text: "https://ci.example.com/8812" },
+      ],
+      { repo, resolved },
+    )
+
+    expect(found.map((link) => link.label)).toEqual(["@alice · ci.example.com/8812"])
+  })
+
+  test("one source says nothing extra — the picker's title already did", () => {
+    const found = collectFromSources([{ title: "Shop", links: [{ label: "ch", url: "https://a" }] }], {
+      repo,
+      resolved,
+    })
+
+    expect(found[0]?.label).toBe("ch")
   })
 })

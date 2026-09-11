@@ -25,7 +25,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
 import { copyToClipboard } from "../utils/clipboard"
-import { collectLinks, type LinkTarget } from "../utils/link-targets"
+import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 
 import * as actionMenu from "../features/action-menu"
@@ -426,14 +426,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
    * picker.
    */
   function openLinksPicker(
-    source: { text: string } | { links: LinkTarget[] },
+    sources: readonly LinkSource[],
     title: string,
     action: "open" | "copy" = "open",
   ): void {
-    const links =
-      "links" in source
-        ? source.links
-        : collectLinks(source.text, { repo: referenceRepo(), resolved: resolvedReferences() })
+    const links = collectFromSources(sources, {
+      repo: referenceRepo(),
+      resolved: resolvedReferences(),
+    })
 
     if (links.length === 0) {
       ctx.setState((s) => showToast(s, "No links here", "info"))
@@ -674,11 +674,20 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
-        onOpenLinks: (comment) =>
+        onOpenLinks: (comment) => {
+          // The panel's comments, the highlighted one first: the same list
+          // the overview offers, scoped to what this panel is showing.
+          const rest = getInlineCommentOverlayComments(ctx.getState()).filter(
+            (other) => other.id !== comment.id
+          )
           openLinksPicker(
-            { text: comment.localEdit ?? comment.body },
-            `Links — @${comment.author || "you"}`
-          ),
+            [comment, ...rest].map((c) => ({
+              title: `@${c.author || "you"}`,
+              text: c.localEdit ?? c.body,
+            })),
+            "Links"
+          )
+        },
         getCommentedLines: () => {
           // What the comment replaces, read off the diff rows themselves —
           // the file's own text, not the padded display form (spec 076).
@@ -847,15 +856,15 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         },
         executeAction: ctx.executeAction,
         onOpenLinks: () => {
-          const focused = ctx.getPrInfoPanel()?.focusedLinks()
-          if (!focused) return
-          openLinksPicker(focused, `Links — ${focused.title}`)
+          const sources = ctx.getPrInfoPanel()?.linkSources() ?? []
+          openLinksPicker(sources, "Links")
         },
         onPreviewRow: (action, row) => {
           // Several places for one app: the same picker every other list of
-          // links uses, told whether it was `Enter` or `y` that asked.
+          // links uses, told whether it was `Enter` or `y` that asked. Only
+          // this row, because the key was pressed on this row.
           openLinksPicker(
-            { links: row.links },
+            [{ title: row.app, links: row.links }],
             `${action === "open" ? "Open" : "Copy"} — ${row.app}`,
             action
           )

@@ -36,10 +36,12 @@ cursor, it lists what it found instead.
 
 ### P1
 
-- `gx` in the PR overview lists the links in whatever the cursor is on: the
-  description, a conversation comment, a review, a commit message, a check's
-  details URL.
-- `gx` in the comments panel lists the links in the highlighted comment.
+- `gx` lists every link in the view, the source the cursor is on first: in
+  the PR overview the description, the preview rows, the conversation, the
+  checks and the commit subjects; in the comments panel every comment it is
+  showing. Each row says where its link came from.
+- Which means you never navigate to ask. The list narrows as you type, so
+  reaching a link is `gx` and a few letters of it from anywhere in the view.
 - A `#1213` is listed as what it points at — the title and state riff
   already resolved (spec 059) — not as a number.
 - `Enter` opens, `Ctrl-y` copies, typing narrows the list.
@@ -49,6 +51,7 @@ cursor, it lists what it found instead.
 - A preview row's links are in there too, the build's own run included —
   which `Enter` and `y` never reached (spec 068). One picker for links, not
   one per section that happens to have some.
+- A link in two places is listed once, under the source you are standing on.
 
 ## Technical Notes
 
