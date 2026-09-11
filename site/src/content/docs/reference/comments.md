@@ -147,14 +147,21 @@ Comments are Markdown files with YAML frontmatter, under `.riff/` in the repo:
 ```text
 .riff/
 ├── comments/
-│   └── gh-owner-repo-123/
-│       ├── <uuid>.md
+│   ├── gh-owner-repo-123/
+│   │   ├── <uuid>.md
+│   │   └── <uuid>.md
+│   └── local/
 │       └── <uuid>.md
 ├── gh-owner-repo-123/
 │   └── viewed.json
 ├── mentionable-users.json
 └── session.json
 ```
+
+A pull request has an identity, so its comments are filed under it. A revset does not:
+`riff`, `riff @-` and `riff abc123` are the same person's notes on the same worktree and all
+share `local/` — a comment is anchored to a file and a line, not to the range it was written
+under. Notes an older riff filed per revset are moved into `local/` the first time you open it.
 
 One file per comment:
 

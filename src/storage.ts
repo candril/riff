@@ -1,6 +1,6 @@
 import { join, dirname, resolve } from "path"
 import { homedir } from "os"
-import { mkdir, readdir, unlink } from "fs/promises"
+import { mkdir, readdir, rename, unlink } from "fs/promises"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
 import { loadConfig } from "./config"
@@ -350,16 +350,69 @@ async function getStorageDir(source: string): Promise<string> {
   return resolution.path
 }
 
+/** Where every local review's comments live, whatever revset opened it. */
+const LOCAL_DIR = "local"
+
 /**
  * Convert a source identifier to a safe directory name.
  * e.g., "gh:owner/repo#123" -> "gh-owner-repo-123"
- *       "local" -> "local"
+ *       "local", "@-", "abc123" -> "local"
+ *
+ * A pull request is a thing with an identity, so its comments are filed
+ * under it. A revset is not: `riff`, `riff @-` and `riff abc123` are the
+ * same person's notes on the same worktree, and a comment is anchored to a
+ * file and a line rather than to the range it happened to be written under.
+ * Filing those separately meant writing a note with `riff @-` and opening
+ * `riff` to an empty panel.
  */
 function sourceToDir(source: string): string {
+  if (!source.startsWith("gh:")) return LOCAL_DIR
   return source
     .replace(/:/g, "-")
     .replace(/\//g, "-")
     .replace(/#/g, "-")
+}
+
+/** Repos whose per-revset folders have already been folded in this process. */
+const mergedLocalDirs = new Set<string>()
+
+/**
+ * Move the comments riff used to file per revset into the one local store.
+ *
+ * Older versions put them in `comments/@-`, `comments/abc123` and so on.
+ * They are moved rather than read in place, so a note edited after the move
+ * does not leave a stale twin behind in the folder it came from.
+ */
+async function mergeLegacyLocalComments(baseDir: string): Promise<void> {
+  if (mergedLocalDirs.has(baseDir)) return
+  mergedLocalDirs.add(baseDir)
+
+  const root = join(baseDir, COMMENTS_DIR)
+  const target = join(root, LOCAL_DIR)
+
+  let entries
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === LOCAL_DIR || entry.name.startsWith("gh-")) continue
+
+    try {
+      const files = await readdir(join(root, entry.name))
+      for (const file of files) {
+        if (!file.endsWith(".md")) continue
+        const to = join(target, file)
+        if (existsSync(to)) continue
+        await mkdir(target, { recursive: true })
+        await rename(join(root, entry.name, file), to)
+      }
+    } catch {
+      // A folder riff cannot read is a folder riff leaves alone.
+    }
+  }
 }
 
 // ============================================================================
@@ -514,6 +567,7 @@ function shortId(id: string): string {
  */
 export async function loadComments(source: string): Promise<Comment[]> {
   const baseDir = await getStorageDir(source)
+  if (sourceToDir(source) === LOCAL_DIR) await mergeLegacyLocalComments(baseDir)
   const commentsPath = join(baseDir, COMMENTS_DIR, sourceToDir(source))
 
   try {
