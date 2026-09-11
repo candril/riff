@@ -628,10 +628,9 @@ export class VimDiffView {
     if (contentChanged) {
       // Full rebuild needed
       this.rebuild()
-      // After rebuild, set up search highlights if we have a search
-      if (this.searchState && this.searchState.matches.length > 0) {
-        this.updateSearchHighlights()
-      }
+      // Always: the hook also keeps the highlighter off riff's own rows,
+      // which are there whether anything is being searched for or not.
+      this.updateSearchHighlights()
     } else if (commentsChanged || searchChanged) {
       // Comments or search changed - update line signs, highlights, and search
       this.updateLineSigns()
@@ -1301,29 +1300,23 @@ export class VimDiffView {
    * Uses the onHighlight callback to inject search match highlights
    */
   private updateSearchHighlights(): void {
-    if (!this.searchState || this.searchState.matches.length === 0) {
-      // Clear search highlights by setting onHighlight to undefined
-      if (this.codeRenderable) {
-        this.codeRenderable.onHighlight = undefined
-      }
-      for (const renderables of this.sectionRenderables.values()) {
-        renderables.code.onHighlight = undefined
-      }
-      return
-    }
+    const searchState =
+      this.searchState && this.searchState.matches.length > 0 ? this.searchState : null
 
-    const searchState = this.searchState
+    // The hook is always installed, search or no search: riff's own rows —
+    // a fold's `15 lines`, `rest of the file` — are inside the text handed
+    // to the highlighter, and it colours them as code otherwise.
+    const hook = (lineOffset: number) =>
+      (highlights: SimpleHighlight[], context: { content: string }): SimpleHighlight[] => {
+        const own = this.stripOwnRowHighlights(highlights, context.content, lineOffset)
+        return searchState
+          ? this.injectSearchHighlights(own, context.content, searchState, lineOffset)
+          : own
+      }
 
     // Single-file mode
     if (this.codeRenderable) {
-      this.codeRenderable.onHighlight = (highlights, context) => {
-        return this.injectSearchHighlights(
-          highlights,
-          context.content,
-          searchState,
-          0 // No line offset in single-file mode
-        )
-      }
+      this.codeRenderable.onHighlight = hook(0)
       return
     }
 
@@ -1332,17 +1325,51 @@ export class VimDiffView {
       const section = this.fileSections[sectionIdx]!
       const renderables = this.sectionRenderables.get(sectionIdx)
       if (!renderables) continue
-
-      const lineOffset = section.startLine
-      renderables.code.onHighlight = (highlights, context) => {
-        return this.injectSearchHighlights(
-          highlights,
-          context.content,
-          searchState,
-          lineOffset
-        )
-      }
+      renderables.code.onHighlight = hook(section.startLine)
     }
+  }
+
+  /**
+   * Drop the highlighting from rows riff wrote itself.
+   *
+   * The fold markers and file headers travel in the same string as the code,
+   * so tree-sitter reads `rest of the file` and finds the keyword `of` in
+   * it. They are riff's words, not the file's.
+   */
+  private stripOwnRowHighlights(
+    highlights: SimpleHighlight[],
+    content: string,
+    lineOffset: number
+  ): SimpleHighlight[] {
+    const lineStartOffsets = computeLineStartOffsets(content)
+    const rowAt = (offset: number): number => {
+      let low = 0
+      let high = lineStartOffsets.length - 1
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2)
+        if (lineStartOffsets[mid]! <= offset) low = mid
+        else high = mid - 1
+      }
+      return low
+    }
+
+    const isOwnRow = (row: number): boolean => {
+      const type = this.lineMapping?.getLine(row)?.type
+      return type === "divider" || type === "file-header" || type === "spacing"
+    }
+
+    const kept = highlights.filter(([start]) => !isOwnRow(lineOffset + rowAt(start)))
+
+    // Dimmed rather than merely unstyled: these rows are chrome, and chrome
+    // in the middle of code should not read as a line of it.
+    for (let row = 0; row < lineStartOffsets.length; row++) {
+      if (!isOwnRow(lineOffset + row)) continue
+      const start = lineStartOffsets[row]!
+      const end = lineStartOffsets[row + 1] ?? content.length
+      if (end > start) kept.push([start, end, "comment"])
+    }
+
+    return kept
   }
 
   /**
