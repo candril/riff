@@ -131,7 +131,7 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | `n` | New comment at the diff cursor's line |
 | `s` | Flash — label every visible comment, next key jumps |
 | `g?` | The keymap |
-| `gx` | Pick from every link in the panel's comments |
+| `gx` `gX` | Pick from every link in the panel's comments — open it, or copy it |
 | `r` `R` | Reply inline, reply in `$EDITOR` |
 | `e` `E` | Edit inline, edit in `$EDITOR` |
 | `d` | Delete the highlighted comment |
@@ -195,7 +195,7 @@ files.
 | `y` | Copy a link to the focused item |
 | `gg` | Top |
 | `g?` | The keymap |
-| `gx` | Pick from every link in the overview |
+| `gx` `gX` | Pick from every link in the overview — open it, or copy it |
 | `gr` `go` `gy` | Refresh, open in browser, copy PR URL — as everywhere |
 | `s` | Flash — label every row, next key jumps |
 | `q` `Esc` `Tab` `i` | Back to the diff |
@@ -204,7 +204,7 @@ files.
 
 | Key | Action |
 | --- | --- |
-| `gx` | Follow the link under the cursor in the browser |
+| `gx` `gX` | Follow the link under the cursor in the browser, or copy it |
 | `gf` | Open the current file in `$EDITOR` at the cursor's line |
 | `gF` | The same, in a new tmux window, with riff still running |
 | `y` | Yank the line or selection, without the `+`/`-` gutter |

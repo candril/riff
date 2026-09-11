@@ -28,6 +28,7 @@ let cursor: VimCursorState
 let jumped: { candidates: string[]; line?: number }[]
 let opened: { candidates: string[]; line?: number; tmux: boolean }[]
 let urls: string[]
+let copied: string[]
 let jumpSucceeds: boolean
 let ctx: FollowLinkContext
 
@@ -42,6 +43,7 @@ beforeEach(() => {
   jumped = []
   opened = []
   urls = []
+  copied = []
   jumpSucceeds = true
 
   ctx = {
@@ -58,6 +60,9 @@ beforeEach(() => {
     },
     openUrl: (url) => {
       urls.push(url)
+    },
+    copyUrl: (url) => {
+      copied.push(url)
     },
   }
 })
@@ -97,6 +102,14 @@ describe("following a link", () => {
 
     expect(urls).toEqual(["https://x.test/why"])
     expect(jumped).toEqual([])
+  })
+
+  test("gX takes the same URL to the clipboard instead", () => {
+    cursorOn(1, "x.test")
+    handleFollowLink(ctx, { urlsOnly: true, copy: true })
+
+    expect(copied).toEqual(["https://x.test/why"])
+    expect(urls).toEqual([])
   })
 
   test("the tmux window skips the jump — the point is the other window", () => {

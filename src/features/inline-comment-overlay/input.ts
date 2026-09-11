@@ -92,8 +92,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   handleOpenInEditor: (comment: Comment) => void
   /** `O` — open the images the highlighted comment carries in the browser. */
   handleOpenImages: (comment: Comment) => void
-  /** `gx` — pick from the links in this comment (spec 077). */
-  onOpenLinks: (comment: Comment) => void
+  /** `gx` opens a link in the panel's comments, `gX` copies it (spec 077). */
+  onOpenLinks: (comment: Comment, action: "open" | "copy") => void
   /** `g?` — the keymap, which every surface owes the reader. */
   onToggleHelp: () => void
   /** Ctrl-g from the composer — hand the in-progress draft off to
@@ -330,11 +330,11 @@ export function handleInput(
       ctx.onToggleHelp()
       return true
     }
-    if (key.name === "x" && !key.shift && highlighted) {
+    if ((key.name === "x" || key.name === "X") && highlighted) {
       // preventDefault so the picker's prompt field, focused in this same
       // keypress, does not read the `x` as the start of a query.
       key.preventDefault()
-      ctx.onOpenLinks(highlighted)
+      ctx.onOpenLinks(highlighted, key.shift || key.name === "X" ? "copy" : "open")
     }
     return true
   }

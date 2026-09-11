@@ -302,6 +302,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open"
       Bun.spawn([opener, url], { stdout: "ignore", stderr: "ignore" })
     },
+    copyUrl: (url) => openLink("copy", { label: "link", url }),
   }
 
   const jumpApplyCtx: jumplist.JumpApplyContext = {
@@ -415,6 +416,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
     )
     ctx.render()
+  }
+
+  /** What the picker is called, which is the difference `gx` and `gX` make. */
+  function linksTitle(action: "open" | "copy"): string {
+    return action === "copy" ? "Copy a link" : "Links"
   }
 
   /**
@@ -693,7 +699,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setState(toggleHelp)
           ctx.render()
         },
-        onOpenLinks: (comment) => {
+        onOpenLinks: (comment, action) => {
           // The panel's comments, the highlighted one first: the same list
           // the overview offers, scoped to what this panel is showing.
           const rest = getInlineCommentOverlayComments(ctx.getState()).filter(
@@ -704,7 +710,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
               title: `@${c.author || "you"}`,
               text: c.localEdit ?? c.body,
             })),
-            "Links"
+            linksTitle(action),
+            action
           )
         },
         getCommentedLines: () => {
@@ -884,9 +891,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
         executeAction: ctx.executeAction,
-        onOpenLinks: () => {
+        onOpenLinks: (action) => {
           const sources = ctx.getPrInfoPanel()?.linkSources() ?? []
-          openLinksPicker(sources, "Links")
+          openLinksPicker(sources, linksTitle(action), action)
         },
         onToggleHelp: () => {
           ctx.setState(toggleHelp)
@@ -1353,6 +1360,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gx") {
         followLink.handleFollowLink(followLinkContext, { urlsOnly: true })
+        return
+      } else if (sequence === "gX!" || sequence === "gx!") {
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        followLink.handleFollowLink(followLinkContext, { urlsOnly: true, copy: true })
         return
       } else if (sequence === "ge") {
         externalTools.handleOpenFileInEditor(ctx.externalToolsContext)

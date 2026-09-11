@@ -96,8 +96,8 @@ export interface PRInfoPanelInputContext {
   // panel even though the panel captures `r`/`o`/`y` standalone for its
   // own section-scoped semantics.
   executeAction?: (id: string) => void
-  /** `gx` — pick from the links in the focused row (spec 077). */
-  onOpenLinks?: () => void
+  /** `gx` opens a link in the view, `gX` copies it (spec 077). */
+  onOpenLinks?: (action: "open" | "copy") => void
   /** `g?` — the keymap, which every surface owes the reader. */
   onToggleHelp?: () => void
   // Push current location onto the jumplist before navigating away (spec
@@ -225,12 +225,13 @@ function handleInputInner(
         ctx.executeAction?.("copy-pr-url")
         return true
       case "x":
-        // The links in whatever the cursor is on — a rendered body has no
-        // column to put a cursor on (spec 077). preventDefault so the
-        // picker's prompt field, focused in this same keypress, does not
-        // also read the `x` as the first letter of a query.
+      case "X":
+        // The links in the view — a rendered body has no column to put a
+        // cursor on (spec 077). preventDefault so the picker's prompt
+        // field, focused in this same keypress, does not also read the `x`
+        // as the first letter of a query.
         key.preventDefault()
-        ctx.onOpenLinks?.()
+        ctx.onOpenLinks?.(key.shift || key.name === "X" ? "copy" : "open")
         return true
     }
     // Unknown g-sequence: swallow to avoid accidentally falling through

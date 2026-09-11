@@ -4,7 +4,7 @@
  * A review is full of pointers out of the diff — `[ADR-017](../decisions/…)`,
  * `see src/app.ts:42`, a URL. `gf` goes where they point: to the file's own
  * rows when the diff has it, to $EDITOR when it doesn't, to the browser when
- * it is a URL.
+ * it is a URL. `gX` puts that URL on the clipboard instead.
  */
 
 import type { AppState } from "../../state"
@@ -24,11 +24,12 @@ export interface FollowLinkContext {
   /** Open a path the diff doesn't cover, in $EDITOR or a tmux window. */
   openPath: (candidates: string[], line: number | undefined, tmux: boolean) => void
   openUrl: (url: string) => void
+  copyUrl: (url: string) => void
 }
 
 export function handleFollowLink(
   ctx: FollowLinkContext,
-  options: { tmux?: boolean; urlsOnly?: boolean } = {},
+  options: { tmux?: boolean; urlsOnly?: boolean; copy?: boolean } = {},
 ): void {
   const vimState = ctx.getVimState()
   const row = ctx.getLineMapping().getLine(vimState.line)
@@ -41,7 +42,8 @@ export function handleFollowLink(
   }
 
   if (link.kind === "url") {
-    ctx.openUrl(link.target)
+    if (options.copy) ctx.copyUrl(link.target)
+    else ctx.openUrl(link.target)
     return
   }
 

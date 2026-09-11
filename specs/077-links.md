@@ -44,7 +44,9 @@ cursor, it lists what it found instead.
   reaching a link is `gx` and a few letters of it from anywhere in the view.
 - A `#1213` is listed as what it points at — the title and state riff
   already resolved (spec 059) — not as a number.
-- `Enter` opens, `Ctrl-y` copies, typing narrows the list.
+- `Enter` opens, `Ctrl-y` copies, typing narrows the list. `gX` is the same
+  list with the two swapped — a single link is copied rather than opened,
+  which `gx` alone left no way to ask for.
 - One link is not a question: it opens. None says so, rather than opening an
   empty picker.
 - The same PR named three times in one paragraph is one row.

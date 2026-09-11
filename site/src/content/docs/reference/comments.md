@@ -131,7 +131,7 @@ have changed since.
 ### Links in a comment
 
 `gx` lists the links in every comment the panel is showing — the highlighted one first, each row
-saying who wrote it — and opens the one you pick; `Ctrl+y` copies it instead. A `#1213` is listed
+saying who wrote it — and opens the one you pick; `Ctrl+y` copies it instead, and `gX` opens the list ready to copy. A `#1213` is listed
 as the pull request it points at, title and state included, which is the part a terminal's own
 click-the-URL cannot do for you.
 

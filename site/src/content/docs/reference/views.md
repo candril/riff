@@ -242,7 +242,8 @@ link, so in the overview and the comments panel `gx` lists every link in the vie
 description, the preview rows, the conversation, the checks, the commits, or every comment the
 panel is showing. Each row says where it came from, and the source you are standing on comes
 first. `#1213` is listed as the pull request or issue it points at rather than as a number.
-`Enter` opens, `Ctrl+y` copies, typing narrows the list. One link opens without asking.
+`Enter` opens, `Ctrl+y` copies, typing narrows the list. One link opens without asking — and
+`gX` is the same list the other way round, so a single link is copied rather than opened.
 
 You never have to navigate to a row to reach its link: `gx` and a few letters of what you are
 looking for is the whole motion.
