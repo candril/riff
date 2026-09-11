@@ -364,7 +364,6 @@ function renderEmojiPicker(picker: EmojiPickerState) {
   return Box(
     {
       flexDirection: "column",
-      marginTop: 1,
       paddingX: 1,
       backgroundColor: theme.surface0,
       borderStyle: "single",
@@ -803,16 +802,23 @@ export function InlineCommentOverlay({
       isComposing
         ? Box(
             { flexDirection: "column", paddingX: 2, paddingY: 1, flexShrink: 0 },
+            // A picker floats above the composer rather than sitting under
+            // it: laid out in the column it would push the box you are
+            // typing in up the screen on every `:` and back down on every
+            // space (specs 046, 082).
+            emojiPicker || mentionPicker
+              ? Box(
+                  { position: "absolute", bottom: "100%", left: 2, right: 2, zIndex: 60 },
+                  emojiPicker
+                    ? renderEmojiPicker(emojiPicker)
+                    : renderMentionPicker(mentionPicker!, mentionCandidates, mentionSearchQuery)
+                )
+              : null,
             CommentComposer({
               mode: mode === "edit" ? "edit" : "compose",
               label: composerLabel,
               renderer,
-            }),
-            isComposing && emojiPicker
-              ? renderEmojiPicker(emojiPicker)
-              : isComposing && mentionPicker
-                ? renderMentionPicker(mentionPicker, mentionCandidates, mentionSearchQuery)
-                : null
+            })
           )
         : null,
 

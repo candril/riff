@@ -51,3 +51,8 @@ Type `:ro`, see the rocket, press Tab.
 `detectEmojiTrigger` mirrors `detectMentionTrigger`, runs in the same
 composer activity callback, and needs nothing fetched — the list is
 compiled in, so there is no loading state and no offline case.
+
+Both pickers float above the composer — one absolutely positioned box,
+anchored to its top edge — rather than sitting under it in the column. Laid
+out in the column they pushed the box being typed in up the screen on every
+`:` and back down on every space.
