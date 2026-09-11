@@ -558,6 +558,26 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== CONFIRMATION DIALOG (y/n to confirm/cancel) ==========
+    // First of all of them: a question waiting for an answer outranks every
+    // panel, and `y`/`n` mean the answer while it is up — not "copy a link"
+    // and "new comment", which is what the comments panel read them as.
+    {
+      const dialogState = ctx.getState()
+      if (dialogState.confirmDialog) {
+        if (key.name === "y" || key.name === "Y") {
+          dialogState.confirmDialog.onConfirm()
+          return
+        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
+          dialogState.confirmDialog.onCancel()
+          return
+        }
+        // Other keys are ignored while dialog is open
+        return
+      }
+    }
+
+
     // ========== ACTION MENU (captures all input when open) ==========
     if (
       actionMenu.handleInput(key, {
@@ -921,22 +941,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     // ========== FEED (owns its keys while it is the view, specs 065, 070) ==========
     if (feed.handleInput(key, feedContext())) {
       return
-    }
-
-    // ========== CONFIRMATION DIALOG (y/n to confirm/cancel) ==========
-    {
-      const dialogState = ctx.getState()
-      if (dialogState.confirmDialog) {
-        if (key.name === "y" || key.name === "Y") {
-          dialogState.confirmDialog.onConfirm()
-          return
-        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
-          dialogState.confirmDialog.onCancel()
-          return
-        }
-        // Other keys are ignored while dialog is open
-        return
-      }
     }
 
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
