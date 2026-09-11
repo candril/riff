@@ -138,9 +138,16 @@ async function getJjBranchInfo(): Promise<string | null> {
   const workingCopyTemplate =
     'bookmarks.map(|b| b.name()).join(", ") ++ "\\x00" ++ change_id.shortest(6) ++ "\\x00" ++ description.first_line()'
 
-  const [workingCopyResult, trunkResult] = await Promise.all([
+  const [workingCopyResult, trunkResult, nearestResult, aheadResult] = await Promise.all([
     $`jj log -r '@' --no-graph -T ${workingCopyTemplate}`.quiet().nothrow(),
     $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow(),
+    // The nearest bookmark behind the working copy: in jj you commit onto a
+    // bookmark rather than onto its tip, so `@` usually carries none and the
+    // branch you are on is a change or two back.
+    $`jj log -r 'heads(::@ & bookmarks())' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ") ++ "\n"'`
+      .quiet()
+      .nothrow(),
+    $`jj log -r 'heads(::@ & bookmarks())..@' --no-graph -T '"x"'`.quiet().nothrow(),
   ])
 
   const [currentBookmark = "", changeId = "", desc = ""] = (
@@ -154,6 +161,22 @@ async function getJjBranchInfo(): Promise<string | null> {
       return `${currentBookmark} → ${trunk}`
     }
     return currentBookmark
+  }
+
+  // No bookmark here, but one behind: name that, and say how far past it
+  // the working copy has got. A change id is not a branch anybody thinks in.
+  const nearest = (nearestResult.exitCode === 0 ? nearestResult.text() : "")
+    .split("\n")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .pop()
+  if (nearest) {
+    const ahead = aheadResult.exitCode === 0 ? aheadResult.text().trim().length : 0
+    const current = ahead > 0 ? `${nearest} +${ahead}` : nearest
+    // Nothing but trunk behind you is not a branch you are "on top of" —
+    // it is trunk, and however many changes you have written since.
+    if (nearest === trunk) return current
+    return trunk ? `${current} → ${trunk}` : current
   }
 
   if (!changeId) {
