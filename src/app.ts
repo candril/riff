@@ -2,6 +2,7 @@ import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
+import { findCurrentPr } from "./providers/current-pr"
 import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
@@ -199,7 +200,7 @@ export async function createApp(options: AppOptions = {}) {
     return lineMapping
   }
 
-  function quit() {
+  function quit(then?: () => void) {
     // Leave the watermark: this is the "last time I looked" the next visit
     // measures against (spec 069). Written on the way out and on refresh,
     // never continuously — a live watermark would answer "since a moment
@@ -213,6 +214,9 @@ export async function createApp(options: AppOptions = {}) {
     // otherwise remove them.
     aiReview.removeSessionFiles()
     renderer.destroy()
+    // The terminal is riff's again to hand on — `then` is how a relaunch
+    // takes it (spec 079).
+    then?.()
     process.exit(0)
   }
 
@@ -817,6 +821,18 @@ export async function createApp(options: AppOptions = {}) {
         fileNavigation.handleSelectFile(fileIndex, fileNavContext)
       }
     },
+    handleReviewBranchPr: (prNumber: number) => {
+      // riff is built around one review per process, so switching to the PR
+      // is a fresh riff on the same terminal — the same thing typing
+      // `riff <n>` does, minus the typing.
+      const script = process.argv[1]
+      const command = script?.endsWith(".ts") || script?.endsWith(".js")
+        ? [process.execPath, script, String(prNumber)]
+        : [process.execPath, String(prNumber)]
+      quit(() => {
+        Bun.spawnSync(command, { stdin: "inherit", stdout: "inherit", stderr: "inherit" })
+      })
+    },
     handleEditPr: async () => {
       if (!prInfo) return
 
@@ -1275,6 +1291,17 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
   }
   startReferencePrefetch(referenceContext)
+
+  // The branch may already have a pull request open on it (spec 079). Asked
+  // in the background: it costs a `gh` call, and a local review that never
+  // looks at the header should not wait for one.
+  if (mode === "local") {
+    void findCurrentPr().then((branchPr) => {
+      if (!branchPr) return
+      state = { ...state, branchPr }
+      render()
+    })
+  }
 
   // Start the Claude-drafted-comment poller (spec 036). It self-guards on
   // PR mode, so calling it unconditionally here is fine. The interval is

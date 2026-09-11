@@ -2,6 +2,7 @@ import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
 import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
+import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/ReviewPreview"
@@ -512,6 +513,8 @@ export interface AppState {
   commitPicker: CommitPickerState
   
   // Commit filtering - view changes from a specific commit
+  /** The PR the branch already has, in local mode (spec 079). */
+  branchPr: BranchPr | null
   viewingCommit: string | null       // null = all commits, else the newest commit in scope
   /** The oldest commit in scope, when the scope is a span (spec 078). */
   viewingCommitFrom: string | null
@@ -725,6 +728,7 @@ export function createInitialState(
       selectedIndex: 0,
       anchorSha: null,
     },
+    branchPr: null,
     viewingCommit: null,
     viewingCommitFrom: null,
     allFiles: files,

@@ -400,12 +400,21 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
+    id: "open-branch-pr",
+    label: (state) =>
+      state.branchPr ? `Review PR #${state.branchPr.number}` : "Review this branch's PR",
+    description: "Reopen riff on the pull request this branch already has",
+    category: "github",
+    available: (state) => state.appMode === "local" && state.branchPr !== null,
+  },
+  {
     id: "create-pr",
     label: "Create Pull Request",
     description: "Create a new PR from current changes",
     shortcut: "gP",
     category: "github",
-    available: (state) => state.appMode === "local",
+    // A branch that already has one has nothing to create.
+    available: (state) => state.appMode === "local" && state.branchPr === null,
   },
   {
     id: "edit-pr",
@@ -421,7 +430,7 @@ export const actions: Action[] = [
     description: "Open PR in web browser",
     shortcut: "go",
     category: "github",
-    available: (state) => state.appMode === "pr",
+    available: (state) => state.appMode === "pr" || state.branchPr !== null,
   },
   {
     id: "pr-info",

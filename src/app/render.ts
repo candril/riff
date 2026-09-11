@@ -434,6 +434,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           branchInfo: state.branchInfo,
           viewingCommit: state.viewingCommit,
           viewingCommitFrom: state.viewingCommitFrom,
+          branchPr: state.branchPr,
           commits: state.commits,
           lastRefreshedAt: state.lastRefreshedAt,
           merge: state.prInfo

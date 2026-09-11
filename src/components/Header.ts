@@ -1,5 +1,6 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
+import type { BranchPr } from "../providers/current-pr"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PrInfo, PrCommit, PrCheck } from "../providers/github"
 import type { MergeReading, MergeVerdict } from "../utils/merge-verdict"
@@ -89,6 +90,8 @@ export interface HeaderProps {
   viewingCommit?: string | null
   /** The oldest commit in scope, when the scope is a span (spec 078). */
   viewingCommitFrom?: string | null
+  /** The pull request this branch already has, in local mode (spec 079). */
+  branchPr?: BranchPr | null
   /** All available commits (for showing count) */
   commits?: PrCommit[]
   /** ISO time the diff/comments were last pulled from the source. */
@@ -115,6 +118,7 @@ export function Header({
   viewingCommit,
   viewingCommitFrom,
   commits,
+  branchPr,
   lastRefreshedAt,
 }: HeaderProps = {}) {
   const refreshedText = formatRefreshed(lastRefreshedAt)
@@ -236,6 +240,18 @@ export function Header({
     } else {
       branchElements.push(Text({ content: branchInfo, fg: theme.sapphire }))
     }
+  }
+
+  // The branch already has a pull request: say which, and how far along it
+  // is, because a local review of a branch under review is a different job
+  // (spec 079).
+  if (branchPr) {
+    branchElements.push(
+      Text({
+        content: `  #${branchPr.number}${branchPr.isDraft ? " draft" : ""}`,
+        fg: branchPr.state === "OPEN" ? theme.green : theme.overlay0,
+      })
+    )
   }
 
   return Box(

@@ -21,6 +21,34 @@ export async function detectCurrentBranch(): Promise<string> {
   return branch
 }
 
+/** What riff knows about the pull request a local branch already has. */
+export interface BranchPr {
+  number: number
+  title: string
+  state: "OPEN" | "CLOSED" | "MERGED"
+  isDraft: boolean
+  url: string
+}
+
+/**
+ * The pull request for the branch riff is reading, or nothing (spec 079).
+ *
+ * Asked in the background on every local review: a branch with a PR open is
+ * a branch someone is reviewing, and riff should say so rather than letting
+ * you find out on GitHub.
+ */
+export async function findCurrentPr(): Promise<BranchPr | null> {
+  try {
+    const branch = await detectCurrentBranch()
+    const json = (await $`gh pr view ${branch} --json number,title,state,isDraft,url`
+      .quiet()
+      .json()) as BranchPr
+    return json?.number ? json : null
+  } catch {
+    return null
+  }
+}
+
 export async function resolveCurrentPr(): Promise<number> {
   const branch = await detectCurrentBranch()
   try {

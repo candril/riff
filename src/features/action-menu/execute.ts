@@ -47,6 +47,8 @@ export interface ActionHandlers {
   handleShowAllFiles: () => void
   handleOpenFileAlone: () => void
   handleEditPr: () => Promise<void>
+  /** Reopen riff on the PR this branch already has (spec 079). */
+  handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
   handleAddPrComment: () => Promise<void>
   handleAiReviewContextAware: () => Promise<void>
@@ -177,7 +179,14 @@ export async function executeAction(
           "-R",
           `${owner}/${repo}`,
         ])
+      } else if (state.branchPr) {
+        // Local mode, but the branch has a PR riff found (spec 079).
+        Bun.spawn(["gh", "pr", "view", String(state.branchPr.number), "--web"])
       }
+      break
+
+    case "open-branch-pr":
+      if (state.branchPr) handlers.handleReviewBranchPr(state.branchPr.number)
       break
 
     case "pr-info":

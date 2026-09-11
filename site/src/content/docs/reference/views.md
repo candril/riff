@@ -296,6 +296,17 @@ autosaves — and on the three changes that together moved the parser.
 
 ![The diff filtered to one commit](../../../assets/screenshots/commit.png)
 
+## The PR your branch already has
+
+Reviewing your working copy on a branch that already has a pull request, riff says which — the
+header carries `#1198` beside the branch, dimmed when it is closed or merged. **Review PR #1198**
+in the action menu reopens riff on it in the same terminal, `go` opens it in a browser, and
+**Create Pull Request** stops being offered, since there is one.
+
+It stays two reviews, not one merged view: the PR's diff has a different base and its own comment
+store, and a line that exists in your working copy but not on the branch has no honest place in a
+PR's diff.
+
 ## Action menu
 
 `Ctrl+p`. Type to filter, `Enter` to run. It only lists what applies right now: no
