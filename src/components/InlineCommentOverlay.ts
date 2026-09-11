@@ -617,7 +617,7 @@ export function InlineCommentOverlay({
                 Box(
                   { flexDirection: "row", flexShrink: 0 },
                   isCollapsed
-                    ? Text({ content: `  @${root.author || "you"}`, fg: theme.blue })
+                    ? Text({ content: `  ${displayAuthor(root.author || "you")}`, fg: theme.blue })
                     : null,
                   thread.resolved
                     ? Text({

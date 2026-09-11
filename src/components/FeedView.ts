@@ -166,7 +166,7 @@ function eventRows(
   const foldable = event.target?.kind === "commit"
   const fold = foldable ? (feed.expandedIds.has(event.id) ? "▾ " : "▸ ") : ""
   cells.push(
-    Text({ content: fitRight(event.actor ? `@${event.actor}` : "", ACTOR_WIDTH) + "  ", fg: theme.subtext0 }),
+    Text({ content: fitRight(actorLabel(event.actor), ACTOR_WIDTH) + "  ", fg: theme.subtext0 }),
     Text({ content: fitLeft(fold + (event.lead ?? ""), leadWidth) + "  ", fg: colors.textDim })
   )
 
@@ -254,6 +254,12 @@ function previousEvent(rows: FeedRow[], index: number): FeedEvent | undefined {
 }
 
 /** Cut from the right, with an ellipsis — for names. */
+/** A local comment's author is stored as `@you`, so the `@` is not added twice. */
+function actorLabel(actor: string | undefined): string {
+  if (!actor) return ""
+  return actor.startsWith("@") ? actor : `@${actor}`
+}
+
 function fitRight(text: string, width: number): string {
   const w = Bun.stringWidth(text)
   if (w <= width) return text + " ".repeat(width - w)
