@@ -19,7 +19,8 @@ there are rows on screen.
 
 ### P1
 
-- `s` works in the file tree, the info panel and the feed.
+- `s` works in the file tree, the info panel, the feed and the comments
+  panel.
 - In a list, `s` labels **every visible row at once** and the next keystroke
   jumps. There are rarely more than forty rows on screen, so a label each is
   enough and it costs one keypress.
@@ -40,8 +41,9 @@ FlashSurface
   jumpTo(id)    → put the cursor there
 ```
 
-The diff, the tree panel, the info panel and the feed each implement two
-methods; `FlashHandler` loses its knowledge of the diff entirely. This is the
+The diff, the tree panel, the info panel, the feed and the comments panel
+each implement two methods; `FlashHandler` loses its knowledge of the diff
+entirely. This is the
 same "focused surface" seam spec 064 introduces, so it lands after it.
 
 The two flavours are one mechanism with different entry points: the list mode

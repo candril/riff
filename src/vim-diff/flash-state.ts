@@ -29,7 +29,7 @@ export interface FlashMatch {
  * labels every visible row at once, because there are rarely forty of them
  * and it costs one keypress.
  */
-export type FlashSurface = "diff" | "tree" | "state" | "feed"
+export type FlashSurface = "diff" | "tree" | "state" | "feed" | "comments"
 
 /** A labelled row of a list surface. The id is that surface's own. */
 export interface FlashRow {

@@ -21,6 +21,7 @@ import {
   filesWithUnseenComments,
   type AppState,
   setTreeFilter,
+  highlightInlineComment,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -559,6 +560,8 @@ export async function createApp(options: AppOptions = {}) {
         state = { ...state, reactionTarget: prInfoPanel?.getReactionTarget() ?? null }
       } else if (surface === "feed") {
         state = { ...state, feed: { ...state.feed, highlightIndex: Number(id) } }
+      } else if (surface === "comments") {
+        state = highlightInlineComment(state, id)
       }
     },
     onUpdate: () => { render() },

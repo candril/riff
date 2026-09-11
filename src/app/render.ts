@@ -509,6 +509,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
               filter: state.inlineCommentOverlay.filter,
               filterInput: state.inlineCommentOverlay.filterInput,
+              flashLabels:
+                flashState.active && flashState.surface === "comments"
+                  ? new Map(flashState.rows.map((row) => [row.id, row.label]))
+                  : new Map(),
               renderer: ctx.renderer,
             })
           : null,

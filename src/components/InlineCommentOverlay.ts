@@ -80,6 +80,8 @@ export interface InlineCommentOverlayProps {
   /** The `/` filter over the panel's comments, and whether it is being typed. */
   filter: string
   filterInput: boolean
+  /** Flash labels by comment id, while `s` is labelling the panel (spec 066). */
+  flashLabels: ReadonlyMap<string, string>
   renderer: CliRenderer
 }
 
@@ -269,6 +271,41 @@ function renderHintRow(hints: Hint[]) {
  */
 const WINDOW_LEAD = 2
 
+/** How many threads are mounted at once — see `maxVisibleThreads` below. */
+function threadWindowSize(expanded: boolean): number {
+  return expanded ? 80 : 24
+}
+
+/**
+ * The comment rows the panel is drawing, top to bottom (spec 066).
+ *
+ * Flash labels what is on screen, and what is on screen is a window around
+ * the highlight rather than every thread. Same inputs as the render below,
+ * so the two cannot disagree about which rows exist.
+ */
+export function visibleOverlayCommentIds(
+  comments: Comment[],
+  expandedThreadIds: ReadonlySet<string>,
+  highlightedIndex: number,
+  expanded: boolean
+): string[] {
+  const threads = groupIntoThreads(comments)
+  const displayOrder = threads.flatMap((t) =>
+    isThreadCollapsed(t, expandedThreadIds) ? [t.comments[0]!] : t.comments
+  )
+  const visible = pickVisibleThreads(
+    threads,
+    displayOrder,
+    highlightedIndex,
+    threadWindowSize(expanded)
+  )
+  return visible.threads.flatMap((thread) =>
+    isThreadCollapsed(thread, expandedThreadIds)
+      ? [thread.comments[0]!.id]
+      : thread.comments.map((comment) => comment.id)
+  )
+}
+
 function pickVisibleThreads(
   threads: Thread[],
   displayOrder: Comment[],
@@ -367,6 +404,12 @@ function renderMentionPicker(
  * already `@`-prefixed, while GitHub logins are bare. Prefixing blindly
  * rendered the local ones as `@@you`.
  */
+/** The row's two-cell lead: its flash label while labelling, else the caret. */
+function caretContent(label: string | undefined, highlighted: boolean): string {
+  if (label) return `${label} `
+  return highlighted ? "▸ " : "  "
+}
+
 function displayAuthor(author: string): string {
   return author.startsWith("@") ? author : `@${author}`
 }
@@ -390,6 +433,7 @@ export function InlineCommentOverlay({
   unseenIds,
   filter,
   filterInput,
+  flashLabels,
   renderer,
 }: InlineCommentOverlayProps) {
   const threads = groupIntoThreads(comments)
@@ -427,7 +471,7 @@ export function InlineCommentOverlay({
   // Cap the rendered thread count when not expanded — the viewport
   // clips overflow, but mounting hundreds of MarkdownRenderables is a
   // measurable cost on first paint.
-  const maxVisibleThreads = expanded ? 80 : 24
+  const maxVisibleThreads = threadWindowSize(expanded)
   const visible = pickVisibleThreads(threads, displayOrder, highlightedIndex, maxVisibleThreads)
 
   return Box(
@@ -555,8 +599,12 @@ export function InlineCommentOverlay({
                   // the highlight caret on the header itself.
                   isCollapsed
                     ? Text({
-                        content: isThreadHighlighted ? "▸ " : "  ",
-                        fg: isThreadHighlighted ? theme.blue : theme.overlay0,
+                        content: caretContent(flashLabels.get(root.id), isThreadHighlighted),
+                        fg: flashLabels.has(root.id)
+                          ? colors.flashLabel
+                          : isThreadHighlighted
+                            ? theme.blue
+                            : theme.overlay0,
                       })
                     : null,
                   Text({
@@ -620,8 +668,12 @@ export function InlineCommentOverlay({
                   Box(
                     { flexDirection: "row", height: 1 },
                     Text({
-                      content: isHighlighted ? "▸ " : "  ",
-                      fg: isHighlighted ? theme.blue : theme.overlay0,
+                      content: caretContent(flashLabels.get(comment.id), isHighlighted),
+                      fg: flashLabels.has(comment.id)
+                        ? colors.flashLabel
+                        : isHighlighted
+                          ? theme.blue
+                          : theme.overlay0,
                     }),
                     !isRoot
                       ? Text({ content: connector, fg: colors.textDim })

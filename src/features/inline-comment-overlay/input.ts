@@ -420,6 +420,9 @@ export function handleInput(
     }
 
     case "s":
+      // Bare `s` is flash's: the global handler labels the panel's rows
+      // (spec 066). `S` posts the highlighted comment.
+      if (!key.shift && !key.ctrl) return false
       if (key.shift && highlighted) {
         if (
           highlighted.status === "local" ||

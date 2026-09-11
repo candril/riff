@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -23,6 +23,7 @@ import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
+import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
 import { copyToClipboard } from "../utils/clipboard"
 
 import * as actionMenu from "../features/action-menu"
@@ -117,6 +118,11 @@ export interface GlobalKeyContext {
  * search-then-label flavour applies (spec 066).
  */
 function flashSurface(state: AppState): FlashSurface | null {
+  // The comments panel is checked first: it is an overlay, so it has focus
+  // over whichever view is behind it.
+  if (state.focusedPanel === "comments" && state.inlineCommentOverlay.mode === "view") {
+    return "comments"
+  }
   if (state.viewMode === "state") return "state"
   if (state.viewMode === "feed") return "feed"
   if (state.focusedPanel === "tree") return "tree"
@@ -137,6 +143,13 @@ function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed":
       return visibleFeedRows(state).map((_, index) => String(index))
+    case "comments":
+      return visibleOverlayCommentIds(
+        getInlineCommentOverlayComments(state),
+        state.inlineCommentOverlay.expandedThreadIds,
+        state.inlineCommentOverlay.highlightedIndex,
+        state.inlineCommentOverlay.expanded
+      )
     default:
       return []
   }
@@ -152,6 +165,10 @@ function reservedKeysFor(surface: FlashSurface): string {
       return "vx"
     case "state":
       return "xc"
+    case "comments":
+      // Reply, edit, delete and resolve: the keys whose mistake costs the
+      // most are the ones flash refuses to be confused with.
+      return "redx"
     default:
       return ""
   }
