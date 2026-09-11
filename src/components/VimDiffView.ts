@@ -423,7 +423,8 @@ export class VimDiffView {
   private cursorState: VimCursorState | null = null
   private comments: Comment[] = []
   private fileStatuses: Map<string, FileReviewStatus> = new Map()
-  private loadingFiles: Set<string> = new Set()
+  /** The divider riff is fetching for, if any: only that row spins (spec 074). */
+  private expandingDivider: string | null = null
   private searchState: SearchState | null = null
   private flashState: FlashState | null = null
   
@@ -568,16 +569,13 @@ export class VimDiffView {
    * Format a divider line for display
    * Creates an attractive collapsed context indicator with loading state
    */
-  private formatDivider(lineCount: string, filename: string): string {
-    const isLoading = this.loadingFiles.has(filename)
-    
-    if (isLoading) {
-      // Loading state - spinner with context
-      return `⟳ Expanding ${lineCount}...`
+  private formatDivider(lineCount: string, dividerKey: string | undefined): string {
+    if (dividerKey && dividerKey === this.expandingDivider) {
+      return `⟳ Expanding ${lineCount}…`
     }
-    
-    // Collapsed state - clean, minimal fold indicator
-    return `▸ ${lineCount}`
+    // What it is, and the key that opens it — `za` does not, since a
+    // collapsed run of context is not a fold (spec 074).
+    return `▸ ${lineCount}  ↵`
   }
 
   /**
@@ -601,11 +599,11 @@ export class VimDiffView {
     cursorState: VimCursorState,
     comments: Comment[],
     fileStatuses?: Map<string, FileReviewStatus>,
-    loadingFiles?: Set<string>,
+    expandingDivider?: string | null,
     searchState?: SearchState | null
   ): void {
-    const newLoadingFiles = loadingFiles ?? new Set()
-    const loadingChanged = !this.setsEqual(this.loadingFiles, newLoadingFiles)
+    const nextExpanding = expandingDivider ?? null
+    const loadingChanged = this.expandingDivider !== nextExpanding
     
     const contentChanged = 
       this.wrapDirty ||
@@ -624,7 +622,7 @@ export class VimDiffView {
     this.cursorState = cursorState
     this.comments = comments
     this.fileStatuses = fileStatuses ?? new Map()
-    this.loadingFiles = newLoadingFiles
+    this.expandingDivider = nextExpanding
     this.searchState = searchState ?? null
 
     if (contentChanged) {
@@ -1238,10 +1236,9 @@ export class VimDiffView {
           lines.push(line.content)
           break
         case "divider":
-          // Collapsed context - use formatted divider with loading state
+          // Collapsed context — the row says what it is and how to open it
           const divLabel = line.content || "..."
-          const divFilename = line.filename ?? ""
-          lines.push(this.formatDivider(divLabel, divFilename))
+          lines.push(this.formatDivider(divLabel, line.dividerKey))
           break
         case "addition":
         case "deletion":
@@ -2406,8 +2403,7 @@ export class VimDiffView {
         case "divider":
           // Divider showing collapsed line count with loading state
           const label = line.content || "..."
-          const filename = line.filename ?? ""
-          lines.push(this.formatDivider(label, filename))
+          lines.push(this.formatDivider(label, line.dividerKey))
           break
         case "addition":
         case "deletion":
@@ -2507,10 +2503,8 @@ export class VimDiffView {
         // Legacy - shouldn't appear anymore
         lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
       } else if (line.type === "divider") {
-        // Divider with subtle styling - check loading state for visual feedback
-        const divFilename = line.filename ?? ""
-        const isLoading = this.loadingFiles.has(divFilename)
-        if (isLoading) {
+        // Divider with subtle styling — the one being fetched for is brighter
+        if (line.dividerKey && line.dividerKey === this.expandingDivider) {
           // Loading - slightly brighter to draw attention
           lineColors.set(i, { gutter: theme.surface0, content: theme.surface0 })
         } else {

@@ -49,7 +49,7 @@ async function mountDiff() {
     await renderOnce()
   }
 
-  view.update(files, null, mapping, { ...createCursorState(), line: longLine, col: 0 }, [], new Map(), new Set(), null)
+  view.update(files, null, mapping, { ...createCursorState(), line: longLine, col: 0 }, [], new Map(), null, null)
   await settle()
 
   return { view, longLine, settle }

@@ -593,15 +593,20 @@ export class DiffLineMapping {
       dividerIndex: number,
       position: "start" | "middle" | "end"
     ) => {
-      const skippedLines = endLine - startLine + 1
-      if (skippedLines <= 0) return
+      // `endLine` of 0 means "to the end of the file, however long that is":
+      // the length is only known once the file itself has been fetched, and
+      // a count riff has not measured is not one it should print (spec 074).
+      const unknownLength = endLine === 0
+      const skippedLines = unknownLength ? 0 : endLine - startLine + 1
+      if (!unknownLength && skippedLines <= 0) return
       
       const dividerKey = `${filename}:${position}:${dividerIndex}`
       const isExpanded = this.expandedDividers.has(dividerKey)
       
       if (isExpanded && fullFileLines.length > 0) {
         // Insert the collapsed lines as context
-        for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
+        const last = unknownLength ? fullFileLines.length : endLine
+        for (let lineNum = startLine; lineNum <= last; lineNum++) {
           const lineContent = fullFileLines[lineNum - 1] ?? ""  // Convert to 0-indexed
           lines.push({
             visualIndex: lines.length,
@@ -620,7 +625,11 @@ export class DiffLineMapping {
         lines.push({
           visualIndex: lines.length,
           type: "divider",
-          content: skippedLines === 1 ? "1 line" : `${skippedLines} lines`,
+          content: unknownLength
+            ? "rest of the file"
+            : skippedLines === 1
+              ? "1 line"
+              : `${skippedLines} lines`,
           rawLine: "",
           fileIndex,
           filename,
@@ -724,10 +733,16 @@ export class DiffLineMapping {
       }
     }
 
-    // Add "end" divider if there are more lines after the last hunk
-    // We need to know the total file length - use fullFileLines if available
-    if (totalFileLines > 0 && lastHunkEndLine > 0 && lastHunkEndLine < totalFileLines) {
-      addDividerOrContext(lastHunkEndLine + 1, totalFileLines, 0, "end")
+    // The run after the last hunk. Its length is the file's, which riff only
+    // knows once it has the file — so before then the row says "rest of the
+    // file" rather than a number it is guessing at (spec 074). Once the file
+    // is in hand the row carries the count, or goes away because the hunk
+    // reached the end after all.
+    if (lastHunkEndLine > 0) {
+      if (totalFileLines === 0) addDividerOrContext(lastHunkEndLine + 1, 0, 0, "end")
+      else if (lastHunkEndLine < totalFileLines) {
+        addDividerOrContext(lastHunkEndLine + 1, totalFileLines, 0, "end")
+      }
     }
 
     return lines

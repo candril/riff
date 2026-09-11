@@ -39,7 +39,6 @@ export interface FoldsContext {
   ensureCursorVisible: () => void
   render: () => void
   // Divider expansion (reuse existing handler)
-  handleExpandDivider: () => void
 }
 
 /**
@@ -142,12 +141,8 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
     return
   }
 
-  // Diff view - toggle folds
-  const dividerKey = ctx.getLineMapping().getDividerKey(ctx.getVimState().line)
-  if (dividerKey) {
-    ctx.handleExpandDivider()
-    return
-  }
+  // A collapsed run of context is not a fold: `za` leaves it alone, and
+  // `Enter` is what opens it (spec 074).
 
   // A fenced block the cursor is in folds before the file does: a mermaid
   // fence is the thing in the way, and the file is what is left (spec 073).

@@ -430,6 +430,9 @@ export interface AppState {
   
   // Expanded dividers (key: "filename:dividerIndex")
   expandedDividers: Set<string>
+  // The one riff is fetching the file for right now (spec 074): every other
+  // collapsed run in that file is not loading, and should not say it is.
+  expandingDivider: string | null
   
   // Collapsed files in all-files diff view (filenames that are collapsed)
   collapsedFiles: Set<string>
@@ -633,6 +636,7 @@ export function createInitialState(
     pendingReview: null,
     fileContentCache: {},
     expandedDividers: new Set(),
+    expandingDivider: null,
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
@@ -1380,19 +1384,22 @@ export function setFileContentError(state: AppState, filename: string, error: st
 }
 
 /**
- * Toggle divider expansion
+ * Open a collapsed run of context, for good (spec 074).
+ *
+ * One-way on purpose: expanding is not folding. A fold hides something you
+ * can already see; this fetches lines the diff never carried, and there is
+ * nothing to gain from putting them back — `gr` or folding the file does.
  */
-export function toggleDividerExpansion(state: AppState, dividerKey: string): AppState {
-  const newExpanded = new Set(state.expandedDividers)
-  if (newExpanded.has(dividerKey)) {
-    newExpanded.delete(dividerKey)
-  } else {
-    newExpanded.add(dividerKey)
-  }
-  return {
-    ...state,
-    expandedDividers: newExpanded,
-  }
+export function expandDivider(state: AppState, dividerKey: string): AppState {
+  if (state.expandedDividers.has(dividerKey)) return state
+  const expandedDividers = new Set(state.expandedDividers)
+  expandedDividers.add(dividerKey)
+  return { ...state, expandedDividers }
+}
+
+/** The divider riff is fetching the file for, so only it shows the spinner. */
+export function setExpandingDivider(state: AppState, dividerKey: string | null): AppState {
+  return state.expandingDivider === dividerKey ? state : { ...state, expandingDivider: dividerKey }
 }
 
 /**

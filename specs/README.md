@@ -89,6 +89,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list |
 | 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
 | 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
+| 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
 
 ## MVP Path
 

@@ -241,13 +241,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       content = Text({ content: "No changes to display", fg: colors.textDim })
     } else {
       // Diff view
-      const loadingFiles = new Set<string>()
-      for (const [filename, cache] of Object.entries(state.fileContentCache)) {
-        if (cache.loading) {
-          loadingFiles.add(filename)
-        }
-      }
-
       ctx.vimDiffView.setWrap(state.wrapLines)
       ctx.vimDiffView.update(
         state.files,
@@ -256,7 +249,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         vimState,
         state.comments,
         state.fileStatuses,
-        loadingFiles,
+        state.expandingDivider,
         searchState
       )
 

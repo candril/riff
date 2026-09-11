@@ -7,7 +7,8 @@ import {
   setFileContentLoading,
   setFileContent,
   setFileContentError,
-  toggleDividerExpansion,
+  expandDivider,
+  setExpandingDivider,
   expandFiles,
   openActionMenu,
   setPendingReview,
@@ -516,7 +517,7 @@ export async function createApp(options: AppOptions = {}) {
     expandDividerForLine: (filename, lineNum) => {
       const dividerKey = lineMapping.findDividerForLine(filename, lineNum)
       if (dividerKey) {
-        state = toggleDividerExpansion(state, dividerKey)
+        state = expandDivider(state, dividerKey)
         createLineMapping()
       }
     },
@@ -573,13 +574,13 @@ export async function createApp(options: AppOptions = {}) {
 
     const cached = state.fileContentCache[filename]
     if (!cached || cached.error) {
-      state = setFileContentLoading(state, filename)
+      state = setExpandingDivider(setFileContentLoading(state, filename), dividerKey)
       render()
 
       try {
         const fetched = await fetchFileVersions(filename)
         if (!fetched.ok) {
-          state = setFileContentError(state, filename, fetched.error)
+          state = setExpandingDivider(setFileContentError(state, filename, fetched.error), null)
           render()
           return false
         }
@@ -587,13 +588,13 @@ export async function createApp(options: AppOptions = {}) {
         state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error"
-        state = setFileContentError(state, filename, msg)
+        state = setExpandingDivider(setFileContentError(state, filename, msg), null)
         render()
         return false
       }
     }
 
-    state = toggleDividerExpansion(state, dividerKey)
+    state = setExpandingDivider(expandDivider(state, dividerKey), null)
     createLineMapping()
     render()
     ensureCursorVisible()
@@ -672,7 +673,6 @@ export async function createApp(options: AppOptions = {}) {
     updateFileTreePanel,
     ensureCursorVisible,
     render,
-    handleExpandDivider,
   }
 
   const fileNavContext: fileNavigation.FileNavigationContext = {

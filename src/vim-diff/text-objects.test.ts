@@ -238,7 +238,8 @@ describe("diff objects", () => {
       "all"
     )
 
-    // 0 file-header, 1 context, 2 deletion, 3 addition, 4 spacing, 5 header…
+    // 0 file-header, 1 context, 2 deletion, 3 addition, 4 the run after the
+    // last hunk (spec 074), 5 spacing, 6 header…
     expect(resolveTextObject(allFiles, 2, 0, "i", "f")).toEqual({
       kind: "linewise",
       startLine: 1,
@@ -247,7 +248,7 @@ describe("diff objects", () => {
     expect(resolveTextObject(allFiles, 2, 0, "a", "f")).toEqual({
       kind: "linewise",
       startLine: 0,
-      endLine: 4,
+      endLine: 5,
     })
   })
 })

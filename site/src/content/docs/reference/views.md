@@ -104,6 +104,12 @@ so the prose around a forty-line diagram is readable; `za` again opens it, `zA` 
 in the file at once, and `zR`/`zM` take blocks with them. A block only folds when both its fences
 are on screen: a fence whose partner is outside the hunk is text, not a block.
 
+`Enter` on a collapsed run of context — `▸ 18 lines ↵` — fetches those lines and shows them. It
+is one-way, and deliberately not a fold key: a fold hides what you can see, this brings in what
+the diff never carried. The run after the last hunk reads `rest of the file` until riff has the
+file to measure, and then either carries a count or goes away, because the last hunk reached the
+end after all.
+
 `za` toggles what's under the cursor: a file header folds the whole file away, a hunk header
 folds the hunk. `zR` and `zM` do the whole diff at once. Marking a file viewed folds it, so the
 diff shortens as you work through it.
