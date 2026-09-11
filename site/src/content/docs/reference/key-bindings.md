@@ -146,6 +146,7 @@ While **writing** a comment:
 | `Ctrl+p` | Save and post it to GitHub now |
 | `Ctrl+j` | Newline |
 | `Ctrl+g` | Continue in `$EDITOR` |
+| `Ctrl+y` | Insert a suggestion block for the lines the comment replaces |
 | `@` | Mention picker — `↑`/`↓` or `Ctrl+p`/`Ctrl+n`, `Tab`/`Enter` accepts |
 | `Esc` | Cancel |
 

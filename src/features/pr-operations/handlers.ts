@@ -24,6 +24,7 @@ import {
   updateComment,
   submitReply,
   submitSingleComment,
+  commentRange,
   submitReview,
   toggleThreadResolution,
   getPrHeadSha,
@@ -124,7 +125,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
       if (item.type === "new") {
         // Need head SHA for new comments
         const headSha = await getPrHeadSha(prNumber, owner, repo)
-        const result = await submitSingleComment(owner, repo, prNumber, item.comment, headSha)
+        const result = await submitSingleComment(owner, repo, prNumber, item.comment, headSha, commentRange(item.comment))
         if (result.success) {
           // Update comment: set status to synced, add GitHub IDs
           const updatedComment: Comment = {

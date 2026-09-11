@@ -23,6 +23,13 @@ half-written draft into `$EDITOR` and brings the result back.
 
 ![Composing a range comment](../../../assets/screenshots/visual.png)
 
+### Suggestions
+
+`Ctrl+y` in a draft writes a ```` ```suggestion ```` block prefilled with the lines the comment
+is anchored to, as they read now. Edit them in place; GitHub shows the result as a change the
+author can apply with one click. A comment written on a range covers the whole block, so the
+suggestion replaces exactly the lines that were selected.
+
 ### Mentions
 
 `@` in a draft opens a picker over the repo's contributors, fetched once and cached for a day.

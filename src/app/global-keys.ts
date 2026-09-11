@@ -312,10 +312,23 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     // it covers — the same rule `handleAddComment` uses for `C`, so
     // both routes land the comment in the same place.
     const [scanStart, scanEnd] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
-    let anchor = lineMapping.getCommentAnchor(scanStart)
-    for (let i = scanStart; i <= scanEnd && !anchor; i++) {
-      anchor = lineMapping.getCommentAnchor(i)
+    // Every commentable line the selection covers. A comment on a block is
+    // anchored to its last line and carries the first, which is the shape
+    // GitHub's review API wants (spec 076).
+    const covered = []
+    for (let i = scanStart; i <= scanEnd; i++) {
+      const candidate = lineMapping.getCommentAnchor(i)
+      if (candidate) covered.push(candidate)
     }
+    const first = covered[0]
+    // A selection that crosses files or sides is not a range GitHub can
+    // take; the first line it covers is then the whole of it.
+    const sameBlock = covered.filter(
+      (candidate) => candidate.filename === first?.filename && candidate.side === first?.side
+    )
+    const last = sameBlock[sameBlock.length - 1]
+    const anchor = first && last ? { ...first, line: last.line } : undefined
+    const blockStart = first && last && first.line < last.line ? first.line : undefined
     if (!anchor) {
       // Say why rather than no-op: an expanded line looks exactly as
       // commentable as any other, so silence reads as a broken key.
@@ -359,7 +372,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
 
     ctx.setState((st) =>
-      openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode)
+      openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart)
     )
     ctx.render()
     return true
@@ -605,6 +618,24 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
+        getCommentedLines: () => {
+          // What the comment replaces, read off the diff rows themselves —
+          // the file's own text, not the padded display form (spec 076).
+          const ov = ctx.getState().inlineCommentOverlay
+          const mapping = ctx.getLineMapping()
+          const wanted = ov.side === "LEFT" ? "oldLineNum" : "newLineNum"
+          const from = ov.startLine ?? ov.line
+          const found: string[] = []
+          for (let row = 0; row < mapping.lineCount; row++) {
+            const line = mapping.getLine(row)
+            if (!line || line.filename !== ov.filename) continue
+            const number = line[wanted]
+            if (number === undefined || number < from || number > ov.line) continue
+            if (line.type === (ov.side === "LEFT" ? "addition" : "deletion")) continue
+            found.push(line.sourceContent ?? line.content)
+          }
+          return found.length > 0 ? found : null
+        },
         handleStartNewComment: () => {
           // Start a new comment for the diff cursor's current line.
           // Silently no-op when the cursor isn't on a commentable line —

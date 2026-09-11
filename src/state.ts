@@ -129,6 +129,9 @@ export interface InlineCommentOverlayState {
   filename: string
   /** Line number — only meaningful for compose/edit mode. */
   line: number
+  /** First line of the block the composer was opened on, when that was a
+   *  selection rather than one line (spec 076). */
+  startLine?: number
   /** Which side (LEFT/RIGHT) — only meaningful for compose/edit mode. */
   side: "LEFT" | "RIGHT"
   /** Index of the currently highlighted comment in the derived list.
@@ -2449,7 +2452,9 @@ export function openInlineCommentOverlay(
   filename: string,
   line: number,
   side: "LEFT" | "RIGHT",
-  mode: InlineCommentOverlayMode = "view"
+  mode: InlineCommentOverlayMode = "view",
+  /** The block this was opened on, when it was more than one line. */
+  startLine?: number
 ): AppState {
   const nextState: AppState = {
     ...state,
@@ -2460,6 +2465,7 @@ export function openInlineCommentOverlay(
       mode,
       filename,
       line,
+      startLine: startLine && startLine < line ? startLine : undefined,
       side,
       highlightedIndex: 0,
       // Opening straight into the composer picks up a draft left on this

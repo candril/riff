@@ -1833,6 +1833,33 @@ export async function submitExistingReview(
  * If pendingReviewId is provided, submits the existing pending review first,
  * then creates a new review with local comments (if any).
  */
+/**
+ * One comment as GitHub's review API wants it. A comment that spans lines
+ * carries `start_line`, which is what makes a suggestion replace the block
+ * it was written against rather than its last line (spec 076).
+ */
+function reviewComment(comment: Comment): Record<string, unknown> {
+  const range = commentRange(comment)
+  return {
+    path: comment.filename,
+    line: comment.line,
+    side: comment.side,
+    body: comment.body,
+    ...(range ? { start_line: range.startLine, start_side: range.startSide } : {}),
+  }
+}
+
+/**
+ * The range a comment spans, or nothing when it is a single line. GitHub
+ * rejects a range whose start is its end, so an equal pair is no range.
+ */
+export function commentRange(
+  comment: Comment,
+): { startLine: number; startSide: "LEFT" | "RIGHT" } | undefined {
+  if (!comment.startLine || comment.startLine >= comment.line) return undefined
+  return { startLine: comment.startLine, startSide: comment.side }
+}
+
 export async function submitReview(
   owner: string,
   repo: string,
@@ -1856,12 +1883,7 @@ export async function submitReview(
       // If we have local comments to add, create a second review for them
       // (as COMMENT only, since the event was already applied to the pending review)
       if (comments.length > 0) {
-        const reviewComments = comments.map(c => ({
-          path: c.filename,
-          line: c.line,
-          side: c.side,
-          body: c.body,
-        }))
+        const reviewComments = comments.map(reviewComment)
         
         const payload = JSON.stringify({
           commit_id: commitSha,
@@ -1884,12 +1906,7 @@ export async function submitReview(
     }
     
     // No pending review - create a new review with all comments
-    const reviewComments = comments.map(c => ({
-      path: c.filename,
-      line: c.line,
-      side: c.side,
-      body: c.body,
-    }))
+    const reviewComments = comments.map(reviewComment)
     
     // Create the review payload
     const payload = JSON.stringify({

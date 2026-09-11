@@ -31,6 +31,7 @@ import {
   getCurrentUser,
   getPrHeadSha,
   submitSingleComment,
+  commentRange,
   submitReply,
   updateComment,
   deleteGitHubComment,
@@ -343,7 +344,7 @@ export async function handleSubmitSingleComment(
       }
       result = await submitReply(owner, repo, prNumber, toSubmit, parentComment.githubId)
     } else {
-      result = await submitSingleComment(owner, repo, prNumber, toSubmit, headSha)
+      result = await submitSingleComment(owner, repo, prNumber, toSubmit, headSha, commentRange(toSubmit))
     }
   }
 

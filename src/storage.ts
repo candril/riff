@@ -418,6 +418,7 @@ function toMarkdown(comment: Comment): string {
     `status: ${comment.status}`,
   ]
 
+  if (comment.startLine) lines.push(`startLine: ${comment.startLine}`)
   if (comment.commit) lines.push(`commit: ${comment.commit}`)
   if (comment.githubId) lines.push(`githubId: ${comment.githubId}`)
   if (comment.githubUrl) lines.push(`githubUrl: ${comment.githubUrl}`)
@@ -461,6 +462,7 @@ function parseComment(meta: Record<string, string>, body: string): Comment {
     id: meta.id || "",
     filename: meta.filename || "",
     line: parseInt(meta.line || "0", 10),
+    startLine: meta.startLine ? parseInt(meta.startLine, 10) : undefined,
     side: (meta.side as "LEFT" | "RIGHT") || "RIGHT",
     body: commentBody,
     createdAt: meta.createdAt || new Date().toISOString(),

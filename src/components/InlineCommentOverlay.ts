@@ -711,11 +711,13 @@ export function InlineCommentOverlay({
               ? [
                   ["Enter", "save"],
                   ["Ctrl-p", "save & publish"],
+                  ["Ctrl-y", "suggest"],
                   ["Ctrl-j", "newline"],
                   ["Esc", "cancel"],
                 ]
               : [
                   ["Enter", "save"],
+                  ["Ctrl-y", "suggest"],
                   ["Ctrl-j", "newline"],
                   ["Ctrl-g", "$EDITOR"],
                   ["Esc", "cancel"],

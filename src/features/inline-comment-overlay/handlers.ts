@@ -66,6 +66,9 @@ export async function submitInlineDraft(
   )
 
   const comment = createComment(ov.filename, ov.line, body, ov.side, username)
+  // Written against a block rather than a line: GitHub is told the range,
+  // which is what makes a suggestion replace all of it (spec 076).
+  if (ov.startLine && ov.startLine < ov.line) comment.startLine = ov.startLine
   comment.diffHunk = extractDiffHunk(file.content, ov.line)
   if (thread.length > 0) {
     comment.inReplyTo = thread[thread.length - 1]!.id

@@ -73,6 +73,9 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   /** Ctrl-n / Ctrl-p — jump to next/previous thread, repositioning the
    *  overlay. */
   handleJumpAdjacent: (direction: 1 | -1) => void
+  /** The lines the comment being written replaces, as they read now, or
+   *  null when riff cannot find them (spec 076). */
+  getCommentedLines: () => string[] | null
   /** `n` from the panel — start a new comment anchored at the diff
    *  cursor's current line. The overlay layer doesn't know about line
    *  mapping or vim state, so this is wired up at the app level. */
@@ -127,6 +130,22 @@ function findThreadRootId(comments: Comment[], commentId: string): string | null
   // groupIntoThreads logic ensures inReplyTo points at the root.
   const parent = comments.find((x) => x.id === c.inReplyTo)
   return parent ? findThreadRootId(comments, parent.id) : c.id
+}
+
+/** Put text in at the cursor, leaving the rest of the draft alone. */
+function insertAtComposerCursor(text: string): void {
+  const at = readComposerCursorOffset()
+  replaceComposerRange(at, at, text)
+}
+
+/**
+ * GitHub applies what is inside a ```suggestion fence to the lines the
+ * comment is anchored to. A blank block would delete them, which is a
+ * legitimate suggestion — but never the one riff should write for you, so
+ * the lines go in as they are and you edit them.
+ */
+function suggestionBlock(lines: readonly string[]): string {
+  return ["```suggestion", ...lines, "```", ""].join("\n")
 }
 
 export function handleInput(
@@ -484,6 +503,28 @@ function handleComposerInput(
       }
       ctx.render()
     })()
+    return true
+  }
+
+  // Ctrl-y — a GitHub suggestion block, prefilled with the lines this
+  // comment replaces, so the edit is made in place rather than described
+  // (spec 076). On a comment written against a block that is the whole
+  // block; on one line, that line.
+  if (key.ctrl && key.name === "y") {
+    key.preventDefault()
+    const lines = ctx.getCommentedLines()
+    if (lines === null) {
+      ctx.setState((s) => showToast(s, "Nothing to suggest — riff cannot read those lines", "info"))
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2500)
+      return true
+    }
+    insertAtComposerCursor(suggestionBlock(lines))
+    ctx.setState((s) => setInlineCommentInput(s, readComposerValue()))
+    ctx.render()
     return true
   }
 

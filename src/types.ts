@@ -54,7 +54,10 @@ export type ReactionTarget =
 export interface Comment {
   id: string
   filename: string
-  line: number // Line number in the new file (right side)
+  line: number // Line number in the new file (right side) — the last of the range
+  /** First line of a multi-line comment; unset for a single-line one
+   *  (spec 076). Always on the same side as `line`, and <= it. */
+  startLine?: number
   side: "LEFT" | "RIGHT" // Which side of the diff
   body: string
   createdAt: string
