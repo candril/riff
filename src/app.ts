@@ -37,6 +37,13 @@ import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo } from "./providers/github"
 import type { DiffFile } from "./utils/diff-parser"
 
+/**
+ * How long the cursor stays in a file before riff reads it for the colours
+ * (spec 080). Long enough that `]f]f]f` through a review reads nothing,
+ * short enough that arriving somewhere and looking at it does.
+ */
+const HIGHLIGHT_SOURCE_DELAY_MS = 150
+
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
 import { createRenderFunction } from "./app/render"
@@ -519,15 +526,38 @@ export async function createApp(options: AppOptions = {}) {
    * context already does, and the same cache answers both.
    */
   let highlightSourceWanted: string | null = null
+  let highlightSourceTimer: ReturnType<typeof setTimeout> | null = null
+  const highlightSourceFailed = new Set<string>()
   function requestHighlightSource(): void {
     const filename = lineMapping.getLine(vimState.line)?.filename
     if (!filename || filename === highlightSourceWanted) return
     highlightSourceWanted = filename
 
     const cached = state.fileContentCache[filename]
-    if (cached?.newContent !== undefined && cached.newContent !== null) return
-    if (cached?.loading || cached?.error) return
-    void loadFileContent(filename)
+    if (cached?.newContent) return
+    if (cached?.loading || cached?.error || highlightSourceFailed.has(filename)) return
+
+    // After a pause, and quietly. Nobody asked for this file — riff wants
+    // it to colour the rows — so walking through twenty files with `]f`
+    // must not be twenty reads, and none of them may put the panel into a
+    // loading state the reader would have to watch.
+    if (highlightSourceTimer) clearTimeout(highlightSourceTimer)
+    highlightSourceTimer = setTimeout(() => {
+      highlightSourceTimer = null
+      void (async () => {
+        try {
+          const fetched = await fetchFileVersions(filename)
+          if (fetched.ok) {
+            state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+            render()
+          } else {
+            highlightSourceFailed.add(filename)
+          }
+        } catch {
+          highlightSourceFailed.add(filename)
+        }
+      })()
+    }, HIGHLIGHT_SOURCE_DELAY_MS)
   }
 
   const searchHandler = new SearchHandler({

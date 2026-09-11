@@ -290,14 +290,16 @@ export async function getFileContent(
  */
 async function getJjFileContent(filename: string, target?: string): Promise<string> {
   if (!target) {
-    // Current working copy version
+    // The working copy is the new side of a local diff, and it is right
+    // there: a read beats spawning `jj file show` for the same bytes, and
+    // this runs whenever the cursor lands in a file (spec 080).
+    const file = Bun.file(filename)
+    if (await file.exists()) {
+      return await file.text()
+    }
+
     const result = await $`jj file show ${filename}`.quiet().nothrow()
     if (result.exitCode !== 0) {
-      // Try reading from working directory directly
-      const file = Bun.file(filename)
-      if (await file.exists()) {
-        return await file.text()
-      }
       throw new Error(`File not found: ${filename}`)
     }
     return result.text()
