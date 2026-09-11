@@ -587,11 +587,33 @@ interface RawReactionGroup {
  * — the palette submenu fabricates rows for the full 8-reaction set anyway,
  * so we only carry non-empty state.
  */
+/**
+ * GraphQL names a reaction `THUMBS_UP`; REST — and riff, and the add/remove
+ * mutations — call it `+1`. Reading the one as the other silently dropped
+ * every reaction riff ever loaded, while posting them kept working.
+ */
+const REACTION_BY_GRAPHQL_NAME: Record<string, ReactionContent> = {
+  THUMBS_UP: "+1",
+  THUMBS_DOWN: "-1",
+  LAUGH: "laugh",
+  CONFUSED: "confused",
+  HEART: "heart",
+  HOORAY: "hooray",
+  ROCKET: "rocket",
+  EYES: "eyes",
+}
+
+export { parseReactionGroups as parseReactionGroupsForTest }
+
 function parseReactionGroups(groups: RawReactionGroup[] | undefined): ReactionSummary[] {
   if (!groups) return []
   const known = new Set<string>(REACTION_CONTENT)
   const out: ReactionSummary[] = []
-  for (const g of groups) {
+  for (const raw of groups) {
+    // Accept either spelling: the bundle asks GraphQL, and REST answers
+    // elsewhere with the same shape.
+    const content = REACTION_BY_GRAPHQL_NAME[raw.content] ?? raw.content
+    const g = { ...raw, content }
     if (!known.has(g.content)) continue
     const count = g.reactors?.totalCount ?? 0
     if (count === 0 && !g.viewerHasReacted) continue

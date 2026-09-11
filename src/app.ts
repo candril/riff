@@ -1058,7 +1058,13 @@ export async function createApp(options: AppOptions = {}) {
       {
         getState: () => state,
         setState: (fn) => { state = fn(state) },
-        render,
+        // A reaction on the body, a conversation comment or a review lives
+        // in `prInfo`, which the panel keeps its own copy of — hand the new
+        // one over before drawing, or the pill never appears (spec 042).
+        render: () => {
+          if (state.prInfo) prInfoPanel?.setPrInfo(state.prInfo)
+          render()
+        },
       },
       target,
       content,

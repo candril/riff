@@ -1364,6 +1364,24 @@ export class PRInfoPanelClass {
     return `${counts}${counts ? "  ·  " : ""}from ${this.previews.author}`
   }
 
+  /**
+   * Fresh PR data for the panel to draw from.
+   *
+   * The panel takes `prInfo` in its constructor and every section reads
+   * that copy, so anything that changes it in app state — a reaction on the
+   * body, on a conversation comment or on a review (spec 042) — is
+   * invisible here until it is handed over.
+   */
+  setPrInfo(prInfo: PrInfo): void {
+    if (prInfo === this.prInfo) return
+    this.prInfo = prInfo
+    this.conversationItems = this.buildConversationItems()
+    this.refreshFlatItems()
+    this.refreshFlatCheckItems()
+    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.rebuildSections()
+  }
+
   /** What this PR is stacked on, and how that base has moved (spec 072). */
   setStack(stack: StackInfo | null): void {
     if (!this.stackText) return
