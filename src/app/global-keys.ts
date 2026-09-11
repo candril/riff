@@ -780,7 +780,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
               anchor.filename,
               anchor.line,
               anchor.side,
-              "compose"
+              "compose",
+              undefined,
+              // `n` beside `r`: a thread of its own, even where one already
+              // stands (spec 081).
+              true
             )
           )
           ctx.render()

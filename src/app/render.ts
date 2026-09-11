@@ -515,6 +515,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               scopeFilename: getCommentsPanelScopeFilename(state),
               composeFilename: state.inlineCommentOverlay.filename,
               line: state.inlineCommentOverlay.line,
+              newThread: state.inlineCommentOverlay.newThread === true,
               mode: state.inlineCommentOverlay.mode,
               appMode: state.appMode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,

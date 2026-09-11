@@ -15,6 +15,7 @@ interrupted review is a directory of Markdown files, not a lost tab.
 | The diff, in `$EDITOR` | `C` |
 | The comments panel | `n` |
 | A reply to the focused thread | `r`, or `R` for `$EDITOR` |
+| A second thread on a line that already has one | `n` in the comments panel |
 | A PR-level comment, not on any code | **Add PR Comment** in `Ctrl+p` |
 
 The draft opens in the comments panel with the anchor shown above it. `Enter` or `Ctrl+s` saves

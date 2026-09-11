@@ -133,6 +133,9 @@ export interface InlineCommentOverlayState {
   /** First line of the block the composer was opened on, when that was a
    *  selection rather than one line (spec 076). */
   startLine?: number
+  /** Start a thread of its own, rather than replying to the one already on
+   *  this line — what `n` means beside `r` (spec 081). */
+  newThread?: boolean
   /** Which side (LEFT/RIGHT) — only meaningful for compose/edit mode. */
   side: "LEFT" | "RIGHT"
   /** Index of the currently highlighted comment in the derived list.
@@ -2472,7 +2475,9 @@ export function openInlineCommentOverlay(
   side: "LEFT" | "RIGHT",
   mode: InlineCommentOverlayMode = "view",
   /** The block this was opened on, when it was more than one line. */
-  startLine?: number
+  startLine?: number,
+  /** Start a thread rather than reply to the one already here (spec 081). */
+  newThread?: boolean,
 ): AppState {
   const nextState: AppState = {
     ...state,
@@ -2484,6 +2489,7 @@ export function openInlineCommentOverlay(
       filename,
       line,
       startLine: startLine && startLine < line ? startLine : undefined,
+      newThread: newThread === true,
       side,
       highlightedIndex: 0,
       // Opening straight into the composer picks up a draft left on this
@@ -2748,7 +2754,11 @@ export function moveInlineCommentOverlayHighlight(state: AppState, delta: number
 /**
  * Switch the overlay into compose mode (replying or new comment).
  */
-export function startInlineCompose(state: AppState, prefill: string = ""): AppState {
+export function startInlineCompose(
+  state: AppState,
+  prefill: string = "",
+  options: { newThread?: boolean } = {},
+): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
   return {
@@ -2760,6 +2770,7 @@ export function startInlineCompose(state: AppState, prefill: string = ""): AppSt
       input: prefill || commentDraftFor(state, ov.filename, ov.line, ov.side),
       editingId: null,
       mentionPicker: null,
+      newThread: options.newThread === true,
     },
   }
 }
