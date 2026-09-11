@@ -34,6 +34,13 @@ is anchored to, as they read now. Edit them in place; GitHub shows the result as
 author can apply with one click. A comment written on a range covers the whole block, so the
 suggestion replaces exactly the lines that were selected.
 
+### Emoji
+
+`:` and a letter or two opens an emoji picker — `:roc` finds 🚀, `:lgtm` finds 👍, `:broken`
+finds 🐛 — with the mention picker's keys: `↑`/`↓` to move, `Tab` or `Enter` to accept, `Esc` to
+dismiss. Accepting inserts the emoji itself, which GitHub renders and riff's own panel can show.
+A bare colon does nothing, and `Enter` stays a newline while nothing matches.
+
 ### Mentions
 
 `@` in a draft opens a picker over the repo's contributors, fetched once and cached for a day.

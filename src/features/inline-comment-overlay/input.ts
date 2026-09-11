@@ -35,6 +35,8 @@ import {
   setInlineCommentInput,
   setMentionPicker,
   moveMentionPickerSelection,
+  setEmojiPicker,
+  moveEmojiPickerSelection,
   toggleInlineCommentOverlayExpand,
   setCommentCodePeek,
   rememberCommentDraft,
@@ -42,6 +44,7 @@ import {
   clearToast,
 } from "../../state"
 import { commentHunk } from "./hunk"
+import { filterEmoji } from "../../utils/emoji"
 import { groupIntoThreads } from "../../utils/threads"
 import {
   readComposerValue,
@@ -529,6 +532,11 @@ function handleComposerInput(
   // own those keys. Typing characters falls through to the textarea so
   // the query expands naturally; the textarea's onContentChange then
   // updates the picker via render-time activity dispatch.
+  if (ov.emojiPicker) {
+    const handled = handleEmojiPickerInput(key, ctx, ov.emojiPicker)
+    if (handled) return true
+  }
+
   if (ov.mentionPicker) {
     const handled = handleMentionPickerInput(key, ctx, ov.mentionPicker)
     if (handled) return true
@@ -645,6 +653,59 @@ function handleComposerInput(
  * textarea (extending the query, which the activity callback then
  * re-runs through `detectMentionTrigger`).
  */
+/**
+ * The emoji picker's keys, which are the mention picker's keys (spec 082):
+ * two pickers that behave differently would be two things to remember.
+ */
+function handleEmojiPickerInput(
+  key: KeyEvent,
+  ctx: InlineCommentOverlayInputContext,
+  picker: NonNullable<AppState["inlineCommentOverlay"]["emojiPicker"]>
+): boolean {
+  const matches = filterEmoji(picker.query)
+
+  if (key.name === "escape") {
+    key.preventDefault()
+    ctx.setState((s) => setEmojiPicker(s, null))
+    ctx.render()
+    return true
+  }
+
+  if (key.name === "up" || (key.ctrl && key.name === "p")) {
+    key.preventDefault()
+    if (matches.length > 0) {
+      ctx.setState((s) => moveEmojiPickerSelection(s, -1, matches.length))
+      ctx.render()
+    }
+    return true
+  }
+
+  if (key.name === "down" || (key.ctrl && key.name === "n")) {
+    key.preventDefault()
+    if (matches.length > 0) {
+      ctx.setState((s) => moveEmojiPickerSelection(s, 1, matches.length))
+      ctx.render()
+    }
+    return true
+  }
+
+  // Tab or Enter accepts — but only with something to accept, or Enter
+  // would stop being a newline the moment a colon is typed.
+  if ((key.name === "tab" || key.name === "return" || key.name === "enter") && matches.length > 0) {
+    key.preventDefault()
+    const chosen = matches[Math.min(picker.selectedIndex, matches.length - 1)]
+    if (!chosen) return true
+    // The emoji itself rather than its shortcode: GitHub renders both, and
+    // only one of them is legible in riff's own panel.
+    replaceComposerRange(picker.colonOffset, readComposerCursorOffset(), `${chosen.char} `)
+    ctx.setState((s) => setEmojiPicker(s, null))
+    ctx.render()
+    return true
+  }
+
+  return false
+}
+
 function handleMentionPickerInput(
   key: KeyEvent,
   ctx: InlineCommentOverlayInputContext,

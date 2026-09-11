@@ -151,6 +151,7 @@ While **writing** a comment:
 | `Ctrl+g` | Continue in `$EDITOR` |
 | `Ctrl+y` | Insert a suggestion block for the lines the comment replaces |
 | `@` | Mention picker — `↑`/`↓` or `Ctrl+p`/`Ctrl+n`, `Tab`/`Enter` accepts |
+| `:` | Emoji picker, same keys — `:roc` → 🚀 |
 | `Esc` | Cancel |
 
 `Ctrl+Enter` also posts, in the terminals that can send it. `Ctrl+p` is the one that works

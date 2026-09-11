@@ -97,6 +97,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 079 | [The PR Your Branch Already Has](./079-branch-pr.md) | Done | local mode names the branch's PR and reopens riff on it |
 | 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
 | 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | writing a comment starts a thread; `r` is how you reply |
+| 082 | [Emoji by Shortcode](./082-emoji.md) | Done | `:` in the composer suggests emoji |
 
 ## MVP Path
 

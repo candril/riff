@@ -36,8 +36,10 @@ import {
   collectMentionCandidates,
   detectMentionTrigger,
 } from "../utils/mentions"
+import { detectEmojiTrigger } from "../utils/emoji"
 import {
   setMentionPicker,
+  setEmojiPicker,
   setActionMenuQuery,
   setFilePickerQuery,
   setCommentsPickerQuery,
@@ -346,6 +348,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             // when there's nothing to set.
             const trigger = detectMentionTrigger(text, cursorOffset)
             ctx.setState((s) => setMentionPicker(s, trigger))
+            // And `:shortcode`, which needs nothing fetched (spec 082).
+            ctx.setState((s) => setEmojiPicker(s, detectEmojiTrigger(text, cursorOffset)))
             if (trigger) {
               // Widen the pool for fragments the cached roster can't cover
               // (large orgs) — debounced, so this is a no-op most keystrokes.
@@ -531,6 +535,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               focused: state.focusedPanel === "comments",
               expanded: state.inlineCommentOverlay.expanded,
               mentionPicker: state.inlineCommentOverlay.mentionPicker,
+              emojiPicker: state.inlineCommentOverlay.emojiPicker,
               mentionCandidates: collectMentionCandidates(state),
               mentionSearchQuery: state.mentionSearchQuery,
               expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,

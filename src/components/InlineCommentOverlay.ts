@@ -18,7 +18,7 @@ import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import { PromptInput } from "./PromptInput"
 import type { Comment } from "../types"
-import type { InlineCommentOverlayMode, MentionPickerState } from "../state"
+import type { EmojiPickerState, InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
@@ -27,6 +27,7 @@ import { annotateReferences } from "../utils/references"
 import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { fuzzyFilter } from "../utils/fuzzy"
+import { filterEmoji } from "../utils/emoji"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
 
@@ -68,6 +69,8 @@ export interface InlineCommentOverlayProps {
   expanded: boolean
   /** Active @mention picker session (null when no `@<query>` trigger). */
   mentionPicker: MentionPickerState | null
+  /** Active `:shortcode` session (spec 082). */
+  emojiPicker: EmojiPickerState | null
   /** Full PR-participant pool — filtered against `mentionPicker.query`
    *  to produce the visible candidate list. Empty in local-diff mode. */
   mentionCandidates: readonly string[]
@@ -337,6 +340,61 @@ function emptyPickerMessage(query: string, searchQuery: string | null): string {
   return `No match for @${query}`
 }
 
+/**
+ * The emoji a `:shortcode` found, in the mention picker's clothes — one
+ * composer, one kind of picker (spec 082).
+ */
+function renderEmojiPicker(picker: EmojiPickerState) {
+  const matches = filterEmoji(picker.query)
+  if (matches.length === 0) {
+    return Box(
+      {
+        flexDirection: "column",
+        marginTop: 1,
+        paddingX: 1,
+        backgroundColor: theme.surface0,
+        borderStyle: "single",
+        borderColor: theme.overlay0,
+      },
+      Text({ content: `No emoji for :${picker.query}`, fg: theme.overlay0 })
+    )
+  }
+
+  const selected = Math.min(picker.selectedIndex, matches.length - 1)
+  return Box(
+    {
+      flexDirection: "column",
+      marginTop: 1,
+      paddingX: 1,
+      backgroundColor: theme.surface0,
+      borderStyle: "single",
+      borderColor: theme.yellow,
+    },
+    Box({ flexDirection: "row", height: 1 }, Text({ content: ":emoji", fg: theme.yellow })),
+    ...matches.map((emoji, i) =>
+      Box(
+        {
+          flexDirection: "row",
+          height: 1,
+          backgroundColor: i === selected ? theme.surface1 : undefined,
+        },
+        Text({
+          content: i === selected ? "▸ " : "  ",
+          fg: i === selected ? theme.yellow : theme.overlay0,
+        }),
+        Text({ content: `${emoji.char}  `, fg: theme.text }),
+        Text({ content: `:${emoji.name}:`, fg: theme.subtext0 })
+      )
+    ),
+    Box(
+      { flexDirection: "row", height: 1 },
+      Text({ content: "↑↓ nav  ", fg: theme.overlay0 }),
+      Text({ content: "Tab/⏎ accept  ", fg: theme.overlay0 }),
+      Text({ content: "Esc dismiss", fg: theme.overlay0 })
+    )
+  )
+}
+
 function renderMentionPicker(
   picker: MentionPickerState,
   candidates: readonly string[],
@@ -430,6 +488,7 @@ export function InlineCommentOverlay({
   focused,
   expanded,
   mentionPicker,
+  emojiPicker,
   mentionCandidates,
   mentionSearchQuery,
   expandedThreadIds,
@@ -749,9 +808,11 @@ export function InlineCommentOverlay({
               label: composerLabel,
               renderer,
             }),
-            isComposing && mentionPicker
-              ? renderMentionPicker(mentionPicker, mentionCandidates, mentionSearchQuery)
-              : null
+            isComposing && emojiPicker
+              ? renderEmojiPicker(emojiPicker)
+              : isComposing && mentionPicker
+                ? renderMentionPicker(mentionPicker, mentionCandidates, mentionSearchQuery)
+                : null
           )
         : null,
 

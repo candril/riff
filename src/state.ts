@@ -152,6 +152,8 @@ export interface InlineCommentOverlayState {
   /** When typing `@<query>` in the composer, this opens an in-overlay
    *  picker of PR participants. `null` when no trigger is active. */
   mentionPicker: MentionPickerState | null
+  /** The `:shortcode` being typed, if one is (spec 082). */
+  emojiPicker: EmojiPickerState | null
   /** Root comment ids the user has explicitly expanded. Resolved threads
    *  collapse to a single header row by default; `za`/Enter toggles a
    *  thread into this set, revealing its body + replies. Outdated
@@ -173,6 +175,13 @@ export interface MentionPickerState {
   query: string
   selectedIndex: number
   atOffset: number
+}
+
+/** An open `:shortcode` in the composer, and where its colon is (spec 082). */
+export interface EmojiPickerState {
+  query: string
+  selectedIndex: number
+  colonOffset: number
 }
 
 /**
@@ -724,6 +733,7 @@ export function createInitialState(
       editingId: null,
       expanded: false,
       mentionPicker: null,
+      emojiPicker: null,
       expandedThreadIds: new Set(),
       codePeekId: null,
     },
@@ -2499,6 +2509,7 @@ export function openInlineCommentOverlay(
       codePeekId: null,
       expanded: state.inlineCommentOverlay.expanded,
       mentionPicker: null,
+      emojiPicker: null,
       // Fresh per-open expansion state — the user starts with everything
       // collapsed so the panel stays scannable.
       expandedThreadIds: new Set(),
@@ -2544,6 +2555,7 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
       input: "",
       editingId: null,
       mentionPicker: null,
+      emojiPicker: null,
       expandedThreadIds: new Set(),
       codePeekId: null,
     },
@@ -2770,6 +2782,7 @@ export function startInlineCompose(
       input: prefill || commentDraftFor(state, ov.filename, ov.line, ov.side),
       editingId: null,
       mentionPicker: null,
+      emojiPicker: null,
       replyToThread: options.reply === true,
     },
   }
@@ -2793,6 +2806,7 @@ export function startInlineEdit(
       input: state.commentDrafts.get(`edit:${commentId}`) || prefill,
       editingId: commentId,
       mentionPicker: null,
+      emojiPicker: null,
     },
   }
 }
@@ -2858,6 +2872,7 @@ export function cancelInlineComposer(state: AppState): AppState {
       input: "",
       editingId: null,
       mentionPicker: null,
+      emojiPicker: null,
     },
   }
 }
@@ -2912,6 +2927,50 @@ export function setMentionPicker(
  * Move the mention picker selection. Caller passes the candidate count
  * so we can clamp without re-deriving the list here.
  */
+/**
+ * Open, move or close the emoji picker (spec 082). Mirrors the mention
+ * picker: the selection survives a keystroke that leaves the query alone,
+ * or the highlighted entry would snap back to the top as you type.
+ */
+export function setEmojiPicker(
+  state: AppState,
+  picker: { query: string; colonOffset: number } | null
+): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  if (picker === null) {
+    if (ov.emojiPicker === null) return state
+    return { ...state, inlineCommentOverlay: { ...ov, emojiPicker: null } }
+  }
+  const prev = ov.emojiPicker
+  if (prev && prev.query === picker.query && prev.colonOffset === picker.colonOffset) return state
+  return {
+    ...state,
+    inlineCommentOverlay: {
+      ...ov,
+      emojiPicker: { query: picker.query, colonOffset: picker.colonOffset, selectedIndex: 0 },
+    },
+  }
+}
+
+export function moveEmojiPickerSelection(
+  state: AppState,
+  delta: number,
+  candidateCount: number
+): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open || !ov.emojiPicker || candidateCount === 0) return state
+  const cur = ov.emojiPicker.selectedIndex
+  let next = cur + delta
+  if (next < 0) next = candidateCount - 1
+  else if (next >= candidateCount) next = 0
+  if (next === cur) return state
+  return {
+    ...state,
+    inlineCommentOverlay: { ...ov, emojiPicker: { ...ov.emojiPicker, selectedIndex: next } },
+  }
+}
+
 export function moveMentionPickerSelection(
   state: AppState,
   delta: number,
