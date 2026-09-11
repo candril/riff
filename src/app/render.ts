@@ -242,6 +242,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     } else {
       // Diff view
       ctx.vimDiffView.setWrap(state.wrapLines)
+      // The text of the files riff has already read, so they can be
+      // highlighted as files rather than as the rows on screen (spec 080).
+      ctx.vimDiffView.setFileContents(
+        new Map(
+          Object.entries(state.fileContentCache).flatMap(([filename, entry]) =>
+            entry?.newContent ? [[filename, entry.newContent] as [string, string]] : []
+          )
+        )
+      )
       ctx.vimDiffView.update(
         state.files,
         state.selectedFileIndex,

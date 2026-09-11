@@ -24,6 +24,7 @@ import {
   type LineColorConfig,
   type LineSign,
   type SimpleHighlight,
+  getTreeSitterClient,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
@@ -34,6 +35,7 @@ import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-sta
 import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
+import { mapFileHighlights } from "../vim-diff/file-highlights"
 
 /** Structural rows a selection skips — the same ones yank leaves out. */
 const SELECTION_SKIPPED_TYPES = new Set([
@@ -43,6 +45,9 @@ const SELECTION_SKIPPED_TYPES = new Set([
   "spacing",
   "no-newline",
 ])
+
+/** How many files' parses are kept at once (spec 080). */
+const FILE_HIGHLIGHT_LIMIT = 24
 
 // Shared syntax style for diff rendering
 let sharedSyntaxStyle: SyntaxStyle | null = null
@@ -95,6 +100,18 @@ export function getSyntaxStyle(): SyntaxStyle {
  * Compute character offsets for each line start in a content string.
  * Returns an array where index i = character offset where line i starts.
  */
+/** The row an offset falls on, in a content string's line starts. */
+function rowOfOffset(starts: readonly number[], offset: number): number {
+  let low = 0
+  let high = starts.length - 1
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2)
+    if (starts[mid]! <= offset) low = mid
+    else high = mid - 1
+  }
+  return low
+}
+
 function computeLineStartOffsets(content: string): number[] {
   const offsets: number[] = [0]
   for (let i = 0; i < content.length; i++) {
@@ -428,6 +445,11 @@ export class VimDiffView {
   private searchState: SearchState | null = null
   private flashState: FlashState | null = null
   
+  /** Each file's text and what tree-sitter made of it (spec 080). */
+  private fileHighlights = new Map<string, { content: string; highlights: SimpleHighlight[] | null }>()
+  /** Told when a parse lands, so the frame can be drawn again. */
+  onFileParsed: (() => void) | undefined
+
   // Last cursor position for highlight removal
   private lastCursorLine: number = -1
   private lastCursorCol: number = -1
@@ -1306,9 +1328,18 @@ export class VimDiffView {
     // The hook is always installed, search or no search: riff's own rows —
     // a fold's `15 lines`, `rest of the file` — are inside the text handed
     // to the highlighter, and it colours them as code otherwise.
-    const hook = (lineOffset: number) =>
+    const hook = (lineOffset: number, filename?: string) =>
       (highlights: SimpleHighlight[], context: { content: string }): SimpleHighlight[] => {
-        const own = this.stripOwnRowHighlights(highlights, context.content, lineOffset)
+        // The file's own reading of its lines replaces the one taken from
+        // the fragments on screen, where riff has the file (spec 080).
+        const fromFile = filename
+          ? this.mappedHighlights(filename, context.content, lineOffset)
+          : null
+        const base = fromFile
+          ? [...this.keepUnmappedRows(highlights, context.content, lineOffset), ...fromFile]
+          : highlights
+
+        const own = this.stripOwnRowHighlights(base, context.content, lineOffset)
         return searchState
           ? this.injectSearchHighlights(own, context.content, searchState, lineOffset)
           : own
@@ -1316,7 +1347,8 @@ export class VimDiffView {
 
     // Single-file mode
     if (this.codeRenderable) {
-      this.codeRenderable.onHighlight = hook(0)
+      const only = this.selectedFileIndex !== null ? this.files[this.selectedFileIndex] : undefined
+      this.codeRenderable.onHighlight = hook(0, only?.filename)
       return
     }
 
@@ -1325,8 +1357,25 @@ export class VimDiffView {
       const section = this.fileSections[sectionIdx]!
       const renderables = this.sectionRenderables.get(sectionIdx)
       if (!renderables) continue
-      renderables.code.onHighlight = hook(section.startLine)
+      renderables.code.onHighlight = hook(section.startLine, section.filename)
     }
+  }
+
+  /**
+   * The fragment parse's highlights for rows the file cannot answer for: a
+   * deletion is a line from a version that no longer exists, so it keeps
+   * whatever reading the rows themselves produced.
+   */
+  private keepUnmappedRows(
+    highlights: SimpleHighlight[],
+    content: string,
+    lineOffset: number
+  ): SimpleHighlight[] {
+    const starts = computeLineStartOffsets(content)
+    return highlights.filter(([start]) => {
+      const row = this.lineMapping?.getLine(lineOffset + rowOfOffset(starts, start))
+      return row?.type !== "context" && row?.type !== "addition"
+    })
   }
 
   /**
@@ -1342,16 +1391,7 @@ export class VimDiffView {
     lineOffset: number
   ): SimpleHighlight[] {
     const lineStartOffsets = computeLineStartOffsets(content)
-    const rowAt = (offset: number): number => {
-      let low = 0
-      let high = lineStartOffsets.length - 1
-      while (low < high) {
-        const mid = Math.ceil((low + high) / 2)
-        if (lineStartOffsets[mid]! <= offset) low = mid
-        else high = mid - 1
-      }
-      return low
-    }
+    const rowAt = (offset: number): number => rowOfOffset(lineStartOffsets, offset)
 
     const isOwnRow = (row: number): boolean => {
       const type = this.lineMapping?.getLine(row)?.type
@@ -1636,6 +1676,78 @@ export class VimDiffView {
   /**
    * Set flash jump state. Null (or an inactive state) removes the overlay.
    */
+  /**
+   * The files' own text, for highlighting them as files rather than as the
+   * fragments on screen (spec 080). Parsing is asynchronous; until it lands
+   * the rows keep the colours they have.
+   */
+  setFileContents(contents: ReadonlyMap<string, string>): void {
+    for (const [filename, content] of contents) {
+      const parsed = this.fileHighlights.get(filename)
+      if (parsed && parsed.content === content) continue
+      this.fileHighlights.set(filename, { content, highlights: null })
+      void this.parseFile(filename, content)
+    }
+
+    // A file's text and its parse are held for as long as the reader is
+    // plausibly still in that part of the review; a two-hundred-file PR
+    // should not end up holding two hundred of them.
+    while (this.fileHighlights.size > FILE_HIGHLIGHT_LIMIT) {
+      const oldest = this.fileHighlights.keys().next().value
+      if (oldest === undefined) break
+      this.fileHighlights.delete(oldest)
+    }
+  }
+
+  private async parseFile(filename: string, content: string): Promise<void> {
+    const filetype = getFiletypeFromPath(filename)
+    if (!filetype) return
+
+    try {
+      const result = await getTreeSitterClient().highlightOnce(content, filetype)
+      const entry = this.fileHighlights.get(filename)
+      // A refresh may have replaced the content while the parse was out.
+      if (!entry || entry.content !== content || !result.highlights) return
+      this.fileHighlights.set(filename, { content, highlights: result.highlights })
+      this.updateSearchHighlights()
+      this.onFileParsed?.()
+    } catch {
+      // No parser for this filetype, or the worker is unhappy: the rows
+      // keep the colours the fragment parse gave them.
+    }
+  }
+
+  /**
+   * The file's highlights, moved onto the rows a section is drawing.
+   *
+   * Recomputed per frame rather than cached: the rows change with every
+   * fold, and the mapping is a walk over the highlights, which is cheap
+   * next to the parse that produced them.
+   */
+  private mappedHighlights(
+    filename: string,
+    rowsContent: string,
+    startLine: number
+  ): SimpleHighlight[] | null {
+    const entry = this.fileHighlights.get(filename)
+    if (!entry?.highlights || !this.lineMapping) return null
+
+    const rowLines: (number | null)[] = []
+    for (let row = 0; row < rowsContent.split("\n").length; row++) {
+      const line = this.lineMapping.getLine(startLine + row)
+      const shows =
+        line && (line.type === "context" || line.type === "addition") ? line.newLineNum ?? null : null
+      rowLines.push(shows)
+    }
+
+    return mapFileHighlights({
+      fileHighlights: entry.highlights,
+      fileContent: entry.content,
+      rowsContent,
+      rowLines,
+    })
+  }
+
   setFlashState(flashState: FlashState | null): void {
     const next = flashState?.active ? flashState : null
     if (next === this.flashState) return

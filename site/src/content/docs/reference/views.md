@@ -135,6 +135,18 @@ jump never marks a file viewed or deletes a comment.
 
 ![Flash labels over the diff](../../../assets/screenshots/flash.png)
 
+### Syntax highlighting
+
+The rows on screen are fragments — folds take text out, and both sides of a change sit next to
+each other — so parsing them as if they were the file gets a hunk that starts inside a block
+comment wrong: it reads as code. riff parses the file instead and moves its colours onto the rows
+that show its lines, reading the file once when the cursor arrives in it, off disk locally and
+through the same fetch that expands context in a PR. Until the parse lands, and where riff cannot
+have the text at all, the rows keep the colours they had.
+
+Deletions are the exception: a deleted line comes from a version that no longer exists, and is
+highlighted from what is on screen.
+
 ### Search
 
 `/` and `?` search the rendered diff in either direction, `n`/`N` repeat, `*`/`#` take the word

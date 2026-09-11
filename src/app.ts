@@ -244,6 +244,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function ensureCursorVisible(): void {
+    requestHighlightSource()
     const scrollBox = vimDiffView.getScrollBox()
     if (!scrollBox) return
 
@@ -489,6 +490,46 @@ export async function createApp(options: AppOptions = {}) {
       : { ok: true, newContent, oldContent }
   }
 
+  async function loadFileContent(filename: string): Promise<void> {
+    state = setFileContentLoading(state, filename)
+    render()
+
+    try {
+      const fetched = await fetchFileVersions(filename)
+      if (fetched.ok) {
+        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+      } else {
+        state = setFileContentError(state, filename, fetched.error)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      state = setFileContentError(state, filename, msg)
+    }
+
+    render()
+  }
+
+  /**
+   * Read the file the cursor is in, so it can be highlighted as a file
+   * rather than as the rows on screen (spec 080).
+   *
+   * Asked for per file as the reader arrives in it, never for the diff at
+   * large: a two-hundred-file review is not two hundred reads nobody wanted.
+   * Local mode takes it off disk; a PR asks GitHub, the way expanding
+   * context already does, and the same cache answers both.
+   */
+  let highlightSourceWanted: string | null = null
+  function requestHighlightSource(): void {
+    const filename = lineMapping.getLine(vimState.line)?.filename
+    if (!filename || filename === highlightSourceWanted) return
+    highlightSourceWanted = filename
+
+    const cached = state.fileContentCache[filename]
+    if (cached?.newContent !== undefined && cached.newContent !== null) return
+    if (cached?.loading || cached?.error) return
+    void loadFileContent(filename)
+  }
+
   const searchHandler = new SearchHandler({
     getMapping: () => lineMapping,
     getSearchState: () => searchState,
@@ -503,24 +544,7 @@ export async function createApp(options: AppOptions = {}) {
       const cached = state.fileContentCache[filename]
       return cached?.newContent ?? null
     },
-    loadFileContent: async (filename) => {
-      state = setFileContentLoading(state, filename)
-      render()
-
-      try {
-        const fetched = await fetchFileVersions(filename)
-        if (fetched.ok) {
-          state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
-        } else {
-          state = setFileContentError(state, filename, fetched.error)
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        state = setFileContentError(state, filename, msg)
-      }
-
-      render()
-    },
+    loadFileContent,
     expandDividerForLine: (filename, lineNum) => {
       const dividerKey = lineMapping.findDividerForLine(filename, lineNum)
       if (dividerKey) {
@@ -1344,6 +1368,9 @@ export async function createApp(options: AppOptions = {}) {
     mode,
     prInfo: prInfo ?? null,
   }
+  // A parse landing is a reason to draw the frame again (spec 080).
+  vimDiffView.onFileParsed = () => render()
+
   startReferencePrefetch(referenceContext)
 
   // The branch may already have a pull request open on it (spec 079). Asked

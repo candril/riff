@@ -95,6 +95,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 077 | [Links](./077-links.md) | Done | `gx` lists the links in the PR body or a comment |
 | 078 | [Commit Ranges](./078-commit-ranges.md) | Done | mark commits in the picker and read them as one diff |
 | 079 | [The PR Your Branch Already Has](./079-branch-pr.md) | Done | local mode names the branch's PR and reopens riff on it |
+| 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
 
 ## MVP Path
 
