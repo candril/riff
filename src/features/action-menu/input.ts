@@ -22,7 +22,8 @@ import { getAvailableActions } from "../../actions"
 import { getVisualActionOrder } from "../../components"
 import { fuzzyFilter } from "../../utils/fuzzy"
 import { getSubmenuRows, reactionContentFromRowId } from "./submenu"
-import { submenuOpenedFromPalette } from "../../actions/types"
+import { submenuOpenedFromPalette, type ActionSubmenu } from "../../actions/types"
+import type { LinkTarget } from "../../utils/link-targets"
 
 export interface ActionMenuInputContext {
   readonly state: AppState
@@ -34,6 +35,12 @@ export interface ActionMenuInputContext {
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
   /** Called when the user picks one of a preview row's links (spec 068). */
   onPreviewLink: (action: "open" | "copy", link: { label: string; url: string }) => void
+}
+
+/** The link a submenu row stands for, or null when the row is not one. */
+function linkForRow(submenu: ActionSubmenu, rowId: string): LinkTarget | null {
+  if (submenu.kind !== "links") return null
+  return submenu.links[Number(rowId.split(":")[1])] ?? null
 }
 
 /**
@@ -102,6 +109,14 @@ export function handleInput(
           ctx.onPreviewLink(submenu.action, link)
           return true
         }
+        if (submenu.kind === "links") {
+          const link = linkForRow(submenu, row.id)
+          if (!link) return true
+          ctx.setState(closeActionMenu)
+          ctx.render()
+          ctx.onPreviewLink("open", link)
+          return true
+        }
         if (submenu.kind === "react") {
           const content = reactionContentFromRowId(row.id)
           if (!content) return true
@@ -125,6 +140,20 @@ export function handleInput(
         }
         ctx.executeAction(selectedAction.id)
       }
+      return true
+    }
+
+    case "y": {
+      // A bare `y` is a letter of the query; Ctrl-y copies the link rather
+      // than opening it, the one thing a reader wants that Enter does not.
+      if (!key.ctrl || !submenu) return true
+      const row = submenuRows[ctx.state.actionMenu.selectedIndex]
+      const link = row ? linkForRow(submenu, row.id) : null
+      if (!link) return true
+      consume()
+      ctx.setState(closeActionMenu)
+      ctx.render()
+      ctx.onPreviewLink("copy", link)
       return true
     }
 

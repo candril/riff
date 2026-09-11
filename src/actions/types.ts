@@ -1,4 +1,5 @@
 import type { AppState } from "../state"
+import type { LinkTarget } from "../utils/link-targets"
 import type { VimCursorState } from "../vim-diff/types"
 import type { ReactionTarget } from "../types"
 
@@ -59,6 +60,9 @@ export type ActionSubmenu =
   /** The links on one preview row, when there is more than one of them and
    *  riff has to ask which (spec 068). */
   | { kind: "preview"; links: { label: string; url: string }[]; action: "open" | "copy"; title: string }
+  /** The links riff found in what has focus, when there is no cursor to put
+   *  on one: a rendered comment, the PR's description (spec 077). */
+  | { kind: "links"; links: LinkTarget[]; title: string }
 
 /**
  * Whether Escape from a submenu goes back to the action list or all the way

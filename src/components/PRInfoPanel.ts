@@ -1520,6 +1520,49 @@ export class PRInfoPanelClass {
     return ids
   }
 
+  /**
+   * The text `gx` reads links out of: whatever the cursor is on (spec 077).
+   *
+   * On a section header that is the section's own subject — the description
+   * for Description — since a header is where the cursor sits by default and
+   * the PR's own body is the text most worth following a link out of.
+   */
+  focusedText(): { title: string; text: string } | null {
+    switch (this.activeSection) {
+      case 'description':
+        return { title: "Description", text: this.prInfo.body ?? "" }
+      case 'conversation': {
+        const item = this.flatConversationItems[this.cursorIndex]
+        if (!item) return { title: "Conversation", text: this.conversationText() }
+        if (item.type === 'pr-comment') return { title: `@${item.data.author}`, text: item.data.body }
+        if (item.type === 'review-header') {
+          return { title: `@${item.data.author}`, text: item.data.body ?? "" }
+        }
+        if (item.type === 'review-thread') return { title: `@${item.data.author}`, text: item.data.body }
+        return null
+      }
+      case 'commits': {
+        const commit = this.visibleCommits[this.cursorIndex]
+        return commit ? { title: commit.sha.slice(0, 7), text: commit.message } : null
+      }
+      case 'checks': {
+        const item = this.flatCheckItems[this.cursorIndex]
+        if (!item) return null
+        const url = item.kind === 'annotation' ? item.annotation.message : item.check.detailsUrl
+        return url ? { title: item.check.name, text: url } : null
+      }
+      default:
+        return null
+    }
+  }
+
+  /** Every word of the conversation, for when the cursor is on its header. */
+  private conversationText(): string {
+    return this.flatConversationItems
+      .map((item) => (item.type === 'pending-reviewer' ? "" : (item.data.body ?? "")))
+      .join("\n\n")
+  }
+
   /** Put the cursor on the row a label picked. */
   flashJump(id: string): void {
     const [name, index] = id.split(":")

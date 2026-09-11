@@ -96,6 +96,8 @@ export interface PRInfoPanelInputContext {
   // panel even though the panel captures `r`/`o`/`y` standalone for its
   // own section-scoped semantics.
   executeAction?: (id: string) => void
+  /** `gx` — pick from the links in the focused row (spec 077). */
+  onOpenLinks?: () => void
   // Push current location onto the jumplist before navigating away (spec
   // 038). Called BEFORE closePRInfoPanel so the entry captures
   // viewMode="pr" — otherwise back-jump can't return to the PR view.
@@ -214,6 +216,14 @@ function handleInputInner(
         return true
       case "y":
         ctx.executeAction?.("copy-pr-url")
+        return true
+      case "x":
+        // The links in whatever the cursor is on — a rendered body has no
+        // column to put a cursor on (spec 077). preventDefault so the
+        // picker's prompt field, focused in this same keypress, does not
+        // also read the `x` as the first letter of a query.
+        key.preventDefault()
+        ctx.onOpenLinks?.()
         return true
     }
     // Unknown g-sequence: swallow to avoid accidentally falling through

@@ -92,6 +92,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   handleOpenInEditor: (comment: Comment) => void
   /** `O` — open the images the highlighted comment carries in the browser. */
   handleOpenImages: (comment: Comment) => void
+  /** `gx` — pick from the links in this comment (spec 077). */
+  onOpenLinks: (comment: Comment) => void
   /** Ctrl-g from the composer — hand the in-progress draft off to
    *  $EDITOR, suspending the TUI, and resolve with the edited text
    *  (or null if the editor errored). Wired at the app level because it
@@ -146,6 +148,21 @@ function insertAtComposerCursor(text: string): void {
  */
 function suggestionBlock(lines: readonly string[]): string {
   return ["```suggestion", ...lines, "```", ""].join("\n")
+}
+
+/**
+ * `g`-chords, kept here rather than in the global handler: the panel is
+ * modal, so a key that reaches it never reaches the chord matcher.
+ */
+let pendingKey: string | null = null
+let pendingTimeout: ReturnType<typeof setTimeout> | null = null
+
+function clearPendingKey(): void {
+  pendingKey = null
+  if (pendingTimeout) {
+    clearTimeout(pendingTimeout)
+    pendingTimeout = null
+  }
 }
 
 export function handleInput(
@@ -299,6 +316,26 @@ export function handleInput(
   if (key.name === "z" && !key.ctrl && !key.shift) {
     pendingZ = true
     pendingZTimeout = setTimeout(clearPendingZ, 500)
+    return true
+  }
+
+  if (pendingKey === "g") {
+    clearPendingKey()
+    // `gx` — the links in the highlighted comment (spec 077). Every other
+    // g-sequence is swallowed rather than falling through into the
+    // panel's own `r`/`e`/`d` handlers.
+    if (key.name === "x" && !key.shift && highlighted) {
+      // preventDefault so the picker's prompt field, focused in this same
+      // keypress, does not read the `x` as the start of a query.
+      key.preventDefault()
+      ctx.onOpenLinks(highlighted)
+    }
+    return true
+  }
+
+  if (key.name === "g" && !key.shift && !key.ctrl) {
+    pendingKey = "g"
+    pendingTimeout = setTimeout(clearPendingKey, 500)
     return true
   }
 

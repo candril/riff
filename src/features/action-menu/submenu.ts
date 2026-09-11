@@ -62,11 +62,19 @@ export function getSubmenuRows(state: AppState): SubmenuRow[] {
         trailing: undefined,
       }))
       break
+    case "links":
+      rows = submenu.links.map((link, index) => ({
+        id: `link:${index}`,
+        icon: "🔗",
+        label: link.label,
+        trailing: link.detail,
+      }))
+      break
   }
 
   const q = state.actionMenu.query
   if (!q) return rows
-  return fuzzyFilter(q, rows, row => [row.label, row.id])
+  return fuzzyFilter(q, rows, row => [row.label, row.trailing ?? "", row.id])
 }
 
 /**

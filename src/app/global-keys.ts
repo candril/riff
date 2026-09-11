@@ -25,6 +25,8 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
 import { copyToClipboard } from "../utils/clipboard"
+import { collectLinks } from "../utils/link-targets"
+import { referenceRepo, resolvedReferences } from "../features/references"
 
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
@@ -416,6 +418,38 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
   }
 
   /**
+   * The links in a piece of text, to pick one from (spec 077).
+   *
+   * A rendered comment has no cursor to put on a link the way the diff
+   * does, so riff lists what it found. One link is not a question worth
+   * asking, and none is worth saying out loud rather than opening an empty
+   * picker.
+   */
+  function openLinksPicker(text: string, title: string): void {
+    const links = collectLinks(text, {
+      repo: referenceRepo(),
+      resolved: resolvedReferences(),
+    })
+    if (links.length === 0) {
+      ctx.setState((s) => showToast(s, "No links here", "info"))
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2000)
+      return
+    }
+    if (links.length === 1) {
+      openPreviewLink("open", links[0]!)
+      return
+    }
+    ctx.setState((s) =>
+      openActionSubmenu(openActionMenu(s), { kind: "links", links, title: `Links — ${title}` })
+    )
+    ctx.render()
+  }
+
+  /**
    * Open a preview link in the browser, or put it on the clipboard (spec
    * 068). riff never ticks a deploy checkbox — a row opens and copies, and
    * that is all it does.
@@ -635,6 +669,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
+        onOpenLinks: (comment) =>
+          openLinksPicker(
+            comment.localEdit ?? comment.body,
+            `@${comment.author || "you"}`
+          ),
         getCommentedLines: () => {
           // What the comment replaces, read off the diff rows themselves —
           // the file's own text, not the padded display form (spec 076).
@@ -802,6 +841,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
         },
         executeAction: ctx.executeAction,
+        onOpenLinks: () => {
+          const focused = ctx.getPrInfoPanel()?.focusedText()
+          if (!focused) return
+          openLinksPicker(focused.text, focused.title)
+        },
         onPreviewRow: (action, row) => {
           if (row.links.length === 0) return
           const only = row.links.length === 1 ? row.links[0]! : null

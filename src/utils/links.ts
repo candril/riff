@@ -39,6 +39,45 @@ export function linkAt(text: string, col: number): CursorLink | null {
   return link
 }
 
+/** A URL in a body of text, with what it was written as. */
+export interface FoundUrl {
+  url: string
+  /** The markdown link's text, when it had one. */
+  label: string | null
+  index: number
+}
+
+/**
+ * Every URL in a piece of text, in the order they are written.
+ *
+ * Where `linkAt` answers "what is under the cursor", this answers "what is
+ * in here at all" — the question a reader of rendered markdown has to ask,
+ * since there is no cursor to put on a link (spec 077).
+ */
+export function findUrls(text: string): FoundUrl[] {
+  const found: FoundUrl[] = []
+  const spans: Array<{ start: number; end: number }> = []
+
+  MARKDOWN_LINK.lastIndex = 0
+  for (const match of text.matchAll(MARKDOWN_LINK)) {
+    const index = match.index ?? 0
+    spans.push({ start: index, end: index + match[0].length })
+    const target = match[1]
+    if (!target || !/^https?:\/\//i.test(target)) continue
+    found.push({ url: target, label: match[0].slice(1, match[0].indexOf("](")) || null, index })
+  }
+
+  BARE_URL.lastIndex = 0
+  for (const match of text.matchAll(BARE_URL)) {
+    const index = match.index ?? 0
+    // A markdown link contains its own target: that is one link, not two.
+    if (spans.some((span) => index >= span.start && index < span.end)) continue
+    found.push({ url: match[0].replace(TRAILING_NOISE, ""), label: null, index })
+  }
+
+  return found.sort((a, b) => a.index - b.index)
+}
+
 /**
  * The capture group of whichever match covers `col`. The whole match counts
  * as the target's territory, so the cursor can sit on a link's label rather

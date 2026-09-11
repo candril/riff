@@ -128,6 +128,12 @@ was written against, and `za` shows you that hunk — usually the only way left 
 the comment meant. `]o`/`[o` navigates files in the same situation: ones you marked viewed that
 have changed since.
 
+### Links in a comment
+
+`gx` lists the links in the highlighted comment and opens the one you pick — `Ctrl+y` copies it
+instead. A `#1213` is listed as the pull request it points at, title and state included, which is
+the part a terminal's own click-the-URL cannot do for you.
+
 ### Reactions
 
 `React…` in the action menu adds or removes a reaction on whatever comment is focused — in the

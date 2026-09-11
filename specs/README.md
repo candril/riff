@@ -92,6 +92,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
 | 075 | [Diff a File in the Editor](./075-diff-in-editor.md) | Done | `gd` / `gD` open both versions side by side, configurable |
 | 076 | [Suggestions](./076-suggestions.md) | Done | `Ctrl-y` writes a suggestion block for the lines under review |
+| 077 | [Links](./077-links.md) | Done | `gx` lists the links in the PR body or a comment |
 
 ## MVP Path
 
