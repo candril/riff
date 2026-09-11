@@ -87,6 +87,8 @@ export interface HeaderProps {
   branchInfo?: string | null
   /** Currently viewing a specific commit (null = all commits) */
   viewingCommit?: string | null
+  /** The oldest commit in scope, when the scope is a span (spec 078). */
+  viewingCommitFrom?: string | null
   /** All available commits (for showing count) */
   commits?: PrCommit[]
   /** ISO time the diff/comments were last pulled from the source. */
@@ -111,6 +113,7 @@ export function Header({
   reviewProgress,
   branchInfo,
   viewingCommit,
+  viewingCommitFrom,
   commits,
   lastRefreshedAt,
 }: HeaderProps = {}) {
@@ -131,6 +134,15 @@ export function Header({
     const index = commits.findIndex(c => c.sha === viewingCommit)
     const commit = commits[index]
     const position = index === -1 ? "" : ` ${index + 1}/${commits.length}`
+
+    // A span says how far it reaches rather than naming one subject of the
+    // several it covers (spec 078). The list is newest-first, so the older
+    // end is the higher number.
+    const fromIndex = viewingCommitFrom ? commits.findIndex(c => c.sha === viewingCommitFrom) : -1
+    if (fromIndex !== -1 && index !== -1 && fromIndex !== index) {
+      return `commits ${index + 1}\u2013${fromIndex + 1}/${commits.length} · esc: all commits`
+    }
+
     if (!commit) return `commit${position} · ${viewingCommit.slice(0, 7)} · esc: all commits`
     return `commit${position} · ${commit.sha} ${commit.message} · esc: all commits`
   })()

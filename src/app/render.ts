@@ -433,6 +433,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           reviewProgress: getReviewProgress(state),
           branchInfo: state.branchInfo,
           viewingCommit: state.viewingCommit,
+          viewingCommitFrom: state.viewingCommitFrom,
           commits: state.commits,
           lastRefreshedAt: state.lastRefreshedAt,
           merge: state.prInfo
@@ -550,6 +551,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               commits: filteredCommits,
               selectedIndex: state.commitPicker.selectedIndex,
               viewingCommit: state.viewingCommit,
+              marked: (index) => commitPicker.inMarkedSpan(state, filteredCommits, index),
             })
           : null,
         state.showHelp ? HelpOverlay() : null,

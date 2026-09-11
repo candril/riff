@@ -519,6 +519,23 @@ export async function fetchCommitDiff(
 }
 
 /**
+ * The cumulative diff of a span of commits: everything between the commit
+ * the span starts from and its newest (spec 078). `base` is the parent of
+ * the oldest commit, or the PR's base branch when the span starts at the
+ * first commit.
+ */
+export async function fetchCommitRangeDiff(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string
+): Promise<string> {
+  return safeGhCommand(async () => {
+    return await $`gh api repos/${owner}/${repo}/compare/${`${base}...${head}`} -H "Accept: application/vnd.github.diff"`.text()
+  })
+}
+
+/**
  * Edit PR title and/or body
  */
 export async function editPullRequest(

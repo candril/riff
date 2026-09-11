@@ -285,8 +285,14 @@ wraps back to the whole diff; `[g` goes the other way. `Ctrl+g` picks one out of
 instead. While the diff is one commit's slice, the header says so — `commit 2/5 · 7e8f200 …` —
 and `Esc` takes you back to the whole diff.
 
+`Ctrl+v` in the picker marks a **span**: it anchors at the highlighted commit, moving extends the
+mark, and `Enter` scopes the diff to the whole run — the cumulative diff from the oldest marked
+commit's parent to the newest, not the patches laid end to end. The header reads
+`commits 2–4/7`, and `Ctrl+v` again drops the anchor. Commits that aren't next to each other
+can't be marked: the ones in between decide what the later ones apply to.
+
 Useful on a PR whose commits are actually a sequence of arguments rather than a pile of
-autosaves.
+autosaves — and on the three changes that together moved the parser.
 
 ![The diff filtered to one commit](../../../assets/screenshots/commit.png)
 

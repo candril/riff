@@ -348,6 +348,8 @@ export interface CommitPickerState {
   query: string
   /** Currently selected index (0 = "All commits" option) */
   selectedIndex: number
+  /** Where a span started, while one is being marked (spec 078). */
+  anchorSha: string | null
 }
 
 /**
@@ -510,7 +512,9 @@ export interface AppState {
   commitPicker: CommitPickerState
   
   // Commit filtering - view changes from a specific commit
-  viewingCommit: string | null       // null = all commits, string = specific commit SHA
+  viewingCommit: string | null       // null = all commits, else the newest commit in scope
+  /** The oldest commit in scope, when the scope is a span (spec 078). */
+  viewingCommitFrom: string | null
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
   commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
@@ -719,8 +723,10 @@ export function createInitialState(
       open: false,
       query: "",
       selectedIndex: 0,
+      anchorSha: null,
     },
     viewingCommit: null,
+    viewingCommitFrom: null,
     allFiles: files,
     allFileTree: fileTree,
     commitDiffCache: new Map(),
@@ -2928,8 +2934,15 @@ export function openCommitPicker(state: AppState): AppState {
       open: true,
       query: "",
       selectedIndex: 0,
+      anchorSha: null,
     },
   }
+}
+
+/** Start marking a span here, or drop the one being marked (spec 078). */
+export function toggleCommitPickerAnchor(state: AppState, sha: string | null): AppState {
+  const anchorSha = state.commitPicker.anchorSha === sha ? null : sha
+  return { ...state, commitPicker: { ...state.commitPicker, anchorSha } }
 }
 
 /**
@@ -2943,6 +2956,7 @@ export function closeCommitPicker(state: AppState): AppState {
       open: false,
       query: "",
       selectedIndex: 0,
+      anchorSha: null,
     },
   }
 }
@@ -2956,6 +2970,9 @@ export function setCommitPickerQuery(state: AppState, query: string): AppState {
     commitPicker: {
       ...state.commitPicker,
       query,
+      // Narrowing the list moves every row; a span anchored to a row that
+      // may no longer be there is a span nobody can see.
+      anchorSha: null,
       selectedIndex: 0,
     },
   }
@@ -2978,6 +2995,13 @@ export function moveCommitPickerSelection(state: AppState, delta: number, maxInd
 }
 
 /**
+ * How a commit scope is cached: one sha, or the span it covers (spec 078).
+ */
+export function commitScopeKey(to: string, from?: string | null): string {
+  return from && from !== to ? `${from}..${to}` : to
+}
+
+/**
  * Set the viewing commit and swap files/fileTree accordingly.
  * When switching to a specific commit, files/fileTree come from the cache.
  * When switching to null (all commits), restore allFiles/allFileTree.
@@ -2985,12 +3009,14 @@ export function moveCommitPickerSelection(state: AppState, delta: number, maxInd
 export function setViewingCommit(
   state: AppState,
   commitSha: string | null,
+  from?: string | null,
 ): AppState {
   if (commitSha === null) {
     // Restore full PR diff
     return {
       ...state,
       viewingCommit: null,
+      viewingCommitFrom: null,
       files: state.allFiles,
       fileTree: state.allFileTree,
       selectedFileIndex: null,
@@ -3002,12 +3028,13 @@ export function setViewingCommit(
   }
 
   // Switch to a specific commit's diff
-  const cached = state.commitDiffCache.get(commitSha)
+  const cached = state.commitDiffCache.get(commitScopeKey(commitSha, from))
   if (!cached) return state  // Should not happen — caller caches first
 
   return {
     ...state,
     viewingCommit: commitSha,
+    viewingCommitFrom: from ?? commitSha,
     files: cached.files,
     fileTree: cached.fileTree,
     selectedFileIndex: null,

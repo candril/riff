@@ -1,8 +1,8 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
-import { getFileContent, getOldFileContent, getLocalCommitDiff, filesChangedBetween } from "./providers/local"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, submitPrComment, fetchStackInfo } from "./providers/github"
+import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
+import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -22,6 +22,7 @@ import {
   type AppState,
   setTreeFilter,
   highlightInlineComment,
+  commitScopeKey,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -1075,7 +1076,18 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== COMMIT SELECTION =====
-  async function handleCommitSelected(sha: string | null, filename?: string) {
+  /**
+   * The commit a span is measured from: the one before its oldest in the
+   * list — which is newest-first — or the PR's base when the span starts at
+   * the first commit there is.
+   */
+  function parentOfCommit(sha: string): string {
+    const index = state.commits.findIndex((commit) => commit.sha === sha)
+    const parent = index === -1 ? undefined : state.commits[index + 1]
+    return parent?.sha ?? state.prInfo?.baseRef ?? `${sha}^`
+  }
+
+  async function handleCommitSelected(sha: string | null, filename?: string, from?: string | null) {
     if (sha === null) {
       // Switch back to all commits
       state = setViewingCommit(state, null)
@@ -1088,18 +1100,31 @@ export async function createApp(options: AppOptions = {}) {
       return
     }
 
+    // A span is one scope with one cached diff, keyed by both its ends.
+    const span = from && from !== sha ? { oldest: from, newest: sha } : null
+    const cacheKey = commitScopeKey(sha, from)
+
     // Check cache first
-    if (!state.commitDiffCache.has(sha)) {
+    if (!state.commitDiffCache.has(cacheKey)) {
       // Fetch the commit diff
-      state = showToast(state, "Loading commit...", "info")
+      state = showToast(state, span ? "Loading commits..." : "Loading commit...", "info")
       render()
 
       try {
         let rawDiff: string
         if (state.appMode === "pr" && state.prInfo) {
-          rawDiff = await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
+          rawDiff = span
+            ? await fetchCommitRangeDiff(
+                state.prInfo.owner,
+                state.prInfo.repo,
+                parentOfCommit(span.oldest),
+                span.newest
+              )
+            : await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
         } else {
-          rawDiff = await getLocalCommitDiff(sha, options.target)
+          rawDiff = span
+            ? await getLocalCommitRangeDiff(span.oldest, span.newest)
+            : await getLocalCommitDiff(sha, options.target)
         }
 
         const files = sortFiles(parseDiff(rawDiff))
@@ -1107,7 +1132,7 @@ export async function createApp(options: AppOptions = {}) {
 
         // Cache the result
         const newCache = new Map(state.commitDiffCache)
-        newCache.set(sha, { files, fileTree })
+        newCache.set(cacheKey, { files, fileTree })
         state = { ...state, commitDiffCache: newCache }
       } catch (err) {
         state = showToast(state, `Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
@@ -1118,7 +1143,7 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // Switch to the commit's diff
-    state = setViewingCommit(state, sha)
+    state = setViewingCommit(state, sha, from)
     vimState = createCursorState()
     createLineMapping()
 
@@ -1135,9 +1160,18 @@ export async function createApp(options: AppOptions = {}) {
     // Show toast with commit info
     const commit = state.commits.find(c => c.sha === sha)
     const commitIdx = state.commits.findIndex(c => c.sha === sha) + 1
-    const msg = commit ? `${commit.sha}: ${commit.message}` : sha
-    const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg
-    state = showToast(state, `Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
+    if (span) {
+      const oldestIdx = state.commits.findIndex(c => c.sha === span.oldest) + 1
+      state = showToast(
+        state,
+        `Commits ${commitIdx}\u2013${oldestIdx} of ${state.commits.length}`,
+        "info"
+      )
+    } else {
+      const msg = commit ? `${commit.sha}: ${commit.message}` : sha
+      const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg
+      state = showToast(state, `Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
+    }
     render()
     setTimeout(() => { state = clearToast(state); render() }, 1500)
   }

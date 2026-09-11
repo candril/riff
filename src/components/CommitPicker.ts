@@ -10,6 +10,8 @@ export interface CommitPickerProps {
   commits: FilteredCommit[]
   selectedIndex: number
   viewingCommit: string | null
+  /** Rows inside the span being marked, by position in `commits` (spec 078). */
+  marked?: (index: number) => boolean
 }
 
 export interface FilteredCommit {
@@ -39,7 +41,7 @@ function formatTimeAgo(isoDate: string): string {
 /**
  * Commit picker overlay for selecting a commit to filter the diff
  */
-export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit }: CommitPickerProps) {
+export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit, marked }: CommitPickerProps) {
   // Total items = 1 ("All commits") + filtered commits
   const totalItems = 1 + commits.length
 
@@ -115,6 +117,7 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit }
             commit: item.commit,
             selected: i + 1 === selectedIndex,
             active: viewingCommit === item.commit.sha,
+            marked: marked?.(i) ?? false,
           })
         ),
         // Show count if more
@@ -135,7 +138,10 @@ export function CommitPicker({ renderer, commits, selectedIndex, viewingCommit }
           paddingX: 2,
           paddingTop: 1,
         },
-        Text({ content: "Ctrl+n/p: navigate  Enter: select  ]g/[g: cycle", fg: theme.overlay0 })
+        Text({
+          content: "Ctrl+n/p: navigate  Ctrl+v: mark a span  Enter: select  ]g/[g: cycle",
+          fg: theme.overlay0,
+        })
       )
     )
   )
@@ -172,6 +178,7 @@ interface CommitRowProps {
   commit: PrCommit
   selected: boolean
   active: boolean
+  marked: boolean
 }
 
 /**
@@ -179,7 +186,7 @@ interface CommitRowProps {
  * column then compresses the rows into each other — two commits drawn on
  * the same screen line, letter by letter.
  */
-function CommitRow({ commit, selected, active }: CommitRowProps) {
+function CommitRow({ commit, selected, active, marked }: CommitRowProps) {
   const bg = selected ? "#585b70" : undefined
   return Box(
     {
@@ -193,7 +200,10 @@ function CommitRow({ commit, selected, active }: CommitRowProps) {
     },
     Box(
       { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
-      Text({ content: active ? "\u25cf " : "  ", fg: theme.green }),
+      Text({
+        content: marked ? "\u2595 " : active ? "\u25cf " : "  ",
+        fg: marked ? theme.peach : theme.green,
+      }),
       Text({ content: commit.sha, fg: selected ? theme.peach : theme.yellow }),
       Text({ content: "  ", fg: theme.overlay0 }),
       Text({ content: commit.message, fg: selected ? theme.text : theme.subtext1 }),

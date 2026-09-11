@@ -91,7 +91,7 @@ export interface GlobalKeyContext {
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
   // Commit selection handler
   /** Scope the diff to a commit — and, when named, scroll to one of its files. */
-  onCommitSelected: (sha: string | null, filename?: string) => void
+  onCommitSelected: (sha: string | null, filename?: string, from?: string | null) => void
   // Feature contexts (passed through for delegation)
   foldsContext: folds.FoldsContext
   fileNavContext: fileNavigation.FileNavigationContext
@@ -621,9 +621,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         state: ctx.getState(),
         setState: ctx.setState,
         render: ctx.render,
-        onCommitSelected: (sha) => {
+        onCommitSelected: (sha, filename, from) => {
           recordJump()
-          ctx.onCommitSelected(sha)
+          ctx.onCommitSelected(sha, filename, from)
         },
       })
     ) {

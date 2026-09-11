@@ -475,6 +475,24 @@ async function getGitCommits(target?: string): Promise<PrCommit[]> {
 /**
  * Fetch the diff for a specific local commit
  */
+/**
+ * What a span of commits did, from the oldest one's parent to the newest
+ * (spec 078) — the cumulative diff, not the patches concatenated.
+ */
+export async function getLocalCommitRangeDiff(oldest: string, newest: string): Promise<string> {
+  const vcs = await detectVcs()
+
+  if (vcs === "jj") {
+    const result = await $`jj diff --git --from ${`${oldest}-`} --to ${newest}`.quiet().nothrow()
+    if (result.exitCode !== 0) return ""
+    return result.text()
+  }
+
+  const result = await $`git diff ${`${oldest}^`} ${newest}`.quiet().nothrow()
+  if (result.exitCode !== 0) return ""
+  return result.text()
+}
+
 export async function getLocalCommitDiff(sha: string, target?: string): Promise<string> {
   const vcs = await detectVcs()
 
