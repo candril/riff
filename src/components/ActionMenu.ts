@@ -131,6 +131,9 @@ function SubmenuRowView({ row, selected }: { row: SubmenuRow; selected: boolean 
 
   const leftLabel = row.icon ? `${row.icon}  ${row.label}` : row.label
 
+  // One line per row: the label is what the reader is choosing between, so
+  // it stays whole and a long trailing note is clipped instead of wrapping
+  // the row into two.
   return Box(
     {
       flexDirection: "row",
@@ -138,10 +141,15 @@ function SubmenuRowView({ row, selected }: { row: SubmenuRow; selected: boolean 
       backgroundColor: bg,
       paddingX: 2,
       width: "100%",
+      height: 1,
+      overflow: "hidden",
     },
-    Text({ content: leftLabel, fg }),
+    Box({ flexShrink: 0 }, Text({ content: leftLabel, fg })),
     row.trailing
-      ? Text({ content: row.trailing, fg: trailFg })
+      ? Box(
+          { flexShrink: 1, overflow: "hidden", paddingLeft: 2 },
+          Text({ content: row.trailing, fg: trailFg })
+        )
       : null
   )
 }
