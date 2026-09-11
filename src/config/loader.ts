@@ -50,6 +50,7 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     mentions: { ...defaultConfig.mentions },
     poll: { ...defaultConfig.poll },
     previews: { ...defaultConfig.previews, hosts: [...defaultConfig.previews.hosts] },
+    editor: { ...defaultConfig.editor },
   }
 
   // Merge ignore section
@@ -106,6 +107,12 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
         extra: mentions.extra.filter((h): h is string => typeof h === "string"),
       }
     }
+  }
+
+  // Merge editor section (spec 075)
+  if (parsed.editor && typeof parsed.editor === "object") {
+    const editor = parsed.editor as Record<string, unknown>
+    if (typeof editor.diff === "string") config.editor.diff = editor.diff
   }
 
   // Merge previews section (spec 068). The TOML keys are snake_case, which

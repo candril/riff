@@ -71,6 +71,18 @@ export interface DiffConfig {
 }
 
 /**
+ * How riff opens an editor on two versions of a file (spec 075).
+ */
+export interface EditorConfig {
+  /**
+   * The command for a side-by-side diff of a file's two versions.
+   * `{old}` and `{new}` are replaced with paths — `{new}` is the working
+   * copy itself wherever riff can use it, so edits made there persist.
+   */
+  diff: string
+}
+
+/**
  * Preview link detection (spec 068). Deploy bots differ in how they post
  * where they put a PR, so what counts as a preview is configured rather
  * than compiled in — with defaults that cover most of them.
@@ -99,4 +111,5 @@ export interface Config {
   mentions: MentionsConfig
   poll: PollConfig
   previews: PreviewsConfig
+  editor: EditorConfig
 }

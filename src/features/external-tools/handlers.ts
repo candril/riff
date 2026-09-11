@@ -16,9 +16,12 @@ import {
   openFileInEditor,
   openExternalDiffViewer,
   openInTmuxWindow,
+  openInTmuxPane,
+  diffCommand,
   insideTmux,
   writeSnapshotFile,
 } from "../../utils/editor"
+import { unlink } from "node:fs/promises"
 import { getFileContent, getOldFileContent } from "../../providers/local"
 import {
   getPrFileContent,
@@ -257,6 +260,101 @@ function toast(
     ctx.setState(clearToast)
     ctx.render()
   }, ms)
+}
+
+/**
+ * Both versions of the file the cursor is in, side by side in an editor
+ * (spec 075): `gd` here, `gD` in a tmux pane beside riff.
+ *
+ * The new side is the working copy itself wherever riff can use it, so what
+ * you change in the editor is a change to the file — the old side is always
+ * a snapshot, since there is nothing to write back to.
+ */
+export async function handleDiffFileInEditor(
+  ctx: ExternalToolsContext,
+  opts: { tmux?: boolean } = {},
+): Promise<void> {
+  const [filename] = getCurrentFile(ctx)
+  if (!filename) {
+    toast(ctx, "No file selected", "info", 2000)
+    return
+  }
+  if (opts.tmux && !insideTmux()) {
+    toast(ctx, "Not running inside tmux", "info")
+    return
+  }
+
+  ctx.setState((s) => showToast(s, `Diffing ${filename}…`, "info"))
+  ctx.render()
+
+  const versions = await fileVersions(ctx, filename)
+  if (!versions.ok) {
+    toast(ctx, `Could not read ${filename} — ${versions.error}`, "error", 4000)
+    return
+  }
+
+  const temps: string[] = []
+  const oldPath = await writeSnapshotFile(`old-${filename.split("/").pop()}`, versions.old)
+  temps.push(oldPath)
+
+  let newPath = filename
+  if (!(await canOpenInPlace(ctx, filename))) {
+    newPath = await writeSnapshotFile(filename, versions.new)
+    temps.push(newPath)
+  }
+
+  const argv = diffCommand(loadConfig().editor.diff, oldPath, newPath)
+
+  if (opts.tmux) {
+    const opened = await openInTmuxPane(argv, { cwd: process.cwd(), removeWhenClosed: temps })
+    if (!opened.ok) {
+      toast(ctx, `tmux: ${opened.error}`, "error")
+      return
+    }
+    toast(ctx, `Diffing ${filename} in a tmux pane`, "success", 2000)
+    return
+  }
+
+  ctx.setState(clearToast)
+  ctx.suspendRenderer()
+  try {
+    const proc = Bun.spawn(argv, { stdin: "inherit", stdout: "inherit", stderr: "inherit" })
+    await proc.exited
+  } catch (err) {
+    toast(ctx, `Could not run the diff command: ${err instanceof Error ? err.message : err}`, "error", 4000)
+  } finally {
+    ctx.resumeRenderer()
+    ctx.render()
+    await Promise.all(temps.map((path) => unlink(path).catch(() => {})))
+  }
+}
+
+/**
+ * The file as it is now and as it was before the change. In local mode the
+ * "before" is the diff's own base; in PR mode it is the PR's.
+ */
+async function fileVersions(
+  ctx: ExternalToolsContext,
+  filename: string,
+): Promise<{ ok: true; old: string; new: string } | { ok: false; error: string }> {
+  if (ctx.mode === "pr" && ctx.prInfo) {
+    const { owner, repo, number, baseRef } = ctx.prInfo
+    const [head, base] = await Promise.all([
+      getPrFileContent(owner, repo, number, filename, ctx.getHeadSha()),
+      getPrBaseFileContent(owner, repo, number, filename, baseRef),
+    ])
+    if (!head.ok) return { ok: false, error: head.error }
+    // A file the PR adds has no base version; an empty left pane is the
+    // truth about that, not a failure.
+    return { ok: true, old: base.ok ? base.content : "", new: head.content }
+  }
+
+  const [newContent, oldContent] = await Promise.all([
+    getFileContent(filename),
+    getOldFileContent(filename, ctx.options.target),
+  ])
+  if (newContent === null) return { ok: false, error: "not in the working tree" }
+  return { ok: true, old: oldContent ?? "", new: newContent }
 }
 
 /**

@@ -140,6 +140,17 @@ onFocus = true
 Five minutes is a deliberate default: comment activity moves on the order of minutes, and each
 tick spends GraphQL quota. See the [API budget](/riff/reference/github/#api-budget).
 
+## editor
+
+```toml
+[editor]
+diff = "nvim -d {old} {new}"
+```
+
+| Key | Default | What |
+| --- | --- | --- |
+| `diff` | `"nvim -d {old} {new}"` | The command `gd` and `gD` run to show a file's two versions side by side. `{old}` and `{new}` are each one argument, whatever is in them — the new side is the working copy itself wherever riff can use it, so edits there persist. |
+
 ## previews
 
 Deploy bots post where they put a PR as a markdown table, and a table of thirty 110-character

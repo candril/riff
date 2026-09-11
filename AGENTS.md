@@ -251,6 +251,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Select Commit | Ctrl+g | Scope the diff to one commit |
 | Open in Editor | gf | Open current file in $EDITOR |
 | Open in Editor (tmux window) | gF | Open current file in $EDITOR in a new tmux window, riff keeps running |
+| Diff File in $EDITOR | gd | Both versions side by side; gD does it in a tmux pane |
 | Refresh | gr | Reload diff, commits, and comments — keeping your place |
 | Submit Review | gS | Submit review (PR mode) |
 | Sync Changes | gs | Sync local comments/edits/replies |

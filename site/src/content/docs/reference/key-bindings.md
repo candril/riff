@@ -201,7 +201,7 @@ files.
 | `gF` | The same, in a new tmux window, with riff still running |
 | `y` | Yank the line or selection, without the `+`/`-` gutter |
 | `Y` | Yank it with the gutter intact |
-| `gd` `gD` | Copy, dismiss a comment Claude drafted |
+| `gd` `gD` | Diff this file's two versions in `$EDITOR`, in a tmux pane — or, while Claude has a draft pending, copy and dismiss it |
 
 ## Pickers and menus
 

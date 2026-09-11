@@ -735,6 +735,52 @@ export async function writeSnapshotFile(filename: string, content: string): Prom
   return tmpFile
 }
 
+/**
+ * The configured diff command, as argv (spec 075).
+ *
+ * `{old}` and `{new}` are whole arguments wherever they appear, so a path
+ * with a space in it survives without any quoting rules of riff's own.
+ */
+export function diffCommand(template: string, oldPath: string, newPath: string): string[] {
+  return template
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token.replace("{old}", oldPath).replace("{new}", newPath))
+}
+
+/**
+ * Open a command in a new tmux pane beside riff, leaving riff running.
+ *
+ * A pane rather than a window: the diff riff is showing is the reason you
+ * opened the editor, and a window would hide it (spec 075).
+ */
+export async function openInTmuxPane(
+  argv: string[],
+  opts: { cwd?: string; removeWhenClosed?: string[] } = {},
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const cleanup = opts.removeWhenClosed ?? []
+  const command = cleanup.length > 0
+    ? [
+        "sh",
+        "-c",
+        `${argv.map(shellQuote).join(" ")}; rm -f ${cleanup.map(shellQuote).join(" ")}`,
+      ]
+    : argv
+
+  const args = ["tmux", "split-window", "-h", ...(opts.cwd ? ["-c", opts.cwd] : []), ...command]
+
+  try {
+    const proc = Bun.spawn(args, { stdin: "ignore", stdout: "ignore", stderr: "pipe" })
+    const exitCode = await proc.exited
+    if (exitCode === 0) return { ok: true }
+    const stderr = (await new Response(proc.stderr).text()).trim()
+    return { ok: false, error: stderr || `tmux exited with ${exitCode}` }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** riff can only hand a file to tmux when it is itself running inside one. */
 export function insideTmux(): boolean {
   return Boolean(process.env.TMUX)

@@ -1260,19 +1260,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "gd") {
-        // spec 036: copy the drafted inline comment to the clipboard and
-        // clear it. Silently no-op when no draft is pending so the chord
-        // doesn't feel broken.
+        // While Claude has left a draft, `gd` copies it and `gD` dismisses
+        // it (spec 036) — the notification on screen says so. With no draft
+        // pending the keys diff the file in an editor (spec 075).
         if (ctx.getState().draftNotification) {
           void aiReview.handleCopyDraftedComment(ctx.aiReviewContext)
+        } else {
+          void externalTools.handleDiffFileInEditor(ctx.externalToolsContext)
         }
         return
       } else if (sequence === "gD!" || sequence === "gd!") {
-        // spec 036: dismiss the drafted inline comment without copying.
         // Both spellings are accepted because terminals differ in whether
         // shift+letter reports the key name as lower- or uppercase.
         if (ctx.getState().draftNotification) {
           void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
+        } else {
+          void externalTools.handleDiffFileInEditor(ctx.externalToolsContext, { tmux: true })
         }
         return
       } else if (sequence === "gP!" || sequence === "gp!") {

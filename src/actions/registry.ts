@@ -134,6 +134,22 @@ export const actions: Action[] = [
     available: (state) => state.selectedFileIndex !== null,
   },
   {
+    id: "diff-in-editor",
+    label: "Diff File in $EDITOR",
+    description: "Both versions of this file, side by side",
+    shortcut: "gd",
+    category: "external",
+    available: (state) => state.files.length > 0,
+  },
+  {
+    id: "diff-in-tmux-pane",
+    label: "Diff File in a tmux Pane",
+    description: "The same, beside riff rather than over it",
+    shortcut: "gD",
+    category: "external",
+    available: (state) => state.files.length > 0,
+  },
+  {
     id: "open-in-editor",
     label: "Open in Editor",
     description: "Open current file in $EDITOR",

@@ -90,6 +90,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
 | 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
 | 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
+| 075 | [Diff a File in the Editor](./075-diff-in-editor.md) | Done | `gd` / `gD` open both versions side by side, configurable |
 
 ## MVP Path
 

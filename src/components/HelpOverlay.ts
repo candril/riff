@@ -83,7 +83,7 @@ const HELP_SECTIONS = [
       ["x / r / d", "Resolve / reply / delete"],
       ["S", "Post the highlighted comment"],
       ["y / Y", "Yank line or selection"],
-      ["gd / gD", "Copy / dismiss Claude's draft"],
+      ["gd / gD", "Copy / dismiss Claude's draft (while one is pending)"],
     ],
   },
   {
@@ -101,6 +101,7 @@ const HELP_SECTIONS = [
       ["gf / gF", "Follow the link under the cursor / in tmux"],
       ["gx", "Open the URL under the cursor"],
       ["ge / gE", "Open this file in $EDITOR / tmux"],
+      ["gd / gD", "Diff this file in $EDITOR / a tmux pane"],
       ["Ctrl+p", "Action menu"],
       ["q", "Quit"],
     ],

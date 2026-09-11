@@ -9,6 +9,7 @@
 
 export {
   handleOpenFileInEditor,
+  handleDiffFileInEditor,
   handleOpenFileInTmuxWindow,
   handleOpenPathInTmuxWindow,
   handleOpenFileAtLine,

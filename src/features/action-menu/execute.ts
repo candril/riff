@@ -40,6 +40,7 @@ export interface ActionHandlers {
   handleClearLocalComments: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
   handleOpenFileInEditor: () => Promise<void>
+  handleDiffFileInEditor: (opts?: { tmux?: boolean }) => Promise<void>
   handleOpenFileInTmuxWindow: () => Promise<void>
   handleCheckoutAndEdit: () => Promise<void>
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
@@ -240,6 +241,14 @@ export async function executeAction(
 
     case "add-pr-comment":
       await handlers.handleAddPrComment()
+      break
+
+    case "diff-in-editor":
+      handlers.handleDiffFileInEditor()
+      break
+
+    case "diff-in-tmux-pane":
+      handlers.handleDiffFileInEditor({ tmux: true })
       break
 
     case "open-in-editor":

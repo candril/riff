@@ -43,6 +43,11 @@ export const defaultConfig: Config = {
   mentions: {
     extra: [],
   },
+  editor: {
+    // nvim's own diff mode. Anything that takes two paths works — an editor
+    // that does not is why this is configuration and not a constant.
+    diff: "nvim -d {old} {new}",
+  },
   previews: {
     // The two defaults between them cover most deploy bots: a table with a
     // Preview column, or any link whose host or path carries the PR number.
