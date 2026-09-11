@@ -34,6 +34,9 @@ https://github.com/o/r/pull/7    →  #7 Long lines scroll badly (open)
   PR description.
 - A bare number resolves against the PR's own repo, or in local mode against
   the repo the working directory is in.
+- `repo#412` — the form people inside one organisation write, and the one
+  GitHub itself declines to link — resolves against the PR's owner. It is
+  only ever shown once it has resolved: `C#5` reads the same and is prose.
 - The state is shown as GitHub reports it — open, closed, merged, or draft for
   a pull request that has not been marked ready.
 - Code is left alone: a `#412` inside backticks or a fence is text about a

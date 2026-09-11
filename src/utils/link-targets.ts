@@ -8,7 +8,13 @@
  */
 
 import { findUrls } from "./links"
-import { findReferences, referenceKey, type Repo, type ResolvedReference } from "./references"
+import {
+  findReferences,
+  referenceKey,
+  referenceName,
+  type Repo,
+  type ResolvedReference,
+} from "./references"
 
 export interface LinkTarget {
   /** What the picker shows — the reference, or the link's text. */
@@ -35,14 +41,18 @@ export function collectLinks(text: string, ctx: LinkContext): LinkTarget[] {
     const repo = reference.repo ?? ctx.repo?.repo
     if (!owner || !repo) continue
 
-    claimed.push({ start: reference.index, end: reference.index + reference.text.length })
-
     const key = referenceKey(reference, ctx.repo)
     const answer = key ? ctx.resolved.get(key) : undefined
-    const sameRepo = owner === ctx.repo?.owner && repo === ctx.repo?.repo
+
+    // `Repo#123` is a form GitHub does not link and prose imitates by
+    // accident — `C#5` reads the same. It earns a row once riff has been
+    // told it resolves, and not before.
+    if (reference.owner === null && reference.repo !== null && !answer) continue
+
+    claimed.push({ start: reference.index, end: reference.index + reference.text.length })
     targets.push({
       index: reference.index,
-      label: sameRepo ? `#${reference.number}` : `${owner}/${repo}#${reference.number}`,
+      label: referenceName(reference, ctx.repo),
       // An unresolved reference is sent to `/issues/`, which GitHub
       // redirects to the pull request when that is what it turns out to be.
       url: `https://github.com/${owner}/${repo}/${answer?.pull === false ? "issues" : "pull"}/${reference.number}`,

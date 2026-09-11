@@ -71,6 +71,24 @@ describe("the links in a comment", () => {
     expect(links("run this:\n\n```\ncurl #1213\n```\n")).toEqual([])
   })
 
+  test("a repo named without its owner is read against this one", () => {
+    const known = new Map([
+      ["DigitecGalaxus/Dg.GalaxusAbos#1213", { title: "Fix renewal", state: "merged", pull: true }],
+    ])
+
+    expect(collectLinks("blocked by Dg.GalaxusAbos#1213", { repo, resolved: known })).toEqual([
+      {
+        label: "Dg.GalaxusAbos#1213",
+        url: "https://github.com/DigitecGalaxus/Dg.GalaxusAbos/pull/1213",
+        detail: "Fix renewal (merged)",
+      },
+    ])
+  })
+
+  test("but not before riff knows it is one — `C#5` is prose", () => {
+    expect(links("written in C#5 and shipped")).toEqual([])
+  })
+
   test("nothing in, nothing out", () => {
     expect(links("no links at all")).toEqual([])
   })

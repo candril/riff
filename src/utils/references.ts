@@ -28,7 +28,13 @@ export interface ResolvedReference {
   pull: boolean
 }
 
-const SHORT = /(^|[^\w/&])(?:([\w.-]+)\/([\w.-]+))?#(\d+)\b/g
+/**
+ * `#412`, `owner/repo#412`, and `repo#412` — which GitHub itself does not
+ * link, but which people inside one organisation write constantly. The last
+ * form is only ever shown once riff has confirmed it resolves: `C#5` reads
+ * like a reference too, and a row pointing nowhere is worse than no row.
+ */
+const SHORT = /(^|[^\w/&])(?:([\w.-]+)\/)?([\w.-]+)?#(\d+)\b/g
 const URL =
   /https?:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/(?:pull|issues)\/(\d+)(?:[#?][\w-]*)?/g
 
@@ -113,15 +119,24 @@ export function annotateReferences(
 }
 
 function display(reference: Reference, answer: ResolvedReference, repo: Repo | null): string {
-  const sameRepo =
-    reference.owner === null ||
-    (repo !== null && reference.owner === repo.owner && reference.repo === repo.repo)
-  const name = sameRepo ? `#${reference.number}` : `${reference.owner}/${reference.repo}#${reference.number}`
-  const label = `${name} ${answer.title} (${answer.state})`
+  const label = `${referenceName(reference, repo)} ${answer.title} (${answer.state})`
 
   // A pasted URL becomes the link it was already standing in for; a `#412`
   // keeps its own shape and gains the title.
   return reference.url ? `[${label}](${reference.text})` : label
+}
+
+/**
+ * What to call a reference: what its author wrote, unless they pasted a URL,
+ * which nobody wants to read twice.
+ */
+export function referenceName(reference: Reference, repo: Repo | null): string {
+  if (!reference.url) return reference.text
+
+  const sameRepo = repo !== null && reference.owner === repo.owner && reference.repo === repo.repo
+  return sameRepo
+    ? `#${reference.number}`
+    : `${reference.owner}/${reference.repo}#${reference.number}`
 }
 
 /** Ranges the reader is meant to read literally: code, and existing links. */

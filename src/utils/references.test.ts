@@ -10,6 +10,12 @@ const resolved = new Map<string, ResolvedReference>([
 ])
 
 describe("finding references", () => {
+  test("a repo with no owner, which GitHub does not link but people write", () => {
+    expect(findReferences("blocked by Dg.GalaxusAbos#1213, still").map((r) => [r.owner, r.repo, r.number])).toEqual([
+      [null, "Dg.GalaxusAbos", 1213],
+    ])
+  })
+
   test("takes a bare number, a cross-repo one and a URL", () => {
     const body = "see #412, other/tool#3 and https://github.com/candril/riff/pull/7"
     expect(findReferences(body).map((r) => [r.owner, r.repo, r.number, r.url])).toEqual([
