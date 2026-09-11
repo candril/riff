@@ -2899,6 +2899,8 @@ export function getFiletypeFromPath(path: string): string | undefined {
     tfvars: "terraform",
     hcl: "terraform",
     tfstate: "json",
+    graphql: "graphql",
+    gql: "graphql",
     // Avro has no tree-sitter parser: .avdl is close enough to Java to
     // borrow its highlighting, and .avsc/.avpr are literally JSON.
     avdl: "java",

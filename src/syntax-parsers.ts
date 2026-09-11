@@ -187,6 +187,19 @@ const terraformParser: FiletypeParserOptions = {
   },
 }
 
+// GraphQL parser. The wasm comes from npm rather than a grammar release:
+// bkegley/tree-sitter-graphql publishes no binaries, and this package is a
+// build of that same grammar.
+const graphqlParser: FiletypeParserOptions = {
+  filetype: "graphql",
+  wasm: "https://cdn.jsdelivr.net/npm/tree-sitter-graphql-grammar-wasm@1.1.0/grammar.wasm",
+  queries: {
+    highlights: [
+      "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/graphql/highlights.scm",
+    ],
+  },
+}
+
 /**
  * Register all additional syntax parsers.
  * This must be called BEFORE creating the CLI renderer.
@@ -209,5 +222,6 @@ export function registerSyntaxParsers(): void {
     cParser,
     cppParser,
     terraformParser,
+    graphqlParser,
   ])
 }
