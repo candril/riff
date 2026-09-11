@@ -56,10 +56,9 @@ export async function submitInlineDraft(
   const username =
     (state.appMode === "pr" && ctx.getCachedCurrentUser()) || "@you"
 
-  // Find existing thread on this anchor — if there is one, the new comment
-  // becomes a reply to its tail, unless it was asked for as a thread of its
-  // own: a line can hold two conversations, and GitHub files them apart
-  // (spec 081).
+  // The thread already on this anchor, which a reply joins. A comment is
+  // only a reply when it was asked for as one: a line can hold two
+  // conversations, and GitHub files them apart (spec 081).
   const thread = state.comments.filter(
     (c) =>
       c.filename === ov.filename &&
@@ -72,7 +71,7 @@ export async function submitInlineDraft(
   // which is what makes a suggestion replace all of it (spec 076).
   if (ov.startLine && ov.startLine < ov.line) comment.startLine = ov.startLine
   comment.diffHunk = extractDiffHunk(file.content, ov.line)
-  if (thread.length > 0 && !ov.newThread) {
+  if (thread.length > 0 && ov.replyToThread) {
     comment.inReplyTo = thread[thread.length - 1]!.id
   }
 

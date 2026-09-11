@@ -420,9 +420,9 @@ export function handleInput(
             line: highlighted.line,
             side: highlighted.side,
           },
-        }))
+        }, "", { reply: true }))
       } else {
-        ctx.setState((s) => startInlineCompose(s))
+        ctx.setState((s) => startInlineCompose(s, "", { reply: true }))
       }
       ctx.render()
       return true

@@ -92,7 +92,10 @@ export async function persistComment(comment: Comment, source: string): Promise<
 /**
  * Handle adding a comment on current line or selection
  */
-export async function handleAddComment(ctx: CommentsContext): Promise<void> {
+export async function handleAddComment(
+  ctx: CommentsContext,
+  options: { reply?: boolean } = {},
+): Promise<void> {
   const state = ctx.getState()
   if (state.files.length === 0) return
 
@@ -232,8 +235,9 @@ export async function handleAddComment(ctx: CommentsContext): Promise<void> {
         comment.diffHunk =
           contextLines.length > 0 ? contextLines.join("\n") : extractDiffHunk(file.content, anchor.line)
 
-        // If there's an existing thread, mark as reply to the last comment
-        if (thread.length > 0) {
+        // Only a reply joins the thread already here. `C` from the diff
+        // starts one of its own, the way `c` does (spec 081).
+        if (thread.length > 0 && options.reply) {
           comment.inReplyTo = thread[thread.length - 1]!.id
         }
 

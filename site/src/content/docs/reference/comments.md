@@ -15,8 +15,11 @@ interrupted review is a directory of Markdown files, not a lost tab.
 | The diff, in `$EDITOR` | `C` |
 | The comments panel | `n` |
 | A reply to the focused thread | `r`, or `R` for `$EDITOR` |
-| A second thread on a line that already has one | `n` in the comments panel |
 | A PR-level comment, not on any code | **Add PR Comment** in `Ctrl+p` |
+
+Writing a comment always starts a **thread** — on a line that already has one as much as on a
+line that has none, and the composer says `New thread` when that is what it is. Replying is
+something you ask for: open the thread and press `r`. GitHub tells the two apart the same way.
 
 The draft opens in the comments panel with the anchor shown above it. `Enter` or `Ctrl+s` saves
 it locally, `Ctrl+p` saves and posts it in one go, `Ctrl+j` is a newline, and `Ctrl+g` moves the

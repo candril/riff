@@ -96,7 +96,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 078 | [Commit Ranges](./078-commit-ranges.md) | Done | mark commits in the picker and read them as one diff |
 | 079 | [The PR Your Branch Already Has](./079-branch-pr.md) | Done | local mode names the branch's PR and reopens riff on it |
 | 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
-| 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | `n` starts a thread of its own where one already stands |
+| 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | writing a comment starts a thread; `r` is how you reply |
 
 ## MVP Path
 

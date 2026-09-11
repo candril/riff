@@ -48,8 +48,8 @@ export interface InlineCommentOverlayProps {
   composeFilename: string
   /** Anchor line for compose/edit mode. Ignored in view mode. */
   line: number
-  /** Composing a thread of its own on a line that already has one (spec 081). */
-  newThread: boolean
+  /** Composing a reply rather than a thread of its own (spec 081). */
+  replyToThread: boolean
   mode: InlineCommentOverlayMode
   /** Local diffs have nowhere to publish to — hints must not promise it. */
   appMode: "local" | "pr"
@@ -421,7 +421,7 @@ export function InlineCommentOverlay({
   scopeFilename,
   composeFilename,
   line,
-  newThread,
+  replyToThread,
   mode,
   appMode,
   highlightedIndex,
@@ -462,13 +462,17 @@ export function InlineCommentOverlay({
     highlightedComment !== undefined && commentHunk(comments, highlightedComment.id) !== null
   const isComposing = mode === "compose" || mode === "edit"
   const composeFile = composeFilename.split("/").pop() || composeFilename
+  const onALineWithAThread =
+    highlightedComment !== undefined &&
+    highlightedComment.line === line &&
+    highlightedComment.filename === composeFilename
   const composerLabel =
     mode === "edit"
       ? "Editing comment"
-      : newThread
-        ? `New thread @ ${composeFile}:${line}`
-        : highlightedComment && highlightedComment.line === line && highlightedComment.filename === composeFilename
-          ? `Reply @ ${composeFile}:${line}`
+      : replyToThread
+        ? `Reply @ ${composeFile}:${line}`
+        : onALineWithAThread
+          ? `New thread @ ${composeFile}:${line}`
           : `New comment @ ${composeFile}:${line}`
 
   const panelWidth = getPanelWidth(expanded)

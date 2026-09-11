@@ -15,24 +15,25 @@ explicit reply joins one. riff should be able to say both.
 
 ## Out of Scope
 
-- Changing what `c` does in the diff. On a line with a thread it replies,
-  and the composer says so — that is the common case, and the key has meant
-  that for long enough to be muscle memory.
+- Threads on a line riff is not showing. A comment is anchored to a line in
+  the diff; a second thread is a second comment on the same one.
 
 ## Capabilities
 
 ### P1
 
-- `n` in the comments panel starts a thread of its own on the diff cursor's
-  line, even where one already stands. Its header says `New thread`, so the
-  difference is visible before anything is written.
-- `r` replies, as it did. The two keys sit next to each other in the
-  panel's footer and now mean different things.
+- Writing a comment starts a thread. `c` and `C` in the diff, `n` in the
+  comments panel: all of them start one, on a line that already has one as
+  much as on a line that has none. The composer says `New thread` where one
+  already stands, so it is visible before anything is written.
+- Replying is asked for: `r` in the comments panel, `R` for the same in
+  `$EDITOR`. You open the thread and answer it — which is also how GitHub
+  tells the two apart.
 - The distinction survives publishing: a thread of its own is posted as a
   comment on the line, not as a reply to the thread above it.
 
 ## Technical Notes
 
-The composer carries `newThread`, set where the composer is opened rather
-than worked out when it is submitted — by then the only thing to go on is
-the anchor, which both kinds share.
+The composer carries `replyToThread`, set where the composer is opened
+rather than worked out when it is submitted — by then the only thing to go
+on is the anchor, which both kinds share.

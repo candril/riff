@@ -128,7 +128,7 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | `J` `K` | Jump to the next, previous thread |
 | `Ctrl+d` `Ctrl+u` | Half a screen of comments |
 | `za` / `Enter` | Expand or collapse the highlighted thread |
-| `n` | New thread at the diff cursor's line — its own, even where one already stands |
+| `n` | New thread at the diff cursor's line |
 | `s` | Flash — label every visible comment, next key jumps |
 | `g?` | The keymap |
 | `gx` `gX` | Pick from every link in the panel's comments — open it, or copy it |

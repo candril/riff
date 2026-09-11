@@ -133,9 +133,9 @@ export interface InlineCommentOverlayState {
   /** First line of the block the composer was opened on, when that was a
    *  selection rather than one line (spec 076). */
   startLine?: number
-  /** Start a thread of its own, rather than replying to the one already on
-   *  this line — what `n` means beside `r` (spec 081). */
-  newThread?: boolean
+  /** Join the thread already on this line rather than starting one — what
+   *  `r` means beside `c` and `n` (spec 081). */
+  replyToThread?: boolean
   /** Which side (LEFT/RIGHT) — only meaningful for compose/edit mode. */
   side: "LEFT" | "RIGHT"
   /** Index of the currently highlighted comment in the derived list.
@@ -2476,8 +2476,8 @@ export function openInlineCommentOverlay(
   mode: InlineCommentOverlayMode = "view",
   /** The block this was opened on, when it was more than one line. */
   startLine?: number,
-  /** Start a thread rather than reply to the one already here (spec 081). */
-  newThread?: boolean,
+  /** Join the thread already here rather than starting one (spec 081). */
+  reply?: boolean,
 ): AppState {
   const nextState: AppState = {
     ...state,
@@ -2489,7 +2489,7 @@ export function openInlineCommentOverlay(
       filename,
       line,
       startLine: startLine && startLine < line ? startLine : undefined,
-      newThread: newThread === true,
+      replyToThread: reply === true,
       side,
       highlightedIndex: 0,
       // Opening straight into the composer picks up a draft left on this
@@ -2757,7 +2757,7 @@ export function moveInlineCommentOverlayHighlight(state: AppState, delta: number
 export function startInlineCompose(
   state: AppState,
   prefill: string = "",
-  options: { newThread?: boolean } = {},
+  options: { reply?: boolean } = {},
 ): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
@@ -2770,7 +2770,7 @@ export function startInlineCompose(
       input: prefill || commentDraftFor(state, ov.filename, ov.line, ov.side),
       editingId: null,
       mentionPicker: null,
-      newThread: options.newThread === true,
+      replyToThread: options.reply === true,
     },
   }
 }

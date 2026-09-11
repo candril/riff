@@ -707,9 +707,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         source: ctx.commentsContext.source,
         getCachedCurrentUser: ctx.commentsContext.getCachedCurrentUser,
         handleReplyExternal: () =>
-          commentsFeature.handleAddComment(ctx.commentsContext),
+          commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
         handleEditExternal: () =>
-          commentsFeature.handleAddComment(ctx.commentsContext),
+          commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
         handleDelete: (comment) =>
           commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
         handleSubmit: (comment) =>
@@ -780,11 +780,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
               anchor.filename,
               anchor.line,
               anchor.side,
-              "compose",
-              undefined,
-              // `n` beside `r`: a thread of its own, even where one already
-              // stands (spec 081).
-              true
+              "compose"
             )
           )
           ctx.render()
