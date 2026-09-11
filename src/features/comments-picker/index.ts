@@ -10,7 +10,13 @@ import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import { openInlineCommentOverlay, showToast, clearToast } from "../../state"
+import {
+  openInlineCommentOverlay,
+  expandThreadFor,
+  highlightInlineComment,
+  showToast,
+  clearToast,
+} from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 
 export {
@@ -76,8 +82,12 @@ export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext):
     ctx.ensureCursorVisible()
   }
 
-  ctx.setState((s) =>
-    openInlineCommentOverlay(s, comment.filename, comment.line, comment.side, "view")
-  )
+  // Open the panel on the thread, then put the highlight on the comment
+  // that was picked — which means opening the thread when it is folded
+  // shut, or the panel lands on a root that says nothing about it.
+  ctx.setState((s) => {
+    const opened = openInlineCommentOverlay(s, comment.filename, comment.line, comment.side, "view")
+    return highlightInlineComment(expandThreadFor(opened, comment.id), comment.id)
+  })
   ctx.render()
 }

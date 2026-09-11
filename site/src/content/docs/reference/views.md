@@ -186,7 +186,9 @@ asked to see the code, so the diff comes back then, scrolled to that comment's l
 returns to the overview.
 
 `/` narrows the panel to the threads whose author, text or file match. Threads collapse to their
-root comment when resolved, and `za` opens them back up. An **outdated**
+root comment when resolved, and `za` opens them back up — though arriving at one from somewhere
+else opens it for you: the feed, the comments picker, `]r`, or `Enter` on a commented line all
+mean "show me this comment", so a resolved thread is not left folded over the answer. An **outdated**
 thread — one anchored to a line the branch has since moved past — expands to show the hunk it was
 originally written against, so the comment still makes sense.
 

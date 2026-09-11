@@ -50,6 +50,9 @@ turning green and force-pushes are invisible unless you go to the browser.
 - `Enter` opens what the row is about: a commit → the diff scoped to it, a
   comment → its thread, a check → its annotations, a review → its comments, a
   push → the range it replaced.
+- A thread it lands on is open when you get there. A resolved one is
+  collapsed to its root by default, and arriving at a comment to find the
+  comment hidden is arriving nowhere.
 - `a` returns from the diff to the feed with the same row still selected.
 - `s` labels the rows (spec 066).
 

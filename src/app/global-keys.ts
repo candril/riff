@@ -9,7 +9,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles } from "../state"
-import { getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -374,16 +374,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return false
     }
 
-    if (mode === "view") {
-      const hasRoot = s.comments.some(
-        (c) =>
-          c.filename === anchor.filename &&
-          c.line === anchor.line &&
-          c.side === anchor.side &&
-          !c.inReplyTo
-      )
-      if (!hasRoot) return false
-    }
+    const root = s.comments.find(
+      (c) =>
+        c.filename === anchor.filename &&
+        c.line === anchor.line &&
+        c.side === anchor.side &&
+        !c.inReplyTo
+    )
+    if (mode === "view" && !root) return false
 
     // The selection has served its purpose; leave visual mode so the
     // highlight doesn't linger behind the composer.
@@ -391,9 +389,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       ctx.setVimState(exitVisualMode(vimState))
     }
 
-    ctx.setState((st) =>
-      openInlineCommentOverlay(st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart)
-    )
+    ctx.setState((st) => {
+      const opened = openInlineCommentOverlay(
+        st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart
+      )
+      // Asked for this thread by name: a resolved one opens rather than
+      // showing its root and hiding the rest.
+      return mode === "view" && root ? expandThreadFor(opened, root.id) : opened
+    })
     ctx.render()
     return true
   }

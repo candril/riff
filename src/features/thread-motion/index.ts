@@ -12,7 +12,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
 import { handleSelectFile, ensureFileExpanded } from "../file-navigation"
-import { openInlineCommentOverlay } from "../../state"
+import { openInlineCommentOverlay, expandThreadFor } from "../../state"
 
 export interface ThreadAnchor {
   filename: string
@@ -205,7 +205,10 @@ export function jumpOverlayToAdjacentThread(
   // navigation is read-first; the user can still drop into compose
   // with `r` once the overlay is here).
   ctx.setState((s) =>
-    openInlineCommentOverlay(s, target.filename, target.line, target.side, "view")
+    expandThreadFor(
+      openInlineCommentOverlay(s, target.filename, target.line, target.side, "view"),
+      target.rootCommentId
+    )
   )
   ctx.render()
 }

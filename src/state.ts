@@ -2622,6 +2622,33 @@ export function setCommentCodePeek(state: AppState, id: string | null): AppState
   return { ...state, inlineCommentOverlay: { ...ov, codePeekId: id } }
 }
 
+/**
+ * Open the thread a comment is in, if it is not open already.
+ *
+ * Arriving at a comment from somewhere else — the feed, the picker — and
+ * finding its thread folded shut is arriving nowhere: a resolved thread
+ * shows its root and nothing else, so the comment you asked for is the one
+ * thing not on screen. `expandedThreadIds` flips the default rather than
+ * setting it, so this asks whether the thread is collapsed and flips it
+ * back rather than just adding the id.
+ */
+export function expandThreadFor(state: AppState, commentId: string): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+
+  const thread = groupIntoThreads(getInlineCommentOverlayComments(state)).find((t) =>
+    t.comments.some((c) => c.id === commentId)
+  )
+  if (!thread || !isThreadCollapsed(thread, ov.expandedThreadIds)) return state
+
+  // The set flips the default, so opening a collapsed thread means adding
+  // its id when it is resolved and dropping it when the reader folded it.
+  const next = new Set(ov.expandedThreadIds)
+  if (next.has(thread.id)) next.delete(thread.id)
+  else next.add(thread.id)
+  return { ...state, inlineCommentOverlay: { ...ov, expandedThreadIds: next } }
+}
+
 export function toggleInlineCommentOverlayExpand(state: AppState, threadId: string): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
