@@ -120,6 +120,9 @@ export function HelpOverlay(_props: HelpOverlayProps = {}) {
       left: 0,
       right: 0,
       bottom: 0,
+      // Above every panel it can be opened from — the overview mounts its
+      // own container at 100.
+      zIndex: 110,
       justifyContent: "center",
       alignItems: "center",
     },

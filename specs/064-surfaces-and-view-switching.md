@@ -38,6 +38,13 @@ This is the refactor the rest of the plan stands on. It ships no new feature.
 - While the comments panel or a composer has focus it keeps owning the
   keyboard, view keys included — `Ctrl-h` hands focus back. This is today's
   behaviour, stated so the router does not break it.
+- Owning the keyboard is not owning the screen: `g?` draws the keymap over a
+  panel rather than being eaten by it, and closing it puts back what was
+  underneath.
+- Opened over the state or the feed, the comments panel leaves that view
+  standing — `Ctrl-t` is "show me what was said". Moving to a comment is the
+  moment the reader asked for the code, so the diff returns then, at that
+  comment's line, and the jumplist holds the way back.
 
 ## Technical Notes
 

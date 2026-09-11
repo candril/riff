@@ -654,6 +654,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
+    // Ahead of the panels, which are modal in their own right: the keymap
+    // is drawn over them, so `q` has to close it rather than close them.
+    if (ctx.getState().showHelp && !pendingKey) {
+      if (key.name === "escape" || key.name === "q") {
+        ctx.setState(toggleHelp)
+        ctx.render()
+        return
+      }
+      // `g` still has to reach the chord matcher, or `g?` couldn't close it.
+      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
+        return
+      }
+    }
+
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
     if (
       inlineCommentOverlay.handleInput(key, {
@@ -674,6 +689,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
+        onToggleHelp: () => {
+          ctx.setState(toggleHelp)
+          ctx.render()
+        },
         onOpenLinks: (comment) => {
           // The panel's comments, the highlighted one first: the same list
           // the overview offers, scoped to what this panel is showing.
@@ -777,6 +796,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           const highlighted = derived[ov.highlightedIndex]
           if (!highlighted) return
 
+          // Opened over the overview or the feed, the panel is talking about
+          // code that is not on screen. Moving to a comment is the moment
+          // the reader asked to see it, so the diff comes back then — not on
+          // `Ctrl-t`, which is just "show me what was said". `Ctrl-o` goes
+          // back to where the overview was.
+          if (s.viewMode !== "diff") {
+            recordJump()
+            ctx.setState((st) => ({ ...st, viewMode: "diff", previousView: st.viewMode }))
+          }
+
           const inSingleFileView = s.selectedFileIndex !== null
           const targetFileIndex = s.files.findIndex((f) => f.filename === highlighted.filename)
           if (
@@ -858,6 +887,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         onOpenLinks: () => {
           const sources = ctx.getPrInfoPanel()?.linkSources() ?? []
           openLinksPicker(sources, "Links")
+        },
+        onToggleHelp: () => {
+          ctx.setState(toggleHelp)
+          ctx.render()
         },
         onPreviewRow: (action, row) => {
           // Several places for one app: the same picker every other list of
@@ -971,19 +1004,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       }
       // `g` still has to reach the chord matcher, or `gl` couldn't close it.
-      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
-        return
-      }
-    }
-
-    // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
-    if (ctx.getState().showHelp && !pendingKey) {
-      if (key.name === "escape" || key.name === "q") {
-        ctx.setState(toggleHelp)
-        ctx.render()
-        return
-      }
-      // `g` still has to reach the chord matcher, or `g?` couldn't close it.
       if (!(key.name === "g" && !key.ctrl && !key.shift)) {
         return
       }

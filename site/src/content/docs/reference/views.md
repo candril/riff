@@ -180,6 +180,11 @@ GitHub's own viewed checkbox, read at startup and written back, so it agrees wit
 current file — or the one you opened — as a conversation:
 author, age, resolution state, replies, reactions.
 
+Opened from the PR overview or the feed, the panel appears beside them and they stay put — you
+asked to read what was said, not to leave. Moving to a comment with `j`/`k` is the moment you
+asked to see the code, so the diff comes back then, scrolled to that comment's line; `Ctrl+o`
+returns to the overview.
+
 `/` narrows the panel to the threads whose author, text or file match. Threads collapse to their
 root comment when resolved, and `za` opens them back up. An **outdated**
 thread — one anchored to a line the branch has since moved past — expands to show the hunk it was
@@ -295,8 +300,9 @@ toggling hidden files, reactions, and the Claude Code handoffs.
 ## Keymap overlay
 
 `g?` draws the cheat sheet over whatever you were looking at — motions, jumps, folds, panels,
-comments, GitHub — and `g?`, `Esc` or `q` puts it away. It's the short version; the action menu
-is the exhaustive one.
+comments, GitHub — and `g?`, `Esc` or `q` puts it away. It works from every surface, the PR
+overview and the comments panel included: the key you reach for when you are lost should not
+depend on where you are lost. It's the short version; the action menu is the exhaustive one.
 
 ![The keymap overlay](../../../assets/screenshots/help.png)
 

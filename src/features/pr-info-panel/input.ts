@@ -98,6 +98,8 @@ export interface PRInfoPanelInputContext {
   executeAction?: (id: string) => void
   /** `gx` — pick from the links in the focused row (spec 077). */
   onOpenLinks?: () => void
+  /** `g?` — the keymap, which every surface owes the reader. */
+  onToggleHelp?: () => void
   // Push current location onto the jumplist before navigating away (spec
   // 038). Called BEFORE closePRInfoPanel so the entry captures
   // viewMode="pr" — otherwise back-jump can't return to the PR view.
@@ -204,6 +206,11 @@ function handleInputInner(
   // don't swallow the chord key.
   if (pendingKey === "g") {
     clearPendingKey()
+    // `?` reaches some terminals as a name and others only as the sequence.
+    if (key.name === "?" || key.sequence === "?") {
+      ctx.onToggleHelp?.()
+      return true
+    }
     switch (key.name) {
       case "g":
         if (panel) panel.getScrollBox().scrollTo(0)
