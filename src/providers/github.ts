@@ -143,6 +143,8 @@ export interface PrCommit {
   message: string    // First line of commit message
   author: string
   date: string       // ISO date
+  /** No file changes. Everyday in jj, where the working copy usually is one. */
+  empty?: boolean
 }
 
 export interface PrReview {

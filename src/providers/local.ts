@@ -394,18 +394,46 @@ async function getJjCommits(target?: string): Promise<PrCommit[]> {
   try {
     const revset = target || "trunk()..@"
     // Use template to get structured output (NUL-separated fields, newline-separated records)
-    const template = 'commit_id.short(7) ++ "\\x00" ++ description.first_line() ++ "\\x00" ++ author.name() ++ "\\x00" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\n"'
+    const template = 'commit_id.short(7) ++ "\\x00" ++ description.first_line() ++ "\\x00" ++ author.name() ++ "\\x00" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\x00" ++ if(empty, "empty", "") ++ "\\n"'
     const result = await $`jj log -r ${revset} --no-graph -T ${template}`.quiet().nothrow()
     if (result.exitCode !== 0) return []
 
-    const lines = result.text().trim().split("\n").filter(Boolean)
-    return lines.map((line) => {
-      const [sha = "", message = "", author = "", date = ""] = line.split("\x00")
-      return { sha, message, author, date }
-    })
+    return parseJjCommits(result.text())
   } catch {
     return []
   }
+}
+
+/** What jj calls a change with nothing in it, and one nobody has named. */
+export const EMPTY_CHANGE = "(empty)"
+export const UNDESCRIBED_CHANGE = "(no description set)"
+
+export function parseJjCommits(text: string): PrCommit[] {
+  return text
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [sha = "", message = "", author = "", date = "", empty = ""] = line.split("\x00")
+      return {
+        sha,
+        message: message || UNDESCRIBED_CHANGE,
+        author,
+        date,
+        empty: empty === "empty",
+      }
+    })
+}
+
+export function parseGitCommits(text: string): PrCommit[] {
+  return text
+    .split("\x01")
+    .filter((record) => record.trim())
+    .map((record) => {
+      const [head = "", ...rest] = record.split("\n")
+      const [sha = "", message = "", author = "", date = ""] = head.split("\x00")
+      return { sha, message, author, date, empty: rest.every((line) => !line.trim()) }
+    })
 }
 
 /**
@@ -431,15 +459,14 @@ async function getGitCommits(target?: string): Promise<PrCommit[]> {
       range = `${baseBranch}..HEAD`
     }
 
-    const format = "%h%x00%s%x00%an%x00%aI"
-    const result = await $`git log ${range} --format=${format}`.quiet().nothrow()
+    // \x01 starts a record and the file names follow it, which is how a
+    // commit that changed nothing is told apart from one that did — in one
+    // process rather than a diff-tree per commit.
+    const format = "%x01%h%x00%s%x00%an%x00%aI"
+    const result = await $`git log ${range} --format=${format} --name-only --diff-merges=first-parent`.quiet().nothrow()
     if (result.exitCode !== 0) return []
 
-    const lines = result.text().trim().split("\n").filter(Boolean)
-    return lines.map((line) => {
-      const [sha = "", message = "", author = "", date = ""] = line.split("\x00")
-      return { sha, message, author, date }
-    })
+    return parseGitCommits(result.text())
   } catch {
     return []
   }

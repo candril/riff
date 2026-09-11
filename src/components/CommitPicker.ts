@@ -3,6 +3,7 @@ import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
 import type { PrCommit } from "../providers/github"
+import { EMPTY_CHANGE } from "../providers/local"
 
 export interface CommitPickerProps {
   renderer: CliRenderer
@@ -155,6 +156,8 @@ function AllCommitsRow({ selected, active, totalCommits }: AllCommitsRowProps) {
       backgroundColor: bg,
       paddingX: 2,
       width: "100%",
+      height: 1,
+      overflow: "hidden",
     },
     Box(
       { flexDirection: "row" },
@@ -171,6 +174,11 @@ interface CommitRowProps {
   active: boolean
 }
 
+/**
+ * One row, one line. Without a fixed height a long subject wraps and the
+ * column then compresses the rows into each other — two commits drawn on
+ * the same screen line, letter by letter.
+ */
 function CommitRow({ commit, selected, active }: CommitRowProps) {
   const bg = selected ? "#585b70" : undefined
   return Box(
@@ -180,6 +188,8 @@ function CommitRow({ commit, selected, active }: CommitRowProps) {
       backgroundColor: bg,
       paddingX: 2,
       width: "100%",
+      height: 1,
+      overflow: "hidden",
     },
     Box(
       { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
@@ -189,7 +199,12 @@ function CommitRow({ commit, selected, active }: CommitRowProps) {
       Text({ content: commit.message, fg: selected ? theme.text : theme.subtext1 }),
     ),
     Box(
-      { flexDirection: "row", flexShrink: 0 },
+      // paddingLeft keeps a gap when the subject is long enough to shrink
+      // into it — without one the message runs straight into the author.
+      { flexDirection: "row", flexShrink: 0, paddingLeft: 2 },
+      // A change with nothing in it scopes the diff to nothing, so the row
+      // says so rather than letting the reader find out by picking it.
+      commit.empty ? Text({ content: `${EMPTY_CHANGE}  `, fg: theme.overlay0 }) : null,
       Text({ content: `@${commit.author}`, fg: theme.overlay0 }),
       Text({ content: `  ${formatTimeAgo(commit.date)}`, fg: theme.overlay0 }),
     )
