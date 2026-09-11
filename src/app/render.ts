@@ -285,8 +285,22 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // Resolve the palette's render mode. In submenu mode we swap out the
     // action list for the submenu rows (already filtered by query inside
     // getSubmenuRows).
-    const actionMenuMode: ActionMenuMode = state.actionMenu.submenu
-      ? { kind: "submenu", title: state.actionMenu.submenu.title, rows: getSubmenuRows(state) }
+    const submenu = state.actionMenu.submenu
+    const actionMenuMode: ActionMenuMode = submenu
+      ? {
+          kind: "submenu",
+          title: submenu.title,
+          // A list of links can do two things with the one you pick, and
+          // only one of them is Enter — which one depends on the key that
+          // opened the list (spec 077).
+          hint:
+            submenu.kind === "links"
+              ? submenu.action === "copy"
+                ? "enter copy · esc"
+                : "enter open · ctrl-y copy · esc"
+              : undefined,
+          rows: getSubmenuRows(state),
+        }
       : { kind: "actions", actions: filteredActions }
 
     // Get filtered files for file picker
