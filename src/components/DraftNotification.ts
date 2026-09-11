@@ -4,8 +4,8 @@
  * does **not** auto-dismiss — it stays visible until the user dismisses
  * it or the draft file is removed from disk.
  *
- * The component is display-only; `gd` (copy + clear) / `gD` (clear) are
- * handled in `src/app/global-keys.ts`.
+ * The component is display-only; copying and discarding are palette
+ * actions (they were `gd`/`gD` until those became the editor diff).
  *
  * Every line is pre-wrapped and clamped here rather than left to opentui's
  * own wrapping: an absolutely-positioned box sizes itself as if each Text
@@ -63,7 +63,7 @@ export function DraftNotification({ notification }: DraftNotificationProps) {
     Text({ content: "Claude drafted a comment", fg: theme.blue }),
     Text({ content: target, fg: colors.text }),
     ...previewLines.map((ln) => Text({ content: ln, fg: colors.textMuted })),
-    Text({ content: "gd copy  ·  gD dismiss", fg: colors.textDim }),
+    Text({ content: "Ctrl+p: copy or discard it", fg: colors.textDim }),
   )
 }
 

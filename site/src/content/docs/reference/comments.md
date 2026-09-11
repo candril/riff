@@ -214,8 +214,9 @@ keeps its own set under `.riff/comments/gh-owner-repo-123/`.
 ## Claude-drafted comments
 
 riff never posts on Claude's behalf. When a Claude Code session drafts an inline comment, riff
-raises a notification; `gd` copies it to your clipboard and clears it, `gD` discards it. What you
-do with the text after that is a normal comment, written by you.
+raises a notification; **Claude: Copy drafted comment** in the action menu puts it on your clipboard and
+clears it, **Claude: Dismiss drafted comment** throws it away. What you do with the text after that is a
+normal comment, written by you.
 
 The Claude actions in `Ctrl+p` go the other way — they hand a scope (the selection, the file, the
 folder, a multi-select, or the whole diff) to a Claude Code session to talk about.

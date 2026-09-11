@@ -83,7 +83,6 @@ const HELP_SECTIONS = [
       ["x / r / d", "Resolve / reply / delete"],
       ["S", "Post the highlighted comment"],
       ["y / Y", "Yank line or selection"],
-      ["gd / gD", "Copy / dismiss Claude's draft (while one is pending)"],
     ],
   },
   {

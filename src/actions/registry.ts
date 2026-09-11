@@ -610,8 +610,7 @@ export const actions: Action[] = [
   {
     id: "claude-copy-drafted-comment",
     label: "Claude: Copy drafted comment",
-    description: "Copy Claude's drafted inline PR comment and clear it (gd)",
-    shortcut: "gd",
+    description: "Copy Claude's drafted inline PR comment and clear it",
     category: "claude",
     // Gated on the poller having already detected a valid draft. The
     // predicate is just a state read — no disk I/O per menu render.
@@ -620,8 +619,7 @@ export const actions: Action[] = [
   {
     id: "claude-discard-drafted-comment",
     label: "Claude: Dismiss drafted comment",
-    description: "Delete Claude's drafted comment and clear the notification (gD)",
-    shortcut: "gD",
+    description: "Delete Claude's drafted comment and clear the notification",
     category: "claude",
     available: (state) => state.appMode === "pr" && state.draftNotification !== null,
   },

@@ -1260,23 +1260,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "gd") {
-        // While Claude has left a draft, `gd` copies it and `gD` dismisses
-        // it (spec 036) — the notification on screen says so. With no draft
-        // pending the keys diff the file in an editor (spec 075).
-        if (ctx.getState().draftNotification) {
-          void aiReview.handleCopyDraftedComment(ctx.aiReviewContext)
-        } else {
-          void externalTools.handleDiffFileInEditor(ctx.externalToolsContext)
-        }
+        // Both versions of this file, side by side (spec 075). Claude's
+        // drafted comment used to own this key; it is a palette action now,
+        // since a key that means two things depending on a notification is
+        // a key you cannot trust.
+        void externalTools.handleDiffFileInEditor(ctx.externalToolsContext)
         return
       } else if (sequence === "gD!" || sequence === "gd!") {
         // Both spellings are accepted because terminals differ in whether
         // shift+letter reports the key name as lower- or uppercase.
-        if (ctx.getState().draftNotification) {
-          void aiReview.handleDiscardDraftedComment(ctx.aiReviewContext)
-        } else {
-          void externalTools.handleDiffFileInEditor(ctx.externalToolsContext, { tmux: true })
-        }
+        void externalTools.handleDiffFileInEditor(ctx.externalToolsContext, { tmux: true })
         return
       } else if (sequence === "gP!" || sequence === "gp!") {
         if (s.appMode === "pr" && s.prInfo) {
