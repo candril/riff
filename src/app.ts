@@ -3,6 +3,9 @@ import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
+import { commentsWithRows } from "./utils/notes"
+import { getCurrentRepo } from "./providers/github"
+import { loadComments } from "./storage"
 import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
@@ -1494,10 +1497,26 @@ export async function createApp(options: AppOptions = {}) {
   // in the background: it costs a `gh` call, and a local review that never
   // looks at the header should not wait for one.
   if (mode === "local") {
-    void findCurrentPr().then((branchPr) => {
+    void findCurrentPr().then(async (branchPr) => {
       if (!branchPr) return
       state = { ...state, branchPr }
       render()
+
+      // And the review on it, if riff has already fetched one (spec 094).
+      // Reading what is on disk, never fetching: a local review that opens
+      // in a second should not wait on GitHub, and `riff pr` is what says
+      // "go and get it".
+      try {
+        const { owner, repo } = await getCurrentRepo()
+        const review = await loadComments(`gh:${owner}/${repo}#${branchPr.number}`)
+        const anchored = commentsWithRows(review, state.files, state.fileMode)
+        if (anchored.length === 0) return
+        state = { ...state, comments: [...state.comments, ...anchored] }
+        render()
+      } catch {
+        // No review on disk, or a repo riff cannot name. The local comments
+        // are then the whole of it.
+      }
     })
   }
 

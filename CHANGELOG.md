@@ -54,6 +54,10 @@ release, so write it before tagging.
   on the pull request for your branch, in one report, each thread tagged and carrying the
   commands for the store it came from. `<leader>rl` uses it, so "where is there something
   to deal with" is one question again instead of two keys.
+- **`riff` on a branch with a pull request shows that review** — riff already named the PR
+  in the header and then showed none of it. Its comments now appear on the lines they are
+  anchored to, for the lines this diff actually has. Nothing is fetched: `riff pr` and
+  `riff comments fetch` are what put a review on disk.
 
 ### Fixed
 

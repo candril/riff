@@ -43,6 +43,25 @@ function hasRow(comment: Comment, files: DiffFile[], fileMode: boolean): boolean
   )
 }
 
+/**
+ * The comments a diff has a row for, whatever kind they are.
+ *
+ * For comments merged in from somewhere else — a branch's pull request read
+ * into a local review (spec 094) — the exemption ordinary review comments
+ * get does not apply: they were written against the pull request's diff,
+ * not this one, and one anchored to a file the working copy has not touched
+ * has nowhere to be.
+ */
+export function commentsWithRows(
+  comments: Comment[],
+  files: DiffFile[],
+  fileMode: boolean,
+): Comment[] {
+  const kept = comments.filter((c) => hasRow(c, files, fileMode))
+  const ids = new Set(kept.map((c) => c.id))
+  return kept.filter((c) => !c.inReplyTo || ids.has(c.inReplyTo))
+}
+
 /** The comments this view should show. */
 export function commentsInView(
   comments: Comment[],
