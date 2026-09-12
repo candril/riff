@@ -786,9 +786,29 @@ export function selectFile(state: AppState, index: number | null): AppState {
 }
 
 /**
+ * Give a listed file the content that was read for it (spec 084).
+ *
+ * File mode lists names and reads the file you open, so a file's rows only
+ * exist once this has run for it.
+ */
+export function setFileDiff(state: AppState, filename: string, content: string): AppState {
+  const index = state.files.findIndex((file) => file.filename === filename)
+  if (index === -1) return state
+
+  const files = [...state.files]
+  files[index] = { ...files[index]!, content }
+  return { ...state, files }
+}
+
+/**
  * Clear file selection (show all)
+ *
+ * File mode has no such view: a repository read as one scroll of every file
+ * end to end is not something anyone wants, and the tree is how you move
+ * between files there (spec 084).
  */
 export function clearFileSelection(state: AppState): AppState {
+  if (state.fileMode) return state
   return {
     ...state,
     viewMode: state.viewMode === "state" ? "diff" : state.viewMode,

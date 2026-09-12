@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { fileAsDiff, unreadableAsDiff, buildFilesDiff } from "./files"
+import { fileAsDiff, unreadableAsDiff, buildFilesDiff, openFileAsDiff } from "./files"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 
@@ -47,6 +47,31 @@ describe("outsideDiff", () => {
   })
 })
 
+describe("the rest of the file", () => {
+  test("a diff offers what its hunks left out; a file has left nothing out", () => {
+    // One hunk ending before the file does: the diff asks to see the rest.
+    const partial = [
+      "diff --git a/a.txt b/a.txt",
+      "--- a/a.txt",
+      "+++ b/a.txt",
+      "@@ -1,1 +1,1 @@",
+      " one",
+      "",
+    ].join("\n")
+    const files = parseDiff(partial)
+
+    const asDiff = new DiffLineMapping(files, "single", 0)
+    const asFiles = new DiffLineMapping(files, "single", 0, { outsideDiff: true })
+
+    const dividers = (mapping: DiffLineMapping) =>
+      Array.from({ length: mapping.lineCount }, (_, i) => mapping.getLine(i))
+        .filter((line) => line?.type === "divider").length
+
+    expect(dividers(asDiff)).toBe(1)
+    expect(dividers(asFiles)).toBe(0)
+  })
+})
+
 describe("unreadableAsDiff", () => {
   test("a file riff will not draw still parses as one", () => {
     const [file] = parseDiff(unreadableAsDiff("logo.png", "logo.png is not text"))
@@ -56,25 +81,39 @@ describe("unreadableAsDiff", () => {
 })
 
 describe("buildFilesDiff", () => {
-  test("one file opens as one file", async () => {
+  test("a file names where to open; the repository is what is listed", async () => {
     const built = await buildFilesDiff({ path: "package.json", directory: false })
-    expect(built.filenames).toEqual(["package.json"])
-    expect(built.omitted).toBe(0)
-    expect(parseDiff(built.diff).length).toBe(1)
+    expect(built.selected).toBe("package.json")
+    expect(built.filenames).toContain("package.json")
+    expect(built.filenames).toContain("src/app.ts")
   })
 
-  test("a directory opens as every file under it", async () => {
+  test("a directory lists what is under it and opens nothing in particular", async () => {
     const built = await buildFilesDiff({ path: "src/providers", directory: true })
+    expect(built.selected).toBeNull()
     expect(built.filenames).toContain("src/providers/files.ts")
-    expect(built.filenames).toContain("src/providers/local.ts")
-    expect(parseDiff(built.diff).length).toBe(built.filenames.length)
+    expect(built.filenames.every((name) => name.startsWith("src/providers/"))).toBe(true)
   })
 
-  test("a directory of files is a diff nothing changed", async () => {
+  test("nothing is read until a file is opened", async () => {
     const built = await buildFilesDiff({ path: "src/providers", directory: true })
-    for (const file of parseDiff(built.diff)) {
-      expect(file.additions).toBe(0)
-      expect(file.deletions).toBe(0)
-    }
+    const files = parseDiff(built.diff)
+    expect(files.length).toBe(built.filenames.length)
+    // A stub has a name and no hunk, so the mapping draws no rows for it.
+    expect(new DiffLineMapping(files, "single", 0).lineCount).toBe(0)
+    expect(built.diff).not.toContain("@@")
+  })
+
+  test("a file that is opened is read", async () => {
+    const opened = await openFileAsDiff("package.json")
+    expect(opened).toContain("@@")
+    const [file] = parseDiff(opened)
+    expect(file?.additions).toBe(0)
+    expect(file?.deletions).toBe(0)
+  })
+
+  test("a file riff will not draw opens as the reason it will not", async () => {
+    const opened = await openFileAsDiff("site/src/assets/logo.png")
+    expect(opened).toContain("is not text")
   })
 })

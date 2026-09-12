@@ -9,10 +9,11 @@ file nobody touched cannot be opened at all, so the loop in `.riff/` — write
 a comment, hand it to Claude, resolve it — can only ever talk about lines
 someone changed.
 
-`riff <path>` opens the path as files. A file becomes a unified diff whose
-every line is context, and from there it is the diff pipeline: folds, flash,
-`/`, the file tree, markdown tables, mermaid, peeks and spec 080's
-highlighting all arrive without a code path of their own.
+`riff <path>` opens the path as files. riff lists what the path scopes, opens
+one file of it, and that file becomes a unified diff whose every line is
+context — from there it is the diff pipeline: folds, flash, `/`, the file
+tree, markdown tables, mermaid, peeks and spec 080's highlighting all arrive
+without a code path of their own.
 
 This is the seam the rest of [the plan](./083-file-mode-plan.md) stands on.
 It does not carry comments — a note on unchanged code is spec 085, and until
@@ -22,8 +23,8 @@ publish path could honour.
 ## Out of Scope
 
 - Notes on those lines. 084 refuses them out loud; 085 makes them real.
-- A tree and picker built for ten thousand files. 084 reads a bounded number
-  of files eagerly; 087 is where that stops being true.
+- A tree and picker built for ten thousand files. 084 lists them and leaves
+  the tree as it is; 087 is where that stops being true.
 - Outline and occurrences (088).
 - Any write to a file riff shows.
 
@@ -31,9 +32,18 @@ publish path could honour.
 
 ### P1
 
-- `riff src/app.ts` opens one file, expanded. `riff src/` and `riff .` open
-  every file under the path, each one collapsed — the shape you browse a
-  repository in, and the reason a few hundred files open instantly.
+- One file is open at a time. There is no view of a repository as every file
+  end to end: nobody reads one that way, and the tree is how you move between
+  them.
+- `riff src/app.ts` opens that file with the repository listed around it — a
+  tree of one file is a tree you cannot leave. `riff src/` and `riff .` list
+  what they scope and open the first file of it.
+- The tree opens folded, except the path down to the open file. Eight hundred
+  files listed flat is not a tree. Reaching a file — through the tree, the
+  picker, anything — opens the path to it.
+- Only the open file is read. A path names where to start, not a thousand
+  files to pull off the disk, so `riff .` is a listing and the read happens
+  as you arrive in a file.
 - A path that exists beats a revset. The PR forms match first, then the
   filesystem, then the fallthrough to a revision that riff has today. `-r
   <rev>` forces the revision on a repo where a directory and a bookmark
@@ -53,7 +63,7 @@ publish path could honour.
 - A file riff cannot read as text — bytes that are not UTF-8, or more than
   512 KB of them — is listed and opens as one line saying which it was,
   rather than as garbage.
-- Past 2000 files riff opens the first 2000 and says how many it left. The
+- Past 10000 files riff lists the first 10000 and says how many it left. The
   honest number beats a hang; 087 is what removes the ceiling.
 
 ## Technical Notes
@@ -72,6 +82,16 @@ publisher", not adding a gate here.
 because a modification is the only thing a diff can call it. File mode
 relabels its files `unchanged` afterwards, so the tree does not put an `M`
 against code nobody touched.
+
+A listed file is a diff header with no hunk, which parses to a file with no
+rows; opening it splices the read content into `files[i].content` and rebuilds
+the mapping. The same seam therefore carries both states, and an unopened
+file costs a line of string.
+
+The run after the last hunk is what spec 074 offers to expand. A file has no
+such run — its one hunk is the whole of it — and offering it anyway drew a
+row that expanded into nothing, because the expansion reads a file cache the
+row's own content had never been put in.
 
 `AppMode` stays `local | pr`. File mode is a source a local review reads
 from, not a third mode: notes land in the same `.riff/comments/local` store

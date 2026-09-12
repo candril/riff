@@ -24,9 +24,10 @@ import {
   setTreeFilter,
   highlightInlineComment,
   commitScopeKey,
+  setFileDiff,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
-import type { FilesTarget } from "./providers/files"
+import { openFileAsDiff, type FilesTarget } from "./providers/files"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
@@ -204,7 +205,34 @@ export async function createApp(options: AppOptions = {}) {
   // searchHandler is defined later, but we need a reference in createLineMapping
   let searchHandlerRef: SearchHandler | null = null
 
+  /**
+   * Read the file riff is showing, once, when it is opened (spec 084).
+   *
+   * File mode lists a repository by name and opens one file at a time; the
+   * read happens here rather than at startup so `riff .` is a list rather
+   * than a thousand files off the disk.
+   */
+  const fileModeRead = new Set<string>()
+  function requestFileModeContent(): void {
+    if (!state.fileMode || state.selectedFileIndex === null) return
+    const file = state.files[state.selectedFileIndex]
+    if (!file || fileModeRead.has(file.filename)) return
+
+    fileModeRead.add(file.filename)
+    void (async () => {
+      try {
+        state = setFileDiff(state, file.filename, await openFileAsDiff(file.filename))
+        createLineMapping()
+        render()
+      } catch {
+        // A file riff cannot read leaves the listing and every other file
+        // exactly as they were.
+      }
+    })()
+  }
+
   function createLineMapping() {
+    requestFileModeContent()
     lineMapping = buildLineMapping(state)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
@@ -1373,6 +1401,10 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== INITIAL RENDER =====
   render()
+
+  // The file riff opened on, read after the first frame rather than before
+  // it: the list is on screen while the file arrives (spec 084).
+  requestFileModeContent()
 
   // What moved since the last visit (spec 069): the files, from one git
   // call, and — when the branch was rewritten under the reader — a word

@@ -11,7 +11,7 @@ import { VimDiffView, PRInfoPanelClass } from "../components"
 import { FileTreePanel } from "../components/FileTreePanel"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
-import { buildFileTree, filteredFilenames } from "../utils/file-tree"
+import { buildFileTree, filteredFilenames, collapseTree, expandToFile } from "../utils/file-tree"
 import { wasRebased } from "../utils/visit"
 import {
   createInitialState,
@@ -193,10 +193,18 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // Collapse viewed files initially
   state = collapseViewedFiles(state)
 
-  // A directory opens folded. Every file expanded is a wall of a repository
-  // nobody reads top to bottom, and folded it is the list you browse.
-  if (filesTarget?.directory) {
-    state = { ...state, collapsedFiles: new Set(files.map((file) => file.filename)) }
+  // File mode opens on one file, and the tree opens folded except for the
+  // path down to it. A repository is browsed a file at a time; listed flat
+  // and expanded it is neither a tree nor anything anyone reads.
+  if (filesDiff) {
+    const opening = filesDiff.selected ?? files[0]?.filename ?? null
+    const index = opening ? files.findIndex((file) => file.filename === opening) : -1
+    state = {
+      ...state,
+      selectedFileIndex: index >= 0 ? index : null,
+      fileTree: opening ? expandToFile(collapseTree(state.fileTree), opening) : state.fileTree,
+      treeHighlightIndex: 0,
+    }
   }
 
   // Auto-collapse ignored files in diff view

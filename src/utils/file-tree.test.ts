@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { buildFileTree, filteredFilenames, filterTree, flattenTree } from "./file-tree"
+import { buildFileTree, filteredFilenames, filterTree, flattenTree, collapseTree, expandToFile } from "./file-tree"
 import type { DiffFile } from "./diff-parser"
 
 function file(filename: string): DiffFile {
@@ -88,5 +88,34 @@ describe("filteredFilenames", () => {
 
   test("a query nothing matches restricts to nothing", () => {
     expect([...names("zzzz")!]).toEqual([])
+  })
+})
+
+describe("collapseTree", () => {
+  test("folds every directory, at every depth", () => {
+    const tree = buildFileTree([
+      { filename: "src/a/b.ts", additions: 0, deletions: 0, status: "unchanged", content: "" },
+      { filename: "src/c.ts", additions: 0, deletions: 0, status: "unchanged", content: "" },
+    ])
+
+    const directories = (nodes: ReturnType<typeof buildFileTree>): boolean[] =>
+      nodes.flatMap((node) =>
+        node.isDirectory ? [node.expanded, ...directories(node.children)] : []
+      )
+
+    expect(directories(tree).every(Boolean)).toBe(true)
+    expect(directories(collapseTree(tree)).some(Boolean)).toBe(false)
+  })
+
+  test("expandToFile reopens only the path to one file", () => {
+    const tree = buildFileTree([
+      { filename: "src/a/b.ts", additions: 0, deletions: 0, status: "unchanged", content: "" },
+      { filename: "docs/x.md", additions: 0, deletions: 0, status: "unchanged", content: "" },
+    ])
+
+    // A chain with one child is one node, so `src/a` is the folder to open.
+    const opened = expandToFile(collapseTree(tree), "src/a/b.ts")
+    expect(opened.find((node) => node.path === "src/a")?.expanded).toBe(true)
+    expect(opened.find((node) => node.path === "docs")?.expanded).toBe(false)
   })
 })

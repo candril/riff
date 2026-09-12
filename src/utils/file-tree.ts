@@ -260,6 +260,21 @@ export function findFileNode(
 }
 
 /**
+ * Fold every directory in the tree.
+ *
+ * A repository opens folded (spec 084): eight hundred files listed flat is
+ * not a tree, and the only path worth seeing is the one to the file that is
+ * open — which `expandToFile` then reopens.
+ */
+export function collapseTree(nodes: FileTreeNode[]): FileTreeNode[] {
+  return nodes.map((node) =>
+    node.isDirectory
+      ? { ...node, expanded: false, children: collapseTree(node.children) }
+      : node
+  )
+}
+
+/**
  * Expand all parent directories to make a file visible in the tree.
  * Returns the updated tree.
  */

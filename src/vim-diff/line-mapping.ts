@@ -747,7 +747,9 @@ export class DiffLineMapping {
     // file" rather than a number it is guessing at (spec 074). Once the file
     // is in hand the row carries the count, or goes away because the hunk
     // reached the end after all.
-    if (lastHunkEndLine > 0) {
+    // File mode's one hunk is the whole file, so there is no rest of it to
+    // offer — and offering it drew a row that expanded into nothing.
+    if (lastHunkEndLine > 0 && !this.outsideDiff) {
       if (totalFileLines === 0) addDividerOrContext(lastHunkEndLine + 1, 0, 0, "end")
       else if (lastHunkEndLine < totalFileLines) {
         addDividerOrContext(lastHunkEndLine + 1, totalFileLines, 0, "end")

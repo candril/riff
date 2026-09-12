@@ -2,8 +2,10 @@ import { $ } from "bun"
 import { readdir, readFile, stat } from "node:fs/promises"
 import { join, relative, sep } from "node:path"
 
-/** Files read in one go before riff stops and says how many it left. */
-export const MAX_FILES = 2000
+/** Files listed before riff stops and says how many it left. Only names are
+ *  listed here — the file you are on is the one that gets read — so the
+ *  ceiling is what the tree can hold, not what the disk can take. */
+export const MAX_FILES = 10000
 
 /** Bytes of one file riff will draw before calling it unreadable. */
 export const MAX_FILE_BYTES = 512 * 1024
@@ -19,9 +21,13 @@ export interface FilesTarget {
 }
 
 export interface FilesDiff {
+  /** Every listed file as a diff header with no hunk: a name, and nothing
+   *  read. The open file's content is spliced in when it is opened. */
   diff: string
   /** Every file riff opened, in the order they appear in the diff. */
   filenames: string[]
+  /** The file the path named, when it named one. riff opens on it. */
+  selected: string | null
   /** Files found past `MAX_FILES`, none of which were opened. */
   omitted: number
   /** Set when the file list came from riff's own walk rather than ripgrep. */
@@ -151,42 +157,63 @@ export function unreadableAsDiff(path: string, reason: string): string {
 }
 
 /**
- * Read `target` and produce the diff string the rest of riff loads from.
+ * A listed but unopened file: a name the tree can show and the cursor can
+ * reach, with no hunk, so it costs a line of string and no read at all.
+ */
+export function stubAsDiff(path: string): string {
+  return [`diff --git a/${path} b/${path}`, `--- a/${path}`, `+++ b/${path}`, ""].join("\n")
+}
+
+/**
+ * List `target` and produce the diff string the rest of riff loads from.
+ *
+ * Nothing is read here. riff opens on one file and the reader moves between
+ * them one at a time, so one at a time is what riff reads — `riff .` on a
+ * few thousand files is then a list, not seconds of disk.
  */
 export async function buildFilesDiff(
   target: FilesTarget,
   ignores: (path: string) => boolean = () => false
 ): Promise<FilesDiff> {
-  const { files, fallbackReason } = target.directory
-    ? await listFiles(target.path, ignores)
-    : { files: [target.path], fallbackReason: null }
+  // A file names where to open, not what to list. Listing only it would
+  // hand you a tree of one and no way to reach the file beside it, so the
+  // scope is the repository and the file is where riff starts.
+  const scope = target.directory ? target.path : "."
+  const { files, fallbackReason } = await listFiles(scope, ignores)
+  const selected = target.directory ? null : normalize(target.path)
 
-  const opened = files.slice(0, MAX_FILES)
-  const parts: string[] = []
-  const filenames: string[] = []
+  // The file that was asked for is opened even past the ceiling, because
+  // riff was pointed at it.
+  const capped = files.slice(0, MAX_FILES)
+  const listed =
+    selected && !capped.some((file) => normalize(file) === selected)
+      ? [...capped, target.path]
+      : capped
 
-  for (const file of opened) {
-    const name = normalize(file)
-    parts.push(await readAsDiff(file, name))
-    filenames.push(name)
-  }
+  const filenames = listed.map(normalize)
 
   return {
-    diff: parts.join(""),
+    diff: filenames.map(stubAsDiff).join(""),
     filenames,
-    omitted: files.length - opened.length,
+    selected,
+    omitted: Math.max(0, files.length - listed.length),
     fallbackReason,
   }
 }
 
-async function readAsDiff(path: string, name: string): Promise<string> {
+/**
+ * One file's content as the diff that stands in for it — read when the file
+ * is opened. A file riff will not draw says which it was on the one line it
+ * opens as.
+ */
+export async function openFileAsDiff(name: string): Promise<string> {
   try {
-    const info = await stat(path)
+    const info = await stat(name)
     if (info.size > MAX_FILE_BYTES) {
       return unreadableAsDiff(name, `${name} is ${Math.round(info.size / 1024)} KB — too large to draw`)
     }
 
-    const bytes = await readFile(path)
+    const bytes = await readFile(name)
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
     return fileAsDiff(name, text)
   } catch (err) {
