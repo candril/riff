@@ -299,6 +299,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
   const jumpApplyCtx: jumplist.JumpApplyContext = {
     setState: ctx.setState,
+    getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     rebuildLineMapping: ctx.rebuildLineMapping,
     ensureCursorVisible: ctx.ensureCursorVisible,

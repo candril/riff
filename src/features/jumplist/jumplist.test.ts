@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { isStepMotion, sameLocation, capture, push } from "./index"
+import { isStepMotion, sameLocation, capture, push, cursorFile } from "./index"
 import { createInitialState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { DiffFile } from "../../utils/diff-parser"
@@ -63,5 +63,25 @@ describe("push", () => {
     const once = push(state, capture(state, vim))
     const twice = push(once, capture(once, vim))
     expect(twice.jumpList.entries.length).toBe(1)
+  })
+})
+
+describe("cursorFile", () => {
+  const mapping = {
+    getLine: (i: number) =>
+      i < 3 ? { filename: "a.ts" } : i < 6 ? { filename: "b.ts" } : undefined,
+  }
+
+  test("says which file the cursor stands in, selected or not", () => {
+    expect(cursorFile(mapping, 0)).toBe("a.ts")
+    expect(cursorFile(mapping, 4)).toBe("b.ts")
+    expect(cursorFile(mapping, 9)).toBeNull()
+  })
+
+  test("stepping within one file stays in it; stepping out changes it", () => {
+    // `j` from row 2 to row 3 leaves a.ts — the boundary the all-files view
+    // crosses without any file-switching key.
+    expect(cursorFile(mapping, 2)).toBe(cursorFile(mapping, 1))
+    expect(cursorFile(mapping, 3)).not.toBe(cursorFile(mapping, 2))
   })
 })

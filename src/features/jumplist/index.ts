@@ -12,7 +12,6 @@
 import type { AppState } from "../../state"
 import { selectFile, clearFileSelection, switchView, enterDiffView } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
-import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Jump, JumpListState } from "./types"
 
 export type { Jump, JumpListState } from "./types"
@@ -40,6 +39,15 @@ export function isStepMotion(key: { name?: string; ctrl?: boolean }): boolean {
   const name = key.name ?? ""
   if (key.ctrl) return STEP_CTRL_KEYS.has(name) || name === "o" || name === "i"
   return name === "tab" || STEP_KEYS.has(name)
+}
+
+/**
+ * The file the cursor is standing in, which in the all-files view is not the
+ * selected file — there isn't one. Stepping out of a file and into the next
+ * is a navigation even when `j` is what did it (spec 089).
+ */
+export function cursorFile(mapping: { getLine(i: number): { filename?: string } | undefined }, line: number): string | null {
+  return mapping.getLine(line)?.filename ?? null
 }
 
 /** True when two captures are the same place. */
@@ -155,6 +163,7 @@ export function forward(state: AppState): { state: AppState; jump: Jump } | null
 
 export interface JumpApplyContext {
   setState: (updater: (s: AppState) => AppState) => void
+  getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   rebuildLineMapping: () => void
   ensureCursorVisible: () => void
@@ -221,13 +230,26 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
     return next
   })
 
-  // Reset & rebuild line mapping if the file changed; restore cursor line.
   ctx.rebuildLineMapping()
-  const cursor = createCursorState()
-  cursor.line = Math.max(0, jump.cursorLine)
-  cursor.col = Math.max(0, jump.cursorCol ?? 0)
-  ctx.setVimState(cursor)
-  ctx.ensureCursorVisible()
+
+  // The cursor moves; it is not rebuilt. A fresh one would throw away the
+  // marks and the last search along with the position, so going back would
+  // quietly cost you `n` and every `'a`.
+  ctx.setVimState({
+    ...ctx.getVimState(),
+    line: Math.max(0, jump.cursorLine),
+    col: Math.max(0, jump.cursorCol ?? 0),
+    mode: "normal",
+    selectionAnchor: null,
+    selectionAnchorCol: null,
+    desiredCol: null,
+    pendingTextObject: null,
+    pendingFindChar: null,
+  })
+
+  // One paint. Rendering, settling the scroll and rendering again showed the
+  // destination at the scroll position of where you came from, then moved it
+  // — which is the flicker.
   ctx.render()
-  setTimeout(() => ctx.render(), 0)
+  ctx.ensureCursorVisible()
 }

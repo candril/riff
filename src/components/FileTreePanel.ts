@@ -37,7 +37,7 @@ function getStatusColor(status: DiffFile["status"]): string {
     case "renamed":
       return colors.fileRenamed
     case "unchanged":
-      return colors.fileModified
+      return colors.text
   }
 }
 
@@ -467,13 +467,18 @@ export class FileTreePanel {
 
       // Files get color based on status, directories get subtext color
       // Viewed files/dirs get dimmed color
-      const nameFg = isViewed
-        ? colors.fileViewed
-        : node.isDirectory
-          ? theme.subtext0
-          : node.file
-            ? getStatusColor(node.file.status)
-            : colors.text
+      // The file you are in is named in the accent colour. The background
+      // alone is a shade against a shade, and with focus in the diff there
+      // is no cursor on the row to say which one you are reading.
+      const nameFg = isSelected && !this.focused
+        ? colors.primary
+        : isViewed
+          ? colors.fileViewed
+          : node.isDirectory
+            ? theme.subtext0
+            : node.file
+              ? getStatusColor(node.file.status)
+              : colors.text
 
       // Background priority (darker → lighter):
       //   cursor highlight > multi-select range > the file you are in > none
@@ -605,13 +610,18 @@ export class FileTreePanel {
 
       // Files get color based on status, directories get subtext color
       // Viewed files/dirs get dimmed color
-      const nameFg = isViewed
-        ? colors.fileViewed
-        : node.isDirectory
-          ? theme.subtext0
-          : node.file
-            ? getStatusColor(node.file.status)
-            : colors.text
+      // The file you are in is named in the accent colour. The background
+      // alone is a shade against a shade, and with focus in the diff there
+      // is no cursor on the row to say which one you are reading.
+      const nameFg = isSelected && !this.focused
+        ? colors.primary
+        : isViewed
+          ? colors.fileViewed
+          : node.isDirectory
+            ? theme.subtext0
+            : node.file
+              ? getStatusColor(node.file.status)
+              : colors.text
 
       // Background priority (same as rebuildItems):
       //   cursor highlight > multi-select range > the file you are in > none

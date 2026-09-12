@@ -1409,11 +1409,23 @@ export async function createApp(options: AppOptions = {}) {
    * the jumplist without opting in, and none of them can forget. A key that
    * only steps or scrolls is not a jump, and typing into a composer or a
    * filter never moves the reader at all — so nothing it does is recorded.
+   *
+   * Stepping is exempt only while it stays inside a file. `j` off the last
+   * line of one file and into the next is how the all-files view changes
+   * file, and walking back the way you came has to include it.
    */
   function handleKeypress(key: KeyEvent) {
     const before = jumplist.capture(state, vimState)
+    const fileBefore = jumplist.cursorFile(lineMapping, vimState.line)
     dispatchKeypress(key)
-    if (jumplist.isStepMotion(key)) return
+
+    if (jumplist.isStepMotion(key)) {
+      const fileAfter = jumplist.cursorFile(lineMapping, vimState.line)
+      if (fileAfter === null || fileAfter === fileBefore) return
+      state = jumplist.push(state, before)
+      return
+    }
+
     if (jumplist.sameLocation(before, jumplist.capture(state, vimState))) return
     state = jumplist.push(state, before)
   }

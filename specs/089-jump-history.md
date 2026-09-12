@@ -37,6 +37,10 @@ arrive.
   `Ctrl-d`, `Ctrl-u`, `Ctrl-e`, `Ctrl-y`, `h`, `l`, `w`, `b`, `e`, `0`, `^`,
   `$` and the like move the cursor without moving the reader. This is vim's
   own line between a motion and a jump.
+- *Inside a file* is the whole of that exemption. The all-files view changes
+  file by stepping off the end of one, with no file-switching key involved,
+  and walking back the way you came has to include that. The file under the
+  cursor is what decides — in that view there is no selected file to ask.
 - `Ctrl-o` and `Ctrl-i` are not jumps either — walking the list does not
   extend it.
 - Nothing typed into a composer, a filter, a picker's input or any other
@@ -59,7 +63,7 @@ arrive.
 
 The recording sits around `handleKeypress`: capture before, capture after,
 push the before when they differ and the key was not one of the excluded
-motions. One place, so a navigation cannot forget to be in the list — the
+motions — and for those, when the file under the cursor changed instead. One place, so a navigation cannot forget to be in the list — the
 twenty `recordJump()` calls go, and nothing takes their place.
 
 `apply` rebuilt the cursor with `createCursorState()`, which is why a jump

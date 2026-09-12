@@ -21,6 +21,12 @@ release, so write it before tagging.
   motion, links and the feed are all in the history, because one place records where you
   came from instead of twenty navigations each remembering to. Stepping and scrolling
   inside a file still are not jumps, and a jump now lands in the column it left.
+- **Going back no longer flickers** — a jump painted the destination at the scroll position
+  of where it came from and then moved it. One paint now, and the jump keeps your marks and
+  your last search instead of rebuilding the cursor from scratch.
+- **The tree says which file you are reading** — the file under the diff cursor is named in
+  the accent colour, not only shaded, so `]f` and `[f` are legible at a glance from the
+  other panel.
 - **Sequence diagrams name their columns at both ends** — participants are drawn at the
   foot as well as the head, the way mermaid draws them, so the bottom of a long exchange
   still says who is who.
