@@ -39,6 +39,14 @@ release, so write it before tagging.
   on what it says. `Ctrl-s` saves from either mode, `Esc` abandons, and `:w`, `:x` and `ZZ`
   work as they do anywhere else. The separate viewer, editor and open-in-riff commands are
   gone: three doors onto one room.
+- **The review, in nvim** — `<leader>rp` fetches the pull request for your bookmark or
+  branch and draws its comments on the file, with who said what, in their own gutter sign;
+  `<leader>rP` puts them away without touching your notes. Nothing polls and nothing
+  fetches behind your back. A comment whose line has moved is drawn where the line is now,
+  read out of the hunk GitHub sent; one whose code has since changed is not drawn, and
+  you are told how many there were.
+- **`riff comments fetch`** pulls a pull request's comments into `.riff/` without opening
+  riff, and `riff comments --synced` lists the review's own comments beside your notes.
 
 ### Fixed
 

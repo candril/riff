@@ -9,6 +9,7 @@
  * one. Synced comments are GitHub's and are left alone.
  *
  *   riff comments add --file <path> --line <n> [--end-line <m>] [--target <t>]
+ *   riff comments fetch [--json] [<target>]
  *   riff comments [list] [--json] [--path <p>] [<target>]
  *   riff comments edit <id> [<target>]
  *   riff comments resolve <id> [<target>]
@@ -37,6 +38,9 @@ import {
   findRepoRoot,
 } from "../storage"
 import { installSkill } from "./skill"
+import { $ } from "bun"
+import { findCurrentPr, detectCurrentBranch } from "../providers/current-pr"
+import { loadPrSession } from "../providers/github"
 
 export interface CommentsCliOptions {
   /** Resolve `<target>` to the storage source id (`local`, `HEAD~3`, `gh:o/r#1`). */
@@ -50,6 +54,7 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   const rest = verb === "list" && words[0] !== "list" ? words : words.slice(1)
 
   if (verb === "add") return add(argv, opts, json)
+  if (verb === "fetch") return fetch(argv, opts, json, flag(argv, "path"))
 
   if (verb === "install-skill") {
     const path = installSkill(argv.includes("--global"))
@@ -72,7 +77,12 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
 
   switch (verb) {
     case "list":
-      return list(underPath(comments, flag(argv, "path")), source, json)
+      return list(
+        underPath(comments, flag(argv, "path")),
+        source,
+        json,
+        argv.includes("--synced") || argv.includes("--all"),
+      )
     case "clear": {
       const n = await clearLocalComments(source)
       console.log(json ? JSON.stringify({ removed: n }) : `Removed ${n} local comment${n === 1 ? "" : "s"}`)
@@ -118,10 +128,58 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   return 2
 }
 
-const VERBS = new Set(["list", "add", "edit", "resolve", "unresolve", "remove", "clear", "install-skill"])
+const VERBS = new Set([
+  "list", "add", "edit", "fetch", "resolve", "unresolve", "remove", "clear", "install-skill",
+])
 
 /** Flags that take the word after them, so it is not a `<target>`. */
 const VALUED_FLAGS = new Set(["--path", "--file", "--line", "--end-line", "--body", "--target"])
+
+/** The sha the worktree is on, so a comment written against another one can
+ *  be told apart from one written against this. */
+async function headSha(): Promise<string | null> {
+  const jj = await $`jj log -r @ --no-graph -T commit_id`.quiet().nothrow()
+  if (jj.exitCode === 0 && jj.text().trim()) return jj.text().trim()
+  const git = await $`git rev-parse HEAD`.quiet().nothrow()
+  return git.exitCode === 0 ? git.text().trim() || null : null
+}
+
+/**
+ * Pull a pull request's comments into `.riff/` without opening riff (spec
+ * 092).
+ *
+ * An editor showing a review should not be making network calls of its own,
+ * and it should not have to reimplement one either: this is riff fetching,
+ * asked for rather than polled.
+ */
+async function fetch(
+  argv: string[],
+  opts: CommentsCliOptions,
+  json: boolean,
+  path: string | undefined,
+): Promise<number> {
+  const target = positional(argv)[1]
+  const pr = target ?? (await findCurrentPr())
+  if (pr === null) {
+    const branch = await detectCurrentBranch().catch(() => "this branch")
+    const message = `no pull request for '${branch}'`
+    console.error(json ? JSON.stringify({ error: message }) : `riff comments fetch: ${message}`)
+    return 1
+  }
+
+  const source = await opts.resolveSource(typeof pr === "object" ? String(pr.number) : pr)
+  if (!source.startsWith("gh:")) {
+    const message = `'${target}' is not a pull request`
+    console.error(json ? JSON.stringify({ error: message }) : `riff comments fetch: ${message}`)
+    return 2
+  }
+
+  const match = source.match(/^gh:([^/]+)\/(.+)#(\d+)$/)
+  if (!match) return 2
+  await loadPrSession(Number.parseInt(match[3]!, 10), match[1], match[2])
+
+  return list(underPath(await loadComments(source), path), source, json, true)
+}
 
 /**
  * The words that are arguments rather than flags or flag values.
@@ -247,8 +305,16 @@ async function add(argv: string[], opts: CommentsCliOptions, json: boolean): Pro
   return 0
 }
 
-async function list(comments: Comment[], source: string, json: boolean): Promise<number> {
-  const local = comments.filter((c) => c.status === "local")
+async function list(
+  comments: Comment[],
+  source: string,
+  json: boolean,
+  synced = false,
+): Promise<number> {
+  // A review's own comments are GitHub's and riff has never pretended
+  // otherwise; they are listed only when asked for, because everything else
+  // reading this expects the local ones (spec 092).
+  const local = comments.filter((c) => c.status === "local" || (synced && c.status === "synced"))
   if (json) {
     console.log(JSON.stringify(await buildReport(local, comments, source), null, 2))
     return 0
@@ -260,8 +326,10 @@ async function list(comments: Comment[], source: string, json: boolean): Promise
   for (const c of local) {
     const done = rootOf(c, comments).isThreadResolved ? " [resolved]" : ""
     const note = c.kind === "note" ? " [note]" : ""
+    const who = c.status === "synced" && c.author ? ` @${c.author}` : ""
     const reply = c.inReplyTo ? "  ↳ " : ""
-    console.log(`${c.id.slice(0, 8)}  ${reply}${c.filename}:${c.line}${note}${done}`)
+    const id = c.status === "synced" ? c.id : c.id.slice(0, 8)
+    console.log(`${id}  ${reply}${c.filename}:${c.line}${note}${who}${done}`)
     for (const line of c.body.split("\n")) console.log(`          ${line}`)
   }
   return 0
@@ -272,6 +340,28 @@ const CONTEXT_RADIUS = 4
 
 /** How far from its old line a note is looked for before it is called lost. */
 const DRIFT_WINDOW = 50
+
+/**
+ * The line a comment was written on, read out of the diff hunk GitHub sends
+ * with it (spec 092).
+ *
+ * A review comment carries no hash — riff did not write it — but it carries
+ * the hunk, and the hunk says what the line said. That is the same evidence
+ * a note's hash is, in a different wrapper.
+ */
+export function anchorLineFromHunk(hunk: string, side: "LEFT" | "RIGHT"): string | null {
+  // GitHub's hunk ends at the line the comment is on — it is the context
+  // leading up to it, not the whole hunk its header advertises, so counting
+  // down from the header never reaches the line.
+  const skips = side === "LEFT" ? "+" : "-"
+  const rows = hunk.split("\n")
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i]!
+    if (row.startsWith("@@") || row.startsWith(skips)) continue
+    if (row.startsWith(" ") || row.startsWith("+") || row.startsWith("-")) return row.slice(1)
+  }
+  return null
+}
 
 /**
  * Where a note's line went (spec 086).
@@ -285,11 +375,12 @@ const DRIFT_WINDOW = 50
 export function driftOf(
   comment: Comment,
   lines: string[] | null,
+  hash = comment.anchorHash,
 ): { at: number; moved: boolean } | { at: null; moved: false } | null {
-  if (!comment.anchorHash || !lines) return null
+  if (!hash || !lines) return null
 
   const here = lines[comment.line - 1]
-  if (here !== undefined && hashLine(here) === comment.anchorHash) {
+  if (here !== undefined && hashLine(here) === hash) {
     return { at: comment.line, moved: false }
   }
 
@@ -298,7 +389,7 @@ export function driftOf(
   for (let offset = 1; offset <= DRIFT_WINDOW; offset++) {
     for (const candidate of [comment.line - offset, comment.line + offset]) {
       const text = lines[candidate - 1]
-      if (text !== undefined && hashLine(text) === comment.anchorHash) {
+      if (text !== undefined && hashLine(text) === hash) {
         return { at: candidate, moved: true }
       }
     }
@@ -315,14 +406,22 @@ export function driftOf(
  */
 async function buildReport(local: Comment[], all: Comment[], source: string) {
   const root = (await findRepoRoot()) ?? process.cwd()
+  const head = await headSha()
   const roots = local.filter((c) => !c.inReplyTo)
   const fileCache = new Map<string, string[] | null>()
 
   const threads = await Promise.all(
     roots.map(async (c) => {
       const anchor = await anchorFor(c, root, fileCache)
-      const drift = driftOf(c, fileCache.get(c.filename) ?? null)
-      const id = c.id.slice(0, 8)
+      // A note carries its own hash; a review comment carries the hunk it
+      // was written against, which says the same thing.
+      const fromHunk = c.diffHunk ? anchorLineFromHunk(c.diffHunk, c.side) : null
+      const written = c.anchorHash ?? (fromHunk !== null ? hashLine(fromHunk) : undefined)
+      const drift = driftOf(c, fileCache.get(c.filename) ?? null, written)
+      // A local id is a uuid and eight characters tell it apart. A synced
+      // one is `gh-<github id>`, where the first eight are the same for
+      // every comment in the repository.
+      const id = c.status === "synced" ? c.id : c.id.slice(0, 8)
       return {
         id,
         file: c.filename,
@@ -332,6 +431,16 @@ async function buildReport(local: Comment[], all: Comment[], source: string) {
         // where GitHub has no anchor, it is never published, and the work
         // it asks for is the same work (spec 085).
         kind: c.kind ?? "review",
+        author: c.author ?? null,
+        // The commit the comment was written against. A synced comment's
+        // line is a line of the pull request's diff at this sha, which is
+        // the same line in a worktree only while the worktree is on it.
+        commit: c.commit ?? null,
+        onHead: c.commit ? c.commit === head : null,
+        // GitHub's own answer: the thread's anchor no longer matches the
+        // pull request head.
+        outdated: c.outdated === true,
+        url: c.githubUrl ?? null,
         resolved: c.isThreadResolved === true,
         // Absent when riff has nothing to compare against — a comment from
         // before the hash, or a file it cannot read.
@@ -346,7 +455,12 @@ async function buildReport(local: Comment[], all: Comment[], source: string) {
         ...anchor,
         replies: local
           .filter((r) => r.inReplyTo === c.id)
-          .map((r) => ({ id: r.id.slice(0, 8), createdAt: r.createdAt, body: r.body })),
+          .map((r) => ({
+            id: r.status === "synced" ? r.id : r.id.slice(0, 8),
+            author: r.author ?? null,
+            createdAt: r.createdAt,
+            body: r.body,
+          })),
         diffHunk: c.diffHunk ?? null,
         commentFile: await commentFilePath(c.id, source),
         resolve: `riff comments resolve ${id}`,
@@ -359,6 +473,7 @@ async function buildReport(local: Comment[], all: Comment[], source: string) {
   return {
     source,
     root,
+    head,
     counts: { threads: threads.length, open: open.length, resolved: threads.length - open.length },
     syncedComments: all.length - local.length,
     threads,
@@ -378,6 +493,7 @@ async function anchorFor(
   cache: Map<string, string[] | null>,
 ): Promise<{ code: string | null; context: string[] | null }> {
   if (c.side !== "RIGHT") return { code: null, context: null }
+
 
   let lines = cache.get(c.filename)
   if (lines === undefined) {

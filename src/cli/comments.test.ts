@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { positional, underPath, driftOf, hashLine } from "./comments"
+import { positional, underPath, driftOf, hashLine, anchorLineFromHunk } from "./comments"
 import type { Comment } from "../types"
 
 const comment = (over: Partial<Comment>): Comment => ({
@@ -78,5 +78,25 @@ describe("driftOf", () => {
 
   test("indentation alone does not move a line", () => {
     expect(driftOf(anchored, ["one", "two", "      three", "four"])).toEqual({ at: 3, moved: false })
+  })
+})
+
+describe("anchorLineFromHunk", () => {
+  // GitHub sends the context leading up to the comment, so the hunk ends at
+  // the commented line and its header's line count is not a count of rows.
+  const hunk = ["@@ -0,0 +1,48 @@", "+using System;", "+", "+public sealed class Tests"].join("\n")
+
+  test("the line is the hunk's last row, not the header's arithmetic", () => {
+    expect(anchorLineFromHunk(hunk, "RIGHT")).toBe("public sealed class Tests")
+  })
+
+  test("the side decides which rows count", () => {
+    const both = ["@@ -1,2 +1,2 @@", " context", "-was this", "+is this"].join("\n")
+    expect(anchorLineFromHunk(both, "RIGHT")).toBe("is this")
+    expect(anchorLineFromHunk(both, "LEFT")).toBe("was this")
+  })
+
+  test("a hunk with nothing in it anchors nothing", () => {
+    expect(anchorLineFromHunk("@@ -0,0 +1,2 @@", "RIGHT")).toBeNull()
   })
 })

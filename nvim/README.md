@@ -18,6 +18,8 @@ up. That is all this does.
 |---|---|
 | `<leader>rc` | comment on this line, or change the comment already on it |
 | `<leader>rt` | preview the comments beside the code, or not |
+| `<leader>rp` | fetch and show the pull request's comments on this file |
+| `<leader>rP` | hide them again |
 | `:RiffRefresh` | redraw the marks |
 
 One key, not three. On a line that already carries a comment it opens that
@@ -45,6 +47,17 @@ require("riff").setup({
   default_mappings = true,
 })
 ```
+
+## The review
+
+`<leader>rp` asks riff for the pull request on your current bookmark or
+branch, fetches its comments and draws them in their own gutter sign, with
+who said what. `<leader>rP` puts them away. Nothing happens until you ask:
+the editor makes no network calls of its own and none behind your back.
+
+A comment is drawn where its line is *now* — riff finds it from the hunk
+GitHub sent, so a line that has moved is still marked. One whose code has
+since changed is not drawn at all, and you are told how many there were.
 
 ## What it writes
 

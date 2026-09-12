@@ -84,6 +84,7 @@ const HELP_TEXT = `
     riff comments [--json] [--path P] [TARGET]  List local comments, optionally under a path
     riff comments add --file F --line N     Write one from outside riff (body on stdin)
     riff comments edit <id> [TARGET]        Rewrite its body (body on stdin)
+    riff comments fetch [TARGET]            Pull a PR's comments into .riff/ (default: this branch's)
     riff comments resolve <id> [TARGET]     Mark a thread done (it will never be published)
     riff comments unresolve <id> [TARGET]   Reopen it
     riff comments remove <id> [TARGET]      Delete one comment

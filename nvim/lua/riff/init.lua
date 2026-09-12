@@ -32,9 +32,19 @@ local config = {
   --- How long riff's answer is reused for, in milliseconds. Opening a
   --- directory is one burst of buffer reads; this makes it one subprocess.
   cache_ms = 2000,
+  --- The gutter sign and highlight for a pull request's own comments, so
+  --- what someone else said is not dressed as your own note.
+  pr_gutter = "▐",
+  pr_highlight = "DiagnosticInfo",
 }
 
 local namespace = vim.api.nvim_create_namespace("riff-comments")
+--- The pull request's comments are their own layer, shown and hidden as a
+--- whole, so clearing them never touches your notes (spec 092).
+local pr_namespace = vim.api.nvim_create_namespace("riff-pr-comments")
+
+--- The review riff last fetched, per buffer: `{ [lnum] = { … } }`.
+local pr_marks = {}
 
 --- Comments riff knows about, per file, as `{ [lnum] = { body, id } }`.
 local marks = {}
@@ -75,25 +85,35 @@ local function virtual_text(comments)
   if config.display == "dot" then
     return config.dot
   end
+  -- Whose remark it is, when it is not yours. A note has no author to name.
+  local who = comments[1].author and (comments[1].author .. ": ") or ""
   local more = #comments > 1 and (" +" .. (#comments - 1)) or ""
-  return config.sign .. preview(comments[1].body) .. more
+  return config.sign .. who .. preview(comments[1].body) .. more
 end
 
 --- Draw a mark on every commented line of the buffer.
-local function draw(buf)
-  vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
+local function draw_layer(buf, ns, per_line, gutter, highlight)
+  vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   local lines = vim.api.nvim_buf_line_count(buf)
-  for lnum, comments in pairs(marks[buf] or {}) do
+  for lnum, comments in pairs(per_line or {}) do
     if lnum <= lines then
-      vim.api.nvim_buf_set_extmark(buf, namespace, lnum - 1, 0, {
-        virt_text = { { virtual_text(comments), config.highlight } },
+      vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, 0, {
+        virt_text = { { virtual_text(comments), highlight } },
         virt_text_pos = "eol",
         hl_mode = "combine",
-        sign_text = config.gutter,
-        sign_hl_group = config.gutter_highlight,
+        sign_text = gutter,
+        sign_hl_group = highlight,
       })
     end
   end
+end
+
+local function draw(buf)
+  draw_layer(buf, namespace, marks[buf], config.gutter, config.gutter_highlight)
+end
+
+local function draw_pr(buf)
+  draw_layer(buf, pr_namespace, pr_marks[buf], config.pr_gutter, config.pr_highlight)
 end
 
 --- What riff last said, and when. Opening a directory of files is one burst
@@ -312,6 +332,80 @@ end
 
 --- Write a comment on the current line, or on the lines a visual selection
 --- covers.
+--- Show the pull request's comments on this file, fetching them first.
+---
+--- Asked for, never polled: nvim makes no network calls of its own and does
+--- not make them behind your back. This is riff fetching, on a keypress
+--- (spec 092).
+function M.pr()
+  local buf = vim.api.nvim_get_current_buf()
+  local path = buffer_path(buf)
+  if not path then
+    notify("this buffer is not a file", vim.log.levels.WARN)
+    return
+  end
+
+  notify("fetching the review…")
+  vim.system({ config.cmd, "comments", "fetch", "--json" }, { text = true }, function(out)
+    vim.schedule(function()
+      local ok, report = pcall(vim.json.decode, out.stdout ~= "" and out.stdout or "{}")
+      if out.code ~= 0 or not ok or type(report.threads) ~= "table" then
+        -- riff refuses on stderr, as JSON when asked for JSON. What it says
+        -- is which branch or bookmark it looked under, which is the whole of
+        -- what you need when there is no pull request for it.
+        local said = ok and type(report) == "table" and report.error or nil
+        if not said then
+          local fine, refusal = pcall(vim.json.decode, vim.trim(out.stderr or ""))
+          said = fine and type(refusal) == "table" and refusal.error or nil
+        end
+        notify(said or vim.trim(out.stderr or "") or "could not fetch the review", vim.log.levels.WARN)
+        return
+      end
+
+      local root = report.root and (report.root .. "/") or ""
+      local found, gone = {}, 0
+      for _, thread in ipairs(report.threads) do
+        if thread.kind == "review" and not thread.resolved and root .. thread.file == path then
+          -- A review comment's line is a line of the pull request's diff,
+          -- not of this worktree. riff says where that line is now; a line
+          -- that is gone has nowhere honest to be drawn.
+          local at = thread.anchor and thread.anchor.line or thread.line
+          if thread.anchor and thread.anchor.state == "lost" then
+            gone = gone + 1
+          else
+            found[at] = found[at] or {}
+            table.insert(found[at], {
+              body = thread.body,
+              id = thread.id,
+              author = thread.author,
+              replies = thread.replies or {},
+            })
+          end
+        end
+      end
+
+      pr_marks[buf] = found
+      draw_pr(buf)
+
+      local shown = vim.tbl_count(found)
+      if shown == 0 and gone == 0 then
+        notify("no open review comments on this file")
+      elseif gone > 0 then
+        notify(shown .. " shown; " .. gone .. " on code that has since changed")
+      else
+        notify(shown .. (shown == 1 and " line" or " lines") .. " with review comments")
+      end
+    end)
+  end)
+end
+
+--- Put the review away again.
+function M.pr_hide()
+  local buf = vim.api.nvim_get_current_buf()
+  pr_marks[buf] = nil
+  vim.api.nvim_buf_clear_namespace(buf, pr_namespace, 0, -1)
+end
+
 --- Reopen a comment on what it already says.
 local function rewrite(buf, path, lnum, comment)
   compose("Edit comment on " .. vim.fn.fnamemodify(path, ":t") .. ":" .. lnum, nil, comment.body,
@@ -413,6 +507,14 @@ function M.setup(opts)
     M.refresh(nil, { force = true })
   end, { desc = "Redraw the riff comments in this buffer" })
 
+  vim.api.nvim_create_user_command("RiffPr", function()
+    M.pr()
+  end, { desc = "Fetch and show the pull request's comments on this file" })
+
+  vim.api.nvim_create_user_command("RiffPrHide", function()
+    M.pr_hide()
+  end, { desc = "Hide the pull request's comments" })
+
   vim.api.nvim_create_user_command("RiffToggle", function()
     M.toggle()
   end, { desc = "Switch between previewing the comments and marking the lines" })
@@ -421,6 +523,8 @@ function M.setup(opts)
     vim.keymap.set("n", "<leader>rc", "<cmd>RiffComment<cr>", { desc = "riff: comment on this line" })
     vim.keymap.set("x", "<leader>rc", ":RiffComment<cr>", { desc = "riff: comment on this selection" })
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
+    vim.keymap.set("n", "<leader>rp", "<cmd>RiffPr<cr>", { desc = "riff: show the review on this file" })
+    vim.keymap.set("n", "<leader>rP", "<cmd>RiffPrHide<cr>", { desc = "riff: hide the review" })
   end
 
   vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost" }, {
