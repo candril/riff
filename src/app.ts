@@ -4,8 +4,9 @@ import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
+import { collapseViewedFiles, loadFileStatuses } from "./state"
 import { getCurrentRepo } from "./providers/github"
-import { loadComments } from "./storage"
+import { loadComments, loadOrCreateSession, loadViewedStatuses } from "./storage"
 import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
@@ -1362,6 +1363,72 @@ export async function createApp(options: AppOptions = {}) {
     render,
   }
 
+  /**
+   * Read the pull request the branch already has (spec 095).
+   *
+   * riff names it in the header of every local review, and until now that
+   * was all it did with it — the overview and the feed are the pull
+   * request's surfaces and a local review had none. Asking for one is what
+   * fetches it: the same load `riff pr` does, in place.
+   */
+  async function openBranchPr(view: "state" | "feed"): Promise<void> {
+    const branchPr = state.branchPr
+    if (!branchPr || state.appMode === "pr") return
+    if (loadingBranchPr) return
+    loadingBranchPr = true
+
+    state = showToast(state, `Opening #${branchPr.number}…`, "info")
+    render()
+
+    try {
+      const { owner, repo } = await getCurrentRepo()
+      const loaded = await loadPrSession(branchPr.number, owner, repo)
+      const source = `gh:${owner}/${repo}#${branchPr.number}`
+      const files = sortFiles(parseDiff(loaded.diff))
+
+      currentHeadSha = loaded.headSha
+      const session = await loadOrCreateSession(source)
+      const next = createInitialState(
+        files,
+        buildFileTree(files),
+        source,
+        `#${branchPr.number}: ${loaded.prInfo.title}`,
+        null,
+        session,
+        loaded.comments,
+        "pr",
+        loaded.prInfo,
+        state.ignoreMatcher,
+      )
+      // A file riff was told not to show opens folded, the way every other
+      // load leaves it.
+      const ignored = new Set([...next.ignoredFiles].filter((f) => next.files.some((x) => x.filename === f)))
+      state = {
+        ...next,
+        collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
+        commits: loaded.prInfo.commits ?? [],
+        wrapLines: state.wrapLines,
+        alignMarkdownTables: state.alignMarkdownTables,
+        viewMode: view,
+      }
+      state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
+      createLineMapping()
+      vimState = createCursorState()
+      updateFileTreePanel()
+      render()
+    } catch (err) {
+      state = showToast(
+        state,
+        `Could not open #${branchPr.number}: ${err instanceof Error ? err.message : "unknown error"}`,
+        "error",
+      )
+      render()
+    } finally {
+      loadingBranchPr = false
+    }
+  }
+  let loadingBranchPr = false
+
   // ===== KEYBOARD INPUT =====
   const dispatchKeypress = createKeyHandler({
     getState: () => state,
@@ -1389,6 +1456,7 @@ export async function createApp(options: AppOptions = {}) {
     executeAction,
     onToggleReaction: handleToggleReaction,
     onCommitSelected: handleCommitSelected,
+    openBranchPr: (view) => { void openBranchPr(view) },
     foldsContext,
     fileNavContext,
     commentsContext,

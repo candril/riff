@@ -92,6 +92,9 @@ export interface GlobalKeyContext {
   // Commit selection handler
   /** Scope the diff to a commit — and, when named, scroll to one of its files. */
   onCommitSelected: (sha: string | null, filename?: string, scope?: readonly string[] | null) => void
+  /** Load the pull request the branch already has and read it as one
+   *  (spec 095). Only meaningful in local mode with a `branchPr`. */
+  openBranchPr: (view: "state" | "feed") => void
   // Feature contexts (passed through for delegation)
   foldsContext: folds.FoldsContext
   fileNavContext: fileNavigation.FileNavigationContext
@@ -1099,7 +1102,17 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
         const target = key.name === "i" ? "state" : key.name === "a" ? "feed" : "diff"
         const switched = switchView(state, target)
-        if (switched === state) break
+        if (switched === state) {
+          // The overview and the feed are the pull request's, and a local
+          // review on a branch that has one is a keypress away from being
+          // able to show them. riff already named it in the header; asking
+          // for it is what fetches it (spec 095).
+          if (target !== "diff" && state.appMode === "local" && state.branchPr) {
+            ctx.openBranchPr(target)
+            return
+          }
+          break
+        }
         ctx.setState(() => switched)
         ctx.render()
         // The feed's timeline is fetched the first time it is asked for: a

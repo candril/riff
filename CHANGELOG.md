@@ -58,6 +58,9 @@ release, so write it before tagging.
   in the header and then showed none of it. Its comments now appear on the lines they are
   anchored to, for the lines this diff actually has. Nothing is fetched: `riff pr` and
   `riff comments fetch` are what put a review on disk.
+- **`i` and `a` open the pull request the header names** — in a local review on a branch
+  that has one, the overview and the feed were keys that silently did nothing. They load it
+  now, in place, and land where you asked.
 
 ### Fixed
 
