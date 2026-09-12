@@ -58,9 +58,13 @@ release, so write it before tagging.
   in the header and then showed none of it. Its comments now appear on the lines they are
   anchored to, for the lines this diff actually has. Nothing is fetched: `riff pr` and
   `riff comments fetch` are what put a review on disk.
+- **Toggling the comment display reaches the review too** — `:RiffToggle` redrew only your
+  own notes, so a pull request's comments stayed in whichever mode they were drawn in while
+  the message said otherwise.
 - **`i` and `a` open the pull request the header names** — in a local review on a branch
   that has one, the overview and the feed were keys that silently did nothing. They load it
-  now, in place, and land where you asked.
+  now, in place, and land where you asked — building the PR info panel a local review never
+  had, without which the view switched onto nothing and looked stuck on the diff.
 
 ### Fixed
 

@@ -197,13 +197,25 @@ end
 --- several times an hour.
 function M.toggle()
   config.display = config.display == "dot" and "preview" or "dot"
-  for buf in pairs(marks) do
-    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
-      draw(buf)
-    else
-      marks[buf] = nil
+
+  -- Both layers. A review's comments are drawn from their own table, and
+  -- toggling only the notes left them in whichever mode they were drawn in
+  -- while the message claimed otherwise.
+  local seen = {}
+  for _, layer in ipairs({ marks, pr_marks }) do
+    for buf in pairs(layer) do
+      if seen[buf] then
+      elseif vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
+        seen[buf] = true
+        draw(buf)
+        draw_pr(buf)
+      else
+        marks[buf] = nil
+        pr_marks[buf] = nil
+      end
     end
   end
+
   notify(config.display == "dot" and "comments marked only" or "comments previewed")
 end
 
@@ -468,7 +480,8 @@ function M.resolve()
   end)
 end
 
---- Show the pull request's comments on this file, fetching them first.
+--- Show the pull request's comments on this file, fetching them first —
+--- or put them away when they are already up.
 ---
 --- Asked for, never polled: nvim makes no network calls of its own and does
 --- not make them behind your back. This is riff fetching, on a keypress
@@ -478,6 +491,13 @@ function M.pr()
   local path = buffer_path(buf)
   if not path then
     notify("this buffer is not a file", vim.log.levels.WARN)
+    return
+  end
+
+  -- Showing is asking; asking again puts it away. The same shape as every
+  -- other thing you lay over the code while editing.
+  if pr_marks[buf] then
+    M.pr_hide()
     return
   end
 
@@ -670,8 +690,7 @@ function M.setup(opts)
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
     vim.keymap.set("n", "<leader>rl", "<cmd>RiffList<cr>", { desc = "riff: every comment in this repo" })
     vim.keymap.set("n", "<leader>rx", "<cmd>RiffResolve<cr>", { desc = "riff: mark this comment done" })
-    vim.keymap.set("n", "<leader>rp", "<cmd>RiffPr<cr>", { desc = "riff: show the review on this file" })
-    vim.keymap.set("n", "<leader>rP", "<cmd>RiffPrHide<cr>", { desc = "riff: hide the review" })
+    vim.keymap.set("n", "<leader>rp", "<cmd>RiffPr<cr>", { desc = "riff: the review on this file, on or off" })
   end
 
   vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost" }, {

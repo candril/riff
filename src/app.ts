@@ -1412,6 +1412,13 @@ export async function createApp(options: AppOptions = {}) {
         viewMode: view,
       }
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
+
+      // A local review has no PR info panel — there was no pull request to
+      // build one from — and the overview is that panel. Without this the
+      // view switches and there is nothing there to draw, which reads as
+      // being stuck on the diff.
+      refreshContext.recreatePrInfoPanel()
+
       createLineMapping()
       vimState = createCursorState()
       updateFileTreePanel()

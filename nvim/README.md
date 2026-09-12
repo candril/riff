@@ -20,8 +20,7 @@ up. That is all this does.
 | `<leader>rt` | preview the comments beside the code, or not |
 | `<leader>rl` | every open comment — yours and the review's — and jump to one |
 | `<leader>rx` | mark the comment on this line done |
-| `<leader>rp` | fetch and show the pull request's comments on this file |
-| `<leader>rP` | hide them again |
+| `<leader>rp` | the pull request's comments on this file, on or off |
 | `:RiffRefresh` | redraw the marks |
 
 One key, not three. On a line that already carries a comment it opens that
