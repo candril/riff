@@ -21,6 +21,9 @@ release, so write it before tagging.
   motion, links and the feed are all in the history, because one place records where you
   came from instead of twenty navigations each remembering to. Stepping and scrolling
   inside a file still are not jumps, and a jump now lands in the column it left.
+- **Sequence diagrams name their columns at both ends** — participants are drawn at the
+  foot as well as the head, the way mermaid draws them, so the bottom of a long exchange
+  still says who is who.
 
 ## [0.2.0] - 2026-09-12
 

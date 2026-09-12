@@ -97,6 +97,19 @@ describe("sequence diagrams", () => {
     expect(diagram).toContain("◀")
   })
 
+  test("participants are drawn again at the foot", () => {
+    const diagram = drawn(`sequenceDiagram
+      participant A as riff
+      participant B as GitHub
+      A->>B: fetch
+      B-->>A: files`)
+
+    const rows = diagram.split("\n")
+    // The same three rows head and foot the lifelines, so a long exchange
+    // still says who its columns are where it ends.
+    expect(rows.slice(-3)).toEqual(rows.slice(0, 3))
+  })
+
   test("a message to oneself loops out and back", () => {
     const diagram = drawn("sequenceDiagram\n A->>A: think")
     expect(diagram).toContain("┐")

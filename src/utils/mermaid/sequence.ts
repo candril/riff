@@ -20,10 +20,13 @@ export function renderSequence(diagram: SequenceDiagram): string[] {
   const grid = new Grid()
 
   const boxHeight = 3
-  for (const [index, participant] of diagram.participants.entries()) {
-    const width = participant.label.length + 4
-    drawBox(grid, columns[index]! - Math.floor(width / 2), 0, width, participant.label)
+  const drawParticipants = (top: number) => {
+    for (const [index, participant] of diagram.participants.entries()) {
+      const width = participant.label.length + 4
+      drawBox(grid, columns[index]! - Math.floor(width / 2), top, width, participant.label)
+    }
   }
+  drawParticipants(0)
 
   let row = boxHeight
   const drawn: (() => void)[] = []
@@ -54,6 +57,11 @@ export function renderSequence(diagram: SequenceDiagram): string[] {
     for (let y = boxHeight; y < bottom; y++) grid.connect(column, y, UP | DOWN)
   }
   for (const draw of drawn) draw()
+
+  // Again at the foot, the way mermaid draws them: at the bottom of a long
+  // exchange the columns are unlabelled, and scrolling back up to find out
+  // who is who is the whole of the problem.
+  drawParticipants(bottom)
 
   return grid.toLines()
 }
