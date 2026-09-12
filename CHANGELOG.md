@@ -29,6 +29,10 @@ release, so write it before tagging.
   and every one says where its line is now: `here`, `moved` to a line it names, or `lost`.
   A note pinned to a worktree that keeps being edited no longer points at the wrong code
   without saying so.
+- **The nvim plugin shows what is there** — a sign in the gutter on every commented line,
+  `:RiffShow` to read the comments on a line, and `:RiffToggle` between the comment's
+  opening text and a single dot for when the marks are in the way. Writing a comment on a
+  line that already has one shows what was said above the composer.
 
 ### Fixed
 

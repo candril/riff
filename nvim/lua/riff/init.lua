@@ -17,6 +17,16 @@ local config = {
   sign = "▌ ",
   --- Highlight group for the virtual text.
   highlight = "Comment",
+  --- Gutter sign on a commented line. At most two display cells — nvim
+  --- refuses a wider one.
+  gutter = "▌",
+  --- Highlight group for the gutter sign.
+  gutter_highlight = "Comment",
+  --- "preview" spells the comment out beside the line, "dot" marks the line
+  --- and says nothing. See `M.toggle`.
+  display = "preview",
+  --- The whole of the virtual text in "dot" display.
+  dot = "●",
   --- Set to false to keep your own mappings only.
   default_mappings = true,
   --- How long riff's answer is reused for, in milliseconds. Opening a
@@ -61,18 +71,26 @@ local function preview(body)
   return first:sub(1, config.preview_width - 1) .. "…"
 end
 
+local function virtual_text(comments)
+  if config.display == "dot" then
+    return config.dot
+  end
+  local more = #comments > 1 and (" +" .. (#comments - 1)) or ""
+  return config.sign .. preview(comments[1].body) .. more
+end
+
 --- Draw a mark on every commented line of the buffer.
 local function draw(buf)
   vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
   local lines = vim.api.nvim_buf_line_count(buf)
   for lnum, comments in pairs(marks[buf] or {}) do
     if lnum <= lines then
-      local text = config.sign .. preview(comments[1].body)
-      local more = #comments > 1 and (" +" .. (#comments - 1)) or ""
       vim.api.nvim_buf_set_extmark(buf, namespace, lnum - 1, 0, {
-        virt_text = { { text .. more, config.highlight } },
+        virt_text = { { virtual_text(comments), config.highlight } },
         virt_text_pos = "eol",
         hl_mode = "combine",
+        sign_text = config.gutter,
+        sign_hl_group = config.gutter_highlight,
       })
     end
   end
@@ -96,7 +114,11 @@ local function apply(report, buf)
   for _, thread in ipairs(report.threads) do
     if not thread.resolved and root .. thread.file == path then
       found[thread.line] = found[thread.line] or {}
-      table.insert(found[thread.line], { body = thread.body, id = thread.id })
+      table.insert(found[thread.line], {
+        body = thread.body,
+        id = thread.id,
+        replies = thread.replies or {},
+      })
     end
   end
 
@@ -138,13 +160,110 @@ function M.refresh(buf, opts)
   end)
 end
 
+--- Swap between spelling the comment out beside the line and marking the
+--- line and saying nothing. The preview is what you want while reviewing and
+--- in the way while writing code, and which of the two you are doing changes
+--- several times an hour.
+function M.toggle()
+  config.display = config.display == "dot" and "preview" or "dot"
+  for buf in pairs(marks) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
+      draw(buf)
+    else
+      marks[buf] = nil
+    end
+  end
+  notify(config.display == "dot" and "comments marked only" or "comments previewed")
+end
+
+--- The comments on a line, as text: each one under its short id, replies
+--- indented under the comment they answer.
+local function render(comments)
+  local lines = {}
+  for index, comment in ipairs(comments) do
+    if index > 1 then
+      table.insert(lines, "")
+    end
+    table.insert(lines, config.sign .. comment.id)
+    for _, line in ipairs(vim.split(comment.body, "\n", { plain = true })) do
+      table.insert(lines, "  " .. line)
+    end
+    for _, reply in ipairs(comment.replies or {}) do
+      table.insert(lines, "    ↳ " .. reply.id)
+      for _, line in ipairs(vim.split(reply.body, "\n", { plain = true })) do
+        table.insert(lines, "      " .. line)
+      end
+    end
+  end
+  return lines
+end
+
+local function float_width()
+  return math.min(72, math.floor(vim.o.columns * 0.8))
+end
+
+--- The comments on the line the cursor is on. `nil` when it carries none.
+local function comments_at(buf, lnum)
+  local found = (marks[buf] or {})[lnum]
+  if found and #found > 0 then
+    return found
+  end
+  return nil
+end
+
+--- Read-only float, closed with `q`.
+local function view(title, lines)
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].filetype = "markdown"
+  vim.bo[buf].modifiable = false
+  vim.bo[buf].bufhidden = "wipe"
+
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "cursor",
+    row = 1,
+    col = 0,
+    width = float_width(),
+    height = math.max(1, math.min(#lines, math.floor(vim.o.lines * 0.4))),
+    border = "rounded",
+    title = " " .. title .. " ",
+    title_pos = "left",
+    footer = " q to close ",
+    footer_pos = "right",
+  })
+  vim.wo[win].wrap = true
+  vim.wo[win].linebreak = true
+
+  vim.keymap.set("n", "q", function()
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+  end, { buffer = buf, nowait = true })
+
+  return win, buf
+end
+
+--- Read what is already on this line.
+function M.show()
+  local buf = vim.api.nvim_get_current_buf()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local comments = comments_at(buf, lnum)
+  if not comments then
+    notify("no comment on this line")
+    return
+  end
+
+  local where = vim.fn.fnamemodify(buffer_path(buf) or "", ":t") .. ":" .. lnum
+  view("Comments on " .. where, render(comments))
+end
+
 --- The composer: a scratch buffer in a float, written with `:w`, abandoned
 --- with `q`. A real buffer rather than `vim.ui.input` because a review
 --- comment is a paragraph more often than it is a sentence, and everything
 --- you know about editing one should still work.
 local composed = 0
 
-local function compose(title, on_submit)
+local function compose(title, context, on_submit)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].filetype = "markdown"
   vim.bo[buf].bufhidden = "wipe"
@@ -155,13 +274,33 @@ local function compose(title, on_submit)
   composed = composed + 1
   vim.api.nvim_buf_set_name(buf, "riff://comment/" .. composed)
 
-  local width = math.min(72, math.floor(vim.o.columns * 0.8))
+  -- Virtual lines rather than text in the buffer: what was already said is
+  -- there to be read, and `:w` sends only what the writer typed.
+  local context_height = 0
+  if context and #context > 0 then
+    context_height = math.min(#context, 10)
+    local virt_lines = {}
+    for index = 1, context_height do
+      table.insert(virt_lines, { { context[index], config.highlight } })
+    end
+    if context_height < #context then
+      table.insert(virt_lines, { { "  …", config.highlight } })
+      context_height = context_height + 1
+    end
+    table.insert(virt_lines, { { "", config.highlight } })
+    context_height = context_height + 1
+    vim.api.nvim_buf_set_extmark(buf, namespace, 0, 0, {
+      virt_lines = virt_lines,
+      virt_lines_above = true,
+    })
+  end
+
   local win = vim.api.nvim_open_win(buf, true, {
     relative = "cursor",
     row = 1,
     col = 0,
-    width = width,
-    height = 8,
+    width = float_width(),
+    height = 8 + context_height,
     border = "rounded",
     title = " " .. title .. " ",
     title_pos = "left",
@@ -187,6 +326,23 @@ local function compose(title, on_submit)
       on_submit(body)
     end,
   })
+
+  return win, buf
+end
+
+--- Everything already said on the lines this comment covers.
+local function context_for(buf, first, last)
+  local lines = {}
+  for lnum = first, last do
+    local comments = comments_at(buf, lnum)
+    if comments then
+      if #lines > 0 then
+        table.insert(lines, "")
+      end
+      vim.list_extend(lines, render(comments))
+    end
+  end
+  return lines
 end
 
 --- Write a comment on the current line, or on the lines a visual selection
@@ -208,7 +364,7 @@ function M.comment(range)
   end
 
   local where = vim.fn.fnamemodify(path, ":t") .. ":" .. first .. (last > first and "-" .. last or "")
-  compose("Comment on " .. where, function(body)
+  compose("Comment on " .. where, context_for(buf, first, last), function(body)
     if body:match("^%s*$") then
       notify("nothing written, nothing saved")
       return
@@ -243,6 +399,13 @@ end
 function M.setup(opts)
   config = vim.tbl_extend("force", config, opts or {})
 
+  if config.display ~= "preview" and config.display ~= "dot" then
+    config.display = "preview"
+  end
+  if vim.fn.strdisplaywidth(config.gutter) > 2 then
+    config.gutter = vim.fn.strcharpart(config.gutter, 0, 1)
+  end
+
   vim.api.nvim_create_user_command("RiffComment", function(args)
     M.comment(args.range > 0 and { args.line1, args.line2 } or nil)
   end, { range = true, desc = "Write a riff comment on this line" })
@@ -251,6 +414,14 @@ function M.setup(opts)
     M.refresh(nil, { force = true })
   end, { desc = "Redraw the riff comments in this buffer" })
 
+  vim.api.nvim_create_user_command("RiffShow", function()
+    M.show()
+  end, { desc = "Read the riff comments on this line" })
+
+  vim.api.nvim_create_user_command("RiffToggle", function()
+    M.toggle()
+  end, { desc = "Switch between previewing the comments and marking the lines" })
+
   vim.api.nvim_create_user_command("RiffOpen", function()
     M.open()
   end, { desc = "Open riff on this file" })
@@ -258,6 +429,8 @@ function M.setup(opts)
   if config.default_mappings then
     vim.keymap.set("n", "<leader>rc", "<cmd>RiffComment<cr>", { desc = "riff: comment on this line" })
     vim.keymap.set("x", "<leader>rc", ":RiffComment<cr>", { desc = "riff: comment on this selection" })
+    vim.keymap.set("n", "<leader>rs", "<cmd>RiffShow<cr>", { desc = "riff: read the comments on this line" })
+    vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
     vim.keymap.set("n", "<leader>ro", "<cmd>RiffOpen<cr>", { desc = "riff: open this file in riff" })
   end
 
