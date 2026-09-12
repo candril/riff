@@ -65,6 +65,10 @@ one corner of it, narrow rather than filtering by hand:
 riff comments --json --path src/api
 \`\`\`
 
+\`riff comments --json --all\` adds the comments on the pull request for the
+current branch — someone else's review, beside the user's own notes. Those
+are GitHub's: read them, act on them, and leave them alone otherwise.
+
 ## Act on them
 
 Skip threads with \`resolved: true\` — those are done. For each open thread:

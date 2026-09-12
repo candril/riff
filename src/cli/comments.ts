@@ -10,7 +10,7 @@
  *
  *   riff comments add --file <path> --line <n> [--end-line <m>] [--target <t>]
  *   riff comments fetch [--json] [<target>]
- *   riff comments [list] [--json] [--path <p>] [<target>]
+ *   riff comments [list] [--json] [--all] [--path <p>] [<target>]
  *   riff comments edit <id> [<target>]
  *   riff comments resolve <id> [<target>]
  *   riff comments unresolve <id> [<target>]
@@ -40,6 +40,7 @@ import {
 import { installSkill } from "./skill"
 import { $ } from "bun"
 import { findCurrentPr, detectCurrentBranch } from "../providers/current-pr"
+import { getCurrentRepo } from "../providers/github"
 import { loadPrSession } from "../providers/github"
 
 export interface CommentsCliOptions {
@@ -76,13 +77,15 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   const comments = await loadComments(source)
 
   switch (verb) {
-    case "list":
-      return list(
-        underPath(comments, flag(argv, "path")),
-        source,
-        json,
-        argv.includes("--synced") || argv.includes("--all"),
-      )
+    case "list": {
+      const path = flag(argv, "path")
+      // `--all` is the whole of what there is to deal with here: your notes,
+      // and the review on the branch you are on. They live in separate
+      // stores because a pull request has an identity and a worktree does
+      // not, and nobody asking the question cares (spec 093).
+      if (argv.includes("--all")) return listAll(underPath(comments, path), source, json, path)
+      return list(underPath(comments, path), source, json, argv.includes("--synced"))
+    }
     case "clear": {
       const n = await clearLocalComments(source)
       console.log(json ? JSON.stringify({ removed: n }) : `Removed ${n} local comment${n === 1 ? "" : "s"}`)
@@ -142,6 +145,61 @@ async function headSha(): Promise<string | null> {
   if (jj.exitCode === 0 && jj.text().trim()) return jj.text().trim()
   const git = await $`git rev-parse HEAD`.quiet().nothrow()
   return git.exitCode === 0 ? git.text().trim() || null : null
+}
+
+/**
+ * Your notes and the branch's review, in one report (spec 093).
+ *
+ * Resolving the pull request costs a `gh` call, which is why this is a flag
+ * and not the default: `riff comments` stays the local, offline thing it
+ * has always been.
+ */
+async function listAll(
+  local: Comment[],
+  source: string,
+  json: boolean,
+  path: string | undefined,
+): Promise<number> {
+  const pr = await findCurrentPr().catch(() => null)
+  if (pr === null) return list(local, source, json)
+
+  const { owner, repo } = await getCurrentRepo()
+  const reviewSource = `gh:${owner}/${repo}#${pr.number}`
+  const review = underPath(await loadComments(reviewSource), path)
+
+  if (!json) {
+    await list(local, source, false)
+    return list(review, reviewSource, false, true)
+  }
+
+  // Two reports rather than one over a merged list: `commentFile` and the
+  // `resolve` command a thread carries are only right for the store it came
+  // from.
+  const mine = await buildReport(local.filter((c) => c.status === "local"), local, source)
+  const theirs = await buildReport(
+    review.filter((c) => c.status === "local" || c.status === "synced"),
+    review,
+    reviewSource,
+  )
+  console.log(
+    JSON.stringify(
+      {
+        source,
+        review: reviewSource,
+        root: mine.root,
+        head: mine.head,
+        counts: {
+          threads: mine.counts.threads + theirs.counts.threads,
+          open: mine.counts.open + theirs.counts.open,
+          resolved: mine.counts.resolved + theirs.counts.resolved,
+        },
+        threads: [...mine.threads, ...theirs.threads],
+      },
+      null,
+      2,
+    ),
+  )
+  return 0
 }
 
 /**

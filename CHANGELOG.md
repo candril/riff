@@ -50,6 +50,10 @@ release, so write it before tagging.
 - **Every comment in the repository, from nvim** — `<leader>rl` lists the open ones in
   snacks' picker (quickfix without it) and jumps to the line each is on now. `<leader>rx`
   marks one done. A gutter sign only ever told you about the file you already had open.
+- **One list, both kinds** — `riff comments --json --all` is your notes *and* the comments
+  on the pull request for your branch, in one report, each thread tagged and carrying the
+  commands for the store it came from. `<leader>rl` uses it, so "where is there something
+  to deal with" is one question again instead of two keys.
 
 ### Fixed
 

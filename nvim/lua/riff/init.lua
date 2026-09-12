@@ -371,7 +371,9 @@ end
 --- A mark in the gutter only tells you about the file you already have
 --- open. This is the other question: where are they at all.
 function M.list()
-  vim.system({ config.cmd, "comments", "--json" }, { text = true }, function(out)
+  -- `--all`: your notes and the review on this branch. Two stores, one
+  -- question — where is there something to deal with (spec 093).
+  vim.system({ config.cmd, "comments", "--json", "--all" }, { text = true }, function(out)
     vim.schedule(function()
       local ok, report = pcall(vim.json.decode, out.stdout ~= "" and out.stdout or "{}")
       if out.code ~= 0 or not ok or type(report.threads) ~= "table" then
@@ -387,12 +389,14 @@ function M.list()
           -- Where the line is now, when riff could find it (spec 086).
           local anchor = value(thread.anchor)
           local at = anchor and value(anchor.line) or thread.line
-          local who = value(thread.author) and (thread.author .. ": ") or ""
+          -- Whose it is, or that it is yours. Either way it is a word the
+          -- picker can be narrowed by.
+          local who = value(thread.author) or (thread.kind == "note" and "note") or "review"
           items[#items + 1] = {
             -- The picker searches `text`, so the path belongs in it. The
             -- quickfix list draws the location itself and takes `body`.
-            text = thread.file .. ":" .. at .. "  " .. who .. preview(thread.body),
-            body = who .. preview(thread.body),
+            text = thread.file .. ":" .. at .. "  " .. who .. ": " .. preview(thread.body),
+            body = who .. ": " .. preview(thread.body),
             file = root .. thread.file,
             pos = { at, 0 },
           }
@@ -400,7 +404,7 @@ function M.list()
       end
 
       if #items == 0 then
-        notify("no open comments in this repository")
+        notify("nothing open here — no notes, and no review on this branch")
         return
       end
 

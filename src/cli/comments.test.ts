@@ -100,3 +100,10 @@ describe("anchorLineFromHunk", () => {
     expect(anchorLineFromHunk("@@ -0,0 +1,2 @@", "RIGHT")).toBeNull()
   })
 })
+
+describe("--all", () => {
+  test("a flag's value is still not a target when the flag is --all", () => {
+    // `--all` takes none, so nothing after it should be swallowed.
+    expect(positional(["list", "--all", "HEAD~3"])).toEqual(["list", "HEAD~3"])
+  })
+})

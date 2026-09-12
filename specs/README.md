@@ -106,6 +106,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 090 | [The Opening Screen](./090-opening-screen.md) | Draft | what `riff .` should land on instead of the first file alphabetically |
 | 091 | [Comments From nvim](./091-nvim-comments.md) | Done | write a riff comment from nvim, virtual text where they are |
 | 092 | [The Review, In nvim](./092-review-in-nvim.md) | Done | `:RiffPr` fetches and shows the pull request's comments, where the lines are now |
+| 093 | [One List](./093-one-list.md) | Done | `--all` is your notes and the branch's review in one report |
 
 ## MVP Path
 
