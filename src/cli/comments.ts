@@ -10,6 +10,7 @@
  *
  *   riff comments add --file <path> --line <n> [--end-line <m>] [--target <t>]
  *   riff comments [list] [--json] [--path <p>] [<target>]
+ *   riff comments edit <id> [<target>]
  *   riff comments resolve <id> [<target>]
  *   riff comments unresolve <id> [<target>]
  *   riff comments remove <id> [<target>]
@@ -57,7 +58,8 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
     return 0
   }
 
-  const needsId = verb === "resolve" || verb === "unresolve" || verb === "remove"
+  const needsId =
+    verb === "resolve" || verb === "unresolve" || verb === "remove" || verb === "edit"
   const id = needsId ? rest[0] : undefined
   const target = needsId ? rest[1] : rest[0]
   if (needsId && !id) {
@@ -83,6 +85,23 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
       console.log(json ? JSON.stringify({ removed: found.id }) : `Removed ${label(found)}`)
       return 0
     }
+    case "edit": {
+      const found = findLocal(comments, id!)
+      if (!found) return notFound(id!)
+
+      const body = (flag(argv, "body") ?? (await readStdin())).trim()
+      if (!body) {
+        console.error("riff comments edit: the comment is empty")
+        return 2
+      }
+
+      // The body changes; the anchor does not. Rewriting where a comment
+      // points because its text was rewritten would move it off the line
+      // someone was talking about.
+      await saveComment({ ...found, body }, source)
+      console.log(json ? JSON.stringify({ id: found.id.slice(0, 8) }) : `Edited ${label(found)}`)
+      return 0
+    }
     case "resolve":
     case "unresolve": {
       const found = findLocal(comments, id!)
@@ -99,7 +118,7 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   return 2
 }
 
-const VERBS = new Set(["list", "add", "resolve", "unresolve", "remove", "clear", "install-skill"])
+const VERBS = new Set(["list", "add", "edit", "resolve", "unresolve", "remove", "clear", "install-skill"])
 
 /** Flags that take the word after them, so it is not a `<target>`. */
 const VALUED_FLAGS = new Set(["--path", "--file", "--line", "--end-line", "--body", "--target"])

@@ -263,7 +263,9 @@ end
 --- you know about editing one should still work.
 local composed = 0
 
-local function compose(title, context, on_submit)
+--- `initial` prefills the buffer — an edit starts from what is already
+--- written, and a new comment from nothing.
+local function compose(title, context, initial, on_submit)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].filetype = "markdown"
   vim.bo[buf].bufhidden = "wipe"
@@ -309,7 +311,15 @@ local function compose(title, context, on_submit)
   })
   vim.wo[win].wrap = true
   vim.wo[win].linebreak = true
-  vim.cmd.startinsert()
+
+  if initial and initial ~= "" then
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(initial, "\n", { plain = true }))
+    -- An edit opens on the text rather than in front of it: the reader is
+    -- here to change what is written, not to prepend to it.
+    vim.api.nvim_win_set_cursor(win, { vim.api.nvim_buf_line_count(buf), 0 })
+  else
+    vim.cmd.startinsert()
+  end
 
   local function close()
     if vim.api.nvim_win_is_valid(win) then
@@ -364,7 +374,7 @@ function M.comment(range)
   end
 
   local where = vim.fn.fnamemodify(path, ":t") .. ":" .. first .. (last > first and "-" .. last or "")
-  compose("Comment on " .. where, context_for(buf, first, last), function(body)
+  compose("Comment on " .. where, context_for(buf, first, last), nil, function(body)
     if body:match("^%s*$") then
       notify("nothing written, nothing saved")
       return
@@ -383,6 +393,56 @@ function M.comment(range)
 
     notify("noted " .. vim.trim(out))
     M.refresh(buf, { force = true })
+  end)
+end
+
+--- Rewrite a comment that is already here.
+---
+--- riff owns the store, so the edit goes back through `riff comments edit`
+--- — the same reason writing one does. The anchor is not touched: changing
+--- what a comment says is not changing which line it is about.
+function M.edit()
+  local buf = vim.api.nvim_get_current_buf()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local comments = comments_at(buf, lnum)
+
+  if #comments == 0 then
+    notify("no comment on this line")
+    return
+  end
+
+  local function rewrite(comment)
+    compose("Edit " .. comment.id, nil, comment.body, function(body)
+      if body:match("^%s*$") then
+        notify("nothing written, nothing changed")
+        return
+      end
+
+      local out, err = run({ "comments", "edit", comment.id }, body)
+      if not out then
+        notify(err or "could not edit the comment", vim.log.levels.ERROR)
+        return
+      end
+
+      notify("edited " .. comment.id)
+      M.refresh(buf, { force = true })
+    end)
+  end
+
+  if #comments == 1 then
+    rewrite(comments[1])
+    return
+  end
+
+  vim.ui.select(comments, {
+    prompt = "Edit which comment?",
+    format_item = function(comment)
+      return comment.id .. "  " .. preview(comment.body)
+    end,
+  }, function(chosen)
+    if chosen then
+      rewrite(chosen)
+    end
   end)
 end
 
@@ -422,6 +482,10 @@ function M.setup(opts)
     M.toggle()
   end, { desc = "Switch between previewing the comments and marking the lines" })
 
+  vim.api.nvim_create_user_command("RiffEdit", function()
+    M.edit()
+  end, { desc = "Rewrite a riff comment on this line" })
+
   vim.api.nvim_create_user_command("RiffOpen", function()
     M.open()
   end, { desc = "Open riff on this file" })
@@ -431,6 +495,7 @@ function M.setup(opts)
     vim.keymap.set("x", "<leader>rc", ":RiffComment<cr>", { desc = "riff: comment on this selection" })
     vim.keymap.set("n", "<leader>rs", "<cmd>RiffShow<cr>", { desc = "riff: read the comments on this line" })
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
+    vim.keymap.set("n", "<leader>re", "<cmd>RiffEdit<cr>", { desc = "riff: edit a comment on this line" })
     vim.keymap.set("n", "<leader>ro", "<cmd>RiffOpen<cr>", { desc = "riff: open this file in riff" })
   end
 

@@ -19,6 +19,7 @@ up. That is all this does.
 | `<leader>rc` | comment on this line, or on the selection |
 | `<leader>rs` | read the comments on this line |
 | `<leader>rt` | preview the comments beside the code, or not |
+| `<leader>re` | rewrite a comment on this line |
 | `<leader>ro` | open riff on this file |
 | `:RiffRefresh` | redraw the marks |
 
@@ -30,7 +31,9 @@ Commented lines get a sign in the gutter, and beside the code either the
 start of the comment or a dot. `:RiffToggle` switches between the two: the
 preview is what you want while reviewing and in the way while writing code.
 `:RiffShow` opens the comments on the line in full, replies included, `q` to
-close.
+close. `:RiffEdit` reopens one in the composer on what it already says; a
+line holding more than one asks which. Editing changes what a comment says,
+never which line it is about.
 
 ## Options
 

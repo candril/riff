@@ -83,6 +83,7 @@ const HELP_TEXT = `
     published — and "Clear Local Comments" (Ctrl+p) deletes them all.\x1b[0m
     riff comments [--json] [--path P] [TARGET]  List local comments, optionally under a path
     riff comments add --file F --line N     Write one from outside riff (body on stdin)
+    riff comments edit <id> [TARGET]        Rewrite its body (body on stdin)
     riff comments resolve <id> [TARGET]     Mark a thread done (it will never be published)
     riff comments unresolve <id> [TARGET]   Reopen it
     riff comments remove <id> [TARGET]      Delete one comment
