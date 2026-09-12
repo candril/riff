@@ -24,6 +24,11 @@ release, so write it before tagging.
   outside a hunk, anywhere the cursor sits on code. The composer says `Note … local only,
   never published` before you type. A note appears only where riff has a row for it, so a
   pull request is not buried under remarks about the rest of the repository.
+- **`riff comments` is a queue an agent can be pointed at** — `--path` narrows it to a file
+  or a directory, every thread in the JSON says whether it is a note or a review comment,
+  and every one says where its line is now: `here`, `moved` to a line it names, or `lost`.
+  A note pinned to a worktree that keeps being edited no longer points at the wrong code
+  without saying so.
 
 ### Fixed
 

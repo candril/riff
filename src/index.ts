@@ -81,7 +81,7 @@ const HELP_TEXT = `
     \x1b[2mThe comments a review stores in .riff/, from the command line. Never touches GitHub.
     In the app, x marks a local thread resolved — resolved local threads are never
     published — and "Clear Local Comments" (Ctrl+p) deletes them all.\x1b[0m
-    riff comments [--json] [TARGET]         List local comments
+    riff comments [--json] [--path P] [TARGET]  List local comments, optionally under a path
     riff comments add --file F --line N     Write one from outside riff (body on stdin)
     riff comments resolve <id> [TARGET]     Mark a thread done (it will never be published)
     riff comments unresolve <id> [TARGET]   Reopen it

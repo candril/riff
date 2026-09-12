@@ -9,7 +9,7 @@
  * one. Synced comments are GitHub's and are left alone.
  *
  *   riff comments add --file <path> --line <n> [--end-line <m>] [--target <t>]
- *   riff comments [list] [--json] [<target>]
+ *   riff comments [list] [--json] [--path <p>] [<target>]
  *   riff comments resolve <id> [<target>]
  *   riff comments unresolve <id> [<target>]
  *   riff comments remove <id> [<target>]
@@ -44,7 +44,7 @@ export interface CommentsCliOptions {
 
 export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): Promise<number> {
   const json = argv.includes("--json")
-  const words = argv.filter((a) => !a.startsWith("-"))
+  const words = positional(argv)
   const verb = words[0] && VERBS.has(words[0]) ? words[0] : "list"
   const rest = verb === "list" && words[0] !== "list" ? words : words.slice(1)
 
@@ -70,7 +70,7 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
 
   switch (verb) {
     case "list":
-      return list(comments, source, json)
+      return list(underPath(comments, flag(argv, "path")), source, json)
     case "clear": {
       const n = await clearLocalComments(source)
       console.log(json ? JSON.stringify({ removed: n }) : `Removed ${n} local comment${n === 1 ? "" : "s"}`)
@@ -101,6 +101,43 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
 
 const VERBS = new Set(["list", "add", "resolve", "unresolve", "remove", "clear", "install-skill"])
 
+/** Flags that take the word after them, so it is not a `<target>`. */
+const VALUED_FLAGS = new Set(["--path", "--file", "--line", "--end-line", "--body", "--target"])
+
+/**
+ * The words that are arguments rather than flags or flag values.
+ *
+ * Without the second half, `riff comments --path src` read `src` as the
+ * target and reported on a source nobody asked for.
+ */
+export function positional(argv: string[]): string[] {
+  const words: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    const word = argv[i]!
+    if (VALUED_FLAGS.has(word)) {
+      i++
+      continue
+    }
+    if (!word.startsWith("-")) words.push(word)
+  }
+  return words
+}
+
+/**
+ * The comments under a path — a file, or a directory and everything in it.
+ *
+ * `.riff/` is one repository's worth of comments, and an agent is usually
+ * being handed one corner of it.
+ */
+export function underPath(comments: Comment[], path: string | undefined): Comment[] {
+  if (!path) return comments
+  const prefix = path.replace(/^\.\//, "").replace(/\/+$/, "")
+  if (prefix === "" || prefix === ".") return comments
+  return comments.filter(
+    (c) => c.filename === prefix || c.filename.startsWith(prefix + "/"),
+  )
+}
+
 /** `--file x` / `--file=x`, or undefined. */
 function flag(argv: string[], name: string): string | undefined {
   const exact = argv.indexOf(`--${name}`)
@@ -122,7 +159,7 @@ async function readStdin(): Promise<string> {
  * was written, hashed. Trimmed first, so reindenting a block does not
  * invalidate every note in it (spec 083).
  */
-function hashLine(text: string): string {
+export function hashLine(text: string): string {
   return createHash("sha256").update(text.trim()).digest("hex").slice(0, 16)
 }
 
@@ -203,8 +240,9 @@ async function list(comments: Comment[], source: string, json: boolean): Promise
   }
   for (const c of local) {
     const done = rootOf(c, comments).isThreadResolved ? " [resolved]" : ""
+    const note = c.kind === "note" ? " [note]" : ""
     const reply = c.inReplyTo ? "  ↳ " : ""
-    console.log(`${c.id.slice(0, 8)}  ${reply}${c.filename}:${c.line}${done}`)
+    console.log(`${c.id.slice(0, 8)}  ${reply}${c.filename}:${c.line}${note}${done}`)
     for (const line of c.body.split("\n")) console.log(`          ${line}`)
   }
   return 0
@@ -212,6 +250,43 @@ async function list(comments: Comment[], source: string, json: boolean): Promise
 
 /** Lines of context shown either side of a comment's anchor. */
 const CONTEXT_RADIUS = 4
+
+/** How far from its old line a note is looked for before it is called lost. */
+const DRIFT_WINDOW = 50
+
+/**
+ * Where a note's line went (spec 086).
+ *
+ * A review comment is pinned to a commit and GitHub outdates it. A note is
+ * pinned to a line of a worktree that keeps being edited, and nothing
+ * watches it — so one line inserted above turns it into a note about the
+ * wrong code, silently. The hash written with the comment is what says
+ * otherwise: still there, moved to a line riff can name, or gone.
+ */
+export function driftOf(
+  comment: Comment,
+  lines: string[] | null,
+): { at: number; moved: boolean } | { at: null; moved: false } | null {
+  if (!comment.anchorHash || !lines) return null
+
+  const here = lines[comment.line - 1]
+  if (here !== undefined && hashLine(here) === comment.anchorHash) {
+    return { at: comment.line, moved: false }
+  }
+
+  // Outwards from where it was, so the nearest match wins when a line
+  // repeats — which in code it very often does.
+  for (let offset = 1; offset <= DRIFT_WINDOW; offset++) {
+    for (const candidate of [comment.line - offset, comment.line + offset]) {
+      const text = lines[candidate - 1]
+      if (text !== undefined && hashLine(text) === comment.anchorHash) {
+        return { at: candidate, moved: true }
+      }
+    }
+  }
+
+  return { at: null, moved: false }
+}
 
 /**
  * Everything an agent needs to act on a review without going looking: threads
@@ -227,13 +302,26 @@ async function buildReport(local: Comment[], all: Comment[], source: string) {
   const threads = await Promise.all(
     roots.map(async (c) => {
       const anchor = await anchorFor(c, root, fileCache)
+      const drift = driftOf(c, fileCache.get(c.filename) ?? null)
       const id = c.id.slice(0, 8)
       return {
         id,
         file: c.filename,
         line: c.line,
         side: c.side,
+        // A note is a comment on a line, not on a change: it was written
+        // where GitHub has no anchor, it is never published, and the work
+        // it asks for is the same work (spec 085).
+        kind: c.kind ?? "review",
         resolved: c.isThreadResolved === true,
+        // Absent when riff has nothing to compare against — a comment from
+        // before the hash, or a file it cannot read.
+        anchor:
+          drift === null
+            ? null
+            : drift.at === null
+              ? { state: "lost", line: null }
+              : { state: drift.moved ? "moved" : "here", line: drift.at },
         createdAt: c.createdAt,
         body: c.body,
         ...anchor,
