@@ -26,6 +26,7 @@ import {
   commitScopeKey,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
+import type { FilesTarget } from "./providers/files"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
@@ -90,6 +91,8 @@ import type { DiffLineMapping } from "./vim-diff/line-mapping"
 export interface AppOptions {
   mode?: AppMode
   target?: string
+  // For file mode - the path riff was pointed at (spec 084)
+  filesTarget?: FilesTarget
   // For PR mode - pre-loaded data
   diff?: string
   comments?: Comment[]
@@ -110,6 +113,7 @@ export async function createApp(options: AppOptions = {}) {
   const { state: initialState, source, headSha: initialHeadSha } = await initializeAppState({
     mode,
     target: options.target,
+    filesTarget: options.filesTarget,
     diff: options.diff,
     comments: options.comments,
     prInfo: options.prInfo,

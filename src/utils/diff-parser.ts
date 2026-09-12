@@ -6,7 +6,9 @@ export interface DiffFile {
   oldFilename?: string // For renames
   additions: number
   deletions: number
-  status: "added" | "modified" | "deleted" | "renamed"
+  /** `unchanged` is file mode: riff is showing the file, not a change to it
+   *  (spec 084). `parseDiff` never produces it — the files provider does. */
+  status: "added" | "modified" | "deleted" | "renamed" | "unchanged"
   content: string // The diff content for this file
 }
 

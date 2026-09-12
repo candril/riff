@@ -376,6 +376,10 @@ export interface CommitPickerState {
 export interface AppState {
   // App mode
   appMode: AppMode
+  /** riff was pointed at a path and is showing files, not a diff (spec 084).
+   *  Nothing here can be anchored for GitHub, and there is no revision
+   *  behind it to describe. */
+  fileMode: boolean
 
   // Diff data
   files: DiffFile[]
@@ -624,6 +628,7 @@ export function createInitialState(
 
   return {
     appMode,
+    fileMode: false,
     files,
     fileTree,
     viewMode: appMode === "pr" ? "state" : "diff",

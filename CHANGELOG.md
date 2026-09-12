@@ -7,6 +7,14 @@ release, so write it before tagging.
 
 ## [Unreleased]
 
+### Added
+
+- **riff reads files** — `riff .`, `riff src/` and `riff src/app.ts` open a path instead of
+  a diff, drawn as a diff with no changes so folds, flash, `/`, tables, mermaid and the
+  syntax highlighting all come with it. A directory opens folded. A path that exists wins
+  over a revision of the same name; `-r <rev>` says you meant the revision. Commenting is
+  refused for now — notes on a file are the next spec.
+
 ## [0.2.0] - 2026-09-12
 
 The release that came out of using riff on real pull requests every day.

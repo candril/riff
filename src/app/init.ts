@@ -31,10 +31,12 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mapping"
 import { loadConfig } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
+import { buildFilesDiff, type FilesTarget } from "../providers/files"
 
 export interface InitOptions {
   mode: AppMode
   target: string | undefined
+  filesTarget?: FilesTarget
   diff?: string
   comments?: Comment[]
   prInfo?: PrInfo
@@ -63,11 +65,15 @@ export async function initializeAppState(options: InitOptions): Promise<{
   source: string
   headSha: string
 }> {
-  const { mode, target, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
+  const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
 
-  // Build source identifier
-  const source =
-    mode === "pr" && prInfo ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}` : target ?? "local"
+  // Build source identifier. A path is a way of looking at the working copy,
+  // so its store is the working copy's (spec 084).
+  const source = filesTarget
+    ? "local"
+    : mode === "pr" && prInfo
+      ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
+      : target ?? "local"
 
   const isPreloadedPr = mode === "pr" && preloadedDiff !== undefined
 
@@ -75,27 +81,40 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // entry costs a process spawn — so ask for all of it at once.
   const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses] =
     await Promise.all([
-      isPreloadedPr ? null : loadLocalDiff(target),
-      mode === "local" ? getBranchInfo(target) : null,
-      mode === "local" ? getLocalCommits(target).catch(() => []) : null,
+      isPreloadedPr || filesTarget ? null : loadLocalDiff(target),
+      // A path is not a revision, so there is no branch and no commit range
+      // behind it to describe.
+      mode === "local" && !filesTarget ? getBranchInfo(target) : null,
+      mode === "local" && !filesTarget ? getLocalCommits(target).catch(() => []) : null,
       isPreloadedPr ? null : loadComments(source),
       loadOrCreateSession(source),
       loadViewedStatuses(source),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
-  const rawDiff = isPreloadedPr ? preloadedDiff! : localDiff!.diff
-  const description = isPreloadedPr
-    ? prInfo
-      ? `#${prInfo.number}: ${prInfo.title}`
-      : "Pull Request"
-    : localDiff!.description
-  const error = isPreloadedPr ? null : localDiff!.error
+  // The config's ignore patterns are applied downstream, where they collapse
+  // a file rather than hide it; ripgrep has already applied `.gitignore`.
+  const filesDiff = filesTarget ? await buildFilesDiff(filesTarget) : null
+
+  const rawDiff = filesDiff ? filesDiff.diff : isPreloadedPr ? preloadedDiff! : localDiff!.diff
+  const description = filesDiff
+    ? describeFiles(filesTarget!, filesDiff)
+    : isPreloadedPr
+      ? prInfo
+        ? `#${prInfo.number}: ${prInfo.title}`
+        : "Pull Request"
+      : localDiff!.description
+  const error = isPreloadedPr || filesDiff ? null : localDiff!.error
   const comments = isPreloadedPr ? preloadedComments ?? [] : loadedComments!
   const branchInfo = localBranchInfo
 
-  // Parse diff and build tree
-  const files = sortFiles(parseDiff(rawDiff))
+  // Parse diff and build tree. In file mode nothing changed, and the tree
+  // should not claim otherwise — `parseDiff` reads a same-name, same-content
+  // file as a modification because that is all a diff can say.
+  const parsed = parseDiff(rawDiff)
+  const files = sortFiles(
+    filesDiff ? parsed.map((file) => ({ ...file, status: "unchanged" as const })) : parsed
+  )
   const fileTree = buildFileTree(files)
 
   // Load config and create ignore matcher
@@ -108,6 +127,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // Set branch info for local mode
   state = {
     ...state,
+    fileMode: filesTarget !== undefined,
     branchInfo,
     wrapLines: config.diff.wrap,
     alignMarkdownTables: config.diff.alignMarkdownTables,
@@ -173,6 +193,12 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // Collapse viewed files initially
   state = collapseViewedFiles(state)
 
+  // A directory opens folded. Every file expanded is a wall of a repository
+  // nobody reads top to bottom, and folded it is the list you browse.
+  if (filesTarget?.directory) {
+    state = { ...state, collapsedFiles: new Set(files.map((file) => file.filename)) }
+  }
+
   // Auto-collapse ignored files in diff view
   if (state.ignoredFiles.size > 0) {
     const newCollapsed = new Set(state.collapsedFiles)
@@ -183,6 +209,22 @@ export async function initializeAppState(options: InitOptions): Promise<{
   }
 
   return { state, source, headSha: headSha ?? "" }
+}
+
+/**
+ * What the header says riff is showing, when it is showing files.
+ *
+ * The counts are there because both of them are silent otherwise: a walk
+ * without ripgrep quietly includes everything, and a repo past the ceiling
+ * quietly shows part of itself.
+ */
+function describeFiles(target: FilesTarget, files: { filenames: string[]; omitted: number; fallbackReason: string | null }): string {
+  const what = target.directory
+    ? `${target.path} — ${files.filenames.length} ${files.filenames.length === 1 ? "file" : "files"}`
+    : target.path
+  const omitted = files.omitted > 0 ? `, ${files.omitted} more not opened` : ""
+  const fallback = files.fallbackReason ? ` (${files.fallbackReason})` : ""
+  return what + omitted + fallback
 }
 
 /**
@@ -227,6 +269,7 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
     collapsedHunks: state.collapsedHunks,
     collapsedBlocks: state.collapsedBlocks,
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
+    outsideDiff: state.fileMode,
     // Wrapped, the padding is worse than useless: it is the widest cell in
     // the table spent on every row, wrapping into blank lines, and the
     // column it was lining up has been broken across rows anyway.

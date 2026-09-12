@@ -189,4 +189,8 @@ export interface DiffLineMappingOptions {
    *  them. Set from the file-tree filter so the diff lists what the tree
    *  lists. Indices into `files` stay untouched — only rows are dropped. */
   visibleFiles?: ReadonlySet<string>
+  /** Every content row stands outside a diff, because there is no diff —
+   *  file mode (spec 084). Read as `expanded`, which is already how riff
+   *  says "no anchor to give GitHub". */
+  outsideDiff?: boolean
 }

@@ -131,7 +131,9 @@ export async function handleAddComment(
       ctx.setState((s) =>
         showToast(
           s,
-          "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
+          lineMapping.isFileMode()
+            ? "riff is showing files, not a diff — notes on a file are not here yet"
+            : "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
           "info",
         )
       )

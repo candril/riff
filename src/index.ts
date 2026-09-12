@@ -6,6 +6,9 @@ import { getCurrentRepo, loadPrSession } from "./providers/github"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { resolveStorageWithConfirmation } from "./storage"
 import { runCommentsCli } from "./cli/comments"
+import { parseArgs } from "./cli/args"
+
+export { parseArgs, probePath, type CliArgs, type PathKind } from "./cli/args"
 import * as readline from "readline"
 import { version } from "./version"
 
@@ -36,6 +39,7 @@ const HELP_TEXT = `
     \x1b[36mpr\x1b[0m                        Review PR for current branch/bookmark
     \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123)
     \x1b[36m<revision>\x1b[0m                Review local commits (e.g., HEAD~3, main..HEAD, @-)
+    \x1b[36m<path>\x1b[0m                    Read a file or directory as files (e.g., ., src/, src/app.ts)
     \x1b[36mgh:<owner>/<repo>#<pr>\x1b[0m   Review PR from any GitHub repository
     \x1b[36m<github-url>\x1b[0m              Review PR from GitHub URL
 
@@ -59,11 +63,17 @@ const HELP_TEXT = `
     \x1b[2m# Review jj revset (parent change)\x1b[0m
     $ riff @-
 
+    \x1b[2m# Read files rather than a diff — a path that exists wins over a revision\x1b[0m
+    $ riff .
+    $ riff src/
+    $ riff src/app.ts
+
     \x1b[2m# Review PR from any repo\x1b[0m
     $ riff gh:facebook/react#1234
     $ riff https://github.com/facebook/react/pull/1234
 
 \x1b[1mOPTIONS\x1b[0m
+    \x1b[33m-r, --revision <rev>\x1b[0m      Read <rev> as a revision, even where a path of that name exists
     \x1b[33m-h, --help\x1b[0m                Show this help message
     \x1b[33m-v, --version\x1b[0m             Show version number
 
@@ -224,84 +234,6 @@ function printVersion(): void {
 // CLI Argument Parsing
 // ============================================================================
 
-export interface CliArgs {
-  target?: string // "123", "#123", "gh:owner/repo#123", URL, or revision
-  type: "local" | "pr" // Detected source type
-
-  // For PR mode
-  prNumber?: number
-  owner?: string
-  repo?: string
-
-  // Flags
-  help?: boolean
-  version?: boolean
-}
-
-/**
- * Parse CLI arguments to determine mode and target
- */
-export function parseArgs(args: string[]): CliArgs {
-  // Check for flags first
-  if (args.includes("-h") || args.includes("--help")) {
-    return { type: "local", help: true }
-  }
-  if (args.includes("-v") || args.includes("--version")) {
-    return { type: "local", version: true }
-  }
-
-  // Filter out any remaining flags (for future extensibility)
-  const positionalArgs = args.filter((arg) => !arg.startsWith("-"))
-  const target = positionalArgs[0]
-
-  if (!target) {
-    return { type: "local" }
-  }
-
-  // Current branch's PR: "pr"
-  if (target === "pr") {
-    return { target, type: "pr" }
-  }
-
-  // PR number: "#123" or "123"
-  const prMatch = target.match(/^#?(\d+)$/)
-  if (prMatch) {
-    return {
-      target,
-      type: "pr",
-      prNumber: parseInt(prMatch[1]!, 10),
-      // owner/repo inferred from current directory
-    }
-  }
-
-  // Full reference: "gh:owner/repo#123"
-  const ghMatch = target.match(/^gh:([^/]+)\/([^#]+)#(\d+)$/)
-  if (ghMatch) {
-    return {
-      target,
-      type: "pr",
-      owner: ghMatch[1],
-      repo: ghMatch[2],
-      prNumber: parseInt(ghMatch[3]!, 10),
-    }
-  }
-
-  // GitHub URL
-  const urlMatch = target.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
-  if (urlMatch) {
-    return {
-      target,
-      type: "pr",
-      owner: urlMatch[1],
-      repo: urlMatch[2],
-      prNumber: parseInt(urlMatch[3]!, 10),
-    }
-  }
-
-  // Otherwise treat as local revision (branch, commit, jj revset)
-  return { target, type: "local" }
-}
-
 // ============================================================================
 // User Confirmation Prompt
 // ============================================================================
@@ -356,7 +288,9 @@ async function confirmStorageLocation(source: string): Promise<void> {
 async function resolveSourceForCli(target: string | undefined): Promise<string> {
   const parsed = parseArgs(target ? [target] : [])
   if (parsed.type !== "pr") {
-    const source = parsed.target ?? "local"
+    // A path is a way of looking at the working copy, not a review of its
+    // own — its notes belong in the same store `riff` writes to (spec 084).
+    const source = parsed.type === "files" ? "local" : parsed.target ?? "local"
     await confirmStorageLocation(source)
     return source
   }
@@ -419,6 +353,13 @@ async function main() {
         prInfo,
         githubViewedStatuses: viewedStatuses,
         headSha,
+      })
+    } else if (args.type === "files") {
+      await confirmStorageLocation("local")
+
+      await createApp({
+        mode: "local",
+        filesTarget: args.filesTarget,
       })
     } else {
       // Local diff mode - confirm storage for local source

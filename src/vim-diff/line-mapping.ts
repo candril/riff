@@ -16,6 +16,7 @@ export class DiffLineMapping {
   private collapsedHunks: Set<string>
   private collapsedBlocks: ReadonlySet<string>
   private visibleFiles: ReadonlySet<string> | undefined
+  private outsideDiff: boolean
 
   constructor(
     files: DiffFile[],
@@ -29,6 +30,7 @@ export class DiffLineMapping {
     this.collapsedHunks = options?.collapsedHunks ?? new Set()
     this.collapsedBlocks = options?.collapsedBlocks ?? new Set()
     this.visibleFiles = options?.visibleFiles
+    this.outsideDiff = options?.outsideDiff ?? false
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
@@ -172,8 +174,9 @@ export class DiffLineMapping {
     if (!line || !this.isCommentable(visualIndex)) return null
     if (!line.filename) return null
     // Expanded context is outside the diff, and GitHub refuses to anchor
-    // there — no anchor is the honest answer.
-    if (line.expanded) return null
+    // there — no anchor is the honest answer. In file mode there is no diff
+    // at all, so the same answer covers every row (spec 084).
+    if (line.expanded || this.outsideDiff) return null
 
     const lineNum = line.type === "deletion" ? line.oldLineNum : line.newLineNum
     if (lineNum === undefined) return null
@@ -190,7 +193,13 @@ export class DiffLineMapping {
    * collapsed region. Callers use it to explain why commenting is refused.
    */
   isOutsideDiff(visualIndex: number): boolean {
+    if (this.outsideDiff) return this.lines[visualIndex] !== undefined
     return this.lines[visualIndex]?.expanded === true
+  }
+
+  /** True when riff is showing files rather than a diff (spec 084). */
+  isFileMode(): boolean {
+    return this.outsideDiff
   }
 
   /**

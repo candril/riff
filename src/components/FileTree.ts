@@ -27,6 +27,8 @@ function getStatusIndicator(status: DiffFile["status"]): { char: string; color: 
       return { char: "D", color: colors.fileDeleted }
     case "renamed":
       return { char: "R", color: colors.fileRenamed }
+    case "unchanged":
+      return { char: " ", color: colors.fileModified }
   }
 }
 

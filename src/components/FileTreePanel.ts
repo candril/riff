@@ -36,6 +36,8 @@ function getStatusColor(status: DiffFile["status"]): string {
       return colors.fileDeleted
     case "renamed":
       return colors.fileRenamed
+    case "unchanged":
+      return colors.fileModified
   }
 }
 
@@ -52,6 +54,9 @@ function getStatusIndicator(status: DiffFile["status"]): string {
       return "D"
     case "renamed":
       return "R"
+    // Nothing changed, so there is no letter for what changed (spec 084).
+    case "unchanged":
+      return " "
   }
 }
 
