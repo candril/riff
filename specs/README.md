@@ -86,7 +86,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 068 | [Preview Links](./068-preview-links.md) | Done | Preview URLs as a list you can open and copy, configurable |
 | 069 | [Visit Watermark](./069-visit-watermark.md) | Done | Per-PR memory of your last visit; unseen markers and `]n` |
 | 070 | [Activity Feed](./070-activity-feed.md) | Done | `a` shows what happened, filterable by type |
-| 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list |
+| 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list — folded into 083 |
 | 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
 | 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
 | 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
@@ -98,6 +98,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
 | 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | writing a comment starts a thread; `r` is how you reply |
 | 082 | [Emoji by Shortcode](./082-emoji.md) | Done | `:` in the composer suggests emoji |
+| 083 | [Plan: riff Reads Files](./083-file-mode-plan.md) | Draft | `riff .` — the repo as files, and notes on any line of it |
 
 ## MVP Path
 

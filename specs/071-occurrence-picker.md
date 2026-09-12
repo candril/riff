@@ -29,6 +29,13 @@ type a word, get every place it occurs, and pick one.
 - Replacing `/`. In-view search stays what it is; this is the list view of
   the same question.
 
+## Superseded
+
+Spec 088 of [the file-mode plan](./083-file-mode-plan.md) builds this, over
+files rather than over the mapping, off `rg`. The open questions below are
+the ones it still has to answer; the technical notes here are what was known
+before riff could read a file that is not in the diff.
+
 ## Open questions
 
 - One key or two? `Ctrl-g` is free and reads as *go to*; `gs` collides with
