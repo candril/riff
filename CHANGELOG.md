@@ -33,9 +33,12 @@ release, so write it before tagging.
   `:RiffShow` to read the comments on a line, and `:RiffToggle` between the comment's
   opening text and a single dot for when the marks are in the way. Writing a comment on a
   line that already has one shows what was said above the composer.
-- **`riff comments edit <id>`** — rewrite a comment's body from outside riff, and
-  `:RiffEdit` in nvim reopens one in the composer on what it already says. The anchor is
+- **`riff comments edit <id>`** — rewrite a comment's body from outside riff. The anchor is
   not touched: changing what a comment says is not changing which line it is about.
+- **One key in nvim** — `<leader>rc` comments on a line, or opens the comment already on it
+  on what it says. `Ctrl-s` saves from either mode, `Esc` abandons, and `:w`, `:x` and `ZZ`
+  work as they do anywhere else. The separate viewer, editor and open-in-riff commands are
+  gone: three doors onto one room.
 
 ### Fixed
 

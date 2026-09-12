@@ -16,46 +16,35 @@ up. That is all this does.
 
 | | |
 |---|---|
-| `<leader>rc` | comment on this line, or on the selection |
-| `<leader>rs` | read the comments on this line |
+| `<leader>rc` | comment on this line, or change the comment already on it |
 | `<leader>rt` | preview the comments beside the code, or not |
-| `<leader>re` | rewrite a comment on this line |
-| `<leader>ro` | open riff on this file |
 | `:RiffRefresh` | redraw the marks |
 
-A comment opens a markdown scratch buffer; `:w` saves it, `q` abandons it.
-If the line already carries comments they sit above the input as context —
-they are virtual lines, so `:w` still sends only what you typed.
+One key, not three. On a line that already carries a comment it opens that
+comment on what it says; on a line that carries several it asks which. The
+composer is a markdown buffer: `Ctrl-s` saves from either mode, `Esc` or `q`
+abandons, and `:w`, `:x` and `ZZ` work the way they do anywhere else.
 
-Commented lines get a sign in the gutter, and beside the code either the
-start of the comment or a dot. `:RiffToggle` switches between the two: the
-preview is what you want while reviewing and in the way while writing code.
-`:RiffShow` opens the comments on the line in full, replies included, `q` to
-close. `:RiffEdit` reopens one in the composer on what it already says; a
-line holding more than one asks which. Editing changes what a comment says,
-never which line it is about.
+A commented line shows a sign in the gutter and, beside the code, either the
+start of the comment or a dot. `:RiffToggle` switches between the two; set
+`display` to pick which one you start in.
 
 ## Options
-
-Everything `setup` takes, with its default:
 
 ```lua
 require("riff").setup({
   cmd = "riff",              -- the executable, a path or a name on the PATH
-  display = "preview",       -- or "dot", what :RiffToggle flips
-  preview_width = 40,        -- how much of the comment fits beside the line
-  sign = "▌ ",               -- drawn before the preview
-  dot = "●",                 -- the whole of the virtual text in "dot"
-  highlight = "Comment",     -- highlight group for the virtual text
-  gutter = "▌",              -- the gutter sign, at most two display cells
+  display = "preview",       -- or "dot", which is what :RiffToggle flips
+  preview_width = 40,        -- where the preview text is cut
+  sign = "▌ ",               -- before the preview text
+  dot = "●",                 -- the whole of it in "dot"
+  gutter = "▌",              -- in the sign column; at most two cells
   gutter_highlight = "Comment",
+  highlight = "Comment",
   cache_ms = 2000,           -- how long riff's answer is reused for
-  default_mappings = true,   -- false to keep your own only
+  default_mappings = true,
 })
 ```
-
-`cache_ms` is there because opening a directory is one burst of buffer
-reads, and each would otherwise be its own `riff comments`.
 
 ## What it writes
 

@@ -176,28 +176,6 @@ function M.toggle()
   notify(config.display == "dot" and "comments marked only" or "comments previewed")
 end
 
---- The comments on a line, as text: each one under its short id, replies
---- indented under the comment they answer.
-local function render(comments)
-  local lines = {}
-  for index, comment in ipairs(comments) do
-    if index > 1 then
-      table.insert(lines, "")
-    end
-    table.insert(lines, config.sign .. comment.id)
-    for _, line in ipairs(vim.split(comment.body, "\n", { plain = true })) do
-      table.insert(lines, "  " .. line)
-    end
-    for _, reply in ipairs(comment.replies or {}) do
-      table.insert(lines, "    ↳ " .. reply.id)
-      for _, line in ipairs(vim.split(reply.body, "\n", { plain = true })) do
-        table.insert(lines, "      " .. line)
-      end
-    end
-  end
-  return lines
-end
-
 local function float_width()
   return math.min(72, math.floor(vim.o.columns * 0.8))
 end
@@ -209,52 +187,6 @@ local function comments_at(buf, lnum)
     return found
   end
   return nil
-end
-
---- Read-only float, closed with `q`.
-local function view(title, lines)
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.bo[buf].filetype = "markdown"
-  vim.bo[buf].modifiable = false
-  vim.bo[buf].bufhidden = "wipe"
-
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = "cursor",
-    row = 1,
-    col = 0,
-    width = float_width(),
-    height = math.max(1, math.min(#lines, math.floor(vim.o.lines * 0.4))),
-    border = "rounded",
-    title = " " .. title .. " ",
-    title_pos = "left",
-    footer = " q to close ",
-    footer_pos = "right",
-  })
-  vim.wo[win].wrap = true
-  vim.wo[win].linebreak = true
-
-  vim.keymap.set("n", "q", function()
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
-    end
-  end, { buffer = buf, nowait = true })
-
-  return win, buf
-end
-
---- Read what is already on this line.
-function M.show()
-  local buf = vim.api.nvim_get_current_buf()
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
-  local comments = comments_at(buf, lnum)
-  if not comments then
-    notify("no comment on this line")
-    return
-  end
-
-  local where = vim.fn.fnamemodify(buffer_path(buf) or "", ":t") .. ":" .. lnum
-  view("Comments on " .. where, render(comments))
 end
 
 --- The composer: a scratch buffer in a float, written with `:w`, abandoned
@@ -306,17 +238,24 @@ local function compose(title, context, initial, on_submit)
     border = "rounded",
     title = " " .. title .. " ",
     title_pos = "left",
-    footer = " :w to save · q to abandon ",
+    footer = " Ctrl-s to save · Esc to abandon ",
     footer_pos = "right",
   })
+  -- The float is for what is in it. The number column, the sign column and
+  -- the cursor line belong to the buffer underneath.
   vim.wo[win].wrap = true
   vim.wo[win].linebreak = true
+  vim.wo[win].number = false
+  vim.wo[win].relativenumber = false
+  vim.wo[win].signcolumn = "no"
+  vim.wo[win].cursorline = false
+  vim.wo[win].foldcolumn = "0"
 
   if initial and initial ~= "" then
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(initial, "\n", { plain = true }))
-    -- An edit opens on the text rather than in front of it: the reader is
-    -- here to change what is written, not to prepend to it.
     vim.api.nvim_win_set_cursor(win, { vim.api.nvim_buf_line_count(buf), 0 })
+    -- Opened on what is already written, ready to change it.
+    vim.cmd.startinsert({ bang = true })
   else
     vim.cmd.startinsert()
   end
@@ -328,14 +267,30 @@ local function compose(title, context, initial, on_submit)
   end
 
   vim.keymap.set("n", "q", close, { buffer = buf, nowait = true })
-  vim.api.nvim_create_autocmd("BufWriteCmd", {
-    buffer = buf,
-    callback = function()
-      local body = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
-      close()
-      on_submit(body)
-    end,
-  })
+  -- The composer opens in insert, so `<Esc><Esc>` from there is one `<Esc>`
+  -- once the mode is normal — where a dialog is expected to close.
+  vim.keymap.set("n", "<Esc>", close, { buffer = buf, nowait = true })
+
+  local function submit()
+    local body = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+    -- `:x`, `:wq` and `ZZ` write and then quit. Closing the window here
+    -- would leave that quit to land on the window that came next — the file
+    -- you were reading. Marking the buffer saved lets their own quit close
+    -- the float; the deferred close covers a bare `:w`, and finds the
+    -- window already gone when both ran.
+    vim.bo[buf].modified = false
+    vim.schedule(close)
+    on_submit(body)
+  end
+
+  vim.api.nvim_create_autocmd("BufWriteCmd", { buffer = buf, callback = submit })
+
+  -- Leaving insert to type `:w` is ceremony around one decision. `Ctrl-s` is
+  -- what riff's own composer takes, from either mode.
+  vim.keymap.set({ "n", "i" }, "<C-s>", function()
+    vim.cmd.stopinsert()
+    submit()
+  end, { buffer = buf, nowait = true })
 
   return win, buf
 end
@@ -357,6 +312,31 @@ end
 
 --- Write a comment on the current line, or on the lines a visual selection
 --- covers.
+--- Reopen a comment on what it already says.
+local function rewrite(buf, path, lnum, comment)
+  compose("Edit comment on " .. vim.fn.fnamemodify(path, ":t") .. ":" .. lnum, nil, comment.body,
+    function(body)
+      if body:match("^%s*$") then
+        notify("nothing written, nothing changed")
+        return
+      end
+
+      local out, err = run({ "comments", "edit", comment.id }, body)
+      if not out then
+        notify(err or "could not edit the comment", vim.log.levels.ERROR)
+        return
+      end
+
+      notify("edited " .. comment.id)
+      M.refresh(buf, { force = true })
+    end)
+end
+
+--- Say something about this line, or change what was already said.
+---
+--- One key rather than three. A comment already here is what you almost
+--- always mean when you press it on a line that has one — reading it, and
+--- changing it, are the same window.
 function M.comment(range)
   local buf = vim.api.nvim_get_current_buf()
   local path = buffer_path(buf)
@@ -371,6 +351,25 @@ function M.comment(range)
   else
     first = vim.api.nvim_win_get_cursor(0)[1]
     last = first
+  end
+
+  local here = not range and comments_at(buf, first) or nil
+  if here and #here == 1 then
+    rewrite(buf, path, first, here[1])
+    return
+  end
+  if here and #here > 1 then
+    vim.ui.select(here, {
+      prompt = "Which comment?",
+      format_item = function(comment)
+        return preview(comment.body)
+      end,
+    }, function(chosen)
+      if chosen then
+        rewrite(buf, path, first, chosen)
+      end
+    end)
+    return
   end
 
   local where = vim.fn.fnamemodify(path, ":t") .. ":" .. first .. (last > first and "-" .. last or "")
@@ -396,66 +395,6 @@ function M.comment(range)
   end)
 end
 
---- Rewrite a comment that is already here.
----
---- riff owns the store, so the edit goes back through `riff comments edit`
---- — the same reason writing one does. The anchor is not touched: changing
---- what a comment says is not changing which line it is about.
-function M.edit()
-  local buf = vim.api.nvim_get_current_buf()
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
-  local comments = comments_at(buf, lnum)
-
-  if #comments == 0 then
-    notify("no comment on this line")
-    return
-  end
-
-  local function rewrite(comment)
-    compose("Edit " .. comment.id, nil, comment.body, function(body)
-      if body:match("^%s*$") then
-        notify("nothing written, nothing changed")
-        return
-      end
-
-      local out, err = run({ "comments", "edit", comment.id }, body)
-      if not out then
-        notify(err or "could not edit the comment", vim.log.levels.ERROR)
-        return
-      end
-
-      notify("edited " .. comment.id)
-      M.refresh(buf, { force = true })
-    end)
-  end
-
-  if #comments == 1 then
-    rewrite(comments[1])
-    return
-  end
-
-  vim.ui.select(comments, {
-    prompt = "Edit which comment?",
-    format_item = function(comment)
-      return comment.id .. "  " .. preview(comment.body)
-    end,
-  }, function(chosen)
-    if chosen then
-      rewrite(chosen)
-    end
-  end)
-end
-
---- Open riff on the current file — the escape hatch spec 083 asked for.
-function M.open()
-  local path = buffer_path()
-  if not path then
-    notify("this buffer is not a file", vim.log.levels.WARN)
-    return
-  end
-  vim.cmd("terminal " .. vim.fn.shellescape(config.cmd) .. " " .. vim.fn.shellescape(path))
-end
-
 function M.setup(opts)
   config = vim.tbl_extend("force", config, opts or {})
 
@@ -468,35 +407,20 @@ function M.setup(opts)
 
   vim.api.nvim_create_user_command("RiffComment", function(args)
     M.comment(args.range > 0 and { args.line1, args.line2 } or nil)
-  end, { range = true, desc = "Write a riff comment on this line" })
+  end, { range = true, desc = "Comment on this line, or change the comment already here" })
 
   vim.api.nvim_create_user_command("RiffRefresh", function()
     M.refresh(nil, { force = true })
   end, { desc = "Redraw the riff comments in this buffer" })
 
-  vim.api.nvim_create_user_command("RiffShow", function()
-    M.show()
-  end, { desc = "Read the riff comments on this line" })
-
   vim.api.nvim_create_user_command("RiffToggle", function()
     M.toggle()
   end, { desc = "Switch between previewing the comments and marking the lines" })
 
-  vim.api.nvim_create_user_command("RiffEdit", function()
-    M.edit()
-  end, { desc = "Rewrite a riff comment on this line" })
-
-  vim.api.nvim_create_user_command("RiffOpen", function()
-    M.open()
-  end, { desc = "Open riff on this file" })
-
   if config.default_mappings then
     vim.keymap.set("n", "<leader>rc", "<cmd>RiffComment<cr>", { desc = "riff: comment on this line" })
     vim.keymap.set("x", "<leader>rc", ":RiffComment<cr>", { desc = "riff: comment on this selection" })
-    vim.keymap.set("n", "<leader>rs", "<cmd>RiffShow<cr>", { desc = "riff: read the comments on this line" })
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
-    vim.keymap.set("n", "<leader>re", "<cmd>RiffEdit<cr>", { desc = "riff: edit a comment on this line" })
-    vim.keymap.set("n", "<leader>ro", "<cmd>RiffOpen<cr>", { desc = "riff: open this file in riff" })
   end
 
   vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost" }, {
