@@ -103,7 +103,6 @@ export interface PRInfoPanelInputContext {
   // Push current location onto the jumplist before navigating away (spec
   // 038). Called BEFORE closePRInfoPanel so the entry captures
   // viewMode="pr" — otherwise back-jump can't return to the PR view.
-  recordJump?: () => void
 }
 
 /**
@@ -360,7 +359,6 @@ function handleInputInner(
           case 'files': {
             const file = panel.getSelectedFile()
             if (file && ctx.onJumpToFile) {
-              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onJumpToFile(file.filename)
@@ -370,7 +368,6 @@ function handleInputInner(
           case 'commits': {
             const commit = panel.getSelectedCommit()
             if (commit && ctx.onActivateCommit) {
-              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onActivateCommit(commit.sha)
@@ -383,7 +380,6 @@ function handleInputInner(
             // commented diff line and on a comments-picker hit.
             const flat = panel.getSelectedFlatItem?.()
             if (flat?.type === 'review-thread' && ctx.onOpenThread) {
-              ctx.recordJump?.()
               ctx.setState(closePRInfoPanel)
               ctx.render()
               ctx.onOpenThread(flat.data.id)
@@ -584,7 +580,6 @@ function handleInputInner(
         if (panel && panel.getActiveSection() === 'files') {
           const file = panel.getSelectedFile()
           if (file && ctx.onJumpToFile) {
-            ctx.recordJump?.()
             ctx.setState(closePRInfoPanel)
             ctx.render()
             ctx.onJumpToFile(file.filename)

@@ -15,6 +15,13 @@ release, so write it before tagging.
   over a revision of the same name; `-r <rev>` says you meant the revision. Commenting is
   refused for now — notes on a file are the next spec.
 
+### Fixed
+
+- **`Ctrl-o` and `Ctrl-i` know about every jump** — the picker, the tree, flash, thread
+  motion, links and the feed are all in the history, because one place records where you
+  came from instead of twenty navigations each remembering to. Stepping and scrolling
+  inside a file still are not jumps, and a jump now lands in the column it left.
+
 ## [0.2.0] - 2026-09-12
 
 The release that came out of using riff on real pull requests every day.

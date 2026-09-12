@@ -19,7 +19,6 @@ function fakeMapping(lines: string[]): DiffLineMapping {
 function harness(lines: string[], cursor: { line: number; col: number } = { line: 0, col: 0 }) {
   let flashState: FlashState = createFlashState()
   let vimState: VimCursorState = { ...createCursorState(), ...cursor }
-  let jumpsRecorded = 0
   const region: FlashRegion = {
     lines: lines.map((_, i) => i),
     startCol: 0,
@@ -34,7 +33,6 @@ function harness(lines: string[], cursor: { line: number; col: number } = { line
     setCursor: (line, col) => { vimState = { ...vimState, line, col } },
     getVisibleRegion: () => region,
     jumpToRow: () => {},
-    recordJump: () => { jumpsRecorded++ },
     onUpdate: () => {},
   })
 
@@ -43,7 +41,6 @@ function harness(lines: string[], cursor: { line: number; col: number } = { line
     type: (chars: string) => { for (const char of chars) handler.handleChar(char) },
     get state() { return flashState },
     get cursor() { return vimState },
-    get jumpsRecorded() { return jumpsRecorded },
   }
 }
 
@@ -69,7 +66,6 @@ describe("FlashHandler", () => {
     expect(h.cursor.line).toBe(2)
     expect(h.cursor.col).toBe(0)
     expect(h.state.active).toBe(false)
-    expect(h.jumpsRecorded).toBe(1)
   })
 
   test("matching is case-insensitive", () => {
@@ -96,7 +92,6 @@ describe("FlashHandler", () => {
       setCursor: () => {},
       getVisibleRegion: () => ({ lines: [0, 1], startCol: 0, endCol: 200 }),
       jumpToRow: () => {},
-    recordJump: () => {},
       onUpdate: () => {},
     })
 
@@ -132,7 +127,6 @@ describe("FlashHandler", () => {
     expect(h.cursor.line).toBe(1)
     expect(h.cursor.col).toBe(4)
     expect(h.state.active).toBe(false)
-    expect(h.jumpsRecorded).toBe(0)
   })
 
   test("matches outside the visible region are not labelled", () => {
@@ -146,7 +140,6 @@ describe("FlashHandler", () => {
       setCursor: () => {},
       getVisibleRegion: () => ({ lines: [1], startCol: 0, endCol: 200 }),
       jumpToRow: () => {},
-    recordJump: () => {},
       onUpdate: () => {},
     })
 

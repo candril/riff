@@ -19,7 +19,6 @@ export interface CommentsPickerInputContext {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   /** Push current location onto the jumplist before navigating (spec 038). */
-  recordJump?: () => void
   /**
    * Handle the actual jump: file switch, cursor placement, overlay open.
    * Wired up by the global-keys layer so this module stays decoupled
@@ -48,7 +47,6 @@ export function handleInput(key: KeyEvent, ctx: CommentsPickerInputContext): boo
       consume()
       const entry = filtered[ctx.state.commentsPicker.selectedIndex]
       if (entry) {
-        ctx.recordJump?.()
         ctx.setState(closeCommentsPicker)
         ctx.onSelectComment(entry.comment)
       }

@@ -221,7 +221,11 @@ export async function createApp(options: AppOptions = {}) {
     fileModeRead.add(file.filename)
     void (async () => {
       try {
-        state = setFileDiff(state, file.filename, await openFileAsDiff(file.filename))
+        // Read first, then merge: `state` as an argument would be the one
+        // from before the await, and assigning it back would undo whatever
+        // the reader did while the file was loading.
+        const content = await openFileAsDiff(file.filename)
+        state = setFileDiff(state, file.filename, content)
         createLineMapping()
         render()
       } catch {
@@ -659,7 +663,6 @@ export async function createApp(options: AppOptions = {}) {
       vimDiffView.updateCursor(vimState)
     },
     getVisibleRegion: () => vimDiffView.getVisibleRegion(),
-    recordJump: () => { state = jumplist.pushCurrent(state, vimState) },
     jumpToRow: (surface, id) => {
       state = jumplist.pushCurrent(state, vimState)
       if (surface === "tree") {
@@ -1357,7 +1360,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== KEYBOARD INPUT =====
-  const handleKeypress = createKeyHandler({
+  const dispatchKeypress = createKeyHandler({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
@@ -1396,6 +1399,24 @@ export async function createApp(options: AppOptions = {}) {
     aiReviewContext,
     threadMotionContext,
   })
+
+  /**
+   * Every key that lands somewhere else records where it came from
+   * (spec 089).
+   *
+   * One place rather than a call in front of each navigation: the picker,
+   * the tree, flash, thread motion and everything written after this are in
+   * the jumplist without opting in, and none of them can forget. A key that
+   * only steps or scrolls is not a jump, and typing into a composer or a
+   * filter never moves the reader at all — so nothing it does is recorded.
+   */
+  function handleKeypress(key: KeyEvent) {
+    const before = jumplist.capture(state, vimState)
+    dispatchKeypress(key)
+    if (jumplist.isStepMotion(key)) return
+    if (jumplist.sameLocation(before, jumplist.capture(state, vimState))) return
+    state = jumplist.push(state, before)
+  }
 
   renderer.keyInput.on("keypress", handleKeypress)
 

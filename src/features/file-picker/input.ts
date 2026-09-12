@@ -26,7 +26,6 @@ export interface FilePickerInputContext {
   /** Scroll the all-files diff to a file instead of narrowing to it. */
   revealFile: (fileIndex: number) => void
   // Push current location onto the jumplist before navigating (spec 038).
-  recordJump?: () => void
 }
 
 /**
@@ -81,7 +80,6 @@ export function handleInput(
       consume()
       const selectedFile = filteredFiles[ctx.state.filePicker.selectedIndex]
       if (selectedFile) {
-        ctx.recordJump?.()
         ctx.setState((s) => {
           let newState = closeFilePicker(s)
 

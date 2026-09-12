@@ -20,6 +20,33 @@ export { createJumpListState } from "./types"
 
 const MAX_ENTRIES = 100
 
+/** Cursor moves that are not jumps: stepping and scrolling inside a file. */
+const STEP_KEYS = new Set([
+  "j", "k", "h", "l", "w", "b", "e", "0", "^", "$",
+  "up", "down", "left", "right",
+])
+
+/** Held with Ctrl, these scroll rather than jump. */
+const STEP_CTRL_KEYS = new Set(["d", "u", "e", "y"])
+
+/**
+ * True for a key that moves the cursor without moving the reader — vim's own
+ * line between a motion and a jump (spec 089).
+ *
+ * `Ctrl-o`, `Ctrl-i` and the `tab` it arrives as are here too: walking the
+ * list must not extend it.
+ */
+export function isStepMotion(key: { name?: string; ctrl?: boolean }): boolean {
+  const name = key.name ?? ""
+  if (key.ctrl) return STEP_CTRL_KEYS.has(name) || name === "o" || name === "i"
+  return name === "tab" || STEP_KEYS.has(name)
+}
+
+/** True when two captures are the same place. */
+export function sameLocation(a: Jump, b: Jump): boolean {
+  return jumpsEqual(a, b)
+}
+
 /** Snapshot the current location into a Jump. */
 export function capture(state: AppState, vim: VimCursorState): Jump {
   const filename =
@@ -32,6 +59,7 @@ export function capture(state: AppState, vim: VimCursorState): Jump {
     viewingCommit: state.viewingCommit,
     viewMode: state.viewMode,
     cursorLine: vim.line,
+    cursorCol: vim.col,
   }
 }
 
@@ -41,7 +69,8 @@ function jumpsEqual(a: Jump, b: Jump): boolean {
     a.filename === b.filename &&
     a.viewingCommit === b.viewingCommit &&
     a.viewMode === b.viewMode &&
-    a.cursorLine === b.cursorLine
+    a.cursorLine === b.cursorLine &&
+    a.cursorCol === b.cursorCol
   )
 }
 
@@ -196,6 +225,7 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   ctx.rebuildLineMapping()
   const cursor = createCursorState()
   cursor.line = Math.max(0, jump.cursorLine)
+  cursor.col = Math.max(0, jump.cursorCol ?? 0)
   ctx.setVimState(cursor)
   ctx.ensureCursorVisible()
   ctx.render()

@@ -39,7 +39,6 @@ export interface FileTreeInputContext {
   // Toggle viewed status for a file
   toggleViewedForFile: (filename: string) => Promise<boolean>
   // Push current location onto the jumplist before selecting (spec 038).
-  recordJump?: () => void
 }
 
 /**
@@ -101,7 +100,6 @@ export function handleInput(
           // Opening a file is treated as exiting multi-select: the user
           // made a concrete "take me to this one" choice, so the pending
           // V-mode range gets torn down.
-          ctx.recordJump?.()
           const narrowed = ctx.state.selectedFileIndex !== null
           ctx.setState((s) => ({
             // Already reviewing one file alone: swap which one. Otherwise

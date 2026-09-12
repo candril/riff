@@ -6,6 +6,8 @@ export interface Jump {
   viewingCommit: string | null
   viewMode: ViewMode
   cursorLine: number
+  /** The column too: a jump that lands in column one is not where you were. */
+  cursorCol?: number
 }
 
 export interface JumpListState {

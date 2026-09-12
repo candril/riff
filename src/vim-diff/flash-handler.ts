@@ -42,8 +42,6 @@ export interface FlashHandlerOptions {
   getCursor: () => VimCursorState
   setCursor: (line: number, col: number) => void
   getVisibleRegion: () => FlashRegion | null
-  /** Snapshot the pre-jump position so Ctrl-O comes back here (spec 038). */
-  recordJump: () => void
   /** Put the cursor on a labelled row of a list surface (spec 066). */
   jumpToRow: (surface: FlashSurface, id: string) => void
   onUpdate: () => void
@@ -165,7 +163,6 @@ export class FlashHandler {
   }
 
   private jump(match: FlashMatch): void {
-    this.opts.recordJump()
     this.opts.setFlashState(createFlashState())
     this.opts.setCursor(match.line, match.startCol)
     this.opts.onUpdate()

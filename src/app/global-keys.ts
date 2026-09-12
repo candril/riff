@@ -239,13 +239,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
   }
 
-  // Snapshot the current location into the jumplist. Call BEFORE a
-  // navigation mutates state — the entry is the location we'll jump back
-  // to with Ctrl-O (spec 038).
-  function recordJump() {
-    ctx.setState((s) => jumplist.pushCurrent(s, ctx.getVimState()))
-  }
-
   const followLinkContext: followLink.FollowLinkContext = {
     setState: ctx.setState,
     getVimState: ctx.getVimState,
@@ -259,7 +252,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       if (!filename) return false
       const fileIndex = state.files.findIndex((file) => file.filename === filename)
 
-      recordJump()
       // A file marked viewed is folded shut; a link to it means to read it.
       if (state.collapsedFiles.has(filename)) {
         ctx.setState((s) => expandFiles(s, [filename]))
@@ -504,7 +496,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       onOpenEvent: (event) => {
         const target = event.target
         if (!target) return
-        recordJump()
         switch (target.kind) {
           case "commit":
             // The diff, scoped to that commit — `]g`/`[g` already know how.
@@ -536,7 +527,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
       },
       onOpenCommitFile: (sha, filename) => {
-        recordJump()
         ctx.setState((s) => switchView(s, "diff"))
         ctx.onCommitSelected(sha, filename)
       },
@@ -624,7 +614,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           )
           fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
         },
-        recordJump,
       })
     ) {
       return
@@ -636,7 +625,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         state: ctx.getState(),
         setState: ctx.setState,
         render: ctx.render,
-        recordJump,
         onSelectComment: (comment) => {
           commentsPicker.jumpToComment(comment, {
             getState: ctx.getState,
@@ -661,7 +649,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         setState: ctx.setState,
         render: ctx.render,
         onCommitSelected: (sha, filename, scope) => {
-          recordJump()
           ctx.onCommitSelected(sha, filename, scope)
         },
       })
@@ -851,7 +838,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           // `Ctrl-t`, which is just "show me what was said". `Ctrl-o` goes
           // back to where the overview was.
           if (s.viewMode !== "diff") {
-            recordJump()
             ctx.setState((st) => ({ ...st, viewMode: "diff", previousView: st.viewMode }))
           }
 
@@ -888,7 +874,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         render: ctx.render,
         getPanel: ctx.getPrInfoPanel,
         onJumpToFile: (filename) => {
-          // Jump to file by filename. recordJump runs inside the panel
+          // Jump to file by filename.
           // input handler BEFORE closePRInfoPanel, so the jump captures
           // viewMode="pr" — back-jump can return to the PR view.
           const state = ctx.getState()
@@ -951,7 +937,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
             action
           )
         },
-        recordJump,
       })
     ) {
       return
@@ -997,7 +982,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
         toggleViewedForFile: (filename: string) =>
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
-        recordJump,
       })
 
     // ========== FILE TREE FILTER PROMPT (captures input while open) ==========
@@ -1136,7 +1120,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         const target = key.name === "i" ? "state" : key.name === "a" ? "feed" : "diff"
         const switched = switchView(state, target)
         if (switched === state) break
-        recordJump()
         ctx.setState(() => switched)
         ctx.render()
         // The feed's timeline is fetched the first time it is asked for: a
@@ -1285,7 +1268,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       const s = ctx.getState()
 
       if (sequence === "]f") {
-        recordJump()
         if (s.selectedFileIndex === null) {
           // All-files view: move cursor to next file header
           ctx.vimHandler.moveToFile("next")
@@ -1296,7 +1278,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "[f") {
-        recordJump()
         if (s.selectedFileIndex === null) {
           // All-files view: move cursor to previous file header
           ctx.vimHandler.moveToFile("prev")
@@ -1307,44 +1288,34 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         }
         return
       } else if (sequence === "]u") {
-        recordJump()
         fileNavigation.navigateToUnviewedFile(1, ctx.fileNavContext)
         return
       } else if (sequence === "[u") {
-        recordJump()
         fileNavigation.navigateToUnviewedFile(-1, ctx.fileNavContext)
         return
       } else if (sequence === "]o") {
-        recordJump()
         fileNavigation.navigateToOutdatedFile(1, ctx.fileNavContext)
         return
       } else if (sequence === "[o") {
-        recordJump()
         fileNavigation.navigateToOutdatedFile(-1, ctx.fileNavContext)
         return
       } else if (sequence === "]r") {
-        recordJump()
         threadMotion.navigateToThread(1, false, ctx.threadMotionContext)
         return
       } else if (sequence === "[r") {
-        recordJump()
         threadMotion.navigateToThread(-1, false, ctx.threadMotionContext)
         return
       } else if (sequence === "]n") {
         // The comments that arrived since your last visit, in order (spec 069).
-        recordJump()
         threadMotion.navigateToThread(1, false, ctx.threadMotionContext, true)
         return
       } else if (sequence === "[n") {
-        recordJump()
         threadMotion.navigateToThread(-1, false, ctx.threadMotionContext, true)
         return
       } else if (sequence === "]R!") {
-        recordJump()
         threadMotion.navigateToThread(1, true, ctx.threadMotionContext)
         return
       } else if (sequence === "[R!") {
-        recordJump()
         threadMotion.navigateToThread(-1, true, ctx.threadMotionContext)
         return
       } else if (sequence === "gS!" || sequence === "gs!") {
@@ -1361,7 +1332,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "gi") {
         if (s.appMode === "pr" && s.prInfo) {
-          recordJump()
           prInfoPanelFeature.handleOpenPRInfoPanel(ctx.prInfoPanelOpenContext)
         }
         return
@@ -1443,11 +1413,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.refreshContext.handleRefresh()
         return
       } else if (sequence === "gg") {
-        recordJump()
         folds.handleGoToTop(ctx.foldsContext)
         return
       } else if (sequence === "gG!" || sequence === "G!") {
-        recordJump()
         folds.handleGoToBottom(ctx.foldsContext)
         return
       } else if (sequence === "za") {
@@ -1521,7 +1489,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       if (sequence === "]g") {
         // Next commit
         if (s.commits.length > 0) {
-          recordJump()
           if (s.viewingCommit === null) {
             // All → first commit
             ctx.onCommitSelected(s.commits[0]!.sha)
@@ -1539,7 +1506,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       } else if (sequence === "[g") {
         // Prev commit
         if (s.commits.length > 0) {
-          recordJump()
           if (s.viewingCommit === null) {
             // All → last commit
             ctx.onCommitSelected(s.commits[s.commits.length - 1]!.sha)
