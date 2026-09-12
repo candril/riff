@@ -98,7 +98,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
 | 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | writing a comment starts a thread; `r` is how you reply |
 | 082 | [Emoji by Shortcode](./082-emoji.md) | Done | `:` in the composer suggests emoji |
-| 083 | [Plan: riff Reads Files](./083-file-mode-plan.md) | Draft | `riff .` — the repo as files, and notes on any line of it |
+| 083 | [Plan: riff Reads Files](./083-file-mode-plan.md) | Draft | `riff <path>` — a file, a subtree or the repo as files, and notes on any line |
 
 ## MVP Path
 
