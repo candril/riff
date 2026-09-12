@@ -47,6 +47,9 @@ release, so write it before tagging.
   you are told how many there were.
 - **`riff comments fetch`** pulls a pull request's comments into `.riff/` without opening
   riff, and `riff comments --synced` lists the review's own comments beside your notes.
+- **Every comment in the repository, from nvim** — `<leader>rl` lists the open ones in
+  snacks' picker (quickfix without it) and jumps to the line each is on now. `<leader>rx`
+  marks one done. A gutter sign only ever told you about the file you already had open.
 
 ### Fixed
 

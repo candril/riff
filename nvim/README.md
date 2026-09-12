@@ -18,6 +18,8 @@ up. That is all this does.
 |---|---|
 | `<leader>rc` | comment on this line, or change the comment already on it |
 | `<leader>rt` | preview the comments beside the code, or not |
+| `<leader>rl` | every open comment in the repository, and jump to one |
+| `<leader>rx` | mark the comment on this line done |
 | `<leader>rp` | fetch and show the pull request's comments on this file |
 | `<leader>rP` | hide them again |
 | `:RiffRefresh` | redraw the marks |
@@ -47,6 +49,15 @@ require("riff").setup({
   default_mappings = true,
 })
 ```
+
+`<leader>rl` answers the other question — not "what is on this line" but
+"where are they at all". Every open comment in the repository, in
+[snacks](https://github.com/folke/snacks.nvim)' picker when you have it and
+the quickfix list when you do not, jumping to the line each one is on now.
+
+`<leader>rx` marks one done. riff keeps the note and marks the thread
+resolved rather than deleting it — a resolved local thread is never
+published, and the record of what was asked for survives.
 
 ## The review
 

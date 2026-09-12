@@ -49,6 +49,15 @@ local pr_marks = {}
 --- Comments riff knows about, per file, as `{ [lnum] = { body, id } }`.
 local marks = {}
 
+--- JSON `null` decodes to `vim.NIL`, which is userdata and therefore
+--- truthy — every `x and y or z` over a decoded field needs this first.
+local function value(v)
+  if v == nil or v == vim.NIL then
+    return nil
+  end
+  return v
+end
+
 local function notify(message, level)
   vim.notify("riff: " .. message, level or vim.log.levels.INFO)
 end
@@ -86,7 +95,7 @@ local function virtual_text(comments)
     return config.dot
   end
   -- Whose remark it is, when it is not yours. A note has no author to name.
-  local who = comments[1].author and (comments[1].author .. ": ") or ""
+  local who = value(comments[1].author) and (comments[1].author .. ": ") or ""
   local more = #comments > 1 and (" +" .. (#comments - 1)) or ""
   return config.sign .. who .. preview(comments[1].body) .. more
 end
@@ -137,7 +146,7 @@ local function apply(report, buf)
       table.insert(found[thread.line], {
         body = thread.body,
         id = thread.id,
-        replies = thread.replies or {},
+        replies = value(thread.replies) or {},
       })
     end
   end
@@ -154,7 +163,9 @@ end
 --- editor that stops for a subprocess when you open a file is worse than no
 --- marks at all.
 function M.refresh(buf, opts)
-  buf = buf or vim.api.nvim_get_current_buf()
+  -- `0` means the current buffer to the API and is truthy to Lua, so
+  -- `buf or current` would key everything under 0 and never find it again.
+  buf = (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
   if not buffer_path(buf) then
     return
   end
@@ -316,6 +327,29 @@ local function compose(title, context, initial, on_submit)
 end
 
 --- Everything already said on the lines this comment covers.
+--- What is already said on a line, for the composer to show above the input.
+--- Replies are indented under the comment they answer, so a thread reads as
+--- a thread rather than as a pile of remarks.
+local function render(comments)
+  local lines = {}
+  for index, comment in ipairs(comments) do
+    if index > 1 then
+      table.insert(lines, "")
+    end
+    local who = comment.author and (comment.author .. ": ") or ""
+    for offset, line in ipairs(vim.split(comment.body, "\n", { plain = true })) do
+      table.insert(lines, (offset == 1 and who or "") .. line)
+    end
+    for _, reply in ipairs(comment.replies or {}) do
+      local answered = value(reply.author) and (reply.author .. ": ") or ""
+      for offset, line in ipairs(vim.split(reply.body, "\n", { plain = true })) do
+        table.insert(lines, (offset == 1 and "  ↳ " .. answered or "    ") .. line)
+      end
+    end
+  end
+  return lines
+end
+
 local function context_for(buf, first, last)
   local lines = {}
   for lnum = first, last do
@@ -332,6 +366,104 @@ end
 
 --- Write a comment on the current line, or on the lines a visual selection
 --- covers.
+--- Every comment in the repository, in a picker, jumping to the line.
+---
+--- A mark in the gutter only tells you about the file you already have
+--- open. This is the other question: where are they at all.
+function M.list()
+  vim.system({ config.cmd, "comments", "--json" }, { text = true }, function(out)
+    vim.schedule(function()
+      local ok, report = pcall(vim.json.decode, out.stdout ~= "" and out.stdout or "{}")
+      if out.code ~= 0 or not ok or type(report.threads) ~= "table" then
+        notify(vim.trim(out.stderr or "") ~= "" and vim.trim(out.stderr) or "could not read the comments",
+          vim.log.levels.WARN)
+        return
+      end
+
+      local root = report.root and (report.root .. "/") or ""
+      local items = {}
+      for _, thread in ipairs(report.threads) do
+        if not thread.resolved then
+          -- Where the line is now, when riff could find it (spec 086).
+          local anchor = value(thread.anchor)
+          local at = anchor and value(anchor.line) or thread.line
+          local who = value(thread.author) and (thread.author .. ": ") or ""
+          items[#items + 1] = {
+            -- The picker searches `text`, so the path belongs in it. The
+            -- quickfix list draws the location itself and takes `body`.
+            text = thread.file .. ":" .. at .. "  " .. who .. preview(thread.body),
+            body = who .. preview(thread.body),
+            file = root .. thread.file,
+            pos = { at, 0 },
+          }
+        end
+      end
+
+      if #items == 0 then
+        notify("no open comments in this repository")
+        return
+      end
+
+      local snacks = package.loaded["snacks"]
+      if snacks and snacks.picker then
+        snacks.picker.pick({ source = "riff", title = "riff comments", items = items, format = "text" })
+        return
+      end
+
+      -- Without a picker the quickfix list is the thing every nvim has, and
+      -- it jumps just the same.
+      vim.fn.setqflist({}, " ", {
+        title = "riff comments",
+        items = vim.tbl_map(function(item)
+          return { filename = item.file, lnum = item.pos[1], col = 1, text = item.body }
+        end, items),
+      })
+      vim.cmd("copen")
+    end)
+  end)
+end
+
+--- Mark a comment on this line done.
+---
+--- riff keeps the note and marks the thread resolved rather than deleting
+--- it — a resolved local thread is never published, and the record of what
+--- was asked for survives. `riff comments remove` is the one that deletes.
+function M.resolve()
+  local buf = vim.api.nvim_get_current_buf()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local here = comments_at(buf, lnum)
+  if not here then
+    notify("no comment on this line")
+    return
+  end
+
+  local function retire(comment)
+    local out, err = run({ "comments", "resolve", comment.id })
+    if not out then
+      notify(err or "could not resolve the comment", vim.log.levels.ERROR)
+      return
+    end
+    notify("resolved " .. comment.id)
+    M.refresh(buf, { force = true })
+  end
+
+  if #here == 1 then
+    retire(here[1])
+    return
+  end
+
+  vim.ui.select(here, {
+    prompt = "Resolve which comment?",
+    format_item = function(comment)
+      return preview(comment.body)
+    end,
+  }, function(chosen)
+    if chosen then
+      retire(chosen)
+    end
+  end)
+end
+
 --- Show the pull request's comments on this file, fetching them first.
 ---
 --- Asked for, never polled: nvim makes no network calls of its own and does
@@ -369,16 +501,17 @@ function M.pr()
           -- A review comment's line is a line of the pull request's diff,
           -- not of this worktree. riff says where that line is now; a line
           -- that is gone has nowhere honest to be drawn.
-          local at = thread.anchor and thread.anchor.line or thread.line
-          if thread.anchor and thread.anchor.state == "lost" then
+          local anchor = value(thread.anchor)
+          local at = anchor and value(anchor.line) or thread.line
+          if anchor and anchor.state == "lost" then
             gone = gone + 1
           else
             found[at] = found[at] or {}
             table.insert(found[at], {
               body = thread.body,
               id = thread.id,
-              author = thread.author,
-              replies = thread.replies or {},
+              author = value(thread.author),
+              replies = value(thread.replies) or {},
             })
           end
         end
@@ -507,6 +640,14 @@ function M.setup(opts)
     M.refresh(nil, { force = true })
   end, { desc = "Redraw the riff comments in this buffer" })
 
+  vim.api.nvim_create_user_command("RiffList", function()
+    M.list()
+  end, { desc = "Every open riff comment in this repository" })
+
+  vim.api.nvim_create_user_command("RiffResolve", function()
+    M.resolve()
+  end, { desc = "Mark the comment on this line done" })
+
   vim.api.nvim_create_user_command("RiffPr", function()
     M.pr()
   end, { desc = "Fetch and show the pull request's comments on this file" })
@@ -523,6 +664,8 @@ function M.setup(opts)
     vim.keymap.set("n", "<leader>rc", "<cmd>RiffComment<cr>", { desc = "riff: comment on this line" })
     vim.keymap.set("x", "<leader>rc", ":RiffComment<cr>", { desc = "riff: comment on this selection" })
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
+    vim.keymap.set("n", "<leader>rl", "<cmd>RiffList<cr>", { desc = "riff: every comment in this repo" })
+    vim.keymap.set("n", "<leader>rx", "<cmd>RiffResolve<cr>", { desc = "riff: mark this comment done" })
     vim.keymap.set("n", "<leader>rp", "<cmd>RiffPr<cr>", { desc = "riff: show the review on this file" })
     vim.keymap.set("n", "<leader>rP", "<cmd>RiffPrHide<cr>", { desc = "riff: hide the review" })
   end

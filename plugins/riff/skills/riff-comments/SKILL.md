@@ -20,8 +20,16 @@ the comments and don't open the comment files:
 
 - `counts` — `threads`, `open`, `resolved`.
 - `threads[]` — one entry per thread, already grouped:
-  - `id` — the short id every other command takes
+  - `id` — the id every other command takes
   - `file`, `line`, `side` — where it is anchored
+  - `kind` — `note` or `review`. A note was written where no diff was
+    showing — in `riff .`, or from the editor — and can never be published;
+    it asks for the same work.
+  - `anchor` — where that line is *now*: `{"state":"here"}`,
+    `{"state":"moved","line":N}` when it drifted and riff found it, or
+    `{"state":"lost"}` when the line is gone. Trust `anchor.line` over
+    `line` when they differ, and be careful with a `lost` one: the code it
+    was written about is no longer there.
   - `body` and `replies[]` — what was said
   - `code` — that line as it reads in the working copy *now*
   - `context` — the numbered lines around it, `>` marking the anchor
@@ -35,6 +43,13 @@ A `code` of `null` means the anchor can't be shown from the working copy
 
 If the user reviewed something other than the working copy, pass the same
 target: `riff comments --json HEAD~3`, `riff comments --json 123`.
+
+`.riff/` is a whole repository's worth of comments. When the user points at
+one corner of it, narrow rather than filtering by hand:
+
+```sh
+riff comments --json --path src/api
+```
 
 ## Act on them
 
@@ -50,6 +65,10 @@ Skip threads with `resolved: true` — those are done. For each open thread:
    have them all.
 
 Replies belong to their root thread; resolving the root closes the thread.
+
+A thread whose `anchor.state` is `lost` is the one to stop at: say what it
+asked for and that the code it named is gone, and let the user decide,
+rather than guessing at which line it meant now.
 
 ## Rules
 
