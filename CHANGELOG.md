@@ -58,6 +58,10 @@ release, so write it before tagging.
   in the header and then showed none of it. Its comments now appear on the lines they are
   anchored to, for the lines this diff actually has. Nothing is fetched: `riff pr` and
   `riff comments fetch` are what put a review on disk.
+- **Delete a comment from nvim** — `<leader>rd`, and `Ctrl-x` / `Ctrl-d` in the composer
+  retire the comment it has open. Only ever your own: the review's comments are GitHub's.
+- **The composer shows what is already on the line, the review included** — a line carrying
+  someone's review comment opened a blank composer, as if riff had lost it.
 - **Toggling the comment display reaches the review too** — `:RiffToggle` redrew only your
   own notes, so a pull request's comments stayed in whichever mode they were drawn in while
   the message said otherwise.

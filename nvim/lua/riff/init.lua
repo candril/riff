@@ -141,7 +141,9 @@ local function apply(report, buf)
   local root = report.root and (report.root .. "/") or ""
   local found = {}
   for _, thread in ipairs(report.threads) do
-    if not thread.resolved and root .. thread.file == path then
+    -- This layer is what you wrote. A review's comments are the other one,
+    -- shown only when asked for and never editable here.
+    if not thread.resolved and thread.kind ~= "review" and root .. thread.file == path then
       found[thread.line] = found[thread.line] or {}
       table.insert(found[thread.line], {
         body = thread.body,
@@ -240,7 +242,7 @@ local composed = 0
 
 --- `initial` prefills the buffer — an edit starts from what is already
 --- written, and a new comment from nothing.
-local function compose(title, context, initial, on_submit)
+local function compose(title, context, initial, on_submit, retire)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].filetype = "markdown"
   vim.bo[buf].bufhidden = "wipe"
@@ -281,7 +283,7 @@ local function compose(title, context, initial, on_submit)
     border = "rounded",
     title = " " .. title .. " ",
     title_pos = "left",
-    footer = " Ctrl-s to save · Esc to abandon ",
+    footer = retire and " Ctrl-s save · Ctrl-x done · Ctrl-d delete · Esc " or " Ctrl-s to save · Esc to abandon ",
     footer_pos = "right",
   })
   -- The float is for what is in it. The number column, the sign column and
@@ -335,6 +337,21 @@ local function compose(title, context, initial, on_submit)
     submit()
   end, { buffer = buf, nowait = true })
 
+  -- Editing a comment is where you find out it is done or was never worth
+  -- keeping, so both live here as well as on their own keys.
+  if retire then
+    vim.keymap.set({ "n", "i" }, "<C-x>", function()
+      vim.cmd.stopinsert()
+      close()
+      retire.resolve()
+    end, { buffer = buf, nowait = true })
+    vim.keymap.set({ "n", "i" }, "<C-d>", function()
+      vim.cmd.stopinsert()
+      close()
+      retire.remove()
+    end, { buffer = buf, nowait = true })
+  end
+
   return win, buf
 end
 
@@ -362,16 +379,31 @@ local function render(comments)
   return lines
 end
 
+--- Everything already said on these lines, the review's included.
+---
+--- The review's comments are the ones you cannot edit, which is exactly why
+--- they have to be *shown*: a line with a remark on it that opened a blank
+--- composer looked like riff had lost it.
 local function context_for(buf, first, last)
   local lines = {}
-  for lnum = first, last do
-    local comments = comments_at(buf, lnum)
-    if comments then
-      if #lines > 0 then
-        table.insert(lines, "")
-      end
-      vim.list_extend(lines, render(comments))
+
+  -- Written out rather than looped over a table of the two: a line with no
+  -- note of yours puts a nil first, and `ipairs` stops there — which is how
+  -- the review's comments went missing from a composer that was supposed to
+  -- be showing them.
+  local function add(comments)
+    if not comments or #comments == 0 then
+      return
     end
+    if #lines > 0 then
+      table.insert(lines, "")
+    end
+    vim.list_extend(lines, render(comments))
+  end
+
+  for lnum = first, last do
+    add((marks[buf] or {})[lnum])
+    add((pr_marks[buf] or {})[lnum])
   end
   return lines
 end
@@ -454,13 +486,7 @@ function M.resolve()
   end
 
   local function retire(comment)
-    local out, err = run({ "comments", "resolve", comment.id })
-    if not out then
-      notify(err or "could not resolve the comment", vim.log.levels.ERROR)
-      return
-    end
-    notify("resolved " .. comment.id)
-    M.refresh(buf, { force = true })
+    retire_comment(buf, comment, "resolve")
   end
 
   if #here == 1 then
@@ -476,6 +502,52 @@ function M.resolve()
   }, function(chosen)
     if chosen then
       retire(chosen)
+    end
+  end)
+end
+
+--- Retire a comment: done with it, or it was never worth keeping.
+local function retire_comment(buf, comment, verb)
+  local out, err = run({ "comments", verb, comment.id })
+  if not out then
+    notify(err or ("could not " .. verb .. " the comment"), vim.log.levels.ERROR)
+    return
+  end
+  notify((verb == "resolve" and "resolved " or "deleted ") .. comment.id)
+  M.refresh(buf, { force = true })
+end
+
+--- Delete a comment on this line.
+---
+--- Only ever your own. The review's comments belong to GitHub and riff has
+--- never pretended otherwise — they live in the other layer, which this does
+--- not read.
+function M.remove()
+  local buf = vim.api.nvim_get_current_buf()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local here = comments_at(buf, lnum)
+  if not here then
+    notify("no comment of yours on this line")
+    return
+  end
+
+  local function delete(comment)
+    retire_comment(buf, comment, "remove")
+  end
+
+  if #here == 1 then
+    delete(here[1])
+    return
+  end
+
+  vim.ui.select(here, {
+    prompt = "Delete which comment?",
+    format_item = function(comment)
+      return preview(comment.body)
+    end,
+  }, function(chosen)
+    if chosen then
+      delete(chosen)
     end
   end)
 end
@@ -580,7 +652,11 @@ local function rewrite(buf, path, lnum, comment)
 
       notify("edited " .. comment.id)
       M.refresh(buf, { force = true })
-    end)
+    end,
+    {
+      resolve = function() retire_comment(buf, comment, "resolve") end,
+      remove = function() retire_comment(buf, comment, "remove") end,
+    })
 end
 
 --- Say something about this line, or change what was already said.
@@ -624,7 +700,12 @@ function M.comment(range)
   end
 
   local where = vim.fn.fnamemodify(path, ":t") .. ":" .. first .. (last > first and "-" .. last or "")
-  compose("Comment on " .. where, context_for(buf, first, last), nil, function(body)
+  local context = context_for(buf, first, last)
+  compose(
+    (#context > 0 and "Note on " or "Comment on ") .. where,
+    context,
+    nil,
+    function(body)
     if body:match("^%s*$") then
       notify("nothing written, nothing saved")
       return
@@ -668,6 +749,10 @@ function M.setup(opts)
     M.list()
   end, { desc = "Every open riff comment in this repository" })
 
+  vim.api.nvim_create_user_command("RiffRemove", function()
+    M.remove()
+  end, { desc = "Delete a comment of yours on this line" })
+
   vim.api.nvim_create_user_command("RiffResolve", function()
     M.resolve()
   end, { desc = "Mark the comment on this line done" })
@@ -690,6 +775,7 @@ function M.setup(opts)
     vim.keymap.set("n", "<leader>rt", "<cmd>RiffToggle<cr>", { desc = "riff: preview the comments, or not" })
     vim.keymap.set("n", "<leader>rl", "<cmd>RiffList<cr>", { desc = "riff: every comment in this repo" })
     vim.keymap.set("n", "<leader>rx", "<cmd>RiffResolve<cr>", { desc = "riff: mark this comment done" })
+    vim.keymap.set("n", "<leader>rd", "<cmd>RiffRemove<cr>", { desc = "riff: delete this comment" })
     vim.keymap.set("n", "<leader>rp", "<cmd>RiffPr<cr>", { desc = "riff: the review on this file, on or off" })
   end
 

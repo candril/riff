@@ -20,6 +20,7 @@ up. That is all this does.
 | `<leader>rt` | preview the comments beside the code, or not |
 | `<leader>rl` | every open comment — yours and the review's — and jump to one |
 | `<leader>rx` | mark the comment on this line done |
+| `<leader>rd` | delete a comment of yours on this line |
 | `<leader>rp` | the pull request's comments on this file, on or off |
 | `:RiffRefresh` | redraw the marks |
 
@@ -56,9 +57,11 @@ picker when you have it and the quickfix list when you do not, jumping to the
 line each one is on now. Each row is tagged with who said it, or `note` when
 it was you.
 
-`<leader>rx` marks one done. riff keeps the note and marks the thread
-resolved rather than deleting it — a resolved local thread is never
-published, and the record of what was asked for survives.
+`<leader>rx` marks one done and `<leader>rd` deletes it; the composer takes
+`Ctrl-x` and `Ctrl-d` for the same two while you have a comment open.
+Resolving keeps the note and marks the thread done — a resolved local thread
+is never published, and the record of what was asked for survives. Both are
+only ever your own: the review's comments are GitHub's.
 
 ## The review
 
