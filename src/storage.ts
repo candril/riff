@@ -471,6 +471,8 @@ function toMarkdown(comment: Comment): string {
     `status: ${comment.status}`,
   ]
 
+  if (comment.kind) lines.push(`kind: ${comment.kind}`)
+  if (comment.anchorHash) lines.push(`anchorHash: ${comment.anchorHash}`)
   if (comment.startLine) lines.push(`startLine: ${comment.startLine}`)
   if (comment.commit) lines.push(`commit: ${comment.commit}`)
   if (comment.githubId) lines.push(`githubId: ${comment.githubId}`)
@@ -520,6 +522,8 @@ function parseComment(meta: Record<string, string>, body: string): Comment {
     body: commentBody,
     createdAt: meta.createdAt || new Date().toISOString(),
     status: (meta.status as "local" | "pending" | "synced") || "local",
+    kind: meta.kind === "note" ? "note" : undefined,
+    anchorHash: meta.anchorHash || undefined,
     commit: meta.commit || undefined,
     diffHunk,
     githubId: meta.githubId ? parseInt(meta.githubId, 10) : undefined,

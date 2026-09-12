@@ -14,6 +14,12 @@ release, so write it before tagging.
   syntax highlighting all come with it. A directory opens folded. A path that exists wins
   over a revision of the same name; `-r <rev>` says you meant the revision. Commenting is
   refused for now — notes on a file are the next spec.
+- **Comments from nvim** — `riff comments add --file F --line N` writes a comment from
+  outside riff, body on stdin, and `nvim/` ships a plugin that uses it: `<leader>rc` opens a
+  markdown buffer on the current line or selection, and every commented line shows the start
+  of what was said beside it. nvim keeps the navigation; riff keeps the comment.
+- **Notes never leave the machine** — a comment written where no diff is showing is stored
+  as one, and every publish path refuses it rather than losing it to a 422 at the API.
 
 ### Fixed
 

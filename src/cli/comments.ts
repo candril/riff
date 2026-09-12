@@ -8,6 +8,7 @@
  * never published), `remove` deletes the file, `clear` deletes every local
  * one. Synced comments are GitHub's and are left alone.
  *
+ *   riff comments add --file <path> --line <n> [--end-line <m>] [--target <t>]
  *   riff comments [list] [--json] [<target>]
  *   riff comments resolve <id> [<target>]
  *   riff comments unresolve <id> [<target>]
@@ -21,8 +22,11 @@
  * named by.
  */
 
-import { join } from "node:path"
+import { join, relative, resolve, isAbsolute, sep } from "node:path"
+import { readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 import type { Comment } from "../types"
+import { createComment } from "../types"
 import {
   loadComments,
   saveComment,
@@ -43,6 +47,8 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   const words = argv.filter((a) => !a.startsWith("-"))
   const verb = words[0] && VERBS.has(words[0]) ? words[0] : "list"
   const rest = verb === "list" && words[0] !== "list" ? words : words.slice(1)
+
+  if (verb === "add") return add(argv, opts, json)
 
   if (verb === "install-skill") {
     const path = installSkill(argv.includes("--global"))
@@ -93,7 +99,97 @@ export async function runCommentsCli(argv: string[], opts: CommentsCliOptions): 
   return 2
 }
 
-const VERBS = new Set(["list", "resolve", "unresolve", "remove", "clear", "install-skill"])
+const VERBS = new Set(["list", "add", "resolve", "unresolve", "remove", "clear", "install-skill"])
+
+/** `--file x` / `--file=x`, or undefined. */
+function flag(argv: string[], name: string): string | undefined {
+  const exact = argv.indexOf(`--${name}`)
+  if (exact !== -1) return argv[exact + 1]
+  const joined = argv.find((a) => a.startsWith(`--${name}=`))
+  return joined?.slice(name.length + 3)
+}
+
+/** Everything on stdin, or "" when nothing is piped in. */
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return ""
+  const chunks: Uint8Array[] = []
+  for await (const chunk of process.stdin) chunks.push(chunk as Uint8Array)
+  return Buffer.concat(chunks).toString("utf-8")
+}
+
+/**
+ * What says the line moved: the anchored line as it read when the comment
+ * was written, hashed. Trimmed first, so reindenting a block does not
+ * invalidate every note in it (spec 083).
+ */
+function hashLine(text: string): string {
+  return createHash("sha256").update(text.trim()).digest("hex").slice(0, 16)
+}
+
+/**
+ * Write a comment from outside riff — an editor, a script (spec 091).
+ *
+ * It is always a note. The writer has no diff in view and cannot know
+ * whether GitHub could anchor the line, so riff answers the honest way: a
+ * comment written here never leaves the machine, and `riff comments --json`
+ * hands it to an agent like any other.
+ *
+ * riff owns the format. That is the whole reason this verb exists rather
+ * than a plugin writing `.riff/` itself: which directory a comment belongs
+ * in is six rules deep (`resolveStorageDir`), and a second implementation
+ * would write where riff does not read.
+ */
+async function add(argv: string[], opts: CommentsCliOptions, json: boolean): Promise<number> {
+  const file = flag(argv, "file")
+  const rawLine = flag(argv, "line")
+  if (!file || !rawLine) {
+    console.error("riff comments add: --file <path> and --line <n> are required")
+    return 2
+  }
+
+  const line = Number.parseInt(rawLine, 10)
+  const endLine = flag(argv, "end-line") ? Number.parseInt(flag(argv, "end-line")!, 10) : undefined
+  if (!Number.isFinite(line) || line < 1) {
+    console.error(`riff comments add: --line must be a line number, got ${rawLine}`)
+    return 2
+  }
+
+  const body = (flag(argv, "body") ?? (await readStdin())).trim()
+  if (!body) {
+    console.error("riff comments add: the comment is empty")
+    return 2
+  }
+
+  const root = (await findRepoRoot()) ?? process.cwd()
+  const absolute = isAbsolute(file) ? file : resolve(process.cwd(), file)
+  // Stored the way riff stores every filename: relative to the repo root,
+  // so a comment written from a subdirectory anchors where riff looks.
+  const filename = relative(root, absolute).split(sep).join("/")
+
+  const text = await readFile(absolute, "utf-8").catch(() => null)
+  if (text === null) {
+    console.error(`riff comments add: cannot read ${file}`)
+    return 2
+  }
+  const lines = text.split("\n")
+  if (line > lines.length) {
+    console.error(`riff comments add: ${filename} has ${lines.length} lines, not ${line}`)
+    return 2
+  }
+
+  const source = await opts.resolveSource(flag(argv, "target"))
+  const comment: Comment = {
+    ...createComment(filename, line, body, "RIGHT"),
+    kind: "note",
+    anchorHash: hashLine(lines[line - 1] ?? ""),
+    startLine: endLine !== undefined && endLine < line ? endLine : undefined,
+  }
+  await saveComment(comment, source)
+
+  const id = comment.id.slice(0, 8)
+  console.log(json ? JSON.stringify({ id, file: filename, line }) : `${id}  ${filename}:${line}`)
+  return 0
+}
 
 async function list(comments: Comment[], source: string, json: boolean): Promise<number> {
   const local = comments.filter((c) => c.status === "local")

@@ -21,9 +21,18 @@ export function isLocallyResolved(comment: Comment, all: Comment[]): boolean {
   return root.status === "local" && root.isThreadResolved === true
 }
 
+/**
+ * True for a comment GitHub could never anchor: one written against code no
+ * diff is showing (spec 085). It is refused here rather than at the API,
+ * which answers 422 and loses the note.
+ */
+export function isNote(comment: Comment): boolean {
+  return comment.kind === "note"
+}
+
 /** Local comments still open — the ones a review, sync or Claude should see. */
 export function publishableLocalComments(all: Comment[]): Comment[] {
-  return all.filter((c) => c.status === "local" && !isLocallyResolved(c, all))
+  return all.filter((c) => c.status === "local" && !isNote(c) && !isLocallyResolved(c, all))
 }
 
 /**

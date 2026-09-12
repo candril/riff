@@ -63,6 +63,17 @@ export interface Comment {
   createdAt: string
   status: "local" | "pending" | "synced"
 
+  /** A note is a comment on code no diff is showing — written in file mode
+   *  or from an editor — and GitHub cannot anchor one, so it never leaves
+   *  the machine. Stored rather than worked out, because
+   *  `publishableLocalComments` reads the comment and nothing else (spec
+   *  085). Absent means an ordinary review comment. */
+  kind?: "note"
+  /** A hash of the anchored line as it read when the comment was written.
+   *  Nothing outdates a note the way GitHub outdates a review comment, so
+   *  this is what says the line moved (spec 083). */
+  anchorHash?: string
+
   // Link to specific revision
   commit?: string // Git commit hash or jj change ID
 

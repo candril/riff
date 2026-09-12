@@ -1,6 +1,6 @@
 # Comments From nvim
 
-**Status**: Draft
+**Status**: Done
 
 ## Description
 
@@ -40,24 +40,52 @@ never needs to know what a hunk is.
 - Reimplementing the comment store. The plugin writes the format; riff and
   `riff comments` own what it means.
 
-## Open questions
+## Capabilities
 
-- What writes the file — Lua, or `riff comments add --file --line` with the
-  plugin shelling out? A CLI writer keeps one implementation of the format
-  and makes the plugin trivial; it also costs a process per comment, which
-  at human typing speed is nothing. This looks like the answer.
-- Which comments does virtual text show: local notes only, or synced GitHub
-  threads too? The second needs riff to have fetched them, which makes the
-  plugin depend on a review having been opened.
-- Does resolving from nvim make sense, or is retiring a comment something
-  the agent and riff do?
-- Anchoring. A comment written in nvim is written against the working copy,
-  which is exactly the drift problem 083 already decided: fingerprint the
-  line, re-anchor in a window, go stale out loud. The plugin inherits that
-  rather than inventing anything.
+### P1
+
+- `riff comments add --file <path> --line <n> [--end-line <m>]` writes a
+  comment from outside riff, body on stdin. riff owns the format: which
+  `.riff/` a comment belongs in is six rules deep, and a second
+  implementation would write where riff does not read.
+- What it writes is a note. The writer has no diff in view and cannot know
+  whether GitHub could anchor the line, so riff answers the honest way —
+  `kind: note` in the frontmatter, and `publishableLocalComments` refuses
+  it. A 422 at the API loses the note; this does not.
+- `<leader>rc` opens a markdown buffer in a float — `:w` saves, `q`
+  abandons. A buffer and not `vim.ui.input`, because a review comment is a
+  paragraph more often than a sentence and everything you know about editing
+  one should still work. A visual selection comments on the range.
+- A commented line carries the start of the comment beside it, cut off at
+  the width with an ellipsis, and `+N` where a line holds more than one.
+- `<leader>ro` opens riff on the current file — 083's twenty-line editor
+  command, which is where it belongs.
+
+### P2
+
+- The comment stores a hash of the line it was written on, trimmed, so
+  reindenting does not invalidate a note. Re-anchoring against it is 085's.
+- Reading is asked for, never watched: on buffer read, after a write, or on
+  `:RiffRefresh`. Never blocking — this runs on every `BufReadPost`, and an
+  editor that stops for a subprocess when you open a file is worse than no
+  marks — and riff's answer is reused for two seconds, so opening a
+  directory is one subprocess rather than one per file.
+
+## Not here
+
+- Virtual text for synced GitHub threads. It needs riff to have fetched a
+  PR, which would make what nvim draws depend on whether a review was opened
+  somewhere else. Worth doing; not first.
+- Resolving from nvim. An agent retires a note, and riff is where a review
+  is read.
 
 ## Technical Notes
 
-Depends on 085 for the note kind — a comment written in nvim against
-unchanged code is the same thing as one written in riff's file mode, and it
-must be unpublishable in the same way and for the same reason.
+The note kind is the bottom of 085 brought forward: `publishableLocalComments`
+reads the comment and nothing else, so "this can never be published" has to
+survive the round trip through `.riff/`. 085 builds riff's own composer on
+the same field.
+
+The composer buffer is `acwrite`, not the `nofile` a scratch buffer starts
+as — `:w` refuses a `nofile` buffer outright (E382) and `BufWriteCmd` never
+runs.

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Comment } from "../types"
-import { isLocallyResolved, publishableLocalComments } from "./publishable"
+import { isLocallyResolved, publishableLocalComments, isNote } from "./publishable"
 
 function comment(overrides: Partial<Comment>): Comment {
   return {
@@ -44,5 +44,22 @@ describe("publishable local comments", () => {
   test("a reply whose root is gone stands on its own", () => {
     const orphan = comment({ id: "orphan", inReplyTo: "missing" })
     expect(isLocallyResolved(orphan, [orphan])).toBe(false)
+  })
+})
+
+describe("notes never leave the machine", () => {
+  test("a note is not publishable, open or not", () => {
+    const note = comment({ id: "note", kind: "note" })
+    const review = comment({ id: "review" })
+    expect(isNote(note)).toBe(true)
+    expect(isNote(review)).toBe(false)
+    expect(publishableLocalComments([note, review]).map((c) => c.id)).toEqual(["review"])
+  })
+
+  test("a reply to a note is refused with it", () => {
+    // GitHub cannot anchor the thread, so it cannot take the reply either.
+    const note = comment({ id: "note", kind: "note" })
+    const reply = comment({ id: "reply", kind: "note", inReplyTo: "note" })
+    expect(publishableLocalComments([note, reply])).toEqual([])
   })
 })
