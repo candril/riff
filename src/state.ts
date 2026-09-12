@@ -136,6 +136,12 @@ export interface InlineCommentOverlayState {
   /** Join the thread already on this line rather than starting one — what
    *  `r` means beside `c` and `n` (spec 081). */
   replyToThread?: boolean
+  /** riff has the line; GitHub cannot anchor to it. What is written here is
+   *  a note, and the composer says so before anything is typed (spec 085). */
+  note?: boolean
+  /** The anchored line as it read when the composer opened, hashed — what
+   *  will say the line moved (spec 083). */
+  anchorHash?: string
   /** Which side (LEFT/RIGHT) — only meaningful for compose/edit mode. */
   side: "LEFT" | "RIGHT"
   /** Index of the currently highlighted comment in the derived list.
@@ -2513,6 +2519,9 @@ export function openInlineCommentOverlay(
   startLine?: number,
   /** Join the thread already here rather than starting one (spec 081). */
   reply?: boolean,
+  /** What the anchor said about this line: whether GitHub could take it,
+   *  and how the line read when the composer opened (spec 085). */
+  anchor?: { note?: boolean; anchorHash?: string },
 ): AppState {
   const nextState: AppState = {
     ...state,
@@ -2525,6 +2534,8 @@ export function openInlineCommentOverlay(
       line,
       startLine: startLine && startLine < line ? startLine : undefined,
       replyToThread: reply === true,
+      note: anchor?.note === true,
+      anchorHash: anchor?.anchorHash,
       side,
       highlightedIndex: 0,
       // Opening straight into the composer picks up a draft left on this

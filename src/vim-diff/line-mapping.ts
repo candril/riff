@@ -2,6 +2,7 @@
  * DiffLineMapping - Maps visual lines to diff lines to file/line numbers
  */
 
+import { createHash } from "node:crypto"
 import { alignMarkdownTables } from "../utils/markdown-tables"
 import { findFoldableBlocks, blockAt, type FoldableBlock } from "../utils/fenced-blocks"
 import type { DiffFile } from "../utils/diff-parser"
@@ -173,10 +174,6 @@ export class DiffLineMapping {
     const line = this.lines[visualIndex]
     if (!line || !this.isCommentable(visualIndex)) return null
     if (!line.filename) return null
-    // Expanded context is outside the diff, and GitHub refuses to anchor
-    // there — no anchor is the honest answer. In file mode there is no diff
-    // at all, so the same answer covers every row (spec 084).
-    if (line.expanded || this.outsideDiff) return null
 
     const lineNum = line.type === "deletion" ? line.oldLineNum : line.newLineNum
     if (lineNum === undefined) return null
@@ -185,6 +182,10 @@ export class DiffLineMapping {
       filename: line.filename,
       line: lineNum,
       side: line.type === "deletion" ? "LEFT" : "RIGHT",
+      // Two different refusals used to share one answer of `null`: riff has
+      // no line here, and GitHub cannot anchor to this one. Only the first
+      // is a reason to have no anchor. The second is a note (spec 085).
+      note: line.expanded === true || this.outsideDiff,
     }
   }
 
@@ -195,6 +196,24 @@ export class DiffLineMapping {
   isOutsideDiff(visualIndex: number): boolean {
     if (this.outsideDiff) return this.lines[visualIndex] !== undefined
     return this.lines[visualIndex]?.expanded === true
+  }
+
+  /**
+   * The row's own text, hashed — what will say the line moved (spec 083).
+   * Trimmed first, so reindenting a block does not invalidate every note in
+   * it, and taken from `sourceContent` where a display transform rewrote
+   * the row (an aligned markdown table).
+   */
+  hashAt(visualIndex: number): string | undefined {
+    const line = this.lines[visualIndex]
+    if (!line) return undefined
+    const text = line.sourceContent ?? line.content
+    return createHash("sha256").update(text.trim()).digest("hex").slice(0, 16)
+  }
+
+  /** Where is this comment, if riff is showing the line at all. */
+  hasRowFor(comment: Pick<Comment, "filename" | "line" | "side">): boolean {
+    return this.findLineForComment(comment) !== null
   }
 
   /** True when riff is showing files rather than a diff (spec 084). */

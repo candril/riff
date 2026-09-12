@@ -32,16 +32,16 @@ describe("fileAsDiff", () => {
 })
 
 describe("outsideDiff", () => {
-  test("file mode has no anchor to give GitHub on any row", () => {
+  test("every row of a file anchors, and none of them is publishable", () => {
     const files = parseDiff(fileAsDiff("a.txt", "one\ntwo\n"))
     const asDiff = new DiffLineMapping(files, "single", 0)
     const asFiles = new DiffLineMapping(files, "single", 0, { outsideDiff: true })
 
-    // The same row is commentable read as a diff and refused read as a file.
+    // riff has the line either way; only GitHub's answer differs (spec 085).
     const row = [0, 1, 2].find((i) => asDiff.getCommentAnchor(i) !== null)!
     expect(row).toBeDefined()
-    expect(asFiles.getCommentAnchor(row)).toBeNull()
-    expect(asFiles.isOutsideDiff(row)).toBe(true)
+    expect(asDiff.getCommentAnchor(row)?.note).toBe(false)
+    expect(asFiles.getCommentAnchor(row)?.note).toBe(true)
     expect(asFiles.isFileMode()).toBe(true)
     expect(asDiff.isFileMode()).toBe(false)
   })

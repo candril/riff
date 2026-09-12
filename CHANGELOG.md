@@ -20,6 +20,10 @@ release, so write it before tagging.
   of what was said beside it. nvim keeps the navigation; riff keeps the comment.
 - **Notes never leave the machine** — a comment written where no diff is showing is stored
   as one, and every publish path refuses it rather than losing it to a 422 at the API.
+- **`c` works on any line riff is showing** — a file opened with `riff .`, context expanded
+  outside a hunk, anywhere the cursor sits on code. The composer says `Note … local only,
+  never published` before you type. A note appears only where riff has a row for it, so a
+  pull request is not buried under remarks about the rest of the repository.
 
 ### Fixed
 

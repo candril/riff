@@ -83,6 +83,10 @@ export interface CommentAnchor {
   filename: string
   line: number
   side: "LEFT" | "RIGHT"
+  /** riff has the line; GitHub cannot anchor to it — file mode, or context
+   *  expanded outside every hunk. A comment written here is a note, and no
+   *  publish path will take it (spec 085). */
+  note: boolean
 }
 
 /**

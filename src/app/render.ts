@@ -522,6 +522,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               composeFilename: state.inlineCommentOverlay.filename,
               line: state.inlineCommentOverlay.line,
               replyToThread: state.inlineCommentOverlay.replyToThread === true,
+              note: state.inlineCommentOverlay.note === true,
               mode: state.inlineCommentOverlay.mode,
               appMode: state.appMode,
               highlightedIndex: state.inlineCommentOverlay.highlightedIndex,

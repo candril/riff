@@ -67,6 +67,13 @@ export async function submitInlineDraft(
   )
 
   const comment = createComment(ov.filename, ov.line, body, ov.side, username)
+  // Written where GitHub has no anchor — file mode, or context expanded
+  // outside every hunk. It is a note: it stays here, and every publish path
+  // refuses it rather than losing it to a 422 (spec 085).
+  if (ov.note) {
+    comment.kind = "note"
+    comment.anchorHash = ov.anchorHash
+  }
   // Written against a block rather than a line: GitHub is told the range,
   // which is what makes a suggestion replace all of it (spec 076).
   if (ov.startLine && ov.startLine < ov.line) comment.startLine = ov.startLine

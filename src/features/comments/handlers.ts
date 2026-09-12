@@ -119,32 +119,9 @@ export async function handleAddComment(
     anchor = lineMapping.getCommentAnchor(i)
   }
 
-  if (!anchor) {
-    // Expanded context sits outside every hunk, and GitHub answers 422
-    // "line could not be resolved" there — better to say so now than after
-    // the user has written the comment.
-    let outsideDiff = false
-    for (let i = startLine; i <= endLine && !outsideDiff; i++) {
-      outsideDiff = lineMapping.isOutsideDiff(i)
-    }
-    if (outsideDiff) {
-      ctx.setState((s) =>
-        showToast(
-          s,
-          lineMapping.isFileMode()
-            ? "riff is showing files, not a diff — notes on a file are not here yet"
-            : "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
-          "info",
-        )
-      )
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 3500)
-    }
-    return
-  }
+  // No anchor means no line under the cursor — a header, a divider, the gap
+  // between files. A line GitHub cannot take is still a line (spec 085).
+  if (!anchor) return
 
   // Find the file
   const file = state.files.find((f) => f.filename === anchor!.filename)
@@ -236,6 +213,13 @@ export async function handleAddComment(
         // Use the selection context if available, otherwise extract from file
         comment.diffHunk =
           contextLines.length > 0 ? contextLines.join("\n") : extractDiffHunk(file.content, anchor.line)
+
+        // Written where GitHub has no anchor: a note, refused by every
+        // publish path rather than lost to a 422 (spec 085).
+        if (anchor.note) {
+          comment.kind = "note"
+          comment.anchorHash = lineMapping.hashAt(endLine)
+        }
 
         // Only a reply joins the thread already here. `C` from the diff
         // starts one of its own, the way `c` does (spec 081).

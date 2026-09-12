@@ -24,6 +24,7 @@ import {
 import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments, loadViewedStatuses, saveVisit } from "../../storage"
+import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
@@ -206,7 +207,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       ctx.setState(() => {
         const prevState = ctx.getState()
-        const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, newComments, "local", null, prevState.ignoreMatcher)
+        // The store holds the repo's notes; this diff is about some of them
+        // (spec 085).
+        const inView = commentsInView(newComments, newFiles, prevState.fileMode)
+        const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, inView, "local", null, prevState.ignoreMatcher)
 
         // Set branch info and commits
         const withBranchAndCommits = {
@@ -220,7 +224,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Viewed marks live on disk, not in the diff — a reload that skipped
       // them would drop every file's review status.
-      const threads = groupIntoThreads(newComments)
+      const threads = groupIntoThreads(ctx.getState().comments)
       ctx.setState((s) => collapseResolvedThreads(s, threads))
       const localViewedStatuses = await loadViewedStatuses(state.source)
       ctx.setState((s) => collapseViewedFiles(loadFileStatuses(s, localViewedStatuses)))

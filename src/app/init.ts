@@ -32,6 +32,7 @@ import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mappin
 import { loadConfig } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
+import { commentsInView } from "../utils/notes"
 
 export interface InitOptions {
   mode: AppMode
@@ -105,7 +106,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
         : "Pull Request"
       : localDiff!.description
   const error = isPreloadedPr || filesDiff ? null : localDiff!.error
-  const comments = isPreloadedPr ? preloadedComments ?? [] : loadedComments!
+  const loaded = isPreloadedPr ? preloadedComments ?? [] : loadedComments!
   const branchInfo = localBranchInfo
 
   // Parse diff and build tree. In file mode nothing changed, and the tree
@@ -116,6 +117,11 @@ export async function initializeAppState(options: InitOptions): Promise<{
     filesDiff ? parsed.map((file) => ({ ...file, status: "unchanged" as const })) : parsed
   )
   const fileTree = buildFileTree(files)
+
+  // The store is one repo's worth of comments; this view is about some of
+  // them. A note on code no diff here contains has nowhere to appear and
+  // nothing to say about what is on screen (spec 085).
+  const comments = commentsInView(loaded, files, filesTarget !== undefined)
 
   // Load config and create ignore matcher
   const config = loadConfig()

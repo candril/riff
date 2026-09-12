@@ -342,32 +342,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     const last = sameBlock[sameBlock.length - 1]
     const anchor = first && last ? { ...first, line: last.line } : undefined
     const blockStart = first && last && first.line < last.line ? first.line : undefined
-    if (!anchor) {
-      // Say why rather than no-op: an expanded line looks exactly as
-      // commentable as any other, so silence reads as a broken key.
-      let outsideDiff = false
-      for (let i = scanStart; i <= scanEnd && !outsideDiff; i++) {
-        outsideDiff = lineMapping.isOutsideDiff(i)
-      }
-      if (mode === "compose" && outsideDiff) {
-        ctx.setState((st) =>
-          showToast(
-            st,
-            lineMapping.isFileMode()
-              ? "riff is showing files, not a diff — notes on a file are not here yet"
-              : "GitHub can't anchor a comment outside the diff — only lines shown in a hunk",
-            "info",
-          )
-        )
-        ctx.render()
-        setTimeout(() => {
-          ctx.setState(clearToast)
-          ctx.render()
-        }, 3500)
-        return true
-      }
-      return false
-    }
+    // No anchor means no line — a header, a divider, the gap between files.
+    // A line GitHub cannot take is still a line, and what gets written on it
+    // is a note (spec 085).
+    if (!anchor) return false
 
     const root = s.comments.find(
       (c) =>
@@ -386,7 +364,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
     ctx.setState((st) => {
       const opened = openInlineCommentOverlay(
-        st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart
+        st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart, undefined,
+        { note: anchor!.note, anchorHash: lineMapping.hashAt(scanEnd) }
       )
       // Asked for this thread by name: a resolved one opens rather than
       // showing its root and hiding the rest.

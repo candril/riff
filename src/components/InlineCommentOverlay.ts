@@ -51,6 +51,8 @@ export interface InlineCommentOverlayProps {
   line: number
   /** Composing a reply rather than a thread of its own (spec 081). */
   replyToThread: boolean
+  /** GitHub has no anchor for this line: what is written is a note. */
+  note: boolean
   mode: InlineCommentOverlayMode
   /** Local diffs have nowhere to publish to — hints must not promise it. */
   appMode: "local" | "pr"
@@ -479,6 +481,7 @@ export function InlineCommentOverlay({
   composeFilename,
   line,
   replyToThread,
+  note,
   mode,
   appMode,
   highlightedIndex,
@@ -524,14 +527,18 @@ export function InlineCommentOverlay({
     highlightedComment !== undefined &&
     highlightedComment.line === line &&
     highlightedComment.filename === composeFilename
+  // A note says so before anything is typed. Finding out at publish time
+  // that a comment can never be published is finding out too late.
   const composerLabel =
     mode === "edit"
       ? "Editing comment"
-      : replyToThread
-        ? `Reply @ ${composeFile}:${line}`
-        : onALineWithAThread
-          ? `New thread @ ${composeFile}:${line}`
-          : `New comment @ ${composeFile}:${line}`
+      : note
+        ? `Note @ ${composeFile}:${line} — local only, never published`
+        : replyToThread
+          ? `Reply @ ${composeFile}:${line}`
+          : onALineWithAThread
+            ? `New thread @ ${composeFile}:${line}`
+            : `New comment @ ${composeFile}:${line}`
 
   const panelWidth = getPanelWidth(expanded)
 

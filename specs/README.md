@@ -100,6 +100,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 082 | [Emoji by Shortcode](./082-emoji.md) | Done | `:` in the composer suggests emoji |
 | 083 | [Plan: riff Reads Files](./083-file-mode-plan.md) | Draft | `riff <path>` — a file, a subtree or the repo as files, and notes on any line |
 | 084 | [File Mode](./084-file-mode.md) | Done | `riff <path>` opens a file or a directory as a diff with no changes |
+| 085 | [Comments on Files](./085-comments-on-files.md) | Done | `c` on any line riff shows; a note is local, and says so |
 | 089 | [Jump History](./089-jump-history.md) | Ready | every jump is in `Ctrl-o`'s list, because one place records them |
 | 090 | [The Opening Screen](./090-opening-screen.md) | Draft | what `riff .` should land on instead of the first file alphabetically |
 | 091 | [Comments From nvim](./091-nvim-comments.md) | Done | write a riff comment from nvim, virtual text where they are |
