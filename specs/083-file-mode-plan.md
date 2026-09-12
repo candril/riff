@@ -129,12 +129,14 @@ are already `Done`.
   spec 080 — answers the first; ripgrep over symbol names answers the second.
   If both land and go-to-definition is still missed, that is the moment to
   reconsider, with evidence rather than in advance.
-- **No nvim plugin.** riff's mermaid and table rendering is entangled with
-  the diff model — two sides, `Tab` for the version being replaced, folds
-  over a hunk — and ported to Lua it degrades into a preview several plugins
-  already do, while forking the codebase across two runtimes. The cheap
-  version of that wish is a twenty-line editor command that opens **riff** on
-  the current file.
+- **No nvim plugin that renders.** riff's mermaid and table rendering is
+  entangled with the diff model — two sides, `Tab` for the version being
+  replaced, folds over a hunk — and ported to Lua it degrades into a preview
+  several plugins already do, while forking the codebase across two runtimes.
+  The cheap version of that wish is a twenty-line editor command that opens
+  **riff** on the current file. A plugin that renders nothing and only writes
+  a comment into `.riff/` is a different thing and not rejected here — it is
+  [091](./091-nvim-comments.md).
 - **A path that exists beats a revset.** `riff .` is the spelling because `.`
   is already how every other tool says "here", and riff with no argument keeps
   meaning the working copy's changes — but `main`, `HEAD` and `src` are all
