@@ -16,6 +16,7 @@ import {
 } from "@opentui/core"
 import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { getPrCheckAnnotations } from "../providers/github"
+import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
@@ -447,7 +448,7 @@ export class PRInfoPanelClass {
     
     // Build the panel
     const { container, scrollBox } = this.build()
-    this.container = container
+    this.container = keepAlive(container)
     this.scrollBox = scrollBox
   }
 
@@ -1494,9 +1495,8 @@ export class PRInfoPanelClass {
   private rebuildSections(): void {
     if (!this.sectionsContainer) return
     
-    // Remove existing section boxes
     for (const box of this.sectionBoxes) {
-      this.sectionsContainer.remove(box.id)
+      discard(box)
     }
     this.sectionBoxes = []
     this.itemRows.clear()
@@ -2847,7 +2847,7 @@ export class PRInfoPanelClass {
     if (!open) {
       // Remove overlay if it exists
       if (this.commentInputOverlay) {
-        this.container.remove(this.commentInputOverlay.id)
+        discard(this.commentInputOverlay)
         this.commentInputOverlay = null
         this.commentInputText = null
         this.commentInputStatus = null
@@ -2953,8 +2953,7 @@ export class PRInfoPanelClass {
    * Destroy the panel
    */
   destroy(): void {
-    if (this.container.parent) {
-      this.container.parent.remove(this.container.id)
-    }
+    this.container.parent?.remove(this.container.id)
+    this.container.destroyRecursively()
   }
 }

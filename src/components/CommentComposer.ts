@@ -16,6 +16,7 @@
 import { Box, Text, TextareaRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
+import { keepAlive } from "../utils/renderables"
 
 export interface CommentComposerProps {
   /** "compose" => new reply / new comment; "edit" => updating an existing one */
@@ -68,6 +69,7 @@ function ensureComposer(renderer: CliRenderer): TextareaRenderable {
     }
     composerInstance.onContentChange = dispatch
     composerInstance.onCursorChange = dispatch
+    keepAlive(composerInstance)
   }
   return composerInstance
 }

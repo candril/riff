@@ -17,6 +17,7 @@
 import { TextareaRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
+import { keepAlive } from "../utils/renderables"
 
 const PLACEHOLDER = "Summary (optional) — Enter to submit, Ctrl-J for a newline, Esc to cancel"
 
@@ -45,6 +46,7 @@ function ensureComposer(renderer: CliRenderer): TextareaRenderable {
   composerInstance.onContentChange = () => {
     mirrorListener?.(composerInstance!.plainText)
   }
+  keepAlive(composerInstance)
   return composerInstance
 }
 

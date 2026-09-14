@@ -15,6 +15,7 @@
 import { InputRenderable, InputRenderableEvents } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
+import { keepAlive } from "../utils/renderables"
 
 /**
  * One field per prompt, keyed by the prompt that owns it. The palette's
@@ -44,6 +45,7 @@ function ensureInput(renderer: CliRenderer, owner: string): InputRenderable {
     })
     input.on(InputRenderableEvents.INPUT, (value: string) => changeHandler?.(value))
     input.on(InputRenderableEvents.ENTER, () => submitHandler?.())
+    keepAlive(input)
     inputs.set(owner, input)
   }
   return input

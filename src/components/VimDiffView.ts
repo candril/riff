@@ -27,6 +27,7 @@ import {
   getTreeSitterClient,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
+import { discard, discardChildren, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -555,6 +556,7 @@ export class VimDiffView {
       width: "100%",
       height: "100%",
     })
+    keepAlive(this.container)
     
     // Initialize dimensions
     this.lastRendererWidth = this.renderer.width
@@ -920,9 +922,7 @@ export class VimDiffView {
     const prevScrollTop = this.scrollBox?.scrollTop ?? null
 
     // Clear container and section renderables
-    for (const child of this.container.getChildren()) {
-      this.container.remove(child.id)
-    }
+    discardChildren(this.container)
     this.sectionRenderables.clear()
     this.fileSections = []
     this.wrapIndexes.clear()
@@ -1583,7 +1583,7 @@ export class VimDiffView {
    */
   private destroyStickyHeader(): void {
     if (this.stickyHeaderBox) {
-      this.container.remove(this.stickyHeaderBox.id)
+      discard(this.stickyHeaderBox)
       this.stickyHeaderBox = null
       this.stickyHeaderFoldText = null
       this.stickyHeaderViewedText = null
@@ -2847,9 +2847,7 @@ export class VimDiffView {
     // Clean up sticky header
     this.destroyStickyHeader()
     
-    for (const child of this.container.getChildren()) {
-      this.container.remove(child.id)
-    }
+    discardChildren(this.container)
     this.scrollBox = null
     this.lineNumberRenderable = null
     this.codeRenderable = null

@@ -31,6 +31,7 @@ import {
 } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import { syncPromptSession, endPromptSession } from "../components/PromptInput"
+import { discard } from "../utils/renderables"
 import { reviewCandidates } from "../utils/publishable"
 import {
   collectMentionCandidates,
@@ -286,7 +287,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       if (child.id === "file-tree-panel") {
         continue
       }
-      ctx.renderer.root.remove(child.id)
+      discard(child)
     }
 
     // Get filtered actions for action menu

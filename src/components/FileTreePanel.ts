@@ -12,6 +12,7 @@ import {
   type CliRenderer,
   type Renderable,
 } from "@opentui/core"
+import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
@@ -205,6 +206,7 @@ export class FileTreePanel {
       borderStyle: "single",
       borderColor: colors.border,
     })
+    keepAlive(this.container)
 
     // Create header
     const header = new BoxRenderable(this.renderer, {
@@ -419,9 +421,8 @@ export class FileTreePanel {
    * Rebuild all tree item renderables
    */
   private rebuildItems(flatItems: FlatTreeItem[]): void {
-    // Remove old items
-    for (const [id, item] of this.itemRenderables) {
-      this.content.remove(item.box.id)
+    for (const [, item] of this.itemRenderables) {
+      discard(item.box)
     }
     this.itemRenderables.clear()
 
@@ -691,9 +692,8 @@ export class FileTreePanel {
    * Update the "(+N hidden)" indicator at the bottom of the tree
    */
   private updateHiddenCount(hiddenCount: number, showHidden: boolean): void {
-    // Remove existing hidden count renderable if present
     if (this.hiddenCountRenderable) {
-      this.content.remove(this.hiddenCountRenderable.box.id)
+      discard(this.hiddenCountRenderable.box)
       this.hiddenCountRenderable = null
     }
 
