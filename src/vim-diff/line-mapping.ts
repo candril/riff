@@ -632,16 +632,23 @@ export class DiffLineMapping {
       const isExpanded = this.expandedDividers.has(dividerKey)
       
       if (isExpanded && fullFileLines.length > 0) {
-        // Insert the collapsed lines as context
+        // The run is text the change did not touch, so the two sides number
+        // it in step: a line sits `newLineNum - oldLineNum` further down the
+        // new file than the old one, the shift the surrounding hunks carry.
+        // These lines come out of the new file, so the old side is that shift
+        // back — and it has to be, or the old file's colours (spec 080) and
+        // the comments anchored to its lines land on the wrong rows.
+        const shift = newLineNum - oldLineNum
         const last = unknownLength ? fullFileLines.length : endLine
         for (let lineNum = startLine; lineNum <= last; lineNum++) {
           const lineContent = fullFileLines[lineNum - 1] ?? ""  // Convert to 0-indexed
+          const oldLine = lineNum - shift
           lines.push({
             visualIndex: lines.length,
             type: "context",
             content: lineContent,
             rawLine: ` ${lineContent}`,
-            oldLineNum: lineNum,
+            oldLineNum: oldLine >= 1 ? oldLine : undefined,
             newLineNum: lineNum,
             expanded: true,
             fileIndex,
