@@ -530,7 +530,7 @@ export async function createApp(options: AppOptions = {}) {
       const { owner, repo, number, baseRef } = state.prInfo
       const [head, base] = await Promise.all([
         getPrFileContent(owner, repo, number, filename, currentHeadSha),
-        getPrBaseFileContent(owner, repo, number, filename, baseRef),
+        getPrBaseFileContent(owner, repo, number, filename, baseRef, currentHeadSha),
       ])
       // A file added by the PR has no base version; that's not a failure.
       return head.ok

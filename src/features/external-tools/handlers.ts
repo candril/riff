@@ -341,7 +341,7 @@ async function fileVersions(
     const { owner, repo, number, baseRef } = ctx.prInfo
     const [head, base] = await Promise.all([
       getPrFileContent(owner, repo, number, filename, ctx.getHeadSha()),
-      getPrBaseFileContent(owner, repo, number, filename, baseRef),
+      getPrBaseFileContent(owner, repo, number, filename, baseRef, ctx.getHeadSha()),
     ])
     if (!head.ok) return { ok: false, error: head.error }
     // A file the PR adds has no base version; an empty left pane is the
@@ -442,7 +442,7 @@ export async function handleOpenExternalDiff(
       // For PRs, fetch both base and head versions from GitHub
       const { owner, repo, number: prNumber } = ctx.prInfo
       const [base, head] = await Promise.all([
-        getPrBaseFileContent(owner, repo, prNumber, filename, ctx.prInfo.baseRef),
+        getPrBaseFileContent(owner, repo, prNumber, filename, ctx.prInfo.baseRef, ctx.getHeadSha()),
         getPrFileContent(owner, repo, prNumber, filename, ctx.getHeadSha()),
       ])
       oldContent = base.ok ? base.content : null

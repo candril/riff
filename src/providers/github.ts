@@ -1623,10 +1623,11 @@ export async function getPrBaseFileContent(
   repo: string,
   prNumber: number,
   filename: string,
-  baseRef?: string
+  baseRef?: string,
+  headSha?: string
 ): Promise<FileContentResult> {
   try {
-    const ref = baseRef || (await getPrBaseRef(owner, repo, prNumber))
+    const ref = await baseVersionRef(owner, repo, prNumber, baseRef, headSha)
     return decodeContentsResponse(
       await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
       filename
@@ -1634,6 +1635,63 @@ export async function getPrBaseFileContent(
   } catch (error) {
     return { ok: false, error: await describeGhFailure(error) }
   }
+}
+
+/**
+ * The revision the PR's old side is written against: where head and base
+ * last met, rather than where the base branch has since got to. The diff
+ * counts its old line numbers from there, so a base that has moved on — or
+ * that has taken the same change by another route — serves a file those
+ * numbers do not fit.
+ */
+async function baseVersionRef(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  baseRef?: string,
+  headSha?: string
+): Promise<string> {
+  const base = baseRef || (await getPrBaseRef(owner, repo, prNumber))
+  try {
+    const head = headSha || (await getPrHeadSha(prNumber, owner, repo))
+    return await getPrMergeBase(owner, repo, prNumber, base, head)
+  } catch {
+    // A comparison the API won't serve leaves the branch: wrong wherever
+    // the two have diverged since, right for a base that has not moved,
+    // and either way better than no old side at all.
+    return base
+  }
+}
+
+const mergeBaseCache = new Map<string, Promise<string>>()
+
+/** Where head and base last met, memoized for the session. */
+function getPrMergeBase(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  baseRef: string,
+  headSha: string
+): Promise<string> {
+  const key = `${owner}/${repo}#${prNumber}:${baseRef}...${headSha}`
+  const cached = mergeBaseCache.get(key)
+  if (cached) return cached
+
+  // Only the merge base is wanted; the commits and files the comparison
+  // also carries are the bulk of a response riff would throw away.
+  const pending = $`gh api repos/${owner}/${repo}/compare/${baseRef}...${headSha}?per_page=1`
+    .json()
+    .then((result: any) => {
+      const sha = result?.merge_base_commit?.sha
+      if (typeof sha !== "string") throw new Error(`No merge base for ${baseRef}...${headSha}`)
+      return sha
+    })
+    .catch((err) => {
+      mergeBaseCache.delete(key)
+      throw err
+    })
+  mergeBaseCache.set(key, pending)
+  return pending
 }
 
 interface ContentsResponse {
