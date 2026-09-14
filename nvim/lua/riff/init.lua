@@ -139,22 +139,37 @@ local function apply(report, buf)
   end
 
   local root = report.root and (report.root .. "/") or ""
-  local found = {}
+  local mine, theirs = {}, {}
   for _, thread in ipairs(report.threads) do
-    -- This layer is what you wrote. A review's comments are the other one,
-    -- shown only when asked for and never editable here.
-    if not thread.resolved and thread.kind ~= "review" and root .. thread.file == path then
-      found[thread.line] = found[thread.line] or {}
-      table.insert(found[thread.line], {
-        body = thread.body,
-        id = thread.id,
-        replies = value(thread.replies) or {},
-      })
+    if not thread.resolved and root .. thread.file == path then
+      -- Yours is the layer you can edit; the review's is the other one. A
+      -- review comment's line is where riff says it is now (spec 086), and
+      -- one whose code is gone has nowhere honest to be drawn.
+      local anchor = value(thread.anchor)
+      local review = thread.kind == "review"
+      local at = review and (anchor and value(anchor.line)) or thread.line
+      if at then
+        local into = review and theirs or mine
+        into[at] = into[at] or {}
+        table.insert(into[at], {
+          body = thread.body,
+          id = thread.id,
+          author = value(thread.author),
+          replies = value(thread.replies) or {},
+        })
+      end
     end
   end
 
-  marks[buf] = found
+  marks[buf] = mine
   draw(buf)
+
+  -- Only when it asked for them: a review the reader put away by hand must
+  -- not come back on the next buffer write.
+  if config.review then
+    pr_marks[buf] = theirs
+    draw_pr(buf)
+  end
 end
 
 --- Ask riff what it has, then draw it on this buffer.
