@@ -37,6 +37,7 @@ import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
 import { mapFileHighlights, worthHighlighting } from "../vim-diff/file-highlights"
+import { injectedHighlights } from "../vim-diff/injections"
 
 /** Structural rows a selection skips — the same ones yank leaves out. */
 const SELECTION_SKIPPED_TYPES = new Set([
@@ -1802,10 +1803,19 @@ export class VimDiffView {
 
     try {
       const result = await getTreeSitterClient().highlightOnce(content, filetype)
+      if (!result.highlights) return
+
+      // After the file's own, so a GraphQL document's colours land on top of
+      // the string its host reads the template literal as.
+      const embedded = await injectedHighlights(content, filetype, async (text, inner) => {
+        const parsed = await getTreeSitterClient().highlightOnce(text, inner)
+        return parsed.highlights ?? null
+      })
+
       const entry = this.fileHighlights.get(filename)
       // A refresh may have replaced the content while the parse was out.
-      if (!entry || entry[side]?.content !== content || !result.highlights) return
-      entry[side] = { content, highlights: result.highlights }
+      if (!entry || entry[side]?.content !== content) return
+      entry[side] = { content, highlights: [...result.highlights, ...embedded] }
       this.updateSearchHighlights()
       this.onFileParsed?.()
     } catch {
