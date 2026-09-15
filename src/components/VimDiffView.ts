@@ -444,10 +444,17 @@ export interface VimDiffViewOptions {
 /**
  * VimDiffView class - manages diff rendering with vim cursor
  */
+/** The one code renderable of single-file mode, among the sections' indices. */
+const SINGLE_FILE_HOOK = -1
+
 export class VimDiffView {
   private renderer: CliRenderer
   private container: BoxRenderable
   private scrollBox: ScrollBoxRenderable | null = null
+  /** What the hook each section carries was built from. */
+  private installedHooks = new Map<number, string>()
+  private identities = new WeakMap<object, number>()
+  private lastIdentity = 0
   private lineNumberRenderable: LineNumberRenderable | null = null
   private codeRenderable: CodeRenderable | null = null
   
@@ -924,6 +931,9 @@ export class VimDiffView {
     // Clear container and section renderables
     discardChildren(this.container)
     this.sectionRenderables.clear()
+    // Fresh renderables carry no hook, and a key left behind would say
+    // they already had the right one.
+    this.installedHooks.clear()
     this.fileSections = []
     this.wrapIndexes.clear()
     this.wrapDirty = false
@@ -1369,6 +1379,9 @@ export class VimDiffView {
     // Single-file mode
     if (this.codeRenderable) {
       const only = this.selectedFileIndex !== null ? this.files[this.selectedFileIndex] : undefined
+      const inputs = this.hookInputs(only?.filename)
+      if (this.installedHooks.get(SINGLE_FILE_HOOK) === inputs) return
+      this.installedHooks.set(SINGLE_FILE_HOOK, inputs)
       this.codeRenderable.onHighlight = hook(0, only?.filename)
       return
     }
@@ -1378,8 +1391,41 @@ export class VimDiffView {
       const section = this.fileSections[sectionIdx]!
       const renderables = this.sectionRenderables.get(sectionIdx)
       if (!renderables) continue
+      const inputs = this.hookInputs(section.filename)
+      if (this.installedHooks.get(sectionIdx) === inputs) continue
+      this.installedHooks.set(sectionIdx, inputs)
       renderables.code.onHighlight = hook(section.startLine, section.filename)
     }
+  }
+
+  /**
+   * Everything the highlight hook reads, as one comparable string.
+   *
+   * Handing a renderable a new hook makes it parse its rows again, and with
+   * `drawUnstyledText` it draws them bare until that lands — so a file the
+   * comment poll happened to touch would go colourless for as long as the
+   * worker took. The hook reads the search and the file's parse and nothing
+   * else, so when neither has moved the one in place still stands.
+   */
+  private hookInputs(filename: string | undefined): string {
+    const entry = filename ? this.fileHighlights.get(filename) : undefined
+    return [
+      this.identityOf(this.searchState),
+      this.searchState?.currentMatchIndex ?? -1,
+      this.identityOf(entry?.new?.highlights),
+      this.identityOf(entry?.old?.highlights),
+    ].join(":")
+  }
+
+  /** A number for an object, so identities can be compared as one string. */
+  private identityOf(value: object | null | undefined): number {
+    if (!value) return 0
+    let id = this.identities.get(value)
+    if (id === undefined) {
+      id = ++this.lastIdentity
+      this.identities.set(value, id)
+    }
+    return id
   }
 
   /**
