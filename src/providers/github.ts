@@ -1583,6 +1583,20 @@ export async function getPrFileContent(
     // riff's pollers already lean on. Callers that loaded the diff know the
     // revision, so pass it and skip the round trip.
     const ref = headSha || (await getPrHeadSha(prNumber, owner, repo))
+    return await getFileContentAtRef(owner, repo, filename, ref)
+  } catch (error) {
+    return { ok: false, error: await describeGhFailure(error) }
+  }
+}
+
+/** A file as one revision has it. */
+export async function getFileContentAtRef(
+  owner: string,
+  repo: string,
+  filename: string,
+  ref: string
+): Promise<FileContentResult> {
+  try {
     return decodeContentsResponse(
       await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
       filename
@@ -1590,6 +1604,33 @@ export async function getPrFileContent(
   } catch (error) {
     return { ok: false, error: await describeGhFailure(error) }
   }
+}
+
+const commitParentCache = new Map<string, Promise<string>>()
+
+/**
+ * The commit a commit was built on, memoized for the session. Asked of the
+ * listing rather than the commit itself, whose response carries every file
+ * the commit touched.
+ */
+export function getCommitParentSha(owner: string, repo: string, sha: string): Promise<string> {
+  const key = `${owner}/${repo}@${sha}`
+  const cached = commitParentCache.get(key)
+  if (cached) return cached
+
+  const pending = $`gh api repos/${owner}/${repo}/commits?sha=${sha}&per_page=1`
+    .json()
+    .then((result: any) => {
+      const parent = result?.[0]?.parents?.[0]?.sha
+      if (typeof parent !== "string") throw new Error(`No parent commit for ${sha}`)
+      return parent
+    })
+    .catch((err) => {
+      commitParentCache.delete(key)
+      throw err
+    })
+  commitParentCache.set(key, pending)
+  return pending
 }
 
 const baseRefCache = new Map<string, Promise<string>>()
@@ -1628,10 +1669,7 @@ export async function getPrBaseFileContent(
 ): Promise<FileContentResult> {
   try {
     const ref = await baseVersionRef(owner, repo, prNumber, baseRef, headSha)
-    return decodeContentsResponse(
-      await $`gh api repos/${owner}/${repo}/contents/${filename}?ref=${ref}`.json(),
-      filename
-    )
+    return await getFileContentAtRef(owner, repo, filename, ref)
   } catch (error) {
     return { ok: false, error: await describeGhFailure(error) }
   }

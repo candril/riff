@@ -1733,6 +1733,13 @@ export class VimDiffView {
       if (entry.old) void this.parseFile(filename, "old", versions.old!)
     }
 
+    // A file riff no longer has the text of has no parse to keep either:
+    // switching the commit in scope drops them all, and a parse left behind
+    // would colour the next span's rows from the last one's file.
+    for (const filename of this.fileHighlights.keys()) {
+      if (!contents.has(filename)) this.fileHighlights.delete(filename)
+    }
+
     // A file's text and its parse are held for as long as the reader is
     // plausibly still in that part of the review; a two-hundred-file PR
     // should not end up holding two hundred of them.

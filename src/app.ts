@@ -7,7 +7,7 @@ import { commentsWithRows } from "./utils/notes"
 import { collapseViewedFiles, loadFileStatuses } from "./state"
 import { getCurrentRepo } from "./providers/github"
 import { loadComments, loadOrCreateSession, loadViewedStatuses } from "./storage"
-import { getPrFileContent, getPrBaseFileContent, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -526,11 +526,20 @@ export async function createApp(options: AppOptions = {}) {
   async function fetchFileVersions(
     filename: string,
   ): Promise<{ ok: true; newContent: string; oldContent: string | null } | { ok: false; error: string }> {
+    // A commit in scope is a diff of its own, running between that span's
+    // ends rather than the review's (spec 078).
+    const span = scopeSpan()
+
     if (state.appMode === "pr" && state.prInfo) {
       const { owner, repo, number, baseRef } = state.prInfo
+      const spanBase = span ? await spanBaseRef(span.oldest) : null
       const [head, base] = await Promise.all([
-        getPrFileContent(owner, repo, number, filename, currentHeadSha),
-        getPrBaseFileContent(owner, repo, number, filename, baseRef, currentHeadSha),
+        span
+          ? getFileContentAtRef(owner, repo, filename, span.newest)
+          : getPrFileContent(owner, repo, number, filename, currentHeadSha),
+        spanBase
+          ? getFileContentAtRef(owner, repo, filename, spanBase)
+          : getPrBaseFileContent(owner, repo, number, filename, baseRef, currentHeadSha),
       ])
       // A file added by the PR has no base version; that's not a failure.
       return head.ok
@@ -539,8 +548,8 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     const [newContent, oldContent] = await Promise.all([
-      getFileContent(filename),
-      getOldFileContent(filename),
+      getFileContent(filename, span?.newest ?? options.target),
+      getOldFileContent(filename, span?.oldest ?? options.target),
     ])
     return newContent === null
       ? { ok: false, error: "Could not read file from the working tree" }
@@ -1213,6 +1222,35 @@ export async function createApp(options: AppOptions = {}) {
     const index = state.commits.findIndex((commit) => commit.sha === sha)
     const parent = index === -1 ? undefined : state.commits[index + 1]
     return parent?.sha ?? state.prInfo?.baseRef ?? `${sha}^`
+  }
+
+  /**
+   * The oldest and newest commit in scope, or null when the whole review is
+   * in view. A selection with gaps is read as its commits' own patches
+   * (spec 078), and no pair of revisions spans those.
+   */
+  function scopeSpan(): { oldest: string; newest: string } | null {
+    const newest = state.viewingCommit
+    if (!newest) return null
+    const scope = state.viewingCommitScope
+    return scope ? contiguousRun(scope) : { oldest: newest, newest }
+  }
+
+  /**
+   * The revision a span's diff is measured from: the commit before its
+   * oldest. That one is in the list riff already has, except for the first
+   * commit of the review, whose predecessor the API has to name.
+   */
+  async function spanBaseRef(oldest: string): Promise<string | null> {
+    const index = state.commits.findIndex((commit) => commit.sha === oldest)
+    const previous = index === -1 ? undefined : state.commits[index + 1]
+    if (previous) return previous.sha
+    if (!state.prInfo) return null
+    try {
+      return await getCommitParentSha(state.prInfo.owner, state.prInfo.repo, oldest)
+    } catch {
+      return null
+    }
   }
 
   /**

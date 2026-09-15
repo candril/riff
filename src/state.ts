@@ -3203,6 +3203,9 @@ export function setViewingCommit(
       collapsedFiles: new Set(),
       collapsedHunks: new Set(),
       expandedDividers: new Set(),
+      // What riff read of a file belongs to the span it read it for: the
+      // rows now on screen are a different diff, between different ends.
+      fileContentCache: {},
     }
   }
 
@@ -3221,6 +3224,7 @@ export function setViewingCommit(
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     expandedDividers: new Set(),
+    fileContentCache: {},
   }
 }
 
