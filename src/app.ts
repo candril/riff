@@ -587,18 +587,36 @@ export async function createApp(options: AppOptions = {}) {
   let highlightSourceWanted: string | null = null
   let highlightSourceTimer: ReturnType<typeof setTimeout> | null = null
   const highlightSourceFailed = new Set<string>()
+  const highlightSourceInFlight = new Set<string>()
+
+  /**
+   * What a read would fetch: the file, from the revisions in view. A refresh
+   * or a change of commit drops what riff read, and this is how it knows to
+   * read it again rather than leaving the rows to the fragment parse.
+   */
+  function highlightSourceKey(filename: string): string {
+    const span = scopeSpan()
+    const from = span
+      ? `${span.oldest}..${span.newest}`
+      : currentHeadSha ?? options.target ?? ""
+    return `${filename}@${from}`
+  }
+
   function requestHighlightSource(): void {
     const filename = lineMapping.getLine(vimState.line)?.filename
-    if (!filename || filename === highlightSourceWanted) return
-    highlightSourceWanted = filename
-
+    if (!filename) return
     // A file riff was told not to show — a lock file, generated code — is
     // not a file riff should read either (spec 080).
     if (state.ignoredFiles.has(filename)) return
 
     const cached = state.fileContentCache[filename]
     if (cached?.newContent) return
-    if (cached?.loading || cached?.error || highlightSourceFailed.has(filename)) return
+    if (cached?.loading || cached?.error) return
+
+    const key = highlightSourceKey(filename)
+    if (highlightSourceInFlight.has(key) || highlightSourceFailed.has(key)) return
+    if (key === highlightSourceWanted && highlightSourceTimer) return
+    highlightSourceWanted = key
 
     // Locally the size is one stat away, so the read never happens at all.
     // A PR's is not known until it arrives, and the parse declines it then.
@@ -611,6 +629,7 @@ export async function createApp(options: AppOptions = {}) {
     if (highlightSourceTimer) clearTimeout(highlightSourceTimer)
     highlightSourceTimer = setTimeout(() => {
       highlightSourceTimer = null
+      highlightSourceInFlight.add(key)
       void (async () => {
         try {
           const fetched = await fetchFileVersions(filename)
@@ -618,10 +637,12 @@ export async function createApp(options: AppOptions = {}) {
             state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
             render()
           } else {
-            highlightSourceFailed.add(filename)
+            highlightSourceFailed.add(key)
           }
         } catch {
-          highlightSourceFailed.add(filename)
+          highlightSourceFailed.add(key)
+        } finally {
+          highlightSourceInFlight.delete(key)
         }
       })()
     }, HIGHLIGHT_SOURCE_DELAY_MS)
