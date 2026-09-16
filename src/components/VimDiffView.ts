@@ -39,6 +39,7 @@ import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
 import { mapFileHighlights, worthHighlighting } from "../vim-diff/file-highlights"
 import { injectedHighlights } from "../vim-diff/injections"
 import { applyQueryPredicates } from "../vim-diff/query-predicates"
+import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 
 /** Structural rows a selection skips — the same ones yank leaves out. */
 const SELECTION_SKIPPED_TYPES = new Set([
@@ -111,6 +112,12 @@ export function getSyntaxStyle(): SyntaxStyle {
       // Search highlight styles
       "search.match": { bg: RGBA.fromHex(theme.yellow), fg: RGBA.fromHex(theme.base) },
       "search.current": { bg: RGBA.fromHex(theme.peach), fg: RGBA.fromHex(theme.base) },
+
+      // The spans that changed inside a paired line (spec 096). Background
+      // only: the syntax scope underneath keeps the foreground, so a string
+      // is still green where it changed.
+      "diff.word.removed": { bg: RGBA.fromHex("#6b2b3f") },
+      "diff.word.added": { bg: RGBA.fromHex("#2b6b4a") },
     })
   }
   return sharedSyntaxStyle
@@ -545,6 +552,8 @@ export class VimDiffView {
   private lineColorsCache: Map<number, LineColorConfig> = new Map()
   /** Display width of each mapping line's content; 0 where nothing is drawn. */
   private lineWidths: number[] = []
+  /** The spans a paired line does not share with its partner (spec 096). */
+  private wordSpans: Map<number, WordSpan[]> = new Map()
 
   // Soft wrap. Off, every row is one line and the whole view keeps that
   // assumption; on, the row math routes through a per-section WrapIndex
@@ -974,6 +983,7 @@ export class VimDiffView {
     }
 
     this.buildLineWidths()
+    this.wordSpans = computeWordDiff(this.lineMapping)
 
     // Determine mode: single file or all files
     const isAllFilesMode = this.selectedFileIndex === null
@@ -1379,9 +1389,10 @@ export class VimDiffView {
           : highlights
 
         const own = this.stripOwnRowHighlights(base, context.content, lineOffset)
+        const words = this.injectWordSpans(own, context.content, lineOffset)
         return searchState
-          ? this.injectSearchHighlights(own, context.content, searchState, lineOffset)
-          : own
+          ? this.injectSearchHighlights(words, context.content, searchState, lineOffset)
+          : words
       }
 
     // Single-file mode
@@ -1422,6 +1433,7 @@ export class VimDiffView {
       this.searchState?.currentMatchIndex ?? -1,
       this.identityOf(entry?.new?.highlights),
       this.identityOf(entry?.old?.highlights),
+      this.identityOf(this.wordSpans),
     ].join(":")
   }
 
@@ -1502,6 +1514,44 @@ export class VimDiffView {
   /**
    * Inject search match highlights into the highlights array
    */
+  /**
+   * The spans a paired line does not share with its partner, in the offsets
+   * of the rows a section is drawing (spec 096).
+   *
+   * Under the search layer, so a match inside a changed span is still
+   * painted as a match — the reader asked to see that one.
+   */
+  private injectWordSpans(
+    highlights: SimpleHighlight[],
+    content: string,
+    lineOffset: number
+  ): SimpleHighlight[] {
+    if (this.wordSpans.size === 0) return highlights
+
+    const lineStartOffsets = computeLineStartOffsets(content)
+    const result = [...highlights]
+
+    for (let localLine = 0; localLine < lineStartOffsets.length; localLine++) {
+      const row = lineOffset + localLine
+      const spans = this.wordSpans.get(row)
+      if (!spans) continue
+
+      const scope =
+        this.lineMapping?.getLine(row)?.type === "deletion"
+          ? "diff.word.removed"
+          : "diff.word.added"
+
+      for (const span of spans) {
+        const from = lineColToOffset(lineStartOffsets, localLine, span.startCol, content.length)
+        const to = lineColToOffset(lineStartOffsets, localLine, span.endCol, content.length)
+        if (from < 0 || to < 0 || to <= from) continue
+        result.push([from, to, scope])
+      }
+    }
+
+    return result
+  }
+
   private injectSearchHighlights(
     highlights: SimpleHighlight[],
     content: string,

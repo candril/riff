@@ -59,7 +59,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 029 | [Comment Resolution Status](./029-comment-resolution-status.md) | Draft | Display and toggle comment resolution state |
 | 030 | [Viewed Files Sync](./030-viewed-files-sync.md) | Draft | Sync viewed status with GitHub |
 | 031 | [Open in Editor](./031-open-in-editor.md) | Draft | Open current file in nvim at cursor line |
-| 032 | [Diff Strategies](./032-diff-strategies.md) | Draft | Different diff algorithm strategies |
+| 032 | [Diff Strategies](./032-diff-strategies.md) | Draft | difftastic as a span provider, and what a split view would cost |
 | 033 | [Comment Sync](./033-comment-sync.md) | Ready | Sync edits and replies to GitHub |
 | 034 | [Delete Comments](./034-delete-comments.md) | Draft | Delete comments with safeguard confirmation |
 | 042 | [Comment Reactions](./042-comment-reactions.md) | Draft | Add/remove GitHub reactions on PR comments, body, reviews |
@@ -109,6 +109,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 093 | [One List](./093-one-list.md) | Done | `--all` is your notes and the branch's review in one report |
 | 094 | [The Review, In a Local Diff](./094-the-review-in-a-local-diff.md) | Done | `riff` on a branch with a PR shows that PR's comments on the lines they are on |
 | 095 | [Opening the Branch's PR](./095-opening-the-branchs-pr.md) | Done | `i` and `a` in a local review load the pull request the header names |
+| 096 | [The Words That Changed](./096-word-diff.md) | Done | the spans that differ inside a paired deletion and addition are brighter |
 
 ## MVP Path
 
