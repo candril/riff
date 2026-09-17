@@ -610,12 +610,16 @@ export async function createApp(options: AppOptions = {}) {
     return `${filename}@${from}`
   }
 
-  /** The key a read of this file would carry, or null if it needs no read. */
+  /**
+   * The key a read of this file would carry, or null if it needs no read.
+   *
+   * The ignore list is not consulted. It decides what the tree offers, not
+   * what the diff draws — `**​/__snapshots__/**` is ignored by default, and
+   * a snapshot is exactly the generated file a reader does open, to see the
+   * one line that moved. Being on screen is the whole test: what riff shows
+   * a reader, riff colours from the file (spec 080).
+   */
   function highlightSourceNeeded(filename: string): string | null {
-    // A file riff was told not to show — a lock file, generated code — is
-    // not a file riff should read either (spec 080).
-    if (state.ignoredFiles.has(filename)) return null
-
     const cached = state.fileContentCache[filename]
     if (cached?.newContent || cached?.loading || cached?.error) return null
 

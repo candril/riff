@@ -43,9 +43,13 @@ fetched the way riff already fetches one to expand context.
 - riff's own rows keep their own styling: the fold markers and file headers
   are chrome, not source.
 
-- A file riff was told not to show — a lock file, generated code — is not
-  a file riff reads. Nor is one too big to be worth parsing: that is a
-  generated bundle, and its colours are worth nothing.
+- What riff shows, riff colours from the file — the ignore list does not
+  come into it. It decides what the tree offers, not what the diff draws,
+  and `**/__snapshots__/**` is ignored by default: a snapshot is exactly the
+  generated file a reader does open, to see the one line that moved. Being
+  on screen is the whole test.
+- A file too big to be worth parsing is still not read: that is a generated
+  bundle, and its colours are worth nothing.
 - Deletions are highlighted from the old version's text, which arrives in
   the same read. Without it a deleted line keeps the fragment parse's
   reading, which is worse than nothing once its neighbours are right —
