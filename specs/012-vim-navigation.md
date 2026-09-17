@@ -23,6 +23,13 @@ Replace the current DiffRenderable-based diff view with a custom renderer built 
 - **Position the view**: `zz/zt/zb` put the cursor's row at the centre, top or
   bottom of the window, keeping the scroll-off margin so the next motion
   doesn't undo the scroll
+- **The view follows the rows it is drawing.** A cursor row is an index into
+  the line mapping, and until the view has drawn that mapping the index
+  belongs to nothing on screen — collapsing a file with `x`, or opening the
+  ones a search hits, builds a new mapping and then asks for the cursor. So
+  the reveal waits for the rebuild, which does it once the sections match;
+  scrolling to the old row first and correcting afterwards is the lurch
+  that waiting avoids.
 - **Word motions**: `w/e/b` word forward/end/back, `W/E/B` WORD motions
 - **Line motions**: `0` start of line, `^` first non-space, `$` end of line
 - **Find in line**: `f{char}` find forward, `F{char}` find back, `t/T` till variants, `;/,` repeat

@@ -295,6 +295,15 @@ export async function createApp(options: AppOptions = {}) {
     const scrollBox = vimDiffView.getScrollBox()
     if (!scrollBox) return
 
+    // A mapping the view has not drawn yet numbers its rows differently
+    // from the sections on screen, so resolving the cursor against them
+    // scrolls to whatever used to be at that index — `x` collapsing a file
+    // and `*` opening the ones it hits both rebuild the mapping and then
+    // ask for the cursor, and the view lurched to the wrong place before
+    // the rebuild put it right. The rebuild reveals the cursor itself
+    // (setOnContentRebuilt), where the tree matches the mapping.
+    if (!vimDiffView.isShowing(lineMapping)) return
+
     // In all-files mode, the cursor line (mapping index) may not equal
     // the visual row in the scrollbox due to file headers and collapsed files.
     // Use cursorLineToVisualRow to get the actual visual position.

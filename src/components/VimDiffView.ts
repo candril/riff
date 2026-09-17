@@ -723,6 +723,19 @@ export class VimDiffView {
   /**
    * Update just the cursor position (fast path)
    */
+  /**
+   * Whether the tree on screen is the one this mapping describes.
+   *
+   * A caller that has just built a new mapping — collapsing a file, opening
+   * the ones a search hits — holds row indices the drawn sections know
+   * nothing about, so resolving one to a screen row would answer for
+   * whatever used to be there. Anything that scrolls has to wait for the
+   * rebuild, which reveals the cursor itself once it lands.
+   */
+  isShowing(mapping: DiffLineMapping): boolean {
+    return this.lineMapping === mapping
+  }
+
   updateCursor(cursorState: VimCursorState): void {
     this.cursorState = cursorState
     this.updateHighlights()
