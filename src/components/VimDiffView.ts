@@ -41,6 +41,9 @@ import { injectedHighlights } from "../vim-diff/injections"
 import { applyQueryPredicates } from "../vim-diff/query-predicates"
 import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 
+/** Rows that hold a line of the file, and so have colours to get right. */
+const COLOURABLE_TYPES = new Set(["context", "addition", "deletion", "no-newline"])
+
 /** Structural rows a selection skips — the same ones yank leaves out. */
 const SELECTION_SKIPPED_TYPES = new Set([
   "file-header",
@@ -1936,6 +1939,29 @@ export class VimDiffView {
     if (next === this.flashState) return
     this.flashState = next
     this.renderer.requestRender()
+  }
+
+  /**
+   * The files with code on screen, topmost first (spec 080).
+   *
+   * Code, not rows: a collapsed file shows a header and nothing else, and a
+   * header has no colours to get right, so reading that file would be a
+   * fetch for something nobody is looking at.
+   */
+  visibleFilenames(): string[] {
+    if (!this.scrollBox || !this.lineMapping) return []
+
+    const scrollTop = this.expectedScrollTop ?? this.scrollBox.scrollTop
+    const names: string[] = []
+
+    for (const row of this.visibleRows(scrollTop)) {
+      if (row.line < 0) continue
+      const line = this.lineMapping.getLine(row.line)
+      if (!line?.filename || !COLOURABLE_TYPES.has(line.type)) continue
+      if (!names.includes(line.filename)) names.push(line.filename)
+    }
+
+    return names
   }
 
   /**

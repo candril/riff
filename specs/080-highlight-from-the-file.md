@@ -18,8 +18,8 @@ template literals and JSX do the same thing.
 
 There is no fixing this from the visible text: the missing information is
 the parser's state where the hunk begins, and only the hidden text has it.
-But "the file" is not "all the code" — one file, the one you are looking
-at, fetched the way riff already fetches one to expand context.
+But "the file" is not "all the code" — the files you are looking at,
+fetched the way riff already fetches one to expand context.
 
 ## Out of Scope
 
@@ -71,9 +71,24 @@ and the two dozen most recent files kept. The parse is the expensive half,
 not the mapping, which is redone per frame because the rows move with every
 fold.
 
-The text is asked for when the cursor arrives in a file — noticed in the
-render loop, where a lookup and an early return cost nothing — and read
-quietly: no loading state, no error state, 150ms after arriving, so walking
-a review with `]f` reads nothing. The same cache answers the
-expand-context feature, so a file read for its colours is already read for
-its context.
+The text is asked for every file with code on screen, not just the one the
+cursor is in: the rows a reader can see are either coloured from their file
+or coloured wrong, and the cursor is only ever in one of them. Code, not
+rows — a collapsed file shows a header, and a header has no colours to get
+right.
+
+Noticed in the render loop, where a walk of the visible rows and an early
+return cost nothing, and read quietly: no loading state, no error state,
+150ms after coming into view, so walking a review with `]f` reads nothing.
+The pause is re-armed only when the set of wanted files changes, which is
+what makes the walking free and also keeps a render on someone else's timer
+— the comment poll — from starving the read.
+
+What bounds it is the viewport: a screen's worth of files, where the diff at
+large would be two hundred reads nobody asked for. Six at a time, since a
+screen of one-line files would otherwise be a screen of fetches at once; the
+rest are still on screen when the render that each finished read triggers
+comes back for them.
+
+The same cache answers the expand-context feature, so a file read for its
+colours is already read for its context.

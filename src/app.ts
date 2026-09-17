@@ -466,9 +466,9 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== RENDER =====
   /**
-   * Every frame is also where riff notices the cursor has moved into a
-   * file it has not read yet (spec 080). The check is a lookup and an
-   * early return; the read behind it is debounced.
+   * Every frame is also where riff notices a file on screen it has not read
+   * yet (spec 080). The check is a walk of the visible rows and an early
+   * return; the reads behind it are debounced.
    */
   function render(): void {
     renderFrame()
@@ -576,18 +576,26 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   /**
-   * Read the file the cursor is in, so it can be highlighted as a file
-   * rather than as the rows on screen (spec 080).
+   * Read the files on screen, so their rows can be highlighted as files
+   * rather than as the fragments they are (spec 080).
    *
-   * Asked for per file as the reader arrives in it, never for the diff at
-   * large: a two-hundred-file review is not two hundred reads nobody wanted.
-   * Local mode takes it off disk; a PR asks GitHub, the way expanding
-   * context already does, and the same cache answers both.
+   * Asked for per file as it comes into view, never for the diff at large:
+   * a two-hundred-file review is not two hundred reads nobody wanted. Local
+   * mode takes it off disk; a PR asks GitHub, the way expanding context
+   * already does, and the same cache answers both.
    */
-  let highlightSourceWanted: string | null = null
   let highlightSourceTimer: ReturnType<typeof setTimeout> | null = null
+  let highlightSourceArmedFor = ""
   const highlightSourceFailed = new Set<string>()
   const highlightSourceInFlight = new Set<string>()
+  const highlightSourcePending = new Map<string, string>()
+
+  /**
+   * How many files one pass reads. A screen of one-line files would
+   * otherwise be a screen of fetches at once; the rest stay on screen, so
+   * the render each finished read triggers comes back for them.
+   */
+  const HIGHLIGHT_SOURCE_BATCH = 6
 
   /**
    * What a read would fetch: the file, from the revisions in view. A refresh
@@ -602,49 +610,84 @@ export async function createApp(options: AppOptions = {}) {
     return `${filename}@${from}`
   }
 
-  function requestHighlightSource(): void {
-    const filename = lineMapping.getLine(vimState.line)?.filename
-    if (!filename) return
+  /** The key a read of this file would carry, or null if it needs no read. */
+  function highlightSourceNeeded(filename: string): string | null {
     // A file riff was told not to show — a lock file, generated code — is
     // not a file riff should read either (spec 080).
-    if (state.ignoredFiles.has(filename)) return
+    if (state.ignoredFiles.has(filename)) return null
 
     const cached = state.fileContentCache[filename]
-    if (cached?.newContent) return
-    if (cached?.loading || cached?.error) return
+    if (cached?.newContent || cached?.loading || cached?.error) return null
 
     const key = highlightSourceKey(filename)
-    if (highlightSourceInFlight.has(key) || highlightSourceFailed.has(key)) return
-    if (key === highlightSourceWanted && highlightSourceTimer) return
-    highlightSourceWanted = key
+    if (highlightSourceInFlight.has(key) || highlightSourceFailed.has(key)) return null
 
     // Locally the size is one stat away, so the read never happens at all.
     // A PR's is not known until it arrives, and the parse declines it then.
-    if (state.appMode === "local" && Bun.file(filename).size > MAX_HIGHLIGHT_BYTES) return
+    if (state.appMode === "local" && Bun.file(filename).size > MAX_HIGHLIGHT_BYTES) return null
 
-    // After a pause, and quietly. Nobody asked for this file — riff wants
-    // it to colour the rows — so walking through twenty files with `]f`
-    // must not be twenty reads, and none of them may put the panel into a
-    // loading state the reader would have to watch.
+    return key
+  }
+
+  async function readHighlightSource(filename: string, key: string): Promise<void> {
+    try {
+      const fetched = await fetchFileVersions(filename)
+      if (fetched.ok) {
+        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+        render()
+      } else {
+        highlightSourceFailed.add(key)
+      }
+    } catch {
+      highlightSourceFailed.add(key)
+    } finally {
+      highlightSourceInFlight.delete(key)
+    }
+  }
+
+  /**
+   * Read every file with code on screen, not only the one the cursor is in
+   * (spec 080). A file the reader can see is coloured from the file or from
+   * the fragment, and the fragment is wrong in ways the file is not — a
+   * hunk starting inside a comment, or a schema whose `on` turns up as a
+   * keyword in the middle of a word.
+   *
+   * Bounded by the viewport rather than by the review: what is on screen is
+   * a handful of files, where the diff at large is two hundred reads nobody
+   * asked for.
+   */
+  function requestHighlightSource(): void {
+    highlightSourcePending.clear()
+    for (const filename of vimDiffView.visibleFilenames()) {
+      const key = highlightSourceNeeded(filename)
+      if (key) highlightSourcePending.set(filename, key)
+    }
+    if (highlightSourcePending.size === 0) return
+
+    // Re-armed only when the set of wanted files changes, which is what
+    // makes walking a review with `]f` read nothing: each move rearms, and
+    // the read lands once the reader has stopped somewhere. An unchanged
+    // set leaves the pending timer alone, so a render on its own timer —
+    // the comment poll — cannot starve it.
+    const armFor = [...highlightSourcePending.values()].sort().join("|")
+    if (highlightSourceTimer && armFor === highlightSourceArmedFor) return
+    highlightSourceArmedFor = armFor
     if (highlightSourceTimer) clearTimeout(highlightSourceTimer)
+
+    // Quietly: none of these may put the panel into a loading state the
+    // reader would have to watch.
     highlightSourceTimer = setTimeout(() => {
       highlightSourceTimer = null
-      highlightSourceInFlight.add(key)
-      void (async () => {
-        try {
-          const fetched = await fetchFileVersions(filename)
-          if (fetched.ok) {
-            state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
-            render()
-          } else {
-            highlightSourceFailed.add(key)
-          }
-        } catch {
-          highlightSourceFailed.add(key)
-        } finally {
-          highlightSourceInFlight.delete(key)
-        }
-      })()
+      highlightSourceArmedFor = ""
+      const wanted = [...highlightSourcePending].slice(0, HIGHLIGHT_SOURCE_BATCH)
+      highlightSourcePending.clear()
+
+      for (const [filename, key] of wanted) {
+        // The state may have moved while the pause ran.
+        if (highlightSourceNeeded(filename) !== key) continue
+        highlightSourceInFlight.add(key)
+        void readHighlightSource(filename, key)
+      }
     }, HIGHLIGHT_SOURCE_DELAY_MS)
   }
 

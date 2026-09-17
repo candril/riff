@@ -41,11 +41,8 @@ gutter and the overflow markers are already painted.
 - Making a fragment parse right. That is spec 080's job, and the table above
   says it is the only thing that does; this stops riff from making a
   fragment worse than it already is.
-- **When riff reads a file for its colours.** Spec 080's P1 says the text is
-  fetched "when the file is on screen", and `requestHighlightSource` asks
-  only for the file the cursor is in — so a file the reader can see, but has
-  not put the cursor in, keeps the fragment reading and everything in this
-  spec's table applies to it. That gap is spec 080's to close.
+- **When riff reads a file for its colours.** Which files get a parse of
+  their own is spec 080's, and it reads every file with code on screen.
 - The fold marker of a fenced block (spec [073](./073-fold-code-blocks.md)).
   Its row *is* the opening fence, and the mapping says so — the cursor and a
   comment anchor both read that content, so it is not riff's to blank.
