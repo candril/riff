@@ -20,6 +20,16 @@ Fetch and display GitHub Pull Requests using the `gh` CLI. Support opening PRs b
 - **PR by URL**: `riff https://github.com/owner/repo/pull/123` (copy from browser)
 - **PR by number**: `riff #123` or `riff 123` (infers repo from current directory)
 - **PR diff**: Fetch and display the PR diff
+- **A PR past GitHub's diff cap still opens.** GitHub will not put more than
+  300 files in one diff — it answers 406 `diff too_large` — and a rename
+  across a monorepo's library reaches that without being a large change in
+  any other sense: 331 files, 308 of them renames, +86/-55. The files API
+  has no such cap, so the patch is assembled from what it says about each
+  file, every line of it GitHub's own. `gh pr diff` stays the way in, being
+  one request rather than four.
+- **A failed `gh` call says what GitHub said.** A Bun `ShellError`'s message
+  is only "Failed with exit code 1", and the API's body is on stdout or
+  stderr; the message carries the body.
 - **PR metadata**: Show PR title, author, branch info in header
 - **Existing comments**: Load and display existing PR review comments
 
