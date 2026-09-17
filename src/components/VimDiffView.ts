@@ -197,6 +197,11 @@ const headerDeletionsFg = RGBA.fromHex(theme.red)
 
 const overflowFg = RGBA.fromHex(theme.overlay1)
 
+/** A collapsed-context label: the `comment` scope it used to be given as
+ *  text, now that it is painted rather than parsed (spec 097). */
+const dividerFg = RGBA.fromHex(theme.overlay0)
+const dividerAttributes = TextAttributes.ITALIC
+
 /** Parsed once per hex string — the overlay repaints every frame. */
 const rgbaCache = new Map<string, RGBA>()
 function rgba(color: string | RGBA): RGBA {
@@ -619,6 +624,7 @@ export class VimDiffView {
       const rows = this.visible ? this.visibleRows(scrollTop) : []
       this.dragCursorIntoView(rows, scrollTop)
       this.renderGutterOverlay(buffer, rows)
+      this.renderDividerOverlay(buffer, rows)
       this.renderOverflowMarkers(buffer, rows)
       this.renderWrapMarkers(buffer, rows)
       this.renderSelectionOverlay(buffer, rows)
@@ -1306,9 +1312,10 @@ export class VimDiffView {
           lines.push(line.content)
           break
         case "divider":
-          // Collapsed context — the row says what it is and how to open it
-          const divLabel = line.content || "..."
-          lines.push(this.formatDivider(divLabel, line.dividerKey))
+          // Blank for the parser, painted by renderDividerOverlay: the
+          // label is not a line of any language, and a parser handed one
+          // derails for every row below it (spec 097).
+          lines.push("")
           break
         case "addition":
         case "deletion":
@@ -2408,6 +2415,34 @@ export class VimDiffView {
   }
 
   /**
+   * Paint the collapsed-context labels the parser was not shown (spec 097).
+   *
+   * The row itself is blank in the text handed to the highlighter, because
+   * `▸ 502 lines  ↵` is not a line of any language and a parser given one
+   * reads every row below it wrong. Drawing at `contentX` pins the label
+   * against the gutter: that is the unscrolled content origin, so it holds
+   * the leftmost visible column at any scroll position — which is what
+   * chrome should do, having nothing to its right to scroll towards.
+   */
+  private renderDividerOverlay(buffer: OptimizedBuffer, rows: VisibleRow[]): void {
+    const bounds = this.paneBounds()
+    if (!bounds || !this.lineMapping) return
+
+    for (const row of rows) {
+      if (row.screenY >= buffer.height || row.line < 0) continue
+      const line = this.lineMapping.getLine(row.line)
+      if (line?.type !== "divider") continue
+
+      const label = this.formatDivider(line.content || "...", line.dividerKey)
+      const width = Math.min(label.length, bounds.right - row.contentX)
+      if (width <= 0) continue
+
+      const bg = rgba(this.lineColorsCache.get(row.line)?.content ?? gutterBg)
+      buffer.drawText(label.slice(0, width), row.contentX, row.screenY, dividerFg, bg, dividerAttributes)
+    }
+  }
+
+  /**
    * Repaint the gutter at the pane's left edge while scrolled sideways.
    *
    * The gutter renderable lives inside the scrolling content, so without
@@ -2716,9 +2751,8 @@ export class VimDiffView {
           lines.push(line.content)
           break
         case "divider":
-          // Divider showing collapsed line count with loading state
-          const label = line.content || "..."
-          lines.push(this.formatDivider(label, line.dividerKey))
+          // Blank for the parser; the label is an overlay (spec 097).
+          lines.push("")
           break
         case "addition":
         case "deletion":
