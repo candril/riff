@@ -158,6 +158,49 @@ describe("the spans of a diff, by visual line", () => {
     }
   })
 
+  test("a rewrapped paragraph has no changed words to point at", () => {
+    // One word crosses the line break and nothing else moves: every pair
+    // comes out with a span on a word that did not change.
+    const mapping = new DiffLineMapping(
+      [
+        file([
+          " prose above",
+          "-stays _TODO_ inline in the",
+          '-list it belongs to — never a separate "open questions" or',
+          "+stays _TODO_ inline in the list",
+          '+it belongs to — never a separate "open questions" or',
+          " prose below",
+        ]),
+      ],
+      "all"
+    )
+
+    expect(computeWordDiff(mapping).size).toBe(0)
+  })
+
+  test("a rewrap that also changes a word still says which word", () => {
+    const mapping = new DiffLineMapping(
+      [
+        file([
+          " prose above",
+          "-stays _TODO_ inline in the",
+          "-list it belongs to",
+          "+stays _DONE_ inline in the list",
+          "+it belongs to",
+          " prose below",
+        ]),
+      ],
+      "all"
+    )
+
+    const spans = computeWordDiff(mapping)
+    const painted = [...spans].flatMap(([row, found]) =>
+      texts(mapping.getLine(row)!.content, found)
+    )
+    expect(painted.some((text) => text.includes("TODO"))).toBe(true)
+    expect(painted.some((text) => text.includes("DONE"))).toBe(true)
+  })
+
   test("a deletion with no addition after it is not a pair", () => {
     const mapping = new DiffLineMapping([file([" keep", "-first = alpha(x)", " tail"])], "all")
     expect(computeWordDiff(mapping).size).toBe(0)

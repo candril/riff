@@ -274,6 +274,24 @@ function keep(spans: PairSpans): PairSpans | null {
 }
 
 /**
+ * Whether a run's two sides say the same thing, the line breaks aside.
+ *
+ * A rewrapped paragraph is a real diff with no changed words in it: a word
+ * crosses a line boundary, and every pair in the run then comes out with
+ * one span at an edge pointing at a word that did not change. Highlighting
+ * it is worse than highlighting nothing, because it says something moved
+ * when only the wrapping did.
+ */
+function onlyRewrapped(before: readonly string[], after: readonly string[]): boolean {
+  return flatten(before) === flatten(after)
+}
+
+/** A run's text as one line, however it happened to be broken up. */
+function flatten(lines: readonly string[]): string {
+  return lines.join(" ").replace(/\s+/g, " ").trim()
+}
+
+/**
  * Whether a row's `content` is the file's own text.
  *
  * A folded fence's row says `\`\`\`ts ▸ 5 lines`, which is riff's chrome, and
@@ -309,6 +327,9 @@ export function computeWordDiff(mapping: DiffLineMapping): Map<number, WordSpan[
     while (row < count && mapping.getLine(row)?.type === "no-newline") row++
     const additions: number[] = []
     while (row < count && mapping.getLine(row)?.type === "addition") additions.push(row++)
+
+    const said = (rows: number[]) => rows.map((row) => mapping.getLine(row)!.content)
+    if (onlyRewrapped(said(deletions), said(additions))) continue
 
     // Where the runs are uneven the tail has no partner and stays whole.
     const pairs = Math.min(deletions.length, additions.length)

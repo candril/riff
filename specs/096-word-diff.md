@@ -60,6 +60,12 @@ background and the rest of the line keeps the red or green it has.
   of a sentence share most of their words in a different order and the
   alignment dutifully paints every gap between them. Pointing at all of a
   line points at none of it, so it is left whole.
+- **A rewrap changed no words.** Where a run's two sides say the same thing
+  once the line breaks are taken out, one word has crossed a boundary and
+  nothing else moved. Every pair in such a run comes out with a single span
+  at an edge, on a word that is still there — which reads as *that word
+  changed*, when what changed was the wrapping. So the run is left whole,
+  and a rewrap that does also change a word still says which one.
 - **Whitespace alone is not a change worth painting.** A reindent moves
   every column of the line; painting the moved indentation is a block of
   colour that says nothing about what the line now does. A span that is
@@ -86,6 +92,12 @@ stray brackets — says which of them the two lines share. The tokens that
 are not in it become the spans, adjacent ones merged, and what those spans
 then cover — of what each line says, its indentation excluded — is what
 gates the pair, along with how many of them there are.
+
+The rewrap test is the one that reads a whole run rather than a pair, and it
+has to: `stays _TODO_ inline in the` / `list it belongs to` becoming
+`stays _TODO_ inline in the list` / `it belongs to` is two pairs, each of
+which is a perfectly good one-span answer on its own, and only the run says
+that between them nothing changed at all.
 
 The two numbers are calibrated against real diffs rather than guessed. Over
 a 118-file span of riff's own history, four fifths of the painted pairs come
