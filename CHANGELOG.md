@@ -9,6 +9,10 @@ release, so write it before tagging.
 
 ### Added
 
+- **`riff --demo`** — a review of a repository riff generates in `TMPDIR`: five files with a
+  modification, an addition and a deletion over them, with no network call and nothing written
+  into the repository it was launched from.
+
 - **riff reads files** — `riff .`, `riff src/` and `riff src/app.ts` open a path instead of
   a diff, drawn as a diff with no changes so folds, flash, `/`, tables, mermaid and the
   syntax highlighting all come with it. A directory opens folded. A path that exists wins

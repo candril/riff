@@ -10,6 +10,10 @@ run *args:
 dev *args:
     bun --watch src/index.ts {{args}}
 
+# Review a repository riff generates: no network, no gh
+demo *args:
+    bun src/index.ts --demo {{args}}
+
 # Install dependencies
 install:
     bun install

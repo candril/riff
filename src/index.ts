@@ -4,6 +4,7 @@
 import { createApp } from "./app"
 import { getCurrentRepo, loadPrSession } from "./providers/github"
 import { resolveCurrentPr } from "./providers/current-pr"
+import { createDemoRepo } from "./providers/demo"
 import { resolveStorageWithConfirmation } from "./storage"
 import { runCommentsCli } from "./cli/comments"
 import { parseArgs } from "./cli/args"
@@ -73,6 +74,7 @@ const HELP_TEXT = `
     $ riff https://github.com/facebook/react/pull/1234
 
 \x1b[1mOPTIONS\x1b[0m
+    \x1b[33m--demo\x1b[0m                    Review a repository riff generates: no network, no gh
     \x1b[33m-r, --revision <rev>\x1b[0m      Read <rev> as a revision, even where a path of that name exists
     \x1b[33m-h, --help\x1b[0m                Show this help message
     \x1b[33m-v, --version\x1b[0m             Show version number
@@ -323,6 +325,13 @@ async function main() {
   }
   if (args.version) {
     printVersion()
+  }
+  if (args.demo) {
+    // Reviewing the fixture means being inside it: riff reads the repository from
+    // the working directory, and the demo's drafts belong in the fixture's .riff/,
+    // not in whatever repository the demo was launched from.
+    console.log("Building the demo repository...")
+    process.chdir(await createDemoRepo())
   }
 
   try {

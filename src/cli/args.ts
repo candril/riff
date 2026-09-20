@@ -16,6 +16,7 @@ export interface CliArgs {
   // Flags
   help?: boolean
   version?: boolean
+  demo?: boolean
 }
 
 /**
@@ -45,6 +46,11 @@ export function parseArgs(
   }
   if (args.includes("-v") || args.includes("--version")) {
     return { type: "local", version: true }
+  }
+  // The fixture is built and entered before anything else, so the demo ignores
+  // whatever else was typed rather than reviewing the launch directory.
+  if (args.includes("--demo")) {
+    return { type: "local", demo: true }
   }
 
   // `-r <rev>` is the way out of the ambiguity below: on a repo that holds a
