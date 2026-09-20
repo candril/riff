@@ -460,6 +460,22 @@ export class PRInfoPanelClass {
   }
 
   /**
+   * How wide a markdown table in this panel may be.
+   *
+   * The panel's own width, once it has one. It does not have one while the
+   * first build runs: `build()` is called from the constructor and
+   * `this.container` is assigned from what it returns, so a table in the
+   * PR's description — rendered inside that build — asks a panel that does
+   * not exist yet. The panel is the whole of the row it is mounted in, so
+   * the terminal's width is the width it is about to have, and it is what
+   * the inline overlay's tables already measure against.
+   */
+  private markdownWidth(): number {
+    const container = this.container as BoxRenderable | undefined
+    return container?.width || this.renderer.width
+  }
+
+  /**
    * Get the scroll box for external scrolling
    */
   getScrollBox(): ScrollBoxRenderable {
@@ -1765,7 +1781,7 @@ export class PRInfoPanelClass {
       const md = new MarkdownRenderable(this.renderer, {
         id: "pr-info-description",
         content: withReferences(softenCommentHtml(body.text)),
-        renderNode: tableRenderer(this.renderer, () => this.container.width),
+        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
         syntaxStyle: getSyntaxStyle(),
       })
       container.add(md)
@@ -2371,7 +2387,7 @@ export class PRInfoPanelClass {
     if (parsed.text) {
       const md = new MarkdownRenderable(this.renderer, {
         content: withReferences(softenCommentHtml(parsed.text)),
-        renderNode: tableRenderer(this.renderer, () => this.container.width),
+        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
         syntaxStyle: getSyntaxStyle(),
       })
       bodyBox.add(md)
