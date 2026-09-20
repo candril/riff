@@ -297,7 +297,7 @@ export class FileTreePanel {
     this.filterFocused = treeFilterInput
 
     if (treeFilterInput) {
-      this.header.remove(this.headerText.id)
+      this.header.remove(this.headerText)
       this.filterPrefix.visible = true
       this.filterInput.visible = true
       this.header.add(this.filterPrefix)
@@ -306,8 +306,8 @@ export class FileTreePanel {
       this.filterInput.focus()
     } else {
       this.filterInput.blur()
-      this.header.remove(this.filterPrefix.id)
-      this.header.remove(this.filterInput.id)
+      this.header.remove(this.filterPrefix)
+      this.header.remove(this.filterInput)
       this.filterPrefix.visible = false
       this.filterInput.visible = false
       this.header.add(this.headerText)

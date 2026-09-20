@@ -33,7 +33,7 @@ export function keepAlive<T extends Renderable>(renderable: T): T {
  */
 export function discard(node: Renderable): void {
   if (isKeptAlive(node)) {
-    node.parent?.remove(node.id)
+    node.parent?.remove(node)
     return
   }
   unmountKeptAlive(node)
@@ -53,7 +53,7 @@ function isKeptAlive(node: Renderable): boolean {
 
 function unmountKeptAlive(node: Renderable): void {
   for (const child of node.getChildren()) {
-    if (isKeptAlive(child)) node.remove(child.id)
+    if (isKeptAlive(child)) node.remove(child)
     else unmountKeptAlive(child)
   }
 }

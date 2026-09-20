@@ -2969,7 +2969,7 @@ export class PRInfoPanelClass {
    * Destroy the panel
    */
   destroy(): void {
-    this.container.parent?.remove(this.container.id)
+    this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }
 }
