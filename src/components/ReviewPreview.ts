@@ -163,10 +163,11 @@ export function ReviewPreview({
           content: "Summary" + (isFocused("input") ? " (editing)" : ""),
           fg: isFocused("input") ? theme.text : theme.subtext0,
         }),
+        // No padding inside the border: the textarea paints its own
+        // background, so a gutter between the two reads as a second,
+        // misaligned box rather than as breathing room.
         Box(
           {
-            paddingX: 1,
-            paddingY: 0,
             marginTop: 1,
             minHeight: 3,
             borderStyle: "single",
