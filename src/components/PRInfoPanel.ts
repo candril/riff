@@ -29,6 +29,7 @@ import { softenCommentHtml } from "../utils/comment-html"
 import { annotateReferences } from "../utils/references"
 import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
+import { MarkdownBodies } from "./markdown-bodies"
 import { colors, theme } from "../theme"
 
 /**
@@ -349,6 +350,8 @@ function isFailingCheck(check: PrCheck): boolean {
  */
 export class PRInfoPanelClass {
   private renderer: CliRenderer
+  /** Comment and description bodies, kept alive across rebuilds. */
+  private bodies: MarkdownBodies
   private container: BoxRenderable
   private scrollBox: ScrollBoxRenderable
   private prInfo: PrInfo
@@ -422,6 +425,7 @@ export class PRInfoPanelClass {
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
+    this.bodies = new MarkdownBodies(renderer)
     this.prInfo = prInfo
     this.files = files
     this.comments = comments
@@ -1673,6 +1677,7 @@ export class PRInfoPanelClass {
    * Build the sections content
    */
   private buildSections(container: BoxRenderable): void {
+    this.bodies.begin()
     const configs = this.getSectionConfigs()
     
     for (const config of configs) {
@@ -1726,6 +1731,8 @@ export class PRInfoPanelClass {
       
       container.add(sectionBox)
     }
+
+    this.bodies.end()
   }
 
   /**
@@ -1778,13 +1785,7 @@ export class PRInfoPanelClass {
 
     const body = extractCommentImages(this.prInfo.body)
     if (body.text) {
-      const md = new MarkdownRenderable(this.renderer, {
-        id: "pr-info-description",
-        content: withReferences(softenCommentHtml(body.text)),
-        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
-        syntaxStyle: getSyntaxStyle(),
-      })
-      container.add(md)
+      container.add(this.markdownBody("pr-info-description", body.text))
     }
     this.appendImageRows(container, body.images, 0)
     this.appendReactionRow(container, this.prInfo.bodyReactions)
@@ -2112,7 +2113,7 @@ export class PRInfoPanelClass {
         rows.push({ container: row, primary: authorText, secondary: bodyText })
 
         if (isExpanded) {
-          this.buildExpandedCommentBody(container, comment.body, 4)
+          this.buildExpandedCommentBody(container, `pr-comment-${comment.id}`, comment.body, 4)
           this.appendReactionRow(container, comment.reactions, 4)
         }
 
@@ -2183,7 +2184,7 @@ export class PRInfoPanelClass {
         
         // Show review body if expanded (but threads are separate items now)
         if (isExpanded && hasBody) {
-          this.buildExpandedCommentBody(container, review.body!, 4)
+          this.buildExpandedCommentBody(container, `review-${review.id}`, review.body!, 4)
         }
         if (isExpanded) {
           this.appendReactionRow(container, review.reactions, 4)
@@ -2273,7 +2274,7 @@ export class PRInfoPanelClass {
           }
           
           // Comment body
-          this.buildExpandedCommentBody(container, thread.body, 6)
+          this.buildExpandedCommentBody(container, `thread-${thread.id}`, thread.body, 6)
           this.appendReactionRow(container, thread.reactions, 6)
 
           // Replies
@@ -2297,7 +2298,7 @@ export class PRInfoPanelClass {
             this.addTimeColumn(replyHeader, reply.createdAt)
             container.add(replyHeader)
 
-            this.buildExpandedCommentBody(container, reply.body, 8)
+            this.buildExpandedCommentBody(container, `reply-${reply.id}`, reply.body, 8)
             this.appendReactionRow(container, reply.reactions, 8)
           }
         }
@@ -2374,7 +2375,7 @@ export class PRInfoPanelClass {
   /**
    * Build expanded comment body with markdown rendering
    */
-  private buildExpandedCommentBody(container: BoxRenderable, body: string, indent: number): void {
+  private buildExpandedCommentBody(container: BoxRenderable, id: string, body: string, indent: number): void {
     const bodyBox = new BoxRenderable(this.renderer, {
       flexDirection: "column",
       paddingLeft: indent,
@@ -2385,16 +2386,22 @@ export class PRInfoPanelClass {
 
     const parsed = extractCommentImages(body)
     if (parsed.text) {
-      const md = new MarkdownRenderable(this.renderer, {
-        content: withReferences(softenCommentHtml(parsed.text)),
-        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
-        syntaxStyle: getSyntaxStyle(),
-      })
-      bodyBox.add(md)
+      bodyBox.add(this.markdownBody(id, parsed.text))
     }
     this.appendImageRows(bodyBox, parsed.images, 0)
 
     container.add(bodyBox)
+  }
+
+  /**
+   * A body from the pool — one renderable per id, alive across the
+   * rebuilds this panel does on almost every keypress.
+   */
+  private markdownBody(id: string, text: string): MarkdownRenderable {
+    return this.bodies.mount(id, withReferences(softenCommentHtml(text)), {
+      renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
+      syntaxStyle: getSyntaxStyle(),
+    })
   }
 
   /**
@@ -2510,7 +2517,7 @@ export class PRInfoPanelClass {
     container.add(headerRow)
     
     // Thread root comment body
-    this.buildExpandedCommentBody(container, thread.body, indent + 2)
+    this.buildExpandedCommentBody(container, `thread-${thread.id}`, thread.body, indent + 2)
     this.appendReactionRow(container, thread.reactions, indent + 2)
 
     // Replies
@@ -2531,7 +2538,7 @@ export class PRInfoPanelClass {
       }))
       container.add(replyHeader)
 
-      this.buildExpandedCommentBody(container, reply.body, indent + 4)
+      this.buildExpandedCommentBody(container, `reply-${reply.id}`, reply.body, indent + 4)
       this.appendReactionRow(container, reply.reactions, indent + 4)
     }
   }
@@ -2969,6 +2976,7 @@ export class PRInfoPanelClass {
    * Destroy the panel
    */
   destroy(): void {
+    this.bodies.destroy()
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }

@@ -16,6 +16,7 @@
 import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
+import { MarkdownBodies } from "./markdown-bodies"
 import { PromptInput } from "./PromptInput"
 import type { Comment } from "../types"
 import type { EmojiPickerState, InlineCommentOverlayMode, MentionPickerState } from "../state"
@@ -93,32 +94,32 @@ export interface InlineCommentOverlayProps {
 }
 
 /**
- * Build a MarkdownRenderable for a comment body. We tried caching by
- * id to avoid re-parsing on every render, but reusing the same
- * Renderable instance across renders smeared its position (the body
- * text bled into adjacent comment headers — see CleanShot 2026-04-27
- * 17.38). OpenTUI's reconciliation expects fresh instances per render
- * tied to a stable `id`, so we instantiate every frame and rely on
- * the id-keyed reconciliation to be cheap enough.
+ * Comment bodies. Kept alive across render passes by the shared pool —
+ * see `markdown-bodies.ts` for why building them per pass flickered.
  */
+let bodies: MarkdownBodies | null = null
+
+function bodyPool(renderer: CliRenderer): MarkdownBodies {
+  if (!bodies) bodies = new MarkdownBodies(renderer)
+  return bodies
+}
+
 function buildMarkdown(
   renderer: CliRenderer,
   id: string,
   content: string
 ): MarkdownRenderable {
-  return new MarkdownRenderable(renderer, {
+  return bodyPool(renderer).mount(
     id,
-    renderNode: tableRenderer(renderer, () => renderer.width),
     // The renderer has no case for HTML tokens, so the tags people write
     // in GitHub comments would land here verbatim. A bare `#412` gets the
     // title of what it points at, once riff has been told (spec 059).
-    content: annotateReferences(
-      softenCommentHtml(content),
-      resolvedReferences(),
-      referenceRepo(),
-    ),
-    syntaxStyle: getSyntaxStyle(),
-  })
+    annotateReferences(softenCommentHtml(content), resolvedReferences(), referenceRepo()),
+    {
+      renderNode: tableRenderer(renderer, () => renderer.width),
+      syntaxStyle: getSyntaxStyle(),
+    }
+  )
 }
 
 /**
@@ -500,6 +501,7 @@ export function InlineCommentOverlay({
   flashLabels,
   renderer,
 }: InlineCommentOverlayProps) {
+  bodyPool(renderer).begin()
   const threads = groupIntoThreads(comments)
   const headerLabel = scopeFilename
     ? scopeFilename.split("/").pop() || scopeFilename
@@ -548,7 +550,7 @@ export function InlineCommentOverlay({
   const maxVisibleThreads = threadWindowSize(expanded)
   const visible = pickVisibleThreads(threads, displayOrder, highlightedIndex, maxVisibleThreads)
 
-  return Box(
+  const panel = Box(
     {
       position: "absolute",
       top: 0,
@@ -871,4 +873,7 @@ export function InlineCommentOverlay({
           )
     )
   )
+
+  bodyPool(renderer).end()
+  return panel
 }
