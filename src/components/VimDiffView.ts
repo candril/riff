@@ -198,12 +198,17 @@ const headerNameFg = RGBA.fromHex(theme.blue)
 const headerAdditionsFg = RGBA.fromHex(theme.green)
 const headerDeletionsFg = RGBA.fromHex(theme.red)
 
-const overflowFg = RGBA.fromHex(theme.overlay1)
+/** Markers are a hint about a line, not part of it — so they sit a step
+ *  below the dimmest text riff draws rather than beside it. */
+const markerFg = RGBA.fromHex(theme.surface2)
 
 /** A collapsed-context label: the `comment` scope it used to be given as
  *  text, now that it is painted rather than parsed (spec 097). */
 const dividerFg = RGBA.fromHex(theme.overlay0)
 const dividerAttributes = TextAttributes.ITALIC
+
+/** The key that opens a collapsed run, shown at the end of its label. */
+const ENTER_HINT = "↵"
 
 /** Parsed once per hex string — the overlay repaints every frame. */
 const rgbaCache = new Map<string, RGBA>()
@@ -519,6 +524,7 @@ export class VimDiffView {
   // an active text input (e.g. inline comment composer) can own the
   // terminal cursor without being clobbered by the diff post-process.
   private suspendCursor: boolean = false
+  private obscured: boolean = false
 
   // File sections for all-files mode (multi-renderable architecture)
   private fileSections: FileSection[] = []
@@ -624,7 +630,7 @@ export class VimDiffView {
       const scrollTop = this.expectedScrollTop ?? this.scrollBox?.scrollTop ?? 0
       this.positionTerminalCursor()
 
-      const rows = this.visible ? this.visibleRows(scrollTop) : []
+      const rows = this.visible && !this.obscured ? this.visibleRows(scrollTop) : []
       this.dragCursorIntoView(rows, scrollTop)
       this.renderGutterOverlay(buffer, rows)
       this.renderDividerOverlay(buffer, rows)
@@ -653,7 +659,7 @@ export class VimDiffView {
     }
     // What it is, and the key that opens it — `za` does not, since a
     // collapsed run of context is not a fold (spec 074).
-    return `▸ ${lineCount}  ↵`
+    return `▸ ${lineCount}  ${ENTER_HINT}`
   }
 
   /**
@@ -746,6 +752,19 @@ export class VimDiffView {
    */
   getScrollBox(): ScrollBoxRenderable | null {
     return this.scrollBox
+  }
+
+  /**
+   * Stand the diff's own chrome down while something covers it.
+   *
+   * The gutter, the collapsed-context labels, the overflow and wrap
+   * markers, the selection and flash tints are all painted straight onto
+   * the composited frame, after every renderable has had its turn. No
+   * zIndex reaches above that, so an overlay drawn over the diff cannot
+   * cover them — they have to be told not to paint.
+   */
+  setObscured(obscured: boolean): void {
+    this.obscured = obscured
   }
 
   /**
@@ -2415,7 +2434,7 @@ export class VimDiffView {
       if (row.line < 0 || row.startCol <= 0) continue
       if (row.screenY >= buffer.height) continue
       if (row.contentX - 1 < bounds.left) continue
-      drawMarker(buffer, row.contentX - 1, row.screenY, "↳", overflowFg)
+      drawMarker(buffer, row.contentX - 1, row.screenY, "↳", markerFg)
     }
   }
 
@@ -2445,10 +2464,10 @@ export class VimDiffView {
       if (window <= 0) continue
 
       if (lineWidth > scrollLeft + window && bounds.right - 1 < buffer.width) {
-        drawMarker(buffer, bounds.right - 1, row.screenY, "›", overflowFg)
+        drawMarker(buffer, bounds.right - 1, row.screenY, "›", markerFg)
       }
       if (scrollLeft > 0 && row.contentX - 1 >= bounds.left) {
-        drawMarker(buffer, row.contentX - 1, row.screenY, "‹", overflowFg)
+        drawMarker(buffer, row.contentX - 1, row.screenY, "‹", markerFg)
       }
     }
   }
@@ -2478,6 +2497,13 @@ export class VimDiffView {
 
       const bg = rgba(this.lineColorsCache.get(row.line)?.content ?? gutterBg)
       buffer.drawText(label.slice(0, width), row.contentX, row.screenY, dividerFg, bg, dividerAttributes)
+
+      // The `↵` is the key to press, not part of what the row says, so it
+      // is repainted as a marker rather than as more of the label.
+      const hint = label.length - 1
+      if (hint < width && label[hint] === ENTER_HINT) {
+        buffer.drawText(ENTER_HINT, row.contentX + hint, row.screenY, markerFg, bg, dividerAttributes)
+      }
     }
   }
 

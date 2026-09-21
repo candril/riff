@@ -432,6 +432,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       else endPromptSession()
 
       ctx.vimDiffView.setSuspendCursor(composerActive || reviewActive || prompt !== null)
+      ctx.vimDiffView.setObscured(coversTheDiff(state))
     }
 
     ctx.renderer.root.add(
@@ -692,6 +693,29 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
     }
   }
+}
+
+/**
+ * Is a full-screen overlay standing between the reader and the diff?
+ *
+ * Only the ones that actually cover it: the diff's chrome is painted over
+ * the finished frame (see `setObscured`), so standing it down is the only
+ * way to be under something — and standing it down for a corner toast
+ * would blank the gutter to hide a glyph nobody minds.
+ */
+function coversTheDiff(state: AppState): boolean {
+  return (
+    state.actionMenu.open ||
+    state.reviewPreview.open ||
+    state.syncPreview.open ||
+    state.filePicker.open ||
+    state.commentsPicker.open ||
+    state.commitPicker.open ||
+    state.showHelp ||
+    state.confirmDialog !== null ||
+    (state.showLinePeek && state.viewMode === "diff") ||
+    (state.inlineCommentOverlay.open && state.inlineCommentOverlay.codePeekId !== null)
+  )
 }
 
 /**
