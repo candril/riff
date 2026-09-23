@@ -7,7 +7,7 @@
 
 import { Box, Text } from "@opentui/core"
 import { theme } from "../theme"
-import type { FlashState } from "../vim-diff/flash-state"
+import { remainingRowLabels, type FlashState } from "../vim-diff/flash-state"
 
 export interface FlashPromptProps {
   flashState: FlashState
@@ -18,11 +18,15 @@ export function FlashPrompt({ flashState }: FlashPromptProps) {
     return Box({ height: 0 })
   }
 
-  const noMatches = flashState.pattern.length > 0 && flashState.matches.length === 0
+  const targets =
+    flashState.surface === "diff"
+      ? flashState.matches.length
+      : remainingRowLabels(flashState.rows, flashState.pattern).size
+  const noMatches = flashState.pattern.length > 0 && targets === 0
   const hint = noMatches
     ? "no targets"
-    : flashState.matches.length > 0
-      ? `${flashState.matches.length} target${flashState.matches.length === 1 ? "" : "s"}`
+    : flashState.pattern.length > 0
+      ? `${targets} target${targets === 1 ? "" : "s"}`
       : "type to jump"
 
   return Box(

@@ -18,6 +18,7 @@ import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
 import { flattenTree, filterTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
+import { flashLabelCell } from "../vim-diff/flash-state"
 
 export interface FileTreePanelOptions {
   renderer: CliRenderer
@@ -183,7 +184,7 @@ export class FileTreePanel {
   private currentShowHidden: boolean = false
   private currentFilter: string = ""
   /** Flash labels by flat row index, while `s` is labelling (spec 066). */
-  private currentFlashLabels: ReadonlyMap<number, string> = new Map()
+  private currentFlashLabels: ReadonlyMap<string, string> = new Map()
   /** Files carrying a comment that arrived since your last visit (spec 069). */
   private currentUnseenFiles: ReadonlySet<string> = new Set()
   /** And the ones whose content moved since then. */
@@ -349,7 +350,7 @@ export class FileTreePanel {
     multiSelectedFilenames?: Set<string>,
     treeFilter = "",
     treeFilterInput = false,
-    flashLabels: ReadonlyMap<number, string> = new Map(),
+    flashLabels: ReadonlyMap<string, string> = new Map(),
     unseenFiles: ReadonlySet<string> = new Set(),
     changedSinceVisit: ReadonlySet<string> = new Set()
   ): void {
@@ -668,10 +669,10 @@ export class FileTreePanel {
       const displayName = truncate(node.name, availableWidth)
 
       // Update properties
-      const flashLabel = this.currentFlashLabels.get(index)
+      const flashLabel = this.currentFlashLabels.get(String(index))
       renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.markerText.content = flashLabel ? `${flashLabel} ` : `${marker} `
-      renderables.markerText.fg = flashLabel ? colors.flashLabel : markerColor
+      renderables.markerText.content = flashLabel !== undefined ? flashLabelCell(flashLabel) : `${marker} `
+      renderables.markerText.fg = flashLabel !== undefined ? colors.flashLabel : markerColor
       renderables.statusText.content = `${statusIndicator} `
       renderables.statusText.fg = statusColor
       // Two marks for "since you last looked": a dot for something said
@@ -714,6 +715,12 @@ export class FileTreePanel {
       this.content.add(box)
       this.hiddenCountRenderable = { box, text }
     }
+  }
+
+  /** The first and last row index the scroll box is showing. */
+  visibleRows(): { first: number; last: number } {
+    const first = Math.floor(this.scrollBox.scrollTop)
+    return { first, last: first + Math.floor(this.scrollBox.height) - 1 }
   }
 
   /**

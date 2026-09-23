@@ -16,6 +16,7 @@
 import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
+import { flashLabelCell } from "../vim-diff/flash-state"
 import { MarkdownBodies } from "./markdown-bodies"
 import { PromptInput } from "./PromptInput"
 import type { Comment } from "../types"
@@ -468,7 +469,7 @@ function renderMentionPicker(
  */
 /** The row's two-cell lead: its flash label while labelling, else the caret. */
 function caretContent(label: string | undefined, highlighted: boolean): string {
-  if (label) return `${label} `
+  if (label !== undefined) return flashLabelCell(label)
   return highlighted ? "▸ " : "  "
 }
 

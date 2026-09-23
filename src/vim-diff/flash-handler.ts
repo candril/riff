@@ -2,7 +2,7 @@
  * FlashHandler - Orchestrates flash jump mode (spec 022)
  *
  * Flash only ever searches what the user can see, which is what makes a
- * single-character label alphabet enough. The view supplies that region;
+ * single-character label alphabet enough in the diff. The view supplies that region;
  * this handler owns the pattern, the labels, and the jump.
  */
 
@@ -13,8 +13,8 @@ import {
   assignLabels,
   createFlashState,
   findLabelledMatch,
-  findLabelledRow,
   labelRows,
+  resolveRowKey,
 } from "./flash-state"
 
 /** The slice of the diff currently on screen. */
@@ -61,7 +61,8 @@ export class FlashHandler {
 
   /**
    * Enter flash mode on a list: every visible row is labelled at once, and
-   * the next keystroke either jumps or cancels (spec 066).
+   * each keystroke jumps, narrows to the labels it begins, or cancels
+   * (spec 066).
    */
   startList(surface: FlashSurface, ids: string[], reserved = ""): void {
     const rows = labelRows(ids, reserved)
@@ -78,8 +79,9 @@ export class FlashHandler {
     if (!state.active) return
 
     if (state.surface !== "diff") {
-      const row = findLabelledRow(state.rows, char)
-      if (row) this.jumpToRow(state.surface, row)
+      const resolved = resolveRowKey(state.rows, state.pattern, char)
+      if (resolved.kind === "jump") this.jumpToRow(state.surface, resolved.row)
+      else if (resolved.kind === "narrow") this.setListPrefix(resolved.typed)
       else this.cancel()
       return
     }
@@ -105,7 +107,8 @@ export class FlashHandler {
       return
     }
 
-    this.updatePattern(state.pattern.slice(0, -1))
+    if (state.surface !== "diff") this.setListPrefix(state.pattern.slice(0, -1))
+    else this.updatePattern(state.pattern.slice(0, -1))
   }
 
   /**
@@ -115,6 +118,11 @@ export class FlashHandler {
   cancel(): void {
     if (!this.opts.getFlashState().active) return
     this.opts.setFlashState(createFlashState())
+    this.opts.onUpdate()
+  }
+
+  private setListPrefix(typed: string): void {
+    this.opts.setFlashState({ ...this.opts.getFlashState(), pattern: typed })
     this.opts.onUpdate()
   }
 

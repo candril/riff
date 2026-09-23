@@ -22,8 +22,11 @@ there are rows on screen.
 - `s` works in the file tree, the info panel, the feed and the comments
   panel.
 - In a list, `s` labels **every visible row at once** and the next keystroke
-  jumps. There are rarely more than forty rows on screen, so a label each is
-  enough and it costs one keypress.
+  jumps. When the rows outnumber the alphabet, the last letters become
+  prefixes of two-letter labels, so every row on screen is reachable and the
+  top of the list still costs one keypress.
+- Labels take the cells the row's marker already takes, and the flash prompt
+  takes the status bar's row: entering flash moves nothing on screen.
 - In the diff, `s` keeps today's behaviour — type, then pick a label — because
   labelling sixty rows of code is noise.
 - Any key that is not a label cancels, leaving the surface as it was.

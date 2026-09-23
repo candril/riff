@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test"
 import {
   assignLabels,
   findLabelledMatch,
-  findLabelledRow,
   labelRows,
+  remainingRowLabels,
+  resolveRowKey,
   FLASH_LABELS,
 } from "./flash-state"
 
@@ -105,28 +106,70 @@ describe("findLabelledMatch", () => {
 })
 
 describe("labelling a list's rows", () => {
+  const ids = (count: number) => Array.from({ length: count }, (_, i) => String(i))
+  const jumpsTo = (rows: ReturnType<typeof labelRows>, keys: string) => {
+    let typed = ""
+    for (const char of keys) {
+      const resolved = resolveRowKey(rows, typed, char)
+      if (resolved.kind === "jump") return resolved.row.id
+      if (resolved.kind === "cancel") return null
+      typed = resolved.typed
+    }
+    return null
+  }
+
   test("every row gets a label, top to bottom", () => {
-    const rows = labelRows(["0", "1", "2"])
+    const rows = labelRows(ids(3))
 
     expect(rows.map((row) => row.label)).toEqual(["a", "s", "d"])
-    expect(findLabelledRow(rows, "d")?.id).toBe("2")
+    expect(jumpsTo(rows, "d")).toBe("2")
   })
 
   test("keys the surface acts on stay out of the alphabet", () => {
-    const rows = labelRows(["0", "1"], "as")
+    const rows = labelRows(ids(2), "as")
 
     expect(rows.map((row) => row.label)).toEqual(["d", "f"])
-    expect(findLabelledRow(rows, "a")).toBeNull()
+    expect(jumpsTo(rows, "a")).toBeNull()
   })
 
   test("uppercase jumps too", () => {
-    expect(findLabelledRow(labelRows(["only"]), "A")?.id).toBe("only")
+    expect(jumpsTo(labelRows(["only"]), "A")).toBe("only")
   })
 
-  test("rows past the end of the alphabet go unlabelled rather than sharing", () => {
-    const rows = labelRows(Array.from({ length: 40 }, (_, i) => String(i)))
+  test("rows past the alphabet get two-letter labels instead of none", () => {
+    const rows = labelRows(ids(40), "vx")
 
-    expect(rows.length).toBe(26)
-    expect(new Set(rows.map((row) => row.label)).size).toBe(26)
+    expect(rows).toHaveLength(40)
+    expect(new Set(rows.map((row) => row.label)).size).toBe(40)
+    // The top of the list keeps its single keys.
+    expect(rows[0]!.label).toBe("a")
+    expect(rows.at(-1)!.label).toHaveLength(2)
+    expect(rows.every((row) => !/[vx]/.test(row.label))).toBe(true)
+  })
+
+  test("no label begins another, so every row is reachable", () => {
+    const rows = labelRows(ids(120))
+
+    for (const row of rows) {
+      expect(rows.some((other) => other !== row && other.label.startsWith(row.label))).toBe(false)
+      expect(jumpsTo(rows, row.label)).toBe(row.id)
+    }
+  })
+
+  test("a prefix narrows; a key no label continues with cancels", () => {
+    const rows = labelRows(ids(40))
+    const prefix = rows.at(-1)!.label[0]!
+
+    expect(resolveRowKey(rows, "", prefix)).toEqual({ kind: "narrow", typed: prefix })
+    expect(resolveRowKey(rows, prefix, "1")).toEqual({ kind: "cancel" })
+  })
+
+  test("after a prefix, only its rows keep a label, and only what is left of it", () => {
+    const rows = labelRows(ids(40))
+    const last = rows.at(-1)!
+    const remaining = remainingRowLabels(rows, last.label[0]!)
+
+    expect(remaining.get(last.id)).toBe(last.label[1])
+    expect(remaining.has(rows[0]!.id)).toBe(false)
   })
 })

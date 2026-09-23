@@ -1,6 +1,7 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { colors, theme } from "../theme"
+import { flashLabelCell } from "../vim-diff/flash-state"
 import { PromptInput } from "./PromptInput"
 import { FEED_TYPES, type FeedEvent } from "../utils/feed"
 import type { CommitFileSummary, FeedRow, FeedState } from "../state"
@@ -14,7 +15,7 @@ export interface FeedViewProps {
   /** Comments that arrived since the last visit (spec 069). */
   unseenIds: ReadonlySet<string>
   /** Flash labels by row index, while `s` is labelling (spec 066). */
-  flashLabels: ReadonlyMap<number, string>
+  flashLabels: ReadonlyMap<string, string>
   renderer: CliRenderer
   loading: boolean
 }
@@ -135,12 +136,12 @@ function eventRows(
   previous: FeedEvent | undefined,
   feed: FeedState,
   unseenIds: ReadonlySet<string>,
-  flashLabels: ReadonlyMap<number, string>,
+  flashLabels: ReadonlyMap<string, string>,
   leadWidth: number
 ) {
   const selected = index === feed.highlightIndex
   const unseen = event.target?.kind === "comment" && unseenIds.has(event.target.commentId)
-  const label = flashLabels.get(index)
+  const label = flashLabels.get(String(index))
 
   // The time is a gutter, not a column: it is only written where it changes,
   // so thirty rows from the same hour read as one group rather than thirty
@@ -149,7 +150,7 @@ function eventRows(
   const timeCell = previous && timeAgo(previous.at) === time ? "" : time
 
   const cells = [
-    Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
+    Text({ content: flashLabelCell(label), fg: colors.flashLabel }),
     Text({ content: timeCell.padStart(TIME_WIDTH), fg: colors.textDim }),
     // One cell for the row's state: new to you, or answered.
     unseen
@@ -223,10 +224,10 @@ function fileRow(
   row: Extract<FeedRow, { kind: "file" }>,
   index: number,
   feed: FeedState,
-  flashLabels: ReadonlyMap<number, string>
+  flashLabels: ReadonlyMap<string, string>
 ) {
   const selected = index === feed.highlightIndex
-  const label = flashLabels.get(index)
+  const label = flashLabels.get(String(index))
   return Box(
     {
       flexDirection: "row",
@@ -234,7 +235,7 @@ function fileRow(
       width: "100%",
       backgroundColor: selected ? theme.surface1 : undefined,
     },
-    Text({ content: label ? `${label} ` : "  ", fg: colors.flashLabel }),
+    Text({ content: flashLabelCell(label), fg: colors.flashLabel }),
     Text({
       content: `${" ".repeat(FILE_INDENT - 2)}${row.last ? "└" : "├"} ${row.file.filename}`,
       fg: selected ? colors.text : theme.subtext0,

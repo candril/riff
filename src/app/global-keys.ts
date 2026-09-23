@@ -136,14 +136,19 @@ function flashSurface(state: AppState): FlashSurface | null {
 
 function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
   switch (flashSurface(state)) {
-    case "tree":
-      return getVisibleFlatTreeItems(
+    case "tree": {
+      const count = getVisibleFlatTreeItems(
         state.fileTree,
         state.files,
         state.ignoredFiles,
         state.showHiddenFiles,
         state.treeFilter
-      ).map((_, index) => String(index))
+      ).length
+      const { first, last } = ctx.fileTreePanel.visibleRows()
+      const ids: string[] = []
+      for (let index = first; index <= Math.min(last, count - 1); index++) ids.push(String(index))
+      return ids
+    }
     case "state":
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed":

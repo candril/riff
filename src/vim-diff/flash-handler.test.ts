@@ -148,4 +148,33 @@ describe("FlashHandler", () => {
 
     expect(flashState.matches.map((m) => m.line)).toEqual([1])
   })
+
+  test("a two-letter row label takes two keys, and backspace takes one back", () => {
+    let flashState: FlashState = createFlashState()
+    let jumped = null as string | null
+    const handler = new FlashHandler({
+      getMapping: () => fakeMapping([]),
+      getFlashState: () => flashState,
+      setFlashState: (state) => { flashState = state },
+      getCursor: () => createCursorState(),
+      setCursor: () => {},
+      getVisibleRegion: () => null,
+      jumpToRow: (_, id) => { jumped = id },
+      onUpdate: () => {},
+    })
+
+    handler.startList("tree", Array.from({ length: 40 }, (_, i) => String(i)))
+    const last = flashState.rows.at(-1)!
+
+    handler.handleChar(last.label[0]!)
+    expect(flashState.active).toBe(true)
+    handler.handleBackspace()
+    expect(flashState.pattern).toBe("")
+    expect(flashState.active).toBe(true)
+
+    handler.handleChar(last.label[0]!)
+    handler.handleChar(last.label[1]!)
+    expect(jumped).toBe(last.id)
+    expect(flashState.active).toBe(false)
+  })
 })

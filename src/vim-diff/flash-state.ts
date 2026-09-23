@@ -45,7 +45,7 @@ export interface FlashState {
   active: boolean
   /** What is being labelled */
   surface: FlashSurface
-  /** Characters typed so far (diff only — a list labels straight away) */
+  /** Characters typed so far: the search in the diff, a label's prefix in a list */
   pattern: string
   /** Labelled matches, in document order */
   matches: FlashMatch[]
@@ -64,20 +64,74 @@ export function createFlashState(): FlashState {
  * Label a list's visible rows, top to bottom. Keys the surface would act on
  * are left out of the alphabet, so a mistyped jump never resolves a thread
  * or marks a file viewed — it just cancels.
+ *
+ * A screen of rows can outnumber the alphabet, so past that the last few
+ * letters stop being labels of their own and become prefixes of two-letter
+ * ones. The labels stay prefix-free — no label begins another — so every
+ * keystroke either jumps, narrows, or cancels, and the rows at the top keep
+ * their single key.
  */
 export function labelRows(ids: string[], reserved = ""): FlashRow[] {
   const taken = new Set(reserved.toLowerCase().split(""))
   const alphabet = FLASH_LABELS.split("").filter((char) => !taken.has(char))
+  const size = alphabet.length
+  const overflow = ids.length - size
+  const prefixCount = overflow <= 0 ? 0 : Math.min(size, Math.ceil(overflow / (size - 1)))
+
+  const singles = alphabet.slice(0, size - prefixCount)
+  const doubles = alphabet
+    .slice(size - prefixCount)
+    .flatMap((prefix) => alphabet.map((char) => prefix + char))
+  const labels = [...singles, ...doubles]
+
   return ids.flatMap((id, index) => {
-    const label = alphabet[index]
+    const label = labels[index]
     return label ? [{ id, label }] : []
   })
 }
 
-/** The row a keypress jumps to, if it is one of the labels. */
-export function findLabelledRow(rows: FlashRow[], char: string): FlashRow | null {
-  const key = char.toLowerCase()
-  return rows.find((row) => row.label === key) ?? null
+/**
+ * The rows still reachable after `typed`, each with the part of its label
+ * that is left to press — what the surface should paint.
+ */
+export function remainingRowLabels(rows: FlashRow[], typed: string): Map<string, string> {
+  return new Map(
+    rows
+      .filter((row) => row.label.startsWith(typed))
+      .map((row) => [row.id, row.label.slice(typed.length)])
+  )
+}
+
+/** What `surface` should paint while flash is labelling it, and nothing otherwise. */
+export function flashLabelsOn(state: FlashState, surface: FlashSurface): Map<string, string> {
+  return state.active && state.surface === surface
+    ? remainingRowLabels(state.rows, state.pattern)
+    : new Map()
+}
+
+/**
+ * A list label as a two-cell cell: the width a row's marker already takes,
+ * so a one-letter and a two-letter label and no label at all all leave the
+ * row where it was.
+ */
+export function flashLabelCell(label: string | undefined): string {
+  return (label ?? "").padEnd(2)
+}
+
+/**
+ * What a keypress does to a list: jump to the row it completes, keep the
+ * keys typed so far when they begin some label, or cancel.
+ */
+export function resolveRowKey(
+  rows: FlashRow[],
+  typed: string,
+  char: string
+): { kind: "jump"; row: FlashRow } | { kind: "narrow"; typed: string } | { kind: "cancel" } {
+  const next = typed + char.toLowerCase()
+  const row = rows.find((candidate) => candidate.label === next)
+  if (row) return { kind: "jump", row }
+  if (rows.some((candidate) => candidate.label.startsWith(next))) return { kind: "narrow", typed: next }
+  return { kind: "cancel" }
 }
 
 export interface AssignLabelsOptions {

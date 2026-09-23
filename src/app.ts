@@ -87,7 +87,7 @@ import type { ReactionTarget } from "./types"
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler } from "./vim-diff/motion-handler"
 import { createSearchState, type SearchState } from "./vim-diff/search-state"
-import { createFlashState, type FlashState } from "./vim-diff/flash-state"
+import { createFlashState, flashLabelsOn, type FlashState } from "./vim-diff/flash-state"
 import { FlashHandler } from "./vim-diff/flash-handler"
 import { SearchHandler } from "./vim-diff/search-handler"
 import { createCursorState, isVisualMode } from "./vim-diff/cursor-state"
@@ -429,9 +429,7 @@ export async function createApp(options: AppOptions = {}) {
       aiReview.getTreeMultiSelectionFilenames(state),
       state.treeFilter,
       state.treeFilterInput,
-      flashState.active && flashState.surface === "tree"
-        ? new Map(flashState.rows.map((row) => [Number(row.id), row.label]))
-        : new Map(),
+      flashLabelsOn(flashState, "tree"),
       filesWithUnseenComments(state),
       state.filesChangedSinceVisit
     )

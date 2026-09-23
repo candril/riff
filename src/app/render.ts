@@ -71,7 +71,7 @@ import type { VimCursorState } from "../vim-diff/types"
 import { getSelectionRange } from "../vim-diff/cursor-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
-import type { FlashState } from "../vim-diff/flash-state"
+import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
 import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
@@ -232,10 +232,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           rows: feedRows,
           feed: state.feed,
           unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-          flashLabels:
-            flashState.active && flashState.surface === "feed"
-              ? new Map(flashState.rows.map((row) => [Number(row.id), row.label]))
-              : new Map(),
+          flashLabels: flashLabelsOn(flashState, "feed"),
           renderer: ctx.renderer,
           loading: state.feed.loading,
         })
@@ -411,11 +408,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
       // Flash labels, painted by whichever surface is being labelled
       // (spec 066). The diff draws its own, straight onto the frame.
-      prInfoPanelInstance?.setFlashLabels(
-        flashState.active && flashState.surface === "state"
-          ? new Map(flashState.rows.map((row) => [row.id, row.label]))
-          : new Map()
-      )
+      prInfoPanelInstance?.setFlashLabels(flashLabelsOn(flashState, "state"))
 
       // The info panel's filter box is the panel's own, like the tree's:
       // both are persistent panels rather than overlays rebuilt per render.
@@ -465,28 +458,31 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           },
           content
         ),
+        (searchState.active || searchState.pattern) && state.viewMode === "diff"
+          ? SearchPrompt({ searchState, renderer: ctx.renderer })
+          : null,
+        // Flash takes the status bar's row rather than a row of its own:
+        // growing the footer would shrink every panel by a line, and the
+        // labels would land on rows that had just moved.
         flashState.active && state.viewMode === "diff"
           ? FlashPrompt({ flashState })
-          : (searchState.active || searchState.pattern) && state.viewMode === "diff"
-            ? SearchPrompt({ searchState, renderer: ctx.renderer })
-            : null,
-        StatusBar({
-          searchInfo:
-            searchState.pattern && state.viewMode === "diff"
-              ? {
-                  current: searchState.currentMatchIndex + 1,
-                  total: searchState.matches.length,
-                  pattern: searchState.pattern,
-                  wrapped: searchState.wrapped,
-                }
-              : null,
-          columnInfo:
-            state.viewMode === "diff"
-              ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
-              : null,
-          selectionInfo: selectionStatus(vimState),
-          commitScoped: state.viewMode === "diff" && state.viewingCommit !== null,
-        }),
+          : StatusBar({
+            searchInfo:
+              searchState.pattern && state.viewMode === "diff"
+                ? {
+                    current: searchState.currentMatchIndex + 1,
+                    total: searchState.matches.length,
+                    pattern: searchState.pattern,
+                    wrapped: searchState.wrapped,
+                  }
+                : null,
+            columnInfo:
+              state.viewMode === "diff"
+                ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
+                : null,
+            selectionInfo: selectionStatus(vimState),
+            commitScoped: state.viewMode === "diff" && state.viewingCommit !== null,
+          }),
         state.actionMenu.open
           ? ActionMenu({
               renderer: ctx.renderer,
@@ -545,10 +541,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
               filter: state.inlineCommentOverlay.filter,
               filterInput: state.inlineCommentOverlay.filterInput,
-              flashLabels:
-                flashState.active && flashState.surface === "comments"
-                  ? new Map(flashState.rows.map((row) => [row.id, row.label]))
-                  : new Map(),
+              flashLabels: flashLabelsOn(flashState, "comments"),
               renderer: ctx.renderer,
             })
           : null,
