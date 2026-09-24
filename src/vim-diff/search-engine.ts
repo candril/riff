@@ -8,26 +8,47 @@
 import type { DiffLineMapping } from "./line-mapping"
 import type { IncrementalSearchMatch, FileSearchMatch } from "./search-state"
 
+/**
+ * What a query means, for `/` and for the occurrence picker (spec 088) alike:
+ * the two must not disagree about what the same text matches.
+ *
+ * Literal and smart-case, as vim's `smartcase`: an uppercase letter in the
+ * query is asking for that case.
+ */
+export function compileSearchPattern(pattern: string): RegExp | null {
+  if (!pattern) return null
+
+  try {
+    const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const caseSensitive = pattern !== pattern.toLowerCase()
+    return new RegExp(escaped, caseSensitive ? "g" : "gi")
+  } catch {
+    return null
+  }
+}
+
+/** The word (`\w+`) the column sits on, or null off a word. */
+export function wordAt(content: string, col: number): string | null {
+  const wordChars = /[\w]/
+  if (col >= content.length || !wordChars.test(content[col] ?? "")) return null
+
+  let start = col
+  while (start > 0 && wordChars.test(content[start - 1] ?? "")) start--
+
+  let end = col
+  while (end < content.length && wordChars.test(content[end] ?? "")) end++
+
+  return content.slice(start, end)
+}
+
 export class SearchEngine {
   constructor(
     private getMapping: () => DiffLineMapping,
     private getFileContent: (filename: string) => string | null
   ) {}
 
-  /**
-   * Compile search pattern to regex (case-insensitive literal match)
-   * Note: This is literal string matching, not regex support
-   */
   compilePattern(pattern: string): RegExp | null {
-    if (!pattern) return null
-    
-    try {
-      // Escape special regex chars for literal search
-      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-      return new RegExp(escaped, "gi")
-    } catch {
-      return null
-    }
+    return compileSearchPattern(pattern)
   }
 
   /**
@@ -125,20 +146,7 @@ export class SearchEngine {
   getWordUnderCursor(line: number, col: number): string | null {
     const mapping = this.getMapping()
     const content = mapping.getLineContent(line)
-    if (!content || col >= content.length) return null
-    
-    const wordChars = /[\w]/
-    const currentChar = content[col]
-    if (!currentChar || !wordChars.test(currentChar)) return null
-    
-    // Find word boundaries
-    let start = col
-    while (start > 0 && wordChars.test(content[start - 1] ?? "")) start--
-    
-    let end = col
-    while (end < content.length && wordChars.test(content[end] ?? "")) end++
-    
-    return content.slice(start, end)
+    return content ? wordAt(content, col) : null
   }
 
   /**

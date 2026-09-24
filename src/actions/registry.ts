@@ -31,6 +31,14 @@ export const actions: Action[] = [
     available: (state) => state.comments.length > 0,
   },
   {
+    id: "find-occurrences",
+    label: "Find in Diff",
+    description: "Every row of the change set that matches, grouped by file",
+    shortcut: "Ctrl+s",
+    category: "navigation",
+    available: (state) => state.files.length > 0,
+  },
+  {
     id: "next-file",
     label: "Next File",
     description: "Jump to next file",

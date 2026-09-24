@@ -9,6 +9,7 @@ import type { AppState } from "../../state"
 import {
   openFilePicker,
   openCommentsPicker,
+  openOccurrencePicker,
   openCommitPicker,
   toggleFilePanel,
   toggleFilePanelExpanded,
@@ -92,6 +93,13 @@ export async function executeAction(
     case "find-comments":
       if (state.comments.length > 0) {
         setState(openCommentsPicker)
+        render()
+      }
+      break
+
+    case "find-occurrences":
+      if (state.files.length > 0) {
+        setState(openOccurrencePicker)
         render()
       }
       break

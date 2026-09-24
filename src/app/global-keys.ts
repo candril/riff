@@ -31,6 +31,7 @@ import { referenceRepo, resolvedReferences } from "../features/references"
 import * as actionMenu from "../features/action-menu"
 import * as filePicker from "../features/file-picker"
 import * as commentsPicker from "../features/comments-picker"
+import * as occurrencePicker from "../features/occurrence-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
@@ -630,6 +631,29 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       return
     }
 
+    // ========== OCCURRENCE PICKER (captures all input when open, spec 088) ==========
+    if (
+      occurrencePicker.handleInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        onSelectHit: (hit) => {
+          occurrencePicker.jumpToOccurrence(hit, {
+            getState: ctx.getState,
+            setState: ctx.setState,
+            getVimState: ctx.getVimState,
+            setVimState: ctx.setVimState,
+            getLineMapping: ctx.getLineMapping,
+            ensureCursorVisible: ctx.ensureCursorVisible,
+            render: ctx.render,
+            fileNavContext: ctx.fileNavContext,
+          })
+        },
+      })
+    ) {
+      return
+    }
+
     // ========== COMMIT PICKER (captures all input when open) ==========
     if (
       commitPicker.handleInput(key, {
@@ -1129,6 +1153,22 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       }
 
       case "s":
+        // Ctrl-s greps the change set (spec 088). The composer keeps its own
+        // Ctrl-s: its input handles the key before this switch sees it.
+        if (key.ctrl) {
+          if (state.files.length > 0) {
+            key.preventDefault()
+            const vim = ctx.getVimState()
+            const seed =
+              state.viewMode === "diff" && state.focusedPanel === "diff"
+                ? occurrencePicker.seedQuery(vim, ctx.getLineMapping())
+                : ""
+            if (isVisualMode(vim)) ctx.setVimState(exitVisualMode(vim))
+            ctx.setState((s) => occurrencePicker.openOccurrencePicker(s, seed))
+            ctx.render()
+          }
+          return
+        }
         // `s` labels the rows of whatever list has focus and the next key
         // jumps (spec 066). The diff keeps its own flavour — type first,
         // then pick — and is handled where the diff's keys are.

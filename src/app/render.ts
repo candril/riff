@@ -15,6 +15,7 @@ import {
   Toast,
   FilePicker,
   CommentsPicker,
+  OccurrencePicker,
   CommitPicker,
   SyncPreview,
   SearchPrompt,
@@ -44,6 +45,7 @@ import {
   setActionMenuQuery,
   setFilePickerQuery,
   setCommentsPickerQuery,
+  setOccurrencePickerQuery,
   setCommitPickerQuery,
   setViewFilter,
   markCommentsSeen,
@@ -76,6 +78,7 @@ import { getAvailableActions } from "../actions"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
 import * as commentsPickerFeature from "../features/comments-picker"
+import * as occurrencePickerFeature from "../features/occurrence-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
@@ -141,6 +144,14 @@ function openPrompt(
       initialValue: state.commentsPicker.query,
       placeholder: "Type to search…",
       onChange: typeInto(setCommentsPickerQuery),
+    }
+  }
+  if (state.occurrencePicker.open) {
+    return {
+      key: "occurrence-picker",
+      initialValue: state.occurrencePicker.query,
+      placeholder: "Search the diff…",
+      onChange: typeInto(setOccurrencePickerQuery),
     }
   }
   if (state.commitPicker.open && state.commitPicker.queryInput) {
@@ -559,6 +570,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               selectedIndex: state.commentsPicker.selectedIndex,
             })
           : null,
+        state.occurrencePicker.open
+          ? OccurrencePicker({
+              renderer: ctx.renderer,
+              query: state.occurrencePicker.query,
+              results: occurrencePickerFeature.getOccurrenceResults(state),
+              selectedIndex: state.occurrencePicker.selectedIndex,
+            })
+          : null,
         state.commitPicker.open
           ? CommitPicker({
               renderer: ctx.renderer,
@@ -703,6 +722,7 @@ function coversTheDiff(state: AppState): boolean {
     state.syncPreview.open ||
     state.filePicker.open ||
     state.commentsPicker.open ||
+    state.occurrencePicker.open ||
     state.commitPicker.open ||
     state.showHelp ||
     state.confirmDialog !== null ||

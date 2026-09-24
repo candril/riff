@@ -123,7 +123,8 @@ const HELP_TEXT = `
     Ctrl+h / Ctrl+l           Move focus left/right
     Ctrl+e                    Expand focused panel to full width
     Ctrl+f                    Find files (fuzzy)
-    Ctrl+g                    Show the current file's path
+    Ctrl+s                    Find in the diff, from the word under the cursor
+    Ctrl+g                    Pick a commit to scope the diff to
     /                         Filter the file tree by path (tree focused)
     Backspace                 Clear that filter, from anywhere
     i                         Toggle PR overview / diff (PR mode)

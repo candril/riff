@@ -108,6 +108,12 @@ export interface CommentsPickerState {
   selectedIndex: number
 }
 
+export interface OccurrencePickerState {
+  open: boolean
+  query: string
+  selectedIndex: number
+}
+
 /**
  * Inline comment overlay state (spec 039).
  *
@@ -494,6 +500,7 @@ export interface AppState {
 
   // Comments picker state (spec 044)
   commentsPicker: CommentsPickerState
+  occurrencePicker: OccurrencePickerState
   
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
@@ -706,6 +713,11 @@ export function createInitialState(
       selectedIndex: 0,
     },
     commentsPicker: {
+      open: false,
+      query: "",
+      selectedIndex: 0,
+    },
+    occurrencePicker: {
       open: false,
       query: "",
       selectedIndex: 0,
@@ -1013,6 +1025,7 @@ export function promptOpen(state: AppState): boolean {
     state.actionMenu.open ||
     state.filePicker.open ||
     state.commentsPicker.open ||
+    state.occurrencePicker.open ||
     state.commitPicker.open ||
     state.treeFilterInput ||
     state.feed.filterInput ||
@@ -2169,6 +2182,46 @@ export function moveCommentsPickerSelection(
       ...state.commentsPicker,
       selectedIndex: newIndex,
     },
+  }
+}
+
+// ============================================================================
+// Occurrence Picker State (spec 088)
+// ============================================================================
+
+export function openOccurrencePicker(state: AppState, query = ""): AppState {
+  return {
+    ...state,
+    occurrencePicker: { open: true, query, selectedIndex: 0 },
+  }
+}
+
+export function closeOccurrencePicker(state: AppState): AppState {
+  return {
+    ...state,
+    occurrencePicker: { open: false, query: "", selectedIndex: 0 },
+  }
+}
+
+export function setOccurrencePickerQuery(state: AppState, query: string): AppState {
+  return {
+    ...state,
+    occurrencePicker: { ...state.occurrencePicker, query, selectedIndex: 0 },
+  }
+}
+
+/** Wraps around at both ends, like the other pickers. */
+export function moveOccurrencePickerSelection(
+  state: AppState,
+  delta: number,
+  maxIndex: number
+): AppState {
+  let newIndex = state.occurrencePicker.selectedIndex + delta
+  if (newIndex < 0) newIndex = maxIndex
+  else if (newIndex > maxIndex) newIndex = 0
+  return {
+    ...state,
+    occurrencePicker: { ...state.occurrencePicker, selectedIndex: newIndex },
   }
 }
 

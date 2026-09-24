@@ -1,6 +1,6 @@
 # Occurrence Picker
 
-**Status**: Ready
+**Status**: Done
 
 ## Description
 
@@ -54,8 +54,10 @@ had in mind for 088.
 - Rows searched: additions, deletions and context rows of each hunk. Diff
   headers (`diff --git`, `@@`, `+++`, `---`) are not, as with
   `diffContainsMatch`.
-- The query means what `/` means: literal, case-insensitive, one compiled
-  pattern from `SearchEngine.compilePattern`. The two do not disagree.
+- The query means what `/` means: literal and smart-case — all lowercase
+  ignores case, any uppercase letter makes it exact, as vim's `smartcase`.
+  One compiled pattern from `compileSearchPattern`, so the two do not
+  disagree.
 - Incremental — the list narrows as you type. It uses the shared prompt
   input (spec 065), as the file and comments pickers do.
 - One entry per matching row (not per match), grouped under a file header
@@ -68,6 +70,10 @@ had in mind for 088.
   (opens the collapsed file, or selects the file when the mapping does not
   list it), puts the cursor on the row, starting at the match's column, and
   scrolls it into view. The jump lands in `Ctrl-o`'s list (spec 089).
+- Opened from the diff, the query starts as the word under the cursor, or a
+  charwise selection on one line — `*` for the whole change set. A
+  multi-line or linewise selection seeds nothing, since a query matches one
+  row at a time. Chrome rows (file headers, dividers) seed nothing either.
 - Nothing matches: an empty list and `0`, no toast. An empty query lists
   nothing.
 - Help (`g?`, `riff --help`) and the action menu list it.
@@ -76,8 +82,6 @@ had in mind for 088.
 
 - `Enter` also seeds `/` with the query, so `n`/`N` walk the same matches
   from where you landed.
-- Opening with the cursor on a word, or with a visual selection, pre-fills
-  the query, like `*`.
 - Matches inside comment bodies, listed after the code under their own
   header and opening the thread on `Enter`: "where is this discussed" is the
   same question.
@@ -106,8 +110,9 @@ interface OccurrenceRow {
 
 Keep the rows in the picker's state, or memoized on `state.files` identity,
 so a refresh (`gr`) or a commit-scope change rebuilds them. A regex over a
-few MB of text is milliseconds. Cap the list at 1000 rows and say so in the
-title (`1000+`) rather than render a lockfile's worth of hits.
+few MB of text is milliseconds. The list stops at 1000 rows and the title
+says `first 1000 of N` rather than render a lockfile's worth of hits; the
+per-file and total counts still count every match.
 
 ### Jumping
 
@@ -124,8 +129,10 @@ Order of operations, following `jumpToComment` in
 4. `findLineForComment`; set the cursor line and `col` to the match start;
    `ensureCursorVisible`.
 
-A row inside a folded code block (spec 073) needs the fold opened; check
-whether `findLineForComment` finds rows under a fold before relying on it.
+A row inside a folded code block (spec 073) is not in the mapping: the fold
+is one row carrying the opening fence's line numbers. When the lookup misses,
+the fold to open is the last folded row in the file whose fence line is at or
+above the hit; open it, rebuild, look again.
 
 ### Shape
 
