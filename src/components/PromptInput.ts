@@ -76,15 +76,20 @@ function ownerOf(key: string): string {
  */
 export function syncPromptSession(session: PromptSession): void {
   const field = ensureInput(session.renderer, ownerOf(session.key))
-  changeHandler = session.onChange
   submitHandler = session.onSubmit ?? null
 
-  if (sessionKey === session.key) return
-  if (sessionKey !== null) inputs.get(ownerOf(sessionKey))?.blur()
-  sessionKey = session.key
-  field.placeholder = session.placeholder ?? ""
-  field.value = session.initialValue
-  field.focus()
+  if (sessionKey !== session.key) {
+    if (sessionKey !== null) inputs.get(ownerOf(sessionKey))?.blur()
+    sessionKey = session.key
+    field.placeholder = session.placeholder ?? ""
+    // Seeding is not typing. A field reopened with its last session's text
+    // reports the reset as input, and that handler re-renders from inside the
+    // render opening the prompt — which then mounts the app a second time.
+    changeHandler = null
+    field.value = session.initialValue
+    field.focus()
+  }
+  changeHandler = session.onChange
 }
 
 /** No prompt is open any more. */
