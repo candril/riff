@@ -86,7 +86,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 068 | [Preview Links](./068-preview-links.md) | Done | Preview URLs as a list you can open and copy, configurable |
 | 069 | [Visit Watermark](./069-visit-watermark.md) | Done | Per-PR memory of your last visit; unseen markers and `]n` |
 | 070 | [Activity Feed](./070-activity-feed.md) | Done | `a` shows what happened, filterable by type |
-| 071 | [Occurrence Picker](./071-occurrence-picker.md) | Draft | Every place a word appears in the diff, in one list — folded into 083 |
+| 071 | [Occurrence Picker](./071-occurrence-picker.md) | Superseded | Every place a word appears in the diff, in one list — see 088 |
 | 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
 | 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
 | 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
@@ -102,6 +102,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 084 | [File Mode](./084-file-mode.md) | Done | `riff <path>` opens a file or a directory as a diff with no changes |
 | 085 | [Comments on Files](./085-comments-on-files.md) | Done | `c` on any line riff shows; a note is local, and says so |
 | 086 | [The Agent Queue](./086-agent-queue.md) | Done | `--path` narrows it, the payload says note or review, and where the line went |
+| 088 | [Occurrence Picker](./088-occurrence-picker.md) | Ready | `Ctrl-s` lists every row of the diff that matches, grouped by file |
 | 089 | [Jump History](./089-jump-history.md) | Ready | every jump is in `Ctrl-o`'s list, because one place records them |
 | 090 | [The Opening Screen](./090-opening-screen.md) | Draft | what `riff .` should land on instead of the first file alphabetically |
 | 091 | [Comments From nvim](./091-nvim-comments.md) | Done | write a riff comment from nvim, virtual text where they are |

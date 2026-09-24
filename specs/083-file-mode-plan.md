@@ -54,7 +54,7 @@ simply the most common thing to read.
 | 085 | Comments on Files | `c` on any line; local-only, and honest about it | A note on an unchanged file saves, reopens, and is refused by every publish path — and a diff opened over a repo full of notes carries only the ones it can anchor |
 | 086 | The Agent Queue | Notes in the `riff comments --json` payload, `--path` to narrow it, resolve for an anchor with no diff behind it | Claude can be handed every open note under a path and retire them one at a time, and a note that has drifted says so in the JSON instead of pointing at the wrong line |
 | 087 | A Tree Over a Repo | Tree and picker at ten thousand files, off `rg --files` | `Ctrl-f` in a monorepo answers as fast as it does on a PR |
-| 088 | Outline & Occurrences | `gO` outline, spec 071's occurrence picker, off `rg` | "Where else is this called" is answered without leaving riff |
+| 088 | Outline & Occurrences | `gO` outline, spec 071's occurrence picker, off `rg` | "Where else is this called" is answered without leaving riff. The occurrence picker is specced over the diff instead ([088](./088-occurrence-picker.md)); the outline is still open |
 
 **084 first and alone.** It is the seam; everything else assumes it, and the
 `rg` probe and its fallback live there so 087 and 088 inherit one answer

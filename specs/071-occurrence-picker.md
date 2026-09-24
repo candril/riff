@@ -1,6 +1,6 @@
 # Occurrence Picker
 
-**Status**: Draft
+**Status**: Superseded by [088](./088-occurrence-picker.md)
 
 ## Description
 
@@ -31,10 +31,9 @@ type a word, get every place it occurs, and pick one.
 
 ## Superseded
 
-Spec 088 of [the file-mode plan](./083-file-mode-plan.md) builds this, over
-files rather than over the mapping, off `rg`. The open questions below are
-the ones it still has to answer; the technical notes here are what was known
-before riff could read a file that is not in the diff.
+[Spec 088](./088-occurrence-picker.md) builds this over the diff in memory,
+bound to `Ctrl-s`. It answers the open questions below: `Ctrl-s`, yes, and
+literal like `/`.
 
 ## Open questions
 
