@@ -22,6 +22,7 @@ export {
   getOccurrenceResults,
   MAX_HITS,
   type OccurrenceHit,
+  type Span,
   type OccurrenceGroup,
   type OccurrenceResults,
 } from "./filter"

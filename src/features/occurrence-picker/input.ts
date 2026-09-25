@@ -7,7 +7,11 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
-import { closeOccurrencePicker, moveOccurrencePickerSelection } from "../../state"
+import {
+  closeOccurrencePicker,
+  moveOccurrencePickerSelection,
+  toggleOccurrencePickerNarrowing,
+} from "../../state"
 import { getOccurrenceResults, type OccurrenceHit } from "./filter"
 
 export interface OccurrencePickerInputContext {
@@ -62,6 +66,14 @@ export function handleInput(key: KeyEvent, ctx: OccurrencePickerInputContext): b
 
     case "n":
       if (key.ctrl) move(1)
+      return true
+
+    case "g":
+      if (key.ctrl) {
+        key.preventDefault()
+        ctx.setState(toggleOccurrencePickerNarrowing)
+        ctx.render()
+      }
       return true
 
     default:

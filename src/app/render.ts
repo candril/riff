@@ -46,6 +46,7 @@ import {
   setFilePickerQuery,
   setCommentsPickerQuery,
   setOccurrencePickerQuery,
+  setOccurrencePickerFilter,
   setCommitPickerQuery,
   setViewFilter,
   markCommentsSeen,
@@ -148,12 +149,19 @@ function openPrompt(
     }
   }
   if (state.occurrencePicker.open) {
-    return {
-      key: "occurrence-picker",
-      initialValue: state.occurrencePicker.query,
-      placeholder: "Search the diff…",
-      onChange: typeInto(setOccurrencePickerQuery),
-    }
+    return state.occurrencePicker.narrowing
+      ? {
+          key: "occurrence-picker:narrow",
+          initialValue: state.occurrencePicker.filter,
+          placeholder: "Narrow by path or text, !term to drop…",
+          onChange: typeInto(setOccurrencePickerFilter),
+        }
+      : {
+          key: "occurrence-picker:search",
+          initialValue: state.occurrencePicker.query,
+          placeholder: "Search the diff…",
+          onChange: typeInto(setOccurrencePickerQuery),
+        }
   }
   if (state.commitPicker.open && state.commitPicker.queryInput) {
     return {
@@ -576,6 +584,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           ? OccurrencePicker({
               renderer: ctx.renderer,
               query: state.occurrencePicker.query,
+              narrowing: state.occurrencePicker.narrowing,
               results: occurrencePickerFeature.getOccurrenceResults(state),
               selectedIndex: state.occurrencePicker.selectedIndex,
             })

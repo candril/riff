@@ -112,6 +112,7 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 | 095 | [Opening the Branch's PR](./095-opening-the-branchs-pr.md) | Done | `i` and `a` in a local review load the pull request the header names |
 | 096 | [The Words That Changed](./096-word-diff.md) | Done | the spans that differ inside a paired deletion and addition are brighter |
 | 097 | [Chrome Is Not Code](./097-chrome-is-not-code.md) | Done | the highlighter is handed the diff's lines, not riff's collapsed-context labels |
+| 099 | [Narrowing the Occurrences](./099-narrow-occurrences.md) | Done | `Ctrl-g` in the occurrence picker filters its hits by path and text |
 
 ## MVP Path
 

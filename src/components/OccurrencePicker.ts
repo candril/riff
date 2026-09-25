@@ -2,11 +2,12 @@ import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
 import { theme, colors } from "../theme"
-import type { OccurrenceGroup, OccurrenceHit, OccurrenceResults } from "../features/occurrence-picker"
+import type { OccurrenceGroup, OccurrenceHit, OccurrenceResults, Span } from "../features/occurrence-picker"
 
 export interface OccurrencePickerProps {
   renderer: CliRenderer
   query: string
+  narrowing: boolean
   results: OccurrenceResults
   selectedIndex: number
 }
@@ -24,7 +25,7 @@ type DisplayRow =
  * Occurrence picker overlay (spec 088): every row of the diff the query
  * hits, under a header per file. Modeled on CommentsPicker.
  */
-export function OccurrencePicker({ renderer, query, results, selectedIndex }: OccurrencePickerProps) {
+export function OccurrencePicker({ renderer, query, narrowing, results, selectedIndex }: OccurrencePickerProps) {
   const rows: DisplayRow[] = []
   let selectedRow = 0
   let hitIndex = 0
@@ -84,9 +85,14 @@ export function OccurrencePicker({ renderer, query, results, selectedIndex }: Oc
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ content: "Occurrences", fg: theme.subtext0 }),
         Box(
           { flexDirection: "row", gap: 2 },
+          Text({ content: "Occurrences", fg: theme.subtext0 }),
+          narrowing ? Text({ content: `${query} ›`, fg: theme.yellow }) : null
+        ),
+        Box(
+          { flexDirection: "row", gap: 2 },
+          Text({ content: narrowing ? "^g search" : "^g narrow", fg: theme.overlay0 }),
           Text({ content: countText(query, results), fg: theme.overlay0 }),
           Text({ content: "esc", fg: theme.overlay0 })
         )
@@ -139,7 +145,10 @@ function FileRow(group: OccurrenceGroup) {
       height: 1,
       overflow: "hidden",
     },
-    Text({ content: group.filename, fg: theme.blue }),
+    Box(
+      { flexDirection: "row" },
+      ...highlight(group.filename, narrowMarks(group.pathSpans)).map((seg) => SegmentText(seg, theme.blue))
+    ),
     Text({ content: String(group.count), fg: theme.overlay0 })
   )
 }
@@ -149,7 +158,6 @@ function HitRow(hit: OccurrenceHit, selected: boolean) {
   const marker = row.kind === "addition" ? "+" : row.kind === "deletion" ? "-" : " "
   const markerFg = row.kind === "addition" ? colors.addedFg : row.kind === "deletion" ? colors.removedFg : theme.overlay0
   const textFg = selected ? theme.text : theme.subtext1
-  const { before, match, after } = excerpt(row.text, hit.startCol, hit.endCol)
 
   return Box(
     {
@@ -162,24 +170,63 @@ function HitRow(hit: OccurrenceHit, selected: boolean) {
     },
     Text({ content: String(row.lineNum).padStart(6), fg: theme.overlay0 }),
     Text({ content: ` ${marker} `, fg: markerFg }),
-    Text({ content: before, fg: textFg }),
-    Text({ content: match, fg: theme.crust, bg: theme.yellow }),
-    Text({ content: after, fg: textFg })
+    ...excerpt(row.text, [hit.startCol, hit.endCol], hit.narrowSpans).map((seg) => SegmentText(seg, textFg))
   )
 }
 
+function SegmentText(seg: Segment, fg: string) {
+  if (seg.mark === "match") return Text({ content: seg.text, fg: theme.crust, bg: theme.yellow })
+  if (seg.mark === "narrow") return Text({ content: seg.text, fg: theme.crust, bg: theme.teal })
+  return Text({ content: seg.text, fg })
+}
+
+type Mark = "plain" | "match" | "narrow"
+
+export interface Segment {
+  text: string
+  mark: Mark
+}
+
+interface MarkedSpan {
+  span: Span
+  mark: Mark
+}
+
+function narrowMarks(spans: readonly Span[]): MarkedSpan[] {
+  return spans.map((span) => ({ span, mark: "narrow" }))
+}
+
 /**
- * The row's text around its first match, indentation dropped. A match far
- * to the right is brought into view: the list is narrower than the code.
+ * The row's text around its first match, indentation dropped, cut into runs
+ * by what is highlighted. A match far to the right is brought into view: the
+ * list is narrower than the code. The search match is drawn over any
+ * narrowing term it overlaps, since it is where the cursor lands.
  */
-export function excerpt(
-  text: string,
-  startCol: number,
-  endCol: number
-): { before: string; match: string; after: string } {
+export function excerpt(text: string, match: Span, narrow: readonly Span[] = []): Segment[] {
+  const [startCol] = match
   const indent = text.length - text.trimStart().length
-  const from = Math.min(indent, startCol)
-  let before = text.slice(from, startCol)
-  if (before.length > LEAD) before = `…${before.slice(before.length - LEAD + 1)}`
-  return { before, match: text.slice(startCol, endCol), after: text.slice(endCol) }
+  const lineStart = Math.min(indent, startCol)
+  const clipped = startCol - lineStart > LEAD
+  const segments = highlight(
+    text,
+    [...narrowMarks(narrow), { span: match, mark: "match" }],
+    clipped ? startCol - LEAD + 1 : lineStart
+  )
+  return clipped ? [{ text: "…", mark: "plain" }, ...segments] : segments
+}
+
+/** Later spans are drawn over earlier ones. */
+function highlight(text: string, spans: readonly MarkedSpan[], from = 0): Segment[] {
+  const marks: Mark[] = Array.from({ length: text.length }, () => "plain")
+  for (const { span, mark } of spans) {
+    for (let i = span[0]; i < span[1] && i < text.length; i++) marks[i] = mark
+  }
+
+  const segments: Segment[] = []
+  for (let i = from; i < text.length; i++) {
+    const last = segments[segments.length - 1]
+    if (last && last.mark === marks[i]) last.text += text[i]
+    else segments.push({ text: text[i]!, mark: marks[i]! })
+  }
+  return segments
 }

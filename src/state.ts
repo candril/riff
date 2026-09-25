@@ -111,6 +111,10 @@ export interface CommentsPickerState {
 export interface OccurrencePickerState {
   open: boolean
   query: string
+  /** Narrows the query's hits by path and text (spec 099). */
+  filter: string
+  /** The prompt edits `filter` rather than `query`. */
+  narrowing: boolean
   selectedIndex: number
 }
 
@@ -720,6 +724,8 @@ export function createInitialState(
     occurrencePicker: {
       open: false,
       query: "",
+      filter: "",
+      narrowing: false,
       selectedIndex: 0,
     },
     fileStatuses: new Map(),
@@ -2192,14 +2198,14 @@ export function moveCommentsPickerSelection(
 export function openOccurrencePicker(state: AppState, query = ""): AppState {
   return {
     ...state,
-    occurrencePicker: { open: true, query, selectedIndex: 0 },
+    occurrencePicker: { open: true, query, filter: "", narrowing: false, selectedIndex: 0 },
   }
 }
 
 export function closeOccurrencePicker(state: AppState): AppState {
   return {
     ...state,
-    occurrencePicker: { open: false, query: "", selectedIndex: 0 },
+    occurrencePicker: { open: false, query: "", filter: "", narrowing: false, selectedIndex: 0 },
   }
 }
 
@@ -2207,6 +2213,20 @@ export function setOccurrencePickerQuery(state: AppState, query: string): AppSta
   return {
     ...state,
     occurrencePicker: { ...state.occurrencePicker, query, selectedIndex: 0 },
+  }
+}
+
+export function setOccurrencePickerFilter(state: AppState, filter: string): AppState {
+  return {
+    ...state,
+    occurrencePicker: { ...state.occurrencePicker, filter, selectedIndex: 0 },
+  }
+}
+
+export function toggleOccurrencePickerNarrowing(state: AppState): AppState {
+  return {
+    ...state,
+    occurrencePicker: { ...state.occurrencePicker, narrowing: !state.occurrencePicker.narrowing },
   }
 }
 
