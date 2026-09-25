@@ -1,6 +1,6 @@
 # Editor Thread Context
 
-**Status**: Draft
+**Status**: Superseded by [014](./014-comment-editor-context.md)
 
 ## Description
 

@@ -1,6 +1,6 @@
 # In-View Search
 
-**Status**: Draft
+**Status**: Done — only the diff's rows are searched; searching the context behind a divider was dropped ([056](./056-search-resume-and-collapsed-files.md))
 
 ## Description
 

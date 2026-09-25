@@ -1,6 +1,6 @@
 # 028 - PR Info Panel
 
-**Status**: Draft
+**Status**: Superseded by [041](./041-pr-overview-view.md)
 
 ## Description
 

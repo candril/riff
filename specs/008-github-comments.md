@@ -1,6 +1,6 @@
 # GitHub Comments
 
-**Status**: Ready
+**Status**: Done — the single/review mode toggle was dropped: a comment stays local until `S` posts it or `gS` sends it in a review
 
 ## Description
 

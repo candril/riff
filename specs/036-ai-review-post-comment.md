@@ -1,12 +1,15 @@
 # 036 - AI-drafted Inline PR Comments
 
-**Status**: Draft
+**Status**: Done
+
+**Not built**: reply and PR-level drafts, a queue of drafts
 
 > **Revision (2026-08-07)**: the in-riff approve/edit/post flow was dropped.
-> Riff no longer posts drafted comments — `gd` copies the draft body to the
-> clipboard, clears the draft, and the user pastes it into GitHub themselves. The `DraftReviewDialog`, the
+> Riff no longer posts drafted comments — "Claude: Copy drafted comment" in
+> `Ctrl+p` copies the draft body to the clipboard, clears the draft, and the user pastes it into GitHub themselves. The `DraftReviewDialog`, the
 > `$EDITOR` round-trip, and the `submitSingleComment` path are gone; the
-> drafting protocol, poller, and notification are unchanged. Sections below
+> drafting protocol, poller, and notification are unchanged. `gd`/`gD` are the
+> editor diff ([075](./075-diff-in-editor.md)); the draft has no chord. Sections below
 > that describe posting are kept as the original design record.
 
 ## Description
@@ -30,7 +33,7 @@ Flow:
    prompt that tells Claude: "follow the drafting protocol from your
    system prompt, don't deliberate, write the JSON now".
 4. Claude writes `draft-comment.json` and tells the user "Draft written —
-   press `gd` in riff to copy it".
+   copy it from riff's `Ctrl+p`".
 5. Riff, polling the draft path every ~1.5s, detects the file and shows
    a **persistent notification** in the bottom-right corner:
 
@@ -38,16 +41,15 @@ Flow:
        │ Claude drafted a comment               │
        │ src/app.ts:42-48                       │
        │ Use pattern xyz — works better here…   │
-       │ gd copy  ·  gD dismiss                 │
+       │ Ctrl+p: copy or discard it             │
        └────────────────────────────────────────┘
 
    The notification persists while the user continues navigating — unlike
    the existing transient `Toast`, it does **not** auto-dismiss.
-6. User presses **`gd`** (or runs `Ctrl+p` → "Claude: Copy drafted
-   comment"). Riff re-reads and re-validates the draft from disk, puts the
+6. User runs `Ctrl+p` → "Claude: Copy drafted comment". Riff re-reads and re-validates the draft from disk, puts the
    body on the clipboard, deletes the draft file, and toasts "Comment
    copied". A failed copy leaves the draft untouched.
-7. `gD` (or "Claude: Dismiss drafted comment") clears a draft the user
+7. "Claude: Dismiss drafted comment" clears a draft the user
    doesn't want to copy at all.
 
 ## Out of Scope
@@ -157,8 +159,6 @@ Flow:
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `gd` | Notification visible (global) | Copy the draft body, then clear it |
-| `gD` | Notification visible (global) | Delete draft, clear notification |
 | `Ctrl+p` → Copy | Notification visible | Copy the draft body, then clear it |
 | `Ctrl+p` → Dismiss | Notification visible | Delete draft, clear notification |
 | `/riff-comment <feedback>` | Inside Claude chat | Fast-path draft command |

@@ -1,6 +1,6 @@
 # 021 - Image Support in Comments
 
-Status: Draft
+**Status**: Draft
 
 ## Overview
 

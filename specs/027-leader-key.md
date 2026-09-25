@@ -1,6 +1,6 @@
 # Leader Key System
 
-**Status**: Draft
+**Status**: Dropped — `g` chords and the `Ctrl-p` palette took its place
 
 ## Description
 

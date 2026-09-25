@@ -1,6 +1,6 @@
 ## `riff pr` — Open PR for Current Branch/Bookmark
 
-**Status**: Ready
+**Status**: Done
 
 ## Description
 

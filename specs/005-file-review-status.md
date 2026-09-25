@@ -1,6 +1,8 @@
 # File Review Status
 
-**Status**: Ready
+**Status**: Done
+
+**Not built**: auto-mark on leaving a file, an unreviewed-only tree filter, a progress bar, time per file
 
 ## Description
 

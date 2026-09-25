@@ -14,6 +14,10 @@ dev *args:
 demo *args:
     bun src/index.ts --demo {{args}}
 
+# List specs with their status: just specs Partial
+specs status="":
+    @grep -m1 -H '^\*\*Status\*\*:' specs/[0-9]*.md | sed -E 's|^specs/([0-9]+)-([^.]*)\.md:\*\*Status\*\*: |\1  \2  |' | grep -F -- "{{status}}"
+
 # Install dependencies
 install:
     bun install

@@ -1,6 +1,8 @@
 # 034 - Delete Comments & Pending Reviews
 
-**Status**: Draft
+**Status**: Done — a synced comment is confirmed in a dialog; a local one is deleted at once
+
+**Not built**: discarding a pending review (`gD` is the editor diff now), deleting a whole thread, undo
 
 ## Description
 

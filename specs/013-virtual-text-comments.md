@@ -1,6 +1,6 @@
 # Virtual Text Comments
 
-**Status**: Draft
+**Status**: Dropped — virtual text lives in the nvim plugin ([091](./091-nvim-comments.md)); riff has the gutter `●` and the `Ctrl-t` panel
 
 ## Description
 

@@ -1,6 +1,8 @@
 # Open in Editor
 
-**Status**: Draft
+**Status**: Done — the key is `ge`
+
+**Not built**: the editor from the config, per-editor arguments, the column, a refresh when the editor closes
 
 ## Description
 
@@ -16,7 +18,7 @@ Open the currently focused file in an external editor (nvim by default). The fil
 
 ### P1 - MVP
 
-- **Open current file**: `<leader>e` opens the file in nvim at the current line
+- **Open current file**: `ge` opens the file in nvim at the current line
 - **Suspend/resume**: riff suspends while nvim runs, resumes when nvim exits
 - **Line position**: Opens at the exact line you're viewing in the diff
 - **File resolution**: Resolves the actual file path from the diff (handles renames)
@@ -102,10 +104,10 @@ function buildEditorArgs(
 ### Key Binding
 
 ```typescript
-// In leader key handler or keymap.ts
+// src/app/global-keys.ts, the `g` chord
 
-// <leader>e - Open in editor
-if (leaderSequence === "e") {
+// ge - Open in editor
+if (pendingKey === "g" && key.name === "e") {
   const currentFile = state.files[state.currentFileIndex]
   if (currentFile) {
     const filePath = resolveFilePath(currentFile)
@@ -264,13 +266,13 @@ src/
 When on a file, show the keybinding hint:
 
 ```
-<leader>e: Edit  |  j/k: Navigate  |  c: Comment
+ge: Edit  |  j/k: Navigate  |  c: Comment
 ```
 
 ## Visual Flow
 
 1. User is viewing a diff, cursor on line 42
-2. User presses `<leader>e` (Space + e)
+2. User presses `ge`
 3. Screen clears, nvim opens with the file at line 42
 4. User makes edits, saves, quits nvim (`:wq`)
 5. riff reappears, diff view restored

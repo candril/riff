@@ -1,6 +1,6 @@
 # React Reconciler Migration
 
-**Status**: Ready
+**Status**: Dropped — a port began on 2026-08-19 and was abandoned; the UI stays imperative `@opentui/core`
 
 ## Description
 

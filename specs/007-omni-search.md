@@ -1,6 +1,6 @@
 # File Picker (Omni Search)
 
-**Status**: Ready
+**Status**: Done — the file picker is `Ctrl-f`; the one box with `>`/`#`/`@` prefixes was dropped for separate pickers (020, 024, 044)
 
 ## Description
 

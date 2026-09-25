@@ -1,6 +1,6 @@
 # 035 - PR Info Panel v2
 
-**Status**: In Progress
+**Status**: Superseded by [041](./041-pr-overview-view.md) and [067](./067-info-panel.md)
 
 ## Description
 

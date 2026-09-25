@@ -1,6 +1,8 @@
 # Commit Picker
 
-**Status**: Draft
+**Status**: Done — the commit picker is its own list on `Ctrl-g`; [078](./078-commit-ranges.md) adds ranges
+
+**Not built**: a message preview, the files of the highlighted commit, `+X -Y` per commit
 
 ## Description
 

@@ -1,6 +1,8 @@
 ## Jumplist — Nvim-style `Ctrl-o` / `Ctrl-i` Navigation History
 
-**Status**: Ready
+**Status**: Done — [089](./089-jump-history.md) records the jumps
+
+**Not built**: the `[3/12]` position hint, `jumplist.max`
 
 ## Description
 

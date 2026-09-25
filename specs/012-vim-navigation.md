@@ -1,6 +1,8 @@
 # Vim Navigation and Line Selection
 
-**Status**: Draft
+**Status**: Done — `Ctrl-f`/`Ctrl-b` belong to the file picker and the tree; `Ctrl-o`/`Ctrl-i` to the jumplist ([089](./089-jump-history.md))
+
+**Not built**: marks (`handleSetMark`/`handleJumpToMark` in `src/vim-diff/motion-handler.ts` have no key), count prefixes, relative line numbers, smooth scrolling
 
 ## Description
 

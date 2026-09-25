@@ -1,6 +1,8 @@
 # Repo-Local Comment Storage
 
-**Status**: In Progress
+**Status**: Done — comments live in `.riff/comments/<source>/`, and the global fallback is `~/.riff`
+
+**Not built**: path aliases, remembering a confirmed path in the config, a generated `.gitignore`, storage stats, a `gc` command
 
 ## Description
 

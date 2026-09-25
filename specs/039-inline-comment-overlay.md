@@ -1,6 +1,6 @@
 ## Inline Comment Overlay — Actionable Thread View & PR Conversation
 
-**Status**: Draft
+**Status**: Done — built as the `Ctrl-t` side panel; the `gC` PR conversation overlay and the `+` reaction row were dropped ([042](./042-comment-reactions.md), [044](./044-comments-picker.md))
 
 ## Description
 

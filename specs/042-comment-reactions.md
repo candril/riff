@@ -1,6 +1,6 @@
 # 042 - Reactions on PR Comments
 
-**Status**: Draft
+**Status**: Done
 
 ## Description
 

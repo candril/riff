@@ -1,6 +1,6 @@
 # 041 - PR Overview as a First-Class View
 
-**Status**: In Progress
+**Status**: Done — views switch with `i`/`a`/`d` ([064](./064-surfaces-and-view-switching.md)), not `Tab`
 
 ## Description
 

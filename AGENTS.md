@@ -12,10 +12,10 @@ Feature specifications live in `specs/`. Before implementing a feature:
 
 ### Spec Status
 
-- `Draft` - Still being written
-- `Ready` - Ready for implementation
-- `In Progress` - Currently being implemented
-- `Done` - Completed (moved to `specs/done/`)
+The `**Status**:` line in each spec is the only record of its state;
+`specs/README.md` defines the values. `just specs` lists them all, `just specs
+Partial` one kind. Set `Done` in the same change that completes the spec, and
+list what was left out in its `**Not built**:` line.
 
 ## Commands
 
@@ -163,35 +163,28 @@ every path that sends comments to GitHub.
 ```
 src/
 ├── index.ts              # Entry point, CLI parsing
-├── app.ts                # Renderer setup, main loop
-├── state.ts              # App state management
+├── app.ts                # Renderer setup, keypress loop
+├── app/
+│   ├── init.ts           # Loading a session into state
+│   ├── render.ts         # Mounting and updating the views
+│   └── global-keys.ts    # Every key binding outside a focused feature
+├── state.ts              # App state and its pure updaters
 ├── types.ts              # Type definitions
+├── storage.ts            # .riff/ persistence
 ├── actions/
-│   ├── registry.ts       # Action definitions (add new actions here!)
+│   ├── registry.ts       # Ctrl-p palette actions (add new actions here!)
 │   └── types.ts          # Action types
-├── config/
-│   ├── schema.ts         # Config types
-│   ├── defaults.ts       # Default configuration
-│   └── loader.ts         # Load and merge config
+├── cli/                  # args, `riff comments`, the Claude skill
+├── config/               # schema, defaults, loader for config.toml
 ├── providers/
-│   ├── local.ts          # Git diff commands
-│   └── github.ts         # GitHub API via gh CLI
-├── storage.ts            # Local session persistence
-├── utils/
-│   ├── keymap.ts         # Key sequence handling
-│   ├── diff-parser.ts    # Parse diff into files
-│   └── fuzzy.ts          # Fuzzy matching
-├── omni/
-│   ├── index.ts          # Omni search coordinator
-│   └── sources/          # Search sources
-└── components/
-    ├── Shell.ts          # Root layout
-    ├── Header.ts         # Title bar
-    ├── StatusBar.ts      # Bottom hints
-    ├── DiffView.ts       # Diff display
-    ├── FileList.ts       # File panel
-    ├── CommentInput.ts   # Comment editor
-    └── OmniSearch.ts     # Fuzzy finder
+│   ├── local.ts          # git/jj diffs
+│   ├── files.ts          # file mode (`riff <path>`)
+│   ├── github.ts         # GitHub via gh (GraphQL and REST)
+│   └── demo.ts           # --demo fixture
+├── features/             # one directory per feature: index.ts, plus input.ts / handlers.ts
+├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff
+├── components/           # OpenTUI renderables (VimDiffView, PRInfoPanel, pickers…)
+└── utils/                # parsing, markdown, links, fuzzy matching, editor hand-off
 ```
 
 ## Configuration

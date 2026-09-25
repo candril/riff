@@ -1,6 +1,8 @@
 # Configuration
 
-**Status**: Ready
+**Status**: Partial
+
+**Not built**: `[keys]` (every key is hardcoded in `src/app/global-keys.ts`), `[colors]`, a warning on an invalid config, `--init-config`/`--dump-config`, `$RIFF_CONFIG`/`$XDG_CONFIG_HOME`
 
 ## Description
 

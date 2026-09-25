@@ -1,6 +1,6 @@
 # App Modularization
 
-**Status**: Ready
+**Status**: Done — the feature modules exist; the per-feature state slices do not, and `src/app.ts` and `src/app/global-keys.ts` have grown back past the target
 
 ## Description
 

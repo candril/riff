@@ -1,6 +1,8 @@
 # 033 - Comment Sync
 
-**Status**: Ready
+**Status**: Done — `gs` also posts new local comments
+
+**Not built**: choosing items with `Space`, a dry run
 
 ## Description
 

@@ -38,8 +38,8 @@ diff = "nvim -d {old} {new}"   # default
 
   `{old}` and `{new}` are each one argument, whatever is in them.
 
-- While Claude has left a draft, `gd`/`gD` keep their spec 036 meaning —
-  copy it, dismiss it — because the notification saying so is on screen.
+- `gd`/`gD` mean this even while Claude has left a draft; copying or
+  dismissing the draft is in `Ctrl+p` (spec 036).
 
 ## Technical Notes
 

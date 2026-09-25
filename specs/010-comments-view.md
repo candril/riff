@@ -1,6 +1,6 @@
 # Comments View
 
-**Status**: In Progress
+**Status**: Superseded by [039](./039-inline-comment-overlay.md)
 
 ## Description
 

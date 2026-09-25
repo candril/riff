@@ -1,6 +1,8 @@
 # Plan: riff Reads Files
 
-**Status**: Draft
+**Status**: In Progress
+
+**Not built**: 087 (the tree and picker at 10k files) is unwritten; 088's `gO` outline is not built
 
 Orchestrates specs 084–088. Each is implementable on its own; this says in
 what order and why, and records the decisions the specs assume.

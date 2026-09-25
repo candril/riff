@@ -1,6 +1,6 @@
 # Modern Diff Styling
 
-**Status**: Ready
+**Status**: Dropped — the file header and the divider stayed one row each
 
 ## Description
 

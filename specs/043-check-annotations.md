@@ -1,6 +1,8 @@
 # 043 - Inline Check Annotations
 
-**Status**: Draft
+**Status**: Done
+
+**Not built**: truncating long annotation lists
 
 ## Description
 

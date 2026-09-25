@@ -2,15 +2,37 @@
 
 This directory contains feature specifications for riff.
 
+`just specs` lists every spec with its status; `just specs Partial` narrows it
+to one status. The `**Status**:` line in each spec is the only record of its
+state — there is no index to keep in step.
+
 ## Format
 
 Each spec follows a consistent structure:
 
-- **Status**: `Draft` | `Ready` | `In Progress` | `Done`
+- **Status**: see below
+- **Not built** (optional): the capabilities still missing from a spec whose
+  status is `Done` or `Partial`
 - **Description**: What this feature does
 - **Out of Scope**: What this feature explicitly does NOT do
 - **Capabilities**: Prioritized list (P1 = MVP, P2 = Important, P3 = Nice to have)
 - **Technical Notes**: Implementation details, code examples, file structure
+
+## Status
+
+| Status | Meaning |
+|---|---|
+| `Draft` | Still being written |
+| `Ready` | Ready for implementation |
+| `In Progress` | Being implemented |
+| `Partial` | Some P1 capability is still missing; **Not built** says which |
+| `Done` | Every P1 capability exists, possibly in another form than specced |
+| `Superseded by NNN` | A later spec replaced the design |
+| `Dropped` | Will not be built |
+
+`Done`, `Superseded` and `Dropped` may carry a short reason after a dash, e.g.
+`Done — the key is ge`. Where the code went a different way than the spec, the
+reason says so; the body of the spec is not rewritten.
 
 ## Naming
 
@@ -21,110 +43,4 @@ Specs are numbered sequentially: `NNN-feature-name.md`
 1. Create spec as `Draft`
 2. Review and refine → `Ready`
 3. Begin implementation → `In Progress`
-4. Complete and verified → move to `done/` folder
-
-## Current Specs
-
-| # | Name | Status | Description |
-|---|------|--------|-------------|
-| 000 | [Vision](./000-vision.md) | Ready | Overall product vision and goals |
-| 001 | [App Shell](./001-app-shell.md) | Ready | Basic application shell with OpenTUI |
-| 002 | [Local Diff View](./002-local-diff-view.md) | Ready | Display local git diffs |
-| 003 | [File Navigation](./003-file-navigation.md) | Ready | Navigate between files in a diff |
-| 004 | [Local Comments](./004-local-comments.md) | Ready | Add and store comments locally |
-| 005 | [File Review Status](./005-file-review-status.md) | Ready | Mark files as viewed/reviewed |
-| 006 | [Configuration](./006-configuration.md) | Ready | TOML config with keybinding sequences |
-| 007 | [Omni Search](./007-omni-search.md) | Ready | Fuzzy finder for files, comments, actions |
-| 008 | [GitHub Comments](./008-github-comments.md) | Ready | Submit comments to GitHub (single or review) |
-| 009 | [GitHub PR Fetch](./009-github-pr-fetch.md) | Ready | Fetch and display GitHub PRs via `gh` CLI |
-| 010 | [Comments View](./010-comments-view.md) | In Progress | Dedicated view for browsing threads/comments |
-| 011 | [Editor Thread Context](./011-editor-thread-context.md) | Draft | Show thread context when editing comments |
-| 012 | [Vim Navigation](./012-vim-navigation.md) | Draft | Vim motions, visual line selection, line mapping |
-| 013 | [Virtual Text Comments](./013-virtual-text-comments.md) | Draft | Inline comment previews like nvim virtual text |
-| 014 | [Comment Editor Context](./014-comment-editor-context.md) | Draft | Context for comment editor |
-| 015 | [Modern Diff Styling](./015-modern-diff-styling.md) | Draft | Modern diff styling improvements |
-| 016 | [React Reconciler Migration](./016-react-reconciler-migration.md) | Ready | Migrate to React-style JSX syntax |
-| 017 | [In-View Search](./017-in-view-search.md) | Draft | Search within current view |
-| 018 | [Submit Comments](./018-submit-comments.md) | Draft | Submit comments to GitHub |
-| 019 | [PR Management](./019-create-pr.md) | Done | Create PRs and edit PR title/description |
-| 020 | [Action Menu](./020-action-menu.md) | Draft | Action menu for common operations |
-| 021 | [Image Support](./021-image-support.md) | Draft | Drag-drop images in comments |
-| 022 | [Flash Navigation](./022-flash-navigation.md) | Done | flash.nvim-style jump navigation with dim effect |
-| 023 | [Repo-Local Storage](./023-repo-local-storage.md) | Draft | Store comments in local repo directory |
-| 024 | [Commit Picker](./024-commits-panel.md) | Draft | Filter diff by commit via `Ctrl+p #` and `]g`/`[g` navigation |
-| 025 | [App Modularization](./025-app-modularization.md) | Draft | Split app.ts into focused modules |
-| 026 | [Ignore Patterns](./026-ignore-patterns.md) | Draft | Hide generated/lock files from review |
-| 027 | [Leader Key](./027-leader-key.md) | Draft | Leader key for key sequences |
-| 028 | [PR Info Panel](./028-pr-info-panel.md) | Draft | Quick view of PR metadata, checks, approvals |
-| 029 | [Comment Resolution Status](./029-comment-resolution-status.md) | Draft | Display and toggle comment resolution state |
-| 030 | [Viewed Files Sync](./030-viewed-files-sync.md) | Draft | Sync viewed status with GitHub |
-| 031 | [Open in Editor](./031-open-in-editor.md) | Draft | Open current file in nvim at cursor line |
-| 032 | [Diff Strategies](./032-diff-strategies.md) | Draft | difftastic as a span provider, and what a split view would cost |
-| 033 | [Comment Sync](./033-comment-sync.md) | Ready | Sync edits and replies to GitHub |
-| 034 | [Delete Comments](./034-delete-comments.md) | Draft | Delete comments with safeguard confirmation |
-| 042 | [Comment Reactions](./042-comment-reactions.md) | Draft | Add/remove GitHub reactions on PR comments, body, reviews |
-| 044 | [Comments Picker](./044-comments-picker.md) | Draft | `gC` fuzzy modal across all comments in the diff |
-| 049 | [Local Review Lifecycle](./049-local-review-lifecycle.md) | Done | `riff comments` CLI, Claude handoff, clear, resolved-locally never published |
-| 050 | [Tree Filter & Flash to a File](./050-tree-filter-and-file-flash.md) | Done | `/` filters the file tree by path; `s` jumps to a file header |
-| 051 | [Long Lines](./051-long-lines.md) | Done | Sidescroll, pinned gutter, overflow markers, `gl` peek, `zw` wrap |
-| 052 | [Tree and Diff in Step](./052-tree-and-diff-in-step.md) | Done | Picking a file scrolls the diff; the tree and cursor follow each other |
-| 053 | [Markdown Tables](./053-markdown-tables.md) | Done | Cells padded onto one grid in the diff; `gt` draws the table with wrapping cells |
-| 054 | [HTML in Comments](./054-html-in-comments.md) | Done | `<br>`, `<details>`, `<b>`, `<a>` translated instead of printed raw |
-| 055 | [Visual Selection & Text Objects](./055-visual-selection-and-text-objects.md) | Done | `v` selects charwise, `i`/`a` text objects, viewed moves to `x` |
-| 056 | [Search Resume & Collapsed Files](./056-search-resume-and-collapsed-files.md) | Done | `n` revives the pattern after Esc; a search opens the collapsed files it hits |
-| 057 | [Following Links](./057-following-links.md) | Done | `gf` follows the link under the cursor; `ge`/`gE` open the current file |
-| 058 | [Mermaid Diagrams](./058-mermaid-diagrams.md) | Done | `gl` draws a mermaid block; `Tab` swaps a diagram or table between its versions |
-| 059 | [Resolved References](./059-resolved-references.md) | Done | `#412` and pasted GitHub URLs carry the title and state of what they point at |
-| 060 | [Code Under an Outdated Comment](./060-code-under-an-outdated-comment.md) | Done | `c` in the comments panel draws the code a comment was written against |
-| 061 | [Kept Drafts](./061-kept-drafts.md) | Done | Esc keeps a half-written comment on its line; the composer picks it back up |
-| 062 | [Plan: Review Surfaces](./062-review-surfaces-plan.md) | Done | Orchestrates 063–070: three views, one key apart |
-| 063 | [Refresh in Place](./063-refresh-in-place.md) | Done | `gr` changes the data and nothing else |
-| 064 | [Surfaces & View Switching](./064-surfaces-and-view-switching.md) | Done | `i` state, `a` feed, `d` diff; focus routing and per-view position |
-| 065 | [Text Inputs & Filters](./065-text-inputs-and-filters.md) | Done | Real input widgets everywhere; `Ctrl-f` filters the focused view |
-| 066 | [Flash Everywhere](./066-flash-everywhere.md) | Done | `s` jumps to a visible row in the tree, info panel and feed |
-| 067 | [Info Panel](./067-info-panel.md) | Done | Metadata trimmed, sections at a glance, previews slot |
-| 068 | [Preview Links](./068-preview-links.md) | Done | Preview URLs as a list you can open and copy, configurable |
-| 069 | [Visit Watermark](./069-visit-watermark.md) | Done | Per-PR memory of your last visit; unseen markers and `]n` |
-| 070 | [Activity Feed](./070-activity-feed.md) | Done | `a` shows what happened, filterable by type |
-| 071 | [Occurrence Picker](./071-occurrence-picker.md) | Superseded | Every place a word appears in the diff, in one list — see 088 |
-| 072 | [Stacked PRs](./072-stacked-prs.md) | Done | Says when the base is another PR, and when that base moved or was rewritten |
-| 073 | [Fold Code Blocks](./073-fold-code-blocks.md) | Done | `za`/`zA`/`zo`/`zc`/`zR`/`zM` fold a fenced block like a file |
-| 074 | [Expanding Context](./074-expanding-context.md) | Done | `Enter` expands a collapsed run; one spinner, honest end-of-file |
-| 075 | [Diff a File in the Editor](./075-diff-in-editor.md) | Done | `gd` / `gD` open both versions side by side, configurable |
-| 076 | [Suggestions](./076-suggestions.md) | Done | `Ctrl-y` writes a suggestion block for the lines under review |
-| 077 | [Links](./077-links.md) | Done | `gx` lists the links in the PR body or a comment |
-| 078 | [Commit Ranges](./078-commit-ranges.md) | Done | mark commits in the picker and read them as one diff |
-| 079 | [The PR Your Branch Already Has](./079-branch-pr.md) | Done | local mode names the branch's PR and reopens riff on it |
-| 080 | [Highlight From the File](./080-highlight-from-the-file.md) | Done | parse the real file so a fold stops breaking the colours |
-| 081 | [A Second Thread on One Line](./081-a-second-thread.md) | Done | writing a comment starts a thread; `r` is how you reply |
-| 082 | [Emoji by Shortcode](./082-emoji.md) | Done | `:` in the composer suggests emoji |
-| 083 | [Plan: riff Reads Files](./083-file-mode-plan.md) | Draft | `riff <path>` — a file, a subtree or the repo as files, and notes on any line |
-| 084 | [File Mode](./084-file-mode.md) | Done | `riff <path>` opens a file or a directory as a diff with no changes |
-| 085 | [Comments on Files](./085-comments-on-files.md) | Done | `c` on any line riff shows; a note is local, and says so |
-| 086 | [The Agent Queue](./086-agent-queue.md) | Done | `--path` narrows it, the payload says note or review, and where the line went |
-| 088 | [Occurrence Picker](./088-occurrence-picker.md) | Done | `Ctrl-s` lists every row of the diff that matches, grouped by file |
-| 089 | [Jump History](./089-jump-history.md) | Ready | every jump is in `Ctrl-o`'s list, because one place records them |
-| 090 | [The Opening Screen](./090-opening-screen.md) | Draft | what `riff .` should land on instead of the first file alphabetically |
-| 091 | [Comments From nvim](./091-nvim-comments.md) | Done | write a riff comment from nvim, virtual text where they are |
-| 092 | [The Review, In nvim](./092-review-in-nvim.md) | Done | `:RiffPr` fetches and shows the pull request's comments, where the lines are now |
-| 093 | [One List](./093-one-list.md) | Done | `--all` is your notes and the branch's review in one report |
-| 094 | [The Review, In a Local Diff](./094-the-review-in-a-local-diff.md) | Done | `riff` on a branch with a PR shows that PR's comments on the lines they are on |
-| 095 | [Opening the Branch's PR](./095-opening-the-branchs-pr.md) | Done | `i` and `a` in a local review load the pull request the header names |
-| 096 | [The Words That Changed](./096-word-diff.md) | Done | the spans that differ inside a paired deletion and addition are brighter |
-| 097 | [Chrome Is Not Code](./097-chrome-is-not-code.md) | Done | the highlighter is handed the diff's lines, not riff's collapsed-context labels |
-| 099 | [Narrowing the Occurrences](./099-narrow-occurrences.md) | Done | `Ctrl-g` in the occurrence picker filters its hits by path and text |
-
-## MVP Path
-
-The recommended implementation order for MVP:
-
-1. **001 - App Shell** (P1) - Get the basic app running
-2. **002 - Local Diff View** (P1) - Show uncommitted changes
-3. **003 - File Navigation** (P1) - Navigate multi-file diffs  
-4. **004 - Local Comments** (P1) - Add comments on lines
-5. **005 - File Review Status** (P1) - Mark files as viewed
-
-## Future Specs (Not Yet Written)
-
-- `012-data-refresh` - Refresh PR data from GitHub
-- `013-resolve-threads` - Mark threads as resolved
+4. Set `Done` in the same change that completes it

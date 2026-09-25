@@ -1,6 +1,8 @@
 # Comments Picker — `gC` Fuzzy Modal Across the Whole Diff
 
-**Status**: Draft
+**Status**: Done
+
+**Not built**: the `(hidden)` tag, `unresolved:`/`mine:`/`file:` prefixes
 
 ## Description
 

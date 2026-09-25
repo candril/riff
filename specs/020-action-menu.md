@@ -1,6 +1,8 @@
 # 017 - Action Menu (Command Palette)
 
-**Status**: Ready
+**Status**: Done
+
+**Not built**: `:` to open it, recent actions first
 
 ## Description
 

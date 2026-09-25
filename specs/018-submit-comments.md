@@ -1,6 +1,8 @@
 # 015 - Submit Comments to GitHub
 
-**Status**: Ready
+**Status**: Done
+
+**Not built**: discarding a pending review (`deletePendingReview` has no caller), retry, an offline queue
 
 ## Description
 

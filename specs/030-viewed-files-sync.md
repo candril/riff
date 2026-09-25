@@ -1,6 +1,8 @@
 # 030 - Viewed Files Sync
 
-**Status**: Ready
+**Status**: Partial
+
+**Not built**: the changed-since-viewed warning: `refreshViewedStatuses` in `src/utils/viewed-status.ts` has no caller, so `isStale` is never set and `]o` never finds a file; unmark all, an outdated filter, review freshness
 
 ## Description
 
