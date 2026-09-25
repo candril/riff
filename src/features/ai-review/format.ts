@@ -119,7 +119,7 @@ Be fast:
    exact lines being replaced). Otherwise, draft a plain comment
    anchored at the first row of the selection.
 4. Write the draft JSON immediately and then tell the user:
-   "Draft written — press \`gd\` in riff to copy it."
+   "Draft written — in riff, Ctrl+p → Claude: Copy drafted comment."
 5. If it's ambiguous which lines are meant (and no Draft anchor section
    exists), ask **one** clarifying question before drafting. Don't
    deliberate beyond that.
@@ -203,7 +203,7 @@ export const AI_REVIEW_SYSTEM_PROMPT = [
   "- `startLine` is optional: include it only when the comment spans more",
   "  than one line. `startLine` must be <= `line` and on the same side.",
   "- After saving the draft, tell the user: \"Draft written. Riff will show",
-  "  a notification — press `gd` there to copy it.\"",
+  "  a notification — copy it there with Ctrl+p → Claude: Copy drafted comment.\"",
   "- Do **not** run `gh`, `git`, or any other shell command to post the",
   "  comment. The user copies the draft out of riff and posts it",
   "  themselves.",

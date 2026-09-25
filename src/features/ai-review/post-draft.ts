@@ -13,11 +13,9 @@
  *    deletions clear it.
  * 3. A persistent `DraftNotification` component (rendered bottom-right,
  *    no auto-dismiss) tells the user a draft is waiting.
- * 4. Interaction paths:
- *      - Direct: `gd` (copy body to clipboard, then clear the draft) /
- *        `gD` (clear without copying) chords.
- *      - Action menu: "Claude: Copy drafted comment" / "Claude: Dismiss
- *        drafted comment".
+ * 4. The action menu acts on it: "Claude: Copy drafted comment" (copy the
+ *    body to the clipboard, then clear the draft) / "Claude: Dismiss drafted
+ *    comment" (clear without copying). `gd`/`gD` are the editor diff.
  */
 
 import { existsSync, readFileSync, statSync, unlinkSync } from "node:fs"
@@ -143,9 +141,9 @@ export function startDraftPoller(ctx: AiReviewContext): () => void {
 // ---------- action: copy drafted comment ----------
 
 /**
- * `gd` / "Claude: Copy drafted comment": put the draft body on the
- * clipboard so the user can paste it into GitHub themselves, then clear
- * the draft — one keystroke ends the whole flow.
+ * "Claude: Copy drafted comment": put the draft body on the clipboard so
+ * the user can paste it into GitHub themselves, then clear the draft — one
+ * action ends the whole flow.
  *
  * Re-loads and re-validates from disk rather than using the notification's
  * snapshot — Claude may have overwritten the draft since the last poll
