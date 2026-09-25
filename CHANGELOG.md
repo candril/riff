@@ -7,7 +7,16 @@ release, so write it before tagging.
 
 ## [Unreleased]
 
+### Changed
+
+- OpenTUI 0.5.12.
+
 ### Added
+
+- `Ctrl-s` lists every row of the diff that matches what you type, grouped by file with a
+  count per file, and `Enter` goes there. `/` answers "take me to the next one"; this
+  answers "where does this appear at all", which used to mean pressing `n` and rebuilding
+  the picture one match at a time.
 
 - **`riff --demo`** — a review of a repository riff generates in `TMPDIR`: five files with a
   modification, an addition and a deletion over them, with no network call and nothing written
