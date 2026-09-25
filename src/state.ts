@@ -2,6 +2,7 @@ import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
 import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
+import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
@@ -2326,11 +2327,12 @@ export function getReviewProgress(state: AppState): { reviewed: number; total: n
  * Load file statuses from storage data
  */
 export function loadFileStatuses(state: AppState, statuses: FileReviewStatus[]): AppState {
-  const newStatuses = new Map(state.fileStatuses)
+  const loaded = new Map(state.fileStatuses)
   
   for (const status of statuses) {
-    newStatuses.set(status.filename, status)
+    loaded.set(status.filename, status)
   }
+  const newStatuses = markStaleFiles(loaded, state.allFiles)
   
   return {
     ...state,

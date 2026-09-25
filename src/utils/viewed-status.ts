@@ -1,104 +1,79 @@
 /**
  * Utilities for viewed file status management
  * - Change detection (file changed since viewed)
+ * - Merging GitHub's viewed state
  * - Stats computation
  */
 
 import { $ } from "bun"
 import type { FileReviewStatus, ViewedStats } from "../types"
+import type { ViewerViewedState } from "../providers/github"
 import type { DiffFile } from "./diff-parser"
 
 // ============================================================================
 // Change Detection
 // ============================================================================
 
-export interface ChangeDetectionResult {
-  isStale: boolean
-  commitsBehind: number
-  latestCommit: string
+/**
+ * Fingerprint of a file's patch. A viewed file whose patch no longer matches
+ * the one it was viewed at has changed since — in local mode that is often an
+ * edit that is not yet a commit, which no comparison of commits would see.
+ */
+export function diffHash(file: DiffFile): string {
+  return Bun.hash(file.content).toString(36)
 }
 
-/**
- * Check if a file has changed since it was marked as viewed.
- * Uses git log to find commits that modified the file between viewedAtCommit and currentHead.
- * 
- * @param filename - The file to check
- * @param viewedAtCommit - The commit SHA when the file was marked as viewed
- * @param currentHead - The current HEAD commit SHA
- */
-export async function checkFileChangedSinceViewed(
-  filename: string,
-  viewedAtCommit: string,
-  currentHead: string
-): Promise<ChangeDetectionResult> {
-  try {
-    // Get commits that touched this file since viewedAtCommit
-    const result = await $`git log --oneline ${viewedAtCommit}..${currentHead} -- ${filename}`.text()
-    
-    const commits = result.trim().split("\n").filter(Boolean)
-    
-    return {
-      isStale: commits.length > 0,
-      commitsBehind: commits.length,
-      latestCommit: currentHead,
-    }
-  } catch {
-    // On error (e.g., invalid commit), assume not stale
-    return {
-      isStale: false,
-      commitsBehind: 0,
-      latestCommit: currentHead,
-    }
-  }
-}
-
-/**
- * Refresh viewed statuses with change detection.
- * Checks each viewed file to see if it has changed since being marked as viewed.
- * 
- * @param statuses - Map of current file statuses
- * @param currentHead - Current HEAD commit SHA
- */
-export async function refreshViewedStatuses(
+/** `files` must be the whole diff, not a commit-scoped slice of it. */
+export function markStaleFiles(
   statuses: Map<string, FileReviewStatus>,
-  currentHead: string
-): Promise<Map<string, FileReviewStatus>> {
-  const updated = new Map<string, FileReviewStatus>()
-  
-  // Process in parallel for performance
-  const entries = Array.from(statuses.entries())
-  const results = await Promise.all(
-    entries.map(async ([filename, status]) => {
-      // Skip if not viewed or no viewedAtCommit
-      if (!status.viewed || !status.viewedAtCommit) {
-        return [filename, status] as const
-      }
-      
-      // Already up to date with current head
-      if (status.latestCommit === currentHead && status.isStale !== undefined) {
-        return [filename, status] as const
-      }
-      
-      const change = await checkFileChangedSinceViewed(
-        filename,
-        status.viewedAtCommit,
-        currentHead
-      )
-      
-      return [filename, {
-        ...status,
-        isStale: change.isStale,
-        staleCommits: change.commitsBehind,
-        latestCommit: change.latestCommit,
-      }] as const
-    })
-  )
-  
-  for (const [filename, status] of results) {
-    updated.set(filename, status)
+  files: DiffFile[]
+): Map<string, FileReviewStatus> {
+  const hashes = new Map(files.map((file) => [file.filename, diffHash(file)]))
+  const marked = new Map<string, FileReviewStatus>()
+  for (const [filename, status] of statuses) {
+    const current = hashes.get(filename)
+    const isStale =
+      status.viewed && status.viewedDiffHash !== undefined && current !== undefined
+        ? status.viewedDiffHash !== current
+        : status.isStale
+    marked.set(filename, isStale === status.isStale ? status : { ...status, isStale })
   }
-  
-  return updated
+  return marked
+}
+
+/**
+ * Fold GitHub's viewed state into the local one. GitHub is the authority in PR
+ * mode: `DISMISSED` is its "viewed, but the file changed since", and `VIEWED`
+ * vouches for the patch as it is now.
+ */
+export function mergeGitHubViewedStates(
+  statuses: Map<string, FileReviewStatus>,
+  github: Map<string, ViewerViewedState>,
+  headSha: string,
+  files: DiffFile[]
+): Map<string, FileReviewStatus> {
+  const merged = new Map(statuses)
+  const byName = new Map(files.map((file) => [file.filename, file]))
+  const now = new Date().toISOString()
+  for (const [filename, state] of github) {
+    const existing = merged.get(filename)
+    const synced = { githubSynced: true, syncedAt: now }
+    if (state === "UNVIEWED") {
+      merged.set(filename, { ...createViewedStatus(filename, headSha, false), ...synced })
+      continue
+    }
+    const file = byName.get(filename)
+    const base: FileReviewStatus = existing?.viewed
+      ? existing
+      : createViewedStatus(filename, headSha, true, file)
+    merged.set(filename, {
+      ...base,
+      ...synced,
+      isStale: state === "DISMISSED",
+      viewedDiffHash: state === "VIEWED" && file ? diffHash(file) : base.viewedDiffHash,
+    })
+  }
+  return merged
 }
 
 /**
@@ -197,11 +172,13 @@ export function getUnviewedFiles(
  * @param filename - The file being marked
  * @param headCommit - Current HEAD commit
  * @param viewed - Whether to mark as viewed (true) or unviewed (false)
+ * @param file - The file as the whole diff shows it now
  */
 export function createViewedStatus(
   filename: string,
   headCommit: string,
-  viewed: boolean
+  viewed: boolean,
+  file?: DiffFile
 ): FileReviewStatus {
   if (viewed) {
     return {
@@ -209,9 +186,8 @@ export function createViewedStatus(
       viewed: true,
       viewedAt: new Date().toISOString(),
       viewedAtCommit: headCommit,
+      viewedDiffHash: file ? diffHash(file) : undefined,
       isStale: false,
-      staleCommits: 0,
-      latestCommit: headCommit,
       githubSynced: false,
     }
   } else {
@@ -220,9 +196,8 @@ export function createViewedStatus(
       viewed: false,
       viewedAt: undefined,
       viewedAtCommit: undefined,
+      viewedDiffHash: undefined,
       isStale: undefined,
-      staleCommits: undefined,
-      latestCommit: undefined,
       githubSynced: false,
     }
   }

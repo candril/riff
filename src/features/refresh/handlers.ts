@@ -24,6 +24,7 @@ import {
 import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments, loadViewedStatuses, saveVisit } from "../../storage"
+import { mergeGitHubViewedStates } from "../../utils/viewed-status"
 import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
@@ -150,32 +151,12 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Merge GitHub viewed statuses
       if (viewedStatuses && headSha) {
-        ctx.setState((s) => {
-          const mergedStatuses = new Map(s.fileStatuses)
-          for (const [filename, viewed] of viewedStatuses) {
-            const existing = mergedStatuses.get(filename)
-            if (!existing) {
-              mergedStatuses.set(filename, {
-                filename,
-                viewed,
-                viewedAt: viewed ? new Date().toISOString() : undefined,
-                viewedAtCommit: viewed ? headSha : undefined,
-                githubSynced: true,
-                syncedAt: new Date().toISOString(),
-              })
-            } else {
-              mergedStatuses.set(filename, {
-                ...existing,
-                viewed,
-                viewedAt: viewed ? new Date().toISOString() : undefined,
-                viewedAtCommit: viewed ? headSha : undefined,
-                githubSynced: true,
-                syncedAt: new Date().toISOString(),
-              })
-            }
-          }
-          return updateFileStatuses(s, mergedStatuses)
-        })
+        ctx.setState((s) =>
+          updateFileStatuses(
+            s,
+            mergeGitHubViewedStates(s.fileStatuses, viewedStatuses, headSha, s.allFiles)
+          )
+        )
       }
 
       // Collapse viewed files

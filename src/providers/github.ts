@@ -1399,7 +1399,7 @@ export interface PrBundle {
   prInfo: PrInfo
   headSha: string
   threads: GraphQLThreadInfo[]
-  viewedStatuses: Map<string, boolean>
+  viewedStatuses: Map<string, ViewerViewedState>
 }
 
 export async function fetchPrBundle(
@@ -1504,17 +1504,17 @@ export async function fetchPrBundle(
       bodyReactions: parseReactionGroups(pr.reactionGroups),
     }
 
-    const viewedStatuses = new Map<string, boolean>()
+    const viewedStatuses = new Map<string, ViewerViewedState>()
     for (const file of pr.files?.nodes ?? []) {
-      viewedStatuses.set(file.path, file.viewerViewedState === "VIEWED")
+      viewedStatuses.set(file.path, file.viewerViewedState)
     }
     // PRs over 100 files are rare enough to pay a second round-trip for.
     const filesPageInfo = pr.files?.pageInfo
     if (filesPageInfo?.hasNextPage && filesPageInfo?.endCursor) {
-      for (const [path, viewed] of await fetchRemainingViewedStatuses(
+      for (const [path, viewedState] of await fetchRemainingViewedStatuses(
         owner, repo, prNumber, filesPageInfo.endCursor
       )) {
-        viewedStatuses.set(path, viewed)
+        viewedStatuses.set(path, viewedState)
       }
     }
 
@@ -1578,7 +1578,7 @@ export async function loadPrSession(
   prNumber: number,
   owner?: string,
   repo?: string
-): Promise<{ prInfo: PrInfo; diff: string; comments: Comment[]; viewedStatuses: Map<string, boolean>; headSha: string }> {
+): Promise<{ prInfo: PrInfo; diff: string; comments: Comment[]; viewedStatuses: Map<string, ViewerViewedState>; headSha: string }> {
   // Resolve owner/repo first if needed
   let resolvedOwner = owner
   let resolvedRepo = repo
@@ -2352,8 +2352,8 @@ async function fetchRemainingViewedStatuses(
   repo: string,
   prNumber: number,
   cursor: string
-): Promise<Map<string, boolean>> {
-  const statuses = new Map<string, boolean>()
+): Promise<Map<string, ViewerViewedState>> {
+  const statuses = new Map<string, ViewerViewedState>()
 
   try {
     while (true) {
@@ -2361,8 +2361,7 @@ async function fetchRemainingViewedStatuses(
       const files = result?.data?.repository?.pullRequest?.files
 
       for (const file of files?.nodes ?? []) {
-        // viewerViewedState: "VIEWED" | "UNVIEWED" | "DISMISSED"
-        statuses.set(file.path, file.viewerViewedState === "VIEWED")
+        statuses.set(file.path, file.viewerViewedState)
       }
 
       if (!files?.pageInfo?.hasNextPage || !files.pageInfo.endCursor) {

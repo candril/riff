@@ -22,8 +22,9 @@ import {
   type AppState,
 } from "../state"
 import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit } from "../storage"
+import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
-import type { PrInfo } from "../providers/github"
+import type { PrInfo, ViewerViewedState } from "../providers/github"
 import { PR_COMMITS_FETCH_LIMIT } from "../providers/github"
 import { groupIntoThreads } from "../utils/threads"
 import { getTreeSitterClient } from "@opentui/core"
@@ -41,7 +42,7 @@ export interface InitOptions {
   diff?: string
   comments?: Comment[]
   prInfo?: PrInfo
-  githubViewedStatuses?: Map<string, boolean>
+  githubViewedStatuses?: Map<string, ViewerViewedState>
   headSha?: string
 }
 
@@ -156,35 +157,10 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // In PR mode, merge GitHub viewed statuses
   if (mode === "pr" && githubViewedStatuses && headSha) {
-    const mergedStatuses = new Map(state.fileStatuses)
-    for (const [filename, viewed] of githubViewedStatuses) {
-      const existing = mergedStatuses.get(filename)
-      if (!existing) {
-        mergedStatuses.set(filename, {
-          filename,
-          viewed,
-          viewedAt: viewed ? new Date().toISOString() : undefined,
-          viewedAtCommit: viewed ? headSha : undefined,
-          githubSynced: true,
-          syncedAt: new Date().toISOString(),
-        })
-      } else if (viewed !== existing.viewed) {
-        mergedStatuses.set(filename, {
-          ...existing,
-          viewed,
-          viewedAt: viewed ? new Date().toISOString() : undefined,
-          viewedAtCommit: viewed ? headSha : undefined,
-          githubSynced: true,
-          syncedAt: new Date().toISOString(),
-        })
-      } else {
-        mergedStatuses.set(filename, {
-          ...existing,
-          githubSynced: true,
-        })
-      }
-    }
-    state = updateFileStatuses(state, mergedStatuses)
+    state = updateFileStatuses(
+      state,
+      mergeGitHubViewedStates(state.fileStatuses, githubViewedStatuses, headSha, state.allFiles)
+    )
   }
 
   // When riff last had this PR open, and what had been read by then (spec

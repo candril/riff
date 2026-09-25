@@ -428,9 +428,12 @@ export async function toggleViewedForFile(
   }
 
   const currentStatus = state.fileStatuses.get(filename)
-  const newViewed = !currentStatus?.viewed
+  // An outdated file is read again, so `x` marks it viewed as it is now
+  // rather than unmarking it.
+  const newViewed = !currentStatus?.viewed || currentStatus.isStale === true
+  const file = state.allFiles.find((f) => f.filename === filename)
 
-  const newStatus: FileReviewStatus = createViewedStatus(filename, commitSha, newViewed)
+  const newStatus: FileReviewStatus = createViewedStatus(filename, commitSha, newViewed, file)
 
   ctx.setState((s) => setFileViewedStatus(s, newStatus))
 

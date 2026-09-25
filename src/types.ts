@@ -168,10 +168,10 @@ export interface FileReviewStatus {
   viewedAt?: string           // ISO timestamp when marked viewed
   viewedAtCommit?: string     // Commit SHA when marked viewed
   
-  // Change detection (populated by refreshViewedStatuses)
+  viewedDiffHash?: string     // diffHash of the file's patch when marked viewed
+
+  // Change detection (markStaleFiles, mergeGitHubViewedStates)
   isStale?: boolean           // True if file changed since viewed
-  staleCommits?: number       // Number of commits since viewed
-  latestCommit?: string       // Current HEAD commit for this file
   
   // GitHub sync
   githubSynced?: boolean      // True if synced to GitHub

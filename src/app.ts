@@ -40,7 +40,7 @@ import { markVisit } from "./utils/visit"
 import { saveVisitSync } from "./storage"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
-import type { PrInfo } from "./providers/github"
+import type { PrInfo, ViewerViewedState } from "./providers/github"
 import type { DiffFile } from "./utils/diff-parser"
 import { MAX_HIGHLIGHT_BYTES } from "./vim-diff/file-highlights"
 
@@ -103,7 +103,7 @@ export interface AppOptions {
   comments?: Comment[]
   prInfo?: PrInfo
   // GitHub viewed statuses (from PR load)
-  githubViewedStatuses?: Map<string, boolean>
+  githubViewedStatuses?: Map<string, ViewerViewedState>
   // PR head commit SHA (for tracking viewed at commit)
   headSha?: string
 }
