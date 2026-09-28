@@ -98,6 +98,16 @@ describe("finding the comment they live in", () => {
     expect(detectPreviews(withoutMarker, marked, 10747)).toBeNull()
   })
 
+  test("a newer table linking back into the PR on GitHub is not one of previews", () => {
+    const debt = `| Type | Description | File | Points |
+| --- | --- | --- | --- |
+| todo | TODO OSA | [src/a.tsx](https://github.com/o/r/pull/10747/files#diff-80da) | -1 |
+`
+    const later = [...comments, { id: 3, body: debt, author: "@dg-helix-bot", createdAt: "2026-01-01T17:20:00Z" }]
+
+    expect(detectPreviews(later, config, 10747)?.commentId).toBe("2")
+  })
+
   test("nothing to lift when no comment has a table", () => {
     expect(detectPreviews([comments[0]!], config, 10747)).toBeNull()
   })

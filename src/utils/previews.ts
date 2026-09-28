@@ -179,8 +179,11 @@ export function parseLinks(cell: string): PreviewLink[] {
  * named.
  */
 function qualifies(url: string, config: PreviewsConfig, prNumber: number): boolean {
-  if (config.matchPrNumber && new RegExp(`(^|[^0-9])${prNumber}([^0-9]|$)`).test(url)) return true
-  return config.hosts.some((pattern) => hostMatches(url, pattern))
+  if (config.hosts.some((pattern) => hostMatches(url, pattern))) return true
+  // GitHub's own pages carry the number because they are the PR — its
+  // files, its diff anchors — and a bot's table of TODOs links those.
+  if (hostOf(url) === "github.com") return false
+  return config.matchPrNumber && new RegExp(`(^|[^0-9])${prNumber}([^0-9]|$)`).test(url)
 }
 
 function hostMatches(url: string, pattern: string): boolean {

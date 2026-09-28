@@ -1556,8 +1556,10 @@ export class PRInfoPanelClass {
       if (item.type === 'pending-reviewer') continue
       all.push({ title: `@${item.data.author}`, text: item.data.body ?? "" })
     }
+    // A green run is not a place anyone goes, and a monorepo has fifty of
+    // them — a failing one is. The check under the cursor is `focused`.
     for (const check of this.prInfo.checks ?? []) {
-      if (check.detailsUrl) all.push({ title: check.name, text: check.detailsUrl })
+      if (check.detailsUrl && isFailingCheck(check)) all.push({ title: check.name, text: check.detailsUrl })
     }
     for (const commit of this.visibleCommits) {
       all.push({ title: commit.sha.slice(0, 7), text: commit.message })
