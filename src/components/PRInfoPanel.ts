@@ -415,9 +415,6 @@ export class PRInfoPanelClass {
   // header texts they are painted onto.
   private flashLabels: ReadonlyMap<string, string> = new Map()
   
-  // Footer container for dynamic updates
-  private footer: BoxRenderable | null = null
-  
   // Comment input overlay
   private commentInputOverlay: BoxRenderable | null = null
   private commentInputText: TextRenderable | null = null
@@ -2829,38 +2826,7 @@ export class PRInfoPanelClass {
     // Build sections
     this.buildSections(this.sectionsContainer)
 
-    // Footer
-    this.footer = new BoxRenderable(this.renderer, {
-      height: 1,
-      width: "100%",
-      backgroundColor: theme.mantle,
-      paddingLeft: 2,
-      flexDirection: "row",
-    })
-    this.buildFooterContent()
-    container.add(this.footer)
-
     return { container, scrollBox }
-  }
-
-  /**
-   * Build footer content with keybinding hints
-   */
-  private buildFooterContent(): void {
-    if (!this.footer) return
-    
-    this.footer.add(new TextRenderable(this.renderer, { content: "Tab ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "section  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "j/k ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "nav  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "za ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "toggle  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "Enter ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "action  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "y ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "copy  ", fg: theme.subtext0 }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "o ", fg: theme.yellow }))
-    this.footer.add(new TextRenderable(this.renderer, { content: "open", fg: theme.subtext0 }))
   }
 
   /**

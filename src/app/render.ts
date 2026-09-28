@@ -492,7 +492,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                 ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
                 : null,
             selectionInfo: selectionStatus(vimState),
-            commitScoped: state.viewMode === "diff" && state.viewingCommit !== null,
           }),
         state.actionMenu.open
           ? ActionMenu({
