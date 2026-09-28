@@ -308,6 +308,19 @@ interface SectionConfig {
   hasItems: boolean
 }
 
+/**
+ * The description's cursor row. Painted over text that is already drawn, and
+ * an opaque fill replaces a cell's character along with its background — so
+ * it is translucent, which only tints what is under it.
+ */
+const DESCRIPTION_CURSOR_BG = (() => {
+  const { r, g, b } = RGBA.fromHex(theme.surface1)
+  return RGBA.fromValues(r, g, b, 0.9)
+})()
+
+/** Rows kept between the cursor and the edge it is moving towards. */
+const CURSOR_SCROLL_OFF = 3
+
 const ALL_SECTIONS: PRInfoPanelSection[] = [
   'description',
   'previews',
@@ -407,6 +420,10 @@ export class PRInfoPanelClass {
   // Section containers (for rebuilding on section change)
   private sectionsContainer: BoxRenderable | null = null
   private sectionBoxes: BoxRenderable[] = []
+  private descriptionBox: BoxRenderable | null = null
+  // Set when the cursor moved; the next frame scrolls it into view, once
+  // layout has placed whatever the move rebuilt.
+  private revealPending = false
   
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
@@ -518,7 +535,11 @@ export class PRInfoPanelClass {
     // resolved away, a check that finished and folded its annotations.
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
-    this.cursorIndex = Math.min(position.cursorIndex, this.getMaxCursorIndex())
+    // Description rows are counted by layout, which a new panel has not had
+    // yet; the cursor row is clamped where it is painted instead.
+    this.cursorIndex = this.activeSection === 'description'
+      ? position.cursorIndex
+      : Math.min(position.cursorIndex, this.getMaxCursorIndex())
 
     this.rebuildSections()
     this.scrollBox.scrollTop = position.scrollTop
@@ -576,20 +597,7 @@ export class PRInfoPanelClass {
    * Get the item count for the current section (not including header)
    */
   private getItemCount(): number {
-    switch (this.activeSection) {
-      case 'description':
-        return 0  // Description has no items, just expanded content
-      case 'checks':
-        return this.flatCheckItems.length
-      case 'conversation':
-        return this.flatConversationItems.length
-      case 'files':
-        return this.visibleFiles.length
-      case 'commits':
-        return this.visibleCommits.length
-      case 'previews':
-        return this.visiblePreviews.length
-    }
+    return this.getItemCountForSection(this.activeSection)
   }
 
   /**
@@ -853,7 +861,88 @@ export class PRInfoPanelClass {
     if (wasOnHeader !== isOnHeader) {
       this.rebuildSections()
     }
+    this.followCursor()
     return true
+  }
+
+  /**
+   * One row down or up — within the section, else across into the next
+   * one. False at either end of the panel: like a buffer, it does not wrap.
+   */
+  step(delta: 1 | -1): boolean {
+    if (this.isSectionExpanded() && this.moveCursor(delta)) return true
+
+    const next = ALL_SECTIONS.indexOf(this.activeSection) + delta
+    if (next < 0 || next >= ALL_SECTIONS.length) return false
+    if (delta > 0) this.cycleSection(1)
+    else this.cycleSectionToEnd(-1)
+    return true
+  }
+
+  /**
+   * Ctrl-d / Ctrl-u: the view and the cursor move half a page together, so
+   * the cursor keeps its place on screen for as long as there is room.
+   */
+  halfPage(delta: 1 | -1): void {
+    const half = Math.max(1, Math.floor(this.scrollBox.viewport.height / 2))
+    this.scrollBox.scrollBy(delta * half)
+    for (let i = 0; i < half && this.step(delta); i++) {}
+  }
+
+  /** `gg`: the description's header, with the lines above it in view. */
+  jumpToTop(): void {
+    this.flashJump(ALL_SECTIONS[0]!)
+    this.scrollBox.scrollTo(0)
+  }
+
+  /** `G`: the last row of the last section, or its header if it is folded. */
+  jumpToBottom(): void {
+    const last = ALL_SECTIONS[ALL_SECTIONS.length - 1]!
+    const rows = this.expandedSections.has(last) ? this.getItemCountForSection(last) : 0
+    this.flashJump(rows > 0 ? `${last}:${rows - 1}` : last)
+  }
+
+  private followCursor(): void {
+    this.revealPending = true
+    this.renderer.requestRender()
+  }
+
+  /** Where the cursor row is on screen, and how tall. */
+  private cursorBounds(): { y: number; height: number } | null {
+    if (this.cursorIndex === -1) {
+      const box = this.sectionBoxes[ALL_SECTIONS.indexOf(this.activeSection)]
+      const header = box?.getChildren()[0]
+      return header ? { y: header.y, height: 1 } : null
+    }
+    if (this.activeSection === 'description') {
+      const box = this.descriptionBox
+      if (!box || box.height === 0) return null
+      return { y: box.y + Math.min(this.cursorIndex, box.height - 1), height: 1 }
+    }
+    const row = this.itemRows.get(this.activeSection)?.[this.cursorIndex]?.container
+    return row ? { y: row.y, height: Math.max(1, row.height) } : null
+  }
+
+  /**
+   * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
+   * the edges. Runs from the scroll box's own render, after layout, so a
+   * row the move just rebuilt is measured where it now is.
+   */
+  private revealCursor(): void {
+    const bounds = this.cursorBounds()
+    if (!bounds) return
+
+    const viewport = this.scrollBox.viewport
+    const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
+    const top = bounds.y - viewport.y
+    // A row taller than the room between the margins shows its top.
+    const bottom = top + Math.min(bounds.height, viewport.height - 2 * off)
+
+    if (top < off) {
+      this.scrollBox.scrollBy(top - off)
+    } else if (bottom > viewport.height - off) {
+      this.scrollBox.scrollBy(bottom - (viewport.height - off))
+    }
   }
 
   /**
@@ -893,8 +982,9 @@ export class PRInfoPanelClass {
     } else {
       this.cursorIndex = -1
     }
-    
+
     this.rebuildSections()
+    this.followCursor()
   }
 
   /**
@@ -939,6 +1029,7 @@ export class PRInfoPanelClass {
     this.refreshFlatCheckItems()
     if (filter) {
       for (const section of ALL_SECTIONS) {
+        if (section === 'description') continue
         if (this.getItemCountForSection(section) > 0) this.expandedSections.add(section)
       }
     }
@@ -979,7 +1070,8 @@ export class PRInfoPanelClass {
   private getItemCountForSection(section: PRInfoPanelSection): number {
     switch (section) {
       case 'description':
-        return 0
+        // Read like a buffer: its items are the rows it renders to.
+        return this.descriptionBox?.height ?? 0
       case 'checks':
         return this.flatCheckItems.length
       case 'conversation':
@@ -1006,9 +1098,10 @@ export class PRInfoPanelClass {
     
     this.activeSection = section
     this.cursorIndex = -1  // Start on section header
-    
+
     // Rebuild to update section header styling
     this.rebuildSections()
+    this.followCursor()
   }
 
   /**
@@ -1517,7 +1610,8 @@ export class PRInfoPanelClass {
     }
     this.sectionBoxes = []
     this.itemRows.clear()
-    
+    this.descriptionBox = null
+
     // Rebuild
     this.buildSections(this.sectionsContainer)
     this.applyFlashLabels()
@@ -1531,7 +1625,8 @@ export class PRInfoPanelClass {
     const ids: string[] = []
     for (const section of ALL_SECTIONS) {
       ids.push(section)
-      if (!this.expandedSections.has(section)) continue
+      // A label per line of prose would bury the ones worth jumping to.
+      if (!this.expandedSections.has(section) || section === 'description') continue
       const count = this.getItemCountForSection(section)
       for (let i = 0; i < count; i++) ids.push(`${section}:${i}`)
     }
@@ -1621,6 +1716,7 @@ export class PRInfoPanelClass {
     this.activeSection = section
     this.cursorIndex = index === undefined ? -1 : Math.min(Number(index), this.getMaxCursorIndex())
     this.rebuildSections()
+    this.followCursor()
   }
 
   /**
@@ -1773,21 +1869,43 @@ export class PRInfoPanelClass {
    * Build full description content (markdown)
    */
   private buildDescriptionContent(container: BoxRenderable): void {
+    this.descriptionBox = container
+
     if (!this.prInfo.body?.trim()) {
       container.add(new TextRenderable(this.renderer, {
         content: "No description provided",
         fg: theme.overlay0,
       }))
-      this.appendReactionRow(container, this.prInfo.bodyReactions)
-      return
+    } else {
+      const body = extractCommentImages(this.prInfo.body)
+      if (body.text) {
+        container.add(this.markdownBody("pr-info-description", body.text))
+      }
+      this.appendImageRows(container, body.images, 0)
     }
-
-    const body = extractCommentImages(this.prInfo.body)
-    if (body.text) {
-      container.add(this.markdownBody("pr-info-description", body.text))
-    }
-    this.appendImageRows(container, body.images, 0)
     this.appendReactionRow(container, this.prInfo.bodyReactions)
+    container.add(this.descriptionCursor(container))
+  }
+
+  /**
+   * The cursor row, painted over the description once it is drawn. A box's
+   * own `renderAfter` runs before its children draw, so this is the box's
+   * last child instead — sized to nothing, so layout never sees it.
+   */
+  private descriptionCursor(description: BoxRenderable): BoxRenderable {
+    return new BoxRenderable(this.renderer, {
+      position: "absolute",
+      width: 0,
+      height: 0,
+      renderAfter: (buffer) => {
+        if (this.activeSection !== 'description' || this.cursorIndex < 0) return
+        // A description that only laid out after the cursor was put in it
+        // (a refresh) may be shorter than the row it names.
+        const row = Math.min(this.cursorIndex, description.height - 1)
+        if (row < 0) return
+        buffer.fillRect(description.x, description.y + row, description.width, 1, DESCRIPTION_CURSOR_BG)
+      },
+    })
   }
 
   /**
