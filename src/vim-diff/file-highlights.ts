@@ -18,10 +18,12 @@ import type { SimpleHighlight } from "@opentui/core"
  *
  * A generated bundle or a lock file is where the size comes from, and it
  * is exactly the file whose colours are worth nothing: nobody reads it,
- * they look for the one line that changed. Half a megabyte is well past
- * anything hand-written.
+ * they look for the one line that changed. A composed GraphQL schema is
+ * the exception — generated, but read — and without its whole file the
+ * fragments open mid-`type` and do not parse. One of 830 KB parses in
+ * under 100 ms, off the main thread.
  */
-export const MAX_HIGHLIGHT_BYTES = 512 * 1024
+export const MAX_HIGHLIGHT_BYTES = 2 * 1024 * 1024
 
 /** Whether a file is worth parsing for the rows' colours. */
 export function worthHighlighting(content: string): boolean {
