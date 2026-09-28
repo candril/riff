@@ -472,14 +472,8 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== RENDER =====
-  /**
-   * Every frame is also where riff notices a file on screen it has not read
-   * yet (spec 080). The check is a walk of the visible rows and an early
-   * return; the reads behind it are debounced.
-   */
   function render(): void {
     renderFrame()
-    requestHighlightSource()
   }
 
   const renderFrame = createRenderFunction({
@@ -701,6 +695,12 @@ export async function createApp(options: AppOptions = {}) {
       }
     }, HIGHLIGHT_SOURCE_DELAY_MS)
   }
+
+  // Which files are on screen is known once a frame is laid out, not when
+  // `render()` rebuilds the tree — the rows it would walk then are the old
+  // layout's, or none — and moving the cursor draws without calling it at
+  // all (spec 080). The walk is cheap; the reads behind it are debounced.
+  renderer.addPostProcessFn(() => requestHighlightSource())
 
   const searchHandler = new SearchHandler({
     getMapping: () => lineMapping,
