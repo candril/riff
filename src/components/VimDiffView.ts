@@ -37,6 +37,7 @@ import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
 import { mapFileHighlights, worthHighlighting } from "../vim-diff/file-highlights"
+import { dropSplitKeywords } from "../vim-diff/split-keywords"
 import { injectedHighlights } from "../vim-diff/injections"
 import { applyQueryPredicates } from "../vim-diff/query-predicates"
 import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
@@ -1430,7 +1431,7 @@ export class VimDiffView {
           ? [...this.keepUnmappedRows(filename!, highlights, context.content, lineOffset), ...fromFile]
           : highlights
 
-        const own = this.stripOwnRowHighlights(base, context.content, lineOffset)
+        const own = this.stripOwnRowHighlights(dropSplitKeywords(base, context.content), context.content, lineOffset)
         const words = this.injectWordSpans(own, context.content, lineOffset)
         return searchState
           ? this.injectSearchHighlights(words, context.content, searchState, lineOffset)
