@@ -92,6 +92,7 @@ export function getSyntaxStyle(): SyntaxStyle {
       punctuation: { fg: RGBA.fromHex(theme.overlay2) },
       property: { fg: RGBA.fromHex(theme.lavender) },
       constant: { fg: RGBA.fromHex(theme.peach) },
+      attribute: { fg: RGBA.fromHex(theme.teal) },
       
       // Markdown syntax highlighting
       "markup.heading": { fg: RGBA.fromHex(theme.red), bold: true },
