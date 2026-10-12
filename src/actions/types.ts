@@ -56,7 +56,9 @@ export function resolveActionLabel(
  * kinds can be added as discriminated cases.
  */
 export type ActionSubmenu =
-  | { kind: "react"; target: ReactionTarget; title: string }
+  /** `fromPalette` is false when `+` opened the picker straight from a
+   *  comment, with no action list behind it. */
+  | { kind: "react"; target: ReactionTarget; title: string; fromPalette: boolean }
   /** The links on one preview row, when there is more than one of them and
    *  riff has to ask which (spec 068). */
   /** Links to choose between: the ones riff found in what has focus, when
@@ -71,7 +73,7 @@ export type ActionSubmenu =
  * — a preview row's picker — has no list behind it to return to.
  */
 export function submenuOpenedFromPalette(submenu: ActionSubmenu): boolean {
-  return submenu.kind === "react"
+  return submenu.kind === "react" && submenu.fromPalette
 }
 
 /**

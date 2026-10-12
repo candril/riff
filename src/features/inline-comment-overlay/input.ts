@@ -99,6 +99,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   onOpenLinks: (comment: Comment, action: "open" | "copy") => void
   /** `g?` — the keymap, which every surface owes the reader. */
   onToggleHelp: () => void
+  /** `+` — react on the highlighted comment (spec 042). */
+  onReact: () => void
   /** Ctrl-g from the composer — hand the in-progress draft off to
    *  $EDITOR, suspending the TUI, and resolve with the edited text
    *  (or null if the editor errored). Wired at the app level because it
@@ -351,6 +353,14 @@ export function handleInput(
   // Enter is an alias for `za` — toggle expand on the highlighted thread.
   if (key.name === "return" || key.name === "enter") {
     toggleHighlightedThread()
+    return true
+  }
+
+  if (key.name === "+" || key.sequence === "+") {
+    // preventDefault so the picker's prompt field, focused in this same
+    // keypress, does not read the `+` as the start of a query.
+    key.preventDefault()
+    ctx.onReact()
     return true
   }
 

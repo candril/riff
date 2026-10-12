@@ -82,6 +82,7 @@ const HELP_SECTIONS = [
       ["]R / [R", "Same, skipping resolved"],
       ["gC", "Find a comment (PR-wide)"],
       ["x / r / d", "Resolve / reply / delete"],
+      ["+", "React on the focused comment"],
       ["S", "Post the highlighted comment"],
       ["y / Y", "Yank line or selection"],
     ],

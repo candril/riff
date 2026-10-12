@@ -446,6 +446,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     ctx.render()
   }
 
+  function openReactPicker(): void {
+    ctx.setState((s) => actionMenu.openReactSubmenu(s, false))
+    ctx.render()
+  }
+
   /**
    * Open a link in the browser, or put it on the clipboard. riff never
    * ticks a deploy checkbox — a row opens and copies, and that is all it
@@ -740,6 +745,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setState(toggleHelp)
           ctx.render()
         },
+        onReact: openReactPicker,
         onOpenLinks: (comment, action) => {
           // The panel's comments, the highlighted one first: the same list
           // the overview offers, scoped to what this panel is showing.
@@ -939,6 +945,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           ctx.setState(toggleHelp)
           ctx.render()
         },
+        onReact: openReactPicker,
         onPreviewRow: (action, row) => {
           // Several places for one app: the same picker every other list of
           // links uses, told whether it was `Enter` or `y` that asked. Only

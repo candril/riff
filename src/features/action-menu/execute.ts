@@ -21,6 +21,7 @@ import {
   showToast,
   clearToast,
   toggleShowHiddenFiles,
+  openActionMenu,
   openActionSubmenu,
   getReactionsForTarget,
 } from "../../state"
@@ -331,19 +332,28 @@ export async function executeAction(
     case "react": {
       // Open the react submenu rather than executing — the palette stays
       // open and the selected row's Enter handler fires the toggle.
-      const target = state.reactionTarget
-      if (!target) break
-      setState((s) =>
-        openActionSubmenu(s, {
-          kind: "react",
-          target,
-          title: reactSubmenuTitle(s),
-        })
-      )
+      if (!state.reactionTarget) break
+      setState((s) => openReactSubmenu(s, true))
       render()
       break
     }
   }
+}
+
+/**
+ * The reaction picker on whatever `reactionTarget` points at, or the state
+ * unchanged when nothing reactable has focus. `+` opens it without the
+ * palette, so the palette is opened underneath it here.
+ */
+export function openReactSubmenu(state: AppState, fromPalette: boolean): AppState {
+  const target = state.reactionTarget
+  if (state.appMode !== "pr" || !target) return state
+  return openActionSubmenu(fromPalette ? state : openActionMenu(state), {
+    kind: "react",
+    target,
+    title: reactSubmenuTitle(state),
+    fromPalette,
+  })
 }
 
 /**

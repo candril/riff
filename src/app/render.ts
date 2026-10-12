@@ -75,6 +75,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
 import { getAvailableActions } from "../actions"
+import { submenuOpenedFromPalette } from "../actions/types"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
 import * as commentsPickerFeature from "../features/comments-picker"
@@ -320,7 +321,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               ? submenu.action === "copy"
                 ? "enter copy · esc"
                 : "enter open · ctrl-y copy · esc"
-              : undefined,
+              : submenuOpenedFromPalette(submenu)
+                ? undefined
+                : "esc",
           rows: getSubmenuRows(state),
         }
       : { kind: "actions", actions: filteredActions }

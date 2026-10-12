@@ -507,6 +507,7 @@ export const actions: Action[] = [
     id: "react",
     label: "React…",
     description: "Add or remove a reaction on the focused comment",
+    shortcut: "+",
     category: "github",
     available: (state) => state.appMode === "pr" && state.reactionTarget !== null,
   },

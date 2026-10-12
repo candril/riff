@@ -100,6 +100,8 @@ export interface PRInfoPanelInputContext {
   onOpenLinks?: (action: "open" | "copy") => void
   /** `g?` — the keymap, which every surface owes the reader. */
   onToggleHelp?: () => void
+  /** `+` — react on the focused description, comment or review (spec 042). */
+  onReact?: () => void
   // Push current location onto the jumplist before navigating away (spec
   // 038). Called BEFORE closePRInfoPanel so the entry captures
   // viewMode="pr" — otherwise back-jump can't return to the PR view.
@@ -235,6 +237,14 @@ function handleInputInner(
     }
     // Unknown g-sequence: swallow to avoid accidentally falling through
     // into the panel-local `r`/`o`/`y`/etc. handlers below.
+    return true
+  }
+
+  if (key.name === "+" || key.sequence === "+") {
+    // preventDefault so the picker's prompt field, focused in this same
+    // keypress, does not read the `+` as the start of a query.
+    key.preventDefault()
+    ctx.onReact?.()
     return true
   }
 

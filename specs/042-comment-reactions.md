@@ -9,10 +9,12 @@ the commentable surfaces of a PR, from inside riff. Reactions are cheap,
 common, and conversational — a first-class way to acknowledge a comment
 without typing "lgtm" again.
 
-**Trigger surface**: **the command palette only.** No new global keybindings,
-no inline picker widget. `Ctrl+p` → "React…" → submenu of the 8
-reactions; Enter toggles. This keeps reactions discoverable, uses the
-existing fuzzy-search affordance, and avoids pressuring the key namespace.
+**Trigger surface**: `+` on the focused comment, or `Ctrl+p` → "React…".
+Both open the same submenu of the 8 reactions; Enter toggles. No inline
+picker widget — the palette's submenu is the picker. `+` is bound only
+in the comments panel and the PR view, the two surfaces that set a
+reaction target; elsewhere it does nothing. Esc from a submenu opened by
+`+` closes it, since there is no action list behind it to return to.
 
 GitHub exposes reactions on five PR surfaces. This spec covers the four
 that riff already surfaces:
@@ -26,7 +28,6 @@ Commit comments are skipped — riff doesn't surface them.
 
 ## Out of Scope
 
-- **Global keybindings.** No `+` chord, no direct `g` sequences. Palette only.
 - **Inline picker widget.** The palette's own submenu is the picker.
 - **Reactions on commit comments.** Not surfaced in riff.
 - **Reactions in local mode.** No GitHub to react on — the "React…"
@@ -350,7 +351,7 @@ specs/
 └── 042-comment-reactions.md
 ```
 
-No new overlay component. No new keybindings.
+No new overlay component.
 
 ## Verification
 
