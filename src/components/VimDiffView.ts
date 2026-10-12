@@ -28,6 +28,7 @@ import {
 } from "@opentui/core"
 import { colors, theme } from "../theme"
 import { discard, discardChildren, keepAlive } from "../utils/renderables"
+import { highlightCell } from "../utils/cells"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment, FileReviewStatus } from "../types"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -256,25 +257,6 @@ function recolorCell(buffer: OptimizedBuffer, x: number, y: number, fg: RGBA, bg
   const i = y * buffer.width + x
   const glyph = char[i]!
   buffer.drawChar(glyph === 0 ? SPACE_CODE_POINT : glyph, x, y, fg, bg, attributes[i]!)
-}
-
-/**
- * Repaint a cell's background, keeping its glyph and its foreground — a
- * selection must not flatten the syntax colors it runs over.
- */
-function highlightCell(buffer: OptimizedBuffer, x: number, y: number, bg: RGBA): void {
-  const { char, fg, attributes } = buffer.buffers
-  const i = y * buffer.width + x
-  const at = i * 4
-  const glyph = char[i]!
-  buffer.drawChar(
-    glyph === 0 ? SPACE_CODE_POINT : glyph,
-    x,
-    y,
-    RGBA.fromValues(fg[at]!, fg[at + 1]!, fg[at + 2]!, fg[at + 3]!),
-    bg,
-    attributes[i]!
-  )
 }
 
 /**

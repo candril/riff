@@ -17,6 +17,7 @@ import {
 import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { getPrCheckAnnotations } from "../providers/github"
 import { discard, keepAlive } from "../utils/renderables"
+import { highlightCell } from "../utils/cells"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
@@ -308,15 +309,8 @@ interface SectionConfig {
   hasItems: boolean
 }
 
-/**
- * The description's cursor row. Painted over text that is already drawn, and
- * an opaque fill replaces a cell's character along with its background — so
- * it is translucent, which only tints what is under it.
- */
-const DESCRIPTION_CURSOR_BG = (() => {
-  const { r, g, b } = RGBA.fromHex(theme.surface1)
-  return RGBA.fromValues(r, g, b, 0.9)
-})()
+/** The description's cursor row: the background every other selected row has. */
+const DESCRIPTION_CURSOR_BG = RGBA.fromHex(theme.surface1)
 
 /** Rows kept between the cursor and the edge it is moving towards. */
 const CURSOR_SCROLL_OFF = 3
@@ -1903,7 +1897,15 @@ export class PRInfoPanelClass {
         // (a refresh) may be shorter than the row it names.
         const row = Math.min(this.cursorIndex, description.height - 1)
         if (row < 0) return
-        buffer.fillRect(description.x, description.y + row, description.width, 1, DESCRIPTION_CURSOR_BG)
+        // Painted over text that is already drawn, so only the background is
+        // replaced: a fill would take the glyphs with it, and a translucent
+        // one fades them along with the background.
+        const y = description.y + row
+        if (y < 0 || y >= buffer.height) return
+        const end = Math.min(description.x + description.width, buffer.width)
+        for (let x = Math.max(0, description.x); x < end; x++) {
+          highlightCell(buffer, x, y, DESCRIPTION_CURSOR_BG)
+        }
       },
     })
   }
