@@ -60,10 +60,18 @@ export interface SequenceDiagram {
   notes: string[]
 }
 
+/** States and transitions: a flowchart's model, drawn its own way. */
+export interface StateDiagram {
+  kind: "state"
+  nodes: FlowNode[]
+  edges: FlowEdge[]
+  notes: string[]
+}
+
 export interface UnsupportedDiagram {
   kind: "unsupported"
   /** The diagram type as mermaid names it, e.g. `stateDiagram-v2`. */
   type: string
 }
 
-export type MermaidDiagram = FlowchartDiagram | SequenceDiagram | UnsupportedDiagram
+export type MermaidDiagram = FlowchartDiagram | SequenceDiagram | StateDiagram | UnsupportedDiagram

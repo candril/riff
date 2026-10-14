@@ -155,9 +155,10 @@ describe("state diagrams", () => {
     )
   })
 
-  test("a transition back to the same state is written into its box", () => {
-    const diagram = drawn("stateDiagram-v2\n Busy --> Busy: poll")
-    expect(diagram).toContain("│ ↻ poll │")
+  test("a transition back to the same state loops out of its side", () => {
+    expect(drawn("stateDiagram-v2\n Busy --> Busy: poll")).toBe(
+      ["╭──────╮", "│ Busy │─┐ poll", "│      │◀┘", "╰──────╯"].join("\n"),
+    )
   })
 
   test("transitions between the same two states share one line", () => {
@@ -168,28 +169,46 @@ describe("state diagrams", () => {
     expect(diagram).toContain("one / two")
   })
 
-  test("a label with no room is lettered on its line and spelled out below", () => {
+  test("every transition is a line of its own, with its label on the row it leaves", () => {
     const diagram = drawn(`stateDiagram-v2
-      A --> B: a label far too long to sit beside its own line here
-      A --> C: and another one quite as long as the first of them`)
+      A --> B: the first, straight down
+      A --> C: the second, round the side
+      B --> C: the third`)
     const rows = diagram.split("\n")
-    expect(rows).toContain("a  a label far too long to sit beside its own line here")
-    // Each label is either on its line or in the key, never in both.
-    expect(diagram.match(/and another one/g)).toHaveLength(1)
+    // Out of A's side on the row the label stands on; into C with its own head.
+    expect(rows.find((row) => row.includes("the second"))).toMatch(/│─+┐\s+the second/)
+    expect(diagram.match(/◀/g)).toHaveLength(1)
+    expect(diagram.match(/▼/g)).toHaveLength(2)
+    // No line meets another: nothing joins, nothing is lettered.
+    expect(diagram).not.toMatch(/[├┤┬┴]/)
+    expect(rows.some((row) => /^[a-z]  /.test(row))).toBe(false)
   })
 
-  test("the loop back to a choice is what runs against the flow", () => {
+  test("a transition back up the diagram runs round the left", () => {
     const diagram = drawn(`stateDiagram-v2
       state Working
       state check <<choice>>
       [*] --> check
       check --> Working
-      Working --> check`)
+      Working --> check: ReportAax`)
     const rows = diagram.split("\n")
     const row = (text: string) => rows.findIndex((line) => line.includes(text))
     // Declared first, Working still comes after the choice that leads to it.
     expect(row("Working")).toBeGreaterThan(row("╱───╲"))
-    expect(diagram).toContain("◀")
+    expect(rows.find((row) => row.includes("ReportAax"))).toMatch(/ReportAax\s+└─+│/)
+    expect(diagram).toContain("▶")
+  })
+
+  test("a state with more lines than label grows to give each its row", () => {
+    const diagram = drawn(`stateDiagram-v2
+      A --> B
+      A --> End
+      B --> End
+      B --> C
+      C --> End`)
+    const arrivals = diagram.split("\n").filter((row) => row.includes("◀"))
+    expect(arrivals).toHaveLength(2)
+    expect(new Set(arrivals).size).toBe(2)
   })
 })
 

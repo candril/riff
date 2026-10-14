@@ -8,6 +8,9 @@
  */
 
 import type { FlowchartDiagram, FlowEdge, FlowNode } from "./types"
+
+/** What the layering and merging read: a flowchart's nodes and edges, whichever diagram owns them. */
+type Graph = { nodes: FlowNode[]; edges: FlowEdge[] }
 import { Grid, UP, DOWN, LEFT, RIGHT } from "./grid"
 
 /** Space between two boxes in the same layer. */
@@ -75,7 +78,7 @@ function foldSelfLinks(diagram: FlowchartDiagram): FlowchartDiagram {
  * Links that share both ends are drawn as one, carrying every label: side by
  * side they would run on top of each other.
  */
-function mergeParallelLinks(diagram: FlowchartDiagram): FlowchartDiagram {
+export function mergeParallelLinks<T extends Graph>(diagram: T): T {
   const merged = new Map<string, FlowEdge>()
   for (const edge of diagram.edges) {
     const key = `${edge.from}\u0000${edge.to}`
@@ -94,7 +97,7 @@ function mergeParallelLinks(diagram: FlowchartDiagram): FlowchartDiagram {
  * Longest-path layering, with cycles broken at the edge that closes them —
  * a diagram with a loop in it still has to be drawn somewhere.
  */
-function assignLayers(diagram: FlowchartDiagram): Map<string, number> {
+export function assignLayers(diagram: Graph): Map<string, number> {
   const forward = new Map<string, string[]>()
   const incoming = new Map<string, number>()
   for (const node of diagram.nodes) {
@@ -131,7 +134,7 @@ function assignLayers(diagram: FlowchartDiagram): Map<string, number> {
   return layer
 }
 
-function findBackEdges(diagram: FlowchartDiagram): Set<FlowEdge> {
+function findBackEdges(diagram: Graph): Set<FlowEdge> {
   const out = new Map<string, FlowEdge[]>()
   for (const edge of diagram.edges) {
     const list = out.get(edge.from)
@@ -477,7 +480,7 @@ function free(grid: Grid, x: number, y: number): boolean {
   return x < 0 || grid.free(x, y)
 }
 
-function drawBox(
+export function drawBox(
   grid: Grid,
   x: number,
   y: number,

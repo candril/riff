@@ -145,16 +145,15 @@ describe("sequence diagrams", () => {
 })
 
 describe("state diagrams", () => {
-  test("states, a choice and both ends of [*] become a flowchart", () => {
+  test("states, a choice and both ends of [*] are read", () => {
     const diagram = parseMermaid(`stateDiagram-v2
       state "Working<br/>busy" as W
       state pick <<choice>>
       [*] --> pick: Start
       pick --> W: otherwise<br/>send it
       W --> [*]`)
-    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+    if (diagram.kind !== "state") throw new Error(diagram.kind)
 
-    expect(diagram.direction).toBe("TD")
     expect(diagram.nodes.find((node) => node.id === "W")).toEqual({
       id: "W",
       label: ["Working", "busy"],
@@ -168,15 +167,15 @@ describe("state diagrams", () => {
     ])
   })
 
-  test("a description names a state, and direction turns the diagram", () => {
+  test("a description names a state, and direction is read past", () => {
     const diagram = parseMermaid(`stateDiagram-v2
       direction LR
       Idle : Waiting for input
       Idle --> Busy`)
-    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+    if (diagram.kind !== "state") throw new Error(diagram.kind)
 
-    expect(diagram.direction).toBe("LR")
     expect(diagram.nodes[0]!.label).toEqual(["Waiting for input"])
+    expect(diagram.notes).toEqual([])
   })
 
   test("notes and composite states are left out, and said to be", () => {
@@ -188,7 +187,7 @@ describe("state diagrams", () => {
         a note
       end note
       note left of B : short`)
-    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+    if (diagram.kind !== "state") throw new Error(diagram.kind)
 
     expect(diagram.notes).toEqual(["composite states flattened", "notes left out"])
     expect(diagram.nodes.map((node) => node.id)).toEqual(["Outer", "A", "B"])

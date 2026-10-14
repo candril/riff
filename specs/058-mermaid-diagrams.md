@@ -55,12 +55,22 @@ graph TD
 
 ### P1 - State diagrams
 
-- `stateDiagram` and `stateDiagram-v2`, drawn by the flowchart layout: states
-  are rounded boxes, `<<choice>>` a decision, `[*]` a `●` where transitions
-  leave it and a `◉` where they arrive.
+- `stateDiagram` and `stateDiagram-v2`: states are rounded boxes, `<<choice>>`
+  a decision, `[*]` a `●` where transitions leave it and a `◉` where they
+  arrive.
+- States stand in one column, in the order the transitions reach them, and
+  every transition is a line of its own: the next state down is reached
+  straight down the middle, any further one by a lane out to the right, one
+  back up by a lane out to the left, and one back to the same state by a
+  short loop out of its right side. Transitions between the same two states
+  share one line, their labels joined with `/`.
+- A line leaves and arrives on a row no other line uses — a state grows
+  taller to give each its row — so lines never join, and a crossing is only
+  ever a crossing. Shorter transitions take the lanes nearer the states.
+- Labels stand in a column beyond the lanes, on the row their line leaves its
+  state; a label on a line down the middle sits beside it when it fits.
 - `state "Label" as Id`, `Id : description`, `<br>` in either, and `<br>` in a
-  transition label, which joins its lines with `·`.
-- `direction` sets the layout's direction, as a flowchart's header does.
+  transition label, which joins its lines with `·`. `direction` is read past.
 - Notes and the grouping of composite states are left out, and the peek says
   so; the states inside a composite state are still drawn.
 

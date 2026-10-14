@@ -308,11 +308,10 @@ const STATE_TRANSITION = new RegExp(
 
 /**
  * A state diagram is a graph of states and transitions, which is a
- * flowchart's model: states are round boxes, a `<<choice>>` is a decision,
- * and the flowchart's layout draws it.
+ * flowchart's model: states are round boxes and a `<<choice>>` a decision.
+ * `direction` is read past; the states always stand in a column.
  */
 function parseState(body: string[]): MermaidDiagram {
-  let direction: Direction = "TD"
   const nodes = new Map<string, FlowNode>()
   const edges: FlowEdge[] = []
   const notes: string[] = []
@@ -336,11 +335,6 @@ function parseState(body: string[]): MermaidDiagram {
   for (const statement of body) {
     if (inNote) {
       if (/^end\s+note$/i.test(statement)) inNote = false
-      continue
-    }
-    const directed = statement.match(/^direction\s+(\w+)$/)
-    if (directed) {
-      direction = DIRECTIONS[directed[1]!.toUpperCase()] ?? direction
       continue
     }
     if (IGNORED.test(statement)) continue
@@ -399,5 +393,5 @@ function parseState(body: string[]): MermaidDiagram {
     note("some statements skipped")
   }
 
-  return { kind: "flowchart", direction, nodes: [...nodes.values()], edges, notes }
+  return { kind: "state", nodes: [...nodes.values()], edges, notes }
 }
