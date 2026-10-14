@@ -5,7 +5,7 @@
 ## Description
 
 A changed mermaid block in a diff is a picture nobody can see. `gl` on one
-draws it: flowcharts and sequence diagrams in box-drawing characters, on the
+draws it: flowcharts, state diagrams and sequence diagrams in box-drawing characters, on the
 version the change arrives at, with `Tab` to look at the one it replaces.
 
 ```mermaid
@@ -26,7 +26,7 @@ graph TD
 - Shelling out to `mmdc`, `graph-easy` or `mermaid.ink`. The first two are
   dependencies riff would have to ask for; the third posts a private repo's
   diagrams to a public server.
-- `classDiagram`, `stateDiagram`, `erDiagram`, `gantt`, `pie`, `journey`,
+- `classDiagram`, `erDiagram`, `gantt`, `pie`, `journey`,
   `gitGraph`. They are named and the source is shown instead.
 - Subgraph boxes. The nodes inside are drawn, the grouping is not, and the
   peek says so.
@@ -47,6 +47,22 @@ graph TD
 - Links that skip layers get a lane of their own; links that run against the
   flow go round the outside, so a retry loop reads as a loop.
 - `style`, `classDef`, `class`, `click` and `linkStyle` are read past.
+- A link from a node to itself is a `↻` line inside its box.
+- Links that share both ends are one line carrying both labels.
+- A label goes beside its line when the cells there are clear. One that would
+  run over a line or another label gets a letter on its line instead, and is
+  spelled out in a key under the diagram.
+
+### P1 - State diagrams
+
+- `stateDiagram` and `stateDiagram-v2`, drawn by the flowchart layout: states
+  are rounded boxes, `<<choice>>` a decision, `[*]` a `●` where transitions
+  leave it and a `◉` where they arrive.
+- `state "Label" as Id`, `Id : description`, `<br>` in either, and `<br>` in a
+  transition label, which joins its lines with `·`.
+- `direction` sets the layout's direction, as a flowchart's header does.
+- Notes and the grouping of composite states are left out, and the peek says
+  so; the states inside a composite state are still drawn.
 
 ### P2 - Sequence diagrams
 

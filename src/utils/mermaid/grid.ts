@@ -65,6 +65,13 @@ export class Grid {
     this.grow(x, y)
   }
 
+  /** Nothing drawn here yet, line or character. */
+  free(x: number, y: number): boolean {
+    if (x < 0 || y < 0) return false
+    const key = this.key(x, y)
+    return !this.chars.has(key) && !this.masks.has(key)
+  }
+
   toLines(): string[] {
     const lines: string[] = []
     for (let y = 0; y < this.height; y++) {

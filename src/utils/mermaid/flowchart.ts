@@ -38,8 +38,9 @@ interface Link {
   label?: string
 }
 
-export function renderFlowchart(diagram: FlowchartDiagram): string[] {
-  if (diagram.nodes.length === 0) return []
+export function renderFlowchart(source: FlowchartDiagram): string[] {
+  if (source.nodes.length === 0) return []
+  const diagram = mergeParallelLinks(foldSelfLinks(source))
 
   const horizontal = diagram.direction === "LR" || diagram.direction === "RL"
   const reversed = diagram.direction === "BT" || diagram.direction === "RL"
@@ -51,6 +52,42 @@ export function renderFlowchart(diagram: FlowchartDiagram): string[] {
   layout(placed, links, horizontal, reversed)
 
   return draw(placed, links, horizontal)
+}
+
+/**
+ * A link from a node to itself has no band to run through, so it is written
+ * into the box as a line of its own. A state that reacts to an event by
+ * staying put is common, and its label is the part worth reading.
+ */
+function foldSelfLinks(diagram: FlowchartDiagram): FlowchartDiagram {
+  const loops = diagram.edges.filter((edge) => edge.from === edge.to)
+  if (loops.length === 0) return diagram
+
+  const nodes = diagram.nodes.map((node) => {
+    const own = loops.filter((edge) => edge.from === node.id)
+    if (own.length === 0) return node
+    return { ...node, label: [...node.label, ...own.map((edge) => (edge.label ? `↻ ${edge.label}` : "↻"))] }
+  })
+  return { ...diagram, nodes, edges: diagram.edges.filter((edge) => edge.from !== edge.to) }
+}
+
+/**
+ * Links that share both ends are drawn as one, carrying every label: side by
+ * side they would run on top of each other.
+ */
+function mergeParallelLinks(diagram: FlowchartDiagram): FlowchartDiagram {
+  const merged = new Map<string, FlowEdge>()
+  for (const edge of diagram.edges) {
+    const key = `${edge.from}\u0000${edge.to}`
+    const existing = merged.get(key)
+    if (!existing) {
+      merged.set(key, edge)
+      continue
+    }
+    const labels = [existing.label, edge.label].filter((label): label is string => Boolean(label))
+    merged.set(key, { ...existing, label: labels.length > 0 ? labels.join(" / ") : undefined })
+  }
+  return merged.size === diagram.edges.length ? diagram : { ...diagram, edges: [...merged.values()] }
 }
 
 /**
@@ -115,7 +152,11 @@ function findBackEdges(diagram: FlowchartDiagram): Set<FlowEdge> {
     state.set(id, "done")
   }
 
-  for (const node of diagram.nodes) {
+  // Entry points first: a loop back to the start of a process is the edge
+  // that closes it, whatever order the source declared its nodes in.
+  const entered = new Set(diagram.edges.filter((edge) => edge.from !== edge.to).map((edge) => edge.to))
+  const roots = diagram.nodes.filter((node) => !entered.has(node.id))
+  for (const node of [...roots, ...diagram.nodes]) {
     if (!state.has(node.id)) visit(node.id)
   }
   return back
@@ -245,7 +286,12 @@ function layout(placed: Placed[], links: Link[], horizontal: boolean, reversed: 
     const layer = sequence[i]!
     const items = byLayer.get(layer)!
     const size = Math.max(...items.map((item) => item.mainSize))
-    for (const item of items) item.main = main
+    for (const item of items) {
+      item.main = main
+      // A stand-in fills its layer, or the line through it would skip the
+      // rows of a box taller than one cell.
+      if (!item.node) item.mainSize = size
+    }
 
     const next = sequence[i + 1]
     main += size + (next === undefined ? 0 : bandSize(links, byId, Math.min(layer, next), horizontal))
@@ -339,7 +385,12 @@ function draw(placed: Placed[], links: Link[], horizontal: boolean): string[] {
     horizontal ? [main, cross] : [cross, main]
 
   for (const item of placed) {
-    if (!item.node) continue
+    if (!item.node) {
+      for (let main = item.main; main < item.main + item.mainSize; main++) {
+        grid.connect(...at(main, centre(item)), horizontal ? LEFT | RIGHT : UP | DOWN)
+      }
+      continue
+    }
     const [x, y] = at(item.main, item.cross)
     drawBox(
       grid,
@@ -354,6 +405,7 @@ function draw(placed: Placed[], links: Link[], horizontal: boolean): string[] {
   const byId = new Map(placed.map((item) => [item.id, item]))
   const lane = Math.max(...placed.map((item) => item.cross + item.crossSize)) + 1
 
+  const labels: Label[] = []
   for (const link of links) {
     const from = byId.get(link.from)
     const to = byId.get(link.to)
@@ -362,11 +414,67 @@ function draw(placed: Placed[], links: Link[], horizontal: boolean): string[] {
     // head-on; it goes round the outside instead. Read from the layers, not
     // the coordinates: `BT` draws the first layer at the bottom, and every
     // link in it runs up the page without running against anything.
-    if (to.layer < from.layer) drawDetour(grid, from, to, link, horizontal, at, lane)
-    else drawLink(grid, from, to, link, horizontal, at)
+    if (to.layer < from.layer) drawDetour(grid, from, to, link, horizontal, at, lane, labels)
+    else drawLink(grid, from, to, link, horizontal, at, labels)
   }
 
-  return grid.toLines()
+  const key = placeLabels(grid, labels)
+  return [...grid.toLines(), ...key]
+}
+
+/** Where a link's label goes, once every line is down. */
+interface Label {
+  x: number
+  y: number
+  text: string
+}
+
+/**
+ * Write each label where its link put it if the cells are clear. One that
+ * would run over a line or another label gets a letter there instead, and is
+ * spelled out under the diagram — a label written across a line cuts it, and
+ * two written over each other read as neither.
+ */
+function placeLabels(grid: Grid, labels: Label[]): string[] {
+  const key: string[] = []
+  const letters = new Set<string>()
+  const lettered = (x: number, y: number) => letters.has(`${x},${y}`)
+
+  for (const label of labels) {
+    let clear = true
+    for (let i = -1; i <= label.text.length && clear; i++) {
+      // The cell before and after count too, or a label reads as running
+      // into whatever it touches.
+      const edge = i === -1 || i === label.text.length
+      if (edge ? !free(grid, label.x + i, label.y) : !grid.free(label.x + i, label.y)) clear = false
+    }
+    if (clear) {
+      grid.text(label.x, label.y, label.text)
+      continue
+    }
+
+    const letter = String.fromCharCode("a".charCodeAt(0) + (key.length % 26))
+    key.push(`${letter}  ${label.text}`)
+    // A cell of its own, with no other letter beside it — two side by side
+    // read as a word. Along a vertical run a few rows up or down is still
+    // beside the same line, and so is the gap cell right next to it when
+    // another line runs where the label would have started.
+    const spot = [0, 1, -1, 2, -2, 3, -3]
+      .flatMap((shift) => [
+        { x: label.x, y: label.y + shift },
+        { x: label.x - 1, y: label.y + shift },
+      ])
+      .find(({ x, y }) => grid.free(x, y) && !lettered(x - 1, y) && !lettered(x + 1, y))
+    if (!spot) continue
+    grid.put(spot.x, spot.y, letter)
+    letters.add(`${spot.x},${spot.y}`)
+  }
+  return key.length > 0 ? ["", ...key] : []
+}
+
+/** A free cell, or one past the left edge — nothing is drawn there. */
+function free(grid: Grid, x: number, y: number): boolean {
+  return x < 0 || grid.free(x, y)
 }
 
 function drawBox(
@@ -416,6 +524,7 @@ function drawLink(
   link: Link,
   horizontal: boolean,
   at: (main: number, cross: number) => [number, number],
+  labels: Label[],
 ): void {
   const forward = to.main >= from.main
   const startMain = forward ? from.main + from.mainSize : from.main - 1
@@ -485,8 +594,7 @@ function drawLink(
     // Beside the run into the target rather than on the turn: the turn is
     // where lines from every sibling link cross.
     const [x, y] = at(turn + step, toCross)
-    if (horizontal) grid.text(x, y - 1, link.label)
-    else grid.text(x + 2, y, link.label)
+    labels.push(horizontal ? { x, y: y - 1, text: link.label } : { x: x + 2, y, text: link.label })
   }
 }
 
@@ -505,6 +613,7 @@ function drawDetour(
   horizontal: boolean,
   at: (main: number, cross: number) => [number, number],
   lane: number,
+  labels: Label[],
 ): void {
   const crossBack = horizontal ? UP : LEFT
   const crossAhead = horizontal ? DOWN : RIGHT
@@ -540,7 +649,7 @@ function drawDetour(
   if (link.label) {
     const middle = Math.floor((fromMain + toMain) / 2)
     const [x, y] = at(middle, lane + 1)
-    grid.text(x, y, link.label)
+    labels.push({ x, y, text: link.label })
   }
 }
 

@@ -44,6 +44,9 @@ export function parseMermaid(source: string): MermaidDiagram {
   if (type === "sequenceDiagram") {
     return parseSequence(statements(body))
   }
+  if (type === "stateDiagram" || type === "stateDiagram-v2") {
+    return parseState(statements(body))
+  }
   return { kind: "unsupported", type: type || "diagram" }
 }
 
@@ -289,4 +292,112 @@ function parseSequence(body: string[]): MermaidDiagram {
   }
 
   return { kind: "sequence", participants: [...participants.values()], events, notes }
+}
+
+/**
+ * `[*]` is two states that share a spelling: the start where a transition
+ * leaves it, the end where one arrives. Mermaid draws one of each.
+ */
+const STATE_START: FlowNode = { id: "[*] start", label: ["●"], shape: "circle" }
+const STATE_END: FlowNode = { id: "[*] end", label: ["◉"], shape: "circle" }
+
+const STATE_ID = String.raw`\[\*\]|[\w.\-]+`
+const STATE_TRANSITION = new RegExp(
+  String.raw`^(?<from>${STATE_ID})(?::::\w+)?\s*-->\s*(?<to>${STATE_ID})(?::::\w+)?\s*(?::\s*(?<label>.*))?$`,
+)
+
+/**
+ * A state diagram is a graph of states and transitions, which is a
+ * flowchart's model: states are round boxes, a `<<choice>>` is a decision,
+ * and the flowchart's layout draws it.
+ */
+function parseState(body: string[]): MermaidDiagram {
+  let direction: Direction = "TD"
+  const nodes = new Map<string, FlowNode>()
+  const edges: FlowEdge[] = []
+  const notes: string[] = []
+  const note = (text: string) => {
+    if (!notes.includes(text)) notes.push(text)
+  }
+
+  const state = (id: string, end: boolean): string => {
+    if (id === "[*]") {
+      const node = end ? STATE_END : STATE_START
+      nodes.set(node.id, node)
+      return node.id
+    }
+    if (!nodes.has(id)) nodes.set(id, { id, label: [id], shape: "round" })
+    return id
+  }
+
+  // A `note … end note` block spans lines; nothing in it is a statement.
+  let inNote = false
+
+  for (const statement of body) {
+    if (inNote) {
+      if (/^end\s+note$/i.test(statement)) inNote = false
+      continue
+    }
+    const directed = statement.match(/^direction\s+(\w+)$/)
+    if (directed) {
+      direction = DIRECTIONS[directed[1]!.toUpperCase()] ?? direction
+      continue
+    }
+    if (IGNORED.test(statement)) continue
+
+    if (/^note\b/i.test(statement)) {
+      note("notes left out")
+      if (!statement.includes(":")) inNote = true
+      continue
+    }
+    if (statement === "}" || statement === "--") continue
+
+    // `state "Label" as Id`, or `state Id <<choice>>`, or `state Id {`.
+    const declared = statement.match(
+      /^state\s+(?:"(?<label>[^"]*)"\s+as\s+)?(?<id>[\w.\-]+)\s*(?:<<(?<kind>\w+)>>)?\s*(?<open>\{)?$/,
+    )
+    if (declared) {
+      const { label, id, kind, open } = declared.groups!
+      if (open) note("composite states flattened")
+      const node: FlowNode = {
+        id: id!,
+        label: (label && splitLabel(label)) || [kind === "fork" || kind === "join" ? kind : id!],
+        shape: kind === "choice" ? "decision" : "round",
+      }
+      // A choice reads as the diamond alone; its id is only a name to link to.
+      if (kind === "choice") node.label = [" "]
+      nodes.set(node.id, node)
+      continue
+    }
+
+    const transition = statement.match(STATE_TRANSITION)
+    if (transition) {
+      const { from, to, label } = transition.groups!
+      edges.push({
+        from: state(from!, false),
+        to: state(to!, true),
+        label: label ? splitLabel(label)?.join(" · ") : undefined,
+        style: "solid",
+        arrow: true,
+      })
+      continue
+    }
+
+    // `Id : description` names a state the way `state "…" as Id` does.
+    const described = statement.match(/^([\w.\-]+)\s*:\s*(.+)$/)
+    if (described) {
+      const id = state(described[1]!, false)
+      nodes.set(id, { ...nodes.get(id)!, label: splitLabel(described[2]!) ?? [id] })
+      continue
+    }
+
+    const bare = statement.match(/^([\w.\-]+)$/)
+    if (bare) {
+      state(bare[1]!, false)
+      continue
+    }
+    note("some statements skipped")
+  }
+
+  return { kind: "flowchart", direction, nodes: [...nodes.values()], edges, notes }
 }

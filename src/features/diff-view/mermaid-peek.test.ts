@@ -150,9 +150,9 @@ describe("a diagram riff cannot draw", () => {
           "notes.md",
           `@@ -1,4 +1,4 @@
  \`\`\`mermaid
- stateDiagram-v2
--  [*] --> Idle
-+  [*] --> Ready
+ classDiagram
+-  Animal <|-- Duck
++  Animal <|-- Goose
  \`\`\``,
         ),
       ],
@@ -162,7 +162,7 @@ describe("a diagram riff cannot draw", () => {
 
     const peek = buildMermaidPeek(state, 1, "new")!
     expect(peek.lines).toEqual([])
-    expect(peek.note).toBe("riff can't draw a stateDiagram-v2 yet")
-    expect(peek.source).toContain("stateDiagram-v2")
+    expect(peek.note).toBe("riff can't draw a classDiagram yet")
+    expect(peek.source).toContain("classDiagram")
   })
 })

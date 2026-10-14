@@ -134,11 +134,76 @@ describe("sequence diagrams", () => {
   })
 })
 
+describe("state diagrams", () => {
+  test("start and end are dots, a state is a rounded box", () => {
+    expect(drawn("stateDiagram-v2\n [*] --> Still\n Still --> [*]")).toBe(
+      [
+        "  ╭───╮",
+        "  │ ● │",
+        "  ╰───╯",
+        "    │",
+        "    ▼",
+        "╭───────╮",
+        "│ Still │",
+        "╰───────╯",
+        "    │",
+        "    ▼",
+        "  ╭───╮",
+        "  │ ◉ │",
+        "  ╰───╯",
+      ].join("\n"),
+    )
+  })
+
+  test("a transition back to the same state is written into its box", () => {
+    const diagram = drawn("stateDiagram-v2\n Busy --> Busy: poll")
+    expect(diagram).toContain("│ ↻ poll │")
+  })
+
+  test("transitions between the same two states share one line", () => {
+    const diagram = drawn(`stateDiagram-v2
+      A --> B: one
+      A --> B: two`)
+    expect(diagram.match(/▼/g)).toHaveLength(1)
+    expect(diagram).toContain("one / two")
+  })
+
+  test("a label with no room is lettered on its line and spelled out below", () => {
+    const diagram = drawn(`stateDiagram-v2
+      A --> B: a label far too long to sit beside its own line here
+      A --> C: and another one quite as long as the first of them`)
+    const rows = diagram.split("\n")
+    expect(rows).toContain("a  a label far too long to sit beside its own line here")
+    // Each label is either on its line or in the key, never in both.
+    expect(diagram.match(/and another one/g)).toHaveLength(1)
+  })
+
+  test("the loop back to a choice is what runs against the flow", () => {
+    const diagram = drawn(`stateDiagram-v2
+      state Working
+      state check <<choice>>
+      [*] --> check
+      check --> Working
+      Working --> check`)
+    const rows = diagram.split("\n")
+    const row = (text: string) => rows.findIndex((line) => line.includes(text))
+    // Declared first, Working still comes after the choice that leads to it.
+    expect(row("Working")).toBeGreaterThan(row("╱───╲"))
+    expect(diagram).toContain("◀")
+  })
+})
+
+describe("flowcharts and self links", () => {
+  test("a node linked to itself is drawn, not hung on", () => {
+    expect(drawn("graph TD\n A --> A")).toContain("↻")
+  })
+})
+
 describe("what it cannot draw", () => {
   test("says so by name, and draws nothing", () => {
-    const render = renderMermaid("stateDiagram-v2\n [*] --> Still")
+    const render = renderMermaid("classDiagram\n Animal <|-- Duck")
     expect(render.lines).toEqual([])
-    expect(render.note).toBe("riff can't draw a stateDiagram-v2 yet")
+    expect(render.note).toBe("riff can't draw a classDiagram yet")
   })
 
   test("an empty block is empty, not a crash", () => {

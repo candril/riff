@@ -144,11 +144,62 @@ describe("sequence diagrams", () => {
   })
 })
 
+describe("state diagrams", () => {
+  test("states, a choice and both ends of [*] become a flowchart", () => {
+    const diagram = parseMermaid(`stateDiagram-v2
+      state "Working<br/>busy" as W
+      state pick <<choice>>
+      [*] --> pick: Start
+      pick --> W: otherwise<br/>send it
+      W --> [*]`)
+    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+
+    expect(diagram.direction).toBe("TD")
+    expect(diagram.nodes.find((node) => node.id === "W")).toEqual({
+      id: "W",
+      label: ["Working", "busy"],
+      shape: "round",
+    })
+    expect(diagram.nodes.find((node) => node.id === "pick")?.shape).toBe("decision")
+    expect(diagram.edges).toEqual([
+      { from: "[*] start", to: "pick", label: "Start", style: "solid", arrow: true },
+      { from: "pick", to: "W", label: "otherwise · send it", style: "solid", arrow: true },
+      { from: "W", to: "[*] end", label: undefined, style: "solid", arrow: true },
+    ])
+  })
+
+  test("a description names a state, and direction turns the diagram", () => {
+    const diagram = parseMermaid(`stateDiagram-v2
+      direction LR
+      Idle : Waiting for input
+      Idle --> Busy`)
+    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+
+    expect(diagram.direction).toBe("LR")
+    expect(diagram.nodes[0]!.label).toEqual(["Waiting for input"])
+  })
+
+  test("notes and composite states are left out, and said to be", () => {
+    const diagram = parseMermaid(`stateDiagram-v2
+      state Outer {
+        A --> B
+      }
+      note right of A
+        a note
+      end note
+      note left of B : short`)
+    if (diagram.kind !== "flowchart") throw new Error(diagram.kind)
+
+    expect(diagram.notes).toEqual(["composite states flattened", "notes left out"])
+    expect(diagram.nodes.map((node) => node.id)).toEqual(["Outer", "A", "B"])
+  })
+})
+
 describe("everything else", () => {
   test("names the diagram type it cannot read", () => {
-    expect(parseMermaid("stateDiagram-v2\n [*] --> Still")).toEqual({
+    expect(parseMermaid("classDiagram\n Animal <|-- Duck")).toEqual({
       kind: "unsupported",
-      type: "stateDiagram-v2",
+      type: "classDiagram",
     })
     expect(parseMermaid("pie title Pets\n \"Dogs\" : 386")).toEqual({
       kind: "unsupported",
