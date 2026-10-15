@@ -54,6 +54,7 @@ const HIGHLIGHT_SOURCE_DELAY_MS = 150
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
 import { createRenderFunction } from "./app/render"
+import { createStatusBarIsland } from "./app/status-bar"
 import { createKeyHandler } from "./app/global-keys"
 
 // Feature modules
@@ -262,6 +263,7 @@ export async function createApp(options: AppOptions = {}) {
     // skill) — the renderer's teardown drops the exit hook that would
     // otherwise remove them.
     aiReview.removeSessionFiles()
+    statusBar.dispose()
     renderer.destroy()
     // The terminal is riff's again to hand on — `then` is how a relaunch
     // takes it (spec 079).
@@ -476,6 +478,8 @@ export async function createApp(options: AppOptions = {}) {
     renderFrame()
   }
 
+  const statusBar = createStatusBarIsland(renderer)
+
   const renderFrame = createRenderFunction({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -488,6 +492,7 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     fileTreePanel,
     vimDiffView,
+    statusBar,
     updateFileTreePanel,
     updateSearchPattern: (value) => searchHandler.updatePattern(value),
   })

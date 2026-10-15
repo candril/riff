@@ -1,6 +1,5 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { Box } from "@opentui/core"
-import { mountRenderable } from "../testing/frame"
+import { mountJsx } from "../testing/frame"
 import { StatusBar, type StatusBarProps } from "./StatusBar"
 
 /*
@@ -8,11 +7,15 @@ import { StatusBar, type StatusBarProps } from "./StatusBar"
  * either side, so counts end at column 58 and the mode label starts at 1.
  */
 
-let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
+let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
 
 async function frame(props: StatusBarProps) {
-  mounted = await mountRenderable(
-    () => Box({ width: "100%", height: 1 }, StatusBar(props)),
+  mounted = await mountJsx(
+    () => (
+      <box width="100%" height={1}>
+        <StatusBar {...props} />
+      </box>
+    ),
     { width: 60, height: 1 }
   )
   return mounted.frame()

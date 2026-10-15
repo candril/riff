@@ -8,7 +8,6 @@ import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import {
   Header,
-  StatusBar,
   ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
@@ -66,6 +65,7 @@ import { mergeReading } from "../utils/merge-verdict"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
+import type { StatusBarIsland } from "./status-bar"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
@@ -101,6 +101,7 @@ export interface RenderContext {
   renderer: CliRenderer
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
+  statusBar: StatusBarIsland
   // Helper
   updateFileTreePanel: () => void
   /** Incremental search reacting to what the prompt field reports (spec 065). */
@@ -450,6 +451,23 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       ctx.vimDiffView.setObscured(coversTheDiff(state))
     }
 
+    ctx.statusBar.update({
+      searchInfo:
+        searchState.pattern && state.viewMode === "diff"
+          ? {
+              current: searchState.currentMatchIndex + 1,
+              total: searchState.matches.length,
+              pattern: searchState.pattern,
+              wrapped: searchState.wrapped,
+            }
+          : null,
+      columnInfo:
+        state.viewMode === "diff"
+          ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
+          : null,
+      selectionInfo: selectionStatus(vimState),
+    })
+
     ctx.renderer.root.add(
       Box(
         {
@@ -488,22 +506,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         // labels would land on rows that had just moved.
         flashState.active && state.viewMode === "diff"
           ? FlashPrompt({ flashState })
-          : StatusBar({
-            searchInfo:
-              searchState.pattern && state.viewMode === "diff"
-                ? {
-                    current: searchState.currentMatchIndex + 1,
-                    total: searchState.matches.length,
-                    pattern: searchState.pattern,
-                    wrapped: searchState.wrapped,
-                  }
-                : null,
-            columnInfo:
-              state.viewMode === "diff"
-                ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
-                : null,
-            selectionInfo: selectionStatus(vimState),
-          }),
+          : ctx.statusBar.host,
         state.actionMenu.open
           ? ActionMenu({
               renderer: ctx.renderer,

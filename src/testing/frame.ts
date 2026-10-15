@@ -1,5 +1,6 @@
 import { Box } from "@opentui/core"
 import { createTestRenderer, type TestRenderer } from "@opentui/core/testing"
+import { testRender, type JSX } from "@opentui/solid"
 import { VimDiffView } from "../components/VimDiffView"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -22,6 +23,21 @@ export async function mountRenderable(
   const setup = await createTestRenderer({ width, height })
   setup.renderer.root.add(build(setup.renderer))
 
+  const frame = async () => {
+    await setup.renderOnce()
+    await setup.renderOnce()
+    return trimFrame(setup.captureCharFrame())
+  }
+  const dispose = async () => {
+    await setup.waitForVisualIdle().catch(() => {})
+    setup.renderer.destroy()
+  }
+  return { frame, setup, dispose }
+}
+
+/** A Solid tree alone on a test screen of the given size. */
+export async function mountJsx(code: () => JSX.Element, { width, height }: { width: number; height: number }) {
+  const setup = await testRender(code, { width, height })
   const frame = async () => {
     await setup.renderOnce()
     await setup.renderOnce()

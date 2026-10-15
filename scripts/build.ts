@@ -12,12 +12,15 @@
  * and OpenTUI is handed the path it will live at inside the binary through the
  * compile-time constant it reads.
  *
- * This file is generated from candril/homebrew-tap/templates/build.ts; edit it there.
+ * This file is generated from candril/homebrew-tap/templates/build.ts, plus the Solid JSX
+ * transform; edit it there. The runtime preload in bunfig.toml does not apply to
+ * `Bun.build`, so without the plugin the binary would ship untransformed JSX.
  */
 
 import { basename, relative, resolve } from "node:path"
 import { realpathSync } from "node:fs"
 import { $ } from "bun"
+import solidPlugin from "@opentui/solid/bun-plugin"
 
 interface Target {
   os: "darwin" | "linux"
@@ -89,7 +92,10 @@ for (const target of targets) {
   const result = await Bun.build({
     entrypoints: ["./src/index.ts", workerPath],
     target: "bun",
-    compile: { target: `bun-${target.os}-${target.arch}`, outfile },
+    plugins: [solidPlugin],
+    // riff runs inside the repositories it reviews, and a compiled binary would otherwise
+    // load their bunfig.toml — riff's own names a preload the binary cannot resolve.
+    compile: { target: `bun-${target.os}-${target.arch}`, outfile, autoloadBunfig: false },
     define: {
       OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(workerInBinary),
       RIFF_VERSION: JSON.stringify(version),
