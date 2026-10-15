@@ -1,6 +1,8 @@
 import { test, expect, afterEach, describe } from "bun:test"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { diffFile, doc } from "../diff-rows/fixtures"
+import { fileAsDiff } from "../providers/files"
+import { parseDiff, type DiffFile } from "../utils/diff-parser"
 import { cellOfColumn, columnOfCell } from "../split-view/layout"
 import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -110,9 +112,9 @@ describe("single-file mode", () => {
   // Each file's addition is far wider than an 80-cell pane, behind four tabs.
   const wide = (name: string) =>
     diffFile(name, ["@@ -1,1 +1,1 @@", `-${name} old`, `+\t\t\t\tconst ${name} = "${"x".repeat(200)}"`])
-  const files = [wide("a.ts"), wide("b.ts")]
+  const twoFiles = [wide("a.ts"), wide("b.ts")]
 
-  async function mountSingle() {
+  async function mountSingle(files = twoFiles) {
     setup = await createTestRenderer({ width: 160, height: 30 })
     let state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", splitView: true, selectedFileIndex: 0 }
     let mapping = new DiffLineMapping(files, "single", 0)
@@ -136,12 +138,19 @@ describe("single-file mode", () => {
     const addition = () => mapping.allLines.findIndex((line) => line.type === "addition")
     const deletion = () => mapping.allLines.findIndex((line) => line.type === "deletion")
     draw()
+    const frame = async () => {
+      await setup!.renderOnce()
+      await setup!.renderOnce()
+      return setup!.captureCharFrame()
+    }
     return {
       diff,
       draw,
+      frame,
       addition,
       deletion,
       content: (line: number) => mapping.getLine(line)!.content,
+      lineStarting: (text: string) => mapping.allLines.findIndex((line) => line.content.startsWith(text)),
       /** Puts the cursor on `line` at `col` and reveals it, as a motion does. */
       moveTo(line: number, col: number) {
         vimState = { ...vimState, line, col }
@@ -189,4 +198,40 @@ describe("single-file mode", () => {
     expect(diff.island.lineWindow(addition()).startCol).toBe(0)
     expect(diff.island.lineWindow(deletion()).startCol).toBe(0)
   })
+
+  test("after a file switch both panes draw their lines from the start, with no ‹ left over", async () => {
+    const { draw, frame, addition, deletion, moveTo, showFile } = await mountSingle()
+    moveTo(addition(), 150)
+    moveTo(deletion(), 3)
+    expect(await frame()).toContain("‹")
+
+    showFile(1)
+    draw()
+    const after = await frame()
+    expect(after).not.toContain("‹")
+    expect(after).toContain("b.ts old")
+    expect(after).toContain('const b.ts = "xxx')
+  })
+
+  const wideSource = ["short", `const wide = "${"y".repeat(200)}" // the end`, "tail"]
+  const asFileMode = (): DiffFile => ({ ...parseDiff(fileAsDiff("open.ts", wideSource.join("\n") + "\n"))[0]!, status: "unchanged" })
+  const asNewFile = (): DiffFile => ({
+    ...diffFile("new.ts", ["@@ -0,0 +1,3 @@", ...wideSource.map((line) => `+${line}`)]),
+    status: "added",
+  })
+
+  // Reported once from file mode; three pty runs in a scratch repo could not reproduce it.
+  for (const [shape, file] of [["file mode", asFileMode], ["a new file", asNewFile]] as const) {
+    test(`in ${shape}, $ on a line wider than the pane scrolls the new pane to its end`, async () => {
+      const { diff, frame, content, lineStarting, moveTo } = await mountSingle([file()])
+      const wideLine = lineStarting("const wide")
+      expect(await frame()).not.toContain("‹")
+
+      moveTo(wideLine, content(wideLine).length - 1)
+      expect(diff.source().side).toBe("right")
+      const after = await frame()
+      expect(after).toContain("‹")
+      expect(after).toContain("// the end")
+    })
+  }
 })

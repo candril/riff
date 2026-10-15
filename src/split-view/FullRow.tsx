@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core"
-import { Show, type JSX } from "solid-js"
+import { Show, createMemo, type JSX } from "solid-js"
 import { cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade } from "../diff-rows/segments"
 import { theme } from "../theme"
@@ -82,7 +82,8 @@ function FileHeader(props: RowProps) {
 function ChromeRow(
   props: RowProps & { bg: string | undefined; children?: (bg: () => string | undefined) => JSX.Element }
 ) {
-  const selected = () => inLineSelection(props.env.props.selection, props.at)
+  // Memoised to a boolean, so a selection moving elsewhere asks once and leaves this row's colours alone.
+  const selected = createMemo(() => inLineSelection(props.env.props.selection, props.at))
   const bg = () => (props.atCursor ? cursorLineBg(props.line.type) : selected() ? theme.surface0 : props.bg)
   return (
     <Bar env={props.env} bg={bg()}>
