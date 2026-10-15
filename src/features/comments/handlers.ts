@@ -24,9 +24,9 @@ import { saveComment, deleteCommentFile, clearLocalComments } from "../../storag
 import { isLocallyResolved, publishableLocalComments } from "../../utils/publishable"
 import {
   openCommentEditor,
-  extractDiffHunk,
   parseEditorOutput,
 } from "../../utils/editor"
+import { diffHunkAt } from "../../utils/diff-hunk"
 import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 import {
   getCurrentUser,
@@ -200,8 +200,9 @@ export async function handleAddComment(
           username
         )
         // Use the selection context if available, otherwise extract from file
-        comment.diffHunk =
-          contextLines.length > 0 ? contextLines.join("\n") : extractDiffHunk(file.content, anchor.line)
+        const hunk =
+          contextLines.length > 0 ? contextLines.join("\n") : diffHunkAt(file.content, anchor.line, anchor.side)
+        if (hunk) comment.diffHunk = hunk
 
         // Written where GitHub has no anchor: a note, refused by every
         // publish path rather than lost to a 422 (spec 085).

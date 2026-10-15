@@ -18,7 +18,8 @@ import {
 } from "../../state"
 import { createComment } from "../../types"
 import { saveComment } from "../../storage"
-import { extractDiffHunk, type DraftEditorContext } from "../../utils/editor"
+import type { DraftEditorContext } from "../../utils/editor"
+import { diffHunkAt } from "../../utils/diff-hunk"
 import { extractCommentImages } from "../../utils/comment-images"
 import { openUrl } from "../../utils/open-url"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
@@ -77,7 +78,8 @@ export async function submitInlineDraft(
   // Written against a block rather than a line: GitHub is told the range,
   // which is what makes a suggestion replace all of it (spec 076).
   if (ov.startLine && ov.startLine < ov.line) comment.startLine = ov.startLine
-  comment.diffHunk = extractDiffHunk(file.content, ov.line)
+  const hunk = diffHunkAt(file.content, ov.line, ov.side)
+  if (hunk) comment.diffHunk = hunk
   if (thread.length > 0 && ov.replyToThread) {
     comment.inReplyTo = thread[thread.length - 1]!.id
   }

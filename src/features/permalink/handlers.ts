@@ -267,7 +267,7 @@ async function resolveRepoRef(ctx: PermalinkContext): Promise<RepoRef | null> {
  * in the file the permalink points at. Rather than linking to a line that
  * shows unrelated content, those fall back to a file-level link.
  */
-function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Target | null {
+export function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Target | null {
   const state = ctx.getState()
   const vimState = ctx.getVimState()
   const lineMapping = ctx.getLineMapping()
@@ -287,11 +287,11 @@ function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Target | n
 
   if (!includeLines || state.viewMode !== "diff") return { filename }
 
-  const selection = getSelectionRange(vimState)
-  if (selection) {
-    const [start, end] = selection
+  if (getSelectionRange(vimState)) {
+    // In split the scope holds only the active pane's lines: a span of
+    // mapping lines would pick up the other pane's additions in between.
     const numbers: number[] = []
-    for (let i = start; i <= end; i++) {
+    for (const i of ctx.getCommentScope().lines) {
       const line = lineMapping.getLine(i)
       if (line?.filename !== filename) continue
       if (line.newLineNum !== undefined) numbers.push(line.newLineNum)
