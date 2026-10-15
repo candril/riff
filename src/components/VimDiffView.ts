@@ -3109,15 +3109,3 @@ export function getFiletypeFromPath(path: string): string | undefined {
 
   return extMap[ext]
 }
-
-// Keep the old functional component for backward compatibility during transition
-export function VimDiffViewFunctional(props: {
-  files: DiffFile[]
-  selectedFileIndex: number | null
-  cursorState: VimCursorState
-  comments: Comment[]
-  lineMapping: DiffLineMapping
-}) {
-  // This is kept for reference but should not be used
-  throw new Error("Use VimDiffView class instead")
-}
