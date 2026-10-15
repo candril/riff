@@ -10,6 +10,12 @@ import type { Comment } from "../types"
 import type { DiffLine, CommentAnchor, DiffLineMappingOptions } from "./types"
 import type { LineSource } from "./line-source"
 
+function anchorSide(type: DiffLine["type"], pane: "left" | "right" | undefined): CommentAnchor["side"] | null {
+  if (type === "deletion") return pane === "right" ? null : "LEFT"
+  if (type === "addition") return pane === "left" ? null : "RIGHT"
+  return pane === "left" ? "LEFT" : "RIGHT"
+}
+
 export class DiffLineMapping implements LineSource {
   private lines: DiffLine[] = []
   private expandedDividers: Set<string>
@@ -169,20 +175,24 @@ export class DiffLineMapping implements LineSource {
   }
 
   /**
-   * Get comment anchor info for a line
+   * Get comment anchor info for a line. `pane` is the split pane the cursor
+   * is in: a context line is drawn in both, so the pane picks its side, and
+   * a removal or an addition is only there to anchor in its own pane.
    */
-  getCommentAnchor(visualIndex: number): CommentAnchor | null {
+  getCommentAnchor(visualIndex: number, pane?: "left" | "right"): CommentAnchor | null {
     const line = this.lines[visualIndex]
     if (!line || !this.isCommentable(visualIndex)) return null
     if (!line.filename) return null
 
-    const lineNum = line.type === "deletion" ? line.oldLineNum : line.newLineNum
+    const side = anchorSide(line.type, pane)
+    if (!side) return null
+    const lineNum = side === "LEFT" ? line.oldLineNum : line.newLineNum
     if (lineNum === undefined) return null
 
     return {
       filename: line.filename,
       line: lineNum,
-      side: line.type === "deletion" ? "LEFT" : "RIGHT",
+      side,
       // Two different refusals used to share one answer of `null`: riff has
       // no line here, and GitHub cannot anchor to this one. Only the first
       // is a reason to have no anchor. The second is a note (spec 085).

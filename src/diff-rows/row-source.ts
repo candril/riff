@@ -3,6 +3,13 @@ import type { LineSource } from "../vim-diff/line-source"
 import type { DiffLine } from "../vim-diff/types"
 import { buildRows, lineOf, rowIndexByLine, type Row, type Side, type View } from "./rows"
 
+/** What the split view's readers need off a RowLineSource. */
+export interface SplitRows {
+  readonly rows: readonly Row[]
+  readonly side: Side
+  rowAtLine(lineIndex: number): number | null
+}
+
 /**
  * The vim layer's view of one pane: an index is a row, and a row reads the
  * line on the active side. Folds and expansion build a new mapping, and the

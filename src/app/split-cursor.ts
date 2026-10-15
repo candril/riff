@@ -1,12 +1,8 @@
-import { lineOf, type Row, type Side } from "../diff-rows/rows"
+import type { SplitRows } from "../diff-rows/row-source"
+import { lineOf, type Side } from "../diff-rows/rows"
 import type { VimCursorState } from "../vim-diff/types"
 
-/** What the conversion reads off a split view's RowLineSource. */
-export interface SplitRows {
-  readonly rows: readonly Row[]
-  readonly side: Side
-  rowAtLine(lineIndex: number): number | null
-}
+export type { SplitRows }
 
 const otherSide = (side: Side): Side => (side === "left" ? "right" : "left")
 
