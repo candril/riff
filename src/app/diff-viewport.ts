@@ -15,14 +15,17 @@ export type DiffViewport = Pick<
 
 export interface SplitRoute {
   shown(): boolean
-  island: Pick<SplitIsland, "scrollCursorTo">
+  island: Pick<
+    SplitIsland,
+    "scrollCursorTo" | "scrollColumnsBy" | "halfColumnWindow" | "scrollColumnToEdge" | "clampCursorColumn"
+  >
   rowAtLine(line: number): number
   refreshCursor(): void
 }
 
 /**
- * The column methods do nothing in split: each pane gets its own column
- * window with sidescroll, and until then split never scrolls sideways.
+ * In split the column methods act on the cursor's pane, each pane keeping
+ * its own window; the cursor's line is the one the island already draws.
  */
 export function routeDiffViewport(unified: VimDiffView, split: SplitRoute): DiffViewport {
   return {
@@ -31,13 +34,12 @@ export function routeDiffViewport(unified: VimDiffView, split: SplitRoute): Diff
     onceRebuilt: (then) => (split.shown() ? queueMicrotask(then) : unified.onceRebuilt(then)),
     scrollCursorTo: (line, where) =>
       split.shown() ? split.island.scrollCursorTo(split.rowAtLine(line), where) : unified.scrollCursorTo(line, where),
-    scrollColumnsBy: (delta) => {
-      if (!split.shown()) unified.scrollColumnsBy(delta)
-    },
-    halfColumnWindow: (line) => (split.shown() ? 1 : unified.halfColumnWindow(line)),
-    scrollColumnToEdge: (line, col, edge) => {
-      if (!split.shown()) unified.scrollColumnToEdge(line, col, edge)
-    },
-    clampColumnToWindow: (line, col) => (split.shown() ? col : unified.clampColumnToWindow(line, col)),
+    scrollColumnsBy: (delta) =>
+      split.shown() ? split.island.scrollColumnsBy(delta) : unified.scrollColumnsBy(delta),
+    halfColumnWindow: (line) => (split.shown() ? split.island.halfColumnWindow() : unified.halfColumnWindow(line)),
+    scrollColumnToEdge: (line, col, edge) =>
+      split.shown() ? split.island.scrollColumnToEdge(edge) : unified.scrollColumnToEdge(line, col, edge),
+    clampColumnToWindow: (line, col) =>
+      split.shown() ? split.island.clampCursorColumn(col) : unified.clampColumnToWindow(line, col),
   }
 }

@@ -3,6 +3,8 @@ import { CURSOR_ADDITION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
 import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { bgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import type { Comment, FileReviewStatus } from "../types"
+import { revealColumn } from "../app/split-columns"
+import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { theme } from "../theme"
 
 /*
@@ -151,6 +153,39 @@ describe("sidescroll", () => {
     const frame = await (await mount({ raw: ONE_WIDE_LINE, columns: { left: 0, right: 150 }, height: 8 })).frame()
 
     expect(row(frame, 2)).toBe(`   2 const wide = 0                                            2 ‹ol170..col180..col190.."`)
+  })
+})
+
+describe("sidescroll following the cursor", () => {
+  // ONE_WIDE_LINE's added line, in a right pane whose code starts at x 65 and is 55 cells wide.
+  const WIDE_ROW = 2
+  const CODE_X = 65
+  const CODE_CELLS = 55
+  const WIDE_CELLS = 175
+  const revealed = (col: number) => ({ left: 0, right: revealColumn(0, col, CODE_CELLS, WIDE_CELLS) })
+
+  test("a cursor past the right pane's window is drawn once the pane reveals it, and the left pane stays put", async () => {
+    const columns = revealed(120)
+    const view = await mount({ raw: ONE_WIDE_LINE, cursor: { row: WIDE_ROW, col: 120 }, columns, height: 8 })
+    const frame = await view.frame()
+
+    expect(half(row(frame, WIDE_ROW)!, "left")).toBe("   2 const wide = 0")
+    expect(half(row(frame, WIDE_ROW)!, "right")).toStartWith("   2 ‹")
+    expect(bgAt(view.setup.captureSpans(), CODE_X + 120 - columns.right, WIDE_ROW)).toEqual(ints(theme.rosewater))
+  })
+
+  test("the current search hit past the window shows once the cursor on it is revealed", async () => {
+    const search = { matches: [{ line: 3, startCol: 150, endCol: 156 }], current: 0 }
+    const before = await mount({ raw: ONE_WIDE_LINE, search, height: 8 })
+    expect(row(await before.frame(), WIDE_ROW)).not.toContain("col170")
+    await before.dispose()
+
+    const columns = revealed(150)
+    const view = await mount({ raw: ONE_WIDE_LINE, search, cursor: { row: WIDE_ROW, col: 150 }, columns, height: 8 })
+    const frame = await view.frame()
+    const x = CODE_X + 150 - columns.right
+    expect(row(frame, WIDE_ROW)!.slice(x, x + 6)).toBe("col170")
+    expect(bgAt(view.setup.captureSpans(), x + 1, WIDE_ROW)).toEqual(ints(SYNTAX_PALETTE["search.current"]!.bg!))
   })
 })
 

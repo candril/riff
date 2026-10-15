@@ -3,22 +3,26 @@ import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { lineOf, type Side } from "../diff-rows/rows"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view"
+import { cellOfColumn, columnOfCell, contentOrigin, gutterWidth, paneWidths } from "../split-view/layout"
 import { mountSolid } from "./solid-island"
+import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 
-export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "width" | "height">
+export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "columns" | "width" | "height">
 
 const other = (side: Side): Side => (side === "left" ? "right" : "left")
 
 /**
- * The split view as a long-lived island. It owns its scroll, the way
- * VimDiffView's scrollbox owns unified's, and takes its size from the box
- * render.ts lays it out in rather than from the terminal.
+ * The split view as a long-lived island. It owns its scroll and each
+ * pane's column window, the way VimDiffView's scrollbox owns unified's,
+ * and takes its size from the box render.ts lays it out in rather than
+ * from the terminal.
  */
 export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const [inputs, setInputs] = createStore<{ value: SplitInputs | null }>({ value: null })
   const [size, setSize] = createSignal({ width: 0, height: 0 })
   const [scrollTop, setScrollTop] = createSignal(0)
+  const [columns, setColumns] = createSignal({ left: 0, right: 0 })
 
   const island = mountSolid(
     renderer,
@@ -28,6 +32,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
           <SplitDiffView
             {...props()}
             scrollTop={scrollTop()}
+            columns={columns()}
             width={size().width}
             height={size().height}
           />
@@ -41,6 +46,33 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const rowCount = () => inputs.value?.source.rows.length ?? 0
   const window = () => ({ scrollTop: scrollTop(), height: size().height, rows: rowCount() })
   const ensureCursorVisible = (row: number) => setScrollTop(revealRow(window(), row, scrollOff))
+
+  /**
+   * The line the cursor's half shows, and the room its pane has for code.
+   * Null on a row with no half there (an empty half, a header, a divider):
+   * nothing on it scrolls sideways.
+   */
+  function activeHalf() {
+    const props = inputs.value
+    const row = props?.source.rows[props.cursor.row]
+    if (!props || row?.kind !== "pair") return null
+    const index = props.side === "left" ? row.left : row.right
+    const content = index === undefined ? undefined : props.mapping.getLine(index)?.content
+    if (content === undefined) return null
+    const width = paneWidths(size().width)[props.side] - contentOrigin(gutterWidth(props.mapping))
+    const cells = cellOfColumn(content, content.length)
+    return { side: props.side, content, width, cells, cursorCell: cellOfColumn(content, props.cursor.col) }
+  }
+  type ActiveHalf = NonNullable<ReturnType<typeof activeHalf>>
+
+  // Only the cursor's pane moves; the other keeps its window for when the cursor crosses back.
+  function moveColumn(to: (half: ActiveHalf, column: number) => number): void {
+    const half = activeHalf()
+    if (!half) return
+    const current = columns()
+    const next = to(half, current[half.side])
+    if (next !== current[half.side]) setColumns({ ...current, [half.side]: next })
+  }
 
   function resize(width: number, height: number): void {
     if (width === size().width && height === size().height) return
@@ -64,8 +96,8 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     host: island.host,
     /**
      * Class instances (mapping, source, lineSpans) are handed over by
-     * reference: reconcile would walk into them. The plain cursor, column
-     * window and selection are rebuilt every render and reconciled, so an
+     * reference: reconcile would walk into them. The plain cursor and
+     * selection are rebuilt every render and reconciled, so an
      * unchanged one notifies nothing; search and flash are the app's own
      * state objects, which only change when they are replaced.
      */
@@ -76,11 +108,10 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
         if (next.mapping) setInputs("value", next as SplitInputs)
         return
       }
-      const { cursor, columns, selection, ...byReference } = next
+      const { cursor, selection, ...byReference } = next
       batch(() => {
         setInputs("value", byReference)
         if (cursor) setInputs("value", "cursor", reconcile(cursor))
-        if (columns) setInputs("value", "columns", reconcile(columns))
         if (selection !== undefined) setInputs("value", "selection", selection && reconcile(selection))
         // A fold or an expansion rebuilds the rows; the window must still fit them.
         if (byReference.source && byReference.source !== current.source) {
@@ -89,6 +120,29 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       })
     },
     ensureCursorVisible,
+    // The cursor's block takes a cell past the line's end, and the half marks that cell as part of the line.
+    revealColumn: () =>
+      moveColumn((half, column) =>
+        revealColumn(column, half.cursorCell, half.width, Math.max(half.cells, half.cursorCell + 1))
+      ),
+    scrollColumnsBy: (delta: number) => moveColumn((_half, column) => scrollBy(column, delta)),
+    scrollColumnToEdge: (edge: "start" | "end") =>
+      moveColumn((half) => toEdge(half.cursorCell, half.width, edge, half.cells)),
+    halfColumnWindow: () => halfWindow(activeHalf()?.width ?? 2),
+    /** The column nearest `col` that the cursor's pane shows. */
+    clampCursorColumn(col: number): number {
+      const half = activeHalf()
+      if (!half) return col
+      const cell = clampCursorCell(columns()[half.side], half.width, cellOfColumn(half.content, col), half.cells)
+      return columnOfCell(half.content, cell)
+    },
+    /** The status bar's readout, only for a line too wide for its pane. */
+    columnStatus(): { col: number; total: number } | null {
+      const half = activeHalf()
+      if (!half || half.cells === 0 || half.cells <= half.width) return null
+      return { col: inputs.value!.cursor.col + 1, total: half.cells }
+    },
+    resetColumns: () => setColumns({ left: 0, right: 0 }),
     /**
      * The host is only laid out once it is in the tree, a frame after split
      * is first drawn or comes back from a narrow terminal; a size given up

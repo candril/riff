@@ -31,6 +31,7 @@ import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { FLASH_BACKDROP_STRENGTH } from "../diff-rows/segments"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import { commentSignColor } from "../diff-rows/signs"
+import { SIDE_SCROLL_OFF } from "../diff-rows/side-scroll"
 import { ENTER_HINT, dividerLabel } from "../split-view/layout"
 import { discard, discardChildren, keepAlive } from "../utils/renderables"
 import { highlightCell } from "../utils/cells"
@@ -122,13 +123,6 @@ function lineColToOffset(
 const defaultBg = theme.base
 
 const SPACE_CODE_POINT = 32
-
-/**
- * Columns of context kept between the cursor and the edge it is heading
- * for, so a horizontal move shows what comes next instead of stopping the
- * cursor dead on the last visible column (vim's `sidescrolloff`).
- */
-const SIDE_SCROLL_OFF = 8
 
 /**
  * Rows kept between the cursor and the top or bottom edge. Shared with the

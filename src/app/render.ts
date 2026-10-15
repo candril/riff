@@ -303,8 +303,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           expandingDivider: state.expandingDivider,
           cursor: { row: ctx.split.cursorRow(), col: vimState.col },
           side: ctx.split.source().side,
-          // The per-pane column window lands with sidescroll.
-          columns: { left: 0, right: 0 },
           focused: true,
           ...ctx.split.overlays(vimState, searchState, flashState),
         })
@@ -489,11 +487,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               wrapped: searchState.wrapped,
             }
           : null,
-      // Split has no column window to report until sidescroll gives each pane one.
       columnInfo:
-        state.viewMode === "diff" && !splitOn
-          ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
-          : null,
+        state.viewMode !== "diff"
+          ? null
+          : splitOn
+            ? ctx.split.island.columnStatus()
+            : ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col),
       selectionInfo: selectionStatus(vimState),
     })
 

@@ -107,6 +107,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     const row = cursorRow()
     island.update({ cursor: { row, col: deps.getVimState().col }, side: source().side })
     island.ensureCursorVisible(row)
+    island.revealColumn()
   }
 
   return {
@@ -127,6 +128,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     enter(): void {
       const mapping = deps.getMapping()
       source().setSide(sideOf(mapping.allLines, deps.getVimState().line) === "old" ? "left" : "right")
+      island.resetColumns()
     },
     syncPane,
     refreshCursor,

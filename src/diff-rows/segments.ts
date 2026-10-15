@@ -7,7 +7,7 @@ import { SYNTAX_PALETTE, styleOfCapture } from "./syntax-palette"
 export const FLASH_BACKDROP_STRENGTH = 0.7
 
 // OpenTUI's text buffer draws a tab as two cells wherever it sits, not up to a tab stop.
-const TAB = "  "
+export const TAB = "  "
 
 export interface Segment {
   text: string

@@ -1,8 +1,9 @@
-import { test, expect, afterEach } from "bun:test"
+import { test, expect, afterEach, describe } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
+import { ONE_WIDE_LINE } from "../testing/diffs"
 import { trimFrame } from "../testing/frame"
 import { bgAt, ints } from "../testing/split-frame"
 import { theme } from "../theme"
@@ -31,11 +32,11 @@ afterEach(() => {
   setup = null
 })
 
-async function mount(height: number, parent?: (setup: TestRendererSetup) => BoxRenderable) {
+async function mount(height: number, parent?: (setup: TestRendererSetup) => BoxRenderable, raw = LONG) {
   setup = await createTestRenderer({ width: 120, height })
   island = createSplitIsland(setup.renderer, 2)
   ;(parent?.(setup) ?? setup.renderer.root).add(island.host)
-  const files = parseDiff(LONG)
+  const files = parseDiff(raw)
   const mapping = new DiffLineMapping(files, "all")
   const source = new RowLineSource(mapping, "split")
   island.update({
@@ -49,7 +50,6 @@ async function mount(height: number, parent?: (setup: TestRendererSetup) => BoxR
     expandingDivider: null,
     cursor: { row: 0, col: 0 },
     side: "right",
-    columns: { left: 0, right: 0 },
     focused: true,
     selection: null,
     search: null,
@@ -158,4 +158,56 @@ test("a selection reaches the view, follows its changes and goes when it is clea
   island.update({ selection: null })
   await frame()
   expect(selectedAt(5)).not.toEqual(ints(theme.surface1))
+})
+
+describe("sidescroll", () => {
+  // ONE_WIDE_LINE at 120 columns: row 2 pairs "const wide = 0" with a 175-cell line, in 55-cell panes.
+  const WIDE_ROW = 2
+  const rightHalf = (row: string) => row.slice(60)
+  const leftHalf = (row: string) => row.slice(0, 60)
+
+  async function mountWide() {
+    const mounted = await mount(8, undefined, ONE_WIDE_LINE)
+    await frame()
+    return mounted
+  }
+
+  test("the cursor's pane follows it sideways while the other pane keeps its window", async () => {
+    const { island } = await mountWide()
+    island.update({ cursor: { row: WIDE_ROW, col: 120 } })
+    island.revealColumn()
+    const rows = await frame()
+
+    // The cursor stays eight cells clear of the `›` at the pane's right edge.
+    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("   2 ‹")
+    expect(rightHalf(rows[WIDE_ROW]!)).toEndWith("›")
+    expect(leftHalf(rows[WIDE_ROW]!)).toStartWith("   2 const wide = 0")
+    expect(island.columnStatus()).toEqual({ col: 121, total: 175 })
+
+    island.update({ side: "left", cursor: { row: WIDE_ROW, col: 3 } })
+    island.revealColumn()
+    const crossed = await frame()
+    expect(rightHalf(crossed[WIDE_ROW]!)).toBe(rightHalf(rows[WIDE_ROW]!))
+    expect(island.columnStatus()).toBeNull()
+  })
+
+  test("zl drags the cursor along, zs puts it at the left edge, and the readout goes on an empty half", async () => {
+    const { island } = await mountWide()
+    island.update({ cursor: { row: WIDE_ROW, col: 0 } })
+    island.scrollColumnsBy(10)
+    expect(island.clampCursorColumn(0)).toBe(11)
+    expect(island.halfColumnWindow()).toBe(27)
+
+    island.update({ cursor: { row: WIDE_ROW, col: 100 } })
+    island.scrollColumnToEdge("start")
+    const rows = await frame()
+    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("   2 ‹..col110")
+
+    // Row 0 is the file header, which never scrolls sideways.
+    island.update({ cursor: { row: 0, col: 0 } })
+    island.scrollColumnsBy(5)
+    expect(island.columnStatus()).toBeNull()
+    island.resetColumns()
+    expect(rightHalf((await frame())[WIDE_ROW]!)).toStartWith("   2 const wide =")
+  })
 })
