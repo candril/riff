@@ -1,5 +1,6 @@
 import type { SplitRows } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
+import type { SelectionState } from "../vim-diff/cursor-state"
 import type { VimCursorState } from "../vim-diff/types"
 
 export type { SplitRows }
@@ -42,6 +43,17 @@ export function toRowState(state: VimCursorState, source: SplitRows): VimCursorS
     selectionAnchor: state.selectionAnchor === null ? null : row(state.selectionAnchor),
     jumpList: state.jumpList.map(row),
     marks: new Map([...state.marks].map(([name, line]) => [name, row(line)])),
+  }
+}
+
+/** Only what a selection is read from, for drawing it, which runs on every move. */
+export function toRowSelection(state: SelectionState, source: SplitRows): SelectionState {
+  return {
+    mode: state.mode,
+    line: rowOfLine(state.line, source),
+    col: state.col,
+    selectionAnchor: state.selectionAnchor === null ? null : rowOfLine(state.selectionAnchor, source),
+    selectionAnchorCol: state.selectionAnchorCol,
   }
 }
 

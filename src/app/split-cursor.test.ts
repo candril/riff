@@ -4,7 +4,7 @@ import { RowLineSource } from "../diff-rows/row-source"
 import type { Side } from "../diff-rows/rows"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
-import { lineOfRow, paneOfLine, rowOfLine, toLineState, toRowState } from "./split-cursor"
+import { lineOfRow, paneOfLine, rowOfLine, toLineState, toRowSelection, toRowState } from "./split-cursor"
 
 /** Rows as row-source.test.ts lays them out: 2 is context, 5 adds with an empty left half, 8 pairs a removal with an addition. */
 const mapping = new DiffLineMapping([doc], "all")
@@ -59,6 +59,27 @@ describe("the cursor state", () => {
     expect(toLineState(rows, source("right"), lines)).toMatchObject({ line: right!, selectionAnchor: 2, col: 4 })
     // h and l cross panes by switching the side under the same row.
     expect(toLineState(rows, source("left"), lines).line).toBe(left!)
+  })
+
+  test("a selection converts on its own, carrying nothing but what it is read from", () => {
+    const { left, right } = pair(8)
+    const lines = {
+      ...createCursorState(),
+      mode: "visual" as const,
+      line: right!,
+      col: 3,
+      selectionAnchor: left!,
+      selectionAnchorCol: 1,
+      jumpList: [right!],
+    }
+    expect(toRowSelection(lines, source("right"))).toEqual({
+      mode: "visual",
+      line: 8,
+      col: 3,
+      selectionAnchor: 8,
+      selectionAnchorCol: 1,
+    })
+    expect(toRowSelection(createCursorState(), source("right")).selectionAnchor).toBeNull()
   })
 
   test("no selection stays no selection", () => {

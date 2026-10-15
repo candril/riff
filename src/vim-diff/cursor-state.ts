@@ -27,10 +27,13 @@ export function createCursorState(): VimCursorState {
   }
 }
 
+/** All a selection is read from, so a cursor converted into other units can answer without a whole state. */
+export type SelectionState = Pick<VimCursorState, "mode" | "line" | "col" | "selectionAnchor" | "selectionAnchorCol">
+
 /**
  * Whether a selection is being made, in either visual mode.
  */
-export function isVisualMode(state: VimCursorState): boolean {
+export function isVisualMode(state: Pick<VimCursorState, "mode">): boolean {
   return state.mode === "visual" || state.mode === "visual-line"
 }
 
@@ -41,7 +44,7 @@ export function isVisualMode(state: VimCursorState): boolean {
  * anchor and a permalink can only address whole lines anyway.
  */
 export function getSelectionRange(
-  state: VimCursorState
+  state: Pick<SelectionState, "mode" | "line" | "selectionAnchor">
 ): [number, number] | null {
   if (!isVisualMode(state) || state.selectionAnchor === null) {
     return null
@@ -63,7 +66,7 @@ export interface CharSelection {
   endCol: number
 }
 
-export function getCharSelection(state: VimCursorState): CharSelection | null {
+export function getCharSelection(state: SelectionState): CharSelection | null {
   if (
     state.mode !== "visual" ||
     state.selectionAnchor === null ||

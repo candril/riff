@@ -99,5 +99,5 @@ test("the status bar counts the rows a split selection spans", async () => {
   split.source().setSide("right")
   select((rows[7] as { index: number }).index, (rows[9] as { right: number }).right)
   expect(selectionStatus(vimState())?.lines).toBe(6)
-  expect(selectionStatus(split.rowState(vimState()))).toEqual({ mode: "visual-line", lines: 3 })
+  expect(split.selectionStatus(vimState())).toEqual({ mode: "visual-line", lines: 3 })
 })

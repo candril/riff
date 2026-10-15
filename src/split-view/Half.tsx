@@ -47,7 +47,8 @@ export function Half(props: {
   const line = () => (props.index === undefined ? undefined : view.mapping.getLine(props.index))
   // A selection is a span of rows in the active pane; the other half of those rows is not in it.
   const inActivePane = () => props.side === view.side && line() !== undefined
-  const lineSelected = () => inActivePane() && inLineSelection(view.selection, props.at)
+  // Memoised to a boolean, so a linewise selection moving elsewhere leaves this half's colours and segments alone.
+  const lineSelected = createMemo(() => inActivePane() && inLineSelection(view.selection, props.at))
   // Memoised to its span, so a selection growing elsewhere leaves this half's segments alone.
   const charSelection = createMemo(
     () => (inActivePane() ? charSelectionOn(view.selection, props.at, line()!) : undefined),

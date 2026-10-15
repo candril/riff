@@ -11,7 +11,8 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { diffPaneWidth, splitShown } from "./diff-layout"
-import { paneOfLine, rowOfLine, toRowState } from "./split-cursor"
+import { selectionStatus } from "./selection-status"
+import { paneOfLine, rowOfLine, toRowSelection } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
 import { splitSelection } from "./split-selection"
 
@@ -26,6 +27,14 @@ export interface SplitDiffDeps {
   render: () => void
   /** The pane crossed 120 columns while split is requested; only a full render swaps the views. */
   onShownChanged: () => void
+}
+
+export interface SplitDrawInput {
+  mapping: DiffLineMapping
+  state: AppState
+  vimState: VimCursorState
+  searchState: SearchState
+  flashState: FlashState
 }
 
 const COLOURABLE = new Set(["context", "addition", "deletion", "no-newline"])
@@ -110,6 +119,31 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     island.revealColumn()
   }
 
+  /**
+   * Everything a render hands the split view. Flash on a list surface still
+   * dims unified's diff, so it dims split's too.
+   */
+  function draw(input: SplitDrawInput): void {
+    const { mapping, state, vimState, searchState, flashState } = input
+    syncPane()
+    island.update({
+      mapping,
+      source: source(),
+      files: state.files,
+      lineSpans,
+      highlightVersion,
+      comments: state.comments,
+      fileStatuses: state.fileStatuses,
+      expandingDivider: state.expandingDivider,
+      cursor: { row: cursorRow(), col: vimState.col },
+      side: source().side,
+      focused: true,
+      selection: splitSelection(vimState, source()),
+      search: searchOf(searchState),
+      flash: flashState.active ? flashState.matches : null,
+    })
+  }
+
   return {
     island,
     lineSpans,
@@ -141,21 +175,11 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       syncPane()
       return commentScope(deps.getVimState(), source())
     },
-    /** The cursor in rows, for whatever counts what the split view shows. */
-    rowState(vimState: VimCursorState): VimCursorState {
-      return toRowState(vimState, source())
+    /** The status bar counts the rows a selection spans, as the split view draws them. */
+    selectionStatus(vimState: VimCursorState) {
+      return selectionStatus(toRowSelection(vimState, source()))
     },
-    /**
-     * What unified paints over its rows, in the split view's terms. Flash
-     * on a list surface still dims unified's diff, so it dims split's too.
-     */
-    overlays(vimState: VimCursorState, searchState: SearchState, flashState: FlashState) {
-      return {
-        selection: splitSelection(vimState, source()),
-        search: searchOf(searchState),
-        flash: flashState.active ? flashState.matches : null,
-      }
-    },
+    draw,
     revealCursor: refreshCursor,
     visibleFilenames(): string[] {
       const mapping = deps.getMapping()

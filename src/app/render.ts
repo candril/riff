@@ -290,23 +290,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.expandingDivider,
         searchState
       )
-      if (splitOn) {
-        ctx.split.syncPane()
-        ctx.split.island.update({
-          mapping: lineMapping,
-          source: ctx.split.source(),
-          files: state.files,
-          lineSpans: ctx.split.lineSpans,
-          highlightVersion: ctx.split.highlightVersion(),
-          comments: state.comments,
-          fileStatuses: state.fileStatuses,
-          expandingDivider: state.expandingDivider,
-          cursor: { row: ctx.split.cursorRow(), col: vimState.col },
-          side: ctx.split.source().side,
-          focused: true,
-          ...ctx.split.overlays(vimState, searchState, flashState),
-        })
-      }
+      if (splitOn) ctx.split.draw({ mapping: lineMapping, state, vimState, searchState, flashState })
 
       content = Box(
         {
@@ -494,7 +478,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             ? ctx.split.island.columnStatus()
             : ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col),
       // Split counts the rows it draws: a pair row holds a removal and an addition.
-      selectionInfo: selectionStatus(splitOn ? ctx.split.rowState(vimState) : vimState),
+      selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
     })
 
     ctx.renderer.root.add(
