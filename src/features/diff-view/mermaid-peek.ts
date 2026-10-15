@@ -13,7 +13,7 @@ import { renderMermaid } from "../../utils/mermaid"
 export interface PeekedDiagram {
   /** The drawing, or nothing when riff cannot draw this one. */
   lines: string[]
-  kind: "flowchart" | "sequence" | "state" | "unsupported"
+  kind: "flowchart" | "sequence" | "state" | "er" | "unsupported"
   /** The block's own text, shown when there is no drawing. */
   source: string[]
   side: DiffSide

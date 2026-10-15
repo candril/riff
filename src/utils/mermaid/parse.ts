@@ -7,7 +7,10 @@
  */
 
 import type {
+  Cardinality,
   Direction,
+  ErEntity,
+  ErRelationship,
   FlowEdge,
   FlowNode,
   MermaidDiagram,
@@ -46,6 +49,9 @@ export function parseMermaid(source: string): MermaidDiagram {
   }
   if (type === "stateDiagram" || type === "stateDiagram-v2") {
     return parseState(statements(body))
+  }
+  if (type === "erDiagram") {
+    return parseEr(statements(body))
   }
   return { kind: "unsupported", type: type || "diagram" }
 }
@@ -394,4 +400,103 @@ function parseState(body: string[]): MermaidDiagram {
   }
 
   return { kind: "state", nodes: [...nodes.values()], edges, notes }
+}
+
+/** Crow's feet, as mermaid spells them on either side of the line. */
+const ER_CARDINALITY: Record<string, Cardinality> = {
+  "|o": "0..1",
+  "o|": "0..1",
+  "||": "1",
+  "}o": "0..n",
+  "o{": "0..n",
+  "}|": "1..n",
+  "|{": "1..n",
+}
+const ER_FOOT = String.raw`\|o|o\||\|\||\}o|o\{|\}\||\|\{`
+const ER_ALIAS = String.raw`(?:\[(?<%>[^\]]*)\])?`
+const ER_RELATIONSHIP = new RegExp(
+  String.raw`^(?<from>[\w-]+)${ER_ALIAS.replace("%", "fromLabel")}\s*(?<left>${ER_FOOT})(?<line>--|\.\.)(?<right>${ER_FOOT})\s*(?<to>[\w-]+)${ER_ALIAS.replace("%", "toLabel")}\s*(?::\s*(?<label>.*))?$`,
+)
+/** `CUSTOMER`, `CUSTOMER["Customer Account"]`, either followed by `{` to open its attributes. */
+const ER_ENTITY = /^(?<id>[\w-]+)(?:\[(?<label>[^\]]*)\])?\s*(?<open>\{)?$/
+/** `type name PK, FK "comment"` — the keys and the comment both optional. */
+const ER_ATTRIBUTE = /^(?<type>\S+)\s+(?<name>\S+)(?<keys>(?:\s*,?\s*(?:PK|FK|UK))*)\s*(?:"(?<comment>[^"]*)")?$/
+
+/**
+ * Entities, their attributes and the relationships between them. The
+ * cardinalities are read into words a reviewer can say, and the line's
+ * spelling says whether the relationship is identifying.
+ */
+function parseEr(body: string[]): MermaidDiagram {
+  const entities = new Map<string, ErEntity>()
+  const relationships: ErRelationship[] = []
+  const notes: string[] = []
+  const note = (text: string) => {
+    if (!notes.includes(text)) notes.push(text)
+  }
+  const entity = (id: string): ErEntity => {
+    let found = entities.get(id)
+    if (!found) {
+      found = { id, label: id, attributes: [] }
+      entities.set(id, found)
+    }
+    return found
+  }
+
+  // Between an entity's `{` and its `}` every line is an attribute.
+  let open: ErEntity | null = null
+
+  for (const statement of body) {
+    if (open) {
+      if (statement === "}") {
+        open = null
+        continue
+      }
+      const attribute = statement.match(ER_ATTRIBUTE)
+      if (!attribute) {
+        note("some attributes skipped")
+        continue
+      }
+      const { type, name, keys, comment } = attribute.groups!
+      if (comment) note("attribute comments left out")
+      open.attributes.push({ type: type!, name: name!, keys: keys!.split(/[\s,]+/).filter(Boolean) })
+      continue
+    }
+    if (IGNORED.test(statement)) continue
+
+    const relationship = statement.match(ER_RELATIONSHIP)
+    if (relationship) {
+      const { from, fromLabel, left, line, right, to, toLabel, label } = relationship.groups!
+      const source = entity(from!)
+      const target = entity(to!)
+      if (fromLabel) source.label = unquote(fromLabel)
+      if (toLabel) target.label = unquote(toLabel)
+      relationships.push({
+        from: source.id,
+        to: target.id,
+        label: unquote(label) || undefined,
+        fromCardinality: ER_CARDINALITY[left!]!,
+        toCardinality: ER_CARDINALITY[right!]!,
+        identifying: line === "--",
+      })
+      continue
+    }
+
+    const declared = statement.match(ER_ENTITY)
+    if (declared) {
+      const { id, label, open: brace } = declared.groups!
+      const found = entity(id!)
+      if (label) found.label = unquote(label)
+      if (brace) open = found
+      continue
+    }
+
+    note("some statements skipped")
+  }
+
+  return { kind: "er", entities: [...entities.values()], relationships, notes }
+}
+
+function unquote(text: string | undefined): string {
+  return (text ?? "").trim().replace(/^"(.*)"$/s, "$1").trim()
 }

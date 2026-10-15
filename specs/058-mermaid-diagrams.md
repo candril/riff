@@ -5,8 +5,9 @@
 ## Description
 
 A changed mermaid block in a diff is a picture nobody can see. `gl` on one
-draws it: flowcharts, state diagrams and sequence diagrams in box-drawing characters, on the
-version the change arrives at, with `Tab` to look at the one it replaces.
+draws it: flowcharts, state diagrams, entity-relationship diagrams and sequence
+diagrams in box-drawing characters, on the version the change arrives at, with
+`Tab` to look at the one it replaces.
 
 ```mermaid
 graph TD
@@ -26,8 +27,8 @@ graph TD
 - Shelling out to `mmdc`, `graph-easy` or `mermaid.ink`. The first two are
   dependencies riff would have to ask for; the third posts a private repo's
   diagrams to a public server.
-- `classDiagram`, `erDiagram`, `gantt`, `pie`, `journey`,
-  `gitGraph`. They are named and the source is shown instead.
+- `classDiagram`, `gantt`, `pie`, `journey`, `gitGraph`. They are named and
+  the source is shown instead.
 - Subgraph boxes. The nodes inside are drawn, the grouping is not, and the
   peek says so.
 - Scrolling a diagram too big for the window. It is cut, and the peek says
@@ -74,6 +75,19 @@ graph TD
 - Notes and the grouping of composite states are left out, and the peek says
   so; the states inside a composite state are still drawn.
 
+### P2 - Entity-relationship diagrams
+
+- `erDiagram`: an entity is a box with its name above a rule and its
+  attributes below it, lined up in columns — type, name, then `PK`, `FK` or
+  `UK`. An alias, `p["Person"]`, names the box; a comment on an attribute is
+  left out, and the peek says so.
+- A relationship is a line between the two entities, laid out by the
+  flowchart's layering, carrying its cardinalities and verb the way the
+  diagram is read aloud: `CUSTOMER ||--o{ ORDER : places` is `1 places 0..n`.
+  The crow's feet read as `1`, `0..1`, `1..n` and `0..n`.
+- `..` is a non-identifying relationship. It is kept in the model, but drawn
+  with the same line as `--`, as the flowchart draws every style.
+
 ### P2 - Sequence diagrams
 
 - `participant`/`actor`, with `as` for a display name, and participants that
@@ -98,8 +112,8 @@ graph TD
 ### Where it lives
 
 `utils/mermaid/` is self-contained and knows nothing about diffs: `parse.ts`
-reads source into a model, `flowchart.ts` and `sequence.ts` draw it, `grid.ts`
-is the canvas. `renderMermaid(source)` is the whole surface.
+reads source into a model, `flowchart.ts`, `state.ts`, `sequence.ts` and
+`er.ts` draw it, `grid.ts` is the canvas. `renderMermaid(source)` is the whole surface.
 
 The diff side is `features/diff-view/mermaid-peek.ts`, which finds the fenced
 block around the cursor and extracts one version of it.

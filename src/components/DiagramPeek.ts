@@ -1,12 +1,19 @@
 import { Box, Text } from "@opentui/core"
 import { colors, theme } from "../theme"
 
+/** What the header calls each kind; a flowchart is just "mermaid". */
+const PEEK_TITLE: Partial<Record<DiagramPeekProps["kind"], string>> = {
+  sequence: "sequence",
+  state: "state",
+  er: "entities",
+}
+
 export interface DiagramPeekProps {
   /** The drawing, one string per row. Empty falls back to `source`. */
   lines: string[]
   /** The mermaid source, shown when there is nothing to draw. */
   source: string[]
-  kind: "flowchart" | "sequence" | "state" | "unsupported"
+  kind: "flowchart" | "sequence" | "state" | "er" | "unsupported"
   /** Which version of the block is on show. */
   side: "new" | "old"
   /** Whether Tab has another version to switch to. */
@@ -117,7 +124,7 @@ export function DiagramPeek({
       },
       Box(
         { height: 1, marginBottom: 1, flexDirection: "row", gap: 1 },
-        Text({ content: kind === "sequence" || kind === "state" ? kind : "mermaid", fg: colors.primary }),
+        Text({ content: PEEK_TITLE[kind] ?? "mermaid", fg: colors.primary }),
         Text({
           content: side === "new" ? "as changed" : "before the change",
           fg: side === "new" ? theme.green : theme.peach,

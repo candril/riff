@@ -230,3 +230,22 @@ describe("what it cannot draw", () => {
     expect(renderMermaid("").lines).toEqual([])
   })
 })
+
+describe("er diagrams", () => {
+  test("an entity is its name over a rule over its attributes in columns, and a relationship reads aloud", () => {
+    const diagram = drawn(`erDiagram
+      CUSTOMER ||--o{ ORDER : places
+      CUSTOMER {
+        string name PK
+        int age
+      }`)
+
+    expect(diagram).toContain("│    CUSTOMER    │")
+    expect(diagram).toContain("├────────────────┤")
+    expect(diagram).toContain("│ string name PK │")
+    expect(diagram).toContain("│ int    age     │")
+    expect(diagram).toContain("1 places 0..n")
+    expect(diagram).toContain("│ ORDER │")
+    expect(renderMermaid("erDiagram\n A ||--|| B : has").kind).toBe("er")
+  })
+})

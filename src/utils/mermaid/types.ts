@@ -15,6 +15,8 @@ export interface FlowNode {
   /** One entry per `<br>` — mermaid's way of breaking a label. */
   label: string[]
   shape: NodeShape
+  /** How many label lines stand above a rule across the box: an entity's name over its attributes. */
+  divider?: number
 }
 
 export interface FlowEdge {
@@ -68,10 +70,43 @@ export interface StateDiagram {
   notes: string[]
 }
 
+/** How many of the other entity take part in a relationship, as crow's feet say it. */
+export type Cardinality = "1" | "0..1" | "1..n" | "0..n"
+
+export interface ErAttribute {
+  type: string
+  name: string
+  /** `PK`, `FK`, `UK` — whichever the attribute is marked with. */
+  keys: string[]
+}
+
+export interface ErEntity {
+  id: string
+  label: string
+  attributes: ErAttribute[]
+}
+
+export interface ErRelationship {
+  from: string
+  to: string
+  label?: string
+  fromCardinality: Cardinality
+  toCardinality: Cardinality
+  /** `--` rather than `..`: the child cannot exist without the parent. */
+  identifying: boolean
+}
+
+export interface ErDiagram {
+  kind: "er"
+  entities: ErEntity[]
+  relationships: ErRelationship[]
+  notes: string[]
+}
+
 export interface UnsupportedDiagram {
   kind: "unsupported"
   /** The diagram type as mermaid names it, e.g. `stateDiagram-v2`. */
   type: string
 }
 
-export type MermaidDiagram = FlowchartDiagram | SequenceDiagram | StateDiagram | UnsupportedDiagram
+export type MermaidDiagram = FlowchartDiagram | SequenceDiagram | StateDiagram | ErDiagram | UnsupportedDiagram

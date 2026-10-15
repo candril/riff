@@ -233,7 +233,7 @@ function measure(placed: Placed[], horizontal: boolean): void {
     const text = Math.max(...item.node.label.map((line) => line.length))
     const decision = item.node.shape === "decision"
     const width = text + (decision ? 6 : 4)
-    const height = item.node.label.length + 2
+    const height = item.node.label.length + 2 + (item.node.divider === undefined ? 0 : 1)
 
     item.mainSize = horizontal ? width : height
     item.crossSize = horizontal ? height : width
@@ -508,12 +508,20 @@ export function drawBox(
     grid.put(i, y + height - 1, "─")
   }
 
+  // The rule's row holds no label; the lines below it move down one.
+  const rule = node.divider === undefined ? -1 : node.divider + 1
   for (let row = 1; row < height - 1; row++) {
+    if (row === rule) {
+      grid.put(x, y + row, "├")
+      grid.put(x + width - 1, y + row, "┤")
+      for (let i = x + 1; i < x + width - 1; i++) grid.put(i, y + row, "─")
+      continue
+    }
     grid.put(x, y + row, "│")
     grid.put(x + width - 1, y + row, "│")
     for (let i = x + 1; i < x + width - 1; i++) grid.put(i, y + row, " ")
 
-    const label = node.label[row - 1] ?? ""
+    const label = node.label[row - 1 - (rule !== -1 && row > rule ? 1 : 0)] ?? ""
     const room = width - 2
     const left = x + 1 + Math.max(0, Math.floor((room - label.length) / 2))
     grid.text(left, y + row, label.slice(0, room))

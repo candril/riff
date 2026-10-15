@@ -10,11 +10,12 @@ import { parseMermaid } from "./parse"
 import { renderFlowchart } from "./flowchart"
 import { renderSequence } from "./sequence"
 import { renderState } from "./state"
+import { renderEr } from "./er"
 
 export interface MermaidRender {
   /** The drawing, one string per row. Empty when riff cannot draw it. */
   lines: string[]
-  kind: "flowchart" | "sequence" | "state" | "unsupported"
+  kind: "flowchart" | "sequence" | "state" | "er" | "unsupported"
   /** Why there is nothing to look at, or what was left out of it. */
   note?: string
 }
@@ -31,7 +32,9 @@ export function renderMermaid(source: string): MermaidRender {
       ? renderFlowchart(diagram)
       : diagram.kind === "state"
         ? renderState(diagram)
-        : renderSequence(diagram)
+        : diagram.kind === "er"
+          ? renderEr(diagram)
+          : renderSequence(diagram)
 
   return {
     lines,

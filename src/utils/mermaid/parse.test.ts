@@ -206,3 +206,66 @@ describe("everything else", () => {
     })
   })
 })
+
+describe("er diagrams", () => {
+  test("reads entities, their attributes and a relationship's feet", () => {
+    const diagram = parseMermaid(`erDiagram
+      CUSTOMER ||--o{ ORDER : places
+      CUSTOMER {
+        string name PK
+        int age
+      }`)
+
+    expect(diagram).toEqual({
+      kind: "er",
+      entities: [
+        {
+          id: "CUSTOMER",
+          label: "CUSTOMER",
+          attributes: [
+            { type: "string", name: "name", keys: ["PK"] },
+            { type: "int", name: "age", keys: [] },
+          ],
+        },
+        { id: "ORDER", label: "ORDER", attributes: [] },
+      ],
+      relationships: [
+        {
+          from: "CUSTOMER",
+          to: "ORDER",
+          label: "places",
+          fromCardinality: "1",
+          toCardinality: "0..n",
+          identifying: true,
+        },
+      ],
+      notes: [],
+    })
+  })
+
+  test("a dotted line is non-identifying, feet read on both sides, and an alias names the entity", () => {
+    const diagram = parseMermaid(`erDiagram
+      LINE-ITEM }|..|| PRODUCT["Catalogue product"] : "refers to"
+      PRODUCT {
+        int id PK, FK "the catalogue's number"
+      }`)
+    if (diagram.kind !== "er") throw new Error(diagram.kind)
+
+    expect(diagram.relationships).toEqual([
+      {
+        from: "LINE-ITEM",
+        to: "PRODUCT",
+        label: "refers to",
+        fromCardinality: "1..n",
+        toCardinality: "1",
+        identifying: false,
+      },
+    ])
+    expect(diagram.entities[1]).toEqual({
+      id: "PRODUCT",
+      label: "Catalogue product",
+      attributes: [{ type: "int", name: "id", keys: ["PK", "FK"] }],
+    })
+    expect(diagram.notes).toEqual(["attribute comments left out"])
+  })
+})
