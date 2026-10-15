@@ -7,6 +7,11 @@ release, so write it before tagging.
 
 ## [Unreleased]
 
+### Changed
+
+- OpenTUI 0.6.0: variables in highlighted code are no longer coloured as constants, and the
+  file tree no longer shows a scrollbar when its files fit.
+
 ## [0.3.0] — 2026-09-25
 
 ### Changed

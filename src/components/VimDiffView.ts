@@ -14,6 +14,7 @@ import {
   CodeRenderable,
   LineNumberRenderable,
   SyntaxStyle,
+  type NativeResourceOwner,
   RGBA,
   BoxRenderable,
   TextRenderable,
@@ -75,12 +76,12 @@ export interface FileVersions {
 /** How many files' parses are kept at once (spec 080). */
 const FILE_HIGHLIGHT_LIMIT = 24
 
-// Shared syntax style for diff rendering
-let sharedSyntaxStyle: SyntaxStyle | null = null
+// Tests run several renderers in one process, and a style dies with the renderer that owns it.
+const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
 
-export function getSyntaxStyle(): SyntaxStyle {
-  if (!sharedSyntaxStyle) {
-    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+export function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
+  if (!syntaxStyles.has(owner)) {
+    syntaxStyles.set(owner, SyntaxStyle.fromStyles({
       // Code syntax highlighting
       keyword: { fg: RGBA.fromHex(theme.mauve) },
       string: { fg: RGBA.fromHex(theme.green) },
@@ -124,9 +125,9 @@ export function getSyntaxStyle(): SyntaxStyle {
       // is still green where it changed.
       "diff.word.removed": { bg: RGBA.fromHex("#6b2b3f") },
       "diff.word.added": { bg: RGBA.fromHex("#2b6b4a") },
-    })
+    }, owner))
   }
-  return sharedSyntaxStyle
+  return syntaxStyles.get(owner)!
 }
 
 /**
@@ -1081,7 +1082,7 @@ export class VimDiffView {
           content,
           width: this.wrapEnabled ? undefined : this.contentColumns(content),
           filetype,
-          syntaxStyle: getSyntaxStyle(),
+          syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
           drawUnstyledText: true,
           conceal: false,
           wrapMode: this.wrapEnabled ? "word" : "none",
@@ -1232,7 +1233,7 @@ export class VimDiffView {
               content,
               width: this.wrapEnabled ? undefined : this.contentColumns(content),
               filetype: section.filetype,
-              syntaxStyle: getSyntaxStyle(),
+              syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
               drawUnstyledText: true,
               conceal: false,
               wrapMode: this.wrapEnabled ? "word" : "none",

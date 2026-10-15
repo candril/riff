@@ -1,6 +1,5 @@
-import { Box, Text, h, CodeRenderable } from "@opentui/core"
+import { Box, Text, h, CodeRenderable, type SyntaxStyle } from "@opentui/core"
 import { colors, theme } from "../theme"
-import { getSyntaxStyle } from "./VimDiffView"
 
 export interface LinePeekProps {
   /** The full, unclipped line. */
@@ -9,6 +8,7 @@ export interface LinePeekProps {
   lineNumber?: number
   /** Tree-sitter filetype, so the line reads the way it does in the diff. */
   filetype?: string
+  syntaxStyle: SyntaxStyle
   /** Terminal size, to fit the box to the current window. */
   terminalWidth: number
   terminalHeight: number
@@ -32,6 +32,7 @@ export function LinePeek({
   content,
   lineNumber,
   filetype,
+  syntaxStyle,
   terminalWidth,
   terminalHeight,
 }: LinePeekProps) {
@@ -90,7 +91,7 @@ export function LinePeek({
         id: "line-peek-code",
         content: shown,
         filetype,
-        syntaxStyle: getSyntaxStyle(),
+        syntaxStyle,
         drawUnstyledText: true,
         conceal: false,
         wrapMode: "word",

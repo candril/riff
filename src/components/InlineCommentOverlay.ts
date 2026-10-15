@@ -13,7 +13,7 @@
  * `src/features/inline-comment-overlay/input.ts`.
  */
 
-import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA } from "@opentui/core"
+import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA, type NativeResourceOwner } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
@@ -118,7 +118,7 @@ function buildMarkdown(
     annotateReferences(softenCommentHtml(content), resolvedReferences(), referenceRepo()),
     {
       renderNode: tableRenderer(renderer, () => renderer.width),
-      syntaxStyle: getSyntaxStyle(),
+      syntaxStyle: getSyntaxStyle(renderer.nativeScene),
     }
   )
 }
@@ -159,10 +159,11 @@ function getPanelWidth(expanded: boolean): number {
   return Math.max(PANEL_WIDTH_MIN, Math.min(target, cap))
 }
 
-let sharedSyntaxStyle: SyntaxStyle | null = null
-function getSyntaxStyle(): SyntaxStyle {
-  if (!sharedSyntaxStyle) {
-    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+// Tests run several renderers in one process, and a style dies with the renderer that owns it.
+const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
+function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
+  if (!syntaxStyles.has(owner)) {
+    syntaxStyles.set(owner, SyntaxStyle.fromStyles({
       "markup.heading": { fg: RGBA.fromHex(theme.blue), bold: true },
       "markup.strong": { bold: true },
       "markup.italic": { italic: true },
@@ -184,9 +185,9 @@ function getSyntaxStyle(): SyntaxStyle {
       "punctuation": { fg: RGBA.fromHex(theme.overlay2) },
       "property": { fg: RGBA.fromHex(theme.lavender) },
       "constant": { fg: RGBA.fromHex(theme.peach) },
-    })
+    }, owner))
   }
-  return sharedSyntaxStyle
+  return syntaxStyles.get(owner)!
 }
 
 function getStatusColor(status: Comment["status"]): string {

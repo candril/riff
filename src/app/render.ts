@@ -60,7 +60,7 @@ import {
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
-import { getFiletypeFromPath } from "../components/VimDiffView"
+import { getFiletypeFromPath, getSyntaxStyle } from "../components/VimDiffView"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
@@ -650,6 +650,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                     content: line.sourceContent ?? line.content,
                     lineNumber: line.newLineNum ?? line.oldLineNum,
                     filetype: line.filename ? getFiletypeFromPath(line.filename) : undefined,
+                    syntaxStyle: getSyntaxStyle(ctx.renderer.nativeScene),
                     terminalWidth: ctx.renderer.width,
                     terminalHeight: ctx.renderer.height,
                   })

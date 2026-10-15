@@ -1,14 +1,14 @@
-import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable, type DiffRenderable as DiffRenderableType, SyntaxStyle, RGBA } from "@opentui/core"
+import { Box, Text, ScrollBox, h, DiffRenderable, type ScrollBoxRenderable, type DiffRenderable as DiffRenderableType, SyntaxStyle, RGBA, type NativeResourceOwner } from "@opentui/core"
 import { colors, theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import { getFileColor } from "../utils/file-colors"
 
-// Shared syntax style for highlighting (created once, reused)
-let sharedSyntaxStyle: SyntaxStyle | null = null
+// Tests run several renderers in one process, and a style dies with the renderer that owns it.
+const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
 
-function getSyntaxStyle(): SyntaxStyle {
-  if (!sharedSyntaxStyle) {
-    sharedSyntaxStyle = SyntaxStyle.fromStyles({
+function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
+  if (!syntaxStyles.has(owner)) {
+    syntaxStyles.set(owner, SyntaxStyle.fromStyles({
       // Code syntax highlighting
       keyword: { fg: RGBA.fromHex(theme.mauve) },
       string: { fg: RGBA.fromHex(theme.green) },
@@ -42,9 +42,9 @@ function getSyntaxStyle(): SyntaxStyle {
       "markup.raw.block": { fg: RGBA.fromHex(theme.green) },
       "markup.list": { fg: RGBA.fromHex(theme.blue) },
       "markup.quote": { fg: RGBA.fromHex(theme.overlay1), italic: true },
-    })
+    }, owner))
   }
-  return sharedSyntaxStyle
+  return syntaxStyles.get(owner)!
 }
 
 export interface DiffViewProps {
@@ -55,6 +55,7 @@ export interface DiffViewProps {
   showLineNumbers?: boolean
   /** Multiple files (when showing all) */
   files?: DiffFile[]
+  owner: NativeResourceOwner
 }
 
 export function DiffView({
@@ -63,6 +64,7 @@ export function DiffView({
   view = "unified",
   showLineNumbers = true,
   files,
+  owner,
 }: DiffViewProps) {
   // Determine what to show
   const showAllFiles = files && files.length > 0 && !diff
@@ -102,7 +104,7 @@ export function DiffView({
         diff: singleDiff,
         view,
         filetype,
-        syntaxStyle: getSyntaxStyle(),
+        syntaxStyle: getSyntaxStyle(owner),
         showLineNumbers,
         addedBg: colors.addedBg,
         removedBg: colors.removedBg,
@@ -141,7 +143,7 @@ export function DiffView({
           diff: file.content,
           view,
           filetype: getFiletypeFromPath(file.filename),
-          syntaxStyle: getSyntaxStyle(),
+          syntaxStyle: getSyntaxStyle(owner),
           showLineNumbers,
           addedBg: colors.addedBg,
           removedBg: colors.removedBg,
