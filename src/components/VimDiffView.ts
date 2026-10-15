@@ -25,7 +25,6 @@ import {
   type LineColorConfig,
   type LineSign,
   type SimpleHighlight,
-  getTreeSitterClient,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
@@ -40,10 +39,10 @@ import type { SearchState, IncrementalSearchMatch } from "../vim-diff/search-sta
 import type { FlashMatch, FlashState } from "../vim-diff/flash-state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import { getSelectionRange, getCharSelection } from "../vim-diff/cursor-state"
-import { mapFileHighlights, worthHighlighting } from "../vim-diff/file-highlights"
+import { mapFileHighlights } from "../vim-diff/file-highlights"
 import { dropSplitKeywords } from "../vim-diff/split-keywords"
-import { injectedHighlights } from "../vim-diff/injections"
-import { applyQueryPredicates } from "../vim-diff/query-predicates"
+import { FileParses, type FileVersions } from "../vim-diff/file-parses"
+import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 
 /** Rows that hold a line of the file, and so have colours to get right. */
@@ -57,26 +56,6 @@ const SELECTION_SKIPPED_TYPES = new Set([
   "spacing",
   "no-newline",
 ])
-
-/** A file's text on one side of the change, and what tree-sitter made of it. */
-interface SideParse {
-  content: string
-  highlights: SimpleHighlight[] | null
-}
-
-interface FileParse {
-  new?: SideParse
-  old?: SideParse
-}
-
-/** The two versions of a file riff reads together (spec 080). */
-export interface FileVersions {
-  new: string
-  old: string | null
-}
-
-/** How many files' parses are kept at once (spec 080). */
-const FILE_HIGHLIGHT_LIMIT = 24
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -408,17 +387,13 @@ export function wrapRowForColumn(
 
 export interface VimDiffViewOptions {
   renderer: CliRenderer
+  /** Shared, so another view of the same files reads the same parses. */
+  parses?: FileParses
 }
 
 /**
  * VimDiffView class - manages diff rendering with vim cursor
  */
-/** One parse, read the way the queries behind it were written. */
-async function parseHighlights(text: string, filetype: string): Promise<SimpleHighlight[] | null> {
-  const parsed = await getTreeSitterClient().highlightOnce(text, filetype)
-  return parsed.highlights ? applyQueryPredicates(text, filetype, parsed.highlights) : null
-}
-
 /** The one code renderable of single-file mode, among the sections' indices. */
 const SINGLE_FILE_HOOK = -1
 
@@ -445,12 +420,8 @@ export class VimDiffView {
   private searchState: SearchState | null = null
   private flashState: FlashState | null = null
   
-  /**
-   * Each file's text and what tree-sitter made of it, per side (spec 080).
-   * The old version answers for deletion rows, which no longer exist in
-   * the file the new one parses.
-   */
-  private fileHighlights = new Map<string, FileParse>()
+  private parses: FileParses
+  private ownsParses: boolean
   /** Told when a parse lands, so the frame can be drawn again. */
   onFileParsed: (() => void) | undefined
 
@@ -534,6 +505,12 @@ export class VimDiffView {
 
   constructor(options: VimDiffViewOptions) {
     this.renderer = options.renderer
+    this.ownsParses = !options.parses
+    this.parses = options.parses ?? new FileParses()
+    this.parses.onParsed = () => {
+      this.updateSearchHighlights()
+      this.onFileParsed?.()
+    }
     
     // Create container using BoxRenderable directly
     this.container = new BoxRenderable(this.renderer, {
@@ -1416,7 +1393,7 @@ export class VimDiffView {
    * else, so when neither has moved the one in place still stands.
    */
   private hookInputs(filename: string | undefined): string {
-    const entry = filename ? this.fileHighlights.get(filename) : undefined
+    const entry = filename ? this.parses.get(filename) : undefined
     return [
       this.identityOf(this.searchState),
       this.searchState?.currentMatchIndex ?? -1,
@@ -1448,7 +1425,7 @@ export class VimDiffView {
     content: string,
     lineOffset: number
   ): SimpleHighlight[] {
-    const entry = this.fileHighlights.get(filename)
+    const entry = this.parses.get(filename)
     const answered = new Set<string>()
     if (entry?.new?.highlights) {
       answered.add("context")
@@ -1808,63 +1785,11 @@ export class VimDiffView {
    * the rows keep the colours they have.
    */
   setFileContents(contents: ReadonlyMap<string, FileVersions>): void {
-    for (const [filename, versions] of contents) {
-      const parsed = this.fileHighlights.get(filename)
-      if (parsed && parsed.new?.content === versions.new) continue
-      // A file too big to be worth parsing is also too big to hold on to.
-      if (!worthHighlighting(versions.new)) {
-        this.fileHighlights.delete(filename)
-        continue
-      }
-
-      const entry: FileParse = { new: { content: versions.new, highlights: null } }
-      if (versions.old !== null && worthHighlighting(versions.old)) {
-        entry.old = { content: versions.old, highlights: null }
-      }
-      this.fileHighlights.set(filename, entry)
-      void this.parseFile(filename, "new", versions.new)
-      if (entry.old) void this.parseFile(filename, "old", versions.old!)
-    }
-
-    // A file riff no longer has the text of has no parse to keep either:
-    // switching the commit in scope drops them all, and a parse left behind
-    // would colour the next span's rows from the last one's file.
-    for (const filename of this.fileHighlights.keys()) {
-      if (!contents.has(filename)) this.fileHighlights.delete(filename)
-    }
-
-    // A file's text and its parse are held for as long as the reader is
-    // plausibly still in that part of the review; a two-hundred-file PR
-    // should not end up holding two hundred of them.
-    while (this.fileHighlights.size > FILE_HIGHLIGHT_LIMIT) {
-      const oldest = this.fileHighlights.keys().next().value
-      if (oldest === undefined) break
-      this.fileHighlights.delete(oldest)
-    }
+    this.parses.set(contents)
   }
 
-  private async parseFile(filename: string, side: "new" | "old", content: string): Promise<void> {
-    const filetype = getFiletypeFromPath(filename)
-    if (!filetype) return
-
-    try {
-      const own = await parseHighlights(content, filetype)
-      if (!own) return
-
-      // After the file's own, so a GraphQL document's colours land on top of
-      // the string its host reads the template literal as.
-      const embedded = await injectedHighlights(content, filetype, parseHighlights)
-
-      const entry = this.fileHighlights.get(filename)
-      // A refresh may have replaced the content while the parse was out.
-      if (!entry || entry[side]?.content !== content) return
-      entry[side] = { content, highlights: [...own, ...embedded] }
-      this.updateSearchHighlights()
-      this.onFileParsed?.()
-    } catch {
-      // No parser for this filetype, or the worker is unhappy: the rows
-      // keep the colours the fragment parse gave them.
-    }
+  get fileParses(): FileParses {
+    return this.parses
   }
 
   /**
@@ -1879,7 +1804,7 @@ export class VimDiffView {
     rowsContent: string,
     startLine: number
   ): SimpleHighlight[] | null {
-    const entry = this.fileHighlights.get(filename)
+    const entry = this.parses.get(filename)
     if (!entry || !this.lineMapping) return null
 
     const rows = rowsContent.split("\n").length
@@ -3009,65 +2934,11 @@ export class VimDiffView {
     
     // Clean up sticky header
     this.destroyStickyHeader()
+    if (this.ownsParses) this.parses.dispose()
     
     discardChildren(this.container)
     this.scrollBox = null
     this.lineNumberRenderable = null
     this.codeRenderable = null
   }
-}
-
-/**
- * Get filetype for syntax highlighting from filename
- */
-export function getFiletypeFromPath(path: string): string | undefined {
-  const ext = path.split(".").pop()?.toLowerCase()
-  if (!ext) return undefined
-
-  const extMap: Record<string, string> = {
-    ts: "typescript",
-    tsx: "tsx",
-    js: "javascript",
-    jsx: "jsx",
-    py: "python",
-    rb: "ruby",
-    go: "go",
-    rs: "rust",
-    java: "java",
-    c: "c",
-    cpp: "cpp",
-    h: "c",
-    hpp: "cpp",
-    cs: "csharp",
-    php: "php",
-    swift: "swift",
-    kt: "kotlin",
-    scala: "scala",
-    md: "markdown",
-    json: "json",
-    yaml: "yaml",
-    yml: "yaml",
-    toml: "toml",
-    xml: "xml",
-    html: "html",
-    css: "css",
-    scss: "scss",
-    sql: "sql",
-    sh: "bash",
-    bash: "bash",
-    zsh: "bash",
-    tf: "terraform",
-    tfvars: "terraform",
-    hcl: "terraform",
-    tfstate: "json",
-    graphql: "graphql",
-    gql: "graphql",
-    // Avro has no tree-sitter parser: .avdl is close enough to Java to
-    // borrow its highlighting, and .avsc/.avpr are literally JSON.
-    avdl: "java",
-    avsc: "json",
-    avpr: "json",
-  }
-
-  return extMap[ext]
 }

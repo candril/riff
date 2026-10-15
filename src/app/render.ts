@@ -59,7 +59,8 @@ import {
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
-import { getFiletypeFromPath, getSyntaxStyle } from "../components/VimDiffView"
+import { getSyntaxStyle } from "../components/VimDiffView"
+import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
