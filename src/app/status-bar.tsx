@@ -15,6 +15,10 @@ export function createStatusBarIsland(renderer: CliRenderer) {
     update(next: StatusBarProps) {
       setProps(reconcile(next))
     },
+    /** For a writer that owns one field: `update` would wipe the others. */
+    patch(next: Partial<StatusBarProps>) {
+      setProps(next)
+    },
     dispose: island.dispose,
   }
 }

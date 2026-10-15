@@ -87,6 +87,7 @@ import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
 import type { ActionMenuMode } from "../components"
+import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -225,7 +226,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // Update file tree panel state
     ctx.updateFileTreePanel()
     // After the panel update, which sets the width the diff pane is measured against.
-    const splitOn = !state.error && state.files.length > 0 && ctx.split.shown()
+    const splitOn = isSplitOn(state, ctx.split)
 
     // Main content based on view mode
     let content
@@ -471,12 +472,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               wrapped: searchState.wrapped,
             }
           : null,
-      columnInfo:
-        state.viewMode !== "diff"
-          ? null
-          : splitOn
-            ? ctx.split.island.columnStatus()
-            : ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col),
+      columnInfo: diffColumnStatus(splitOn, {
+        viewMode: state.viewMode,
+        vimState,
+        split: ctx.split,
+        vimDiffView: ctx.vimDiffView,
+      }),
       // Split counts the rows it draws: a pair row holds a removal and an addition.
       selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
     })

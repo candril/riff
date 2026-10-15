@@ -54,6 +54,7 @@ const HIGHLIGHT_SOURCE_DELAY_MS = 150
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
 import { createRenderFunction } from "./app/render"
+import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createSplitDiff } from "./app/split-diff"
 import { toLineState, toRowState } from "./app/split-cursor"
@@ -364,6 +365,10 @@ export async function createApp(options: AppOptions = {}) {
   function refreshCursor(): void {
     if (split.shown()) split.refreshCursor()
     else vimDiffView.updateCursor(vimState)
+    // A motion takes this path without a render, so render.ts alone would leave the readout behind.
+    statusBar.patch({
+      columnInfo: diffColumnStatus(splitOn(state, split), { viewMode: state.viewMode, vimState, split, vimDiffView }),
+    })
   }
 
   function handleToggleSplitView(): void {
