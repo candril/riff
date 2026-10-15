@@ -46,7 +46,7 @@ function FileHeader(props: RowProps) {
   const viewed = () => props.env.props.fileStatuses.get(filename)?.viewed ?? false
   const file = () => props.env.files().get(filename)
   return (
-    <Bar env={props.env} bg={props.atCursor ? cursorLineBg("file-header") : theme.surface0} paddingX={1} gap={1}>
+    <Bar env={props.env} bg={theme.surface0} paddingX={1} gap={1}>
       <Cell fg={collapsed ? theme.overlay1 : theme.overlay0}>{collapsed ? "▶" : "▼"}</Cell>
       <Cell fg={viewed() ? theme.green : theme.overlay0}>{viewed() ? "✓" : " "}</Cell>
       <Cell fg={viewed() ? theme.overlay1 : theme.blue}>{filename}</Cell>

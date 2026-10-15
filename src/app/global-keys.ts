@@ -1308,6 +1308,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
 
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
+    const chordPending = pendingKey !== null
     if (pendingKey) {
       const keyChar = key.name || (key.sequence?.length === 1 ? key.sequence : "")
       const sequence = `${pendingKey}${keyChar}${key.shift ? "!" : ""}`
@@ -1581,7 +1582,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       // Other sequences handled by vim handler
     }
 
-    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState())) {
+    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordPending)) {
       ctx.toggleSplitView()
       return
     }

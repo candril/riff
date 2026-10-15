@@ -3,7 +3,7 @@ import { RGBA } from "@opentui/core"
 import { createSignal } from "solid-js"
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
-import { CURSOR_ADDITION_BG } from "../diff-rows/line-colors"
+import { CURSOR_ADDITION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
 import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { mountJsx } from "../testing/frame"
 import type { Comment, FileReviewStatus } from "../types"
@@ -226,5 +226,18 @@ describe("cursor", () => {
     view.setFocused(false)
     expect(await view.frame()).toBe(focused)
     expect(bgAt(view.setup.captureSpans(), CURSOR_X, RETURN_ROW)).toEqual(ints(CURSOR_ADDITION_BG))
+  })
+
+  test("a file header keeps its own background under the cursor, as unified's does, while a divider takes the cursor line's", async () => {
+    const HEADER_ROW = 0
+    const DIVIDER_ROW = 6
+    const onHeader = await mount({ raw: TWO_FILES, cursor: { row: HEADER_ROW, col: 0 } })
+    await onHeader.frame()
+    expect(bgAt(onHeader.setup.captureSpans(), 30, HEADER_ROW)).toEqual(ints(theme.surface0))
+    await onHeader.dispose()
+
+    const onDivider = await mount({ raw: TWO_FILES, cursor: { row: DIVIDER_ROW, col: 0 } })
+    await onDivider.frame()
+    expect(bgAt(onDivider.setup.captureSpans(), 30, DIVIDER_ROW)).toEqual(ints(CURSOR_LINE_BG))
   })
 })
