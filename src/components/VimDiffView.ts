@@ -28,6 +28,8 @@ import {
   getTreeSitterClient,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
+import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
+import { FLASH_BACKDROP_STRENGTH } from "../diff-rows/segments"
 import { discard, discardChildren, keepAlive } from "../utils/renderables"
 import { highlightCell } from "../utils/cells"
 import type { DiffFile } from "../utils/diff-parser"
@@ -81,51 +83,13 @@ const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
 
 export function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
   if (!syntaxStyles.has(owner)) {
-    syntaxStyles.set(owner, SyntaxStyle.fromStyles({
-      // Code syntax highlighting
-      keyword: { fg: RGBA.fromHex(theme.mauve) },
-      string: { fg: RGBA.fromHex(theme.green) },
-      number: { fg: RGBA.fromHex(theme.peach) },
-      comment: { fg: RGBA.fromHex(theme.overlay0), italic: true },
-      function: { fg: RGBA.fromHex(theme.blue) },
-      type: { fg: RGBA.fromHex(theme.yellow) },
-      variable: { fg: RGBA.fromHex(theme.text) },
-      operator: { fg: RGBA.fromHex(theme.sky) },
-      punctuation: { fg: RGBA.fromHex(theme.overlay2) },
-      property: { fg: RGBA.fromHex(theme.lavender) },
-      constant: { fg: RGBA.fromHex(theme.peach) },
-      attribute: { fg: RGBA.fromHex(theme.teal) },
-      
-      // Markdown syntax highlighting
-      "markup.heading": { fg: RGBA.fromHex(theme.red), bold: true },
-      "markup.heading.1": { fg: RGBA.fromHex(theme.red), bold: true },
-      "markup.heading.2": { fg: RGBA.fromHex(theme.peach), bold: true },
-      "markup.heading.3": { fg: RGBA.fromHex(theme.yellow), bold: true },
-      "markup.heading.4": { fg: RGBA.fromHex(theme.green), bold: true },
-      "markup.heading.5": { fg: RGBA.fromHex(theme.blue), bold: true },
-      "markup.heading.6": { fg: RGBA.fromHex(theme.mauve), bold: true },
-      "markup.strong": { fg: RGBA.fromHex(theme.text), bold: true },
-      "markup.italic": { fg: RGBA.fromHex(theme.text), italic: true },
-      "markup.strikethrough": { fg: RGBA.fromHex(theme.overlay0) },
-      "markup.link": { fg: RGBA.fromHex(theme.blue) },
-      "markup.link.url": { fg: RGBA.fromHex(theme.blue), underline: true },
-      "markup.link.label": { fg: RGBA.fromHex(theme.lavender) },
-      "markup.raw": { fg: RGBA.fromHex(theme.green) },
-      "markup.raw.inline": { fg: RGBA.fromHex(theme.green) },
-      "markup.raw.block": { fg: RGBA.fromHex(theme.green) },
-      "markup.list": { fg: RGBA.fromHex(theme.blue) },
-      "markup.quote": { fg: RGBA.fromHex(theme.overlay1), italic: true },
-      
-      // Search highlight styles
-      "search.match": { bg: RGBA.fromHex(theme.yellow), fg: RGBA.fromHex(theme.base) },
-      "search.current": { bg: RGBA.fromHex(theme.peach), fg: RGBA.fromHex(theme.base) },
-
-      // The spans that changed inside a paired line (spec 096). Background
-      // only: the syntax scope underneath keeps the foreground, so a string
-      // is still green where it changed.
-      "diff.word.removed": { bg: RGBA.fromHex("#6b2b3f") },
-      "diff.word.added": { bg: RGBA.fromHex("#2b6b4a") },
-    }, owner))
+    const styles = Object.fromEntries(
+      Object.entries(SYNTAX_PALETTE).map(([capture, { fg, bg, ...attributes }]) => [
+        capture,
+        { ...attributes, fg: fg && RGBA.fromHex(fg), bg: bg && RGBA.fromHex(bg) },
+      ])
+    )
+    syntaxStyles.set(owner, SyntaxStyle.fromStyles(styles, owner))
   }
   return syntaxStyles.get(owner)!
 }
@@ -225,8 +189,6 @@ function rgba(color: string | RGBA): RGBA {
   return parsed
 }
 
-/** How far flash's backdrop pulls text towards the background it sits on. */
-const FLASH_BACKDROP_STRENGTH = 0.7
 const flashMatchFg = RGBA.fromHex(theme.text)
 const flashMatchBg = RGBA.fromHex(theme.surface1)
 const flashLabelFg = RGBA.fromHex(theme.base)
