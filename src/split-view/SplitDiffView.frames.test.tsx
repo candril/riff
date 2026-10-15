@@ -6,6 +6,9 @@ import type { Comment, FileReviewStatus } from "../types"
 import { revealColumn } from "../app/split-columns"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { theme } from "../theme"
+import { createComment } from "../types"
+import { parseDiff } from "../utils/diff-parser"
+import { DiffLineMapping } from "../vim-diff/line-mapping"
 
 /*
  * What the split view draws at 120 columns: two 60-cell panes, old file
@@ -134,6 +137,19 @@ describe("signs", () => {
     const frame = await (await mount({ raw: TWO_FILES, comments: [comment("left", "LEFT")] })).frame()
 
     expect(row(frame, 2)).toBe(`●  2   return "Hello " + name                                  2   return \`Hello \${name}\``)
+  })
+
+  test("a comment written from the left pane on a context line draws its sign in the left half", async () => {
+    const files = parseDiff(TWO_FILES)
+    const mapping = new DiffLineMapping(files, "all")
+    const line = mapping.allLines.findIndex((l) => l.type === "context" && l.oldLineNum === 4)
+    const anchor = mapping.getCommentAnchor(line, "left")!
+    expect(anchor).toMatchObject({ side: "LEFT", line: 4 })
+    const written = createComment(anchor.filename, anchor.line, "why?", anchor.side, "@you")
+    const frame = await (await mount({ raw: TWO_FILES, comments: [written] })).frame()
+
+    expect(half(row(frame, 5)!, "left")).toBe("●  4 export const version = 1")
+    expect(half(row(frame, 5)!, "right")).toBe("   5 export const version = 1")
   })
 })
 

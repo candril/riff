@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core"
+import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
 import { LineSpans, sideOf } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
 import type { SplitSearch } from "../split-view/overlays"
@@ -10,7 +11,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { diffPaneWidth, splitShown } from "./diff-layout"
-import { paneOfLine, rowOfLine } from "./split-cursor"
+import { paneOfLine, rowOfLine, toRowState } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
 import { splitSelection } from "./split-selection"
 
@@ -131,6 +132,19 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     },
     syncPane,
     refreshCursor,
+    /**
+     * What a comment or a link is written on. Read before any draw may have
+     * synced the pane, so a jump that landed on the other half is honoured.
+     */
+    commentScope(): CommentScope {
+      if (!shown()) return commentScope(deps.getVimState(), null)
+      syncPane()
+      return commentScope(deps.getVimState(), source())
+    },
+    /** The cursor in rows, for whatever counts what the split view shows. */
+    rowState(vimState: VimCursorState): VimCursorState {
+      return toRowState(vimState, source())
+    },
     /**
      * What unified paints over its rows, in the split view's terms. Flash
      * on a list surface still dims unified's diff, so it dims split's too.

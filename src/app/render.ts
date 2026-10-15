@@ -73,7 +73,7 @@ import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
-import { getSelectionRange } from "../vim-diff/cursor-state"
+import { selectionStatus } from "./selection-status"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
@@ -493,7 +493,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           : splitOn
             ? ctx.split.island.columnStatus()
             : ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col),
-      selectionInfo: selectionStatus(vimState),
+      // Split counts the rows it draws: a pair row holds a removal and an addition.
+      selectionInfo: selectionStatus(splitOn ? ctx.split.rowState(vimState) : vimState),
     })
 
     ctx.renderer.root.add(
@@ -772,16 +773,4 @@ function coversTheDiff(state: AppState): boolean {
     (state.showLinePeek && state.viewMode === "diff") ||
     (state.inlineCommentOverlay.open && state.inlineCommentOverlay.codePeekId !== null)
   )
-}
-
-/**
- * What the status bar says about a live selection, or nothing when there
- * isn't one.
- */
-function selectionStatus(
-  vimState: VimCursorState
-): { mode: "visual" | "visual-line"; lines: number } | null {
-  const range = getSelectionRange(vimState)
-  if (!range || vimState.mode === "normal") return null
-  return { mode: vimState.mode, lines: range[1] - range[0] + 1 }
 }

@@ -12,6 +12,7 @@
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { PrInfo } from "../../providers/github"
 import type { Comment } from "../../types"
 import { showToast, clearToast } from "../../state"
@@ -27,6 +28,8 @@ export interface PermalinkContext {
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   getLineMapping: () => DiffLineMapping
+  /** The lines the cursor or the selection covers, and in split view the pane they are read from. */
+  getCommentScope: () => CommentScope
   render: () => void
   mode: "local" | "pr"
   prInfo: PrInfo | null
@@ -196,7 +199,7 @@ export async function handleCopyCommentLink(
  */
 function commentAtCursor(ctx: PermalinkContext): Comment | null {
   const state = ctx.getState()
-  const anchor = ctx.getLineMapping().getCommentAnchor(ctx.getVimState().line)
+  const anchor = ctx.getLineMapping().getCommentAnchor(ctx.getVimState().line, ctx.getCommentScope().pane)
   if (!anchor) return null
 
   const onLine = state.comments.filter(
@@ -225,22 +228,14 @@ interface DiffTarget {
  */
 function resolveDiffTarget(ctx: PermalinkContext): DiffTarget | null {
   const state = ctx.getState()
-  const vimState = ctx.getVimState()
-  const lineMapping = ctx.getLineMapping()
-
   const fileOnly = resolveTarget(ctx, false)
   if (!fileOnly) return null
   if (state.focusedPanel === "tree" || state.viewMode !== "diff") return fileOnly
 
-  const [start, end] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
-
-  for (let i = start; i <= end; i++) {
-    const anchor = lineMapping.getCommentAnchor(i)
-    if (anchor?.filename !== fileOnly.filename) continue
-    return { filename: anchor.filename, line: anchor.line, side: anchor.side }
-  }
-
-  return fileOnly
+  const anchor = scopeAnchors(ctx.getLineMapping(), ctx.getCommentScope()).find(
+    (candidate) => candidate.filename === fileOnly.filename,
+  )
+  return anchor ? { filename: anchor.filename, line: anchor.line, side: anchor.side } : fileOnly
 }
 
 function originOf(prUrl: string): string {

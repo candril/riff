@@ -8,6 +8,7 @@ import type { AppState } from "../../state"
 import type { Comment, FileReviewStatus } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { ValidatedComment } from "../../components"
 import type { PrInfo, SubmitResult } from "../../providers/github"
 import {
@@ -26,7 +27,7 @@ import {
   extractDiffHunk,
   parseEditorOutput,
 } from "../../utils/editor"
-import { exitVisualMode, getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
+import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 import {
   getCurrentUser,
   getPrHeadSha,
@@ -46,6 +47,8 @@ export interface CommentsContext {
   setVimState: (state: VimCursorState) => void
   // Line mapping
   getLineMapping: () => DiffLineMapping
+  /** The lines the cursor or the selection covers, and in split view the pane they are read from. */
+  getCommentScope: () => CommentScope
   // Render
   render: () => void
   // Renderer control
@@ -99,25 +102,11 @@ export async function handleAddComment(
   const state = ctx.getState()
   if (state.files.length === 0) return
 
-  const vimState = ctx.getVimState()
   const lineMapping = ctx.getLineMapping()
-
-  let startLine: number
-  let endLine: number
-
-  // Check if in visual line mode
-  const selectionRange = getSelectionRange(vimState)
-  if (selectionRange) {
-    ;[startLine, endLine] = selectionRange
-  } else {
-    startLine = endLine = vimState.line
-  }
+  const scope = ctx.getCommentScope()
 
   // Find the first commentable line in the range
-  let anchor = lineMapping.getCommentAnchor(startLine)
-  for (let i = startLine; i <= endLine && !anchor; i++) {
-    anchor = lineMapping.getCommentAnchor(i)
-  }
+  const anchor = scopeAnchors(lineMapping, scope)[0]
 
   // No anchor means no line under the cursor — a header, a divider, the gap
   // between files. A line GitHub cannot take is still a line (spec 085).
@@ -134,7 +123,7 @@ export async function handleAddComment(
 
   // Build diff context from the selection range
   const contextLines: string[] = []
-  for (let i = startLine; i <= endLine; i++) {
+  for (const i of scope.lines) {
     const line = lineMapping.getLine(i)
     if (line && lineMapping.isCommentable(i)) {
       contextLines.push(line.rawLine)
@@ -218,7 +207,7 @@ export async function handleAddComment(
         // publish path rather than lost to a 422 (spec 085).
         if (anchor.note) {
           comment.kind = "note"
-          comment.anchorHash = lineMapping.hashAt(endLine)
+          comment.anchorHash = lineMapping.hashAt(scope.lines[scope.lines.length - 1]!)
         }
 
         // Only a reply joins the thread already here. `C` from the diff
@@ -252,7 +241,7 @@ export function getCurrentComment(ctx: CommentsContext): Comment | null {
   const vimState = ctx.getVimState()
   const lineMapping = ctx.getLineMapping()
 
-  const anchor = lineMapping.getCommentAnchor(vimState.line)
+  const anchor = lineMapping.getCommentAnchor(vimState.line, ctx.getCommentScope().pane)
   if (!anchor) return null
 
   // Find submittable comments on this line:

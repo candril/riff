@@ -6,6 +6,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { FileParses } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
+import { selectionStatus } from "./selection-status"
 import { createSplitDiff, type SplitDiff } from "./split-diff"
 
 let setup: TestRendererSetup | null = null
@@ -41,6 +42,9 @@ async function mount() {
     split,
     pair,
     moveTo: (line: number) => (vimState = { ...vimState, line }),
+    select: (anchor: number, line: number) =>
+      (vimState = { ...vimState, mode: "visual-line", selectionAnchor: anchor, line }),
+    vimState: () => vimState,
     resize: (width: number) => setup!.resize(width, 30),
     shownChanges: () => shownChanges,
   }
@@ -79,4 +83,21 @@ test("a resize across 120 columns asks for the view to be swapped, and one that 
   expect(shownChanges()).toBe(1)
   resize(160)
   expect(shownChanges()).toBe(2)
+})
+
+test("a comment's scope is read in the pane a jump landed in", async () => {
+  const { split, pair, moveTo } = await mount()
+  split.source().setSide("right")
+  moveTo(pair.left)
+  expect(split.commentScope()).toEqual({ lines: [pair.left], pane: "left" })
+})
+
+// Rows 7-9 are a divider and two pairs, which is six lines of the mapping.
+test("the status bar counts the rows a split selection spans", async () => {
+  const { split, select, vimState } = await mount()
+  const rows = split.source().rows
+  split.source().setSide("right")
+  select((rows[7] as { index: number }).index, (rows[9] as { right: number }).right)
+  expect(selectionStatus(vimState())?.lines).toBe(6)
+  expect(selectionStatus(split.rowState(vimState()))).toEqual({ mode: "visual-line", lines: 3 })
 })

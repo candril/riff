@@ -17,7 +17,9 @@ import type { FlashState, FlashSurface } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
-import { getSelectionRange, exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
+import { exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
+import type { CommentScope } from "../diff-rows/comment-scope"
+import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
 import type { PRInfoPanelClass } from "../components"
@@ -65,6 +67,7 @@ export interface GlobalKeyContext {
   setVimState: (s: VimCursorState) => void
   // Line mapping
   getLineMapping: () => DiffLineMapping
+  getCommentScope: () => CommentScope
   rebuildLineMapping: () => void
   // Search state
   getSearchState: () => SearchState
@@ -336,28 +339,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     // A visual-line selection anchors on the first commentable line
     // it covers — the same rule `handleAddComment` uses for `C`, so
     // both routes land the comment in the same place.
-    const [scanStart, scanEnd] = getSelectionRange(vimState) ?? [vimState.line, vimState.line]
-    // Every commentable line the selection covers. A comment on a block is
-    // anchored to its last line and carries the first, which is the shape
-    // GitHub's review API wants (spec 076).
-    const covered = []
-    for (let i = scanStart; i <= scanEnd; i++) {
-      const candidate = lineMapping.getCommentAnchor(i)
-      if (candidate) covered.push(candidate)
-    }
-    const first = covered[0]
-    // A selection that crosses files or sides is not a range GitHub can
-    // take; the first line it covers is then the whole of it.
-    const sameBlock = covered.filter(
-      (candidate) => candidate.filename === first?.filename && candidate.side === first?.side
-    )
-    const last = sameBlock[sameBlock.length - 1]
-    const anchor = first && last ? { ...first, line: last.line } : undefined
-    const blockStart = first && last && first.line < last.line ? first.line : undefined
-    // No anchor means no line — a header, a divider, the gap between files.
+    const block = blockAnchor(lineMapping, ctx.getCommentScope())
     // A line GitHub cannot take is still a line, and what gets written on it
     // is a note (spec 085).
-    if (!anchor) return false
+    if (!block) return false
+    const { anchor, blockStart, anchorHash } = block
 
     const root = s.comments.find(
       (c) =>
@@ -377,7 +363,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     ctx.setState((st) => {
       const opened = openInlineCommentOverlay(
         st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart, undefined,
-        { note: anchor!.note, anchorHash: lineMapping.hashAt(scanEnd) }
+        { note: anchor.note, anchorHash }
       )
       // Asked for this thread by name: a resolved one opens rather than
       // showing its root and hiding the rest.
@@ -789,7 +775,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           // can move the cursor and try again.
           const lineMapping = ctx.getLineMapping()
           const vimState = ctx.getVimState()
-          const anchor = lineMapping.getCommentAnchor(vimState.line)
+          const anchor = lineMapping.getCommentAnchor(vimState.line, ctx.getCommentScope().pane)
           if (!anchor) {
             ctx.setState((s) =>
               showToast(s, "Move cursor to a commentable line first", "info")
