@@ -38,6 +38,8 @@ export interface SegmentInput {
   search?: { matches: readonly { startCol: number; endCol: number; current: boolean }[] }
   selection?: { from: number; to: number }
   flash?: { matches: readonly { startCol: number; endCol: number; label?: string | null }[] } | null
+  /** The cursor's column, drawn as a block over everything else. */
+  cursor?: number
 }
 
 const specificity = (capture: string) => capture.split(".").length
@@ -54,6 +56,8 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
 
   let cells = text.length
   for (const overlay of overlays) cells = Math.max(cells, overlay.to)
+  // Past the end of the line, as on an empty one, the block still needs a cell to sit in.
+  if (input.cursor !== undefined) cells = Math.max(cells, input.cursor + 1)
 
   const fg = new Array<string>(cells).fill(input.baseFg)
   const bg = new Array<string | undefined>(cells).fill(undefined)
@@ -102,6 +106,10 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
         paint({ from: match.startCol, to: match.startCol + 1, fg: theme.base, bg: theme.red, bold: true, char: match.label })
       }
     }
+  }
+
+  if (input.cursor !== undefined) {
+    paint({ from: input.cursor, to: input.cursor + 1, fg: theme.base, bg: theme.rosewater })
   }
 
   const segments: Segment[] = []

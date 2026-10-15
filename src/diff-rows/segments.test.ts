@@ -86,6 +86,16 @@ describe("buildSegments", () => {
     expect(cell!.fg).toBe("#5b8b7d")
   })
 
+  test("the cursor is a block over the search match under it, and sits past an empty line's end", () => {
+    const segments = build("abc", { search: { matches: [{ startCol: 0, endCol: 3, current: true }] }, cursor: 1 })
+    expect(segments).toEqual([
+      { text: "a", fg: theme.base, bg: theme.peach, attributes: 0 },
+      { text: "b", fg: theme.base, bg: theme.rosewater, attributes: 0 },
+      { text: "c", fg: theme.base, bg: theme.peach, attributes: 0 },
+    ])
+    expect(build("", { cursor: 0 })).toEqual([{ text: " ", fg: theme.base, bg: theme.rosewater, attributes: 0 }])
+  })
+
   test("tabs expand to two cells after the overlays land on the raw columns", () => {
     expect(texts(build("\tab", { selection: { from: 2, to: 3 } }))).toEqual(["  a", "b"])
   })

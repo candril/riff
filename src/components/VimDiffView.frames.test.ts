@@ -1,5 +1,6 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
+import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import type { Comment, FileReviewStatus } from "../types"
 
 /*
@@ -11,39 +12,6 @@ import type { Comment, FileReviewStatus } from "../types"
  * every hunk is followed by a "rest of the file" divider — new files too.
  */
 
-const TWO_FILES = `diff --git a/src/greet.ts b/src/greet.ts
-index 1111111..2222222 100644
---- a/src/greet.ts
-+++ b/src/greet.ts
-@@ -1,5 +1,5 @@
- export function greet(name: string) {
--  return "Hello " + name
-+  return \`Hello \${name}\`
- }
-+
- export const version = 1
-diff --git a/src/farewell.ts b/src/farewell.ts
-new file mode 100644
-index 0000000..3333333
---- /dev/null
-+++ b/src/farewell.ts
-@@ -0,0 +1,3 @@
-+export function farewell(name: string) {
-+  return "Bye " + name
-+}
-`
-
-const FAR_HUNK = `diff --git a/schema.graphql b/schema.graphql
-index 1111111..2222222 100644
---- a/schema.graphql
-+++ b/schema.graphql
-@@ -503,4 +503,5 @@ type TvAddOn {
-   trackingId: Long @semanticNonNull
-+  showSkipAdsChannelList: Boolean @semanticNonNull
-   "Catalogue price, before any discount."
-   monthlyPrice: Money @semanticNonNull
-`
-
 const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
 const ONE_LONG_LINE = `diff --git a/notes.ts b/notes.ts
 index 1111111..2222222 100644
@@ -54,17 +22,6 @@ index 1111111..2222222 100644
 -  return 1
 +${LONG_LINE}
  }
-`
-
-const WIDE_TEXT = Array.from({ length: 20 }, (_, i) => `col${String(i * 10).padStart(3, "0")}..`).join("")
-const ONE_WIDE_LINE = `diff --git a/wide.ts b/wide.ts
-index 1111111..2222222 100644
---- a/wide.ts
-+++ b/wide.ts
-@@ -1,2 +1,2 @@
- const short = 1
--const wide = 0
-+const wide = "${WIDE_TEXT}"
 `
 
 let mounted: Awaited<ReturnType<typeof mountDiffView>> | null = null

@@ -29,6 +29,9 @@ import {
 import { colors, theme } from "../theme"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { FLASH_BACKDROP_STRENGTH } from "../diff-rows/segments"
+import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
+import { commentSignColor } from "../diff-rows/signs"
+import { ENTER_HINT, dividerLabel } from "../split-view/layout"
 import { discard, discardChildren, keepAlive } from "../utils/renderables"
 import { highlightCell } from "../utils/cells"
 import type { DiffFile } from "../utils/diff-parser"
@@ -153,9 +156,6 @@ const markerFg = RGBA.fromHex(theme.surface2)
  *  text, now that it is painted rather than parsed (spec 097). */
 const dividerFg = RGBA.fromHex(theme.overlay0)
 const dividerAttributes = TextAttributes.ITALIC
-
-/** The key that opens a collapsed run, shown at the end of its label. */
-const ENTER_HINT = "↵"
 
 /** Parsed once per hex string — the overlay repaints every frame. */
 const rgbaCache = new Map<string, RGBA>()
@@ -571,19 +571,6 @@ export class VimDiffView {
    */
   getContainer(): BoxRenderable {
     return this.container
-  }
-
-  /**
-   * Format a divider line for display
-   * Creates an attractive collapsed context indicator with loading state
-   */
-  private formatDivider(lineCount: string, dividerKey: string | undefined): string {
-    if (dividerKey && dividerKey === this.expandingDivider) {
-      return `⟳ Expanding ${lineCount}…`
-    }
-    // What it is, and the key that opens it — `za` does not, since a
-    // collapsed run of context is not a fold (spec 074).
-    return `▸ ${lineCount}  ${ENTER_HINT}`
   }
 
   /**
@@ -2363,7 +2350,7 @@ export class VimDiffView {
       const line = this.lineMapping.getLine(row.line)
       if (line?.type !== "divider") continue
 
-      const label = this.formatDivider(line.content || "...", line.dividerKey)
+      const label = dividerLabel(line, this.expandingDivider)
       const width = Math.min(label.length, bounds.right - row.contentX)
       if (width <= 0) continue
 
@@ -2779,9 +2766,9 @@ export class VimDiffView {
       if (!line) continue
 
       if (line.type === "addition") {
-        lineColors.set(i, { gutter: defaultBg, content: "#1e3a2f" })
+        lineColors.set(i, { gutter: defaultBg, content: ADDITION_BG })
       } else if (line.type === "deletion") {
-        lineColors.set(i, { gutter: defaultBg, content: "#3a1e2f" })
+        lineColors.set(i, { gutter: defaultBg, content: DELETION_BG })
       } else if (line.type === "file-header") {
         // Prominent file header with accent color
         lineColors.set(i, { gutter: theme.blue, content: theme.surface1 })
@@ -2816,21 +2803,9 @@ export class VimDiffView {
     // Apply a very subtle background to the entire line, blending with diff colors
     const cursorLine = this.cursorState.line
     const existing = lineColors.get(cursorLine)
-    const cursorLineType = this.lineMapping.getLine(cursorLine)?.type
-    
-    // Determine cursor line content background - blend with diff colors
-    let cursorContentBg: string
-    if (cursorLineType === "addition") {
-      cursorContentBg = "#243d32"  // Slightly brighter green for cursor on addition
-    } else if (cursorLineType === "deletion") {
-      cursorContentBg = "#3d2432"  // Slightly brighter red for cursor on deletion  
-    } else {
-      cursorContentBg = "#232330"  // Subtle highlight for normal lines
-    }
-    
     lineColors.set(cursorLine, {
       gutter: existing?.gutter ?? defaultBg,  // Keep gutter as-is
-      content: cursorContentBg,
+      content: cursorLineBg(this.lineMapping.getLine(cursorLine)?.type),
     })
 
     this.lineColorsCache = lineColors
@@ -2852,26 +2827,9 @@ export class VimDiffView {
     for (const comment of this.comments) {
       const visualLine = this.lineMapping.findLineForComment(comment)
       if (visualLine !== null) {
-        // Determine color based on status, resolved state, and local edits
-        let color: string
-        if (comment.isThreadResolved) {
-          // Resolved threads get dimmed color
-          color = colors.commentResolved
-        } else if (comment.status === "synced" && comment.localEdit !== undefined) {
-          // Synced but has local edits pending
-          color = theme.yellow
-        } else if (comment.status === "synced") {
-          color = theme.green
-        } else if (comment.status === "pending") {
-          color = theme.yellow
-        } else {
-          // local
-          color = theme.blue
-        }
-
         signs.set(visualLine, {
           before: "●",
-          beforeColor: color,
+          beforeColor: commentSignColor(comment),
         })
       }
     }
