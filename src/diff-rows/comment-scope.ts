@@ -1,7 +1,7 @@
 import { getSelectionRange } from "../vim-diff/cursor-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { CommentAnchor, VimCursorState } from "../vim-diff/types"
-import type { SplitRows } from "./row-source"
+import { rowOfLine, type SplitRows } from "./row-source"
 import type { Side } from "./rows"
 
 /**
@@ -25,9 +25,8 @@ export function commentScope(state: VimCursorState, rows: SplitRows | null): Com
     const [start, end] = getSelectionRange(state) ?? [state.line, state.line]
     return { lines: span(start, end) }
   }
-  const rowOf = (line: number) => rows.rowAtLine(line) ?? line
   const anchor = getSelectionRange(state) ? state.selectionAnchor! : state.line
-  const [start, end] = [rowOf(anchor), rowOf(state.line)].sort((a, b) => a - b) as [number, number]
+  const [start, end] = [rowOfLine(anchor, rows), rowOfLine(state.line, rows)].sort((a, b) => a - b) as [number, number]
   const lines: number[] = []
   for (let r = start; r <= end; r++) {
     const row = rows.rows[r]

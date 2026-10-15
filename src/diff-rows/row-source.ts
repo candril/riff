@@ -10,6 +10,10 @@ export interface SplitRows {
   rowAtLine(lineIndex: number): number | null
 }
 
+export function rowOfLine(line: number, source: SplitRows): number {
+  return source.rowAtLine(line) ?? line
+}
+
 /**
  * The vim layer's view of one pane: an index is a row, and a row reads the
  * line on the active side. Folds and expansion build a new mapping, and the

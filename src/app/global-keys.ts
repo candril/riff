@@ -362,7 +362,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
 
     ctx.setState((st) => {
       const opened = openInlineCommentOverlay(
-        st, anchor!.filename, anchor!.line, anchor!.side, mode, blockStart, undefined,
+        st, anchor.filename, anchor.line, anchor.side, mode, blockStart, undefined,
         { note: anchor.note, anchorHash }
       )
       // Asked for this thread by name: a resolved one opens rather than

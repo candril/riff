@@ -1,4 +1,4 @@
-import type { SplitRows } from "../diff-rows/row-source"
+import { rowOfLine, type SplitRows } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
 import type { SelectionState } from "../vim-diff/cursor-state"
 import type { VimCursorState } from "../vim-diff/types"
@@ -10,13 +10,11 @@ const otherSide = (side: Side): Side => (side === "left" ? "right" : "left")
 /*
  * The app keeps the cursor in mapping lines, which dozens of readers index
  * the mapping with; only the motion handler walks rows while split is shown.
- * These two convert at that one boundary. A pair row always has at least one
- * half, so a row survives the round trip even when the active half is empty.
+ * lineOfRow and rowOfLine convert at that one boundary; rowOfLine lives with
+ * the rows because the comment scope reads it too. A pair row always has at
+ * least one half, so a row survives the round trip even when the active half
+ * is empty.
  */
-
-export function rowOfLine(line: number, source: SplitRows): number {
-  return source.rowAtLine(line) ?? line
-}
 
 export function lineOfRow(row: number, source: SplitRows): number {
   const at = source.rows[row]

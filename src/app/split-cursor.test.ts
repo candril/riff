@@ -1,10 +1,10 @@
 import { test, expect, describe } from "bun:test"
 import { doc } from "../diff-rows/fixtures"
-import { RowLineSource } from "../diff-rows/row-source"
+import { RowLineSource, rowOfLine } from "../diff-rows/row-source"
 import type { Side } from "../diff-rows/rows"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
-import { lineOfRow, paneOfLine, rowOfLine, toLineState, toRowSelection, toRowState } from "./split-cursor"
+import { lineOfRow, paneOfLine, toLineState, toRowSelection, toRowState } from "./split-cursor"
 
 /** Rows as row-source.test.ts lays them out: 2 is context, 5 adds with an empty left half, 8 pairs a removal with an addition. */
 const mapping = new DiffLineMapping([doc], "all")
