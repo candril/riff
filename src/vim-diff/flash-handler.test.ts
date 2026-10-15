@@ -16,13 +16,18 @@ function fakeMapping(lines: string[]): DiffLineMapping {
   } as unknown as DiffLineMapping
 }
 
-function harness(lines: string[], cursor: { line: number; col: number } = { line: 0, col: 0 }) {
+function harness(
+  lines: string[],
+  cursor: { line: number; col: number } = { line: 0, col: 0 },
+  windowOf?: FlashRegion["windowOf"]
+) {
   let flashState: FlashState = createFlashState()
   let vimState: VimCursorState = { ...createCursorState(), ...cursor }
   const region: FlashRegion = {
     lines: lines.map((_, i) => i),
     startCol: 0,
     endCol: 200,
+    windowOf,
   }
 
   const handler = new FlashHandler({
@@ -45,6 +50,15 @@ function harness(lines: string[], cursor: { line: number; col: number } = { line
 }
 
 describe("FlashHandler", () => {
+  test("a line with a window of its own is searched in that window alone", () => {
+    const windows = [{ startCol: 0, endCol: 8 }, { startCol: 8, endCol: 20 }]
+    const h = harness(["ab ab ab ab", "ab ab ab ab"], { line: 0, col: 0 }, (line) => windows[line]!)
+    h.handler.start()
+    h.type("ab")
+
+    expect(h.state.matches.map((m) => [m.line, m.startCol])).toEqual([[0, 0], [0, 3], [0, 6], [1, 9]])
+  })
+
   test("typing narrows the pattern and labels every visible match", () => {
     const h = harness(["const a = 1", "let value = 2", "const b = 3"])
     h.handler.start()

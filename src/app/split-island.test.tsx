@@ -210,4 +210,15 @@ describe("sidescroll", () => {
     island.resetColumns()
     expect(rightHalf((await frame())[WIDE_ROW]!)).toStartWith("   2 const wide =")
   })
+
+  test("flash looks at each line in the window of the pane that draws it", async () => {
+    const { island } = await mountWide()
+    island.update({ cursor: { row: WIDE_ROW, col: 120 } })
+    island.revealColumn()
+    // The new pane starts at column 74, behind its `‹`; the old one was never scrolled.
+    expect(island.lineWindow(3)).toEqual({ startCol: 75, endCol: 128 })
+    expect(island.lineWindow(2)).toEqual({ startCol: 0, endCol: 55 })
+    expect(island.lineWindow(1)).toEqual({ startCol: 75, endCol: 129 })
+    expect(island.paneWindow()).toEqual({ startCol: 74, endCol: 129 })
+  })
 })

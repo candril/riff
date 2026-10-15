@@ -3,7 +3,7 @@ import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { lineOf, type Side } from "../diff-rows/rows"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view"
-import { cellOfColumn, columnOfCell, contentOrigin, gutterWidth, paneWidths } from "../split-view/layout"
+import { cellOfColumn, columnOfCell, contentOrigin, gutterWidth, paneWidths, visibleCells } from "../split-view/layout"
 import { mountSolid } from "./solid-island"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
@@ -11,6 +11,8 @@ import { clampScroll, placeRow, revealRow } from "./split-scroll"
 export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "columns" | "width" | "height">
 
 const other = (side: Side): Side => (side === "left" ? "right" : "left")
+
+const IN_HALVES = new Set(["context", "addition", "deletion", "no-newline"])
 
 /**
  * The split view as a long-lived island. It owns its scroll and each
@@ -47,6 +49,9 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const window = () => ({ scrollTop: scrollTop(), height: size().height, rows: rowCount() })
   const ensureCursorVisible = (row: number) => setScrollTop(revealRow(window(), row, scrollOff))
 
+  const codeWidth = (props: SplitInputs, side: Side) =>
+    paneWidths(size().width)[side] - contentOrigin(gutterWidth(props.mapping))
+
   /**
    * The line the cursor's half shows, and the room its pane has for code.
    * Null on a row with no half there (an empty half, a header, a divider):
@@ -59,7 +64,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     const index = props.side === "left" ? row.left : row.right
     const content = index === undefined ? undefined : props.mapping.getLine(index)?.content
     if (content === undefined) return null
-    const width = paneWidths(size().width)[props.side] - contentOrigin(gutterWidth(props.mapping))
+    const width = codeWidth(props, props.side)
     const cells = cellOfColumn(content, content.length)
     return { side: props.side, content, width, cells, cursorCell: cellOfColumn(content, props.cursor.col) }
   }
@@ -143,6 +148,30 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       return { col: inputs.value!.cursor.col + 1, total: half.cells }
     },
     resetColumns: () => setColumns({ left: 0, right: 0 }),
+    /** The cursor's pane's window, in cells. */
+    paneWindow(): { startCol: number; endCol: number } {
+      const props = inputs.value
+      if (!props) return { startCol: 0, endCol: 0 }
+      const start = columns()[props.side]
+      return { startCol: start, endCol: start + Math.max(0, codeWidth(props, props.side)) }
+    },
+    /**
+     * The columns of a mapping line that the pane drawing it shows: a
+     * removal's in the old pane, an addition's in the new, and a line in
+     * both halves in the cursor's. A row across both panes never scrolls.
+     */
+    lineWindow(line: number): { startCol: number; endCol: number } {
+      const props = inputs.value
+      const shown = props?.mapping.getLine(line)
+      if (!props || !shown) return { startCol: 0, endCol: 0 }
+      const side: Side = shown.type === "deletion" ? "left" : shown.type === "addition" ? "right" : props.side
+      const width = Math.max(0, codeWidth(props, side))
+      if (!IN_HALVES.has(shown.type)) return { startCol: 0, endCol: width }
+      const { content } = shown
+      const { first, last } = visibleCells(columns()[side], width, cellOfColumn(content, content.length))
+      const startCol = columnOfCell(content, first)
+      return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
+    },
     /**
      * The host is only laid out once it is in the tree, a frame after split
      * is first drawn or comes back from a narrow terminal; a size given up

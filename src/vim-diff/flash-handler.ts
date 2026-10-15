@@ -25,6 +25,8 @@ export interface FlashRegion {
   startCol: number
   /** Last visible column (exclusive) */
   endCol: number
+  /** A line's own window, where lines on screen are scrolled to different columns. */
+  windowOf?: (line: number) => { startCol: number; endCol: number }
 }
 
 /**
@@ -140,10 +142,11 @@ export class FlashHandler {
         if (!type || !JUMPABLE_TYPES.has(type)) continue
 
         const haystack = mapping.getLineContent(line).toLowerCase()
-        let from = region.startCol
+        const { startCol, endCol } = region.windowOf?.(line) ?? region
+        let from = startCol
         for (;;) {
           const at = haystack.indexOf(needle, from)
-          if (at < 0 || at >= region.endCol) break
+          if (at < 0 || at >= endCol) break
           matches.push({ line, startCol: at, endCol: at + needle.length })
           from = at + 1
         }

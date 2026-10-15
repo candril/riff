@@ -33,7 +33,15 @@ const sameSpan = (a: { from: number; to: number } | undefined, b: { from: number
   a?.from === b?.from && a?.to === b?.to
 
 // A half's line never changes for the half's life; only the cursor, the row it sits on and the column do.
-export function Half(props: { env: SplitEnv; index: number | undefined; at: number; side: Side; active: boolean }) {
+export function Half(props: {
+  env: SplitEnv
+  index: number | undefined
+  at: number
+  side: Side
+  active: boolean
+  /** False keeps flash's backdrop but draws no match or label here. */
+  flashTargets: boolean
+}) {
   const { env } = props
   const view = env.props
   const line = () => (props.index === undefined ? undefined : view.mapping.getLine(props.index))
@@ -71,7 +79,7 @@ export function Half(props: { env: SplitEnv; index: number | undefined; at: numb
       rowBg: background() ?? theme.base,
       search: { matches: env.searchHits().get(props.index) ?? [] },
       selection: charSelection(),
-      flash: env.flashHits() && { matches: env.flashHits()!.get(props.index) ?? [] },
+      flash: env.flashHits() && { matches: (props.flashTargets && env.flashHits()!.get(props.index)) || [] },
       cursor: props.active && view.focused ? view.cursor.col : undefined,
     })
     return halfContent(full, view.columns[props.side], width() - contentOrigin(env.gutter())).segments

@@ -1,7 +1,6 @@
 import type { CliRenderer } from "@opentui/core"
 import { LineSpans, sideOf } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
-import { contentOrigin, gutterWidth, paneWidths } from "../split-view/layout"
 import type { SplitSearch } from "../split-view/overlays"
 import type { AppState } from "../state"
 import type { FileParses } from "../vim-diff/file-parses"
@@ -153,11 +152,9 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       }
       return [...names]
     },
-    /** Flash searches the active pane's columns. */
+    /** Each pane is scrolled on its own, so flash searches every line in the window it is drawn in. */
     visibleRegion(): FlashRegion {
-      const width = paneWidths(island.width())[source().side]
-      const code = Math.max(0, width - contentOrigin(gutterWidth(deps.getMapping())))
-      return { lines: island.visibleLines(), startCol: 0, endCol: code }
+      return { lines: island.visibleLines(), ...island.paneWindow(), windowOf: island.lineWindow }
     },
     dispose(): void {
       deps.renderer.off("resize", onResize)
