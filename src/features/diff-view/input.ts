@@ -24,7 +24,7 @@ export interface DiffViewInputContext {
   // Vim handler for navigation
   vimHandler: VimMotionHandler
   // Vim diff view for cursor updates
-  vimDiffView: VimDiffView
+  vimDiffView: Pick<VimDiffView, "updateCursor">
   // Search
   searchState: SearchState
   searchHandler: SearchHandler

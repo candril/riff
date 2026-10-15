@@ -27,6 +27,7 @@ const HELP_SECTIONS = [
       ["zz / zt / zb", "Cursor row to centre / top / bottom"],
       ["gl", "Peek the line, its table, or a diagram"],
       ["zw", "Toggle soft wrap"],
+      ["\\", "Toggle side by side (120+ columns)"],
     ],
   },
   {

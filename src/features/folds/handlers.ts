@@ -33,7 +33,7 @@ export interface FoldsContext {
   rebuildLineMapping: () => void
   // Panels
   getFileTreePanel: () => FileTreePanel
-  getVimDiffView: () => VimDiffView
+  getVimDiffView: () => Pick<VimDiffView, "updateCursor">
   // Update helpers
   updateFileTreePanel: () => void
   ensureCursorVisible: () => void

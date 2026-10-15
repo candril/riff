@@ -48,6 +48,7 @@ export interface ActionHandlers {
   handleOpenExternalDiff: (viewer: "difftastic" | "delta" | "nvim") => Promise<void>
   handleShowAllFiles: () => void
   handleOpenFileAlone: () => void
+  handleToggleSplitView: () => void
   handleEditPr: () => Promise<void>
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
@@ -284,6 +285,10 @@ export async function executeAction(
     case "toggle-wrap":
       setState(toggleWrapLines)
       render()
+      break
+
+    case "toggle-split":
+      handlers.handleToggleSplitView()
       break
 
     case "peek-line":

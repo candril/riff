@@ -18,7 +18,8 @@ import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
 import { getSelectionRange, exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
-import type { VimDiffView } from "../components"
+import type { DiffViewport } from "./diff-viewport"
+import { togglesSplit } from "./split-toggle-key"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -71,7 +72,7 @@ export interface GlobalKeyContext {
   getFlashState: () => FlashState
   // UI
   renderer: { console: { toggle: () => void } }
-  vimDiffView: VimDiffView
+  vimDiffView: DiffViewport
   fileTreePanel: FileTreePanel
   getPrInfoPanel: () => PRInfoPanelClass | null
   // Vim handlers
@@ -82,6 +83,8 @@ export interface GlobalKeyContext {
   render: () => void
   quit: () => void
   ensureCursorVisible: () => void
+  /** `\`: side by side where it fits, unified otherwise. */
+  toggleSplitView: () => void
   updateFileTreePanel: () => void
   handleExpandDivider: () => Promise<boolean>
   handleYank: (options: { raw: boolean }) => void
@@ -1576,6 +1579,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       }
       // Other sequences handled by vim handler
+    }
+
+    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState())) {
+      ctx.toggleSplitView()
+      return
     }
 
     if (key.name === "]" || key.name === "[" || (key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {

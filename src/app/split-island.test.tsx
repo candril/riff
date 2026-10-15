@@ -1,4 +1,5 @@
 import { test, expect, afterEach } from "bun:test"
+import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
@@ -28,10 +29,10 @@ afterEach(() => {
   setup = null
 })
 
-async function mount(height: number) {
+async function mount(height: number, parent?: (setup: TestRendererSetup) => BoxRenderable) {
   setup = await createTestRenderer({ width: 120, height })
   island = createSplitIsland(setup.renderer, 2)
-  setup.renderer.root.add(island.host)
+  ;(parent?.(setup) ?? setup.renderer.root).add(island.host)
   const files = parseDiff(LONG)
   const mapping = new DiffLineMapping(files, "all")
   const source = new RowLineSource(mapping, "split")
@@ -52,8 +53,12 @@ async function mount(height: number) {
   return { island, source }
 }
 
+/** The host's laid-out size reaches the island a tick after the frame that laid it out. */
+const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 async function frame() {
   await setup!.renderOnce()
+  await nextTick()
   await setup!.renderOnce()
   return trimFrame(setup!.captureCharFrame()).split("\n")
 }
@@ -101,4 +106,30 @@ test("the active side's line comes before its partner's", async () => {
   expect(island.visibleLines().slice(1, 3)).toEqual([pair.right!, pair.left!])
   island.update({ side: "left" })
   expect(island.visibleLines().slice(1, 3)).toEqual([pair.left!, pair.right!])
+})
+
+test("a seeded size draws rows in the first frame, before the host is laid out", async () => {
+  const { island } = await mount(10)
+  island.seedSize(120, 10)
+  await setup!.renderOnce()
+  expect(trimFrame(setup!.captureCharFrame())).toContain("old 0")
+})
+
+test("a host that shrinks keeps drawing code until the rows follow it", async () => {
+  let box: BoxRenderable | null = null
+  const { island } = await mount(20, ({ renderer }) => {
+    box = new BoxRenderable(renderer, { width: "100%", height: 20 })
+    renderer.root.add(box)
+    return box
+  })
+  await frame()
+
+  box!.height = 19
+  await setup!.renderOnce()
+  expect(trimFrame(setup!.captureCharFrame()).split("\n")[3]).toContain("old 2")
+
+  const rows = await frame()
+  expect(island.viewportHeight()).toBe(19)
+  expect(rows[3]).toContain("old 2")
+  expect(rows[3]).toContain("new 2")
 })

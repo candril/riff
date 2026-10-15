@@ -67,6 +67,7 @@ import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { StatusBarIsland } from "./status-bar"
+import type { SplitDiff } from "./split-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
@@ -103,6 +104,7 @@ export interface RenderContext {
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
   statusBar: StatusBarIsland
+  split: SplitDiff
   // Helper
   updateFileTreePanel: () => void
   /** Incremental search reacting to what the prompt field reports (spec 065). */
@@ -222,6 +224,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // Update file tree panel state
     ctx.updateFileTreePanel()
+    // After the panel update, which sets the width the diff pane is measured against.
+    const splitOn = !state.error && state.files.length > 0 && ctx.split.shown()
 
     // Main content based on view mode
     let content
@@ -275,6 +279,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           )
         )
       )
+      // Fed while split is drawn too, so toggling back has nothing to rebuild.
       ctx.vimDiffView.update(
         state.files,
         state.selectedFileIndex,
@@ -285,6 +290,24 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.expandingDivider,
         searchState
       )
+      if (splitOn) {
+        ctx.split.syncPane()
+        ctx.split.island.update({
+          mapping: lineMapping,
+          source: ctx.split.source(),
+          files: state.files,
+          lineSpans: ctx.split.lineSpans,
+          highlightVersion: ctx.split.highlightVersion(),
+          comments: state.comments,
+          fileStatuses: state.fileStatuses,
+          expandingDivider: state.expandingDivider,
+          cursor: { row: ctx.split.cursorRow(), col: vimState.col },
+          side: ctx.split.source().side,
+          // The per-pane column window lands with sidescroll.
+          columns: { left: 0, right: 0 },
+          focused: true,
+        })
+      }
 
       content = Box(
         {
@@ -293,9 +316,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           height: "100%",
           flexDirection: "row",
         },
-        ctx.vimDiffView.getContainer()
+        splitOn ? ctx.split.island.host : ctx.vimDiffView.getContainer()
       )
     }
+    ctx.split.syncDrawn(splitOn, ctx.vimDiffView.getContainer().height)
 
     // Clear and re-render (preserve indicator renderables and file tree panel)
     const children = ctx.renderer.root.getChildren()
@@ -448,7 +472,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       if (prompt) syncPromptSession({ renderer: ctx.renderer, ...prompt })
       else endPromptSession()
 
-      ctx.vimDiffView.setSuspendCursor(composerActive || reviewActive || prompt !== null)
+      const cursorSuspended = composerActive || reviewActive || prompt !== null
+      ctx.vimDiffView.setSuspendCursor(cursorSuspended)
+      if (splitOn) ctx.split.island.update({ focused: !cursorSuspended })
       ctx.vimDiffView.setObscured(coversTheDiff(state))
     }
 
@@ -462,8 +488,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               wrapped: searchState.wrapped,
             }
           : null,
+      // Split has no column window to report until sidescroll gives each pane one.
       columnInfo:
-        state.viewMode === "diff"
+        state.viewMode === "diff" && !splitOn
           ? ctx.vimDiffView.getColumnStatus(vimState.line, vimState.col)
           : null,
       selectionInfo: selectionStatus(vimState),

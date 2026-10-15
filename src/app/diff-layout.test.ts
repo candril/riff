@@ -4,12 +4,16 @@ import { diffPaneWidth, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
 describe("when split is drawn", () => {
   test("from 120 columns of diff pane on", () => {
     expect(SPLIT_MIN_WIDTH).toBe(120)
-    expect(splitShown(true, 119)).toBe(false)
-    expect(splitShown(true, 120)).toBe(true)
+    expect(splitShown(true, 119, 10)).toBe(false)
+    expect(splitShown(true, 120, 10)).toBe(true)
   })
 
   test("never unless asked for", () => {
-    expect(splitShown(false, 200)).toBe(false)
+    expect(splitShown(false, 200, 10)).toBe(false)
+  })
+
+  test("never with no lines to draw, so unified can say why the diff is empty", () => {
+    expect(splitShown(true, 200, 0)).toBe(false)
   })
 
   test("the file panel's width comes off the pane only while it is shown", () => {

@@ -313,6 +313,14 @@ export const actions: Action[] = [
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
   {
+    id: "toggle-split",
+    label: "Toggle Side by Side",
+    description: "Show the old file beside the new, where the diff pane is 120 columns or wider",
+    shortcut: "\\",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
+  {
     id: "peek-line",
     label: "Peek Line",
     description: "Show the line in full over the diff — or the table it belongs to, as a grid",

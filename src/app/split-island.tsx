@@ -34,20 +34,30 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
         )}
       </Show>
     ),
-    { width: "100%", height: "100%" }
+    // A deferred resize leaves one frame drawn at the old size; clipping keeps it off the prompt row.
+    { width: "100%", height: "100%", overflow: "hidden" }
   )
 
   const rowCount = () => inputs.value?.source.rows.length ?? 0
   const window = () => ({ scrollTop: scrollTop(), height: size().height, rows: rowCount() })
   const ensureCursorVisible = (row: number) => setScrollTop(revealRow(window(), row, scrollOff))
 
-  island.host.onSizeChange = () => {
-    const { width, height } = island.host
+  function resize(width: number, height: number): void {
     if (width === size().width && height === size().height) return
     setSize({ width, height })
-    // Until the first layout the window has no height, so nothing could be revealed before now.
+    // Until the window has a height nothing can be revealed in it.
     const row = inputs.value?.cursor.row
     if (row !== undefined) ensureCursorVisible(row)
+  }
+  // onSizeChange fires inside the layout pass, after the frame's texts are composed:
+  // texts rebuilt there would draw empty, so the new size lands in the next frame.
+  let disposed = false
+  island.host.onSizeChange = () => {
+    setTimeout(() => {
+      if (disposed) return
+      resize(island.host.width, island.host.height)
+      renderer.requestRender()
+    }, 0)
   }
 
   return {
@@ -76,6 +86,12 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       })
     },
     ensureCursorVisible,
+    /**
+     * The host is only laid out once it is in the tree, a frame after split
+     * is first drawn or comes back from a narrow terminal; a size given up
+     * front lets that frame draw rows instead of an empty pane.
+     */
+    seedSize: resize,
     scrollCursorTo(row: number, where: "center" | "top" | "bottom") {
       setScrollTop(placeRow(window(), row, where, scrollOff))
     },
@@ -94,7 +110,10 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       }
       return lines
     },
-    dispose: island.dispose,
+    dispose() {
+      disposed = true
+      island.dispose()
+    },
   }
 }
 

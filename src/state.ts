@@ -430,6 +430,8 @@ export interface AppState {
   peekScroll: { row: number; col: number }
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
+  /** `\` — asks for the diff side by side; drawn only where the diff pane is wide enough. */
+  splitView: boolean
   /** Pad markdown table cells onto a shared grid in the diff. */
   alignMarkdownTables: boolean
   showFilePanel: boolean
@@ -665,6 +667,7 @@ export function createInitialState(
     peekSide: "new",
     peekScroll: { row: 0, col: 0 },
     wrapLines: false,
+    splitView: false,
     alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
@@ -1090,6 +1093,10 @@ export function toggleWrapLines(state: AppState): AppState {
     ...state,
     wrapLines: !state.wrapLines,
   }
+}
+
+export function toggleSplitView(state: AppState): AppState {
+  return { ...state, splitView: !state.splitView }
 }
 
 /** Fold or unfold one fenced block (spec 073). */
