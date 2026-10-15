@@ -92,7 +92,8 @@ test("a comment's scope is read in the pane a jump landed in", async () => {
   expect(split.commentScope()).toEqual({ lines: [pair.left], pane: "left" })
 })
 
-// Rows 7-9 are a divider and two pairs, which is six lines of the mapping.
+// Rows 7-9 draw five lines, but in the mapping the removal run ends in its no-newline marker
+// before the additions start, so lines 7-12 take in a sixth that row 10 draws.
 test("the status bar counts the rows a split selection spans", async () => {
   const { split, select, vimState } = await mount()
   const rows = split.source().rows

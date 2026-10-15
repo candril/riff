@@ -65,16 +65,21 @@ async function mount() {
   await new Promise((resolve) => setTimeout(resolve, 0))
   await setup.renderOnce()
 
-  // Wired as app.ts wires it, because what is timed is the app's own path for a motion.
+  // The split calls app.ts makes for a motion: ensureCursorVisible's revealCursor, then refreshCursor.
+  // Not timed: followCursorInTree (there is no tree here) and render.ts's chrome, which M3 replaces.
+  const followCursor = () => {
+    diff.revealCursor()
+    diff.refreshCursor()
+  }
   const handler = new VimMotionHandler({
     getMapping: () => diff.source(),
     getState: () => toRowState(vimState, diff.source()),
     setState: (s) => {
       vimState = toLineState(s, diff.source(), vimState)
-      diff.refreshCursor()
+      followCursor()
     },
     getViewportHeight: () => diff.island.viewportHeight(),
-    onCursorMove: () => diff.refreshCursor(),
+    onCursorMove: followCursor,
   })
   return { setup, handler, draw, mode: () => vimState.mode }
 }

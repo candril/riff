@@ -42,8 +42,9 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     <box flexDirection="column" width={props.width} height={props.height} overflow="hidden">
       <For each={visible()}>
         {(row, i) => {
-          const at = () => props.scrollTop + i()
-          const atCursor = () => props.cursor.row === at()
+          // Memos, so a scroll that moves scrollTop and i() in step, or a cursor elsewhere, reaches nothing under the row.
+          const at = createMemo(() => props.scrollTop + i())
+          const atCursor = createMemo(() => props.cursor.row === at())
           // <For> hands a row object to one child for its whole life, so branching once is enough.
           if (row.kind === "pair") return <PairRow env={env} row={row} at={at()} atCursor={atCursor()} />
           const line = props.mapping.getLine(row.index)
