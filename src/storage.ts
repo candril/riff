@@ -1,3 +1,4 @@
+import { $ } from "bun"
 import { join, dirname, resolve } from "path"
 import { homedir } from "os"
 import { mkdir, readdir, rename, unlink } from "fs/promises"
@@ -183,7 +184,7 @@ export interface RepoResolution {
   /** The resolved storage directory path */
   path: string
   /** How the path was resolved */
-  source: "config" | "configMapping" | "basePath" | "cwd" | "repoRoot" | "global"
+  source: "config" | "workspace" | "configMapping" | "basePath" | "cwd" | "repoRoot" | "global"
   /** Whether user confirmation is needed before using this path */
   needsConfirmation: boolean
   /** The full repo path (without .riff suffix) for display purposes */
@@ -199,6 +200,18 @@ function parseSource(source: string): { owner: string; repo: string } | null {
     return { owner: match[1]!, repo: match[2]! }
   }
   return null
+}
+
+/**
+ * The `.riff/` of the jj workspace a `name@` source names, or null when the
+ * source is anything else or jj knows no such workspace.
+ */
+async function workspaceStorageDir(source: string): Promise<string | null> {
+  const workspace = source.match(/^([\w.-]+)@$/)?.[1]
+  if (!workspace) return null
+  const result = await $`jj workspace root --name ${workspace}`.quiet().nothrow()
+  if (result.exitCode !== 0) return null
+  return join(result.text().trim(), LOCAL_STORAGE_DIR)
 }
 
 /**
@@ -221,6 +234,19 @@ export async function resolveStorageDir(source: string): Promise<RepoResolution>
       path: expandPath(config.storage.path),
       source: "config",
       needsConfirmation: false,
+    }
+  }
+
+  // Another jj workspace's notes live in that workspace. `riff name@` is a
+  // view of its working copy, and `riff comments` run there — by the agent
+  // whose work it is — reads the same store.
+  const workspaceDir = await workspaceStorageDir(source)
+  if (workspaceDir) {
+    return {
+      path: workspaceDir,
+      source: "workspace",
+      needsConfirmation: false,
+      repoPath: dirname(workspaceDir),
     }
   }
 

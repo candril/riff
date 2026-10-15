@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { parseGitCommits, parseJjCommits, EMPTY_CHANGE, UNDESCRIBED_CHANGE } from "./local"
+import { parseGitCommits, parseJjCommits, workingCopyOf, EMPTY_CHANGE, UNDESCRIBED_CHANGE } from "./local"
 
 describe("the local commits the picker lists", () => {
   test("jj says which changes are empty", () => {
@@ -42,5 +42,23 @@ describe("the local commits the picker lists", () => {
       UNDESCRIBED_CHANGE,
     )
     expect(EMPTY_CHANGE).toBe("(empty)")
+  })
+})
+
+describe("which working copy a target names", () => {
+  test("no target is this workspace's", () => {
+    expect(workingCopyOf(undefined)).toBe("@")
+    expect(workingCopyOf("@")).toBe("@")
+  })
+
+  test("name@ is another workspace's, spelled the way jj spells it", () => {
+    expect(workingCopyOf("main-build@")).toBe("main-build@")
+  })
+
+  test("a bookmark, change id, remote bookmark or range is a revision", () => {
+    expect(workingCopyOf("main-build")).toBeNull()
+    expect(workingCopyOf("@-")).toBeNull()
+    expect(workingCopyOf("main@origin")).toBeNull()
+    expect(workingCopyOf("trunk()..@")).toBeNull()
   })
 })

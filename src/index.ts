@@ -40,6 +40,7 @@ const HELP_TEXT = `
     \x1b[36mpr\x1b[0m                        Review PR for current branch/bookmark
     \x1b[36m<pr-number>\x1b[0m               Review GitHub PR in current repo (e.g., 123 or #123)
     \x1b[36m<revision>\x1b[0m                Review local commits (e.g., HEAD~3, main..HEAD, @-)
+    \x1b[36m<workspace>@\x1b[0m              Review another jj workspace's changes since trunk, as plain riff does yours
     \x1b[36m<path>\x1b[0m                    Read a file or directory as files (e.g., ., src/, src/app.ts)
     \x1b[36mgh:<owner>/<repo>#<pr>\x1b[0m   Review PR from any GitHub repository
     \x1b[36m<github-url>\x1b[0m              Review PR from GitHub URL
@@ -63,6 +64,9 @@ const HELP_TEXT = `
 
     \x1b[2m# Review jj revset (parent change)\x1b[0m
     $ riff @-
+
+    \x1b[2m# Review what an agent did in another jj workspace; its comments land in that workspace's .riff/\x1b[0m
+    $ riff agent-1@
 
     \x1b[2m# Read files rather than a diff — a path that exists wins over a revision\x1b[0m
     $ riff .

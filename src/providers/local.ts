@@ -57,14 +57,27 @@ export async function getLocalDiff(target?: string): Promise<string> {
 }
 
 /**
+ * The working copy a target names, or null for a revision.
+ *
+ * No target is this workspace's `@`. Another jj workspace's working copy is
+ * `name@` — jj's own spelling, which is why riff does not take a bare
+ * workspace name: a bookmark can be called the same thing, and the `@` is
+ * what tells them apart. A working copy is reviewed the way plain `riff`
+ * reviews its own, as the topic from trunk; a revision is reviewed alone.
+ */
+export function workingCopyOf(target?: string): string | null {
+  if (!target) return "@"
+  return /^[\w.-]*@$/.test(target) ? target : null
+}
+
+/**
  * Get diff using jj
  * Uses default context (3 lines) - expand functionality shows more on demand
  */
 async function getJjDiff(target?: string): Promise<string> {
-  if (!target) {
-    // All changes from trunk to working copy
-    const result = await $`jj diff --git --from ${"trunk()"}`.text()
-    return result
+  const workingCopy = workingCopyOf(target)
+  if (workingCopy) {
+    return await $`jj diff --git --from ${"trunk()"} --to ${workingCopy}`.text()
   }
 
   // Support jj revsets
@@ -116,7 +129,7 @@ export async function getBranchInfo(target?: string): Promise<string | null> {
 
   try {
     if (vcs === "jj") {
-      return await getJjBranchInfo()
+      return await getJjBranchInfo(workingCopyOf(target) ?? "@")
     }
 
     if (vcs === "git") {
@@ -132,22 +145,22 @@ export async function getBranchInfo(target?: string): Promise<string | null> {
 /**
  * Get branch info for jj repositories
  */
-async function getJjBranchInfo(): Promise<string | null> {
+async function getJjBranchInfo(workingCopy: string): Promise<string | null> {
   // One template per revset rather than one call per field — the working
   // copy's bookmark, change id and description all come out of the same log.
   const workingCopyTemplate =
     'bookmarks.map(|b| b.name()).join(", ") ++ "\\x00" ++ change_id.shortest(6) ++ "\\x00" ++ description.first_line()'
 
   const [workingCopyResult, trunkResult, nearestResult, aheadResult] = await Promise.all([
-    $`jj log -r '@' --no-graph -T ${workingCopyTemplate}`.quiet().nothrow(),
+    $`jj log -r ${workingCopy} --no-graph -T ${workingCopyTemplate}`.quiet().nothrow(),
     $`jj log -r 'trunk()' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ")'`.quiet().nothrow(),
     // The nearest bookmark behind the working copy: in jj you commit onto a
     // bookmark rather than onto its tip, so `@` usually carries none and the
     // branch you are on is a change or two back.
-    $`jj log -r 'heads(::@ & bookmarks())' --no-graph -T 'bookmarks.map(|b| b.name()).join(", ") ++ "\n"'`
+    $`jj log -r ${`heads(::${workingCopy} & bookmarks())`} --no-graph -T 'bookmarks.map(|b| b.name()).join(", ") ++ "\n"'`
       .quiet()
       .nothrow(),
-    $`jj log -r 'heads(::@ & bookmarks())..@' --no-graph -T '"x"'`.quiet().nothrow(),
+    $`jj log -r ${`heads(::${workingCopy} & bookmarks())..${workingCopy}`} --no-graph -T '"x"'`.quiet().nothrow(),
   ])
 
   const [currentBookmark = "", changeId = "", desc = ""] = (
@@ -155,12 +168,16 @@ async function getJjBranchInfo(): Promise<string | null> {
   ).split("\x00").map((field) => field.trim())
   const trunk = trunkResult.exitCode === 0 ? trunkResult.text().trim() : ""
 
+  // Another workspace's review says whose working copy it is: two riffs on
+  // two agents' workspaces are otherwise the same header.
+  const elsewhere = workingCopy === "@" ? "" : `${workingCopy} `
+
   // If current change has a bookmark, use that
   if (currentBookmark) {
     if (trunk && currentBookmark !== trunk) {
-      return `${currentBookmark} → ${trunk}`
+      return `${elsewhere}${currentBookmark} → ${trunk}`
     }
-    return currentBookmark
+    return `${elsewhere}${currentBookmark}`
   }
 
   // No bookmark here, but one behind: name that, and say how far past it
@@ -172,7 +189,7 @@ async function getJjBranchInfo(): Promise<string | null> {
     .pop()
   if (nearest) {
     const ahead = aheadResult.exitCode === 0 ? aheadResult.text().trim().length : 0
-    const current = ahead > 0 ? `${nearest} +${ahead}` : nearest
+    const current = elsewhere + (ahead > 0 ? `${nearest} +${ahead}` : nearest)
     // Nothing but trunk behind you is not a branch you are "on top of" —
     // it is trunk, and however many changes you have written since.
     if (nearest === trunk) return current
@@ -180,11 +197,11 @@ async function getJjBranchInfo(): Promise<string | null> {
   }
 
   if (!changeId) {
-    return trunk ? `→ ${trunk}` : null
+    return trunk ? `${elsewhere}→ ${trunk}` : null
   }
 
   // Format: "change-id (description)" or just "change-id"
-  const current = desc ? `${changeId} (${truncate(desc, 30)})` : changeId
+  const current = elsewhere + (desc ? `${changeId} (${truncate(desc, 30)})` : changeId)
 
   if (trunk) {
     return `${current} → ${trunk}`
@@ -238,10 +255,11 @@ export async function getDiffDescription(target?: string): Promise<string> {
   const vcs = await detectVcs()
 
   if (vcs === "jj") {
-    if (!target) {
+    const workingCopy = workingCopyOf(target)
+    if (workingCopy) {
       // Get current change description, or fall back to branch description
       try {
-        const desc = await $`jj log -r @ --no-graph -T description`.text()
+        const desc = await $`jj log -r ${workingCopy} --no-graph -T description`.text()
         return desc.trim() || "Changes since trunk"
       } catch {
         return "Changes since trunk"
@@ -349,8 +367,8 @@ export async function getOldFileContent(
 
   try {
     if (vcs === "jj") {
-      // For jj, the "old" version is trunk (or parent of target)
-      const revision = target ? `${target}-` : "trunk()"
+      // A working copy is diffed from trunk; a revision from its parent.
+      const revision = workingCopyOf(target) ? "trunk()" : `${target}-`
       return await $`jj file show ${filename} -r ${revision}`.text()
     }
 
@@ -421,7 +439,8 @@ export async function getLocalCommits(target?: string): Promise<PrCommit[]> {
  */
 async function getJjCommits(target?: string): Promise<PrCommit[]> {
   try {
-    const revset = target || "trunk()..@"
+    const workingCopy = workingCopyOf(target)
+    const revset = workingCopy ? `trunk()..${workingCopy}` : target!
     // Use template to get structured output (NUL-separated fields, newline-separated records)
     const template = 'commit_id.short(7) ++ "\\x00" ++ description.first_line() ++ "\\x00" ++ author.name() ++ "\\x00" ++ author.timestamp().utc().format("%Y-%m-%dT%H:%M:%SZ") ++ "\\x00" ++ if(empty, "empty", "") ++ "\\n"'
     const result = await $`jj log -r ${revset} --no-graph -T ${template}`.quiet().nothrow()
