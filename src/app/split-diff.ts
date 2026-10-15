@@ -119,6 +119,8 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     island.revealColumn()
   }
 
+  let drawnFile: number | null | undefined
+
   /**
    * Everything a render hands the split view. Flash on a list surface still
    * dims unified's diff, so it dims split's too.
@@ -126,6 +128,12 @@ export function createSplitDiff(deps: SplitDiffDeps) {
   function draw(input: SplitDrawInput): void {
     const { mapping, state, vimState, searchState, flashState } = input
     syncPane()
+    // An offset kept from another file means nothing in this one. Null in all-files mode, so a switch
+    // between the modes resets too; a fold keeps the file, and so the windows, as unified keeps its scrollLeft.
+    if (state.selectedFileIndex !== drawnFile) {
+      if (drawnFile !== undefined) island.resetColumns()
+      drawnFile = state.selectedFileIndex
+    }
     island.update({
       mapping,
       source: source(),
@@ -192,7 +200,8 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     },
     /** Each pane is scrolled on its own, so flash searches every line in the window it is drawn in. */
     visibleRegion(): FlashRegion {
-      return { lines: island.visibleLines(), ...island.paneWindow(), windowOf: island.lineWindow }
+      const cursorWindow = island.lineWindow(deps.getVimState().line)
+      return { lines: island.visibleLines(), ...cursorWindow, windowOf: island.lineWindow }
     },
     dispose(): void {
       deps.renderer.off("resize", onResize)

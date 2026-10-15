@@ -219,6 +219,17 @@ describe("sidescroll", () => {
     expect(island.lineWindow(3)).toEqual({ startCol: 75, endCol: 128 })
     expect(island.lineWindow(2)).toEqual({ startCol: 0, endCol: 55 })
     expect(island.lineWindow(1)).toEqual({ startCol: 75, endCol: 129 })
-    expect(island.paneWindow()).toEqual({ startCol: 74, endCol: 129 })
+  })
+
+  test("the readout counts a tab as the cells it draws in, so the last character reads the total", async () => {
+    const content = `\t\tconst wide = "${"x".repeat(100)}"`
+    const raw = ["diff --git a/t.go b/t.go", "--- a/t.go", "+++ b/t.go", "@@ -1,1 +1,1 @@", "-old", `+${content}`].join("\n")
+    const { island } = await mount(8, undefined, raw)
+    await frame()
+    const total = content.length + 2
+    island.update({ cursor: { row: 1, col: content.length - 1 } })
+    expect(island.columnStatus()).toEqual({ col: total, total })
+    island.update({ cursor: { row: 1, col: 2 } })
+    expect(island.columnStatus()).toEqual({ col: 5, total })
   })
 })

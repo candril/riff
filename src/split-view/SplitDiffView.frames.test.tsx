@@ -9,6 +9,7 @@ import { theme } from "../theme"
 import { createComment } from "../types"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
+import { cellOfColumn, contentOrigin, gutterWidth, paneWidths } from "./layout"
 
 /*
  * What the split view draws at 120 columns: two 60-cell panes, old file
@@ -173,11 +174,15 @@ describe("sidescroll", () => {
 })
 
 describe("sidescroll following the cursor", () => {
-  // ONE_WIDE_LINE's added line, in a right pane whose code starts at x 65 and is 55 cells wide.
+  // ONE_WIDE_LINE's added line, in the right pane, laid out as the view lays it out.
   const WIDE_ROW = 2
-  const CODE_X = 65
-  const CODE_CELLS = 55
-  const WIDE_CELLS = 175
+  const wideMapping = new DiffLineMapping(parseDiff(ONE_WIDE_LINE), "all")
+  const wideLine = wideMapping.allLines.find((line) => line.type === "addition")!.content
+  const panes = paneWidths(120)
+  const origin = contentOrigin(gutterWidth(wideMapping))
+  const CODE_X = panes.left + origin
+  const CODE_CELLS = panes.right - origin
+  const WIDE_CELLS = cellOfColumn(wideLine, wideLine.length)
   const revealed = (col: number) => ({ left: 0, right: revealColumn(0, col, CODE_CELLS, WIDE_CELLS) })
 
   test("a cursor past the right pane's window is drawn once the pane reveals it, and the left pane stays put", async () => {

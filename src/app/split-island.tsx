@@ -18,7 +18,9 @@ const IN_HALVES = new Set(["context", "addition", "deletion", "no-newline"])
  * The split view as a long-lived island. It owns its scroll and each
  * pane's column window, the way VimDiffView's scrollbox owns unified's,
  * and takes its size from the box render.ts lays it out in rather than
- * from the terminal.
+ * from the terminal. The pane the cursor is not in keeps its window, even
+ * where that leaves a short line showing only its `‹`: crossing back finds
+ * it where it was left, as unified's single window is.
  */
 export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const [inputs, setInputs] = createStore<{ value: SplitInputs | null }>({ value: null })
@@ -141,20 +143,13 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       const cell = clampCursorCell(columns()[half.side], half.width, cellOfColumn(half.content, col), half.cells)
       return columnOfCell(half.content, cell)
     },
-    /** The status bar's readout, only for a line too wide for its pane. */
+    /** The status bar's readout, both numbers in cells, only for a line too wide for its pane. */
     columnStatus(): { col: number; total: number } | null {
       const half = activeHalf()
       if (!half || half.cells === 0 || half.cells <= half.width) return null
-      return { col: inputs.value!.cursor.col + 1, total: half.cells }
+      return { col: half.cursorCell + 1, total: half.cells }
     },
     resetColumns: () => setColumns({ left: 0, right: 0 }),
-    /** The cursor's pane's window, in cells. */
-    paneWindow(): { startCol: number; endCol: number } {
-      const props = inputs.value
-      if (!props) return { startCol: 0, endCol: 0 }
-      const start = columns()[props.side]
-      return { startCol: start, endCol: start + Math.max(0, codeWidth(props, props.side)) }
-    },
     /**
      * The columns of a mapping line that the pane drawing it shows: a
      * removal's in the old pane, an addition's in the new, and a line in
