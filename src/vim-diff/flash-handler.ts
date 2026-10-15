@@ -6,7 +6,7 @@
  * this handler owns the pattern, the labels, and the jump.
  */
 
-import type { DiffLineMapping } from "./line-mapping"
+import type { LineSource } from "./line-source"
 import type { VimCursorState } from "./types"
 import type { FlashMatch, FlashRow, FlashState, FlashSurface } from "./flash-state"
 import {
@@ -36,7 +36,7 @@ export interface FlashRegion {
 const JUMPABLE_TYPES = new Set(["context", "addition", "deletion", "file-header"])
 
 export interface FlashHandlerOptions {
-  getMapping: () => DiffLineMapping
+  getMapping: () => LineSource
   getFlashState: () => FlashState
   setFlashState: (state: FlashState) => void
   getCursor: () => VimCursorState

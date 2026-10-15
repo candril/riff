@@ -4,6 +4,8 @@
 
 export * from "./types"
 export * from "./line-mapping"
+export * from "./line-source"
+export * from "./line-motions"
 export * from "./cursor-state"
 export * from "./motion-handler"
 export * from "./search-state"

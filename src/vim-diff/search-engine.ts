@@ -5,7 +5,7 @@
  * visible diff lines. This allows finding matches anywhere in the file.
  */
 
-import type { DiffLineMapping } from "./line-mapping"
+import type { LineSource } from "./line-source"
 import type { IncrementalSearchMatch, FileSearchMatch } from "./search-state"
 
 /**
@@ -43,7 +43,7 @@ export function wordAt(content: string, col: number): string | null {
 
 export class SearchEngine {
   constructor(
-    private getMapping: () => DiffLineMapping,
+    private getMapping: () => LineSource,
     private getFileContent: (filename: string) => string | null
   ) {}
 

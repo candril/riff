@@ -3,7 +3,15 @@
  */
 
 import type { VimCursorState } from "./types"
-import type { DiffLineMapping } from "./line-mapping"
+import type { LineSource } from "./line-source"
+import {
+  findCharInLine,
+  findFileHeader,
+  findFirstNonSpace,
+  findHunk,
+  findWordBoundary,
+  searchLines,
+} from "./line-motions"
 import {
   moveCursorToLine,
   moveCursorToCol,
@@ -34,7 +42,7 @@ export interface KeyEvent {
 }
 
 export interface VimMotionHandlerOptions {
-  getMapping: () => DiffLineMapping
+  getMapping: () => LineSource
   getState: () => VimCursorState
   setState: (state: VimCursorState) => void
   getViewportHeight: () => number
@@ -42,7 +50,7 @@ export interface VimMotionHandlerOptions {
 }
 
 export class VimMotionHandler {
-  private getMapping: () => DiffLineMapping
+  private getMapping: () => LineSource
   private getState: () => VimCursorState
   private setState: (state: VimCursorState) => void
   private getViewportHeight: () => number
@@ -302,7 +310,7 @@ export class VimMotionHandler {
   private handlePendingTextObject(
     key: KeyEvent,
     state: VimCursorState,
-    mapping: DiffLineMapping
+    mapping: LineSource
   ): boolean {
     const cleared = setPendingTextObject(state, null)
     if (key.name === "escape") {
@@ -339,7 +347,7 @@ export class VimMotionHandler {
   private handlePendingFindChar(
     key: KeyEvent,
     state: VimCursorState,
-    mapping: DiffLineMapping
+    mapping: LineSource
   ): boolean {
     // Cancel on escape
     if (key.name === "escape") {
@@ -355,7 +363,7 @@ export class VimMotionHandler {
     }
 
     const pendingType = state.pendingFindChar!.type
-    const newCol = mapping.findCharInLine(state.line, state.col, char, pendingType)
+    const newCol = findCharInLine(mapping, state.line, state.col, char, pendingType)
 
     if (newCol !== null) {
       const lineLen = mapping.getLineContent(state.line).length
@@ -459,7 +467,7 @@ export class VimMotionHandler {
   private goToFirstNonSpace(): void {
     const state = this.getState()
     const mapping = this.getMapping()
-    const col = mapping.findFirstNonSpace(state.line)
+    const col = findFirstNonSpace(mapping, state.line)
     const lineLen = mapping.getLineContent(state.line).length
     const newState = moveCursorToCol(state, col, lineLen)
     this.setState(newState)
@@ -486,7 +494,8 @@ export class VimMotionHandler {
     const mapping = this.getMapping()
     const direction =
       motion === "b" || motion === "B" ? "backward" : "forward"
-    const result = mapping.findWordBoundary(
+    const result = findWordBoundary(
+      mapping,
       state.line,
       state.col,
       direction,
@@ -524,7 +533,8 @@ export class VimMotionHandler {
       else if (type === "T") type = "t"
     }
 
-    const newCol = mapping.findCharInLine(
+    const newCol = findCharInLine(
+      mapping,
       state.line,
       state.col,
       state.lastFindChar.char,
@@ -545,7 +555,7 @@ export class VimMotionHandler {
   moveToHunk(direction: "next" | "prev"): void {
     const state = this.getState()
     const mapping = this.getMapping()
-    const hunkLine = mapping.findHunk(state.line, direction)
+    const hunkLine = findHunk(mapping, state.line, direction)
 
     if (hunkLine !== null) {
       const withJump = addToJumpList(state)
@@ -568,7 +578,7 @@ export class VimMotionHandler {
   moveToFile(direction: "next" | "prev"): void {
     const state = this.getState()
     const mapping = this.getMapping()
-    const fileLine = mapping.findFileHeader(state.line, direction)
+    const fileLine = findFileHeader(mapping, state.line, direction)
 
     if (fileLine !== null) {
       const withJump = addToJumpList(state)
@@ -595,7 +605,7 @@ export class VimMotionHandler {
     const state = this.getState()
     const mapping = this.getMapping()
 
-    const match = mapping.search(pattern, state.line, direction)
+    const match = searchLines(mapping, pattern, state.line, direction)
     if (match) {
       const withSearch = setSearch(addToJumpList(state), pattern, direction)
       const lineLen = mapping.getLineContent(match.line).length

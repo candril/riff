@@ -10,13 +10,13 @@
  */
 
 import type { VimCursorState } from "./types"
-import type { DiffLineMapping } from "./line-mapping"
+import type { LineSource } from "./line-source"
 import type { SearchState, IncrementalSearchMatch } from "./search-state"
 import { createSearchState, clearSearchKeepingLast } from "./search-state"
 import { SearchEngine } from "./search-engine"
 
 export interface SearchHandlerOptions {
-  getMapping: () => DiffLineMapping
+  getMapping: () => LineSource
   getSearchState: () => SearchState
   setSearchState: (state: SearchState) => void
   getCursor: () => VimCursorState

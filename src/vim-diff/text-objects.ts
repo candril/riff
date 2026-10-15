@@ -7,7 +7,7 @@
  * deleted rows).
  */
 
-import type { DiffLineMapping } from "./line-mapping"
+import type { LineSource } from "./line-source"
 import type { DiffLine } from "./types"
 
 export type TextObjectSpan =
@@ -41,7 +41,7 @@ const BRACKETS: Record<string, [string, string]> = {
 const QUOTES = new Set(['"', "'", "`"])
 
 export function resolveTextObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   col: number,
   scope: "i" | "a",
@@ -91,7 +91,7 @@ function classify(char: string, big: boolean): CharClass {
 }
 
 function wordObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   col: number,
   scope: "i" | "a",
@@ -126,7 +126,7 @@ function wordObject(
 }
 
 function quoteObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   col: number,
   scope: "i" | "a",
@@ -162,7 +162,7 @@ interface BracketPos {
 }
 
 function bracketObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   col: number,
   scope: "i" | "a",
@@ -220,7 +220,7 @@ function bracketObject(
  * divider is unknown, and guessing a partner there would select nonsense.
  */
 function findUnmatched(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   walk: Walk,
   fromLine: number,
   fromCol: number,
@@ -259,7 +259,7 @@ function findUnmatched(
  * the row belongs to the other version of the file.
  */
 function advance(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   walk: Walk,
   pos: BracketPos,
   step: 1 | -1
@@ -295,7 +295,7 @@ function isContent(row: DiffLine | undefined): row is DiffLine {
 }
 
 function hunkObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   scope: "i" | "a"
 ): TextObjectSpan | null {
@@ -326,7 +326,7 @@ function hunkObject(
 }
 
 function fileObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   scope: "i" | "a"
 ): TextObjectSpan | null {
@@ -349,7 +349,7 @@ function fileObject(
 }
 
 function changeRunObject(
-  mapping: DiffLineMapping,
+  mapping: LineSource,
   line: number,
   type: "addition" | "deletion"
 ): TextObjectSpan | null {
