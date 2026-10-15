@@ -9,4 +9,6 @@ export interface LineSource {
   getLine(index: number): DiffLine | undefined
   getLineContent(index: number): string
   findVisualLineForFileLine(filename: string, lineNum: number): number | null
+  /** Optional because only a split source has a second pane to cross into. */
+  crossPane?(direction: 1 | -1): boolean
 }

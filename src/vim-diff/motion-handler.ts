@@ -188,11 +188,11 @@ export class VimMotionHandler {
 
     // Horizontal motions
     if (key.name === "h" || key.name === "left") {
-      this.moveCol(-1)
+      this.moveColOrCross(-1)
       return true
     }
     if (key.name === "l" || key.name === "right") {
-      this.moveCol(1)
+      this.moveColOrCross(1)
       return true
     }
 
@@ -446,6 +446,27 @@ export class VimMotionHandler {
     const lineLen = mapping.getLineContent(state.line).length
     const newState = moveCursorToCol(state, state.col + delta, lineLen)
     this.setState(newState)
+    this.onCursorMove()
+  }
+
+  /**
+   * At a line's edge, h and l step into the neighbouring pane of a split
+   * diff, landing on the edge that faces the pane they came from.
+   */
+  private moveColOrCross(direction: 1 | -1): void {
+    const state = this.getState()
+    const mapping = this.getMapping()
+    const atEdge =
+      direction === -1
+        ? state.col <= 0
+        : state.col >= mapping.getLineContent(state.line).length - 1
+    if (!atEdge || !mapping.crossPane?.(direction)) {
+      this.moveCol(direction)
+      return
+    }
+    const lineLen = mapping.getLineContent(state.line).length
+    const col = direction === -1 ? lineLen - 1 : 0
+    this.setState(moveCursorToCol(state, col, lineLen))
     this.onCursorMove()
   }
 
