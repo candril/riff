@@ -6,6 +6,7 @@ import { theme } from "../theme"
 import type { DiffLine } from "../vim-diff/types"
 import type { SplitEnv } from "./env"
 import { contentOrigin, halfContent } from "./layout"
+import { charSelectionOn, inLineSelection } from "./overlays"
 
 const tintOf = (line: DiffLine | undefined) =>
   line?.type === "addition" ? ADDITION_BG : line?.type === "deletion" ? DELETION_BG : undefined
@@ -28,13 +29,30 @@ export function SegmentTexts(props: { segments: readonly Segment[] }) {
   )
 }
 
-// A half's line never changes for the half's life; only the cursor and the column do.
-export function Half(props: { env: SplitEnv; index: number | undefined; side: Side; active: boolean }) {
+const sameSpan = (a: { from: number; to: number } | undefined, b: { from: number; to: number } | undefined) =>
+  a?.from === b?.from && a?.to === b?.to
+
+// A half's line never changes for the half's life; only the cursor, the row it sits on and the column do.
+export function Half(props: { env: SplitEnv; index: number | undefined; at: number; side: Side; active: boolean }) {
   const { env } = props
   const view = env.props
   const line = () => (props.index === undefined ? undefined : view.mapping.getLine(props.index))
-  // An empty half is shaded, so it reads as the absence of a line rather than a blank one.
-  const background = () => (props.active ? cursorLineBg(line()?.type) : (tintOf(line()) ?? (line() ? undefined : theme.mantle)))
+  // A selection is a span of rows in the active pane; the other half of those rows is not in it.
+  const inActivePane = () => props.side === view.side && line() !== undefined
+  const lineSelected = () => inActivePane() && inLineSelection(view.selection, props.at)
+  // Memoised to its span, so a selection growing elsewhere leaves this half's segments alone.
+  const charSelection = createMemo(
+    () => (inActivePane() ? charSelectionOn(view.selection, props.at, line()!) : undefined),
+    undefined,
+    { equals: sameSpan }
+  )
+  const background = () => {
+    if (props.active) return cursorLineBg(line()?.type)
+    if (lineSelected()) return theme.surface0
+    // An empty half is shaded, so it reads as the absence of a line rather than a blank one.
+    return tintOf(line()) ?? (line() ? undefined : theme.mantle)
+  }
+  const gutterBg = () => (lineSelected() ? theme.surface1 : undefined)
   const width = () => env.panes()[props.side]
   const sign = () => {
     const found = props.index === undefined ? undefined : env.signs().get(props.index)
@@ -51,6 +69,9 @@ export function Half(props: { env: SplitEnv; index: number | undefined; side: Si
       wordSide: shown.type === "deletion" ? "removed" : "added",
       baseFg: theme.text,
       rowBg: background() ?? theme.base,
+      search: { matches: env.searchHits().get(props.index) ?? [] },
+      selection: charSelection(),
+      flash: env.flashHits() && { matches: env.flashHits()!.get(props.index) ?? [] },
       cursor: props.active && view.focused ? view.cursor.col : undefined,
     })
     return halfContent(full, view.columns[props.side], width() - contentOrigin(env.gutter())).segments
@@ -59,10 +80,10 @@ export function Half(props: { env: SplitEnv; index: number | undefined; side: Si
   return (
     <box flexDirection="row" width={width()} height={1} flexShrink={0} overflow="hidden" backgroundColor={background()}>
       <Show when={line()}>
-        <text wrapMode="none" flexShrink={0} fg={sign()?.color ?? theme.overlay0}>
+        <text wrapMode="none" flexShrink={0} fg={sign()?.color ?? theme.overlay0} bg={gutterBg()}>
           {sign() ? "●" : " "}
         </text>
-        <text wrapMode="none" flexShrink={0} fg={theme.overlay0}>
+        <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
           {`${lineNumber(line()!, props.side).padStart(env.gutter())} `}
         </text>
         <SegmentTexts segments={segments()} />

@@ -64,8 +64,10 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     host: island.host,
     /**
      * Class instances (mapping, source, lineSpans) are handed over by
-     * reference: reconcile would walk into them. Only the plain cursor and
-     * column window are reconciled, so an unchanged one notifies nothing.
+     * reference: reconcile would walk into them. The plain cursor, column
+     * window and selection are rebuilt every render and reconciled, so an
+     * unchanged one notifies nothing; search and flash are the app's own
+     * state objects, which only change when they are replaced.
      */
     update(next: Partial<SplitInputs>) {
       const current = inputs.value
@@ -74,11 +76,12 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
         if (next.mapping) setInputs("value", next as SplitInputs)
         return
       }
-      const { cursor, columns, ...byReference } = next
+      const { cursor, columns, selection, ...byReference } = next
       batch(() => {
         setInputs("value", byReference)
         if (cursor) setInputs("value", "cursor", reconcile(cursor))
         if (columns) setInputs("value", "columns", reconcile(columns))
+        if (selection !== undefined) setInputs("value", "selection", selection && reconcile(selection))
         // A fold or an expansion rebuilds the rows; the window must still fit them.
         if (byReference.source && byReference.source !== current.source) {
           ensureCursorVisible(inputs.value!.cursor.row)

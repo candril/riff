@@ -1,18 +1,9 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { RGBA } from "@opentui/core"
-import { createSignal } from "solid-js"
-import { LineSpans } from "../diff-rows/line-spans"
-import { RowLineSource } from "../diff-rows/row-source"
 import { CURSOR_ADDITION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
 import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
-import { mountJsx } from "../testing/frame"
+import { bgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import type { Comment, FileReviewStatus } from "../types"
-import { parseDiff } from "../utils/diff-parser"
-import { FileParses } from "../vim-diff/file-parses"
 import { theme } from "../theme"
-import { DiffLineMapping } from "../vim-diff/line-mapping"
-import type { DiffLineMappingOptions } from "../vim-diff/types"
-import { SplitDiffView, type SplitDiffViewProps } from "./SplitDiffView"
 
 /*
  * What the split view draws at 120 columns: two 60-cell panes, old file
@@ -22,40 +13,11 @@ import { SplitDiffView, type SplitDiffViewProps } from "./SplitDiffView"
  * divider.
  */
 
-interface MountOptions extends Partial<Omit<SplitDiffViewProps, "mapping" | "source" | "files" | "lineSpans">> {
-  raw: string
-  mappingOptions?: DiffLineMappingOptions
-}
+let mounted: Awaited<ReturnType<typeof mountSplit>> | null = null
 
-let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
-
-async function mount(options: MountOptions) {
-  const { raw, mappingOptions, ...rest } = options
-  const files = parseDiff(raw)
-  const mapping = new DiffLineMapping(files, "all", undefined, mappingOptions)
-  const props: SplitDiffViewProps = {
-    mapping,
-    source: new RowLineSource(mapping, "split"),
-    files,
-    // No parser answers, so nothing waits on a worker and every line is plain text.
-    lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
-    highlightVersion: 0,
-    comments: [],
-    fileStatuses: new Map(),
-    expandingDivider: null,
-    cursor: { row: -1, col: 0 },
-    side: "right",
-    scrollTop: 0,
-    columns: { left: 0, right: 0 },
-    width: 120,
-    height: 20,
-    focused: true,
-    ...rest,
-  }
-  const [focused, setFocused] = createSignal(props.focused)
-  const live = { ...props, get focused() { return focused() } }
-  mounted = await mountJsx(() => <SplitDiffView {...live} />, { width: props.width, height: props.height })
-  return { ...mounted, setFocused }
+async function mount(options: MountSplitOptions) {
+  mounted = await mountSplit(options)
+  return mounted
 }
 
 afterEach(async () => {
@@ -207,16 +169,6 @@ describe("windowing", () => {
 describe("cursor", () => {
   const RETURN_ROW = 2
   const CURSOR_X = 60 + "   2 ".length + 2
-  const bgAt = (spans: ReturnType<NonNullable<typeof mounted>["setup"]["captureSpans"]>, x: number, y: number) => {
-    let at = 0
-    for (const span of spans.lines[y]!.spans) {
-      if (x < at + span.width) return span.bg.toInts()
-      at += span.width
-    }
-    return undefined
-  }
-  const ints = (hex: string) => RGBA.fromHex(hex).toInts()
-
   test("the active half's cell is a block while focused, and the characters stay the same", async () => {
     const view = await mount({ raw: TWO_FILES, cursor: { row: RETURN_ROW, col: 2 }, side: "right" })
     const focused = await view.frame()

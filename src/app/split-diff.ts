@@ -2,14 +2,18 @@ import type { CliRenderer } from "@opentui/core"
 import { LineSpans, sideOf } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
 import { contentOrigin, gutterWidth, paneWidths } from "../split-view/layout"
+import type { SplitSearch } from "../split-view/overlays"
 import type { AppState } from "../state"
 import type { FileParses } from "../vim-diff/file-parses"
 import type { FlashRegion } from "../vim-diff/flash-handler"
+import type { FlashState } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
+import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { diffPaneWidth, splitShown } from "./diff-layout"
 import { paneOfLine, rowOfLine } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
+import { splitSelection } from "./split-selection"
 
 export interface SplitDiffDeps {
   renderer: CliRenderer
@@ -25,6 +29,18 @@ export interface SplitDiffDeps {
 }
 
 const COLOURABLE = new Set(["context", "addition", "deletion", "no-newline"])
+
+// One per search state, so a render that left the search alone hands the island the same object.
+const searches = new WeakMap<SearchState, SplitSearch>()
+function searchOf(state: SearchState): SplitSearch | null {
+  if (state.matches.length === 0) return null
+  let known = searches.get(state)
+  if (!known) {
+    known = { matches: state.matches, current: state.currentMatchIndex }
+    searches.set(state, known)
+  }
+  return known
+}
 
 /**
  * Everything the app needs to draw the diff side by side, kept out of
@@ -114,6 +130,17 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     },
     syncPane,
     refreshCursor,
+    /**
+     * What unified paints over its rows, in the split view's terms. Flash
+     * on a list surface still dims unified's diff, so it dims split's too.
+     */
+    overlays(vimState: VimCursorState, searchState: SearchState, flashState: FlashState) {
+      return {
+        selection: splitSelection(vimState, source()),
+        search: searchOf(searchState),
+        flash: flashState.active ? flashState.matches : null,
+      }
+    },
     revealCursor: refreshCursor,
     visibleFilenames(): string[] {
       const mapping = deps.getMapping()
@@ -124,7 +151,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       }
       return [...names]
     },
-    /** Flash searches the active pane's columns; drawing its labels in split comes later. */
+    /** Flash searches the active pane's columns. */
     visibleRegion(): FlashRegion {
       const width = paneWidths(island.width())[source().side]
       const code = Math.max(0, width - contentOrigin(gutterWidth(deps.getMapping())))

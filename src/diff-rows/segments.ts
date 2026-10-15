@@ -141,7 +141,7 @@ function withFlag(attributes: number, flag: number, on: boolean | undefined): nu
 
 // The same arithmetic dimCells runs on the frame buffer, whose channels truncate on write.
 const faded = new Map<string, string>()
-function fade(fg: string, bg: string): string {
+export function fade(fg: string, bg: string): string {
   const key = fg + bg
   const cached = faded.get(key)
   if (cached) return cached

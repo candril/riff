@@ -306,6 +306,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           // The per-pane column window lands with sidescroll.
           columns: { left: 0, right: 0 },
           focused: true,
+          ...ctx.split.overlays(vimState, searchState, flashState),
         })
       }
 

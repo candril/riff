@@ -4,8 +4,10 @@ import type { Side } from "../diff-rows/rows"
 import type { CommentSign } from "../diff-rows/signs"
 import type { Comment, FileReviewStatus } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
+import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
+import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 
 export interface SplitDiffViewProps {
   mapping: DiffLineMapping
@@ -25,6 +27,11 @@ export interface SplitDiffViewProps {
   width: number
   height: number
   focused: boolean
+  selection: SplitSelection | null
+  /** Null when nothing matches. */
+  search: SplitSearch | null
+  /** Null unless flash is active; its backdrop dims every row, matches or not. */
+  flash: readonly FlashMatch[] | null
 }
 
 /** What every row reads, worked out once per view rather than once per row. */
@@ -35,4 +42,6 @@ export interface SplitEnv {
   signs: () => ReadonlyMap<number, CommentSign>
   words: () => ReadonlyMap<number, readonly WordSpan[]>
   files: () => ReadonlyMap<string, DiffFile>
+  searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
+  flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
 }

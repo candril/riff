@@ -5,6 +5,7 @@ import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 import type { SplitDiffViewProps, SplitEnv } from "./env"
 import { FullRow } from "./FullRow"
 import { gutterWidth, paneWidths } from "./layout"
+import { flashByLine, searchByLine } from "./overlays"
 import { PairRow } from "./PairRow"
 
 export type { SplitDiffViewProps } from "./env"
@@ -32,6 +33,8 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
     words: createMemo(() => wordsOf(props.mapping)),
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
+    searchHits: createMemo(() => searchByLine(props.search)),
+    flashHits: createMemo(() => flashByLine(props.flash)),
   }
   const visible = () => props.source.rows.slice(props.scrollTop, props.scrollTop + props.height)
 
@@ -39,11 +42,12 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     <box flexDirection="column" width={props.width} height={props.height} overflow="hidden">
       <For each={visible()}>
         {(row, i) => {
-          const atCursor = () => props.cursor.row === props.scrollTop + i()
+          const at = () => props.scrollTop + i()
+          const atCursor = () => props.cursor.row === at()
           // <For> hands a row object to one child for its whole life, so branching once is enough.
-          if (row.kind === "pair") return <PairRow env={env} row={row} atCursor={atCursor()} />
+          if (row.kind === "pair") return <PairRow env={env} row={row} at={at()} atCursor={atCursor()} />
           const line = props.mapping.getLine(row.index)
-          return line ? <FullRow env={env} line={line} atCursor={atCursor()} /> : null
+          return line ? <FullRow env={env} line={line} index={row.index} at={at()} atCursor={atCursor()} /> : null
         }}
       </For>
     </box>

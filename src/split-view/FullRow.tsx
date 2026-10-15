@@ -1,18 +1,21 @@
 import { TextAttributes } from "@opentui/core"
 import { Show, type JSX } from "solid-js"
 import { cursorLineBg } from "../diff-rows/line-colors"
+import { buildSegments, fade } from "../diff-rows/segments"
 import { theme } from "../theme"
 import type { DiffLine } from "../vim-diff/types"
 import type { SplitEnv } from "./env"
+import { SegmentTexts } from "./Half"
 import { ENTER_HINT, contentOrigin, dividerLabel } from "./layout"
+import { inLineSelection } from "./overlays"
 
-type RowProps = { env: SplitEnv; line: DiffLine; atCursor: boolean }
+/** `index` is the line's in the mapping, `at` the row's in the view. */
+type RowProps = { env: SplitEnv; line: DiffLine; index: number; at: number; atCursor: boolean }
 
 function Bar(props: {
   env: SplitEnv
   bg: string | undefined
   paddingX?: number
-  paddingLeft?: number
   gap?: number
   children?: JSX.Element
 }) {
@@ -25,7 +28,6 @@ function Bar(props: {
       overflow="hidden"
       backgroundColor={props.bg}
       paddingX={props.paddingX}
-      paddingLeft={props.paddingLeft}
       gap={props.gap}
     >
       {props.children}
@@ -39,41 +41,83 @@ const Cell = (props: { fg: string; attributes?: number; children: string }) => (
   </text>
 )
 
+/** Text faded as flash's backdrop fades the code, while flash is up. */
+const dimmed = (env: SplitEnv, fg: string, bg: string | undefined) => (env.flashHits() ? fade(fg, bg ?? theme.base) : fg)
+
 // The same row VimDiffView's FileHeader builds, so the two views label a file alike.
 function FileHeader(props: RowProps) {
   const filename = props.line.filename ?? ""
   const collapsed = props.line.isCollapsed ?? false
   const viewed = () => props.env.props.fileStatuses.get(filename)?.viewed ?? false
   const file = () => props.env.files().get(filename)
+  // Unified's backdrop starts at the path: the fold and viewed markers left of it stay lit.
+  const path = () => {
+    const flash = props.env.flashHits()
+    return buildSegments(filename, {
+      wordSide: "added",
+      baseFg: viewed() ? theme.overlay1 : theme.blue,
+      rowBg: theme.surface0,
+      flash: flash && { matches: flash.get(props.index) ?? [] },
+    })
+  }
   return (
     <Bar env={props.env} bg={theme.surface0} paddingX={1} gap={1}>
       <Cell fg={collapsed ? theme.overlay1 : theme.overlay0}>{collapsed ? "▶" : "▼"}</Cell>
       <Cell fg={viewed() ? theme.green : theme.overlay0}>{viewed() ? "✓" : " "}</Cell>
-      <Cell fg={viewed() ? theme.overlay1 : theme.blue}>{filename}</Cell>
-      <Cell fg={theme.green}>{`+${file()?.additions ?? 0}`}</Cell>
-      <Cell fg={theme.red}>{`-${file()?.deletions ?? 0}`}</Cell>
+      {/* Its own box, or the bar's gap would open between the path's segments. */}
+      <box flexDirection="row" flexShrink={0}>
+        <SegmentTexts segments={path()} />
+      </box>
+      <Cell fg={dimmed(props.env, theme.green, theme.surface0)}>{`+${file()?.additions ?? 0}`}</Cell>
+      <Cell fg={dimmed(props.env, theme.red, theme.surface0)}>{`-${file()?.deletions ?? 0}`}</Cell>
     </Bar>
   )
 }
 
-// Chrome rather than code: it starts where the left pane's code does and never scrolls sideways.
+/**
+ * A row of riff's own whose text starts where the left pane's code does.
+ * A linewise selection over it colours it as unified's lineColors colour
+ * the same line, gutter and all.
+ */
+function ChromeRow(
+  props: RowProps & { bg: string | undefined; children?: (bg: () => string | undefined) => JSX.Element }
+) {
+  const selected = () => inLineSelection(props.env.props.selection, props.at)
+  const bg = () => (props.atCursor ? cursorLineBg(props.line.type) : selected() ? theme.surface0 : props.bg)
+  return (
+    <Bar env={props.env} bg={bg()}>
+      <box
+        width={contentOrigin(props.env.gutter())}
+        height={1}
+        flexShrink={0}
+        backgroundColor={selected() ? theme.surface1 : undefined}
+      />
+      {props.children?.(bg)}
+    </Bar>
+  )
+}
+
+// Chrome rather than code: it never scrolls sideways.
 function Divider(props: RowProps) {
   const expanding = () => !!props.line.dividerKey && props.line.dividerKey === props.env.props.expandingDivider
   const label = () => dividerLabel(props.line, props.env.props.expandingDivider)
   // The `↵` is the key to press, not part of what the row says, so it is drawn as a marker.
   const hinted = () => label().endsWith(ENTER_HINT)
-  const bg = () => (props.atCursor ? cursorLineBg("divider") : expanding() ? theme.surface0 : theme.mantle)
   return (
-    <Bar env={props.env} bg={bg()} paddingLeft={contentOrigin(props.env.gutter())}>
-      <Cell fg={theme.overlay0} attributes={TextAttributes.ITALIC}>
-        {hinted() ? label().slice(0, -ENTER_HINT.length) : label()}
-      </Cell>
-      <Show when={hinted()}>
-        <Cell fg={theme.surface2} attributes={TextAttributes.ITALIC}>
-          {ENTER_HINT}
-        </Cell>
-      </Show>
-    </Bar>
+    <ChromeRow {...props} bg={expanding() ? theme.surface0 : theme.mantle}>
+      {(bg) => (
+        <>
+          <Cell fg={dimmed(props.env, theme.overlay0, bg())} attributes={TextAttributes.ITALIC}>
+            {hinted() ? label().slice(0, -ENTER_HINT.length) : label()}
+          </Cell>
+          <Show when={hinted()}>
+            <Cell fg={dimmed(props.env, theme.surface2, bg())} attributes={TextAttributes.ITALIC}>
+              {ENTER_HINT}
+            </Cell>
+          </Show>
+        </>
+      )}
+    </ChromeRow>
   )
 }
 
@@ -85,16 +129,16 @@ export function FullRow(props: RowProps) {
     case "divider":
       return <Divider {...props} />
     case "spacing":
-      return <Bar env={props.env} bg={props.atCursor ? cursorLineBg("spacing") : undefined} />
-    default:
+      return <ChromeRow {...props} bg={undefined} />
+    default: {
+      const hunkHeader = props.line.type === "hunk-header"
       return (
-        <Bar
-          env={props.env}
-          bg={props.atCursor ? cursorLineBg(props.line.type) : props.line.type === "hunk-header" ? theme.surface0 : undefined}
-          paddingLeft={contentOrigin(props.env.gutter())}
-        >
-          <Cell fg={props.line.type === "hunk-header" ? theme.overlay0 : theme.text}>{props.line.content}</Cell>
-        </Bar>
+        <ChromeRow {...props} bg={hunkHeader ? theme.surface0 : undefined}>
+          {(bg) => (
+            <Cell fg={dimmed(props.env, hunkHeader ? theme.overlay0 : theme.text, bg())}>{props.line.content}</Cell>
+          )}
+        </ChromeRow>
       )
+    }
   }
 }

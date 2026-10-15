@@ -4,6 +4,8 @@ import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testin
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
 import { trimFrame } from "../testing/frame"
+import { bgAt, ints } from "../testing/split-frame"
+import { theme } from "../theme"
 import { parseDiff } from "../utils/diff-parser"
 import { FileParses } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -49,6 +51,9 @@ async function mount(height: number, parent?: (setup: TestRendererSetup) => BoxR
     side: "right",
     columns: { left: 0, right: 0 },
     focused: true,
+    selection: null,
+    search: null,
+    flash: null,
   })
   return { island, source }
 }
@@ -132,4 +137,25 @@ test("a host that shrinks keeps drawing code until the rows follow it", async ()
   expect(island.viewportHeight()).toBe(19)
   expect(rows[3]).toContain("old 2")
   expect(rows[3]).toContain("new 2")
+})
+
+test("a selection reaches the view, follows its changes and goes when it is cleared", async () => {
+  const { island } = await mount(10)
+  await frame()
+  // Row 1's left half reads "old 0" from its fifth cell on; the cursor stays on row 0, out of the way.
+  const selectedAt = (x: number) => bgAt(setup!.captureSpans(), x, 1)
+  const selection = { mode: "visual", startRow: 1, startCol: 0, endRow: 1, endCol: 1 } as const
+
+  island.update({ side: "left", selection })
+  await frame()
+  expect(selectedAt(6)).toEqual(ints(theme.surface1))
+  expect(selectedAt(7)).not.toEqual(ints(theme.surface1))
+
+  island.update({ selection: { ...selection, endCol: 2 } })
+  await frame()
+  expect(selectedAt(7)).toEqual(ints(theme.surface1))
+
+  island.update({ selection: null })
+  await frame()
+  expect(selectedAt(5)).not.toEqual(ints(theme.surface1))
 })
