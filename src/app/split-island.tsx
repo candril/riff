@@ -98,12 +98,19 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     if (next !== current[half.side]) setColumns({ ...current, [half.side]: next })
   }
 
+  // The cursor's block takes a cell past the line's end, and the half marks that cell as part of the line.
+  const revealCursorColumn = () =>
+    moveColumn((half, column) =>
+      revealColumn(column, half.cursorCell, half.width, Math.max(half.cells, half.cursorCell + 1))
+    )
+
   function resize(width: number, height: number): void {
     if (width === size().width && height === size().height) return
     setSize({ width, height })
     // Until the window has a height nothing can be revealed in it.
     const row = inputs.value?.cursor.row
     if (row !== undefined) ensureCursorVisible(row)
+    revealCursorColumn()
   }
   // onSizeChange fires inside the layout pass, after the frame's texts are composed:
   // texts rebuilt there would draw empty, so the new size lands in the next frame.
@@ -144,11 +151,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
       })
     },
     ensureCursorVisible,
-    // The cursor's block takes a cell past the line's end, and the half marks that cell as part of the line.
-    revealColumn: () =>
-      moveColumn((half, column) =>
-        revealColumn(column, half.cursorCell, half.width, Math.max(half.cells, half.cursorCell + 1))
-      ),
+    revealColumn: revealCursorColumn,
     scrollColumnsBy: (delta: number) => moveColumn((_half, column) => scrollBy(column, delta)),
     scrollColumnToEdge: (edge: "start" | "end") =>
       moveColumn((half) => toEdge(half.cursorCell, half.width, edge, half.cells)),

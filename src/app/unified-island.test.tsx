@@ -218,6 +218,49 @@ describe("sidescroll", () => {
     expect(island.lineWindow(wide).startCol).toBe(0)
   })
 
+  // At 120 columns the window shows up to cell 170, past "col180" at 158; narrowed to 80 it would stop short of it.
+  async function narrowedOnCol180() {
+    let box: BoxRenderable | null = null
+    const mounted = await mount({
+      raw: ONE_WIDE_LINE,
+      width: 120,
+      height: 8,
+      parent: ({ renderer }) => {
+        box = new BoxRenderable(renderer, { width: "100%", height: 8 })
+        renderer.root.add(box)
+        return box
+      },
+    })
+    await frame()
+    const wide = lineOf(mounted.mapping, "col000")
+    const col = mounted.mapping.getLine(wide)!.content.indexOf("col180") + 3
+    mounted.island.update({ cursor: { line: wide, col } })
+    mounted.island.revealColumn()
+    box!.width = 80
+    const rows = await frame()
+    return { ...mounted, wide, col, rows }
+  }
+
+  test("a resize that narrows the pane brings the cursor's column back into the window", async () => {
+    const { island, wide, col, rows } = await narrowedOnCol180()
+    expect(island.width()).toBe(80)
+    expect(island.clampCursorColumn(col)).toBe(col)
+    const { startCol, endCol } = island.lineWindow(wide)
+    expect(startCol).toBeLessThanOrEqual(col)
+    expect(endCol).toBeGreaterThan(col)
+    expect(rows[wide]).toContain("col180")
+  })
+
+  test("after a narrowing resize the terminal cursor sits on the cursor's cell, inside the row", async () => {
+    const { setup, island, wide, rows } = await narrowedOnCol180()
+    const { x, y, visible } = setup.renderer.getCursorState()
+    expect(visible).toBe(true)
+    expect(y).toBe(wide + 1)
+    // The terminal counts from 1, and the last column of the pane is the scrollbar's.
+    expect(x).toBeLessThan(island.width())
+    expect(rows[wide]![x - 1]).toBe("1")
+  })
+
   test("the readout is null on a line that fits", async () => {
     const { island, mapping } = await mountWide()
     island.update({ cursor: { line: lineOf(mapping, "const short"), col: 3 } })

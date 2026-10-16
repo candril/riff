@@ -63,14 +63,16 @@ const sameCell = (a: CursorCell | null, b: CursorCell | null) => a === b || (!!a
 
 /**
  * A renderAfter hook that puts the terminal's block cursor on `cell` of the
- * box it is set on. Unfocused, it leaves the cursor alone: whatever has
- * focus, a composer's textarea say, owns it then.
+ * box it is set on. Unfocused, it hides the cursor once and then leaves it
+ * alone: an overlay drawn over the view cannot cover a terminal cursor, and
+ * whatever has focus, a composer's textarea say, places it again as it draws.
  */
 export function createTerminalCursor(focused: () => boolean, cell: () => CursorCell | null) {
   const renderer = useRenderer()
   const at = createMemo(cell, null, { equals: sameCell })
   // A move that changes no segment, sideways on the same line, would otherwise wait for an unrelated frame.
   createEffect(on([at, focused], () => renderer.requestRender(), { defer: true }))
+  createEffect(on(focused, (now) => now || renderer.setCursorPosition(0, 0, false), { defer: true }))
   // Otherwise the block stays wherever the view last put it, over whatever replaces the view.
   onCleanup(() => renderer.setCursorPosition(0, 0, false))
   return function placeCursor(this: Renderable) {

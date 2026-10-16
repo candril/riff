@@ -89,6 +89,7 @@ import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
 import type { ActionMenuMode } from "../components"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
+import { diffCursorShown } from "./diff-focus"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -229,12 +230,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // After the panel update, which sets the width the diff pane is measured against.
     const splitOn = isSplitOn(state, ctx.split)
 
-    // A composer or a prompt owns the terminal's cursor while it is open (spec 065).
     const ov = state.inlineCommentOverlay
     const composerActive = ov.open && (ov.mode === "compose" || ov.mode === "edit")
     const reviewActive = state.reviewPreview.open
     const prompt = openPrompt(state, ctx, render)
-    const cursorSuspended = composerActive || reviewActive || prompt !== null
+    const diffFocused = diffCursorShown(state, prompt !== null)
 
     // Main content based on view mode
     let content
@@ -295,7 +295,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         searchState,
         flashState,
         emptyMessage: state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display",
-        focused: !cursorSuspended,
+        focused: diffFocused,
       })
       if (splitOn) ctx.split.draw({ mapping: lineMapping, state, vimState, searchState, flashState })
 
@@ -365,7 +365,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // Drive the composer textarea's lifecycle from overlay state. We do
     // this BEFORE building the next tree so the textarea is focused /
     // seeded by the time it's mounted into the layout. Unfocusing the
-    // diff (cursorSuspended) keeps the textarea's cursor visible —
+    // diff (diffFocused) keeps the textarea's cursor visible —
     // otherwise the diff would re-claim it after the textarea's
     // renderCursor pass.
     {
@@ -459,7 +459,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       if (prompt) syncPromptSession({ renderer: ctx.renderer, ...prompt })
       else endPromptSession()
 
-      if (splitOn) ctx.split.island.update({ focused: !cursorSuspended })
+      if (splitOn) ctx.split.island.update({ focused: diffFocused })
     }
 
     ctx.statusBar.update({

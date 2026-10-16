@@ -50,6 +50,17 @@ test("unfocused, it leaves the cursor where its owner put it", async () => {
   expect(cursorOf(view)).toMatchObject({ x: 40, y: 9, visible: true })
 })
 
+test("losing focus with nothing to claim the cursor, an overlay over the view say, it is hidden", async () => {
+  const view = await mount({ cursor: { line: 4, col: 3 } })
+  expect(cursorOf(view).visible).toBe(true)
+  view.set("focused", false)
+  await view.setup.renderOnce()
+  expect(cursorOf(view).visible).toBe(false)
+  view.set("focused", true)
+  await view.setup.renderOnce()
+  expect(cursorOf(view)).toMatchObject({ x: 5 + 3 + 1, y: 4 + 1 + 1, visible: true })
+})
+
 test("off screen, it is hidden", async () => {
   const view = await mount({ cursor: { line: 4, col: 3 }, height: 4 })
   expect(cursorOf(view).visible).toBe(false)

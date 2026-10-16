@@ -241,6 +241,35 @@ describe("sidescroll", () => {
     expect(island.lineWindow(1)).toEqual({ startCol: 75, endCol: 129 })
   })
 
+  test("a resize that narrows the pane brings the cursor's column back into the cursor's half", async () => {
+    let box: BoxRenderable | null = null
+    const { island } = await mount(
+      8,
+      ({ renderer }) => {
+        box = new BoxRenderable(renderer, { width: "100%", height: 8 })
+        renderer.root.add(box)
+        return box
+      },
+      ONE_WIDE_LINE
+    )
+    await frame()
+    const wide = ONE_WIDE_LINE.split("\n").find((line) => line.startsWith("+const wide"))!.slice(1)
+    const col = wide.indexOf("col180") + 3
+    island.update({ cursor: { row: WIDE_ROW, col } })
+    island.revealColumn()
+    expect(rightHalf((await frame())[WIDE_ROW]!)).toContain("col180")
+
+    box!.width = 80
+    const rows = await frame()
+    expect(island.width()).toBe(80)
+    expect(island.clampCursorColumn(col)).toBe(col)
+    // Line 3 is the addition, drawn in the new pane, which starts at column 40 of 80.
+    const { startCol, endCol } = island.lineWindow(3)
+    expect(startCol).toBeLessThanOrEqual(col)
+    expect(endCol).toBeGreaterThan(col)
+    expect(rows[WIDE_ROW]!.slice(40)).toContain("col180")
+  })
+
   test("the readout counts a tab as the cells it draws in, so the last character reads the total", async () => {
     const content = `\t\tconst wide = "${"x".repeat(100)}"`
     const raw = ["diff --git a/t.go b/t.go", "--- a/t.go", "+++ b/t.go", "@@ -1,1 +1,1 @@", "-old", `+${content}`].join("\n")

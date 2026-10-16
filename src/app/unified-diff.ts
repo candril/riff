@@ -28,7 +28,7 @@ export interface UnifiedDrawInput {
   searchState: SearchState
   flashState: FlashState
   emptyMessage: string
-  /** False while a composer or a prompt owns the terminal cursor. */
+  /** False while an overlay, a composer or a prompt takes the keys ahead of the diff: its cursor is then not shown. */
   focused: boolean
 }
 

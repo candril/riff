@@ -142,11 +142,20 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     }
   }
 
+  // The cursor's block takes a cell past the line's end, and the line owns that cell too.
+  function revealCursorColumn(): void {
+    const code = cursorCode()
+    if (!code) return
+    const cells = Math.max(code.cells, code.cursorCell + 1)
+    moveColumn(revealColumn(shownColumn(), code.cursorCell, code.width, cells, unifiedShownCells))
+  }
+
   function resize(width: number, height: number): void {
     if (width === size().width && height === size().height) return
     setSize({ width, height })
     // Until the window has a height nothing can be revealed in it.
     ensureCursorVisible()
+    revealCursorColumn()
   }
   // onSizeChange fires inside the layout pass, after the frame's texts are composed:
   // texts rebuilt there would draw empty, so the new size lands in the next frame.
@@ -203,13 +212,7 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
       const row = cursorRow()
       if (row >= 0) setScrollTop(placeRow(window(), row, where, scrollOff))
     },
-    // The cursor's block takes a cell past the line's end, and the line owns that cell too.
-    revealColumn() {
-      const code = cursorCode()
-      if (!code) return
-      const cells = Math.max(code.cells, code.cursorCell + 1)
-      moveColumn(revealColumn(shownColumn(), code.cursorCell, code.width, cells, unifiedShownCells))
-    },
+    revealColumn: revealCursorColumn,
     // One window for every line, so it moves from any line the cursor is on, a header's too.
     scrollColumnsBy(delta: number) {
       if (inputs.value && !inputs.value.wrap) moveColumn(scrollBy(shownColumn(), delta))
