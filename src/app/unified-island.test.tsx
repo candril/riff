@@ -13,7 +13,6 @@ import {
   THREE_FILES,
   TWO_FILES,
 } from "../testing/diffs"
-import { mountDiffView } from "../testing/frame"
 import { mountIsland, type MountIslandOptions } from "../testing/unified-island"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -208,6 +207,17 @@ describe("sidescroll", () => {
     expect(island.lineWindow(wide).startCol).toBe(0)
   })
 
+  test("a cursor back at the start of the line brings the window back to the first column", async () => {
+    const { island, wide } = await mountWide()
+    island.update({ cursor: { line: wide, col: 80 } })
+    island.revealColumn()
+    expect(island.lineWindow(wide).startCol).toBeGreaterThan(0)
+    expect(island.lineWindow(wide).startCol).toBeLessThanOrEqual(80)
+    island.update({ cursor: { line: wide, col: 0 } })
+    island.revealColumn()
+    expect(island.lineWindow(wide).startCol).toBe(0)
+  })
+
   test("the readout is null on a line that fits", async () => {
     const { island, mapping } = await mountWide()
     island.update({ cursor: { line: lineOf(mapping, "const short"), col: 3 } })
@@ -242,6 +252,24 @@ describe("what is on screen", () => {
     expect(island.visibleLines()).not.toContain(top)
     expect(island.visibleRegion()!.lines).toEqual(island.visibleLines())
     expect(island.visibleFilenames()).toEqual(["src/two.ts", "src/three.ts"])
+  })
+
+  test("the files with code on screen: every one in a tall pane, those down to the bottom row in a short one", async () => {
+    const tall = await mount({ raw: THREE_FILES, height: 40 })
+    await frame()
+    expect(tall.island.visibleFilenames()).toEqual(["src/one.ts", "src/two.ts", "src/three.ts"])
+    tall.dispose()
+
+    const short = await mount({ raw: THREE_FILES, height: 7 })
+    await frame()
+    // Seven rows reach two.ts's header and none of its code.
+    expect(short.island.visibleFilenames()).toEqual(["src/one.ts"])
+  })
+
+  test("a collapsed file shows a header and no code, so its file is not among them", async () => {
+    const { island } = await mount({ raw: THREE_FILES, height: 40, mappingOptions: { collapsedFiles: new Set(["src/two.ts"]) } })
+    await frame()
+    expect(island.visibleFilenames()).toEqual(["src/one.ts", "src/three.ts"])
   })
 
   // Narrow enough that the code overflows, so the window has somewhere to scroll.
@@ -296,38 +324,55 @@ describe("what is on screen", () => {
   })
 })
 
-describe("the cursor's row is the one VimDiffView reveals", () => {
-  const cases: [string, MountIslandOptions][] = [
-    ["all files", { raw: TWO_FILES, width: 80, height: 16 }],
-    ["three files", { raw: THREE_FILES, width: 80, height: 16 }],
-    ["a gutter per section", { raw: MIXED_DIGITS, width: 80, height: 16 }],
-    ["a collapsed file", { raw: TWO_FILES, mappingOptions: { collapsedFiles: new Set(["src/greet.ts"]) } }],
-    ["wrapped, a long line", { raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true }],
-    ["wrapped, two files narrow", { raw: TWO_FILES, width: 30, height: 40, wrap: true }],
-    ["wrapped, a gutter widened by wrap", { raw: SHORT_THEN_MANY_WRAPPED, width: 120, height: 20, wrap: true }],
+/*
+ * Each line's first row and, for a line that wraps once, the column its
+ * second row starts at; every other column of the line lands on one of
+ * the two. Every eleventh column, the last and both sides of a break are
+ * tried.
+ */
+describe("the cursor's row", () => {
+  interface Rows {
+    firstRows: number[]
+    breaks?: Record<number, number>
+  }
+
+  const identity = (count: number): Rows => ({ firstRows: Array.from({ length: count }, (_, line) => line) })
+  // SHORT_THEN_MANY_WRAPPED at 120: the short file's eight lines, then sixty that wrap once each.
+  const manyWrapped: Rows = {
+    firstRows: [...Array.from({ length: 8 }, (_, line) => line), ...Array.from({ length: 60 }, (_, i) => 8 + 2 * i), 128],
+    breaks: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [8 + i, i < 9 ? 110 : 111])),
+  }
+
+  const cases: [string, MountIslandOptions, Rows][] = [
+    ["all files", { raw: TWO_FILES, width: 80, height: 15 }, identity(14)],
+    ["three files", { raw: THREE_FILES, width: 80, height: 15 }, identity(17)],
+    ["a gutter per section", { raw: MIXED_DIGITS, width: 80, height: 15 }, identity(12)],
+    ["a collapsed file", { raw: TWO_FILES, height: 15, mappingOptions: { collapsedFiles: new Set(["src/greet.ts"]) } }, identity(6)],
+    ["wrapped, a long line", { raw: ONE_LONG_LINE, width: 60, height: 9, wrap: true }, { firstRows: [0, 1, 2, 3, 5, 6], breaks: { 3: 54 } }],
+    [
+      "wrapped, two files narrow",
+      { raw: TWO_FILES, width: 30, height: 39, wrap: true },
+      { firstRows: [0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15], breaks: { 1: 22, 10: 16 } },
+    ],
+    ["wrapped, a gutter widened by wrap", { raw: SHORT_THEN_MANY_WRAPPED, width: 120, height: 19, wrap: true }, manyWrapped],
   ]
 
-  for (const [name, options] of cases) {
+  for (const [name, options, { firstRows, breaks = {} }] of cases) {
     test(name, async () => {
-      const { width = 80, height = 16, wrap = false } = options
-      const old = await mountDiffView({ ...options, width, height, wrap })
-      await old.frame()
-      const { island, mapping } = await mount({ ...options, width, height: height - 1, wrap })
+      const { island, mapping } = await mount(options)
       await frame()
+      expect(mapping.lineCount).toBe(firstRows.length)
 
-      let compared = 0
       for (let line = 0; line < mapping.lineCount; line++) {
         const length = mapping.getLine(line)!.content.length
-        // Every eleventh column reaches each slice of a wrapped line, its last column the last slice.
-        const cols = [...Array.from({ length: Math.ceil(length / 11) }, (_, i) => i * 11), Math.max(0, length - 1)]
+        const around = breaks[line] === undefined ? [] : [breaks[line]! - 1, breaks[line]!]
+        const cols = [...Array.from({ length: Math.ceil(length / 11) }, (_, i) => i * 11), Math.max(0, length - 1), ...around]
         for (const col of new Set(cols)) {
           island.update({ cursor: { line, col } })
-          expect({ line, col, row: island.cursorRow() }).toEqual({ line, col, row: old.view.cursorLineToVisualRow(line, col) })
-          compared++
+          const expected = firstRows[line]! + (breaks[line] !== undefined && col >= breaks[line]! ? 1 : 0)
+          expect({ line, col, row: island.cursorRow() }).toEqual({ line, col, row: expected })
         }
       }
-      expect(compared).toBeGreaterThan(mapping.lineCount)
-      await old.dispose()
     })
   }
 })

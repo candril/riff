@@ -4,10 +4,8 @@ import { CURSOR_LINE_BG, DELETION_BG } from "../diff-rows/line-colors"
 import { fade } from "../diff-rows/segments"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { TWO_FILES } from "../testing/diffs"
-import { mountDiffView } from "../testing/frame"
 import { bgAt, fgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import { theme } from "../theme"
-import { createCursorState } from "../vim-diff/cursor-state"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { SplitSelection } from "./overlays"
 
@@ -23,7 +21,6 @@ const LEFT = 5
 const RIGHT = 65
 
 let mounted: Awaited<ReturnType<typeof mountSplit>> | null = null
-let unified: Awaited<ReturnType<typeof mountDiffView>> | null = null
 
 async function mount(options: Omit<MountSplitOptions, "raw">) {
   mounted = await mountSplit({ raw: TWO_FILES, ...options })
@@ -33,9 +30,7 @@ async function mount(options: Omit<MountSplitOptions, "raw">) {
 
 afterEach(async () => {
   await mounted?.dispose()
-  await unified?.dispose()
   mounted = null
-  unified = null
 })
 
 const spans = () => mounted!.setup.captureSpans()
@@ -118,25 +113,14 @@ describe("linewise selection", () => {
     expect(bgAt(spans(), 60, 3)).toEqual(ints(theme.surface1))
   })
 
-  test("a divider and a spacer in range are coloured as unified colours them, and a file header is not", async () => {
+  // Unified's colours for these rows: UnifiedDiffView.colours.frames.test.tsx pins its linewise selection.
+  test("a divider and a spacer in range take the selection's gutter and code colours, and a file header does not", async () => {
     await mount({ selection: { mode: "visual-line", startRow: 5, startCol: 0, endRow: 9, endCol: 0 }, side: "right" })
-    unified = await mountDiffView({ raw: TWO_FILES, width: 80, height: 18 })
-    unified.view.update(unified.files, null, unified.mapping, {
-      ...createCursorState(),
-      mode: "visual-line",
-      line: 10,
-      selectionAnchor: 6,
-      selectionAnchorCol: 0,
-    }, [], new Map(), null, null)
-    await unified.frame()
-    const fromUnified = unified.setup.captureSpans()
 
-    // Unified's rows sit one lower, under the app's header row.
-    for (const [y, x] of [[6, 0], [6, 30], [7, 0], [7, 30], [8, 30]] as const) {
-      expect(bgAt(spans(), x, y)).toEqual(bgAt(fromUnified, x, y + 1)!)
+    for (const y of [6, 7]) {
+      expect([bgAt(spans(), 0, y), bgAt(spans(), 30, y)]).toEqual([ints(theme.surface1), ints(theme.surface0)])
     }
-    expect(bgAt(spans(), 0, 6)).toEqual(ints(theme.surface1))
-    expect(bgAt(spans(), 30, 6)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans(), 30, 8)).toEqual(ints(theme.surface0))
   })
 })
 
@@ -159,21 +143,25 @@ describe("flash", () => {
     expect(fgAt(spans(), LEFT + 5, 2)).toEqual(ints(fade(theme.text, DELETION_BG)))
   })
 
-  test("a file header is labelled on its path and faded from the path on, as unified's is", async () => {
+  test("a file header is labelled on its path and faded from the path on, its markers dimmed", async () => {
     await mount({ flash: matches })
-    unified = await mountDiffView({ raw: TWO_FILES, width: 80, height: 18 })
-    unified.view.setFlashState({ active: true, surface: "diff", pattern: "e", rows: [], matches })
-    await unified.frame()
-    const fromUnified = unified.setup.captureSpans()
     const rows = await chars()
 
     expect(rows[0]).toStartWith(" ▼   src/bree")
-    expect(bgAt(spans(), 9, 0)).toEqual(ints(theme.red))
-    for (let x = 0; x < 22; x++) {
-      // A blank's foreground draws nothing, and the two views leave theirs differently.
-      if (rows[0]![x] !== " ") expect([x, fgAt(spans(), x, 0)]).toEqual([x, fgAt(fromUnified, x, 1)!])
-      expect([x, bgAt(spans(), x, 0)]).toEqual([x, bgAt(fromUnified, x, 1)!])
+    const path = ints(fade(theme.blue, theme.surface0))
+    const expected: Record<number, ReturnType<typeof ints>[]> = {
+      1: [ints(theme.overlay0), ints(theme.surface0)],
+      5: [path, ints(theme.surface0)],
+      9: [ints(theme.base), ints(theme.red)],
+      10: [ints(theme.text), ints(theme.surface1)],
+      11: [path, ints(theme.surface0)],
+      18: [ints(fade(theme.green, theme.surface0)), ints(theme.surface0)],
+      21: [ints(fade(theme.red, theme.surface0)), ints(theme.surface0)],
     }
+    for (const [x, colours] of Object.entries(expected)) {
+      expect([x, fgAt(spans(), Number(x), 0), bgAt(spans(), Number(x), 0)]).toEqual([x, ...colours])
+    }
+    for (let x = 0; x < 22; x++) if (x !== 9 && x !== 10) expect([x, bgAt(spans(), x, 0)]).toEqual([x, ints(theme.surface0)])
   })
 
   const labelled = (y: number) =>

@@ -1,5 +1,5 @@
 import { test, expect, afterEach, spyOn } from "bun:test"
-import { TWO_FILES } from "../testing/diffs"
+import { MANY_WRAPPED_LINES, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { mountUnified, type MountUnifiedOptions } from "../testing/unified-frame"
 
 /*
@@ -14,7 +14,7 @@ afterEach(async () => {
   mounted = null
 })
 
-async function mount(options: Omit<MountUnifiedOptions, "raw">) {
+async function mount(options: Partial<MountUnifiedOptions>) {
   mounted = await mountUnified({ raw: TWO_FILES, header: true, ...options })
   await mounted.frame()
   return mounted
@@ -60,4 +60,21 @@ test("disposed, it is hidden", async () => {
   expect(cursorOf(view).visible).toBe(true)
   view.unmount()
   expect(cursorOf(view).visible).toBe(false)
+})
+
+// The wide line is mapping line 3; its window starts at column 84, so column 150 is 66 cells into the code.
+test("on a line scrolled sideways, offset by the window", async () => {
+  const view = await mount({ raw: ONE_WIDE_LINE, height: 8, cursor: { line: 3, col: 150 }, column: 84 })
+  expect(cursorOf(view)).toMatchObject({ x: 5 + 66 + 1, y: 3 + 1 + 1, visible: true })
+})
+
+// Line 2's first row ends after 110 cells, so col 120 is 10 cells into its second, beside the 6-cell gutter wrap gives it.
+test("on a wrapped line's continuation, on that slice's row", async () => {
+  const view = await mount({ raw: MANY_WRAPPED_LINES, width: 120, height: 12, wrap: true, cursor: { line: 2, col: 120 } })
+  expect(cursorOf(view)).toMatchObject({ x: 6 + 10 + 1, y: 1 + 4 + 1, visible: true })
+})
+
+test("in two files scrolled down, on the line's row in the window", async () => {
+  const view = await mount({ height: 8, cursor: { line: 11, col: 4 }, scrollTop: 6 })
+  expect(cursorOf(view)).toMatchObject({ x: 5 + 4 + 1, y: 1 + 11 - 6 + 1, visible: true })
 })

@@ -1,18 +1,13 @@
 import { test, expect, afterEach, describe } from "bun:test"
 import type { Renderable } from "@opentui/core"
 import { MANY_WRAPPED_LINES, ONE_LONG_LINE, ONE_WIDE_LINE, SIXTY_LINES, TWO_FILES } from "../testing/diffs"
-import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
 import { fgAt, ints } from "../testing/split-frame"
 import { mountIsland, type MountIslandOptions } from "../testing/unified-island"
 import { colors } from "../theme"
-import { DiffLineMapping } from "../vim-diff/line-mapping"
 
 /*
- * Where unified's island meets the edges VimDiffView's scrollbox drew for
- * it: an empty diff, the last row, the widest line and the mouse wheel.
- * VimDiffView is mounted under the app's one-row header, so the island is
- * given a row less and its rows are compared against VimDiffView's from
- * the second on.
+ * Where unified's island meets its edges: an empty diff, the last row, the
+ * widest line and the mouse wheel.
  */
 
 let mounted: Awaited<ReturnType<typeof mountIsland>> | null = null
@@ -28,41 +23,25 @@ async function mount(options: MountIslandOptions) {
   return mounted
 }
 
-/** VimDiffView on the same diff, the screen a row taller for its header. */
-async function withOld<T>(options: MountDiffViewOptions, read: (old: Awaited<ReturnType<typeof mountDiffView>>) => Promise<T>) {
-  const old = await mountDiffView(options)
-  await old.frame()
-  try {
-    return await read(old)
-  } finally {
-    await old.dispose()
-  }
-}
-
 describe("an empty diff", () => {
-  for (const message of ["No changes to display", "No files match /zzz"]) {
-    test(`says "${message}" where VimDiffView does`, async () => {
-      const old = await withOld({ raw: "", width: 60, height: 12 }, async (old) => {
-        old.view.setEmptyMessage(message)
-        // The message is read at rebuild time, which a filter change brings with a new mapping.
-        old.view.update([], null, new DiffLineMapping([], "all"), old.cursor, [], new Map(), null, null)
-        return (await old.frame()).split("\n").slice(1)
-      })
+  const centred: [string, string][] = [
+    ["No changes to display", "                   No changes to display"],
+    ["No files match /zzz", "                    No files match /zzz"],
+  ]
+
+  for (const [message, row] of centred) {
+    test(`says "${message}" in the middle of the pane`, async () => {
       const { frame } = await mount({ raw: "", width: 60, height: 11, emptyMessage: message })
-      const rows = await frame()
-      expect(rows.join("\n")).toContain(message)
-      expect(rows).toEqual(old)
+      expect(await frame()).toEqual(["", "", "", "", "", row])
     })
   }
 
-  test("is drawn in VimDiffView's dim text", async () => {
+  test("is drawn in dim text", async () => {
     const { frame, setup } = await mount({ raw: "", width: 60, height: 11 })
     const rows = await frame()
     const y = rows.findIndex((row) => row.includes("No changes"))
     const x = rows[y]!.indexOf("No changes")
     expect(fgAt(setup.captureSpans(), x, y)).toEqual(ints(colors.textDim))
-    const old = await withOld({ raw: "", width: 60, height: 12 }, async (old) => fgAt(old.setup.captureSpans(), x, y + 1))
-    expect(old).toEqual(ints(colors.textDim))
   })
 
   test("gives way to the diff once there are lines", async () => {
@@ -99,23 +78,21 @@ describe("the window never runs past the last row", () => {
   })
 })
 
-describe("sideways, the window stops at the widest line as VimDiffView's does", () => {
-  const cases: [string, MountIslandOptions][] = [
-    ["one long line", { raw: ONE_LONG_LINE, width: 80, height: 15 }],
-    ["one long line beside a scrollbar", { raw: ONE_LONG_LINE, width: 80, height: 4 }],
-    ["one long line, narrow", { raw: ONE_LONG_LINE, width: 40, height: 15 }],
-    ["two files, narrow", { raw: TWO_FILES, width: 30, height: 15 }],
-    ["two files, wide enough for every line", { raw: TWO_FILES, width: 80, height: 15 }],
+/*
+ * The stop is how far the content, the widest line beside its gutter and a
+ * cell of padding, outruns the pane: a column further beside a scrollbar.
+ */
+describe("sideways, the window stops at the widest line", () => {
+  const cases: [string, MountIslandOptions, number][] = [
+    ["one long line", { raw: ONE_LONG_LINE, width: 80, height: 15 }, 18],
+    ["one long line beside a scrollbar", { raw: ONE_LONG_LINE, width: 80, height: 4 }, 19],
+    ["one long line, narrow", { raw: ONE_LONG_LINE, width: 40, height: 15 }, 58],
+    ["two files, narrow", { raw: TWO_FILES, width: 30, height: 15 }, 16],
+    ["two files, wide enough for every line", { raw: TWO_FILES, width: 80, height: 15 }, 0],
   ]
 
-  for (const [name, options] of cases) {
+  for (const [name, options, stop] of cases) {
     test(name, async () => {
-      const height = options.height! + 1
-      const stop = await withOld({ raw: options.raw, width: options.width, height }, async (old) => {
-        old.view.scrollColumnsBy(1000)
-        await old.frame()
-        return old.view.getScrollBox()!.scrollLeft
-      })
       const { island, mapping } = await mount(options)
       // A code line, which every window shows from the shared column on.
       const code = mapping.allLines.findIndex((line) => line.type === "context")
@@ -155,7 +132,7 @@ describe("sideways, the window stops at the widest line as VimDiffView's does", 
 })
 
 describe("the mouse wheel", () => {
-  // VimDiffView's VERTICAL_SCROLL_OFF, which the app hands the island.
+  // The margin the app hands the island.
   const SCROLL_OFF = 5
 
   type Setup = Awaited<ReturnType<typeof mountIsland>>["setup"]
@@ -169,72 +146,43 @@ describe("the mouse wheel", () => {
     }
   }
 
-  async function wheelOld(options: MountDiffViewOptions, ticks: number) {
-    return withOld(options, async (old) => {
-      let dragged: number | null = null
-      old.view.setOnCursorScrolledAway((line) => (dragged = line))
-      for (let tick = 0; tick < ticks; tick++) {
-        await old.setup.mockMouse.scroll(10, 5, "down")
-        await old.frame()
-      }
-      return { scrollTop: old.view.getScrollBox()!.scrollTop, dragged }
-    })
-  }
-
   /*
    * Ticks with no frame between them, as a fast wheel sends them. The hit
    * grid still names the rows the first ticks scrolled away; the island
-   * keeps those rows, hidden, so each tick still reaches it. `y` is the
-   * island's row; VimDiffView's is a row lower, under its header.
+   * keeps those rows, hidden, so each tick still reaches it.
    */
   async function burst(setup: Setup, direction: Direction, ticks: number, y: number) {
     for (let tick = 0; tick < ticks; tick++) await setup.mockMouse.scroll(10, y, direction)
   }
 
-  async function burstOld(options: MountDiffViewOptions, ticks: number, y: number) {
-    return withOld(options, async (old) => {
-      let dragged: number | null = null
-      old.view.setOnCursorScrolledAway((line) => (dragged = line))
-      for (let tick = 0; tick < ticks; tick++) await old.setup.mockMouse.scroll(10, y + 1, "down")
-      await old.frame()
-      return { scrollTop: old.view.getScrollBox()!.scrollTop, dragged }
-    })
-  }
-
-  const cases: [string, MountIslandOptions][] = [
-    ["all files", { raw: SIXTY_LINES, width: 80, height: 10 }],
-    ["wrapped", { raw: MANY_WRAPPED_LINES, width: 120, height: 10, wrap: true }],
+  const cases: [string, MountIslandOptions, number][] = [
+    ["all files", { raw: SIXTY_LINES, width: 80, height: 10 }, 16],
+    ["wrapped", { raw: MANY_WRAPPED_LINES, width: 120, height: 10, wrap: true }, 8],
   ]
 
-  for (const [name, options] of cases) {
-    test(`${name}: twelve ticks down scroll and drag the cursor as VimDiffView does`, async () => {
-      const old = await wheelOld({ raw: options.raw, width: options.width, height: options.height! + 1, wrap: options.wrap }, 12)
+  for (const [name, options, draggedTo] of cases) {
+    test(`${name}: twelve ticks down scroll twelve rows and drag the cursor along`, async () => {
       const { island, setup } = await mount({ ...options, scrollOff: SCROLL_OFF })
       const dragged: number[] = []
       island.setOnCursorScrolledAway((line) => dragged.push(line))
       await wheel(setup, "down", 12)
-      expect(island.scrollTop()).toBe(old.scrollTop)
-      expect(dragged.at(-1)).toBe(old.dragged!)
+      expect(island.scrollTop()).toBe(12)
+      expect(dragged.at(-1)).toBe(draggedTo)
     })
   }
 
   for (const y of [1, 5, 8]) {
-    test(`ten ticks in one frame, the pointer on row ${y}, scroll ten rows as VimDiffView does`, async () => {
-      const old = await burstOld({ raw: SIXTY_LINES, width: 80, height: 11 }, 10, y)
+    test(`ten ticks in one frame, the pointer on row ${y}, scroll ten rows`, async () => {
       const { island, setup } = await mount({ raw: SIXTY_LINES, width: 80, height: 10, scrollOff: SCROLL_OFF })
       await burst(setup, "down", 10, y)
       expect(island.scrollTop()).toBe(10)
-      expect(island.scrollTop()).toBe(old.scrollTop)
     })
   }
 
-  test("ten ticks in one frame over wrapped lines scroll as VimDiffView does", async () => {
-    const options = { raw: MANY_WRAPPED_LINES, width: 120, wrap: true }
-    const old = await burstOld({ ...options, height: 11 }, 10, 5)
-    const { island, setup } = await mount({ ...options, height: 10, scrollOff: SCROLL_OFF })
+  test("ten ticks in one frame over wrapped lines scroll ten rows", async () => {
+    const { island, setup } = await mount({ raw: MANY_WRAPPED_LINES, width: 120, wrap: true, height: 10, scrollOff: SCROLL_OFF })
     await burst(setup, "down", 10, 5)
-    expect(old.scrollTop).toBe(10)
-    expect(island.scrollTop()).toBe(old.scrollTop)
+    expect(island.scrollTop()).toBe(10)
   })
 
   test("ten ticks up in one frame from the last row come back ten rows", async () => {
@@ -279,14 +227,12 @@ describe("the mouse wheel", () => {
     expect(held).toBeGreaterThan(settled)
   })
 
-  test("a burst drags the cursor to the line VimDiffView drags it to", async () => {
-    const old = await burstOld({ raw: SIXTY_LINES, width: 80, height: 11 }, 10, 5)
+  test("a burst drags the cursor along", async () => {
     const { island, setup } = await mount({ raw: SIXTY_LINES, width: 80, height: 10, scrollOff: SCROLL_OFF })
     const dragged: number[] = []
     island.setOnCursorScrolledAway((line) => dragged.push(line))
     await burst(setup, "down", 10, 5)
-    expect(old.dragged).not.toBeNull()
-    expect(dragged.at(-1)).toBe(old.dragged!)
+    expect(dragged.at(-1)).toBe(14)
   })
 
   test("the frame follows the wheel, and the window stops at the last row", async () => {
