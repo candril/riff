@@ -1,7 +1,8 @@
 import { cellOfColumn } from "../diff-rows/cells"
 import type { DiffLine, DiffLineType } from "../vim-diff/types"
 
-// The types VimDiffView's buildLineWidths (src/components/VimDiffView.ts) measures; a hunk header it leaves at 0, so it is never marked.
+// The types VimDiffView's buildLineWidths (src/components/VimDiffView.ts) measures; a hunk header
+// it leaves at 0, so it is never marked.
 const MEASURED_TYPES = new Set<DiffLineType>(["addition", "deletion", "context", "no-newline"])
 
 /** A line's width in cells, as unified's overflow markers measure it: 0 for a line they never mark. */

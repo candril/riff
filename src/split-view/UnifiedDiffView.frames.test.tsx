@@ -224,6 +224,26 @@ describe("overlays", () => {
     expect(fgAt(spans(), 59, 3)).toEqual(ints(fade(theme.surface2, ADDITION_BG)))
   })
 
+  /*
+   * VimDiffView draws its › before flash and each label with setCell, so a label starting there
+   * replaces the › whichever match came first. No parity case holds this: VimDiffView's recolorCell
+   * throws on any flash match over its own › cell.
+   */
+  test("flash: a label starting on the › column replaces it, though an earlier match covers it too", async () => {
+    const frame = await frameOf({
+      raw: ONE_LONG_LINE,
+      width: 60,
+      height: 9,
+      flash: [
+        // "keeps going a", over the last code cell at 54.
+        { line: 3, startCol: 43, endCol: 56, label: "a" },
+        { line: 3, startCol: 54, endCol: 60, label: "s" },
+      ],
+    })
+    expect(frame.split("\n")[3]!.at(-1)).toBe("s")
+    expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.base), ints(theme.red)])
+  })
+
   test("the › at the edge keeps a search hit's background under it", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,

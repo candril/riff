@@ -70,8 +70,9 @@ const sameFlash = (a: readonly FlashMatch[] | null, b: readonly FlashMatch[] | n
  * flash match recolours it and a label replaces it.
  */
 function rightMarker(under: Segment & { bg: string }, column: number, flash: readonly FlashMatch[] | null): Segment {
+  // VimDiffView draws › before flash, so a label always lands over it; `under` already layers any match after it.
+  if (flash?.some((match) => match.label && match.startCol === column)) return under
   const hit = flash?.find((match) => column >= match.startCol && column < match.endCol)
-  if (hit?.label && hit.startCol === column) return under
   const fg = hit ? under.fg : flash ? fade(theme.surface2, under.bg) : theme.surface2
   return { text: "›", fg, bg: under.bg, attributes: 0 }
 }
