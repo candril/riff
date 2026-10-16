@@ -86,6 +86,31 @@ describe("buildVisualRows", () => {
     test("falls back for a row that does not wrap", () => {
       expect(visual.ofColumn(4, 4)).toEqual({ visual: 5, slice: null })
     })
+
+    test("places a row past the end where firstOf puts it, one past the last visual row", () => {
+      expect(visual.ofColumn(99, 0)).toEqual({ visual: visual.total, slice: null })
+      expect(visual.firstOf(99)).toBe(visual.total)
+    })
+
+    const oneLine = (content: string) => {
+      const single = [lineOf("context", content, 0)]
+      const rows = buildVisualRows(buildRows(single, "unified"), single, { wrap: true, widthOf: () => 6 })
+      return (col: number) => rows.ofColumn(0, col).visual
+    }
+
+    test("moves whitespace hanging past the edge to the next row, where it can be shown", () => {
+      // "aaa   " fills the row; the three spaces after it hang there undrawn.
+      const placedIn = oneLine("aaa      bbb")
+      expect([0, 5].map(placedIn)).toEqual([0, 0])
+      expect([6, 7, 8, 9, 11].map(placedIn)).toEqual([1, 1, 1, 1, 1])
+    })
+
+    test("counts a tab as the cells it draws in", () => {
+      // "abcd" and the first tab fill the row's six cells; the second tab hangs past the edge.
+      const placedIn = oneLine("abcd\t\tef")
+      expect([0, 4].map(placedIn)).toEqual([0, 0])
+      expect([5, 6, 7].map(placedIn)).toEqual([1, 1, 1])
+    })
   })
 
   test("hunk headers wrap; file headers, dividers, spacing and split's pairs stay one row", () => {
@@ -105,6 +130,14 @@ describe("buildVisualRows", () => {
     const pairs = split.flatMap((row, index) => (row.kind === "pair" ? [index] : []))
     expect(pairs.length).toBeGreaterThan(0)
     expect(pairs.map(inSplit.heightOf)).toEqual(pairs.map(() => 1))
+  })
+
+  test("at() reports no row when there are none", () => {
+    for (const wrap of [true, false]) {
+      const empty = buildVisualRows([], [], { wrap, widthOf: () => 18 })
+      expect(empty.total).toBe(0)
+      expect(empty.at(0)).toEqual({ row: -1, slice: null, continuation: false })
+    }
   })
 
   test("wrap off is the identity", () => {

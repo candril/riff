@@ -31,6 +31,49 @@ export function gutterWidth(mapping: DiffLineMapping): number {
 /** Where a half's code starts: its sign cell, the number and the space after it. */
 export const contentOrigin = (gutter: number) => SIGN_CELLS + gutter + 1
 
+/** The number unified's gutter shows for a line, as VimDiffView numbers it; 0 for none. */
+function unifiedNumber(line: DiffLine): number {
+  if (line.type === "addition" || line.type === "context") return line.newLineNum ?? 0
+  if (line.type === "deletion") return line.oldLineNum ?? 0
+  return 0
+}
+
+const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1 : 1)
+
+/**
+ * The cell each line's code starts at in unified, sized as OpenTUI's
+ * LineNumberRenderable sizes its gutter: a sign cell, then the wider of a
+ * floor and the digits of the larger of the section's line count and its
+ * largest number, plus the space before the code. The floor is four cells
+ * or the widest number in the whole diff. All files gives every file
+ * section its own gutter; a single file, with no header, is one section.
+ *
+ * Rows a wrap adds are not counted, though OpenTUI counts them: how many
+ * there are depends on the width this sets, and they only widen a gutter
+ * once a section passes a hundred rows.
+ */
+export function unifiedOrigins(mapping: DiffLineMapping): (lineIndex: number) => number {
+  const lines = mapping.allLines
+  let widest = 0
+  for (const line of lines) widest = Math.max(widest, unifiedNumber(line))
+  const floor = Math.max(4, digits(widest))
+
+  const origins = new Int32Array(lines.length)
+  let start = 0
+  while (start < lines.length) {
+    // A file's header leads its section: the header row is drawn beside the code, not in it.
+    const codeStart = lines[start]!.type === "file-header" ? start + 1 : start
+    let end = codeStart
+    while (end < lines.length && lines[end]!.type !== "file-header") end++
+    let largest = 0
+    for (let i = codeStart; i < end; i++) largest = Math.max(largest, unifiedNumber(lines[i]!))
+    const origin = SIGN_CELLS + Math.max(floor, digits(Math.max(end - codeStart, largest)) + 2)
+    origins.fill(origin, start, end)
+    start = end
+  }
+  return (lineIndex) => origins[lineIndex] ?? SIGN_CELLS + floor
+}
+
 export function dividerLabel(line: Pick<DiffLine, "content" | "dividerKey">, expandingDivider: string | null): string {
   const count = line.content || "..."
   if (line.dividerKey && line.dividerKey === expandingDivider) return `⟳ Expanding ${count}…`

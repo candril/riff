@@ -4,7 +4,8 @@ import { theme } from "../theme"
 import { FAR_HUNK, TWO_FILES } from "../testing/diffs"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
-import { cellCount, contentOrigin, dividerLabel, gutterWidth, halfContent, paneWidths } from "./layout"
+import { diffFile } from "../diff-rows/fixtures"
+import { cellCount, contentOrigin, dividerLabel, gutterWidth, halfContent, paneWidths, unifiedOrigins } from "./layout"
 
 const mappingOf = (raw: string) => new DiffLineMapping(parseDiff(raw), "all")
 const texts = (segments: { text: string }[]) => segments.map((s) => s.text).join("")
@@ -24,6 +25,48 @@ describe("gutterWidth", () => {
     expect(contentOrigin(gutterWidth(mappingOf(TWO_FILES)))).toBe("   1 ".length)
     expect(gutterWidth(mappingOf(FAR_HUNK))).toBe(4)
     expect(contentOrigin(gutterWidth(mappingOf(FAR_HUNK)))).toBe("  503 ".length)
+  })
+})
+
+describe("unifiedOrigins", () => {
+  const originsOf = (mapping: DiffLineMapping) => {
+    const origin = unifiedOrigins(mapping)
+    return mapping.allLines.map((_, index) => origin(index))
+  }
+  const byFile = (mapping: DiffLineMapping) => {
+    const origin = unifiedOrigins(mapping)
+    const found = new Map<string, Set<number>>()
+    mapping.allLines.forEach((line, index) => {
+      const known = found.get(line.filename ?? "") ?? new Set()
+      found.set(line.filename ?? "", known.add(origin(index)))
+    })
+    return Object.fromEntries([...found].map(([file, origins]) => [file, [...origins]]))
+  }
+
+  // `   1 export` and `  503   trackingId` in VimDiffView.frames.test.ts.
+  test("puts the code where unified's frames have it", () => {
+    expect(new Set(originsOf(mappingOf(TWO_FILES)))).toEqual(new Set([5]))
+    expect(new Set(originsOf(mappingOf(FAR_HUNK)))).toEqual(new Set([6]))
+  })
+
+  test("sizes a single file, which has no header, as one section", () => {
+    const files = parseDiff(FAR_HUNK)
+    expect(new Set(originsOf(new DiffLineMapping(files, "single", 0)))).toEqual(new Set([6]))
+    expect(new Set(originsOf(new DiffLineMapping(parseDiff(TWO_FILES), "single", 1)))).toEqual(new Set([5]))
+  })
+
+  test("gives each file section its own gutter, header included", () => {
+    const short = diffFile("short.ts", ["@@ -1,1 +1,1 @@", "-a", "+b"])
+    const far = diffFile("far.ts", ["@@ -120,1 +120,1 @@", "-a", "+b"])
+    expect(byFile(new DiffLineMapping([short, far], "all"))).toEqual({ "short.ts": [5], "far.ts": [6] })
+  })
+
+  test("counts a section's lines when they need more digits than its numbers", () => {
+    const run = Array.from({ length: 60 }, (_, i) => i)
+    const many = diffFile("many.ts", ["@@ -1,60 +1,60 @@", ...run.map((i) => `-old ${i}`), ...run.map((i) => `+new ${i}`)])
+    const mapping = new DiffLineMapping([many], "all")
+    expect(Math.max(...mapping.allLines.map((line) => line.newLineNum ?? line.oldLineNum ?? 0))).toBe(60)
+    expect(byFile(mapping)).toEqual({ "many.ts": [6] })
   })
 })
 

@@ -30,6 +30,10 @@ const isBreak = (code: number) => isWhitespace(code) || BREAK_AFTER.has(code)
  * after a word hangs on that row rather than opening the next, but a row
  * of nothing but whitespace — indentation wider than the row — is cut like
  * a word.
+ *
+ * The break set was measured on ASCII only. Unicode spaces, CJK break
+ * opportunities and wide glyphs are not modelled, as split does not model
+ * them either; the parity corpus leaves them out on purpose.
  */
 export function wrapLine(content: string, width: number): WrapSlice[] {
   const slices: WrapSlice[] = []
