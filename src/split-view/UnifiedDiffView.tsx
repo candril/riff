@@ -5,7 +5,7 @@ import { buildVisualRows } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FullRow } from "./FullRow"
-import { unifiedOrigins } from "./layout"
+import { unifiedOrigins, unifiedWrapWidth } from "./layout"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
 import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
@@ -15,30 +15,27 @@ export type { UnifiedDiffViewProps } from "./unified-env"
 // Drawn by riff beside the code rather than as code, so never wrapped.
 const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"])
 
-const WRAP_RESERVED_CELLS = 1
-
 /**
  * The diff as one column of rows, old and new lines interleaved, each line
  * with its own gutter. Windowed like split: only the rows that overlap the
  * screen are laid out, and a wrapped line takes a row per slice.
  */
 export function UnifiedDiffView(props: UnifiedDiffViewProps) {
-  const origins = createMemo(() => unifiedOrigins(props.mapping))
+  const origins = createMemo(() => unifiedOrigins(props.mapping, props.wrap ? props.width : undefined))
   const rows = createMemo(() => buildRows(props.mapping.allLines, "unified"))
   const visual = createMemo(() => {
     const originOf = origins()
     return buildVisualRows(rows(), props.mapping.allLines, {
       wrap: props.wrap,
-      // VimDiffView's LineNumberRenderable hands its paddingRight to Yoga as well as to
-      // the gutter, so its code wraps one cell short of the pane, scrollbar or not.
-      widthOf: (lineIndex) => props.width - originOf(lineIndex) - WRAP_RESERVED_CELLS,
+      widthOf: (lineIndex) => unifiedWrapWidth(props.width, originOf(lineIndex)),
     })
   })
   const env: UnifiedEnv = {
     props,
     originOf: (lineIndex) => origins()(lineIndex),
-    // Unified's gutter runs down the whole file section, past the rows of riff's own in it.
-    chromeGutterBg: theme.mantle,
+    // Unified's gutter runs down the whole file section, past the rows of riff's own in it,
+    // coloured by the rule unifiedLineColors follows for a line of code.
+    chromeGutterBg: (tint, atCursor) => tint ?? (atCursor ? theme.base : theme.mantle),
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
     flashHits: () => null,
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),

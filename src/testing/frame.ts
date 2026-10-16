@@ -60,6 +60,7 @@ export interface MountDiffViewOptions {
   comments?: Comment[]
   fileStatuses?: Map<string, FileReviewStatus>
   wrap?: boolean
+  expandingDivider?: string | null
 }
 
 /** VimDiffView under the one-row header the app gives it, as chrome.test.ts mounts it. */
@@ -80,7 +81,7 @@ export async function mountDiffView(options: MountDiffViewOptions) {
   if (options.wrap) view.setWrap(true)
   const mapping = new DiffLineMapping(files, mode, selectedFileIndex ?? undefined, options.mappingOptions)
   const cursor = createCursorState()
-  view.update(files, selectedFileIndex, mapping, cursor, options.comments ?? [], options.fileStatuses ?? new Map(), null, null)
+  view.update(files, selectedFileIndex, mapping, cursor, options.comments ?? [], options.fileStatuses ?? new Map(), options.expandingDivider ?? null, null)
 
   // Two passes: the first lays out, the second paints what the post-process overlays read off that layout.
   const frame = async () => {

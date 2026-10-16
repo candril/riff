@@ -44,8 +44,12 @@ export interface RowEnv {
   }
   /** The cell a line's code starts at, which chrome lines its text up with. */
   originOf: (lineIndex: number) => number
-  /** The gutter's colour on a chrome row, unless a selection covers it. */
-  chromeGutterBg: string | undefined
+  /**
+   * The gutter's colour on a chrome row, unless a selection covers it.
+   * `tint` is the row's own, as unified's lineColors would give the line;
+   * the cursor matters because there an untinted gutter is lit.
+   */
+  chromeGutterBg: (tint: string | undefined, atCursor: boolean) => string | undefined
   files: () => ReadonlyMap<string, DiffFile>
   flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
 }

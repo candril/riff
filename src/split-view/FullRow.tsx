@@ -81,7 +81,11 @@ function FileHeader(props: RowProps) {
  * the same line, gutter and all.
  */
 function ChromeRow(
-  props: RowProps & { bg: string | undefined; children?: (bg: () => string | undefined) => JSX.Element }
+  props: RowProps & {
+    bg: string | undefined
+    gutterTint?: string
+    children?: (bg: () => string | undefined) => JSX.Element
+  }
 ) {
   // Memoised to a boolean, so a selection moving elsewhere asks once and leaves this row's colours alone.
   const selected = createMemo(() => inLineSelection(props.env.props.selection, props.at))
@@ -92,7 +96,7 @@ function ChromeRow(
         width={props.env.originOf(props.index)}
         height={1}
         flexShrink={0}
-        backgroundColor={selected() ? theme.surface1 : props.env.chromeGutterBg}
+        backgroundColor={selected() ? theme.surface1 : props.env.chromeGutterBg(props.gutterTint, props.atCursor)}
       />
       {props.children?.(bg)}
     </Bar>
@@ -102,11 +106,12 @@ function ChromeRow(
 // Chrome rather than code: it never scrolls sideways.
 function Divider(props: RowProps) {
   const expanding = () => !!props.line.dividerKey && props.line.dividerKey === props.env.props.expandingDivider
+  const tint = () => (expanding() ? theme.surface0 : theme.mantle)
   const label = () => dividerLabel(props.line, props.env.props.expandingDivider)
   // The `↵` is the key to press, not part of what the row says, so it is drawn as a marker.
   const hinted = () => label().endsWith(ENTER_HINT)
   return (
-    <ChromeRow {...props} bg={expanding() ? theme.surface0 : theme.mantle}>
+    <ChromeRow {...props} bg={tint()} gutterTint={tint()}>
       {(bg) => (
         <>
           <Cell fg={dimmed(props.env, theme.overlay0, bg())} attributes={TextAttributes.ITALIC}>

@@ -1,4 +1,5 @@
 import { sliceSegments, type Segment } from "../diff-rows/segments"
+import { wrappedHeight } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { DiffLine } from "../vim-diff/types"
@@ -7,6 +8,15 @@ import type { DiffLine } from "../vim-diff/types"
 export const ENTER_HINT = "↵"
 
 export const SIGN_CELLS = 1
+
+/**
+ * VimDiffView's LineNumberRenderable hands its paddingRight to Yoga as well as to
+ * the gutter, so its code wraps one cell short of the pane, scrollbar or not.
+ */
+export const WRAP_RESERVED_CELLS = 1
+
+/** The cells unified's code wraps at, beside a gutter that ends at `origin`. */
+export const unifiedWrapWidth = (width: number, origin: number) => width - origin - WRAP_RESERVED_CELLS
 
 export function paneWidths(width: number): { left: number; right: number } {
   const left = Math.floor(width / 2)
@@ -43,20 +53,23 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
 /**
  * The cell each line's code starts at in unified, sized as OpenTUI's
  * LineNumberRenderable sizes its gutter: a sign cell, then the wider of a
- * floor and the digits of the larger of the section's line count and its
+ * floor and the digits of the larger of the section's row count and its
  * largest number, plus the space before the code. The floor is four cells
  * or the widest number in the whole diff. All files gives every file
  * section its own gutter; a single file, with no header, is one section.
  *
- * Rows a wrap adds are not counted, though OpenTUI counts them: how many
- * there are depends on the width this sets, and they only widen a gutter
- * once a section passes a hundred rows.
+ * `wrapWidth`, the pane's width when wrapping, makes a row of every slice,
+ * as OpenTUI counts a wrapped buffer's virtual lines. Those depend on the
+ * code width the gutter leaves, so the gutter widens until its digits hold
+ * the rows at its own width. A wider gutter only adds rows, so this settles
+ * where VimDiffView's renderer does, a frame at a time.
  */
-export function unifiedOrigins(mapping: DiffLineMapping): (lineIndex: number) => number {
+export function unifiedOrigins(mapping: DiffLineMapping, wrapWidth?: number): (lineIndex: number) => number {
   const lines = mapping.allLines
   let widest = 0
   for (const line of lines) widest = Math.max(widest, unifiedNumber(line))
   const floor = Math.max(4, digits(widest))
+  const originFor = (count: number) => SIGN_CELLS + Math.max(floor, digits(count) + 2)
 
   const origins = new Int32Array(lines.length)
   let start = 0
@@ -67,7 +80,18 @@ export function unifiedOrigins(mapping: DiffLineMapping): (lineIndex: number) =>
     while (end < lines.length && lines[end]!.type !== "file-header") end++
     let largest = 0
     for (let i = codeStart; i < end; i++) largest = Math.max(largest, unifiedNumber(lines[i]!))
-    const origin = SIGN_CELLS + Math.max(floor, digits(Math.max(end - codeStart, largest)) + 2)
+    const rowsAt = (origin: number) => {
+      if (wrapWidth === undefined) return end - codeStart
+      let rows = 0
+      for (let i = codeStart; i < end; i++) rows += wrappedHeight(lines[i]!, unifiedWrapWidth(wrapWidth, origin))
+      return rows
+    }
+    let origin = originFor(Math.max(end - codeStart, largest))
+    for (;;) {
+      const needed = originFor(Math.max(rowsAt(origin), largest))
+      if (needed <= origin) break
+      origin = needed
+    }
     origins.fill(origin, start, end)
     start = end
   }

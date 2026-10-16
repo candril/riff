@@ -20,7 +20,7 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     props,
     gutter,
     originOf: () => contentOrigin(gutter()),
-    chromeGutterBg: undefined,
+    chromeGutterBg: () => undefined,
     panes: createMemo(() => paneWidths(props.width)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
     words: createMemo(() => wordsOf(props.mapping)),

@@ -10,6 +10,10 @@ import { wrapLine, type WrapSlice } from "./wrap"
  */
 const WRAPPING_TYPES = new Set<DiffLineType>(["context", "addition", "deletion", "no-newline", "hunk-header"])
 
+/** The rows a line takes in unified's buffer when its code wraps at `width` cells. */
+export const wrappedHeight = (line: DiffLine, width: number) =>
+  WRAPPING_TYPES.has(line.type) ? wrapLine(line.content, width).length : 1
+
 export interface VisualRow {
   row: number
   /** Null for a row that does not wrap. */

@@ -44,7 +44,7 @@ index 1111111..2222222 100644
 +const wide = "${WIDE_TEXT}"
 `
 
-/** Wraps once at unified's 55-cell code width, a 60-column pane less its gutter. */
+/** Wraps once at unified's 54-cell code width: a 60-column pane less its 5-cell gutter and the cell wrap reserves. */
 export const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
 export const ONE_LONG_LINE = `diff --git a/notes.ts b/notes.ts
 index 1111111..2222222 100644
@@ -74,4 +74,33 @@ index 1111111..2222222 100644
  const c = 1
 -const d = 2
 +const d = 3
+`
+
+const WRAPPING_LINE_COUNT = 60
+const WRAPPING_TEXT = "a line long enough that a 120-column pane wraps it onto a second row ".repeat(2).trimEnd()
+/**
+ * Sixty lines numbered from 1 that wrap to twice as many rows at 120
+ * columns, so the rows wrap adds, not the numbers, reach three digits.
+ */
+export const MANY_WRAPPED_LINES = `diff --git a/wrapped.ts b/wrapped.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/wrapped.ts
+@@ -0,0 +1,${WRAPPING_LINE_COUNT} @@
+${Array.from({ length: WRAPPING_LINE_COUNT }, (_, i) => `+const line${i + 1} = "${WRAPPING_TEXT}"`).join("\n")}
+`
+
+/**
+ * Ninety-eight lines and the divider after them: 99 rows beside a 5-cell
+ * gutter at 30 columns, where each line just fits, and nearly twice that
+ * beside a 6-cell one, where each wraps.
+ */
+export const JUST_FITS_AT_30 = `diff --git a/tight.ts b/tight.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tight.ts
+@@ -0,0 +1,98 @@
+${Array.from({ length: 98 }, () => `+${"x".repeat(30 - 5 - 1)}`).join("\n")}
 `

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { buildSegments } from "../diff-rows/segments"
 import { theme } from "../theme"
-import { FAR_HUNK, TWO_FILES } from "../testing/diffs"
+import { FAR_HUNK, JUST_FITS_AT_30, MANY_WRAPPED_LINES, TWO_FILES } from "../testing/diffs"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { diffFile } from "../diff-rows/fixtures"
@@ -67,6 +67,21 @@ describe("unifiedOrigins", () => {
     const mapping = new DiffLineMapping([many], "all")
     expect(Math.max(...mapping.allLines.map((line) => line.newLineNum ?? line.oldLineNum ?? 0))).toBe(60)
     expect(byFile(mapping)).toEqual({ "many.ts": [6] })
+  })
+
+  test("wrapped, counts the rows a wrap adds once they need another digit", () => {
+    const mapping = mappingOf(MANY_WRAPPED_LINES)
+    expect(new Set(originsOf(mapping))).toEqual(new Set([5]))
+    expect(unifiedOrigins(mapping, 120)(1)).toBe(6)
+    // Wide enough that no line wraps, the rows are the lines again.
+    expect(unifiedOrigins(mapping, 400)(1)).toBe(5)
+  })
+
+  // A gutter starts at the lines' width and only ever grows, as VimDiffView's does frame by frame.
+  test("stays narrow when only the wider gutter's own code width would wrap past 99 rows", () => {
+    const mapping = mappingOf(JUST_FITS_AT_30)
+    expect(unifiedOrigins(mapping, 30)(1)).toBe(5)
+    expect(unifiedOrigins(mapping, 29)(1)).toBe(6)
   })
 })
 
