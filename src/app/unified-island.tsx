@@ -106,10 +106,10 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     if (line !== null) onCursorScrolledAway(line)
   }
 
-  // The rows bubble the wheel up to the host. OpenTUI drops a tick that lands after the row under the pointer
-  // scrolled away and before the next frame: its hit grid still names the row that is gone.
+  // Rows bubble the wheel to the host, held ones too: the hit grid names a row a tick scrolled away until the next frame.
   island.host.onMouseScroll = unifiedWheel({
     rows(delta) {
+      layout()?.held.hold(window())
       setScrollTop(clampScroll({ ...window(), scrollTop: shownTop() + delta }))
       dragCursorIntoView()
     },

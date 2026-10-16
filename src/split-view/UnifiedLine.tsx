@@ -118,13 +118,14 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
     })
   })
 
-  // Only the slices inside the window, so a line cut off at the top starts on the slice that is showing.
+  // Only the slices mounted, so a line cut off at the top starts on the slice that is showing.
   const shown = createMemo(
     () => {
       const slices = env.visual().slicesOf(props.index)
       if (!slices) return NOT_WRAPPED
       const first = env.visual().firstOf(props.index)
-      return slices.slice(Math.max(0, view.scrollTop - first), Math.max(0, view.scrollTop + view.height - first))
+      const { top, bottom } = env.mounted()
+      return slices.slice(Math.max(0, top - first), Math.max(0, bottom - first))
     },
     NOT_WRAPPED,
     { equals: sameItems }
@@ -135,6 +136,10 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
       <For each={shown()}>
         {(slice) => {
           const continuation = slice !== null && slice.startCol > 0
+          const row = createMemo(() => {
+            const offset = slice ? (env.visual().slicesOf(props.index)?.indexOf(slice) ?? 0) : 0
+            return env.visual().firstOf(props.index) + offset
+          })
           // Memoised, so a sideways scroll that leaves the markers as they were redraws no gutter.
           const markers = createMemo(
             () => (slice ? NO_MARKERS : unifiedMarkers(lineCells(), view.column, codeWidth())),
@@ -161,6 +166,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
               flexShrink={0}
               overflow="hidden"
               backgroundColor={colors().content}
+              visible={env.inWindow(row())}
             >
               <text wrapMode="none" flexShrink={0} fg={sign()?.color ?? theme.overlay0} bg={colors().gutter}>
                 {!continuation && sign() ? "●" : " "}

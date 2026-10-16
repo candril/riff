@@ -1,4 +1,5 @@
 import { test, expect, afterEach, describe } from "bun:test"
+import type { Renderable } from "@opentui/core"
 import { MANY_WRAPPED_LINES, ONE_LONG_LINE, ONE_WIDE_LINE, SIXTY_LINES, TWO_FILES } from "../testing/diffs"
 import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
 import { fgAt, ints } from "../testing/split-frame"
@@ -160,11 +161,7 @@ describe("the mouse wheel", () => {
   type Setup = Awaited<ReturnType<typeof mountIsland>>["setup"]
   type Direction = Parameters<Setup["mockMouse"]["scroll"]>[2]
 
-  /*
-   * A frame between ticks, as the app draws one after each: a tick that arrives
-   * once the row under the pointer has scrolled away hits that row's stale cell
-   * in the hit grid and is dropped until the next frame lays the new rows out.
-   */
+  // A frame between ticks, as a slow wheel gives the app time to draw one after each.
   async function wheel(setup: Setup, direction: Direction, ticks = 1, shift = false) {
     for (let tick = 0; tick < ticks; tick++) {
       await setup.mockMouse.scroll(10, 3, direction, { modifiers: { shift } })
@@ -180,6 +177,26 @@ describe("the mouse wheel", () => {
         await old.setup.mockMouse.scroll(10, 5, "down")
         await old.frame()
       }
+      return { scrollTop: old.view.getScrollBox()!.scrollTop, dragged }
+    })
+  }
+
+  /*
+   * Ticks with no frame between them, as a fast wheel sends them. The hit
+   * grid still names the rows the first ticks scrolled away; the island
+   * keeps those rows, hidden, so each tick still reaches it. `y` is the
+   * island's row; VimDiffView's is a row lower, under its header.
+   */
+  async function burst(setup: Setup, direction: Direction, ticks: number, y: number) {
+    for (let tick = 0; tick < ticks; tick++) await setup.mockMouse.scroll(10, y, direction)
+  }
+
+  async function burstOld(options: MountDiffViewOptions, ticks: number, y: number) {
+    return withOld(options, async (old) => {
+      let dragged: number | null = null
+      old.view.setOnCursorScrolledAway((line) => (dragged = line))
+      for (let tick = 0; tick < ticks; tick++) await old.setup.mockMouse.scroll(10, y + 1, "down")
+      await old.frame()
       return { scrollTop: old.view.getScrollBox()!.scrollTop, dragged }
     })
   }
@@ -200,6 +217,77 @@ describe("the mouse wheel", () => {
       expect(dragged.at(-1)).toBe(old.dragged!)
     })
   }
+
+  for (const y of [1, 5, 8]) {
+    test(`ten ticks in one frame, the pointer on row ${y}, scroll ten rows as VimDiffView does`, async () => {
+      const old = await burstOld({ raw: SIXTY_LINES, width: 80, height: 11 }, 10, y)
+      const { island, setup } = await mount({ raw: SIXTY_LINES, width: 80, height: 10, scrollOff: SCROLL_OFF })
+      await burst(setup, "down", 10, y)
+      expect(island.scrollTop()).toBe(10)
+      expect(island.scrollTop()).toBe(old.scrollTop)
+    })
+  }
+
+  test("ten ticks in one frame over wrapped lines scroll as VimDiffView does", async () => {
+    const options = { raw: MANY_WRAPPED_LINES, width: 120, wrap: true }
+    const old = await burstOld({ ...options, height: 11 }, 10, 5)
+    const { island, setup } = await mount({ ...options, height: 10, scrollOff: SCROLL_OFF })
+    await burst(setup, "down", 10, 5)
+    expect(old.scrollTop).toBe(10)
+    expect(island.scrollTop()).toBe(old.scrollTop)
+  })
+
+  test("ten ticks up in one frame from the last row come back ten rows", async () => {
+    const { island, setup, mapping, frame } = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })
+    const bottom = mapping.lineCount - island.viewportHeight()
+    island.update({ cursor: { line: mapping.lineCount - 1, col: 0 } })
+    island.ensureCursorVisible()
+    await frame()
+    expect(island.scrollTop()).toBe(bottom)
+    await burst(setup, "up", 10, 5)
+    expect(island.scrollTop()).toBe(bottom - 10)
+  })
+
+  test("the frame after a burst shows the window's rows and none of the held ones", async () => {
+    const { island, setup } = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })
+    await burst(setup, "down", 10, 5)
+    await setup.renderOnce()
+    const rows = setup.captureCharFrame().split("\n")
+    expect(island.scrollTop()).toBe(10)
+    // Row 0 is the pinned header, over the line scrolled to the top.
+    expect(rows[0]).toContain("sixty.ts")
+    for (let y = 1; y < 10; y++) expect(rows[y]).toContain(`const line${10 + y} = ${10 + y}`)
+  })
+
+  test("the held rows are let go once a frame has been drawn without them", async () => {
+    const renderablesOf = (node: Renderable): number => node.getChildren().reduce((n, child) => n + renderablesOf(child as Renderable), 1)
+    const scrolled = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })
+    await burst(scrolled.setup, "down", 10, 5)
+    await scrolled.setup.renderOnce()
+    const held = renderablesOf(scrolled.island.host)
+    await scrolled.frame()
+    const settled = renderablesOf(scrolled.island.host)
+    scrolled.dispose()
+
+    const { island, frame } = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })
+    // Ten rows down without the wheel, so nothing was ever held: zt keeps four rows above the cursor in ten.
+    island.update({ cursor: { line: 14, col: 0 } })
+    island.scrollCursorTo("top")
+    await frame()
+    expect(island.scrollTop()).toBe(10)
+    expect(settled).toBe(renderablesOf(island.host))
+    expect(held).toBeGreaterThan(settled)
+  })
+
+  test("a burst drags the cursor to the line VimDiffView drags it to", async () => {
+    const old = await burstOld({ raw: SIXTY_LINES, width: 80, height: 11 }, 10, 5)
+    const { island, setup } = await mount({ raw: SIXTY_LINES, width: 80, height: 10, scrollOff: SCROLL_OFF })
+    const dragged: number[] = []
+    island.setOnCursorScrolledAway((line) => dragged.push(line))
+    await burst(setup, "down", 10, 5)
+    expect(old.dragged).not.toBeNull()
+    expect(dragged.at(-1)).toBe(old.dragged!)
+  })
 
   test("the frame follows the wheel, and the window stops at the last row", async () => {
     const { island, setup, frame, mapping } = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })

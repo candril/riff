@@ -7,6 +7,7 @@ import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
 import type { RowEnv } from "./env"
+import type { RowSpan } from "./retained-rows"
 import type { UnifiedLayout } from "./unified-layout"
 import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 
@@ -47,4 +48,8 @@ export interface UnifiedEnv extends RowEnv {
   words: () => ReadonlyMap<number, readonly WordSpan[]>
   searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
   visual: () => VisualRows
+  /** The visual rows mounted: the window's, and any a wheel tick has scrolled out of it but held. */
+  mounted: () => RowSpan
+  /** Whether a visual row is in the window; a mounted row outside it is held, and hidden. */
+  inWindow: (row: number) => boolean
 }

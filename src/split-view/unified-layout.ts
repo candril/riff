@@ -1,9 +1,11 @@
+import { useRenderer } from "@opentui/solid"
 import { createMemo } from "solid-js"
 import { buildRows } from "../diff-rows/rows"
 import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { scrollBarFits, unifiedContentWidth } from "./content-width"
 import { unifiedOrigins, unifiedWrapWidth } from "./layout"
+import { createHeldRows } from "./retained-rows"
 import { stickyHeaderLine } from "./sticky"
 
 export interface UnifiedLayoutInput {
@@ -48,6 +50,8 @@ export function createUnifiedLayout(input: UnifiedLayoutInput) {
   // Unified has a row per line, so a header's line index is its row's.
   const sticky = createMemo(() => stickyHeaderLine(headerLines(), visual().firstOf, input.scrollTop))
   return {
+    // Here, so the island holds the rows its wheel scrolls away and the view keeps them mounted.
+    held: createHeldRows(useRenderer()),
     wrapper,
     originOf: (lineIndex: number) => origins()(lineIndex),
     rows,

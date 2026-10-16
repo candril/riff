@@ -1,10 +1,12 @@
-import { For, Show, createMemo } from "solid-js"
+import { Renderable } from "@opentui/core"
+import { For, Show, createMemo, createRenderEffect, type JSX } from "solid-js"
 import type { Row } from "../diff-rows/rows"
 import { commentSigns } from "../diff-rows/signs"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FileLabel, FullRow } from "./FullRow"
 import { flashByLine, searchByLine } from "./overlays"
+import { mountedRows } from "./retained-rows"
 import "./scroll-bar"
 import { createTerminalCursor, unifiedCursorCell } from "./terminal-cursor"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
@@ -16,6 +18,12 @@ export type { UnifiedDiffViewProps } from "./unified-env"
 
 // Drawn by riff beside the code rather than as code, so never wrapped.
 const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"])
+
+// FullRow draws a row as one box, so hiding that box hides the row and takes it out of the column.
+function hiddenUnless(row: JSX.Element, shown: () => boolean) {
+  if (row instanceof Renderable) createRenderEffect(() => (row.visible = shown()))
+  return row
+}
 
 /**
  * The diff as one column of rows, old and new lines interleaved, each line
@@ -40,6 +48,8 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     words: createMemo(() => wordsOf(props.mapping)),
     searchHits: createMemo(() => searchByLine(props.search)),
     visual,
+    mounted: createMemo(() => mountedRows(props.scrollTop, props.height, layout.held.span())),
+    inWindow: (row) => row >= props.scrollTop && row < props.scrollTop + props.height,
   }
   const placeCursor = createTerminalCursor(
     () => props.focused,
@@ -57,12 +67,11 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
       })
   )
   // The stable Row objects themselves, so a scroll keeps every row still on screen as it was.
-  const visible = createMemo((): readonly Row[] => {
+  const mounted = createMemo((): readonly Row[] => {
     const shown = visual()
     if (props.scrollTop >= shown.total || props.height <= 0) return []
-    const first = shown.at(props.scrollTop).row
-    const last = shown.at(props.scrollTop + props.height - 1).row
-    return rows().slice(first, last + 1)
+    const { top, bottom } = env.mounted()
+    return rows().slice(shown.at(top).row, shown.at(bottom - 1).row + 1)
   })
 
   return (
@@ -74,7 +83,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
       renderAfter={placeCursor}
     >
       <box flexDirection="column" width={env.rowWidth()} height={props.height} flexShrink={0} overflow="hidden">
-        <For each={visible()}>
+        <For each={mounted()}>
           {(row) => {
             if (row.kind !== "line") return null
             const line = props.mapping.getLine(row.index)
@@ -83,7 +92,10 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
             const atCursor = createMemo(() => props.cursor.line === row.index)
             // Unified has a row per line, so the row's index in the view is the line's.
             if (CHROME_TYPES.has(line.type)) {
-              return <FullRow env={env} line={line} index={row.index} at={row.index} atCursor={atCursor()} />
+              return hiddenUnless(
+                <FullRow env={env} line={line} index={row.index} at={row.index} atCursor={atCursor()} />,
+                () => env.inWindow(visual().firstOf(row.index))
+              )
             }
             return <UnifiedLine env={env} line={line} index={row.index} atCursor={atCursor()} />
           }}
