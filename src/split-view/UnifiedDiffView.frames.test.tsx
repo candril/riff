@@ -244,6 +244,22 @@ describe("overlays", () => {
     expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.base), ints(theme.red)])
   })
 
+  // No parity case: VimDiffView's recolorCell throws on a match over the › it drew before flash, the order rightMarker in UnifiedLine.tsx keeps.
+  test("flash: a label starting on the › column takes the colours of a match listed after it", async () => {
+    const frame = await frameOf({
+      raw: ONE_LONG_LINE,
+      width: 60,
+      height: 9,
+      flash: [
+        { line: 3, startCol: 54, endCol: 60, label: "a" },
+        // "keeps going a", over the last code cell at 54.
+        { line: 3, startCol: 43, endCol: 56, label: "s" },
+      ],
+    })
+    expect(frame.split("\n")[3]!.at(-1)).toBe("a")
+    expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.text), ints(theme.surface1)])
+  })
+
   test("the › at the edge keeps a search hit's background under it", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
