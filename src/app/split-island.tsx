@@ -133,14 +133,14 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
         return
       }
       const { cursor, selection, ...byReference } = next
+      // Read before the merge: the store hands back the same object, already carrying the new source.
+      const resourced = byReference.source !== undefined && byReference.source !== current.source
       batch(() => {
         setInputs("value", byReference)
         if (cursor) setInputs("value", "cursor", reconcile(cursor))
         if (selection !== undefined) setInputs("value", "selection", selection && reconcile(selection))
         // A fold or an expansion rebuilds the rows; the window must still fit them.
-        if (byReference.source && byReference.source !== current.source) {
-          ensureCursorVisible(inputs.value!.cursor.row)
-        }
+        if (resourced) ensureCursorVisible(inputs.value!.cursor.row)
       })
     },
     ensureCursorVisible,

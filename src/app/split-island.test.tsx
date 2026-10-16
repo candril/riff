@@ -139,6 +139,26 @@ test("a host that shrinks keeps drawing code until the rows follow it", async ()
   expect(rows[3]).toContain("new 2")
 })
 
+test("a fold that leaves fewer rows brings the cursor's row back into the window", async () => {
+  const tail = ["diff --git a/tail.ts b/tail.ts", "--- a/tail.ts", "+++ b/tail.ts", "@@ -1,1 +1,1 @@", "-tail old", "+tail new"]
+  const raw = [LONG, ...tail].join("\n")
+  const { island, source } = await mount(10, undefined, raw)
+  await frame()
+  const last = source.rows.length - 1
+  island.update({ cursor: { row: last, col: 0 } })
+  island.ensureCursorVisible(last)
+  expect((await frame()).join("\n")).toContain("tail new")
+
+  const files = parseDiff(raw)
+  const mapping = new DiffLineMapping(files, "all", undefined, { collapsedFiles: new Set(["long.ts"]) })
+  const folded = new RowLineSource(mapping, "split")
+  expect(folded.rows.length).toBeLessThan(10)
+  island.update({ mapping, source: folded, files, cursor: { row: folded.rows.length - 1, col: 0 } })
+  const rows = await frame()
+  expect(rows[0]).toContain("long.ts")
+  expect(rows.join("\n")).toContain("tail new")
+})
+
 test("a selection reaches the view, follows its changes and goes when it is cleared", async () => {
   const { island } = await mount(10)
   await frame()
