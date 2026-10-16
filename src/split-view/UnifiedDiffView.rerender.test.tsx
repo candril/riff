@@ -1,5 +1,5 @@
 import { test, expect, describe, afterEach, spyOn } from "bun:test"
-import { TextRenderable, type Renderable } from "@opentui/core"
+import type { Renderable } from "@opentui/core"
 import * as segmentsModule from "../diff-rows/segments"
 import * as visualRowsModule from "../diff-rows/visual-rows"
 import * as layoutModule from "./layout"
@@ -51,17 +51,17 @@ async function mount() {
 }
 
 describe("a row is kept, not recreated, when what it draws stays", () => {
-  test("moving the cursor a line keeps every row, rebuilding only the code of the two lines it touched", async () => {
+  test("moving the cursor a line keeps every renderable, rebuilding only the segments of the two lines it touched", async () => {
     const view = await mount()
     const before = renderables(view.setup.renderer.root)
     view.set("cursor", { line: 4 })
     await view.setup.renderOnce()
     const after = renderables(view.setup.renderer.root)
 
-    // Only the code of the line it left and the line it entered is new: its background, and so
-    // its word diff's, changed. Every box, gutter and other line's text is the one drawn before.
+    // The line it left and the line it entered change background, and so their segments, but their
+    // texts are restyled in place: a text the hit grid still names keeps taking wheel ticks.
     const fresh = [...after].filter((node) => !before.has(node))
-    expect(fresh.map((node) => node instanceof TextRenderable)).toEqual([true, true])
+    expect(fresh).toEqual([])
     expect(after.size).toBe(before.size)
     expect(buildSegments.mock.calls.length).toBe(2)
   })

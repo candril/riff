@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { diffPaneWidth, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
+import { diffPaneHeight, diffPaneWidth, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
 
 describe("when split is drawn", () => {
   test("from 120 columns of diff pane on", () => {
@@ -21,4 +21,9 @@ describe("when split is drawn", () => {
     expect(diffPaneWidth(150, { visible: true, width: 35 })).toBe(115)
     expect(diffPaneWidth(150, { visible: false, width: 35 })).toBe(150)
   })
+})
+
+test("the diff's pane is the screen less the header and the status bar", () => {
+  expect(diffPaneHeight(40)).toBe(38)
+  expect(diffPaneHeight(1)).toBe(0)
 })

@@ -20,7 +20,7 @@ const IN_HALVES = new Set(["context", "addition", "deletion", "no-newline"])
 
 /**
  * The split view as a long-lived island. It owns its scroll and each
- * pane's column window, the way VimDiffView's scrollbox owns unified's,
+ * pane's column window, the way unified's island owns its one window,
  * and takes its size from the box render.ts lays it out in rather than
  * from the terminal. The pane the cursor is not in keeps its window, even
  * where that leaves a short line showing only its `‹`: crossing back finds

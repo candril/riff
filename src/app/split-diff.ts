@@ -2,7 +2,6 @@ import type { CliRenderer } from "@opentui/core"
 import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
 import { sideOf } from "../diff-rows/line-spans"
 import { RowLineSource, rowOfLine } from "../diff-rows/row-source"
-import type { SplitSearch } from "../split-view/overlays"
 import type { AppState } from "../state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -11,6 +10,7 @@ import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffHighlights } from "./diff-highlights"
 import { diffPaneWidth, splitShown } from "./diff-layout"
+import { searchOf } from "./diff-search"
 import { selectionStatus } from "./selection-status"
 import { paneOfLine, toRowSelection } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
@@ -38,23 +38,10 @@ export interface SplitDrawInput {
 
 const COLOURABLE = new Set(["context", "addition", "deletion", "no-newline"])
 
-// One per search state, so a render that left the search alone hands the island the same object.
-const searches = new WeakMap<SearchState, SplitSearch>()
-function searchOf(state: SearchState): SplitSearch | null {
-  if (state.matches.length === 0) return null
-  let known = searches.get(state)
-  if (!known) {
-    known = { matches: state.matches, current: state.currentMatchIndex }
-    searches.set(state, known)
-  }
-  return known
-}
-
 /**
  * Everything the app needs to draw the diff side by side, kept out of
- * app.ts: the island, the rows over the current mapping and the colours
- * the halves read. The app's cursor stays in mapping lines; this turns it
- * into a row only to draw it.
+ * app.ts: the island and the rows over the current mapping. The app's
+ * cursor stays in mapping lines; this turns it into a row only to draw it.
  */
 export function createSplitDiff(deps: SplitDiffDeps) {
   const island = createSplitIsland(deps.renderer, deps.scrollOff)

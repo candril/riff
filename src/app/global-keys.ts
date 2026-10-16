@@ -589,9 +589,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           }
           ctx.setState((s) => switchView(s, "diff"))
           ctx.render()
-          // The scroll waits for the rebuild the view switch triggers: the
-          // height is not known until then, and a scroll measured against a
-          // half-built view lands somewhere else.
+          // The scroll waits for revealFile, which puts the cursor on the
+          // file and draws it: placed before that, it would put whatever
+          // line the cursor left at the top.
           ctx.vimDiffView.onceRebuilt(() =>
             ctx.vimDiffView.scrollCursorTo(ctx.getVimState().line, "top")
           )
@@ -1479,8 +1479,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         return
       } else if (sequence === "zw") {
         // The mapping is rebuilt because markdown table padding is applied
-        // there and is dropped while wrapping. The view's own rebuild
-        // brings the cursor back into view once it has laid out.
+        // there and is dropped while wrapping. Drawing the new mapping
+        // brings the cursor back into view.
         ctx.setState(toggleWrapLines)
         ctx.rebuildLineMapping()
         ctx.render()

@@ -8,12 +8,11 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
-import type { VimCursorState } from "../../vim-diff/types"
+import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import { VimMotionHandler, type KeyEvent as VimKeyEvent } from "../../vim-diff/motion-handler"
 import type { SearchHandler } from "../../vim-diff/search-handler"
 import type { SearchState } from "../../vim-diff/search-state"
 import type { FlashHandler } from "../../vim-diff/flash-handler"
-import type { VimDiffView } from "../../components"
 import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 
 export interface DiffViewInputContext {
@@ -24,7 +23,7 @@ export interface DiffViewInputContext {
   // Vim handler for navigation
   vimHandler: VimMotionHandler
   // Vim diff view for cursor updates
-  vimDiffView: Pick<VimDiffView, "updateCursor">
+  vimDiffView: CursorView
   // Search
   searchState: SearchState
   searchHandler: SearchHandler

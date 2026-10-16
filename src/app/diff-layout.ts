@@ -17,3 +17,12 @@ export function diffPaneWidth(screenWidth: number, filePanel: { visible: boolean
 export function splitShown(requested: boolean, paneWidth: number, lineCount: number): boolean {
   return requested && paneWidth >= SPLIT_MIN_WIDTH && lineCount > 0
 }
+
+/**
+ * The screen less the header's row and the status bar's, which is what the
+ * diff fills. A search prompt takes one more, which the pane's own layout
+ * settles a tick later.
+ */
+export function diffPaneHeight(screenHeight: number): number {
+  return Math.max(0, screenHeight - 2)
+}

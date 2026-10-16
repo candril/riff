@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js"
+import { Index, Show, createMemo } from "solid-js"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import type { Side } from "../diff-rows/rows"
 import { buildSegments, type Segment } from "../diff-rows/segments"
@@ -17,16 +17,21 @@ function lineNumber(line: DiffLine, side: Side): string {
   return String((side === "left" ? line.oldLineNum : line.newLineNum) ?? "")
 }
 
-/** One segment per text, as tenor's LineText draws them: a text's runs cannot each carry a colour. */
+/**
+ * One segment per text, as tenor's LineText draws them: a text's runs cannot each carry a colour.
+ * By position, so a recolour (the cursor arriving on the line) restyles the texts in place: the hit
+ * grid names the text under the pointer until the next frame, and a text replaced before then would
+ * swallow every wheel tick of a burst that lands on it.
+ */
 export function SegmentTexts(props: { segments: readonly Segment[] }) {
   return (
-    <For each={props.segments}>
+    <Index each={props.segments}>
       {(segment) => (
-        <text wrapMode="none" flexShrink={0} fg={segment.fg} bg={segment.bg} attributes={segment.attributes}>
-          {segment.text}
+        <text wrapMode="none" flexShrink={0} fg={segment().fg} bg={segment().bg} attributes={segment().attributes}>
+          {segment().text}
         </text>
       )}
-    </For>
+    </Index>
   )
 }
 

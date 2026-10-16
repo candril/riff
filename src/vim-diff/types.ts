@@ -103,6 +103,11 @@ export interface SearchMatch {
  */
 export type VimMode = "normal" | "visual" | "visual-line"
 
+/** What a handler that moved the cursor asks of the diff on screen: draw it where the state now has it. */
+export interface CursorView {
+  updateCursor(state: VimCursorState): void
+}
+
 /**
  * State of the vim cursor and navigation
  */

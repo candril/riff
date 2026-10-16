@@ -9,12 +9,17 @@ import { toRowSelection, type SplitRows } from "./split-cursor"
  * wrong way round.
  */
 export function splitSelection(state: SelectionState, source: SplitRows): SplitSelection | null {
+  return unifiedSelection(toRowSelection(state, source))
+}
+
+/** Unified draws a row per mapping line, so the selection's rows are the cursor's own lines. */
+export function unifiedSelection(state: SelectionState): SplitSelection | null {
   if (state.mode === "visual-line") {
-    const range = getSelectionRange(toRowSelection(state, source))
+    const range = getSelectionRange(state)
     return range && { mode: "visual-line", startRow: range[0], startCol: 0, endRow: range[1], endCol: 0 }
   }
   if (state.mode !== "visual") return null
-  const chars = getCharSelection(toRowSelection(state, source))
+  const chars = getCharSelection(state)
   return (
     chars && {
       mode: "visual",

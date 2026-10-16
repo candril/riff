@@ -6,9 +6,8 @@
 
 import type { AppState } from "../../state"
 import type { FileReviewStatus } from "../../types"
-import type { VimCursorState } from "../../vim-diff/types"
+import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { VimDiffView } from "../../components"
 import type { PrInfo } from "../../providers/github"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
@@ -37,7 +36,7 @@ export interface FileNavigationContext {
   getLineMapping: () => DiffLineMapping
   createLineMapping: () => DiffLineMapping
   // Vim diff view
-  getVimDiffView: () => Pick<VimDiffView, "updateCursor">
+  getVimDiffView: () => CursorView
   // Helpers
   ensureCursorVisible: () => void
   render: () => void

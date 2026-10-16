@@ -17,12 +17,15 @@ export function createDiffHighlights(parses: FileParses, onLanded: () => void, p
     onLanded()
   }
   lineSpans.onSpans = landed
+  // A file's own parse colours rows the fragment parse already did, so it lands the same way (spec 080).
+  parses.onParsed = landed
 
   return {
     lineSpans,
     version: () => version,
     landed,
     dispose(): void {
+      parses.onParsed = undefined
       lineSpans.dispose()
     },
   }

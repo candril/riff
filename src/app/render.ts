@@ -58,7 +58,6 @@ import {
   syncReviewSummarySession,
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
-import type { VimDiffView } from "../components"
 import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildTablePeek } from "../features/diff-view/table-peek"
@@ -68,12 +67,14 @@ import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
+import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { selectionStatus } from "./selection-status"
+import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
@@ -103,9 +104,11 @@ export interface RenderContext {
   // UI panels
   renderer: CliRenderer
   fileTreePanel: FileTreePanel
-  vimDiffView: VimDiffView
   statusBar: StatusBarIsland
   split: SplitDiff
+  unified: UnifiedDiff
+  /** The files' own text and their parses, which both diff views colour rows from. */
+  parses: FileParses
   // Helper
   updateFileTreePanel: () => void
   /** Incremental search reacting to what the prompt field reports (spec 065). */
@@ -218,8 +221,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const searchState = ctx.getSearchState()
     const flashState = ctx.getFlashState()
 
-    ctx.vimDiffView.setFlashState(flashState)
-
     const selectedFile = getSelectedFile(state)
     const visibleComments = getVisibleComments(state)
 
@@ -228,8 +229,16 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // After the panel update, which sets the width the diff pane is measured against.
     const splitOn = isSplitOn(state, ctx.split)
 
+    // A composer or a prompt owns the terminal's cursor while it is open (spec 065).
+    const ov = state.inlineCommentOverlay
+    const composerActive = ov.open && (ov.mode === "compose" || ov.mode === "edit")
+    const reviewActive = state.reviewPreview.open
+    const prompt = openPrompt(state, ctx, render)
+    const cursorSuspended = composerActive || reviewActive || prompt !== null
+
     // Main content based on view mode
     let content
+    let unifiedOn = false
     const prInfoPanelInstance = ctx.getPrInfoPanel()
     if (state.error) {
       content = Text({ content: `Error: ${state.error}`, fg: colors.error })
@@ -267,11 +276,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     } else if (state.files.length === 0) {
       content = Text({ content: "No changes to display", fg: colors.textDim })
     } else {
-      // Diff view
-      ctx.vimDiffView.setWrap(state.wrapLines)
       // The text of the files riff has already read, so they can be
       // highlighted as files rather than as the rows on screen (spec 080).
-      ctx.vimDiffView.setFileContents(
+      ctx.parses.set(
         new Map(
           Object.entries(state.fileContentCache).flatMap(([filename, entry]) =>
             entry?.newContent
@@ -281,16 +288,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         )
       )
       // Fed while split is drawn too, so toggling back has nothing to rebuild.
-      ctx.vimDiffView.update(
-        state.files,
-        state.selectedFileIndex,
-        lineMapping,
+      ctx.unified.draw({
+        mapping: lineMapping,
+        state,
         vimState,
-        state.comments,
-        state.fileStatuses,
-        state.expandingDivider,
-        searchState
-      )
+        searchState,
+        flashState,
+        emptyMessage: state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display",
+        focused: !cursorSuspended,
+      })
       if (splitOn) ctx.split.draw({ mapping: lineMapping, state, vimState, searchState, flashState })
 
       content = Box(
@@ -300,10 +306,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           height: "100%",
           flexDirection: "row",
         },
-        splitOn ? ctx.split.island.host : ctx.vimDiffView.getContainer()
+        splitOn ? ctx.split.island.host : ctx.unified.island.host
       )
+      unifiedOn = !splitOn
     }
-    ctx.split.syncDrawn(splitOn, ctx.vimDiffView.getContainer().height)
+    ctx.unified.syncDrawn(unifiedOn)
+    ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
 
     // Clear and re-render (preserve indicator renderables and file tree panel)
     const children = ctx.renderer.root.getChildren()
@@ -356,14 +364,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // Drive the composer textarea's lifecycle from overlay state. We do
     // this BEFORE building the next tree so the textarea is focused /
-    // seeded by the time it's mounted into the layout. Suspending the
-    // diff view's terminal-cursor post-process keeps the textarea's
-    // cursor visible — otherwise the diff would re-claim it after the
-    // textarea's renderCursor pass.
+    // seeded by the time it's mounted into the layout. Unfocusing the
+    // diff (cursorSuspended) keeps the textarea's cursor visible —
+    // otherwise the diff would re-claim it after the textarea's
+    // renderCursor pass.
     {
-      const ov = state.inlineCommentOverlay
-      const composerActive =
-        ov.open && (ov.mode === "compose" || ov.mode === "edit")
       if (composerActive) {
         const key = `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`
         syncComposerSession(
@@ -399,7 +404,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       // Same dance for the review summary textarea — it owns the live
       // value while the modal is open, and mirrors back into
       // `state.reviewPreview.body` so canSubmit stays accurate.
-      const reviewActive = state.reviewPreview.open
       if (reviewActive) {
         syncReviewSummarySession(
           ctx.renderer,
@@ -439,7 +443,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       }
 
       // Flash labels, painted by whichever surface is being labelled
-      // (spec 066). The diff draws its own, straight onto the frame.
+      // (spec 066). The diff draws its own in its rows.
       prInfoPanelInstance?.setFlashLabels(flashLabelsOn(flashState, "state"))
 
       // The info panel's filter box is the panel's own, like the tree's:
@@ -452,14 +456,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
       // And the one-line prompts (spec 065). They all type into the same
       // field, so exactly one session can be open — whichever prompt is.
-      const prompt = openPrompt(state, ctx, render)
       if (prompt) syncPromptSession({ renderer: ctx.renderer, ...prompt })
       else endPromptSession()
 
-      const cursorSuspended = composerActive || reviewActive || prompt !== null
-      ctx.vimDiffView.setSuspendCursor(cursorSuspended)
       if (splitOn) ctx.split.island.update({ focused: !cursorSuspended })
-      ctx.vimDiffView.setObscured(coversTheDiff(state))
     }
 
     ctx.statusBar.update({
@@ -474,9 +474,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           : null,
       columnInfo: diffColumnStatus(splitOn, {
         viewMode: state.viewMode,
-        vimState,
         split: ctx.split,
-        vimDiffView: ctx.vimDiffView,
+        unified: ctx.unified,
       }),
       // Split counts the rows it draws: a pair row holds a removal and an addition.
       selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
@@ -734,28 +733,4 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
     }
   }
-}
-
-/**
- * Is a full-screen overlay standing between the reader and the diff?
- *
- * Only the ones that actually cover it: the diff's chrome is painted over
- * the finished frame (see `setObscured`), so standing it down is the only
- * way to be under something — and standing it down for a corner toast
- * would blank the gutter to hide a glyph nobody minds.
- */
-function coversTheDiff(state: AppState): boolean {
-  return (
-    state.actionMenu.open ||
-    state.reviewPreview.open ||
-    state.syncPreview.open ||
-    state.filePicker.open ||
-    state.commentsPicker.open ||
-    state.occurrencePicker.open ||
-    state.commitPicker.open ||
-    state.showHelp ||
-    state.confirmDialog !== null ||
-    (state.showLinePeek && state.viewMode === "diff") ||
-    (state.inlineCommentOverlay.open && state.inlineCommentOverlay.codePeekId !== null)
-  )
 }

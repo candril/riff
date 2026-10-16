@@ -58,6 +58,7 @@ import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
+import { createUnifiedDiff } from "./app/unified-diff"
 import { toLineState, toRowState } from "./app/split-cursor"
 import { routeDiffViewport } from "./app/diff-viewport"
 import { createKeyHandler } from "./app/global-keys"
@@ -132,7 +133,7 @@ export async function createApp(options: AppOptions = {}) {
     headSha: options.headSha,
   })
 
-  const { renderer, fileTreePanel, vimDiffView, parses } = await initializeRenderer()
+  const { renderer, fileTreePanel, parses } = await initializeRenderer()
 
   let stopFocusReporting: (() => void) | null = null
 
@@ -270,6 +271,7 @@ export async function createApp(options: AppOptions = {}) {
     aiReview.removeSessionFiles()
     statusBar.dispose()
     split.dispose()
+    unified.dispose()
     highlights.dispose()
     parses.dispose()
     renderer.destroy()
@@ -297,60 +299,12 @@ export async function createApp(options: AppOptions = {}) {
   const SCROLL_OFF = VERTICAL_SCROLL_OFF
 
   function getViewportHeight(): number {
-    if (split.shown()) return split.island.viewportHeight() || 20
-    const scrollBox = vimDiffView.getScrollBox()
-    return scrollBox ? Math.floor(scrollBox.height) : 20
+    return (split.shown() ? split.island.viewportHeight() : unified.viewportHeight()) || 20
   }
 
   function ensureCursorVisible(): void {
-    if (split.shown()) {
-      split.revealCursor()
-      followCursorInTree()
-      return
-    }
-    const scrollBox = vimDiffView.getScrollBox()
-    if (!scrollBox) return
-
-    // A mapping the view has not drawn yet numbers its rows differently
-    // from the sections on screen, so resolving the cursor against them
-    // scrolls to whatever used to be at that index — `x` collapsing a file
-    // and `*` opening the ones it hits both rebuild the mapping and then
-    // ask for the cursor, and the view lurched to the wrong place before
-    // the rebuild put it right. The rebuild reveals the cursor itself
-    // (setOnContentRebuilt), where the tree matches the mapping.
-    if (!vimDiffView.isShowing(lineMapping)) return
-
-    // In all-files mode, the cursor line (mapping index) may not equal
-    // the visual row in the scrollbox due to file headers and collapsed files.
-    // Use cursorLineToVisualRow to get the actual visual position.
-    const visualRow = vimDiffView.cursorLineToVisualRow(vimState.line)
-    if (visualRow < 0) return
-
-    const scrollTop = scrollBox.scrollTop
-    const viewportHeight = Math.floor(scrollBox.height)
-    const maxScroll = Math.max(0, scrollBox.scrollHeight - viewportHeight)
-
-    const topThreshold = scrollTop + SCROLL_OFF
-    const bottomThreshold = scrollTop + viewportHeight - SCROLL_OFF - 1
-
-    let effectiveScrollTop = scrollTop
-
-    if (visualRow < topThreshold) {
-      const newScrollTop = Math.max(0, visualRow - SCROLL_OFF)
-      scrollBox.scrollTop = newScrollTop
-      effectiveScrollTop = newScrollTop
-    } else if (visualRow > bottomThreshold) {
-      const newScrollTop = Math.min(maxScroll, visualRow - viewportHeight + SCROLL_OFF + 1)
-      scrollBox.scrollTop = newScrollTop
-      effectiveScrollTop = newScrollTop
-    }
-
-    vimDiffView.setExpectedScrollTop(effectiveScrollTop)
-
-    // The diff never wraps, so a long line needs the same treatment on
-    // the other axis: `$`, `w` or a search match past the right edge
-    // would otherwise move the cursor somewhere the viewport isn't.
-    vimDiffView.revealColumn(vimState.line, vimState.col)
+    if (split.shown()) split.revealCursor()
+    else unified.refreshCursor()
     followCursorInTree()
   }
 
@@ -367,10 +321,10 @@ export async function createApp(options: AppOptions = {}) {
   // vimState stays a mapping line for every reader; only drawing it in split needs a row.
   function refreshCursor(): void {
     if (split.shown()) split.refreshCursor()
-    else vimDiffView.updateCursor(vimState)
+    else unified.refreshCursor()
     // A motion takes this path without a render, so render.ts alone would leave the readout behind.
     statusBar.patch({
-      columnInfo: diffColumnStatus(splitOn(state, split), { viewMode: state.viewMode, vimState, split, vimDiffView }),
+      columnInfo: diffColumnStatus(splitOn(state, split), { viewMode: state.viewMode, split, unified }),
     })
   }
 
@@ -385,32 +339,6 @@ export async function createApp(options: AppOptions = {}) {
     ensureCursorVisible()
     refreshCursor()
   }
-
-  // When the diff view rebuilds its content (folds, mark-as-read,
-  // comments), it restores the prior scroll position and then asks us to
-  // bring the cursor back into view — in the post-process pass, where the
-  // new scrollBox's layout is settled. This keeps the viewport on the
-  // cursor line instead of jumping to the top.
-  vimDiffView.setOnContentRebuilt(ensureCursorVisible)
-
-  // A mouse wheel moves the viewport and nothing else — no key is pressed,
-  // so no handler runs. Dragging the cursor along keeps it in the window
-  // the way vim does, and carries the tree highlight with it.
-  //
-  // The cursor is moved to fit the view here, never the other way round:
-  // calling ensureCursorVisible would scroll the view back and fight the
-  // wheel.
-  vimDiffView.setOnCursorScrolledAway((line) => {
-    const content = lineMapping.getLineContent(line)
-    vimState = {
-      ...vimState,
-      line,
-      col: Math.min(vimState.col, Math.max(0, content.length - 1)),
-      selectionAnchor: isVisualMode(vimState) ? vimState.selectionAnchor : null,
-    }
-    refreshCursor()
-    render()
-  })
 
   // The filter box owns its text while typing; state mirrors every keystroke
   // so the tree narrows live and every highlight lookup sees the same list.
@@ -505,12 +433,6 @@ export async function createApp(options: AppOptions = {}) {
       fileTreePanel.ensureHighlightVisible()
     }
     fileTreePanel.visible = state.showFilePanel
-    vimDiffView.setEmptyMessage(
-      state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display"
-    )
-    vimDiffView.setFilePanelVisible(state.showFilePanel, panelWidth)
-    // Hidden while split is drawn, so its cursor and painted overlays stay off the frame.
-    vimDiffView.setVisible(state.viewMode === "diff" && !split.shown())
   }
 
   // ===== RENDER =====
@@ -530,7 +452,36 @@ export async function createApp(options: AppOptions = {}) {
     filePanelWidth: () => fileTreePanel.getWidth(),
     onShownChanged: redrawDiff,
   })
-  const diffViewport = routeDiffViewport(vimDiffView, {
+  const unified = createUnifiedDiff({
+    renderer,
+    highlights,
+    scrollOff: SCROLL_OFF,
+    getState: () => state,
+    getMapping: () => lineMapping,
+    getVimState: () => vimState,
+    filePanelWidth: () => fileTreePanel.getWidth(),
+  })
+
+  // A mouse wheel moves the viewport and nothing else — no key is pressed,
+  // so no handler runs. Dragging the cursor along keeps it in the window
+  // the way vim does, and carries the tree highlight with it.
+  //
+  // The cursor is moved to fit the view here, never the other way round:
+  // calling ensureCursorVisible would scroll the view back and fight the
+  // wheel.
+  unified.setOnCursorScrolledAway((line) => {
+    const content = lineMapping.getLineContent(line)
+    vimState = {
+      ...vimState,
+      line,
+      col: Math.min(vimState.col, Math.max(0, content.length - 1)),
+      selectionAnchor: isVisualMode(vimState) ? vimState.selectionAnchor : null,
+    }
+    refreshCursor()
+    render()
+  })
+
+  const diffViewport = routeDiffViewport(unified, {
     shown: split.shown,
     island: split.island,
     rowAtLine: split.rowAtLine,
@@ -548,9 +499,10 @@ export async function createApp(options: AppOptions = {}) {
     getPrInfoPanel: () => prInfoPanel,
     renderer,
     fileTreePanel,
-    vimDiffView,
     statusBar,
     split,
+    unified,
+    parses,
     updateFileTreePanel,
     updateSearchPattern: (value) => searchHandler.updatePattern(value),
   })
@@ -727,7 +679,7 @@ export async function createApp(options: AppOptions = {}) {
    */
   function requestHighlightSource(): void {
     highlightSourcePending.clear()
-    for (const filename of split.shown() ? split.visibleFilenames() : vimDiffView.visibleFilenames()) {
+    for (const filename of split.shown() ? split.visibleFilenames() : unified.visibleFilenames()) {
       const key = highlightSourceNeeded(filename)
       if (key) highlightSourcePending.set(filename, key)
     }
@@ -816,7 +768,7 @@ export async function createApp(options: AppOptions = {}) {
       ensureCursorVisible()
       refreshCursor()
     },
-    getVisibleRegion: () => (split.shown() ? split.visibleRegion() : vimDiffView.getVisibleRegion()),
+    getVisibleRegion: () => (split.shown() ? split.visibleRegion() : unified.visibleRegion()),
     jumpToRow: (surface, id) => {
       state = jumplist.pushCurrent(state, vimState)
       if (surface === "tree") {
@@ -1509,8 +1461,8 @@ export async function createApp(options: AppOptions = {}) {
 
     // Asked for from a file row: the commit's diff, at that file — with the
     // file at the top of the window, since it is the whole reason for
-    // coming. The view restores its old scroll after the rebuild the new
-    // commit triggers, so the placement waits for that.
+    // coming. Drawing the new commit's mapping reveals the cursor wherever
+    // it is, so the placement waits for revealFile to have moved it.
     const fileIndex = filename ? state.files.findIndex((file) => file.filename === filename) : -1
     if (fileIndex !== -1) {
       diffViewport.onceRebuilt(() => diffViewport.scrollCursorTo(vimState.line, "top"))
@@ -1748,8 +1700,6 @@ export async function createApp(options: AppOptions = {}) {
     mode,
     prInfo: prInfo ?? null,
   }
-  // A parse landing is a reason to draw the frame again (spec 080).
-  vimDiffView.onFileParsed = highlights.landed
 
   startReferencePrefetch(referenceContext)
 

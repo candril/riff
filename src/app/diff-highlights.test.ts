@@ -34,6 +34,17 @@ test("a parse landing bumps the version once and tells the app", async () => {
   expect(highlights.lineSpans.spans(lines, addition)).toEqual([[0, 5, "keyword"]])
 })
 
+test("a file's own parse landing bumps the version too", async () => {
+  let landings = 0
+  const parses = new FileParses(async () => [[0, 5, "keyword"]])
+  const highlights = createDiffHighlights(parses, () => landings++, async () => null)
+  parses.set(new Map([["a.ts", { new: "const a = 2\n", old: "const a = 1\n" }]]))
+  await settle()
+  await settle()
+  expect(highlights.version()).toBe(2)
+  expect(landings).toBe(2)
+})
+
 test("a parse landing after dispose changes nothing", async () => {
   const { parse, land } = heldParse()
   let landings = 0

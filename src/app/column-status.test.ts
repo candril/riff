@@ -4,9 +4,8 @@ import { diffColumnStatus, splitOn, type ColumnStatusDeps } from "./column-statu
 function deps(over: Partial<ColumnStatusDeps> = {}): ColumnStatusDeps {
   return {
     viewMode: "diff",
-    vimState: { line: 4, col: 7 },
     split: { island: { columnStatus: () => ({ col: 3, total: 90 }) } },
-    vimDiffView: { getColumnStatus: (line, col) => ({ col: line * 10 + col, total: 200 }) },
+    unified: { columnStatus: () => ({ col: 47, total: 200 }) },
     ...over,
   }
 }
@@ -20,7 +19,7 @@ test("split asks the island, which counts the active pane's cells", () => {
   expect(diffColumnStatus(true, deps())).toEqual({ col: 3, total: 90 })
 })
 
-test("unified asks the diff view about the cursor's line and column", () => {
+test("unified asks its island, which reads the cursor it draws", () => {
   expect(diffColumnStatus(false, deps())).toEqual({ col: 47, total: 200 })
 })
 
