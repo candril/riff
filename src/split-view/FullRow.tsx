@@ -51,6 +51,11 @@ function FileHeader(props: RowProps) {
   const viewed = () => props.env.props.fileStatuses.get(filename)?.viewed ?? false
   const file = () => props.env.files().get(filename)
   // Unified's backdrop starts at the path: the fold and viewed markers left of it stay lit.
+  // Clamped to the path, so a column past it never pushes the stats right.
+  const cursor = () => {
+    const col = props.atCursor && filename ? props.env.headerCursor() : undefined
+    return col === undefined ? undefined : Math.min(col, filename.length - 1)
+  }
   const path = () => {
     const flash = props.env.flashHits()
     return buildSegments(filename, {
@@ -58,6 +63,7 @@ function FileHeader(props: RowProps) {
       baseFg: viewed() ? theme.overlay1 : theme.blue,
       rowBg: theme.surface0,
       flash: flash && { matches: flash.get(props.index) ?? [] },
+      cursor: cursor(),
     })
   }
   return (

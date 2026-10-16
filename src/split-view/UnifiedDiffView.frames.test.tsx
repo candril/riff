@@ -71,6 +71,14 @@ describe("files", () => {
     expect(frame.split("\n").slice(-2)).toEqual(["", " ▶   src/farewell.ts +3 -0"])
   })
 
+  test("a header under the cursor draws no block of its own: the terminal's cursor marks it", async () => {
+    await frameOf({ raw: TWO_FILES, cursor: { line: 0 } })
+    const spans = mounted!.setup.captureSpans()
+    for (let x = 0; x < spans.lines[0]!.spans.reduce((width, span) => width + span.width, 0); x++) {
+      expect(bgAt(spans, x, 0)).not.toEqual(ints(theme.rosewater))
+    }
+  })
+
   test("a hunk far down the file widens the gutter and opens on a divider", async () => {
     expect(await frameOf({ raw: FAR_HUNK })).toBe(`\
  ▼   schema.graphql +1 -0

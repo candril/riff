@@ -1,7 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { CURSOR_ADDITION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
 import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
-import { bgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
+import { bgAt, fgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import type { Comment, FileReviewStatus } from "../types"
 import { revealColumn } from "../app/split-columns"
 import { cellOfColumn } from "../diff-rows/cells"
@@ -237,8 +237,10 @@ describe("cursor", () => {
     expect(bgAt(view.setup.captureSpans(), CURSOR_X, RETURN_ROW)).toEqual(ints(CURSOR_ADDITION_BG))
   })
 
+  const HEADER_ROW = 0
+  const PATH_X = " ▼   ".length
+
   test("a file header keeps its own background under the cursor, as unified's does, while a divider takes the cursor line's", async () => {
-    const HEADER_ROW = 0
     const DIVIDER_ROW = 6
     const onHeader = await mount({ raw: TWO_FILES, cursor: { row: HEADER_ROW, col: 0 } })
     await onHeader.frame()
@@ -248,5 +250,38 @@ describe("cursor", () => {
     const onDivider = await mount({ raw: TWO_FILES, cursor: { row: DIVIDER_ROW, col: 0 } })
     await onDivider.frame()
     expect(bgAt(onDivider.setup.captureSpans(), 30, DIVIDER_ROW)).toEqual(ints(CURSOR_LINE_BG))
+  })
+
+  test("a file header under the cursor draws the block on its path, as unified's terminal cursor sits", async () => {
+    const view = await mount({ raw: TWO_FILES, cursor: { row: HEADER_ROW, col: 0 } })
+    const frame = await view.frame()
+    const spans = view.setup.captureSpans()
+    expect(row(frame, HEADER_ROW)).toBe(" ▼   src/greet.ts +2 -1")
+    expect([fgAt(spans, PATH_X, HEADER_ROW), bgAt(spans, PATH_X, HEADER_ROW)]).toEqual([ints(theme.base), ints(theme.rosewater)])
+    expect(bgAt(spans, PATH_X + 1, HEADER_ROW)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 1, HEADER_ROW)).toEqual(ints(theme.surface0))
+  })
+
+  test("on a collapsed file's header a column past the path keeps the block on its last character, the stats where they were", async () => {
+    const COLLAPSED_ROW = 8
+    const view = await mount({
+      raw: TWO_FILES,
+      mappingOptions: { collapsedFiles: new Set(["src/farewell.ts"]) },
+      cursor: { row: COLLAPSED_ROW, col: 40 },
+    })
+    const frame = await view.frame()
+    const spans = view.setup.captureSpans()
+    const last = PATH_X + "src/farewell.ts".length - 1
+    expect(row(frame, COLLAPSED_ROW)).toBe(" ▶   src/farewell.ts +3 -0")
+    expect(bgAt(spans, last, COLLAPSED_ROW)).toEqual(ints(theme.rosewater))
+    expect(bgAt(spans, last - 1, COLLAPSED_ROW)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, last + 2, COLLAPSED_ROW)).toEqual(ints(theme.surface0))
+  })
+
+  test("an unfocused view draws no block on the header under its cursor", async () => {
+    const view = await mount({ raw: TWO_FILES, cursor: { row: HEADER_ROW, col: 0 }, focused: false })
+    await view.frame()
+    const spans = view.setup.captureSpans()
+    for (let x = 0; x < 120; x++) expect(bgAt(spans, x, HEADER_ROW)).not.toEqual(ints(theme.rosewater))
   })
 })

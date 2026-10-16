@@ -53,6 +53,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     // Unified's gutter runs down the whole file section, past the rows of riff's own in it,
     // coloured by the rule unifiedLineColors follows for a line of code.
     chromeGutterBg: (tint, atCursor) => tint ?? (atCursor ? theme.base : theme.mantle),
+    headerCursor: () => undefined,
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
     flashHits: createMemo(() => flashByLine(props.flash)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),

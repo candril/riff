@@ -22,6 +22,8 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     rowWidth: () => props.width,
     originOf: () => contentOrigin(gutter()),
     chromeGutterBg: () => undefined,
+    // The terminal's cursor is hidden here, so the block stands in for it, and a composer or prompt suspends it.
+    headerCursor: () => (props.focused ? props.cursor.col : undefined),
     panes: createMemo(() => paneWidths(props.width)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
     words: createMemo(() => wordsOf(props.mapping)),

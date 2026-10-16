@@ -51,6 +51,12 @@ export interface RowEnv {
    * the cursor matters because there an untinted gutter is lit.
    */
   chromeGutterBg: (tint: string | undefined, atCursor: boolean) => string | undefined
+  /**
+   * The column of the path to draw a block on while a file header is under
+   * the cursor; undefined where the terminal's own cursor is meant to mark it,
+   * or nothing should.
+   */
+  headerCursor: () => number | undefined
   files: () => ReadonlyMap<string, DiffFile>
   flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
 }
