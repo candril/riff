@@ -42,3 +42,16 @@ export function expectSameColours(old: Screen, fresh: Screen, markers: At[], pla
   )
   expect(plain.map((at) => bgAt(fresh.spans, ...at))).toEqual(plain.map((at) => bgAt(old.spans, ...at)))
 }
+
+/**
+ * A trimmed frame split at the scrollbar's column: the bar's cells top to
+ * bottom, and each row short of it, so that the rest is still held alike
+ * where the new view's thumb is the window's size and VimDiffView's is not.
+ */
+export function splitAtBar(frame: string, width: number) {
+  const rows = frame.split("\n")
+  return {
+    body: rows.map((row) => row.slice(0, width - 1).trimEnd()),
+    bar: rows.map((row) => row[width - 1] ?? " ").join(""),
+  }
+}

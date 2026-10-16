@@ -134,11 +134,11 @@ describe("wrap", () => {
 
   // A single file, so no sticky header covers the top row.
   test("scrolled into a wrapped line, the top row is its continuation", async () => {
-    // Six rows in a view of three, so the scrollbar shows, its thumb at the bottom.
+    // Six rows in a view of three, so the scrollbar shows, its thumb the lower half of the track.
     expect(await frameOf({ ...WRAPPED, height: 3, wrap: true, scrollTop: 3, mode: "single", selectedFileIndex: 0 })).toBe(`\
     ↳a fairly long line that keeps going "
-   3 }
-     ▸ rest of the file  ↵${" ".repeat(33)}▄`)
+   3 }${" ".repeat(53)}▄
+     ▸ rest of the file  ↵${" ".repeat(33)}█`)
   })
 })
 
@@ -308,6 +308,28 @@ describe("scrollbar", () => {
     expect(atEnd.join("")).toMatch(THUMB)
     expect(atEnd).not.toEqual(atTop)
   })
+
+  // A bar the <Show> mounts afresh sets its sizes in whatever order Solid picks, and must still size its thumb by the window.
+  test("a bar remounted as the pane grows past the diff and shrinks back draws the thumb a fresh mount draws", async () => {
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6 })
+    const fresh = lastColumn()
+    // Six rows of fourteen: two and a half cells of the six.
+    expect(fresh.join("")).toBe("██▀   ")
+    await mounted!.dispose()
+
+    mounted = await mountUnified({ raw: TWO_FILES, width: 80, height: 20 })
+    await mounted.frame()
+    expect(lastColumn().join("")).not.toMatch(THUMB)
+    mounted.set("height", 6)
+    await mounted.frame()
+    expect(lastColumn().slice(0, 6)).toEqual(fresh)
+    mounted.set("height", 20)
+    await mounted.frame()
+    expect(lastColumn().join("")).not.toMatch(THUMB)
+    mounted.set("height", 6)
+    await mounted.frame()
+    expect(lastColumn().slice(0, 6)).toEqual(fresh)
+  })
 })
 
 describe("scrollbar beside unwrapped code twice the pane's width", () => {
@@ -346,12 +368,12 @@ describe("sticky header", () => {
  ▼   src/greet.ts +2 -1
    2   return \`Hello \${name}\`
    3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵                                                     ▄
+   4                                                                           ▄
+   5 export const version = 1                                                  █
+     ▸ rest of the file  ↵                                                     █
                                                                                █
  ▼   src/farewell.ts +3 -0                                                     █
-   1 export function farewell(name: string) {
+   1 export function farewell(name: string) {                                  █
    2   return "Bye " + name
    3 }`)
   })
@@ -452,7 +474,8 @@ describe("sticky header", () => {
     })
     const next = headerRows()[1]!
     await scrollTo(next)
-    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
+    // Short of the last cell, where the scrollbar draws its thumb.
+    expect(rowsOf()[0]!.slice(0, -1).trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
     expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeUndefined()
     expect(rowsOf().some((row) => row.includes("▶"))).toBe(false)
     await scrollTo(next + 1)

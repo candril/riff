@@ -18,6 +18,7 @@ import {
   rowCells,
   expectSameColours,
   screenOf,
+  splitAtBar,
   type At,
   type Case,
   type Screen,
@@ -147,17 +148,20 @@ describe("the unified view draws what VimDiffView draws", () => {
   })
 
   // VimDiffView's scrollbar takes the last column here; its code still wraps one cell short of it.
-  test("wrapped under VimDiffView's scrollbar", async () => {
+  test("wrapped under the scrollbar, its thumb the window's size where VimDiffView's is a cell", async () => {
     const { old, fresh } = await framesOf({ raw: FAR_HUNK, width: 30, height: 8, wrap: true })
     expect(old).toMatch(/[▀▄█]/)
-    expect(fresh).toBe(old)
+    expect(splitAtBar(fresh, 30).body).toEqual(splitAtBar(old, 30).body)
+    expect(splitAtBar(fresh, 30).bar).toBe(" ███▀   ")
   })
 
   // Sixty lines, but over a hundred rows once wrapped: OpenTUI sizes the gutter by the rows.
+  // VimDiffView draws a sliver of a thumb beside these; riff draws the window's size.
   test("wrapped past 99 rows, the gutter takes another digit", async () => {
     const { old, fresh } = await framesOf({ raw: MANY_WRAPPED_LINES, width: 120, height: 40, wrap: true })
     expect(old).toContain("    1 const line1")
-    expect(fresh).toBe(old)
+    expect(splitAtBar(fresh, 120).body).toEqual(splitAtBar(old, 120).body)
+    expect(splitAtBar(fresh, 120).bar).toBe(" ████████████                           ")
   })
 
   test("wrapped past 99 rows in one section only, only that section's gutter widens", async () => {
@@ -165,7 +169,8 @@ describe("the unified view draws what VimDiffView draws", () => {
     expect(old).toContain("   1 const first = 1")
     expect(old).not.toContain("    1 const first = 1")
     expect(old).toContain("    1 const line1")
-    expect(fresh).toBe(old)
+    expect(splitAtBar(fresh, 120).body).toEqual(splitAtBar(old, 120).body)
+    expect(splitAtBar(fresh, 120).bar).toBe(" ███████████▀                           ")
   })
 
   test("wrapped one cell short of 100 rows, the gutter widens only when it must", async () => {
@@ -176,7 +181,16 @@ describe("the unified view draws what VimDiffView draws", () => {
   })
 })
 
-describe("the unified view draws VimDiffView's scrollbar", () => {
+/*
+ * VimDiffView's thumb is an accident of setter order: its ScrollBox hands
+ * the bar its viewport while the content is still empty, and OpenTUI's
+ * slider keeps the clamp, so the thumb comes out a sliver or not much more.
+ * riff's thumb is the window's size instead, so these hold VimDiffView's
+ * bar to everything but that: where it shows, its track and thumb colours,
+ * the cell the sticky header covers and the › beside it. The new thumb is
+ * pinned on its own.
+ */
+describe("the unified view draws VimDiffView's scrollbar, its thumb sized by the window", () => {
   const THUMB = /[▀▄█]/
 
   /** Both views scrolled to `scrollTop`, or as near it as VimDiffView's scrollBox lets it go. */
@@ -199,10 +213,12 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
   }
 
   const lastColumn = (screen: Screen) => screen.rows.map((row) => row.at(-1))
+  // The view's own rows, under the header row and above the char frame's trailing newline.
+  const barOf = (screen: Screen) => lastColumn(screen).slice(1, -1).join("")
+  const shortOfBar = (screen: Screen) => screen.rows.map((row) => row.slice(0, -1))
   // The char frame ends in a newline, so its rows run one past the screen's.
   const lastColumnCells = (screen: Screen) =>
     screen.spans.lines.map((_, y): At => [screen.rows[y]!.length - 1, y])
-  const cellOf = (screen: Screen, [x, y]: At) => [charAt(screen, [x, y]), fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)]
 
   // The row VimDiffView pins a scrolled-away file's header over, under the header row.
   const STICKY_ROW = 1
@@ -217,31 +233,40 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
     expect(cells.map((at) => fgAt(fresh.spans, ...at))).toEqual(cells.map((at) => fgAt(old.spans, ...at)))
   }
 
+  // VimDiffView draws a sliver at each place; riff a thumb of the window's size, moving down the track.
+  const twoFilesBars: Record<number, string[]> = {
+    8: ["███▀   ", "  ███▀ ", "   ▄███"],
+    6: ["█▀   ", " ▄█  ", "   ▄█"],
+  }
+
   for (const height of [8, 6]) {
     test(`two files at 80x${height}, from the top to the last scroll position`, async () => {
       const tops = []
+      const bars = []
       for (const scrollTop of [0, 4, Number.MAX_SAFE_INTEGER]) {
         const { old, fresh, scrolledTo } = await scrolledScreensOf({ raw: TWO_FILES, width: 80, height }, scrollTop)
         tops.push(scrolledTo)
+        bars.push(barOf(fresh))
         expect(lastColumn(old).join("")).toMatch(THUMB)
         if (scrolledTo === 0) {
-          expect(fresh.rows).toEqual(old.rows)
+          expect(shortOfBar(fresh)).toEqual(shortOfBar(old))
           continue
         }
-        expect(fresh.rows.filter((_, y) => y !== STICKY_ROW)).toEqual(old.rows.filter((_, y) => y !== STICKY_ROW))
+        expect(shortOfBar(fresh).filter((_, y) => y !== STICKY_ROW)).toEqual(shortOfBar(old).filter((_, y) => y !== STICKY_ROW))
         // VimDiffView's divider overlay paints over its sticky header when the divider is the top row; the new view keeps the file's name there.
         if (old.rows[STICKY_ROW]!.includes("rest of the file")) {
           expect(fresh.rows[STICKY_ROW]!.trimEnd()).toBe(" ▼   src/greet.ts +2 -1")
           continue
         }
         expect(old.rows[STICKY_ROW]).toMatch(/^ ▼   src\/\w+\.ts \+\d -\d/)
-        const bar = except(lastColumnCells(old), lastCellOf(old))
-        expect(bar.map((at) => cellOf(fresh, at))).toEqual(bar.map((at) => cellOf(old, at)))
         expectSameStickyRow(old, fresh)
+        // The track under both thumbs alike, whichever cells each thumb covers.
+        expectSameColours(old, fresh, [], except(lastColumnCells(old), lastCellOf(old)))
       }
       // Mid-way and at the end, so the thumb is held at three places.
       expect(tops[1]).toBe(4)
       expect(tops[2]).toBeGreaterThan(4)
+      expect(bars).toEqual(twoFilesBars[height]!)
     })
   }
 
@@ -259,7 +284,9 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
     expect(scrolledTo).toBe(1)
     expect(old.rows[STICKY_ROW]).toContain("short.ts")
     expectSameStickyRow(old, fresh)
-    expect(fresh.rows.slice(STICKY_ROW + 1)).toEqual(old.rows.slice(STICKY_ROW + 1))
+    expect(shortOfBar(fresh).slice(STICKY_ROW + 1)).toEqual(shortOfBar(old).slice(STICKY_ROW + 1))
+    // VimDiffView's thumb here is what its setter order left; riff's is the window's size.
+    expect(barOf(fresh)).toBe("▄█▀  ")
   })
 
   // VimDiffView's code ends a column short of its scrollbar, so the › sits beside it while the bar is on screen.
@@ -268,30 +295,38 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
     const rows = old.split("\n")
     expect(rows[4]![58]).toBe("›")
     expect(rows.join("")).toMatch(THUMB)
-    expect(fresh).toBe(old)
+    expect(splitAtBar(fresh, 60).body).toEqual(splitAtBar(old, 60).body)
+    // VimDiffView's thumb here is what its setter order left; riff's is the window's size.
+    expect(splitAtBar(fresh, 60).bar).toBe(" ██  ")
   })
 
   // VimDiffView's ScrollBox shrinks its bar in proportion to the content, so code nearly twice the pane wide rounds it off screen.
-  const pushedOff: [string, Case, boolean][] = [
-    ["a long line at 40 columns", { raw: ONE_LONG_LINE, width: 40, height: 5 }, false],
-    ["a long line at 49 columns", { raw: ONE_LONG_LINE, width: 49, height: 5 }, false],
-    ["a long line at 50 columns", { raw: ONE_LONG_LINE, width: 50, height: 5 }, true],
-    ["a wide line at 30 columns", { raw: ONE_WIDE_LINE, width: 30, height: 5 }, false],
-    ["a wide line at 91 columns", { raw: ONE_WIDE_LINE, width: 91, height: 5 }, false],
-    ["a wide line at 92 columns", { raw: ONE_WIDE_LINE, width: 92, height: 5 }, true],
-    ["many long lines at 40x12", { raw: MANY_WRAPPED_LINES, width: 40, height: 12 }, false],
-    ["many long lines at 80x20", { raw: MANY_WRAPPED_LINES, width: 80, height: 20 }, false],
-    ["many long lines at 81x20", { raw: MANY_WRAPPED_LINES, width: 81, height: 20 }, true],
-    ["a short file, then many long lines, at 40x12", { raw: SHORT_THEN_MANY_WRAPPED, width: 40, height: 12 }, false],
+  // Where it stays, the thumb riff draws, sized by the window rather than by VimDiffView's setter order.
+  const pushedOff: [string, Case, string | null][] = [
+    ["a long line at 40 columns", { raw: ONE_LONG_LINE, width: 40, height: 5 }, null],
+    ["a long line at 49 columns", { raw: ONE_LONG_LINE, width: 49, height: 5 }, null],
+    ["a long line at 50 columns", { raw: ONE_LONG_LINE, width: 50, height: 5 }, " ██  "],
+    ["a wide line at 30 columns", { raw: ONE_WIDE_LINE, width: 30, height: 5 }, null],
+    ["a wide line at 91 columns", { raw: ONE_WIDE_LINE, width: 91, height: 5 }, null],
+    ["a wide line at 92 columns", { raw: ONE_WIDE_LINE, width: 92, height: 5 }, " ██  "],
+    ["many long lines at 40x12", { raw: MANY_WRAPPED_LINES, width: 40, height: 12 }, null],
+    ["many long lines at 80x20", { raw: MANY_WRAPPED_LINES, width: 80, height: 20 }, null],
+    ["many long lines at 81x20", { raw: MANY_WRAPPED_LINES, width: 81, height: 20 }, " █████▀             "],
+    ["a short file, then many long lines, at 40x12", { raw: SHORT_THEN_MANY_WRAPPED, width: 40, height: 12 }, null],
   ]
 
-  for (const [name, options, shows] of pushedOff) {
-    test(`unwrapped, the scrollbar ${shows ? "stays" : "is pushed off screen"}: ${name}`, async () => {
+  for (const [name, options, bar] of pushedOff) {
+    test(`unwrapped, the scrollbar ${bar ? "stays" : "is pushed off screen"}: ${name}`, async () => {
       const { old, fresh } = await framesOf(options)
       const lastCells = old.split("\n").slice(1).map((row) => row[options.width! - 1] ?? " ").join("")
-      expect(THUMB.test(lastCells)).toBe(shows)
-      if (!shows) expect(lastCells).toContain("›")
-      expect(fresh).toBe(old)
+      expect(THUMB.test(lastCells)).toBe(bar !== null)
+      if (bar === null) {
+        expect(lastCells).toContain("›")
+        expect(fresh).toBe(old)
+        return
+      }
+      expect(splitAtBar(fresh, options.width!).body).toEqual(splitAtBar(old, options.width!).body)
+      expect(splitAtBar(fresh, options.width!).bar).toBe(bar)
     })
   }
 
@@ -319,12 +354,14 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
     const { old, fresh } = await scrolledScreensOf({ raw: TWO_FILES, width: 80, height: 8 }, 0)
     // Under the header row, down the view's seven rows.
     const column = [1, 2, 3, 4, 5, 6, 7].map((y): At => [79, y])
-    const cellsOf = (screen: Screen) => column.map(([x, y]) => [charAt(screen, [x, y]), fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)])
-    expect(cellsOf(fresh)).toEqual(cellsOf(old))
     expectSameColours(old, fresh, [], column)
-    const thumb = column.find((at) => THUMB.test(charAt(fresh, at)!))!
-    expect(fgAt(fresh.spans, ...thumb)).toEqual(ints(theme.surface2))
-    expect(bgAt(fresh.spans, ...column.find((at) => charAt(fresh, at) === " ")!)).toEqual(ints(theme.surface0))
+    // A cell of thumb and one of bare track in each, wherever each view's thumb ends.
+    const thumbOf = (screen: Screen) => column.find((at) => THUMB.test(charAt(screen, at)!))!
+    const trackOf = (screen: Screen) => column.find((at) => charAt(screen, at) === " ")!
+    expect(fgAt(fresh.spans, ...thumbOf(fresh))).toEqual(fgAt(old.spans, ...thumbOf(old)))
+    expect(bgAt(fresh.spans, ...trackOf(fresh))).toEqual(bgAt(old.spans, ...trackOf(old)))
+    expect(fgAt(fresh.spans, ...thumbOf(fresh))).toEqual(ints(theme.surface2))
+    expect(bgAt(fresh.spans, ...trackOf(fresh))).toEqual(ints(theme.surface0))
   })
 })
 
