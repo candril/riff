@@ -61,6 +61,11 @@ export const code = diffFile("b.ts", [
   "\\ No newline at end of file",
 ])
 
+/** Wraps once at a code width of 55, after "keeps going ", as unified's wrap frame test has it. */
+export const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
+
+export const long = diffFile("long.ts", ["@@ -1,2 +1,3 @@", " {", `+${LONG_LINE}`, " }"])
+
 export const middleDivider = "doc.md:middle:0"
 
 export function mappingOf(options: DiffLineMappingOptions = {}, files = [doc, code]) {
