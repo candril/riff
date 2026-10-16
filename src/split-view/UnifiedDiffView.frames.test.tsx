@@ -431,5 +431,4 @@ describe("sticky header", () => {
     expect(rowsOf()[0]!).toStartWith(" ▼   src/farewell.ts +3 -0")
     expect(rowsOf()[1]!).toStartWith("   2   return")
   })
-
 })

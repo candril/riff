@@ -35,10 +35,10 @@ import type { SplitSelection } from "./overlays"
  * same size under the same header row. The new view does not draw
  * VimDiffView's cursor cell yet, so the cases here stay clear of it or mask
  * it. Its sticky header stops short of the scrollbar, where VimDiffView's
- * covers the thumb, so that last cell is masked on the sticky row. VimDiffView colours code through a
- * highlighter these tests give the new view no parser for, so code's
- * foreground is compared only where an overlay decides it. Tabs are left
- * out of the corpus.
+ * covers the thumb, so that last cell is masked on the sticky row.
+ * VimDiffView colours code through a highlighter these tests give the new
+ * view no parser for, so code's foreground is compared only where an
+ * overlay decides it. Tabs are left out of the corpus.
  */
 
 async function framesOf(options: Case) {
@@ -198,6 +198,10 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
   }
 
   const lastColumn = (screen: Screen) => screen.rows.map((row) => row.at(-1))
+  // The char frame ends in a newline, so its rows run one past the screen's.
+  const lastColumnCells = (screen: Screen) =>
+    screen.spans.lines.map((_, y): At => [screen.rows[y]!.length - 1, y])
+  const cellOf = (screen: Screen, [x, y]: At) => [charAt(screen, [x, y]), fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)]
 
   // The row VimDiffView pins a scrolled-away file's header over, under the header row.
   const STICKY_ROW = 1
@@ -230,9 +234,8 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
           continue
         }
         expect(old.rows[STICKY_ROW]).toMatch(/^ ▼   src\/\w+\.ts \+\d -\d/)
-        expect(except(lastColumn(fresh).map((cell, y): At => [y, 0]), [STICKY_ROW, 0])).toEqual(
-          except(lastColumn(old).map((cell, y): At => [y, 0]), [STICKY_ROW, 0])
-        )
+        const bar = except(lastColumnCells(old), lastCellOf(old))
+        expect(bar.map((at) => cellOf(fresh, at))).toEqual(bar.map((at) => cellOf(old, at)))
         expectSameStickyRow(old, fresh)
       }
       // Mid-way and at the end, so the thumb is held at three places.
