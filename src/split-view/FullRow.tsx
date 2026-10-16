@@ -3,6 +3,7 @@ import { Show, createMemo, type JSX } from "solid-js"
 import { cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade } from "../diff-rows/segments"
 import { theme } from "../theme"
+import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine } from "../vim-diff/types"
 import type { RowEnv } from "./env"
 import { SegmentTexts } from "./Half"
@@ -44,31 +45,33 @@ const Cell = (props: { fg: string; attributes?: number; children: string }) => (
 /** Text faded as flash's backdrop fades the code, while flash is up. */
 const dimmed = (env: RowEnv, fg: string, bg: string | undefined) => (env.flashHits() ? fade(fg, bg ?? theme.base) : fg)
 
-// The same row VimDiffView's FileHeader builds, so the two views label a file alike.
-function FileHeader(props: RowProps) {
-  const filename = props.line.filename ?? ""
-  const collapsed = props.line.isCollapsed ?? false
-  const viewed = () => props.env.props.fileStatuses.get(filename)?.viewed ?? false
-  const file = () => props.env.files().get(filename)
+/**
+ * What VimDiffView's FileHeader draws for a file, and its sticky header for
+ * the file scrolled into: one source, so the two label a file alike.
+ * `cursor` is a column of the path to draw a block on; `flash` the matches
+ * on the path, while flash is up.
+ */
+export function FileLabel(props: {
+  env: RowEnv
+  filename: string
+  collapsed: boolean
+  cursor?: number
+  flash?: readonly FlashMatch[]
+}) {
+  const viewed = () => props.env.props.fileStatuses.get(props.filename)?.viewed ?? false
+  const file = () => props.env.files().get(props.filename)
   // Unified's backdrop starts at the path: the fold and viewed markers left of it stay lit.
-  // Clamped to the path, so a column past it never pushes the stats right.
-  const cursor = () => {
-    const col = props.atCursor && filename ? props.env.headerCursor() : undefined
-    return col === undefined ? undefined : Math.min(col, filename.length - 1)
-  }
-  const path = () => {
-    const flash = props.env.flashHits()
-    return buildSegments(filename, {
+  const path = () =>
+    buildSegments(props.filename, {
       wordSide: "added",
       baseFg: viewed() ? theme.overlay1 : theme.blue,
       rowBg: theme.surface0,
-      flash: flash && { matches: flash.get(props.index) ?? [] },
-      cursor: cursor(),
+      flash: props.env.flashHits() && { matches: props.flash ?? [] },
+      cursor: props.cursor,
     })
-  }
   return (
     <Bar env={props.env} bg={theme.surface0} paddingX={1} gap={1}>
-      <Cell fg={collapsed ? theme.overlay1 : theme.overlay0}>{collapsed ? "▶" : "▼"}</Cell>
+      <Cell fg={props.collapsed ? theme.overlay1 : theme.overlay0}>{props.collapsed ? "▶" : "▼"}</Cell>
       <Cell fg={viewed() ? theme.green : theme.overlay0}>{viewed() ? "✓" : " "}</Cell>
       {/* Its own box, or the bar's gap would open between the path's segments. */}
       <box flexDirection="row" flexShrink={0}>
@@ -77,6 +80,24 @@ function FileHeader(props: RowProps) {
       <Cell fg={dimmed(props.env, theme.green, theme.surface0)}>{`+${file()?.additions ?? 0}`}</Cell>
       <Cell fg={dimmed(props.env, theme.red, theme.surface0)}>{`-${file()?.deletions ?? 0}`}</Cell>
     </Bar>
+  )
+}
+
+function FileHeader(props: RowProps) {
+  const filename = props.line.filename ?? ""
+  // Clamped to the path, so a column past it never pushes the stats right.
+  const cursor = () => {
+    const col = props.atCursor && filename ? props.env.headerCursor() : undefined
+    return col === undefined ? undefined : Math.min(col, filename.length - 1)
+  }
+  return (
+    <FileLabel
+      env={props.env}
+      filename={filename}
+      collapsed={props.line.isCollapsed ?? false}
+      cursor={cursor()}
+      flash={props.env.flashHits()?.get(props.index)}
+    />
   )
 }
 
