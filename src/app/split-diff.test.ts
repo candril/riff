@@ -7,6 +7,7 @@ import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { FileParses } from "../vim-diff/file-parses"
+import { FlashHandler } from "../vim-diff/flash-handler"
 import { createFlashState } from "../vim-diff/flash-state"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { createSearchState } from "../vim-diff/search-state"
@@ -149,6 +150,8 @@ describe("single-file mode", () => {
       frame,
       addition,
       deletion,
+      mapping: () => mapping,
+      cursor: () => vimState,
       content: (line: number) => mapping.getLine(line)!.content,
       lineStarting: (text: string) => mapping.allLines.findIndex((line) => line.content.startsWith(text)),
       /** Puts the cursor on `line` at `col` and reveals it, as a motion does. */
@@ -211,6 +214,57 @@ describe("single-file mode", () => {
     expect(after).not.toContain("‹")
     expect(after).toContain("b.ts old")
     expect(after).toContain('const b.ts = "xxx')
+  })
+
+  test("flash labels a context line's match in each pane, each in its own window, and a removal's on the left alone", async () => {
+    const context = `qz start ${"x".repeat(200)} qz end`
+    const file = diffFile("both.ts", ["@@ -1,2 +1,2 @@", ` ${context}`, "-qz old", "+new"])
+    const { diff, mapping, cursor, lineStarting, moveTo } = await mountSingle([file])
+    const shared = lineStarting("qz start")
+    const removed = lineStarting("qz old")
+    moveTo(shared, context.length - 1)
+    expect(diff.source().side).toBe("right")
+    const right = diff.island.lineWindow(shared)
+    expect(right.startCol).toBeGreaterThan(0)
+
+    let flashState = createFlashState()
+    const jumps: [number, number, string | undefined][] = []
+    const handler = new FlashHandler({
+      getMapping: mapping,
+      getFlashState: () => flashState,
+      setFlashState: (state) => { flashState = state },
+      getCursor: cursor,
+      // As app.ts lands a jump: the pane first, so the reveal scrolls the pane the label was in.
+      setCursor: (line, col, pane) => {
+        jumps.push([line, col, pane])
+        if (pane) diff.source().setSide(pane)
+        moveTo(line, col)
+      },
+      getVisibleRegion: () => diff.visibleRegion(),
+      jumpToRow: () => {},
+      onUpdate: () => {},
+    })
+    handler.start()
+    handler.handleChar("q")
+    handler.handleChar("z")
+
+    const onShared = flashState.matches.filter((match) => match.line === shared)
+    expect(onShared.map((match) => [match.pane, match.startCol])).toEqual([
+      ["right", context.indexOf("qz end")],
+      ["left", 0],
+    ])
+    expect(new Set(onShared.map((match) => match.label)).size).toBe(2)
+    expect(onShared.every((match) => match.label !== null)).toBe(true)
+    for (const match of onShared) {
+      const window = match.pane === "right" ? right : { startCol: 0, endCol: diff.island.lineWindow(removed).endCol }
+      expect(match.startCol).toBeGreaterThanOrEqual(window.startCol)
+      expect(match.endCol).toBeLessThanOrEqual(window.endCol)
+    }
+    expect(flashState.matches.filter((match) => match.line === removed).map((match) => match.pane)).toEqual(["left"])
+
+    handler.handleChar(onShared[1]!.label!)
+    expect(jumps).toEqual([[shared, 0, "left"]])
+    expect(diff.source().side).toBe("left")
   })
 
   const wideSource = ["short", `const wide = "${"y".repeat(200)}" // the end`, "tail"]

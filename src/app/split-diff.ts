@@ -201,7 +201,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     /** Each pane is scrolled on its own, so flash searches every line in the window it is drawn in. */
     visibleRegion(): FlashRegion {
       const cursorWindow = island.lineWindow(deps.getVimState().line)
-      return { lines: island.visibleLines(), ...cursorWindow, windowOf: island.lineWindow }
+      return { lines: island.visibleLines(), ...cursorWindow, windowsOf: island.lineWindows }
     },
     dispose(): void {
       deps.renderer.off("resize", onResize)

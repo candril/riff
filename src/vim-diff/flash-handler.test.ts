@@ -19,15 +19,16 @@ function fakeMapping(lines: string[]): DiffLineMapping {
 function harness(
   lines: string[],
   cursor: { line: number; col: number } = { line: 0, col: 0 },
-  windowOf?: FlashRegion["windowOf"]
+  windowsOf?: FlashRegion["windowsOf"]
 ) {
   let flashState: FlashState = createFlashState()
   let vimState: VimCursorState = { ...createCursorState(), ...cursor }
+  let jumpedPane: "left" | "right" | undefined
   const region: FlashRegion = {
     lines: lines.map((_, i) => i),
     startCol: 0,
     endCol: 200,
-    windowOf,
+    windowsOf,
   }
 
   const handler = new FlashHandler({
@@ -35,7 +36,10 @@ function harness(
     getFlashState: () => flashState,
     setFlashState: (state) => { flashState = state },
     getCursor: () => vimState,
-    setCursor: (line, col) => { vimState = { ...vimState, line, col } },
+    setCursor: (line, col, pane) => {
+      vimState = { ...vimState, line, col }
+      jumpedPane = pane
+    },
     getVisibleRegion: () => region,
     jumpToRow: () => {},
     onUpdate: () => {},
@@ -46,17 +50,53 @@ function harness(
     type: (chars: string) => { for (const char of chars) handler.handleChar(char) },
     get state() { return flashState },
     get cursor() { return vimState },
+    get jumpedPane() { return jumpedPane },
   }
 }
 
 describe("FlashHandler", () => {
   test("a line with a window of its own is searched in that window alone", () => {
     const windows = [{ startCol: 0, endCol: 8 }, { startCol: 8, endCol: 20 }]
-    const h = harness(["ab ab ab ab", "ab ab ab ab"], { line: 0, col: 0 }, (line) => windows[line]!)
+    const h = harness(["ab ab ab ab", "ab ab ab ab"], { line: 0, col: 0 }, (line) => [windows[line]!])
     h.handler.start()
     h.type("ab")
 
     expect(h.state.matches.map((m) => [m.line, m.startCol])).toEqual([[0, 0], [0, 3], [0, 6], [1, 9]])
+  })
+
+  test("a line in two panes is searched in each pane's window, every match labelled and tagged with its pane", () => {
+    const panes = [
+      { startCol: 0, endCol: 30, pane: "right" as const },
+      { startCol: 0, endCol: 30, pane: "left" as const },
+    ]
+    const h = harness(["x ab", "ab"], { line: 0, col: 2 }, (line) => (line === 0 ? panes : [{ startCol: 0, endCol: 30 }]))
+    h.handler.start()
+    h.type("ab")
+
+    expect(h.state.matches.map((m) => [m.line, m.startCol, m.pane])).toEqual([
+      [0, 2, "right"],
+      [0, 2, "left"],
+      [1, 0, undefined],
+    ])
+    // At the same distance, the cursor's pane comes first and so takes the first label.
+    expect(h.state.matches.map((m) => m.label)).toEqual(["a", "s", "d"])
+
+    h.handler.handleChar("s")
+    expect([h.cursor.line, h.cursor.col, h.jumpedPane]).toEqual([0, 2, "left"])
+  })
+
+  test("a region with no windows of its own searches its one window and jumps with no pane", () => {
+    const h = harness(["ab ab", "ab"])
+    h.handler.start()
+    h.type("ab")
+
+    expect(h.state.matches.map((m) => [m.line, m.startCol, m.pane])).toEqual([
+      [0, 0, undefined],
+      [0, 3, undefined],
+      [1, 0, undefined],
+    ])
+    h.handler.handleChar(h.state.matches[1]!.label!)
+    expect([h.cursor.line, h.cursor.col, h.jumpedPane]).toEqual([0, 3, undefined])
   })
 
   test("typing narrows the pattern and labels every visible match", () => {

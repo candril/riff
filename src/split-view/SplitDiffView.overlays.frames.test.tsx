@@ -176,24 +176,34 @@ describe("flash", () => {
     }
   })
 
-  test("a context line is labelled once, in the cursor's pane, while a removal keeps its label in the other", async () => {
+  const labelled = (y: number) =>
+    Array.from({ length: 120 }, (_, x) => x).filter((x) => equal(bgAt(spans(), x, y), ints(theme.red)))
+
+  test("a context line's matches are labelled in the pane each was found in, while a removal keeps its label on the left", async () => {
     await mount({
       side: "right",
       flash: [
-        { line: 1, startCol: 0, endCol: 2, label: "c" },
+        { line: 1, startCol: 0, endCol: 2, label: "c", pane: "right" },
+        { line: 1, startCol: 0, endCol: 2, label: "e", pane: "left" },
         { line: 2, startCol: 2, endCol: 4, label: "d" },
       ],
     })
     const rows = await chars()
-    const labelled = (y: number) =>
-      Array.from({ length: 120 }, (_, x) => x).filter((x) => equal(bgAt(spans(), x, y), ints(theme.red)))
 
-    expect(labelled(1)).toEqual([RIGHT])
+    expect(labelled(1)).toEqual([LEFT, RIGHT])
     expect(rows[1]![RIGHT]).toBe("c")
     expect(rows[1]![LEFT]).toBe("e")
-    expect(bgAt(spans(), LEFT + 1, 1)).not.toEqual(ints(theme.surface1))
     expect(labelled(2)).toEqual([LEFT + 2])
     expect(rows[2]![LEFT + 2]).toBe("d")
+  })
+
+  test("a match found in the right pane draws nothing in the left half of the same line", async () => {
+    await mount({ side: "left", flash: [{ line: 1, startCol: 7, endCol: 9, label: "c", pane: "right" }] })
+    const rows = await chars()
+
+    expect(labelled(1)).toEqual([RIGHT + 7])
+    expect(rows[1]![LEFT + 7]).toBe("f")
+    expect(bgAt(spans(), LEFT + 8, 1)).not.toEqual(ints(theme.surface1))
   })
 
   test("a divider's label fades towards its row", async () => {

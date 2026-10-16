@@ -8,7 +8,7 @@
 
 import type { LineSource } from "./line-source"
 import type { VimCursorState } from "./types"
-import type { FlashMatch, FlashRow, FlashState, FlashSurface } from "./flash-state"
+import type { FlashMatch, FlashPane, FlashRow, FlashState, FlashSurface } from "./flash-state"
 import {
   assignLabels,
   createFlashState,
@@ -25,8 +25,18 @@ export interface FlashRegion {
   startCol: number
   /** Last visible column (exclusive) */
   endCol: number
-  /** A line's own window, where lines on screen are scrolled to different columns. */
-  windowOf?: (line: number) => { startCol: number; endCol: number }
+  /**
+   * The windows a line is drawn in, where lines on screen are scrolled to
+   * different columns: one per pane that shows it. The cursor's pane comes
+   * first, so on a tie it takes the nearer label.
+   */
+  windowsOf?: (line: number) => readonly FlashWindow[]
+}
+
+export interface FlashWindow {
+  startCol: number
+  endCol: number
+  pane?: FlashPane
 }
 
 /**
@@ -42,7 +52,8 @@ export interface FlashHandlerOptions {
   getFlashState: () => FlashState
   setFlashState: (state: FlashState) => void
   getCursor: () => VimCursorState
-  setCursor: (line: number, col: number) => void
+  /** `pane` is the split pane the match was labelled in, when the line is drawn in more than one. */
+  setCursor: (line: number, col: number, pane?: FlashPane) => void
   getVisibleRegion: () => FlashRegion | null
   /** Put the cursor on a labelled row of a list surface (spec 066). */
   jumpToRow: (surface: FlashSurface, id: string) => void
@@ -133,7 +144,7 @@ export class FlashHandler {
     const region = this.opts.getVisibleRegion()
     const cursor = this.opts.getCursor()
 
-    const matches: Array<{ line: number; startCol: number; endCol: number }> = []
+    const matches: Array<{ line: number; startCol: number; endCol: number; pane?: FlashPane }> = []
 
     if (pattern && region) {
       const needle = pattern.toLowerCase()
@@ -142,13 +153,15 @@ export class FlashHandler {
         if (!type || !JUMPABLE_TYPES.has(type)) continue
 
         const haystack = mapping.getLineContent(line).toLowerCase()
-        const { startCol, endCol } = region.windowOf?.(line) ?? region
-        let from = startCol
-        for (;;) {
-          const at = haystack.indexOf(needle, from)
-          if (at < 0 || at >= endCol) break
-          matches.push({ line, startCol: at, endCol: at + needle.length })
-          from = at + 1
+        const windows: readonly FlashWindow[] = region.windowsOf?.(line) ?? [region]
+        for (const { startCol, endCol, pane } of windows) {
+          let from = startCol
+          for (;;) {
+            const at = haystack.indexOf(needle, from)
+            if (at < 0 || at >= endCol) break
+            matches.push({ line, startCol: at, endCol: at + needle.length, pane })
+            from = at + 1
+          }
         }
       }
     }
@@ -175,7 +188,7 @@ export class FlashHandler {
 
   private jump(match: FlashMatch): void {
     this.opts.setFlashState(createFlashState())
-    this.opts.setCursor(match.line, match.startCol)
+    this.opts.setCursor(match.line, match.startCol, match.pane)
     this.opts.onUpdate()
   }
 }

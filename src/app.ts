@@ -806,8 +806,10 @@ export async function createApp(options: AppOptions = {}) {
     getFlashState: () => flashState,
     setFlashState: (newState) => { flashState = newState },
     getCursor: () => vimState,
-    setCursor: (line, col) => {
+    setCursor: (line, col, pane) => {
       vimState = { ...vimState, line, col, desiredCol: null }
+      // A line in both halves is labelled in each; syncPane leaves such a line alone, so the labelled pane sticks.
+      if (pane && split.shown()) split.source().setSide(pane)
       ensureCursorVisible()
       refreshCursor()
     },

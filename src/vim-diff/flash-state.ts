@@ -21,7 +21,16 @@ export interface FlashMatch {
   endCol: number
   /** Key that jumps here, or null when the alphabet ran out */
   label: string | null
+  /**
+   * The split pane the match was found in. A line in both halves is a
+   * place to land in each, so it is searched, labelled and jumped to per
+   * pane; unified has one window and never sets it.
+   */
+  pane?: FlashPane
 }
+
+/** A split view's pane, spelled out so vim-diff need not know diff-rows' Side. */
+export type FlashPane = "left" | "right"
 
 /**
  * Which surface flash is labelling (spec 066). The diff narrows first and
@@ -136,7 +145,7 @@ export function resolveRowKey(
 
 export interface AssignLabelsOptions {
   /** Raw matches, in document order */
-  matches: Array<{ line: number; startCol: number; endCol: number }>
+  matches: Array<{ line: number; startCol: number; endCol: number; pane?: FlashPane }>
   /** Cursor position — the closest matches get the earliest labels */
   cursor: { line: number; col: number }
   /** Content of a visual line, for the character that follows a match */

@@ -2,6 +2,7 @@ import type { CliRenderer } from "@opentui/core"
 import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
+import { rowOfLine } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view"
 import { contentOrigin, gutterWidth, paneWidths, visibleCells } from "../split-view/layout"
@@ -10,6 +11,8 @@ import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./s
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 
 export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "columns" | "width" | "height">
+
+type LineWindow = { startCol: number; endCol: number }
 
 const other = (side: Side): Side => (side === "left" ? "right" : "left")
 
@@ -54,6 +57,19 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
 
   const codeWidth = (props: SplitInputs, side: Side) =>
     paneWidths(size().width)[side] - contentOrigin(gutterWidth(props.mapping))
+
+  /** The columns of a mapping line that `side`'s pane shows. */
+  function windowOn(line: number, side: Side): LineWindow {
+    const props = inputs.value
+    const shown = props?.mapping.getLine(line)
+    if (!props || !shown) return { startCol: 0, endCol: 0 }
+    const width = Math.max(0, codeWidth(props, side))
+    if (!IN_HALVES.has(shown.type)) return { startCol: 0, endCol: width }
+    const { content } = shown
+    const { first, last } = visibleCells(columns()[side], width, cellOfColumn(content, content.length))
+    const startCol = columnOfCell(content, first)
+    return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
+  }
 
   /**
    * The line the cursor's half shows, and the room its pane has for code.
@@ -156,17 +172,25 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
      * removal's in the old pane, an addition's in the new, and a line in
      * both halves in the cursor's. A row across both panes never scrolls.
      */
-    lineWindow(line: number): { startCol: number; endCol: number } {
+    lineWindow(line: number): LineWindow {
       const props = inputs.value
-      const shown = props?.mapping.getLine(line)
-      if (!props || !shown) return { startCol: 0, endCol: 0 }
-      const side: Side = shown.type === "deletion" ? "left" : shown.type === "addition" ? "right" : props.side
-      const width = Math.max(0, codeWidth(props, side))
-      if (!IN_HALVES.has(shown.type)) return { startCol: 0, endCol: width }
-      const { content } = shown
-      const { first, last } = visibleCells(columns()[side], width, cellOfColumn(content, content.length))
-      const startCol = columnOfCell(content, first)
-      return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
+      const type = props?.mapping.getLine(line)?.type
+      if (!props) return { startCol: 0, endCol: 0 }
+      return windowOn(line, type === "deletion" ? "left" : type === "addition" ? "right" : props.side)
+    },
+    /**
+     * Every window a mapping line is drawn in, each tagged with its pane:
+     * a line in both halves is a place to land in each. The cursor's pane
+     * comes first, so on a tie it takes the nearer flash label. A row across
+     * both panes has one window and no pane, as lineWindow gives it.
+     */
+    lineWindows(line: number): (LineWindow & { pane?: Side })[] {
+      const props = inputs.value
+      if (!props) return []
+      const row = props.source.rows[rowOfLine(line, props.source)]
+      if (row?.kind !== "pair") return [windowOn(line, props.side)]
+      const sides = [props.side, other(props.side)].filter((side) => row[side] === line)
+      return sides.map((side) => ({ ...windowOn(line, side), pane: side }))
     },
     /**
      * The host is only laid out once it is in the tree, a frame after split

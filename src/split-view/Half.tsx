@@ -3,6 +3,7 @@ import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors
 import type { Side } from "../diff-rows/rows"
 import { buildSegments, type Segment } from "../diff-rows/segments"
 import { theme } from "../theme"
+import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine } from "../vim-diff/types"
 import type { SplitEnv } from "./env"
 import { contentOrigin, halfContent } from "./layout"
@@ -29,6 +30,10 @@ export function SegmentTexts(props: { segments: readonly Segment[] }) {
   )
 }
 
+// Flash names a pane only where a line is in both halves; a match without one belongs to whichever half shows its line.
+const flashMatchesOn = (matches: readonly FlashMatch[] | undefined, side: Side) =>
+  matches?.filter((match) => match.pane === undefined || match.pane === side) ?? []
+
 export const sameSpan = (a: { from: number; to: number } | undefined, b: { from: number; to: number } | undefined) =>
   a?.from === b?.from && a?.to === b?.to
 
@@ -39,8 +44,6 @@ export function Half(props: {
   at: number
   side: Side
   active: boolean
-  /** False keeps flash's backdrop but draws no match or label here. */
-  flashTargets: boolean
 }) {
   const { env } = props
   const view = env.props
@@ -80,7 +83,7 @@ export function Half(props: {
       rowBg: background() ?? theme.base,
       search: { matches: env.searchHits().get(props.index) ?? [] },
       selection: charSelection(),
-      flash: env.flashHits() && { matches: (props.flashTargets && env.flashHits()!.get(props.index)) || [] },
+      flash: env.flashHits() && { matches: flashMatchesOn(env.flashHits()!.get(props.index), props.side) },
       cursor: props.active && view.focused ? view.cursor.col : undefined,
     })
     return halfContent(full, view.columns[props.side], width() - contentOrigin(env.gutter())).segments
