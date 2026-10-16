@@ -34,14 +34,28 @@ export interface SplitDiffViewProps {
   flash: readonly FlashMatch[] | null
 }
 
+/** What a row of riff's own reads, in either view. */
+export interface RowEnv {
+  props: {
+    width: number
+    selection: SplitSelection | null
+    fileStatuses: ReadonlyMap<string, FileReviewStatus>
+    expandingDivider: string | null
+  }
+  /** The cell a line's code starts at, which chrome lines its text up with. */
+  originOf: (lineIndex: number) => number
+  /** The gutter's colour on a chrome row, unless a selection covers it. */
+  chromeGutterBg: string | undefined
+  files: () => ReadonlyMap<string, DiffFile>
+  flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
+}
+
 /** What every row reads, worked out once per view rather than once per row. */
-export interface SplitEnv {
+export interface SplitEnv extends RowEnv {
   props: SplitDiffViewProps
   gutter: () => number
   panes: () => { left: number; right: number }
   signs: () => ReadonlyMap<number, CommentSign>
   words: () => ReadonlyMap<number, readonly WordSpan[]>
-  files: () => ReadonlyMap<string, DiffFile>
   searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
-  flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
 }

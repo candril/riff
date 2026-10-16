@@ -43,3 +43,35 @@ index 1111111..2222222 100644
 -const wide = 0
 +const wide = "${WIDE_TEXT}"
 `
+
+/** Wraps once at unified's 55-cell code width, a 60-column pane less its gutter. */
+export const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
+export const ONE_LONG_LINE = `diff --git a/notes.ts b/notes.ts
+index 1111111..2222222 100644
+--- a/notes.ts
++++ b/notes.ts
+@@ -1,3 +1,3 @@
+ export function note() {
+-  return 1
++${LONG_LINE}
+ }
+`
+
+/** A file numbered in one digit beside one numbered in three, so each sizes its own gutter. */
+export const MIXED_DIGITS = `diff --git a/short.ts b/short.ts
+index 1111111..2222222 100644
+--- a/short.ts
++++ b/short.ts
+@@ -1,2 +1,2 @@
+ const a = 1
+-const b = 2
++const b = 3
+diff --git a/far.ts b/far.ts
+index 1111111..2222222 100644
+--- a/far.ts
++++ b/far.ts
+@@ -120,2 +120,2 @@
+ const c = 1
+-const d = 2
++const d = 3
+`

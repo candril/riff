@@ -1,6 +1,6 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
-import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
+import { FAR_HUNK, ONE_LONG_LINE, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import type { Comment, FileReviewStatus } from "../types"
 
 /*
@@ -11,18 +11,6 @@ import type { Comment, FileReviewStatus } from "../types"
  * No file contents are loaded, so riff cannot tell where a file ends and
  * every hunk is followed by a "rest of the file" divider — new files too.
  */
-
-const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
-const ONE_LONG_LINE = `diff --git a/notes.ts b/notes.ts
-index 1111111..2222222 100644
---- a/notes.ts
-+++ b/notes.ts
-@@ -1,3 +1,3 @@
- export function note() {
--  return 1
-+${LONG_LINE}
- }
-`
 
 let mounted: Awaited<ReturnType<typeof mountDiffView>> | null = null
 

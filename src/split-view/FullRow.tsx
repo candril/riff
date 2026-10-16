@@ -4,16 +4,16 @@ import { cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade } from "../diff-rows/segments"
 import { theme } from "../theme"
 import type { DiffLine } from "../vim-diff/types"
-import type { SplitEnv } from "./env"
+import type { RowEnv } from "./env"
 import { SegmentTexts } from "./Half"
-import { ENTER_HINT, contentOrigin, dividerLabel } from "./layout"
+import { ENTER_HINT, dividerLabel } from "./layout"
 import { inLineSelection } from "./overlays"
 
 /** `index` is the line's in the mapping, `at` the row's in the view. */
-type RowProps = { env: SplitEnv; line: DiffLine; index: number; at: number; atCursor: boolean }
+type RowProps = { env: RowEnv; line: DiffLine; index: number; at: number; atCursor: boolean }
 
 function Bar(props: {
-  env: SplitEnv
+  env: RowEnv
   bg: string | undefined
   paddingX?: number
   gap?: number
@@ -42,7 +42,7 @@ const Cell = (props: { fg: string; attributes?: number; children: string }) => (
 )
 
 /** Text faded as flash's backdrop fades the code, while flash is up. */
-const dimmed = (env: SplitEnv, fg: string, bg: string | undefined) => (env.flashHits() ? fade(fg, bg ?? theme.base) : fg)
+const dimmed = (env: RowEnv, fg: string, bg: string | undefined) => (env.flashHits() ? fade(fg, bg ?? theme.base) : fg)
 
 // The same row VimDiffView's FileHeader builds, so the two views label a file alike.
 function FileHeader(props: RowProps) {
@@ -75,7 +75,8 @@ function FileHeader(props: RowProps) {
 }
 
 /**
- * A row of riff's own whose text starts where the left pane's code does.
+ * A row of riff's own whose text starts where the code does, in split the
+ * left pane's.
  * A linewise selection over it colours it as unified's lineColors colour
  * the same line, gutter and all.
  */
@@ -88,10 +89,10 @@ function ChromeRow(
   return (
     <Bar env={props.env} bg={bg()}>
       <box
-        width={contentOrigin(props.env.gutter())}
+        width={props.env.originOf(props.index)}
         height={1}
         flexShrink={0}
-        backgroundColor={selected() ? theme.surface1 : undefined}
+        backgroundColor={selected() ? theme.surface1 : props.env.chromeGutterBg}
       />
       {props.children?.(bg)}
     </Bar>

@@ -1,24 +1,13 @@
 import { For, createMemo } from "solid-js"
 import { commentSigns } from "../diff-rows/signs"
-import type { DiffLineMapping } from "../vim-diff/line-mapping"
-import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 import type { SplitDiffViewProps, SplitEnv } from "./env"
 import { FullRow } from "./FullRow"
-import { gutterWidth, paneWidths } from "./layout"
+import { contentOrigin, gutterWidth, paneWidths } from "./layout"
 import { flashByLine, searchByLine } from "./overlays"
 import { PairRow } from "./PairRow"
+import { wordsOf } from "./words"
 
 export type { SplitDiffViewProps } from "./env"
-
-// A mapping is rebuilt on every fold and expansion, never mutated, so it is its own cache key.
-const wordDiffs = new WeakMap<DiffLineMapping, Map<number, WordSpan[]>>()
-function wordsOf(mapping: DiffLineMapping): Map<number, WordSpan[]> {
-  const known = wordDiffs.get(mapping)
-  if (known) return known
-  const words = computeWordDiff(mapping)
-  wordDiffs.set(mapping, words)
-  return words
-}
 
 /**
  * A diff drawn as one-cell rows, old file on the left and new on the right,
@@ -26,9 +15,12 @@ function wordsOf(mapping: DiffLineMapping): Map<number, WordSpan[]> {
  * out: a scrollbox lays out every child, which a long diff cannot afford.
  */
 export function SplitDiffView(props: SplitDiffViewProps) {
+  const gutter = createMemo(() => gutterWidth(props.mapping))
   const env: SplitEnv = {
     props,
-    gutter: createMemo(() => gutterWidth(props.mapping)),
+    gutter,
+    originOf: () => contentOrigin(gutter()),
+    chromeGutterBg: undefined,
     panes: createMemo(() => paneWidths(props.width)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
     words: createMemo(() => wordsOf(props.mapping)),
