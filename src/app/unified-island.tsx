@@ -5,20 +5,17 @@ import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { UnifiedDiffView, type UnifiedDiffViewProps } from "../split-view/UnifiedDiffView"
 import { createUnifiedLayout, type UnifiedLayout } from "../split-view/unified-layout"
 import { unifiedShownCells } from "../split-view/unified-markers"
-import type { FlashRegion, FlashWindow } from "../vim-diff/flash-handler"
 import { mountSolid } from "./solid-island"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 import { EmptyMessage, isEmpty } from "./unified-empty"
 import { draggedLine, unifiedWheel } from "./unified-wheel"
+import { IN_CODE, codeWidth, createUnifiedWindows } from "./unified-windows"
 
 export type UnifiedInputs = Omit<UnifiedDiffViewProps, "scrollTop" | "column" | "width" | "height" | "layout"> & {
   /** Drawn in place of a diff with no lines: why it is empty, a tree filter's or no changes at all. */
   emptyMessage: string
 }
-
-// The lines unified slides sideways under its single column window.
-const IN_CODE = new Set(["context", "addition", "deletion", "no-newline"])
 
 /**
  * The unified view as a long-lived island, split's counterpart. It owns
@@ -62,6 +59,13 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   }
   const shownColumn = () => Math.min(column(), maxColumn())
   const moveColumn = (next: number) => setColumn(Math.max(0, Math.min(next, maxColumn())))
+  const windows = createUnifiedWindows({
+    inputs: () => inputs.value,
+    layout,
+    shownTop,
+    shownColumn,
+    height: () => size().height,
+  })
 
   const island = mountSolid(
     renderer,
@@ -118,8 +122,6 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     },
   })
 
-  const codeWidth = (laid: UnifiedLayout, line: number) => laid.rowWidth() - laid.originOf(line)
-
   /**
    * The cursor's line and the room its row has for code. Null while
    * wrapped, where nothing scrolls sideways, and on riff's own rows, which
@@ -138,60 +140,6 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
       cells: cellOfColumn(content, content.length),
       cursorCell: cellOfColumn(content, props.cursor.col),
     }
-  }
-
-  /**
-   * The visual rows on screen that show a line, top to bottom. The pinned
-   * header covers row 0, so whatever is under it is not among them: a flash
-   * label there could be pressed without ever being seen.
-   */
-  function shownRows(): { first: number; last: number } | null {
-    const laid = layout()
-    if (!inputs.value || !laid) return null
-    const top = shownTop()
-    const first = top + (laid.sticky() === undefined ? 0 : 1)
-    const last = Math.min(top + size().height - 1, laid.visual().total - 1)
-    return first <= last ? { first, last } : null
-  }
-
-  /** The columns of a mapping line on screen, in UTF-16 units, `endCol` exclusive. */
-  function lineWindow(line: number): FlashWindow {
-    const props = inputs.value
-    const shown = props?.mapping.getLine(line)
-    const laid = layout()
-    if (!props || !laid || !shown) return { startCol: 0, endCol: 0 }
-    const { content } = shown
-    if (props.wrap) return wrappedWindow(laid, line, content)
-    const width = Math.max(0, codeWidth(laid, line))
-    if (!IN_CODE.has(shown.type)) return { startCol: 0, endCol: width }
-    const { first, last } = unifiedShownCells(shownColumn(), width, cellOfColumn(content, content.length))
-    const startCol = columnOfCell(content, first)
-    return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
-  }
-
-  // Only the slices on screen: a line cut off at the top, under the pinned header or at the bottom edge
-  // is looked at in the part of itself that still shows.
-  function wrappedWindow(laid: UnifiedLayout, line: number, content: string): FlashWindow {
-    const slices = laid.visual().slicesOf(line)
-    const rows = shownRows()
-    if (!slices || !rows) return { startCol: 0, endCol: content.length }
-    const firstRow = laid.visual().firstOf(line)
-    const from = Math.max(0, rows.first - firstRow)
-    const to = Math.min(slices.length - 1, rows.last - firstRow)
-    if (from > to) return { startCol: 0, endCol: content.length }
-    return { startCol: slices[from]!.startCol, endCol: slices[to]!.endCol }
-  }
-
-  const lineWindows = (line: number): FlashWindow[] => [lineWindow(line)]
-
-  function visibleLines(): number[] {
-    const rows = shownRows()
-    const laid = layout()
-    if (!rows || !laid) return []
-    const visual = laid.visual()
-    const from = visual.at(rows.first).row
-    const to = visual.at(rows.last).row
-    return laid.rows().slice(from, to + 1).flatMap((row) => (row.kind === "line" ? [row.index] : []))
   }
 
   function resize(width: number, height: number): void {
@@ -290,29 +238,11 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
       return { col: code.cursorCell + 1, total: code.cells }
     },
     resetColumns: () => setColumn(0),
-    lineWindow,
-    lineWindows,
-    /**
-     * Each line in its own window: a file section's gutter sets where its
-     * code starts, so the window differs from one section to the next.
-     */
-    visibleRegion(): FlashRegion | null {
-      const props = inputs.value
-      if (!props || !layout()) return null
-      return { lines: visibleLines(), ...lineWindow(props.cursor.line), windowsOf: lineWindows }
-    },
-    visibleLines,
-    /** The files with code on screen, topmost first. */
-    visibleFilenames(): string[] {
-      const mapping = inputs.value?.mapping
-      if (!mapping) return []
-      const names = new Set<string>()
-      for (const index of visibleLines()) {
-        const line = mapping.getLine(index)
-        if (line?.filename && IN_CODE.has(line.type)) names.add(line.filename)
-      }
-      return [...names]
-    },
+    lineWindow: windows.lineWindow,
+    lineWindows: windows.lineWindows,
+    visibleRegion: windows.visibleRegion,
+    visibleLines: windows.visibleLines,
+    visibleFilenames: windows.visibleFilenames,
     /**
      * The host is only laid out once it is in the tree, a frame after
      * unified is first drawn; a size given up front lets that frame draw
