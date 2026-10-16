@@ -1,15 +1,15 @@
 import type { CliRenderer } from "@opentui/core"
 import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
-import { LineSpans, sideOf } from "../diff-rows/line-spans"
+import { sideOf } from "../diff-rows/line-spans"
 import { RowLineSource, rowOfLine } from "../diff-rows/row-source"
 import type { SplitSearch } from "../split-view/overlays"
 import type { AppState } from "../state"
-import type { FileParses } from "../vim-diff/file-parses"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import type { FlashState } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
+import type { DiffHighlights } from "./diff-highlights"
 import { diffPaneWidth, splitShown } from "./diff-layout"
 import { selectionStatus } from "./selection-status"
 import { paneOfLine, toRowSelection } from "./split-cursor"
@@ -18,13 +18,12 @@ import { splitSelection } from "./split-selection"
 
 export interface SplitDiffDeps {
   renderer: CliRenderer
-  parses: FileParses
+  highlights: DiffHighlights
   scrollOff: number
   getState: () => AppState
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
-  render: () => void
   /** The pane crossed 120 columns while split is requested; only a full render swaps the views. */
   onShownChanged: () => void
 }
@@ -59,15 +58,7 @@ function searchOf(state: SearchState): SplitSearch | null {
  */
 export function createSplitDiff(deps: SplitDiffDeps) {
   const island = createSplitIsland(deps.renderer, deps.scrollOff)
-  const lineSpans = new LineSpans(deps.parses)
-  let highlightVersion = 0
   let built: { mapping: DiffLineMapping; source: RowLineSource } | null = null
-
-  function highlightsLanded(): void {
-    highlightVersion++
-    deps.render()
-  }
-  lineSpans.onSpans = highlightsLanded
 
   /** Rebuilt with the mapping, which a fold or an expansion replaces; the pane the cursor is in carries over. */
   function source(): RowLineSource {
@@ -138,8 +129,8 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       mapping,
       source: source(),
       files: state.files,
-      lineSpans,
-      highlightVersion,
+      lineSpans: deps.highlights.lineSpans,
+      highlightVersion: deps.highlights.version(),
       comments: state.comments,
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,
@@ -154,13 +145,10 @@ export function createSplitDiff(deps: SplitDiffDeps) {
 
   return {
     island,
-    lineSpans,
     source,
     shown,
     rowAtLine,
     cursorRow,
-    highlightVersion: () => highlightVersion,
-    highlightsLanded,
     /** Called every pass; the pane unified fills is the size split takes when it comes in. */
     syncDrawn(drawn: boolean, unifiedHeight: number): void {
       if (drawn && !drawnLastPass) island.seedSize(paneWidth(), unifiedHeight || island.viewportHeight())
@@ -206,7 +194,6 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     dispose(): void {
       deps.renderer.off("resize", onResize)
       island.dispose()
-      lineSpans.dispose()
     },
   }
 }

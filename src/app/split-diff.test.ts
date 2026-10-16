@@ -13,6 +13,7 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { createSearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { selectionStatus } from "./selection-status"
+import { createDiffHighlights } from "./diff-highlights"
 import { createSplitDiff, type SplitDiff } from "./split-diff"
 
 let setup: TestRendererSetup | null = null
@@ -34,13 +35,12 @@ async function mount() {
   let shownChanges = 0
   split = createSplitDiff({
     renderer: setup.renderer,
-    parses: new FileParses(async () => null),
+    highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 2,
     getState: () => state,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,
-    render: () => {},
     onShownChanged: () => shownChanges++,
   })
   const pair = split.source().rows[8] as { kind: "pair"; left: number; right: number }
@@ -122,14 +122,13 @@ describe("single-file mode", () => {
     let vimState: VimCursorState = createCursorState()
     const diff = createSplitDiff({
       renderer: setup.renderer,
-      parses: new FileParses(async () => null),
+      highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
       scrollOff: 2,
       getState: () => state,
       getMapping: () => mapping,
       getVimState: () => vimState,
       filePanelWidth: () => 0,
-      render: () => {},
-      onShownChanged: () => {},
+        onShownChanged: () => {},
     })
     split = diff
     setup.renderer.root.add(diff.island.host)

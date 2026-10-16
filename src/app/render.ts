@@ -59,7 +59,7 @@ import {
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
 import type { VimDiffView } from "../components"
-import { getSyntaxStyle } from "../components/VimDiffView"
+import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"

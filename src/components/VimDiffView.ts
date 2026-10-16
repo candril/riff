@@ -13,8 +13,6 @@ import {
   h,
   CodeRenderable,
   LineNumberRenderable,
-  SyntaxStyle,
-  type NativeResourceOwner,
   RGBA,
   BoxRenderable,
   TextRenderable,
@@ -27,7 +25,6 @@ import {
   type SimpleHighlight,
 } from "@opentui/core"
 import { colors, theme } from "../theme"
-import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { FLASH_BACKDROP_STRENGTH } from "../diff-rows/segments"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import { commentSignColor } from "../diff-rows/signs"
@@ -47,6 +44,8 @@ import { mapFileHighlights } from "../vim-diff/file-highlights"
 import { dropSplitKeywords } from "../vim-diff/split-keywords"
 import { FileParses, type FileVersions } from "../vim-diff/file-parses"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
+import { VERTICAL_SCROLL_OFF } from "../vim-diff/scroll-off"
+import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { computeWordDiff, type WordSpan } from "../vim-diff/word-diff"
 
 /** Rows that hold a line of the file, and so have colours to get right. */
@@ -60,22 +59,6 @@ const SELECTION_SKIPPED_TYPES = new Set([
   "spacing",
   "no-newline",
 ])
-
-// Tests run several renderers in one process, and a style dies with the renderer that owns it.
-const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
-
-export function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
-  if (!syntaxStyles.has(owner)) {
-    const styles = Object.fromEntries(
-      Object.entries(SYNTAX_PALETTE).map(([capture, { fg, bg, ...attributes }]) => [
-        capture,
-        { ...attributes, fg: fg && RGBA.fromHex(fg), bg: bg && RGBA.fromHex(bg) },
-      ])
-    )
-    syntaxStyles.set(owner, SyntaxStyle.fromStyles(styles, owner))
-  }
-  return syntaxStyles.get(owner)!
-}
 
 /**
  * Compute character offsets for each line start in a content string.
@@ -123,13 +106,6 @@ function lineColToOffset(
 const defaultBg = theme.base
 
 const SPACE_CODE_POINT = 32
-
-/**
- * Rows kept between the cursor and the top or bottom edge. Shared with the
- * app's cursor reveal: the two have to agree on what "in view" means, or
- * scrolling the view and moving the cursor fight each other.
- */
-export const VERTICAL_SCROLL_OFF = 5
 
 /** Fallback gutter background — the `bg` the gutter renderable is given. */
 const gutterBg = RGBA.fromHex(theme.mantle)

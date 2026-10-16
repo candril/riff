@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test"
 import type { RGBA } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import { getSyntaxStyle } from "../components/VimDiffView"
+import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { styleOfCapture } from "./syntax-palette"
 
 const hex = (color: RGBA | undefined) =>

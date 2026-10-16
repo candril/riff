@@ -10,6 +10,7 @@ import { VimMotionHandler } from "../vim-diff/motion-handler"
 import { createSearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { toLineState, toRowState } from "./split-cursor"
+import { createDiffHighlights } from "./diff-highlights"
 import { createSplitDiff, type SplitDiff } from "./split-diff"
 
 const BOUND_MS = process.env["CI"] ? 48 : 16
@@ -46,13 +47,12 @@ async function mount() {
   const flashState = createFlashState()
   const diff = createSplitDiff({
     renderer: setup.renderer,
-    parses: new FileParses(async () => null),
+    highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 2,
     getState: () => state,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,
-    render: () => {},
     onShownChanged: () => {},
   })
   split = diff

@@ -1,6 +1,6 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
-import { VERTICAL_SCROLL_OFF } from "./components/VimDiffView"
+import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
@@ -56,6 +56,7 @@ import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/
 import { createRenderFunction } from "./app/render"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
+import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
 import { toLineState, toRowState } from "./app/split-cursor"
 import { routeDiffViewport } from "./app/diff-viewport"
@@ -131,7 +132,7 @@ export async function createApp(options: AppOptions = {}) {
     headSha: options.headSha,
   })
 
-  const { renderer, fileTreePanel, vimDiffView } = await initializeRenderer()
+  const { renderer, fileTreePanel, vimDiffView, parses } = await initializeRenderer()
 
   let stopFocusReporting: (() => void) | null = null
 
@@ -269,6 +270,8 @@ export async function createApp(options: AppOptions = {}) {
     aiReview.removeSessionFiles()
     statusBar.dispose()
     split.dispose()
+    highlights.dispose()
+    parses.dispose()
     renderer.destroy()
     // The terminal is riff's again to hand on — `then` is how a relaunch
     // takes it (spec 079).
@@ -516,15 +519,15 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   const statusBar = createStatusBarIsland(renderer)
+  const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
-    parses: vimDiffView.fileParses,
+    highlights,
     scrollOff: SCROLL_OFF,
     getState: () => state,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
-    render: () => render(),
     onShownChanged: redrawDiff,
   })
   const diffViewport = routeDiffViewport(vimDiffView, {
@@ -1746,7 +1749,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
   }
   // A parse landing is a reason to draw the frame again (spec 080).
-  vimDiffView.onFileParsed = () => split.highlightsLanded()
+  vimDiffView.onFileParsed = highlights.landed
 
   startReferencePrefetch(referenceContext)
 

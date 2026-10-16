@@ -28,6 +28,7 @@ import type { PrInfo, ViewerViewedState } from "../providers/github"
 import { PR_COMMITS_FETCH_LIMIT } from "../providers/github"
 import { groupIntoThreads } from "../utils/threads"
 import { getTreeSitterClient } from "@opentui/core"
+import { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mapping"
 import { loadConfig } from "../config"
@@ -274,6 +275,7 @@ export async function initializeRenderer(): Promise<{
   renderer: Awaited<ReturnType<typeof createCliRenderer>>
   fileTreePanel: FileTreePanel
   vimDiffView: VimDiffView
+  parses: FileParses
 }> {
   // Register additional syntax highlighting parsers
   registerSyntaxParsers()
@@ -287,7 +289,8 @@ export async function initializeRenderer(): Promise<{
   })
 
   const fileTreePanel = new FileTreePanel({ renderer, width: 35 })
-  const vimDiffView = new VimDiffView({ renderer })
+  const parses = new FileParses()
+  const vimDiffView = new VimDiffView({ renderer, parses })
 
-  return { renderer, fileTreePanel, vimDiffView }
+  return { renderer, fileTreePanel, vimDiffView, parses }
 }
