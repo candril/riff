@@ -1,8 +1,6 @@
 import { test, expect, afterEach, describe } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
-import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { cellOfColumn } from "../diff-rows/cells"
-import { LineSpans } from "../diff-rows/line-spans"
 import {
   MANY_WRAPPED_LINES,
   MIXED_DIGITS,
@@ -15,73 +13,25 @@ import {
   THREE_FILES,
   TWO_FILES,
 } from "../testing/diffs"
-import { mountDiffView, trimFrame } from "../testing/frame"
+import { mountDiffView } from "../testing/frame"
+import { mountIsland, type MountIslandOptions } from "../testing/unified-island"
 import { parseDiff } from "../utils/diff-parser"
-import { FileParses } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
-import type { DiffLineMappingOptions } from "../vim-diff/types"
 import { placeRow } from "./split-scroll"
-import { createUnifiedIsland, type UnifiedIsland } from "./unified-island"
 
-let setup: TestRendererSetup | null = null
-let island: UnifiedIsland | null = null
+let mounted: Awaited<ReturnType<typeof mountIsland>> | null = null
 
 afterEach(() => {
-  island?.dispose()
-  setup?.renderer.destroy()
-  island = null
-  setup = null
+  mounted?.dispose()
+  mounted = null
 })
 
-interface MountOptions {
-  raw: string
-  width?: number
-  height?: number
-  scrollOff?: number
-  mode?: "single" | "all"
-  wrap?: boolean
-  mappingOptions?: DiffLineMappingOptions
-  parent?: (setup: TestRendererSetup) => BoxRenderable
-  /** Leaves the island without inputs, to see what it answers before the app's first render. */
-  bare?: boolean
+async function mount(options: MountIslandOptions) {
+  mounted = await mountIsland(options)
+  return mounted
 }
 
-async function mount(options: MountOptions) {
-  const { raw, width = 80, height = 10, scrollOff = 2, mode = "all", wrap = false } = options
-  setup = await createTestRenderer({ width, height })
-  island = createUnifiedIsland(setup.renderer, scrollOff)
-  ;(options.parent?.(setup) ?? setup.renderer.root).add(island.host)
-  const files = parseDiff(raw)
-  const mapping = new DiffLineMapping(files, mode, mode === "single" ? 0 : undefined, options.mappingOptions)
-  if (!options.bare) {
-    island.update({
-      mapping,
-      files,
-      lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
-      highlightVersion: 0,
-      comments: [],
-      fileStatuses: new Map(),
-      expandingDivider: null,
-      cursor: { line: 0, col: 0 },
-      wrap,
-      focused: true,
-      selection: null,
-      search: null,
-      flash: null,
-    })
-  }
-  return { island, mapping }
-}
-
-/** The host's laid-out size reaches the island a tick after the frame that laid it out. */
-const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0))
-
-async function frame() {
-  await setup!.renderOnce()
-  await nextTick()
-  await setup!.renderOnce()
-  return trimFrame(setup!.captureCharFrame()).split("\n")
-}
+const frame = () => mounted!.frame()
 
 const lineOf = (mapping: DiffLineMapping, text: string) => mapping.allLines.findIndex((line) => line.content.includes(text))
 
@@ -294,8 +244,9 @@ describe("what is on screen", () => {
     expect(island.visibleFilenames()).toEqual(["src/two.ts", "src/three.ts"])
   })
 
+  // Narrow enough that the code overflows, so the window has somewhere to scroll.
   test("unwrapped, each line is looked at in its own section's window", async () => {
-    const { island, mapping } = await mount({ raw: MIXED_DIGITS, height: 16 })
+    const { island, mapping } = await mount({ raw: MIXED_DIGITS, width: 14, height: 16 })
     await frame()
     island.scrollColumnsBy(3)
     const near = lineOf(mapping, "const b = 3")
@@ -303,10 +254,10 @@ describe("what is on screen", () => {
     island.update({ cursor: { line: near, col: 3 } })
 
     const region = island.visibleRegion()!
-    expect(region).toMatchObject({ startCol: 3, endCol: 3 + 75 })
-    expect(region.windowsOf!(near)).toEqual([{ startCol: 3, endCol: 78 }])
+    expect(region).toMatchObject({ startCol: 3, endCol: 3 + 9 })
+    expect(region.windowsOf!(near)).toEqual([{ startCol: 3, endCol: 12 }])
     // Numbered past 99, so its gutter is a cell wider and its code a cell narrower.
-    expect(region.windowsOf!(far)).toEqual([{ startCol: 3, endCol: 77 }])
+    expect(region.windowsOf!(far)).toEqual([{ startCol: 3, endCol: 11 }])
   })
 
   test("wrapped, a line is looked at whole, or from the first slice the pinned header leaves showing", async () => {
@@ -346,7 +297,7 @@ describe("what is on screen", () => {
 })
 
 describe("the cursor's row is the one VimDiffView reveals", () => {
-  const cases: [string, MountOptions][] = [
+  const cases: [string, MountIslandOptions][] = [
     ["all files", { raw: TWO_FILES, width: 80, height: 16 }],
     ["three files", { raw: THREE_FILES, width: 80, height: 16 }],
     ["a gutter per section", { raw: MIXED_DIGITS, width: 80, height: 16 }],

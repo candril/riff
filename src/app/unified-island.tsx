@@ -8,9 +8,14 @@ import { unifiedShownCells } from "../split-view/unified-markers"
 import type { FlashRegion, FlashWindow } from "../vim-diff/flash-handler"
 import { mountSolid } from "./solid-island"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
-import { placeRow, revealRow } from "./split-scroll"
+import { clampScroll, placeRow, revealRow } from "./split-scroll"
+import { EmptyMessage, isEmpty } from "./unified-empty"
+import { draggedLine, unifiedWheel } from "./unified-wheel"
 
-export type UnifiedInputs = Omit<UnifiedDiffViewProps, "scrollTop" | "column" | "width" | "height" | "layout">
+export type UnifiedInputs = Omit<UnifiedDiffViewProps, "scrollTop" | "column" | "width" | "height" | "layout"> & {
+  /** Drawn in place of a diff with no lines: why it is empty, a tree filter's or no changes at all. */
+  emptyMessage: string
+}
 
 // The lines unified slides sideways under its single column window.
 const IN_CODE = new Set(["context", "addition", "deletion", "no-newline"])
@@ -26,29 +31,52 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   const [size, setSize] = createSignal({ width: 0, height: 0 })
   const [scrollTop, setScrollTop] = createSignal(0)
   const [column, setColumn] = createSignal(0)
-  let layout: UnifiedLayout | null = null
+  // A signal, so the clamped scroll handed to the layout follows the layout's own row count once it exists.
+  const [layout, setLayout] = createSignal<UnifiedLayout | null>(null)
+  let onCursorScrolledAway: ((line: number) => void) | null = null
 
   function LaidOut(props: Omit<UnifiedDiffViewProps, "layout">) {
     const own = createUnifiedLayout(props)
-    layout = own
+    setLayout(own)
     onCleanup(() => {
-      if (layout === own) layout = null
+      if (layout() === own) setLayout(null)
     })
     return <UnifiedDiffView {...props} layout={own} />
   }
+
+  // A remap, a wrap toggle or a resize can leave the stored scroll past the last row; nothing reads it unclamped.
+  const shownTop = () =>
+    clampScroll({ scrollTop: scrollTop(), height: size().height, rows: layout()?.visual().total ?? 0 })
+  const window = () => ({ scrollTop: shownTop(), height: size().height, rows: layout()?.visual().total ?? 0 })
+
+  /**
+   * VimDiffView's scrollbox stops sideways at the widest row's right edge,
+   * so zl past it stops rather than scrolling into blank space, which tells
+   * the reader there is nothing further right. The content counts a cell
+   * past every line's end, so the cursor's block there still shows at the
+   * stop and a reveal never needs to go further.
+   */
+  const maxColumn = () => {
+    const laid = layout()
+    return laid ? Math.max(0, laid.contentWidth() - laid.rowWidth()) : 0
+  }
+  const shownColumn = () => Math.min(column(), maxColumn())
+  const moveColumn = (next: number) => setColumn(Math.max(0, Math.min(next, maxColumn())))
 
   const island = mountSolid(
     renderer,
     () => (
       <Show when={inputs.value}>
         {(props: () => UnifiedInputs) => (
-          <LaidOut
-            {...props()}
-            scrollTop={scrollTop()}
-            column={column()}
-            width={size().width}
-            height={size().height}
-          />
+          <Show when={!isEmpty(props())} fallback={<EmptyMessage text={props().emptyMessage} />}>
+            <LaidOut
+              {...props()}
+              scrollTop={shownTop()}
+              column={shownColumn()}
+              width={size().width}
+              height={size().height}
+            />
+          </Show>
         )}
       </Show>
     ),
@@ -56,19 +84,39 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     { width: "100%", height: "100%", overflow: "hidden" }
   )
 
-  const window = () => ({ scrollTop: scrollTop(), height: size().height, rows: layout?.visual().total ?? 0 })
-
   /** The visual row the cursor's column is drawn on, -1 before there is anything to draw. */
   function cursorRow(): number {
     const props = inputs.value
-    if (!props || !layout) return -1
-    return layout.visual().ofColumn(props.cursor.line, props.cursor.col).visual
+    const laid = layout()
+    if (!props || !laid) return -1
+    return laid.visual().ofColumn(props.cursor.line, props.cursor.col).visual
   }
 
   function ensureCursorVisible(): void {
     const row = cursorRow()
     if (row >= 0) setScrollTop(revealRow(window(), row, scrollOff))
   }
+
+  // Only the wheel moves the window out from under the cursor: every reveal of riff's own keeps it inside.
+  function dragCursorIntoView(): void {
+    const props = inputs.value
+    const laid = layout()
+    if (!props || !laid || !onCursorScrolledAway) return
+    const line = draggedLine(laid, window(), { line: props.cursor.line, row: cursorRow() }, scrollOff)
+    if (line !== null) onCursorScrolledAway(line)
+  }
+
+  // The rows bubble the wheel up to the host. OpenTUI drops a tick that lands after the row under the pointer
+  // scrolled away and before the next frame: its hit grid still names the row that is gone.
+  island.host.onMouseScroll = unifiedWheel({
+    rows(delta) {
+      setScrollTop(clampScroll({ ...window(), scrollTop: shownTop() + delta }))
+      dragCursorIntoView()
+    },
+    columns(delta) {
+      if (inputs.value && !inputs.value.wrap) moveColumn(shownColumn() + delta)
+    },
+  })
 
   const codeWidth = (laid: UnifiedLayout, line: number) => laid.rowWidth() - laid.originOf(line)
 
@@ -79,13 +127,14 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
    */
   function cursorCode() {
     const props = inputs.value
-    if (!props || !layout || props.wrap) return null
+    const laid = layout()
+    if (!props || !laid || props.wrap) return null
     const shown = props.mapping.getLine(props.cursor.line)
     if (!shown || !IN_CODE.has(shown.type)) return null
     const { content } = shown
     return {
       content,
-      width: codeWidth(layout, props.cursor.line),
+      width: codeWidth(laid, props.cursor.line),
       cells: cellOfColumn(content, content.length),
       cursorCell: cellOfColumn(content, props.cursor.col),
     }
@@ -97,10 +146,11 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
    * label there could be pressed without ever being seen.
    */
   function shownRows(): { first: number; last: number } | null {
-    if (!inputs.value || !layout) return null
-    const top = scrollTop()
-    const first = top + (layout.sticky() === undefined ? 0 : 1)
-    const last = Math.min(top + size().height - 1, layout.visual().total - 1)
+    const laid = layout()
+    if (!inputs.value || !laid) return null
+    const top = shownTop()
+    const first = top + (laid.sticky() === undefined ? 0 : 1)
+    const last = Math.min(top + size().height - 1, laid.visual().total - 1)
     return first <= last ? { first, last } : null
   }
 
@@ -108,12 +158,13 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   function lineWindow(line: number): FlashWindow {
     const props = inputs.value
     const shown = props?.mapping.getLine(line)
-    if (!props || !layout || !shown) return { startCol: 0, endCol: 0 }
+    const laid = layout()
+    if (!props || !laid || !shown) return { startCol: 0, endCol: 0 }
     const { content } = shown
-    if (props.wrap) return wrappedWindow(layout, line, content)
-    const width = Math.max(0, codeWidth(layout, line))
+    if (props.wrap) return wrappedWindow(laid, line, content)
+    const width = Math.max(0, codeWidth(laid, line))
     if (!IN_CODE.has(shown.type)) return { startCol: 0, endCol: width }
-    const { first, last } = unifiedShownCells(column(), width, cellOfColumn(content, content.length))
+    const { first, last } = unifiedShownCells(shownColumn(), width, cellOfColumn(content, content.length))
     const startCol = columnOfCell(content, first)
     return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
   }
@@ -135,11 +186,12 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
 
   function visibleLines(): number[] {
     const rows = shownRows()
-    if (!rows || !layout) return []
-    const visual = layout.visual()
+    const laid = layout()
+    if (!rows || !laid) return []
+    const visual = laid.visual()
     const from = visual.at(rows.first).row
     const to = visual.at(rows.last).row
-    return layout.rows().slice(from, to + 1).flatMap((row) => (row.kind === "line" ? [row.index] : []))
+    return laid.rows().slice(from, to + 1).flatMap((row) => (row.kind === "line" ? [row.index] : []))
   }
 
   function resize(width: number, height: number): void {
@@ -178,6 +230,7 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
       const { cursor, selection, ...byReference } = next
       // Read before the merge: the store hands back the same object, already carrying the new mapping.
       const remapped = byReference.mapping !== undefined && byReference.mapping !== current.mapping
+      const rewrapped = byReference.wrap !== undefined && byReference.wrap !== current.wrap
       batch(() => {
         setInputs("value", byReference)
         if (cursor) setInputs("value", "cursor", reconcile(cursor))
@@ -185,10 +238,19 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
         // A fold or an expansion rebuilds the mapping; the window must still fit its rows.
         if (remapped) ensureCursorVisible()
       })
+      // Wrap changes how many rows there are without a remap; storing the clamp keeps a toggle back from restoring it.
+      if (rewrapped) {
+        setScrollTop(shownTop())
+        setColumn(shownColumn())
+      }
+    },
+    /** Told the line the cursor is dragged to when the wheel scrolls the window out from under it. */
+    setOnCursorScrolledAway(cb: (line: number) => void) {
+      onCursorScrolledAway = cb
     },
     ensureCursorVisible,
     cursorRow,
-    scrollTop,
+    scrollTop: shownTop,
     scrollCursorTo(where: "center" | "top" | "bottom") {
       const row = cursorRow()
       if (row >= 0) setScrollTop(placeRow(window(), row, where, scrollOff))
@@ -198,26 +260,27 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
       const code = cursorCode()
       if (!code) return
       const cells = Math.max(code.cells, code.cursorCell + 1)
-      setColumn(revealColumn(column(), code.cursorCell, code.width, cells, unifiedShownCells))
+      moveColumn(revealColumn(shownColumn(), code.cursorCell, code.width, cells, unifiedShownCells))
     },
     // One window for every line, so it moves from any line the cursor is on, a header's too.
     scrollColumnsBy(delta: number) {
-      if (inputs.value && !inputs.value.wrap) setColumn(scrollBy(column(), delta))
+      if (inputs.value && !inputs.value.wrap) moveColumn(scrollBy(shownColumn(), delta))
     },
     scrollColumnToEdge(edge: "start" | "end") {
       const code = cursorCode()
-      if (code) setColumn(toEdge(code.cursorCell, code.width, edge, code.cells, unifiedShownCells))
+      if (code) moveColumn(toEdge(code.cursorCell, code.width, edge, code.cells, unifiedShownCells))
     },
     halfColumnWindow(): number {
       const props = inputs.value
-      const width = props && layout ? codeWidth(layout, props.cursor.line) : 0
+      const laid = layout()
+      const width = props && laid ? codeWidth(laid, props.cursor.line) : 0
       return halfWindow(width > 0 ? width : 2)
     },
     /** The column nearest `col` that the window shows. */
     clampCursorColumn(col: number): number {
       const code = cursorCode()
       if (!code) return col
-      const cell = clampCursorCell(column(), code.width, cellOfColumn(code.content, col), code.cells, unifiedShownCells)
+      const cell = clampCursorCell(shownColumn(), code.width, cellOfColumn(code.content, col), code.cells, unifiedShownCells)
       return columnOfCell(code.content, cell)
     },
     /** The status bar's readout, both numbers in cells, only for a line too wide for its window. */
@@ -235,7 +298,7 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
      */
     visibleRegion(): FlashRegion | null {
       const props = inputs.value
-      if (!props || !layout) return null
+      if (!props || !layout()) return null
       return { lines: visibleLines(), ...lineWindow(props.cursor.line), windowsOf: lineWindows }
     },
     visibleLines,
