@@ -124,10 +124,11 @@ describe("wrap", () => {
   })
 
   test("scrolled into a wrapped line, the top row is its continuation", async () => {
+    // Seven rows in a view of three, so the scrollbar shows, its thumb at the bottom.
     expect(await frameOf({ ...WRAPPED, height: 3, wrap: true, scrollTop: 4 })).toBe(`\
     ↳a fairly long line that keeps going "
    3 }
-     ▸ rest of the file  ↵`)
+     ▸ rest of the file  ↵${" ".repeat(33)}▄`)
   })
 })
 
@@ -272,5 +273,48 @@ describe("overlays", () => {
       ints(theme.surface2),
       ints(SYNTAX_PALETTE["search.current"]!.bg!),
     ])
+  })
+})
+
+describe("scrollbar", () => {
+  const THUMB = /[▀▄█]/
+  // Untrimmed, so a row's last cell is the pane's last column.
+  const rowsOf = () => mounted!.setup.captureCharFrame().split("\n").slice(0, -1)
+  const lastColumn = () => rowsOf().map((row) => row.at(-1))
+
+  test("none while the diff fits, and a line past the edge has the pane's whole width", async () => {
+    await frameOf({ raw: ONE_LONG_LINE, width: 60, height: 9 })
+    expect(lastColumn().join("")).not.toMatch(THUMB)
+    expect(rowsOf()[3]!.at(-1)).toBe("›")
+  })
+
+  test("a thumb in the last column once the diff overflows, moving as the view scrolls", async () => {
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6 })
+    const atTop = lastColumn()
+    expect(atTop.join("")).toMatch(THUMB)
+    mounted!.set("scrollTop", 9)
+    await mounted!.frame()
+    const atEnd = lastColumn()
+    expect(atEnd.join("")).toMatch(THUMB)
+    expect(atEnd).not.toEqual(atTop)
+  })
+})
+
+describe("scrollbar beside unwrapped code twice the pane's width", () => {
+  const THUMB = /[▀▄█]/
+  const rowsOf = () => mounted!.setup.captureCharFrame().split("\n").slice(0, -1)
+
+  // ONE_WIDE_LINE's content is 181 cells: VimDiffView's bar rounds off screen at 91 columns and stays at 92.
+  test("pushed off at 91 columns, every row keeps the last column", async () => {
+    await frameOf({ raw: ONE_WIDE_LINE, width: 91, height: 4 })
+    const lastColumn = rowsOf().map((row) => row.at(-1))
+    expect(lastColumn.join("")).not.toMatch(THUMB)
+    expect(rowsOf()[3]!.at(-1)).toBe("›")
+  })
+
+  test("on screen at 92 columns, the › a column short of it", async () => {
+    await frameOf({ raw: ONE_WIDE_LINE, width: 92, height: 4 })
+    expect(rowsOf().map((row) => row.at(-1)).join("")).toMatch(THUMB)
+    expect(rowsOf()[3]!.at(-2)).toBe("›")
   })
 })

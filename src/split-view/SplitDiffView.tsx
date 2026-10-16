@@ -19,6 +19,7 @@ export function SplitDiffView(props: SplitDiffViewProps) {
   const env: SplitEnv = {
     props,
     gutter,
+    rowWidth: () => props.width,
     originOf: () => contentOrigin(gutter()),
     chromeGutterBg: () => undefined,
     panes: createMemo(() => paneWidths(props.width)),

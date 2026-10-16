@@ -10,7 +10,7 @@ import {
   TWO_FILES,
 } from "../testing/diffs"
 import { mountDiffView } from "../testing/frame"
-import { bgAt, fgAt } from "../testing/split-frame"
+import { bgAt, fgAt, ints } from "../testing/split-frame"
 import { mountUnified } from "../testing/unified-frame"
 import {
   charAt,
@@ -21,16 +21,19 @@ import {
   type Case,
   type Screen,
 } from "../testing/unified-parity"
+import { theme } from "../theme"
 import type { Comment, FileReviewStatus } from "../types"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
+import { unifiedContentWidth } from "./content-width"
+import { unifiedOrigins } from "./layout"
 import type { SplitSelection } from "./overlays"
 
 /*
  * The unified view against VimDiffView, mounted on the same diff at the
  * same size under the same header row. The new view does not draw
- * VimDiffView's cursor cell, sticky header or scrollbar yet, so the cases
- * here stay clear of them or mask them. VimDiffView colours code through a
+ * VimDiffView's cursor cell or sticky header yet, so the cases here stay
+ * clear of them or mask them. VimDiffView colours code through a
  * highlighter these tests give the new view no parser for, so code's
  * foreground is compared only where an overlay decides it. Tabs are left
  * out of the corpus.
@@ -140,24 +143,18 @@ describe("the unified view draws what VimDiffView draws", () => {
     expect(fresh.frame).toBe(old.frame)
   })
 
-  const withoutLastColumn = (frame: string, width: number) =>
-    frame
-      .split("\n")
-      .map((row) => row.slice(0, width - 1).trimEnd())
-      .join("\n")
-
   // VimDiffView's scrollbar takes the last column here; its code still wraps one cell short of it.
-  test("wrapped under VimDiffView's scrollbar, but for the scrollbar's column", async () => {
+  test("wrapped under VimDiffView's scrollbar", async () => {
     const { old, fresh } = await framesOf({ raw: FAR_HUNK, width: 30, height: 8, wrap: true })
     expect(old).toMatch(/[▀▄█]/)
-    expect(withoutLastColumn(fresh, 30)).toBe(withoutLastColumn(old, 30))
+    expect(fresh).toBe(old)
   })
 
   // Sixty lines, but over a hundred rows once wrapped: OpenTUI sizes the gutter by the rows.
   test("wrapped past 99 rows, the gutter takes another digit", async () => {
     const { old, fresh } = await framesOf({ raw: MANY_WRAPPED_LINES, width: 120, height: 40, wrap: true })
     expect(old).toContain("    1 const line1")
-    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old, 120))
+    expect(fresh).toBe(old)
   })
 
   test("wrapped past 99 rows in one section only, only that section's gutter widens", async () => {
@@ -165,14 +162,123 @@ describe("the unified view draws what VimDiffView draws", () => {
     expect(old).toContain("   1 const first = 1")
     expect(old).not.toContain("    1 const first = 1")
     expect(old).toContain("    1 const line1")
-    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old, 120))
+    expect(fresh).toBe(old)
   })
 
   test("wrapped one cell short of 100 rows, the gutter widens only when it must", async () => {
     for (const width of [30, 29]) {
       const { old, fresh } = await framesOf({ raw: JUST_FITS_AT_30, width, height: 8, wrap: true })
-      expect(withoutLastColumn(fresh, width)).toBe(withoutLastColumn(old, width))
+      expect(fresh).toBe(old)
     }
+  })
+})
+
+describe("the unified view draws VimDiffView's scrollbar", () => {
+  const THUMB = /[▀▄█]/
+
+  /** Both views scrolled to `scrollTop`, or as near it as VimDiffView's scrollBox lets it go. */
+  async function scrolledScreensOf(options: Case, scrollTop: number) {
+    const old = await mountDiffView(options)
+    await old.frame()
+    old.view.getScrollBox()!.scrollTop = scrollTop
+    await old.frame()
+    const scrolledTo = old.view.getScrollBox()!.scrollTop
+    const oldScreen = screenOf(old)
+    await old.dispose()
+    const { wrap = false, ...rest } = options
+    const fresh = await mountUnified({ ...rest, wrap, header: true, scrollTop: scrolledTo })
+    await fresh.frame()
+    const freshScreen = screenOf(fresh)
+    await fresh.dispose()
+    return { old: oldScreen, fresh: freshScreen, scrolledTo }
+  }
+
+  const lastColumn = (screen: Screen) => screen.rows.map((row) => row.at(-1))
+
+  // Scrolled into a file, VimDiffView pins that file's header over the view's first row, which the new view does not draw yet.
+  const STICKY_ROW = 1
+  const withoutStickyRow = (screen: Screen) => screen.rows.filter((_, y) => y !== STICKY_ROW)
+
+  for (const height of [8, 6]) {
+    test(`two files at 80x${height}, from the top to the last scroll position`, async () => {
+      const tops = []
+      for (const scrollTop of [0, 4, Number.MAX_SAFE_INTEGER]) {
+        const { old, fresh, scrolledTo } = await scrolledScreensOf({ raw: TWO_FILES, width: 80, height }, scrollTop)
+        tops.push(scrolledTo)
+        expect(lastColumn(old).join("")).toMatch(THUMB)
+        expect(lastColumn(fresh)).toEqual(lastColumn(old))
+        if (scrolledTo === 0) expect(fresh.rows).toEqual(old.rows)
+        else expect(withoutStickyRow(fresh)).toEqual(withoutStickyRow(old))
+      }
+      // Mid-way and at the end, so the thumb is held at three places.
+      expect(tops[1]).toBe(4)
+      expect(tops[2]).toBeGreaterThan(4)
+    })
+  }
+
+  // VimDiffView's code ends a column short of its scrollbar, so the › sits beside it while the bar is on screen.
+  test("an unwrapped line past the edge ends in a › beside the scrollbar", async () => {
+    const { old, fresh } = await framesOf({ raw: ONE_LONG_LINE, width: 60, height: 5 })
+    const rows = old.split("\n")
+    expect(rows[4]![58]).toBe("›")
+    expect(rows.join("")).toMatch(THUMB)
+    expect(fresh).toBe(old)
+  })
+
+  // VimDiffView's ScrollBox shrinks its bar in proportion to the content, so code nearly twice the pane wide rounds it off screen.
+  const pushedOff: [string, Case, boolean][] = [
+    ["a long line at 40 columns", { raw: ONE_LONG_LINE, width: 40, height: 5 }, false],
+    ["a long line at 49 columns", { raw: ONE_LONG_LINE, width: 49, height: 5 }, false],
+    ["a long line at 50 columns", { raw: ONE_LONG_LINE, width: 50, height: 5 }, true],
+    ["a wide line at 30 columns", { raw: ONE_WIDE_LINE, width: 30, height: 5 }, false],
+    ["a wide line at 91 columns", { raw: ONE_WIDE_LINE, width: 91, height: 5 }, false],
+    ["a wide line at 92 columns", { raw: ONE_WIDE_LINE, width: 92, height: 5 }, true],
+    ["many long lines at 40x12", { raw: MANY_WRAPPED_LINES, width: 40, height: 12 }, false],
+    ["many long lines at 80x20", { raw: MANY_WRAPPED_LINES, width: 80, height: 20 }, false],
+    ["many long lines at 81x20", { raw: MANY_WRAPPED_LINES, width: 81, height: 20 }, true],
+    ["a short file, then many long lines, at 40x12", { raw: SHORT_THEN_MANY_WRAPPED, width: 40, height: 12 }, false],
+  ]
+
+  for (const [name, options, shows] of pushedOff) {
+    test(`unwrapped, the scrollbar ${shows ? "stays" : "is pushed off screen"}: ${name}`, async () => {
+      const { old, fresh } = await framesOf(options)
+      const lastCells = old.split("\n").slice(1).map((row) => row[options.width! - 1] ?? " ").join("")
+      expect(THUMB.test(lastCells)).toBe(shows)
+      if (!shows) expect(lastCells).toContain("›")
+      expect(fresh).toBe(old)
+    })
+  }
+
+  test("measures unwrapped content as VimDiffView's ScrollBox lays it out", async () => {
+    const corpus = { FAR_HUNK, JUST_FITS_AT_30, MANY_WRAPPED_LINES, MIXED_DIGITS, ONE_LONG_LINE, ONE_WIDE_LINE, SHORT_THEN_MANY_WRAPPED, TWO_FILES }
+    // Narrow enough that every diff's content outgrows the pane, past the 100% floor VimDiffView gives it.
+    const width = 12
+    for (const [name, raw] of Object.entries(corpus)) {
+      for (const mode of ["all", "single"] as const) {
+        // At 12 columns MIXED_DIGITS's headers outgrow its code, and the measure leaves headers out.
+        if (name === "MIXED_DIGITS" && mode === "all") continue
+        const selectedFileIndex = mode === "single" ? 0 : null
+        const old = await mountDiffView({ raw, width, height: 5, mode, selectedFileIndex })
+        await old.frame()
+        const laidOut = old.view.getScrollBox()!.content.width
+        await old.dispose()
+        const mapping = new DiffLineMapping(parseDiff(raw), mode, selectedFileIndex ?? undefined)
+        const measured = unifiedContentWidth(mapping.allLines, unifiedOrigins(mapping))
+        expect({ name, mode, width: measured }).toEqual({ name, mode, width: laidOut })
+      }
+    }
+  })
+
+  test("the track and thumb colours", async () => {
+    const { old, fresh } = await scrolledScreensOf({ raw: TWO_FILES, width: 80, height: 8 }, 0)
+    // Under the header row, down the view's seven rows.
+    const column = [1, 2, 3, 4, 5, 6, 7].map((y): At => [79, y])
+    const cellsOf = (screen: Screen) => column.map(([x, y]) => [charAt(screen, [x, y]), fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)])
+    expect(cellsOf(fresh)).toEqual(cellsOf(old))
+    expectSameColours(old, fresh, [], column)
+    const thumb = column.find((at) => THUMB.test(charAt(fresh, at)!))!
+    expect(fgAt(fresh.spans, ...thumb)).toEqual(ints(theme.surface2))
+    expect(bgAt(fresh.spans, ...column.find((at) => charAt(fresh, at) === " ")!)).toEqual(ints(theme.surface0))
   })
 })
 

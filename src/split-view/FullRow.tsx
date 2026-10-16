@@ -22,7 +22,7 @@ function Bar(props: {
   return (
     <box
       flexDirection="row"
-      width={props.env.props.width}
+      width={props.env.rowWidth()}
       height={1}
       flexShrink={0}
       overflow="hidden"

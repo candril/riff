@@ -37,11 +37,12 @@ export interface SplitDiffViewProps {
 /** What a row of riff's own reads, in either view. */
 export interface RowEnv {
   props: {
-    width: number
     selection: SplitSelection | null
     fileStatuses: ReadonlyMap<string, FileReviewStatus>
     expandingDivider: string | null
   }
+  /** The cells a row spans: the pane's, less any column a scrollbar takes beside the rows. */
+  rowWidth: () => number
   /** The cell a line's code starts at, which chrome lines its text up with. */
   originOf: (lineIndex: number) => number
   /**

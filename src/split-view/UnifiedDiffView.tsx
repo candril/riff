@@ -1,12 +1,14 @@
-import { For, createMemo } from "solid-js"
+import { For, Show, createMemo } from "solid-js"
 import { buildRows, type Row } from "../diff-rows/rows"
 import { commentSigns } from "../diff-rows/signs"
 import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
+import { scrollBarFits, unifiedContentWidth } from "./content-width"
 import { FullRow } from "./FullRow"
 import { unifiedOrigins, unifiedWrapWidth } from "./layout"
 import { flashByLine, searchByLine } from "./overlays"
+import "./scroll-bar"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
 import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
@@ -38,8 +40,15 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
       wrapper: wrapper(),
     })
   })
+  // Wrapped, the content is clamped to the pane, so VimDiffView's bar always has its cell.
+  const contentWidth = createMemo(() => (props.wrap ? 0 : unifiedContentWidth(props.mapping.allLines, origins())))
+  // Wrap already leaves the scrollbar its cell, so whether it shows cannot change what wraps.
+  const scrollBarShows = createMemo(
+    () => visual().total > props.height && scrollBarFits(props.width, contentWidth())
+  )
   const env: UnifiedEnv = {
     props,
+    rowWidth: () => (scrollBarShows() ? props.width - 1 : props.width),
     originOf: (lineIndex) => origins()(lineIndex),
     // Unified's gutter runs down the whole file section, past the rows of riff's own in it,
     // coloured by the rule unifiedLineColors follows for a line of code.
@@ -61,21 +70,32 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
   })
 
   return (
-    <box flexDirection="column" width={props.width} height={props.height} overflow="hidden">
-      <For each={visible()}>
-        {(row) => {
-          if (row.kind !== "line") return null
-          const line = props.mapping.getLine(row.index)
-          if (!line) return null
-          // A memo, so the cursor moving elsewhere reaches nothing under the row.
-          const atCursor = createMemo(() => props.cursor.line === row.index)
-          // Unified has a row per line, so the row's index in the view is the line's.
-          if (CHROME_TYPES.has(line.type)) {
-            return <FullRow env={env} line={line} index={row.index} at={row.index} atCursor={atCursor()} />
-          }
-          return <UnifiedLine env={env} line={line} index={row.index} atCursor={atCursor()} />
-        }}
-      </For>
+    <box flexDirection="row" width={props.width} height={props.height} overflow="hidden">
+      <box flexDirection="column" width={env.rowWidth()} height={props.height} flexShrink={0} overflow="hidden">
+        <For each={visible()}>
+          {(row) => {
+            if (row.kind !== "line") return null
+            const line = props.mapping.getLine(row.index)
+            if (!line) return null
+            // A memo, so the cursor moving elsewhere reaches nothing under the row.
+            const atCursor = createMemo(() => props.cursor.line === row.index)
+            // Unified has a row per line, so the row's index in the view is the line's.
+            if (CHROME_TYPES.has(line.type)) {
+              return <FullRow env={env} line={line} index={row.index} at={row.index} atCursor={atCursor()} />
+            }
+            return <UnifiedLine env={env} line={line} index={row.index} atCursor={atCursor()} />
+          }}
+        </For>
+      </box>
+      <Show when={scrollBarShows()}>
+        <scroll_bar
+          width={1}
+          flexShrink={0}
+          viewportSize={props.height}
+          scrollSize={visual().total}
+          scrollPosition={props.scrollTop}
+        />
+      </Show>
     </box>
   )
 }

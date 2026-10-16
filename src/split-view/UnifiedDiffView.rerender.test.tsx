@@ -4,6 +4,7 @@ import * as segmentsModule from "../diff-rows/segments"
 import * as visualRowsModule from "../diff-rows/visual-rows"
 import * as layoutModule from "./layout"
 import { mountUnified } from "../testing/unified-frame"
+import { PaneScrollBar } from "./scroll-bar"
 
 /*
  * What the unified view rebuilds when the cursor or the scroll moves. A
@@ -70,6 +71,27 @@ describe("a row is kept, not recreated, when what it draws stays", () => {
     view.set("scrollTop", 1)
     await view.setup.renderOnce()
     expect(buildSegments.mock.calls.length).toBe(1)
+  })
+
+  test("scrolling a line moves the scrollbar's thumb but keeps the scrollbar and every row still on screen", async () => {
+    const view = await mount()
+    // Past the file header, so the row that leaves is a line of code like the one that comes in.
+    view.set("scrollTop", 2)
+    await view.setup.renderOnce()
+    const before = renderables(view.setup.renderer.root)
+    const scrollBar = [...before].find((node) => node instanceof PaneScrollBar)
+    expect(scrollBar).toBeDefined()
+    view.set("scrollTop", 3)
+    await view.setup.renderOnce()
+    const after = renderables(view.setup.renderer.root)
+
+    // One row left the top and one came in at the bottom; nothing else was made anew.
+    const fresh = [...after].filter((node) => !before.has(node))
+    const gone = [...before].filter((node) => !after.has(node))
+    expect(fresh.length).toBeGreaterThan(0)
+    expect(fresh.length).toBe(gone.length)
+    expect(after.has(scrollBar!)).toBe(true)
+    expect((scrollBar as PaneScrollBar).scrollPosition).toBe(3)
   })
 })
 

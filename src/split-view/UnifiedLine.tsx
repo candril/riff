@@ -86,7 +86,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   const colors = createMemo(() => unifiedLineColors(props.line.type, selected(), props.atCursor))
   const origin = () => env.originOf(props.index)
   const sign = () => env.signs().get(props.index)
-  const codeWidth = () => view.width - origin()
+  const codeWidth = () => env.rowWidth() - origin()
   const lineCells = createMemo(() => markedCells(props.line))
   // Each memoised to what this line shows, so a search, selection or flash changing elsewhere leaves its segments alone.
   const hits = createMemo(() => env.searchHits().get(props.index) ?? NO_HITS, NO_HITS, { equals: sameHits })
@@ -131,7 +131,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   )
 
   return (
-    <box flexDirection="column" width={view.width} flexShrink={0}>
+    <box flexDirection="column" width={env.rowWidth()} flexShrink={0}>
       <For each={shown()}>
         {(slice) => {
           const continuation = slice !== null && slice.startCol > 0
@@ -156,7 +156,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
           return (
             <box
               flexDirection="row"
-              width={view.width}
+              width={env.rowWidth()}
               height={1}
               flexShrink={0}
               overflow="hidden"
