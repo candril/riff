@@ -165,3 +165,33 @@ describe("one pane's text", () => {
     expect(labelled("right")).toEqual([])
   })
 })
+
+describe("j and k move by rows", () => {
+  /**
+   *  row  left        right
+   *   0   ctx         ctx
+   *   1   gone a      kept
+   *   2   gone b      (empty line)
+   *   3   gone c      (empty line)
+   */
+  const uneven = diffFile("uneven.ts", ["@@ -1,4 +1,2 @@", " ctx", "-gone a", "-gone b", "-gone c", "+kept"])
+  const unevenMapping = new DiffLineMapping([uneven], "single", 0)
+
+  test("j from an addition facing a longer removal lands on the empty right half, and k comes back", () => {
+    const source = new RowLineSource(unevenMapping, "split", "right")
+    const h = harness(source, { line: 1, col: 0 })
+    expect(source.getLineContent(1)).toBe("kept")
+
+    h.press("j")
+    expect(h.state.line).toBe(2)
+    expect(source.side).toBe("right")
+    expect(source.rows[2]).toMatchObject({ kind: "pair", left: 2 })
+    expect(source.rows[2]).not.toHaveProperty("right")
+    // The vim layer reads an empty half as the line beside it; see lineOf.
+    expect(source.getLineContent(2)).toBe("gone b")
+
+    h.press("k")
+    expect(h.state.line).toBe(1)
+    expect(source.getLineContent(1)).toBe("kept")
+  })
+})

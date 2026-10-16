@@ -571,9 +571,9 @@ export async function createApp(options: AppOptions = {}) {
     onCursorMove: () => {
       ensureCursorVisible()
       refreshCursor()
-      // The status bar names the visual mode and the size of the selection,
-      // and only a full render rebuilds it. Normal-mode motions keep the
-      // fast path — nothing up there changes as the cursor moves.
+      // Only the visual-mode name, the selection size and a mode change need
+      // a full render of the status bar; the column readout reaches it through
+      // refreshCursor's patch, so normal-mode motions can skip render().
       if (isVisualMode(vimState) || lastCursorMode !== vimState.mode) render()
       lastCursorMode = vimState.mode
     },

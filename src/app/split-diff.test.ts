@@ -220,7 +220,7 @@ describe("single-file mode", () => {
     status: "added",
   })
 
-  // Reported once from file mode; three pty runs in a scratch repo could not reproduce it.
+  // Both shapes put the wide line only in the new pane: file mode shows it as context, a new file as an addition.
   for (const [shape, file] of [["file mode", asFileMode], ["a new file", asNewFile]] as const) {
     test(`in ${shape}, $ on a line wider than the pane scrolls the new pane to its end`, async () => {
       const { diff, frame, content, lineStarting, moveTo } = await mountSingle([file()])
