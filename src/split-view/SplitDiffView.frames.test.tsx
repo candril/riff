@@ -4,12 +4,13 @@ import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { bgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import type { Comment, FileReviewStatus } from "../types"
 import { revealColumn } from "../app/split-columns"
+import { cellOfColumn } from "../diff-rows/cells"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { theme } from "../theme"
 import { createComment } from "../types"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
-import { cellOfColumn, contentOrigin, gutterWidth, paneWidths } from "./layout"
+import { contentOrigin, gutterWidth, paneWidths } from "./layout"
 
 /*
  * What the split view draws at 120 columns: two 60-cell panes, old file

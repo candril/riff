@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { buildSegments } from "../diff-rows/segments"
-import { cellCount, cellOfColumn, columnOfCell, visibleCells } from "../split-view/layout"
+import { cellCount, visibleCells } from "../split-view/layout"
 import { theme } from "../theme"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 

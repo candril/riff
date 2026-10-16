@@ -3,7 +3,7 @@ import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testin
 import { diffFile, doc } from "../diff-rows/fixtures"
 import { fileAsDiff } from "../providers/files"
 import { parseDiff, type DiffFile } from "../utils/diff-parser"
-import { cellOfColumn, columnOfCell } from "../split-view/layout"
+import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { FileParses } from "../vim-diff/file-parses"
