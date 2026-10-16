@@ -1,17 +1,14 @@
 import { For, Show, createMemo } from "solid-js"
-import { buildRows, type Row } from "../diff-rows/rows"
+import type { Row } from "../diff-rows/rows"
 import { commentSigns } from "../diff-rows/signs"
-import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
-import { scrollBarFits, unifiedContentWidth } from "./content-width"
 import { FileLabel, FullRow } from "./FullRow"
-import { unifiedOrigins, unifiedWrapWidth } from "./layout"
 import { flashByLine, searchByLine } from "./overlays"
 import "./scroll-bar"
-import { stickyHeaderLine } from "./sticky"
 import { createTerminalCursor, unifiedCursorCell } from "./terminal-cursor"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
+import { createUnifiedLayout } from "./unified-layout"
 import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
 
@@ -26,32 +23,13 @@ const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"]
  * screen are laid out, and a wrapped line takes a row per slice.
  */
 export function UnifiedDiffView(props: UnifiedDiffViewProps) {
-  // Per width as well as per mapping, so a run of resizes cannot pile up slices for widths long gone.
-  // Unwrapped, nothing is sliced, so a resize keeps the wrapper and skips the gutter's row count.
-  const wrapper = createMemo(() => {
-    void (props.wrap ? props.width : undefined)
-    return lineWrapper(props.mapping.allLines)
-  })
-  const origins = createMemo(() => unifiedOrigins(props.mapping, props.wrap ? props.width : undefined, wrapper()))
-  const rows = createMemo(() => buildRows(props.mapping.allLines, "unified"))
-  const visual = createMemo(() => {
-    const originOf = origins()
-    return buildVisualRows(rows(), props.mapping.allLines, {
-      wrap: props.wrap,
-      widthOf: (lineIndex) => unifiedWrapWidth(props.width, originOf(lineIndex)),
-      wrapper: wrapper(),
-    })
-  })
-  // Wrapped, the content is clamped to the pane, so VimDiffView's bar always has its cell.
-  const contentWidth = createMemo(() => (props.wrap ? 0 : unifiedContentWidth(props.mapping.allLines, origins())))
-  // Wrap already leaves the scrollbar its cell, so whether it shows cannot change what wraps.
-  const scrollBarShows = createMemo(
-    () => visual().total > props.height && scrollBarFits(props.width, contentWidth())
-  )
+  // The island passes its own, so that it and the view share one wrap and agree on every row.
+  const layout = props.layout ?? createUnifiedLayout(props)
+  const { originOf, rows, visual, sticky } = layout
   const env: UnifiedEnv = {
     props,
-    rowWidth: () => (scrollBarShows() ? props.width - 1 : props.width),
-    originOf: (lineIndex) => origins()(lineIndex),
+    rowWidth: layout.rowWidth,
+    originOf,
     // Unified's gutter runs down the whole file section, past the rows of riff's own in it,
     // coloured by the rule unifiedLineColors follows for a line of code.
     chromeGutterBg: (tint, atCursor) => tint ?? (atCursor ? theme.base : theme.mantle),
@@ -63,12 +41,6 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     searchHits: createMemo(() => searchByLine(props.search)),
     visual,
   }
-  // Single-file mode has no header lines, so it never pins one.
-  const headerLines = createMemo(() =>
-    props.mapping.allLines.flatMap((line, index) => (line.type === "file-header" ? [index] : []))
-  )
-  // Unified has a row per line, so a header's line index is its row's.
-  const sticky = createMemo(() => stickyHeaderLine(headerLines(), visual().firstOf, props.scrollTop))
   const placeCursor = createTerminalCursor(
     () => props.focused,
     () =>
@@ -127,7 +99,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
           </box>
         </Show>
       </box>
-      <Show when={scrollBarShows()}>
+      <Show when={layout.scrollBarShows()}>
         <scroll_bar
           width={1}
           flexShrink={0}

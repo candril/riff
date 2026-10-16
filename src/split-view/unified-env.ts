@@ -7,6 +7,7 @@ import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
 import type { RowEnv } from "./env"
+import type { UnifiedLayout } from "./unified-layout"
 import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 
 export interface UnifiedDiffViewProps {
@@ -35,6 +36,8 @@ export interface UnifiedDiffViewProps {
   search: SplitSearch | null
   /** Null unless flash is active; its backdrop dims every row, matches or not. */
   flash: readonly FlashMatch[] | null
+  /** Read once, when the view mounts; without one it lays itself out. */
+  layout?: UnifiedLayout
 }
 
 /** What every unified row reads, worked out once per view rather than once per row. */
