@@ -2,7 +2,7 @@ import { test, expect, describe, afterEach } from "bun:test"
 import { ADDITION_BG } from "../diff-rows/line-colors"
 import { fade } from "../diff-rows/segments"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
-import { FAR_HUNK, ONE_LONG_LINE, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
+import { FAR_HUNK, MANY_WRAPPED_LINES, ONE_LONG_LINE, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { bgAt, fgAt, ints } from "../testing/split-frame"
 import { mountUnified, type MountUnifiedOptions } from "../testing/unified-frame"
 import { theme } from "../theme"
@@ -131,9 +131,10 @@ describe("wrap", () => {
      ▸ rest of the file  ↵`)
   })
 
+  // A single file, so no sticky header covers the top row.
   test("scrolled into a wrapped line, the top row is its continuation", async () => {
-    // Seven rows in a view of three, so the scrollbar shows, its thumb at the bottom.
-    expect(await frameOf({ ...WRAPPED, height: 3, wrap: true, scrollTop: 4 })).toBe(`\
+    // Six rows in a view of three, so the scrollbar shows, its thumb at the bottom.
+    expect(await frameOf({ ...WRAPPED, height: 3, wrap: true, scrollTop: 3, mode: "single", selectedFileIndex: 0 })).toBe(`\
     ↳a fairly long line that keeps going "
    3 }
      ▸ rest of the file  ↵${" ".repeat(33)}▄`)
@@ -325,4 +326,110 @@ describe("scrollbar beside unwrapped code twice the pane's width", () => {
     expect(rowsOf().map((row) => row.at(-1)).join("")).toMatch(THUMB)
     expect(rowsOf()[3]!.at(-2)).toBe("›")
   })
+})
+
+describe("sticky header", () => {
+  const THUMB = /[▀▄█]/
+  const rowsOf = () => mounted!.setup.captureCharFrame().split("\n")
+
+  // As VimDiffView.frames.test.ts scrolls it, under the same header row.
+  test("once a file's own header scrolls away, its name holds the top row", async () => {
+    const frame = await frameOf({ raw: TWO_FILES, width: 80, height: 12, header: true, scrollTop: 2 })
+    expect(frame).toBe(`
+ ▼   src/greet.ts +2 -1
+   2   return \`Hello \${name}\`
+   3 }
+   4
+   5 export const version = 1
+     ▸ rest of the file  ↵                                                     ▄
+                                                                               █
+ ▼   src/farewell.ts +3 -0                                                     █
+   1 export function farewell(name: string) {
+   2   return "Bye " + name
+   3 }`)
+  })
+
+  // VimDiffView's spans the scrollbar's column too, and hides the thumb on that row.
+  test("it stops short of the scrollbar, so a thumb on the top row stays in sight", async () => {
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 1 })
+    expect(rowsOf()[0]!).toStartWith(" ▼   src/greet.ts +2 -1 ")
+    expect(rowsOf()[0]!.at(-1)).toMatch(THUMB)
+  })
+
+  test("none at the top, where the first header is the top row itself", async () => {
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 0 })
+    expect(rowsOf()[1]!).toStartWith("   1 export function greet")
+    expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeUndefined()
+  })
+
+  test("none on a later header's own row, so the earlier file's name never covers it", async () => {
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 8 })
+    expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeDefined()
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/greet.ts +2 -1")
+    mounted!.set("scrollTop", 9)
+    await mounted!.frame()
+    expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeUndefined()
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
+    mounted!.set("scrollTop", 10)
+    await mounted!.frame()
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
+  })
+
+  test("none in single-file mode, which has no header to pin", async () => {
+    const frame = await frameOf({ raw: TWO_FILES, width: 80, height: 4, scrollTop: 2, mode: "single", selectedFileIndex: 0 })
+    expect(frame).not.toContain("src/greet.ts")
+    expect(rowsOf()[0]!).toStartWith("   2   return `Hello")
+  })
+
+  test("a viewed file's is ticked and its name greyed", async () => {
+    const fileStatuses = new Map<string, FileReviewStatus>([["src/greet.ts", { filename: "src/greet.ts", viewed: true }]])
+    await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 3, fileStatuses })
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼ ✓ src/greet.ts +2 -1")
+    const spans = mounted!.setup.captureSpans()
+    expect(fgAt(spans, 3, 0)).toEqual(ints(theme.green))
+    expect(fgAt(spans, 5, 0)).toEqual(ints(theme.overlay1))
+    expect(bgAt(spans, 5, 0)).toEqual(ints(theme.surface0))
+  })
+
+  test("over the continuation row of a wrapped line", async () => {
+    const frame = await frameOf({ raw: MANY_WRAPPED_LINES, width: 40, height: 12, wrap: true, scrollTop: 3 })
+    const rows = rowsOf()
+    expect(rows[0]!).toStartWith(" ▼   wrapped.ts +60 -0 ")
+    expect(rows[0]!.at(-1)).toMatch(THUMB)
+    expect(rows[1]!).toMatch(/^\s+↳/)
+    expect(frame).not.toContain("const line1 ")
+  })
+
+  // Faded from the path on, as the file's own header row fades, whatever the width of the gutter under it.
+  test("under flash, its path and counts fade and its markers stay lit, with no label of its own", async () => {
+    await frameOf({
+      raw: TWO_FILES,
+      width: 80,
+      height: 6,
+      scrollTop: 3,
+      flash: [{ line: 3, startCol: 0, endCol: 2, label: "a" }],
+    })
+    expect(rowsOf()[0]!).toStartWith(" ▼   src/greet.ts +2 -1 ")
+    const spans = mounted!.setup.captureSpans()
+    expect(fgAt(spans, 1, 0)).toEqual(ints(theme.overlay0))
+    expect(fgAt(spans, 5, 0)).toEqual(ints(fade(theme.blue, theme.surface0)))
+    expect(fgAt(spans, 18, 0)).toEqual(ints(fade(theme.green, theme.surface0)))
+  })
+
+  // VimDiffView pins it over that header, a row whose name it then hides.
+  test("a collapsed file has no row to scroll into, so it is never pinned over the next file's header", async () => {
+    await frameOf({
+      raw: TWO_FILES,
+      width: 80,
+      height: 3,
+      scrollTop: 1,
+      mappingOptions: { collapsedFiles: new Set(["src/greet.ts"]) },
+    })
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
+    mounted!.set("scrollTop", 2)
+    await mounted!.frame()
+    expect(rowsOf()[0]!).toStartWith(" ▼   src/farewell.ts +3 -0")
+    expect(rowsOf()[1]!).toStartWith("   2   return")
+  })
+
 })

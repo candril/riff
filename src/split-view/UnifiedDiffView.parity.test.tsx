@@ -15,6 +15,7 @@ import { mountUnified } from "../testing/unified-frame"
 import {
   charAt,
   except,
+  rowCells,
   expectSameColours,
   screenOf,
   type At,
@@ -32,8 +33,9 @@ import type { SplitSelection } from "./overlays"
 /*
  * The unified view against VimDiffView, mounted on the same diff at the
  * same size under the same header row. The new view does not draw
- * VimDiffView's cursor cell or sticky header yet, so the cases here stay
- * clear of them or mask them. VimDiffView colours code through a
+ * VimDiffView's cursor cell yet, so the cases here stay clear of it or mask
+ * it. Its sticky header stops short of the scrollbar, where VimDiffView's
+ * covers the thumb, so that last cell is masked on the sticky row. VimDiffView colours code through a
  * highlighter these tests give the new view no parser for, so code's
  * foreground is compared only where an overlay decides it. Tabs are left
  * out of the corpus.
@@ -181,7 +183,9 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
     const old = await mountDiffView(options)
     await old.frame()
     old.view.getScrollBox()!.scrollTop = scrollTop
+    // A third pass: the post-process fills the sticky header's texts after the frame that shows it, and the next lays them out.
     await old.frame()
+    await old.setup.renderOnce()
     const scrolledTo = old.view.getScrollBox()!.scrollTop
     const oldScreen = screenOf(old)
     await old.dispose()
@@ -195,9 +199,18 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
 
   const lastColumn = (screen: Screen) => screen.rows.map((row) => row.at(-1))
 
-  // Scrolled into a file, VimDiffView pins that file's header over the view's first row, which the new view does not draw yet.
+  // The row VimDiffView pins a scrolled-away file's header over, under the header row.
   const STICKY_ROW = 1
-  const withoutStickyRow = (screen: Screen) => screen.rows.filter((_, y) => y !== STICKY_ROW)
+  const lastCellOf = (screen: Screen): At => [screen.rows[STICKY_ROW]!.length - 1, STICKY_ROW]
+  const withoutLastCell = (screen: Screen) => screen.rows[STICKY_ROW]!.slice(0, -1)
+
+  /** The sticky row alike in glyphs and colours, but for the scrollbar's cell VimDiffView covers. */
+  function expectSameStickyRow(old: Screen, fresh: Screen) {
+    expect(withoutLastCell(fresh)).toBe(withoutLastCell(old))
+    const cells = except(rowCells([STICKY_ROW], old.rows[STICKY_ROW]!.length), lastCellOf(old))
+    expectSameColours(old, fresh, [], cells)
+    expect(cells.map((at) => fgAt(fresh.spans, ...at))).toEqual(cells.map((at) => fgAt(old.spans, ...at)))
+  }
 
   for (const height of [8, 6]) {
     test(`two files at 80x${height}, from the top to the last scroll position`, async () => {
@@ -206,15 +219,44 @@ describe("the unified view draws VimDiffView's scrollbar", () => {
         const { old, fresh, scrolledTo } = await scrolledScreensOf({ raw: TWO_FILES, width: 80, height }, scrollTop)
         tops.push(scrolledTo)
         expect(lastColumn(old).join("")).toMatch(THUMB)
-        expect(lastColumn(fresh)).toEqual(lastColumn(old))
-        if (scrolledTo === 0) expect(fresh.rows).toEqual(old.rows)
-        else expect(withoutStickyRow(fresh)).toEqual(withoutStickyRow(old))
+        if (scrolledTo === 0) {
+          expect(fresh.rows).toEqual(old.rows)
+          continue
+        }
+        expect(fresh.rows.filter((_, y) => y !== STICKY_ROW)).toEqual(old.rows.filter((_, y) => y !== STICKY_ROW))
+        // VimDiffView's divider overlay paints over its sticky header when the divider is the top row; the new view keeps the file's name there.
+        if (old.rows[STICKY_ROW]!.includes("rest of the file")) {
+          expect(fresh.rows[STICKY_ROW]!.trimEnd()).toBe(" ▼   src/greet.ts +2 -1")
+          continue
+        }
+        expect(old.rows[STICKY_ROW]).toMatch(/^ ▼   src\/\w+\.ts \+\d -\d/)
+        expect(except(lastColumn(fresh).map((cell, y): At => [y, 0]), [STICKY_ROW, 0])).toEqual(
+          except(lastColumn(old).map((cell, y): At => [y, 0]), [STICKY_ROW, 0])
+        )
+        expectSameStickyRow(old, fresh)
       }
       // Mid-way and at the end, so the thumb is held at three places.
       expect(tops[1]).toBe(4)
       expect(tops[2]).toBeGreaterThan(4)
     })
   }
+
+  test("the decided difference: the sticky header leaves the thumb on its row in sight, where VimDiffView covers it", async () => {
+    const { old, fresh, scrolledTo } = await scrolledScreensOf({ raw: JUST_FITS_AT_30, width: 47, height: 5 }, 3)
+    expect(scrolledTo).toBe(3)
+    expect(charAt(old, lastCellOf(old))).toBe(" ")
+    expect(charAt(fresh, lastCellOf(fresh))).toMatch(THUMB)
+    expect(old.rows[STICKY_ROW]).toContain("tight.ts")
+    expectSameStickyRow(old, fresh)
+  })
+
+  test("the sticky header over a file with a wider gutter, the scrollbar's cell masked", async () => {
+    const { old, fresh, scrolledTo } = await scrolledScreensOf({ raw: MIXED_DIGITS, width: 40, height: 6 }, 1)
+    expect(scrolledTo).toBe(1)
+    expect(old.rows[STICKY_ROW]).toContain("short.ts")
+    expectSameStickyRow(old, fresh)
+    expect(fresh.rows.slice(STICKY_ROW + 1)).toEqual(old.rows.slice(STICKY_ROW + 1))
+  })
 
   // VimDiffView's code ends a column short of its scrollbar, so the › sits beside it while the bar is on screen.
   test("an unwrapped line past the edge ends in a › beside the scrollbar", async () => {

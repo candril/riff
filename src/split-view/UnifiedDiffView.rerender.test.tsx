@@ -68,7 +68,11 @@ describe("a row is kept, not recreated, when what it draws stays", () => {
 
   test("scrolling a line builds only the line that came into view", async () => {
     const view = await mount()
+    // Past the file header, so the sticky header is already up and the scroll only moves the rows.
     view.set("scrollTop", 1)
+    await view.setup.renderOnce()
+    buildSegments.mockClear()
+    view.set("scrollTop", 2)
     await view.setup.renderOnce()
     expect(buildSegments.mock.calls.length).toBe(1)
   })
@@ -92,6 +96,27 @@ describe("a row is kept, not recreated, when what it draws stays", () => {
     expect(fresh.length).toBe(gone.length)
     expect(after.has(scrollBar!)).toBe(true)
     expect((scrollBar as PaneScrollBar).scrollPosition).toBe(3)
+  })
+})
+
+describe("the sticky header", () => {
+  test("a j or a scroll within its file keeps the label it drew", async () => {
+    const view = await mount()
+    view.set("scrollTop", 2)
+    await view.setup.renderOnce()
+    const sticky = view.setup.renderer.root.findDescendantById("sticky-file-header")!
+    expect(sticky).toBeDefined()
+    const label = renderables(sticky)
+    buildSegments.mockClear()
+    view.set("cursor", { line: 5 })
+    view.set("scrollTop", 3)
+    await view.setup.renderOnce()
+    expect(view.setup.renderer.root.findDescendantById("sticky-file-header")).toBe(sticky)
+    const after = renderables(sticky)
+    expect(after.size).toBe(label.size)
+    expect([...after].every((node) => label.has(node))).toBe(true)
+    // The line that came into view and the two the cursor touched, none of them the label.
+    expect(buildSegments.mock.calls.every(([text]) => text !== "long.ts")).toBe(true)
   })
 })
 
