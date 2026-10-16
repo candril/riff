@@ -2,11 +2,12 @@ import { test, expect, describe, afterEach } from "bun:test"
 import { ADDITION_BG } from "../diff-rows/line-colors"
 import { fade } from "../diff-rows/segments"
 import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
-import { FAR_HUNK, MANY_WRAPPED_LINES, ONE_LONG_LINE, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
+import { FAR_HUNK, MANY_WRAPPED_LINES, MIXED_DIGITS, ONE_LONG_LINE, ONE_WIDE_LINE, THREE_FILES, TWO_FILES } from "../testing/diffs"
 import { bgAt, fgAt, ints } from "../testing/split-frame"
 import { mountUnified, type MountUnifiedOptions } from "../testing/unified-frame"
 import { theme } from "../theme"
 import type { Comment, FileReviewStatus } from "../types"
+import { FILE_LABEL_PATH_X } from "./FullRow"
 
 /*
  * What the unified view draws on its own, with no header row above it. As
@@ -331,6 +332,12 @@ describe("scrollbar beside unwrapped code twice the pane's width", () => {
 describe("sticky header", () => {
   const THUMB = /[▀▄█]/
   const rowsOf = () => mounted!.setup.captureCharFrame().split("\n")
+  const headerRows = () =>
+    mounted!.mapping.allLines.flatMap((line, index) => (line.type === "file-header" ? [index] : []))
+  async function scrollTo(row: number) {
+    mounted!.set("scrollTop", row)
+    await mounted!.frame()
+  }
 
   // As VimDiffView.frames.test.ts scrolls it, under the same header row.
   test("once a file's own header scrolls away, its name holds the top row", async () => {
@@ -416,19 +423,54 @@ describe("sticky header", () => {
     expect(fgAt(spans, 18, 0)).toEqual(ints(fade(theme.green, theme.surface0)))
   })
 
+  /*
+   * VimDiffView counts each section one line short, so from the third file on it pins the next file's
+   * name a row early. This view pins by where the header rows are and does not follow it.
+   */
+  test("across three files, each file's name is pinned exactly while its own rows are on top", async () => {
+    await frameOf({ raw: THREE_FILES, width: 80, height: 8 })
+    const third = headerRows()[2]!
+    const sticky = () => mounted!.setup.renderer.root.findDescendantById("sticky-file-header")
+    await scrollTo(third - 1)
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/two.ts +1 -0")
+    await scrollTo(third)
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/three.ts +1 -0")
+    expect(sticky()).toBeUndefined()
+    await scrollTo(third + 1)
+    expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/three.ts +1 -0")
+    expect(sticky()).toBeDefined()
+  })
+
   // VimDiffView pins it over that header, a row whose name it then hides.
   test("a collapsed file has no row to scroll into, so it is never pinned over the next file's header", async () => {
     await frameOf({
       raw: TWO_FILES,
       width: 80,
       height: 3,
-      scrollTop: 1,
       mappingOptions: { collapsedFiles: new Set(["src/greet.ts"]) },
     })
+    const next = headerRows()[1]!
+    await scrollTo(next)
     expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/farewell.ts +3 -0")
-    mounted!.set("scrollTop", 2)
-    await mounted!.frame()
+    expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeUndefined()
+    expect(rowsOf().some((row) => row.includes("▶"))).toBe(false)
+    await scrollTo(next + 1)
     expect(rowsOf()[0]!).toStartWith(" ▼   src/farewell.ts +3 -0")
     expect(rowsOf()[1]!).toStartWith("   2   return")
+  })
+
+  // Faded from the path on at any gutter, where VimDiffView fades from the code column of the row under it.
+  test("under flash beside a wider gutter, its path still fades from the label's own path cell", async () => {
+    const far = "far.ts"
+    await frameOf({ raw: MIXED_DIGITS, width: 80, height: 5 })
+    const header = headerRows()[1]!
+    mounted!.set("flash", [{ line: header + 2, startCol: 0, endCol: 2, label: "a" }])
+    await scrollTo(header + 1)
+    expect(rowsOf()[0]!).toStartWith(` ▼   ${far} `)
+    expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeDefined()
+    const spans = mounted!.setup.captureSpans()
+    expect(fgAt(spans, 1, 0)).toEqual(ints(theme.overlay0))
+    const faded = ints(fade(theme.blue, theme.surface0))
+    for (let x = FILE_LABEL_PATH_X; x < FILE_LABEL_PATH_X + far.length; x++) expect(fgAt(spans, x, 0)).toEqual(faded)
   })
 })

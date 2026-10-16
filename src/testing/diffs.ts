@@ -22,6 +22,32 @@ index 0000000..3333333
 +}
 `
 
+export const THREE_FILES = `diff --git a/src/one.ts b/src/one.ts
+index 1111111..2222222 100644
+--- a/src/one.ts
++++ b/src/one.ts
+@@ -1,2 +1,3 @@
+ export const one = 1
++export const uno = 1
+ export const ein = 1
+diff --git a/src/two.ts b/src/two.ts
+index 1111111..2222222 100644
+--- a/src/two.ts
++++ b/src/two.ts
+@@ -1,2 +1,3 @@
+ export const two = 2
++export const dos = 2
+ export const zwei = 2
+diff --git a/src/three.ts b/src/three.ts
+index 1111111..2222222 100644
+--- a/src/three.ts
++++ b/src/three.ts
+@@ -1,2 +1,3 @@
+ export const three = 3
++export const tres = 3
+ export const drei = 3
+`
+
 export const FAR_HUNK = `diff --git a/schema.graphql b/schema.graphql
 index 1111111..2222222 100644
 --- a/schema.graphql

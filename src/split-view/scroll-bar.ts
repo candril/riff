@@ -2,7 +2,8 @@ import { ScrollBarRenderable, type RenderableOptions, type RenderContext } from 
 import { extend } from "@opentui/solid"
 import { theme } from "../theme"
 
-export interface PaneScrollBarOptions extends RenderableOptions<ScrollBarRenderable> {
+// Typed only so JSX takes them: Solid sets each through its setter once the bar is built.
+interface PaneScrollBarOptions extends RenderableOptions<ScrollBarRenderable> {
   viewportSize?: number
   scrollSize?: number
   scrollPosition?: number
@@ -22,16 +23,13 @@ export interface PaneScrollBarOptions extends RenderableOptions<ScrollBarRendera
  * starts this one the same way.
  */
 export class PaneScrollBar extends ScrollBarRenderable {
-  constructor(ctx: RenderContext, { viewportSize, scrollSize, scrollPosition, ...options }: PaneScrollBarOptions) {
+  constructor(ctx: RenderContext, options: PaneScrollBarOptions) {
     super(ctx, {
       ...options,
       orientation: "vertical",
       showArrows: false,
       trackOptions: { backgroundColor: theme.surface0, foregroundColor: theme.surface2 },
     })
-    if (viewportSize !== undefined) this.viewportSize = viewportSize
-    if (scrollSize !== undefined) this.scrollSize = scrollSize
-    if (scrollPosition !== undefined) this.scrollPosition = scrollPosition
   }
 }
 

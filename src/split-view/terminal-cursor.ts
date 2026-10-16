@@ -27,6 +27,7 @@ export interface CursorCellInput {
 }
 
 // Drawn from the code's origin whatever the sideways offset, so the cursor stays put with them.
+// Not hunk headers: UnifiedLine draws them as code that scrolls sideways, so the cursor follows them like any code line.
 const FIXED_TYPES = new Set<DiffLineType>(["divider", "spacing"])
 
 /**

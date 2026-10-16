@@ -4,6 +4,7 @@ import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import { MANY_WRAPPED_LINES, MIXED_DIGITS, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
+import { FILE_LABEL_PATH_X } from "./FullRow"
 import { unifiedOrigins, unifiedWrapWidth } from "./layout"
 import { unifiedCursorCell } from "./terminal-cursor"
 
@@ -113,6 +114,25 @@ describe("unifiedCursorCell", () => {
     expect(cellAt(TWO_FILES, 0, { col: 50 })).toEqual({ x: 5 + "src/greet.ts".length - 1, y: 0 })
     // The label never scrolls sideways, so neither does the cursor on it.
     expect(cellAt(TWO_FILES, 0, { col: 4, column: 30 })).toEqual({ x: 5 + 4, y: 0 })
+  })
+
+  test("on a header beside a wider gutter it goes on the path, not the code's origin", () => {
+    const header = new DiffLineMapping(parseDiff(MIXED_DIGITS), "all").allLines.findIndex(
+      (line) => line.type === "file-header" && line.filename === "far.ts"
+    )
+    expect(at(MIXED_DIGITS, header).input.origin).toBe(6)
+    expect(cellAt(MIXED_DIGITS, header, { col: 0 })).toEqual({ x: FILE_LABEL_PATH_X, y: header })
+    expect(cellAt(MIXED_DIGITS, header, { col: 3 })).toEqual({ x: FILE_LABEL_PATH_X + 3, y: header })
+  })
+
+  test("on a hunk header it scrolls sideways with the code", () => {
+    // The mapping no longer builds hunk headers, so one stands in for TWO_FILES's line 1.
+    const onHunk = (where: Where) => {
+      const { input } = at(TWO_FILES, 1, where)
+      return unifiedCursorCell({ ...input, line: { ...input.line!, type: "hunk-header", content: "@@ -1,5 +1,5 @@" } })
+    }
+    expect(onHunk({ col: 5, column: 3 })).toEqual({ x: 5 + 5 - 3, y: 1 })
+    expect(onHunk({ col: 2, column: 3 })).toBeNull()
   })
 
   test("on a divider it stays at the code's origin, however far the code is scrolled", () => {

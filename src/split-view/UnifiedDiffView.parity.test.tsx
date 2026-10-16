@@ -34,12 +34,12 @@ import type { SplitSelection } from "./overlays"
  * The unified view against VimDiffView, mounted on the same diff at the
  * same size under the same header row. Both mark the cursor with the
  * terminal's own, which no captured frame shows;
- * UnifiedDiffView.cursor.parity.test.tsx reads it off the renderers. The sticky header stops short of the
- * scrollbar, where VimDiffView's covers the thumb, so that last cell is
- * masked on the sticky row.
- * VimDiffView colours code through a highlighter these tests give the new
- * view no parser for, so code's foreground is compared only where an
- * overlay decides it. Tabs are left out of the corpus.
+ * UnifiedDiffView.cursor.parity.test.tsx reads it off the renderers.
+ * The sticky header stops short of the scrollbar, where VimDiffView's
+ * covers the thumb, so that last cell is masked on the sticky row.
+ * VimDiffView colours code through a highlighter these tests give the
+ * new view no parser for, so code's foreground is compared only where
+ * an overlay decides it. Tabs are left out of the corpus.
  */
 
 async function framesOf(options: Case) {
