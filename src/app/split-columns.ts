@@ -6,11 +6,17 @@ import { visibleCells } from "../split-view/layout"
  * scrolls sideways. Everything is in cells, the units a half is sliced in.
  */
 
+/**
+ * The cells a window shows of a line. A split half's markers each hide a
+ * cell; unified's `‹` stands in the gutter instead, so it passes its own.
+ */
+export type ShownCells = typeof visibleCells
+
 // A marker hides the cell it stands in, which a window that merely spans the cursor can still put over it.
-function uncover(column: number, cursorCell: number, contentWidth: number, lineCells: number): number {
+function uncover(column: number, cursorCell: number, contentWidth: number, lineCells: number, shown: ShownCells): number {
   let at = column
   for (let step = 0; step < 2; step++) {
-    const { first, last } = visibleCells(at, contentWidth, lineCells)
+    const { first, last } = shown(at, contentWidth, lineCells)
     if (cursorCell < first && at > 0) at--
     else if (cursorCell > last && first <= last) at++
     else break
@@ -19,22 +25,34 @@ function uncover(column: number, cursorCell: number, contentWidth: number, lineC
 }
 
 /** The column that keeps the cursor SIDE_SCROLL_OFF cells from either edge where the pane can spare them. */
-export function revealColumn(column: number, cursorCell: number, contentWidth: number, lineCells: number): number {
+export function revealColumn(
+  column: number,
+  cursorCell: number,
+  contentWidth: number,
+  lineCells: number,
+  shown: ShownCells = visibleCells
+): number {
   if (contentWidth <= 0) return column
   const margin = Math.min(SIDE_SCROLL_OFF, Math.max(0, Math.floor(contentWidth / 2) - 1))
   let next = column
   if (cursorCell < column + margin) next = Math.max(0, cursorCell - margin)
   else if (cursorCell > column + contentWidth - 1 - margin) next = cursorCell - contentWidth + 1 + margin
-  return uncover(next, cursorCell, contentWidth, lineCells)
+  return uncover(next, cursorCell, contentWidth, lineCells, shown)
 }
 
 export const scrollBy = (column: number, delta: number) => Math.max(0, column + delta)
 
 /** `zs` and `ze`: the cursor against the left or right edge, beside the marker rather than under it. */
-export function toEdge(cursorCell: number, contentWidth: number, edge: "start" | "end", lineCells: number): number {
+export function toEdge(
+  cursorCell: number,
+  contentWidth: number,
+  edge: "start" | "end",
+  lineCells: number,
+  shown: ShownCells = visibleCells
+): number {
   if (contentWidth <= 0) return 0
   const column = edge === "start" ? cursorCell : Math.max(0, cursorCell - contentWidth + 1)
-  return uncover(column, cursorCell, contentWidth, lineCells)
+  return uncover(column, cursorCell, contentWidth, lineCells, shown)
 }
 
 /** Half a pane, for `zH` and `zL`. */
@@ -45,8 +63,14 @@ export const halfWindow = (contentWidth: number) => Math.max(1, Math.floor(conte
  * drags the cursor along instead of leaving it off screen; never past the
  * line's last cell.
  */
-export function clampCursorCell(column: number, contentWidth: number, cursorCell: number, lineCells: number): number {
-  const { first, last } = visibleCells(column, contentWidth, lineCells)
+export function clampCursorCell(
+  column: number,
+  contentWidth: number,
+  cursorCell: number,
+  lineCells: number,
+  shown: ShownCells = visibleCells
+): number {
+  const { first, last } = shown(column, contentWidth, lineCells)
   const clamped = Math.min(Math.max(cursorCell, first), last)
   return Math.max(0, Math.min(clamped, lineCells - 1))
 }

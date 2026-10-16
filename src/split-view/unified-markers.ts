@@ -21,3 +21,13 @@ export function unifiedMarkers(lineCells: number, column: number, contentWidth: 
   if (lineCells <= 0 || contentWidth <= 0) return { left: false, right: false }
   return { left: column > 0, right: lineCells > column + contentWidth }
 }
+
+/**
+ * The cells an unwrapped line shows from `column` on, `first` to `last`
+ * inclusive. Neither marker hides one: `‹` is in the gutter, and the cell
+ * under `›` is still the line's, where VimDiffView lets the cursor and
+ * flash land.
+ */
+export function unifiedShownCells(column: number, contentWidth: number, _lineCells: number): { first: number; last: number } {
+  return { first: column, last: column + Math.max(contentWidth, 0) - 1 }
+}

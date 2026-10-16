@@ -145,3 +145,24 @@ index 1111111..2222222 100644
 +const second = 3
  const third = 4
 ${MANY_WRAPPED_LINES}`
+
+/** Sixty added lines in one file, numbered from 1, for a pane far shorter than the diff. */
+export const SIXTY_LINES = `diff --git a/sixty.ts b/sixty.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/sixty.ts
+@@ -0,0 +1,60 @@
+${Array.from({ length: 60 }, (_, i) => `+const line${i + 1} = ${i + 1}`).join("\n")}
+`
+
+/** Indented two tabs deep and wider than an 80-column pane; it ends in a quote, not a tab. */
+export const TAB_LINE_CONTENT = `\t\tconst wide = "${"x".repeat(100)}"`
+export const TAB_LINE = `diff --git a/tabs.go b/tabs.go
+index 1111111..2222222 100644
+--- a/tabs.go
++++ b/tabs.go
+@@ -1,1 +1,1 @@
+-old
++${TAB_LINE_CONTENT}
+`
