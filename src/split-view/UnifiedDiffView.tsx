@@ -1,7 +1,7 @@
 import { For, createMemo } from "solid-js"
 import { buildRows, type Row } from "../diff-rows/rows"
 import { commentSigns } from "../diff-rows/signs"
-import { buildVisualRows } from "../diff-rows/visual-rows"
+import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FullRow } from "./FullRow"
@@ -21,13 +21,19 @@ const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"]
  * screen are laid out, and a wrapped line takes a row per slice.
  */
 export function UnifiedDiffView(props: UnifiedDiffViewProps) {
-  const origins = createMemo(() => unifiedOrigins(props.mapping, props.wrap ? props.width : undefined))
+  // Per width as well as per mapping, so a run of resizes cannot pile up slices for widths long gone.
+  const wrapper = createMemo(() => {
+    void props.width
+    return lineWrapper(props.mapping.allLines)
+  })
+  const origins = createMemo(() => unifiedOrigins(props.mapping, props.wrap ? props.width : undefined, wrapper()))
   const rows = createMemo(() => buildRows(props.mapping.allLines, "unified"))
   const visual = createMemo(() => {
     const originOf = origins()
     return buildVisualRows(rows(), props.mapping.allLines, {
       wrap: props.wrap,
       widthOf: (lineIndex) => unifiedWrapWidth(props.width, originOf(lineIndex)),
+      wrapper: wrapper(),
     })
   })
   const env: UnifiedEnv = {

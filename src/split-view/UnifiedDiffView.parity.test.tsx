@@ -1,5 +1,13 @@
 import { test, expect, describe } from "bun:test"
-import { FAR_HUNK, JUST_FITS_AT_30, MANY_WRAPPED_LINES, MIXED_DIGITS, ONE_LONG_LINE, TWO_FILES } from "../testing/diffs"
+import {
+  FAR_HUNK,
+  JUST_FITS_AT_30,
+  MANY_WRAPPED_LINES,
+  MIXED_DIGITS,
+  ONE_LONG_LINE,
+  SHORT_THEN_MANY_WRAPPED,
+  TWO_FILES,
+} from "../testing/diffs"
 import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
 import { bgAt, fgAt } from "../testing/split-frame"
 import { mountUnified } from "../testing/unified-frame"
@@ -104,6 +112,14 @@ describe("the unified view draws what VimDiffView draws", () => {
     expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old.replaceAll("↳", " "), 120))
   })
 
+  test("wrapped past 99 rows in one section only, only that section's gutter widens", async () => {
+    const { old, fresh } = await framesOf({ raw: SHORT_THEN_MANY_WRAPPED, width: 120, height: 40, wrap: true })
+    expect(old).toContain("   1 const first = 1")
+    expect(old).not.toContain("    1 const first = 1")
+    expect(old).toContain("    1 const line1")
+    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old.replaceAll("↳", " "), 120))
+  })
+
   test("wrapped one cell short of 100 rows, the gutter widens only when it must", async () => {
     for (const width of [30, 29]) {
       const { old, fresh } = await framesOf({ raw: JUST_FITS_AT_30, width, height: 8, wrap: true })
@@ -126,8 +142,8 @@ describe("the unified view colours a line as VimDiffView does", () => {
   // VimDiffView paints its cursor cell over the first column of the cursor line.
   const CURSOR_CELLS = [0, 4, 10, 70]
 
-  // Clear of the cursor cell, which a chrome row has at its code's first column.
-  const GUTTER_CELLS = [1, 4, 70]
+  // Clear of x=5, where VimDiffView paints its cursor cell at the code's first column even on a chrome row.
+  const GUTTER_CELLS = [0, 1, 4, 70]
 
   async function colours(
     cursorLine: number,

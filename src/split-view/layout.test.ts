@@ -5,7 +5,19 @@ import { FAR_HUNK, JUST_FITS_AT_30, MANY_WRAPPED_LINES, TWO_FILES } from "../tes
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { diffFile } from "../diff-rows/fixtures"
-import { cellCount, contentOrigin, dividerLabel, gutterWidth, halfContent, paneWidths, unifiedOrigins } from "./layout"
+import { buildRows } from "../diff-rows/rows"
+import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
+import { wrapLine } from "../diff-rows/wrap"
+import {
+  cellCount,
+  contentOrigin,
+  dividerLabel,
+  gutterWidth,
+  halfContent,
+  paneWidths,
+  unifiedOrigins,
+  unifiedWrapWidth,
+} from "./layout"
 
 const mappingOf = (raw: string) => new DiffLineMapping(parseDiff(raw), "all")
 const texts = (segments: { text: string }[]) => segments.map((s) => s.text).join("")
@@ -75,6 +87,32 @@ describe("unifiedOrigins", () => {
     expect(unifiedOrigins(mapping, 120)(1)).toBe(6)
     // Wide enough that no line wraps, the rows are the lines again.
     expect(unifiedOrigins(mapping, 400)(1)).toBe(5)
+  })
+
+  test("wrapped, the gutter's passes and the visual rows share one wrap per line and width", () => {
+    const mapping = mappingOf(MANY_WRAPPED_LINES)
+    const lines = mapping.allLines
+    const seen: string[] = []
+    const wrapper = lineWrapper(lines, (content, width) => {
+      seen.push(`${width}:${content}`)
+      return wrapLine(content, width)
+    })
+
+    const origin = unifiedOrigins(mapping, 120, wrapper)
+    const finalWidth = unifiedWrapWidth(120, origin(1))
+    const before = seen.length
+    const visual = buildVisualRows(buildRows(lines, "unified"), lines, {
+      wrap: true,
+      widthOf: (lineIndex) => unifiedWrapWidth(120, origin(lineIndex)),
+      wrapper,
+    })
+
+    expect(origin(1)).toBe(6)
+    expect(visual.total).toBeGreaterThan(99)
+    expect(new Set(seen).size).toBe(seen.length)
+    expect(seen.length).toBe(before)
+    const atFinal = seen.filter((key) => key.startsWith(`${finalWidth}:`))
+    expect(atFinal).toHaveLength(lines.filter((line) => line.type === "addition" || line.type === "hunk-header").length)
   })
 
   // A gutter starts at the lines' width and only ever grows, as VimDiffView's does frame by frame.

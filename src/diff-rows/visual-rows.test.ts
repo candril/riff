@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import type { DiffLine, DiffLineType } from "../vim-diff/types"
-import { LONG_LINE, code, diffFile, long, mappingOf } from "./fixtures"
+import { LONG_LINE, code, diffFile, doc, long, mappingOf } from "./fixtures"
 import { buildRows } from "./rows"
-import { buildVisualRows } from "./visual-rows"
+import { buildVisualRows, lineWrapper } from "./visual-rows"
 
 const unifiedOf = (files = [long, code]) => {
   const lines = mappingOf({}, files).allLines
@@ -16,6 +16,33 @@ const lineOf = (type: DiffLineType, content: string, visualIndex: number): DiffL
   type,
   content,
   rawLine: content,
+})
+
+describe("lineWrapper", () => {
+  test("hands back the same slices for a line at a width it has wrapped before", () => {
+    const { lines } = unifiedOf()
+    const at = longRow(lines)
+    const wrapper = lineWrapper(lines)
+
+    const slices = wrapper(at, 55)
+    expect(slices).toHaveLength(2)
+    expect(wrapper(at, 55)).toBe(slices)
+    expect(wrapper(at, 200)).not.toBe(slices)
+    expect(wrapper(at, 200)).toHaveLength(1)
+  })
+
+  test("leaves riff's own rows, and a line past the end, unwrapped", () => {
+    const lines = mappingOf({}, [doc, code]).allLines
+    const wrapper = lineWrapper(lines)
+    const chrome = ["file-header", "divider", "spacing"] as const
+
+    for (const type of chrome) {
+      const at = lines.findIndex((line) => line.type === type)
+      expect(at).toBeGreaterThanOrEqual(0)
+      expect(wrapper(at, 10)).toBeNull()
+    }
+    expect(wrapper(lines.length, 10)).toBeNull()
+  })
 })
 
 describe("buildVisualRows", () => {

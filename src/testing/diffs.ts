@@ -104,3 +104,18 @@ index 0000000..2222222
 @@ -0,0 +1,98 @@
 ${Array.from({ length: 98 }, () => `+${"x".repeat(30 - 5 - 1)}`).join("\n")}
 `
+
+/**
+ * A short file numbered in one digit before MANY_WRAPPED_LINES: only the
+ * second section passes 99 rows once wrapped, so only its gutter widens.
+ */
+export const SHORT_THEN_MANY_WRAPPED = `diff --git a/short.ts b/short.ts
+index 1111111..2222222 100644
+--- a/short.ts
++++ b/short.ts
+@@ -1,3 +1,3 @@
+ const first = 1
+-const second = 2
++const second = 3
+ const third = 4
+${MANY_WRAPPED_LINES}`

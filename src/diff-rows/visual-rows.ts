@@ -10,9 +10,34 @@ import { wrapLine, type WrapSlice } from "./wrap"
  */
 const WRAPPING_TYPES = new Set<DiffLineType>(["context", "addition", "deletion", "no-newline", "hunk-header"])
 
-/** The rows a line takes in unified's buffer when its code wraps at `width` cells. */
-export const wrappedHeight = (line: DiffLine, width: number) =>
-  WRAPPING_TYPES.has(line.type) ? wrapLine(line.content, width).length : 1
+/** A line's slices at `width` cells; null for a line that does not wrap. */
+export type LineWrapper = (lineIndex: number, width: number) => readonly WrapSlice[] | null
+
+/**
+ * Memoised per line and width, so unified's gutter, which counts rows at
+ * several widths, and its visual rows share one wrap per line. `wrap` is
+ * there for a test to count calls.
+ */
+export function lineWrapper(lines: readonly DiffLine[], wrap = wrapLine): LineWrapper {
+  const cache = new Map<number, Map<number, readonly WrapSlice[]>>()
+  const widthsOf = (lineIndex: number) => {
+    const known = cache.get(lineIndex)
+    if (known) return known
+    const fresh = new Map<number, readonly WrapSlice[]>()
+    cache.set(lineIndex, fresh)
+    return fresh
+  }
+  return (lineIndex, width) => {
+    const line = lines[lineIndex]
+    if (!line || !WRAPPING_TYPES.has(line.type)) return null
+    const byWidth = widthsOf(lineIndex)
+    const known = byWidth.get(width)
+    if (known) return known
+    const slices = wrap(line.content, width)
+    byWidth.set(width, slices)
+    return slices
+  }
+}
 
 export interface VisualRow {
   row: number
@@ -50,6 +75,8 @@ export interface VisualRowsOptions {
   wrap: boolean
   /** Per line, since unified's all-files gutter, and so its code width, is per file section. */
   widthOf: (lineIndex: number) => number
+  /** One shared with whatever else wraps the same lines at the same widths. */
+  wrapper?: LineWrapper
 }
 
 export function buildVisualRows(
@@ -57,7 +84,7 @@ export function buildVisualRows(
   lines: readonly DiffLine[],
   opts: VisualRowsOptions
 ): VisualRows {
-  return opts.wrap ? wrapped(rows, lines, opts.widthOf) : unwrapped(rows.length)
+  return opts.wrap ? wrapped(rows, lines, opts.widthOf, opts.wrapper ?? lineWrapper(lines)) : unwrapped(rows.length)
 }
 
 const clamp = (value: number, max: number) => Math.max(0, Math.min(value, max))
@@ -75,19 +102,21 @@ function unwrapped(count: number): VisualRows {
   }
 }
 
-function slicesFor(row: Row, lines: readonly DiffLine[], widthOf: (lineIndex: number) => number): WrapSlice[] | null {
-  if (row.kind !== "line") return null
-  const line = lines[row.index]
-  return line && WRAPPING_TYPES.has(line.type) ? wrapLine(line.content, widthOf(row.index)) : null
-}
+const slicesFor = (row: Row, widthOf: (lineIndex: number) => number, wrapper: LineWrapper) =>
+  row.kind === "line" ? wrapper(row.index, widthOf(row.index)) : null
 
 const contentOf = (row: Row, lines: readonly DiffLine[]) => (row.kind === "line" ? lines[row.index]?.content ?? "" : "")
 
-function wrapped(rows: readonly Row[], lines: readonly DiffLine[], widthOf: (lineIndex: number) => number): VisualRows {
-  const slices: (WrapSlice[] | null)[] = new Array(rows.length)
+function wrapped(
+  rows: readonly Row[],
+  lines: readonly DiffLine[],
+  widthOf: (lineIndex: number) => number,
+  wrapper: LineWrapper
+): VisualRows {
+  const slices: (readonly WrapSlice[] | null)[] = new Array(rows.length)
   const first = new Int32Array(rows.length + 1)
   for (let row = 0; row < rows.length; row++) {
-    const own = slicesFor(rows[row]!, lines, widthOf)
+    const own = slicesFor(rows[row]!, widthOf, wrapper)
     slices[row] = own
     first[row + 1] = first[row]! + (own?.length ?? 1)
   }

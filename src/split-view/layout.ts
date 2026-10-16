@@ -1,5 +1,5 @@
 import { sliceSegments, type Segment } from "../diff-rows/segments"
-import { wrappedHeight } from "../diff-rows/visual-rows"
+import { lineWrapper, type LineWrapper } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { DiffLine } from "../vim-diff/types"
@@ -64,7 +64,11 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
  * the rows at its own width. A wider gutter only adds rows, so this settles
  * where VimDiffView's renderer does, a frame at a time.
  */
-export function unifiedOrigins(mapping: DiffLineMapping, wrapWidth?: number): (lineIndex: number) => number {
+export function unifiedOrigins(
+  mapping: DiffLineMapping,
+  wrapWidth?: number,
+  wrapper: LineWrapper = lineWrapper(mapping.allLines)
+): (lineIndex: number) => number {
   const lines = mapping.allLines
   let widest = 0
   for (const line of lines) widest = Math.max(widest, unifiedNumber(line))
@@ -83,7 +87,7 @@ export function unifiedOrigins(mapping: DiffLineMapping, wrapWidth?: number): (l
     const rowsAt = (origin: number) => {
       if (wrapWidth === undefined) return end - codeStart
       let rows = 0
-      for (let i = codeStart; i < end; i++) rows += wrappedHeight(lines[i]!, unifiedWrapWidth(wrapWidth, origin))
+      for (let i = codeStart; i < end; i++) rows += wrapper(i, unifiedWrapWidth(wrapWidth, origin))?.length ?? 1
       return rows
     }
     let origin = originFor(Math.max(end - codeStart, largest))
