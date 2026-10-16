@@ -1,6 +1,8 @@
 import { test, expect, describe, afterEach, spyOn } from "bun:test"
 import { TextRenderable, type Renderable } from "@opentui/core"
 import * as segmentsModule from "../diff-rows/segments"
+import * as visualRowsModule from "../diff-rows/visual-rows"
+import * as layoutModule from "./layout"
 import { mountUnified } from "../testing/unified-frame"
 
 /*
@@ -21,6 +23,8 @@ ${context.join("\n")}
 `
 
 const buildSegments = spyOn(segmentsModule, "buildSegments")
+const lineWrapper = spyOn(visualRowsModule, "lineWrapper")
+const unifiedOrigins = spyOn(layoutModule, "unifiedOrigins")
 let mounted: Awaited<ReturnType<typeof mountUnified>> | null = null
 
 afterEach(async () => {
@@ -66,5 +70,36 @@ describe("a row is kept, not recreated, when what it draws stays", () => {
     view.set("scrollTop", 1)
     await view.setup.renderOnce()
     expect(buildSegments.mock.calls.length).toBe(1)
+  })
+})
+
+describe("what a sideways scroll or a resize leaves alone", () => {
+  test("scrolling sideways moves the markers without rebuilding any line's code", async () => {
+    const view = await mount()
+    view.set("column", 5)
+    expect(await view.frame()).toContain("‹")
+    expect(buildSegments.mock.calls.length).toBe(0)
+  })
+
+  test("unwrapped, a resize neither wraps anew nor sizes the gutter again", async () => {
+    const view = await mount()
+    lineWrapper.mockClear()
+    unifiedOrigins.mockClear()
+    view.set("width", 100)
+    await view.setup.renderOnce()
+    expect(lineWrapper.mock.calls.length).toBe(0)
+    expect(unifiedOrigins.mock.calls.length).toBe(0)
+  })
+
+  test("wrapped, a resize wraps at the new width", async () => {
+    const view = await mount()
+    view.set("wrap", true)
+    await view.setup.renderOnce()
+    lineWrapper.mockClear()
+    unifiedOrigins.mockClear()
+    view.set("width", 100)
+    await view.setup.renderOnce()
+    expect(lineWrapper.mock.calls.length).toBe(1)
+    expect(unifiedOrigins.mock.calls.length).toBe(1)
   })
 })

@@ -5,6 +5,7 @@ import {
   MANY_WRAPPED_LINES,
   MIXED_DIGITS,
   ONE_LONG_LINE,
+  ONE_WIDE_LINE,
   SHORT_THEN_MANY_WRAPPED,
   TWO_FILES,
 } from "../testing/diffs"
@@ -18,10 +19,10 @@ import type { SplitSelection } from "./overlays"
 
 /*
  * The unified view against VimDiffView, mounted on the same diff at the
- * same size under the same header row. What VimDiffView paints after
- * layout — the ↳ and ‹ › markers, the cursor cell, the sticky header — the
- * new view does not draw yet, so the cases here stay clear of it. Tabs are
- * left out of the corpus.
+ * same size under the same header row. The new view does not draw
+ * VimDiffView's cursor cell, sticky header or scrollbar yet, so the cases
+ * here stay clear of them or mask the scrollbar's column. Tabs are left out
+ * of the corpus.
  */
 
 type Case = Omit<MountDiffViewOptions, "selectedFileIndex"> & { selectedFileIndex?: number }
@@ -35,6 +36,24 @@ async function framesOf(options: Case) {
   const freshFrame = await fresh.frame()
   await fresh.dispose()
   return { old: oldFrame, fresh: freshFrame }
+}
+
+const WIDE_ROW = 3
+
+/** ONE_WIDE_LINE scrolled as VimDiffView scrolls to show a far column, the new view handed the same column. */
+async function sideways() {
+  const old = await mountDiffView({ raw: ONE_WIDE_LINE, height: 8 })
+  await old.frame()
+  old.view.revealColumn(WIDE_ROW, 150)
+  const oldFrame = await old.frame()
+  const column = old.view.getScrollBox()!.scrollLeft
+  const oldSpans = old.setup.captureSpans()
+  await old.dispose()
+  const fresh = await mountUnified({ raw: ONE_WIDE_LINE, height: 8, header: true, column })
+  const freshFrame = await fresh.frame()
+  const freshSpans = fresh.setup.captureSpans()
+  await fresh.dispose()
+  return { column, old: { frame: oldFrame, spans: oldSpans }, fresh: { frame: freshFrame, spans: freshSpans } }
 }
 
 const comment = (id: string, side: Comment["side"], more: Partial<Comment> = {}): Comment => ({
@@ -85,12 +104,33 @@ describe("the unified view draws what VimDiffView draws", () => {
   ]
 
   for (const [name, options] of wrapped) {
-    test(`wrapped, but for the continuation marker: ${name}`, async () => {
+    test(`wrapped, continuation markers and all: ${name}`, async () => {
       const { old, fresh } = await framesOf({ ...options, wrap: true })
       expect(old).toContain("↳")
-      expect(fresh).toBe(old.replaceAll("↳", " "))
+      expect(fresh).toBe(old)
     })
   }
+
+  // Short enough that VimDiffView draws no scrollbar, so its › sits in the pane's last column as the new view's does.
+  const overflowing: [string, Case][] = [
+    ["a long line", { raw: ONE_LONG_LINE, width: 60, height: 10 }],
+    ["two files, narrow", { raw: TWO_FILES, width: 30, height: 20 }],
+  ]
+
+  for (const [name, options] of overflowing) {
+    test(`unwrapped, a line past the edge ends in ›: ${name}`, async () => {
+      const { old, fresh } = await framesOf(options)
+      expect(old).toContain("›")
+      expect(fresh).toBe(old)
+    })
+  }
+
+  test("scrolled sideways, every line with text is marked ‹ and a line still past the edge ›", async () => {
+    const { old, fresh } = await sideways()
+    expect(old.frame).toContain("‹")
+    expect(old.frame).toContain("›")
+    expect(fresh.frame).toBe(old.frame)
+  })
 
   const withoutLastColumn = (frame: string, width: number) =>
     frame
@@ -102,14 +142,14 @@ describe("the unified view draws what VimDiffView draws", () => {
   test("wrapped under VimDiffView's scrollbar, but for the scrollbar's column", async () => {
     const { old, fresh } = await framesOf({ raw: FAR_HUNK, width: 30, height: 8, wrap: true })
     expect(old).toMatch(/[▀▄█]/)
-    expect(withoutLastColumn(fresh, 30)).toBe(withoutLastColumn(old.replaceAll("↳", " "), 30))
+    expect(withoutLastColumn(fresh, 30)).toBe(withoutLastColumn(old, 30))
   })
 
   // Sixty lines, but over a hundred rows once wrapped: OpenTUI sizes the gutter by the rows.
   test("wrapped past 99 rows, the gutter takes another digit", async () => {
     const { old, fresh } = await framesOf({ raw: MANY_WRAPPED_LINES, width: 120, height: 40, wrap: true })
     expect(old).toContain("    1 const line1")
-    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old.replaceAll("↳", " "), 120))
+    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old, 120))
   })
 
   test("wrapped past 99 rows in one section only, only that section's gutter widens", async () => {
@@ -117,13 +157,13 @@ describe("the unified view draws what VimDiffView draws", () => {
     expect(old).toContain("   1 const first = 1")
     expect(old).not.toContain("    1 const first = 1")
     expect(old).toContain("    1 const line1")
-    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old.replaceAll("↳", " "), 120))
+    expect(withoutLastColumn(fresh, 120)).toBe(withoutLastColumn(old, 120))
   })
 
   test("wrapped one cell short of 100 rows, the gutter widens only when it must", async () => {
     for (const width of [30, 29]) {
       const { old, fresh } = await framesOf({ raw: JUST_FITS_AT_30, width, height: 8, wrap: true })
-      expect(withoutLastColumn(fresh, width)).toBe(withoutLastColumn(old.replaceAll("↳", " "), width))
+      expect(withoutLastColumn(fresh, width)).toBe(withoutLastColumn(old, width))
     }
   })
 })
@@ -253,5 +293,80 @@ describe("the unified view colours a comment's sign as VimDiffView does", () => 
     expect(result.old.every(({ char }) => char === "●")).toBe(true)
     expect(new Set(result.old.map(({ fg }) => String(fg))).size).toBe(4)
     expect(result.fresh).toEqual(result.old)
+  })
+})
+
+describe("the unified view colours its markers as VimDiffView does", () => {
+  type At = [x: number, y: number]
+  type Spans = ReturnType<Awaited<ReturnType<typeof mountDiffView>>["setup"]["captureSpans"]>
+  interface Screen {
+    frame: string
+    spans: Spans
+  }
+
+  const charAt = (screen: Screen, [x, y]: At) => screen.frame.split("\n")[y]![x]
+
+  /*
+   * VimDiffView's drawMarker hands OpenTUI's 16-bit colour channels to
+   * RGBA.fromValues, which takes 0..1, so its marker cells come out white.
+   * What it means to keep is the background the cell already had, the one
+   * the cell to its left still shows; the new view is held to that.
+   */
+  function expectSameColours(old: Screen, fresh: Screen, markers: At[], plain: At[]) {
+    expect(markers.map((at) => [charAt(fresh, at), fgAt(fresh.spans, ...at), bgAt(fresh.spans, ...at)])).toEqual(
+      markers.map(([x, y]) => [charAt(old, [x, y]), fgAt(old.spans, x, y), bgAt(old.spans, x - 1, y)])
+    )
+    expect(plain.map((at) => bgAt(fresh.spans, ...at))).toEqual(plain.map((at) => bgAt(old.spans, ...at)))
+  }
+
+  async function screensOf(options: Case): Promise<{ old: Screen; fresh: Screen }> {
+    const old = await mountDiffView(options)
+    await old.frame()
+    const oldScreen = { frame: old.setup.captureCharFrame(), spans: old.setup.captureSpans() }
+    await old.dispose()
+    const { wrap = false, ...rest } = options
+    const fresh = await mountUnified({ ...rest, wrap, header: true })
+    await fresh.frame()
+    const freshScreen = { frame: fresh.setup.captureCharFrame(), spans: fresh.setup.captureSpans() }
+    await fresh.dispose()
+    return { old: oldScreen, fresh: freshScreen }
+  }
+
+  // ONE_LONG_LINE under the header row: its addition is screen row 4, and wrapped at 60 it carries on into row 5.
+  const ADDITION_ROW = 4
+  const gutterOf = (y: number): At[] => [0, 1, 2, 3, 4, 5].map((x): At => [x, y])
+  const except = (cells: At[], [mx, my]: At) => cells.filter(([x, y]) => x !== mx || y !== my)
+
+  test("the › ending an addition line", async () => {
+    const { old, fresh } = await screensOf({ raw: ONE_LONG_LINE, width: 60, height: 10 })
+    expect(charAt(old, [59, ADDITION_ROW])).toBe("›")
+    expectSameColours(old, fresh, [[59, ADDITION_ROW]], [[58, ADDITION_ROW]])
+  })
+
+  // The wide line's code is one changed word, which VimDiffView tints only through its
+  // highlighter, and that never runs under the test renderer: its code is left out here.
+  test("the ‹ on a context line, a deletion and an addition", async () => {
+    const { column, old, fresh } = await sideways()
+    expect(column).toBeGreaterThan(0)
+    const rows = [2, 3, 4]
+    const markers = rows.map((y): At => [4, y])
+    expect(markers.map((at) => charAt(old, at))).toEqual(["‹", "‹", "‹"])
+    expectSameColours(old, fresh, markers, [...rows.map((y): At => [3, y]), [5, 2], [5, 3]])
+  })
+
+  // A continuation row's gutter is coloured as its line's first row is, in both views.
+  test("the ↳ and the gutter around it on a wrapped addition line", async () => {
+    const { old, fresh } = await screensOf({ raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true })
+    const marker: At = [4, ADDITION_ROW + 1]
+    expect(charAt(old, marker)).toBe("↳")
+    expectSameColours(old, fresh, [marker], except([...gutterOf(ADDITION_ROW), ...gutterOf(ADDITION_ROW + 1)], marker))
+  })
+
+  // TWO_FILES at 30 wraps greet.ts's first line, a line of context on screen row 2.
+  test("the ↳ and the gutter around it on a wrapped context line", async () => {
+    const { old, fresh } = await screensOf({ raw: TWO_FILES, width: 30, height: 40, wrap: true })
+    const marker: At = [4, 3]
+    expect(charAt(old, marker)).toBe("↳")
+    expectSameColours(old, fresh, [marker], except([...gutterOf(2), ...gutterOf(3)], marker))
   })
 })

@@ -22,8 +22,9 @@ const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"]
  */
 export function UnifiedDiffView(props: UnifiedDiffViewProps) {
   // Per width as well as per mapping, so a run of resizes cannot pile up slices for widths long gone.
+  // Unwrapped, nothing is sliced, so a resize keeps the wrapper and skips the gutter's row count.
   const wrapper = createMemo(() => {
-    void props.width
+    void (props.wrap ? props.width : undefined)
     return lineWrapper(props.mapping.allLines)
   })
   const origins = createMemo(() => unifiedOrigins(props.mapping, props.wrap ? props.width : undefined, wrapper()))
