@@ -93,7 +93,7 @@ describe("the unified view overlays search, a selection and flash as VimDiffView
       wrap,
       header: true,
       column,
-      cursor: { line: cursor?.line ?? 0 },
+      cursor: { line: cursor?.line ?? 0, col: cursor?.col ?? 0 },
       selection: selectionOf(cursor),
     })
     await fresh.frame()

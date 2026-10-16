@@ -18,8 +18,8 @@ export interface UnifiedDiffViewProps {
   comments: readonly Comment[]
   fileStatuses: ReadonlyMap<string, FileReviewStatus>
   expandingDivider: string | null
-  /** `line` indexes the mapping's lines. */
-  cursor: { line: number }
+  /** `line` indexes the mapping's lines; `col` is a UTF-16 column of it, as the vim cursor keeps it. */
+  cursor: { line: number; col: number }
   /** In visual rows, so a wrapped line can be cut off at the top. */
   scrollTop: number
   /** One sideways offset for every line, in cells; ignored while wrapped. */

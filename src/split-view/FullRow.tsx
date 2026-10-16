@@ -45,6 +45,11 @@ const Cell = (props: { fg: string; attributes?: number; children: string }) => (
 /** Text faded as flash's backdrop fades the code, while flash is up. */
 const dimmed = (env: RowEnv, fg: string, bg: string | undefined) => (env.flashHits() ? fade(fg, bg ?? theme.base) : fg)
 
+const LABEL_PADDING_X = 1
+const LABEL_GAP = 1
+/** The cell FileLabel starts the path at: past the fold mark and the viewed mark, a cell each, and a gap after each. */
+export const FILE_LABEL_PATH_X = LABEL_PADDING_X + 2 * (1 + LABEL_GAP)
+
 /**
  * What VimDiffView's FileHeader draws for a file, and its sticky header for
  * the file scrolled into: one source, so the two label a file alike.
@@ -70,7 +75,7 @@ export function FileLabel(props: {
       cursor: props.cursor,
     })
   return (
-    <Bar env={props.env} bg={theme.surface0} paddingX={1} gap={1}>
+    <Bar env={props.env} bg={theme.surface0} paddingX={LABEL_PADDING_X} gap={LABEL_GAP}>
       <Cell fg={props.collapsed ? theme.overlay1 : theme.overlay0}>{props.collapsed ? "▶" : "▼"}</Cell>
       <Cell fg={viewed() ? theme.green : theme.overlay0}>{viewed() ? "✓" : " "}</Cell>
       {/* Its own box, or the bar's gap would open between the path's segments. */}

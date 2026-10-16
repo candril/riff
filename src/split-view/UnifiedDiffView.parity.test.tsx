@@ -32,10 +32,11 @@ import type { SplitSelection } from "./overlays"
 
 /*
  * The unified view against VimDiffView, mounted on the same diff at the
- * same size under the same header row. The new view does not draw
- * VimDiffView's cursor cell yet, so the cases here stay clear of it or mask
- * it. Its sticky header stops short of the scrollbar, where VimDiffView's
- * covers the thumb, so that last cell is masked on the sticky row.
+ * same size under the same header row. Both mark the cursor with the
+ * terminal's own, which no captured frame shows;
+ * UnifiedDiffView.cursor.parity.test.tsx reads it off the renderers. The sticky header stops short of the
+ * scrollbar, where VimDiffView's covers the thumb, so that last cell is
+ * masked on the sticky row.
  * VimDiffView colours code through a highlighter these tests give the new
  * view no parser for, so code's foreground is compared only where an
  * overlay decides it. Tabs are left out of the corpus.
@@ -338,17 +339,12 @@ describe("the unified view colours a line as VimDiffView does", () => {
   const SPACING = 8
   // Both gutter edges, the first cell of code and one well past the end of every line.
   const CELLS = [0, 4, 5, 70]
-  // VimDiffView paints its cursor cell over the first column of the cursor line.
-  const CURSOR_CELLS = [0, 4, 10, 70]
-
-  // Clear of x=5, where VimDiffView paints its cursor cell at the code's first column even on a chrome row.
-  const GUTTER_CELLS = [0, 1, 4, 70]
 
   async function colours(
     cursorLine: number,
     anchor: number | null,
     lines: number[],
-    { expandingDivider = null, cells }: { expandingDivider?: string | null; cells?: number[] } = {}
+    { expandingDivider = null }: { expandingDivider?: string | null } = {}
   ) {
     const old = await mountDiffView({ raw: TWO_FILES, expandingDivider })
     old.cursor.line = cursorLine
@@ -375,9 +371,7 @@ describe("the unified view colours a line as VimDiffView does", () => {
     await fresh.frame()
     const read = (setup: typeof old.setup) => {
       const spans = setup.captureSpans()
-      return lines.map((line) =>
-        (cells ?? (line === cursorLine ? CURSOR_CELLS : CELLS)).map((x) => ({ line, x, bg: bgAt(spans, x, line + 1) }))
-      )
+      return lines.map((line) => CELLS.map((x) => ({ line, x, bg: bgAt(spans, x, line + 1) })))
     }
     const result = { old: read(old.setup), fresh: read(fresh.setup) }
     await old.dispose()
@@ -396,12 +390,12 @@ describe("the unified view colours a line as VimDiffView does", () => {
   })
 
   test("the cursor on a spacing row", async () => {
-    const { old, fresh } = await colours(SPACING, null, [SPACING], { cells: GUTTER_CELLS })
+    const { old, fresh } = await colours(SPACING, null, [SPACING])
     expect(fresh).toEqual(old)
   })
 
   test("the cursor on a divider", async () => {
-    const { old, fresh } = await colours(DIVIDER, null, [DIVIDER], { cells: GUTTER_CELLS })
+    const { old, fresh } = await colours(DIVIDER, null, [DIVIDER])
     expect(fresh).toEqual(old)
   })
 
@@ -417,10 +411,7 @@ describe("the unified view colours a line as VimDiffView does", () => {
     })
 
     test("with the cursor on it", async () => {
-      const { old, fresh } = await colours(DIVIDER, null, [DIVIDER], {
-        expandingDivider: expandingDivider(),
-        cells: GUTTER_CELLS,
-      })
+      const { old, fresh } = await colours(DIVIDER, null, [DIVIDER], { expandingDivider: expandingDivider() })
       expect(fresh).toEqual(old)
     })
   })

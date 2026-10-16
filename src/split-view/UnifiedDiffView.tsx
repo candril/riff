@@ -10,6 +10,7 @@ import { unifiedOrigins, unifiedWrapWidth } from "./layout"
 import { flashByLine, searchByLine } from "./overlays"
 import "./scroll-bar"
 import { stickyHeaderLine } from "./sticky"
+import { createTerminalCursor, unifiedCursorCell } from "./terminal-cursor"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
 import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
@@ -68,6 +69,21 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
   )
   // Unified has a row per line, so a header's line index is its row's.
   const sticky = createMemo(() => stickyHeaderLine(headerLines(), visual().firstOf, props.scrollTop))
+  const placeCursor = createTerminalCursor(
+    () => props.focused,
+    () =>
+      unifiedCursorCell({
+        line: props.mapping.getLine(props.cursor.line),
+        lineIndex: props.cursor.line,
+        col: props.cursor.col,
+        scrollTop: props.scrollTop,
+        height: props.height,
+        column: props.column,
+        origin: env.originOf(props.cursor.line),
+        rowWidth: env.rowWidth(),
+        visual: visual(),
+      })
+  )
   // The stable Row objects themselves, so a scroll keeps every row still on screen as it was.
   const visible = createMemo((): readonly Row[] => {
     const shown = visual()
@@ -78,7 +94,13 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
   })
 
   return (
-    <box flexDirection="row" width={props.width} height={props.height} overflow="hidden">
+    <box
+      flexDirection="row"
+      width={props.width}
+      height={props.height}
+      overflow="hidden"
+      renderAfter={placeCursor}
+    >
       <box flexDirection="column" width={env.rowWidth()} height={props.height} flexShrink={0} overflow="hidden">
         <For each={visible()}>
           {(row) => {

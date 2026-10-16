@@ -1,3 +1,4 @@
+import { Show, createSignal } from "solid-js"
 import { createStore } from "solid-js/store"
 import { LineSpans } from "../diff-rows/line-spans"
 import { UnifiedDiffView, type UnifiedDiffViewProps } from "../split-view/UnifiedDiffView"
@@ -8,8 +9,9 @@ import type { DiffLineMappingOptions } from "../vim-diff/types"
 import { mountJsx } from "./frame"
 
 export interface MountUnifiedOptions
-  extends Partial<Omit<UnifiedDiffViewProps, "mapping" | "files" | "lineSpans" | "width" | "height">> {
+  extends Partial<Omit<UnifiedDiffViewProps, "mapping" | "files" | "lineSpans" | "width" | "height" | "cursor">> {
   raw: string
+  cursor?: { line: number; col?: number }
   mode?: "single" | "all"
   selectedFileIndex?: number
   mappingOptions?: DiffLineMappingOptions
@@ -22,7 +24,7 @@ export interface MountUnifiedOptions
 
 /** The unified view on a test screen, 80 by 16 unless told otherwise; `set` patches its props. */
 export async function mountUnified(options: MountUnifiedOptions) {
-  const { raw, mode = "all", selectedFileIndex, mappingOptions, width = 80, height = 16, header = false, ...rest } = options
+  const { raw, mode = "all", selectedFileIndex, mappingOptions, width = 80, height = 16, header = false, cursor, ...rest } = options
   const files = parseDiff(raw)
   const mapping = new DiffLineMapping(files, mode, selectedFileIndex, mappingOptions)
   const [props, set] = createStore<UnifiedDiffViewProps>({
@@ -34,7 +36,7 @@ export async function mountUnified(options: MountUnifiedOptions) {
     comments: [],
     fileStatuses: new Map(),
     expandingDivider: null,
-    cursor: { line: 0 },
+    cursor: { line: cursor?.line ?? 0, col: cursor?.col ?? 0 },
     scrollTop: 0,
     column: 0,
     wrap: false,
@@ -46,7 +48,12 @@ export async function mountUnified(options: MountUnifiedOptions) {
     flash: null,
     ...rest,
   })
-  const view = () => <UnifiedDiffView {...props} />
+  const [shown, setShown] = createSignal(true)
+  const view = () => (
+    <Show when={shown()}>
+      <UnifiedDiffView {...props} />
+    </Show>
+  )
   const mounted = await mountJsx(
     () =>
       header ? (
@@ -59,5 +66,7 @@ export async function mountUnified(options: MountUnifiedOptions) {
       ),
     { width, height }
   )
-  return { ...mounted, mapping, files, set }
+  /** Takes the view out of the tree and leaves the screen up, to see what it leaves behind. */
+  const unmount = () => setShown(false)
+  return { ...mounted, mapping, files, set, unmount }
 }
