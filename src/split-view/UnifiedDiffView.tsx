@@ -6,6 +6,7 @@ import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FullRow } from "./FullRow"
 import { unifiedOrigins, unifiedWrapWidth } from "./layout"
+import { flashByLine, searchByLine } from "./overlays"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
 import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
@@ -44,9 +45,10 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     // coloured by the rule unifiedLineColors follows for a line of code.
     chromeGutterBg: (tint, atCursor) => tint ?? (atCursor ? theme.base : theme.mantle),
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
-    flashHits: () => null,
+    flashHits: createMemo(() => flashByLine(props.flash)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
     words: createMemo(() => wordsOf(props.mapping)),
+    searchHits: createMemo(() => searchByLine(props.search)),
     visual,
   }
   // The stable Row objects themselves, so a scroll keeps every row still on screen as it was.

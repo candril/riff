@@ -7,6 +7,9 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { parseDiff } from "../utils/diff-parser"
 import type { DiffLineMappingOptions } from "../vim-diff/types"
 import type { Comment, FileReviewStatus } from "../types"
+import type { SplitSearch } from "../split-view/overlays"
+import { createFlashState, type FlashMatch } from "../vim-diff/flash-state"
+import { createSearchState } from "../vim-diff/search-state"
 
 /** Trailing spaces and blank rows are padding, and would make the literals unreadable. */
 export function trimFrame(frame: string): string {
@@ -61,6 +64,10 @@ export interface MountDiffViewOptions {
   fileStatuses?: Map<string, FileReviewStatus>
   wrap?: boolean
   expandingDivider?: string | null
+  /** In the new views' shape, so one case drives both. */
+  search?: SplitSearch | null
+  /** Flash's matches, flash active; leave out for flash off. */
+  flash?: readonly FlashMatch[] | null
 }
 
 /** VimDiffView under the one-row header the app gives it, as chrome.test.ts mounts it. */
@@ -81,7 +88,11 @@ export async function mountDiffView(options: MountDiffViewOptions) {
   if (options.wrap) view.setWrap(true)
   const mapping = new DiffLineMapping(files, mode, selectedFileIndex ?? undefined, options.mappingOptions)
   const cursor = createCursorState()
-  view.update(files, selectedFileIndex, mapping, cursor, options.comments ?? [], options.fileStatuses ?? new Map(), options.expandingDivider ?? null, null)
+  const search = options.search
+    ? { ...createSearchState(), matches: [...options.search.matches], currentMatchIndex: options.search.current }
+    : null
+  view.update(files, selectedFileIndex, mapping, cursor, options.comments ?? [], options.fileStatuses ?? new Map(), options.expandingDivider ?? null, search)
+  if (options.flash) view.setFlashState({ ...createFlashState(), active: true, matches: [...options.flash] })
 
   // Two passes: the first lays out, the second paints what the post-process overlays read off that layout.
   const frame = async () => {

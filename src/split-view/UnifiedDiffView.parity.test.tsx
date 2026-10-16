@@ -10,7 +10,9 @@ import {
   TWO_FILES,
 } from "../testing/diffs"
 import { mountDiffView, type MountDiffViewOptions } from "../testing/frame"
-import { bgAt, fgAt } from "../testing/split-frame"
+import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
+import { bgAt, fgAt, ints } from "../testing/split-frame"
+import { theme } from "../theme"
 import { mountUnified } from "../testing/unified-frame"
 import type { Comment, FileReviewStatus } from "../types"
 import { parseDiff } from "../utils/diff-parser"
@@ -21,8 +23,10 @@ import type { SplitSelection } from "./overlays"
  * The unified view against VimDiffView, mounted on the same diff at the
  * same size under the same header row. The new view does not draw
  * VimDiffView's cursor cell, sticky header or scrollbar yet, so the cases
- * here stay clear of them or mask the scrollbar's column. Tabs are left out
- * of the corpus.
+ * here stay clear of them or mask them. VimDiffView colours code through a
+ * highlighter these tests give the new view no parser for, so code's
+ * foreground is compared only where an overlay decides it. Tabs are left
+ * out of the corpus.
  */
 
 type Case = Omit<MountDiffViewOptions, "selectedFileIndex"> & { selectedFileIndex?: number }
@@ -368,5 +372,237 @@ describe("the unified view colours its markers as VimDiffView does", () => {
     const marker: At = [4, 3]
     expect(charAt(old, marker)).toBe("↳")
     expectSameColours(old, fresh, [marker], except([...gutterOf(2), ...gutterOf(3)], marker))
+  })
+})
+
+describe("the unified view overlays search, a selection and flash as VimDiffView does", () => {
+  type At = [x: number, y: number]
+  type Mounted = Awaited<ReturnType<typeof mountDiffView>>
+  type Rgba = number[] | undefined
+  interface Screen {
+    rows: string[]
+    spans: ReturnType<Mounted["setup"]["captureSpans"]>
+  }
+  /** Where both views put the cursor; with an anchor, VimDiffView is in charwise visual mode from it. */
+  interface Cursor {
+    line: number
+    col: number
+    anchor?: { line: number; col: number }
+  }
+  interface Setup {
+    cursor?: Cursor
+    /** A line's column VimDiffView scrolls to; the new view is handed the column it lands on. */
+    reveal?: { line: number; col: number }
+    /** Colours VimDiffView's highlighter brings; a search's unless told otherwise. */
+    highlighted?: Rgba[]
+  }
+
+  const sameRgba = (a: Rgba, b: Rgba) => JSON.stringify(a) === JSON.stringify(b)
+  const SEARCH_BGS = [ints(SYNTAX_PALETTE["search.match"]!.bg!), ints(SYNTAX_PALETTE["search.current"]!.bg!)]
+  const FLASH_BGS = [ints(theme.surface1), ints(theme.red)]
+  const WORD_BGS = [ints(SYNTAX_PALETTE["diff.word.removed"]!.bg!), ints(SYNTAX_PALETTE["diff.word.added"]!.bg!)]
+
+  function selectionOf(cursor: Cursor | undefined): SplitSelection | null {
+    if (!cursor?.anchor) return null
+    const { anchor } = cursor
+    const anchorFirst = anchor.line < cursor.line || (anchor.line === cursor.line && anchor.col <= cursor.col)
+    const [start, end] = anchorFirst ? [anchor, cursor] : [cursor, anchor]
+    return { mode: "visual", startRow: start.line, startCol: start.col, endRow: end.line, endCol: end.col }
+  }
+
+  // VimDiffView injects search and word diffs through its highlighter, whose parse lands a frame or more after the first.
+  async function untilHighlighted(old: Mounted, bgs: Rgba[]) {
+    for (let tries = 0; tries < 60; tries++) {
+      await old.frame()
+      const { lines } = old.setup.captureSpans()
+      if (lines.some((line) => line.spans.some((span) => bgs.some((bg) => sameRgba(span.bg.toInts(), bg))))) return
+      await Bun.sleep(50)
+    }
+    throw new Error("VimDiffView's highlighter never drew")
+  }
+
+  async function screensOf(options: Case, { cursor, reveal, highlighted }: Setup = {}) {
+    const old = await mountDiffView(options)
+    if (cursor) {
+      Object.assign(old.cursor, { line: cursor.line, col: cursor.col })
+      if (cursor.anchor) {
+        Object.assign(old.cursor, { mode: "visual", selectionAnchor: cursor.anchor.line, selectionAnchorCol: cursor.anchor.col })
+      }
+      old.view.updateCursor(old.cursor)
+    }
+    await old.frame()
+    if (reveal !== undefined) {
+      old.view.revealColumn(reveal.line, reveal.col)
+      await old.frame()
+    }
+    const awaited = highlighted ?? (options.search ? SEARCH_BGS : null)
+    if (awaited) await untilHighlighted(old, awaited)
+    const column = old.view.getScrollBox()!.scrollLeft
+    const oldScreen = { rows: old.setup.captureCharFrame().split("\n"), spans: old.setup.captureSpans() }
+    await old.dispose()
+    const { wrap = false, ...rest } = options
+    const fresh = await mountUnified({
+      ...rest,
+      wrap,
+      header: true,
+      column,
+      cursor: { line: cursor?.line ?? 0 },
+      selection: selectionOf(cursor),
+    })
+    await fresh.frame()
+    const freshScreen = { rows: fresh.setup.captureCharFrame().split("\n"), spans: fresh.setup.captureSpans() }
+    await fresh.dispose()
+    return { old: oldScreen as Screen, fresh: freshScreen as Screen, column }
+  }
+
+  const rowCells = (ys: number[], width: number): At[] =>
+    ys.flatMap((y) => Array.from({ length: width }, (_, x): At => [x, y]))
+  const except = (cells: At[], ...masked: At[]) => cells.filter(([x, y]) => !masked.some(([mx, my]) => mx === x && my === y))
+
+  /*
+   * Glyph and background on every cell, the foreground only on a glyph and
+   * only where `fgOn` says both views choose it alone: VimDiffView's code is white or its
+   * highlighter's colours, the new view's is uncoloured by any parser here.
+   * Only the cells that differ are listed, so a failure reads short.
+   */
+  function expectSame(old: Screen, fresh: Screen, cells: At[], fgOn: (at: At, oldBg: Rgba) => boolean) {
+    expect(fresh.rows.map((r) => r.trimEnd())).toEqual(old.rows.map((r) => r.trimEnd()))
+    const cellOf = (screen: Screen, [x, y]: At, withFg: boolean) => {
+      const char = screen.rows[y]![x]
+      const fg = withFg && char !== " " ? fgAt(screen.spans, x, y) : null
+      return JSON.stringify({ x, y, char, bg: bgAt(screen.spans, x, y), fg })
+    }
+    const differing = cells.flatMap((at) => {
+      const withFg = fgOn(at, bgAt(old.spans, ...at))
+      const [was, is] = [cellOf(old, at, withFg), cellOf(fresh, at, withFg)]
+      return was === is ? [] : [{ old: was, fresh: is }]
+    })
+    expect(differing).toEqual([])
+  }
+
+  /** The gutter, riff's own rows and any cell an overlay colours outright. */
+  const decided =
+    (gutter: number, chrome: number[], overlayBgs: Rgba[]) =>
+    ([x, y]: At, bg: Rgba) =>
+      x < gutter || chrome.includes(y) || overlayBgs.some((overlay) => sameRgba(bg, overlay))
+
+  const matchesOf = (raw: string, word: string) => {
+    const mapping = new DiffLineMapping(parseDiff(raw), "all")
+    return mapping.allLines.flatMap((line, index) => {
+      if (line.type !== "context" && line.type !== "addition" && line.type !== "deletion") return []
+      const found = []
+      for (let at = line.content.indexOf(word); at >= 0; at = line.content.indexOf(word, at + 1)) {
+        found.push({ line: index, startCol: at, endCol: at + word.length })
+      }
+      return found
+    })
+  }
+
+  // Screen rows of TWO_FILES under the header: each mapping line one down.
+  const TWO_FILES_CHROME = [1, 8, 9, 10, 14]
+  // The code's first column in every diff here.
+  const GUTTER = 5
+
+  // Neither the file search nor the mapping's yields a match off a line of code, so none sits on a header or divider.
+  describe("search", () => {
+    test("several matches, one of them current", async () => {
+      const matches = matchesOf(TWO_FILES, "name")
+      expect(matches.length).toBe(5)
+      const { old, fresh } = await screensOf({ raw: TWO_FILES, search: { matches, current: 2 } })
+      expectSame(old, fresh, rowCells([2, 3, 4, 5, 11, 12], 79), decided(GUTTER, [], SEARCH_BGS))
+    })
+
+    test("a match across a wrapped line's break", async () => {
+      // The addition's first row breaks after "going" and before "a fairly".
+      const matches = matchesOf(ONE_LONG_LINE, "keeps going a fairly")
+      expect(matches.length).toBe(1)
+      const options = { raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true, search: { matches, current: 0 } }
+      const { old, fresh } = await screensOf(options)
+      expect(old.rows[5]![4]).toBe("↳")
+      // The ↳ is VimDiffView's white marker cell, held to its intended colours above.
+      const cells = except(rowCells([4, 5, 6], 59), [4, 5])
+      expect(bgAt(fresh.spans, 58, 4)).toEqual(SEARCH_BGS[1])
+      expect(bgAt(fresh.spans, 47, 4)).not.toEqual(SEARCH_BGS[1])
+      expect(bgAt(fresh.spans, 5, 5)).toEqual(SEARCH_BGS[1])
+      expectSame(old, fresh, cells, decided(GUTTER, [], SEARCH_BGS))
+    })
+
+    // VimDiffView's highlighter ranks a changed word above a hit, so this stays on lines no word diff touches.
+    test("a match partly left of a line scrolled sideways", async () => {
+      const options = { raw: TWO_FILES, width: 30, height: 20 }
+      const reveal = { line: 1, col: 36 }
+      const { column } = await screensOf(options, { reveal })
+      expect(column).toBeGreaterThan(2)
+      const search = {
+        matches: [
+          { line: 1, startCol: column - 2, endCol: column + 3 },
+          { line: 6, startCol: column + 1, endCol: column + 4 },
+        ],
+        current: 1,
+      }
+      const { old, fresh } = await screensOf({ ...options, search }, { reveal })
+      // Only the rows with a hit: past the widest line VimDiffView leaves a tinted row untinted once scrolled.
+      // Each row's ‹ is VimDiffView's white marker cell.
+      const cells = except(rowCells([2, 7], 29), [4, 2], [4, 7])
+      expect(bgAt(fresh.spans, GUTTER + 2, 2)).toEqual(SEARCH_BGS[0])
+      expect(bgAt(fresh.spans, GUTTER + 3, 2)).not.toEqual(SEARCH_BGS[0])
+      expectSame(old, fresh, cells, decided(GUTTER, [], SEARCH_BGS))
+    })
+  })
+
+  // Selection leaves the foreground alone, so only the gutter's and riff's own rows' are compared.
+  describe("a charwise selection", () => {
+    test("from mid-line over a divider, spacing and a file header to mid-line", async () => {
+      const cursor = { line: 10, col: 9, anchor: { line: 6, col: 7 } }
+      const { old, fresh } = await screensOf({ raw: TWO_FILES }, { cursor })
+      // The cursor's own cells are VimDiffView's to paint, in a later step.
+      const cells = except(rowCells([7, 8, 9, 10, 11], 79), [GUTTER, 11], [GUTTER + cursor.col, 11])
+      expect(bgAt(fresh.spans, GUTTER + 7, 7)).toEqual(ints(theme.surface1))
+      expect(bgAt(fresh.spans, GUTTER + 6, 7)).not.toEqual(ints(theme.surface1))
+      expect(bgAt(fresh.spans, GUTTER + 7, 8)).not.toEqual(ints(theme.surface1))
+      expectSame(old, fresh, cells, decided(GUTTER, TWO_FILES_CHROME, []))
+    })
+
+    test("over a wrapped line", async () => {
+      const cursor = { line: 4, col: 0, anchor: { line: 3, col: 20 } }
+      const { old, fresh } = await screensOf({ raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true }, { cursor })
+      const cells = except(rowCells([4, 5, 6], 59), [4, 5], [GUTTER, 6])
+      expect(bgAt(fresh.spans, 40, 5)).toEqual(ints(theme.surface1))
+      expectSame(old, fresh, cells, decided(GUTTER, [], []))
+    })
+  })
+
+  describe("flash", () => {
+    const labelled = (matches: { line: number; startCol: number; endCol: number }[], unlabelled = -1) =>
+      matches.map((match, i) => ({ ...match, label: i === unlabelled ? null : "asdfghjkl"[i]! }))
+
+    test("matches, labels and a match past the alphabet on lines of code; the backdrop on riff's own rows too", async () => {
+      const flash = labelled(matchesOf(TWO_FILES, "name"), 1)
+      const { old, fresh } = await screensOf({ raw: TWO_FILES, flash }, { highlighted: WORD_BGS })
+      const cells = rowCells([1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14], 79)
+      // The backdrop dims from the code's column, so the gutter keeps its colours.
+      expect(fgAt(fresh.spans, 3, 2)).toEqual(ints(theme.overlay0))
+      expect(fgAt(fresh.spans, 1, 1)).toEqual(ints(theme.overlay0))
+      expectSame(old, fresh, cells, decided(GUTTER, TWO_FILES_CHROME, FLASH_BGS))
+    })
+
+    test("a match and its label on a wrapped line's continuation row", async () => {
+      const flash = labelled(matchesOf(ONE_LONG_LINE, "keeps going"))
+      const { old, fresh } = await screensOf({ raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true, flash })
+      const continuation = rowCells([5], 59).filter(([x, y]) => sameRgba(bgAt(old.spans, x, y), ints(theme.red)))
+      expect(continuation.length).toBe(1)
+      expectSame(old, fresh, except(rowCells([1, 2, 3, 4, 5, 6, 7], 59), [4, 5]), decided(GUTTER, [1, 7], FLASH_BGS))
+    })
+
+    test("a label on each file header's path", async () => {
+      const flash = [
+        { line: 0, startCol: 4, endCol: 9, label: "a" },
+        { line: 9, startCol: 0, endCol: 3, label: "s" },
+      ]
+      const { old, fresh } = await screensOf({ raw: TWO_FILES, flash })
+      expect(old.rows[1]![9]).toBe("a")
+      expect(old.rows[10]![5]).toBe("s")
+      expectSame(old, fresh, rowCells([1, 10], 79), decided(GUTTER, [1, 10], FLASH_BGS))
+    })
   })
 })

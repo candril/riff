@@ -42,6 +42,8 @@ export async function mountUnified(options: MountUnifiedOptions) {
     height: header ? height - 1 : height,
     focused: true,
     selection: null,
+    search: null,
+    flash: null,
     ...rest,
   })
   const view = () => <UnifiedDiffView {...props} />

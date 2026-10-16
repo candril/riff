@@ -73,6 +73,29 @@ describe("a row is kept, not recreated, when what it draws stays", () => {
   })
 })
 
+describe("an overlay rebuilds only the lines it changes on", () => {
+  test("a selection growing onto the next line rebuilds that line and the one it left mid-way, no other", async () => {
+    const view = await mount()
+    view.set("selection", { mode: "visual", startRow: 2, startCol: 3, endRow: 4, endCol: 5 })
+    await view.setup.renderOnce()
+    buildSegments.mockClear()
+    view.set("selection", { mode: "visual", startRow: 2, startCol: 3, endRow: 5, endCol: 2 })
+    await view.setup.renderOnce()
+    expect(buildSegments.mock.calls.length).toBe(2)
+  })
+
+  test("a search that adds a hit on one line rebuilds that line alone", async () => {
+    const view = await mount()
+    const onLine2 = { line: 2, startCol: 6, endCol: 11 }
+    view.set("search", { matches: [onLine2], current: 0 })
+    await view.setup.renderOnce()
+    buildSegments.mockClear()
+    view.set("search", { matches: [{ ...onLine2 }, { line: 6, startCol: 6, endCol: 11 }], current: 0 })
+    await view.setup.renderOnce()
+    expect(buildSegments.mock.calls.length).toBe(1)
+  })
+})
+
 describe("what a sideways scroll or a resize leaves alone", () => {
   test("scrolling sideways moves the markers without rebuilding any line's code", async () => {
     const view = await mount()

@@ -1,12 +1,14 @@
 import { For, createMemo } from "solid-js"
+import { columnOfCell } from "../diff-rows/cells"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
-import { buildSegments, sliceSegments, type Segment } from "../diff-rows/segments"
+import { buildSegments, fade, sliceSegments, type Segment } from "../diff-rows/segments"
 import type { WrapSlice } from "../diff-rows/wrap"
 import { theme } from "../theme"
+import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine, DiffLineType } from "../vim-diff/types"
-import { SegmentTexts } from "./Half"
+import { SegmentTexts, sameSpan } from "./Half"
 import { SIGN_CELLS } from "./layout"
-import { inLineSelection } from "./overlays"
+import { charSelectionOn, inLineSelection, type SearchHit } from "./overlays"
 import type { UnifiedEnv } from "./unified-env"
 import { markedCells, unifiedMarkers } from "./unified-markers"
 
@@ -46,7 +48,33 @@ type Markers = { left: boolean; right: boolean }
 const NO_MARKERS: Markers = { left: false, right: false }
 const sameMarkers = (a: Markers, b: Markers) => a.left === b.left && a.right === b.right
 
-const marker = (text: string, bg: string): Segment => ({ text, fg: theme.surface2, bg, attributes: 0 })
+const NO_HITS: readonly SearchHit[] = []
+const sameHits = (a: readonly SearchHit[], b: readonly SearchHit[]) =>
+  a.length === b.length &&
+  a.every((hit, i) => hit.startCol === b[i]!.startCol && hit.endCol === b[i]!.endCol && hit.current === b[i]!.current)
+
+const NO_FLASH: readonly FlashMatch[] = []
+const sameFlash = (a: readonly FlashMatch[] | null, b: readonly FlashMatch[] | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.length === b.length &&
+    a.every(
+      (match, i) => match.startCol === b[i]!.startCol && match.endCol === b[i]!.endCol && match.label === b[i]!.label
+    ))
+
+/**
+ * `›` over the line's last cell on screen, drawn as VimDiffView's marker is
+ * and then overlaid as its selection and flash overlays overlay it: the
+ * cell's background shows through, flash's backdrop fades the glyph, a
+ * flash match recolours it and a label replaces it.
+ */
+function rightMarker(under: Segment & { bg: string }, column: number, flash: readonly FlashMatch[] | null): Segment {
+  const hit = flash?.find((match) => column >= match.startCol && column < match.endCol)
+  if (hit?.label && hit.startCol === column) return under
+  const fg = hit ? under.fg : flash ? fade(theme.surface2, under.bg) : theme.surface2
+  return { text: "›", fg, bg: under.bg, attributes: 0 }
+}
 
 /** A line of code: one row, or a row per slice of it that is on screen when wrapped. */
 export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: number; atCursor: boolean }) {
@@ -59,15 +87,33 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   const sign = () => env.signs().get(props.index)
   const codeWidth = () => view.width - origin()
   const lineCells = createMemo(() => markedCells(props.line))
+  // Each memoised to what this line shows, so a search, selection or flash changing elsewhere leaves its segments alone.
+  const hits = createMemo(() => env.searchHits().get(props.index) ?? NO_HITS, NO_HITS, { equals: sameHits })
+  const charSelection = createMemo(() => charSelectionOn(view.selection, props.index, props.line), undefined, {
+    equals: sameSpan,
+  })
+  const flash = createMemo(
+    () => {
+      const byLine = env.flashHits()
+      return byLine && (byLine.get(props.index) ?? NO_FLASH)
+    },
+    null,
+    { equals: sameFlash }
+  )
 
+  // Overlaid whole and sliced after, so a wrapped slice or a sideways window shows its own part of each overlay.
   const full = createMemo(() => {
     void view.highlightVersion
+    const flashed = flash()
     return buildSegments(props.line.content, {
       spans: view.lineSpans.spans(view.mapping.allLines, props.index),
       words: env.words().get(props.index),
       wordSide: props.line.type === "deletion" ? "removed" : "added",
       baseFg: theme.text,
       rowBg: colors().content ?? theme.base,
+      search: { matches: hits() },
+      selection: charSelection(),
+      flash: flashed && { matches: flashed },
     })
   })
 
@@ -98,10 +144,12 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
             if (slice) return sliceSegments(full(), slice.startCell, slice.cells)
             const width = codeWidth()
             if (!markers().right) return sliceSegments(full(), view.column, width)
-            // `›` takes the last cell's glyph but keeps its background, so a word diff or tint under it shows through.
             const last = view.column + width - 1
-            const under = sliceSegments(full(), last, 1)[0]?.bg ?? colors().content ?? theme.base
-            return [...sliceSegments(full(), view.column, width - 1), marker("›", under)]
+            // The line runs past `last`, so a segment is always there.
+            const cell = sliceSegments(full(), last, 1)[0]!
+            const under = { ...cell, bg: cell.bg ?? colors().content ?? theme.base }
+            const column = columnOfCell(props.line.content, last)
+            return [...sliceSegments(full(), view.column, width - 1), rightMarker(under, column, flash())]
           }
           const gutterMark = () => (continuation ? "↳" : markers().left ? "‹" : null)
           return (

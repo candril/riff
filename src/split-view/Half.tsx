@@ -29,7 +29,7 @@ export function SegmentTexts(props: { segments: readonly Segment[] }) {
   )
 }
 
-const sameSpan = (a: { from: number; to: number } | undefined, b: { from: number; to: number } | undefined) =>
+export const sameSpan = (a: { from: number; to: number } | undefined, b: { from: number; to: number } | undefined) =>
   a?.from === b?.from && a?.to === b?.to
 
 // A half's line never changes for the half's life; only the cursor, the row it sits on and the column do.

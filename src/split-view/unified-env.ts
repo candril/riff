@@ -3,10 +3,11 @@ import type { CommentSign } from "../diff-rows/signs"
 import type { VisualRows } from "../diff-rows/visual-rows"
 import type { Comment, FileReviewStatus } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
+import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
 import type { RowEnv } from "./env"
-import type { SplitSelection } from "./overlays"
+import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 
 export interface UnifiedDiffViewProps {
   mapping: DiffLineMapping
@@ -30,6 +31,10 @@ export interface UnifiedDiffViewProps {
   focused: boolean
   /** Rows are the mapping's lines. */
   selection: SplitSelection | null
+  /** Null when nothing matches; a match's `line` indexes the mapping's lines. */
+  search: SplitSearch | null
+  /** Null unless flash is active; its backdrop dims every row, matches or not. */
+  flash: readonly FlashMatch[] | null
 }
 
 /** What every unified row reads, worked out once per view rather than once per row. */
@@ -37,5 +42,6 @@ export interface UnifiedEnv extends RowEnv {
   props: UnifiedDiffViewProps
   signs: () => ReadonlyMap<number, CommentSign>
   words: () => ReadonlyMap<number, readonly WordSpan[]>
+  searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
   visual: () => VisualRows
 }
