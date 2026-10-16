@@ -64,13 +64,12 @@ const sameFlash = (a: readonly FlashMatch[] | null, b: readonly FlashMatch[] | n
     ))
 
 /**
- * `›` over the line's last cell on screen, drawn as VimDiffView's marker is
- * and then overlaid as its selection and flash overlays overlay it: the
- * cell's background shows through, flash's backdrop fades the glyph, a
- * flash match recolours it and a label replaces it.
+ * `›` over the line's last cell on screen, under the overlays: the cell's
+ * background shows through, flash's backdrop fades the glyph, a flash match
+ * recolours it and a label replaces it.
  */
 function rightMarker(under: Segment & { bg: string }, column: number, flash: readonly FlashMatch[] | null): Segment {
-  // VimDiffView draws › before flash, so a label always lands over it; `under` already layers any match after it.
+  // A label starting here replaces the › whichever match lists first; `under` already layers any match after it.
   if (flash?.some((match) => match.label && match.startCol === column)) return under
   const hit = flash?.find((match) => column >= match.startCol && column < match.endCol)
   const fg = hit ? under.fg : flash ? fade(theme.surface2, under.bg) : theme.surface2

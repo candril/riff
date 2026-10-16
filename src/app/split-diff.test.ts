@@ -128,7 +128,7 @@ describe("single-file mode", () => {
       getMapping: () => mapping,
       getVimState: () => vimState,
       filePanelWidth: () => 0,
-        onShownChanged: () => {},
+      onShownChanged: () => {},
     })
     split = diff
     setup.renderer.root.add(diff.island.host)

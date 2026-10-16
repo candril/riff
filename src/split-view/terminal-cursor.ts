@@ -39,7 +39,7 @@ const FIXED_TYPES = new Set<DiffLineType>(["divider", "spacing"])
 export function unifiedCursorCell(input: CursorCellInput): CursorCell | null {
   const { line } = input
   if (!line) return null
-  // A column in whitespace hanging past a wrapped row's edge goes to the next slice, as VimDiffView places it.
+  // A column in whitespace hanging past a wrapped row's edge goes to the next slice, where it can be shown.
   const { visual, slice } = input.visual.ofColumn(input.lineIndex, input.col)
   const y = visual - input.scrollTop
   if (y < 0 || y >= input.height) return null

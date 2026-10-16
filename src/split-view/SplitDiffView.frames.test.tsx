@@ -15,9 +15,8 @@ import { contentOrigin, gutterWidth, paneWidths } from "./layout"
 /*
  * What the split view draws at 120 columns: two 60-cell panes, old file
  * left and new right. Colours are not in a char frame, so the cursor is
- * checked through the frame's spans. As in VimDiffView.frames.test.ts no
- * file contents are loaded, so every hunk ends in a "rest of the file"
- * divider.
+ * checked through the frame's spans. No file contents are loaded, so
+ * every hunk ends in a "rest of the file" divider.
  */
 
 let mounted: Awaited<ReturnType<typeof mountSplit>> | null = null

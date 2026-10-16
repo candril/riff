@@ -4,7 +4,7 @@ import type { WordSpan } from "../vim-diff/word-diff"
 import { SYNTAX_PALETTE, styleOfCapture } from "./syntax-palette"
 
 /** How far flash's backdrop pulls text towards the background it sits on. */
-export const FLASH_BACKDROP_STRENGTH = 0.7
+const FLASH_BACKDROP_STRENGTH = 0.7
 
 // OpenTUI's text buffer draws a tab as two cells wherever it sits, not up to a tab stop.
 export const TAB = "  "
@@ -44,7 +44,7 @@ export interface SegmentInput {
 
 const specificity = (capture: string) => capture.split(".").length
 
-// Mirrors the layers VimDiffView stacks through onHighlight and its post-process painters.
+// Lowest first: syntax, then changed words, search, selection and flash, and the cursor over all of them.
 export function buildSegments(text: string, input: SegmentInput): Segment[] {
   const matches = [...(input.search?.matches ?? [])].sort((a, b) => Number(a.current) - Number(b.current))
   const overlays: Overlay[] = matches.map((match) => ({

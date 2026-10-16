@@ -9,8 +9,8 @@ export interface WheelSteps {
 }
 
 /**
- * A wheel handler that moves unified's window the way VimDiffView's
- * ScrollBox does: a tick is a row or a column, as OpenTUI's default linear
+ * A wheel handler that moves unified's window as an OpenTUI ScrollBox
+ * would: a tick is a row or a column, as OpenTUI's default linear
  * acceleration counts it, and shift turns the vertical wheel sideways.
  */
 export function unifiedWheel(steps: WheelSteps) {

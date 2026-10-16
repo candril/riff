@@ -111,7 +111,7 @@ export function handleInput(
           if (narrowed) {
             ctx.onFileSelected()
             setTimeout(() => {
-              ctx.render() // Re-render to update VimDiffView
+              ctx.render()
             }, 0)
           } else {
             ctx.revealFile(highlightedItem.fileIndex)
@@ -182,7 +182,7 @@ export function handleInput(
       ctx.onFileSelected()
       ctx.render()
       setTimeout(() => {
-        ctx.render() // Re-render to update VimDiffView
+        ctx.render()
       }, 0)
       return true
 

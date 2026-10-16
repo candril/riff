@@ -20,9 +20,8 @@ interface PaneScrollBarOptions extends RenderableOptions<ScrollBarRenderable> {
  * In OpenTUI 0.6.0 ScrollBarRenderable hands its slider the viewport only
  * when the viewport is set, and SliderRenderable clamps that to the scroll
  * range as it stands then, down to 0.01 while the range is empty. A
- * viewport set before the scroll size thus leaves a sliver of a thumb, as
- * VimDiffView's ScrollBox shows, and Solid's order of setting props is not
- * one to build on. So every change to either size hands the slider the
+ * viewport set before the scroll size thus leaves a sliver of a thumb,
+ * and Solid's order of setting props is not one to build on. So every change to either size hands the slider the
  * viewport again, against the range as it now is. scroll-bar.test.tsx
  * pins this bar in both orders and OpenTUI's own bar's sliver, so an
  * upgrade that changes either fails there.

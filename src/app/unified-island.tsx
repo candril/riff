@@ -50,8 +50,8 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   const window = () => ({ scrollTop: shownTop(), height: size().height, rows: layout()?.visual().total ?? 0 })
 
   /**
-   * VimDiffView's scrollbox stops sideways at the widest row's right edge,
-   * so zl past it stops rather than scrolling into blank space, which tells
+   * The window stops sideways at the widest row's right edge, so zl
+   * past it stops rather than scrolling into blank space, which tells
    * the reader there is nothing further right. The content counts a cell
    * past every line's end, so the cursor's block there still shows at the
    * stop and a reveal never needs to go further.

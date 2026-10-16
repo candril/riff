@@ -1,6 +1,5 @@
 export { Header, type HeaderProps } from "./Header"
 export { StatusBar, type StatusBarProps } from "./StatusBar"
-export { VimDiffView, type VimDiffViewOptions } from "./VimDiffView"
 export { FileTree, type FileTreeProps, getFlatTreeItems, getVisibleFlatTreeItems } from "./FileTree"
 export { ActionMenu, type ActionMenuProps, type ActionMenuMode, type SubmenuRow, getVisualActionOrder } from "./ActionMenu"
 export { ReviewPreview, type ReviewPreviewProps, type ValidatedComment, type ReviewEvent, canSubmit } from "./ReviewPreview"

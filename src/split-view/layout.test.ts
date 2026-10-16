@@ -31,7 +31,7 @@ describe("paneWidths", () => {
 })
 
 describe("gutterWidth", () => {
-  // Unified draws `   1 ` and `  503 ` (VimDiffView.frames.test.ts): a sign cell, the number, a space.
+  // Unified draws `   1 ` and `  503 ` (UnifiedDiffView.corpus.frames.test.tsx): a sign cell, the number, a space.
   test("matches unified's number column, so a toggle leaves the code where it was", () => {
     expect(gutterWidth(mappingOf(TWO_FILES))).toBe(3)
     expect(contentOrigin(gutterWidth(mappingOf(TWO_FILES)))).toBe("   1 ".length)
@@ -55,7 +55,7 @@ describe("unifiedOrigins", () => {
     return Object.fromEntries([...found].map(([file, origins]) => [file, [...origins]]))
   }
 
-  // `   1 export` and `  503   trackingId` in VimDiffView.frames.test.ts.
+  // `   1 export` and `  503   trackingId` in UnifiedDiffView.corpus.frames.test.tsx.
   test("puts the code where unified's frames have it", () => {
     expect(new Set(originsOf(mappingOf(TWO_FILES)))).toEqual(new Set([5]))
     expect(new Set(originsOf(mappingOf(FAR_HUNK)))).toEqual(new Set([6]))
@@ -115,7 +115,7 @@ describe("unifiedOrigins", () => {
     expect(atFinal).toHaveLength(lines.filter((line) => line.type === "addition" || line.type === "hunk-header").length)
   })
 
-  // A gutter starts at the lines' width and only ever grows, as VimDiffView's does frame by frame.
+  // A gutter starts at the lines' width and only ever grows, so it never tries the wider one first.
   test("stays narrow when only the wider gutter's own code width would wrap past 99 rows", () => {
     const mapping = mappingOf(JUST_FITS_AT_30)
     expect(unifiedOrigins(mapping, 30)(1)).toBe(5)

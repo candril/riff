@@ -40,13 +40,6 @@ export function discard(node: Renderable): void {
   node.destroyRecursively()
 }
 
-/** Drop every child of a container, leaving the container itself. */
-export function discardChildren(node: Renderable): void {
-  for (const child of node.getChildren()) {
-    discard(child)
-  }
-}
-
 function isKeptAlive(node: Renderable): boolean {
   return (node as unknown as Record<symbol, boolean>)[KEEP_ALIVE] === true
 }

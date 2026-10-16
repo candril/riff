@@ -10,9 +10,9 @@ import type { Comment, FileReviewStatus } from "../types"
 import { FILE_LABEL_PATH_X } from "./FullRow"
 
 /*
- * What the unified view draws on its own, with no header row above it. As
- * in VimDiffView.frames.test.ts no file contents are loaded, so every hunk
- * ends in a "rest of the file" divider.
+ * What the unified view draws on its own, with no header row above it. No
+ * file contents are loaded, so every hunk ends in a "rest of the file"
+ * divider.
  */
 
 let mounted: Awaited<ReturnType<typeof mountUnified>> | null = null
@@ -235,11 +235,6 @@ describe("overlays", () => {
     expect(fgAt(spans(), 59, 3)).toEqual(ints(fade(theme.surface2, ADDITION_BG)))
   })
 
-  /*
-   * VimDiffView draws its › before flash and each label with setCell, so a label starting there
-   * replaces the › whichever match came first. No parity case holds this: VimDiffView's recolorCell
-   * throws on any flash match over its own › cell.
-   */
   test("flash: a label starting on the › column replaces it, though an earlier match covers it too", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
@@ -255,7 +250,7 @@ describe("overlays", () => {
     expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.base), ints(theme.red)])
   })
 
-  // No parity case: VimDiffView's recolorCell throws on a match over the › it drew before flash, the order rightMarker in UnifiedLine.tsx keeps.
+  // The › gives way to the label, and the match listed after it layers over the cell, as rightMarker in UnifiedLine.tsx orders them.
   test("flash: a label starting on the › column takes the colours of a match listed after it", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
@@ -336,7 +331,7 @@ describe("scrollbar beside unwrapped code twice the pane's width", () => {
   const THUMB = /[▀▄█]/
   const rowsOf = () => mounted!.setup.captureCharFrame().split("\n").slice(0, -1)
 
-  // ONE_WIDE_LINE's content is 181 cells: VimDiffView's bar rounds off screen at 91 columns and stays at 92.
+  // ONE_WIDE_LINE's content is 181 cells: the bar is left off at 91 columns and shows at 92.
   test("pushed off at 91 columns, every row keeps the last column", async () => {
     await frameOf({ raw: ONE_WIDE_LINE, width: 91, height: 4 })
     const lastColumn = rowsOf().map((row) => row.at(-1))
@@ -361,7 +356,7 @@ describe("sticky header", () => {
     await mounted!.frame()
   }
 
-  // As VimDiffView.frames.test.ts scrolls it, under the same header row.
+  // Under the app's header row, two rows down.
   test("once a file's own header scrolls away, its name holds the top row", async () => {
     const frame = await frameOf({ raw: TWO_FILES, width: 80, height: 12, header: true, scrollTop: 2 })
     expect(frame).toBe(`
@@ -378,7 +373,6 @@ describe("sticky header", () => {
    3 }`)
   })
 
-  // VimDiffView's spans the scrollbar's column too, and hides the thumb on that row.
   test("it stops short of the scrollbar, so a thumb on the top row stays in sight", async () => {
     await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 1 })
     expect(rowsOf()[0]!).toStartWith(" ▼   src/greet.ts +2 -1 ")
@@ -445,10 +439,6 @@ describe("sticky header", () => {
     expect(fgAt(spans, 18, 0)).toEqual(ints(fade(theme.green, theme.surface0)))
   })
 
-  /*
-   * VimDiffView counts each section one line short, so from the third file on it pins the next file's
-   * name a row early. This view pins by where the header rows are and does not follow it.
-   */
   test("across three files, each file's name is pinned exactly while its own rows are on top", async () => {
     await frameOf({ raw: THREE_FILES, width: 80, height: 8 })
     const third = headerRows()[2]!
@@ -464,7 +454,6 @@ describe("sticky header", () => {
     expect(sticky()).toBeDefined()
   })
 
-  // VimDiffView pins it over that header, a row whose name it then hides.
   test("a collapsed file has no row to scroll into, so it is never pinned over the next file's header", async () => {
     await frameOf({
       raw: TWO_FILES,
@@ -483,7 +472,7 @@ describe("sticky header", () => {
     expect(rowsOf()[1]!).toStartWith("   2   return")
   })
 
-  // Faded from the path on at any gutter, where VimDiffView fades from the code column of the row under it.
+  // Faded from the path on, whatever the gutter of the row under it.
   test("under flash beside a wider gutter, its path still fades from the label's own path cell", async () => {
     const far = "far.ts"
     await frameOf({ raw: MIXED_DIGITS, width: 80, height: 5 })

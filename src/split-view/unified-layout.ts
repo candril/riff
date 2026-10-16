@@ -37,7 +37,7 @@ export function createUnifiedLayout(input: UnifiedLayoutInput) {
       wrapper: wrapper(),
     })
   })
-  // Wrapped, the content is clamped to the pane, so VimDiffView's bar always has its cell.
+  // Wrapped, the content is clamped to the pane, so the bar always has its cell.
   const contentWidth = createMemo(() => (input.wrap ? 0 : unifiedContentWidth(input.mapping.allLines, origins())))
   // Wrap already leaves the scrollbar its cell, so whether it shows cannot change what wraps.
   const scrollBarShows = createMemo(

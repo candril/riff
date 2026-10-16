@@ -99,7 +99,7 @@ const extensionMap: Record<string, string> = {
   tfvars: "terraform",
   hcl: "terraform",
   tfstate: "json",
-  // Avro: .avdl highlights as Java, .avsc/.avpr are JSON (see VimDiffView).
+  // Avro: .avdl highlights as Java, .avsc/.avpr are JSON (see vim-diff/filetype.ts).
   avdl: "java",
   avsc: "json",
   avpr: "json",

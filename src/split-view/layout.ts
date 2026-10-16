@@ -10,8 +10,9 @@ export const ENTER_HINT = "↵"
 export const SIGN_CELLS = 1
 
 /**
- * VimDiffView's LineNumberRenderable hands its paddingRight to Yoga as well as to
- * the gutter, so its code wraps one cell short of the pane, scrollbar or not.
+ * Unified's code wraps one cell short of the pane, scrollbar or not: the
+ * bar's cell is kept whether it shows, so the bar coming and going with the
+ * row count never rewraps the rows it was counted from.
  */
 export const WRAP_RESERVED_CELLS = 1
 
@@ -41,7 +42,7 @@ export function gutterWidth(mapping: DiffLineMapping): number {
 /** Where a half's code starts: its sign cell, the number and the space after it. */
 export const contentOrigin = (gutter: number) => SIGN_CELLS + gutter + 1
 
-/** The number unified's gutter shows for a line, as VimDiffView numbers it; 0 for none. */
+/** The number unified's gutter shows for a line, the old one only on a deletion; 0 for none. */
 function unifiedNumber(line: DiffLine): number {
   if (line.type === "addition" || line.type === "context") return line.newLineNum ?? 0
   if (line.type === "deletion") return line.oldLineNum ?? 0
@@ -61,8 +62,8 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
  * `wrapWidth`, the pane's width when wrapping, makes a row of every slice,
  * as OpenTUI counts a wrapped buffer's virtual lines. Those depend on the
  * code width the gutter leaves, so the gutter widens until its digits hold
- * the rows at its own width. A wider gutter only adds rows, so this settles
- * where VimDiffView's renderer does, a frame at a time.
+ * the rows at its own width. A wider gutter only adds rows, so the widening
+ * only goes one way and settles.
  */
 export function unifiedOrigins(
   mapping: DiffLineMapping,

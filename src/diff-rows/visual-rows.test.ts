@@ -74,7 +74,7 @@ describe("buildVisualRows", () => {
   })
 
   describe("ofColumn", () => {
-    // The lines VimDiffView.wrap.test.ts read off a live CodeRenderable at width 18.
+    // Read off OpenTUI's own word wrap at width 18, where a 30-cell line takes two rows.
     const lines = [
       lineOf("context", "short", 0),
       lineOf("addition", "a".repeat(30), 1),

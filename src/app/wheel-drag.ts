@@ -12,7 +12,7 @@ export interface WheelDragInput {
  * window out from under it, null while it is still inside. vim keeps the
  * cursor in the window, and riff has a second reason to: the file tree,
  * comment anchors and `c` follow the cursor, so one left off screen makes
- * the view lie about where you are. VimDiffView's dragCursorIntoView.
+ * the view lie about where you are.
  */
 export function wheelDragRow({ scrollTop, height, total, cursorRow, scrollOff }: WheelDragInput): number | null {
   if (height <= 0 || total <= 0 || cursorRow < 0) return null

@@ -36,7 +36,7 @@ export interface FileNavigationContext {
   getLineMapping: () => DiffLineMapping
   createLineMapping: () => DiffLineMapping
   // Vim diff view
-  getVimDiffView: () => CursorView
+  getCursorView: () => CursorView
   // Helpers
   ensureCursorVisible: () => void
   render: () => void
@@ -102,7 +102,7 @@ export function revealFile(fileIndex: number, ctx: FileNavigationContext): void 
   }
 
   ctx.setVimState({ ...ctx.getVimState(), line: targetLine, col: 0, desiredCol: null })
-  ctx.getVimDiffView().updateCursor(ctx.getVimState())
+  ctx.getCursorView().updateCursor(ctx.getVimState())
   ctx.ensureCursorVisible()
 
   const treeIndex = getVisibleItems(state).findIndex((item) => item.fileIndex === fileIndex)
@@ -232,7 +232,7 @@ function navigateToNextFile(currentFilename: string, ctx: FileNavigationContext)
       const targetLine = findFileStartLine(lineMapping, file.filename)
       if (targetLine !== null) {
         ctx.setVimState({ ...ctx.getVimState(), line: targetLine })
-        ctx.getVimDiffView().updateCursor(ctx.getVimState())
+        ctx.getCursorView().updateCursor(ctx.getVimState())
         ctx.ensureCursorVisible()
       }
 
@@ -254,7 +254,7 @@ function navigateToNextFile(currentFilename: string, ctx: FileNavigationContext)
     const targetLine = findFileStartLine(lineMapping, nextFile.filename)
     if (targetLine !== null) {
       ctx.setVimState({ ...ctx.getVimState(), line: targetLine })
-      ctx.getVimDiffView().updateCursor(ctx.getVimState())
+      ctx.getCursorView().updateCursor(ctx.getVimState())
       ctx.ensureCursorVisible()
     }
 
@@ -308,7 +308,7 @@ export function navigateToUnviewedFile(direction: 1 | -1, ctx: FileNavigationCon
         const targetLine = findFileStartLine(lineMapping, file.filename)
         if (targetLine !== null) {
           ctx.setVimState({ ...ctx.getVimState(), line: targetLine })
-          ctx.getVimDiffView().updateCursor(ctx.getVimState())
+          ctx.getCursorView().updateCursor(ctx.getVimState())
           ctx.ensureCursorVisible()
         }
       } else {
@@ -379,7 +379,7 @@ export function navigateToOutdatedFile(direction: 1 | -1, ctx: FileNavigationCon
         const targetLine = findFileStartLine(lineMapping, file.filename)
         if (targetLine !== null) {
           ctx.setVimState({ ...ctx.getVimState(), line: targetLine })
-          ctx.getVimDiffView().updateCursor(ctx.getVimState())
+          ctx.getCursorView().updateCursor(ctx.getVimState())
           ctx.ensureCursorVisible()
         }
       } else {

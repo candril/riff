@@ -51,8 +51,8 @@ const LABEL_GAP = 1
 export const FILE_LABEL_PATH_X = LABEL_PADDING_X + 2 * (1 + LABEL_GAP)
 
 /**
- * What VimDiffView's FileHeader draws for a file, and its sticky header for
- * the file scrolled into: one source, so the two label a file alike.
+ * What a file's header row draws, and the sticky header for the file
+ * scrolled into: one source, so the two label a file alike.
  * `cursor` is a column of the path to draw a block on; `flash` the matches
  * on the path, while flash is up.
  */

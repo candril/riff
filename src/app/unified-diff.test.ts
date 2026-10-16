@@ -162,7 +162,7 @@ describe("refreshCursor", () => {
     expect(col).toBeLessThan(window.endCol)
   })
 
-  // VimDiffView's isShowing: line numbers of a mapping the view has not drawn mean other rows in the one it has.
+  // Line numbers of a mapping the view has not drawn mean other rows in the one it has.
   test("waits for the render when the app's mapping is not the one drawn", async () => {
     const { island, draw, assign, rebuild, diff, cursorInWindow } = await mount({
       files: parseDiff(SIXTY_LINES),
@@ -200,7 +200,7 @@ describe("the column window", () => {
     expect(island.lineWindow(addition())).toEqual(scrolled)
   })
 
-  test("another file starts from the first column, as VimDiffView's fresh scrollbox for it did", async () => {
+  test("another file starts from the first column", async () => {
     const { island, draw, showFile, assign, addition, frame, mapping } = await scrolledRight()
     showFile(1)
     // On riff's own row, which no reveal scrolls sideways for, so only the reset can move the window.
@@ -280,7 +280,7 @@ test("a burst that drags the cursor every tick counts every tick", async () => {
   expect(tops).toEqual([0, 8, 16, 24, 32])
 })
 
-// VimDiffView painted its gutter and markers after every renderable, so an overlay had to stand them down.
+// The gutter, the markers and the bar are renderables like the code, so z-order alone puts an overlay over them.
 test("an overlay above the diff covers all of it, gutter and scrollbar included", async () => {
   const { frame } = await mount({ files: parseDiff(SIXTY_LINES), height: 12 })
   const before = (await frame()).split("\n")

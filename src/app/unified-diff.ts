@@ -71,9 +71,8 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
   function draw(input: UnifiedDrawInput): void {
     const { mapping, state, vimState, searchState, flashState } = input
     const file = state.selectedFileIndex
-    // A column kept from another file means nothing in this one, as VimDiffView's fresh scrollbox for it
-    // said. Null in all-files mode, so a switch between the modes resets too; a fold keeps the file, and
-    // so the column, as split keeps its windows.
+    // A column kept from another file means nothing in this one. Null in all-files mode, so a switch
+    // between the modes resets too; a fold keeps the file, and so the column, as split keeps its windows.
     const switched = drawn !== null && drawn.file !== file
     if (switched) island.resetColumns()
     // Wrap and a remap change which row the cursor's line is drawn on, and only a reveal follows it there.

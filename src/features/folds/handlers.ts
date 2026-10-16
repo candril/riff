@@ -32,7 +32,7 @@ export interface FoldsContext {
   rebuildLineMapping: () => void
   // Panels
   getFileTreePanel: () => FileTreePanel
-  getVimDiffView: () => CursorView
+  getCursorView: () => CursorView
   // Update helpers
   updateFileTreePanel: () => void
   ensureCursorVisible: () => void
@@ -85,7 +85,7 @@ export function handleGoToTop(ctx: FoldsContext): void {
 
   // Diff view - go to first line
   ctx.setVimState({ ...ctx.getVimState(), line: 0, col: 0 })
-  ctx.getVimDiffView().updateCursor(ctx.getVimState())
+  ctx.getCursorView().updateCursor(ctx.getVimState())
   ctx.ensureCursorVisible()
 }
 
@@ -106,7 +106,7 @@ export function handleGoToBottom(ctx: FoldsContext): void {
   // Diff view - go to last line
   const lastLine = Math.max(0, ctx.getLineMapping().lineCount - 1)
   ctx.setVimState({ ...ctx.getVimState(), line: lastLine, col: 0 })
-  ctx.getVimDiffView().updateCursor(ctx.getVimState())
+  ctx.getCursorView().updateCursor(ctx.getVimState())
   ctx.ensureCursorVisible()
 }
 

@@ -161,24 +161,6 @@ export interface VimCursorState {
 }
 
 /**
- * Line color configuration for LineNumberRenderable
- */
-export interface LineColorConfig {
-  gutter?: string
-  content?: string
-}
-
-/**
- * Line sign configuration for LineNumberRenderable
- */
-export interface LineSign {
-  before?: string
-  beforeColor?: string
-  after?: string
-  afterColor?: string
-}
-
-/**
  * Options for creating a DiffLineMapping with expansion support
  */
 export interface DiffLineMappingOptions {

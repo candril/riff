@@ -183,7 +183,9 @@ src/
 │   └── demo.ts           # --demo fixture
 ├── features/             # one directory per feature: index.ts, plus input.ts / handlers.ts
 ├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff
-├── components/           # OpenTUI renderables (VimDiffView, PRInfoPanel, pickers…)
+├── diff-rows/            # rows, segments, wrap and colours both diff views draw
+├── split-view/           # the diff views, split and unified, as Solid components
+├── components/           # OpenTUI renderables (PRInfoPanel, pickers…)
 └── utils/                # parsing, markdown, links, fuzzy matching, editor hand-off
 ```
 

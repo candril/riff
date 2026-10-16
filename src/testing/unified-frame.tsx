@@ -18,7 +18,7 @@ export interface MountUnifiedOptions
   /** The screen's; the view gets all of it, less the header row when there is one. */
   width?: number
   height?: number
-  /** Under the one-row header mountDiffView gives VimDiffView, so the two frames line up. */
+  /** Under a one-row header, as the app mounts the diff below its own. */
   header?: boolean
 }
 
