@@ -433,6 +433,7 @@ describe("sticky header", () => {
     const sticky = () => mounted!.setup.renderer.root.findDescendantById("sticky-file-header")
     await scrollTo(third - 1)
     expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/two.ts +1 -0")
+    expect(sticky()).toBeDefined()
     await scrollTo(third)
     expect(rowsOf()[0]!.trimEnd()).toBe(" ▼   src/three.ts +1 -0")
     expect(sticky()).toBeUndefined()

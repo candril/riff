@@ -125,7 +125,7 @@ describe("unifiedCursorCell", () => {
     expect(cellAt(MIXED_DIGITS, header, { col: 3 })).toEqual({ x: FILE_LABEL_PATH_X + 3, y: header })
   })
 
-  test("on a hunk header it scrolls sideways with the code", () => {
+  test("on a legacy hunk header, which the mapping no longer emits, it scrolls sideways with the code", () => {
     // The mapping no longer builds hunk headers, so one stands in for TWO_FILES's line 1.
     const onHunk = (where: Where) => {
       const { input } = at(TWO_FILES, 1, where)

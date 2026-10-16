@@ -118,7 +118,8 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
   }
 
-  // Only the slices on screen: a line cut off at the top, or under the pinned header, shows the rest of itself.
+  // Only the slices on screen: a line cut off at the top, under the pinned header or at the bottom edge
+  // is looked at in the part of itself that still shows.
   function wrappedWindow(laid: UnifiedLayout, line: number, content: string): FlashWindow {
     const slices = laid.visual().slicesOf(line)
     const rows = shownRows()

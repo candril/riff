@@ -14,7 +14,10 @@ export interface UnifiedLayoutInput {
   readonly scrollTop: number
 }
 
-/** Where unified's rows go: their wrap, gutters, scrollbar and pinned header, all memoised. */
+/**
+ * Where unified's rows go: their wrap, gutters, scrollbar and pinned
+ * header. The island and the view share one, so every row is worked out once.
+ */
 export function createUnifiedLayout(input: UnifiedLayoutInput) {
   // Per width as well as per mapping, so a run of resizes cannot pile up slices for widths long gone.
   // Unwrapped, nothing is sliced, so a resize keeps the wrapper and skips the gutter's row count.

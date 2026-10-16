@@ -326,6 +326,23 @@ describe("what is on screen", () => {
     expect(cut.endCol).toBe(content.length)
     expect(island.lineWindow(line + 1)).toEqual({ startCol: 0, endCol: mapping.getLine(line + 1)!.content.length })
   })
+  test("wrapped, a line cut off at the bottom edge is looked at up to its last slice on screen", async () => {
+    const { island, mapping } = await mount({ raw: MANY_WRAPPED_LINES, width: 120, height: 12, mode: "single", wrap: true, scrollOff: 0 })
+    await frame()
+    const line = lineOf(mapping, "const line20 ")
+    const content = mapping.getLine(line)!.content
+    island.update({ cursor: { line, col: 0 } })
+    island.scrollCursorTo("bottom")
+    const rows = await frame()
+
+    expect(island.cursorRow() - island.scrollTop()).toBe(island.viewportHeight() - 1)
+    expect(rows[island.viewportHeight() - 1]).toContain("const line20 ")
+    expect(island.visibleLines().at(-1)).toBe(line)
+    const cut = island.lineWindow(line)
+    expect(cut.startCol).toBe(0)
+    expect(cut.endCol).toBeGreaterThan(0)
+    expect(cut.endCol).toBeLessThan(content.length)
+  })
 })
 
 describe("the cursor's row is the one VimDiffView reveals", () => {
