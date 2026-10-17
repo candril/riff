@@ -41,6 +41,11 @@ describe("cellOfColumn and columnOfCell", () => {
     expect(cellOfColumn("", 2)).toBe(2)
   })
 
+  test("an ESC takes no cell, on an ASCII line as on one with an ideograph", () => {
+    expect(cellOfColumn("a\x1bb", 2)).toBe(1)
+    expect(cellOfColumn("中\x1bb", 2)).toBe(2)
+  })
+
   test("a pure-ASCII line counts a cell a unit, but a tab", () => {
     expect(cellOfColumn("a\tb", 2)).toBe(3)
     expect(columnOfCell("a\tb", 2)).toBe(1)

@@ -1,27 +1,41 @@
 import { TAB } from "./segments"
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
-const ASCII = /^[\x00-\x7f]*$/
+const SOFT_HYPHEN = "\u00ad"
+const ASCII = /^[\x09\x20-\x7e]*$/
 
-/** One grapheme per UTF-16 unit, and one cell per grapheme but the tab. */
+/**
+ * Printable ASCII and the tab: one grapheme per UTF-16 unit, and one cell
+ * per grapheme but the tab. A control character draws in no cell, so it
+ * leaves the fast path for graphemeCells rather than being counted a
+ * second way here. That costs a CRLF file the fast path on every line; the
+ * grapheme path is the slow one already noted for non-ASCII lines.
+ */
 export const isAscii = (text: string) => ASCII.test(text)
 
 /**
  * The cells OpenTUI draws a grapheme in: a tab is as wide as TAB, anything
  * else as wide as Bun.stringWidth says — two for CJK, fullwidth forms and
- * emoji, none for a zero-width space. Skin-tone and ZWJ emoji count two, as
- * a terminal measuring by Unicode draws them; OpenTUI's wcwidth method adds
- * up their parts instead (cells.parity.test.ts names them).
+ * emoji, none for a zero-width space or a control character. Skin-tone
+ * and ZWJ emoji count two, as a terminal measuring by Unicode draws them;
+ * OpenTUI's wcwidth method adds up their parts instead
+ * (cells.parity.test.ts names them).
  */
-export const graphemeCells = (grapheme: string) => (grapheme === "\t" ? TAB.length : Bun.stringWidth(grapheme))
+export function graphemeCells(grapheme: string): number {
+  if (grapheme === "\t") return TAB.length
+  // Bun.stringWidth counts a soft hyphen as nothing, but OpenTUI gives it a cell.
+  if (grapheme === SOFT_HYPHEN) return 1
+  return Bun.stringWidth(grapheme)
+}
 
 /**
  * Walks a line a grapheme at a time, the way buildSegments lays it into
  * cells: `units` is the grapheme's UTF-16 length, so a combining mark, a
  * variation selector or a ZWJ sequence stays with the character it
- * belongs to, and `width` is graphemeCells. A pure-ASCII line has one
- * grapheme per unit, every one a cell but the tab. Past the end each
- * column is a cell of its own, the one the cursor's block takes there.
+ * belongs to, and `width` is graphemeCells. A line of printable ASCII and
+ * tabs has one grapheme per unit, every one a cell but the tab. Past the
+ * end each column is a cell of its own, the one the cursor's block takes
+ * there.
  */
 export function walkCells(
   content: string,

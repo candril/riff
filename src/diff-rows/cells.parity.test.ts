@@ -18,7 +18,9 @@ async function openTuiCells(content: string): Promise<number> {
   return cells
 }
 
-const corpus = ["中", "Ａ", "ｱ", "😀", "❤\ufe0f", "🇨🇭", "e\u0301", "→", "✓", "\u200b", "a", "\t"]
+const corpus = ["中", "Ａ", "ｱ", "😀", "❤\ufe0f", "🇨🇭", "e\u0301", "→", "✓", "\u200b", "a", "\t", "\r", "\x1b", "\x7f", "\x0c", "\u00ad"]
+// A CRLF file leaves a \r at the end of every line, on ASCII lines and others alike.
+const CONTROL_LINES = ["abc\r", "a\x1bb", "é\r"]
 const MIXED = "const 名前 = \"Ａｱ😀\" // ✓ e\u0301 → 🇨🇭❤\ufe0f\u200b"
 
 // The test renderer measures with wcwidth, which adds up a skin-toned or
@@ -32,12 +34,20 @@ const WCWIDTH_DISAGREES = ["👍🏽", "👨\u200d👩\u200d👧", "✔\ufe0f", 
 describe("graphemeCells against OpenTUI", () => {
   test("each grapheme of the corpus", async () => {
     for (const grapheme of corpus) {
-      expect({ grapheme, cells: graphemeCells(grapheme) }).toEqual({ grapheme, cells: await openTuiCells(grapheme) })
+      const cells = await openTuiCells(grapheme)
+      expect({ grapheme, cells: graphemeCells(grapheme) }).toEqual({ grapheme, cells })
+      expect({ grapheme, cells: cellsOf(grapheme) }).toEqual({ grapheme, cells })
     }
   })
 
   test("a line mixing them", async () => {
     expect(cellsOf(MIXED)).toBe(await openTuiCells(MIXED))
+  })
+
+  test("lines holding a control character", async () => {
+    for (const line of CONTROL_LINES) {
+      expect({ line, cells: cellsOf(line) }).toEqual({ line, cells: await openTuiCells(line) })
+    }
   })
 
   test("wcwidth draws the named exceptions in other widths than riff counts", async () => {

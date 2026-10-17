@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { TextAttributes } from "@opentui/core"
+import { cellCount } from "../split-view/layout"
 import { theme } from "../theme"
+import { cellsOf } from "./cells"
 import { buildSegments, sliceSegments, type Segment, type SegmentInput } from "./segments"
 import { SYNTAX_PALETTE } from "./syntax-palette"
 
@@ -142,6 +144,15 @@ describe("sliceSegments", () => {
     for (let from = 0; from < 7; from++) {
       for (let width = 1; width <= 7 - from; width++) expect(cells(sliceSegments(segments, from, width))).toBe(width)
     }
+  })
+
+  test("a CRLF line's \\r takes no cell in a segment, as it takes none over the whole line", () => {
+    const line = "é = abc\r"
+    const segments = build(line, { spans: [[0, 1, "keyword"]] })
+    expect(cellCount(segments)).toBe(cellsOf(line))
+    expect(sliceSegments(segments, 0, 80)).toEqual(segments)
+    expect(cellCount(sliceSegments(segments, 2, 5))).toBe(5)
+    expect(texts(sliceSegments(segments, 4, 3))).toEqual(["abc"])
   })
 
   test("a window wider than the line keeps what is there", () => {

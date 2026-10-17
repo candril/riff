@@ -49,7 +49,9 @@ function graphemesByColumn(content: string): { units: Uint32Array; cells: Uint32
  * 」 or 、, nor after 「, nor between a quote and an ideograph beside it, so
  * a run of ideographs alone breaks where riff cuts it while one mixed with
  * words or punctuation may break elsewhere. Unicode spaces are not
- * modelled either; the parity corpus leaves all of these out.
+ * modelled either, nor control characters such as a CRLF line's \r, which
+ * take no cell here but around which OpenTUI's rows come out otherwise;
+ * the parity corpus leaves all of these out.
  */
 export function wrapLine(content: string, width: number): WrapSlice[] {
   const slices: WrapSlice[] = []
