@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { markAt } from "./capture"
-import { X, Y, X_CONTENT, X_MIDDLE } from "./fixture"
+import { X, Y, X_CONTENT, X_MIDDLE } from "../../testing/marks"
 
 const all = () => new DiffLineMapping([X, Y], "all")
 

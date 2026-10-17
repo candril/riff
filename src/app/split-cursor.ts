@@ -40,7 +40,6 @@ export function toRowState(state: VimCursorState, source: SplitRows): VimCursorS
     line: row(state.line),
     selectionAnchor: state.selectionAnchor === null ? null : row(state.selectionAnchor),
     jumpList: state.jumpList.map(row),
-    marks: new Map([...state.marks].map(([name, line]) => [name, row(line)])),
   }
 }
 
@@ -58,7 +57,7 @@ export function toRowSelection(state: SelectionState, source: SplitRows): Select
 /**
  * Back to lines after the motion handler ran on `rows`, which it built from
  * `before`. A row names a pair, not a half, so every index the handler left
- * on its row keeps the line it had; otherwise a mark or a jump on the
+ * on its row keeps the line it had; otherwise a jump on the
  * inactive half would drift to the active one on any motion. The cursor and
  * the selection anchor always take the active side's line: h and l cross
  * panes by switching the side under an unchanged row. The anchor's side
@@ -75,6 +74,5 @@ export function toLineState(rows: VimCursorState, source: SplitRows, before: Vim
     line: lineOfRow(rows.line, source),
     selectionAnchor: rows.selectionAnchor === null ? null : lineOfRow(rows.selectionAnchor, source),
     jumpList: rows.jumpList.map((row, i) => back(row, before.jumpList[i], before.jumpList[i + 1], before.line)),
-    marks: new Map([...rows.marks].map(([name, row]) => [name, back(row, before.marks.get(name), before.line)])),
   }
 }

@@ -133,9 +133,6 @@ export interface VimCursorState {
   /** Current position in jump list */
   jumpIndex: number
 
-  /** Named marks (a-z) */
-  marks: Map<string, number>
-
   /** Last search pattern */
   lastSearch: string | null
   /** Direction of last search */

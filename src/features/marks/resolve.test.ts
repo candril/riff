@@ -4,7 +4,7 @@ import type { DiffFile } from "../../utils/diff-parser"
 import { resolveMark, markLandingMessage } from "./resolve"
 import { markAt } from "./capture"
 import type { Mark } from "./types"
-import { X, Y, X_CONTENT, X_MIDDLE } from "./fixture"
+import { X, Y, X_CONTENT, X_MIDDLE } from "../../testing/marks"
 
 const all = () => new DiffLineMapping([X, Y], "all")
 const mark = (line: number | null, side: Mark["side"] = "RIGHT", filename = "src/x.ts"): Mark => ({

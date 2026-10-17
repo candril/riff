@@ -17,7 +17,6 @@ export function createCursorState(): VimCursorState {
     selectionAnchorCol: null,
     jumpList: [],
     jumpIndex: -1,
-    marks: new Map(),
     lastSearch: null,
     searchDirection: "forward",
     desiredCol: null,
@@ -300,36 +299,6 @@ export function jumpForward(state: VimCursorState): VimCursorState | null {
     line: targetLine,
     col: 0,
     jumpIndex: newIndex,
-    desiredCol: null,
-  }
-}
-
-/**
- * Set a mark at current position
- */
-export function setMark(state: VimCursorState, mark: string): VimCursorState {
-  const marks = new Map(state.marks)
-  marks.set(mark, state.line)
-  return { ...state, marks }
-}
-
-/**
- * Jump to a mark
- */
-export function jumpToMark(
-  state: VimCursorState,
-  mark: string
-): VimCursorState | null {
-  const targetLine = state.marks.get(mark)
-  if (targetLine === undefined) return null
-
-  // Add current position to jump list before jumping
-  const withJump = addToJumpList(state)
-
-  return {
-    ...withJump,
-    line: targetLine,
-    col: 0,
     desiredCol: null,
   }
 }

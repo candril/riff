@@ -88,25 +88,22 @@ describe("the cursor state", () => {
     expect(toLineState(state, source("right"), state).selectionAnchor).toBeNull()
   })
 
-  test("jumps and marks are kept in lines too", () => {
+  test("jumps are kept in lines too", () => {
     const { right } = pair(8)
-    const lines = { ...createCursorState(), jumpList: [right!, 2], marks: new Map([["a", right!]]) }
+    const lines = { ...createCursorState(), jumpList: [right!, 2] }
     const rows = toRowState(lines, source("right"))
     expect(rows.jumpList).toEqual([8, 2])
-    expect(rows.marks.get("a")).toBe(8)
     const back = toLineState(rows, source("right"), lines)
     expect(back.jumpList).toEqual([right!, 2])
-    expect(back.marks.get("a")).toBe(right!)
   })
 
   // Set in unified on a removed line, then a `j` in the new pane.
-  test("a mark and a jump on the inactive half keep their line through a motion", () => {
+  test("a jump on the inactive half keeps its line through a motion", () => {
     const { left, right } = pair(8)
-    const lines = { ...createCursorState(), line: right!, jumpList: [left!], jumpIndex: 0, marks: new Map([["a", left!]]) }
+    const lines = { ...createCursorState(), line: right!, jumpList: [left!], jumpIndex: 0 }
     const rows = source("right")
     const moved = { ...toRowState(lines, rows), line: 9 }
     const back = toLineState(moved, rows, lines)
-    expect(back.marks.get("a")).toBe(left!)
     expect(back.jumpList).toEqual([left!])
     expect(back.line).toBe(lineOfRow(9, rows))
   })

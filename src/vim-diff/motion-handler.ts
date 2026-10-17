@@ -25,8 +25,6 @@ import {
   addToJumpList,
   jumpBack,
   jumpForward,
-  setMark,
-  jumpToMark,
   setSearch,
   setPendingFindChar,
   completeFindChar,
@@ -288,15 +286,8 @@ export class VimMotionHandler {
       return true
     }
 
-    // Marks (m{char} to set, '{char} to jump)
-    if (key.name === "m" && !key.ctrl) {
-      // Next key will be the mark name - handled externally for simplicity
-      // For now, we don't handle this inline
-      return false
-    }
-
     // Reset last key if not a sequence character
-    if (!["g", "]", "[", "m", "'"].includes(key.name)) {
+    if (!["g", "]", "["].includes(key.name)) {
       this.lastKey = ""
     }
 
@@ -659,27 +650,5 @@ export class VimMotionHandler {
       : state.searchDirection
 
     return this.handleSearch(state.lastSearch, direction)
-  }
-
-  /**
-   * Set a mark at current position
-   */
-  handleSetMark(mark: string): void {
-    const state = this.getState()
-    this.setState(setMark(state, mark))
-  }
-
-  /**
-   * Jump to a mark
-   */
-  handleJumpToMark(mark: string): boolean {
-    const state = this.getState()
-    const newState = jumpToMark(state, mark)
-    if (newState) {
-      this.setState(newState)
-      this.onCursorMove()
-      return true
-    }
-    return false
   }
 }

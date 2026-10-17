@@ -1,4 +1,4 @@
-import type { DiffFile } from "../../utils/diff-parser"
+import type { DiffFile } from "../utils/diff-parser"
 
 /**
  * One file whose old and new numbering drift apart by one after its first

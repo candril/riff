@@ -198,8 +198,8 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   ctx.rebuildLineMapping()
 
   // The cursor moves; it is not rebuilt. A fresh one would throw away the
-  // marks and the last search along with the position, so going back would
-  // quietly cost you `n` and every `'a`.
+  // last search and vim's own jump state along with the position, so going
+  // back would quietly cost you `n`.
   ctx.setVimState({
     ...ctx.getVimState(),
     line: Math.max(0, jump.cursorLine),
