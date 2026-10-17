@@ -1,13 +1,9 @@
-import { Box, Text } from "@opentui/core"
-import { theme, colors } from "../theme"
-
-export interface HelpOverlayProps {
-  onClose?: () => void
-  /** The build, as `riff --version` names it; omitted, nothing is drawn. */
-  version?: string
+export interface HelpSection {
+  title: string
+  keys: readonly (readonly [string, string])[]
 }
 
-const HELP_SECTIONS = [
+export const HELP_SECTIONS: readonly HelpSection[] = [
   {
     title: "Navigation",
     keys: [
@@ -117,95 +113,8 @@ const HELP_SECTIONS = [
   },
 ]
 
-/**
- * The keymap overlay behind `g?`. A cheat sheet, not an inventory — the action
- * menu (Ctrl+p) is the exhaustive, state-aware list.
- */
-export function HelpOverlay({ version }: HelpOverlayProps = {}) {
-  return Box(
-    {
-      id: "help-overlay",
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      // Above every panel it can be opened from — the overview mounts its
-      // own container at 100.
-      zIndex: 110,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    // Dimmed backdrop (same as action menu)
-    Box({
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "#00000080",
-    }),
-    // Help content (no border, just centered content)
-    Box(
-      {
-        flexDirection: "column",
-        backgroundColor: theme.base,
-        padding: 2,
-        minWidth: 80,
-        maxWidth: 104,
-      },
-      // Title
-      Box(
-        { height: 1, marginBottom: 1, flexDirection: "row", justifyContent: "space-between" },
-        Text({ content: "Keyboard Shortcuts", fg: colors.primary }),
-        version !== undefined ? Text({ content: `riff ${version}`, fg: theme.overlay0 }) : null
-      ),
-      // Two-column layout for sections
-      Box(
-        {
-          flexDirection: "row",
-          gap: 4,
-        },
-        // Left column
-        Box(
-          { flexDirection: "column", flexGrow: 1 },
-          ...HELP_SECTIONS.slice(0, 4).map((section) =>
-            Box(
-              { flexDirection: "column", marginBottom: 1 },
-              Text({ content: section.title, fg: theme.lavender }),
-              ...section.keys.map(([key, desc]) =>
-                Box(
-                  { height: 1, flexDirection: "row" },
-                  Box({ width: 18 }, Text({ content: key!, fg: theme.yellow })),
-                  Text({ content: desc!, fg: colors.text })
-                )
-              )
-            )
-          )
-        ),
-        // Right column
-        Box(
-          { flexDirection: "column", flexGrow: 1 },
-          ...HELP_SECTIONS.slice(4).map((section) =>
-            Box(
-              { flexDirection: "column", marginBottom: 1 },
-              Text({ content: section.title, fg: theme.lavender }),
-              ...section.keys.map(([key, desc]) =>
-                Box(
-                  { height: 1, flexDirection: "row" },
-                  Box({ width: 18 }, Text({ content: key!, fg: theme.yellow })),
-                  Text({ content: desc!, fg: colors.text })
-                )
-              )
-            )
-          )
-        )
-      ),
-      // Footer
-      Box(
-        { height: 1, marginTop: 1 },
-        Text({ content: "Press g? or Esc to close", fg: colors.textDim })
-      )
-    )
-  )
+export const HELP_KEY_CELLS = 18
+
+export function helpColumns(): [readonly HelpSection[], readonly HelpSection[]] {
+  return [HELP_SECTIONS.slice(0, 4), HELP_SECTIONS.slice(4)]
 }

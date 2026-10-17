@@ -16,7 +16,6 @@ import {
   OccurrencePicker,
   CommitPicker,
   SyncPreview,
-  HelpOverlay,
   LinePeek,
   TablePeek,
   DiagramPeek,
@@ -67,6 +66,8 @@ import { DRAFT_INNER_WIDTH } from "../components/DraftNotification"
 import type { DraftNotificationIsland, ToastIsland } from "./notifications"
 import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { ConfirmDialogIsland } from "./confirm-dialog"
+import { helpOverlayModel } from "../components/help-overlay-model"
+import type { HelpOverlayIsland } from "./help-overlay"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -120,6 +121,7 @@ export interface RenderContext {
   toast: ToastIsland
   draftNotification: DraftNotificationIsland
   confirmDialog: ConfirmDialogIsland
+  helpOverlay: HelpOverlayIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -547,6 +549,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
     )
     ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
+    ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version) : null)
 
     ctx.renderer.root.add(
       Box(
@@ -636,7 +639,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               extending: state.commitPicker.rangeAnchor !== null,
             })
           : null,
-        state.showHelp ? HelpOverlay({ version }) : null,
+        state.showHelp ? ctx.helpOverlay.host : null,
         state.showLinePeek && state.viewMode === "diff"
           ? (() => {
               // A mermaid block is source for a picture; the peek draws the

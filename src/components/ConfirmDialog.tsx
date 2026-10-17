@@ -1,10 +1,3 @@
-/**
- * Confirm dialog - modal overlay for dangerous actions.
- *
- * Shows a confirmation prompt before executing destructive operations.
- * Styled similar to presto's confirmation dialog.
- */
-
 import { Show } from "solid-js"
 import { theme, colors } from "../theme"
 import type { ConfirmDialogModel } from "./confirm-dialog-model"

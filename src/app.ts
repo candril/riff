@@ -60,6 +60,7 @@ import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
+import { createHelpOverlayIsland } from "./app/help-overlay"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -287,6 +288,7 @@ export async function createApp(options: AppOptions = {}) {
     toast.dispose()
     draftNotification.dispose()
     confirmDialog.dispose()
+    helpOverlay.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -464,6 +466,7 @@ export async function createApp(options: AppOptions = {}) {
   const toast = createToastIsland(renderer)
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
+  const helpOverlay = createHelpOverlayIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -531,6 +534,7 @@ export async function createApp(options: AppOptions = {}) {
     toast,
     draftNotification,
     confirmDialog,
+    helpOverlay,
     split,
     unified,
     parses,
