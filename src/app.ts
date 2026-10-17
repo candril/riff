@@ -58,6 +58,7 @@ import { createRenderFunction } from "./app/render"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
+import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -282,6 +283,8 @@ export async function createApp(options: AppOptions = {}) {
     header.dispose()
     searchPrompt.dispose()
     flashPrompt.dispose()
+    toast.dispose()
+    draftNotification.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -456,6 +459,8 @@ export async function createApp(options: AppOptions = {}) {
   const header = createHeaderIsland(renderer)
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
+  const toast = createToastIsland(renderer)
+  const draftNotification = createDraftNotificationIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -520,6 +525,8 @@ export async function createApp(options: AppOptions = {}) {
     header,
     searchPrompt,
     flashPrompt,
+    toast,
+    draftNotification,
     split,
     unified,
     parses,

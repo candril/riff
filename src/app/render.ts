@@ -10,7 +10,6 @@ import {
   ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
-  Toast,
   FilePicker,
   CommentsPicker,
   MarksPicker,
@@ -23,7 +22,6 @@ import {
   DiagramPeek,
   HunkPeek,
   ConfirmDialog,
-  DraftNotification,
   FeedView,
   gatherSyncItems,
 } from "../components"
@@ -65,6 +63,9 @@ import { headerModel } from "../components/header-model"
 import type { HeaderIsland } from "./header"
 import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
 import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
+import { draftNotificationModel, toastModel } from "../components/notification-model"
+import { DRAFT_INNER_WIDTH } from "../components/DraftNotification"
+import type { DraftNotificationIsland, ToastIsland } from "./notifications"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -115,6 +116,8 @@ export interface RenderContext {
   header: HeaderIsland
   searchPrompt: SearchPromptIsland
   flashPrompt: FlashPromptIsland
+  toast: ToastIsland
+  draftNotification: DraftNotificationIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -537,6 +540,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.searchPrompt.update(searchShown ? searchPromptModel(searchState) : null)
     const flashShown = flashState.active && state.viewMode === "diff"
     ctx.flashPrompt.update(flashShown ? flashPromptModel(flashState) : null)
+    ctx.toast.update(state.toast.message ? toastModel(state.toast.message, state.toast.type) : null)
+    ctx.draftNotification.update(
+      state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
+    )
 
     ctx.renderer.root.add(
       Box(
@@ -565,12 +572,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               selectedIndex: state.actionMenu.selectedIndex,
             })
           : null,
-        state.toast.message
-          ? Toast({
-              message: state.toast.message,
-              type: state.toast.type,
-            })
-          : null,
+        state.toast.message ? ctx.toast.host : null,
         state.reviewPreview.open
           ? ReviewPreview({
               comments: commentsFeature.validateCommentsForSubmit(
@@ -715,9 +717,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               details: state.confirmDialog.details,
             })
           : null,
-        state.draftNotification
-          ? DraftNotification({ notification: state.draftNotification })
-          : null,
+        state.draftNotification ? ctx.draftNotification.host : null,
 
       )
     )
