@@ -166,3 +166,17 @@ index 1111111..2222222 100644
 -old
 +${TAB_LINE_CONTENT}
 `
+
+/** Two ideographs and an emoji among letters: every glyph draws two cells, so what follows each sits one further right. */
+export const WIDE_GLYPH_CONTENT = "中中x😀y = 1"
+/** Fifty ideographs, a hundred cells: past an 80-column pane unwrapped, and three rows wrapped at 40. */
+export const WIDE_GLYPH_RUN = "中".repeat(50)
+export const WIDE_GLYPHS = `diff --git a/wide.txt b/wide.txt
+index 1111111..2222222 100644
+--- a/wide.txt
++++ b/wide.txt
+@@ -1,1 +1,2 @@
+-old = 0
++${WIDE_GLYPH_CONTENT}
++${WIDE_GLYPH_RUN}
+`

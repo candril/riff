@@ -9,7 +9,7 @@ import { createHeldRows } from "../split-view/held-rows"
 import { contentOrigin, gutterWidth, paneWidths, visibleCells } from "../split-view/layout"
 import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
-import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
+import { cursorColumnInWindow, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { lineOfRow } from "./split-cursor"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 import { wheelDragRow } from "./wheel-drag"
@@ -197,8 +197,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     clampCursorColumn(col: number): number {
       const half = activeHalf()
       if (!half) return col
-      const cell = clampCursorCell(columns()[half.side], half.width, cellOfColumn(half.content, col), half.cells)
-      return columnOfCell(half.content, cell)
+      return cursorColumnInWindow(half.content, columns()[half.side], half.width, col, half.cells)
     },
     /** The status bar's readout, both numbers in cells, only for a line too wide for its pane. */
     columnStatus(): { col: number; total: number } | null {

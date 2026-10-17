@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { TextAttributes } from "@opentui/core"
 import { theme } from "../theme"
-import { buildSegments, sliceSegments, type SegmentInput } from "./segments"
+import { buildSegments, sliceSegments, type Segment, type SegmentInput } from "./segments"
 import { SYNTAX_PALETTE } from "./syntax-palette"
 
 const base: SegmentInput = { wordSide: "added", baseFg: theme.text, rowBg: theme.base }
@@ -100,9 +100,23 @@ describe("buildSegments", () => {
     expect(texts(build("\tab", { selection: { from: 2, to: 3 } }))).toEqual(["  a", "b"])
   })
 
-  test("an astral character is one cell", () => {
+  test("a grapheme is never split, an overlay on its later units aside", () => {
     expect(texts(build("😀ab", { selection: { from: 2, to: 3 } }))).toEqual(["😀", "a", "b"])
-    expect(texts(build("😀a", { flash: { matches: [{ startCol: 0, endCol: 2, label: "s" }] } }))).toEqual(["s", "a"])
+    expect(texts(build("e\u0301z", { selection: { from: 1, to: 3 } }))).toEqual(["e\u0301", "z"])
+  })
+
+  test("a flash label on a wide glyph is padded to its two cells, as on a tab", () => {
+    expect(texts(build("中a", { flash: { matches: [{ startCol: 0, endCol: 1, label: "s" }] } }))).toEqual(["s ", "a"])
+    expect(texts(build("😀a", { flash: { matches: [{ startCol: 0, endCol: 2, label: "s" }] } }))).toEqual(["s ", "a"])
+    expect(texts(build("\ta", { flash: { matches: [{ startCol: 0, endCol: 1, label: "s" }] } }))).toEqual(["s ", "a"])
+  })
+
+  test("the cursor on an emoji colours the whole glyph, from either of its units", () => {
+    const block = { text: "😀", fg: theme.base, bg: theme.rosewater, attributes: 0 }
+    const plain = (text: string) => ({ text, fg: theme.text, attributes: 0 })
+    expect(build("x😀y", { cursor: 1 })).toEqual([plain("x"), block, plain("y")])
+    expect(build("x😀y", { cursor: 2 })).toEqual([plain("x"), block, plain("y")])
+    expect(build("e\u0301z", { cursor: 1 })[0]).toEqual({ text: "e\u0301", fg: theme.base, bg: theme.rosewater, attributes: 0 })
   })
 })
 
@@ -113,10 +127,21 @@ describe("sliceSegments", () => {
     expect(texts(sliceSegments(segments, 3, 1))).toEqual(["b"])
   })
 
-  test("never splits an astral character", () => {
+  test("a wide glyph inside the window is drawn whole", () => {
     const segments = build("a😀b😀")
-    expect(texts(sliceSegments(segments, 1, 2))).toEqual(["😀b"])
-    expect(texts(sliceSegments(segments, 3, 1))).toEqual(["😀"])
+    expect(texts(sliceSegments(segments, 1, 3))).toEqual(["😀b"])
+    expect(texts(sliceSegments(segments, 4, 2))).toEqual(["😀"])
+  })
+
+  test("a wide glyph cut by either edge draws as spaces for its cells inside, never more than the width", () => {
+    const segments = build("a中b中c", { selection: { from: 2, to: 3 } })
+    const cells = (shown: Segment[]) => shown.reduce((sum, { text }) => sum + Bun.stringWidth(text), 0)
+    expect(texts(sliceSegments(segments, 2, 3))).toEqual([" ", "b", " "])
+    expect(texts(sliceSegments(segments, 0, 2))).toEqual(["a "])
+    expect(texts(sliceSegments(segments, 5, 2))).toEqual([" c"])
+    for (let from = 0; from < 7; from++) {
+      for (let width = 1; width <= 7 - from; width++) expect(cells(sliceSegments(segments, from, width))).toBe(width)
+    }
   })
 
   test("a window wider than the line keeps what is there", () => {

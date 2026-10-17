@@ -3,7 +3,7 @@ import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
-import { ONE_WIDE_LINE } from "../testing/diffs"
+import { ONE_WIDE_LINE, WIDE_GLYPHS } from "../testing/diffs"
 import { trimFrame } from "../testing/frame"
 import { bgAt, ints } from "../testing/split-frame"
 import { theme } from "../theme"
@@ -280,5 +280,31 @@ describe("sidescroll", () => {
     expect(island.columnStatus()).toEqual({ col: total, total })
     island.update({ cursor: { row: 1, col: 2 } })
     expect(island.columnStatus()).toEqual({ col: 5, total })
+  })
+
+  // What zl runs: scroll, then pull the cursor's column into the window. The ‹ hides the window's first cell.
+  test("zl onto an ideograph the ‹ cuts pulls the cursor to the next one, a block over both its cells", async () => {
+    const RUN_ROW = 2
+    const CODE_X = 65
+    const { island } = await mount(8, undefined, WIDE_GLYPHS)
+    for (const scrolled of [1, 2, 3]) {
+      island.update({ cursor: { row: RUN_ROW, col: 0 } })
+      island.resetColumns()
+      await frame()
+      island.scrollColumnsBy(scrolled)
+      const col = island.clampCursorColumn(0)
+      island.update({ cursor: { row: RUN_ROW, col } })
+      await frame()
+      const spans = setup!.captureSpans()
+
+      expect(col).toBe(Math.ceil((scrolled + 1) / 2))
+      const x = CODE_X + 2 * col - scrolled
+      expect([x - 1, x, x + 1, x + 2].map((at) => bgAt(spans, at, RUN_ROW)?.join() === ints(theme.rosewater).join())).toEqual([
+        false,
+        true,
+        true,
+        false,
+      ])
+    }
   })
 })

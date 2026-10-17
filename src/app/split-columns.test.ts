@@ -3,24 +3,26 @@ import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { buildSegments } from "../diff-rows/segments"
 import { cellCount, visibleCells } from "../split-view/layout"
 import { theme } from "../theme"
-import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
+import { unifiedShownCells } from "../split-view/unified-markers"
+import { clampCursorCell, cursorColumnInWindow, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 
 const drawnCells = (text: string) => cellCount(buildSegments(text, { wordSide: "added", baseFg: theme.text, rowBg: theme.base }))
 
 describe("cells and columns", () => {
-  test("a tab is two cells and a surrogate pair one, as the half draws them", () => {
+  test("a tab and an emoji are two cells each, as the half draws them", () => {
     const line = "\tif (😀) x"
     expect(cellOfColumn(line, 0)).toBe(0)
     expect(cellOfColumn(line, 1)).toBe(2)
     expect(cellOfColumn(line, 5)).toBe(6)
     expect(cellOfColumn(line, 6)).toBe(6)
-    expect(cellOfColumn(line, 7)).toBe(7)
+    expect(cellOfColumn(line, 7)).toBe(8)
     expect(cellOfColumn(line, line.length)).toBe(drawnCells(line))
     expect(columnOfCell(line, 0)).toBe(0)
     expect(columnOfCell(line, 1)).toBe(0)
     expect(columnOfCell(line, 2)).toBe(1)
     expect(columnOfCell(line, 6)).toBe(5)
-    expect(columnOfCell(line, 7)).toBe(7)
+    expect(columnOfCell(line, 7)).toBe(5)
+    expect(columnOfCell(line, 8)).toBe(7)
   })
 
   test("past the end, and on an empty line, each column is a cell", () => {
@@ -115,5 +117,27 @@ describe("explicit scrolls", () => {
     expect(clampCursorCell(10, 10, 14, 100)).toBe(14)
     expect(clampCursorCell(40, 10, 2, 5)).toBe(4)
     expect(clampCursorCell(0, 10, 0, 0)).toBe(0)
+  })
+
+  describe("cursorColumnInWindow", () => {
+    const run = "中".repeat(10)
+
+    test("a window starting inside an ideograph drags the cursor to the next one, whose cells are both shown", () => {
+      expect(cursorColumnInWindow(run, 1, 6, 0, 20, unifiedShownCells)).toBe(1)
+      expect(cursorColumnInWindow(run, 3, 6, 0, 20, unifiedShownCells)).toBe(2)
+      // Split's ‹ hides cell 2, the first half of the second ideograph.
+      expect(cursorColumnInWindow(run, 2, 10, 0, 20)).toBe(2)
+    })
+
+    test("a window ending inside an ideograph drags the cursor to the one before it", () => {
+      expect(cursorColumnInWindow(run, 0, 5, 9, 20, unifiedShownCells)).toBe(1)
+      expect(cursorColumnInWindow(`a${run}`, 0, 4, 9, 21, unifiedShownCells)).toBe(1)
+    })
+
+    test("a cursor already in the window stays on its column, and a window too narrow for any glyph keeps the plain clamp", () => {
+      expect(cursorColumnInWindow(run, 0, 6, 1, 20, unifiedShownCells)).toBe(1)
+      expect(cursorColumnInWindow("ab", 0, 6, 5, 2, unifiedShownCells)).toBe(1)
+      expect(cursorColumnInWindow(run, 1, 1, 0, 20, unifiedShownCells)).toBe(0)
+    })
   })
 })

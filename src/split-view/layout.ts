@@ -1,3 +1,4 @@
+import { cellsOf } from "../diff-rows/cells"
 import { sliceSegments, type Segment } from "../diff-rows/segments"
 import { lineWrapper, type LineWrapper } from "../diff-rows/visual-rows"
 import { theme } from "../theme"
@@ -111,11 +112,9 @@ export function dividerLabel(line: Pick<DiffLine, "content" | "dividerKey">, exp
   return `▸ ${count}  ${ENTER_HINT}`
 }
 
-const SURROGATE = /[\ud800-\udbff]/
-
 export function cellCount(segments: readonly Segment[]): number {
   let cells = 0
-  for (const { text } of segments) cells += SURROGATE.test(text) ? Array.from(text).length : text.length
+  for (const { text } of segments) cells += cellsOf(text)
   return cells
 }
 

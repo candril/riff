@@ -1,3 +1,4 @@
+import { cellOfColumn, walkCells } from "../diff-rows/cells"
 import { SIDE_SCROLL_OFF } from "../diff-rows/side-scroll"
 import { visibleCells } from "../split-view/layout"
 
@@ -73,4 +74,37 @@ export function clampCursorCell(
   const { first, last } = shown(column, contentWidth, lineCells)
   const clamped = Math.min(Math.max(cursorCell, first), last)
   return Math.max(0, Math.min(clamped, lineCells - 1))
+}
+
+/** The grapheme of `content` that draws in `cell`; past the end each cell is a column of its own. */
+function graphemeAt(content: string, cell: number): { column: number; cell: number; width: number } {
+  let width = 1
+  const end = walkCells(content, (_column, at, cells) => {
+    width = cells
+    return cell < at + cells
+  })
+  return end.column < content.length ? { ...end, width } : { column: end.column + cell - end.cell, cell, width: 1 }
+}
+
+/**
+ * clampCursorCell for a column of `content`. A wide glyph the window cuts
+ * would show only part of the cursor's block, or none of it once the cell
+ * maps back to the glyph's first column, so the cursor steps to the
+ * grapheme after it at the left edge and the one before it at the right,
+ * when that one is shown whole.
+ */
+export function cursorColumnInWindow(
+  content: string,
+  column: number,
+  contentWidth: number,
+  col: number,
+  lineCells: number,
+  shown: ShownCells = visibleCells
+): number {
+  const { first, last } = shown(column, contentWidth, lineCells)
+  const whole = (at: { cell: number; width: number }) => at.cell >= first && at.cell + at.width - 1 <= last
+  const at = graphemeAt(content, clampCursorCell(column, contentWidth, cellOfColumn(content, col), lineCells, shown))
+  if (whole(at)) return at.column
+  const neighbour = at.cell < first ? graphemeAt(content, at.cell + at.width) : at.cell > 0 ? graphemeAt(content, at.cell - 1) : at
+  return whole(neighbour) ? neighbour.column : at.column
 }

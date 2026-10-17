@@ -7,7 +7,7 @@ import { createUnifiedLayout, type UnifiedLayout } from "../split-view/unified-l
 import { unifiedShownCells } from "../split-view/unified-markers"
 import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
-import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
+import { cursorColumnInWindow, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 import { EmptyMessage, isEmpty } from "./unified-empty"
 import { draggedLine } from "./unified-wheel"
@@ -232,8 +232,7 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     clampCursorColumn(col: number): number {
       const code = cursorCode()
       if (!code) return col
-      const cell = clampCursorCell(shownColumn(), code.width, cellOfColumn(code.content, col), code.cells, unifiedShownCells)
-      return columnOfCell(code.content, cell)
+      return cursorColumnInWindow(code.content, shownColumn(), code.width, col, code.cells, unifiedShownCells)
     },
     /** The status bar's readout, both numbers in cells, only for a line too wide for its window. */
     columnStatus(): { col: number; total: number } | null {

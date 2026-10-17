@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import { theme } from "../theme"
 import type { WordSpan } from "../vim-diff/word-diff"
+import { isAscii, walkCells } from "./cells"
 import { SYNTAX_PALETTE, styleOfCapture } from "./syntax-palette"
 
 /** How far flash's backdrop pulls text towards the background it sits on. */
@@ -70,7 +71,7 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
       if (overlay.fg) fg[i] = overlay.fg
       if (overlay.bg) bg[i] = overlay.bg
       if (overlay.bold !== undefined) attributes[i] = overlay.bold ? TextAttributes.BOLD : 0
-      if (overlay.char !== undefined) glyphs[i] = text[i] === "\t" ? overlay.char.padEnd(TAB.length) : overlay.char
+      if (overlay.char !== undefined) glyphs[i] = overlay.char
     }
   }
 
@@ -109,15 +110,22 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
   }
 
   if (input.cursor !== undefined) {
-    paint({ from: input.cursor, to: input.cursor + 1, fg: theme.base, bg: theme.rosewater })
+    // The whole grapheme, so a cursor on a combining mark or a low surrogate still shows a block.
+    const cursor = input.cursor
+    let from = cursor
+    let to = cursor + 1
+    walkCells(text, (column, _cell, _width, units) => {
+      if (cursor >= column + units) return false
+      from = column
+      to = column + units
+      return true
+    })
+    paint({ from, to, fg: theme.base, bg: theme.rosewater })
   }
 
   const segments: Segment[] = []
   let last: Segment | undefined
-  for (let i = 0; i < cells; i++) {
-    const code = text.charCodeAt(i)
-    const astral = code >= 0xd800 && code <= 0xdbff && i + 1 < text.length
-    const char = glyphs[i] ?? (i >= text.length ? " " : astral ? text.slice(i, i + 2) : text[i]!)
+  const emit = (i: number, char: string) => {
     if (last && last.fg === fg[i] && last.bg === bg[i] && last.attributes === attributes[i]) {
       last.text += char
     } else {
@@ -125,12 +133,15 @@ export function buildSegments(text: string, input: SegmentInput): Segment[] {
       if (bg[i]) last.bg = bg[i]
       segments.push(last)
     }
-    if (astral) i++
   }
-  // After the merge, so the overlay columns above stay the raw ones the cursor counts in.
-  for (const segment of segments) {
-    if (segment.text.includes("\t")) segment.text = segment.text.replaceAll("\t", TAB)
-  }
+  // A grapheme takes its first unit's colours, and a label is padded to its cells so nothing after it moves.
+  walkCells(text, (column, _cell, width, units) => {
+    const glyph = glyphs[column]
+    if (glyph !== undefined) emit(column, glyph.padEnd(width))
+    else emit(column, text[column] === "\t" ? TAB : text.slice(column, column + units))
+    return false
+  })
+  for (let i = text.length; i < cells; i++) emit(i, glyphs[i] ?? " ")
   return segments
 }
 
@@ -155,25 +166,36 @@ export function fade(fg: string, bg: string): string {
   return hex
 }
 
-const SURROGATE = /[\ud800-\udbff]/
-
-// Cut by code point: half a surrogate pair draws as a replacement glyph. Tabs are spaces by
-// now, so half of one is a space, as a terminal scrolled into it shows.
+// Cut by cells: a wide glyph either edge cuts through draws as spaces for its cells inside the
+// window, as a terminal scrolled into it shows, and never as half a glyph. Tabs are spaces by now.
 export function sliceSegments(segments: readonly Segment[], fromCell: number, width: number): Segment[] {
   const sliced: Segment[] = []
   const end = fromCell + width
   let at = 0
   for (const segment of segments) {
     if (at >= end) break
-    const points = SURROGATE.test(segment.text) ? Array.from(segment.text) : null
-    const length = points ? points.length : segment.text.length
-    const from = Math.max(fromCell - at, 0)
-    const to = Math.min(end - at, length)
-    if (from < to) {
-      const text = points ? points.slice(from, to).join("") : segment.text.slice(from, to)
-      sliced.push({ ...segment, text })
+    if (isAscii(segment.text)) {
+      const from = Math.max(fromCell - at, 0)
+      const to = Math.min(end - at, segment.text.length)
+      if (from < to) sliced.push({ ...segment, text: segment.text.slice(from, to) })
+      at += segment.text.length
+      continue
     }
-    at += length
+    let text = ""
+    const { cell } = walkCells(segment.text, (column, cell, cells, units) => {
+      const start = at + cell
+      if (start >= end) return true
+      const from = Math.max(start, fromCell)
+      const to = Math.min(start + cells, end)
+      if (from === start && to === start + cells) {
+        text += segment.text.slice(column, column + units)
+      } else if (from < to) {
+        text += " ".repeat(to - from)
+      }
+      return false
+    })
+    if (text) sliced.push({ ...segment, text })
+    at += cell
   }
   return sliced
 }

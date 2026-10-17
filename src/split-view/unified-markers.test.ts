@@ -30,9 +30,9 @@ describe("unifiedMarkers", () => {
 })
 
 describe("markedCells", () => {
-  test("counts a line of code in cells, a surrogate pair as one, as the row lays it out", () => {
+  test("counts a line of code in cells, an emoji as two, as the row lays it out", () => {
     expect(markedCells({ type: "addition", content: "const a = 1" })).toBe(11)
-    expect(markedCells({ type: "context", content: "x = \u{1F600}" })).toBe(5)
+    expect(markedCells({ type: "context", content: "x = \u{1F600}" })).toBe(6)
     expect(markedCells({ type: "no-newline", content: "\\ No newline at end of file" })).toBe(27)
   })
 
