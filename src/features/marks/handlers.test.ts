@@ -19,6 +19,7 @@ interface Setup {
   pane?: Pane | null
   marks?: Mark[]
   line?: number
+  head?: string
 }
 
 function harness(files: DiffFile[], setup: Setup = {}) {
@@ -68,6 +69,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     render: () => {},
     fileNavContext,
     save: (marks) => { saved.push(marks) },
+    getHead: () => setup.head,
   }
 
   return {
@@ -92,11 +94,11 @@ const mark = (letter: string, filename: string, line: number | null, side: Mark[
 // Rows of [X, Y] in all-files mode: see src/testing/marks.ts.
 describe("m{letter}", () => {
   test.each([
-    ["an addition, its new line", 3, null, { line: 2, side: "RIGHT" }],
-    ["a deletion, its old line", 2, null, { line: 2, side: "LEFT" }],
-    ["a context row, on the left pane's side", 5, "left", { line: 3, side: "LEFT" }],
+    ["an addition, its new line", 3, null, { line: 2, side: "RIGHT", text: "n2" }],
+    ["a deletion, its old line", 2, null, { line: 2, side: "LEFT", text: "o2" }],
+    ["a context row, on the left pane's side", 5, "left", { line: 3, side: "LEFT", text: "n4" }],
     ["a file header, the file", 0, null, { line: null, side: "RIGHT" }],
-    ["a divider, the line above it", 6, null, { line: 4, side: "RIGHT" }],
+    ["a divider, the line above it", 6, null, { line: 4, side: "RIGHT", text: "n4" }],
   ] as const)("on %s, sets the mark and saves the marks", (_, row, pane, place) => {
     const h = harness([X, Y], { line: row, pane })
     setMarkAtCursor("a", h.ctx)
@@ -112,7 +114,17 @@ describe("m{letter}", () => {
     setMarkAtCursor("a", h.ctx)
     h.moveTo(15)
     setMarkAtCursor("a", h.ctx)
-    expect(h.saved.at(-1)).toEqual([mark("a", "src/y.ts", 2)])
+    expect(h.saved.at(-1)).toEqual([{ ...mark("a", "src/y.ts", 2), text: "y2" }])
+  })
+
+  test("records the PR head the line was set against, and none in local mode", () => {
+    const pr = harness([X, Y], { line: 3, head: "abc123" })
+    setMarkAtCursor("a", pr.ctx)
+    expect(pr.saved).toEqual([[{ ...mark("a", "src/x.ts", 2), text: "n2", head: "abc123" }]])
+
+    const local = harness([X, Y], { line: 3 })
+    setMarkAtCursor("a", local.ctx)
+    expect(Object.keys(local.saved[0]![0]!)).not.toContain("head")
   })
 
   test("with no file under the cursor, says so and sets nothing", () => {

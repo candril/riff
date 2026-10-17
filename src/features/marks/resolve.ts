@@ -1,4 +1,5 @@
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { rowText } from "./row-text"
 import type { Mark } from "./types"
 
 export type MarkLanding = "exact" | "nearby" | "file"
@@ -32,7 +33,12 @@ export function resolveMark(mapping: DiffLineMapping, mark: Mark): ResolvedMark 
 
     const lineNum = side === "LEFT" ? row.oldLineNum : row.newLineNum
     if (lineNum === undefined) continue
-    if (lineNum === mark.line) return { line: i, side, landing: "exact" }
+    if (lineNum === mark.line) {
+      // The number survived but the code on it did not, and following the
+      // text could not find where it went.
+      const same = mark.text === undefined || rowText(row) === mark.text
+      return { line: i, side, landing: same ? "exact" : "nearby" }
+    }
 
     // Strictly closer only, so the upper of two equally near rows stays.
     const distance = Math.abs(lineNum - mark.line)

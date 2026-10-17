@@ -4,7 +4,7 @@ import type { DiffFile } from "../../utils/diff-parser"
 import { resolveMark, markLandingMessage } from "./resolve"
 import { markAt } from "./capture"
 import type { Mark } from "./types"
-import { X, Y, X_CONTENT, X_MIDDLE } from "../../testing/marks"
+import { X, Y, DOC, X_CONTENT, X_MIDDLE } from "../../testing/marks"
 
 const all = () => new DiffLineMapping([X, Y], "all")
 const mark = (line: number | null, side: Mark["side"] = "RIGHT", filename = "src/x.ts"): Mark => ({
@@ -66,6 +66,29 @@ describe("finding a mark again", () => {
 
     expect(resolveMark(mapping, mark(5))).toEqual({ line: 3, side: "RIGHT", landing: "nearby" })
     expect(resolveMark(mapping, mark(6))).toEqual({ line: 5, side: "RIGHT", landing: "nearby" })
+  })
+
+  test("a line still holding the text it was marked on lands exactly", () => {
+    expect(resolveMark(all(), { ...mark(10), text: "n10" })).toEqual({ line: 9, side: "RIGHT", landing: "exact" })
+    expect(resolveMark(all(), { ...mark(9, "LEFT"), text: "o9" })).toEqual({ line: 8, side: "LEFT", landing: "exact" })
+  })
+
+  test("a line whose number survived but whose code did not lands nearby on it, and says the line is gone", () => {
+    const set = { ...mark(10), text: "since rewritten" }
+    const resolved = resolveMark(all(), set)
+    expect(resolved).toEqual({ line: 9, side: "RIGHT", landing: "nearby" })
+    expect(markLandingMessage(set, resolved!.landing)).toBe("Mark a: line 10 of src/x.ts is gone — landed nearby")
+  })
+
+  test("a fence marked open still lands exactly on the row its folded block stands on", () => {
+    const id = new DiffLineMapping([DOC], "all").foldableBlocks[0]!.id
+    const folded = new DiffLineMapping([DOC], "all", undefined, { collapsedBlocks: new Set([id]) })
+    const set: Mark = { ...mark(2, "RIGHT", "doc.md"), text: "```mermaid" }
+    expect(resolveMark(folded, set)).toEqual({ line: 2, side: "RIGHT", landing: "exact" })
+  })
+
+  test("a mark without text resolves by its number alone, as before", () => {
+    expect(resolveMark(all(), mark(10))).toEqual({ line: 9, side: "RIGHT", landing: "exact" })
   })
 
   test("a file mark opens the file at its header", () => {

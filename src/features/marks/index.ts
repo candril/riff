@@ -19,6 +19,7 @@ export {
   stepMark,
 } from "./store"
 export { markAt } from "./capture"
+export { followMarks } from "./follow"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"

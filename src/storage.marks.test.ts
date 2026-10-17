@@ -80,6 +80,25 @@ describe("the marks file", () => {
     })
   })
 
+  test("gives back a line's text and head, and loads an entry without them by its number", async () => {
+    const followed: Mark = { letter: "a", filename: "src/x.ts", line: 4, side: "RIGHT", text: "  const x = 1", head: "abc123" }
+    const old: Mark = { letter: "b", filename: "src/x.ts", line: 9, side: "LEFT" }
+    await inRepo(async () => {
+      await saveMarks("local", [followed, old])
+      expect(await loadMarks("local")).toEqual([followed, old])
+    })
+  })
+
+  test("drops a text or head that is not a string and keeps the mark", async () => {
+    const mark = { letter: "a", filename: "src/x.ts", line: 4, side: "RIGHT" }
+    await inRepo(async (root) => {
+      await writeMarks(root, JSON.stringify([{ ...mark, text: 7, head: null }]))
+      const loaded = await loadMarks("local")
+      expect(loaded).toEqual([mark as Mark])
+      expect(Object.keys(loaded[0]!)).toEqual(["letter", "filename", "line", "side"])
+    })
+  })
+
   test("keeps the last place of a letter written twice", async () => {
     await inRepo(async (root) => {
       await writeMarks(

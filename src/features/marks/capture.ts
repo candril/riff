@@ -1,5 +1,6 @@
 import { anchorSide, type DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { DiffLine } from "../../vim-diff/types"
+import { rowText } from "./row-text"
 import type { Mark } from "./types"
 
 /**
@@ -31,16 +32,21 @@ export function markAt(
   return fileMark
 }
 
-function numberedPlace(row: DiffLine, pane: "left" | "right" | undefined): Pick<Mark, "line" | "side"> | null {
+function numberedPlace(row: DiffLine, pane: "left" | "right" | undefined): Pick<Mark, "line" | "side" | "text"> | null {
   if (row.type !== "context" && row.type !== "addition" && row.type !== "deletion") return null
 
   // A row in the pane it is not drawn in (an addition under the left pane)
   // still has its own side to be marked on.
   const side = anchorSide(row.type, pane) ?? (row.type === "deletion" ? "LEFT" : "RIGHT")
   const line = side === "LEFT" ? row.oldLineNum : row.newLineNum
-  if (line !== undefined) return { line, side }
+  // Text is what a later patch is searched for, and the patch never carries
+  // expanded context: such a mark could only ever be found again on some
+  // other hunk line that happens to read the same, a brace or a blank line.
+  // Without text it keeps its number.
+  const text = row.expanded ? {} : { text: rowText(row) }
+  if (line !== undefined) return { line, side, ...text }
 
   // Expanded context near the top of a file can have no old number.
-  if (row.newLineNum !== undefined) return { line: row.newLineNum, side: "RIGHT" }
+  if (row.newLineNum !== undefined) return { line: row.newLineNum, side: "RIGHT", ...text }
   return null
 }

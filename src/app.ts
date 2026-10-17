@@ -154,6 +154,9 @@ export async function createApp(options: AppOptions = {}) {
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
   let currentHeadSha = initialHeadSha
+  // A local review follows worktree edits by a mark's text alone; HEAD would
+  // cost a git spawn and say nothing the text does not.
+  const markHead = (): string | undefined => (state.appMode === "pr" && currentHeadSha ? currentHeadSha : undefined)
   let cachedCurrentUser: string | null = null
   // Persistent for PR sessions (spec 041); null in local mode.
   let prInfoPanel: PRInfoPanelClass | null =
@@ -1021,6 +1024,7 @@ export async function createApp(options: AppOptions = {}) {
     getPane: () => split.commentScope().pane ?? null,
     setPane: (pane) => { if (split.shown()) split.source().setSide(pane) },
     save: (saved) => { void saveMarks(state.source, saved) },
+    getHead: markHead,
   }
 
   // ===== ACTION EXECUTION =====

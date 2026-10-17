@@ -26,14 +26,19 @@ export interface MarksContext {
   render: () => void
   fileNavContext: FileNavigationContext
   save: (marks: readonly Mark[]) => void
+  /** The PR head the cursor's line numbers belong to; undefined in local mode. */
+  getHead: () => string | undefined
 }
 
 export function setMarkAtCursor(letter: string, ctx: MarksContext): void {
-  const mark = markAt(ctx.getLineMapping(), ctx.getVimState().line, letter, ctx.getPane() ?? undefined)
-  if (!mark) {
+  const placed = markAt(ctx.getLineMapping(), ctx.getVimState().line, letter, ctx.getPane() ?? undefined)
+  if (!placed) {
     toast(ctx, `Mark ${letter} needs a file under the cursor`)
     return
   }
+  const head = ctx.getHead()
+  // Left out rather than undefined, so marks.json carries no empty key.
+  const mark: Mark = head === undefined ? placed : { ...placed, head }
   ctx.setState((s) => ({ ...s, marks: setMark(s.marks, mark) }))
   ctx.save(ctx.getState().marks.marks)
   toast(ctx, `Mark ${letter} set`)

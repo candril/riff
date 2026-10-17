@@ -881,12 +881,20 @@ export async function loadMarks(source: string): Promise<Mark[]> {
 
 function toMark(entry: unknown): Mark | null {
   if (typeof entry !== "object" || entry === null) return null
-  const { letter, filename, line, side } = entry as Record<string, unknown>
+  const { letter, filename, line, side, text, head } = entry as Record<string, unknown>
   if (typeof letter !== "string" || !isMarkLetter(letter)) return null
   if (typeof filename !== "string") return null
   if (line !== null && !(typeof line === "number" && Number.isInteger(line) && line > 0)) return null
   if (side !== "LEFT" && side !== "RIGHT") return null
-  return { letter, filename, line, side }
+  // Only what following the line needs: a mark without them still resolves by number.
+  return {
+    letter,
+    filename,
+    line,
+    side,
+    ...(typeof text === "string" ? { text } : {}),
+    ...(typeof head === "string" ? { head } : {}),
+  }
 }
 
 export async function saveMarks(source: string, marks: readonly Mark[]): Promise<void> {

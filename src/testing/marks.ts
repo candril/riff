@@ -66,3 +66,30 @@ export const DOC: DiffFile = {
     " prose after",
   ].join("\n"),
 }
+
+/**
+ * X after a commit put two lines above it: every new number is two higher
+ * and the old ones are untouched, so `n10` moves from new line 10 to 12.
+ */
+export const X_SHIFTED: DiffFile = {
+  ...X,
+  additions: 5,
+  content: [
+    "diff --git a/src/x.ts b/src/x.ts",
+    "--- a/src/x.ts",
+    "+++ b/src/x.ts",
+    "@@ -1,3 +1,6 @@",
+    "+p1",
+    "+p2",
+    " n1",
+    "-o2",
+    "+n2",
+    "+n3",
+    " n4",
+    "@@ -8,3 +11,3 @@",
+    " n9",
+    "-o9",
+    "+n10",
+    " n11",
+  ].join("\n"),
+}
