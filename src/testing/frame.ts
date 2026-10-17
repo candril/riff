@@ -1,3 +1,4 @@
+import { TextRenderable, type Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRenderer } from "@opentui/core/testing"
 import { testRender, type JSX } from "@opentui/solid"
 
@@ -41,4 +42,14 @@ export async function mountJsx(code: () => JSX.Element, { width, height }: { wid
     setup.renderer.destroy()
   }
   return { frame, setup, dispose }
+}
+
+/** The text under `root` that reads exactly `content`, to tell a kept renderable from a rebuilt one. */
+export function findText(root: Renderable, content: string): TextRenderable | undefined {
+  for (const child of root.getChildren()) {
+    if (child instanceof TextRenderable && child.plainText === content) return child
+    const found = findText(child, content)
+    if (found) return found
+  }
+  return undefined
 }

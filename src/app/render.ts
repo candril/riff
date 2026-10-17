@@ -17,8 +17,6 @@ import {
   OccurrencePicker,
   CommitPicker,
   SyncPreview,
-  SearchPrompt,
-  FlashPrompt,
   HelpOverlay,
   LinePeek,
   TablePeek,
@@ -65,6 +63,8 @@ import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
 import { headerModel } from "../components/header-model"
 import type { HeaderIsland } from "./header"
+import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
+import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -113,6 +113,8 @@ export interface RenderContext {
   fileTreePanel: FileTreePanel
   statusBar: StatusBarIsland
   header: HeaderIsland
+  searchPrompt: SearchPromptIsland
+  flashPrompt: FlashPromptIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -531,6 +533,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       version,
     })
 
+    const searchShown = (searchState.active || !!searchState.pattern) && state.viewMode === "diff"
+    ctx.searchPrompt.update(searchShown ? searchPromptModel(searchState) : null)
+    const flashShown = flashState.active && state.viewMode === "diff"
+    ctx.flashPrompt.update(flashShown ? flashPromptModel(flashState) : null)
+
     ctx.renderer.root.add(
       Box(
         {
@@ -546,15 +553,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           },
           content
         ),
-        (searchState.active || searchState.pattern) && state.viewMode === "diff"
-          ? SearchPrompt({ searchState, renderer: ctx.renderer })
-          : null,
+        searchShown ? ctx.searchPrompt.host : null,
         // Flash takes the status bar's row rather than a row of its own:
         // growing the footer would shrink every panel by a line, and the
         // labels would land on rows that had just moved.
-        flashState.active && state.viewMode === "diff"
-          ? FlashPrompt({ flashState })
-          : ctx.statusBar.host,
+        flashShown ? ctx.flashPrompt.host : ctx.statusBar.host,
         state.actionMenu.open
           ? ActionMenu({
               renderer: ctx.renderer,

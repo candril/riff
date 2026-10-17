@@ -57,6 +57,7 @@ import { createRenderFunction } from "./app/render"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
+import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
 import { createUnifiedDiff } from "./app/unified-diff"
@@ -275,6 +276,8 @@ export async function createApp(options: AppOptions = {}) {
     aiReview.removeSessionFiles()
     statusBar.dispose()
     header.dispose()
+    searchPrompt.dispose()
+    flashPrompt.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -447,6 +450,8 @@ export async function createApp(options: AppOptions = {}) {
 
   const statusBar = createStatusBarIsland(renderer)
   const header = createHeaderIsland(renderer)
+  const searchPrompt = createSearchPromptIsland(renderer)
+  const flashPrompt = createFlashPromptIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -509,6 +514,8 @@ export async function createApp(options: AppOptions = {}) {
     fileTreePanel,
     statusBar,
     header,
+    searchPrompt,
+    flashPrompt,
     split,
     unified,
     parses,

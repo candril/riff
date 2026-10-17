@@ -4,7 +4,7 @@ import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testin
 import { createHeaderIsland } from "./header"
 import { headerModel } from "../components/header-model"
 import type { DiffFile } from "../utils/diff-parser"
-import { trimFrame } from "../testing/frame"
+import { findText, trimFrame } from "../testing/frame"
 
 let setup: TestRendererSetup | null = null
 
@@ -34,8 +34,12 @@ test("an update with another file redraws its name, and an identical one changes
   header.update({ ...headerModel({ selectedFile: file("src/farewell.ts") }), version: "9.9.9" })
   const changed = await frame()
   expect(changed).toBe(" riff  src/farewell.ts" + " ".repeat(25) + "+2 -1  9.9.9")
+  const name = findText(header.host, "src/farewell.ts")
+  expect(name).toBeDefined()
 
   header.update({ ...headerModel({ selectedFile: file("src/farewell.ts") }), version: "9.9.9" })
   expect(await frame()).toBe(changed)
+  // A header torn down and rebuilt would draw the same frame.
+  expect(findText(header.host, "src/farewell.ts")).toBe(name!)
   header.dispose()
 })
