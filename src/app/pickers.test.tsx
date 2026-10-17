@@ -169,14 +169,14 @@ test("the command palette swaps its list for a submenu and back on one live fiel
   const field = PromptInput(setup!.renderer, "action-menu")
   expect(island.host.zIndex).toBe(100)
 
-  island.update(actionMenuModel({ kind: "actions", actions }, 1))
+  island.update(actionMenuModel({ kind: "actions", actions }, 1, 24))
   expect(await screen()).toMatch(/Commands\s+esc/)
   const fieldBox = field.parent
   expect(fieldBox).not.toBeNull()
   const quit = findText(island.host, "Quit")
   expect(quit).toBeDefined()
 
-  island.update(actionMenuModel({ kind: "submenu", title: "React", rows: [{ id: "react:heart", icon: "♥", label: "Heart" }] }, 0))
+  island.update(actionMenuModel({ kind: "submenu", title: "React", rows: [{ id: "react:heart", icon: "♥", label: "Heart" }] }, 0, 24))
   const submenu = await screen()
   expect(submenu).toMatch(/React\s+esc to back/)
   expect(submenu).toContain("♥  Heart")
@@ -184,7 +184,7 @@ test("the command palette swaps its list for a submenu and back on one live fiel
   expect(PromptInput(setup!.renderer, "action-menu")).toBe(field)
   expect(field.parent).toBe(fieldBox)
 
-  island.update(actionMenuModel({ kind: "actions", actions }, 0))
+  island.update(actionMenuModel({ kind: "actions", actions }, 0, 24))
   const back = await screen()
   expect(back).toContain("Quit")
   expect(back).not.toContain("Heart")

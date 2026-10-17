@@ -530,7 +530,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.occurrencePicker.update(pickers.occurrence)
     ctx.commitPicker.update(pickers.commit)
     ctx.actionMenu.update(
-      state.actionMenu.open ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex) : null
+      state.actionMenu.open ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex, ctx.renderer.height) : null
     )
 
     ctx.renderer.root.add(

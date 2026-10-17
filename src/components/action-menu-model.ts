@@ -1,5 +1,6 @@
 import { theme } from "../theme"
 import type { ResolvedAction } from "../actions"
+import { PICKER_CHROME_ROWS, visibleRows } from "./picker-window"
 
 /**
  * A row in a submenu (e.g. the React… submenu). Rendered flat, without
@@ -74,17 +75,66 @@ export type ActionMenuRow =
 export interface ActionMenuModel {
   title: string
   hint: string
+  /** Only the rows in view. */
   rows: ActionMenuRow[]
+  /** Selectable entries beyond the rows in view. */
+  above: number
+  below: number
 }
 
-/** `selectedIndex` counts the selectable rows only: the actions in visual order, or a submenu's rows. */
-export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number): ActionMenuModel {
+/** A category header's rows: its own and the padding above it. */
+const HEADER_ROWS = 2
+
+/**
+ * The entries in view, grown from the selection one entry at a time, above
+ * first, which keeps it centred as pickerWindow does. The rule: at most
+ * visibleRows(height) entries, headers not counted, and the entries plus
+ * HEADER_ROWS for each header in view within the rows PickerFrame leaves
+ * for its list, headers counted. The selection and its header are always
+ * in view.
+ */
+function paletteWindow(groupOf: readonly (number | null)[], selectedIndex: number, height: number) {
+  const total = groupOf.length
+  if (total === 0) return { start: 0, end: 0 }
+  const cap = visibleRows(height)
+  const room = Math.max(1, height - PICKER_CHROME_ROWS)
+  const lines = (start: number, end: number) => {
+    let count = end - start
+    for (let i = start; i < end; i++) {
+      if (groupOf[i] !== null && (i === start || groupOf[i] !== groupOf[i - 1])) count += HEADER_ROWS
+    }
+    return count
+  }
+  const fits = (start: number, end: number) => end - start <= cap && lines(start, end) <= room
+  let start = Math.max(0, Math.min(selectedIndex, total - 1))
+  let end = start + 1
+  for (let grew = true; grew; ) {
+    grew = false
+    if (start > 0 && fits(start - 1, end)) {
+      start--
+      grew = true
+    }
+    if (end < total && fits(start, end + 1)) {
+      end++
+      grew = true
+    }
+  }
+  return { start, end }
+}
+
+/**
+ * `selectedIndex` counts the selectable rows only: the actions in visual
+ * order, or a submenu's rows. `height`: the terminal's, which caps how many
+ * rows are in view.
+ */
+export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number, height: number): ActionMenuModel {
   if (mode.kind === "submenu") {
+    const { start, end } = paletteWindow(mode.rows.map(() => null), selectedIndex, height)
     return {
       title: mode.title,
       hint: mode.hint ?? "esc to back",
-      rows: mode.rows.map((row, i) => {
-        const selected = i === selectedIndex
+      rows: mode.rows.slice(start, end).map((row, i) => {
+        const selected = start + i === selectedIndex
         const accented = row.accented === true
         return {
           kind: "submenu",
@@ -97,15 +147,24 @@ export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number): Ac
           selected,
         }
       }),
+      above: start,
+      below: mode.rows.length - end,
     }
   }
 
+  const groups = groupActionsByCategory(mode.actions)
+  const groupOf = groups.flatMap((group, g) => group.items.map(() => g))
+  const { start, end } = paletteWindow(groupOf, selectedIndex, height)
   const rows: ActionMenuRow[] = []
   let visualIndex = 0
-  for (const { category, items } of groupActionsByCategory(mode.actions)) {
-    rows.push({ kind: "category", id: `cat:${category}`, label: category })
+  for (const { category, items } of groups) {
     for (const action of items) {
-      const selected = visualIndex++ === selectedIndex
+      const index = visualIndex++
+      if (index < start || index >= end) continue
+      if (index === start || groupOf[index] !== groupOf[index - 1]) {
+        rows.push({ kind: "category", id: `cat:${category}`, label: category })
+      }
+      const selected = index === selectedIndex
       rows.push({
         kind: "action",
         id: action.id,
@@ -116,5 +175,5 @@ export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number): Ac
       })
     }
   }
-  return { title: "Commands", hint: "esc", rows }
+  return { title: "Commands", hint: "esc", rows, above: start, below: groupOf.length - end }
 }

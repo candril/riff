@@ -7,14 +7,14 @@ import type { ResolvedAction } from "../actions"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
-async function frame(mode: ActionMenuMode, selectedIndex = 0) {
+async function frame(mode: ActionMenuMode, selectedIndex = 0, { width, height } = { width: 100, height: 40 }) {
   mounted = await mountRenderable(
     (renderer) => {
       const island = createActionMenuIsland(renderer)
-      island.update(actionMenuModel(mode, selectedIndex))
+      island.update(actionMenuModel(mode, selectedIndex, height))
       return island.host
     },
-    { width: 100, height: 40 }
+    { width, height }
   )
   return (await mounted.frame()).split("\n")
 }
@@ -145,5 +145,47 @@ describe("a submenu", () => {
     expect(lines[docs]).toContain("https://example.com/")
     expect(lines[docs]!.length).toBeLessThanOrEqual(75)
     expect(lines[docs + 1]).toContain("Plain")
+  })
+})
+
+describe("on a short terminal", () => {
+  const categories = ["claude", "github", "navigation", "view", "external", "general"] as const
+  const many = Array.from({ length: 40 }, (_, i) =>
+    action(`a${i}`, `Action ${String(i).padStart(2, "0")}`, categories[Math.floor(i / 7)])
+  )
+
+  test("keeps the last action in view, says how many lie above, and ends the panel on screen", async () => {
+    const lines = await frame({ kind: "actions", actions: many }, 39, { width: 80, height: 24 })
+    const spans = mounted!.setup.captureSpans()
+    const selected = lines.findIndex((l) => l.includes("Action 39"))
+    expect(selected).toBeGreaterThan(0)
+    expect(bgAt(spans, 22, selected)).toEqual(ints(theme.surface0))
+    expect(lines.some((l) => /↑ \d+ more/.test(l))).toBe(true)
+    expect(lines.some((l) => /↓ \d+ more/.test(l))).toBe(false)
+    // The padding under the list is the panel's last row.
+    expect(selected + 1).toBeLessThan(24)
+    expect(bgAt(spans, 22, selected + 1)).toEqual(ints(theme.mantle))
+  })
+
+  test("keeps a selection in the middle roughly centred, with notes on both sides", async () => {
+    const lines = await frame({ kind: "actions", actions: many }, 20, { width: 80, height: 24 })
+    const spans = mounted!.setup.captureSpans()
+    const selected = lines.findIndex((l) => l.includes("Action 20"))
+    const above = lines.findIndex((l) => /↑ \d+ more/.test(l))
+    const below = lines.findIndex((l) => /↓ \d+ more/.test(l))
+    expect(above).toBeGreaterThan(0)
+    expect(above).toBeLessThan(selected)
+    expect(below).toBeGreaterThan(selected)
+    expect(below + 1).toBeLessThan(24)
+    expect(bgAt(spans, 22, below + 1)).toEqual(ints(theme.mantle))
+    expect(Math.abs(selected - above - (below - selected))).toBeLessThanOrEqual(4)
+  })
+
+  test("windows a long submenu the same way", async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ id: `link:${i}`, label: `Link ${String(i).padStart(2, "0")}` }))
+    const lines = await frame({ kind: "submenu", title: "Links", rows }, 29, { width: 80, height: 24 })
+    expect(lines.some((l) => l.includes("Link 29"))).toBe(true)
+    expect(lines.some((l) => /↑ 15 more/.test(l))).toBe(true)
+    expect(lines.length).toBeLessThanOrEqual(24)
   })
 })

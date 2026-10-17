@@ -7,6 +7,9 @@ function action(id: string, category?: string, shortcut?: string): ResolvedActio
   return { id, label: id.toUpperCase(), description: "", category: category as ResolvedAction["category"], shortcut, available: () => true }
 }
 
+/** Tall enough that no list here is cut to the terminal. */
+const TALL = 60
+
 const ACTIONS = [
   action("quit", "general", "q"),
   action("custom", "plugins"),
@@ -19,7 +22,7 @@ const ACTIONS = [
 
 describe("actionMenuModel", () => {
   test("groups the actions under their categories in category order, unknown categories last", () => {
-    const { title, hint, rows } = actionMenuModel({ kind: "actions", actions: ACTIONS }, 0)
+    const { title, hint, rows } = actionMenuModel({ kind: "actions", actions: ACTIONS }, 0, TALL)
     expect({ title, hint }).toEqual({ title: "Commands", hint: "esc" })
     expect(rows.map((row) => row.id)).toEqual([
       "cat:Claude", "ask", "other",
@@ -31,8 +34,12 @@ describe("actionMenuModel", () => {
     expect(getVisualActionOrder(ACTIONS).map((a) => a.id)).toEqual(["ask", "other", "pr", "split", "quit", "bare", "custom"])
   })
 
+  test("everything in view says nothing lies beyond it", () => {
+    expect(actionMenuModel({ kind: "actions", actions: ACTIONS }, 0, TALL)).toMatchObject({ above: 0, below: 0 })
+  })
+
   test("selects by the place in visual order, across the groups", () => {
-    const rows = actionMenuModel({ kind: "actions", actions: ACTIONS }, 3).rows
+    const rows = actionMenuModel({ kind: "actions", actions: ACTIONS }, 3, TALL).rows
     expect(rows.filter((row) => row.kind === "action" && row.selected).map((row) => row.id)).toEqual(["split"])
     expect(rows.find((row) => row.id === "split")).toMatchObject({ labelFg: theme.text, shortcut: "s" })
     expect(rows.find((row) => row.id === "ask")).toMatchObject({ labelFg: theme.subtext1, shortcut: null })
@@ -40,8 +47,8 @@ describe("actionMenuModel", () => {
 
   test("a submenu says esc to back unless it brings its own hint", () => {
     const rows = [{ id: "r", label: "Heart", icon: "♥" }]
-    expect(actionMenuModel({ kind: "submenu", title: "React", rows }, 0)).toMatchObject({ title: "React", hint: "esc to back" })
-    expect(actionMenuModel({ kind: "submenu", title: "Links", hint: "esc", rows }, 0).hint).toBe("esc")
+    expect(actionMenuModel({ kind: "submenu", title: "React", rows }, 0, TALL)).toMatchObject({ title: "React", hint: "esc to back" })
+    expect(actionMenuModel({ kind: "submenu", title: "Links", hint: "esc", rows }, 0, TALL).hint).toBe("esc")
   })
 
   test("a submenu row joins its icon to the label and colours an accented note green", () => {
@@ -54,11 +61,52 @@ describe("actionMenuModel", () => {
           { id: "b", label: "Plain", trailing: "" },
         ],
       },
-      1
+      1,
+      TALL
     ).rows
     expect(rows).toEqual([
       { kind: "submenu", id: "a", label: "♥  Heart", labelFg: theme.text, trailing: "you reacted", trailingFg: theme.green, accented: true, selected: false },
       { kind: "submenu", id: "b", label: "Plain", labelFg: theme.text, trailing: null, trailingFg: theme.overlay0, accented: false, selected: true },
     ])
+  })
+})
+
+describe("actionMenuModel on a short terminal", () => {
+  const many = Array.from({ length: 40 }, (_, i) => action(`a${i}`, ["claude", "github", "view", "general"][Math.floor(i / 10)]))
+  // 24 rows leave 15 for the list: PickerFrame takes 9.
+  const lines = (rows: ReturnType<typeof actionMenuModel>["rows"]) =>
+    rows.reduce((sum, row) => sum + (row.kind === "category" ? 2 : 1), 0)
+
+  test("draws the header of every group in view, the first one too, and counts the rest as beyond", () => {
+    const model = actionMenuModel({ kind: "actions", actions: many }, 39, 24)
+    const actions = model.rows.filter((row) => row.kind === "action")
+    expect(actions.at(-1)).toMatchObject({ id: "a39", selected: true })
+    expect(model.rows[0]).toEqual({ kind: "category", id: "cat:View", label: "View" })
+    expect(model.rows.filter((row) => row.kind === "category").map((row) => row.label)).toEqual(["View", "General"])
+    expect(model).toMatchObject({ above: 40 - actions.length, below: 0 })
+    expect(lines(model.rows)).toBeLessThanOrEqual(15)
+  })
+
+  test("counts the headers once they would overflow the screen, so a group boundary costs entries", () => {
+    const model = actionMenuModel({ kind: "actions", actions: many }, 20, 24)
+    expect(model.rows.map((row) => row.id)).toEqual([
+      "cat:GitHub", "a15", "a16", "a17", "a18", "a19",
+      "cat:View", "a20", "a21", "a22", "a23", "a24", "a25",
+    ])
+    expect(model).toMatchObject({ above: 15, below: 14 })
+  })
+
+  test("caps the entries at twenty on a tall terminal, the headers not counted", () => {
+    const model = actionMenuModel({ kind: "actions", actions: many }, 20, 60)
+    expect(model.rows.filter((row) => row.kind === "action")).toHaveLength(20)
+    expect(model.rows.filter((row) => row.kind === "category")).toHaveLength(2)
+    expect(model).toMatchObject({ above: 10, below: 10 })
+  })
+
+  test("windows a submenu as pickerWindow does", () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ id: `r${i}`, label: `R${i}` }))
+    const model = actionMenuModel({ kind: "submenu", title: "Links", rows }, 10, 24)
+    expect(model.rows.map((row) => row.id)).toEqual(Array.from({ length: 15 }, (_, i) => `r${i + 3}`))
+    expect(model).toMatchObject({ above: 3, below: 12 })
   })
 })

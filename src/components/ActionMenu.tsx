@@ -58,8 +58,12 @@ export function ActionMenu(props: { model: ActionMenuModel; field: InputRenderab
     get hints() {
       return [props.model.hint]
     },
-    above: 0,
-    below: 0,
+    get above() {
+      return props.model.above
+    },
+    get below() {
+      return props.model.below
+    },
     empty: null,
   }
   return (

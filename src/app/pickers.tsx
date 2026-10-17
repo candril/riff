@@ -117,7 +117,7 @@ export function createActionMenuIsland(renderer: CliRenderer) {
   return createPickerIsland<ActionMenuModel>(renderer, {
     id: "action-menu-overlay",
     owner: "action-menu",
-    closed: actionMenuModel({ kind: "actions", actions: [] }, 0),
+    closed: actionMenuModel({ kind: "actions", actions: [] }, 0, renderer.height),
     // Above the comments panel (50), so the palette is reachable while a thread is visible (spec 042).
     zIndex: 100,
     draw: (props) => <ActionMenu model={props.model} field={props.field} />,
