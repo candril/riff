@@ -1,12 +1,6 @@
 import { test, expect } from "bun:test"
-import { graphemeCells } from "../diff-rows/cells"
+import { cellsOf } from "../diff-rows/cells"
 import { HELP_KEY_CELLS, HELP_SECTIONS, helpColumns } from "./help-sections"
-
-const cells = (text: string) =>
-  [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].reduce(
-    (sum, { segment }) => sum + graphemeCells(segment),
-    0
-  )
 
 test("the left column runs Navigation to Selection, the right Panels & Files to GitHub & Other", () => {
   const [left, right] = helpColumns()
@@ -17,6 +11,6 @@ test("the left column runs Navigation to Selection, the right Panels & Files to 
 
 test("every key leaves at least a cell before its description", () => {
   for (const { keys } of HELP_SECTIONS) {
-    for (const [key] of keys) expect(cells(key)).toBeLessThanOrEqual(HELP_KEY_CELLS - 1)
+    for (const [key] of keys) expect(cellsOf(key)).toBeLessThanOrEqual(HELP_KEY_CELLS - 1)
   }
 })

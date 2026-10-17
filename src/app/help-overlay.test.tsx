@@ -33,7 +33,6 @@ test("the overlay draws on a model, clears on null, and an identical update keep
   const shown = await screen()
   expect(shown).toContain("Keyboard Shortcuts")
   expect(shown).toContain("riff 9.9.9+test")
-  // The rest of the screen is dimmed.
   expect(bgAt(setup.captureSpans(), 0, 0)).not.toEqual(bgAt(empty, 0, 0))
   const title = findText(island.host, "Keyboard Shortcuts")
   expect(title).toBeDefined()
