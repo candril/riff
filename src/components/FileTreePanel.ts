@@ -204,8 +204,8 @@ export class FileTreePanel {
       width: this.width,
       height: "100%",
       flexDirection: "column",
-      borderStyle: "single",
-      borderColor: colors.border,
+      backgroundColor: theme.mantle,
+      paddingX: 1,
     })
     keepAlive(this.container)
 
@@ -234,9 +234,9 @@ export class FileTreePanel {
       id: "file-tree-filter",
       placeholder: "filter by path…",
       placeholderColor: theme.overlay0,
-      backgroundColor: theme.mantle,
+      backgroundColor: theme.surface0,
       textColor: theme.text,
-      focusedBackgroundColor: theme.mantle,
+      focusedBackgroundColor: theme.surface0,
       focusedTextColor: theme.text,
       cursorColor: theme.yellow,
       flexGrow: 1,
@@ -298,6 +298,7 @@ export class FileTreePanel {
     this.filterFocused = treeFilterInput
 
     if (treeFilterInput) {
+      this.header.backgroundColor = theme.surface0
       this.header.remove(this.headerText)
       this.filterPrefix.visible = true
       this.filterInput.visible = true
@@ -311,6 +312,7 @@ export class FileTreePanel {
       this.header.remove(this.filterInput)
       this.filterPrefix.visible = false
       this.filterInput.visible = false
+      this.header.backgroundColor = theme.mantle
       this.header.add(this.headerText)
     }
   }
@@ -403,7 +405,6 @@ export class FileTreePanel {
         ? colors.primary
         : colors.textMuted
     this.syncFilterInput(treeFilter, treeFilterInput)
-    this.container.borderColor = focused ? colors.primary : colors.border
 
     const flatItems = this.visibleItems()
 
@@ -437,8 +438,8 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       // Unfocused, the highlight is still where the diff cursor is. It
-      // shows as the "you are here" background rather than the cursor's,
-      // so the tree answers which file you are in without claiming focus.
+      // marks the file you are in rather than drawing the cursor, so the
+      // tree answers which file you are reading without claiming focus.
       const isSelected =
         item.fileIndex === this.selectedFileIndex ||
         (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
@@ -469,10 +470,9 @@ export class FileTreePanel {
 
       // Files get color based on status, directories get subtext color
       // Viewed files/dirs get dimmed color
-      // The file you are in is named in the accent colour. The background
-      // alone is a shade against a shade, and with focus in the diff there
-      // is no cursor on the row to say which one you are reading.
-      const nameFg = isSelected && !this.focused
+      // The panel has one shade for "selected", and the cursor owns it, so
+      // the file you are in is told apart by its name's colour instead.
+      const nameFg = isSelected
         ? colors.primary
         : isViewed
           ? colors.fileViewed
@@ -482,15 +482,9 @@ export class FileTreePanel {
               ? getStatusColor(node.file.status)
               : colors.text
 
-      // Background priority (darker → lighter):
-      //   cursor highlight > multi-select range > the file you are in > none
-      const bgColor = isHighlighted
-        ? colors.selection                 // surface2 — cursor
-        : isMultiSelected
-          ? theme.surface1                 // V-mode range member
-          : isSelected
-            ? theme.surface0               // the file you are in (subtle)
-            : undefined
+      // Three shades only: the cursor and the V-range are both "selected",
+      // so they share surface0; everything else shows the panel's mantle.
+      const bgColor = isHighlighted || isMultiSelected ? theme.surface0 : undefined
 
       // Create box for this item
       // Use index for ID to avoid issues with special chars in paths
@@ -529,9 +523,9 @@ export class FileTreePanel {
         : (node.file ? getStatusColor(node.file.status) : colors.text)
 
       // Calculate available width for name
-      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + panel padding (2) + scrollbar (1) + margin (1)
       const prefixLen = 4 + indent.length + icon.length
-      const reserved = 4  // border + scrollbar + margin
+      const reserved = 4  // panel padding + scrollbar + margin
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)
       const displayName = truncate(node.name, availableWidth)
 
@@ -577,8 +571,8 @@ export class FileTreePanel {
       
       const isHighlighted = index === this.highlightIndex && this.focused
       // Unfocused, the highlight is still where the diff cursor is. It
-      // shows as the "you are here" background rather than the cursor's,
-      // so the tree answers which file you are in without claiming focus.
+      // marks the file you are in rather than drawing the cursor, so the
+      // tree answers which file you are reading without claiming focus.
       const isSelected =
         item.fileIndex === this.selectedFileIndex ||
         (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
@@ -612,10 +606,9 @@ export class FileTreePanel {
 
       // Files get color based on status, directories get subtext color
       // Viewed files/dirs get dimmed color
-      // The file you are in is named in the accent colour. The background
-      // alone is a shade against a shade, and with focus in the diff there
-      // is no cursor on the row to say which one you are reading.
-      const nameFg = isSelected && !this.focused
+      // The panel has one shade for "selected", and the cursor owns it, so
+      // the file you are in is told apart by its name's colour instead.
+      const nameFg = isSelected
         ? colors.primary
         : isViewed
           ? colors.fileViewed
@@ -625,15 +618,8 @@ export class FileTreePanel {
               ? getStatusColor(node.file.status)
               : colors.text
 
-      // Background priority (same as rebuildItems):
-      //   cursor highlight > multi-select range > the file you are in > none
-      const bgColor = isHighlighted
-        ? colors.selection
-        : isMultiSelected
-          ? theme.surface1
-          : isSelected
-            ? theme.surface0
-            : null
+      // Same shades as rebuildItems.
+      const bgColor = isHighlighted || isMultiSelected ? theme.surface0 : null
 
       // Viewed marker with states:
       // ✓ green - all viewed, unchanged
@@ -662,7 +648,7 @@ export class FileTreePanel {
         : (node.file ? getStatusColor(node.file.status) : colors.text)
 
       // Calculate available width for name
-      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + border (2) + scrollbar (1) + padding (1)
+      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + panel padding (2) + scrollbar (1) + margin (1)
       const prefixLen = 4 + indent.length + icon.length
       const reserved = 4
       const availableWidth = Math.max(5, this.width - prefixLen - reserved)

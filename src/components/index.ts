@@ -1,7 +1,7 @@
 export { headerModel, type HeaderProps, type HeaderModel } from "./header-model"
 export { Header, type HeaderViewProps } from "./Header"
 export { StatusBar, type StatusBarProps } from "./StatusBar"
-export { FileTree, type FileTreeProps, getFlatTreeItems, getVisibleFlatTreeItems } from "./FileTree"
+export { getFlatTreeItems, getVisibleFlatTreeItems } from "./FileTree"
 export { ActionMenu, type ActionMenuProps, type ActionMenuMode, type SubmenuRow, getVisualActionOrder } from "./ActionMenu"
 export { ReviewPreview, type ReviewPreviewProps, type ValidatedComment, type ReviewEvent, canSubmit } from "./ReviewPreview"
 export { toastModel, draftNotificationModel, type ToastType, type ToastModel, type DraftNotificationModel } from "./notification-model"
