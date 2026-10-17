@@ -2,7 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import { Show, createMemo, type JSX } from "solid-js"
 import { cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade } from "../diff-rows/segments"
-import { theme } from "../theme"
+import { colors, theme } from "../theme"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine } from "../vim-diff/types"
 import type { RowEnv } from "./env"
@@ -62,6 +62,8 @@ export function FileLabel(props: {
   collapsed: boolean
   cursor?: number
   flash?: readonly FlashMatch[]
+  /** A file mark's letter, drawn in the leading padding so the fold mark, the tick and the path keep their cells. */
+  mark?: string
 }) {
   const viewed = () => props.env.props.fileStatuses.get(props.filename)?.viewed ?? false
   const file = () => props.env.files().get(props.filename)
@@ -76,6 +78,11 @@ export function FileLabel(props: {
     })
   return (
     <Bar env={props.env} bg={theme.surface0} paddingX={LABEL_PADDING_X} gap={LABEL_GAP}>
+      <Show when={props.mark}>
+        <text position="absolute" left={0} top={0} wrapMode="none" fg={colors.markLetter}>
+          {props.mark}
+        </text>
+      </Show>
       <Cell fg={props.collapsed ? theme.overlay1 : theme.overlay0}>{props.collapsed ? "▶" : "▼"}</Cell>
       <Cell fg={viewed() ? theme.green : theme.overlay0}>{viewed() ? "✓" : " "}</Cell>
       {/* Its own box, or the bar's gap would open between the path's segments. */}
@@ -102,6 +109,8 @@ function FileHeader(props: RowProps) {
       collapsed={props.line.isCollapsed ?? false}
       cursor={cursor()}
       flash={props.env.flashHits()?.get(props.index)}
+      // A header row is in both halves, so a file mark shows whichever side it was set on.
+      mark={props.env.marks().get(props.index)?.[0]?.letter}
     />
   )
 }

@@ -55,6 +55,13 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
   says it moved.
 - **Marks persist** with the review in `.riff/<source>/marks.json`, so a
   review resumed tomorrow has them.
+- **Marks show in the diff's gutter.** A marked line shows its letter in
+  a gutter cell of its own beside the comment sign, so a line can carry
+  both. In split it is on the mark's side. A file mark shows on the file's
+  header row, and on the sticky header pinned for that file. The letter is
+  in an accent colour (mauve) that reads apart from the comment signs'
+  colours. The cell is kept whether any mark is set, so setting the first
+  mark never moves the code.
 
 ### P1 - The list
 
@@ -91,6 +98,8 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
   nearest surviving line in the same file, else the file header.
 - `''` keeps two letters, `current` and `previous`, in memory only; a
   session starts with neither.
+- The gutter's letter sits on the row `resolveMark` returns, so it shows
+  where `'x` lands, a nearby or file landing included.
 - `marks.json` sits beside `viewed.json` and `visit.json` and is written
   the way those are, through `storage`.
 - The keys go through the keymap layers spec 100 introduces (M6). If 101

@@ -1,5 +1,6 @@
 import { For, createMemo } from "solid-js"
 import { commentSigns } from "../diff-rows/signs"
+import { markSigns } from "../features/marks/signs"
 import type { SplitDiffViewProps, SplitEnv } from "./env"
 import { FullRow } from "./FullRow"
 import { mountedRows } from "./held-rows"
@@ -29,6 +30,7 @@ export function SplitDiffView(props: SplitDiffViewProps) {
     headerCursor: () => (props.focused ? props.cursor.col : undefined),
     panes: createMemo(() => paneWidths(props.width)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
+    marks: createMemo(() => markSigns(props.mapping, props.marks)),
     words: createMemo(() => wordsOf(props.mapping)),
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
     searchHits: createMemo(() => searchByLine(props.search)),

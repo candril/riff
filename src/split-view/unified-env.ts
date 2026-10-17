@@ -1,5 +1,6 @@
 import type { LineSpans } from "../diff-rows/line-spans"
 import type { CommentSign } from "../diff-rows/signs"
+import type { Mark } from "../features/marks/types"
 import type { VisualRows } from "../diff-rows/visual-rows"
 import type { Comment, FileReviewStatus } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
@@ -18,6 +19,7 @@ export interface UnifiedDiffViewProps {
   /** Bumped when a parse lands; LineSpans answers from a cache Solid cannot see into. */
   highlightVersion: number
   comments: readonly Comment[]
+  marks: readonly Mark[]
   fileStatuses: ReadonlyMap<string, FileReviewStatus>
   expandingDivider: string | null
   /** `line` indexes the mapping's lines; `col` is a UTF-16 column of it, as the vim cursor keeps it. */

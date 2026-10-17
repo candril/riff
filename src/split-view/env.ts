@@ -2,6 +2,8 @@ import type { LineSpans } from "../diff-rows/line-spans"
 import type { RowLineSource } from "../diff-rows/row-source"
 import type { Side } from "../diff-rows/rows"
 import type { CommentSign } from "../diff-rows/signs"
+import type { MarkSign } from "../features/marks/signs"
+import type { Mark } from "../features/marks/types"
 import type { Comment, FileReviewStatus } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
 import type { FlashMatch } from "../vim-diff/flash-state"
@@ -18,6 +20,7 @@ export interface SplitDiffViewProps {
   /** Bumped when a parse lands; LineSpans answers from a cache Solid cannot see into. */
   highlightVersion: number
   comments: readonly Comment[]
+  marks: readonly Mark[]
   fileStatuses: ReadonlyMap<string, FileReviewStatus>
   expandingDivider: string | null
   /** `row` indexes the source's rows; `col` is a column of the active side's line. */
@@ -62,6 +65,7 @@ export interface RowEnv {
   headerCursor: () => number | undefined
   files: () => ReadonlyMap<string, DiffFile>
   flashHits: () => ReadonlyMap<number, readonly FlashMatch[]> | null
+  marks: () => ReadonlyMap<number, readonly MarkSign[]>
 }
 
 /** What every row reads, worked out once per view rather than once per row. */

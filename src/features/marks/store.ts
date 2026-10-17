@@ -34,7 +34,7 @@ function rank(letter: string): number {
   return letter >= "a" && letter <= "z" ? code - 97 : code - 65 + 26
 }
 
-export function marksInOrder(state: MarksState): Mark[] {
+export function marksInOrder(state: Pick<MarksState, "marks">): Mark[] {
   return [...state.marks].sort((a, b) => rank(a.letter) - rank(b.letter))
 }
 

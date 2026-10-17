@@ -1,6 +1,7 @@
 import { For, Show, createMemo } from "solid-js"
 import type { Row } from "../diff-rows/rows"
 import { commentSigns } from "../diff-rows/signs"
+import { markSigns } from "../features/marks/signs"
 import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FileLabel, FullRow } from "./FullRow"
@@ -39,6 +40,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     files: createMemo(() => new Map(props.files.map((file) => [file.filename, file]))),
     flashHits: createMemo(() => flashByLine(props.flash)),
     signs: createMemo(() => commentSigns(props.mapping, props.comments)),
+    marks: createMemo(() => markSigns(props.mapping, props.marks)),
     words: createMemo(() => wordsOf(props.mapping)),
     searchHits: createMemo(() => searchByLine(props.search)),
     visual,
@@ -101,6 +103,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
               env={env}
               filename={props.mapping.getLine(sticky()!)?.filename ?? ""}
               collapsed={props.mapping.getLine(sticky()!)?.isCollapsed ?? false}
+              mark={env.marks().get(sticky()!)?.[0]?.letter}
             />
           </box>
         </Show>

@@ -58,6 +58,7 @@ async function mount() {
         lineSpans={new LineSpans(new FileParses(async () => null), async () => null)}
         highlightVersion={0}
         comments={[]}
+        marks={[]}
         fileStatuses={new Map()}
         expandingDivider={null}
         cursor={view.cursor}

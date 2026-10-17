@@ -34,6 +34,7 @@ export async function mountUnified(options: MountUnifiedOptions) {
     lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
     highlightVersion: 0,
     comments: [],
+    marks: [],
     fileStatuses: new Map(),
     expandingDivider: null,
     cursor: { line: cursor?.line ?? 0, col: cursor?.col ?? 0 },

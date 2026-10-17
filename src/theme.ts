@@ -82,6 +82,10 @@ export const colors = {
   commentSynced: theme.green,
   commentResolved: theme.overlay1,
 
+  // A mark's letter in the diff's gutter (spec 101), in none of the comment signs'
+  // colours, so a sign and a letter side by side read as two things.
+  markLetter: theme.mauve,
+
   // File status
   fileAdded: theme.green,
   fileModified: theme.yellow,

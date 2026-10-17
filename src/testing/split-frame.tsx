@@ -27,6 +27,7 @@ export async function mountSplit(options: MountSplitOptions) {
     lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
     highlightVersion: 0,
     comments: [],
+    marks: [],
     fileStatuses: new Map(),
     expandingDivider: null,
     cursor: { row: -1, col: 0 },

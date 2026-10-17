@@ -43,6 +43,7 @@ export async function mountIsland(options: MountIslandOptions) {
       lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
       highlightVersion: 0,
       comments: [],
+      marks: [],
       fileStatuses: new Map(),
       expandingDivider: null,
       cursor: { line: 0, col: 0 },

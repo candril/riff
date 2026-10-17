@@ -116,6 +116,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       lineSpans: deps.highlights.lineSpans,
       highlightVersion: deps.highlights.version(),
       comments: state.comments,
+      marks: state.marks.marks,
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,
       cursor: { row: cursorRow(), col: vimState.col },

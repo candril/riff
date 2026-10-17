@@ -3,7 +3,7 @@ import { columnOfCell } from "../diff-rows/cells"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade, sliceSegments, type Segment } from "../diff-rows/segments"
 import type { WrapSlice } from "../diff-rows/wrap"
-import { theme } from "../theme"
+import { colors as themeColors, theme } from "../theme"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine, DiffLineType } from "../vim-diff/types"
 import { SegmentTexts, sameSpan } from "./Half"
@@ -85,6 +85,8 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   const colors = createMemo(() => unifiedLineColors(props.line.type, selected(), props.atCursor))
   const origin = () => env.originOf(props.index)
   const sign = () => env.signs().get(props.index)
+  // Unified has one cell for the line's two sides, so the first letter in letter order takes it.
+  const mark = () => env.marks().get(props.index)?.[0]?.letter
   const codeWidth = () => env.rowWidth() - origin()
   const lineCells = createMemo(() => markedCells(props.line))
   // Each memoised to what this line shows, so a search, selection or flash changing elsewhere leaves its segments alone.
@@ -170,8 +172,8 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
               <text wrapMode="none" flexShrink={0} fg={sign()?.color ?? theme.overlay0} bg={colors().gutter}>
                 {!continuation && sign() ? "●" : " "}
               </text>
-              <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
-                {" "}
+              <text wrapMode="none" flexShrink={0} fg={mark() ? themeColors.markLetter : theme.overlay0} bg={colors().gutter}>
+                {(!continuation && mark()) || " "}
               </text>
               <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
                 {(continuation ? "" : lineNumber(props.line)).padStart(origin() - SIGN_CELLS - 1)}

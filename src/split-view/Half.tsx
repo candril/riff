@@ -2,7 +2,7 @@ import { Index, Show, createMemo } from "solid-js"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import type { Side } from "../diff-rows/rows"
 import { buildSegments, type Segment } from "../diff-rows/segments"
-import { theme } from "../theme"
+import { colors, theme } from "../theme"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLine } from "../vim-diff/types"
 import type { SplitEnv } from "./env"
@@ -71,6 +71,8 @@ export function Half(props: {
   }
   const gutterBg = () => (lineSelected() ? theme.surface1 : undefined)
   const width = () => env.panes()[props.side]
+  const mark = () =>
+    props.index === undefined ? undefined : env.marks().get(props.index)?.find((found) => found.side === props.side)?.letter
   const sign = () => {
     const found = props.index === undefined ? undefined : env.signs().get(props.index)
     return found?.side === props.side ? found : undefined
@@ -100,8 +102,8 @@ export function Half(props: {
         <text wrapMode="none" flexShrink={0} fg={sign()?.color ?? theme.overlay0} bg={gutterBg()}>
           {sign() ? "●" : " "}
         </text>
-        <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
-          {" "}
+        <text wrapMode="none" flexShrink={0} fg={mark() ? colors.markLetter : theme.overlay0} bg={gutterBg()}>
+          {mark() ?? " "}
         </text>
         <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
           {`${lineNumber(line()!, props.side).padStart(env.gutter())} `}
