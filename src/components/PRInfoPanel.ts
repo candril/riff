@@ -1414,7 +1414,7 @@ export class PRInfoPanelClass {
     const row = rows?.[index]
     if (!row) return
 
-    row.container.backgroundColor = selected ? theme.surface1 : undefined
+    row.container.backgroundColor = selected ? theme.surface0 : undefined
     
     // Update colors based on section type
     switch (section) {
@@ -2042,7 +2042,7 @@ export class PRInfoPanelClass {
     const row = new BoxRenderable(this.renderer, {
       flexDirection: "row",
       height: 1,
-      backgroundColor: isSelected ? theme.surface1 : undefined,
+      backgroundColor: isSelected ? theme.surface0 : undefined,
     })
 
     row.add(new TextRenderable(this.renderer, {
@@ -2088,7 +2088,7 @@ export class PRInfoPanelClass {
     // and the row is still a single cursor stop (spec 043).
     const outer = new BoxRenderable(this.renderer, {
       flexDirection: "column",
-      backgroundColor: isSelected ? theme.surface1 : undefined,
+      backgroundColor: isSelected ? theme.surface0 : undefined,
     })
 
     const bulletColor =
@@ -2149,7 +2149,7 @@ export class PRInfoPanelClass {
     const row = new BoxRenderable(this.renderer, {
       flexDirection: "row",
       height: 1,
-      backgroundColor: isSelected ? theme.surface1 : undefined,
+      backgroundColor: isSelected ? theme.surface0 : undefined,
     })
     const text = new TextRenderable(this.renderer, {
       content,
@@ -2190,7 +2190,7 @@ export class PRInfoPanelClass {
           flexDirection: "row",
           height: 1,
           overflow: "hidden",
-          backgroundColor: isSelected ? theme.surface1 : undefined,
+          backgroundColor: isSelected ? theme.surface0 : undefined,
         })
 
         const expandIcon = isExpanded ? "▼" : "▶"
@@ -2248,7 +2248,7 @@ export class PRInfoPanelClass {
           flexDirection: "row",
           height: 1,
           overflow: "hidden",
-          backgroundColor: isSelected ? theme.surface1 : undefined,
+          backgroundColor: isSelected ? theme.surface0 : undefined,
         })
 
         const expandIcon = isExpanded ? "▼" : "▶"
@@ -2320,7 +2320,7 @@ export class PRInfoPanelClass {
           height: 1,
           overflow: "hidden",
           paddingLeft: 2,  // Indent to show it's under a review
-          backgroundColor: isSelected ? theme.surface1 : undefined,
+          backgroundColor: isSelected ? theme.surface0 : undefined,
         })
 
         // Thread icon
@@ -2434,7 +2434,7 @@ export class PRInfoPanelClass {
         const block = new BoxRenderable(this.renderer, {
           flexDirection: "column",
           marginTop: 1,
-          backgroundColor: isSelected ? theme.surface1 : undefined,
+          backgroundColor: isSelected ? theme.surface0 : undefined,
         })
 
         const headerRow = new BoxRenderable(this.renderer, {
@@ -2696,7 +2696,7 @@ export class PRInfoPanelClass {
       const row = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         height: 1,
-        backgroundColor: isSelected ? theme.surface1 : undefined,
+        backgroundColor: isSelected ? theme.surface0 : undefined,
       })
 
       const appText = new TextRenderable(this.renderer, {
@@ -2753,7 +2753,7 @@ export class PRInfoPanelClass {
       const row = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         height: 1,
-        backgroundColor: isSelected ? theme.surface1 : undefined,
+        backgroundColor: isSelected ? theme.surface0 : undefined,
       })
       
       const name = truncate(file.filename, nameWidth)
@@ -2806,7 +2806,7 @@ export class PRInfoPanelClass {
       const row = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         height: 1,
-        backgroundColor: isSelected ? theme.surface1 : undefined,
+        backgroundColor: isSelected ? theme.surface0 : undefined,
       })
       
       // Relative date (right-padded to 8 chars for alignment)
@@ -2999,9 +2999,8 @@ export class PRInfoPanelClass {
         width: 60,
         flexDirection: "column",
         backgroundColor: theme.mantle,
-        borderStyle: "single",
-        borderColor: theme.blue,
-        padding: 1,
+        paddingX: 2,
+        paddingY: 1,
       })
       
       // Header
@@ -3021,7 +3020,13 @@ export class PRInfoPanelClass {
         content: text || "Type your comment...",
         fg: text ? theme.text : theme.overlay0,
       })
-      inputBox.add(this.commentInputText)
+      const textBox = new BoxRenderable(this.renderer, {
+        id: "pr-comment-input-text-box",
+        backgroundColor: theme.surface0,
+        paddingX: 1,
+      })
+      textBox.add(this.commentInputText)
+      inputBox.add(textBox)
       
       // Status line
       this.commentInputStatus = new TextRenderable(this.renderer, {

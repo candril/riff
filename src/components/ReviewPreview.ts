@@ -90,7 +90,7 @@ export function ReviewPreview({
       {
         width: 72,
         flexDirection: "column",
-        backgroundColor: theme.base,
+        backgroundColor: theme.mantle,
       },
       // Header
       Box(
@@ -111,7 +111,6 @@ export function ReviewPreview({
           flexDirection: "row",
           paddingX: 2,
           paddingY: 1,
-          backgroundColor: theme.surface0,
         },
         Text({ content: "Checking for pending review...", fg: theme.overlay0 })
       ) : state.pendingReview ? Box(
@@ -163,18 +162,7 @@ export function ReviewPreview({
           content: "Summary" + (isFocused("input") ? " (editing)" : ""),
           fg: isFocused("input") ? theme.text : theme.subtext0,
         }),
-        // No padding inside the border: the textarea paints its own
-        // background, so a gutter between the two reads as a second,
-        // misaligned box rather than as breathing room.
-        Box(
-          {
-            marginTop: 1,
-            minHeight: 3,
-            borderStyle: "single",
-            borderColor: isFocused("input") ? theme.subtext0 : theme.surface1,
-          },
-          textarea
-        )
+        Box({ marginTop: 1, minHeight: 3 }, textarea)
       ),
       
       // Comments section (only show if there are comments)
@@ -248,7 +236,7 @@ export function ReviewPreview({
         Box(
           {
             paddingX: 2,
-            backgroundColor: submitAllowed && !state.loading ? selectedColor : theme.surface1,
+            backgroundColor: submitAllowed && !state.loading ? selectedColor : theme.surface0,
           },
           Text({
             content: "Enter",
