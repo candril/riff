@@ -1,12 +1,8 @@
 import { test, expect, afterEach } from "bun:test"
-import { Box } from "@opentui/core"
-import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
+import { bgAt, fgAt, ints, mountJsx } from "../testing/frame"
 import { colors, theme } from "../theme"
-import { getSyntaxStyle } from "../vim-diff/syntax-style"
-import { LinePeek } from "./LinePeek"
-import { TablePeek } from "./TablePeek"
-import { DiagramPeek } from "./DiagramPeek"
-import { HunkPeek } from "./HunkPeek"
+import { Peek } from "./Peek"
+import { diagramPeekModel, hunkPeekModel, linePeekModel, tablePeekModel, type PeekModel } from "./peek-model"
 
 /*
  * Each peek over a bare 100x30 screen, backdrop included. The expected rows
@@ -14,7 +10,7 @@ import { HunkPeek } from "./HunkPeek"
  * other means has to match them byte for byte.
  */
 
-let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
+let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
 
 afterEach(async () => {
   await mounted?.dispose()
@@ -26,13 +22,22 @@ const screen = { terminalWidth: SIZE.width, terminalHeight: SIZE.height }
 const at = (col: number, text: string) => " ".repeat(col) + text
 const blank = (count: number) => Array.from({ length: count }, () => "")
 
-async function frame(build: Parameters<typeof mountRenderable>[0]) {
-  mounted = await mountRenderable(build, SIZE)
+/** The peek in a full-screen host with the dimmed backdrop, as its island draws it. */
+async function frame(model: PeekModel) {
+  mounted = await mountJsx(
+    () => (
+      <box position="absolute" top={0} left={0} width="100%" height="100%" justifyContent="center" alignItems="center">
+        <box position="absolute" top={0} left={0} width="100%" height="100%" backgroundColor="#00000080" />
+        <Peek model={model} />
+      </box>
+    ),
+    SIZE
+  )
   return (await mounted.frame()).split("\n")
 }
 
 async function emptyBg() {
-  const empty = await mountRenderable(() => Box({}), SIZE)
+  const empty = await mountJsx(() => <box />, SIZE)
   await empty.frame()
   const bg = bgAt(empty.setup.captureSpans(), 0, 0)
   await empty.dispose()
@@ -62,8 +67,8 @@ async function expectBox(left: number, top: number, width: number, height: numbe
 const fg = (x: number, y: number) => fgAt(mounted!.setup.captureSpans(), x, y)
 
 test("a line peek names the line and its width above the line itself", async () => {
-  const rows = await frame((r) =>
-    LinePeek({ content: "const answer = 42", lineNumber: 7, filetype: "typescript", syntaxStyle: getSyntaxStyle(r.nativeScene), ...screen })
+  const rows = await frame(
+    linePeekModel({ content: "const answer = 42", lineNumber: 7, filetype: "typescript", ...screen })
   )
   expect(rows).toEqual([...blank(13), at(6, "line 7 17 cols"), "", at(6, "const answer = 42"), "", at(6, "Press gl or Esc to close")])
   await expectBox(4, 12, 92, 7)
@@ -73,14 +78,14 @@ test("a line peek names the line and its width above the line itself", async () 
 })
 
 test("a line with no number of its own is just a line", async () => {
-  const rows = await frame((r) => LinePeek({ content: "plain words", syntaxStyle: getSyntaxStyle(r.nativeScene), ...screen }))
+  const rows = await frame(linePeekModel({ content: "plain words", ...screen }))
   expect(rows).toEqual([...blank(13), at(6, "line 11 cols"), "", at(6, "plain words"), "", at(6, "Press gl or Esc to close")])
   await expectBox(4, 12, 92, 7)
 })
 
 test("a line longer than twenty rows of the box is cut there, with an ellipsis", async () => {
   const content = "abcdefghij".repeat(220)
-  const rows = await frame((r) => LinePeek({ content, lineNumber: 1, syntaxStyle: getSyntaxStyle(r.nativeScene), ...screen }))
+  const rows = await frame(linePeekModel({ content, lineNumber: 1, ...screen }))
   const wrapped = Array.from({ length: 20 }, (_, i) => at(6, content.slice(i * 88, i * 88 + 88)))
   wrapped[19] = at(6, content.slice(19 * 88, 20 * 88 - 1) + "…")
   expect(rows).toEqual([...blank(3), at(6, "line 1 2200 cols"), "", ...wrapped, "", at(6, "Press gl or Esc to close")])
@@ -97,7 +102,7 @@ const TABLE = [
 
 test("a changed table says which version is on show, and Tab offers the other", async () => {
   const shown = (side: "new" | "old") =>
-    frame(() => TablePeek({ lines: TABLE, rowCount: 2, side, hasOther: true, scroll: { row: 0, col: 0 }, ...screen }))
+    frame(tablePeekModel({ lines: TABLE, rowCount: 2, side, hasOther: true, scroll: { row: 0, col: 0 }, ...screen }))
 
   // The footer is wider than this table, and is cut at the box's edge.
   expect(await shown("new")).toEqual([
@@ -128,8 +133,8 @@ test("a changed table says which version is on show, and Tab offers the other", 
 
 test("a table bigger than the window says which rows and columns are on show", async () => {
   const lines = Array.from({ length: 40 }, (_, i) => `| row ${String(i + 1).padStart(2, "0")} ${"x".repeat(120)} |`)
-  const rows = await frame(() =>
-    TablePeek({ lines, rowCount: 40, side: "new", hasOther: false, scroll: { row: 3, col: 2 }, ...screen })
+  const rows = await frame(
+    tablePeekModel({ lines, rowCount: 40, side: "new", hasOther: false, scroll: { row: 3, col: 2 }, ...screen })
   )
   expect(rows).toEqual([
     "",
@@ -145,8 +150,8 @@ test("a table bigger than the window says which rows and columns are on show", a
 
 test("a drawn sequence diagram is titled by its kind and carries its note", async () => {
   const lines = ["Alice ────────── hello ──────────> Bob", "Alice <───────── hi back ───────── Bob"]
-  const rows = await frame(() =>
-    DiagramPeek({
+  const rows = await frame(
+    diagramPeekModel({
       lines,
       source: ["sequenceDiagram"],
       kind: "sequence",
@@ -176,8 +181,8 @@ test("a diagram riff cannot draw shows its source, scrollable, with Tab to the o
     const n = String(i).padStart(2, "0")
     return `  A${n} --> B${n} %% ${"-".repeat(52)}`
   })
-  const rows = await frame(() =>
-    DiagramPeek({ lines: [], source, kind: "unsupported", side: "old", hasOther: true, scroll: { row: 0, col: 0 }, ...screen })
+  const rows = await frame(
+    diagramPeekModel({ lines: [], source, kind: "unsupported", side: "old", hasOther: true, scroll: { row: 0, col: 0 }, ...screen })
   )
   expect(rows).toEqual([
     "",
@@ -194,8 +199,8 @@ test("a diagram riff cannot draw shows its source, scrollable, with Tab to the o
 })
 
 test("a hunk colours its header, removals and additions, under the file's own name", async () => {
-  const rows = await frame(() =>
-    HunkPeek({
+  const rows = await frame(
+    hunkPeekModel({
       hunk: "@@ -1,3 +1,3 @@\n context\n-old line\n+new line\n",
       filename: "src/app/thing.ts",
       line: 3,
@@ -225,8 +230,8 @@ test("a hunk colours its header, removals and additions, under the file's own na
 })
 
 test("an outdated reply's hunk is the root's, and says so", async () => {
-  const rows = await frame(() =>
-    HunkPeek({ hunk: "@@ -1 +1 @@\n+x", filename: "a.ts", line: 1, outdated: true, fromRoot: true, ...screen })
+  const rows = await frame(
+    hunkPeekModel({ hunk: "@@ -1 +1 @@\n+x", filename: "a.ts", line: 1, outdated: true, fromRoot: true, ...screen })
   )
   expect(rows).toEqual([
     ...blank(12),
@@ -244,7 +249,9 @@ test("an outdated reply's hunk is the root's, and says so", async () => {
 
 test("a hunk taller than the room keeps its tail, where the comment is", async () => {
   const hunk = ["@@ -1,40 +1,40 @@", ...Array.from({ length: 40 }, (_, i) => `+line ${i + 1}`)].join("\n")
-  const rows = await frame(() => HunkPeek({ hunk, filename: "a.ts", line: 40, outdated: false, fromRoot: false, ...screen }))
+  const rows = await frame(
+    hunkPeekModel({ hunk, filename: "a.ts", line: 40, outdated: false, fromRoot: false, ...screen })
+  )
   expect(rows).toEqual([
     "",
     at(30, "a.ts:40 the code this was written against"),
@@ -258,8 +265,8 @@ test("a hunk taller than the room keeps its tail, where the comment is", async (
 })
 
 test("a hunk row wider than the box is cut with an ellipsis", async () => {
-  const rows = await frame(() =>
-    HunkPeek({ hunk: `@@ -1 +1 @@\n+${"w".repeat(150)}\n`, filename: "a.ts", line: 1, outdated: false, fromRoot: false, ...screen })
+  const rows = await frame(
+    hunkPeekModel({ hunk: `@@ -1 +1 @@\n+${"w".repeat(150)}\n`, filename: "a.ts", line: 1, outdated: false, fromRoot: false, ...screen })
   )
   expect(rows).toEqual([
     ...blank(12),

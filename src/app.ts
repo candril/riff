@@ -61,6 +61,7 @@ import { createHeaderIsland } from "./app/header"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createHelpOverlayIsland } from "./app/help-overlay"
+import { createPeekIsland } from "./app/peek-island"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -289,6 +290,8 @@ export async function createApp(options: AppOptions = {}) {
     draftNotification.dispose()
     confirmDialog.dispose()
     helpOverlay.dispose()
+    diffPeek.dispose()
+    hunkPeek.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -467,6 +470,9 @@ export async function createApp(options: AppOptions = {}) {
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
+  const diffPeek = createPeekIsland(renderer, { id: "diff-peek" })
+  // Above the comments panel (50), which is what this is drawn over.
+  const hunkPeek = createPeekIsland(renderer, { id: "hunk-peek", zIndex: 60 })
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -535,6 +541,8 @@ export async function createApp(options: AppOptions = {}) {
     draftNotification,
     confirmDialog,
     helpOverlay,
+    diffPeek,
+    hunkPeek,
     split,
     unified,
     parses,

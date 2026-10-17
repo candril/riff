@@ -48,7 +48,6 @@ import {
   syncReviewSummarySession,
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
-import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
 import { headerModel } from "../components/header-model"
@@ -62,7 +61,7 @@ import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
-import { peekBox } from "../components/PeekBox"
+import type { PeekIsland } from "./peek-island"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -116,6 +115,8 @@ export interface RenderContext {
   draftNotification: DraftNotificationIsland
   confirmDialog: ConfirmDialogIsland
   helpOverlay: HelpOverlayIsland
+  diffPeek: PeekIsland
+  hunkPeek: PeekIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -553,6 +554,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       codePeekId !== null
         ? hunkPeekModel(getInlineCommentOverlayComments(state), codePeekId, ctx.renderer.width, ctx.renderer.height)
         : null
+    ctx.diffPeek.update(diffPeek)
+    ctx.hunkPeek.update(hunkPeek)
 
     ctx.renderer.root.add(
       Box(
@@ -643,9 +646,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             })
           : null,
         state.showHelp ? ctx.helpOverlay.host : null,
-        diffPeek ? peekBox(diffPeek, { syntaxStyle: getSyntaxStyle(ctx.renderer.nativeScene) }) : null,
-        // Above the comments panel (50), which is what this is drawn over.
-        hunkPeek ? peekBox(hunkPeek, { zIndex: 60 }) : null,
+        diffPeek ? ctx.diffPeek.host : null,
+        hunkPeek ? ctx.hunkPeek.host : null,
         state.confirmDialog ? ctx.confirmDialog.host : null,
         state.draftNotification ? ctx.draftNotification.host : null,
 
