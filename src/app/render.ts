@@ -81,13 +81,9 @@ import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
-import { getAvailableActions } from "../actions"
-import { submenuOpenedFromPalette } from "../actions/types"
-import { fuzzyFilter } from "../utils/fuzzy"
 import { setMarksPickerQuery } from "../features/marks"
 import * as commentsFeature from "../features/comments"
-import { getSubmenuRows } from "../features/action-menu"
-import type { ActionMenuMode } from "../components"
+import { paletteMode } from "../features/action-menu"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { composerOpen, diffCursorShown } from "./diff-focus"
 import { mainContentRow } from "./content-row"
@@ -328,35 +324,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       discard(child)
     }
 
-    // Get filtered actions for action menu
-    const availableActions = getAvailableActions(state, ctx.getVimState())
-    const filteredActions = state.actionMenu.query
-      ? fuzzyFilter(state.actionMenu.query, availableActions, (a) => [a.label, a.id, a.description])
-      : availableActions
-
-    // Resolve the palette's render mode. In submenu mode we swap out the
-    // action list for the submenu rows (already filtered by query inside
-    // getSubmenuRows).
-    const submenu = state.actionMenu.submenu
-    const actionMenuMode: ActionMenuMode = submenu
-      ? {
-          kind: "submenu",
-          title: submenu.title,
-          // A list of links can do two things with the one you pick, and
-          // only one of them is Enter — which one depends on the key that
-          // opened the list (spec 077).
-          hint:
-            submenu.kind === "links"
-              ? submenu.action === "copy"
-                ? "enter copy · esc"
-                : "enter open · ctrl-y copy · esc"
-              : submenuOpenedFromPalette(submenu)
-                ? undefined
-                : "esc",
-          rows: getSubmenuRows(state),
-        }
-      : { kind: "actions", actions: filteredActions }
-
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
     // Drive the composer textarea's lifecycle from overlay state. We do
@@ -584,7 +551,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.actionMenu.open
           ? ActionMenu({
               renderer: ctx.renderer,
-              mode: actionMenuMode,
+              mode: paletteMode(state, vimState),
               selectedIndex: state.actionMenu.selectedIndex,
             })
           : null,

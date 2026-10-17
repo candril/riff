@@ -18,10 +18,9 @@ import {
   closeActionSubmenu,
   moveActionMenuSelection,
 } from "../../state"
-import { getAvailableActions } from "../../actions"
-import { getVisualActionOrder } from "../../components"
-import { fuzzyFilter } from "../../utils/fuzzy"
-import { getSubmenuRows, reactionContentFromRowId } from "./submenu"
+import { getVisualActionOrder } from "../../components/action-menu-model"
+import { reactionContentFromRowId } from "./submenu"
+import { paletteMode } from "./palette-mode"
 import { submenuOpenedFromPalette, type ActionSubmenu } from "../../actions/types"
 import type { LinkTarget } from "../../utils/link-targets"
 
@@ -64,19 +63,9 @@ export function handleInput(
   // (spec 042); otherwise it shows grouped actions. They share query +
   // navigation key handling but diverge on Enter / Esc.
   const submenu = ctx.state.actionMenu.submenu
-  const submenuRows = submenu ? getSubmenuRows(ctx.state) : []
-
-  const availableActions = getAvailableActions(ctx.state, ctx.getVimState())
-  const filteredActions = ctx.state.actionMenu.query
-    ? fuzzyFilter(ctx.state.actionMenu.query, availableActions, (a) => [
-        a.label,
-        a.id,
-        a.description,
-      ])
-    : availableActions
-
-  // Get actions in visual order (grouped by category)
-  const visualActions = getVisualActionOrder(filteredActions)
+  const mode = paletteMode(ctx.state, ctx.getVimState())
+  const submenuRows = mode.kind === "submenu" ? mode.rows : []
+  const visualActions = mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
 
   const maxIndex = submenu
     ? Math.max(0, submenuRows.length - 1)

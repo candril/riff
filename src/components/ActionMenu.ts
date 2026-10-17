@@ -1,31 +1,10 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
-import { colors, theme } from "../theme"
-import type { ResolvedAction } from "../actions"
+import { theme } from "../theme"
+import { actionMenuModel, type ActionMenuMode, type ActionMenuRow } from "./action-menu-model"
 
-/**
- * A row in a submenu (e.g. the React… submenu). Rendered flat, without
- * category headers, and with per-row trailing metadata (count, "you
- * reacted"). Each submenu kind is responsible for building these rows
- * before passing them in.
- */
-export interface SubmenuRow {
-  /** Stable identifier used by input handling */
-  id: string
-  /** Leading glyph (emoji for reactions) */
-  icon?: string
-  /** Primary label, left-aligned */
-  label: string
-  /** Trailing text, right-aligned (count, hint) */
-  trailing?: string
-  /** When true, render with the "viewer already acted" accent */
-  accented?: boolean
-}
-
-export type ActionMenuMode =
-  | { kind: "actions"; actions: ResolvedAction[] }
-  | { kind: "submenu"; title: string; hint?: string; rows: SubmenuRow[] }
+export type { ActionMenuMode, SubmenuRow } from "./action-menu-model"
 
 export interface ActionMenuProps {
   renderer: CliRenderer
@@ -40,11 +19,7 @@ export interface ActionMenuProps {
  * while the palette stays open.
  */
 export function ActionMenu({ renderer, selectedIndex, mode }: ActionMenuProps) {
-  const headerLabel = mode.kind === "submenu" ? mode.title : "Commands"
-  const headerHint = mode.kind === "submenu"
-    ? (mode.hint ?? "esc to back")
-    : "esc"
-
+  const model = actionMenuModel(mode, selectedIndex)
   return Box(
     {
       id: "action-menu-overlay",
@@ -85,10 +60,9 @@ export function ActionMenu({ renderer, selectedIndex, mode }: ActionMenuProps) {
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ content: headerLabel, fg: theme.subtext0 }),
-        Text({ content: headerHint, fg: theme.overlay0 })
+        Text({ content: model.title, fg: theme.subtext0 }),
+        Text({ content: model.hint, fg: theme.overlay0 })
       ),
-      // Search input (cursor positioned via postProcess in app.ts)
       Box(
         {
           id: "action-menu-search",
@@ -102,160 +76,51 @@ export function ActionMenu({ renderer, selectedIndex, mode }: ActionMenuProps) {
         },
         PromptInput(renderer, "action-menu")
       ),
-      // List body
-      mode.kind === "actions"
-        ? Box(
-            {
-              flexDirection: "column",
-              paddingBottom: 1,
-            },
-            ...renderGroupedActions(mode.actions, selectedIndex)
-          )
-        : Box(
-            {
-              flexDirection: "column",
-              paddingBottom: 1,
-            },
-            ...mode.rows.map((row, i) =>
-              SubmenuRowView({ row, selected: i === selectedIndex })
-            )
-          )
-    )
-  )
-}
-
-function SubmenuRowView({ row, selected }: { row: SubmenuRow; selected: boolean }) {
-  const bg = selected ? "#585b70" : undefined
-  const fg = selected ? theme.text : (row.accented ? theme.text : theme.subtext1)
-  const trailFg = row.accented ? theme.green : theme.overlay0
-
-  const leftLabel = row.icon ? `${row.icon}  ${row.label}` : row.label
-
-  // One line per row: the label is what the reader is choosing between, so
-  // it stays whole and a long trailing note is clipped instead of wrapping
-  // the row into two.
-  return Box(
-    {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      backgroundColor: bg,
-      paddingX: 2,
-      width: "100%",
-      height: 1,
-      overflow: "hidden",
-    },
-    Box({ flexShrink: 0 }, Text({ content: leftLabel, fg })),
-    row.trailing
-      ? Box(
-          { flexShrink: 1, overflow: "hidden", paddingLeft: 2 },
-          Text({ content: row.trailing, fg: trailFg })
-        )
-      : null
-  )
-}
-
-interface ActionRowProps {
-  action: ResolvedAction
-  selected: boolean
-}
-
-function ActionRow({ action, selected }: ActionRowProps) {
-  // OpenCode uses a light lavender/blue for selection
-  const bg = selected ? "#585b70" : undefined  // surface2 for selection
-  const fg = selected ? theme.text : theme.subtext1
-  const shortcutFg = theme.overlay0
-  
-  return Box(
-    { 
-      flexDirection: "row", 
-      justifyContent: "space-between",
-      backgroundColor: bg, 
-      paddingX: 2,
-      width: "100%",
-    },
-    Text({ content: action.label, fg }),
-    action.shortcut 
-      ? Text({ content: action.shortcut, fg: shortcutFg })
-      : null
-  )
-}
-
-/**
- * Group actions by category for display
- */
-interface ActionGroup {
-  category: string
-  items: ResolvedAction[]
-}
-
-/** Category display order and labels */
-const categoryConfig: Record<string, { order: number; label: string }> = {
-  claude: { order: 0, label: "Claude" },
-  github: { order: 1, label: "GitHub" },
-  navigation: { order: 2, label: "Navigation" },
-  view: { order: 3, label: "View" },
-  external: { order: 4, label: "External Tools" },
-  general: { order: 5, label: "General" },
-}
-
-function groupActionsByCategory(actions: ResolvedAction[]): ActionGroup[] {
-  // Group by category
-  const byCategory = new Map<string, ResolvedAction[]>()
-  
-  for (const action of actions) {
-    const cat = action.category || "general"
-    const existing = byCategory.get(cat) || []
-    existing.push(action)
-    byCategory.set(cat, existing)
-  }
-  
-  // Convert to groups and sort by category order
-  const groups: ActionGroup[] = []
-  for (const [cat, items] of byCategory) {
-    const config = categoryConfig[cat] || { order: 99, label: cat }
-    groups.push({ category: config.label, items })
-  }
-  
-  // Sort groups by order
-  groups.sort((a, b) => {
-    const orderA = Object.values(categoryConfig).find(c => c.label === a.category)?.order ?? 99
-    const orderB = Object.values(categoryConfig).find(c => c.label === b.category)?.order ?? 99
-    return orderA - orderB
-  })
-  
-  return groups
-}
-
-/**
- * Get a flat list of actions in visual order (respecting grouping)
- */
-export function getVisualActionOrder(actions: ResolvedAction[]): ResolvedAction[] {
-  return groupActionsByCategory(actions).flatMap(group => group.items)
-}
-
-/**
- * Render grouped actions with correct visual index tracking
- */
-function renderGroupedActions(actions: ResolvedAction[], selectedIndex: number) {
-  const groups = groupActionsByCategory(actions)
-  const result: any[] = []
-  let visualIndex = 0
-  
-  for (const { category, items } of groups) {
-    // Category header
-    result.push(
       Box(
-        { paddingX: 2, paddingTop: 1 },
-        Text({ content: category, fg: theme.lavender })
+        {
+          flexDirection: "column",
+          paddingBottom: 1,
+        },
+        ...model.rows.map(Row)
       )
     )
-    
-    // Action items in this category
-    for (const action of items) {
-      result.push(ActionRow({ action, selected: visualIndex === selectedIndex }))
-      visualIndex++
-    }
+  )
+}
+
+function Row(row: ActionMenuRow) {
+  switch (row.kind) {
+    case "category":
+      return Box({ paddingX: 2, paddingTop: 1 }, Text({ content: row.label, fg: theme.lavender }))
+    case "action":
+      return Box(
+        {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          backgroundColor: row.selected ? "#585b70" : undefined,
+          paddingX: 2,
+          width: "100%",
+        },
+        Text({ content: row.label, fg: row.labelFg }),
+        row.shortcut ? Text({ content: row.shortcut, fg: theme.overlay0 }) : null
+      )
+    case "submenu":
+      // One line per row: the label is what the reader is choosing between, so
+      // it stays whole and a long trailing note is clipped instead of wrapping
+      // the row into two.
+      return Box(
+        {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          backgroundColor: row.selected ? "#585b70" : undefined,
+          paddingX: 2,
+          width: "100%",
+          height: 1,
+          overflow: "hidden",
+        },
+        Box({ flexShrink: 0 }, Text({ content: row.label, fg: row.labelFg })),
+        row.trailing
+          ? Box({ flexShrink: 1, overflow: "hidden", paddingLeft: 2 }, Text({ content: row.trailing, fg: row.trailingFg }))
+          : null
+      )
   }
-  
-  return result
 }
