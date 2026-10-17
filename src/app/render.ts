@@ -16,10 +16,6 @@ import {
   OccurrencePicker,
   CommitPicker,
   SyncPreview,
-  LinePeek,
-  TablePeek,
-  DiagramPeek,
-  HunkPeek,
   FeedView,
   gatherSyncItems,
 } from "../components"
@@ -53,8 +49,6 @@ import {
   endReviewSummarySession,
 } from "../components/ReviewSummaryComposer"
 import { getSyntaxStyle } from "../vim-diff/syntax-style"
-import { getFiletypeFromPath } from "../vim-diff/filetype"
-import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
 import { headerModel } from "../components/header-model"
@@ -68,8 +62,8 @@ import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
-import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
-import { commentHunk } from "../features/inline-comment-overlay/hunk"
+import { peekBox } from "../components/PeekBox"
+import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { StatusBarIsland } from "./status-bar"
@@ -550,6 +544,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     )
     ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
     ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version) : null)
+    const diffPeek =
+      state.showLinePeek && state.viewMode === "diff"
+        ? diffPeekModel(lineMapping, vimState.line, state.peekSide, state.peekScroll, ctx.renderer.width, ctx.renderer.height)
+        : null
+    const codePeekId = state.inlineCommentOverlay.open ? state.inlineCommentOverlay.codePeekId : null
+    const hunkPeek =
+      codePeekId !== null
+        ? hunkPeekModel(getInlineCommentOverlayComments(state), codePeekId, ctx.renderer.width, ctx.renderer.height)
+        : null
 
     ctx.renderer.root.add(
       Box(
@@ -640,82 +643,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             })
           : null,
         state.showHelp ? ctx.helpOverlay.host : null,
-        state.showLinePeek && state.viewMode === "diff"
-          ? (() => {
-              // A mermaid block is source for a picture; the peek draws the
-              // picture (spec 058).
-              const diagram = buildMermaidPeek(lineMapping, vimState.line, state.peekSide)
-              if (diagram) {
-                return DiagramPeek({
-                  lines: diagram.lines,
-                  source: diagram.source,
-                  kind: diagram.kind,
-                  side: diagram.side,
-                  hasOther: diagram.hasOther,
-                  note: diagram.note,
-                  scroll: state.peekScroll,
-                  terminalWidth: ctx.renderer.width,
-                  terminalHeight: ctx.renderer.height,
-                })
-              }
-
-              // A table row on its own is the least readable line in the
-              // file; the peek shows the table it belongs to instead.
-              const table = buildTablePeek(
-                lineMapping,
-                vimState.line,
-                Math.max(24, ctx.renderer.width - 8),
-                state.peekSide
-              )
-              if (table) {
-                return TablePeek({
-                  lines: table.lines,
-                  rowCount: table.rowCount,
-                  side: table.side,
-                  hasOther: table.hasOther,
-                  scroll: state.peekScroll,
-                  terminalWidth: ctx.renderer.width,
-                  terminalHeight: ctx.renderer.height,
-                })
-              }
-
-              const line = lineMapping.getLine(vimState.line)
-              return line
-                ? LinePeek({
-                    // The file's own text: the padding an aligned table
-                    // carries is there to line up columns in the diff, and
-                    // in a wrapped overlay it is only whitespace.
-                    content: line.sourceContent ?? line.content,
-                    lineNumber: line.newLineNum ?? line.oldLineNum,
-                    filetype: line.filename ? getFiletypeFromPath(line.filename) : undefined,
-                    syntaxStyle: getSyntaxStyle(ctx.renderer.nativeScene),
-                    terminalWidth: ctx.renderer.width,
-                    terminalHeight: ctx.renderer.height,
-                  })
-                : null
-            })()
-          : null,
-        state.inlineCommentOverlay.open && state.inlineCommentOverlay.codePeekId !== null
-          ? (() => {
-              // Over the panel, not the diff: the comment is in the panel and
-              // the code it was written against may be nowhere else (spec 060).
-              const hunk = commentHunk(
-                getInlineCommentOverlayComments(state),
-                state.inlineCommentOverlay.codePeekId
-              )
-              return hunk
-                ? HunkPeek({
-                    hunk: hunk.hunk,
-                    filename: hunk.filename,
-                    line: hunk.line,
-                    outdated: hunk.outdated,
-                    fromRoot: hunk.fromRoot,
-                    terminalWidth: ctx.renderer.width,
-                    terminalHeight: ctx.renderer.height,
-                  })
-                : null
-            })()
-          : null,
+        diffPeek ? peekBox(diffPeek, { syntaxStyle: getSyntaxStyle(ctx.renderer.nativeScene) }) : null,
+        // Above the comments panel (50), which is what this is drawn over.
+        hunkPeek ? peekBox(hunkPeek, { zIndex: 60 }) : null,
         state.confirmDialog ? ctx.confirmDialog.host : null,
         state.draftNotification ? ctx.draftNotification.host : null,
 
