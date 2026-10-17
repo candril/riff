@@ -5,12 +5,16 @@ import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { rowOfLine } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view"
+import { createHeldRows } from "../split-view/held-rows"
 import { contentOrigin, gutterWidth, paneWidths, visibleCells } from "../split-view/layout"
+import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
+import { lineOfRow } from "./split-cursor"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
+import { wheelDragRow } from "./wheel-drag"
 
-export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "columns" | "width" | "height">
+export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "held" | "columns" | "width" | "height">
 
 type LineWindow = { startCol: number; endCol: number }
 
@@ -31,6 +35,8 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const [size, setSize] = createSignal({ width: 0, height: 0 })
   const [scrollTop, setScrollTop] = createSignal(0)
   const [columns, setColumns] = createSignal({ left: 0, right: 0 })
+  let onCursorScrolledAway: ((line: number) => void) | null = null
+  const held = createHeldRows(renderer)
 
   const island = mountSolid(
     renderer,
@@ -40,6 +46,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
           <SplitDiffView
             {...props()}
             scrollTop={scrollTop()}
+            held={held.span()}
             columns={columns()}
             width={size().width}
             height={size().height}
@@ -98,6 +105,31 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     if (next !== current[half.side]) setColumns({ ...current, [half.side]: next })
   }
 
+  const scrollColumnsBy = (delta: number) => moveColumn((_half, column) => scrollBy(column, delta))
+
+  // Only the wheel moves the window out from under the cursor: every reveal of riff's own keeps it inside.
+  function dragCursorIntoView(): void {
+    const props = inputs.value
+    if (!props || !onCursorScrolledAway) return
+    const { scrollTop: top, height, rows: total } = window()
+    // One visual row per row, so the row dragged to is the row to hand over.
+    const row = wheelDragRow({ scrollTop: top, height, total, cursorRow: props.cursor.row, scrollOff })
+    if (row === null) return
+    const line = lineOfRow(row, props.source)
+    if (line !== lineOfRow(props.cursor.row, props.source)) onCursorScrolledAway(line)
+  }
+
+  // Rows bubble the wheel to the host, held ones too: the hit grid names a row a tick scrolled away until the next frame.
+  island.host.onMouseScroll = diffWheel({
+    rows(delta) {
+      held.hold(window())
+      setScrollTop(clampScroll({ ...window(), scrollTop: clampScroll(window()) + delta }))
+      dragCursorIntoView()
+    },
+    // The cursor's pane, as zh and zl move it, wherever the pointer is.
+    columns: scrollColumnsBy,
+  })
+
   // The cursor's block takes a cell past the line's end, and the half marks that cell as part of the line.
   const revealCursorColumn = () =>
     moveColumn((half, column) =>
@@ -150,9 +182,14 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
         if (resourced) ensureCursorVisible(inputs.value!.cursor.row)
       })
     },
+    /** Told the line the cursor is dragged to when the wheel scrolls the window out from under it. */
+    setOnCursorScrolledAway(cb: (line: number) => void) {
+      onCursorScrolledAway = cb
+    },
     ensureCursorVisible,
+    scrollTop,
     revealColumn: revealCursorColumn,
-    scrollColumnsBy: (delta: number) => moveColumn((_half, column) => scrollBy(column, delta)),
+    scrollColumnsBy,
     scrollColumnToEdge: (edge: "start" | "end") =>
       moveColumn((half) => toEdge(half.cursorCell, half.width, edge, half.cells)),
     halfColumnWindow: () => halfWindow(activeHalf()?.width ?? 2),

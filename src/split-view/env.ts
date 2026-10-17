@@ -7,6 +7,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
+import type { RowSpan } from "./held-rows"
 import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 
 export interface SplitDiffViewProps {
@@ -23,6 +24,8 @@ export interface SplitDiffViewProps {
   cursor: { row: number; col: number }
   side: Side
   scrollTop: number
+  /** Rows the wheel scrolled away that stay mounted, hidden, until the hit grid has moved on; see createHeldRows. */
+  held?: RowSpan | null
   columns: { left: number; right: number }
   width: number
   height: number

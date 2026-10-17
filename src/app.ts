@@ -481,6 +481,7 @@ export async function createApp(options: AppOptions = {}) {
     render()
   }
   unified.setOnCursorScrolledAway(dragCursorTo)
+  split.island.setOnCursorScrolledAway(dragCursorTo)
 
   const diffViewport = routeDiffViewport(unified, {
     shown: split.shown,

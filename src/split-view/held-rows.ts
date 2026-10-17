@@ -16,7 +16,7 @@ export function mountedRows(scrollTop: number, height: number, held: RowSpan | n
 }
 
 /**
- * The rows wheel ticks have scrolled out of unified's window, kept mounted
+ * The rows wheel ticks have scrolled out of a diff view's window, kept mounted
  * and hidden until a frame has been drawn without them.
  *
  * OpenTUI hands a wheel tick to whatever the hit grid names under the
