@@ -21,7 +21,8 @@ import {
   collapseViewedFiles,
   type AppState,
 } from "../state"
-import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit } from "../storage"
+import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit, loadMarks } from "../storage"
+import { createMarksState } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
 import type { PrInfo, ViewerViewedState } from "../providers/github"
@@ -81,7 +82,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Nothing below depends on anything else below, and in local mode each
   // entry costs a process spawn — so ask for all of it at once.
-  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses] =
+  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks] =
     await Promise.all([
       isPreloadedPr || filesTarget ? null : loadLocalDiff(target),
       // A path is not a revision, so there is no branch and no commit range
@@ -91,6 +92,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       isPreloadedPr ? null : loadComments(source),
       loadOrCreateSession(source),
       loadViewedStatuses(source),
+      loadMarks(source),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
@@ -138,6 +140,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     branchInfo,
     wrapLines: config.diff.wrap,
     alignMarkdownTables: config.diff.alignMarkdownTables,
+    marks: { ...createMarksState(), marks: loadedMarks },
   }
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,

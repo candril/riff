@@ -54,6 +54,7 @@ import * as prOperations from "../features/pr-operations"
 import * as aiReview from "../features/ai-review"
 import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
+import * as marks from "../features/marks"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
 import { openTextInEditor } from "../utils/editor"
@@ -116,6 +117,7 @@ export interface GlobalKeyContext {
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   aiReviewContext: aiReview.AiReviewContext
   threadMotionContext: threadMotion.ThreadMotionContext
+  marksContext: marks.MarksContext
 }
 
 /**
@@ -226,7 +228,11 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
   return null
 }
 
-/** `chordPending` says whether a `g`, `z`, `[` or `]` is still waiting for its second key. */
+/**
+ * `chordPending` is exposed because the jump recorder judges a chord as one
+ * interaction: a place reached by its second key is recorded from where the
+ * first key was pressed.
+ */
 export type GlobalKeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
@@ -255,6 +261,19 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       clearTimeout(pendingTimeout)
       pendingTimeout = null
     }
+  }
+
+  /** `fm` finds an m and `vi'` selects quotes: a key some motion is waiting for is not a chord. */
+  function diffTakesMarkChord(): boolean {
+    const state = ctx.getState()
+    const vim = ctx.getVimState()
+    return (
+      state.viewMode === "diff" &&
+      state.focusedPanel === "diff" &&
+      vim.mode === "normal" &&
+      vim.pendingFindChar === null &&
+      vim.pendingTextObject === null
+    )
   }
 
   const followLinkContext: followLink.FollowLinkContext = {
@@ -1300,6 +1319,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     const chordPending = pendingKey !== null
+    if (pendingKey === "m" || pendingKey === "'") {
+      const action = marks.markChordAction(pendingKey, key)
+      clearPendingKey()
+      if (action.kind === "set") marks.setMarkAtCursor(action.letter, ctx.marksContext)
+      else if (action.kind === "jump") marks.jumpToMark(action.letter, ctx.marksContext)
+      else if (action.kind === "flip") marks.flipMark(ctx.marksContext)
+      return
+    }
     if (pendingKey) {
       const keyChar = key.name || (key.sequence?.length === 1 ? key.sequence : "")
       const sequence = `${pendingKey}${keyChar}${key.shift ? "!" : ""}`
@@ -1575,6 +1602,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
     if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordPending)) {
       ctx.toggleSplitView()
+      return
+    }
+
+    const markChord = chordPending ? null : marks.markChordOpenedBy(key, diffTakesMarkChord())
+    if (markChord) {
+      pendingKey = markChord
+      pendingTimeout = setTimeout(clearPendingKey, 500)
       return
     }
 

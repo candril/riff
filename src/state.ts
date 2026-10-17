@@ -10,6 +10,7 @@ import type { ReviewEvent } from "./components/ReviewPreview"
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
+import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
@@ -590,6 +591,9 @@ export interface AppState {
   // App-level jumplist (spec 038). Records "big" navigation events so
   // Ctrl-O/Ctrl-I can retrace them. See features/jumplist/.
   jumpList: JumpListState
+
+  // Global marks (spec 101): the letters `m` sets and `'` returns to.
+  marks: MarksState
 }
 
 /**
@@ -794,6 +798,7 @@ export function createInitialState(
     mentionSearchQuery: null,
     reactionTarget: null,
     jumpList: createJumpListState(),
+    marks: createMarksState(),
   }
 }
 

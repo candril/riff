@@ -149,6 +149,26 @@ describe("chords", () => {
   })
 })
 
+describe("marks", () => {
+  const quote = key("'", { sequence: "'" })
+
+  test("'a is one jump, recorded from where ' was pressed", () => {
+    expect(drive(origin, [[quote, open(origin)], [key("a", { sequence: "a" }), at("b.ts", 40)]])).toEqual([origin.place])
+  })
+
+  test("'' is one jump too", () => {
+    expect(drive(origin, [[quote, open(origin)], [quote, at("b.ts", 40)]])).toEqual([origin.place])
+  })
+
+  test("ma stays where it is and records nothing", () => {
+    expect(drive(origin, [[key("m", { sequence: "m" }), open(origin)], [key("a", { sequence: "a" }), origin]])).toEqual([])
+  })
+
+  test("'a onto the place it was pressed records nothing", () => {
+    expect(drive(origin, [[quote, open(origin)], [key("a", { sequence: "a" }), origin]])).toEqual([])
+  })
+})
+
 describe("single keys that land elsewhere", () => {
   test("following a link", () => {
     expect(drive(origin, [[key("return"), at("c.ts", 7)]])).toEqual([origin.place])

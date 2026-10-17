@@ -38,6 +38,9 @@ const HELP_SECTIONS = [
       ["* / #", "Search word under cursor"],
       ["s", "Flash jump to a visible match"],
       ["Ctrl+o / Ctrl+i", "Jumplist back / forward"],
+      ["m{a-z A-Z}", "Set a mark at the cursor"],
+      ["'{letter}", "Jump to a mark from anywhere"],
+      ["''", "Back to the mark visited before"],
     ],
   },
   {

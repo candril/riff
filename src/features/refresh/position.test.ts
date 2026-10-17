@@ -143,6 +143,16 @@ describe("restoring the view", () => {
     expect(after.viewMode).toBe("diff")
   })
 
+  test("the marks and the two last visited survive a reload", () => {
+    const marks = {
+      marks: [{ letter: "a", filename: "b.ts", line: 2, side: "RIGHT" as const }],
+      current: "a",
+      previous: "b",
+    }
+    const position = capturePosition({ ...stateWith(files), marks }, cursorAt(0), mappingOf(files), createSearchState())
+    expect(restorePosition(stateWith(files), position).marks).toEqual(marks)
+  })
+
   test("a PR that was being read as a diff does not snap back to the overview", () => {
     const before = { ...stateWith(files), appMode: "pr" as const, viewMode: "diff" as const }
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())

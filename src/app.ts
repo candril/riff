@@ -37,7 +37,7 @@ import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
 import { markVisit } from "./utils/visit"
-import { saveVisitSync } from "./storage"
+import { saveVisitSync, saveMarks, loadMarks } from "./storage"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo, ViewerViewedState } from "./providers/github"
@@ -85,6 +85,7 @@ import { createJumpRecorder, type Moment } from "./features/jumplist/recorder"
 import { interactionSettled } from "./app/jump-settled"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
+import * as marks from "./features/marks"
 import * as refresh from "./features/refresh"
 import * as feedFeature from "./features/feed"
 import { startCommentPoll } from "./features/comment-poll"
@@ -1004,6 +1005,13 @@ export async function createApp(options: AppOptions = {}) {
     fileNavContext,
   }
 
+  const marksContext: marks.MarksContext = {
+    ...threadMotionContext,
+    getPane: () => split.commentScope().pane ?? null,
+    setPane: (pane) => { if (split.shown()) split.source().setSide(pane) },
+    save: (saved) => { void saveMarks(state.source, saved) },
+  }
+
   // ===== ACTION EXECUTION =====
   const actionHandlers: actionMenu.ActionHandlers = {
     quit,
@@ -1205,6 +1213,8 @@ export async function createApp(options: AppOptions = {}) {
           }
           state = { ...state, collapsedFiles: newCollapsed }
         }
+        // Marks belong to the review: the PR's own, or the next `m` would save over them.
+        state = { ...state, marks: { ...state.marks, marks: await loadMarks(newSource) } }
 
         // Reset vim state and rebuild line mapping
         vimState = createCursorState()
@@ -1549,6 +1559,7 @@ export async function createApp(options: AppOptions = {}) {
         splitView: state.splitView,
         alignMarkdownTables: state.alignMarkdownTables,
         viewMode: view,
+        marks: { ...next.marks, marks: await loadMarks(source) },
       }
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
@@ -1617,6 +1628,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfoPanelOpenContext,
     aiReviewContext,
     threadMotionContext,
+    marksContext,
   })
 
   /**

@@ -46,3 +46,23 @@ export const Y: DiffFile = {
 
 export const X_CONTENT = Array.from({ length: 12 }, (_, i) => `n${i + 1}`).join("\n")
 export const X_MIDDLE = "src/x.ts:middle:0"
+
+/** A markdown file whose mermaid block, new lines 2 to 5, can fold to one row. */
+export const DOC: DiffFile = {
+  filename: "doc.md",
+  additions: 1,
+  deletions: 0,
+  status: "modified",
+  content: [
+    "diff --git a/doc.md b/doc.md",
+    "--- a/doc.md",
+    "+++ b/doc.md",
+    "@@ -1,6 +1,7 @@",
+    " # Title",
+    " ```mermaid",
+    " sequenceDiagram",
+    "+  A->>B: hi",
+    " ```",
+    " prose after",
+  ].join("\n"),
+}

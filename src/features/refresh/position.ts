@@ -49,6 +49,8 @@ export interface RefreshPosition {
   expandedDividers: Set<string>
   collapsedThreadIds: Set<string>
   prInfoPanel: AppState["prInfoPanel"]
+  /** Lines, not rows, so they need no relocating; `''` keeps its two letters too. */
+  marks: AppState["marks"]
   anchor: CursorAnchor | null
   search: SearchState
 }
@@ -83,6 +85,7 @@ export function capturePosition(
     expandedDividers: new Set(state.expandedDividers),
     collapsedThreadIds: new Set(state.collapsedThreadIds),
     prInfoPanel: state.prInfoPanel,
+    marks: state.marks,
     anchor: captureAnchor(mapping, vim),
     search,
   }
@@ -120,6 +123,7 @@ export function restorePosition(state: AppState, position: RefreshPosition): App
     expandedDividers: new Set(position.expandedDividers),
     collapsedThreadIds: new Set(position.collapsedThreadIds),
     prInfoPanel: position.prInfoPanel,
+    marks: position.marks,
   }
 }
 
