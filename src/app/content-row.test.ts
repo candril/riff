@@ -4,8 +4,9 @@ import type { TestRendererSetup } from "@opentui/core/testing"
 import { FileTreePanel } from "../components/FileTreePanel"
 import { InlineCommentOverlay } from "../components/InlineCommentOverlay"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
-import { mountRenderable } from "../testing/frame"
+import { bgAt, ints, mountRenderable } from "../testing/frame"
 import { mountIsland } from "../testing/unified-island"
+import { theme } from "../theme"
 import { mainContentRow } from "./content-row"
 
 const TAIL = "TAILMARK"
@@ -57,6 +58,15 @@ function panel(renderer: CliRenderer, width: number) {
   })
 }
 
+type Spans = ReturnType<TestRendererSetup["captureSpans"]>
+
+/** Every row of `columns` is drawn on the panel's mantle. */
+function expectPanelShadeAt(spans: Spans, columns: number[]) {
+  for (let y = 0; y < spans.lines.length; y++) {
+    for (const x of columns) expect(bgAt(spans, x, y)).toEqual(ints(theme.mantle))
+  }
+}
+
 async function mountDocked(width: number, around: (host: BoxRenderable, setup: TestRendererSetup) => ReturnType<typeof mainContentRow>) {
   const mounted = await mountIsland({ raw: DIFF, width, height: 12, wrap: true, around })
   disposers.push(mounted.dispose)
@@ -67,16 +77,20 @@ describe("the thread panel docked in the content row", () => {
   test("narrows the diff beside it, which wraps its lines clear of the panel", async () => {
     const width = 120
     const panelWidth = commentPanelWidth(width, false)
-    const { frame } = await mountDocked(width, (host, setup) => mainContentRow(host, panel(setup.renderer, panelWidth), { withTree: true }))
+    const { setup, frame } = await mountDocked(width, (host, setup) => mainContentRow(host, panel(setup.renderer, panelWidth), { withTree: true }))
     const rows = await frame()
     const border = width - panelWidth
 
-    expect(rows.every((row) => row.length <= border || row[border] === "│" || row[border] === "┌" || row[border] === "└")).toBe(true)
-    expect(rows[0]![border]).toBe("┌")
+    const spans = setup.captureSpans()
+    expectPanelShadeAt(spans, [border, width - 1])
 
     const tailRow = rows.find((row) => row.includes(TAIL))
     expect(tailRow).toBeDefined()
     expect(tailRow!.indexOf(TAIL) + TAIL.length).toBeLessThanOrEqual(border)
+    // The divider rows are mantle in the diff too, so the code rows are where the edge shows.
+    for (const y of [rows.findIndex((row) => row.includes("greeting")), rows.indexOf(tailRow!)]) {
+      expect(bgAt(spans, border - 1, y)).not.toEqual(ints(theme.mantle))
+    }
 
     for (const row of rows) {
       const inside = row.slice(border)
@@ -106,8 +120,7 @@ describe("the thread panel docked in the content row", () => {
     expect(panelWidth).toBe(48)
     expect(rows[0]![0]).toBe("┌")
     expect(rows[0]![34]).toBe("┐")
-    expect(rows[0]![35]).toBe("┌")
-    expect(rows[0]![width - 1]).toBe("┐")
+    expectPanelShadeAt(setup.captureSpans(), [35, width - 1])
     expect(rows.join("\n")).not.toContain(TAIL)
   })
 })
@@ -122,6 +135,8 @@ test("the error and an empty diff keep clear of the open panel, in a row the tre
   disposers.push(mounted.dispose)
   const rows = (await mounted.frame()).split("\n")
   expect(mounted.setup.renderer.root.findDescendantById("main-content-row")).toBeFalsy()
-  expect(rows[0]![width - panelWidth]).toBe("┌")
+  const spans = mounted.setup.captureSpans()
+  expectPanelShadeAt(spans, [width - panelWidth, width - 1])
+  for (let y = 0; y < rows.length; y++) expect(bgAt(spans, width - panelWidth - 1, y)).not.toEqual(ints(theme.mantle))
   expect(rows[0]!.slice(0, width - panelWidth)).toBe("x".repeat(width - panelWidth))
 })

@@ -159,11 +159,9 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
   return Box(
     {
       flexDirection: "column",
-      paddingX: 1,
+      paddingX: 2,
       paddingY: 0,
       backgroundColor: theme.surface0,
-      borderStyle: "single",
-      borderColor: theme.blue,
     },
     // `height: 1` so the row keeps its line under flex pressure — without
     // it the label collapses to zero rows and paints over the textarea.

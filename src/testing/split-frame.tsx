@@ -1,4 +1,3 @@
-import { RGBA } from "@opentui/core"
 import { createSignal } from "solid-js"
 import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
@@ -53,17 +52,4 @@ export async function mountSplit(options: MountSplitOptions) {
   return { ...mounted, mapping, setFocused, setSide }
 }
 
-type Spans = ReturnType<Awaited<ReturnType<typeof mountSplit>>["setup"]["captureSpans"]>
-
-function spanAt(spans: Spans, x: number, y: number) {
-  let at = 0
-  for (const span of spans.lines[y]!.spans) {
-    if (x < at + span.width) return span
-    at += span.width
-  }
-  return undefined
-}
-
-export const bgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.bg.toInts()
-export const fgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.fg.toInts()
-export const ints = (hex: string) => RGBA.fromHex(hex).toInts()
+export { bgAt, fgAt, ints } from "./frame"

@@ -65,8 +65,8 @@ export interface InlineCommentOverlayProps {
   /** A draft left on the composer's anchor line, waiting to be resumed
    *  (spec 061). Empty when there is none. */
   draft: string
-  /** True when the panel itself is the focused surface — drives
-   *  border color so it visibly differs from "panel open but
+  /** True when the panel itself is the focused surface — drives the
+   *  header text's colour so it visibly differs from "panel open but
    *  user is driving the diff". */
   focused: boolean
   /** Wider layout (Ctrl-e). */
@@ -342,9 +342,7 @@ function renderEmojiPicker(picker: EmojiPickerState) {
         flexDirection: "column",
         marginTop: 1,
         paddingX: 1,
-        backgroundColor: theme.surface0,
-        borderStyle: "single",
-        borderColor: theme.overlay0,
+        backgroundColor: theme.mantle,
       },
       Text({ content: `No emoji for :${picker.query}`, fg: theme.overlay0 })
     )
@@ -355,9 +353,7 @@ function renderEmojiPicker(picker: EmojiPickerState) {
     {
       flexDirection: "column",
       paddingX: 1,
-      backgroundColor: theme.surface0,
-      borderStyle: "single",
-      borderColor: theme.yellow,
+      backgroundColor: theme.mantle,
     },
     Box({ flexDirection: "row", height: 1 }, Text({ content: ":emoji", fg: theme.yellow })),
     ...matches.map((emoji, i) =>
@@ -365,7 +361,7 @@ function renderEmojiPicker(picker: EmojiPickerState) {
         {
           flexDirection: "row",
           height: 1,
-          backgroundColor: i === selected ? theme.surface1 : undefined,
+          backgroundColor: i === selected ? theme.surface0 : undefined,
         },
         Text({
           content: i === selected ? "▸ " : "  ",
@@ -397,9 +393,7 @@ function renderMentionPicker(
         marginTop: 1,
         paddingX: 1,
         paddingY: 0,
-        backgroundColor: theme.surface0,
-        borderStyle: "single",
-        borderColor: theme.overlay0,
+        backgroundColor: theme.mantle,
       },
       Text({
         content: emptyPickerMessage(picker.query, searchQuery),
@@ -417,9 +411,7 @@ function renderMentionPicker(
       marginTop: 1,
       paddingX: 1,
       paddingY: 0,
-      backgroundColor: theme.surface0,
-      borderStyle: "single",
-      borderColor: theme.blue,
+      backgroundColor: theme.mantle,
     },
     Box(
       { flexDirection: "row", height: 1 },
@@ -430,7 +422,7 @@ function renderMentionPicker(
         {
           flexDirection: "row",
           height: 1,
-          backgroundColor: i === selected ? theme.surface1 : undefined,
+          backgroundColor: i === selected ? theme.surface0 : undefined,
         },
         Text({
           content: i === selected ? "▸ " : "  ",
@@ -543,14 +535,14 @@ export function InlineCommentOverlay({
       flexShrink: 1,
       height: "100%",
       flexDirection: "column",
-      backgroundColor: theme.base,
+      // Mantle against the diff's base is what sets the panel apart.
+      backgroundColor: theme.mantle,
+      paddingX: 1,
       overflow: "hidden",
-      borderStyle: "single",
-      borderColor: focused ? colors.primary : colors.border,
     },
     // Header — file + comment count. Mirrors FileTreePanel: 1-row tall,
     // single-column padding, mantle background. Focus is signalled by
-    // the border + header text color.
+    // the header text's colour alone.
     Box(
       {
         flexDirection: "row",

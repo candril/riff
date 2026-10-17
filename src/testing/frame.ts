@@ -1,5 +1,5 @@
-import { TextRenderable, type Renderable } from "@opentui/core"
-import { createTestRenderer, type TestRenderer } from "@opentui/core/testing"
+import { RGBA, TextRenderable, type Renderable } from "@opentui/core"
+import { createTestRenderer, type TestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { testRender, type JSX } from "@opentui/solid"
 
 /** Trailing spaces and blank rows are padding, and would make the literals unreadable. */
@@ -53,3 +53,18 @@ export function findText(root: Renderable, content: string): TextRenderable | un
   }
   return undefined
 }
+
+type Spans = ReturnType<TestRendererSetup["captureSpans"]>
+
+function spanAt(spans: Spans, x: number, y: number) {
+  let at = 0
+  for (const span of spans.lines[y]!.spans) {
+    if (x < at + span.width) return span
+    at += span.width
+  }
+  return undefined
+}
+
+export const bgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.bg.toInts()
+export const fgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.fg.toInts()
+export const ints = (hex: string) => RGBA.fromHex(hex).toInts()
