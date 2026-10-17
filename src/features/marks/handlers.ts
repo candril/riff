@@ -6,7 +6,8 @@ import type { FileNavigationContext } from "../file-navigation"
 import { handleSelectFile, ensureFileExpanded } from "../file-navigation"
 import { markAt } from "./capture"
 import { resolveMark, markLandingMessage, type ResolvedMark } from "./resolve"
-import { setMark, visitMark, flipTarget, stepMark } from "./store"
+import { setMark, deleteMark, visitMark, flipTarget, stepMark } from "./store"
+import { markSitsAt } from "./toggle"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -31,9 +32,18 @@ export interface MarksContext {
 }
 
 export function setMarkAtCursor(letter: string, ctx: MarksContext): void {
-  const placed = markAt(ctx.getLineMapping(), ctx.getVimState().line, letter, ctx.getPane() ?? undefined)
+  const mapping = ctx.getLineMapping()
+  const cursorLine = ctx.getVimState().line
+  const placed = markAt(mapping, cursorLine, letter, ctx.getPane() ?? undefined)
   if (!placed) {
     toast(ctx, `Mark ${letter} needs a file under the cursor`)
+    return
+  }
+  const existing = ctx.getState().marks.marks.find((m) => m.letter === letter)
+  if (existing && markSitsAt(mapping, existing, cursorLine, placed, ctx.getPane() !== null)) {
+    ctx.setState((s) => ({ ...s, marks: deleteMark(s.marks, letter) }))
+    ctx.save(ctx.getState().marks.marks)
+    toast(ctx, `Mark ${letter} removed`)
     return
   }
   const head = ctx.getHead()

@@ -41,7 +41,11 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
 
 - **`m{a-zA-Z}` sets a mark** at the cursor: the file, the line on its side
   of the diff, and the side. A letter already in use moves to the new
-  place.
+  place. On the line where that mark already sits, `m{letter}` removes it
+  instead, and the status bar says "Mark a removed", so a stray press is
+  seen and pressing again sets it back. A mark sits on the row it lands on
+  exactly, seen from either pane in unified and from its own side's pane
+  in split.
 - **`'{a-zA-Z}` jumps to a mark** from anywhere: another file, all-files or
   single-file mode, a folded file (which unfolds). The jump is recorded in
   the jumplist ([089](./089-jump-history.md)), so `Ctrl-o` comes back.

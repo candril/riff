@@ -2,6 +2,9 @@ import { test, expect, describe, afterEach } from "bun:test"
 import type { Mark } from "../features/marks/types"
 import { markAt } from "../features/marks/capture"
 import { followMarks } from "../features/marks/follow"
+import { createMarksState } from "../features/marks/types"
+import { deleteMark, setMark } from "../features/marks/store"
+import { markSitsAt } from "../features/marks/toggle"
 import { parseDiff } from "../utils/diff-parser"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { ONE_LONG_LINE, TWO_FILES } from "../testing/diffs"
@@ -83,6 +86,23 @@ describe("a marked line", () => {
     mounted!.set("marks", [])
     await mounted!.frame()
     expect(row()[1]).toBe(" ")
+  })
+
+  test("m{letter} again on its row blanks the letter's cell and leaves the code where it was", async () => {
+    await screenWith({ raw: TWO_FILES })
+    const mapping = mounted!.mapping
+    const marked = setMark(createMarksState(), markAt(mapping, 1, "a")!)
+    mounted!.set("marks", [...marked.marks])
+    await mounted!.frame()
+    const before = screenOf(mounted!).rows[1]!
+    expect(before[1]).toBe("a")
+
+    expect(markSitsAt(mapping, marked.marks[0]!, 1, markAt(mapping, 1, "a")!, false)).toBe(true)
+    mounted!.set("marks", [...deleteMark(marked, "a").marks])
+    await mounted!.frame()
+    const after = screenOf(mounted!).rows[1]!
+    expect(after[1]).toBe(" ")
+    expect(after.slice(2)).toBe(before.slice(2))
   })
 })
 

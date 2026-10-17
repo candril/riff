@@ -1,6 +1,10 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { Mark } from "../features/marks/types"
 import { followMarks } from "../features/marks/follow"
+import { markAt } from "../features/marks/capture"
+import { createMarksState } from "../features/marks/types"
+import { deleteMark, setMark } from "../features/marks/store"
+import { markSitsAt } from "../features/marks/toggle"
 import { parseDiff } from "../utils/diff-parser"
 import { TWO_FILES } from "../testing/diffs"
 import { fgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
@@ -66,6 +70,22 @@ describe("a mark on a context line", () => {
     expect(rows[1]!.slice(60, 66)).toBe("●a  1 ")
     const spans = mounted!.setup.captureSpans()
     expect([fgAt(spans, 60, 1), fgAt(spans, RIGHT_LETTER, 1)]).toEqual([ints(theme.blue), ints(colors.markLetter)])
+  })
+
+  test("m{letter} again on its row in its own pane blanks the letter's cell and leaves the code where it was", async () => {
+    const before = await rowsWith({ raw: TWO_FILES })
+    const mapping = mounted!.mapping
+    const marked = setMark(createMarksState(), markAt(mapping, 1, "a", "left")!)
+    await mounted!.dispose()
+    const shown = (await rowsWith({ raw: TWO_FILES, marks: [...marked.marks] }))[1]!
+    expect(shown[LEFT_LETTER]).toBe("a")
+
+    expect(markSitsAt(mapping, marked.marks[0]!, 1, markAt(mapping, 1, "a", "left")!, true)).toBe(true)
+    await mounted!.dispose()
+    const removed = (await rowsWith({ raw: TWO_FILES, marks: [...deleteMark(marked, "a").marks] }))[1]!
+    expect(removed[LEFT_LETTER]).toBe(" ")
+    expect(removed).toBe(before[1]!)
+    expect(removed.slice(LEFT_LETTER + 1)).toBe(shown.slice(LEFT_LETTER + 1))
   })
 })
 

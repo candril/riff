@@ -117,6 +117,42 @@ describe("m{letter}", () => {
     expect(h.saved.at(-1)).toEqual([{ ...mark("a", "src/y.ts", 2), text: "y2" }])
   })
 
+  test("again on the line the mark sits on removes it and says so, and once more sets it back", () => {
+    const h = harness([X, Y], { line: 9 })
+    setMarkAtCursor("a", h.ctx)
+    setMarkAtCursor("a", h.ctx)
+    expect(h.state().marks.marks).toEqual([])
+    expect(h.saved.at(-1)).toEqual([])
+    expect(h.toast()).toBe("Mark a removed")
+
+    setMarkAtCursor("a", h.ctx)
+    expect(h.state().marks.marks).toEqual([{ ...mark("a", "src/x.ts", 10), text: "n10" }])
+    expect(h.toast()).toBe("Mark a set")
+  })
+
+  test("removing the current mark forgets it, so '' does not go back to it", () => {
+    const h = harness([X, Y], { line: 9, marks: [mark("b", "src/y.ts", 2)] })
+    setMarkAtCursor("a", h.ctx)
+    jumpToMark("b", h.ctx)
+    jumpToMark("a", h.ctx)
+    expect(h.state().marks).toMatchObject({ current: "a", previous: "b" })
+
+    setMarkAtCursor("a", h.ctx)
+    expect(h.state().marks).toMatchObject({ current: null, previous: "b" })
+    jumpToMark("b", h.ctx)
+    expect(flipMark(h.ctx)).toBe(false)
+    expect(h.toast()).toBe("No earlier mark to go back to")
+  })
+
+  test("removing one mark keeps the others", () => {
+    const b = mark("b", "src/y.ts", 2)
+    const h = harness([X, Y], { line: 9, marks: [b] })
+    setMarkAtCursor("a", h.ctx)
+    setMarkAtCursor("a", h.ctx)
+    expect(h.state().marks.marks).toEqual([b])
+    expect(h.saved.at(-1)).toEqual([b])
+  })
+
   test("records the PR head the line was set against, and none in local mode", () => {
     const pr = harness([X, Y], { line: 3, head: "abc123" })
     setMarkAtCursor("a", pr.ctx)
