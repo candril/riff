@@ -92,6 +92,19 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
     ],
   },
   {
+    title: "Comment composer",
+    keys: [
+      ["Enter / Ctrl+s", "Save locally"],
+      ["Ctrl+p", "Save & publish (PR)"],
+      ["Ctrl+j", "Newline"],
+      ["Ctrl+y", "Suggestion block"],
+      ["Ctrl+g", "Edit in $EDITOR"],
+      ["Esc", "Cancel, keep the draft"],
+      ["@ / :", "Mention / emoji picker"],
+      ["Ctrl+n / Ctrl+p", "Move in a picker; Tab picks"],
+    ],
+  },
+  {
     title: "GitHub & Other",
     keys: [
       ["gS", "Submit review"],

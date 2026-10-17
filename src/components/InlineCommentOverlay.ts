@@ -786,18 +786,18 @@ export function InlineCommentOverlay({
       // never shrinks), and Yoga spreads the overflow across every
       // shrinkable sibling by basis, so without this the composer lost
       // rows too: its label row collapsed onto the textarea (label and
-      // placeholder glyphs interleaved) and its bottom edge slid under
-      // the footer.
+      // placeholder glyphs interleaved) and its bottom edge was clipped
+      // off the panel.
       isComposing
         ? Box(
-            { flexDirection: "column", paddingX: 2, paddingY: 1, flexShrink: 0 },
+            { flexDirection: "column", paddingX: 1, paddingY: 1, flexShrink: 0 },
             // A picker floats above the composer rather than sitting under
             // it: laid out in the column it would push the box you are
             // typing in up the screen on every `:` and back down on every
             // space (specs 046, 082).
             emojiPicker || mentionPicker
               ? Box(
-                  { position: "absolute", bottom: "100%", left: 2, right: 2, zIndex: 60 },
+                  { position: "absolute", bottom: "100%", left: 1, right: 1, zIndex: 60 },
                   emojiPicker
                     ? renderEmojiPicker(emojiPicker)
                     : renderMentionPicker(mentionPicker!, mentionCandidates, mentionSearchQuery)
@@ -811,36 +811,22 @@ export function InlineCommentOverlay({
           )
         : null,
 
-    // Footer hints. Different set when focused vs unfocused so the
-    // user always knows the next move. 1-row tall to match the header
-    // and FileTreePanel's tight shell.
-    Box(
-      {
-        flexDirection: "row",
-        height: 1,
-        paddingLeft: 1,
-        paddingRight: 1,
-        backgroundColor: theme.mantle,
-      },
-      isComposing
-        ? renderHintRow(
-            appMode === "pr"
-              ? [
-                  ["Enter", "save"],
-                  ["Ctrl-p", "save & publish"],
-                  ["Ctrl-y", "suggest"],
-                  ["Ctrl-j", "newline"],
-                  ["Esc", "cancel"],
-                ]
-              : [
-                  ["Enter", "save"],
-                  ["Ctrl-y", "suggest"],
-                  ["Ctrl-j", "newline"],
-                  ["Ctrl-g", "$EDITOR"],
-                  ["Esc", "cancel"],
-                ],
-          )
-        : renderHintRow(
+    // View-mode key hints, a different set focused vs unfocused so the
+    // user always knows the next move; 1-row tall to match the header and
+    // FileTreePanel's tight shell. While composing the row is not drawn:
+    // the composer's keys would not fit the panel's width, so they are
+    // listed in the help overlay (g?) and the row goes to the threads.
+    isComposing
+      ? null
+      : Box(
+          {
+            flexDirection: "row",
+            height: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: theme.mantle,
+          },
+          renderHintRow(
             viewModeHints(
               canSubmit,
               comments.length > 0,
@@ -851,7 +837,7 @@ export function InlineCommentOverlay({
               draft.length > 0
             )
           )
-    )
+        )
   )
 
   bodyPool(renderer).end()

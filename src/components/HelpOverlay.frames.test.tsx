@@ -37,3 +37,13 @@ test("a key from each column sits on one row with its description, above the foo
   expect(row).toMatch(/j \/ k\s+Move down \/ up\s+Ctrl\+b\s+Toggle file tree/)
   expect(rows.findIndex((line) => line.includes("Press g? or Esc to close"))).toBeGreaterThan(rows.indexOf(row!))
 })
+
+test("the composer's keys are drawn with what they do, above the footer", async () => {
+  const rows = await frame()
+  const footer = rows.findIndex((line) => line.includes("Press g? or Esc to close"))
+  const publish = rows.findIndex((line) => /Ctrl\+p\s+Save & publish/.test(line))
+  const newline = rows.findIndex((line) => /Ctrl\+j\s+Newline/.test(line))
+  expect(publish).toBeGreaterThan(-1)
+  expect(newline).toBeGreaterThan(-1)
+  expect(footer).toBeGreaterThan(Math.max(publish, newline))
+})

@@ -622,7 +622,7 @@ function handleComposerInput(
   // unless `extended-keys on`, and it then arrives indistinguishable
   // from a bare Enter and silently degrades to save-only. Ctrl-p is a
   // plain control byte, so it survives every terminal and multiplexer —
-  // that's the one the hint rows name.
+  // that's the one the help overlay names.
   //
   // Ctrl-p doesn't collide with the command palette: the palette is
   // unreachable from compose mode, which swallows everything it doesn't

@@ -27,10 +27,9 @@ export interface CommentComposerProps {
   renderer: CliRenderer
 }
 
-// Save/publish/newline/cancel hints live in the overlay footer; only
-// Ctrl-g is named here because the footer has no room for it at the
-// default panel width. Keep these short — the textarea is ~50 columns
-// and a wrapped placeholder eats the typing area.
+// The composer's keys are listed in the help overlay (g?). Ctrl-g alone is
+// named here, as the way out to a roomier editor: the textarea is only as
+// wide as the thread panel, and a placeholder that wraps eats the typing area.
 const PLACEHOLDER_COMPOSE = "Type a comment… (Ctrl-g for $EDITOR)"
 const PLACEHOLDER_EDIT = "Edit comment… (Ctrl-g for $EDITOR)"
 
@@ -47,7 +46,10 @@ let lastSyncKey: string | null = null
 let activityCallback: ComposerActivityCallback | null = null
 
 function ensureComposer(renderer: CliRenderer): TextareaRenderable {
-  if (!composerInstance) {
+  // A destroyed renderer takes the textarea down with it. riff draws on one
+  // renderer for its whole life; the frame tests make one per test.
+  if (!composerInstance || composerInstance.isDestroyed) {
+    lastSyncKey = null
     composerInstance = new TextareaRenderable(renderer, {
       id: "inline-comment-composer",
       backgroundColor: theme.surface0,
@@ -59,8 +61,6 @@ function ensureComposer(renderer: CliRenderer): TextareaRenderable {
       cursorColor: theme.blue,
       cursorStyle: { style: "block", blinking: true },
       wrapMode: "word",
-      flexGrow: 1,
-      minHeight: 3,
       maxHeight: 12,
     })
     const dispatch = () => {
@@ -159,7 +159,7 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
   return Box(
     {
       flexDirection: "column",
-      paddingX: 2,
+      paddingX: 1,
       paddingY: 0,
       backgroundColor: theme.surface0,
     },
@@ -167,18 +167,10 @@ export function CommentComposer({ mode, label, renderer }: CommentComposerProps)
     // it the label collapses to zero rows and paints over the textarea.
     label
       ? Box(
-          { flexDirection: "row", height: 1, paddingX: 1 },
+          { flexDirection: "row", height: 1 },
           Text({ content: label, fg: theme.blue })
         )
       : null,
-    Box(
-      {
-        flexDirection: "column",
-        paddingX: 1,
-        paddingY: 0,
-        minHeight: 3,
-      },
-      textarea
-    )
+    textarea
   )
 }
