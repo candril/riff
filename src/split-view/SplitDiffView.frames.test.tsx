@@ -1,5 +1,5 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { CURSOR_ADDITION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
+import { CURSOR_ADDITION_BG, CURSOR_DELETION_BG, CURSOR_LINE_BG } from "../diff-rows/line-colors"
 import { FAR_HUNK, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { bgAt, fgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import type { Comment, FileReviewStatus } from "../types"
@@ -283,4 +283,16 @@ describe("cursor", () => {
     const spans = view.setup.captureSpans()
     for (let x = 0; x < 120; x++) expect(bgAt(spans, x, HEADER_ROW)).not.toEqual(ints(theme.rosewater))
   })
+
+  // An overlay holding the keys hands the view focused: false; the line stays lit, as unified's does.
+  for (const side of ["left", "right"] as const) {
+    test(`an unfocused view draws no block on the ${side} code half under its cursor, and keeps its cursor line`, async () => {
+      const view = await mount({ raw: TWO_FILES, cursor: { row: RETURN_ROW, col: 2 }, side, focused: false })
+      await view.frame()
+      const spans = view.setup.captureSpans()
+      for (let x = 0; x < 120; x++) expect(bgAt(spans, x, RETURN_ROW)).not.toEqual(ints(theme.rosewater))
+      const lit = side === "left" ? CURSOR_DELETION_BG : CURSOR_ADDITION_BG
+      expect(bgAt(spans, CURSOR_X - (side === "left" ? 60 : 0), RETURN_ROW)).toEqual(ints(lit))
+    })
+  }
 })
