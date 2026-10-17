@@ -35,8 +35,9 @@ describe("commentsPickerModel", () => {
         entry("pending", { status: "pending" }),
         entry("synced", { status: "synced" }),
       ],
-      0
-    , TALL).rows.map((r) => [r.id, r.glyph, r.glyphFg])
+      0,
+      TALL
+    ).rows.map((r) => [r.id, r.glyph, r.glyphFg])
     expect(glyphs).toEqual([
       ["reply", "↳", theme.overlay0],
       ["resolved", "✓", colors.commentResolved],

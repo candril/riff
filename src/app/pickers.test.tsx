@@ -135,12 +135,12 @@ test("the commit picker keeps its field mounted, only hidden, while not filterin
     query: "",
     extending: false,
   })
-  island.update(commitPickerModel(input(false), 24, new Date()))
+  island.update(commitPickerModel(input(false), 80, 24, new Date()))
   expect(await screen()).toContain("/ to filter")
   expect(field.parent).not.toBeNull()
   expect(field.parent!.visible).toBe(false)
 
-  island.update(commitPickerModel(input(true), 24, new Date()))
+  island.update(commitPickerModel(input(true), 80, 24, new Date()))
   expect(await screen()).not.toContain("/ to filter")
   expect(field.parent!.visible).toBe(true)
 
@@ -149,7 +149,7 @@ test("the commit picker keeps its field mounted, only hidden, while not filterin
   await new Promise((resolve) => setTimeout(resolve, 10))
   expect(field.isDestroyed).toBe(false)
 
-  island.update(commitPickerModel(input(true), 24, new Date()))
+  island.update(commitPickerModel(input(true), 80, 24, new Date()))
   expect(await screen()).toContain("Select Commit")
   expect(PromptInput(setup!.renderer, "commit-picker")).toBe(field)
   expect(field.parent).not.toBeNull()

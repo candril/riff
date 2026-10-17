@@ -1,4 +1,4 @@
-import { test, expect, describe, afterEach, beforeAll, afterAll, setSystemTime } from "bun:test"
+import { test, expect, describe, afterEach } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
 import type { FilteredCommit } from "./CommitPicker"
@@ -25,7 +25,7 @@ async function frame(options: Options = {}, { width, height } = { width: 100, he
   mounted = await mountRenderable(
     (renderer) => {
       const island = createCommitPickerIsland(renderer)
-      island.update(commitPickerModel(input, height, NOW))
+      island.update(commitPickerModel(input, width, height, NOW))
       return island.host
     },
     { width, height }
@@ -34,9 +34,6 @@ async function frame(options: Options = {}, { width, height } = { width: 100, he
 }
 
 const NOW = new Date("2026-10-17T12:00:00Z")
-
-beforeAll(() => setSystemTime(NOW))
-afterAll(() => setSystemTime())
 
 function usesBg(spans: ReturnType<NonNullable<typeof mounted>["setup"]["captureSpans"]>, hex: string) {
   const want = ints(hex).join()
@@ -63,8 +60,8 @@ const MANY: FilteredCommit[] = Array.from({ length: 20 }, (_, i) => ({
   index: i,
 }))
 
-// Sixty columns of a 100-column screen, less the padding, end the key line at "Enter:".
-const KEYS = "j/k: move  space: mark  V: mark a run  /: filter  Enter:"
+// Sixty columns of a 100-column screen, less the padding, leave 56 for the keys: the last group wraps.
+const KEYS = "j/k: move  space: mark  V: mark a run  /: filter"
 
 describe("the commit picker", () => {
   test("titles itself, offers / to filter, and lists every commit under All commits", async () => {
@@ -80,6 +77,22 @@ describe("the commit picker", () => {
     expect(text).toMatch(/  e4f5a6b  Fix the parser\s+@octocat  3h ago/)
     expect(text).toMatch(/  c7d8e9f  Rename main\s+@octocat  2d ago/)
     expect(text).toContain(KEYS)
+  })
+
+  test("on a 100x30 screen, wraps the keys so Enter: show them sits whole on a line of its own", async () => {
+    const lines = await frame({}, { width: 100, height: 30 })
+    const first = lines.findIndex((l) => l.includes(KEYS))
+    expect(first).toBeGreaterThan(0)
+    expect(lines[first]!.trim()).toBe(KEYS)
+    expect(lines[first + 1]!.trim()).toBe("Enter: show them")
+  })
+
+  test("keeps the sha and the gap after it when a long subject fills the row", async () => {
+    const long = "Fix the parser so that it handles every kind of nested bracket without dropping a token"
+    const lines = await frame({ commits: [{ commit: commit("e4f5a6b", long, 3 * 60), index: 0 }] })
+    const row = lines.find((l) => l.includes("e4f5a6b"))!
+    expect(row).toMatch(/(● |  )[0-9a-f]{7}  Fix/)
+    expect(row).toContain("@octocat  3h ago")
   })
 
   test("puts the ● on the commit being viewed, and shades the selected row and the field surface0", async () => {
@@ -158,11 +171,17 @@ describe("the commit picker", () => {
     expect(text).toContain("Commit 19")
   })
 
-  test("on a 24-row terminal, shortens the window so both notes and the key line stay on screen", async () => {
+  test("on an 80x24 terminal, shortens the window so both notes and every wrapped key line stay on screen", async () => {
     const many = Array.from({ length: 30 }, (_, i) => ({ commit: commit(`sha${String(i).padStart(4, "0")}`, `Commit ${i}`, 10), index: i }))
     const lines = await frame({ commits: many, selectedIndex: 15 }, { width: 80, height: 24 })
     expect(lines.some((l) => /↑ \d+ more/.test(l))).toBe(true)
     expect(lines.some((l) => /↓ \d+ more/.test(l))).toBe(true)
-    expect(lines.findIndex((l) => l.includes("j/k: move"))).toBe(23)
+    const rows = lines.map((l, i) => ({ l, i }))
+    for (const group of ["j/k: move", "space: mark", "V: mark a run", "/: filter", "Enter: show them"]) {
+      const at = rows.find(({ l }) => l.includes(group))
+      expect(at).toBeDefined()
+      expect(at!.i).toBeLessThanOrEqual(23)
+    }
+    expect(lines.findIndex((l) => l.includes("Enter: show them"))).toBe(23)
   })
 })

@@ -17,8 +17,8 @@ export interface PickerFrameProps {
   fieldPrefix?: string
   /** Shown in the field row in place of the prefix and the field, which then stay mounted but hidden. */
   fieldText?: { text: string; fg: string } | null
-  /** A line of keys under the list. */
-  footer?: string
+  /** Keys under the list, one entry per line. */
+  footer?: readonly string[]
   width: `${number}%`
   left: `${number}%`
   children: JSX.Element
@@ -84,9 +84,9 @@ export function PickerFrame(props: PickerFrameProps) {
           <Show when={props.model.empty}>{(empty: () => string) => <Note text={empty()} />}</Show>
         </box>
         <Show when={props.footer}>
-          {(footer: () => string) => (
-            <box flexDirection="row" paddingX={2} paddingTop={1}>
-              <text fg={theme.overlay0}>{footer()}</text>
+          {(footer: () => readonly string[]) => (
+            <box flexDirection="column" paddingX={2} paddingTop={1}>
+              <For each={footer()}>{(line) => <text fg={theme.overlay0} height={1}>{line}</text>}</For>
             </box>
           )}
         </Show>

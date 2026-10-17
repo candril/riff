@@ -18,7 +18,7 @@ function AllRow(props: { row: AllCommitsRow }) {
       overflow="hidden"
     >
       <box flexDirection="row">
-        <text fg={theme.green}>{props.row.active ? "● " : "  "}</text>
+        <text fg={theme.green} flexShrink={0}>{props.row.active ? "● " : "  "}</text>
         <text fg={props.row.labelFg}>All commits</text>
       </box>
       <text fg={theme.overlay0}>{props.row.total}</text>
@@ -46,10 +46,12 @@ function ShaRow(props: { row: CommitRow }) {
       overflow="hidden"
     >
       <box flexDirection="row" flexShrink={1} overflow="hidden">
-        <text fg={theme.green}>{props.row.active ? "● " : "  "}</text>
-        <text fg={props.row.shaFg}>{props.row.sha}</text>
-        <text fg={theme.overlay0}>{"  "}</text>
-        <text fg={props.row.messageFg}>{props.row.message}</text>
+        {/* Only the subject gives way: were the dot, the sha or the gap after
+            it allowed to shrink, they collapse first and the sha runs into the subject. */}
+        <text fg={theme.green} flexShrink={0}>{props.row.active ? "● " : "  "}</text>
+        <text fg={props.row.shaFg} flexShrink={0}>{props.row.sha}</text>
+        <text fg={theme.overlay0} flexShrink={0}>{"  "}</text>
+        <text fg={props.row.messageFg} flexShrink={1}>{props.row.message}</text>
       </box>
       {/* paddingLeft keeps a gap when the subject is long enough to shrink
           into it — without one the message runs straight into the author. */}

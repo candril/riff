@@ -102,6 +102,7 @@ export function createCommitPickerIsland(renderer: CliRenderer) {
     owner: "commit-picker",
     closed: commitPickerModel(
       { commits: [], selectedIndex: 0, viewingCommit: null, marked: new Set(), filtering: false, query: "", extending: false },
+      renderer.width,
       renderer.height,
       new Date()
     ),

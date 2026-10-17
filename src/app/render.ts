@@ -64,11 +64,7 @@ import type {
   MarksPickerIsland,
   OccurrencePickerIsland,
 } from "./pickers"
-import { filePickerModel } from "../components/file-picker-model"
-import { commentsPickerModel } from "../components/comments-picker-model"
-import { marksPickerModel } from "../components/marks-picker-model"
-import { occurrencePickerModel } from "../components/occurrence-picker-model"
-import { commitPickerModel } from "../components/commit-picker-model"
+import { pickerModels } from "./picker-models"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -88,11 +84,7 @@ import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
 import { getAvailableActions } from "../actions"
 import { submenuOpenedFromPalette } from "../actions/types"
 import { fuzzyFilter } from "../utils/fuzzy"
-import * as filePicker from "../features/file-picker"
-import * as commentsPickerFeature from "../features/comments-picker"
-import { marksPickerEntries, setMarksPickerQuery } from "../features/marks"
-import * as occurrencePickerFeature from "../features/occurrence-picker"
-import * as commitPicker from "../features/commit-picker"
+import { setMarksPickerQuery } from "../features/marks"
 import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
 import type { ActionMenuMode } from "../components"
@@ -562,56 +554,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         : null
     ctx.diffPeek.update(diffPeek)
     ctx.hunkPeek.update(hunkPeek)
-    ctx.filePicker.update(
-      state.filePicker.open ? filePickerModel(filePicker.getFilteredFiles(state), state.filePicker.selectedIndex, ctx.renderer.height) : null
-    )
-    ctx.commentsPicker.update(
-      state.commentsPicker.open
-        ? commentsPickerModel(
-            commentsPickerFeature.getFilteredEntries(state),
-            state.commentsPicker.selectedIndex,
-            ctx.renderer.height
-          )
-        : null
-    )
-    ctx.marksPicker.update(
-      state.marksPicker.open
-        ? marksPickerModel(
-            marksPickerEntries(state),
-            state.marksPicker.selectedIndex,
-            state.marks.marks.length > 0,
-            ctx.renderer.height
-          )
-        : null
-    )
-    ctx.occurrencePicker.update(
-      state.occurrencePicker.open
-        ? occurrencePickerModel(
-            state.occurrencePicker.query,
-            state.occurrencePicker.narrowing,
-            occurrencePickerFeature.getOccurrenceResults(state),
-            state.occurrencePicker.selectedIndex,
-            ctx.renderer.height
-          )
-        : null
-    )
-    ctx.commitPicker.update(
-      state.commitPicker.open
-        ? commitPickerModel(
-            {
-              commits: commitPicker.getFilteredCommits(state),
-              selectedIndex: state.commitPicker.selectedIndex,
-              viewingCommit: state.viewingCommit,
-              marked: state.commitPicker.marked,
-              filtering: state.commitPicker.queryInput,
-              query: state.commitPicker.query,
-              extending: state.commitPicker.rangeAnchor !== null,
-            },
-            ctx.renderer.height,
-            new Date()
-          )
-        : null
-    )
+    const pickers = pickerModels(state, ctx.renderer.width, ctx.renderer.height, new Date())
+    ctx.filePicker.update(pickers.file)
+    ctx.commentsPicker.update(pickers.comments)
+    ctx.marksPicker.update(pickers.marks)
+    ctx.occurrencePicker.update(pickers.occurrence)
+    ctx.commitPicker.update(pickers.commit)
 
     ctx.renderer.root.add(
       Box(

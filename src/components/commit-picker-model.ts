@@ -11,10 +11,25 @@ export interface FilteredCommit {
 /** Max items in view, "All commits" included. */
 export const MAX_COMMITS_VISIBLE = 15
 
-/** The key line under the list and the row above it. */
-export const COMMIT_FOOTER_ROWS = 2
+export const COMMIT_KEY_GROUPS = ["j/k: move", "space: mark", "V: mark a run", "/: filter", "Enter: show them"]
 
-export const COMMIT_KEYS = "j/k: move  space: mark  V: mark a run  /: filter  Enter: show them"
+/** CommitPicker's panel: 60% of the screen, as Yoga rounds it, less paddingX 2 on each side. */
+const keyLineWidth = (width: number) => Math.round(width * 0.6) - 4
+
+/**
+ * The groups packed into as few lines of `width` as they fit, two spaces
+ * apart. A group never breaks: one wider than the line gets a line to
+ * itself and the renderer cuts it.
+ */
+export function fitKeyLines(groups: readonly string[], width: number): string[] {
+  const lines: string[] = []
+  for (const group of groups) {
+    const last = lines.length - 1
+    if (last >= 0 && lines[last]!.length + 2 + group.length <= width) lines[last] += `  ${group}`
+    else lines.push(group)
+  }
+  return lines
+}
 
 export interface AllCommitsRow extends PickerRow {
   kind: "all"
@@ -48,7 +63,8 @@ export interface CommitPickerModel extends Omit<PickerModel<CommitPickerRow>, "c
   /** What the field row says while not filtering: the accepted query, or how to start one. */
   fieldText: string
   fieldFg: string
-  keys: string
+  /** One entry per screen line. */
+  keys: string[]
 }
 
 export interface CommitPickerInput {
@@ -100,15 +116,19 @@ function commitRow(item: FilteredCommit, selected: boolean, input: CommitPickerI
 
 /**
  * Ctrl-g (spec 078): "All commits" first, then the commits, in a window
- * that keeps the selection in view. `now` dates each commit.
+ * that keeps the selection in view. `width` and `height` are the
+ * terminal's; `now` dates each commit.
  */
-export function commitPickerModel(input: CommitPickerInput, height: number, now: Date): CommitPickerModel {
+export function commitPickerModel(input: CommitPickerInput, width: number, height: number, now: Date): CommitPickerModel {
   const { commits, selectedIndex } = input
   const total = 1 + commits.length
+  const keys = fitKeyLines(COMMIT_KEY_GROUPS, keyLineWidth(width))
+  // The keys sit under a padding row, and every line they wrap onto is a row the list gives up.
+  const footerRows = 1 + keys.length
   const { start, end, above, below } = pickerWindow(
     total,
     selectedIndex,
-    visibleRows(height - COMMIT_FOOTER_ROWS, MAX_COMMITS_VISIBLE)
+    visibleRows(height - footerRows, MAX_COMMITS_VISIBLE)
   )
   const rows: CommitPickerRow[] = []
   for (let i = start; i < end; i++) {
@@ -139,6 +159,6 @@ export function commitPickerModel(input: CommitPickerInput, height: number, now:
     filtering: input.filtering,
     fieldText: input.query ? `/${input.query}` : "/ to filter",
     fieldFg: input.query ? theme.subtext0 : theme.overlay0,
-    keys: COMMIT_KEYS,
+    keys,
   }
 }
