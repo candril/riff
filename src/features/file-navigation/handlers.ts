@@ -35,7 +35,7 @@ export interface FileNavigationContext {
   // Line mapping
   getLineMapping: () => DiffLineMapping
   createLineMapping: () => DiffLineMapping
-  // Vim diff view
+  // Cursor view
   getCursorView: () => CursorView
   // Helpers
   ensureCursorVisible: () => void

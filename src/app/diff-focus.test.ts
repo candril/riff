@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
-import { diffCursorShown } from "./diff-focus"
+import { composerOpen, diffCursorShown } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 
@@ -48,4 +48,16 @@ describe("the diff's cursor", () => {
       expect(diffCursorShown(change(initial), false)).toBe(true)
     })
   }
+})
+
+describe("the composer", () => {
+  test("is open composing or editing a comment", () => {
+    expect(composerOpen(comments({ mode: "compose" }, "diff")(initial))).toBe(true)
+    expect(composerOpen(comments({ mode: "edit" }, "diff")(initial))).toBe(true)
+  })
+
+  test("is not open with the overlay in another mode, or closed", () => {
+    expect(composerOpen(comments({ mode: "view" }, "diff")(initial))).toBe(false)
+    expect(composerOpen(comments({ mode: "compose", open: false }, "diff")(initial))).toBe(false)
+  })
 })

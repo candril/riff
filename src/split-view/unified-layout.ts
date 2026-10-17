@@ -5,7 +5,7 @@ import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { scrollBarFits, unifiedContentWidth } from "./content-width"
 import { unifiedOrigins, unifiedWrapWidth } from "./layout"
-import { createHeldRows } from "./retained-rows"
+import { createHeldRows } from "./held-rows"
 import { stickyHeaderLine } from "./sticky"
 
 export interface UnifiedLayoutInput {

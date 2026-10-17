@@ -207,6 +207,23 @@ describe("the mouse wheel", () => {
     for (let y = 1; y < 10; y++) expect(rows[y]).toContain(`const line${10 + y} = ${10 + y}`)
   })
 
+  test("the frame after a burst past a file's header shows none of the held chrome", async () => {
+    // Five rows high, so nine ticks carry the window past greet.ts's divider and farewell.ts's header.
+    const { island, setup } = await mount({ raw: TWO_FILES, height: 5, scrollOff: SCROLL_OFF })
+    await burst(setup, "down", 9, 3)
+    await setup.renderOnce()
+    const rows = setup.captureCharFrame().split("\n").map((row) => row.trimEnd())
+    expect(island.scrollTop()).toBe(9)
+    // Row 0 is the pinned header, over the line scrolled to the top.
+    expect(rows.slice(0, 5)).toEqual([
+      " ▼   src/farewell.ts +3 -0",
+      "   1 export function farewell(name: string) {",
+      '   2   return "Bye " + name',
+      "   3 }                                                                         ▄",
+      "     ▸ rest of the file  ↵                                                     █",
+    ])
+  })
+
   test("the held rows are let go once a frame has been drawn without them", async () => {
     const renderablesOf = (node: Renderable): number => node.getChildren().reduce((n, child) => n + renderablesOf(child as Renderable), 1)
     const scrolled = await mount({ raw: SIXTY_LINES, scrollOff: SCROLL_OFF })

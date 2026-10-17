@@ -6,7 +6,7 @@ import { theme } from "../theme"
 import type { DiffLineType } from "../vim-diff/types"
 import { FileLabel, FullRow } from "./FullRow"
 import { flashByLine, searchByLine } from "./overlays"
-import { mountedRows } from "./retained-rows"
+import { mountedRows } from "./held-rows"
 import "./scroll-bar"
 import { createTerminalCursor, unifiedCursorCell } from "./terminal-cursor"
 import type { UnifiedDiffViewProps, UnifiedEnv } from "./unified-env"
@@ -20,8 +20,10 @@ export type { UnifiedDiffViewProps } from "./unified-env"
 const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"])
 
 // FullRow draws a row as one box, so hiding that box hides the row and takes it out of the column.
+// Anything else would leave held chrome drawn over the window, so it fails loudly rather than quietly.
 function hiddenUnless(row: JSX.Element, shown: () => boolean) {
-  if (row instanceof Renderable) createRenderEffect(() => (row.visible = shown()))
+  if (!(row instanceof Renderable)) throw new Error("FullRow must render a single Renderable for held chrome to be hidden")
+  createRenderEffect(() => (row.visible = shown()))
   return row
 }
 

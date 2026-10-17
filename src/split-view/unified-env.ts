@@ -7,7 +7,7 @@ import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
 import type { RowEnv } from "./env"
-import type { RowSpan } from "./retained-rows"
+import type { RowSpan } from "./held-rows"
 import type { UnifiedLayout } from "./unified-layout"
 import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 

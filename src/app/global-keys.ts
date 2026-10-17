@@ -75,7 +75,7 @@ export interface GlobalKeyContext {
   getFlashState: () => FlashState
   // UI
   renderer: { console: { toggle: () => void } }
-  vimDiffView: DiffViewport
+  cursorView: DiffViewport
   fileTreePanel: FileTreePanel
   getPrInfoPanel: () => PRInfoPanelClass | null
   // Vim handlers
@@ -233,9 +233,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
    * how vim behaves too.
    */
   function scrollColumns(delta: number): void {
-    ctx.vimDiffView.scrollColumnsBy(delta)
+    ctx.cursorView.scrollColumnsBy(delta)
     const vimState = ctx.getVimState()
-    const col = ctx.vimDiffView.clampColumnToWindow(vimState.line, vimState.col)
+    const col = ctx.cursorView.clampColumnToWindow(vimState.line, vimState.col)
     if (col !== vimState.col) {
       ctx.setVimState({ ...vimState, col, desiredCol: null })
     }
@@ -592,8 +592,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
           // The scroll waits for revealFile, which puts the cursor on the
           // file and draws it: placed before that, it would put whatever
           // line the cursor left at the top.
-          ctx.vimDiffView.onceRebuilt(() =>
-            ctx.vimDiffView.scrollCursorTo(ctx.getVimState().line, "top")
+          ctx.cursorView.onceRebuilt(() =>
+            ctx.cursorView.scrollCursorTo(ctx.getVimState().line, "top")
           )
           fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
         },
@@ -1492,11 +1492,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         // Both spellings are accepted because terminals differ in whether
         // shift+letter reports the key name as lower- or uppercase.
         const forward = sequence === "zL!" || sequence === "zl!"
-        scrollColumns(ctx.vimDiffView.halfColumnWindow(ctx.getVimState().line) * (forward ? 1 : -1))
+        scrollColumns(ctx.cursorView.halfColumnWindow(ctx.getVimState().line) * (forward ? 1 : -1))
         return
       } else if (sequence === "zs" || sequence === "ze") {
         const vimState = ctx.getVimState()
-        ctx.vimDiffView.scrollColumnToEdge(
+        ctx.cursorView.scrollColumnToEdge(
           vimState.line,
           vimState.col,
           sequence === "zs" ? "start" : "end"
@@ -1504,7 +1504,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
         ctx.render()
         return
       } else if (sequence === "zz" || sequence === "zt" || sequence === "zb") {
-        ctx.vimDiffView.scrollCursorTo(
+        ctx.cursorView.scrollCursorTo(
           ctx.getVimState().line,
           sequence === "zz" ? "center" : sequence === "zt" ? "top" : "bottom"
         )
@@ -1591,7 +1591,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
       getVimState: ctx.getVimState,
       setVimState: ctx.setVimState,
       vimHandler: ctx.vimHandler,
-      vimDiffView: ctx.vimDiffView,
+      cursorView: ctx.cursorView,
       searchState: ctx.getSearchState(),
       searchHandler: ctx.searchHandler,
       flashHandler: ctx.flashHandler,

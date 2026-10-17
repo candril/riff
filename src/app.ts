@@ -1583,7 +1583,7 @@ export async function createApp(options: AppOptions = {}) {
     getSearchState: () => searchState,
     getFlashState: () => flashState,
     renderer,
-    vimDiffView: diffViewport,
+    cursorView: diffViewport,
     fileTreePanel,
     getPrInfoPanel: () => prInfoPanel,
     vimHandler,

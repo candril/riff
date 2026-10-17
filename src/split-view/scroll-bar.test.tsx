@@ -2,7 +2,7 @@ import { test, expect, describe } from "bun:test"
 import { ScrollBarRenderable } from "@opentui/core"
 import { createSignal } from "solid-js"
 import { mountJsx, mountRenderable } from "../testing/frame"
-import "./scroll-bar"
+import { PaneScrollBar } from "./scroll-bar"
 
 /*
  * The bar alone on a one-column screen as tall as the viewport, read as a
@@ -68,7 +68,8 @@ describe("the scrollbar's thumb", () => {
     expect(await scrollFirst({ viewport: 8, scroll: 30, position: 22 })).toBe("      ██")
   })
 
-  test("a resize that changes only the viewport resizes the thumb", async () => {
+  // OpenTUI sizes the thumb against the range alone when only the viewport changes; this pins that it still does.
+  test("a resize that changes only the viewport resizes the thumb, without the override's help", async () => {
     const [height, setHeight] = createSignal(8)
     const mounted = await mountJsx(
       () => (
@@ -83,6 +84,26 @@ describe("the scrollbar's thumb", () => {
     expect(columnOf(mounted.setup.captureCharFrame(), 8)).toBe("██      ")
     setHeight(12)
     expect(await thumbOf(mounted, 12)).toBe("████▀       ")
+  })
+
+  // Set outside Solid, the viewport after the scroll size, so the shrink alone is left to the scrollSize setter.
+  // 30 rows to 14 leaves a range of 4, under the slider's viewport of 10 clamped against the old range of 20.
+  test("a scroll size shrinking its range below the viewport re-clamps the thumb to the new range", async () => {
+    let bar!: PaneScrollBar
+    const mounted = await mountRenderable(
+      (renderer) => {
+        bar = new PaneScrollBar(renderer, { width: 1, height: 10 })
+        bar.scrollSize = 30
+        bar.viewportSize = 10
+        return bar
+      },
+      { width: 1, height: 10 }
+    )
+    await mounted.setup.renderOnce()
+    await mounted.setup.renderOnce()
+    expect(columnOf(mounted.setup.captureCharFrame(), 10)).toBe("███       ")
+    bar.scrollSize = 14
+    expect(await thumbOf(mounted, 10)).toBe("█████     ")
   })
 
   // OpenTUI's slider caps the viewport at the scroll range, so the thumb never takes more than half the track.

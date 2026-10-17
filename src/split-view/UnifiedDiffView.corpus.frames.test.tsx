@@ -206,7 +206,7 @@ describe("sticky header", () => {
 
     expect(rows(frame)[1]).toBe(" ▼   src/greet.ts +2 -1")
     expect(rows(frame)[2]).toBe("   2   return `Hello ${name}`")
-    // The thumb is the window's share of the track: eleven rows of fifteen.
+    // The window's share of the track would be eleven rows of fifteen, but SliderRenderable caps the thumb at half the track.
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
    2   return \`Hello \${name}\`

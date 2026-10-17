@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { colors, theme } from "../theme"
 import type { Comment } from "../types"
 import { code, mappingOf } from "./fixtures"
-import { commentSignColor, commentSigns } from "./signs"
+import { commentSigns } from "./signs"
 
 const comment = (line: number, side: Comment["side"], extra: Partial<Comment> = {}): Comment => ({
   id: `${side}${line}`,
@@ -15,27 +15,26 @@ const comment = (line: number, side: Comment["side"], extra: Partial<Comment> = 
   ...extra,
 })
 
-describe("commentSignColor", () => {
-  test("a resolved thread is dim whatever its status", () => {
-    expect(commentSignColor(comment(1, "RIGHT", { status: "synced", isThreadResolved: true }))).toBe(
-      colors.commentResolved
-    )
-  })
-
-  test("each status has its colour, and a synced comment with an unsent edit reads as pending", () => {
-    expect(commentSignColor(comment(1, "RIGHT"))).toBe(theme.blue)
-    expect(commentSignColor(comment(1, "RIGHT", { status: "pending" }))).toBe(theme.yellow)
-    expect(commentSignColor(comment(1, "RIGHT", { status: "synced" }))).toBe(theme.green)
-    expect(commentSignColor(comment(1, "RIGHT", { status: "synced", localEdit: "edit" }))).toBe(theme.yellow)
-  })
-})
-
 describe("commentSigns", () => {
   const mapping = mappingOf({}, [code])
   const lineOf = (type: string, lineNum: number) =>
     mapping.allLines.findIndex(
       (line) => line.type === type && (type === "deletion" ? line.oldLineNum : line.newLineNum) === lineNum
     )
+
+  const colourOf = (extra: Partial<Comment>) =>
+    commentSigns(mapping, [comment(1, "RIGHT", extra)]).get(lineOf("context", 1))?.color
+
+  test("a resolved thread is dim whatever its status", () => {
+    expect(colourOf({ status: "synced", isThreadResolved: true })).toBe(colors.commentResolved)
+  })
+
+  test("each status has its colour, and a synced comment with an unsent edit reads as pending", () => {
+    expect(colourOf({})).toBe(theme.blue)
+    expect(colourOf({ status: "pending" })).toBe(theme.yellow)
+    expect(colourOf({ status: "synced" })).toBe(theme.green)
+    expect(colourOf({ status: "synced", localEdit: "edit" })).toBe(theme.yellow)
+  })
 
   test("a removed and an added line carry their sign in their own half", () => {
     const signs = commentSigns(mapping, [comment(2, "LEFT"), comment(2, "RIGHT", { status: "synced" })])

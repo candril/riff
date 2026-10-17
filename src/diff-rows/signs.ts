@@ -11,7 +11,7 @@ export interface CommentSign {
 
 type SignedComment = Pick<Comment, "isThreadResolved" | "status" | "localEdit">
 
-export function commentSignColor(comment: SignedComment): string {
+function commentSignColor(comment: SignedComment): string {
   if (comment.isThreadResolved) return colors.commentResolved
   // Synced, but with an edit that has not gone up yet.
   if (comment.status === "synced" && comment.localEdit !== undefined) return theme.yellow

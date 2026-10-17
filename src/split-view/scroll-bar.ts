@@ -21,10 +21,11 @@ interface PaneScrollBarOptions extends RenderableOptions<ScrollBarRenderable> {
  * when the viewport is set, and SliderRenderable clamps that to the scroll
  * range as it stands then, down to 0.01 while the range is empty. A
  * viewport set before the scroll size thus leaves a sliver of a thumb,
- * and Solid's order of setting props is not one to build on. So every change to either size hands the slider the
- * viewport again, against the range as it now is. scroll-bar.test.tsx
- * pins this bar in both orders and OpenTUI's own bar's sliver, so an
- * upgrade that changes either fails there.
+ * and Solid's order of setting props is not one to build on. So every
+ * change to either size hands the slider the viewport again, against the
+ * range as it now is. scroll-bar.test.tsx pins this bar in both orders
+ * and OpenTUI's own bar's sliver, so an upgrade that changes either
+ * fails there.
  */
 export class PaneScrollBar extends ScrollBarRenderable {
   constructor(ctx: RenderContext, options: PaneScrollBarOptions) {

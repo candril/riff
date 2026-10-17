@@ -22,8 +22,8 @@ export interface DiffViewInputContext {
   setVimState: (state: VimCursorState) => void
   // Vim handler for navigation
   vimHandler: VimMotionHandler
-  // Vim diff view for cursor updates
-  vimDiffView: CursorView
+  // Cursor view
+  cursorView: CursorView
   // Search
   searchState: SearchState
   searchHandler: SearchHandler
@@ -120,7 +120,7 @@ export function handleInput(
     const vimState = ctx.getVimState()
     if (isVisualMode(vimState)) {
       ctx.setVimState(exitVisualMode(vimState))
-      ctx.vimDiffView.updateCursor(ctx.getVimState())
+      ctx.cursorView.updateCursor(ctx.getVimState())
       return true
     }
     // Clear search highlights (if any)

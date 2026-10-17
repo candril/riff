@@ -89,7 +89,7 @@ import * as commentsFeature from "../features/comments"
 import { getSubmenuRows } from "../features/action-menu"
 import type { ActionMenuMode } from "../components"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
-import { diffCursorShown } from "./diff-focus"
+import { composerOpen, diffCursorShown } from "./diff-focus"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -231,7 +231,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const splitOn = isSplitOn(state, ctx.split)
 
     const ov = state.inlineCommentOverlay
-    const composerActive = ov.open && (ov.mode === "compose" || ov.mode === "edit")
+    const composerActive = composerOpen(state)
     const reviewActive = state.reviewPreview.open
     const prompt = openPrompt(state, ctx, render)
     const diffFocused = diffCursorShown(state, prompt !== null)
@@ -364,10 +364,10 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // Drive the composer textarea's lifecycle from overlay state. We do
     // this BEFORE building the next tree so the textarea is focused /
-    // seeded by the time it's mounted into the layout. Unfocusing the
-    // diff (diffFocused) keeps the textarea's cursor visible —
-    // otherwise the diff would re-claim it after the textarea's
-    // renderCursor pass.
+    // seeded by the time it's mounted into the layout. With the composer
+    // open the diff's cursor is not shown (diffFocused false), which keeps
+    // the textarea's cursor visible; otherwise the diff would re-claim it
+    // after the textarea's renderCursor pass.
     {
       if (composerActive) {
         const key = `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`
