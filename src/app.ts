@@ -81,6 +81,8 @@ import { startMentionPrefetch } from "./features/mentions"
 import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
 import * as jumplist from "./features/jumplist"
+import { createJumpRecorder, type Moment } from "./features/jumplist/recorder"
+import { interactionSettled } from "./app/jump-settled"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as refresh from "./features/refresh"
@@ -1618,33 +1620,37 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   /**
-   * Every key that lands somewhere else records where it came from
-   * (spec 089).
+   * Every navigation records where it came from (spec 089).
    *
    * One place rather than a call in front of each navigation: the picker,
    * the tree, flash, thread motion and everything written after this are in
-   * the jumplist without opting in, and none of them can forget. A key that
-   * only steps or scrolls is not a jump, and typing into a composer or a
-   * filter never moves the reader at all — so nothing it does is recorded.
+   * the jumplist without opting in, and none of them can forget.
    *
-   * Stepping is exempt only while it stays inside a file. `j` off the last
-   * line of one file and into the next is how the all-files view changes
-   * file, and walking back the way you came has to include it.
+   * What is judged is an interaction, not a key. A search moves the cursor
+   * while it is typed, a picker or flash takes letters that would otherwise
+   * be steps, and a chord is two keys; judged key by key, each would leave
+   * a half-finished place or none. The place before the first key is what
+   * gets recorded, once nothing is waiting for more keys.
    */
-  function handleKeypress(key: KeyEvent) {
-    const before = jumplist.capture(state, vimState)
-    const fileBefore = jumplist.cursorFile(lineMapping, vimState.line)
-    dispatchKeypress(key)
+  const jumpRecorder = createJumpRecorder()
 
-    if (jumplist.isStepMotion(key)) {
-      const fileAfter = jumplist.cursorFile(lineMapping, vimState.line)
-      if (fileAfter === null || fileAfter === fileBefore) return
-      state = jumplist.push(state, before)
-      return
+  function moment(): Moment {
+    return {
+      place: jumplist.capture(state, vimState),
+      file: jumplist.cursorFile(lineMapping, vimState.line),
+      settled: interactionSettled({
+        state,
+        vim: vimState,
+        searchActive: searchState.active,
+        flashActive: flashState.active,
+        chordPending: dispatchKeypress.chordPending(),
+      }),
     }
+  }
 
-    if (jumplist.sameLocation(before, jumplist.capture(state, vimState))) return
-    state = jumplist.push(state, before)
+  function handleKeypress(key: KeyEvent) {
+    const jump = jumpRecorder.around(key, moment(), () => dispatchKeypress(key), moment)
+    if (jump) state = jumplist.push(state, jump)
   }
 
   renderer.keyInput.on("keypress", handleKeypress)

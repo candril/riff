@@ -12,17 +12,17 @@ const STEP_CTRL_KEYS = new Set(["d", "u", "e", "y"])
 /**
  * True for a key that moves the cursor without moving the reader — vim's own
  * line between a motion and a jump (spec 089).
- *
- * `Ctrl-o`, `Ctrl-i` and the `tab` it arrives as are here too: walking the
- * list must not extend it.
  */
 export function isStepMotion(key: Key): boolean {
   const name = key.name ?? ""
-  if (key.ctrl) return STEP_CTRL_KEYS.has(name) || name === "o" || name === "i"
-  return name === "tab" || STEP_KEYS.has(name)
+  if (key.ctrl) return STEP_CTRL_KEYS.has(name)
+  return STEP_KEYS.has(name)
 }
 
-/** `Ctrl-o`, `Ctrl-i`, and `tab`, which is how a terminal sends `Ctrl-i`. */
+/**
+ * `Ctrl-o`, `Ctrl-i`, and `tab`, which is how a terminal sends `Ctrl-i`.
+ * Walking the list never extends it, wherever it lands.
+ */
 export function isListWalk(key: Key): boolean {
   const name = key.name ?? ""
   if (key.ctrl) return name === "o" || name === "i"

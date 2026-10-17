@@ -226,7 +226,10 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
   return null
 }
 
-export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void {
+/** `chordPending` says whether a `g`, `z`, `[` or `]` is still waiting for its second key. */
+export type GlobalKeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
+
+export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
    * cursor behind would hide it the moment it left the window, which is
@@ -519,7 +522,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): (key: KeyEvent) => void
     }
   }
 
-  return function handleKeypress(key: KeyEvent) {
+  return Object.assign(handleKeypress, { chordPending: () => pendingKey !== null })
+
+  function handleKeypress(key: KeyEvent) {
     // F12 toggles debug console
     if (key.name === "f12") {
       ctx.renderer.console.toggle()

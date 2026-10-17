@@ -27,10 +27,10 @@ describe("isStepMotion", () => {
     }
   })
 
-  test("walking the list does not extend it", () => {
-    expect(isStepMotion({ name: "o", ctrl: true })).toBe(true)
-    expect(isStepMotion({ name: "i", ctrl: true })).toBe(true)
-    expect(isStepMotion({ name: "tab" })).toBe(true)
+  test("walking the list is not a step: it is its own kind", () => {
+    expect(isStepMotion({ name: "o", ctrl: true })).toBe(false)
+    expect(isStepMotion({ name: "i", ctrl: true })).toBe(false)
+    expect(isStepMotion({ name: "tab" })).toBe(false)
   })
 
   test("everything that takes you somewhere is a jump", () => {
