@@ -23,14 +23,25 @@ import { keepAlive } from "../utils/renderables"
  * the palette's box into the picker's box in that frame left the terminal
  * scrolled by a screen; a field that only ever lives in one prompt does
  * not move.
+ *
+ * The fields are kept per renderer as well: a field belongs to the renderer
+ * that built it, and once that renderer is destroyed its field cannot be
+ * mounted into another.
  */
-const inputs = new Map<string, InputRenderable>()
+const inputs = new WeakMap<CliRenderer, Map<string, InputRenderable>>()
+// One field types at a time, whichever renderer it belongs to.
 let sessionKey: string | null = null
+let sessionField: InputRenderable | null = null
 let changeHandler: ((value: string) => void) | null = null
 let submitHandler: (() => void) | null = null
 
 function ensureInput(renderer: CliRenderer, owner: string): InputRenderable {
-  let input = inputs.get(owner)
+  let fields = inputs.get(renderer)
+  if (!fields) {
+    fields = new Map()
+    inputs.set(renderer, fields)
+  }
+  let input = fields.get(owner)
   if (!input) {
     input = new InputRenderable(renderer, {
       id: `prompt-input-${owner}`,
@@ -46,7 +57,7 @@ function ensureInput(renderer: CliRenderer, owner: string): InputRenderable {
     input.on(InputRenderableEvents.INPUT, (value: string) => changeHandler?.(value))
     input.on(InputRenderableEvents.ENTER, () => submitHandler?.())
     keepAlive(input)
-    inputs.set(owner, input)
+    fields.set(owner, input)
   }
   return input
 }
@@ -78,9 +89,10 @@ export function syncPromptSession(session: PromptSession): void {
   const field = ensureInput(session.renderer, ownerOf(session.key))
   submitHandler = session.onSubmit ?? null
 
-  if (sessionKey !== session.key) {
-    if (sessionKey !== null) inputs.get(ownerOf(sessionKey))?.blur()
+  if (sessionKey !== session.key || sessionField !== field) {
+    sessionField?.blur()
     sessionKey = session.key
+    sessionField = field
     field.placeholder = session.placeholder ?? ""
     // Seeding is not typing. A field reopened with its last session's text
     // reports the reset as input, and that handler re-renders from inside the
@@ -95,15 +107,16 @@ export function syncPromptSession(session: PromptSession): void {
 /** No prompt is open any more. */
 export function endPromptSession(): void {
   if (sessionKey === null) return
-  inputs.get(ownerOf(sessionKey))?.blur()
+  sessionField?.blur()
   sessionKey = null
+  sessionField = null
   changeHandler = null
   submitHandler = null
 }
 
 /** What is typed right now. "" before any prompt has opened. */
 export function readPromptValue(): string {
-  return sessionKey === null ? "" : inputs.get(ownerOf(sessionKey))?.value ?? ""
+  return sessionField?.value ?? ""
 }
 
 /**
