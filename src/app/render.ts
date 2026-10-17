@@ -7,7 +7,6 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import {
-  ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
   SyncPreview,
@@ -58,6 +57,7 @@ import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
 import type { PeekIsland } from "./peek-island"
 import type {
+  ActionMenuIsland,
   CommentsPickerIsland,
   CommitPickerIsland,
   FilePickerIsland,
@@ -84,6 +84,7 @@ import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
 import { setMarksPickerQuery } from "../features/marks"
 import * as commentsFeature from "../features/comments"
 import { paletteMode } from "../features/action-menu"
+import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { composerOpen, diffCursorShown } from "./diff-focus"
 import { mainContentRow } from "./content-row"
@@ -117,6 +118,7 @@ export interface RenderContext {
   marksPicker: MarksPickerIsland
   occurrencePicker: OccurrencePickerIsland
   commitPicker: CommitPickerIsland
+  actionMenu: ActionMenuIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -527,6 +529,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.marksPicker.update(pickers.marks)
     ctx.occurrencePicker.update(pickers.occurrence)
     ctx.commitPicker.update(pickers.commit)
+    ctx.actionMenu.update(
+      state.actionMenu.open ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex) : null
+    )
 
     ctx.renderer.root.add(
       Box(
@@ -548,13 +553,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         // growing the footer would shrink every panel by a line, and the
         // labels would land on rows that had just moved.
         flashShown ? ctx.flashPrompt.host : ctx.statusBar.host,
-        state.actionMenu.open
-          ? ActionMenu({
-              renderer: ctx.renderer,
-              mode: paletteMode(state, vimState),
-              selectedIndex: state.actionMenu.selectedIndex,
-            })
-          : null,
+        state.actionMenu.open ? ctx.actionMenu.host : null,
         state.toast.message ? ctx.toast.host : null,
         state.reviewPreview.open
           ? ReviewPreview({

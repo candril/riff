@@ -64,6 +64,7 @@ import { createHelpOverlayIsland } from "./app/help-overlay"
 import { createPeekIsland } from "./app/peek-island"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import {
+  createActionMenuIsland,
   createCommentsPickerIsland,
   createCommitPickerIsland,
   createFilePickerIsland,
@@ -304,6 +305,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPickerIsland.dispose()
     occurrencePickerIsland.dispose()
     commitPickerIsland.dispose()
+    actionMenuIsland.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -490,6 +492,7 @@ export async function createApp(options: AppOptions = {}) {
   const marksPickerIsland = createMarksPickerIsland(renderer)
   const occurrencePickerIsland = createOccurrencePickerIsland(renderer)
   const commitPickerIsland = createCommitPickerIsland(renderer)
+  const actionMenuIsland = createActionMenuIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -565,6 +568,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker: marksPickerIsland,
     occurrencePicker: occurrencePickerIsland,
     commitPicker: commitPickerIsland,
+    actionMenu: actionMenuIsland,
     split,
     unified,
     parses,

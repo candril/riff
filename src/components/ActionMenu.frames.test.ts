@@ -1,13 +1,21 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
-import { ActionMenu, type ActionMenuMode, type SubmenuRow } from "./ActionMenu"
+import { actionMenuModel, type ActionMenuMode, type SubmenuRow } from "./action-menu-model"
+import { createActionMenuIsland } from "../app/pickers"
 import type { ResolvedAction } from "../actions"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 async function frame(mode: ActionMenuMode, selectedIndex = 0) {
-  mounted = await mountRenderable((renderer) => ActionMenu({ renderer, mode, selectedIndex }), { width: 100, height: 40 })
+  mounted = await mountRenderable(
+    (renderer) => {
+      const island = createActionMenuIsland(renderer)
+      island.update(actionMenuModel(mode, selectedIndex))
+      return island.host
+    },
+    { width: 100, height: 40 }
+  )
   return (await mounted.frame()).split("\n")
 }
 
@@ -70,20 +78,27 @@ describe("the command palette", () => {
     expect(lines.find((l) => l.includes("Ask Claude"))!.trimEnd()).toMatch(/Ask Claude$/)
   })
 
-  test("marks the selected row by its place across the groups", async () => {
+  test("shades the selected row by its place across the groups, and the field, surface0 on the mantle", async () => {
     const lines = await frame({ kind: "actions", actions: ACTIONS }, 3)
     const spans = mounted!.setup.captureSpans()
     const selected = lines.findIndex((l) => l.includes("Toggle split view"))
     const other = lines.findIndex((l) => l.includes("Go to file"))
+    const field = lines.findIndex((l) => l.includes("Commands")) + 2
     expect(fgAt(spans, 27, selected)).toEqual(ints(theme.text))
     expect(fgAt(spans, 27, other)).toEqual(ints(theme.subtext1))
-    expect(bgAt(spans, 27, selected)).not.toEqual(bgAt(spans, 27, other))
+    expect(bgAt(spans, 27, selected)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 27, other)).toEqual(ints(theme.mantle))
+    expect(bgAt(spans, 30, field)).toEqual(ints(theme.surface0))
   })
 
-  test("draws no box-drawing characters, on mantle", async () => {
+  test("draws no box-drawing characters and no surface2, on mantle", async () => {
     const lines = await frame({ kind: "actions", actions: ACTIONS }, 3)
     const spans = mounted!.setup.captureSpans()
     expect(lines.join("\n")).not.toMatch(/[─-╿]/)
+    const surface2 = ints("#585b70")
+    for (const line of spans.lines) {
+      for (const span of line.spans) expect(span.bg.toInts()).not.toEqual(surface2)
+    }
     const title = lines.findIndex((l) => l.includes("Commands"))
     expect(bgAt(spans, 26, title)).toEqual(ints(theme.mantle))
     expect(bgAt(spans, 27, lines.findIndex((l) => l.includes("Quit")))).toEqual(ints(theme.mantle))
@@ -120,6 +135,7 @@ describe("a submenu", () => {
     expect(fgAt(spans, lines[thumbs]!.indexOf("you reacted"), thumbs)).toEqual(ints(theme.green))
     expect(fgAt(spans, lines[heart]!.lastIndexOf("1"), heart)).toEqual(ints(theme.overlay0))
     expect(fgAt(spans, 27, heart)).toEqual(ints(theme.text))
+    expect(bgAt(spans, 27, heart)).toEqual(ints(theme.surface0))
     expect(fgAt(spans, 27, lines.findIndex((l) => l.includes("Plain")))).toEqual(ints(theme.subtext1))
   })
 

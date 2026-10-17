@@ -2,6 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import {
+  createActionMenuIsland,
   createCommentsPickerIsland,
   createCommitPickerIsland,
   createFilePickerIsland,
@@ -13,6 +14,8 @@ import { commentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel } from "../components/marks-picker-model"
 import { occurrencePickerModel } from "../components/occurrence-picker-model"
 import { commitPickerModel, type CommitPickerInput } from "../components/commit-picker-model"
+import { actionMenuModel } from "../components/action-menu-model"
+import type { ResolvedAction } from "../actions"
 import { findOccurrences } from "../features/occurrence-picker/filter"
 import type { OccurrenceRow } from "../features/occurrence-picker/corpus"
 import { PromptInput } from "../components/PromptInput"
@@ -153,5 +156,44 @@ test("the commit picker keeps its field mounted, only hidden, while not filterin
   expect(await screen()).toContain("Select Commit")
   expect(PromptInput(setup!.renderer, "commit-picker")).toBe(field)
   expect(field.parent).not.toBeNull()
+  island.dispose()
+})
+
+const actions: ResolvedAction[] = [
+  { id: "quit", label: "Quit", description: "", category: "general", shortcut: "q", available: () => true },
+  { id: "react", label: "React…", description: "", category: "github", available: () => true },
+]
+
+test("the command palette swaps its list for a submenu and back on one live field, above the comments panel", async () => {
+  const island = await mount(createActionMenuIsland)
+  const field = PromptInput(setup!.renderer, "action-menu")
+  expect(island.host.zIndex).toBe(100)
+
+  island.update(actionMenuModel({ kind: "actions", actions }, 1))
+  expect(await screen()).toMatch(/Commands\s+esc/)
+  const fieldBox = field.parent
+  expect(fieldBox).not.toBeNull()
+  const quit = findText(island.host, "Quit")
+  expect(quit).toBeDefined()
+
+  island.update(actionMenuModel({ kind: "submenu", title: "React", rows: [{ id: "react:heart", icon: "♥", label: "Heart" }] }, 0))
+  const submenu = await screen()
+  expect(submenu).toMatch(/React\s+esc to back/)
+  expect(submenu).toContain("♥  Heart")
+  expect(submenu).not.toContain("Quit")
+  expect(PromptInput(setup!.renderer, "action-menu")).toBe(field)
+  expect(field.parent).toBe(fieldBox)
+
+  island.update(actionMenuModel({ kind: "actions", actions }, 0))
+  const back = await screen()
+  expect(back).toContain("Quit")
+  expect(back).not.toContain("Heart")
+  expect(field.parent).toBe(fieldBox)
+
+  island.update(null)
+  expect(await screen()).toBe("")
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(field.isDestroyed).toBe(false)
+  expect(field.parent).toBe(fieldBox)
   island.dispose()
 })

@@ -59,6 +59,7 @@ async function harness() {
         "marksPicker",
         "occurrencePicker",
         "commitPicker",
+        "actionMenu",
       ].map((name) => [name, island(name)])
     ),
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
@@ -68,6 +69,7 @@ async function harness() {
   const overlays = () => {
     const root = renderer.root.getChildren().find((child) => !child.id.startsWith("comment-indicator-"))!
     const ids = new Set([
+      "actionMenu",
       "filePicker",
       "commentsPicker",
       "marksPicker",
@@ -185,4 +187,13 @@ test("each picker is mounted only while it is open, under help and the confirm d
   expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([
     "draftNotification",
   ])
+})
+
+test("the command palette is mounted only while it is open, under the pickers", async () => {
+  const app = await harness()
+  const initial = createInitialState([], [], "test", "")
+  expect(app.show({ actionMenu: { ...initial.actionMenu, open: true } })).toEqual(["actionMenu"])
+  expect(app.show({ filePicker: { ...initial.filePicker, open: true } })).toEqual(["actionMenu", "filePicker"])
+  expect(app.show({ actionMenu: { ...initial.actionMenu, open: false } })).toEqual(["filePicker"])
+  expect(app.show({ filePicker: { ...initial.filePicker, open: false } })).toEqual([])
 })

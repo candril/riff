@@ -7,11 +7,13 @@ import { CommentsPicker } from "../components/CommentsPicker"
 import { MarksPicker } from "../components/MarksPicker"
 import { OccurrencePicker } from "../components/OccurrencePicker"
 import { CommitPicker } from "../components/CommitPicker"
+import { ActionMenu } from "../components/ActionMenu"
 import { filePickerModel, type FilePickerModel } from "../components/file-picker-model"
 import { commentsPickerModel, type CommentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel, type MarksPickerModel } from "../components/marks-picker-model"
 import { occurrencePickerModel, type OccurrencePickerModel } from "../components/occurrence-picker-model"
 import { commitPickerModel, type CommitPickerModel } from "../components/commit-picker-model"
+import { actionMenuModel, type ActionMenuModel } from "../components/action-menu-model"
 import { findOccurrences } from "../features/occurrence-picker/filter"
 import { mountSolid } from "./solid-island"
 
@@ -26,6 +28,7 @@ export function createPickerIsland<Model extends object>(
     id: string
     owner: string
     closed: Model
+    zIndex?: number
     draw: (props: { model: Model; field: InputRenderable }) => JSX.Element
   }
 ) {
@@ -46,7 +49,7 @@ export function createPickerIsland<Model extends object>(
         })}
       </box>
     ),
-    { id: options.id, position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }
+    { id: options.id, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", zIndex: options.zIndex }
   )
   return {
     host: island.host,
@@ -110,9 +113,21 @@ export function createCommitPickerIsland(renderer: CliRenderer) {
   })
 }
 
+export function createActionMenuIsland(renderer: CliRenderer) {
+  return createPickerIsland<ActionMenuModel>(renderer, {
+    id: "action-menu-overlay",
+    owner: "action-menu",
+    closed: actionMenuModel({ kind: "actions", actions: [] }, 0),
+    // Above the comments panel (50), so the palette is reachable while a thread is visible (spec 042).
+    zIndex: 100,
+    draw: (props) => <ActionMenu model={props.model} field={props.field} />,
+  })
+}
+
 export type PickerIsland<Model extends object> = ReturnType<typeof createPickerIsland<Model>>
 export type FilePickerIsland = ReturnType<typeof createFilePickerIsland>
 export type CommentsPickerIsland = ReturnType<typeof createCommentsPickerIsland>
 export type MarksPickerIsland = ReturnType<typeof createMarksPickerIsland>
 export type OccurrencePickerIsland = ReturnType<typeof createOccurrencePickerIsland>
 export type CommitPickerIsland = ReturnType<typeof createCommitPickerIsland>
+export type ActionMenuIsland = ReturnType<typeof createActionMenuIsland>
