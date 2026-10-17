@@ -93,6 +93,7 @@ import { getSubmenuRows } from "../features/action-menu"
 import type { ActionMenuMode } from "../components"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { composerOpen, diffCursorShown } from "./diff-focus"
+import { mainContentRow } from "./content-row"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -247,45 +248,33 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const prompt = openPrompt(state, ctx, render)
     const diffFocused = diffCursorShown(state, prompt !== null)
 
-    // Main content based on view mode
-    let content
+    // Main content based on view mode. The row around it is built once the
+    // thread panel is, which has to wait for the composer's session below.
+    let view
+    let withTree = true
     let unifiedOn = false
     const prInfoPanelInstance = ctx.getPrInfoPanel()
     if (state.error) {
-      content = Text({ content: `Error: ${state.error}`, fg: colors.error })
+      view = Text({ content: `Error: ${state.error}`, fg: colors.error })
+      withTree = false
     } else if (state.viewMode === "state" && prInfoPanelInstance) {
       // PR overview (spec 041): mount the panel inline next to the tree.
-      content = Box(
-        {
-          id: "main-content-row",
-          width: "100%",
-          height: "100%",
-          flexDirection: "row",
-        },
-        prInfoPanelInstance.getContainer()
-      )
+      view = prInfoPanelInstance.getContainer()
     } else if (state.viewMode === "feed") {
       const feedEvents = visibleFeedEvents(state)
       const feedRows = visibleFeedRows(state)
-      content = Box(
-        {
-          id: "main-content-row",
-          width: "100%",
-          height: "100%",
-          flexDirection: "row",
-        },
-        FeedView({
-          events: feedEvents,
-          rows: feedRows,
-          feed: state.feed,
-          unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-          flashLabels: flashLabelsOn(flashState, "feed"),
-          renderer: ctx.renderer,
-          loading: state.feed.loading,
-        })
-      )
+      view = FeedView({
+        events: feedEvents,
+        rows: feedRows,
+        feed: state.feed,
+        unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+        flashLabels: flashLabelsOn(flashState, "feed"),
+        renderer: ctx.renderer,
+        loading: state.feed.loading,
+      })
     } else if (state.files.length === 0) {
-      content = Text({ content: "No changes to display", fg: colors.textDim })
+      view = Text({ content: "No changes to display", fg: colors.textDim })
+      withTree = false
     } else {
       // The text of the files riff has already read, so they can be
       // highlighted as files rather than as the rows on screen (spec 080).
@@ -310,15 +299,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       })
       if (splitOn) ctx.split.draw({ mapping: lineMapping, state, vimState, searchState, flashState })
 
-      content = Box(
-        {
-          id: "main-content-row",
-          width: "100%",
-          height: "100%",
-          flexDirection: "row",
-        },
-        splitOn ? ctx.split.island.host : ctx.unified.island.host
-      )
+      view = splitOn ? ctx.split.island.host : ctx.unified.island.host
       unifiedOn = !splitOn
     }
     ctx.unified.syncDrawn(unifiedOn)
@@ -492,6 +473,41 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
     })
 
+    const commentPanel = state.inlineCommentOverlay.open
+      ? InlineCommentOverlay({
+        comments: getInlineCommentOverlayComments(state),
+        scopeFilename: getCommentsPanelScopeFilename(state),
+        composeFilename: state.inlineCommentOverlay.filename,
+        line: state.inlineCommentOverlay.line,
+        replyToThread: state.inlineCommentOverlay.replyToThread === true,
+        note: state.inlineCommentOverlay.note === true,
+        mode: state.inlineCommentOverlay.mode,
+        appMode: state.appMode,
+        highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
+        editingId: state.inlineCommentOverlay.editingId,
+        draft: commentDraftFor(
+          state,
+          state.inlineCommentOverlay.filename,
+          state.inlineCommentOverlay.line,
+          state.inlineCommentOverlay.side
+        ),
+        focused: state.focusedPanel === "comments",
+        expanded: state.inlineCommentOverlay.expanded,
+        width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
+        mentionPicker: state.inlineCommentOverlay.mentionPicker,
+        emojiPicker: state.inlineCommentOverlay.emojiPicker,
+        mentionCandidates: collectMentionCandidates(state),
+        mentionSearchQuery: state.mentionSearchQuery,
+        expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
+        unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+        filter: state.inlineCommentOverlay.filter,
+        filterInput: state.inlineCommentOverlay.filterInput,
+        flashLabels: flashLabelsOn(flashState, "comments"),
+        renderer: ctx.renderer,
+      })
+      : null
+    const content = mainContentRow(view, commentPanel, { withTree })
+
     ctx.renderer.root.add(
       Box(
         {
@@ -559,39 +575,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           ? SyncPreview({
               items: gatherSyncItems(state.comments),
               state: state.syncPreview,
-            })
-          : null,
-        state.inlineCommentOverlay.open
-          ? InlineCommentOverlay({
-              comments: getInlineCommentOverlayComments(state),
-              scopeFilename: getCommentsPanelScopeFilename(state),
-              composeFilename: state.inlineCommentOverlay.filename,
-              line: state.inlineCommentOverlay.line,
-              replyToThread: state.inlineCommentOverlay.replyToThread === true,
-              note: state.inlineCommentOverlay.note === true,
-              mode: state.inlineCommentOverlay.mode,
-              appMode: state.appMode,
-              highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
-              editingId: state.inlineCommentOverlay.editingId,
-              draft: commentDraftFor(
-                state,
-                state.inlineCommentOverlay.filename,
-                state.inlineCommentOverlay.line,
-                state.inlineCommentOverlay.side
-              ),
-              focused: state.focusedPanel === "comments",
-              expanded: state.inlineCommentOverlay.expanded,
-              width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
-              mentionPicker: state.inlineCommentOverlay.mentionPicker,
-              emojiPicker: state.inlineCommentOverlay.emojiPicker,
-              mentionCandidates: collectMentionCandidates(state),
-              mentionSearchQuery: state.mentionSearchQuery,
-              expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
-              unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-              filter: state.inlineCommentOverlay.filter,
-              filterInput: state.inlineCommentOverlay.filterInput,
-              flashLabels: flashLabelsOn(flashState, "comments"),
-              renderer: ctx.renderer,
             })
           : null,
         state.filePicker.open

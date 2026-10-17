@@ -538,12 +538,10 @@ export function InlineCommentOverlay({
 
   const panel = Box(
     {
-      position: "absolute",
-      top: 0,
-      right: 0,
+      // A column of the content row (app/content-row.ts), narrowed only where it and the tree overflow the screen.
       width,
+      flexShrink: 1,
       height: "100%",
-      zIndex: 50,
       flexDirection: "column",
       backgroundColor: theme.base,
       overflow: "hidden",

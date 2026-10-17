@@ -30,7 +30,7 @@ afterEach(() => {
 async function mount() {
   setup = await createTestRenderer({ width: 160, height: 30 })
   const mapping = new DiffLineMapping([doc], "all")
-  const state = { ...createInitialState([doc], [], "", ""), viewMode: "diff" as const, splitView: true }
+  let state: AppState = { ...createInitialState([doc], [], "", ""), viewMode: "diff" as const, splitView: true }
   let vimState: VimCursorState = createCursorState()
   let shownChanges = 0
   split = createSplitDiff({
@@ -53,6 +53,11 @@ async function mount() {
     vimState: () => vimState,
     resize: (width: number) => setup!.resize(width, 30),
     shownChanges: () => shownChanges,
+    setPanel: (panel: { open: boolean; expanded?: boolean }) =>
+      (state = {
+        ...state,
+        inlineCommentOverlay: { ...state.inlineCommentOverlay, open: panel.open, expanded: panel.expanded ?? false },
+      }),
   }
 }
 
@@ -89,6 +94,37 @@ test("a resize across 120 columns asks for the view to be swapped, and one that 
   expect(shownChanges()).toBe(1)
   resize(160)
   expect(shownChanges()).toBe(2)
+})
+
+describe("with the thread panel docked beside the diff", () => {
+  test("split gives way to unified while the panel leaves the pane under 120 columns, and comes back when it closes", async () => {
+    const { split, setPanel } = await mount()
+    expect(split.shown()).toBe(true)
+    setPanel({ open: true })
+    expect(split.shown()).toBe(false)
+    setPanel({ open: false })
+    expect(split.shown()).toBe(true)
+  })
+
+  test("Ctrl-e's wider panel takes split away where the narrow one leaves room for it", async () => {
+    const { split, setPanel, resize } = await mount()
+    resize(200)
+    setPanel({ open: true })
+    expect(split.shown()).toBe(true)
+    setPanel({ open: true, expanded: true })
+    expect(split.shown()).toBe(false)
+  })
+
+  test("a resize that leaves too little room beside the open panel asks for the view to be swapped", async () => {
+    const { split, setPanel, resize, shownChanges } = await mount()
+    resize(240)
+    setPanel({ open: true })
+    split.syncDrawn(split.shown(), 28)
+    const before = shownChanges()
+    resize(170)
+    expect(split.shown()).toBe(false)
+    expect(shownChanges()).toBe(before + 1)
+  })
 })
 
 test("a comment's scope is read in the pane a jump landed in", async () => {

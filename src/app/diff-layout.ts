@@ -1,3 +1,6 @@
+import type { AppState } from "../state"
+import { commentPanelWidth } from "../features/inline-comment-overlay/width"
+
 /**
  * Below this a pane is under 60 cells, and a gutter, a sign and a number
  * leave too little code on each side to read a line against its partner.
@@ -9,8 +12,6 @@ export interface CommentPanelColumn {
   width: number
 }
 
-export const NO_COMMENT_PANEL: CommentPanelColumn = { open: false, width: 0 }
-
 /** What is left of the screen for the diff once the file panel and the thread panel have their share. */
 export function diffPaneWidth(
   screenWidth: number,
@@ -20,6 +21,25 @@ export function diffPaneWidth(
   const tree = filePanel.visible ? filePanel.width : 0
   const threads = commentPanel.open ? commentPanel.width : 0
   return Math.max(0, screenWidth - tree - threads)
+}
+
+/**
+ * The pane the diff is drawn in, beside the tree and the thread panel. The
+ * panel is drawn in every view, but only the diff view's pane is measured.
+ */
+export function diffPaneWidthOf(
+  state: Pick<AppState, "showFilePanel" | "viewMode"> & {
+    inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
+  },
+  screenWidth: number,
+  treeWidth: number
+): number {
+  const panel = state.inlineCommentOverlay
+  return diffPaneWidth(
+    screenWidth,
+    { visible: state.showFilePanel, width: treeWidth },
+    { open: panel.open && state.viewMode === "diff", width: commentPanelWidth(screenWidth, panel.expanded) }
+  )
 }
 
 /**

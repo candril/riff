@@ -1,5 +1,7 @@
 import { test, expect, describe } from "bun:test"
-import { diffPaneHeight, diffPaneWidth, NO_COMMENT_PANEL, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
+import { diffPaneHeight, diffPaneWidth, diffPaneWidthOf, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
+
+const NO_COMMENT_PANEL = { open: false, width: 0 }
 
 describe("when split is drawn", () => {
   test("from 120 columns of diff pane on", () => {
@@ -36,4 +38,31 @@ describe("when split is drawn", () => {
 test("the diff's pane is the screen less the header and the status bar", () => {
   expect(diffPaneHeight(40)).toBe(38)
   expect(diffPaneHeight(1)).toBe(0)
+})
+
+describe("the pane the views draw the diff in", () => {
+  const withPanel = (open: boolean, viewMode: "diff" | "state" | "feed" = "diff") => ({
+    showFilePanel: true,
+    viewMode,
+    inlineCommentOverlay: { open, expanded: false },
+  })
+
+  test("gives up the open thread panel's columns as well as the tree's", () => {
+    expect(diffPaneWidthOf(withPanel(true), 240, 35)).toBe(141)
+    expect(splitShown(true, diffPaneWidthOf(withPanel(true), 240, 35), 10)).toBe(true)
+  })
+
+  test("falls back to unified where the panel leaves split too little room", () => {
+    expect(diffPaneWidthOf(withPanel(true), 200, 35)).toBe(101)
+    expect(splitShown(true, diffPaneWidthOf(withPanel(true), 200, 35), 10)).toBe(false)
+  })
+
+  test("is the screen less the tree while the panel is closed", () => {
+    expect(diffPaneWidthOf(withPanel(false), 200, 35)).toBe(165)
+  })
+
+  test("leaves the panel out outside the diff view, where no diff is drawn beside it", () => {
+    expect(diffPaneWidthOf(withPanel(true, "state"), 200, 35)).toBe(165)
+    expect(diffPaneWidthOf(withPanel(true, "feed"), 200, 35)).toBe(165)
+  })
 })
