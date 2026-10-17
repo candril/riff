@@ -24,4 +24,3 @@ export { InlineCommentOverlay, type InlineCommentOverlayProps } from "./InlineCo
 export { CommentComposer, type CommentComposerProps } from "./CommentComposer"
 export { ReactionRow, type ReactionRowProps } from "./ReactionRow"
 export { CommitPicker, type CommitPickerProps, type FilteredCommit } from "./CommitPicker"
-export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog"

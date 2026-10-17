@@ -21,7 +21,6 @@ import {
   TablePeek,
   DiagramPeek,
   HunkPeek,
-  ConfirmDialog,
   FeedView,
   gatherSyncItems,
 } from "../components"
@@ -66,6 +65,8 @@ import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
 import { draftNotificationModel, toastModel } from "../components/notification-model"
 import { DRAFT_INNER_WIDTH } from "../components/DraftNotification"
 import type { DraftNotificationIsland, ToastIsland } from "./notifications"
+import { confirmDialogModel } from "../components/confirm-dialog-model"
+import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -118,6 +119,7 @@ export interface RenderContext {
   flashPrompt: FlashPromptIsland
   toast: ToastIsland
   draftNotification: DraftNotificationIsland
+  confirmDialog: ConfirmDialogIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -544,6 +546,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.draftNotification.update(
       state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
     )
+    ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
 
     ctx.renderer.root.add(
       Box(
@@ -710,13 +713,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
                 : null
             })()
           : null,
-        state.confirmDialog
-          ? ConfirmDialog({
-              title: state.confirmDialog.title,
-              message: state.confirmDialog.message,
-              details: state.confirmDialog.details,
-            })
-          : null,
+        state.confirmDialog ? ctx.confirmDialog.host : null,
         state.draftNotification ? ctx.draftNotification.host : null,
 
       )

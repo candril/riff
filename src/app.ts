@@ -59,6 +59,7 @@ import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
+import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -285,6 +286,7 @@ export async function createApp(options: AppOptions = {}) {
     flashPrompt.dispose()
     toast.dispose()
     draftNotification.dispose()
+    confirmDialog.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -461,6 +463,7 @@ export async function createApp(options: AppOptions = {}) {
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
   const draftNotification = createDraftNotificationIsland(renderer)
+  const confirmDialog = createConfirmDialogIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -527,6 +530,7 @@ export async function createApp(options: AppOptions = {}) {
     flashPrompt,
     toast,
     draftNotification,
+    confirmDialog,
     split,
     unified,
     parses,
