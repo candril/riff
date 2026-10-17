@@ -40,23 +40,23 @@ describe("all files", () => {
   test("pairs a removal against the addition after it, and draws context in both halves", async () => {
     const frame = await (await mount({ raw: TWO_FILES })).frame()
 
-    expect(half(row(frame, 2)!, "left")).toBe(`   2   return "Hello " + name`)
-    expect(half(row(frame, 2)!, "right")).toBe("   2   return `Hello ${name}`")
+    expect(half(row(frame, 2)!, "left")).toBe(`    2   return "Hello " + name`)
+    expect(half(row(frame, 2)!, "right")).toBe("    2   return `Hello ${name}`")
     expect(half(row(frame, 4)!, "left")).toBe("")
     expect(frame).toBe(`\
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {                     1 export function greet(name: string) {
-   2   return "Hello " + name                                  2   return \`Hello \${name}\`
-   3 }                                                         3 }
-                                                               4
-   4 export const version = 1                                  5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {                     1 export function greet(name: string) {
+    2   return "Hello " + name                                  2   return \`Hello \${name}\`
+    3 }                                                         3 }
+                                                                4
+    4 export const version = 1                                  5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▼   src/farewell.ts +3 -0
-                                                               1 export function farewell(name: string) {
-                                                               2   return "Bye " + name
-                                                               3 }
-     ▸ rest of the file  ↵`)
+                                                                1 export function farewell(name: string) {
+                                                                2   return "Bye " + name
+                                                                3 }
+      ▸ rest of the file  ↵`)
   })
 })
 
@@ -69,12 +69,12 @@ describe("folds", () => {
 
     expect(frame).toBe(`\
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {                     1 export function greet(name: string) {
-   2   return "Hello " + name                                  2   return \`Hello \${name}\`
-   3 }                                                         3 }
-                                                               4
-   4 export const version = 1                                  5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {                     1 export function greet(name: string) {
+    2   return "Hello " + name                                  2   return \`Hello \${name}\`
+    3 }                                                         3 }
+                                                                4
+    4 export const version = 1                                  5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▶   src/farewell.ts +3 -0`)
   })
@@ -86,12 +86,12 @@ describe("collapsed context", () => {
 
     expect(frame).toBe(`\
  ▼   schema.graphql +1 -0
-      ▸ 502 lines  ↵
-  503   trackingId: Long @semanticNonNull                     503   trackingId: Long @semanticNonNull
-                                                              504   showSkipAdsChannelList: Boolean @semanticNonNull
-  504   "Catalogue price, before any discount."               505   "Catalogue price, before any discount."
-  505   monthlyPrice: Money @semanticNonNull                  506   monthlyPrice: Money @semanticNonNull
-      ▸ rest of the file  ↵`)
+       ▸ 502 lines  ↵
+   503   trackingId: Long @semanticNonNull                     503   trackingId: Long @semanticNonNull
+                                                               504   showSkipAdsChannelList: Boolean @semanticNonNull
+   504   "Catalogue price, before any discount."               505   "Catalogue price, before any discount."
+   505   monthlyPrice: Money @semanticNonNull                  506   monthlyPrice: Money @semanticNonNull
+       ▸ rest of the file  ↵`)
   })
 })
 
@@ -116,28 +116,28 @@ describe("signs", () => {
       fileStatuses: viewed,
     })).frame()
 
-    expect(row(frame, 2)).toBe(`●  2   return "Hello " + name                               ●  2   return \`Hello \${name}\``)
+    expect(row(frame, 2)).toBe(`●   2   return "Hello " + name                              ●   2   return \`Hello \${name}\``)
     expect(row(frame, 8)).toBe(" ▼ ✓ src/farewell.ts +3 -0")
     expect(frame).toBe(`\
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {                     1 export function greet(name: string) {
-●  2   return "Hello " + name                               ●  2   return \`Hello \${name}\`
-   3 }                                                         3 }
-                                                               4
-   4 export const version = 1                                  5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {                     1 export function greet(name: string) {
+●   2   return "Hello " + name                              ●   2   return \`Hello \${name}\`
+    3 }                                                         3 }
+                                                                4
+    4 export const version = 1                                  5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▼ ✓ src/farewell.ts +3 -0
-                                                               1 export function farewell(name: string) {
-                                                               2   return "Bye " + name
-                                                               3 }
-     ▸ rest of the file  ↵`)
+                                                                1 export function farewell(name: string) {
+                                                                2   return "Bye " + name
+                                                                3 }
+      ▸ rest of the file  ↵`)
   })
 
   test("only the side a comment is on shows it", async () => {
     const frame = await (await mount({ raw: TWO_FILES, comments: [comment("left", "LEFT")] })).frame()
 
-    expect(row(frame, 2)).toBe(`●  2   return "Hello " + name                                  2   return \`Hello \${name}\``)
+    expect(row(frame, 2)).toBe(`●   2   return "Hello " + name                                  2   return \`Hello \${name}\``)
   })
 
   test("a comment written from the left pane on a context line draws its sign in the left half", async () => {
@@ -149,8 +149,8 @@ describe("signs", () => {
     const written = createComment(anchor.filename, anchor.line, "why?", anchor.side, "@you")
     const frame = await (await mount({ raw: TWO_FILES, comments: [written] })).frame()
 
-    expect(half(row(frame, 5)!, "left")).toBe("●  4 export const version = 1")
-    expect(half(row(frame, 5)!, "right")).toBe("   5 export const version = 1")
+    expect(half(row(frame, 5)!, "left")).toBe("●   4 export const version = 1")
+    expect(half(row(frame, 5)!, "right")).toBe("    5 export const version = 1")
   })
 })
 
@@ -158,18 +158,18 @@ describe("sidescroll", () => {
   test("the right pane scrolls on its own, marking what runs past either edge", async () => {
     const frame = await (await mount({ raw: ONE_WIDE_LINE, columns: { left: 0, right: 100 }, height: 8 })).frame()
 
-    expect(half(row(frame, 2)!, "right")).toBe("   2 ‹.col110..col120..col130..col140..col150..col160..col1›")
+    expect(half(row(frame, 2)!, "right")).toBe("    2 ‹.col110..col120..col130..col140..col150..col160..col›")
     expect(frame).toBe(`\
  ▼   wide.ts +1 -1
-   1 const short = 1                                           1 ‹
-   2 const wide = 0                                            2 ‹.col110..col120..col130..col140..col150..col160..col1›
-     ▸ rest of the file  ↵`)
+    1 const short = 1                                           1 ‹
+    2 const wide = 0                                            2 ‹.col110..col120..col130..col140..col150..col160..col›
+      ▸ rest of the file  ↵`)
   })
 
   test("scrolled to the line's end, only the left edge is marked", async () => {
     const frame = await (await mount({ raw: ONE_WIDE_LINE, columns: { left: 0, right: 150 }, height: 8 })).frame()
 
-    expect(row(frame, 2)).toBe(`   2 const wide = 0                                            2 ‹ol170..col180..col190.."`)
+    expect(row(frame, 2)).toBe(`    2 const wide = 0                                            2 ‹ol170..col180..col190.."`)
   })
 })
 
@@ -190,8 +190,8 @@ describe("sidescroll following the cursor", () => {
     const view = await mount({ raw: ONE_WIDE_LINE, cursor: { row: WIDE_ROW, col: 120 }, columns, height: 8 })
     const frame = await view.frame()
 
-    expect(half(row(frame, WIDE_ROW)!, "left")).toBe("   2 const wide = 0")
-    expect(half(row(frame, WIDE_ROW)!, "right")).toStartWith("   2 ‹")
+    expect(half(row(frame, WIDE_ROW)!, "left")).toBe("    2 const wide = 0")
+    expect(half(row(frame, WIDE_ROW)!, "right")).toStartWith("    2 ‹")
     expect(bgAt(view.setup.captureSpans(), CODE_X + 120 - columns.right, WIDE_ROW)).toEqual(ints(theme.rosewater))
   })
 
@@ -215,16 +215,16 @@ describe("windowing", () => {
     const frame = await (await mount({ raw: TWO_FILES, scrollTop: 3, height: 4 })).frame()
 
     expect(frame).toBe(`\
-   3 }                                                         3 }
-                                                               4
-   4 export const version = 1                                  5 export const version = 1
-     ▸ rest of the file  ↵`)
+    3 }                                                         3 }
+                                                                4
+    4 export const version = 1                                  5 export const version = 1
+      ▸ rest of the file  ↵`)
   })
 })
 
 describe("cursor", () => {
   const RETURN_ROW = 2
-  const CURSOR_X = 60 + "   2 ".length + 2
+  const CURSOR_X = 60 + "    2 ".length + 2
   test("the active half's cell is a block while focused, and the characters stay the same", async () => {
     const view = await mount({ raw: TWO_FILES, cursor: { row: RETURN_ROW, col: 2 }, side: "right" })
     const focused = await view.frame()

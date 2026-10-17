@@ -13,7 +13,7 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 /*
  * Search hits, a charwise selection and flash over the unified view, under
  * the app's one-row header: each mapping line sits one screen row down, its
- * code from column 5. UnifiedDiffView.frames.test.tsx holds the same
+ * code from column 6. UnifiedDiffView.frames.test.tsx holds the same
  * overlays with no header row; these add the sideways window, wrapped
  * lines, riff's own rows and the markers beside each overlay.
  */
@@ -31,7 +31,7 @@ afterEach(async () => {
   mounted = null
 })
 
-const CODE = 5
+const CODE = 6
 const MATCH = ints(SYNTAX_PALETTE["search.match"]!.bg!)
 const CURRENT = ints(SYNTAX_PALETTE["search.current"]!.bg!)
 const NONE: ReturnType<typeof ints> = [0, 0, 0, 0]
@@ -53,8 +53,8 @@ const labelled = (matches: { line: number; startCol: number; endCol: number }[],
 
 const colours = (screen: Screen, [x, y]: At) => [fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)]
 
-/** TWO_FILES at 30 columns, scrolled as revealing column 36 of its first line scrolls it. */
-const SIDEWAYS = { raw: TWO_FILES, width: 30, height: 20, column: 16 }
+/** TWO_FILES at 31 columns, scrolled as revealing column 36 of its first line scrolls it. */
+const SIDEWAYS = { raw: TWO_FILES, width: 31, height: 20, column: 16 }
 // One hit starts left of the window, the current one sits inside it.
 const SIDEWAYS_SEARCH = {
   matches: [
@@ -79,9 +79,9 @@ describe("search", () => {
 
   test("a hit partly left of a line scrolled sideways shows only its part in the window", async () => {
     const screen = await screenWith({ ...SIDEWAYS, search: SIDEWAYS_SEARCH })
-    expect(screen.rows[2]!.trimEnd()).toBe("   1‹greet(name: string) {")
+    expect(screen.rows[2]!.trimEnd()).toBe("    1‹greet(name: string) {")
     expect([CODE, CODE + 2, CODE + 3].map((x) => bgAt(screen.spans, x, 2))).toEqual([MATCH, MATCH, NONE])
-    expect(screen.rows[7]!.trimEnd()).toBe("   5‹sion = 1")
+    expect(screen.rows[7]!.trimEnd()).toBe("    5‹sion = 1")
     expect([CODE, CODE + 1, CODE + 3, CODE + 4].map((x) => bgAt(screen.spans, x, 7))).toEqual([NONE, CURRENT, CURRENT, NONE])
   })
 })
@@ -90,7 +90,7 @@ describe("a charwise selection", () => {
   test("over a wrapped line, from mid-line through its continuation to the next line's first character", async () => {
     const screen = await screenWith({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 10,
       wrap: true,
       cursor: { line: 4, col: 0 },
@@ -108,17 +108,17 @@ describe("a charwise selection", () => {
 describe("flash", () => {
   test("labels, a match past the alphabet, and the backdrop over riff's own rows from the code's column", async () => {
     const screen = await screenWith({ raw: TWO_FILES, flash: labelled(matchesOf(TWO_FILES, "name"), 1) })
-    expect(screen.rows[2]!.trimEnd()).toBe("   1 export function greet(aame: string) {")
-    expect([colours(screen, [27, 2]), colours(screen, [28, 2])]).toEqual([
+    expect(screen.rows[2]!.trimEnd()).toBe("    1 export function greet(aame: string) {")
+    expect([colours(screen, [28, 2]), colours(screen, [29, 2])]).toEqual([
       [ints(theme.base), ints(theme.red)],
       [ints(theme.text), ints(theme.surface1)],
     ])
     // The match past the alphabet keeps its own character, recoloured.
-    expect(screen.rows[3]!.trimEnd()).toBe(`   2   return "Hello " + name`)
-    expect(colours(screen, [25, 3])).toEqual([ints(theme.text), ints(theme.surface1)])
+    expect(screen.rows[3]!.trimEnd()).toBe(`    2   return "Hello " + name`)
+    expect(colours(screen, [26, 3])).toEqual([ints(theme.text), ints(theme.surface1)])
     expect(fgAt(screen.spans, CODE + 1, 3)).toEqual(ints(fade(theme.text, DELETION_BG)))
     // The gutter is lit, the header's markers dimmed, its path and counts faded.
-    expect(fgAt(screen.spans, 3, 2)).toEqual(ints(theme.overlay0))
+    expect(fgAt(screen.spans, 4, 2)).toEqual(ints(theme.overlay0))
     expect([1, 5, 18, 21].map((x) => fgAt(screen.spans, x, 1))).toEqual([
       ints(theme.overlay0),
       ints(fade(theme.blue, theme.surface0)),
@@ -126,7 +126,7 @@ describe("flash", () => {
       ints(fade(theme.red, theme.surface0)),
     ])
     for (const y of [8, 14]) {
-      expect([fgAt(screen.spans, 5, y), fgAt(screen.spans, 25, y)]).toEqual([
+      expect([fgAt(screen.spans, 6, y), fgAt(screen.spans, 26, y)]).toEqual([
         ints(fade(theme.overlay0, theme.mantle)),
         ints(fade(theme.surface2, theme.mantle)),
       ])
@@ -136,16 +136,16 @@ describe("flash", () => {
   test("a match and its label on a wrapped line's continuation row", async () => {
     const screen = await screenWith({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 10,
       wrap: true,
       flash: labelled(matchesOf(ONE_LONG_LINE, "keeps going")),
     })
-    expect(screen.rows[4]!.trimEnd()).toBe(`   2   const message = "a fairly long line that aeeps going`)
-    expect(screen.rows[5]!.trimEnd()).toBe(`    ↳a fairly long line that seeps going "`)
-    const red = (y: number) => Array.from({ length: 59 }, (_, x) => x).filter((x) => bgAt(screen.spans, x, y)?.join() === ints(theme.red).join())
-    expect([red(4), red(5)]).toEqual([[48], [29]])
-    expect(colours(screen, [30, 5])).toEqual([ints(theme.text), ints(theme.surface1)])
+    expect(screen.rows[4]!.trimEnd()).toBe(`    2   const message = "a fairly long line that aeeps going`)
+    expect(screen.rows[5]!.trimEnd()).toBe(`     ↳a fairly long line that seeps going "`)
+    const red = (y: number) => Array.from({ length: 60 }, (_, x) => x).filter((x) => bgAt(screen.spans, x, y)?.join() === ints(theme.red).join())
+    expect([red(4), red(5)]).toEqual([[49], [30]])
+    expect(colours(screen, [31, 5])).toEqual([ints(theme.text), ints(theme.surface1)])
     expect(fgAt(screen.spans, CODE, 5)).toEqual(ints(fade(theme.text, ADDITION_BG)))
   })
 
@@ -172,13 +172,13 @@ describe("flash", () => {
  * background: no overlay reaches the gutter, flash's backdrop included.
  */
 describe("a marker beside an overlay", () => {
-  const WRAPPED = { raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true }
-  const CONTINUATION: At = [4, 5]
+  const WRAPPED = { raw: ONE_LONG_LINE, width: 61, height: 10, wrap: true }
+  const CONTINUATION: At = [5, 5]
 
   async function expectContinuationKept(options: MountUnifiedOptions) {
     const screen = await screenWith(options)
     expect(charAt(screen, CONTINUATION)).toBe("↳")
-    expect([colours(screen, CONTINUATION), bgAt(screen.spans, 3, 5)]).toEqual([[ints(theme.surface2), ints(theme.base)], ints(theme.base)])
+    expect([colours(screen, CONTINUATION), bgAt(screen.spans, 4, 5)]).toEqual([[ints(theme.surface2), ints(theme.base)], ints(theme.base)])
   }
 
   test("a ↳ beside a search hit across the break", async () => {
@@ -200,7 +200,7 @@ describe("a marker beside an overlay", () => {
 
   test("a ‹ beside a search hit cut off at the window's left edge", async () => {
     const screen = await screenWith({ ...SIDEWAYS, search: SIDEWAYS_SEARCH })
-    expect(charAt(screen, [4, 2])).toBe("‹")
-    expect([colours(screen, [4, 2]), bgAt(screen.spans, 3, 2)]).toEqual([[ints(theme.surface2), ints(theme.mantle)], ints(theme.mantle)])
+    expect(charAt(screen, [5, 2])).toBe("‹")
+    expect([colours(screen, [5, 2]), bgAt(screen.spans, 4, 2)]).toEqual([[ints(theme.surface2), ints(theme.mantle)], ints(theme.mantle)])
   })
 })

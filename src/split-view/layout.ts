@@ -8,7 +8,12 @@ import type { DiffLine } from "../vim-diff/types"
 /** The key that opens a collapsed run, shown at the end of its label. */
 export const ENTER_HINT = "↵"
 
-export const SIGN_CELLS = 1
+/**
+ * The gutter's leading cells: the comment sign, then a mark's letter. The
+ * letter's cell is kept whether any mark is set, so setting the first one
+ * never moves the code.
+ */
+export const SIGN_CELLS = 2
 
 /**
  * Unified's code wraps one cell short of the pane, scrollbar or not: the
@@ -40,7 +45,7 @@ export function gutterWidth(mapping: DiffLineMapping): number {
   return Math.max(3, String(widest).length + 1)
 }
 
-/** Where a half's code starts: its sign cell, the number and the space after it. */
+/** Where a half's code starts: its sign cells, the number and the space after it. */
 export const contentOrigin = (gutter: number) => SIGN_CELLS + gutter + 1
 
 /** The number unified's gutter shows for a line, the old one only on a deletion; 0 for none. */
@@ -54,7 +59,7 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
 
 /**
  * The cell each line's code starts at in unified, sized as OpenTUI's
- * LineNumberRenderable sizes its gutter: a sign cell, then the wider of a
+ * LineNumberRenderable sizes its gutter: the sign cells, then the wider of a
  * floor and the digits of the larger of the section's row count and its
  * largest number, plus the space before the code. The floor is four cells
  * or the widest number in the whole diff. All files gives every file

@@ -25,10 +25,10 @@ const cursorOf = (view: NonNullable<typeof mounted>) => {
   return { x, y, visible, style, blinking }
 }
 
-// TWO_FILES's code starts at x=5, and the header row puts mapping line n on screen row n + 1; the terminal counts from 1.
+// TWO_FILES's code starts at x=6, and the header row puts mapping line n on screen row n + 1; the terminal counts from 1.
 test("a block on the cursor's cell, under the header row", async () => {
   const view = await mount({ cursor: { line: 4, col: 3 } })
-  expect(cursorOf(view)).toEqual({ x: 9, y: 6, visible: true, style: "block", blinking: false }) // code at 5, column 3; line 4 under the header
+  expect(cursorOf(view)).toEqual({ x: 10, y: 6, visible: true, style: "block", blinking: false }) // code at 6, column 3; line 4 under the header
 })
 
 test("a column change alone moves it, the view asking for the frame no segment would", async () => {
@@ -37,7 +37,7 @@ test("a column change alone moves it, the view asking for the frame no segment w
   view.set("cursor", "col", 6)
   expect(requestRender).toHaveBeenCalled()
   await view.setup.renderOnce()
-  expect(cursorOf(view)).toMatchObject({ x: 12, y: 6, visible: true }) // code at 5, column 6
+  expect(cursorOf(view)).toMatchObject({ x: 13, y: 6, visible: true }) // code at 6, column 6
   requestRender.mockRestore()
 })
 
@@ -58,7 +58,7 @@ test("an unfocused view hides the terminal cursor when nothing else claims it", 
   expect(cursorOf(view).visible).toBe(false)
   view.set("focused", true)
   await view.setup.renderOnce()
-  expect(cursorOf(view)).toMatchObject({ x: 9, y: 6, visible: true })
+  expect(cursorOf(view)).toMatchObject({ x: 10, y: 6, visible: true })
 })
 
 test("off screen, it is hidden", async () => {
@@ -76,16 +76,16 @@ test("disposed, it is hidden", async () => {
 // The wide line is mapping line 3; its window starts at column 84, so column 150 is 66 cells into the code.
 test("on a line scrolled sideways, offset by the window", async () => {
   const view = await mount({ raw: ONE_WIDE_LINE, height: 8, cursor: { line: 3, col: 150 }, column: 84 })
-  expect(cursorOf(view)).toMatchObject({ x: 72, y: 5, visible: true }) // code at 5, 66 cells in; line 3 under the header
+  expect(cursorOf(view)).toMatchObject({ x: 73, y: 5, visible: true }) // code at 6, 66 cells in; line 3 under the header
 })
 
-// Line 2's first row ends after 110 cells, so col 120 is 10 cells into its second, beside the 6-cell gutter wrap gives it.
+// Line 2's first row ends after 110 cells, so col 120 is 10 cells into its second, beside the 7-cell gutter wrap gives it.
 test("on a wrapped line's continuation, on that slice's row", async () => {
   const view = await mount({ raw: MANY_WRAPPED_LINES, width: 120, height: 12, wrap: true, cursor: { line: 2, col: 120 } })
-  expect(cursorOf(view)).toMatchObject({ x: 17, y: 6, visible: true }) // gutter 6, 10 cells in; visual row 4 under the header
+  expect(cursorOf(view)).toMatchObject({ x: 18, y: 6, visible: true }) // gutter 7, 10 cells in; visual row 4 under the header
 })
 
 test("in two files scrolled down, on the line's row in the window", async () => {
   const view = await mount({ height: 8, cursor: { line: 11, col: 4 }, scrollTop: 6 })
-  expect(cursorOf(view)).toMatchObject({ x: 10, y: 7, visible: true }) // code at 5, column 4; line 11 under the header, 6 scrolled away
+  expect(cursorOf(view)).toMatchObject({ x: 11, y: 7, visible: true }) // code at 6, column 4; line 11 under the header, 6 scrolled away
 })

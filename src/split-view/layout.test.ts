@@ -31,12 +31,12 @@ describe("paneWidths", () => {
 })
 
 describe("gutterWidth", () => {
-  // Unified draws `   1 ` and `  503 ` (UnifiedDiffView.corpus.frames.test.tsx): a sign cell, the number, a space.
+  // Unified draws `    1 ` and `   503 ` (UnifiedDiffView.corpus.frames.test.tsx): the sign cells, the number, a space.
   test("matches unified's number column, so a toggle leaves the code where it was", () => {
     expect(gutterWidth(mappingOf(TWO_FILES))).toBe(3)
-    expect(contentOrigin(gutterWidth(mappingOf(TWO_FILES)))).toBe("   1 ".length)
+    expect(contentOrigin(gutterWidth(mappingOf(TWO_FILES)))).toBe("    1 ".length)
     expect(gutterWidth(mappingOf(FAR_HUNK))).toBe(4)
-    expect(contentOrigin(gutterWidth(mappingOf(FAR_HUNK)))).toBe("  503 ".length)
+    expect(contentOrigin(gutterWidth(mappingOf(FAR_HUNK)))).toBe("   503 ".length)
   })
 })
 
@@ -55,22 +55,22 @@ describe("unifiedOrigins", () => {
     return Object.fromEntries([...found].map(([file, origins]) => [file, [...origins]]))
   }
 
-  // `   1 export` and `  503   trackingId` in UnifiedDiffView.corpus.frames.test.tsx.
+  // `    1 export` and `   503   trackingId` in UnifiedDiffView.corpus.frames.test.tsx.
   test("puts the code where unified's frames have it", () => {
-    expect(new Set(originsOf(mappingOf(TWO_FILES)))).toEqual(new Set([5]))
-    expect(new Set(originsOf(mappingOf(FAR_HUNK)))).toEqual(new Set([6]))
+    expect(new Set(originsOf(mappingOf(TWO_FILES)))).toEqual(new Set([6]))
+    expect(new Set(originsOf(mappingOf(FAR_HUNK)))).toEqual(new Set([7]))
   })
 
   test("sizes a single file, which has no header, as one section", () => {
     const files = parseDiff(FAR_HUNK)
-    expect(new Set(originsOf(new DiffLineMapping(files, "single", 0)))).toEqual(new Set([6]))
-    expect(new Set(originsOf(new DiffLineMapping(parseDiff(TWO_FILES), "single", 1)))).toEqual(new Set([5]))
+    expect(new Set(originsOf(new DiffLineMapping(files, "single", 0)))).toEqual(new Set([7]))
+    expect(new Set(originsOf(new DiffLineMapping(parseDiff(TWO_FILES), "single", 1)))).toEqual(new Set([6]))
   })
 
   test("gives each file section its own gutter, header included", () => {
     const short = diffFile("short.ts", ["@@ -1,1 +1,1 @@", "-a", "+b"])
     const far = diffFile("far.ts", ["@@ -120,1 +120,1 @@", "-a", "+b"])
-    expect(byFile(new DiffLineMapping([short, far], "all"))).toEqual({ "short.ts": [5], "far.ts": [6] })
+    expect(byFile(new DiffLineMapping([short, far], "all"))).toEqual({ "short.ts": [6], "far.ts": [7] })
   })
 
   test("counts a section's lines when they need more digits than its numbers", () => {
@@ -78,15 +78,15 @@ describe("unifiedOrigins", () => {
     const many = diffFile("many.ts", ["@@ -1,60 +1,60 @@", ...run.map((i) => `-old ${i}`), ...run.map((i) => `+new ${i}`)])
     const mapping = new DiffLineMapping([many], "all")
     expect(Math.max(...mapping.allLines.map((line) => line.newLineNum ?? line.oldLineNum ?? 0))).toBe(60)
-    expect(byFile(mapping)).toEqual({ "many.ts": [6] })
+    expect(byFile(mapping)).toEqual({ "many.ts": [7] })
   })
 
   test("wrapped, counts the rows a wrap adds once they need another digit", () => {
     const mapping = mappingOf(MANY_WRAPPED_LINES)
-    expect(new Set(originsOf(mapping))).toEqual(new Set([5]))
-    expect(unifiedOrigins(mapping, 120)(1)).toBe(6)
+    expect(new Set(originsOf(mapping))).toEqual(new Set([6]))
+    expect(unifiedOrigins(mapping, 120)(1)).toBe(7)
     // Wide enough that no line wraps, the rows are the lines again.
-    expect(unifiedOrigins(mapping, 400)(1)).toBe(5)
+    expect(unifiedOrigins(mapping, 400)(1)).toBe(6)
   })
 
   test("wrapped, the gutter's passes and the visual rows share one wrap per line and width", () => {
@@ -107,7 +107,7 @@ describe("unifiedOrigins", () => {
       wrapper,
     })
 
-    expect(origin(1)).toBe(6)
+    expect(origin(1)).toBe(7)
     expect(visual.total).toBeGreaterThan(99)
     expect(new Set(seen).size).toBe(seen.length)
     expect(seen.length).toBe(before)
@@ -118,8 +118,8 @@ describe("unifiedOrigins", () => {
   // A gutter starts at the lines' width and only ever grows, so it never tries the wider one first.
   test("stays narrow when only the wider gutter's own code width would wrap past 99 rows", () => {
     const mapping = mappingOf(JUST_FITS_AT_30)
-    expect(unifiedOrigins(mapping, 30)(1)).toBe(5)
-    expect(unifiedOrigins(mapping, 29)(1)).toBe(6)
+    expect(unifiedOrigins(mapping, 30)(1)).toBe(6)
+    expect(unifiedOrigins(mapping, 29)(1)).toBe(7)
   })
 })
 

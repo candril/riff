@@ -55,10 +55,10 @@ const cellAt = (raw: string, lineIndex: number, where?: Where) => unifiedCursorC
 const lineOf = (raw: string, content: string) =>
   new DiffLineMapping(parseDiff(raw), "all").allLines.findIndex((line) => line.content === content)
 
-// TWO_FILES's code starts at x=5; line 0 is greet.ts's header, line 4 its `}`.
+// TWO_FILES's code starts at x=6; line 0 is greet.ts's header, line 4 its `}`.
 describe("unifiedCursorCell", () => {
   test("a plain line at column 0 is the code's first cell, on the line's row", () => {
-    expect(cellAt(TWO_FILES, 4)).toEqual({ x: 5, y: 4 })
+    expect(cellAt(TWO_FILES, 4)).toEqual({ x: 6, y: 4 })
   })
 
   describe("scrolled sideways", () => {
@@ -68,21 +68,21 @@ describe("unifiedCursorCell", () => {
     })
 
     test("a cursor in the window is offset by the scroll", () => {
-      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 100 })).toEqual({ x: 5, y: WIDE })
-      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 120 })).toEqual({ x: 25, y: WIDE })
+      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 100 })).toEqual({ x: 6, y: WIDE })
+      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 120 })).toEqual({ x: 26, y: WIDE })
     })
 
     test("a cursor at the row's width or past it is hidden", () => {
-      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 174 })).toEqual({ x: 79, y: WIDE })
-      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 175 })).toBeNull()
-      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 174, width: 79 })).toBeNull()
+      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 173 })).toEqual({ x: 79, y: WIDE })
+      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 174 })).toBeNull()
+      expect(cellAt(ONE_WIDE_LINE, WIDE, { column: 100, col: 173, width: 79 })).toBeNull()
     })
   })
 
   test("a file with a wider gutter starts the cursor at its own origin", () => {
-    expect(cellAt(MIXED_DIGITS, lineOf(MIXED_DIGITS, "const a = 1"), { col: 2 })).toMatchObject({ x: 5 + 2 })
+    expect(cellAt(MIXED_DIGITS, lineOf(MIXED_DIGITS, "const a = 1"), { col: 2 })).toMatchObject({ x: 6 + 2 })
     const far = lineOf(MIXED_DIGITS, "const c = 1")
-    expect(cellAt(MIXED_DIGITS, far, { col: 2 })).toEqual({ x: 6 + 2, y: far })
+    expect(cellAt(MIXED_DIGITS, far, { col: 2 })).toEqual({ x: 7 + 2, y: far })
   })
 
   test("wrapped, a cursor on a continuation sits on that slice's row, from the code's origin", () => {
@@ -104,9 +104,9 @@ describe("unifiedCursorCell", () => {
 
   test("scrolled off the top or past the bottom, it is hidden", () => {
     expect(cellAt(TWO_FILES, 4, { scrollTop: 5 })).toBeNull()
-    expect(cellAt(TWO_FILES, 4, { scrollTop: 4 })).toEqual({ x: 5, y: 0 })
+    expect(cellAt(TWO_FILES, 4, { scrollTop: 4 })).toEqual({ x: 6, y: 0 })
     expect(cellAt(TWO_FILES, 4, { height: 4 })).toBeNull()
-    expect(cellAt(TWO_FILES, 4, { height: 5 })).toEqual({ x: 5, y: 4 })
+    expect(cellAt(TWO_FILES, 4, { height: 5 })).toEqual({ x: 6, y: 4 })
   })
 
   test("on a file header it goes on the path, a column past it clamped to the last character", () => {
@@ -120,7 +120,7 @@ describe("unifiedCursorCell", () => {
     const header = new DiffLineMapping(parseDiff(MIXED_DIGITS), "all").allLines.findIndex(
       (line) => line.type === "file-header" && line.filename === "far.ts"
     )
-    expect(at(MIXED_DIGITS, header).input.origin).toBe(6)
+    expect(at(MIXED_DIGITS, header).input.origin).toBe(7)
     expect(cellAt(MIXED_DIGITS, header, { col: 0 })).toEqual({ x: FILE_LABEL_PATH_X, y: header })
     expect(cellAt(MIXED_DIGITS, header, { col: 3 })).toEqual({ x: FILE_LABEL_PATH_X + 3, y: header })
   })
@@ -131,20 +131,20 @@ describe("unifiedCursorCell", () => {
       const { input } = at(TWO_FILES, 1, where)
       return unifiedCursorCell({ ...input, line: { ...input.line!, type: "hunk-header", content: "@@ -1,5 +1,5 @@" } })
     }
-    expect(onHunk({ col: 5, column: 3 })).toEqual({ x: 5 + 5 - 3, y: 1 })
+    expect(onHunk({ col: 5, column: 3 })).toEqual({ x: 6 + 5 - 3, y: 1 })
     expect(onHunk({ col: 2, column: 3 })).toBeNull()
   })
 
   test("on a divider it stays at the code's origin, however far the code is scrolled", () => {
     const divider = new DiffLineMapping(parseDiff(TWO_FILES), "all").allLines.findIndex((line) => line.type === "divider")
-    expect(cellAt(TWO_FILES, divider, { column: 30 })).toEqual({ x: 5, y: divider })
+    expect(cellAt(TWO_FILES, divider, { column: 30 })).toEqual({ x: 6, y: divider })
   })
 
   test("a tab or a character outside the BMP is counted in the cells it draws", () => {
     const deletion = lineOf(TAB_AND_ASTRAL, "\tx = 1")
     const addition = lineOf(TAB_AND_ASTRAL, "😀!")
     // The tab and the emoji draw two cells each, the emoji because it is a wide glyph.
-    expect(cellAt(TAB_AND_ASTRAL, deletion, { col: 1 })).toMatchObject({ x: 5 + 2 })
-    expect(cellAt(TAB_AND_ASTRAL, addition, { col: 2 })).toMatchObject({ x: 5 + 2 })
+    expect(cellAt(TAB_AND_ASTRAL, deletion, { col: 1 })).toMatchObject({ x: 6 + 2 })
+    expect(cellAt(TAB_AND_ASTRAL, addition, { col: 2 })).toMatchObject({ x: 6 + 2 })
   })
 })

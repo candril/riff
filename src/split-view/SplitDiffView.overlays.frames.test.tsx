@@ -14,11 +14,11 @@ import type { SplitSelection } from "./overlays"
  * its rows. TWO_FILES at 120 columns: row 0 is greet.ts's header, row 2
  * pairs mapping line 2 (removed) with line 3 (added), row 4 has only a
  * right half, rows 6 and 7 are a divider and a spacer, row 8 is
- * farewell.ts's header. Code starts five cells into each half.
+ * farewell.ts's header. Code starts six cells into each half.
  */
 
-const LEFT = 5
-const RIGHT = 65
+const LEFT = 6
+const RIGHT = 66
 
 let mounted: Awaited<ReturnType<typeof mountSplit>> | null = null
 

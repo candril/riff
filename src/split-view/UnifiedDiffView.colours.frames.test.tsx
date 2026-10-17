@@ -41,7 +41,7 @@ describe("a line's background", () => {
   const DIVIDER = 7
   const SPACING = 8
   // Both gutter edges, the first cell of code and one well past the end of every line.
-  const CELLS = [0, 4, 5, 70]
+  const CELLS = [0, 5, 6, 70]
 
   async function backgrounds(cursorLine: number, anchor: number | null, lines: number[], expandingDivider: string | null = null) {
     const selection: SplitSelection | null =
@@ -134,33 +134,33 @@ describe("a marker's colours", () => {
 
   // Scrolled as revealing column 150 of the wide line scrolls it.
   test("the ‹ on a context line, a deletion and an addition", async () => {
-    const screen = await screenWith({ raw: ONE_WIDE_LINE, height: 8, column: 84 })
-    expect([2, 3, 4].map((y) => cellOf(screen, [4, y]))).toEqual([
+    const screen = await screenWith({ raw: ONE_WIDE_LINE, height: 8, column: 85 })
+    expect([2, 3, 4].map((y) => cellOf(screen, [5, y]))).toEqual([
       ["‹", ints(theme.surface2), ints(theme.mantle)],
       ["‹", ints(theme.surface2), ints(theme.base)],
       ["‹", ints(theme.surface2), ints(theme.base)],
     ])
-    expect([2, 3, 4].map((y) => bgAt(screen.spans, 3, y))).toEqual([ints(theme.mantle), ints(theme.base), ints(theme.base)])
-    expect([2, 3].map((y) => bgAt(screen.spans, 5, y))).toEqual([NONE, ints(DELETION_BG)])
+    expect([2, 3, 4].map((y) => bgAt(screen.spans, 4, y))).toEqual([ints(theme.mantle), ints(theme.base), ints(theme.base)])
+    expect([2, 3].map((y) => bgAt(screen.spans, 6, y))).toEqual([NONE, ints(DELETION_BG)])
   })
 
   // A continuation row's gutter is coloured as its line's first row is.
   const gutterOf = (screen: Awaited<ReturnType<typeof screenWith>>, y: number) =>
-    [0, 1, 2, 3, 4].map((x) => [fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)])
+    [0, 1, 2, 3, 4, 5].map((x) => [fgAt(screen.spans, x, y), bgAt(screen.spans, x, y)])
 
   test("the ↳ and the gutter around it on a wrapped addition line", async () => {
     const screen = await screenWith({ raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true })
-    expect(cellOf(screen, [4, 5])).toEqual(["↳", ints(theme.surface2), ints(theme.base)])
-    expect(gutterOf(screen, 4)).toEqual(Array(5).fill([ints(theme.overlay0), ints(theme.base)]))
-    expect(gutterOf(screen, 5).slice(0, 4)).toEqual(Array(4).fill([ints(theme.overlay0), ints(theme.base)]))
-    expect([4, 5].map((y) => bgAt(screen.spans, 5, y))).toEqual([ints(ADDITION_BG), ints(ADDITION_BG)])
+    expect(cellOf(screen, [5, 5])).toEqual(["↳", ints(theme.surface2), ints(theme.base)])
+    expect(gutterOf(screen, 4)).toEqual(Array(6).fill([ints(theme.overlay0), ints(theme.base)]))
+    expect(gutterOf(screen, 5).slice(0, 5)).toEqual(Array(5).fill([ints(theme.overlay0), ints(theme.base)]))
+    expect([4, 5].map((y) => bgAt(screen.spans, 6, y))).toEqual([ints(ADDITION_BG), ints(ADDITION_BG)])
   })
 
   // TWO_FILES at 30 wraps greet.ts's first line, a line of context on screen row 2.
   test("the ↳ and the gutter around it on a wrapped context line", async () => {
     const screen = await screenWith({ raw: TWO_FILES, width: 30, height: 40, wrap: true })
-    expect(cellOf(screen, [4, 3])).toEqual(["↳", ints(theme.surface2), ints(theme.mantle)])
-    expect(gutterOf(screen, 2)).toEqual(Array(5).fill([ints(theme.overlay0), ints(theme.mantle)]))
-    expect(gutterOf(screen, 3).slice(0, 4)).toEqual(Array(4).fill([ints(theme.overlay0), ints(theme.mantle)]))
+    expect(cellOf(screen, [5, 3])).toEqual(["↳", ints(theme.surface2), ints(theme.mantle)])
+    expect(gutterOf(screen, 2)).toEqual(Array(6).fill([ints(theme.overlay0), ints(theme.mantle)]))
+    expect(gutterOf(screen, 3).slice(0, 5)).toEqual(Array(5).fill([ints(theme.overlay0), ints(theme.mantle)]))
   })
 })

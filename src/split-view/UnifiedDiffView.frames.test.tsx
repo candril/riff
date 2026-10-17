@@ -41,30 +41,30 @@ describe("files", () => {
   test("all files: each file's header, its numbered lines and a divider after each hunk", async () => {
     expect(await frameOf({ raw: TWO_FILES })).toBe(`\
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {
-   2   return "Hello " + name
-   2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {
+    2   return "Hello " + name
+    2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▼   src/farewell.ts +3 -0
-   1 export function farewell(name: string) {
-   2   return "Bye " + name
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function farewell(name: string) {
+    2   return "Bye " + name
+    3 }
+      ▸ rest of the file  ↵`)
   })
 
   test("a single file, under no header of its own", async () => {
     expect(await frameOf({ raw: TWO_FILES, mode: "single", selectedFileIndex: 0 })).toBe(`\
-   1 export function greet(name: string) {
-   2   return "Hello " + name
-   2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵`)
+    1 export function greet(name: string) {
+    2   return "Hello " + name
+    2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵`)
   })
 
   test("a collapsed file is its header row alone", async () => {
@@ -83,12 +83,12 @@ describe("files", () => {
   test("a hunk far down the file widens the gutter and opens on a divider", async () => {
     expect(await frameOf({ raw: FAR_HUNK })).toBe(`\
  ▼   schema.graphql +1 -0
-      ▸ 502 lines  ↵
-  503   trackingId: Long @semanticNonNull
-  504   showSkipAdsChannelList: Boolean @semanticNonNull
-  505   "Catalogue price, before any discount."
-  506   monthlyPrice: Money @semanticNonNull
-      ▸ rest of the file  ↵`)
+       ▸ 502 lines  ↵
+   503   trackingId: Long @semanticNonNull
+   504   showSkipAdsChannelList: Boolean @semanticNonNull
+   505   "Catalogue price, before any discount."
+   506   monthlyPrice: Money @semanticNonNull
+       ▸ rest of the file  ↵`)
   })
 })
 
@@ -102,43 +102,43 @@ describe("signs", () => {
       ]),
     })
     const rows = frame.split("\n")
-    expect(rows[2]).toBe(`●  2   return "Hello " + name`)
-    expect(rows[3]).toBe("●  2   return `Hello ${name}`")
+    expect(rows[2]).toBe(`●   2   return "Hello " + name`)
+    expect(rows[3]).toBe("●   2   return `Hello ${name}`")
     expect(rows[9]).toBe(" ▼ ✓ src/farewell.ts +3 -0")
   })
 })
 
 describe("wrap", () => {
-  const WRAPPED = { raw: ONE_LONG_LINE, width: 60, height: 9 }
+  const WRAPPED = { raw: ONE_LONG_LINE, width: 61, height: 9 }
 
   test("on, a long line carries on in a row whose gutter is blank, sign and all, but for ↳", async () => {
     expect(await frameOf({ ...WRAPPED, wrap: true, comments: [comment("notes.ts", 2, "RIGHT")] })).toBe(`\
  ▼   notes.ts +1 -1
-   1 export function note() {
-   2   return 1
-●  2   const message = "a fairly long line that keeps going
-    ↳a fairly long line that keeps going "
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function note() {
+    2   return 1
+●   2   const message = "a fairly long line that keeps going
+     ↳a fairly long line that keeps going "
+    3 }
+      ▸ rest of the file  ↵`)
   })
 
   test("off, the same line is cut at the pane's edge, its last cell a ›", async () => {
     expect(await frameOf({ ...WRAPPED, wrap: false })).toBe(`\
  ▼   notes.ts +1 -1
-   1 export function note() {
-   2   return 1
-   2   const message = "a fairly long line that keeps going›
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function note() {
+    2   return 1
+    2   const message = "a fairly long line that keeps going›
+    3 }
+      ▸ rest of the file  ↵`)
   })
 
   // A single file, so no sticky header covers the top row.
   test("scrolled into a wrapped line, the top row is its continuation", async () => {
     // Six rows in a view of three, so the scrollbar shows, its thumb the lower half of the track.
     expect(await frameOf({ ...WRAPPED, height: 3, wrap: true, scrollTop: 3, mode: "single", selectedFileIndex: 0 })).toBe(`\
-    ↳a fairly long line that keeps going "
-   3 }${" ".repeat(53)}▄
-     ▸ rest of the file  ↵${" ".repeat(33)}█`)
+     ↳a fairly long line that keeps going "
+    3 }${" ".repeat(53)}▄
+      ▸ rest of the file  ↵${" ".repeat(33)}█`)
   })
 })
 
@@ -146,34 +146,34 @@ describe("sidescroll", () => {
   test("a column scrolls every line's code, the gutter and the chrome staying put, each line with text marked ‹", async () => {
     expect(await frameOf({ raw: ONE_WIDE_LINE, height: 6, column: 150 })).toBe(`\
  ▼   wide.ts +1 -1
-   1‹
-   2‹
-   2‹col170..col180..col190.."
-     ▸ rest of the file  ↵`)
+    1‹
+    2‹
+    2‹col170..col180..col190.."
+      ▸ rest of the file  ↵`)
   })
 
   test("scrolled into the middle of a wide line, it is marked at both edges", async () => {
     expect(await frameOf({ raw: ONE_WIDE_LINE, height: 6, column: 80 })).toBe(`\
  ▼   wide.ts +1 -1
-   1‹
-   2‹
-   2‹l080..col090..col100..col110..col120..col130..col140..col150..col160..col1›
-     ▸ rest of the file  ↵`)
+    1‹
+    2‹
+    2‹l080..col090..col100..col110..col120..col130..col140..col150..col160..col›
+      ▸ rest of the file  ↵`)
   })
 })
 
 /*
  * The overlays on rows of their own, no header row above: TWO_FILES' line n
- * is screen row n, its code from column 5.
+ * is screen row n, its code from column 6.
  */
 describe("overlays", () => {
-  const CODE = 5
+  const CODE = 6
   const spans = () => mounted!.setup.captureSpans()
 
   test("search: each hit in the match colour, the current one in its own, on a sliced line its part of the hit", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 9,
       wrap: true,
       search: {
@@ -185,7 +185,7 @@ describe("overlays", () => {
         current: 1,
       },
     })
-    expect(frame.split("\n")[4]).toBe("    ↳a fairly long line that keeps going \"")
+    expect(frame.split("\n")[4]).toBe("     ↳a fairly long line that keeps going \"")
     const match = ints(SYNTAX_PALETTE["search.match"]!.bg!)
     const current = ints(SYNTAX_PALETTE["search.current"]!.bg!)
     const plain = bgAt(spans(), CODE, 1)
@@ -220,25 +220,25 @@ describe("overlays", () => {
       ],
     })
     const rows = frame.split("\n")
-    expect(rows[1]).toBe("   1 export aunction greet(name: string) {")
+    expect(rows[1]).toBe("    1 export aunction greet(name: string) {")
     expect(rows[9]).toBe(" ▼   src/sarewell.ts +3 -0")
     const label = [ints(theme.base), ints(theme.red)]
     expect([fgAt(spans(), CODE + 7, 1), bgAt(spans(), CODE + 7, 1)]).toEqual(label)
     expect([fgAt(spans(), CODE + 8, 1), bgAt(spans(), CODE + 8, 1)]).toEqual([ints(theme.text), ints(theme.surface1)])
     expect(fgAt(spans(), CODE, 1)).toEqual(ints(fade(theme.text, theme.base)))
     expect(fgAt(spans(), 3, 1)).toEqual(ints(theme.overlay0))
-    expect(fgAt(spans(), CODE + 4, 9)).toEqual(label[0])
+    expect(fgAt(spans(), FILE_LABEL_PATH_X + 4, 9)).toEqual(label[0])
   })
 
   test("flash: the › at the edge takes the faded glyph over the code's own background", async () => {
-    await frameOf({ raw: ONE_LONG_LINE, width: 60, height: 9, flash: [] })
-    expect(fgAt(spans(), 59, 3)).toEqual(ints(fade(theme.surface2, ADDITION_BG)))
+    await frameOf({ raw: ONE_LONG_LINE, width: 61, height: 9, flash: [] })
+    expect(fgAt(spans(), 60, 3)).toEqual(ints(fade(theme.surface2, ADDITION_BG)))
   })
 
   test("flash: a label starting on the › column replaces it, though an earlier match covers it too", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 9,
       flash: [
         // "keeps going a", over the last code cell at 54.
@@ -247,14 +247,14 @@ describe("overlays", () => {
       ],
     })
     expect(frame.split("\n")[3]!.at(-1)).toBe("s")
-    expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.base), ints(theme.red)])
+    expect([fgAt(spans(), 60, 3), bgAt(spans(), 60, 3)]).toEqual([ints(theme.base), ints(theme.red)])
   })
 
   // The › gives way to the label, and the match listed after it layers over the cell, as rightMarker in UnifiedLine.tsx orders them.
   test("flash: a label starting on the › column takes the colours of a match listed after it", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 9,
       flash: [
         { line: 3, startCol: 54, endCol: 60, label: "a" },
@@ -263,18 +263,18 @@ describe("overlays", () => {
       ],
     })
     expect(frame.split("\n")[3]!.at(-1)).toBe("a")
-    expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([ints(theme.text), ints(theme.surface1)])
+    expect([fgAt(spans(), 60, 3), bgAt(spans(), 60, 3)]).toEqual([ints(theme.text), ints(theme.surface1)])
   })
 
   test("the › at the edge keeps a search hit's background under it", async () => {
     const frame = await frameOf({
       raw: ONE_LONG_LINE,
-      width: 60,
+      width: 61,
       height: 9,
       search: { matches: [{ line: 3, startCol: 50, endCol: 60 }], current: 0 },
     })
     expect(frame.split("\n")[3]!.at(-1)).toBe("›")
-    expect([fgAt(spans(), 59, 3), bgAt(spans(), 59, 3)]).toEqual([
+    expect([fgAt(spans(), 60, 3), bgAt(spans(), 60, 3)]).toEqual([
       ints(theme.surface2),
       ints(SYNTAX_PALETTE["search.current"]!.bg!),
     ])
@@ -361,16 +361,16 @@ describe("sticky header", () => {
     const frame = await frameOf({ raw: TWO_FILES, width: 80, height: 12, header: true, scrollTop: 2 })
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
-   2   return \`Hello \${name}\`
-   3 }
-   4                                                                           ▄
-   5 export const version = 1                                                  █
-     ▸ rest of the file  ↵                                                     █
+    2   return \`Hello \${name}\`
+    3 }
+    4                                                                          ▄
+    5 export const version = 1                                                 █
+      ▸ rest of the file  ↵                                                    █
                                                                                █
  ▼   src/farewell.ts +3 -0                                                     █
-   1 export function farewell(name: string) {                                  █
-   2   return "Bye " + name
-   3 }`)
+    1 export function farewell(name: string) {                                 █
+    2   return "Bye " + name
+    3 }`)
   })
 
   test("it stops short of the scrollbar, so a thumb on the top row stays in sight", async () => {
@@ -381,7 +381,7 @@ describe("sticky header", () => {
 
   test("none at the top, where the first header is the top row itself", async () => {
     await frameOf({ raw: TWO_FILES, width: 80, height: 6, scrollTop: 0 })
-    expect(rowsOf()[1]!).toStartWith("   1 export function greet")
+    expect(rowsOf()[1]!).toStartWith("    1 export function greet")
     expect(mounted!.setup.renderer.root.findDescendantById("sticky-file-header")).toBeUndefined()
   })
 
@@ -401,7 +401,7 @@ describe("sticky header", () => {
   test("none in single-file mode, which has no header to pin", async () => {
     const frame = await frameOf({ raw: TWO_FILES, width: 80, height: 4, scrollTop: 2, mode: "single", selectedFileIndex: 0 })
     expect(frame).not.toContain("src/greet.ts")
-    expect(rowsOf()[0]!).toStartWith("   2   return `Hello")
+    expect(rowsOf()[0]!).toStartWith("    2   return `Hello")
   })
 
   test("a viewed file's is ticked and its name greyed", async () => {
@@ -469,7 +469,7 @@ describe("sticky header", () => {
     expect(rowsOf().some((row) => row.includes("▶"))).toBe(false)
     await scrollTo(next + 1)
     expect(rowsOf()[0]!).toStartWith(" ▼   src/farewell.ts +3 -0")
-    expect(rowsOf()[1]!).toStartWith("   2   return")
+    expect(rowsOf()[1]!).toStartWith("    2   return")
   })
 
   // Faded from the path on, whatever the gutter of the row under it.

@@ -4,8 +4,9 @@ import { bgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split
 import { theme } from "../theme"
 
 /*
- * WIDE_GLYPHS in split at 120 columns: the right pane's code starts at
- * x=65. A char frame drops the second cell of a wide glyph, so where
+ * WIDE_GLYPHS in split at 122 columns, which leaves each pane 54 cells of
+ * code, an even number for a run of ideographs: the right pane's code
+ * starts at x=67. A char frame drops the second cell of a wide glyph, so where
  * things land is read off the frame's spans, which carry their widths.
  */
 
@@ -17,13 +18,13 @@ afterEach(async () => {
 })
 
 async function mount(options: Partial<MountSplitOptions>) {
-  mounted = await mountSplit({ raw: WIDE_GLYPHS, height: 8, ...options })
+  mounted = await mountSplit({ raw: WIDE_GLYPHS, width: 122, height: 8, ...options })
   return mounted
 }
 
 const GLYPHS_ROW = 1
 const RUN_ROW = 2
-const CODE_X = 65
+const CODE_X = 67
 
 /** The cell `char` starts in on row `y`. */
 function cellOf(view: NonNullable<typeof mounted>, y: number, char: string): number {
@@ -41,13 +42,13 @@ test("scrolled into the middle of an ideograph, its half in view is a space and 
   const view = await mount({ columns: { left: 0, right: 2 } })
   const rows = (await view.frame()).split("\n")
 
-  expect(rows[GLYPHS_ROW]!.slice(60)).toBe("   1 ‹ x😀y = 1")
+  expect(rows[GLYPHS_ROW]!.slice(61)).toBe("    1 ‹ x😀y = 1")
   expect(cellOf(view, GLYPHS_ROW, "‹")).toBe(CODE_X)
   expect(cellOf(view, GLYPHS_ROW, "x")).toBe(CODE_X + 2)
   expect(cellOf(view, GLYPHS_ROW, "y")).toBe(CODE_X + 5)
-  expect(rows[RUN_ROW]!.slice(60)).toBe(`   2 ‹ ${"中".repeat(26)}›`)
-  expect(cellOf(view, RUN_ROW, "›")).toBe(119)
-  expect(rows[GLYPHS_ROW]!.slice(0, 60).trimEnd()).toBe("   1 old = 0")
+  expect(rows[RUN_ROW]!.slice(61)).toBe(`    2 ‹ ${"中".repeat(26)}›`)
+  expect(cellOf(view, RUN_ROW, "›")).toBe(121)
+  expect(rows[GLYPHS_ROW]!.slice(0, 61).trimEnd()).toBe("    1 old = 0")
 })
 
 test("a window ending in the middle of an ideograph leaves its half a space before the ›", async () => {
@@ -55,8 +56,8 @@ test("a window ending in the middle of an ideograph leaves its half a space befo
   const rows = (await view.frame()).split("\n")
 
   // ‹ on cell 1, the run's cells 2 to 54 shown, and the › on 55: the ideograph on 54 and 55 shows its first half.
-  expect(rows[RUN_ROW]!.slice(60)).toBe(`   2 ‹${"中".repeat(26)} ›`)
-  expect(cellOf(view, RUN_ROW, "›")).toBe(119)
+  expect(rows[RUN_ROW]!.slice(61)).toBe(`    2 ‹${"中".repeat(26)} ›`)
+  expect(cellOf(view, RUN_ROW, "›")).toBe(121)
 })
 
 test("the cursor on an emoji is a block over both its cells", async () => {
@@ -76,7 +77,7 @@ test("a flash label on an ideograph takes both its cells, so the rest of the row
   const rows = (await view.frame()).split("\n")
   const spans = view.setup.captureSpans()
 
-  expect(rows[GLYPHS_ROW]!.slice(60)).toBe("   1 中s x😀y = 1")
+  expect(rows[GLYPHS_ROW]!.slice(61)).toBe("    1 中s x😀y = 1")
   expect(bgAt(spans, CODE_X + 2, GLYPHS_ROW)).toEqual(ints(theme.red))
   expect(bgAt(spans, CODE_X + 3, GLYPHS_ROW)).toEqual(ints(theme.red))
   expect(cellOf(view, GLYPHS_ROW, "x")).toBe(CODE_X + 4)

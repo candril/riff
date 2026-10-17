@@ -35,19 +35,19 @@ describe("all files", () => {
     expect(rows(frame)[10]).toBe(" ▼   src/farewell.ts +3 -0")
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {
-   2   return "Hello " + name
-   2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {
+    2   return "Hello " + name
+    2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▼   src/farewell.ts +3 -0
-   1 export function farewell(name: string) {
-   2   return "Bye " + name
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function farewell(name: string) {
+    2   return "Bye " + name
+    3 }
+      ▸ rest of the file  ↵`)
   })
 })
 
@@ -58,13 +58,13 @@ describe("a single file", () => {
     expect(frame).not.toContain("src/greet.ts")
     expect(frame).not.toContain("farewell")
     expect(frame).toBe(`
-   1 export function greet(name: string) {
-   2   return "Hello " + name
-   2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵`)
+    1 export function greet(name: string) {
+    2   return "Hello " + name
+    2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵`)
   })
 })
 
@@ -80,13 +80,13 @@ describe("folds", () => {
     expect(rows(frame).at(-1)).toBe(" ▶   src/farewell.ts +3 -0")
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {
-   2   return "Hello " + name
-   2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {
+    2   return "Hello " + name
+    2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▶   src/farewell.ts +3 -0`)
   })
@@ -96,15 +96,15 @@ describe("collapsed context", () => {
   test("a hunk far down the file is preceded by a divider counting the lines above it", async () => {
     const frame = await (await mount({ raw: FAR_HUNK })).frame()
 
-    expect(rows(frame)[2]).toBe("      ▸ 502 lines  ↵")
+    expect(rows(frame)[2]).toBe("       ▸ 502 lines  ↵")
     expect(frame).toBe(`
  ▼   schema.graphql +1 -0
-      ▸ 502 lines  ↵
-  503   trackingId: Long @semanticNonNull
-  504   showSkipAdsChannelList: Boolean @semanticNonNull
-  505   "Catalogue price, before any discount."
-  506   monthlyPrice: Money @semanticNonNull
-      ▸ rest of the file  ↵`)
+       ▸ 502 lines  ↵
+   503   trackingId: Long @semanticNonNull
+   504   showSkipAdsChannelList: Boolean @semanticNonNull
+   505   "Catalogue price, before any discount."
+   506   monthlyPrice: Money @semanticNonNull
+       ▸ rest of the file  ↵`)
   })
 })
 
@@ -115,32 +115,32 @@ describe("wrap", () => {
     expect(rows(frame)[4]).toEndWith("›")
     expect(frame).toBe(`
  ▼   notes.ts +1 -1
-   1 export function note() {
-   2   return 1
-   2   const message = "a fairly long line that keeps going›
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function note() {
+    2   return 1
+    2   const message = "a fairly long line that keeps goin›
+    3 }
+      ▸ rest of the file  ↵`)
   })
 
   test("on, the same line carries on in a continuation row", async () => {
     const frame = await (await mount({ raw: ONE_LONG_LINE, width: 60, height: 10, wrap: true })).frame()
 
-    expect(rows(frame)[5]).toStartWith("    ↳")
+    expect(rows(frame)[5]).toStartWith("     ↳")
     expect(frame).toBe(`
  ▼   notes.ts +1 -1
-   1 export function note() {
-   2   return 1
-   2   const message = "a fairly long line that keeps going
-    ↳a fairly long line that keeps going "
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function note() {
+    2   return 1
+    2   const message = "a fairly long line that keeps
+     ↳going a fairly long line that keeps going "
+    3 }
+      ▸ rest of the file  ↵`)
   })
 })
 
 describe("sidescroll", () => {
   const WIDE_ROW = 3
   // Where revealing column 150 of the wide line leaves the window: the cursor eight cells clear of the right edge.
-  const REVEALED = 84
+  const REVEALED = 85
 
   test("revealing a far column scrolls every line, the header staying put", async () => {
     const view = await mount({ raw: ONE_WIDE_LINE, height: 8, cursor: { line: WIDE_ROW, col: 150 }, column: REVEALED })
@@ -150,10 +150,10 @@ describe("sidescroll", () => {
     expect(rows(frame)[4]).toContain("col170..›")
     expect(frame).toBe(`
  ▼   wide.ts +1 -1
-   1‹
-   2‹
-   2‹..col090..col100..col110..col120..col130..col140..col150..col160..col170..›
-     ▸ rest of the file  ↵`)
+    1‹
+    2‹
+    2‹.col090..col100..col110..col120..col130..col140..col150..col160..col170..›
+      ▸ rest of the file  ↵`)
   })
 })
 
@@ -178,23 +178,23 @@ describe("signs", () => {
       fileStatuses: viewed,
     })).frame()
 
-    expect(rows(frame)[3]).toBe(`●  2   return "Hello " + name`)
+    expect(rows(frame)[3]).toBe(`●   2   return "Hello " + name`)
     expect(rows(frame)[10]).toBe(" ▼ ✓ src/farewell.ts +3 -0")
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
-   1 export function greet(name: string) {
-●  2   return "Hello " + name
-●  2   return \`Hello \${name}\`
-   3 }
-   4
-   5 export const version = 1
-     ▸ rest of the file  ↵
+    1 export function greet(name: string) {
+●   2   return "Hello " + name
+●   2   return \`Hello \${name}\`
+    3 }
+    4
+    5 export const version = 1
+      ▸ rest of the file  ↵
 
  ▼ ✓ src/farewell.ts +3 -0
-   1 export function farewell(name: string) {
-   2   return "Bye " + name
-   3 }
-     ▸ rest of the file  ↵`)
+    1 export function farewell(name: string) {
+    2   return "Bye " + name
+    3 }
+      ▸ rest of the file  ↵`)
   })
 })
 
@@ -205,19 +205,19 @@ describe("sticky header", () => {
     const frame = await view.frame()
 
     expect(rows(frame)[1]).toBe(" ▼   src/greet.ts +2 -1")
-    expect(rows(frame)[2]).toBe("   2   return `Hello ${name}`")
+    expect(rows(frame)[2]).toBe("    2   return `Hello ${name}`")
     // The window's share of the track would be eleven rows of fifteen, but SliderRenderable caps the thumb at half the track.
     expect(frame).toBe(`
  ▼   src/greet.ts +2 -1
-   2   return \`Hello \${name}\`
-   3 }
-   4                                                                           ▄
-   5 export const version = 1                                                  █
-     ▸ rest of the file  ↵                                                     █
+    2   return \`Hello \${name}\`
+    3 }
+    4                                                                          ▄
+    5 export const version = 1                                                 █
+      ▸ rest of the file  ↵                                                    █
                                                                                █
  ▼   src/farewell.ts +3 -0                                                     █
-   1 export function farewell(name: string) {                                  █
-   2   return "Bye " + name
-   3 }`)
+    1 export function farewell(name: string) {                                 █
+    2   return "Bye " + name
+    3 }`)
   })
 })

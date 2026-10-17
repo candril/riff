@@ -101,6 +101,9 @@ export function Half(props: {
           {sign() ? "●" : " "}
         </text>
         <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
+          {" "}
+        </text>
+        <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
           {`${lineNumber(line()!, props.side).padStart(env.gutter())} `}
         </text>
         <SegmentTexts segments={segments()} />

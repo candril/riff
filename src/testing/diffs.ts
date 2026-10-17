@@ -70,7 +70,7 @@ index 1111111..2222222 100644
 +const wide = "${WIDE_TEXT}"
 `
 
-/** Wraps once at unified's 54-cell code width: a 60-column pane less its 5-cell gutter and the cell wrap reserves. */
+/** Wraps once at unified's 53-cell code width: a 60-column pane less its 6-cell gutter and the cell wrap reserves. */
 export const LONG_LINE = `  const message = "${"a fairly long line that keeps going ".repeat(2)}"`
 export const ONE_LONG_LINE = `diff --git a/notes.ts b/notes.ts
 index 1111111..2222222 100644
@@ -118,9 +118,9 @@ ${Array.from({ length: WRAPPING_LINE_COUNT }, (_, i) => `+const line${i + 1} = "
 `
 
 /**
- * Ninety-eight lines and the divider after them: 99 rows beside a 5-cell
+ * Ninety-eight lines and the divider after them: 99 rows beside a 6-cell
  * gutter at 30 columns, where each line just fits, and nearly twice that
- * beside a 6-cell one, where each wraps.
+ * beside a 7-cell one, where each wraps.
  */
 export const JUST_FITS_AT_30 = `diff --git a/tight.ts b/tight.ts
 new file mode 100644
@@ -128,7 +128,7 @@ index 0000000..2222222
 --- /dev/null
 +++ b/tight.ts
 @@ -0,0 +1,98 @@
-${Array.from({ length: 98 }, () => `+${"x".repeat(30 - 5 - 1)}`).join("\n")}
+${Array.from({ length: 98 }, () => `+${"x".repeat(30 - 6 - 1)}`).join("\n")}
 `
 
 /**

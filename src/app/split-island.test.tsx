@@ -162,26 +162,26 @@ test("a fold that leaves fewer rows brings the cursor's row back into the window
 test("a selection reaches the view, follows its changes and goes when it is cleared", async () => {
   const { island } = await mount(10)
   await frame()
-  // Row 1's left half reads "old 0" from its fifth cell on; the cursor stays on row 0, out of the way.
+  // Row 1's left half reads "old 0" from its sixth cell on; the cursor stays on row 0, out of the way.
   const selectedAt = (x: number) => bgAt(setup!.captureSpans(), x, 1)
   const selection = { mode: "visual", startRow: 1, startCol: 0, endRow: 1, endCol: 1 } as const
 
   island.update({ side: "left", selection })
   await frame()
-  expect(selectedAt(6)).toEqual(ints(theme.surface1))
-  expect(selectedAt(7)).not.toEqual(ints(theme.surface1))
+  expect(selectedAt(7)).toEqual(ints(theme.surface1))
+  expect(selectedAt(8)).not.toEqual(ints(theme.surface1))
 
   island.update({ selection: { ...selection, endCol: 2 } })
   await frame()
-  expect(selectedAt(7)).toEqual(ints(theme.surface1))
+  expect(selectedAt(8)).toEqual(ints(theme.surface1))
 
   island.update({ selection: null })
   await frame()
-  expect(selectedAt(5)).not.toEqual(ints(theme.surface1))
+  expect(selectedAt(6)).not.toEqual(ints(theme.surface1))
 })
 
 describe("sidescroll", () => {
-  // ONE_WIDE_LINE at 120 columns: row 2 pairs "const wide = 0" with a 175-cell line, in 55-cell panes.
+  // ONE_WIDE_LINE at 120 columns: row 2 pairs "const wide = 0" with a 175-cell line, in 54-cell panes.
   const WIDE_ROW = 2
   const rightHalf = (row: string) => row.slice(60)
   const leftHalf = (row: string) => row.slice(0, 60)
@@ -199,9 +199,9 @@ describe("sidescroll", () => {
     const rows = await frame()
 
     // The cursor stays eight cells clear of the `›` at the pane's right edge.
-    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("   2 ‹")
+    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("    2 ‹")
     expect(rightHalf(rows[WIDE_ROW]!)).toEndWith("›")
-    expect(leftHalf(rows[WIDE_ROW]!)).toStartWith("   2 const wide = 0")
+    expect(leftHalf(rows[WIDE_ROW]!)).toStartWith("    2 const wide = 0")
     expect(island.columnStatus()).toEqual({ col: 121, total: 175 })
 
     island.update({ side: "left", cursor: { row: WIDE_ROW, col: 3 } })
@@ -221,24 +221,24 @@ describe("sidescroll", () => {
     island.update({ cursor: { row: WIDE_ROW, col: 100 } })
     island.scrollColumnToEdge("start")
     const rows = await frame()
-    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("   2 ‹..col110")
+    expect(rightHalf(rows[WIDE_ROW]!)).toStartWith("    2 ‹..col110")
 
     // Row 0 is the file header, which never scrolls sideways.
     island.update({ cursor: { row: 0, col: 0 } })
     island.scrollColumnsBy(5)
     expect(island.columnStatus()).toBeNull()
     island.resetColumns()
-    expect(rightHalf((await frame())[WIDE_ROW]!)).toStartWith("   2 const wide =")
+    expect(rightHalf((await frame())[WIDE_ROW]!)).toStartWith("    2 const wide =")
   })
 
   test("flash looks at each line in the window of the pane that draws it", async () => {
     const { island } = await mountWide()
     island.update({ cursor: { row: WIDE_ROW, col: 120 } })
     island.revealColumn()
-    // The new pane starts at column 74, behind its `‹`; the old one was never scrolled.
-    expect(island.lineWindow(3)).toEqual({ startCol: 75, endCol: 128 })
-    expect(island.lineWindow(2)).toEqual({ startCol: 0, endCol: 55 })
-    expect(island.lineWindow(1)).toEqual({ startCol: 75, endCol: 129 })
+    // The new pane starts at column 75, behind its `‹`; the old one was never scrolled.
+    expect(island.lineWindow(3)).toEqual({ startCol: 76, endCol: 128 })
+    expect(island.lineWindow(2)).toEqual({ startCol: 0, endCol: 54 })
+    expect(island.lineWindow(1)).toEqual({ startCol: 76, endCol: 129 })
   })
 
   test("a resize that narrows the pane brings the cursor's column back into the cursor's half", async () => {
@@ -285,7 +285,7 @@ describe("sidescroll", () => {
   // What zl runs: scroll, then pull the cursor's column into the window. The ‹ hides the window's first cell.
   test("zl onto an ideograph the ‹ cuts pulls the cursor to the next one, a block over both its cells", async () => {
     const RUN_ROW = 2
-    const CODE_X = 65
+    const CODE_X = 66
     const { island } = await mount(8, undefined, WIDE_GLYPHS)
     for (const scrolled of [1, 2, 3]) {
       island.update({ cursor: { row: RUN_ROW, col: 0 } })

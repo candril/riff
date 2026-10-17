@@ -142,7 +142,7 @@ describe("vertical scroll", () => {
 })
 
 describe("sidescroll", () => {
-  // ONE_WIDE_LINE at 80 columns: a 175-cell line beside a 5-cell gutter, so 75 cells of code.
+  // ONE_WIDE_LINE at 80 columns: a 175-cell line beside a 6-cell gutter, so 74 cells of code.
   async function mountWide(height = 8) {
     const mounted = await mount({ raw: ONE_WIDE_LINE, height })
     await frame()
@@ -155,7 +155,7 @@ describe("sidescroll", () => {
     island.revealColumn()
     const rows = await frame()
 
-    expect(island.lineWindow(wide)).toEqual({ startCol: 54, endCol: 129 })
+    expect(island.lineWindow(wide)).toEqual({ startCol: 55, endCol: 129 })
     expect(rows[wide]).toContain("‹")
     expect(rows[wide]).toEndWith("›")
     expect(island.columnStatus()).toEqual({ col: 121, total: 175 })
@@ -171,12 +171,12 @@ describe("sidescroll", () => {
 
     island.update({ cursor: { line: wide, col: 100 } })
     island.scrollColumnToEdge("start")
-    expect(island.lineWindow(wide)).toEqual({ startCol: 100, endCol: 175 })
+    expect(island.lineWindow(wide)).toEqual({ startCol: 100, endCol: 174 })
     island.scrollColumnToEdge("end")
-    expect(island.lineWindow(wide)).toEqual({ startCol: 26, endCol: 101 })
+    expect(island.lineWindow(wide)).toEqual({ startCol: 27, endCol: 101 })
 
-    // The window shows cells 26 to 100, and the line ends at 174.
-    expect(island.clampCursorColumn(0)).toBe(26)
+    // The window shows cells 27 to 100, and the line ends at 174.
+    expect(island.clampCursorColumn(0)).toBe(27)
     expect(island.clampCursorColumn(200)).toBe(100)
     expect(island.clampCursorColumn(60)).toBe(60)
 
@@ -325,10 +325,10 @@ describe("what is on screen", () => {
     island.update({ cursor: { line: near, col: 3 } })
 
     const region = island.visibleRegion()!
-    expect(region).toMatchObject({ startCol: 3, endCol: 3 + 9 })
-    expect(region.windowsOf!(near)).toEqual([{ startCol: 3, endCol: 12 }])
+    expect(region).toMatchObject({ startCol: 3, endCol: 3 + 8 })
+    expect(region.windowsOf!(near)).toEqual([{ startCol: 3, endCol: 11 }])
     // Numbered past 99, so its gutter is a cell wider and its code a cell narrower.
-    expect(region.windowsOf!(far)).toEqual([{ startCol: 3, endCol: 11 }])
+    expect(region.windowsOf!(far)).toEqual([{ startCol: 3, endCol: 10 }])
   })
 
   test("wrapped, a line is looked at whole, or from the first slice the pinned header leaves showing", async () => {
@@ -391,10 +391,10 @@ describe("the cursor's row", () => {
     ["three files", { raw: THREE_FILES, width: 80, height: 15 }, identity(17)],
     ["a gutter per section", { raw: MIXED_DIGITS, width: 80, height: 15 }, identity(12)],
     ["a collapsed file", { raw: TWO_FILES, height: 15, mappingOptions: { collapsedFiles: new Set(["src/greet.ts"]) } }, identity(6)],
-    ["wrapped, a long line", { raw: ONE_LONG_LINE, width: 60, height: 9, wrap: true }, { firstRows: [0, 1, 2, 3, 5, 6], breaks: { 3: 54 } }],
+    ["wrapped, a long line", { raw: ONE_LONG_LINE, width: 60, height: 9, wrap: true }, { firstRows: [0, 1, 2, 3, 5, 6], breaks: { 3: 49 } }],
     [
       "wrapped, two files narrow",
-      { raw: TWO_FILES, width: 30, height: 39, wrap: true },
+      { raw: TWO_FILES, width: 31, height: 39, wrap: true },
       { firstRows: [0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15], breaks: { 1: 22, 10: 16 } },
     ],
     ["wrapped, a gutter widened by wrap", { raw: SHORT_THEN_MANY_WRAPPED, width: 120, height: 19, wrap: true }, manyWrapped],

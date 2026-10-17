@@ -84,10 +84,10 @@ describe("the window never runs past the last row", () => {
  */
 describe("sideways, the window stops at the widest line", () => {
   const cases: [string, MountIslandOptions, number][] = [
-    ["one long line", { raw: ONE_LONG_LINE, width: 80, height: 15 }, 18],
-    ["one long line beside a scrollbar", { raw: ONE_LONG_LINE, width: 80, height: 4 }, 19],
-    ["one long line, narrow", { raw: ONE_LONG_LINE, width: 40, height: 15 }, 58],
-    ["two files, narrow", { raw: TWO_FILES, width: 30, height: 15 }, 16],
+    ["one long line", { raw: ONE_LONG_LINE, width: 80, height: 15 }, 19],
+    ["one long line beside a scrollbar", { raw: ONE_LONG_LINE, width: 80, height: 4 }, 20],
+    ["one long line, narrow", { raw: ONE_LONG_LINE, width: 40, height: 15 }, 59],
+    ["two files, narrow", { raw: TWO_FILES, width: 30, height: 15 }, 17],
     ["two files, wide enough for every line", { raw: TWO_FILES, width: 80, height: 15 }, 0],
   ]
 
@@ -217,10 +217,10 @@ describe("the mouse wheel", () => {
     // Row 0 is the pinned header, over the line scrolled to the top.
     expect(rows.slice(0, 5)).toEqual([
       " ▼   src/farewell.ts +3 -0",
-      "   1 export function farewell(name: string) {",
-      '   2   return "Bye " + name',
-      "   3 }                                                                         ▄",
-      "     ▸ rest of the file  ↵                                                     █",
+      "    1 export function farewell(name: string) {",
+      '    2   return "Bye " + name',
+      "    3 }                                                                        ▄",
+      "      ▸ rest of the file  ↵                                                    █",
     ])
   })
 

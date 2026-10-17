@@ -171,6 +171,9 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
                 {!continuation && sign() ? "●" : " "}
               </text>
               <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
+                {" "}
+              </text>
+              <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
                 {(continuation ? "" : lineNumber(props.line)).padStart(origin() - SIGN_CELLS - 1)}
               </text>
               <text wrapMode="none" flexShrink={0} fg={gutterMark() ? theme.surface2 : theme.overlay0} bg={colors().gutter}>
