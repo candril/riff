@@ -115,6 +115,7 @@ const HELP_TEXT = `
     gg / G                    Go to top/bottom
     ]c / [c                   Next/previous hunk
     ]f / [f                   Next/previous file
+    ]m / [m                   Next/previous mark
     ]u / [u                   Next/previous unviewed file
     ]o / [o                   Next/previous outdated file (viewed, then changed)
     ]g / [g                   Next/previous commit's diff

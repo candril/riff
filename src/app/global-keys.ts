@@ -263,6 +263,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     }
   }
 
+  function openChord(opener: string) {
+    pendingKey = opener
+    const timeout = marks.chordTimeoutMs(opener)
+    if (timeout !== null) pendingTimeout = setTimeout(clearPendingKey, timeout)
+  }
+
   /** `fm` finds an m and `vi'` selects quotes: a key some motion is waiting for is not a chord. */
   function diffTakesMarkChord(): boolean {
     const state = ctx.getState()
@@ -1588,6 +1594,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         }
         return
       }
+      if ((sequence === "]m" || sequence === "[m") && diffTakesMarkChord()) {
+        marks.stepToMark(sequence === "]m" ? 1 : -1, ctx.marksContext)
+        return
+      }
       if (sequence === "]c") {
         ctx.vimHandler.moveToHunk("next")
         ctx.render()
@@ -1607,14 +1617,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
     const markChord = chordPending ? null : marks.markChordOpenedBy(key, diffTakesMarkChord())
     if (markChord) {
-      pendingKey = markChord
-      pendingTimeout = setTimeout(clearPendingKey, 500)
+      openChord(markChord)
       return
     }
 
     if (key.name === "]" || key.name === "[" || (key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {
-      pendingKey = key.name
-      pendingTimeout = setTimeout(clearPendingKey, 500)
+      openChord(key.name)
       return
     }
 

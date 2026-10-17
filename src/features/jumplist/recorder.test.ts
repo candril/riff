@@ -156,6 +156,10 @@ describe("marks", () => {
     expect(drive(origin, [[quote, open(origin)], [key("a", { sequence: "a" }), at("b.ts", 40)]])).toEqual([origin.place])
   })
 
+  test("]m is one jump, recorded from where ] was pressed", () => {
+    expect(drive(origin, [[key("]"), open(origin)], [key("m", { sequence: "m" }), at("b.ts", 40)]])).toEqual([origin.place])
+  })
+
   test("'' is one jump too", () => {
     expect(drive(origin, [[quote, open(origin)], [quote, at("b.ts", 40)]])).toEqual([origin.place])
   })

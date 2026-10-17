@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction } from "./keys"
+import { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs } from "./keys"
 
 describe("the key after m or '", () => {
   test("names a lowercase letter", () => {
@@ -54,5 +54,16 @@ describe("the mark chords", () => {
     expect(markChordAction("m", parseKeypress("'")!)).toEqual({ kind: "cancel" })
     expect(markChordAction("m", parseKeypress("\x1b")!)).toEqual({ kind: "cancel" })
     expect(markChordAction("'", parseKeypress("1")!)).toEqual({ kind: "cancel" })
+  })
+})
+
+describe("how long a chord waits for its second key", () => {
+  test("m and ' wait for their letter however long it takes", () => {
+    expect(chordTimeoutMs("m")).toBeNull()
+    expect(chordTimeoutMs("'")).toBeNull()
+  })
+
+  test("], [, g and z give up after half a second", () => {
+    for (const opener of ["]", "[", "g", "z"]) expect(chordTimeoutMs(opener)).toBe(500)
   })
 })

@@ -9,6 +9,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import {
   capturePosition,
   captureAnchor,
+  rebuildAfterRefresh,
   refreshMessage,
   relocate,
   restorePosition,
@@ -149,8 +150,18 @@ describe("restoring the view", () => {
       current: "a",
       previous: "b",
     }
-    const position = capturePosition({ ...stateWith(files), marks }, cursorAt(0), mappingOf(files), createSearchState())
-    expect(restorePosition(stateWith(files), position).marks).toEqual(marks)
+    const live = { ...stateWith(files), marks }
+    const position = capturePosition(live, cursorAt(0), mappingOf(files), createSearchState())
+    expect(rebuildAfterRefresh(live, stateWith(files), position).marks).toEqual(marks)
+  })
+
+  test("a mark set while the reload is awaited is kept", () => {
+    const before = stateWith(files)
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const marks = { marks: [{ letter: "a", filename: "b.ts", line: 2, side: "RIGHT" as const }], current: null, previous: null }
+
+    const rebuilt = rebuildAfterRefresh({ ...before, marks }, stateWith(files), position)
+    expect(rebuilt.marks).toEqual(marks)
   })
 
   test("a PR that was being read as a diff does not snap back to the overview", () => {

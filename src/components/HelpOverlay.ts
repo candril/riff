@@ -41,6 +41,7 @@ const HELP_SECTIONS = [
       ["m{a-z A-Z}", "Set a mark at the cursor"],
       ["'{letter}", "Jump to a mark from anywhere"],
       ["''", "Back to the mark visited before"],
+      ["]m / [m", "Next / previous mark"],
     ],
   },
   {

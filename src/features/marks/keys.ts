@@ -47,3 +47,12 @@ export function markChordAction(opener: MarkChord, key: Key): MarkChordAction {
   if (opener === "'" && isMarkQuote(key)) return { kind: "flip" }
   return { kind: "cancel" }
 }
+
+/**
+ * How long a chord opened by this key waits for its second key. Vim's `m`
+ * and `'` wait as long as it takes: their second key is a letter that has a
+ * binding of its own, so a slow chord that timed out would run that instead.
+ */
+export function chordTimeoutMs(opener: string): number | null {
+  return opener === "m" || opener === "'" ? null : 500
+}

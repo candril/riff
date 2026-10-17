@@ -34,8 +34,8 @@ import { createCursorState } from "../../vim-diff/cursor-state"
 import {
   capturePosition,
   refreshMessage,
+  rebuildAfterRefresh,
   relocate,
-  restorePosition,
   restoreSearch,
   wasForcePushed,
   type RefreshPosition,
@@ -138,7 +138,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         }
         // The feed's events describe the data that was just replaced; its
         // filters and row are the reader's and survive (spec 070).
-        return collapseIgnoredFiles(restorePosition(withCommits, position))
+        return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withCommits, position))
       })
 
       // Collapse resolved threads
@@ -200,7 +200,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           commits: newCommits,
         }
 
-        return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
+        return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withBranchAndCommits, position))
       })
 
       // Viewed marks live on disk, not in the diff — a reload that skipped

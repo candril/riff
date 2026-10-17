@@ -6,7 +6,7 @@ import type { FileNavigationContext } from "../file-navigation"
 import { handleSelectFile, ensureFileExpanded } from "../file-navigation"
 import { markAt } from "./capture"
 import { resolveMark, markLandingMessage, type ResolvedMark } from "./resolve"
-import { setMark, visitMark, flipTarget } from "./store"
+import { setMark, visitMark, flipTarget, stepMark } from "./store"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -87,6 +87,21 @@ export function flipMark(ctx: MarksContext): boolean {
     return false
   }
   return jumpToMark(target, ctx)
+}
+
+/**
+ * `]m` and `[m`. A mark that cannot be reached still counts as visited, so
+ * the next step moves past it instead of trying it again.
+ */
+export function stepToMark(direction: 1 | -1, ctx: MarksContext): boolean {
+  const letter = stepMark(ctx.getState().marks, direction)
+  if (letter === null) {
+    toast(ctx, "No marks set")
+    return false
+  }
+  if (jumpToMark(letter, ctx)) return true
+  ctx.setState((s) => ({ ...s, marks: visitMark(s.marks, letter) }))
+  return false
 }
 
 /**

@@ -7,7 +7,7 @@ import { createCursorState } from "../../vim-diff/cursor-state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { FileNavigationContext } from "../file-navigation"
 import { X, Y, DOC } from "../../testing/marks"
-import { setMarkAtCursor, jumpToMark, flipMark, type MarksContext } from "./handlers"
+import { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -225,5 +225,55 @@ describe("''", () => {
     expect(h.vim().line).toBe(15)
     flipMark(h.ctx)
     expect(h.vim().line).toBe(9)
+  })
+})
+
+describe("]m and [m", () => {
+  // Uppercase letters come after lowercase ones, so Z is last.
+  const marks = [mark("Z", "src/y.ts", 2), mark("a", "src/x.ts", 10)]
+
+  test("from no current mark, ]m goes to the first mark in letter order and [m to the last", () => {
+    const forward = harness([X, Y], { line: 1, marks })
+    expect(stepToMark(1, forward.ctx)).toBe(true)
+    expect(forward.vim().line).toBe(9)
+    expect(forward.state().marks.current).toBe("a")
+
+    const back = harness([X, Y], { line: 1, marks })
+    expect(stepToMark(-1, back.ctx)).toBe(true)
+    expect(back.vim().line).toBe(15)
+    expect(back.state().marks.current).toBe("Z")
+  })
+
+  test("]m wraps from the last mark to the first", () => {
+    const h = harness([X, Y], { marks })
+    stepToMark(1, h.ctx)
+    stepToMark(1, h.ctx)
+    expect(h.vim().line).toBe(15)
+    stepToMark(1, h.ctx)
+    expect(h.vim().line).toBe(9)
+  })
+
+  test("with no marks, says so and leaves the cursor", () => {
+    const h = harness([X, Y], { line: 4 })
+    expect(stepToMark(1, h.ctx)).toBe(false)
+    expect(h.vim().line).toBe(4)
+    expect(h.toast()).toBe("No marks set")
+  })
+
+  test("moves past a mark whose file is gone instead of sticking on it", () => {
+    const h = harness([X, Y], { line: 4, marks: [mark("a", "src/gone.ts", 3), mark("b", "src/y.ts", 2)] })
+    expect(stepToMark(1, h.ctx)).toBe(false)
+    expect(h.vim().line).toBe(4)
+    expect(h.toast()).toBe("Mark a: src/gone.ts is not in this diff")
+
+    expect(stepToMark(1, h.ctx)).toBe(true)
+    expect(h.vim().line).toBe(15)
+  })
+
+  test("onto a LEFT mark on a context row makes the left pane active", () => {
+    const h = harness([X, Y], { pane: "right", marks: [mark("a", "src/x.ts", 3, "LEFT")] })
+    stepToMark(1, h.ctx)
+    expect(h.vim().line).toBe(5)
+    expect(h.panes).toEqual(["left"])
   })
 })

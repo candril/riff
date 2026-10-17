@@ -20,5 +20,5 @@ export {
 } from "./store"
 export { markAt } from "./capture"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
-export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, type MarkChord, type MarkChordAction } from "./keys"
-export { setMarkAtCursor, jumpToMark, flipMark, type MarksContext } from "./handlers"
+export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
+export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
