@@ -1,7 +1,5 @@
 import { TAB } from "./segments"
 
-export const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff
-
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 const ASCII = /^[\x00-\x7f]*$/
 

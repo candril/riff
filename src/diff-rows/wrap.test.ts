@@ -66,11 +66,20 @@ describe("wrapLine", () => {
     ])
   })
 
-  test("never splits a surrogate pair, which riff counts as one cell", () => {
+  test("a wide glyph that does not fit in the cells left opens the next row", () => {
     const line = "abc😀def"
     expect(wrapLine(line, 4)).toEqual([
-      { startCol: 0, endCol: 5, startCell: 0, cells: 4 },
-      { startCol: 5, endCol: 8, startCell: 4, cells: 3 },
+      { startCol: 0, endCol: 3, startCell: 0, cells: 3 },
+      { startCol: 3, endCol: 7, startCell: 3, cells: 4 },
+      { startCol: 7, endCol: 8, startCell: 7, cells: 1 },
+    ])
+  })
+
+  test("a run of ideographs is cut at the last glyph that fits, leaving an odd cell empty", () => {
+    expect(wrapLine("中文字符串", 5)).toEqual([
+      { startCol: 0, endCol: 2, startCell: 0, cells: 4 },
+      { startCol: 2, endCol: 4, startCell: 4, cells: 4 },
+      { startCol: 4, endCol: 5, startCell: 8, cells: 2 },
     ])
   })
 

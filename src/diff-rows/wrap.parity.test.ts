@@ -42,6 +42,15 @@ const corpus = [
   "supercalifragilisticexpialidocious_identifier_name",
   "a--b--c--d",
   "𝐚𝐛𝐜 𝐝𝐞𝐟 𝐠𝐡𝐢 𝐣𝐤𝐥",
+  // Wide glyphs among words: a run of ideographs on its own, and emoji, flags and fullwidth
+  // forms, which OpenTUI breaks around no more than around letters.
+  "中文字符串測試中文字符串測試",
+  "ＡＢＣ😀ＤＥＦ🇨🇭ＧＨＩ❤\ufe0fＪＫＬ",
+  "x😀".repeat(20),
+  "foo😀bar baz😀qux 😀😀😀😀😀😀😀😀😀😀 end",
+  "aaaaaＡbbbbb😀ccccc🇨🇭ddddd😀eeeee",
+  "  const label = \"😀 ok\" // ✓ done → next 🇨🇭 flag ＯＫ",
+  "\t😀\t😀\t😀 wide after tabs",
   ...PRINTABLE.map((char) => `aaaaa${char}bbbbbbbbbbbb`),
   PRINTABLE.join(""),
   PRINTABLE.join(" "),

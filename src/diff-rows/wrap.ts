@@ -1,4 +1,4 @@
-import { isHighSurrogate } from "./cells"
+import { isAscii, walkCells } from "./cells"
 import { TAB } from "./segments"
 
 /**
@@ -23,17 +23,33 @@ const BREAK_AFTER = new Set([..."!(),-./:;?[\\]{}"].map((char) => char.charCodeA
 const isWhitespace = (code: number) => code === SPACE || code === TAB_CODE
 const isBreak = (code: number) => isWhitespace(code) || BREAK_AFTER.has(code)
 
+/** Each grapheme's UTF-16 length and cells, by the column it starts at. */
+function graphemesByColumn(content: string): { units: Uint32Array; cells: Uint32Array } {
+  const units = new Uint32Array(content.length)
+  const cells = new Uint32Array(content.length)
+  walkCells(content, (column, _cell, width, length) => {
+    units[column] = length
+    cells[column] = width
+    return false
+  })
+  return { units, cells }
+}
+
 /**
- * Where OpenTUI's `wrapMode: "word"` breaks `content` at `width` cells. A
- * row breaks after the last whitespace or break character that fits; a run
- * with none is cut at the edge. Whitespace that reaches past the edge
- * after a word hangs on that row rather than opening the next, but a row
- * of nothing but whitespace — indentation wider than the row — is cut like
- * a word.
+ * Where OpenTUI's `wrapMode: "word"` breaks `content` at `width` cells,
+ * counting each grapheme as the cell walk does. A row breaks after the
+ * last whitespace or break character that fits; a run with none is cut at
+ * the edge, and a wide glyph that does not fit in the cells left opens the
+ * next row. Whitespace that reaches past the edge after a word hangs on
+ * that row rather than opening the next, but a row of nothing but
+ * whitespace — indentation wider than the row — is cut like a word.
  *
- * The break set was measured on ASCII only. Unicode spaces, CJK break
- * opportunities and wide glyphs are not modelled, as split does not model
- * them either; the parity corpus leaves them out on purpose.
+ * The break set is ASCII only. OpenTUI also breaks on either side of kana,
+ * Hangul and CJK ideographs, but not before closing punctuation such as
+ * 」 or 、, nor after 「, nor between a quote and an ideograph beside it, so
+ * a run of ideographs alone breaks where riff cuts it while one mixed with
+ * words or punctuation may break elsewhere. Unicode spaces are not
+ * modelled either; the parity corpus leaves all of these out.
  */
 export function wrapLine(content: string, width: number): WrapSlice[] {
   const slices: WrapSlice[] = []
@@ -45,10 +61,11 @@ export function wrapLine(content: string, width: number): WrapSlice[] {
   let col = 0
   let cell = 0
   let drawnCell = 0
+  const graphemes = isAscii(content) ? null : graphemesByColumn(content)
   while (col < content.length) {
     const code = content.charCodeAt(col)
-    const cells = code === TAB_CODE ? TAB.length : 1
-    const units = isHighSurrogate(code) && col + 1 < content.length ? 2 : 1
+    const cells = graphemes ? graphemes.cells[col]! : code === TAB_CODE ? TAB.length : 1
+    const units = graphemes ? graphemes.units[col]! : 1
     const overflows = width > 0 && cell + cells - rowCell > width
     if (overflows && !(rowHasWord && isWhitespace(code))) {
       // A character wider than the whole row still has to land somewhere.

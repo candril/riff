@@ -16,8 +16,8 @@ afterEach(() => {
   mounted = null
 })
 
-async function mount() {
-  mounted = await mountIsland({ raw: WIDE_GLYPHS, width: 40, height: 8 })
+async function mount(wrap = false) {
+  mounted = await mountIsland({ raw: WIDE_GLYPHS, width: 40, height: 8, wrap })
   const lineOf = (content: string) => mounted!.mapping.allLines.findIndex((line) => line.content === content)
   return { ...mounted, glyphs: lineOf(WIDE_GLYPH_CONTENT), run: lineOf(WIDE_GLYPH_RUN) }
 }
@@ -83,4 +83,17 @@ test("unwrapped, a run of ideographs fills the pane to its last cell, which is t
   expect(cellOf(view, view.run, "›")).toBe(39)
   expect(view.setup.renderer.getCursorState().x).toBe(CODE_X + 20 + 1)
   expect(view.island.columnStatus()).toEqual({ col: 21, total: 100 })
+})
+
+test("wrapped, every ideograph of the run is drawn, seventeen to a 34-cell row", async () => {
+  const view = await mount(true)
+  const rows = await view.frame()
+
+  expect(rows.slice(view.run, view.run + 4)).toEqual([
+    `   2 ${"中".repeat(17)}`,
+    `    ↳${"中".repeat(17)}`,
+    `    ↳${"中".repeat(16)}`,
+    "     ▸ rest of the file  ↵",
+  ])
+  for (const y of [view.run, view.run + 1]) expect(cellOf(view, y, "中")).toBe(CODE_X)
 })
