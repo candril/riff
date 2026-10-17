@@ -2,8 +2,9 @@ import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
-import type { DiffFile } from "../utils/diff-parser"
-import { getFileColor } from "../utils/file-colors"
+import { filePickerModel, type FilePickerRow, type FilteredFile } from "./file-picker-model"
+
+export type { FilteredFile } from "./file-picker-model"
 
 export interface FilePickerProps {
   renderer: CliRenderer
@@ -11,35 +12,12 @@ export interface FilePickerProps {
   selectedIndex: number
 }
 
-export interface FilteredFile {
-  file: DiffFile
-  index: number  // Original index in files array
-  viewed?: boolean  // Whether file has been marked as viewed
-  commentCount?: number  // Number of comments on this file
-}
-
-/** Max visible rows in the file list */
-const MAX_VISIBLE = 20
-
 /**
  * File picker overlay for fuzzy file search
  * Styled similar to ActionMenu. Shows a scrolling window of all files.
  */
 export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) {
-  // Compute visible window around selected index
-  const total = files.length
-  let startIndex = 0
-  if (total > MAX_VISIBLE) {
-    // Keep selected item roughly centered, but clamp to bounds
-    startIndex = Math.max(0, Math.min(selectedIndex - Math.floor(MAX_VISIBLE / 2), total - MAX_VISIBLE))
-  }
-  const endIndex = Math.min(startIndex + MAX_VISIBLE, total)
-  const visibleFiles = files.slice(startIndex, endIndex)
-
-  // Count indicator
-  const countText = total > 0
-    ? `${selectedIndex + 1}/${total}`
-    : "0"
+  const model = filePickerModel(files, selectedIndex)
 
   return Box(
     {
@@ -77,11 +55,11 @@ export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) 
           paddingX: 2,
           paddingY: 1,
         },
-        Text({ content: "Find Files", fg: theme.subtext0 }),
+        Text({ content: model.title, fg: theme.subtext0 }),
         Box(
           { flexDirection: "row", gap: 2 },
-          Text({ content: countText, fg: theme.overlay0 }),
-          Text({ content: "esc", fg: theme.overlay0 }),
+          Text({ content: model.count, fg: theme.overlay0 }),
+          ...model.hints.map((hint) => Text({ content: hint, fg: theme.overlay0 })),
         )
       ),
       Box(
@@ -101,25 +79,18 @@ export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) 
           paddingBottom: 1,
         },
         // Scroll indicator at top
-        startIndex > 0
+        model.above > 0
           ? Box(
               { paddingX: 2, height: 1 },
-              Text({ content: `↑ ${startIndex} more`, fg: theme.overlay0 })
+              Text({ content: `↑ ${model.above} more`, fg: theme.overlay0 })
             )
           : null,
-        ...visibleFiles.map((item, i) => 
-          FileRow({ 
-            file: item.file, 
-            selected: (startIndex + i) === selectedIndex,
-            viewed: item.viewed,
-            commentCount: item.commentCount,
-          })
-        ),
+        ...model.rows.map(FileRow),
         // Scroll indicator at bottom
-        endIndex < total
+        model.below > 0
           ? Box(
               { paddingX: 2, height: 1 },
-              Text({ content: `↓ ${total - endIndex} more`, fg: theme.overlay0 })
+              Text({ content: `↓ ${model.below} more`, fg: theme.overlay0 })
             )
           : null,
       ),
@@ -127,24 +98,9 @@ export function FilePicker({ renderer, files, selectedIndex }: FilePickerProps) 
   )
 }
 
-interface FileRowProps {
-  file: DiffFile
-  selected: boolean
-  viewed?: boolean
-  commentCount?: number
-}
+function FileRow(row: FilePickerRow) {
+  const bg = row.selected ? "#585b70" : undefined  // surface2 for selection
 
-function FileRow({ file, selected, viewed, commentCount }: FileRowProps) {
-  const bg = selected ? "#585b70" : undefined  // surface2 for selection
-  // Use file type color, or default colors - dimmed if viewed
-  const fileColor = getFileColor(file.filename)
-  const baseFg = selected ? theme.text : (fileColor || theme.subtext1)
-  const fg = viewed && !selected ? theme.overlay0 : baseFg
-  
-  // Format additions/deletions
-  const stats = `+${file.additions} -${file.deletions}`
-  const statsFg = theme.overlay0
-  
   return Box(
     { 
       flexDirection: "row", 
@@ -156,18 +112,18 @@ function FileRow({ file, selected, viewed, commentCount }: FileRowProps) {
     // Left side: filename with optional viewed indicator
     Box(
       { flexDirection: "row", flexGrow: 1 },
-      viewed 
+      row.viewed
         ? Text({ content: "✓ ", fg: theme.green })
         : null,
-      Text({ content: file.filename, fg })
+      Text({ content: row.name, fg: row.nameFg })
     ),
     // Right side: comment count and stats
     Box(
       { flexDirection: "row" },
-      commentCount && commentCount > 0
-        ? Text({ content: `${commentCount} `, fg: theme.blue })
+      row.comments !== null
+        ? Text({ content: `${row.comments} `, fg: theme.blue })
         : null,
-      Text({ content: stats, fg: statsFg })
+      Text({ content: row.stats, fg: theme.overlay0 })
     )
   )
 }

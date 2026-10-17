@@ -2,7 +2,8 @@ import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
-import { markEntryLocation, type MarkEntry } from "../features/marks"
+import type { MarkEntry } from "../features/marks"
+import { marksPickerModel, type MarksPickerRow } from "./marks-picker-model"
 
 export interface MarksPickerProps {
   renderer: CliRenderer
@@ -12,18 +13,9 @@ export interface MarksPickerProps {
   anyMarks: boolean
 }
 
-const MAX_VISIBLE = 20
-
 /** Every global mark (spec 101), laid out as CommentsPicker is. */
 export function MarksPicker({ renderer, entries, selectedIndex, anyMarks }: MarksPickerProps) {
-  const total = entries.length
-  let startIndex = 0
-  if (total > MAX_VISIBLE) {
-    startIndex = Math.max(0, Math.min(selectedIndex - Math.floor(MAX_VISIBLE / 2), total - MAX_VISIBLE))
-  }
-  const endIndex = Math.min(startIndex + MAX_VISIBLE, total)
-  const visible = entries.slice(startIndex, endIndex)
-  const countText = total > 0 ? `${selectedIndex + 1}/${total}` : "0"
+  const model = marksPickerModel(entries, selectedIndex, anyMarks)
 
   return Box(
     {
@@ -53,12 +45,11 @@ export function MarksPicker({ renderer, entries, selectedIndex, anyMarks }: Mark
       },
       Box(
         { flexDirection: "row", justifyContent: "space-between", paddingX: 2, paddingY: 1 },
-        Text({ content: "Marks", fg: theme.subtext0 }),
+        Text({ content: model.title, fg: theme.subtext0 }),
         Box(
           { flexDirection: "row", gap: 2 },
-          Text({ content: countText, fg: theme.overlay0 }),
-          Text({ content: "^x delete", fg: theme.overlay0 }),
-          Text({ content: "esc", fg: theme.overlay0 })
+          Text({ content: model.count, fg: theme.overlay0 }),
+          ...model.hints.map((hint) => Text({ content: hint, fg: theme.overlay0 }))
         )
       ),
       Box(
@@ -68,10 +59,10 @@ export function MarksPicker({ renderer, entries, selectedIndex, anyMarks }: Mark
       ),
       Box(
         { flexDirection: "column", paddingBottom: 1 },
-        startIndex > 0 ? note(`↑ ${startIndex} more`) : null,
-        ...visible.map((entry, i) => MarkRow(entry, startIndex + i === selectedIndex)),
-        endIndex < total ? note(`↓ ${total - endIndex} more`) : null,
-        total === 0 ? note(anyMarks ? "No matching marks" : "No marks — m{letter} sets one") : null
+        model.above > 0 ? note(`↑ ${model.above} more`) : null,
+        ...model.rows.map(MarkRow),
+        model.below > 0 ? note(`↓ ${model.below} more`) : null,
+        model.empty !== null ? note(model.empty) : null
       )
     )
   )
@@ -81,14 +72,11 @@ function note(content: string) {
   return Box({ paddingX: 2, height: 1 }, Text({ content, fg: theme.overlay0 }))
 }
 
-function MarkRow(entry: MarkEntry, selected: boolean) {
-  const baseFg = selected ? theme.text : theme.subtext1
-  const dimFg = selected ? theme.subtext0 : theme.overlay0
-
+function MarkRow(row: MarksPickerRow) {
   return Box(
-    { flexDirection: "row", backgroundColor: selected ? theme.surface2 : undefined, paddingX: 2, width: "100%" },
-    Box({ flexDirection: "row", width: 2 }, Text({ content: entry.mark.letter, fg: theme.peach })),
-    Box({ flexDirection: "row", flexShrink: 0 }, Text({ content: ` ${markEntryLocation(entry)} `, fg: baseFg })),
-    Box({ flexDirection: "row", flexGrow: 1 }, Text({ content: entry.text, fg: dimFg }))
+    { flexDirection: "row", backgroundColor: row.selected ? theme.surface2 : undefined, paddingX: 2, width: "100%" },
+    Box({ flexDirection: "row", width: 2 }, Text({ content: row.letter, fg: row.letterFg })),
+    Box({ flexDirection: "row", flexShrink: 0 }, Text({ content: ` ${row.location} `, fg: row.locationFg })),
+    Box({ flexDirection: "row", flexGrow: 1 }, Text({ content: row.text, fg: row.textFg }))
   )
 }
