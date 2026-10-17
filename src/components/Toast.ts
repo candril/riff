@@ -1,7 +1,8 @@
 import { Box, Text } from "@opentui/core"
 import { theme } from "../theme"
+import { toastModel, type ToastType } from "./notification-model"
 
-export type ToastType = "success" | "error" | "info"
+export type { ToastType }
 
 export interface ToastProps {
   message: string
@@ -12,13 +13,12 @@ export interface ToastProps {
  * Toast notification - renders at top-right of screen
  */
 export function Toast({ message, type }: ToastProps) {
-  const colors: Record<ToastType, { bg: string; fg: string; icon: string }> = {
-    success: { bg: theme.green, fg: theme.base, icon: "✓" },
-    error: { bg: theme.red, fg: theme.base, icon: "✗" },
-    info: { bg: theme.blue, fg: theme.base, icon: "i" },
+  const bgs: Record<ToastType, string> = {
+    success: theme.green,
+    error: theme.red,
+    info: theme.blue,
   }
-  
-  const { bg, fg, icon } = colors[type]
+  const model = toastModel(message, type)
 
   return Box(
     {
@@ -26,11 +26,11 @@ export function Toast({ message, type }: ToastProps) {
       position: "absolute",
       top: 1,
       right: 2,
-      backgroundColor: bg,
+      backgroundColor: bgs[model.tone],
       paddingX: 2,
       paddingY: 0,
       zIndex: 100,
     },
-    Text({ content: `${icon} ${message}`, fg })
+    Text({ content: `${model.icon} ${model.message}`, fg: theme.base })
   )
 }
