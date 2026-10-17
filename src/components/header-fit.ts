@@ -6,8 +6,8 @@ import { cellsOf } from "../diff-rows/cells"
  */
 export type HeaderChild = string[]
 
-export const HEADER_PADDING = 2
-export const HEADER_SEPARATION = 2
+const HEADER_PADDING = 2
+const HEADER_SEPARATION = 2
 export const RIGHT_GAP = 2
 
 /** What a row of children takes before Yoga shrinks or clips any of it. */
