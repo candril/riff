@@ -42,8 +42,8 @@ const LOCAL: HeaderProps = { branchInfo: "greet → main", totalFiles: 3 }
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
-async function frame(props: HeaderProps) {
-  mounted = await mountRenderable(() => Header(props), { width: 100, height: 1 })
+async function frame(props: HeaderProps, width = 100) {
+  mounted = await mountRenderable(() => Header(props), { width, height: 1 })
   return mounted.frame()
 }
 
@@ -98,5 +98,60 @@ describe("PR mode", () => {
     expect(await frame({ prInfo: PR, totalFiles: 3, commits: COMMITS, viewingCommit: "bbbbbbb" })).toBe(
       " Open #42 @someone commit 2/2 · bbbbbbb second thing · esc: all commits                         ✗ 1"
     )
+  })
+})
+
+describe("version", () => {
+  const VERSION = "9.9.9+test"
+
+  test("sits dimmed at the right end, after the line counts", async () => {
+    expect(await frame({ ...LOCAL, selectedFile: GREET, version: VERSION })).toBe(
+      " riff  greet   →   main  src/greet.ts                                             +2 -1  9.9.9+test"
+    )
+  })
+
+  test("in PR mode it follows the long right side and takes nothing from the left", async () => {
+    const props: HeaderProps = {
+      prInfo: PR,
+      totalFiles: 3,
+      merge: mergeReading(PR, PR.checks!, []),
+      reviewProgress: { reviewed: 1, total: 3 },
+      selectedFile: GREET,
+    }
+    const without = await frame(props)
+    await mounted?.dispose()
+    const withVersion = await frame({ ...props, version: VERSION })
+    // Left 35, right 42: 2 + 35 + 2 + 42 + 2 + 10 = 93 cells, inside 100.
+    expect(withVersion).toEndWith("1/3 reviewed  +2 -1  9.9.9+test")
+    expect(withVersion).toHaveLength(99)
+    const left = " Open #42 @someone Greet by template"
+    expect(without).toStartWith(left)
+    expect(withVersion).toStartWith(left)
+  })
+
+  // The local header with a file selected takes 45 cells, and 57 with the version.
+  const SELECTED: HeaderProps = { ...LOCAL, selectedFile: GREET }
+
+  test("is dropped whole when the rest only just fits", async () => {
+    for (const width of [45, 56]) {
+      const without = await frame(SELECTED, width)
+      await mounted?.dispose()
+      const withVersion = await frame({ ...SELECTED, version: VERSION }, width)
+      await mounted?.dispose()
+      mounted = null
+      expect(withVersion).toBe(without)
+      expect(withVersion).not.toContain("9.9")
+      expect(withVersion).not.toContain("+test")
+    }
+    expect(await frame({ ...SELECTED, version: VERSION }, 57)).toEndWith("+2 -1  9.9.9+test")
+  })
+
+  test("goes on a resize to narrow and comes back on a resize to wide", async () => {
+    expect(await frame({ ...SELECTED, version: VERSION })).toContain(VERSION)
+    mounted!.setup.resize(45, 1)
+    const narrow = await mounted!.frame()
+    expect(narrow).toBe(" riff  greet   →   main  src/greet.ts  +2 -1")
+    mounted!.setup.resize(100, 1)
+    expect(await mounted!.frame()).toEndWith("+2 -1  9.9.9+test")
   })
 })

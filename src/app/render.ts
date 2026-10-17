@@ -63,6 +63,7 @@ import { getSyntaxStyle } from "../vim-diff/syntax-style"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
+import { version } from "../version"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -530,6 +531,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           merge: state.prInfo
             ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments)
             : null,
+          version,
         }),
         Box(
           {
@@ -620,7 +622,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               extending: state.commitPicker.rangeAnchor !== null,
             })
           : null,
-        state.showHelp ? HelpOverlay() : null,
+        state.showHelp ? HelpOverlay({ version }) : null,
         state.showLinePeek && state.viewMode === "diff"
           ? (() => {
               // A mermaid block is source for a picture; the peek draws the

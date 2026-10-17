@@ -4,6 +4,62 @@ import type { BranchPr } from "../providers/current-pr"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PrInfo, PrCommit, PrCheck } from "../providers/github"
 import type { MergeReading, MergeVerdict } from "../utils/merge-verdict"
+import { cellsOf } from "../diff-rows/cells"
+import { RIGHT_GAP, naturalCells, versionFits } from "./header-fit"
+
+interface Part {
+  content: string
+  fg: string
+}
+
+/** A Text, or a run of Texts with no gap between them. */
+type Child = Part[]
+
+const VERSION_ID = "header-version"
+
+function drawChild(child: Child) {
+  return child.length === 1
+    ? Text(child[0]!)
+    : Box({ flexDirection: "row" }, ...child.map((part) => Text(part)))
+}
+
+const contentsOf = (children: Child[]) => children.map((child) => child.map((part) => part.content))
+
+/**
+ * The one-row header: `left` shrinks and clips, `right` keeps its width,
+ * and the version, when given, is shown at the far right only while the
+ * rest fits whole beside it. The row decides when it is first laid out
+ * and again on every change of width, because nothing re-renders the
+ * header on a resize.
+ */
+function headerRow(left: Child[], leftGap: number, right: Child[], version: string | undefined) {
+  const natural = { left: naturalCells(contentsOf(left), leftGap), right: naturalCells(contentsOf(right), RIGHT_GAP) }
+  const fits = (cells: number) => version !== undefined && versionFits(cells, natural, cellsOf(version))
+  return Box(
+    {
+      height: 1,
+      width: "100%",
+      backgroundColor: colors.headerBg,
+      paddingLeft: 1,
+      paddingRight: 1,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      onSizeChange() {
+        const versionText = this.findDescendantById(VERSION_ID)
+        if (versionText) versionText.visible = fits(this.width)
+      },
+    },
+    Box({ flexDirection: "row", gap: leftGap, flexShrink: 1, overflow: "hidden" }, ...left.map(drawChild)),
+    Box(
+      { flexDirection: "row", gap: RIGHT_GAP, flexShrink: 0 },
+      ...right.map(drawChild),
+      version !== undefined
+        ? Text({ id: VERSION_ID, content: version, fg: theme.overlay0, visible: false })
+        : null
+    )
+  )
+}
 
 /**
  * Compact summary of CI check status shown in the PR-mode header
@@ -98,6 +154,8 @@ export interface HeaderProps {
   lastRefreshedAt?: string | null
   /** Whose move it is — can this land, and if not, who is holding it. */
   merge?: MergeReading | null
+  /** The build, as `riff --version` names it; omitted, nothing is drawn. */
+  version?: string
 }
 
 /** Compact "last refreshed" indicator, e.g. "↻ 14:23". Null when unknown. */
@@ -120,6 +178,7 @@ export function Header({
   commits,
   branchPr,
   lastRefreshedAt,
+  version,
 }: HeaderProps = {}) {
   const refreshedText = formatRefreshed(lastRefreshedAt)
   // Scope text
@@ -171,6 +230,18 @@ export function Header({
       ? theme.green  // All done!
       : theme.subtext0
 
+  const rightTail: Child[] = [
+    ...(refreshedText ? [[{ content: refreshedText, fg: theme.overlay0 }]] : []),
+    ...(progressText ? [[{ content: progressText, fg: progressColor }]] : []),
+    ...(selectedFile
+      ? [[
+          { content: `+${selectedFile.additions}`, fg: theme.green },
+          { content: " ", fg: colors.text },
+          { content: `-${selectedFile.deletions}`, fg: theme.red },
+        ]]
+      : []),
+  ]
+
   // PR mode header
   if (prInfo) {
     // PR status badge
@@ -189,63 +260,35 @@ export function Header({
           ? theme.red       // Red for closed
           : theme.green     // Green for open
 
-    return Box(
-      {
-        height: 1,
-        width: "100%",
-        backgroundColor: colors.headerBg,
-        paddingLeft: 1,
-        paddingRight: 1,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-      },
-      // Left side: PR status, number, author, title/commit
-      Box(
-        { flexDirection: "row", gap: 1, flexShrink: 1, overflow: "hidden" },
-        Text({ content: statusText, fg: statusColor }),
-        Text({ content: `#${prInfo.number}`, fg: theme.sapphire }),
-        Text({ content: `@${prInfo.author}`, fg: theme.subtext0 }),
-        commitFilterText
-          ? Text({ content: commitFilterText, fg: theme.peach })
-          : Text({ content: prInfo.title, fg: colors.text })
-      ),
-      // Right side: whose move it is, checks summary, progress, stats for
-      // the selected file
-      Box(
-        { flexDirection: "row", gap: 2, flexShrink: 0 },
-        merge ? Text({ content: `${mergeGlyph(merge.verdict)} ${merge.text}`, fg: mergeColor(merge.verdict) }) : null,
-        (() => {
-          const c = summarizeChecks(prInfo.checks)
-          return c ? Text({ content: c.text, fg: c.color }) : null
-        })(),
-        refreshedText ? Text({ content: refreshedText, fg: theme.overlay0 }) : null,
-        progressText ? Text({ content: progressText, fg: progressColor }) : null,
-        selectedFile
-          ? Box(
-              { flexDirection: "row" },
-              Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
-              Text({ content: " ", fg: colors.text }),
-              Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
-            )
-          : null
-      )
-    )
+    const checks = summarizeChecks(prInfo.checks)
+    const left: Child[] = [
+      [{ content: statusText, fg: statusColor }],
+      [{ content: `#${prInfo.number}`, fg: theme.sapphire }],
+      [{ content: `@${prInfo.author}`, fg: theme.subtext0 }],
+      commitFilterText
+        ? [{ content: commitFilterText, fg: theme.peach }]
+        : [{ content: prInfo.title, fg: colors.text }],
+    ]
+    const right: Child[] = [
+      ...(merge ? [[{ content: `${mergeGlyph(merge.verdict)} ${merge.text}`, fg: mergeColor(merge.verdict) }]] : []),
+      ...(checks ? [[{ content: checks.text, fg: checks.color }]] : []),
+      ...rightTail,
+    ]
+    return headerRow(left, 1, right, version)
   }
 
   // Local mode header
-  // Build branch info elements
-  const branchElements: ReturnType<typeof Text>[] = []
+  const branchElements: Child[] = []
   if (branchInfo) {
     const parts = branchInfo.split(" → ")
     if (parts.length === 2) {
       branchElements.push(
-        Text({ content: parts[0], fg: theme.sapphire }),
-        Text({ content: " → ", fg: theme.subtext0 }),
-        Text({ content: parts[1], fg: theme.sapphire }),
+        [{ content: parts[0]!, fg: theme.sapphire }],
+        [{ content: " → ", fg: theme.subtext0 }],
+        [{ content: parts[1]!, fg: theme.sapphire }],
       )
     } else {
-      branchElements.push(Text({ content: branchInfo, fg: theme.sapphire }))
+      branchElements.push([{ content: branchInfo, fg: theme.sapphire }])
     }
   }
 
@@ -253,48 +296,19 @@ export function Header({
   // is, because a local review of a branch under review is a different job
   // (spec 079).
   if (branchPr) {
-    branchElements.push(
-      Text({
+    branchElements.push([
+      {
         content: `  #${branchPr.number}${branchPr.isDraft ? " draft" : ""}`,
         fg: branchPr.state === "OPEN" ? theme.green : theme.overlay0,
-      })
-    )
+      },
+    ])
   }
 
-  return Box(
-    {
-      height: 1,
-      width: "100%",
-      backgroundColor: colors.headerBg,
-      paddingLeft: 1,
-      paddingRight: 1,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    // Left side: title, branch info, commit filter, scope
-    Box(
-      { flexDirection: "row", gap: 2, flexShrink: 1, overflow: "hidden" },
-      Text({ content: title, fg: colors.headerFg }),
-      ...branchElements,
-      commitFilterText
-        ? Text({ content: commitFilterText, fg: theme.peach })
-        : null,
-      Text({ content: scopeText, fg: colors.text })
-    ),
-    // Right side: last-refreshed + progress + stats for selected file
-    Box(
-      { flexDirection: "row", gap: 2, flexShrink: 0 },
-      refreshedText ? Text({ content: refreshedText, fg: theme.overlay0 }) : null,
-      progressText ? Text({ content: progressText, fg: progressColor }) : null,
-      selectedFile
-        ? Box(
-            { flexDirection: "row" },
-            Text({ content: `+${selectedFile.additions}`, fg: theme.green }),
-            Text({ content: " ", fg: colors.text }),
-            Text({ content: `-${selectedFile.deletions}`, fg: theme.red })
-          )
-        : null
-    )
-  )
+  const left: Child[] = [
+    [{ content: title, fg: colors.headerFg }],
+    ...branchElements,
+    ...(commitFilterText ? [[{ content: commitFilterText, fg: theme.peach }]] : []),
+    [{ content: scopeText, fg: colors.text }],
+  ]
+  return headerRow(left, 2, rightTail, version)
 }

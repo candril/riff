@@ -3,6 +3,8 @@ import { theme, colors } from "../theme"
 
 export interface HelpOverlayProps {
   onClose?: () => void
+  /** The build, as `riff --version` names it; omitted, nothing is drawn. */
+  version?: string
 }
 
 const HELP_SECTIONS = [
@@ -119,7 +121,7 @@ const HELP_SECTIONS = [
  * The keymap overlay behind `g?`. A cheat sheet, not an inventory — the action
  * menu (Ctrl+p) is the exhaustive, state-aware list.
  */
-export function HelpOverlay(_props: HelpOverlayProps = {}) {
+export function HelpOverlay({ version }: HelpOverlayProps = {}) {
   return Box(
     {
       id: "help-overlay",
@@ -154,8 +156,9 @@ export function HelpOverlay(_props: HelpOverlayProps = {}) {
       },
       // Title
       Box(
-        { height: 1, marginBottom: 1 },
-        Text({ content: "Keyboard Shortcuts", fg: colors.primary })
+        { height: 1, marginBottom: 1, flexDirection: "row", justifyContent: "space-between" },
+        Text({ content: "Keyboard Shortcuts", fg: colors.primary }),
+        version !== undefined ? Text({ content: `riff ${version}`, fg: theme.overlay0 }) : null
       ),
       // Two-column layout for sections
       Box(
