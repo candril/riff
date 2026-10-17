@@ -1100,10 +1100,12 @@ export function toggleHelp(state: AppState): AppState {
 /**
  * Scroll the help overlay's body. Clamped here rather than in the view, as
  * scrollPeek is not: the key handler knows the terminal's height, so a held
- * `j` stops at the last row and `k` answers on its first press.
+ * `j` stops at the last row and `k` answers on its first press, even after a
+ * resize left helpScroll past what the taller window can scroll.
  */
 export function scrollHelp(state: AppState, delta: number, maxScroll: number): AppState {
-  return { ...state, helpScroll: Math.max(0, Math.min(maxScroll, state.helpScroll + delta)) }
+  const drawn = Math.min(state.helpScroll, maxScroll)
+  return { ...state, helpScroll: Math.max(0, Math.min(maxScroll, drawn + delta)) }
 }
 
 /**

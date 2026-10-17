@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
 import { createInitialState, toggleHelp, type AppState } from "../state"
 import { helpViewport } from "../components/help-sections"
+import { helpOverlayModel } from "../components/help-overlay-model"
 import { handleHelpKey } from "./help-keys"
 
 function openHelp(height: number) {
@@ -18,7 +19,7 @@ function openHelp(height: number) {
   }
   const press = (name: string, mods: { ctrl?: boolean; shift?: boolean } = {}) =>
     handleHelpKey({ name, ctrl: mods.ctrl ?? false, shift: mods.shift ?? false }, ctx)
-  return { press, state: () => state, renders: () => renders }
+  return { press, ctx, state: () => state, renders: () => renders }
 }
 
 test("j and k scroll the help a row at a time, and k stops at the top", () => {
@@ -73,4 +74,16 @@ test("every other key is swallowed, but g reaches the chord matcher for g?", () 
   expect(help.press("b", { ctrl: true })).toBe(true)
   expect(help.press("g")).toBe(false)
   expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
+})
+
+test("after the terminal grows, the first k moves the help up from where it is drawn", () => {
+  const short = 30
+  const tall = 45
+  expect(helpViewport(tall).maxScroll).toBeGreaterThan(0)
+  expect(helpViewport(tall).maxScroll).toBeLessThan(helpViewport(short).maxScroll)
+  const help = openHelp(short)
+  for (let i = 0; i < 80; i++) help.press("j")
+  const before = helpOverlayModel(undefined, help.state().helpScroll, tall).scroll
+  handleHelpKey({ name: "k", ctrl: false, shift: false }, { ...help.ctx, height: tall })
+  expect(helpOverlayModel(undefined, help.state().helpScroll, tall).scroll).toBe(before - 1)
 })

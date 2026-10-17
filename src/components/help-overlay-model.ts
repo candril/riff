@@ -1,6 +1,6 @@
-import { helpColumns, helpRows, helpViewport, type HelpRow } from "./help-sections"
+import { HELP_COLUMN_ROWS, helpViewport, type HelpRow } from "./help-sections"
 
-const [LEFT_ROWS, RIGHT_ROWS] = helpColumns().map(helpRows)
+const [LEFT_ROWS, RIGHT_ROWS] = HELP_COLUMN_ROWS
 
 /** The window of each column the help overlay shows, and whether rows lie past either edge. */
 export interface HelpOverlayModel {
@@ -15,8 +15,8 @@ export function helpOverlayModel(version: string | undefined, scroll: number, he
   const { rows, maxScroll } = helpViewport(height)
   const top = Math.max(0, Math.min(maxScroll, scroll))
   const window = {
-    left: LEFT_ROWS!.slice(top, top + rows),
-    right: RIGHT_ROWS!.slice(top, top + rows),
+    left: LEFT_ROWS.slice(top, top + rows),
+    right: RIGHT_ROWS.slice(top, top + rows),
     scroll: top,
     more: { above: top > 0, below: top < maxScroll },
   }

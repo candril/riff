@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch } from "solid-js"
 import { theme, colors } from "../theme"
-import { HELP_KEY_CELLS, helpColumnCells, helpColumns, helpRows, type HelpRow } from "./help-sections"
+import { HELP_COLUMN_ROWS, HELP_KEY_CELLS, helpColumnCells, type HelpRow } from "./help-sections"
 import type { HelpOverlayModel } from "./help-overlay-model"
 
 function Row(props: { row: HelpRow }) {
@@ -25,7 +25,7 @@ function Row(props: { row: HelpRow }) {
   )
 }
 
-const [LEFT_CELLS, RIGHT_CELLS] = helpColumns().map((column) => helpColumnCells(helpRows(column)))
+const [LEFT_CELLS, RIGHT_CELLS] = HELP_COLUMN_ROWS.map(helpColumnCells)
 
 function Column(props: { rows: readonly HelpRow[]; cells: number }) {
   return (

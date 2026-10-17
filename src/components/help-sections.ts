@@ -165,7 +165,12 @@ export function helpColumnCells(rows: readonly HelpRow[]): number {
   )
 }
 
-export const HELP_BODY_ROWS = Math.max(...helpColumns().map((column) => helpRows(column).length))
+export const HELP_COLUMN_ROWS: readonly [readonly HelpRow[], readonly HelpRow[]] = [
+  helpRows(helpColumns()[0]),
+  helpRows(helpColumns()[1]),
+]
+
+export const HELP_BODY_ROWS = Math.max(...HELP_COLUMN_ROWS.map((rows) => rows.length))
 
 // Padding above and below (2 + 2), the title row and the blank under it,
 // and the footer row and the blank above it.
