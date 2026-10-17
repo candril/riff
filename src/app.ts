@@ -469,7 +469,7 @@ export async function createApp(options: AppOptions = {}) {
   // The cursor is moved to fit the view here, never the other way round:
   // calling ensureCursorVisible would scroll the view back and fight the
   // wheel.
-  unified.setOnCursorScrolledAway((line) => {
+  function dragCursorTo(line: number): void {
     const content = lineMapping.getLineContent(line)
     vimState = {
       ...vimState,
@@ -479,7 +479,8 @@ export async function createApp(options: AppOptions = {}) {
     }
     refreshCursor()
     render()
-  })
+  }
+  unified.setOnCursorScrolledAway(dragCursorTo)
 
   const diffViewport = routeDiffViewport(unified, {
     shown: split.shown,

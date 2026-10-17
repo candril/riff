@@ -5,11 +5,12 @@ import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
 import { UnifiedDiffView, type UnifiedDiffViewProps } from "../split-view/UnifiedDiffView"
 import { createUnifiedLayout, type UnifiedLayout } from "../split-view/unified-layout"
 import { unifiedShownCells } from "../split-view/unified-markers"
+import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
 import { clampCursorCell, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { clampScroll, placeRow, revealRow } from "./split-scroll"
 import { EmptyMessage, isEmpty } from "./unified-empty"
-import { draggedLine, unifiedWheel } from "./unified-wheel"
+import { draggedLine } from "./unified-wheel"
 import { IN_CODE, codeWidth, createUnifiedWindows } from "./unified-windows"
 
 export type UnifiedInputs = Omit<UnifiedDiffViewProps, "scrollTop" | "column" | "width" | "height" | "layout"> & {
@@ -111,7 +112,7 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   }
 
   // Rows bubble the wheel to the host, held ones too: the hit grid names a row a tick scrolled away until the next frame.
-  island.host.onMouseScroll = unifiedWheel({
+  island.host.onMouseScroll = diffWheel({
     rows(delta) {
       layout()?.held.hold(window())
       setScrollTop(clampScroll({ ...window(), scrollTop: shownTop() + delta }))
