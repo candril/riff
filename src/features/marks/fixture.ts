@@ -1,0 +1,48 @@
+import type { DiffFile } from "../../utils/diff-parser"
+
+/**
+ * One file whose old and new numbering drift apart by one after its first
+ * hunk, so a LEFT and a RIGHT number on the same context row differ, and a
+ * second file so the first is followed by spacing. Rows in all-files mode:
+ *
+ *   0 header x.ts      5 ctx  old 3 new 4     10 ctx  old 10 new 11
+ *   1 ctx  old 1 new 1 6 divider (new 5–8)    11 divider (rest of file)
+ *   2 del  old 2       7 ctx  old 8 new 9     12 spacing
+ *   3 add  new 2       8 del  old 9           13 header y.ts
+ *   4 add  new 3       9 add  new 10
+ */
+export const X: DiffFile = {
+  filename: "src/x.ts",
+  additions: 3,
+  deletions: 2,
+  status: "modified",
+  content: [
+    "diff --git a/src/x.ts b/src/x.ts",
+    "--- a/src/x.ts",
+    "+++ b/src/x.ts",
+    "@@ -1,3 +1,4 @@",
+    " n1",
+    "-o2",
+    "+n2",
+    "+n3",
+    " n4",
+    "@@ -8,3 +9,3 @@",
+    " n9",
+    "-o9",
+    "+n10",
+    " n11",
+  ].join("\n"),
+}
+
+export const Y: DiffFile = {
+  filename: "src/y.ts",
+  additions: 1,
+  deletions: 0,
+  status: "modified",
+  content: ["diff --git a/src/y.ts b/src/y.ts", "--- a/src/y.ts", "+++ b/src/y.ts", "@@ -1,1 +1,2 @@", " y1", "+y2"].join(
+    "\n"
+  ),
+}
+
+export const X_CONTENT = Array.from({ length: 12 }, (_, i) => `n${i + 1}`).join("\n")
+export const X_MIDDLE = "src/x.ts:middle:0"

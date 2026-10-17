@@ -7,6 +7,8 @@ import { type Comment, type ReviewSession, type FileReviewStatus, createSession 
 import { loadConfig } from "./config"
 import { getCurrentRepoRef } from "./providers/repo"
 import type { VisitWatermark } from "./utils/visit"
+import type { Mark } from "./features/marks/types"
+import { isMarkLetter } from "./features/marks/store"
 
 const LOCAL_STORAGE_DIR = ".riff"
 const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
@@ -14,6 +16,7 @@ const COMMENTS_DIR = "comments"
 const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
 const VISIT_FILE = "visit.json"
+const MARKS_FILE = "marks.json"
 const MENTIONABLE_FILE = "mentionable-users.json"
 
 /**
@@ -844,6 +847,51 @@ export async function loadVisit(source: string): Promise<VisitWatermark | null> 
 export async function saveVisit(source: string, visit: VisitWatermark): Promise<void> {
   await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
   await Bun.write(getVisitFilePath(source), JSON.stringify(visit, null, 2))
+}
+
+function getMarksFilePath(source: string): string {
+  return join(localStorageDir(), sourceToDir(source), MARKS_FILE)
+}
+
+/**
+ * The review's marks (spec 101). Never throws: a mark file that is missing
+ * or mangled costs the reader their marks, not the review. Entries that do
+ * not describe a mark are dropped one by one, and a letter written twice
+ * keeps its last place, as setting it twice would.
+ */
+export async function loadMarks(source: string): Promise<Mark[]> {
+  try {
+    const file = Bun.file(getMarksFilePath(source))
+    if (!(await file.exists())) return []
+    const data: unknown = await file.json()
+    if (!Array.isArray(data)) return []
+
+    const byLetter = new Map<string, Mark>()
+    for (const entry of data) {
+      const mark = toMark(entry)
+      if (!mark) continue
+      byLetter.delete(mark.letter)
+      byLetter.set(mark.letter, mark)
+    }
+    return [...byLetter.values()]
+  } catch {
+    return []
+  }
+}
+
+function toMark(entry: unknown): Mark | null {
+  if (typeof entry !== "object" || entry === null) return null
+  const { letter, filename, line, side } = entry as Record<string, unknown>
+  if (typeof letter !== "string" || !isMarkLetter(letter)) return null
+  if (typeof filename !== "string") return null
+  if (line !== null && !(typeof line === "number" && Number.isInteger(line) && line > 0)) return null
+  if (side !== "LEFT" && side !== "RIGHT") return null
+  return { letter, filename, line, side }
+}
+
+export async function saveMarks(source: string, marks: readonly Mark[]): Promise<void> {
+  await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
+  await Bun.write(getMarksFilePath(source), JSON.stringify(marks, null, 2))
 }
 
 /**

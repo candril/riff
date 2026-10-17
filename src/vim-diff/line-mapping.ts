@@ -10,7 +10,7 @@ import type { Comment } from "../types"
 import type { DiffLine, CommentAnchor, DiffLineMappingOptions } from "./types"
 import type { LineSource } from "./line-source"
 
-function anchorSide(type: DiffLine["type"], pane: "left" | "right" | undefined): CommentAnchor["side"] | null {
+export function anchorSide(type: DiffLine["type"], pane: "left" | "right" | undefined): CommentAnchor["side"] | null {
   if (type === "deletion") return pane === "right" ? null : "LEFT"
   if (type === "addition") return pane === "left" ? null : "RIGHT"
   return pane === "left" ? "LEFT" : "RIGHT"
