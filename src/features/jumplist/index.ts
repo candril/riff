@@ -12,34 +12,15 @@
 import type { AppState } from "../../state"
 import { selectFile, clearFileSelection, switchView, enterDiffView } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
-import type { Jump, JumpListState } from "./types"
+import type { Jump } from "./types"
+import { sameLocation } from "./place"
 
 export type { Jump, JumpListState } from "./types"
 export { createJumpListState } from "./types"
+export { sameLocation } from "./place"
+export { isStepMotion, isListWalk, isFindMotion } from "./keys"
 
 const MAX_ENTRIES = 100
-
-/** Cursor moves that are not jumps: stepping and scrolling inside a file. */
-const STEP_KEYS = new Set([
-  "j", "k", "h", "l", "w", "b", "e", "0", "^", "$",
-  "up", "down", "left", "right",
-])
-
-/** Held with Ctrl, these scroll rather than jump. */
-const STEP_CTRL_KEYS = new Set(["d", "u", "e", "y"])
-
-/**
- * True for a key that moves the cursor without moving the reader — vim's own
- * line between a motion and a jump (spec 089).
- *
- * `Ctrl-o`, `Ctrl-i` and the `tab` it arrives as are here too: walking the
- * list must not extend it.
- */
-export function isStepMotion(key: { name?: string; ctrl?: boolean }): boolean {
-  const name = key.name ?? ""
-  if (key.ctrl) return STEP_CTRL_KEYS.has(name) || name === "o" || name === "i"
-  return name === "tab" || STEP_KEYS.has(name)
-}
 
 /**
  * The file the cursor is standing in, which in the all-files view is not the
@@ -48,11 +29,6 @@ export function isStepMotion(key: { name?: string; ctrl?: boolean }): boolean {
  */
 export function cursorFile(mapping: { getLine(i: number): { filename?: string } | undefined }, line: number): string | null {
   return mapping.getLine(line)?.filename ?? null
-}
-
-/** True when two captures are the same place. */
-export function sameLocation(a: Jump, b: Jump): boolean {
-  return jumpsEqual(a, b)
 }
 
 /** Snapshot the current location into a Jump. */
@@ -71,17 +47,6 @@ export function capture(state: AppState, vim: VimCursorState): Jump {
   }
 }
 
-function jumpsEqual(a: Jump, b: Jump): boolean {
-  return (
-    a.fileIndex === b.fileIndex &&
-    a.filename === b.filename &&
-    a.viewingCommit === b.viewingCommit &&
-    a.viewMode === b.viewMode &&
-    a.cursorLine === b.cursorLine &&
-    a.cursorCol === b.cursorCol
-  )
-}
-
 /**
  * Push a jump entry. Truncates forward history (standard jumplist
  * semantics), evicts FIFO at the cap, and coalesces consecutive duplicates.
@@ -89,7 +54,7 @@ function jumpsEqual(a: Jump, b: Jump): boolean {
 export function push(state: AppState, jump: Jump): AppState {
   const list = state.jumpList
   const tip = list.index >= 0 ? list.entries[list.index] : undefined
-  if (tip && jumpsEqual(tip, jump)) return state
+  if (tip && sameLocation(tip, jump)) return state
 
   const truncated = list.entries.slice(0, list.index + 1)
   truncated.push(jump)
@@ -127,7 +92,7 @@ export function back(state: AppState, vim: VimCursorState): { state: AppState; j
   if (list.index === list.entries.length - 1) {
     const here = capture(state, vim)
     const tip = list.entries[list.index]!
-    if (!jumpsEqual(here, tip)) {
+    if (!sameLocation(here, tip)) {
       // Push current as a new tip so back-jump lands on the old tip.
       workingState = push(state, here)
       workingList = workingState.jumpList

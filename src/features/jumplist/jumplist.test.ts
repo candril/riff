@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { isStepMotion, sameLocation, capture, push, cursorFile } from "./index"
+import { isStepMotion, isListWalk, isFindMotion, sameLocation, capture, push, cursorFile } from "./index"
 import { createInitialState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { DiffFile } from "../../utils/diff-parser"
@@ -38,6 +38,32 @@ describe("isStepMotion", () => {
     for (const key of [{ name: "f", ctrl: true }, { name: "g" }, { name: "G" }, { name: "n" }, { name: "return" }, { name: "]" }]) {
       expect(isStepMotion(key)).toBe(false)
     }
+  })
+})
+
+describe("isListWalk", () => {
+  test("Ctrl-o, Ctrl-i and the tab Ctrl-i arrives as walk the list", () => {
+    expect(isListWalk({ name: "o", ctrl: true })).toBe(true)
+    expect(isListWalk({ name: "i", ctrl: true })).toBe(true)
+    expect(isListWalk({ name: "tab" })).toBe(true)
+  })
+
+  test("nothing else does", () => {
+    for (const key of [{ name: "o" }, { name: "i" }, { name: "d", ctrl: true }, { name: "j" }]) {
+      expect(isListWalk(key)).toBe(false)
+    }
+  })
+})
+
+describe("isFindMotion", () => {
+  test("f, F, t, T, ; and , find within the line", () => {
+    for (const key of [{ name: "f" }, { name: "f", shift: true }, { name: "t" }, { name: "T" }, { name: ";" }, { name: "", sequence: "," }]) {
+      expect(isFindMotion(key)).toBe(true)
+    }
+  })
+
+  test("Ctrl-f is the file picker, not a find", () => {
+    expect(isFindMotion({ name: "f", ctrl: true })).toBe(false)
   })
 })
 
