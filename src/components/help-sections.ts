@@ -1,3 +1,5 @@
+import { cellsOf } from "../diff-rows/cells"
+
 export interface HelpSection {
   title: string
   keys: readonly (readonly [string, string])[]
@@ -101,7 +103,8 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["Ctrl+g", "Edit in $EDITOR"],
       ["Esc", "Cancel, keep the draft"],
       ["@ / :", "Mention / emoji picker"],
-      ["Ctrl+n / Ctrl+p", "Move in a picker; Tab picks"],
+      ["↑ ↓ / Ctrl+n/p", "Move in a picker"],
+      ["Tab / Enter", "Pick in a picker"],
     ],
   },
   {
@@ -130,4 +133,45 @@ export const HELP_KEY_CELLS = 18
 
 export function helpColumns(): [readonly HelpSection[], readonly HelpSection[]] {
   return [HELP_SECTIONS.slice(0, 4), HELP_SECTIONS.slice(4)]
+}
+
+export type HelpRow =
+  | { id: string; kind: "title"; text: string }
+  | { id: string; kind: "key"; key: string; desc: string }
+  | { id: string; kind: "gap" }
+
+/**
+ * A column as the rows it draws. Each row carries an id of its own so a
+ * scrolled window keeps the rows it shares with the last one.
+ */
+export function helpRows(sections: readonly HelpSection[]): HelpRow[] {
+  return sections.flatMap((section, s) => [
+    ...(s > 0 ? [{ id: `${section.title}:gap`, kind: "gap" as const }] : []),
+    { id: `${section.title}:title`, kind: "title" as const, text: section.title },
+    ...section.keys.map(([key, desc], i) => ({ id: `${section.title}:${i}`, kind: "key" as const, key, desc })),
+  ])
+}
+
+/**
+ * How wide a column is when all of it is drawn. Sizing the column from this
+ * rather than from the rows in view keeps both columns where they are while
+ * the window scrolls.
+ */
+export function helpColumnCells(rows: readonly HelpRow[]): number {
+  return Math.max(
+    ...rows.map((row) =>
+      row.kind === "title" ? cellsOf(row.text) : row.kind === "key" ? HELP_KEY_CELLS + cellsOf(row.desc) : 0
+    )
+  )
+}
+
+export const HELP_BODY_ROWS = Math.max(...helpColumns().map((column) => helpRows(column).length))
+
+// Padding above and below (2 + 2), the title row and the blank under it,
+// and the footer row and the blank above it.
+export const HELP_CHROME_ROWS = 8
+
+export function helpViewport(height: number): { rows: number; maxScroll: number } {
+  const rows = Math.min(HELP_BODY_ROWS, Math.max(1, height - HELP_CHROME_ROWS))
+  return { rows, maxScroll: HELP_BODY_ROWS - rows }
 }

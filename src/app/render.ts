@@ -544,7 +544,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
     )
     ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
-    ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version) : null)
+    ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version, state.helpScroll, ctx.renderer.height) : null)
     const diffPeek =
       state.showLinePeek && state.viewMode === "diff"
         ? diffPeekModel(lineMapping, vimState.line, state.peekSide, state.peekScroll, ctx.renderer.width, ctx.renderer.height)

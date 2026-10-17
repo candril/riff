@@ -22,6 +22,7 @@ import type { CommentScope } from "../diff-rows/comment-scope"
 import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
+import { handleHelpKey } from "./help-keys"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -75,7 +76,7 @@ export interface GlobalKeyContext {
   // Flash jump state (spec 022)
   getFlashState: () => FlashState
   // UI
-  renderer: { console: { toggle: () => void } }
+  renderer: { console: { toggle: () => void }; height: number }
   cursorView: DiffViewport
   fileTreePanel: FileTreePanel
   getPrInfoPanel: () => PRInfoPanelClass | null
@@ -750,16 +751,12 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
     // Ahead of the panels, which are modal in their own right: the keymap
     // is drawn over them, so `q` has to close it rather than close them.
-    if (ctx.getState().showHelp && !pendingKey) {
-      if (key.name === "escape" || key.name === "q") {
-        ctx.setState(toggleHelp)
-        ctx.render()
-        return
-      }
-      // `g` still has to reach the chord matcher, or `g?` couldn't close it.
-      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
-        return
-      }
+    if (
+      ctx.getState().showHelp &&
+      !pendingKey &&
+      handleHelpKey(key, { getState: ctx.getState, setState: ctx.setState, render: ctx.render, height: ctx.renderer.height })
+    ) {
+      return
     }
 
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========

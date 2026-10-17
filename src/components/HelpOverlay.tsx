@@ -1,30 +1,42 @@
-import { For, Show } from "solid-js"
+import { For, Match, Show, Switch } from "solid-js"
 import { theme, colors } from "../theme"
-import { HELP_KEY_CELLS, helpColumns, type HelpSection } from "./help-sections"
+import { HELP_KEY_CELLS, helpColumnCells, helpColumns, helpRows, type HelpRow } from "./help-sections"
 import type { HelpOverlayModel } from "./help-overlay-model"
 
-function Column(props: { sections: readonly HelpSection[] }) {
+function Row(props: { row: HelpRow }) {
   return (
-    <box flexDirection="column" flexGrow={1}>
-      <For each={props.sections}>
-        {(section) => (
-          <box flexDirection="column" marginBottom={1}>
-            <text fg={theme.lavender}>{section.title}</text>
-            <For each={section.keys}>
-              {([key, desc]) => (
-                <box height={1} flexDirection="row">
-                  <box width={HELP_KEY_CELLS}>
-                    <text fg={theme.yellow}>{key}</text>
-                  </box>
-                  <text fg={colors.text}>{desc}</text>
-                </box>
-              )}
-            </For>
-          </box>
-        )}
-      </For>
+    <box height={1} flexDirection="row">
+      <Switch>
+        <Match when={props.row.kind === "title" && props.row}>
+          {(row: () => Extract<HelpRow, { kind: "title" }>) => <text fg={theme.lavender}>{row().text}</text>}
+        </Match>
+        <Match when={props.row.kind === "key" && props.row}>
+          {(row: () => Extract<HelpRow, { kind: "key" }>) => (
+            <>
+              <box width={HELP_KEY_CELLS}>
+                <text fg={theme.yellow}>{row().key}</text>
+              </box>
+              <text fg={colors.text}>{row().desc}</text>
+            </>
+          )}
+        </Match>
+      </Switch>
     </box>
   )
+}
+
+const [LEFT_CELLS, RIGHT_CELLS] = helpColumns().map((column) => helpColumnCells(helpRows(column)))
+
+function Column(props: { rows: readonly HelpRow[]; cells: number }) {
+  return (
+    <box flexDirection="column" flexGrow={1} flexBasis={props.cells}>
+      <For each={props.rows}>{(row) => <Row row={row} />}</For>
+    </box>
+  )
+}
+
+function moreMarker(more: HelpOverlayModel["more"]): string {
+  return [more.above && "↑ more", more.below && "↓ more"].filter(Boolean).join(" · ")
 }
 
 /**
@@ -32,7 +44,7 @@ function Column(props: { sections: readonly HelpSection[] }) {
  * menu (Ctrl+p) is the exhaustive, state-aware list.
  */
 export function HelpOverlay(props: { model: HelpOverlayModel }) {
-  const [left, right] = helpColumns()
+  const scrolls = () => props.model.more.above || props.model.more.below
   return (
     <box flexDirection="column" backgroundColor={theme.base} padding={2} minWidth={80} maxWidth={104}>
       <box height={1} marginBottom={1} flexDirection="row" justifyContent="space-between">
@@ -42,11 +54,14 @@ export function HelpOverlay(props: { model: HelpOverlayModel }) {
         </Show>
       </box>
       <box flexDirection="row" gap={4}>
-        <Column sections={left} />
-        <Column sections={right} />
+        <Column rows={props.model.left} cells={LEFT_CELLS!} />
+        <Column rows={props.model.right} cells={RIGHT_CELLS!} />
       </box>
-      <box height={1} marginTop={1}>
-        <text fg={colors.textDim}>Press g? or Esc to close</text>
+      <box height={1} marginTop={1} flexDirection="row" justifyContent="space-between">
+        <text fg={colors.textDim}>{scrolls() ? "j / k scroll · g? or Esc to close" : "Press g? or Esc to close"}</text>
+        <Show when={scrolls()}>
+          <text fg={colors.textDim}>{moreMarker(props.model.more)}</text>
+        </Show>
       </box>
     </box>
   )

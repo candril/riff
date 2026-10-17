@@ -422,6 +422,8 @@ export interface AppState {
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
   showHelp: boolean
+  /** How many rows the help overlay's body is scrolled down. */
+  helpScroll: number
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
   /** Which version of a changed block the peek is drawing (spec 058). */
@@ -668,6 +670,7 @@ export function createInitialState(
     treeFilter: "",
     treeFilterInput: false,
     showHelp: false,
+    helpScroll: 0,
     showLinePeek: false,
     peekSide: "new",
     peekScroll: { row: 0, col: 0 },
@@ -1090,7 +1093,17 @@ export function toggleHelp(state: AppState): AppState {
   return {
     ...state,
     showHelp: !state.showHelp,
+    helpScroll: 0,
   }
+}
+
+/**
+ * Scroll the help overlay's body. Clamped here rather than in the view, as
+ * scrollPeek is not: the key handler knows the terminal's height, so a held
+ * `j` stops at the last row and `k` answers on its first press.
+ */
+export function scrollHelp(state: AppState, delta: number, maxScroll: number): AppState {
+  return { ...state, helpScroll: Math.max(0, Math.min(maxScroll, state.helpScroll + delta)) }
 }
 
 /**
