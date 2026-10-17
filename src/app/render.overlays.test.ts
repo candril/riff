@@ -57,6 +57,8 @@ async function harness() {
         "filePicker",
         "commentsPicker",
         "marksPicker",
+        "occurrencePicker",
+        "commitPicker",
       ].map((name) => [name, island(name)])
     ),
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
@@ -69,6 +71,8 @@ async function harness() {
       "filePicker",
       "commentsPicker",
       "marksPicker",
+      "occurrencePicker",
+      "commitPicker",
       "helpOverlay",
       "diffPeek",
       "hunkPeek",
@@ -144,7 +148,10 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
-  const open = <K extends "filePicker" | "commentsPicker" | "marksPicker">(key: K, isOpen: boolean) => ({
+  const open = <K extends "filePicker" | "commentsPicker" | "marksPicker" | "occurrencePicker" | "commitPicker">(
+    key: K,
+    isOpen: boolean
+  ) => ({
     [key]: { ...initial[key], open: isOpen },
   })
   expect(app.show({ ...open("filePicker", true), showHelp: true, confirmDialog: dialog })).toEqual([
@@ -159,5 +166,23 @@ test("each picker is mounted only while it is open, under help and the confirm d
     "marksPicker",
     "draftNotification",
   ])
-  expect(app.show({ ...open("marksPicker", false) })).toEqual(["draftNotification"])
+  expect(app.show({ ...open("marksPicker", false), ...open("occurrencePicker", true) })).toEqual([
+    "occurrencePicker",
+    "draftNotification",
+  ])
+  expect(app.show({ ...open("occurrencePicker", false), ...open("commitPicker", true), showHelp: true })).toEqual([
+    "commitPicker",
+    "helpOverlay",
+    "draftNotification",
+  ])
+  expect(app.show({ ...open("filePicker", true), ...open("occurrencePicker", true) })).toEqual([
+    "filePicker",
+    "occurrencePicker",
+    "commitPicker",
+    "helpOverlay",
+    "draftNotification",
+  ])
+  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([
+    "draftNotification",
+  ])
 })

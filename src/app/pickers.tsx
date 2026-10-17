@@ -5,9 +5,14 @@ import { PromptInput } from "../components/PromptInput"
 import { FilePicker } from "../components/FilePicker"
 import { CommentsPicker } from "../components/CommentsPicker"
 import { MarksPicker } from "../components/MarksPicker"
+import { OccurrencePicker } from "../components/OccurrencePicker"
+import { CommitPicker } from "../components/CommitPicker"
 import { filePickerModel, type FilePickerModel } from "../components/file-picker-model"
 import { commentsPickerModel, type CommentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel, type MarksPickerModel } from "../components/marks-picker-model"
+import { occurrencePickerModel, type OccurrencePickerModel } from "../components/occurrence-picker-model"
+import { commitPickerModel, type CommitPickerModel } from "../components/commit-picker-model"
+import { findOccurrences } from "../features/occurrence-picker/filter"
 import { mountSolid } from "./solid-island"
 
 /**
@@ -82,7 +87,31 @@ export function createMarksPickerIsland(renderer: CliRenderer) {
   })
 }
 
+export function createOccurrencePickerIsland(renderer: CliRenderer) {
+  return createPickerIsland<OccurrencePickerModel>(renderer, {
+    id: "occurrence-picker-overlay",
+    owner: "occurrence-picker",
+    closed: occurrencePickerModel("", false, findOccurrences([], ""), 0, renderer.height),
+    draw: (props) => <OccurrencePicker model={props.model} field={props.field} />,
+  })
+}
+
+export function createCommitPickerIsland(renderer: CliRenderer) {
+  return createPickerIsland<CommitPickerModel>(renderer, {
+    id: "commit-picker-overlay",
+    owner: "commit-picker",
+    closed: commitPickerModel(
+      { commits: [], selectedIndex: 0, viewingCommit: null, marked: new Set(), filtering: false, query: "", extending: false },
+      renderer.height,
+      new Date()
+    ),
+    draw: (props) => <CommitPicker model={props.model} field={props.field} />,
+  })
+}
+
 export type PickerIsland<Model extends object> = ReturnType<typeof createPickerIsland<Model>>
 export type FilePickerIsland = ReturnType<typeof createFilePickerIsland>
 export type CommentsPickerIsland = ReturnType<typeof createCommentsPickerIsland>
 export type MarksPickerIsland = ReturnType<typeof createMarksPickerIsland>
+export type OccurrencePickerIsland = ReturnType<typeof createOccurrencePickerIsland>
+export type CommitPickerIsland = ReturnType<typeof createCommitPickerIsland>

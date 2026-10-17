@@ -1,7 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
-import { OccurrencePicker } from "./OccurrencePicker"
+import { createOccurrencePickerIsland } from "../app/pickers"
 import { occurrencePickerModel } from "./occurrence-picker-model"
 import { findOccurrences, type OccurrenceResults } from "../features/occurrence-picker/filter"
 import type { OccurrenceRow } from "../features/occurrence-picker/corpus"
@@ -20,14 +20,19 @@ async function frame(
 ) {
   const shown = results ?? findOccurrences(rows, query, filter)
   mounted = await mountRenderable(
-    (renderer) =>
-      OccurrencePicker({
-        renderer: renderer as never,
-        model: occurrencePickerModel(query, narrowing, shown, selectedIndex, 34),
-      }),
+    (renderer) => {
+      const island = createOccurrencePickerIsland(renderer)
+      island.update(occurrencePickerModel(query, narrowing, shown, selectedIndex, 34))
+      return island.host
+    },
     { width: 100, height: 34 }
   )
   return (await mounted.frame()).split("\n")
+}
+
+function usesBg(spans: ReturnType<NonNullable<typeof mounted>["setup"]["captureSpans"]>, hex: string) {
+  const want = ints(hex).join()
+  return spans.lines.some((line) => line.spans.some((span) => span.bg.toInts().join() === want))
 }
 
 afterEach(async () => {
@@ -66,7 +71,7 @@ describe("the occurrence picker", () => {
     expect(text).not.toContain("console.log")
   })
 
-  test("draws the match on yellow and the selected hit on surface2", async () => {
+  test("draws the match on yellow, and the selected hit and the field on surface0, with no surface2 anywhere", async () => {
     const lines = await frame({ query: "greeting", selectedIndex: 1 })
     const spans = mounted!.setup.captureSpans()
     const selected = lines.findIndex((l) => l.includes("const greeting = 'hi'"))
@@ -74,8 +79,11 @@ describe("the occurrence picker", () => {
     const match = lines[other]!.indexOf("greeting")
     expect(bgAt(spans, match, other)).toEqual(ints(theme.yellow))
     expect(fgAt(spans, match, other)).toEqual(ints(theme.crust))
-    expect(bgAt(spans, lines[selected]!.indexOf("const"), selected)).toEqual(ints(theme.surface2))
+    expect(bgAt(spans, lines[selected]!.indexOf("const"), selected)).toEqual(ints(theme.surface0))
     expect(bgAt(spans, lines[other]!.indexOf("return"), other)).toEqual(ints(theme.mantle))
+    const field = lines.findIndex((l) => l.includes("Occurrences")) + 2
+    expect(bgAt(spans, 20, field)).toEqual(ints(theme.surface0))
+    expect(usesBg(spans, theme.surface2)).toBe(false)
   })
 
   test("while narrowing, badges the query in yellow, offers ^g search, and marks the narrow term on teal", async () => {

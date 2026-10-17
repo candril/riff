@@ -63,7 +63,13 @@ import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createHelpOverlayIsland } from "./app/help-overlay"
 import { createPeekIsland } from "./app/peek-island"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
-import { createCommentsPickerIsland, createFilePickerIsland, createMarksPickerIsland } from "./app/pickers"
+import {
+  createCommentsPickerIsland,
+  createCommitPickerIsland,
+  createFilePickerIsland,
+  createMarksPickerIsland,
+  createOccurrencePickerIsland,
+} from "./app/pickers"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
 import { createUnifiedDiff } from "./app/unified-diff"
@@ -296,6 +302,8 @@ export async function createApp(options: AppOptions = {}) {
     filePickerIsland.dispose()
     commentsPickerIsland.dispose()
     marksPickerIsland.dispose()
+    occurrencePickerIsland.dispose()
+    commitPickerIsland.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -480,6 +488,8 @@ export async function createApp(options: AppOptions = {}) {
   const filePickerIsland = createFilePickerIsland(renderer)
   const commentsPickerIsland = createCommentsPickerIsland(renderer)
   const marksPickerIsland = createMarksPickerIsland(renderer)
+  const occurrencePickerIsland = createOccurrencePickerIsland(renderer)
+  const commitPickerIsland = createCommitPickerIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -553,6 +563,8 @@ export async function createApp(options: AppOptions = {}) {
     filePicker: filePickerIsland,
     commentsPicker: commentsPickerIsland,
     marksPicker: marksPickerIsland,
+    occurrencePicker: occurrencePickerIsland,
+    commitPicker: commitPickerIsland,
     split,
     unified,
     parses,

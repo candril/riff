@@ -1,10 +1,20 @@
 import { test, expect, afterEach } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import { createCommentsPickerIsland, createFilePickerIsland, createMarksPickerIsland } from "./pickers"
+import {
+  createCommentsPickerIsland,
+  createCommitPickerIsland,
+  createFilePickerIsland,
+  createMarksPickerIsland,
+  createOccurrencePickerIsland,
+} from "./pickers"
 import { filePickerModel, type FilteredFile } from "../components/file-picker-model"
 import { commentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel } from "../components/marks-picker-model"
+import { occurrencePickerModel } from "../components/occurrence-picker-model"
+import { commitPickerModel, type CommitPickerInput } from "../components/commit-picker-model"
+import { findOccurrences } from "../features/occurrence-picker/filter"
+import type { OccurrenceRow } from "../features/occurrence-picker/corpus"
 import { PromptInput } from "../components/PromptInput"
 import { findText, trimFrame } from "../testing/frame"
 
@@ -90,4 +100,58 @@ test("the comments and marks pickers each keep their own field across a close", 
   }
   comments.dispose()
   marks.dispose()
+})
+
+const rows: OccurrenceRow[] = [{ fileIndex: 0, filename: "a.ts", kind: "addition", lineNum: 1, side: "RIGHT", text: "const a = 1" }]
+
+test("the occurrence picker hides on null and reopens on the same live field", async () => {
+  const island = await mount(createOccurrencePickerIsland)
+  const field = PromptInput(setup!.renderer, "occurrence-picker")
+  island.update(occurrencePickerModel("const", false, findOccurrences(rows, "const"), 0, 24))
+  expect(await screen()).toMatch(/Occurrences\s+\^g narrow  1 in 1 file  esc/)
+
+  island.update(null)
+  expect(await screen()).toBe("")
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(field.isDestroyed).toBe(false)
+  expect(field.parent).not.toBeNull()
+
+  island.update(occurrencePickerModel("const", true, findOccurrences(rows, "const"), 0, 24))
+  expect(await screen()).toContain("const ›")
+  expect(PromptInput(setup!.renderer, "occurrence-picker")).toBe(field)
+  expect(field.parent).not.toBeNull()
+  island.dispose()
+})
+
+test("the commit picker keeps its field mounted, only hidden, while not filtering and across a close", async () => {
+  const island = await mount(createCommitPickerIsland)
+  const field = PromptInput(setup!.renderer, "commit-picker")
+  const input = (filtering: boolean): CommitPickerInput => ({
+    commits: [],
+    selectedIndex: 0,
+    viewingCommit: null,
+    marked: new Set(),
+    filtering,
+    query: "",
+    extending: false,
+  })
+  island.update(commitPickerModel(input(false), 24, new Date()))
+  expect(await screen()).toContain("/ to filter")
+  expect(field.parent).not.toBeNull()
+  expect(field.parent!.visible).toBe(false)
+
+  island.update(commitPickerModel(input(true), 24, new Date()))
+  expect(await screen()).not.toContain("/ to filter")
+  expect(field.parent!.visible).toBe(true)
+
+  island.update(null)
+  expect(await screen()).toBe("")
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(field.isDestroyed).toBe(false)
+
+  island.update(commitPickerModel(input(true), 24, new Date()))
+  expect(await screen()).toContain("Select Commit")
+  expect(PromptInput(setup!.renderer, "commit-picker")).toBe(field)
+  expect(field.parent).not.toBeNull()
+  island.dispose()
 })

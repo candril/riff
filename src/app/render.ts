@@ -10,8 +10,6 @@ import {
   ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
-  OccurrencePicker,
-  CommitPicker,
   SyncPreview,
   FeedView,
   gatherSyncItems,
@@ -59,7 +57,13 @@ import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
 import type { PeekIsland } from "./peek-island"
-import type { CommentsPickerIsland, FilePickerIsland, MarksPickerIsland } from "./pickers"
+import type {
+  CommentsPickerIsland,
+  CommitPickerIsland,
+  FilePickerIsland,
+  MarksPickerIsland,
+  OccurrencePickerIsland,
+} from "./pickers"
 import { filePickerModel } from "../components/file-picker-model"
 import { commentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel } from "../components/marks-picker-model"
@@ -123,6 +127,8 @@ export interface RenderContext {
   filePicker: FilePickerIsland
   commentsPicker: CommentsPickerIsland
   marksPicker: MarksPickerIsland
+  occurrencePicker: OccurrencePickerIsland
+  commitPicker: CommitPickerIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -359,9 +365,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         }
       : { kind: "actions", actions: filteredActions }
 
-    // Get filtered commits for commit picker
-    const filteredCommits = commitPicker.getFilteredCommits(state)
-
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
     // Drive the composer textarea's lifecycle from overlay state. We do
@@ -581,6 +584,34 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           )
         : null
     )
+    ctx.occurrencePicker.update(
+      state.occurrencePicker.open
+        ? occurrencePickerModel(
+            state.occurrencePicker.query,
+            state.occurrencePicker.narrowing,
+            occurrencePickerFeature.getOccurrenceResults(state),
+            state.occurrencePicker.selectedIndex,
+            ctx.renderer.height
+          )
+        : null
+    )
+    ctx.commitPicker.update(
+      state.commitPicker.open
+        ? commitPickerModel(
+            {
+              commits: commitPicker.getFilteredCommits(state),
+              selectedIndex: state.commitPicker.selectedIndex,
+              viewingCommit: state.viewingCommit,
+              marked: state.commitPicker.marked,
+              filtering: state.commitPicker.queryInput,
+              query: state.commitPicker.query,
+              extending: state.commitPicker.rangeAnchor !== null,
+            },
+            ctx.renderer.height,
+            new Date()
+          )
+        : null
+    )
 
     ctx.renderer.root.add(
       Box(
@@ -630,36 +661,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.filePicker.open ? ctx.filePicker.host : null,
         state.commentsPicker.open ? ctx.commentsPicker.host : null,
         state.marksPicker.open ? ctx.marksPicker.host : null,
-        state.occurrencePicker.open
-          ? OccurrencePicker({
-              renderer: ctx.renderer,
-              model: occurrencePickerModel(
-                state.occurrencePicker.query,
-                state.occurrencePicker.narrowing,
-                occurrencePickerFeature.getOccurrenceResults(state),
-                state.occurrencePicker.selectedIndex,
-                ctx.renderer.height
-              ),
-            })
-          : null,
-        state.commitPicker.open
-          ? CommitPicker({
-              renderer: ctx.renderer,
-              model: commitPickerModel(
-                {
-                  commits: filteredCommits,
-                  selectedIndex: state.commitPicker.selectedIndex,
-                  viewingCommit: state.viewingCommit,
-                  marked: state.commitPicker.marked,
-                  filtering: state.commitPicker.queryInput,
-                  query: state.commitPicker.query,
-                  extending: state.commitPicker.rangeAnchor !== null,
-                },
-                ctx.renderer.height,
-                new Date()
-              ),
-            })
-          : null,
+        state.occurrencePicker.open ? ctx.occurrencePicker.host : null,
+        state.commitPicker.open ? ctx.commitPicker.host : null,
         state.showHelp ? ctx.helpOverlay.host : null,
         diffPeek ? ctx.diffPeek.host : null,
         hunkPeek ? ctx.hunkPeek.host : null,
