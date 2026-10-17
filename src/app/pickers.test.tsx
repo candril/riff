@@ -1,0 +1,93 @@
+import { test, expect, afterEach } from "bun:test"
+import { BoxRenderable } from "@opentui/core"
+import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
+import { createCommentsPickerIsland, createFilePickerIsland, createMarksPickerIsland } from "./pickers"
+import { filePickerModel, type FilteredFile } from "../components/file-picker-model"
+import { commentsPickerModel } from "../components/comments-picker-model"
+import { marksPickerModel } from "../components/marks-picker-model"
+import { PromptInput } from "../components/PromptInput"
+import { findText, trimFrame } from "../testing/frame"
+
+let setup: TestRendererSetup | null = null
+
+afterEach(() => {
+  setup?.renderer.destroy()
+  setup = null
+})
+
+async function screen() {
+  await setup!.renderOnce()
+  await setup!.renderOnce()
+  return trimFrame(setup!.captureCharFrame())
+}
+
+/** A full-screen parent, as render.ts's root box is, for the absolute host to sit in. */
+async function mount<T extends { host: BoxRenderable }>(create: (renderer: TestRendererSetup["renderer"]) => T) {
+  setup = await createTestRenderer({ width: 100, height: 24 })
+  const island = create(setup.renderer)
+  const parent = new BoxRenderable(setup.renderer, { width: "100%", height: "100%" })
+  setup.renderer.root.add(parent)
+  parent.add(island.host)
+  return island
+}
+
+const files: FilteredFile[] = ["a.ts", "b.ts", "c.ts"].map((filename, index) => ({
+  file: { filename, additions: 1, deletions: 0, status: "modified", content: "" },
+  index,
+}))
+
+test("the file picker opens, moves its selection in place, closes and reopens on the same live field", async () => {
+  const island = await mount(createFilePickerIsland)
+  const field = PromptInput(setup!.renderer, "file-picker")
+  expect(await screen()).toBe("")
+
+  island.update(filePickerModel(files, 0))
+  expect(await screen()).toMatch(/Find Files\s+1\/3  esc/)
+  const row = findText(island.host, "b.ts")
+  expect(row).toBeDefined()
+  expect(field.parent).not.toBeNull()
+
+  island.update(filePickerModel(files, 1))
+  expect(await screen()).toMatch(/Find Files\s+2\/3  esc/)
+  expect(findText(island.host, "b.ts")).toBe(row!)
+
+  island.update(null)
+  expect(await screen()).toBe("")
+  // Past the tick on which Solid destroys a node it has let go of.
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  expect(field.isDestroyed).toBe(false)
+  expect(field.parent).not.toBeNull()
+
+  island.update(filePickerModel(files, 2))
+  expect(await screen()).toMatch(/Find Files\s+3\/3  esc/)
+  expect(PromptInput(setup!.renderer, "file-picker")).toBe(field)
+  expect(field.isDestroyed).toBe(false)
+  expect(field.parent).not.toBeNull()
+  island.dispose()
+})
+
+test("the comments and marks pickers each keep their own field across a close", async () => {
+  const comments = await mount(createCommentsPickerIsland)
+  const marks = createMarksPickerIsland(setup!.renderer)
+  setup!.renderer.root.getChildren()[0]!.add(marks.host)
+  const commentsField = PromptInput(setup!.renderer, "comments-picker")
+  const marksField = PromptInput(setup!.renderer, "marks-picker")
+  expect(commentsField).not.toBe(marksField)
+
+  comments.update(commentsPickerModel([], 0))
+  expect(await screen()).toContain("No comments")
+  comments.update(null)
+  marks.update(marksPickerModel([], 0, false))
+  const shown = await screen()
+  expect(shown).not.toContain("Find Comments")
+  expect(shown).toContain("No marks — m{letter} sets one")
+  marks.update(null)
+  await screen()
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  for (const field of [commentsField, marksField]) {
+    expect(field.isDestroyed).toBe(false)
+    expect(field.parent).not.toBeNull()
+  }
+  comments.dispose()
+  marks.dispose()
+})

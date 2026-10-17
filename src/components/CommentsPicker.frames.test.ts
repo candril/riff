@@ -1,6 +1,8 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { mountRenderable } from "../testing/frame"
-import { CommentsPicker } from "./CommentsPicker"
+import { bgAt, ints, mountRenderable } from "../testing/frame"
+import { theme } from "../theme"
+import { commentsPickerModel } from "./comments-picker-model"
+import { createCommentsPickerIsland } from "../app/pickers"
 import type { CommentsPickerEntry } from "../features/comments-picker/filter"
 import type { Comment } from "../types"
 
@@ -8,7 +10,11 @@ let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 async function frame(entries: CommentsPickerEntry[], selectedIndex = 0, height = 24) {
   mounted = await mountRenderable(
-    (renderer) => CommentsPicker({ renderer: renderer as never, entries, selectedIndex }),
+    (renderer) => {
+      const island = createCommentsPickerIsland(renderer)
+      island.update(commentsPickerModel(entries, selectedIndex))
+      return island.host
+    },
     { width: 100, height }
   )
   return (await mounted.frame()).split("\n")
@@ -67,6 +73,18 @@ describe("the comments picker", () => {
     expect(lines.some((l) => /↳  src\/greet\.ts:14 agreed\s+@octocat$/.test(l))).toBe(true)
     expect(lines.some((l) => /✓  src\/main\.ts:3 done already\s+@hubot$/.test(l))).toBe(true)
     expect(lines.some((l) => /○  README\.md:1 typo$/.test(l))).toBe(true)
+  })
+
+  test("shades the selected row and the field surface0 on the picker's mantle", async () => {
+    const rows = await frame(ENTRIES, 1)
+    const spans = mounted!.setup.captureSpans()
+    const selected = rows.findIndex((l) => l.includes(":14 agreed"))
+    const other = rows.findIndex((l) => l.includes("rename this"))
+    const field = rows.findIndex((l) => l.includes("Find Comments")) + 2
+    const x = rows[selected]!.indexOf("src")
+    expect(bgAt(spans, x, selected)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, x, other)).toEqual(ints(theme.mantle))
+    expect(bgAt(spans, x, field)).toEqual(ints(theme.surface0))
   })
 
   test("past twenty comments, shows the window around the selection and how many lie beyond it", async () => {

@@ -1,13 +1,20 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { mountRenderable } from "../testing/frame"
-import { FilePicker, type FilteredFile } from "./FilePicker"
+import { bgAt, ints, mountRenderable } from "../testing/frame"
+import { theme } from "../theme"
+import type { FilteredFile } from "./FilePicker"
+import { filePickerModel } from "./file-picker-model"
+import { createFilePickerIsland } from "../app/pickers"
 import type { DiffFile } from "../utils/diff-parser"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 async function frame(files: FilteredFile[], selectedIndex = 0, height = 24) {
   mounted = await mountRenderable(
-    (renderer) => FilePicker({ renderer: renderer as never, files, selectedIndex }),
+    (renderer) => {
+      const island = createFilePickerIsland(renderer)
+      island.update(filePickerModel(files, selectedIndex))
+      return island.host
+    },
     { width: 100, height }
   )
   return (await mounted.frame()).split("\n")
@@ -44,6 +51,18 @@ describe("the file picker", () => {
     expect(lines.some((l) => /✓ src\/greet\.ts\s+\+12 -3/.test(l))).toBe(true)
     expect(lines.some((l) => /  src\/main\.ts\s+2 \+4 -0/.test(l))).toBe(true)
     expect(lines.some((l) => /  README\.md\s+\+0 -7/.test(l))).toBe(true)
+  })
+
+  test("shades the selected row and the field surface0 on the picker's mantle", async () => {
+    const rows = await frame(FILES, 1)
+    const spans = mounted!.setup.captureSpans()
+    const selected = rows.findIndex((l) => l.includes("src/main.ts"))
+    const other = rows.findIndex((l) => l.includes("src/greet.ts"))
+    const field = rows.findIndex((l) => l.includes("Find Files")) + 2
+    const x = rows[selected]!.indexOf("src")
+    expect(bgAt(spans, x, selected)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, x, other)).toEqual(ints(theme.mantle))
+    expect(bgAt(spans, x, field)).toEqual(ints(theme.surface0))
   })
 
   test("past twenty files, shows the window around the selection and how many lie beyond it", async () => {

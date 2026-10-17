@@ -1,6 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { mountRenderable } from "../testing/frame"
-import { MarksPicker } from "./MarksPicker"
+import { marksPickerModel } from "./marks-picker-model"
+import { createMarksPickerIsland } from "../app/pickers"
 import type { MarkEntry } from "../features/marks"
 import { bgAt, fgAt, ints } from "../testing/split-frame"
 import { theme } from "../theme"
@@ -9,7 +10,11 @@ let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 async function frame(entries: MarkEntry[], selectedIndex = 0) {
   mounted = await mountRenderable(
-    (renderer) => MarksPicker({ renderer: renderer as never, entries, selectedIndex, anyMarks: entries.length > 0 }),
+    (renderer) => {
+      const island = createMarksPickerIsland(renderer)
+      island.update(marksPickerModel(entries, selectedIndex, entries.length > 0))
+      return island.host
+    },
     { width: 100, height: 24 }
   )
   return mounted.frame()
@@ -35,14 +40,16 @@ describe("the marks picker", () => {
     expect(lines.some((l) => /Q  README\.md$/.test(l))).toBe(true)
   })
 
-  test("paints the selected row and each letter in its accent", async () => {
+  test("shades the selected row and the field surface0 on the mantle, and each letter in its accent", async () => {
     const rows = (await frame(ENTRIES, 1)).split("\n")
     const spans = mounted!.setup.captureSpans()
     const selected = rows.findIndex((l) => l.includes("const old"))
     const other = rows.findIndex((l) => l.includes("return template"))
     const x = rows[selected]!.indexOf("src")
-    expect(bgAt(spans, x, selected)).toEqual(ints(theme.surface2))
-    expect(bgAt(spans, x, other)).not.toEqual(ints(theme.surface2))
+    expect(bgAt(spans, x, selected)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, x, other)).toEqual(ints(theme.mantle))
+    const field = rows.findIndex((l) => l.includes("Marks")) + 2
+    expect(bgAt(spans, x, field)).toEqual(ints(theme.surface0))
     expect(fgAt(spans, rows[other]!.indexOf("a  src"), other)).toEqual(ints(theme.peach))
   })
 

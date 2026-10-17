@@ -10,9 +10,6 @@ import {
   ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
-  FilePicker,
-  CommentsPicker,
-  MarksPicker,
   OccurrencePicker,
   CommitPicker,
   SyncPreview,
@@ -62,6 +59,10 @@ import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
 import type { PeekIsland } from "./peek-island"
+import type { CommentsPickerIsland, FilePickerIsland, MarksPickerIsland } from "./pickers"
+import { filePickerModel } from "../components/file-picker-model"
+import { commentsPickerModel } from "../components/comments-picker-model"
+import { marksPickerModel } from "../components/marks-picker-model"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -117,6 +118,9 @@ export interface RenderContext {
   helpOverlay: HelpOverlayIsland
   diffPeek: PeekIsland
   hunkPeek: PeekIsland
+  filePicker: FilePickerIsland
+  commentsPicker: CommentsPickerIsland
+  marksPicker: MarksPickerIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -353,9 +357,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         }
       : { kind: "actions", actions: filteredActions }
 
-    // Get filtered files for file picker
-    const filteredFiles = filePicker.getFilteredFiles(state)
-
     // Get filtered commits for commit picker
     const filteredCommits = commitPicker.getFilteredCommits(state)
 
@@ -556,6 +557,19 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         : null
     ctx.diffPeek.update(diffPeek)
     ctx.hunkPeek.update(hunkPeek)
+    ctx.filePicker.update(
+      state.filePicker.open ? filePickerModel(filePicker.getFilteredFiles(state), state.filePicker.selectedIndex) : null
+    )
+    ctx.commentsPicker.update(
+      state.commentsPicker.open
+        ? commentsPickerModel(commentsPickerFeature.getFilteredEntries(state), state.commentsPicker.selectedIndex)
+        : null
+    )
+    ctx.marksPicker.update(
+      state.marksPicker.open
+        ? marksPickerModel(marksPickerEntries(state), state.marksPicker.selectedIndex, state.marks.marks.length > 0)
+        : null
+    )
 
     ctx.renderer.root.add(
       Box(
@@ -602,28 +616,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               state: state.syncPreview,
             })
           : null,
-        state.filePicker.open
-          ? FilePicker({
-              renderer: ctx.renderer,
-              files: filteredFiles,
-              selectedIndex: state.filePicker.selectedIndex,
-            })
-          : null,
-        state.commentsPicker.open
-          ? CommentsPicker({
-              renderer: ctx.renderer,
-              entries: commentsPickerFeature.getFilteredEntries(state),
-              selectedIndex: state.commentsPicker.selectedIndex,
-            })
-          : null,
-        state.marksPicker.open
-          ? MarksPicker({
-              renderer: ctx.renderer,
-              entries: marksPickerEntries(state),
-              selectedIndex: state.marksPicker.selectedIndex,
-              anyMarks: state.marks.marks.length > 0,
-            })
-          : null,
+        state.filePicker.open ? ctx.filePicker.host : null,
+        state.commentsPicker.open ? ctx.commentsPicker.host : null,
+        state.marksPicker.open ? ctx.marksPicker.host : null,
         state.occurrencePicker.open
           ? OccurrencePicker({
               renderer: ctx.renderer,

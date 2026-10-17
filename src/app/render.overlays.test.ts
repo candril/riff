@@ -54,6 +54,9 @@ async function harness() {
         "helpOverlay",
         "diffPeek",
         "hunkPeek",
+        "filePicker",
+        "commentsPicker",
+        "marksPicker",
       ].map((name) => [name, island(name)])
     ),
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
@@ -62,7 +65,16 @@ async function harness() {
   const render = createRenderFunction(ctx)
   const overlays = () => {
     const root = renderer.root.getChildren().find((child) => !child.id.startsWith("comment-indicator-"))!
-    const ids = new Set(["helpOverlay", "diffPeek", "hunkPeek", "confirmDialog", "draftNotification"])
+    const ids = new Set([
+      "filePicker",
+      "commentsPicker",
+      "marksPicker",
+      "helpOverlay",
+      "diffPeek",
+      "hunkPeek",
+      "confirmDialog",
+      "draftNotification",
+    ])
     return root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) ? [child.id] : []))
   }
   return {
@@ -127,4 +139,25 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
     "draftNotification",
   ])
   expect(app.show({ inlineCommentOverlay: overlay(null) })).toEqual(["helpOverlay", "confirmDialog", "draftNotification"])
+})
+
+test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
+  const app = await harness()
+  const initial = createInitialState([], [], "test", "")
+  const open = <K extends "filePicker" | "commentsPicker" | "marksPicker">(key: K, isOpen: boolean) => ({
+    [key]: { ...initial[key], open: isOpen },
+  })
+  expect(app.show({ ...open("filePicker", true), showHelp: true, confirmDialog: dialog })).toEqual([
+    "filePicker",
+    "helpOverlay",
+    "confirmDialog",
+  ])
+  expect(app.show({ ...open("filePicker", false), ...open("commentsPicker", true), showHelp: false, confirmDialog: null })).toEqual([
+    "commentsPicker",
+  ])
+  expect(app.show({ ...open("commentsPicker", false), ...open("marksPicker", true), draftNotification: draft })).toEqual([
+    "marksPicker",
+    "draftNotification",
+  ])
+  expect(app.show({ ...open("marksPicker", false) })).toEqual(["draftNotification"])
 })
