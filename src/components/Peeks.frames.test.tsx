@@ -1,8 +1,13 @@
 import { test, expect, afterEach } from "bun:test"
-import { bgAt, fgAt, ints, mountJsx } from "../testing/frame"
+import { BoxRenderable } from "@opentui/core"
+import { bgAt, fgAt, ints, mountJsx, mountRenderable } from "../testing/frame"
+import { createPeekIsland } from "../app/peek-island"
 import { colors, theme } from "../theme"
-import { Peek } from "./Peek"
-import { diagramPeekModel, hunkPeekModel, linePeekModel, tablePeekModel, type PeekModel } from "./peek-model"
+import type { PeekModel } from "./peek-model"
+import { diagramPeekModel } from "./diagram-peek-model"
+import { hunkPeekModel } from "./hunk-peek-model"
+import { linePeekModel } from "./line-peek-model"
+import { tablePeekModel } from "./table-peek-model"
 
 /*
  * Each peek over a bare 100x30 screen, backdrop included. The expected rows
@@ -10,7 +15,7 @@ import { diagramPeekModel, hunkPeekModel, linePeekModel, tablePeekModel, type Pe
  * other means has to match them byte for byte.
  */
 
-let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
+let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 afterEach(async () => {
   await mounted?.dispose()
@@ -22,17 +27,23 @@ const screen = { terminalWidth: SIZE.width, terminalHeight: SIZE.height }
 const at = (col: number, text: string) => " ".repeat(col) + text
 const blank = (count: number) => Array.from({ length: count }, () => "")
 
-/** The peek in a full-screen host with the dimmed backdrop, as its island draws it. */
+/** The peek on its island, in a full-screen parent as render.ts's root box is. */
 async function frame(model: PeekModel) {
-  mounted = await mountJsx(
-    () => (
-      <box position="absolute" top={0} left={0} width="100%" height="100%" justifyContent="center" alignItems="center">
-        <box position="absolute" top={0} left={0} width="100%" height="100%" backgroundColor="#00000080" />
-        <Peek model={model} />
-      </box>
-    ),
-    SIZE
-  )
+  let island: ReturnType<typeof createPeekIsland> | undefined
+  const mount = await mountRenderable((renderer) => {
+    const parent = new BoxRenderable(renderer, { width: "100%", height: "100%" })
+    island = createPeekIsland(renderer, { id: "diff-peek-island" })
+    parent.add(island.host)
+    return parent
+  }, SIZE)
+  mounted = {
+    ...mount,
+    dispose: async () => {
+      island!.dispose()
+      await mount.dispose()
+    },
+  }
+  island!.update(model)
   return (await mounted.frame()).split("\n")
 }
 

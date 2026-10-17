@@ -2,7 +2,9 @@ import { test, expect, afterEach } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createPeekIsland } from "./peek-island"
-import { linePeekModel, tablePeekModel } from "../components/peek-model"
+import { hunkPeekModel } from "../components/hunk-peek-model"
+import { linePeekModel } from "../components/line-peek-model"
+import { tablePeekModel } from "../components/table-peek-model"
 import { bgAt, findText } from "../testing/frame"
 
 let setup: TestRendererSetup | null = null
@@ -31,7 +33,7 @@ const model = (row: number) =>
 
 test("a peek shows on a model, scrolls in place on the next one, and clears on null", async () => {
   setup = await createTestRenderer({ width: 80, height: 24 })
-  const island = createPeekIsland(setup.renderer, { id: "diff-peek" })
+  const island = createPeekIsland(setup.renderer, { id: "diff-peek-island" })
   mount(island.host)
 
   let screen = await rows()
@@ -64,5 +66,21 @@ test("a peek shows on a model, scrolls in place on the next one, and clears on n
   expect(screen.join("").trim()).toBe("")
   const cleared = setup.captureSpans()
   expect(cleared.lines.map((_, y) => bgAt(cleared, 0, y))).toEqual(empty.lines.map((_, y) => bgAt(empty, 0, y)))
+  island.dispose()
+})
+
+test("the host's id is its own, so a lookup by the peek's id finds the peek", async () => {
+  setup = await createTestRenderer({ width: 80, height: 24 })
+  const island = createPeekIsland(setup.renderer, { id: "hunk-peek-island", zIndex: 60 })
+  mount(island.host)
+
+  island.update(
+    hunkPeekModel({ hunk: "@@ -1 +1 @@\n+x", filename: "a.ts", line: 1, outdated: false, fromRoot: false, terminalWidth: 80, terminalHeight: 24 })
+  )
+  await rows()
+  const found = setup.renderer.root.findDescendantById("hunk-peek")
+  expect(found).toBeDefined()
+  expect(found).not.toBe(island.host)
+  expect(found!.parent).toBe(island.host)
   island.dispose()
 })

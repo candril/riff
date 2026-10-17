@@ -470,9 +470,9 @@ export async function createApp(options: AppOptions = {}) {
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
-  const diffPeek = createPeekIsland(renderer, { id: "diff-peek" })
+  const diffPeek = createPeekIsland(renderer, { id: "diff-peek-island" })
   // Above the comments panel (50), which is what this is drawn over.
-  const hunkPeek = createPeekIsland(renderer, { id: "hunk-peek", zIndex: 60 })
+  const hunkPeek = createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 })
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,

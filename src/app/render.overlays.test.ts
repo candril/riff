@@ -90,8 +90,7 @@ const hunked: Comment = {
   filename: "a.ts",
   line: 1,
   side: "RIGHT",
-  // No body, so the panel mounts no markdown: its pool outlives a test's renderer.
-  body: "",
+  body: "Looks fine",
   createdAt: "2026-01-01T00:00:00Z",
   status: "synced",
   diffHunk: "@@ -1 +1 @@\n+const a = 1",

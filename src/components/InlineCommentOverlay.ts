@@ -98,13 +98,17 @@ export interface InlineCommentOverlayProps {
 
 /**
  * Comment bodies. Kept alive across render passes by the shared pool —
- * see `markdown-bodies.ts` for why building them per pass flickered.
+ * see `markdown-bodies.ts` for why building them per pass flickered. One
+ * pool per renderer, since a body belongs to the renderer that built it.
  */
-let bodies: MarkdownBodies | null = null
+const pools = new WeakMap<CliRenderer, MarkdownBodies>()
 
 function bodyPool(renderer: CliRenderer): MarkdownBodies {
-  if (!bodies) bodies = new MarkdownBodies(renderer)
-  return bodies
+  const existing = pools.get(renderer)
+  if (existing) return existing
+  const pool = new MarkdownBodies(renderer)
+  pools.set(renderer, pool)
+  return pool
 }
 
 function buildMarkdown(

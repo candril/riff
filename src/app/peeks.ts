@@ -4,13 +4,11 @@ import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
-import {
-  diagramPeekModel,
-  hunkPeekModel as peekOfHunk,
-  linePeekModel,
-  tablePeekModel,
-  type PeekModel,
-} from "../components/peek-model"
+import type { PeekModel } from "../components/peek-model"
+import { diagramPeekModel } from "../components/diagram-peek-model"
+import { hunkPeekModel as peekOfHunk } from "../components/hunk-peek-model"
+import { linePeekModel } from "../components/line-peek-model"
+import { tablePeekModel } from "../components/table-peek-model"
 
 /** What gl shows for the cursor's line, or nothing when the line is not there. */
 export function diffPeekModel(
