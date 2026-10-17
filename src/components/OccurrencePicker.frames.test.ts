@@ -2,6 +2,7 @@ import { test, expect, describe, afterEach } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
 import { OccurrencePicker } from "./OccurrencePicker"
+import { occurrencePickerModel } from "./occurrence-picker-model"
 import { findOccurrences, type OccurrenceResults } from "../features/occurrence-picker/filter"
 import type { OccurrenceRow } from "../features/occurrence-picker/corpus"
 
@@ -19,7 +20,11 @@ async function frame(
 ) {
   const shown = results ?? findOccurrences(rows, query, filter)
   mounted = await mountRenderable(
-    (renderer) => OccurrencePicker({ renderer: renderer as never, query, narrowing, results: shown, selectedIndex }),
+    (renderer) =>
+      OccurrencePicker({
+        renderer: renderer as never,
+        model: occurrencePickerModel(query, narrowing, shown, selectedIndex, 34),
+      }),
     { width: 100, height: 34 }
   )
   return (await mounted.frame()).split("\n")

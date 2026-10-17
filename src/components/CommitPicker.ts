@@ -2,64 +2,21 @@ import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
 import { theme } from "../theme"
-import type { PrCommit } from "../providers/github"
-import { EMPTY_CHANGE } from "../providers/local"
+import type { AllCommitsRow as AllCommitsRowModel, CommitPickerModel, CommitRow as CommitRowModel } from "./commit-picker-model"
+
+export type { FilteredCommit } from "./commit-picker-model"
 
 export interface CommitPickerProps {
   renderer: CliRenderer
-  commits: FilteredCommit[]
-  selectedIndex: number
-  viewingCommit: string | null
-  /** Commits marked for the next scope, by sha (spec 078). */
-  marked: ReadonlySet<string>
-  /** Whether `/` is open and taking what is typed. */
-  filtering: boolean
-  /** What `/` has narrowed the list to, once accepted. */
-  query: string
-  /** Whether `V` is extending a run, which changes what j/k do. */
-  extending: boolean
+  model: CommitPickerModel
 }
 
-export interface FilteredCommit {
-  commit: PrCommit
-  index: number  // Original index in commits array
-}
-
-/**
- * Format a relative time string
- */
-function formatTimeAgo(isoDate: string): string {
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return "now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
-  return date.toLocaleDateString()
-}
+const note = (content: string) => Box({ paddingX: 2, height: 1 }, Text({ content, fg: theme.overlay0 }))
 
 /**
  * Commit picker overlay for selecting a commit to filter the diff
  */
-export function CommitPicker({
-  renderer,
-  commits,
-  selectedIndex,
-  viewingCommit,
-  marked,
-  filtering,
-  query,
-  extending,
-}: CommitPickerProps) {
-  // Total items = 1 ("All commits") + filtered commits
-  const totalItems = 1 + commits.length
-
+export function CommitPicker({ renderer, model }: CommitPickerProps) {
   return Box(
     {
       id: "commit-picker-overlay",
@@ -96,14 +53,9 @@ export function CommitPicker({
           paddingX: 2,
           paddingY: 1,
         },
-        Text({
-          content: marked.size > 0 ? `Select Commit  ${marked.size} marked` : "Select Commit",
-          fg: theme.subtext0,
-        }),
-        Text({ content: extending ? "V: stop extending" : "esc", fg: theme.overlay0 })
+        Text({ content: model.title, fg: theme.subtext0 }),
+        Text({ content: model.hints.join("  "), fg: theme.overlay0 })
       ),
-      // The filter is a mode, not the way in: `/` opens it, and what it
-      // found stays visible beside the list once accepted (spec 078).
       Box(
         {
           id: "commit-picker-search",
@@ -115,49 +67,20 @@ export function CommitPicker({
           // has just moved here from another prompt.
           height: 1,
         },
-        filtering
+        model.filtering
           ? Box(
               { flexDirection: "row", flexGrow: 1 },
               Text({ content: "/", fg: theme.subtext0 }),
               PromptInput(renderer, "commit-picker")
             )
-          : Text({
-              content: query ? `/${query}` : "/ to filter",
-              fg: query ? theme.subtext0 : theme.overlay0,
-            })
+          : Text({ content: model.fieldText, fg: model.fieldFg })
       ),
       // Items list
       Box(
-        {
-          flexDirection: "column",
-          paddingBottom: 1,
-          maxHeight: 15,
-        },
-        // "All commits" option (always first)
-        AllCommitsRow({
-          selected: selectedIndex === 0,
-          active: viewingCommit === null,
-          totalCommits: commits.length,
-        }),
-        // Commit rows
-        ...commits.slice(0, 14).map((item, i) =>
-          CommitRow({
-            commit: item.commit,
-            selected: i + 1 === selectedIndex,
-            active: viewingCommit === item.commit.sha,
-            marked: marked.has(item.commit.sha),
-          })
-        ),
-        // Show count if more
-        totalItems > 15
-          ? Box(
-              { paddingX: 2 },
-              Text({
-                content: `... and ${totalItems - 15} more`,
-                fg: theme.overlay0,
-              })
-            )
-          : null
+        { flexDirection: "column", paddingBottom: 1 },
+        model.above > 0 ? note(`↑ ${model.above} more`) : null,
+        ...model.rows.map((row) => (row.kind === "all" ? AllCommitsRow(row) : CommitRow(row))),
+        model.below > 0 ? note(`↓ ${model.below} more`) : null
       ),
       // Footer hints
       Box(
@@ -166,23 +89,14 @@ export function CommitPicker({
           paddingX: 2,
           paddingTop: 1,
         },
-        Text({
-          content: "j/k: move  space: mark  V: mark a run  /: filter  Enter: show them",
-          fg: theme.overlay0,
-        })
+        Text({ content: model.keys, fg: theme.overlay0 })
       )
     )
   )
 }
 
-interface AllCommitsRowProps {
-  selected: boolean
-  active: boolean
-  totalCommits: number
-}
-
-function AllCommitsRow({ selected, active, totalCommits }: AllCommitsRowProps) {
-  const bg = selected ? "#585b70" : undefined
+function AllCommitsRow(row: AllCommitsRowModel) {
+  const bg = row.selected ? "#585b70" : undefined
   return Box(
     {
       flexDirection: "row",
@@ -195,18 +109,11 @@ function AllCommitsRow({ selected, active, totalCommits }: AllCommitsRowProps) {
     },
     Box(
       { flexDirection: "row" },
-      Text({ content: active ? "\u25cf " : "  ", fg: theme.green }),
-      Text({ content: "All commits", fg: selected ? theme.text : theme.subtext1 })
+      Text({ content: row.active ? "● " : "  ", fg: theme.green }),
+      Text({ content: "All commits", fg: row.labelFg })
     ),
-    Text({ content: `${totalCommits} commits`, fg: theme.overlay0 })
+    Text({ content: row.total, fg: theme.overlay0 })
   )
-}
-
-interface CommitRowProps {
-  commit: PrCommit
-  selected: boolean
-  active: boolean
-  marked: boolean
 }
 
 /**
@@ -214,11 +121,10 @@ interface CommitRowProps {
  * column then compresses the rows into each other — two commits drawn on
  * the same screen line, letter by letter.
  */
-function CommitRow({ commit, selected, active, marked }: CommitRowProps) {
+function CommitRow(row: CommitRowModel) {
   // A marked row is coloured, not badged: a column of bars reads as a
   // decoration, a block of colour reads as a selection (spec 078).
-  const bg = selected ? "#585b70" : marked ? theme.surface0 : undefined
-  const markedFg = marked ? theme.peach : undefined
+  const bg = row.selected ? "#585b70" : row.marked ? theme.surface0 : undefined
   return Box(
     {
       flexDirection: "row",
@@ -231,23 +137,18 @@ function CommitRow({ commit, selected, active, marked }: CommitRowProps) {
     },
     Box(
       { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
-      Text({ content: active ? "\u25cf " : "  ", fg: theme.green }),
-      Text({ content: commit.sha, fg: markedFg ?? (selected ? theme.peach : theme.yellow) }),
+      Text({ content: row.active ? "● " : "  ", fg: theme.green }),
+      Text({ content: row.sha, fg: row.shaFg }),
       Text({ content: "  ", fg: theme.overlay0 }),
-      Text({
-        content: commit.message,
-        fg: markedFg ?? (selected ? theme.text : theme.subtext1),
-      }),
+      Text({ content: row.message, fg: row.messageFg })
     ),
     Box(
       // paddingLeft keeps a gap when the subject is long enough to shrink
       // into it — without one the message runs straight into the author.
       { flexDirection: "row", flexShrink: 0, paddingLeft: 2 },
-      // A change with nothing in it scopes the diff to nothing, so the row
-      // says so rather than letting the reader find out by picking it.
-      commit.empty ? Text({ content: `${EMPTY_CHANGE}  `, fg: theme.overlay0 }) : null,
-      Text({ content: `@${commit.author}`, fg: theme.overlay0 }),
-      Text({ content: `  ${formatTimeAgo(commit.date)}`, fg: theme.overlay0 }),
+      row.note ? Text({ content: `${row.note}  `, fg: theme.overlay0 }) : null,
+      Text({ content: row.author, fg: theme.overlay0 }),
+      Text({ content: `  ${row.time}`, fg: theme.overlay0 })
     )
   )
 }

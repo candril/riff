@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { OccurrenceRow } from "./corpus"
 import { findOccurrences } from "./filter"
-import { excerpt, type Segment } from "../../components/OccurrencePicker"
 
 function row(filename: string, lineNum: number, text: string): OccurrenceRow {
   return { fileIndex: 0, filename, kind: "addition", lineNum, side: "RIGHT", text }
@@ -100,33 +99,5 @@ describe("narrowing spans", () => {
 
   test("a `!term` marks nothing", () => {
     expect(findOccurrences(rows, "parsehunk", "!raw").hits[0]!.narrowSpans).toEqual([])
-  })
-})
-
-const plain = (segments: Segment[]) => segments.map((s) => [s.text, s.mark])
-
-describe("excerpt", () => {
-  test("drops indentation before the match", () => {
-    expect(plain(excerpt("    foo(bar)", [8, 11]))).toEqual([
-      ["foo(", "plain"],
-      ["bar", "match"],
-      [")", "plain"],
-    ])
-  })
-
-  test("brings a far-right match into view", () => {
-    const segments = excerpt(`${"x".repeat(100)}needle`, [100, 106])
-    expect(segments[0]).toEqual({ text: "…", mark: "plain" })
-    expect(segments[1]!.text.length).toBe(47)
-    expect(segments[2]).toEqual({ text: "needle", mark: "match" })
-  })
-
-  test("marks narrowing terms, and the match wins where they overlap", () => {
-    expect(plain(excerpt("foo(bar, baz)", [4, 7], [[5, 9], [9, 12]]))).toEqual([
-      ["foo(", "plain"],
-      ["bar", "match"],
-      [", baz", "narrow"],
-      [")", "plain"],
-    ])
   })
 })

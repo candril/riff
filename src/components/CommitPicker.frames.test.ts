@@ -1,16 +1,17 @@
 import { test, expect, describe, afterEach, beforeAll, afterAll, setSystemTime } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
-import { CommitPicker, type CommitPickerProps, type FilteredCommit } from "./CommitPicker"
+import { CommitPicker, type FilteredCommit } from "./CommitPicker"
+import { commitPickerModel, type CommitPickerInput } from "./commit-picker-model"
 import type { PrCommit } from "../providers/github"
 import { EMPTY_CHANGE } from "../providers/local"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
-type Options = Partial<Omit<CommitPickerProps, "renderer">>
+type Options = Partial<CommitPickerInput>
 
 async function frame(options: Options = {}) {
-  const props = {
+  const input: CommitPickerInput = {
     commits: COMMITS,
     selectedIndex: 0,
     viewingCommit: null,
@@ -20,10 +21,10 @@ async function frame(options: Options = {}) {
     extending: false,
     ...options,
   }
-  mounted = await mountRenderable((renderer) => CommitPicker({ renderer: renderer as never, ...props }), {
-    width: 100,
-    height: 34,
-  })
+  mounted = await mountRenderable(
+    (renderer) => CommitPicker({ renderer: renderer as never, model: commitPickerModel(input, 34, NOW) }),
+    { width: 100, height: 34 }
+  )
   return (await mounted.frame()).split("\n")
 }
 
@@ -122,6 +123,21 @@ describe("the commit picker", () => {
     const text = (await frame({ commits: MANY })).join("\n")
     expect(text).toContain("Commit 13")
     expect(text).not.toContain("Commit 14")
-    expect(text).toContain("... and 6 more")
+    expect(text).toContain("↓ 6 more")
+    expect(text).not.toContain("↑")
+  })
+
+  test("moved past the fifteenth item, keeps the selection in view", async () => {
+    const lines = await frame({ commits: MANY, selectedIndex: 17 })
+    const spans = mounted!.setup.captureSpans()
+    const selected = lines.findIndex((l) => l.includes("Commit 16"))
+    expect(selected).toBeGreaterThan(0)
+    expect(bgAt(spans, lines[selected]!.indexOf("Commit 16"), selected)).toEqual(ints("#585b70"))
+    // Fifteen of the 21 items, centred on the eighteenth: items 6 to 20.
+    const text = lines.join("\n")
+    expect(text).toContain("↑ 6 more")
+    expect(text).not.toContain("↓")
+    expect(text).not.toContain("All commits")
+    expect(text).toContain("Commit 19")
   })
 })

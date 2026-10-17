@@ -1,57 +1,22 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { PromptInput } from "./PromptInput"
-import { theme, colors } from "../theme"
-import type { OccurrenceGroup, OccurrenceHit, OccurrenceResults, Span } from "../features/occurrence-picker"
+import { theme } from "../theme"
+import type { Segment } from "./occurrence-excerpt"
+import type { OccurrenceFileRow, OccurrenceHitRow, OccurrencePickerModel } from "./occurrence-picker-model"
 
 export interface OccurrencePickerProps {
   renderer: CliRenderer
-  query: string
-  narrowing: boolean
-  results: OccurrenceResults
-  selectedIndex: number
+  model: OccurrencePickerModel
 }
 
-const MAX_VISIBLE = 20
-
-/** A match further right than this is scrolled into view with a leading `…`. */
-const LEAD = 48
-
-type DisplayRow =
-  | { kind: "file"; group: OccurrenceGroup }
-  | { kind: "hit"; hit: OccurrenceHit; index: number }
+const note = (content: string) => Box({ paddingX: 2, height: 1 }, Text({ content, fg: theme.overlay0 }))
 
 /**
  * Occurrence picker overlay (spec 088): every row of the diff the query
  * hits, under a header per file. Modeled on CommentsPicker.
  */
-export function OccurrencePicker({ renderer, query, narrowing, results, selectedIndex }: OccurrencePickerProps) {
-  const rows: DisplayRow[] = []
-  let selectedRow = 0
-  let hitIndex = 0
-  for (const group of results.groups) {
-    rows.push({ kind: "file", group })
-    for (const hit of group.hits) {
-      if (hitIndex === selectedIndex) selectedRow = rows.length
-      rows.push({ kind: "hit", hit, index: hitIndex++ })
-    }
-  }
-
-  const total = rows.length
-  let startIndex = 0
-  if (total > MAX_VISIBLE) {
-    startIndex = Math.max(0, Math.min(selectedRow - Math.floor(MAX_VISIBLE / 2), total - MAX_VISIBLE))
-  }
-  const endIndex = Math.min(startIndex + MAX_VISIBLE, total)
-  const visible = rows.slice(startIndex, endIndex)
-
-  // A file header scrolled off the top would leave its hits unattributed.
-  const first = visible[0]
-  if (first?.kind === "hit") {
-    const group = results.groups.find((g) => g.hits.includes(first.hit))
-    if (group) visible[0] = { kind: "file", group }
-  }
-
+export function OccurrencePicker({ renderer, model }: OccurrencePickerProps) {
   return Box(
     {
       id: "occurrence-picker-overlay",
@@ -87,15 +52,10 @@ export function OccurrencePicker({ renderer, query, narrowing, results, selected
         },
         Box(
           { flexDirection: "row", gap: 2 },
-          Text({ content: "Occurrences", fg: theme.subtext0 }),
-          narrowing ? Text({ content: `${query} ›`, fg: theme.yellow }) : null
+          Text({ content: model.title, fg: theme.subtext0 }),
+          model.badge ? Text({ content: model.badge, fg: theme.yellow }) : null
         ),
-        Box(
-          { flexDirection: "row", gap: 2 },
-          Text({ content: narrowing ? "^g search" : "^g narrow", fg: theme.overlay0 }),
-          Text({ content: countText(query, results), fg: theme.overlay0 }),
-          Text({ content: "esc", fg: theme.overlay0 })
-        )
+        Box({ flexDirection: "row", gap: 2 }, ...model.hints.map((hint) => Text({ content: hint, fg: theme.overlay0 })))
       ),
       Box(
         {
@@ -109,33 +69,16 @@ export function OccurrencePicker({ renderer, query, narrowing, results, selected
       ),
       Box(
         { flexDirection: "column", paddingBottom: 1 },
-        startIndex > 0
-          ? Box({ paddingX: 2, height: 1 }, Text({ content: `↑ ${startIndex} more`, fg: theme.overlay0 }))
-          : null,
-        ...visible.map((row) =>
-          row.kind === "file"
-            ? FileRow(row.group)
-            : HitRow(row.hit, row.index === selectedIndex)
-        ),
-        endIndex < total
-          ? Box({ paddingX: 2, height: 1 }, Text({ content: `↓ ${total - endIndex} more`, fg: theme.overlay0 }))
-          : null,
-        query && total === 0
-          ? Box({ paddingX: 2, height: 1 }, Text({ content: "No matches in the diff", fg: theme.overlay0 }))
-          : null
+        model.above > 0 ? note(`↑ ${model.above} more`) : null,
+        ...model.rows.map((row) => (row.kind === "file" ? FileRow(row) : HitRow(row))),
+        model.below > 0 ? note(`↓ ${model.below} more`) : null,
+        model.empty ? note(model.empty) : null
       )
     )
   )
 }
 
-function countText(query: string, results: OccurrenceResults): string {
-  if (!query) return ""
-  const files = `${results.fileCount} file${results.fileCount === 1 ? "" : "s"}`
-  if (results.capped) return `first ${results.hits.length} of ${results.total} in ${files}`
-  return `${results.total} in ${files}`
-}
-
-function FileRow(group: OccurrenceGroup) {
+function FileRow(row: OccurrenceFileRow) {
   return Box(
     {
       flexDirection: "row",
@@ -145,32 +88,24 @@ function FileRow(group: OccurrenceGroup) {
       height: 1,
       overflow: "hidden",
     },
-    Box(
-      { flexDirection: "row" },
-      ...highlight(group.filename, narrowMarks(group.pathSpans)).map((seg) => SegmentText(seg, theme.blue))
-    ),
-    Text({ content: String(group.count), fg: theme.overlay0 })
+    Box({ flexDirection: "row" }, ...row.name.map((seg) => SegmentText(seg, theme.blue))),
+    Text({ content: row.count, fg: theme.overlay0 })
   )
 }
 
-function HitRow(hit: OccurrenceHit, selected: boolean) {
-  const { row } = hit
-  const marker = row.kind === "addition" ? "+" : row.kind === "deletion" ? "-" : " "
-  const markerFg = row.kind === "addition" ? colors.addedFg : row.kind === "deletion" ? colors.removedFg : theme.overlay0
-  const textFg = selected ? theme.text : theme.subtext1
-
+function HitRow(row: OccurrenceHitRow) {
   return Box(
     {
       flexDirection: "row",
-      backgroundColor: selected ? theme.surface2 : undefined,
+      backgroundColor: row.selected ? theme.surface2 : undefined,
       paddingX: 2,
       width: "100%",
       height: 1,
       overflow: "hidden",
     },
-    Text({ content: String(row.lineNum).padStart(6), fg: theme.overlay0 }),
-    Text({ content: ` ${marker} `, fg: markerFg }),
-    ...excerpt(row.text, [hit.startCol, hit.endCol], hit.narrowSpans).map((seg) => SegmentText(seg, textFg))
+    Text({ content: row.lineNum, fg: theme.overlay0 }),
+    Text({ content: ` ${row.marker} `, fg: row.markerFg }),
+    ...row.excerpt.map((seg) => SegmentText(seg, row.textFg))
   )
 }
 
@@ -178,55 +113,4 @@ function SegmentText(seg: Segment, fg: string) {
   if (seg.mark === "match") return Text({ content: seg.text, fg: theme.crust, bg: theme.yellow })
   if (seg.mark === "narrow") return Text({ content: seg.text, fg: theme.crust, bg: theme.teal })
   return Text({ content: seg.text, fg })
-}
-
-type Mark = "plain" | "match" | "narrow"
-
-export interface Segment {
-  text: string
-  mark: Mark
-}
-
-interface MarkedSpan {
-  span: Span
-  mark: Mark
-}
-
-function narrowMarks(spans: readonly Span[]): MarkedSpan[] {
-  return spans.map((span) => ({ span, mark: "narrow" }))
-}
-
-/**
- * The row's text around its first match, indentation dropped, cut into runs
- * by what is highlighted. A match far to the right is brought into view: the
- * list is narrower than the code. The search match is drawn over any
- * narrowing term it overlaps, since it is where the cursor lands.
- */
-export function excerpt(text: string, match: Span, narrow: readonly Span[] = []): Segment[] {
-  const [startCol] = match
-  const indent = text.length - text.trimStart().length
-  const lineStart = Math.min(indent, startCol)
-  const clipped = startCol - lineStart > LEAD
-  const segments = highlight(
-    text,
-    [...narrowMarks(narrow), { span: match, mark: "match" }],
-    clipped ? startCol - LEAD + 1 : lineStart
-  )
-  return clipped ? [{ text: "…", mark: "plain" }, ...segments] : segments
-}
-
-/** Later spans are drawn over earlier ones. */
-function highlight(text: string, spans: readonly MarkedSpan[], from = 0): Segment[] {
-  const marks: Mark[] = Array.from({ length: text.length }, () => "plain")
-  for (const { span, mark } of spans) {
-    for (let i = span[0]; i < span[1] && i < text.length; i++) marks[i] = mark
-  }
-
-  const segments: Segment[] = []
-  for (let i = from; i < text.length; i++) {
-    const last = segments[segments.length - 1]
-    if (last && last.mark === marks[i]) last.text += text[i]
-    else segments.push({ text: text[i]!, mark: marks[i]! })
-  }
-  return segments
 }

@@ -63,6 +63,8 @@ import type { CommentsPickerIsland, FilePickerIsland, MarksPickerIsland } from "
 import { filePickerModel } from "../components/file-picker-model"
 import { commentsPickerModel } from "../components/comments-picker-model"
 import { marksPickerModel } from "../components/marks-picker-model"
+import { occurrencePickerModel } from "../components/occurrence-picker-model"
+import { commitPickerModel } from "../components/commit-picker-model"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
@@ -631,22 +633,31 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         state.occurrencePicker.open
           ? OccurrencePicker({
               renderer: ctx.renderer,
-              query: state.occurrencePicker.query,
-              narrowing: state.occurrencePicker.narrowing,
-              results: occurrencePickerFeature.getOccurrenceResults(state),
-              selectedIndex: state.occurrencePicker.selectedIndex,
+              model: occurrencePickerModel(
+                state.occurrencePicker.query,
+                state.occurrencePicker.narrowing,
+                occurrencePickerFeature.getOccurrenceResults(state),
+                state.occurrencePicker.selectedIndex,
+                ctx.renderer.height
+              ),
             })
           : null,
         state.commitPicker.open
           ? CommitPicker({
               renderer: ctx.renderer,
-              commits: filteredCommits,
-              selectedIndex: state.commitPicker.selectedIndex,
-              viewingCommit: state.viewingCommit,
-              marked: state.commitPicker.marked,
-              filtering: state.commitPicker.queryInput,
-              query: state.commitPicker.query,
-              extending: state.commitPicker.rangeAnchor !== null,
+              model: commitPickerModel(
+                {
+                  commits: filteredCommits,
+                  selectedIndex: state.commitPicker.selectedIndex,
+                  viewingCommit: state.viewingCommit,
+                  marked: state.commitPicker.marked,
+                  filtering: state.commitPicker.queryInput,
+                  query: state.commitPicker.query,
+                  extending: state.commitPicker.rangeAnchor !== null,
+                },
+                ctx.renderer.height,
+                new Date()
+              ),
             })
           : null,
         state.showHelp ? ctx.helpOverlay.host : null,
