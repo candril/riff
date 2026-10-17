@@ -6,7 +6,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffHighlights } from "./diff-highlights"
-import { diffPaneHeight, diffPaneWidth } from "./diff-layout"
+import { diffPaneHeight, diffPaneWidth, NO_COMMENT_PANEL } from "./diff-layout"
 import { searchOf } from "./diff-search"
 import { unifiedSelection } from "./split-selection"
 import { createUnifiedIsland } from "./unified-island"
@@ -42,7 +42,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
 
   const paneWidth = () => {
     const state = deps.getState()
-    return diffPaneWidth(deps.renderer.width, { visible: state.showFilePanel, width: deps.filePanelWidth() })
+    return diffPaneWidth(deps.renderer.width, { visible: state.showFilePanel, width: deps.filePanelWidth() }, NO_COMMENT_PANEL)
   }
 
   /**

@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { diffPaneHeight, diffPaneWidth, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
+import { diffPaneHeight, diffPaneWidth, NO_COMMENT_PANEL, splitShown, SPLIT_MIN_WIDTH } from "./diff-layout"
 
 describe("when split is drawn", () => {
   test("from 120 columns of diff pane on", () => {
@@ -17,9 +17,19 @@ describe("when split is drawn", () => {
   })
 
   test("the file panel's width comes off the pane only while it is shown", () => {
-    expect(diffPaneWidth(160, { visible: true, width: 35 })).toBe(125)
-    expect(diffPaneWidth(150, { visible: true, width: 35 })).toBe(115)
-    expect(diffPaneWidth(150, { visible: false, width: 35 })).toBe(150)
+    expect(diffPaneWidth(160, { visible: true, width: 35 }, NO_COMMENT_PANEL)).toBe(125)
+    expect(diffPaneWidth(150, { visible: true, width: 35 }, NO_COMMENT_PANEL)).toBe(115)
+    expect(diffPaneWidth(150, { visible: false, width: 35 }, NO_COMMENT_PANEL)).toBe(150)
+  })
+
+  test("the thread panel's width comes off the pane only while it is open", () => {
+    expect(diffPaneWidth(240, { visible: true, width: 35 }, { open: true, width: 64 })).toBe(141)
+    expect(diffPaneWidth(240, { visible: false, width: 35 }, { open: true, width: 64 })).toBe(176)
+    expect(diffPaneWidth(240, { visible: true, width: 35 }, { open: false, width: 64 })).toBe(205)
+  })
+
+  test("a screen narrower than both panels leaves the pane no columns rather than fewer than none", () => {
+    expect(diffPaneWidth(80, { visible: true, width: 35 }, { open: true, width: 48 })).toBe(0)
   })
 })
 

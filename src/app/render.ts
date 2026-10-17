@@ -65,6 +65,7 @@ import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
+import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { FileTreePanel } from "../components/FileTreePanel"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
@@ -580,6 +581,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               ),
               focused: state.focusedPanel === "comments",
               expanded: state.inlineCommentOverlay.expanded,
+              width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
               mentionPicker: state.inlineCommentOverlay.mentionPicker,
               emojiPicker: state.inlineCommentOverlay.emojiPicker,
               mentionCandidates: collectMentionCandidates(state),

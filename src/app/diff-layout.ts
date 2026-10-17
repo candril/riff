@@ -4,9 +4,22 @@
  */
 export const SPLIT_MIN_WIDTH = 120
 
-/** What is left of the screen for the diff once the file panel has its share. */
-export function diffPaneWidth(screenWidth: number, filePanel: { visible: boolean; width: number }): number {
-  return Math.max(0, screenWidth - (filePanel.visible ? filePanel.width : 0))
+export interface CommentPanelColumn {
+  open: boolean
+  width: number
+}
+
+export const NO_COMMENT_PANEL: CommentPanelColumn = { open: false, width: 0 }
+
+/** What is left of the screen for the diff once the file panel and the thread panel have their share. */
+export function diffPaneWidth(
+  screenWidth: number,
+  filePanel: { visible: boolean; width: number },
+  commentPanel: CommentPanelColumn
+): number {
+  const tree = filePanel.visible ? filePanel.width : 0
+  const threads = commentPanel.open ? commentPanel.width : 0
+  return Math.max(0, screenWidth - tree - threads)
 }
 
 /**

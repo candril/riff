@@ -9,7 +9,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffHighlights } from "./diff-highlights"
-import { diffPaneWidth, splitShown } from "./diff-layout"
+import { diffPaneWidth, NO_COMMENT_PANEL, splitShown } from "./diff-layout"
 import { searchOf } from "./diff-search"
 import { selectionStatus } from "./selection-status"
 import { paneOfLine, toRowSelection } from "./split-cursor"
@@ -58,7 +58,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
 
   const paneWidth = () => {
     const state = deps.getState()
-    return diffPaneWidth(deps.renderer.width, { visible: state.showFilePanel, width: deps.filePanelWidth() })
+    return diffPaneWidth(deps.renderer.width, { visible: state.showFilePanel, width: deps.filePanelWidth() }, NO_COMMENT_PANEL)
   }
 
   function shown(): boolean {

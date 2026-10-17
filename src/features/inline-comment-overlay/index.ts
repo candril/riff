@@ -18,3 +18,5 @@ export {
   buildComposerEditorContext,
   type InlineComposerHandlersContext,
 } from "./handlers"
+
+export { commentPanelWidth } from "./width"

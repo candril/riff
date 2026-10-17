@@ -71,6 +71,8 @@ export interface InlineCommentOverlayProps {
   focused: boolean
   /** Wider layout (Ctrl-e). */
   expanded: boolean
+  /** The panel's columns, which the diff beside it gives up. */
+  width: number
   /** Active @mention picker session (null when no `@<query>` trigger). */
   mentionPicker: MentionPickerState | null
   /** Active `:shortcode` session (spec 082). */
@@ -140,23 +142,6 @@ function imageRows(images: readonly CommentImage[], indent: number) {
       Text({ content: image.label, fg: theme.sapphire })
     )
   )
-}
-
-/**
- * Side-panel widths. The narrow target keeps the diff readable on
- * normal terminals; the expanded target (Ctrl-e) gives prose room when
- * the user is actively reading / writing comments. Both cap at half
- * the terminal width so very narrow terminals still show some diff.
- */
-const PANEL_WIDTH_TARGET = 64
-const PANEL_WIDTH_EXPANDED = 96
-const PANEL_WIDTH_MIN = 48
-
-function getPanelWidth(expanded: boolean): number {
-  const cols = process.stdout.columns || 120
-  const target = expanded ? PANEL_WIDTH_EXPANDED : PANEL_WIDTH_TARGET
-  const cap = Math.floor(cols * (expanded ? 0.7 : 0.5))
-  return Math.max(PANEL_WIDTH_MIN, Math.min(target, cap))
 }
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
@@ -501,6 +486,7 @@ export function InlineCommentOverlay({
   filter,
   filterInput,
   flashLabels,
+  width,
   renderer,
 }: InlineCommentOverlayProps) {
   bodyPool(renderer).begin()
@@ -544,8 +530,6 @@ export function InlineCommentOverlay({
             ? `New thread @ ${composeFile}:${line}`
             : `New comment @ ${composeFile}:${line}`
 
-  const panelWidth = getPanelWidth(expanded)
-
   // Cap the rendered thread count when not expanded — the viewport
   // clips overflow, but mounting hundreds of MarkdownRenderables is a
   // measurable cost on first paint.
@@ -557,7 +541,7 @@ export function InlineCommentOverlay({
       position: "absolute",
       top: 0,
       right: 0,
-      width: panelWidth,
+      width,
       height: "100%",
       zIndex: 50,
       flexDirection: "column",
