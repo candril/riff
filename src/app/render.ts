@@ -14,6 +14,7 @@ import {
   Toast,
   FilePicker,
   CommentsPicker,
+  MarksPicker,
   OccurrencePicker,
   CommitPicker,
   SyncPreview,
@@ -83,6 +84,7 @@ import { submenuOpenedFromPalette } from "../actions/types"
 import { fuzzyFilter } from "../utils/fuzzy"
 import * as filePicker from "../features/file-picker"
 import * as commentsPickerFeature from "../features/comments-picker"
+import { marksPickerEntries, setMarksPickerQuery } from "../features/marks"
 import * as occurrencePickerFeature from "../features/occurrence-picker"
 import * as commitPicker from "../features/commit-picker"
 import * as commentsFeature from "../features/comments"
@@ -155,6 +157,14 @@ function openPrompt(
       initialValue: state.commentsPicker.query,
       placeholder: "Type to search…",
       onChange: typeInto(setCommentsPickerQuery),
+    }
+  }
+  if (state.marksPicker.open) {
+    return {
+      key: "marks-picker",
+      initialValue: state.marksPicker.query,
+      placeholder: "Type to search…",
+      onChange: typeInto(setMarksPickerQuery),
     }
   }
   if (state.occurrencePicker.open) {
@@ -594,6 +604,14 @@ export function createRenderFunction(ctx: RenderContext): () => void {
               renderer: ctx.renderer,
               entries: commentsPickerFeature.getFilteredEntries(state),
               selectedIndex: state.commentsPicker.selectedIndex,
+            })
+          : null,
+        state.marksPicker.open
+          ? MarksPicker({
+              renderer: ctx.renderer,
+              entries: marksPickerEntries(state),
+              selectedIndex: state.marksPicker.selectedIndex,
+              anyMarks: state.marks.marks.length > 0,
             })
           : null,
         state.occurrencePicker.open

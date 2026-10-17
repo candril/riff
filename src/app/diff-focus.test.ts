@@ -11,6 +11,7 @@ const hidden: [string, (s: AppState) => AppState][] = [
   ["the help", (s) => ({ ...s, showHelp: true })],
   ["the file picker", (s) => ({ ...s, filePicker: { ...s.filePicker, open: true } })],
   ["the comments picker", (s) => ({ ...s, commentsPicker: { ...s.commentsPicker, open: true } })],
+  ["the marks picker", (s) => ({ ...s, marksPicker: { ...s.marksPicker, open: true } })],
   ["the occurrence picker", (s) => ({ ...s, occurrencePicker: { ...s.occurrencePicker, open: true } })],
   ["the commit picker, its query closed", (s) => ({ ...s, commitPicker: { ...s.commitPicker, open: true, queryInput: false } })],
   ["the sync preview", (s) => ({ ...s, syncPreview: { ...s.syncPreview, open: true } })],

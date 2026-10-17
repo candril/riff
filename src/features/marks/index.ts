@@ -23,4 +23,5 @@ export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } 
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 export { markEntries, markLineText, markEntryLocation, filterMarkEntries, type MarkEntry } from "./list"
-export { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection } from "./picker-state"
+export { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection, marksPickerEntries } from "./picker-state"
+export { handleMarksPickerInput, type MarksPickerInputContext } from "./picker-input"

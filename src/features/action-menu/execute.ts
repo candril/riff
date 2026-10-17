@@ -27,6 +27,7 @@ import {
 } from "../../state"
 import { REACTION_META } from "../../types"
 import { copyToClipboard } from "../../utils/clipboard"
+import { openMarksPicker } from "../marks"
 
 /**
  * Handlers that the action executor needs access to.
@@ -97,6 +98,11 @@ export async function executeAction(
         setState(openCommentsPicker)
         render()
       }
+      break
+
+    case "find-marks":
+      setState(openMarksPicker)
+      render()
       break
 
     case "find-occurrences":

@@ -23,6 +23,7 @@ export function diffCursorShown(state: AppState, promptOpen: boolean): boolean {
     state.showHelp ||
     state.filePicker.open ||
     state.commentsPicker.open ||
+    state.marksPicker.open ||
     state.occurrencePicker.open ||
     state.commitPicker.open ||
     state.syncPreview.open ||

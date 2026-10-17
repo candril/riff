@@ -42,6 +42,7 @@ const HELP_SECTIONS = [
       ["'{letter}", "Jump to a mark from anywhere"],
       ["''", "Back to the mark visited before"],
       ["]m / [m", "Next / previous mark"],
+      ["Ctrl-k", "List the marks (Ctrl-x deletes)"],
     ],
   },
   {

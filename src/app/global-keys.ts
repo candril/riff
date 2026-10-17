@@ -655,6 +655,23 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       return
     }
 
+    // ========== MARKS PICKER (captures all input when open, spec 101) ==========
+    if (
+      marks.handleMarksPickerInput(key, {
+        state: ctx.getState(),
+        setState: ctx.setState,
+        render: ctx.render,
+        onJump: (letter) => {
+          // A mark is a place in the diff, so going to one leaves the overview or the feed.
+          if (ctx.getState().viewMode !== "diff") ctx.setState((s) => switchView(s, "diff"))
+          marks.jumpToMark(letter, ctx.marksContext)
+        },
+        save: ctx.marksContext.save,
+      })
+    ) {
+      return
+    }
+
     // ========== OCCURRENCE PICKER (captures all input when open, spec 088) ==========
     if (
       occurrencePicker.handleInput(key, {
@@ -1101,6 +1118,16 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         if (key.ctrl && state.files.length > 0) {
           key.preventDefault()
           ctx.setState(openFilePicker)
+          ctx.render()
+          return
+        }
+        break
+
+      case "k":
+        // From every view, and with no mark set too: the empty list says how to set one.
+        if (key.ctrl) {
+          key.preventDefault()
+          ctx.setState(marks.openMarksPicker)
           ctx.render()
           return
         }

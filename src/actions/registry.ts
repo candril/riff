@@ -31,6 +31,14 @@ export const actions: Action[] = [
     available: (state) => state.comments.length > 0,
   },
   {
+    id: "find-marks",
+    label: "Marks",
+    description: "Every mark, with its file, line and text",
+    shortcut: "Ctrl+k",
+    category: "navigation",
+    available: () => true,
+  },
+  {
     id: "find-occurrences",
     label: "Find in Diff",
     description: "Every row of the change set that matches, grouped by file",
