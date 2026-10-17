@@ -1,5 +1,5 @@
 import type { CliRenderer, InputRenderable } from "@opentui/core"
-import type { JSX } from "solid-js"
+import { batch, type JSX } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { PromptInput } from "../components/PromptInput"
 import { FilePicker } from "../components/FilePicker"
@@ -46,8 +46,10 @@ export function createPickerIsland<Model extends object>(
   return {
     host: island.host,
     update(next: Model | null) {
-      setState("shown", next !== null)
-      if (next) setState("model", reconcile(next))
+      batch(() => {
+        setState("shown", next !== null)
+        if (next) setState("model", reconcile(next))
+      })
     },
     dispose: island.dispose,
   }
@@ -57,7 +59,7 @@ export function createFilePickerIsland(renderer: CliRenderer) {
   return createPickerIsland<FilePickerModel>(renderer, {
     id: "file-picker-overlay",
     owner: "file-picker",
-    closed: filePickerModel([], 0),
+    closed: filePickerModel([], 0, renderer.height),
     draw: (props) => <FilePicker model={props.model} field={props.field} />,
   })
 }
@@ -66,7 +68,7 @@ export function createCommentsPickerIsland(renderer: CliRenderer) {
   return createPickerIsland<CommentsPickerModel>(renderer, {
     id: "comments-picker-overlay",
     owner: "comments-picker",
-    closed: commentsPickerModel([], 0),
+    closed: commentsPickerModel([], 0, renderer.height),
     draw: (props) => <CommentsPicker model={props.model} field={props.field} />,
   })
 }
@@ -75,7 +77,7 @@ export function createMarksPickerIsland(renderer: CliRenderer) {
   return createPickerIsland<MarksPickerModel>(renderer, {
     id: "marks-picker-overlay",
     owner: "marks-picker",
-    closed: marksPickerModel([], 0, false),
+    closed: marksPickerModel([], 0, false, renderer.height),
     draw: (props) => <MarksPicker model={props.model} field={props.field} />,
   })
 }

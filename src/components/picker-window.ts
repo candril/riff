@@ -1,6 +1,18 @@
 /** Max visible rows in a picker's list. */
 export const MAX_VISIBLE = 20
 
+/**
+ * The screen rows PickerFrame spends on anything but its list: two above
+ * the panel, the title with its padding, the field, the ↑ and ↓ notes and
+ * the padding under the list.
+ */
+export const PICKER_CHROME_ROWS = 9
+
+/** How many rows of a list fit on a terminal `height` rows tall, never fewer than one. */
+export function visibleRows(height: number, cap = MAX_VISIBLE): number {
+  return Math.max(1, Math.min(cap, height - PICKER_CHROME_ROWS))
+}
+
 export interface PickerWindow {
   start: number
   end: number
@@ -35,13 +47,15 @@ export interface PickerModel<Row extends PickerRow> {
   empty: string | null
 }
 
+/** `height`: the terminal's, which caps how many rows are in view. */
 export function pickerModel<Entry, Row extends PickerRow>(
   entries: readonly Entry[],
   selectedIndex: number,
+  height: number,
   header: { title: string; hints: string[]; empty: string | null },
   row: (entry: Entry, selected: boolean, index: number) => Row
 ): PickerModel<Row> {
-  const { start, end, above, below, count } = pickerWindow(entries.length, selectedIndex)
+  const { start, end, above, below, count } = pickerWindow(entries.length, selectedIndex, visibleRows(height))
   return {
     title: header.title,
     count,

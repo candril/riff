@@ -21,8 +21,8 @@ export interface FilePickerRow extends PickerRow {
 
 export type FilePickerModel = PickerModel<FilePickerRow>
 
-export function filePickerModel(files: readonly FilteredFile[], selectedIndex: number): FilePickerModel {
-  return pickerModel(files, selectedIndex, { title: "Find Files", hints: ["esc"], empty: null }, (item, selected) => {
+export function filePickerModel(files: readonly FilteredFile[], selectedIndex: number, height: number): FilePickerModel {
+  return pickerModel(files, selectedIndex, height, { title: "Find Files", hints: ["esc"], empty: null }, (item, selected) => {
     const { file, viewed = false, commentCount } = item
     const baseFg = selected ? theme.text : getFileColor(file.filename) || theme.subtext1
     return {

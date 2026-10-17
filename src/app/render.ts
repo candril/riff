@@ -558,16 +558,25 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.diffPeek.update(diffPeek)
     ctx.hunkPeek.update(hunkPeek)
     ctx.filePicker.update(
-      state.filePicker.open ? filePickerModel(filePicker.getFilteredFiles(state), state.filePicker.selectedIndex) : null
+      state.filePicker.open ? filePickerModel(filePicker.getFilteredFiles(state), state.filePicker.selectedIndex, ctx.renderer.height) : null
     )
     ctx.commentsPicker.update(
       state.commentsPicker.open
-        ? commentsPickerModel(commentsPickerFeature.getFilteredEntries(state), state.commentsPicker.selectedIndex)
+        ? commentsPickerModel(
+            commentsPickerFeature.getFilteredEntries(state),
+            state.commentsPicker.selectedIndex,
+            ctx.renderer.height
+          )
         : null
     )
     ctx.marksPicker.update(
       state.marksPicker.open
-        ? marksPickerModel(marksPickerEntries(state), state.marksPicker.selectedIndex, state.marks.marks.length > 0)
+        ? marksPickerModel(
+            marksPickerEntries(state),
+            state.marksPicker.selectedIndex,
+            state.marks.marks.length > 0,
+            ctx.renderer.height
+          )
         : null
     )
 

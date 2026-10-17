@@ -8,14 +8,14 @@ import type { DiffFile } from "../utils/diff-parser"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
-async function frame(files: FilteredFile[], selectedIndex = 0, height = 24) {
+async function frame(files: FilteredFile[], selectedIndex = 0, height = 24, width = 100) {
   mounted = await mountRenderable(
     (renderer) => {
       const island = createFilePickerIsland(renderer)
-      island.update(filePickerModel(files, selectedIndex))
+      island.update(filePickerModel(files, selectedIndex, height))
       return island.host
     },
-    { width: 100, height }
+    { width, height }
   )
   return (await mounted.frame()).split("\n")
 }
@@ -76,6 +76,21 @@ describe("the file picker", () => {
     expect(text).toContain("src/file-24.ts")
     expect(text).not.toContain("src/file-4.ts")
     expect(text).not.toContain("src/file-25.ts")
+  })
+
+  test("on a 24-row terminal, shortens the window so its notes and the panel's last row stay on screen", async () => {
+    const files = Array.from({ length: 50 }, (_, i) => ({ file: file(`src/file-${i}.ts`), index: i }))
+    for (const selected of [0, 25]) {
+      const lines = await frame(files, selected, 24, 80)
+      const spans = mounted!.setup.captureSpans()
+      const below = lines.findIndex((l) => /↓ \d+ more/.test(l))
+      expect(below).toBeGreaterThan(0)
+      expect(lines.some((l) => /↑ \d+ more/.test(l))).toBe(selected > 0)
+      expect(below + 1).toBeLessThan(24)
+      expect(bgAt(spans, 20, below + 1)).toEqual(ints(theme.mantle))
+      await mounted!.dispose()
+      mounted = null
+    }
   })
 
   test("with nothing to show, counts 0", async () => {

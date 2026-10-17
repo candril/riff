@@ -4,6 +4,9 @@ import type { CommentsPickerEntry } from "../features/comments-picker/filter"
 import type { Comment } from "../types"
 import { theme, colors } from "../theme"
 
+/** Tall enough that no list here is cut to the terminal. */
+const TALL = 60
+
 function entry(
   id: string,
   extra: Partial<Comment> & { isRoot?: boolean; threadResolved?: boolean } = {}
@@ -19,8 +22,8 @@ function entry(
 
 describe("commentsPickerModel", () => {
   test("titles the list, and says so when there are no comments", () => {
-    expect(commentsPickerModel([entry("1")], 0)).toMatchObject({ title: "Find Comments", count: "1/1", hints: ["esc"], empty: null })
-    expect(commentsPickerModel([], 0)).toMatchObject({ count: "0", rows: [], empty: "No comments" })
+    expect(commentsPickerModel([entry("1")], 0, TALL)).toMatchObject({ title: "Find Comments", count: "1/1", hints: ["esc"], empty: null })
+    expect(commentsPickerModel([], 0, TALL)).toMatchObject({ count: "0", rows: [], empty: "No comments" })
   })
 
   test("marks each comment by where it stands", () => {
@@ -33,7 +36,7 @@ describe("commentsPickerModel", () => {
         entry("synced", { status: "synced" }),
       ],
       0
-    ).rows.map((r) => [r.id, r.glyph, r.glyphFg])
+    , TALL).rows.map((r) => [r.id, r.glyph, r.glyphFg])
     expect(glyphs).toEqual([
       ["reply", "↳", theme.overlay0],
       ["resolved", "✓", colors.commentResolved],
@@ -44,7 +47,7 @@ describe("commentsPickerModel", () => {
   })
 
   test("gives each row its place, preview and author, brighter when selected", () => {
-    const [selected, other] = commentsPickerModel([entry("1", { author: "octocat" }), entry("2")], 0).rows
+    const [selected, other] = commentsPickerModel([entry("1", { author: "octocat" }), entry("2")], 0, TALL).rows
     expect(selected).toMatchObject({
       selected: true,
       location: "src/a.ts:3",
@@ -54,5 +57,10 @@ describe("commentsPickerModel", () => {
       author: "@octocat",
     })
     expect(other).toMatchObject({ selected: false, locationFg: theme.subtext1, previewFg: theme.overlay0, author: null })
+  })
+
+  test("draws a local comment's author, stored with its @, with one @", () => {
+    const [local] = commentsPickerModel([entry("1", { author: "@you" })], 0, TALL).rows
+    expect(local!.author).toBe("@you")
   })
 })

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { pickerModel, pickerWindow } from "./picker-window"
+import { pickerModel, pickerWindow, visibleRows } from "./picker-window"
 
 describe("pickerWindow", () => {
   test("keeps the selection in the middle of a long list", () => {
@@ -21,19 +21,39 @@ describe("pickerWindow", () => {
   })
 })
 
+describe("visibleRows", () => {
+  test("is what is left of the terminal once the frame is drawn, up to the cap", () => {
+    expect(visibleRows(24)).toBe(15)
+    expect(visibleRows(29)).toBe(20)
+    expect(visibleRows(60)).toBe(20)
+    expect(visibleRows(60, 15)).toBe(15)
+  })
+
+  test("never drops below one row", () => {
+    expect(visibleRows(9)).toBe(1)
+    expect(visibleRows(3)).toBe(1)
+  })
+})
+
 describe("pickerModel", () => {
   const header = { title: "T", hints: ["esc"], empty: "Nothing" }
   const row = (n: number, selected: boolean) => ({ id: String(n), selected })
 
   test("builds only the rows in view, marking the selected one", () => {
-    const model = pickerModel(Array.from({ length: 30 }, (_, i) => i), 15, header, row)
+    const model = pickerModel(Array.from({ length: 30 }, (_, i) => i), 15, 60, header, row)
     expect(model.rows.map((r) => r.id)).toEqual(Array.from({ length: 20 }, (_, i) => String(i + 5)))
     expect(model.rows.filter((r) => r.selected).map((r) => r.id)).toEqual(["15"])
     expect(model).toMatchObject({ title: "T", count: "16/30", hints: ["esc"], above: 5, below: 5, empty: null })
   })
 
+  test("keeps to the rows a short terminal has room for", () => {
+    const model = pickerModel(Array.from({ length: 30 }, (_, i) => i), 0, 24, header, row)
+    expect(model.rows).toHaveLength(15)
+    expect(model).toMatchObject({ above: 0, below: 15 })
+  })
+
   test("says what an empty list says only when it is empty", () => {
-    expect(pickerModel([], 0, header, row).empty).toBe("Nothing")
-    expect(pickerModel([1], 0, header, row).empty).toBeNull()
+    expect(pickerModel([], 0, 60, header, row).empty).toBe("Nothing")
+    expect(pickerModel([1], 0, 60, header, row).empty).toBeNull()
   })
 })

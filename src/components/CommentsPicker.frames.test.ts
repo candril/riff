@@ -12,7 +12,7 @@ async function frame(entries: CommentsPickerEntry[], selectedIndex = 0, height =
   mounted = await mountRenderable(
     (renderer) => {
       const island = createCommentsPickerIsland(renderer)
-      island.update(commentsPickerModel(entries, selectedIndex))
+      island.update(commentsPickerModel(entries, selectedIndex, height))
       return island.host
     },
     { width: 100, height }

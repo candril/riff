@@ -3,6 +3,9 @@ import { marksPickerModel } from "./marks-picker-model"
 import type { MarkEntry } from "../features/marks"
 import { theme } from "../theme"
 
+/** Tall enough that no list here is cut to the terminal. */
+const TALL = 60
+
 const ENTRIES: MarkEntry[] = [
   { mark: { letter: "a", filename: "src/greet.ts", line: 12, side: "RIGHT" }, text: "return template(name)" },
   { mark: { letter: "Q", filename: "README.md", line: null, side: "RIGHT" }, text: "" },
@@ -10,11 +13,11 @@ const ENTRIES: MarkEntry[] = [
 
 describe("marksPickerModel", () => {
   test("titles the list with the delete key", () => {
-    expect(marksPickerModel(ENTRIES, 1, true)).toMatchObject({ title: "Marks", count: "2/2", hints: ["^x delete", "esc"], empty: null })
+    expect(marksPickerModel(ENTRIES, 1, true, TALL)).toMatchObject({ title: "Marks", count: "2/2", hints: ["^x delete", "esc"], empty: null })
   })
 
   test("gives each mark its letter in peach, its place and its line's text", () => {
-    expect(marksPickerModel(ENTRIES, 1, true).rows).toEqual([
+    expect(marksPickerModel(ENTRIES, 1, true, TALL).rows).toEqual([
       {
         id: "a",
         selected: false,
@@ -39,7 +42,7 @@ describe("marksPickerModel", () => {
   })
 
   test("an empty list says how to set a mark, or that the filter matched none", () => {
-    expect(marksPickerModel([], 0, false).empty).toBe("No marks — m{letter} sets one")
-    expect(marksPickerModel([], 0, true).empty).toBe("No matching marks")
+    expect(marksPickerModel([], 0, false, TALL).empty).toBe("No marks — m{letter} sets one")
+    expect(marksPickerModel([], 0, true, TALL).empty).toBe("No matching marks")
   })
 })

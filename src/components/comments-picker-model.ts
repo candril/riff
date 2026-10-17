@@ -32,10 +32,21 @@ function statusGlyph(entry: CommentsPickerEntry): { glyph: string; fg: string } 
   }
 }
 
-export function commentsPickerModel(entries: readonly CommentsPickerEntry[], selectedIndex: number): CommentsPickerModel {
+/** Local comments store their author as "@you"; GitHub's come without the "@". */
+function authorHandle(author: string | undefined): string | null {
+  if (!author) return null
+  return author.startsWith("@") ? author : `@${author}`
+}
+
+export function commentsPickerModel(
+  entries: readonly CommentsPickerEntry[],
+  selectedIndex: number,
+  height: number
+): CommentsPickerModel {
   return pickerModel(
     entries,
     selectedIndex,
+    height,
     { title: "Find Comments", hints: ["esc"], empty: "No comments" },
     (entry, selected) => {
       const { glyph, fg } = statusGlyph(entry)
@@ -48,7 +59,7 @@ export function commentsPickerModel(entries: readonly CommentsPickerEntry[], sel
         locationFg: selected ? theme.text : theme.subtext1,
         preview: entry.preview,
         previewFg: selected ? theme.subtext0 : theme.overlay0,
-        author: entry.comment.author ? `@${entry.comment.author}` : null,
+        author: authorHandle(entry.comment.author),
       }
     }
   )

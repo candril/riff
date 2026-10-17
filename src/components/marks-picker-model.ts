@@ -14,10 +14,16 @@ export interface MarksPickerRow extends PickerRow {
 export type MarksPickerModel = PickerModel<MarksPickerRow>
 
 /** `anyMarks`: whether any mark is set, filtered out or not; an empty list then says how to set one. */
-export function marksPickerModel(entries: readonly MarkEntry[], selectedIndex: number, anyMarks: boolean): MarksPickerModel {
+export function marksPickerModel(
+  entries: readonly MarkEntry[],
+  selectedIndex: number,
+  anyMarks: boolean,
+  height: number
+): MarksPickerModel {
   return pickerModel(
     entries,
     selectedIndex,
+    height,
     { title: "Marks", hints: ["^x delete", "esc"], empty: anyMarks ? "No matching marks" : "No marks — m{letter} sets one" },
     (entry, selected) => ({
       id: entry.mark.letter,

@@ -41,13 +41,13 @@ test("the file picker opens, moves its selection in place, closes and reopens on
   const field = PromptInput(setup!.renderer, "file-picker")
   expect(await screen()).toBe("")
 
-  island.update(filePickerModel(files, 0))
+  island.update(filePickerModel(files, 0, 24))
   expect(await screen()).toMatch(/Find Files\s+1\/3  esc/)
   const row = findText(island.host, "b.ts")
   expect(row).toBeDefined()
   expect(field.parent).not.toBeNull()
 
-  island.update(filePickerModel(files, 1))
+  island.update(filePickerModel(files, 1, 24))
   expect(await screen()).toMatch(/Find Files\s+2\/3  esc/)
   expect(findText(island.host, "b.ts")).toBe(row!)
 
@@ -58,7 +58,7 @@ test("the file picker opens, moves its selection in place, closes and reopens on
   expect(field.isDestroyed).toBe(false)
   expect(field.parent).not.toBeNull()
 
-  island.update(filePickerModel(files, 2))
+  island.update(filePickerModel(files, 2, 24))
   expect(await screen()).toMatch(/Find Files\s+3\/3  esc/)
   expect(PromptInput(setup!.renderer, "file-picker")).toBe(field)
   expect(field.isDestroyed).toBe(false)
@@ -74,10 +74,10 @@ test("the comments and marks pickers each keep their own field across a close", 
   const marksField = PromptInput(setup!.renderer, "marks-picker")
   expect(commentsField).not.toBe(marksField)
 
-  comments.update(commentsPickerModel([], 0))
+  comments.update(commentsPickerModel([], 0, 24))
   expect(await screen()).toContain("No comments")
   comments.update(null)
-  marks.update(marksPickerModel([], 0, false))
+  marks.update(marksPickerModel([], 0, false, 24))
   const shown = await screen()
   expect(shown).not.toContain("Find Comments")
   expect(shown).toContain("No marks — m{letter} sets one")

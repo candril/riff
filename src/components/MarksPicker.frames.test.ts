@@ -12,7 +12,7 @@ async function frame(entries: MarkEntry[], selectedIndex = 0) {
   mounted = await mountRenderable(
     (renderer) => {
       const island = createMarksPickerIsland(renderer)
-      island.update(marksPickerModel(entries, selectedIndex, entries.length > 0))
+      island.update(marksPickerModel(entries, selectedIndex, entries.length > 0, 24))
       return island.host
     },
     { width: 100, height: 24 }
