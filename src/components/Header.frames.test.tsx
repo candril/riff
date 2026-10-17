@@ -1,6 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { mountRenderable } from "../testing/frame"
-import { Header, type HeaderProps } from "./Header"
+import { mountJsx, trimFrame } from "../testing/frame"
+import { Header } from "./Header"
+import { headerModel, type HeaderProps } from "./header-model"
 import { mergeReading } from "../utils/merge-verdict"
 import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
@@ -40,11 +41,17 @@ const COMMITS: PrCommit[] = [
 
 const LOCAL: HeaderProps = { branchInfo: "greet → main", totalFiles: 3 }
 
-let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
+type Props = HeaderProps & { version?: string }
 
-async function frame(props: HeaderProps, width = 100) {
-  mounted = await mountRenderable(() => Header(props), { width, height: 1 })
-  return mounted.frame()
+let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
+
+async function mount({ version, ...props }: Props, width = 100) {
+  mounted = await mountJsx(() => <Header {...headerModel(props)} version={version} />, { width, height: 1 })
+  return mounted
+}
+
+async function frame(props: Props, width = 100) {
+  return (await mount(props, width)).frame()
 }
 
 afterEach(async () => {
@@ -111,7 +118,7 @@ describe("version", () => {
   })
 
   test("in PR mode it follows the long right side and takes nothing from the left", async () => {
-    const props: HeaderProps = {
+    const props: Props = {
       prInfo: PR,
       totalFiles: 3,
       merge: mergeReading(PR, PR.checks!, []),
@@ -130,7 +137,16 @@ describe("version", () => {
   })
 
   // The local header with a file selected takes 45 cells, and 57 with the version.
-  const SELECTED: HeaderProps = { ...LOCAL, selectedFile: GREET }
+  const SELECTED: Props = { ...LOCAL, selectedFile: GREET }
+
+  // A version that waited for the row's own layout would only show on a second frame.
+  test("is in the very first frame", async () => {
+    const { setup } = await mount({ ...SELECTED, version: VERSION })
+    await setup.renderOnce()
+    expect(trimFrame(setup.captureCharFrame())).toBe(
+      " riff  greet   →   main  src/greet.ts                                             +2 -1  9.9.9+test"
+    )
+  })
 
   test("is dropped whole when the rest only just fits", async () => {
     for (const width of [45, 56]) {

@@ -7,7 +7,6 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import {
-  Header,
   ActionMenu,
   ReviewPreview,
   InlineCommentOverlay,
@@ -64,6 +63,8 @@ import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { buildTablePeek } from "../features/diff-view/table-peek"
 import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
+import { headerModel } from "../components/header-model"
+import type { HeaderIsland } from "./header"
 import { buildMermaidPeek } from "../features/diff-view/mermaid-peek"
 import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -111,6 +112,7 @@ export interface RenderContext {
   renderer: CliRenderer
   fileTreePanel: FileTreePanel
   statusBar: StatusBarIsland
+  header: HeaderIsland
   split: SplitDiff
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
@@ -509,6 +511,26 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       : null
     const content = mainContentRow(view, commentPanel, { withTree })
 
+    ctx.header.update({
+      ...headerModel({
+        title: "riff",
+        selectedFile,
+        totalFiles: state.files.length,
+        prInfo: state.prInfo,
+        reviewProgress: getReviewProgress(state),
+        branchInfo: state.branchInfo,
+        viewingCommit: state.viewingCommit,
+        viewingCommitScope: state.viewingCommitScope,
+        branchPr: state.branchPr,
+        commits: state.commits,
+        lastRefreshedAt: state.lastRefreshedAt,
+        merge: state.prInfo
+          ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments)
+          : null,
+      }),
+      version,
+    })
+
     ctx.renderer.root.add(
       Box(
         {
@@ -516,23 +538,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           height: "100%",
           flexDirection: "column",
         },
-        Header({
-          title: "riff",
-          selectedFile,
-          totalFiles: state.files.length,
-          prInfo: state.prInfo,
-          reviewProgress: getReviewProgress(state),
-          branchInfo: state.branchInfo,
-          viewingCommit: state.viewingCommit,
-          viewingCommitScope: state.viewingCommitScope,
-          branchPr: state.branchPr,
-          commits: state.commits,
-          lastRefreshedAt: state.lastRefreshedAt,
-          merge: state.prInfo
-            ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments)
-            : null,
-          version,
-        }),
+        ctx.header.host,
         Box(
           {
             flexGrow: 1,

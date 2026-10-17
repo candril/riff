@@ -1,4 +1,5 @@
-export { Header, type HeaderProps } from "./Header"
+export { headerModel, type HeaderProps, type HeaderModel } from "./header-model"
+export { Header, type HeaderViewProps } from "./Header"
 export { StatusBar, type StatusBarProps } from "./StatusBar"
 export { FileTree, type FileTreeProps, getFlatTreeItems, getVisibleFlatTreeItems } from "./FileTree"
 export { ActionMenu, type ActionMenuProps, type ActionMenuMode, type SubmenuRow, getVisualActionOrder } from "./ActionMenu"

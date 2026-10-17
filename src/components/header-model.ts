@@ -39,8 +39,6 @@ export interface HeaderProps {
   lastRefreshedAt?: string | null
   /** Whose move it is — can this land, and if not, who is holding it. */
   merge?: MergeReading | null
-  /** The build, as `riff --version` names it; omitted, nothing is drawn. */
-  version?: string
 }
 
 /**

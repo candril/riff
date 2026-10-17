@@ -56,6 +56,7 @@ import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/
 import { createRenderFunction } from "./app/render"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
+import { createHeaderIsland } from "./app/header"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
 import { createUnifiedDiff } from "./app/unified-diff"
@@ -273,6 +274,7 @@ export async function createApp(options: AppOptions = {}) {
     // otherwise remove them.
     aiReview.removeSessionFiles()
     statusBar.dispose()
+    header.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -444,6 +446,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   const statusBar = createStatusBarIsland(renderer)
+  const header = createHeaderIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -505,6 +508,7 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     fileTreePanel,
     statusBar,
+    header,
     split,
     unified,
     parses,
