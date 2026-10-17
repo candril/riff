@@ -10,7 +10,7 @@ import type { ReviewEvent } from "./components/ReviewPreview"
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
-import { createMarksState, type MarksState } from "./features/marks/types"
+import { createMarksState, type MarksState, type MarksPickerState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
@@ -594,6 +594,7 @@ export interface AppState {
 
   // Global marks (spec 101): the letters `m` sets and `'` returns to.
   marks: MarksState
+  marksPicker: MarksPickerState
 }
 
 /**
@@ -799,6 +800,7 @@ export function createInitialState(
     reactionTarget: null,
     jumpList: createJumpListState(),
     marks: createMarksState(),
+    marksPicker: { open: false, query: "", selectedIndex: 0 },
   }
 }
 
@@ -1040,6 +1042,7 @@ export function promptOpen(state: AppState): boolean {
     state.actionMenu.open ||
     state.filePicker.open ||
     state.commentsPicker.open ||
+    state.marksPicker.open ||
     state.occurrencePicker.open ||
     state.commitPicker.open ||
     state.treeFilterInput ||

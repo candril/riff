@@ -7,7 +7,7 @@
  * where it was; it is looked up again in whatever mapping is current.
  */
 
-export type { Mark, MarksState } from "./types"
+export type { Mark, MarksState, MarksPickerState } from "./types"
 export { createMarksState } from "./types"
 export {
   isMarkLetter,
@@ -22,3 +22,5 @@ export { markAt } from "./capture"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
+export { markEntries, markLineText, markEntryLocation, filterMarkEntries, type MarkEntry } from "./list"
+export { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection } from "./picker-state"

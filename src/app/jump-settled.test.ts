@@ -28,6 +28,7 @@ describe("an interaction is settled", () => {
 
   const open: [string, Partial<InteractionInputs>][] = [
     ["a picker", { state: { ...initial, filePicker: { ...initial.filePicker, open: true } } }],
+    ["the marks picker", { state: { ...initial, marksPicker: { ...initial.marksPicker, open: true } } }],
     ["the occurrence picker", { state: { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true } } }],
     ["a filter prompt", { state: { ...initial, treeFilterInput: true } }],
     ["a search prompt", { searchActive: true }],
