@@ -143,7 +143,7 @@ describe("unifiedCursorCell", () => {
   test("a tab or a character outside the BMP is counted in the cells it draws", () => {
     const deletion = lineOf(TAB_AND_ASTRAL, "\tx = 1")
     const addition = lineOf(TAB_AND_ASTRAL, "😀!")
-    // The tab and the emoji draw two cells each, the emoji for its two UTF-16 units.
+    // The tab and the emoji draw two cells each, the emoji because it is a wide glyph.
     expect(cellAt(TAB_AND_ASTRAL, deletion, { col: 1 })).toMatchObject({ x: 5 + 2 })
     expect(cellAt(TAB_AND_ASTRAL, addition, { col: 2 })).toMatchObject({ x: 5 + 2 })
   })

@@ -1,7 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { Show, batch, createSignal, onCleanup } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
+import { cellOfColumn } from "../diff-rows/cells"
 import { UnifiedDiffView, type UnifiedDiffViewProps } from "../split-view/UnifiedDiffView"
 import { createUnifiedLayout, type UnifiedLayout } from "../split-view/unified-layout"
 import { unifiedShownCells } from "../split-view/unified-markers"

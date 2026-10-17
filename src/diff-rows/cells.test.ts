@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { cellOfColumn, cellsOf, columnOfCell, graphemeCells } from "./cells"
+import { cellOfColumn, cellsOf, columnOfCell, graphemeCells, wholeColumns } from "./cells"
 
 describe("graphemeCells", () => {
   test("wide glyphs are two cells, a tab two, a zero-width space none", () => {
@@ -44,5 +44,41 @@ describe("cellOfColumn and columnOfCell", () => {
   test("a pure-ASCII line counts a cell a unit, but a tab", () => {
     expect(cellOfColumn("a\tb", 2)).toBe(3)
     expect(columnOfCell("a\tb", 2)).toBe(1)
+  })
+})
+
+describe("wholeColumns", () => {
+  test("a window that starts on an ideograph's second cell starts at the next ideograph", () => {
+    expect(wholeColumns("中中中", 1, 5)).toEqual({ startCol: 1, endCol: 3 })
+  })
+
+  test("a window that ends on an ideograph's first cell ends before it", () => {
+    expect(wholeColumns("中中中", 0, 4)).toEqual({ startCol: 0, endCol: 2 })
+    expect(wholeColumns("中中中", 1, 4)).toEqual({ startCol: 1, endCol: 2 })
+  })
+
+  test("a window inside a single ideograph holds nothing", () => {
+    const { startCol, endCol } = wholeColumns("中中中", 1, 2)
+    expect(endCol).toBe(startCol)
+  })
+
+  test("a window narrower than nothing is empty", () => {
+    const { startCol, endCol } = wholeColumns("abc", 2, 1)
+    expect(endCol).toBe(startCol)
+  })
+
+  test("on ASCII and past the end, the columns columnOfCell gives", () => {
+    for (const [content, first, last] of [
+      ["abcdef", 2, 4],
+      ["a\tb", 1, 2],
+      ["abc", 2, 6],
+      ["中", 3, 5],
+      ["", 1, 3],
+    ] as const) {
+      expect(wholeColumns(content, first, last)).toEqual({
+        startCol: columnOfCell(content, first),
+        endCol: columnOfCell(content, last) + 1,
+      })
+    }
   })
 })

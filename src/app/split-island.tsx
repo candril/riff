@@ -1,7 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
+import { cellOfColumn, wholeColumns } from "../diff-rows/cells"
 import { rowOfLine } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view"
@@ -74,8 +74,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     if (!IN_HALVES.has(shown.type)) return { startCol: 0, endCol: width }
     const { content } = shown
     const { first, last } = visibleCells(columns()[side], width, cellOfColumn(content, content.length))
-    const startCol = columnOfCell(content, first)
-    return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
+    return wholeColumns(content, first, last)
   }
 
   /**

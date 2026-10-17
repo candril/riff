@@ -1,4 +1,4 @@
-import { cellOfColumn, columnOfCell } from "../diff-rows/cells"
+import { cellOfColumn, wholeColumns } from "../diff-rows/cells"
 import type { UnifiedLayout } from "../split-view/unified-layout"
 import { unifiedShownCells } from "../split-view/unified-markers"
 import type { FlashRegion, FlashWindow } from "../vim-diff/flash-handler"
@@ -44,8 +44,7 @@ export function createUnifiedWindows({ inputs, layout, shownTop, shownColumn, he
     const width = Math.max(0, codeWidth(laid, line))
     if (!IN_CODE.has(shown.type)) return { startCol: 0, endCol: width }
     const { first, last } = unifiedShownCells(shownColumn(), width, cellOfColumn(content, content.length))
-    const startCol = columnOfCell(content, first)
-    return { startCol, endCol: last < first ? startCol : columnOfCell(content, last) + 1 }
+    return wholeColumns(content, first, last)
   }
 
   // Only the slices on screen: a line cut off at the top, under the pinned header or at the bottom edge

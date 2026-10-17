@@ -74,6 +74,16 @@ test("zl onto the second cell of an ideograph pulls the cursor to the next one, 
   }
 })
 
+test("zl 1 leaves the first ideograph half shown, so flash looks at the run from the second one on", async () => {
+  const view = await mount()
+  view.island.update({ cursor: { line: view.run, col: 0 } })
+  view.island.resetColumns()
+  await view.frame()
+  view.island.scrollColumnsBy(1)
+
+  expect(view.island.lineWindow(view.run)).toEqual({ startCol: 1, endCol: 18 })
+})
+
 test("unwrapped, a run of ideographs fills the pane to its last cell, which is the ›, and the readout counts cells", async () => {
   const view = await mount()
   view.island.update({ cursor: { line: view.run, col: 10 } })

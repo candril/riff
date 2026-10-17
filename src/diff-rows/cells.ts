@@ -44,7 +44,6 @@ export function walkCells(
   return { column: content.length, cell }
 }
 
-/** The cells `text` draws in. */
 export const cellsOf = (text: string) => walkCells(text, () => false).cell
 
 /** The first cell a column of `content` draws in; inside a grapheme, the grapheme's. */
@@ -57,4 +56,18 @@ export function cellOfColumn(content: string, column: number): number {
 export function columnOfCell(content: string, cell: number): number {
   const end = walkCells(content, (_column, at, width) => cell < at + width)
   return end.column < content.length ? end.column : end.column + Math.max(0, cell - end.cell)
+}
+
+/**
+ * The columns of the graphemes drawn whole between cells `first` and
+ * `last`, `endCol` exclusive: a wide glyph an edge cuts in half is left
+ * out, since only half of it is on screen. Past the end each cell is a
+ * column, as columnOfCell has it.
+ */
+export function wholeColumns(content: string, first: number, last: number): { startCol: number; endCol: number } {
+  const start = walkCells(content, (_column, cell) => cell >= first)
+  const startCol = start.column < content.length ? start.column : start.column + Math.max(0, first - start.cell)
+  const end = walkCells(content, (_column, cell, width) => cell + Math.max(width, 1) - 1 > last)
+  const endCol = end.column < content.length ? end.column : end.column + Math.max(0, last + 1 - end.cell)
+  return { startCol, endCol: Math.max(startCol, endCol) }
 }

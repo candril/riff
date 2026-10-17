@@ -307,4 +307,17 @@ describe("sidescroll", () => {
       ])
     }
   })
+
+  test("a pane scrolled into an ideograph shows flash the run from the next whole one", async () => {
+    const RUN_ROW = 2
+    const { island, source } = await mount(8, undefined, WIDE_GLYPHS)
+    island.update({ cursor: { row: RUN_ROW, col: 0 } })
+    await frame()
+    // The ‹ covers cell 2, so the window opens on cell 3, the second ideograph's second cell.
+    island.scrollColumnsBy(2)
+    const row = source.rows[RUN_ROW]!
+    const line = row.kind === "pair" ? row.right! : -1
+
+    expect(island.lineWindow(line).startCol).toBe(2)
+  })
 })
