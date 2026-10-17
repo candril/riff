@@ -1,5 +1,9 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { Mark } from "../features/marks/types"
+import { markAt } from "../features/marks/capture"
+import { followMarks } from "../features/marks/follow"
+import { parseDiff } from "../utils/diff-parser"
+import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { ONE_LONG_LINE, TWO_FILES } from "../testing/diffs"
 import { charAt, screenOf } from "../testing/screen"
 import { bgAt, fgAt, ints } from "../testing/split-frame"
@@ -94,5 +98,24 @@ describe("a file mark", () => {
     const screen = await screenWith({ raw: TWO_FILES, height: 4, scrollTop: 10, marks: [mark("e", "src/farewell.ts", null)] })
     expect(screen.rows[0]!.trimEnd()).toBe("e▼   src/farewell.ts +3 -0")
     expect(fgAt(screen.spans, 0, 0)).toEqual(ints(colors.markLetter))
+  })
+})
+
+describe("a mark after new commits shifted its file", () => {
+  // TWO_FILES with two lines pushed in above greet.ts's first line.
+  const SHIFTED = TWO_FILES.replace("@@ -1,5 +1,5 @@\n", "@@ -1,5 +1,7 @@\n+// one\n+// two\n")
+
+  test("shows its letter on the row its text moved to, not on the old number", async () => {
+    // Row 6 of TWO_FILES is new line 5, `export const version = 1`.
+    const set = markAt(new DiffLineMapping(parseDiff(TWO_FILES), "all"), 6, "a")!
+    expect(set).toMatchObject({ line: 5, text: "export const version = 1" })
+
+    const { marks, moved } = followMarks([set], parseDiff(SHIFTED), "new-head")
+    expect(moved).toBe(true)
+    const screen = await screenWith({ raw: SHIFTED, marks })
+    expect(screen.rows[8]!.trimEnd()).toBe(" a  7 export const version = 1")
+    // New line 5 is now the closing brace, and carries no letter.
+    expect(screen.rows[6]!.trimEnd()).toBe("    5 }")
+    expect(screen.rows.filter((row) => row[1] === "a")).toHaveLength(1)
   })
 })

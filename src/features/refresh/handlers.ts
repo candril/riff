@@ -31,6 +31,8 @@ import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
 import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
+import type { Mark } from "../marks/types"
+import { followReloadedMarks } from "./marks"
 import {
   capturePosition,
   refreshMessage,
@@ -69,6 +71,7 @@ export interface RefreshContext {
   // (PRInfoPanelClass holds prInfo/files/comments in private fields set
   // in its constructor, so a refresh has to swap the instance).
   recreatePrInfoPanel: () => void
+  saveMarks: (marks: readonly Mark[]) => void
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -140,6 +143,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         // filters and row are the reader's and survive (spec 070).
         return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withCommits, position))
       })
+      followReloadedMarks(ctx, headSha || undefined)
 
       // Collapse resolved threads
       const threads = groupIntoThreads(newComments)
@@ -202,6 +206,8 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
         return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withBranchAndCommits, position))
       })
+      // No head: in a local review the text alone follows worktree edits.
+      followReloadedMarks(ctx, undefined)
 
       // Viewed marks live on disk, not in the diff — a reload that skipped
       // them would drop every file's review status.

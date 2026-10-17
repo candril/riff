@@ -90,12 +90,27 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
 
 ## Technical Notes
 
-- A mark is `{ letter, path, line, side }` with `side` as `CommentAnchor`
-  has it. Resolving it to a row goes through `DiffLineMapping`, which
-  already answers "which row shows this file's line on this side" for
-  comments; the split view reads the active side from the same answer.
-- Missing lines resolve the way a comment thread that drifted does: the
-  nearest surviving line in the same file, else the file header.
+- A mark is stored as `{ letter, filename, line, side, text?, head? }`,
+  with `side` as `CommentAnchor` has it. `text` is the marked line's source,
+  untrimmed and without the diff prefix; `head` is the PR head `line` was
+  last checked against, and local reviews leave it out. A file mark has
+  `line: null` and no text, and a line marked on expanded context has no
+  text either. Resolving a mark to a row goes through
+  `DiffLineMapping`, which already answers "which row shows this file's
+  line on this side" for comments; the split view reads the active side
+  from the same answer.
+- Marks follow their code. On every load and refresh a mark is looked for
+  again by its text within 50 lines of its old number, nearest first and
+  the upper on a tie; found, it moves there silently and the marks are
+  saved with the new line and head. A renamed file carries its marks to
+  its new name. Expanded context is not in the patch, so a mark set there
+  could only be found again on some other line that reads the same; it
+  carries no text and keeps its number. Entries without `text` resolve by
+  number alone.
+- A missing line resolves the way a comment thread that drifted does: the
+  nearest surviving line in the same file, else the file header. A line
+  whose number survives but whose text is not the marked text counts as
+  missing too: the jump lands on it and says the line is gone.
 - `''` keeps two letters, `current` and `previous`, in memory only; a
   session starts with neither.
 - The gutter's letter sits on the row `resolveMark` returns, so it shows

@@ -1,5 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { Mark } from "../features/marks/types"
+import { followMarks } from "../features/marks/follow"
+import { parseDiff } from "../utils/diff-parser"
 import { TWO_FILES } from "../testing/diffs"
 import { fgAt, ints, mountSplit, type MountSplitOptions } from "../testing/split-frame"
 import { colors, theme } from "../theme"
@@ -76,5 +78,19 @@ describe("a file mark", () => {
       await mounted!.dispose()
       mounted = null
     }
+  })
+})
+
+describe("a mark after new commits shifted its file", () => {
+  // TWO_FILES with two lines pushed in above greet.ts's first line.
+  const SHIFTED = TWO_FILES.replace("@@ -1,5 +1,5 @@\n", "@@ -1,5 +1,7 @@\n+// one\n+// two\n")
+
+  test("shows its letter on the row its text moved to in the right half", async () => {
+    const set = { ...mark("a", 5, "RIGHT"), text: "export const version = 1" }
+    const { marks } = followMarks([set], parseDiff(SHIFTED), undefined)
+    const rows = await rowsWith({ raw: SHIFTED, marks })
+    const marked = rows.filter((row) => row[RIGHT_LETTER] === "a")
+    expect(marked).toHaveLength(1)
+    expect(marked[0]!.slice(RIGHT_LETTER - 1)).toContain("7 export const version = 1")
   })
 })

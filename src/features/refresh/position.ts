@@ -125,9 +125,10 @@ export function restorePosition(state: AppState, position: RefreshPosition): App
 
 /**
  * The reloaded state with the reader's view put back. Marks are lines, not
- * rows, so they need no relocating; they come from the state as it is now
- * rather than from the position, because `m` can set one while the reload
- * is awaited.
+ * rows, so the cursor's relocating does not apply to them (followReloadedMarks
+ * moves them by their text); they come from the state as it is now rather
+ * than from the position, because `m` can set one while the reload is
+ * awaited.
  */
 export function rebuildAfterRefresh(live: AppState, reloaded: AppState, position: RefreshPosition): AppState {
   return { ...restorePosition(reloaded, position), marks: live.marks }

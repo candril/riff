@@ -4,7 +4,9 @@
  * `m{letter}` remembers a place in the review and `'{letter}` returns to it
  * from anywhere. A mark is a file, a line and a side rather than a row, so
  * folds, wrap, split and a refresh, which all renumber the rows, leave it
- * where it was; it is looked up again in whatever mapping is current.
+ * where it was; it is looked up again in whatever mapping is current. It
+ * also keeps its line's text, so a diff that moved the line under it (new
+ * commits, a rename) can move it along.
  */
 
 export type { Mark, MarksState, MarksPickerState } from "./types"

@@ -38,6 +38,7 @@ import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
 import { markVisit } from "./utils/visit"
 import { saveVisitSync, saveMarks, loadMarks } from "./storage"
+import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { PrInfo, ViewerViewedState } from "./providers/github"
@@ -863,6 +864,7 @@ export async function createApp(options: AppOptions = {}) {
     reloadFeed: () => { void feedFeature.loadFeed(feedLoadContext) },
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
+    saveMarks: (saved) => { void saveMarks(state.source, saved) },
     recreatePrInfoPanel: () => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1229,7 +1231,8 @@ export async function createApp(options: AppOptions = {}) {
           state = { ...state, collapsedFiles: newCollapsed }
         }
         // Marks belong to the review: the PR's own, or the next `m` would save over them.
-        state = { ...state, marks: { ...state.marks, marks: await loadMarks(newSource) } }
+        const followed = await followLoadedMarks(newSource, await loadMarks(newSource), state.allFiles, prSession.headSha || undefined)
+        state = { ...state, marks: { ...state.marks, marks: followed } }
 
         // Reset vim state and rebuild line mapping
         vimState = createCursorState()
@@ -1574,7 +1577,7 @@ export async function createApp(options: AppOptions = {}) {
         splitView: state.splitView,
         alignMarkdownTables: state.alignMarkdownTables,
         viewMode: view,
-        marks: { ...next.marks, marks: await loadMarks(source) },
+        marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 

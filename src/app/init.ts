@@ -21,6 +21,7 @@ import {
   collapseViewedFiles,
   type AppState,
 } from "../state"
+import { followLoadedMarks } from "../features/marks/load"
 import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit, loadMarks } from "../storage"
 import { createMarksState } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
@@ -140,7 +141,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     branchInfo,
     wrapLines: config.diff.wrap,
     alignMarkdownTables: config.diff.alignMarkdownTables,
-    marks: { ...createMarksState(), marks: loadedMarks },
+    marks: { ...createMarksState(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
   }
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,
