@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs } from "./keys"
+import { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs } from "./keys"
 
 describe("the key after m or '", () => {
   test("names a lowercase letter", () => {
@@ -44,16 +44,41 @@ describe("the mark chords", () => {
   })
 
   test("m then a letter sets, ' then a letter jumps, '' flips", () => {
-    expect(markChordAction("m", parseKeypress("a")!)).toEqual({ kind: "set", letter: "a" })
-    expect(markChordAction("m", parseKeypress("B")!)).toEqual({ kind: "set", letter: "B" })
-    expect(markChordAction("'", parseKeypress("a")!)).toEqual({ kind: "jump", letter: "a" })
-    expect(markChordAction("'", parseKeypress("'")!)).toEqual({ kind: "flip" })
+    expect(markChordAction("m", parseKeypress("a")!, true)).toEqual({ kind: "set", letter: "a" })
+    expect(markChordAction("m", parseKeypress("B")!, true)).toEqual({ kind: "set", letter: "B" })
+    expect(markChordAction("'", parseKeypress("a")!, true)).toEqual({ kind: "jump", letter: "a" })
+    expect(markChordAction("'", parseKeypress("'")!, true)).toEqual({ kind: "flip" })
   })
 
   test("any other second key cancels", () => {
-    expect(markChordAction("m", parseKeypress("'")!)).toEqual({ kind: "cancel" })
-    expect(markChordAction("m", parseKeypress("\x1b")!)).toEqual({ kind: "cancel" })
-    expect(markChordAction("'", parseKeypress("1")!)).toEqual({ kind: "cancel" })
+    expect(markChordAction("m", parseKeypress("'")!, true)).toEqual({ kind: "cancel", passKey: false })
+    expect(markChordAction("m", parseKeypress("\x1b")!, true)).toEqual({ kind: "cancel", passKey: false })
+    expect(markChordAction("'", parseKeypress("1")!, true)).toEqual({ kind: "cancel", passKey: false })
+  })
+})
+
+describe("a pending mark chord once the diff has lost the keys", () => {
+  test("cancels and lets the key run as itself, even a letter", () => {
+    for (const opener of ["m", "'"] as const) {
+      for (const raw of ["a", "j", "'", "\x1b"]) {
+        expect(markChordAction(opener, parseKeypress(raw)!, false)).toEqual({ kind: "cancel", passKey: true })
+      }
+    }
+  })
+
+  test("drops the chord before any handler sees the key, so q, G, Tab, Escape and Ctrl keys reach theirs", () => {
+    for (const opener of ["m", "'"]) {
+      for (const raw of ["q", "G", "s", "i", "\t", "\x1b", "\x0b", "\x06", "j"]) {
+        expect(pendingMarkChordGivesWay(opener, parseKeypress(raw)!, false)).toBe(true)
+      }
+    }
+  })
+
+  test("keeps the chord while the diff has the keys, and leaves other chords to their own matcher", () => {
+    expect(pendingMarkChordGivesWay("m", parseKeypress("q")!, true)).toBe(false)
+    expect(pendingMarkChordGivesWay("'", parseKeypress("\x1b")!, true)).toBe(false)
+    expect(pendingMarkChordGivesWay("g", parseKeypress("q")!, false)).toBe(false)
+    expect(pendingMarkChordGivesWay(null, parseKeypress("q")!, false)).toBe(false)
   })
 })
 

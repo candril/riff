@@ -226,6 +226,23 @@ describe("''", () => {
     flipMark(h.ctx)
     expect(h.vim().line).toBe(9)
   })
+
+  test("after ]m failed onto a mark whose file is gone, goes back to the mark visited before it and adds no toast of its own", () => {
+    const h = harness([X, Y], { marks })
+    jumpToMark("a", h.ctx)
+    h.ctx.setState((s) => ({ ...s, files: [X] }))
+    h.ctx.fileNavContext.createLineMapping()
+    h.moveTo(2)
+
+    expect(stepToMark(1, h.ctx)).toBe(false)
+    expect(h.state().marks).toMatchObject({ current: "b", previous: "a" })
+    expect(h.toast()).toBe("Mark b: src/y.ts is not in this diff")
+
+    expect(flipMark(h.ctx)).toBe(true)
+    expect(h.vim().line).toBe(9)
+    expect(h.state().marks).toMatchObject({ current: "a", previous: "b" })
+    expect(h.toast()).toBe("Mark b: src/y.ts is not in this diff")
+  })
 })
 
 describe("]m and [m", () => {

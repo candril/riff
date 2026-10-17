@@ -556,6 +556,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       return
     }
 
+    // A click into the tree between `m` and its letter leaves the chord
+    // pending; the next key was typed for the tree, and every handler below
+    // stands aside while a chord is pending.
+    if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
+
     // ========== FLASH JUMP (captures all input while active, specs 022, 066) ==========
     // Ahead of the panels: a label is typed into whichever surface is being
     // labelled, and that surface's own keys must not see it first.
@@ -1353,7 +1358,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     const chordPending = pendingKey !== null
     if (pendingKey === "m" || pendingKey === "'") {
-      const action = marks.markChordAction(pendingKey, key)
+      const action = marks.markChordAction(pendingKey, key, diffTakesMarkChord())
       clearPendingKey()
       if (action.kind === "set") marks.setMarkAtCursor(action.letter, ctx.marksContext)
       else if (action.kind === "jump") marks.jumpToMark(action.letter, ctx.marksContext)

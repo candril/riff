@@ -8,7 +8,8 @@ export type MarkChordAction =
   | { kind: "set"; letter: string }
   | { kind: "jump"; letter: string }
   | { kind: "flip" }
-  | { kind: "cancel" }
+  /** `passKey`: the key is not the chord's and runs as itself. */
+  | { kind: "cancel"; passKey: boolean }
 
 /**
  * The letter a key names after `m` or `'`. A terminal sends an uppercase
@@ -40,12 +41,29 @@ export function markChordOpenedBy(key: Key, diffInNormalMode: boolean): MarkChor
   return null
 }
 
-/** What the key after the opener does. Anything but a letter, or `'` after `'`, cancels, as in vim. */
-export function markChordAction(opener: MarkChord, key: Key): MarkChordAction {
+/**
+ * What the key after the opener does. Anything but a letter, or `'` after
+ * `'`, cancels and is dropped, as in vim. A key that arrives once the diff
+ * no longer has the keys, say after a click into the tree, was typed for
+ * wherever they went, so it cancels the chord and runs there.
+ */
+export function markChordAction(opener: MarkChord, key: Key, diffInNormalMode: boolean): MarkChordAction {
+  if (!diffInNormalMode) return { kind: "cancel", passKey: true }
   const letter = markLetterOf(key)
   if (letter) return opener === "m" ? { kind: "set", letter } : { kind: "jump", letter }
   if (opener === "'" && isMarkQuote(key)) return { kind: "flip" }
-  return { kind: "cancel" }
+  return { kind: "cancel", passKey: false }
+}
+
+/**
+ * Whether a pending chord is dropped before the key is handled at all, so the
+ * key reaches every handler a key with no chord pending would: the global
+ * keys, the overlays and the panel the keys went to.
+ */
+export function pendingMarkChordGivesWay(pending: string | null, key: Key, diffInNormalMode: boolean): boolean {
+  if (pending !== "m" && pending !== "'") return false
+  const action = markChordAction(pending, key, diffInNormalMode)
+  return action.kind === "cancel" && action.passKey
 }
 
 /**

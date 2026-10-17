@@ -20,7 +20,7 @@ export {
 } from "./store"
 export { markAt } from "./capture"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
-export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
+export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 export { markEntries, markLineText, markEntryLocation, filterMarkEntries, type MarkEntry } from "./list"
 export { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection, marksPickerEntries } from "./picker-state"
