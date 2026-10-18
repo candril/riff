@@ -60,6 +60,7 @@ import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
+import { createSyncPreviewIsland } from "./app/sync-preview"
 import { createHelpOverlayIsland } from "./app/help-overlay"
 import { createPeekIsland } from "./app/peek-island"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
@@ -297,6 +298,7 @@ export async function createApp(options: AppOptions = {}) {
     toast.dispose()
     draftNotification.dispose()
     confirmDialog.dispose()
+    syncPreviewIsland.dispose()
     helpOverlay.dispose()
     diffPeek.dispose()
     hunkPeek.dispose()
@@ -483,6 +485,7 @@ export async function createApp(options: AppOptions = {}) {
   const toast = createToastIsland(renderer)
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
+  const syncPreviewIsland = createSyncPreviewIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
   const diffPeek = createPeekIsland(renderer, { id: "diff-peek-island" })
   // Above the comments panel (50), which is what this is drawn over.
@@ -560,6 +563,7 @@ export async function createApp(options: AppOptions = {}) {
     toast,
     draftNotification,
     confirmDialog,
+    syncPreview: syncPreviewIsland,
     helpOverlay,
     diffPeek,
     hunkPeek,

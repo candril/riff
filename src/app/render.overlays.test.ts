@@ -51,6 +51,7 @@ async function harness() {
         "toast",
         "draftNotification",
         "confirmDialog",
+        "syncPreview",
         "helpOverlay",
         "diffPeek",
         "hunkPeek",
@@ -70,6 +71,8 @@ async function harness() {
     const root = renderer.root.getChildren().find((child) => !child.id.startsWith("comment-indicator-"))!
     const ids = new Set([
       "actionMenu",
+      "toast",
+      "syncPreview",
       "filePicker",
       "commentsPicker",
       "marksPicker",
@@ -196,4 +199,26 @@ test("the command palette is mounted only while it is open, under the pickers", 
   expect(app.show({ filePicker: { ...initial.filePicker, open: true } })).toEqual(["actionMenu", "filePicker"])
   expect(app.show({ actionMenu: { ...initial.actionMenu, open: false } })).toEqual(["filePicker"])
   expect(app.show({ filePicker: { ...initial.filePicker, open: false } })).toEqual([])
+})
+
+// The review preview's slot lies between the toast and the sync preview, but
+// it is left shut here: its summary textarea is a module-level singleton
+// bound to the first renderer that draws it, and would outlive this one.
+test("the sync preview is mounted only while it is open, above the palette and the toast and under the pickers", async () => {
+  const app = await harness()
+  const initial = createInitialState([], [], "test", "")
+  const sync = (open: boolean) => ({ syncPreview: { ...initial.syncPreview, open } })
+  expect(app.show(sync(true))).toEqual(["syncPreview"])
+  expect(
+    app.show({
+      toast: { message: "Saved", type: "info" },
+      filePicker: { ...initial.filePicker, open: true },
+      actionMenu: { ...initial.actionMenu, open: true },
+    })
+  ).toEqual(["actionMenu", "toast", "syncPreview", "filePicker"])
+  expect(app.show(sync(false))).toEqual(["actionMenu", "toast", "filePicker"])
+  expect(app.show({ ...sync(true), toast: initial.toast, filePicker: initial.filePicker, actionMenu: initial.actionMenu })).toEqual([
+    "syncPreview",
+  ])
+  expect(app.show(sync(false))).toEqual([])
 })

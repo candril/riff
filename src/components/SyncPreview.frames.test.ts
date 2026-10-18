@@ -1,5 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
-import { SyncPreview, type SyncItem } from "./SyncPreview"
+import type { SyncItem } from "./sync-items"
+import { syncPreviewModel } from "./sync-preview-model"
+import { createSyncPreviewIsland } from "../app/sync-preview"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
 import type { Comment } from "../types"
@@ -18,7 +20,11 @@ afterEach(async () => {
 
 async function show(items: SyncItem[], { loading = false, error = null as string | null } = {}, height = 30) {
   mounted = await mountRenderable(
-    () => SyncPreview({ items, state: { loading, error, highlightedIndex: 0 } }),
+    (renderer) => {
+      const island = createSyncPreviewIsland(renderer)
+      island.update(syncPreviewModel(items, { loading, error }))
+      return island.host
+    },
     { width: 100, height }
   )
   const lines = (await mounted.frame()).split("\n")

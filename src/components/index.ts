@@ -14,7 +14,7 @@ export { commentsPickerModel, type CommentsPickerModel } from "./comments-picker
 export { marksPickerModel, type MarksPickerModel } from "./marks-picker-model"
 export { OccurrencePicker } from "./OccurrencePicker"
 export { occurrencePickerModel, type OccurrencePickerModel } from "./occurrence-picker-model"
-export { SyncPreview, type SyncPreviewProps } from "./SyncPreview"
+export { SyncPreview } from "./SyncPreview"
 export { gatherSyncItems, type SyncItem } from "./sync-items"
 export { syncPreviewModel, type SyncPreviewModel } from "./sync-preview-model"
 export { PRInfoPanelClass, type PRInfoPanelPosition } from "./PRInfoPanel"
