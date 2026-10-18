@@ -114,6 +114,32 @@ describe("the search prompt", () => {
     search.dispose()
   })
 
+  test("two islands on two renderers keep their own patterns", async () => {
+    const screens = await Promise.all([0, 1].map(() => createTestRenderer({ width: 40, height: 1 })))
+    const islands = screens.map((screen) => {
+      const island = createSearchPromptIsland(screen.renderer)
+      const parent = new BoxRenderable(screen.renderer, { width: "100%", height: 1 })
+      screen.renderer.root.add(parent)
+      parent.add(island.host)
+      return island
+    })
+    const frameOf = async (screen: TestRendererSetup) => {
+      await screen.renderOnce()
+      await screen.renderOnce()
+      return trimFrame(screen.captureCharFrame())
+    }
+    try {
+      islands[0]!.update(confirmed({ pattern: "foo" }))
+      expect(await frameOf(screens[0]!)).toBe(" /foo")
+      islands[1]!.update(confirmed({ pattern: "bar", prefix: "?" }))
+      expect(await frameOf(screens[1]!)).toBe(" ?bar")
+      expect(await frameOf(screens[0]!)).toBe(" /foo")
+    } finally {
+      islands.forEach((island) => island.dispose())
+      screens.forEach((screen) => screen.renderer.destroy())
+    }
+  })
+
   test("an identical update keeps the frame and the very renderables", async () => {
     const search = await mount(createSearchPromptIsland)
     search.update(confirmed())

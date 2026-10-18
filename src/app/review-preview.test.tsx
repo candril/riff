@@ -4,7 +4,7 @@ import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testin
 import { createReviewPreviewIsland } from "./review-preview"
 import { reviewPreviewModel, type ValidatedComment } from "../components/review-preview-model"
 import { getReviewSummaryRenderable } from "../components/ReviewSummaryComposer"
-import { fgAt, findText, ints } from "../testing/frame"
+import { fgAt, findText, ints, paintOf } from "../testing/frame"
 import { theme } from "../theme"
 import type { ReviewPreviewState } from "../state"
 
@@ -59,6 +59,76 @@ function model(overrides: Partial<ReviewPreviewState> = {}) {
 }
 
 const screenText = (screen: string[]) => screen.join("\n")
+
+function commentsOf(count: number, extra: Partial<ValidatedComment["comment"]> = {}): ValidatedComment[] {
+  return Array.from({ length: count }, (_, i) => ({
+    comment: { ...COMMENTS[0]!.comment, id: `k${i}`, line: i + 1, body: `Note ${i}`, ...extra },
+    valid: true,
+  }))
+}
+
+const pending = (count: number): ReviewPreviewState["pendingReview"] => ({
+  id: 1,
+  user: "octo",
+  body: "",
+  comments: Array.from({ length: count }, (_, i) => ({ id: i, body: "x", path: "a.ts", line: i, side: "RIGHT" as const })),
+})
+
+/** The states the frame tests draw, plus a few between them; null closes the modal. */
+const CYCLE: (ReturnType<typeof reviewPreviewModel> | null)[] = [
+  model({ excludedCommentIds: new Set(["c1", "c2"]) }),
+  model({ focusedSection: "input" }),
+  reviewPreviewModel([], { ...baseState(), pendingReview: pending(1) }, false),
+  null,
+  reviewPreviewModel(
+    commentsOf(3).map((c, i) => (i === 1 ? { ...c, comment: { ...c.comment, status: "pending" } } : c)),
+    { ...baseState(), selectedEvent: "APPROVE", excludedCommentIds: new Set(["k2"]), highlightedIndex: 1, pendingReview: pending(2) },
+    true
+  ),
+  reviewPreviewModel(commentsOf(1), { ...baseState(), selectedEvent: "REQUEST_CHANGES", pendingReviewLoading: true }, true),
+  model({ loading: true }),
+  null,
+  model({ error: "Boom" }),
+  reviewPreviewModel([...commentsOf(8), { ...commentsOf(1)[0]!, valid: false }], baseState(), false),
+  model({ highlightedIndex: 1 }),
+  reviewPreviewModel([], baseState(), false),
+  null,
+  model(),
+]
+
+function baseState(): ReviewPreviewState {
+  return {
+    open: true,
+    selectedEvent: "COMMENT",
+    loading: false,
+    body: "",
+    excludedCommentIds: new Set(),
+    highlightedIndex: 0,
+    focusedSection: "comments",
+    pendingReview: null,
+    pendingReviewLoading: false,
+  }
+}
+
+async function painted(screen: TestRendererSetup) {
+  await screen.renderOnce()
+  await screen.renderOnce()
+  return { chars: screen.captureCharFrame(), paint: paintOf(screen.captureSpans()) }
+}
+
+/** What a fresh island draws for `next`, on a screen of its own. */
+async function freshPaint(next: ReturnType<typeof reviewPreviewModel> | null) {
+  const screen = await createTestRenderer({ width: 100, height: 40 })
+  const island = createReviewPreviewIsland(screen.renderer)
+  const parent = new BoxRenderable(screen.renderer, { width: "100%", height: "100%" })
+  screen.renderer.root.add(parent)
+  parent.add(island.host)
+  island.update(next)
+  const result = await painted(screen)
+  island.dispose()
+  screen.renderer.destroy()
+  return result
+}
 
 test("draws nothing until it has a model, then the modal", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
@@ -155,4 +225,20 @@ test("dispose tears the island down, textarea and all", async () => {
   expect(island.host.isDestroyed).toBe(true)
   expect(summary.isDestroyed).toBe(true)
   expect(screenText(await rows()).trim()).toBe("")
+})
+
+test("one island cycled through every state, closed between some, draws what a fresh island draws", async () => {
+  setup = await createTestRenderer({ width: 100, height: 40 })
+  const island = createReviewPreviewIsland(setup.renderer)
+  mount(island.host)
+
+  for (const [step, next] of CYCLE.entries()) {
+    island.update(next)
+    const cycled = await painted(setup)
+    expect(cycled.chars.includes("Submit Review")).toBe(next !== null)
+    const fresh = await freshPaint(next)
+    expect({ step, chars: cycled.chars }).toEqual({ step, chars: fresh.chars })
+    expect({ step, paint: cycled.paint }).toEqual({ step, paint: fresh.paint })
+  }
+  island.dispose()
 })

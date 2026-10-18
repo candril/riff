@@ -68,3 +68,10 @@ function spanAt(spans: Spans, x: number, y: number) {
 export const bgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.bg.toInts()
 export const fgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.fg.toInts()
 export const ints = (hex: string) => RGBA.fromHex(hex).toInts()
+
+/** Every span's text and colours as plain data, so two screens can be compared cell for cell and colour for colour. */
+export function paintOf(spans: Spans) {
+  return spans.lines.map((line) =>
+    line.spans.map((span) => ({ text: span.text, fg: span.fg.toInts(), bg: span.bg.toInts(), attributes: span.attributes }))
+  )
+}

@@ -7,7 +7,17 @@ import { PromptInput } from "../components/PromptInput"
 import type { FlashPromptModel, SearchPromptModel } from "../components/prompt-line-model"
 import { mountSolid } from "./solid-island"
 
-const NO_SEARCH: SearchPromptModel = { prefix: "/", typing: false, pattern: "", tone: "normal", loading: false, error: null }
+// A fresh object per island: a store wraps the object it is given, and
+// reconcile writes through into it, so a shared constant would let one
+// island's search show up in another's.
+const noSearch = (): SearchPromptModel => ({
+  prefix: "/",
+  typing: false,
+  pattern: "",
+  tone: "normal",
+  loading: false,
+  error: null,
+})
 
 /**
  * The search row as a long-lived island: render.ts hands it a fresh model on
@@ -15,7 +25,7 @@ const NO_SEARCH: SearchPromptModel = { prefix: "/", typing: false, pattern: "", 
  */
 export function createSearchPromptIsland(renderer: CliRenderer) {
   const field = PromptInput(renderer, "search")
-  const [state, setState] = createStore({ shown: false, model: NO_SEARCH })
+  const [state, setState] = createStore({ shown: false, model: noSearch() })
   // Hidden rather than unmounted when there is no search: unmounting the row
   // would take PromptInput's field down with it.
   const island = mountSolid(
