@@ -57,6 +57,7 @@ function model(events: FeedEvent[], over: Partial<FeedState> = {}, extra: { unse
     flashLabels: new Map((extra.flash ?? []).map(([i, label]) => [String(i), label])),
     loading: extra.loading ?? false,
     now: NOW,
+    height: 30,
   })
 }
 

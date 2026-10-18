@@ -1,6 +1,7 @@
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { FEED_TYPES, type FeedEvent } from "../utils/feed"
 import type { FeedRow, FeedState } from "../state"
+import { feedWindow } from "./feed-window"
 
 /** Colours by name; the view maps them onto the theme. */
 export type FeedTone = "text" | "dim" | "subtext0" | "subtext1" | "green" | "red" | "peach" | "mauve" | "yellow"
@@ -84,6 +85,8 @@ export interface FeedModelInput {
   loading: boolean
   /** The clock the time gutter counts back from. */
   now: number
+  /** The terminal's, which caps how many lines are in view. */
+  height: number
 }
 
 /** Column widths, in cells. The actor gets an ellipsis, never a collision. */
@@ -105,40 +108,39 @@ const TYPE_TONE: Record<FeedEvent["type"], FeedTone> = {
  * The activity feed (spec 070) as data — one row per event, newest first:
  * what happened to this PR, and what happened since you left.
  */
-export function feedModel({ events, rows, feed, unseenIds, flashLabels, loading, now }: FeedModelInput): FeedModel {
+export function feedModel({ events, rows, feed, unseenIds, flashLabels, loading, now, height }: FeedModelInput): FeedModel {
   const leadWidth = leadWidthFor(events)
+  const lines = events.length === 0 ? [] : feedWindow(rows, feed, height)
+  const firstInView = lines[0]?.index ?? 0
   return {
     header: header(events, feed, unseenIds, loading),
     legend: legend(feed),
     empty: events.length > 0 ? null : loading ? "Reading the timeline…" : "Nothing matches — `0` shows everything",
-    rows:
-      events.length === 0
-        ? []
-        : rows.flatMap((row, index): FeedModelRow[] => {
-            const selected = index === feed.highlightIndex
-            const flashCell = flashLabelCell(flashLabels.get(String(index)))
-            if (row.kind === "file") {
-              return [
-                {
-                  kind: "file",
-                  key: `${row.event.id}:${row.file.filename}`,
-                  selected,
-                  flashCell,
-                  branch: row.last ? "└" : "├",
-                  filename: row.file.filename,
-                  additions: row.file.additions,
-                  deletions: row.file.deletions,
-                },
-              ]
-            }
-            const event = row.event
-            const eventRow = eventRowOf(event, previousEvent(rows, index), { selected, flashCell, feed, unseenIds, leadWidth, now })
-            // Opened before its files have arrived: say so, on a line that is
-            // not a row — there is nothing to land on yet.
-            const waiting =
-              event.target?.kind === "commit" && feed.expandedIds.has(event.id) && !feed.commitFiles.has(event.target.sha)
-            return waiting ? [eventRow, { kind: "loading", key: `${event.id}:loading` }] : [eventRow]
-          }),
+    rows: lines.map((line): FeedModelRow => {
+      const row = rows[line.index]!
+      // Opened before its files have arrived: said on a line that is not a
+      // row — there is nothing to land on yet.
+      if (line.kind === "loading") return { kind: "loading", key: `${row.event.id}:loading` }
+      const index = line.index
+      const selected = index === feed.highlightIndex
+      const flashCell = flashLabelCell(flashLabels.get(String(index)))
+      if (row.kind === "file") {
+        return {
+          kind: "file",
+          key: `${row.event.id}:${row.file.filename}`,
+          selected,
+          flashCell,
+          branch: row.last ? "└" : "├",
+          filename: row.file.filename,
+          additions: row.file.additions,
+          deletions: row.file.deletions,
+        }
+      }
+      // The top line in view writes its time even when an event scrolled
+      // away above it shares it: the gutter would otherwise start blank.
+      const previous = previousEvent(rows, index, firstInView)
+      return eventRowOf(row.event, previous, { selected, flashCell, feed, unseenIds, leadWidth, now })
+    }),
   }
 }
 
@@ -218,9 +220,9 @@ function eventRowOf(
   }
 }
 
-/** The event above this row, for the time gutter's "only where it changes". */
-export function previousEvent(rows: FeedRow[], index: number): FeedEvent | undefined {
-  for (let i = index - 1; i >= 0; i--) {
+/** The event above this row and no higher than `floor`, for the time gutter's "only where it changes". */
+export function previousEvent(rows: FeedRow[], index: number, floor = 0): FeedEvent | undefined {
+  for (let i = index - 1; i >= floor; i--) {
     const row = rows[i]!
     if (row.kind === "event") return row.event
   }

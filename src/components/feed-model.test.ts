@@ -24,7 +24,7 @@ function model(events: FeedEvent[], over: Partial<FeedState> = {}, input: Partia
       ...files.map((file, i) => ({ kind: "file" as const, event: e, sha: target.sha, file, last: i === files.length - 1 })),
     ]
   })
-  return feedModel({ events, rows, feed, unseenIds: new Set(), flashLabels: new Map(), loading: false, now: NOW, ...input })
+  return feedModel({ events, rows, feed, unseenIds: new Set(), flashLabels: new Map(), loading: false, now: NOW, height: 30, ...input })
 }
 
 const eventRows = (m: ReturnType<typeof feedModel>) => m.rows.filter((r): r is FeedEventRow => r.kind === "event")
@@ -47,6 +47,20 @@ describe("the time gutter", () => {
       commitFiles: new Map([["abc", files]]),
     })
     expect(eventRows(m).map((r) => r.timeCell)).toEqual(["  5m", "    ", "    ", "    ", "  2h"])
+  })
+})
+
+describe("a feed longer than the screen", () => {
+  const events = Array.from({ length: 40 }, (_, i) => event(`e${i}`, 5))
+
+  test("holds only the rows in view", () => {
+    const m = model(events, { highlightIndex: 39 }, { height: 16 })
+    expect(m.rows.map((r) => r.key)).toEqual(Array.from({ length: 10 }, (_, i) => `e${30 + i}`))
+  })
+
+  test("writes the time on the top row in view, though the event scrolled away above it shares it", () => {
+    const m = model(events, { highlightIndex: 39 }, { height: 16 })
+    expect(eventRows(m).map((r) => r.timeCell)).toEqual(["  5m", ...Array(9).fill("    ")])
   })
 })
 

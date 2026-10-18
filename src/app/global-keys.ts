@@ -28,6 +28,7 @@ import type { FileTreePanel } from "../components/FileTreePanel"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
+import { feedRowsInView } from "../components/feed-window"
 import { copyToClipboard } from "../utils/clipboard"
 import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
@@ -162,7 +163,7 @@ function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
     case "state":
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed":
-      return visibleFeedRows(state).map((_, index) => String(index))
+      return feedRowsInView(visibleFeedRows(state), state.feed, ctx.renderer.height).map(String)
     case "comments":
       return visibleOverlayCommentIds(
         getInlineCommentOverlayComments(state),

@@ -283,6 +283,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
           flashLabels: flashLabelsOn(flashState, "feed"),
           loading: state.feed.loading,
           now: Date.now(),
+          height: ctx.renderer.height,
         })
       )
       view = ctx.feed.host

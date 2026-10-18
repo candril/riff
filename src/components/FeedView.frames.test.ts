@@ -69,6 +69,7 @@ async function show({ events, feed: over = {}, unseen = [], flash = [], loading 
           flashLabels: new Map(flash.map(([index, label]) => [String(index), label])),
           loading,
           now: Date.now(),
+          height,
         })
       )
       return island.host
@@ -359,12 +360,24 @@ describe("the legend", () => {
   })
 })
 
-test("a feed longer than the screen is clipped at the bottom, highlight and all", async () => {
-  const { lines, spans } = await show({ events: many, feed: { highlightIndex: 40 } })
-  expect(lines).toHaveLength(30)
-  expect(lines[4]).toBe("     now   comment  @alice         src/greet.ts:12  Note 0")
-  expect(lines[28]).toBe("      1d   comment  @alice         src/greet.ts:12  Note 24")
-  expect(lines[29]).toBe("           comment  @alice         src/greet.ts:12  Note 25")
-  expect(lines.join("\n")).not.toContain("Note 40")
-  for (let y = 4; y < 30; y++) expect(bgAt(spans, 2, y)).not.toEqual(ints(theme.surface0))
+// The test screen stands for the whole terminal, but only the feed is on it:
+// the two rows the app's header and status bar would take stay blank.
+test("a feed longer than the screen scrolls to keep its highlight in view", async () => {
+  const { lines, spans } = await show({ events: many, feed: { highlightIndex: 59 } })
+  expect(lines.length).toBeLessThanOrEqual(28)
+  expect(lines[4]).toBe("      1d   comment  @alice         src/greet.ts:12  Note 36")
+  expect(lines[27]).toBe("           comment  @alice         src/greet.ts:12  Note 59")
+  expect(lines.join("\n")).not.toContain("Note 35")
+  expect(bgAt(spans, 2, 27)).toEqual(ints(theme.surface0))
+  expect(bgAt(spans, 97, 27)).toEqual(ints(theme.surface0))
+  for (let y = 4; y < 27; y++) expect(bgAt(spans, 2, y)).not.toEqual(ints(theme.surface0))
+  expect(bgAt(spans, 2, 29)).toEqual(bgAt(spans, 0, 0)!)
+})
+
+test("a commit's loading line takes a row of the window", async () => {
+  const events = [...many.slice(0, 30), commit("abc1234", 60 * 24 * 3), ...many.slice(30)]
+  const { lines } = await show({ events, feed: { highlightIndex: 30, expandedIds: new Set(["commit-abc1234"]) } })
+  expect(lines.length).toBeLessThanOrEqual(28)
+  expect(lines.join("\n")).toContain("loading…")
+  expect(lines.join("\n")).toContain("abc1234")
 })
