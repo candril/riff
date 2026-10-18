@@ -69,7 +69,12 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const overlays = {
     actionMenu: createActionMenuIsland(renderer),
     toast: createToastIsland(renderer),
-    reviewPreview: createReviewPreviewIsland(renderer),
+    reviewPreview: createReviewPreviewIsland(renderer, {
+      onSummaryChange(value) {
+        if (state.reviewPreview.open) state = { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
+        render()
+      },
+    }),
     syncPreview: createSyncPreviewIsland(renderer),
     filePicker: createFilePickerIsland(renderer),
     commentsPicker: createCommentsPickerIsland(renderer),

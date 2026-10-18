@@ -54,8 +54,8 @@ export interface ReviewPreviewState {
   selectedEvent: ReviewEvent
   loading: boolean
   error?: string
-  /** Overall review comment/body. Mirrored from the textarea via
-   *  ReviewSummaryComposer's onContentChange. */
+  /** Overall review comment/body. Mirrored from the Submit Review island's
+   *  summary textarea as it is typed into. */
   body: string
   /** IDs of comments to exclude from submission */
   excludedCommentIds: Set<string>

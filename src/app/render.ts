@@ -25,10 +25,6 @@ import {
   visibleFeedRows,
 } from "../state"
 import { requestMentionSearch } from "../features/mentions"
-import {
-  syncReviewSummarySession,
-  endReviewSummarySession,
-} from "../components/ReviewSummaryComposer"
 import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
 import { headerModel } from "../components/header-model"
@@ -149,7 +145,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     const ov = state.inlineCommentOverlay
     const composerActive = composerOpen(state)
-    const reviewActive = state.reviewPreview.open
     const prompt = openPrompt(state, ctx, render)
     const diffFocused = diffCursorShown(state, prompt !== null)
 
@@ -258,33 +253,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         )
       } else {
         endComposerSession()
-      }
-
-      // Same dance for the review summary textarea — it owns the live
-      // value while the modal is open, and mirrors back into
-      // `state.reviewPreview.body` so canSubmit stays accurate.
-      if (reviewActive) {
-        syncReviewSummarySession(
-          ctx.renderer,
-          // The session resets only when the modal closes/reopens;
-          // section toggles just flip focus.
-          "review-preview-open",
-          state.reviewPreview.body,
-          state.reviewPreview.focusedSection === "input",
-          (value) => {
-            ctx.setState((s) =>
-              s.reviewPreview.open && s.reviewPreview.body !== value
-                ? { ...s, reviewPreview: { ...s.reviewPreview, body: value } }
-                : s
-            )
-            // Trigger a re-render so the footer's submit-enabled state
-            // reflects the new body. The session-key short-circuit
-            // prevents this from looping back into setText.
-            render()
-          }
-        )
-      } else {
-        endReviewSummarySession()
       }
 
       // What is on screen has been read (spec 069): the comments the panel

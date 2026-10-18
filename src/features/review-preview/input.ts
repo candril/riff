@@ -2,10 +2,9 @@
  * Review Preview input handling.
  *
  * The review preview captures all input while the modal is open. The
- * summary input is now an OpenTUI `TextareaRenderable` (singleton in
- * `ReviewSummaryComposer`), so we no longer hand-roll typing, paste,
- * arrow keys, undo/redo, word jumps, etc. — those flow to the focused
- * textarea via OpenTUI's renderable dispatch.
+ * summary input is an OpenTUI textarea owned by the Submit Review island,
+ * so typing, paste, arrow keys, undo/redo, word jumps, etc. flow to it
+ * through OpenTUI's renderable dispatch rather than through here.
  *
  * What still lives here is the modal-level chrome:
  *  - Esc: close
@@ -21,7 +20,6 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import { canSubmit, type ValidatedComment } from "../../components/review-preview-model"
-import { readReviewSummaryValue } from "../../components/ReviewSummaryComposer"
 import {
   closeReviewPreview,
   setReviewEvent,
@@ -41,6 +39,8 @@ export interface ReviewPreviewInputContext {
   isOwnPr: boolean
   // Called when user confirms review
   onConfirmReview: () => void
+  /** The summary textarea's live text. */
+  readSummary: () => string
 }
 
 /**
@@ -84,7 +84,7 @@ export function handleInput(
   if ((key.ctrl && key.name === "s") || (key.name === "return" && !key.ctrl && !key.meta)) {
     key.preventDefault()
     if (!ctx.state.reviewPreview.loading) {
-      const value = readReviewSummaryValue()
+      const value = ctx.readSummary()
       ctx.setState((s) => setReviewBody(s, value))
       // Re-read the freshly mutated state so canSubmit sees the new body.
       const next = { ...ctx.state, reviewPreview: { ...ctx.state.reviewPreview, body: value } }

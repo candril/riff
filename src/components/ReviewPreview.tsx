@@ -7,8 +7,9 @@
  * - Enter / Ctrl-s: Submit
  * - j/k, Space (in comments section): Navigate and toggle comments
  *
- * The summary input is ReviewSummaryComposer's `TextareaRenderable`, so
- * paste, undo/redo, word jumps, etc. work for free.
+ * The summary is an OpenTUI textarea, so paste, undo/redo, word jumps, etc.
+ * work for free. What it holds is its owner's to seed and read, through
+ * `onSummary`.
  */
 
 import { For, Show } from "solid-js"
@@ -25,9 +26,11 @@ import type {
 
 export interface ReviewPreviewProps {
   model: ReviewPreviewModel
-  /** ReviewSummaryComposer's textarea, which outlives the modal. */
-  summary: TextareaRenderable
+  onSummary(textarea: TextareaRenderable): void
+  onSummaryChange(value: string): void
 }
+
+const PLACEHOLDER = "Summary (optional) — Enter to submit, Ctrl-J for a newline, Esc to cancel"
 
 const EVENT_COLORS: Record<ReviewEvent, string> = {
   COMMENT: theme.blue,
@@ -83,6 +86,7 @@ function CommentRow(props: { row: ReviewCommentRow }) {
 }
 
 export function ReviewPreview(props: ReviewPreviewProps) {
+  let summary!: TextareaRenderable
   const selectedColor = () => EVENT_COLORS[props.model.chips.find((chip) => chip.selected)?.event ?? "COMMENT"]
   return (
     <box width={72} flexDirection="column" backgroundColor={theme.mantle}>
@@ -105,7 +109,26 @@ export function ReviewPreview(props: ReviewPreviewProps) {
           {props.model.summaryFocused ? "Summary (editing)" : "Summary"}
         </text>
         <box marginTop={1} minHeight={3}>
-          {props.summary}
+          <textarea
+            ref={(textarea: TextareaRenderable) => {
+              summary = textarea
+              props.onSummary(textarea)
+            }}
+            id="review-summary-composer"
+            backgroundColor={theme.surface0}
+            textColor={theme.text}
+            focusedBackgroundColor={theme.surface0}
+            focusedTextColor={theme.text}
+            placeholder={PLACEHOLDER}
+            placeholderColor={theme.overlay0}
+            cursorColor={theme.blue}
+            cursorStyle={{ style: "block", blinking: true }}
+            wrapMode="word"
+            flexGrow={1}
+            minHeight={3}
+            maxHeight={10}
+            onContentChange={() => props.onSummaryChange(summary.plainText)}
+          />
         </box>
       </box>
       <Show when={props.model.validCount > 0}>

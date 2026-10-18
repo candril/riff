@@ -1,9 +1,8 @@
-import { test, expect, afterEach } from "bun:test"
-import { BoxRenderable } from "@opentui/core"
+import { test, expect, afterEach, describe } from "bun:test"
+import { BoxRenderable, TextareaRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createReviewPreviewIsland } from "./review-preview"
 import { reviewPreviewModel, type ValidatedComment } from "../components/review-preview-model"
-import { getReviewSummaryRenderable } from "../components/ReviewSummaryComposer"
 import { fgAt, findText, ints, paintOf } from "../testing/frame"
 import { theme } from "../theme"
 import type { ReviewPreviewState } from "../state"
@@ -14,6 +13,26 @@ afterEach(() => {
   setup?.renderer.destroy()
   setup = null
 })
+
+const changes: string[] = []
+
+afterEach(() => {
+  changes.length = 0
+})
+
+/** An island whose summary changes land in `changes`. */
+function islandOn(renderer: TestRendererSetup["renderer"]) {
+  return createReviewPreviewIsland(renderer, { onSummaryChange: (value) => changes.push(value) })
+}
+
+function summaryOf(island: ReturnType<typeof islandOn>) {
+  const textarea = island.host.findDescendantById("review-summary-composer")
+  expect(textarea).toBeInstanceOf(TextareaRenderable)
+  return textarea as TextareaRenderable
+}
+
+/** The textarea reports a change a microtask after it happens. */
+const settled = () => Bun.sleep(10)
 
 async function rows() {
   await setup!.renderOnce()
@@ -119,7 +138,7 @@ async function painted(screen: TestRendererSetup) {
 /** What a fresh island draws for `next`, on a screen of its own. */
 async function freshPaint(next: ReturnType<typeof reviewPreviewModel> | null) {
   const screen = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(screen.renderer)
+  const island = islandOn(screen.renderer)
   const parent = new BoxRenderable(screen.renderer, { width: "100%", height: "100%" })
   screen.renderer.root.add(parent)
   parent.add(island.host)
@@ -132,7 +151,7 @@ async function freshPaint(next: ReturnType<typeof reviewPreviewModel> | null) {
 
 test("draws nothing until it has a model, then the modal", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
+  const island = islandOn(setup.renderer)
   mount(island.host)
 
   island.update(null)
@@ -148,7 +167,7 @@ test("draws nothing until it has a model, then the modal", async () => {
 
 test("a second update changes only what changed", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
+  const island = islandOn(setup.renderer)
   mount(island.host)
 
   island.update(model())
@@ -170,8 +189,8 @@ test("a second update changes only what changed", async () => {
 
 test("closing and reopening keeps the same summary textarea, undestroyed", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
-  const summary = getReviewSummaryRenderable(setup.renderer)
+  const island = islandOn(setup.renderer)
+  const summary = summaryOf(island)
   mount(island.host)
 
   island.update(model())
@@ -190,14 +209,14 @@ test("closing and reopening keeps the same summary textarea, undestroyed", async
   const screen = screenText(await rows())
   expect(screen).toContain("Summary (editing)")
   expect(screen).toContain("Summary (optional)")
-  expect(getReviewSummaryRenderable(setup.renderer)).toBe(summary)
+  expect(summaryOf(island)).toBe(summary)
   expect(summary.isDestroyed).toBe(false)
   island.dispose()
 })
 
 test("unmounted the way render.ts's discard does it, the host keeps the modal for the next pass", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
+  const island = islandOn(setup.renderer)
   const first = mount(island.host)
 
   island.update(model())
@@ -215,8 +234,8 @@ test("unmounted the way render.ts's discard does it, the host keeps the modal fo
 
 test("dispose tears the island down, textarea and all", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
-  const summary = getReviewSummaryRenderable(setup.renderer)
+  const island = islandOn(setup.renderer)
+  const summary = summaryOf(island)
   mount(island.host)
   island.update(model())
   await rows()
@@ -229,7 +248,7 @@ test("dispose tears the island down, textarea and all", async () => {
 
 test("one island cycled through every state, closed between some, draws what a fresh island draws", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
-  const island = createReviewPreviewIsland(setup.renderer)
+  const island = islandOn(setup.renderer)
   mount(island.host)
 
   for (const [step, next] of CYCLE.entries()) {
@@ -241,4 +260,117 @@ test("one island cycled through every state, closed between some, draws what a f
     expect({ step, paint: cycled.paint }).toEqual({ step, paint: fresh.paint })
   }
   island.dispose()
+})
+
+describe("the summary", () => {
+  test("each island types into a textarea of its own, on its own renderer", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const other = await createTestRenderer({ width: 100, height: 40 })
+    const first = islandOn(setup.renderer)
+    const second = islandOn(other.renderer)
+    mount(first.host)
+    other.renderer.root.add(second.host)
+
+    first.update(model({ focusedSection: "input", body: "One" }))
+    second.update(model({ focusedSection: "input", body: "Two" }))
+    expect(summaryOf(first)).not.toBe(summaryOf(second))
+    summaryOf(first).insertText("1 ")
+    summaryOf(second).insertText("2 ")
+    expect(first.summaryValue()).toBe("1 One")
+    expect(second.summaryValue()).toBe("2 Two")
+
+    first.dispose()
+    second.dispose()
+    other.renderer.destroy()
+  })
+
+  test("opening seeds it from the body, without reporting the seed as typing", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    mount(island.host)
+
+    island.update(model({ body: "Draft" }))
+    await settled()
+    expect(summaryOf(island).plainText).toBe("Draft")
+    expect(island.summaryValue()).toBe("Draft")
+    expect(changes).toEqual([])
+    expect(screenText(await rows())).toContain("Draft")
+    island.dispose()
+  })
+
+  test("what is typed survives passes that carry another body", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    mount(island.host)
+
+    island.update(model({ focusedSection: "input", body: "" }))
+    summaryOf(island).insertText("Typed")
+    island.update(model({ focusedSection: "input", body: "Stale" }))
+    island.update(model({ focusedSection: "comments", body: "" }))
+    expect(island.summaryValue()).toBe("Typed")
+    island.dispose()
+  })
+
+  test("closing and reopening seeds it afresh", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    mount(island.host)
+
+    island.update(model({ focusedSection: "input" }))
+    summaryOf(island).insertText("Abandoned")
+    island.update(null)
+    island.update(model({ body: "Fresh" }))
+    expect(island.summaryValue()).toBe("Fresh")
+    island.dispose()
+  })
+
+  test("takes focus while its section is focused, and gives it up on close", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    const summary = summaryOf(island)
+    mount(island.host)
+
+    island.update(model())
+    expect(summary.focused).toBe(false)
+    island.update(model({ focusedSection: "input" }))
+    expect(summary.focused).toBe(true)
+    island.update(model({ focusedSection: "comments" }))
+    expect(summary.focused).toBe(false)
+    island.update(model({ focusedSection: "input" }))
+    island.update(null)
+    expect(summary.focused).toBe(false)
+    island.dispose()
+  })
+
+  test("reports what is typed into it, key by key", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    mount(island.host)
+
+    island.update(model({ focusedSection: "input", body: "!" }))
+    await setup.mockInput.typeText("ok")
+    await settled()
+    expect(changes.at(-1)).toBe("ok!")
+    expect(changes).not.toContain("!")
+    island.dispose()
+  })
+
+  test("reads the live text while open, and nothing once closed", async () => {
+    setup = await createTestRenderer({ width: 100, height: 40 })
+    const island = islandOn(setup.renderer)
+    mount(island.host)
+
+    expect(island.summaryValue()).toBe("")
+    island.update(model({ focusedSection: "input" }))
+    summaryOf(island).insertText("Live")
+    expect(island.summaryValue()).toBe("Live")
+    await settled()
+    island.update(null)
+    expect(island.summaryValue()).toBe("")
+    await settled()
+    summaryOf(island).insertText("closed ")
+    await settled()
+    expect(changes).toEqual(["Live"])
+    island.dispose()
+  })
 })

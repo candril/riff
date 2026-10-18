@@ -144,6 +144,10 @@ describe("reviewPreviewModel", () => {
     expect(reviewPreviewModel([], state(), false).submitEnabled).toBe(false)
   })
 
+  test("carries the body for the summary to start from", () => {
+    expect(reviewPreviewModel([], state({ body: "Looks good" }), false).seedBody).toBe("Looks good")
+  })
+
   test("is plain data that survives a JSON round trip", () => {
     const model = reviewPreviewModel(
       [comment("a"), comment("b")],

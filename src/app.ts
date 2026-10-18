@@ -490,7 +490,16 @@ export async function createApp(options: AppOptions = {}) {
   const toast = createToastIsland(renderer)
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
-  const reviewPreviewIsland = createReviewPreviewIsland(renderer)
+  const reviewPreviewIsland = createReviewPreviewIsland(renderer, {
+    onSummaryChange(value) {
+      state =
+        state.reviewPreview.open && state.reviewPreview.body !== value
+          ? { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
+          : state
+      // The footer's submit button follows the body.
+      render()
+    },
+  })
   const syncPreviewIsland = createSyncPreviewIsland(renderer)
   const feedIsland = createFeedIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
@@ -1728,6 +1737,7 @@ export async function createApp(options: AppOptions = {}) {
     refreshContext: { handleRefresh: () => refresh.handleRefresh(refreshContext) },
     feedLoadContext,
     reviewPreviewOpenContext,
+    readReviewSummary: reviewPreviewIsland.summaryValue,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
     aiReviewContext,

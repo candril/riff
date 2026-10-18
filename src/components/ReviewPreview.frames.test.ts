@@ -86,7 +86,7 @@ async function show(comments: ValidatedComment[], state: ReviewPreviewState, isO
   await mounted?.dispose()
   mounted = await mountRenderable(
     (renderer) => {
-      const island = createReviewPreviewIsland(renderer)
+      const island = createReviewPreviewIsland(renderer, { onSummaryChange() {} })
       dispose = island.dispose
       island.update(reviewPreviewModel(comments, state, isOwnPr))
       return island.host

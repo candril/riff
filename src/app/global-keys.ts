@@ -115,6 +115,8 @@ export interface GlobalKeyContext {
   /** Loading the feed's own data (spec 070). */
   feedLoadContext: feed.FeedLoadContext
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
+  /** What the Submit Review summary holds right now. */
+  readReviewSummary: () => string
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   aiReviewContext: aiReview.AiReviewContext
@@ -744,6 +746,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           currentState.prInfo !== null &&
           ctx.reviewPreviewOpenContext.getCachedCurrentUser() === currentState.prInfo.author,
         onConfirmReview: () => prOperations.handleConfirmReview(ctx.prOperationsContext),
+        readSummary: ctx.readReviewSummary,
       })
     ) {
       return

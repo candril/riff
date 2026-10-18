@@ -42,6 +42,8 @@ export interface ReviewPreviewModel {
   validCount: number
   status: { text: string; tone: ReviewStatusTone }
   submitEnabled: boolean
+  /** What the summary starts as. Read only as the modal opens: after that the textarea owns the text. */
+  seedBody: string
 }
 
 const EVENTS: ReviewEvent[] = ["COMMENT", "APPROVE", "REQUEST_CHANGES"]
@@ -127,5 +129,6 @@ export function reviewPreviewModel(
     validCount: valid.length,
     status: status(state, hint(state, submitAllowed, isOwnPr)),
     submitEnabled: submitAllowed && !state.loading,
+    seedBody: state.body,
   }
 }
