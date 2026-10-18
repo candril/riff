@@ -228,7 +228,7 @@ describe("the sync preview", () => {
     ])
   })
 
-  test("more changes than fit in 80% of the screen are clipped, with the footer still on screen and no rows overlapping", async () => {
+  test("more changes than fit in 80% of the screen are clipped, with the footer whole on its own row and no rows overlapping", async () => {
     const many: SyncItem[] = Array.from({ length: 8 }, (_, i) => ({
       type: "new",
       comment: comment(`n${i}`, { line: i, body: `b${i}` }),
@@ -240,6 +240,7 @@ describe("the sync preview", () => {
       "",
       "",
       "            Sync Changes                                                             esc",
+      "",
       "",
       "            New Comments (8)",
       "",
@@ -259,19 +260,25 @@ describe("the sync preview", () => {
       "",
       "",
       "",
-      "             src/greet.ts:3",
-      "",
-      "               Sync 8 changes",
+      " ".repeat(72) + "Sync 8 changes",
     ])
     // 80% of 30 rows: the panel holds rows 3 to 26 and no more.
     expect(bgAt(spans, 10, 3)).toEqual(ints(theme.mantle))
     expect(bgAt(spans, 10, 26)).toEqual(ints(theme.mantle))
     expect(bgAt(spans, 10, 2)).not.toEqual(ints(theme.mantle))
     expect(bgAt(spans, 10, 27)).not.toEqual(ints(theme.mantle))
-    // The last visible card is cut at the content's edge, above the footer.
-    expect(bgAt(spans, 12, 24)).toEqual(ints(theme.surface0))
-    expect(bgAt(spans, 12, 25)).toEqual(ints(theme.mantle))
-    expect(bgAt(spans, 15, 26)).toEqual(ints(theme.blue))
-    expect(fgAt(spans, 15, 26)).toEqual(ints(theme.base))
+    // The list gives way alone: the last card that fits ends above the
+    // list's own padding, and the next one is cut away whole.
+    expect(bgAt(spans, 12, 22)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 12, 23)).toEqual(ints(theme.mantle))
+    // The footer keeps its padding and its one row: the button flush right
+    // with its own padding, blue under the button alone.
+    expect(bgAt(spans, 69, 25)).toEqual(ints(theme.mantle))
+    expect(bgAt(spans, 70, 25)).toEqual(ints(theme.blue))
+    expect(bgAt(spans, 87, 25)).toEqual(ints(theme.blue))
+    expect(bgAt(spans, 88, 25)).toEqual(ints(theme.mantle))
+    expect(fgAt(spans, 72, 25)).toEqual(ints(theme.base))
+    expect(bgAt(spans, 70, 24)).toEqual(ints(theme.mantle))
+    expect(bgAt(spans, 70, 26)).toEqual(ints(theme.mantle))
   })
 })

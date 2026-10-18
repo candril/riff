@@ -51,7 +51,9 @@ export function SyncPreview(props: { model: SyncPreviewModel }) {
   const loading = () => props.model.footer.status.kind === "loading"
   return (
     <box width={80} maxHeight="80%" flexDirection="column" backgroundColor={theme.mantle} overflow="hidden">
-      <box flexDirection="row" justifyContent="space-between" paddingX={2} paddingY={1}>
+      {/* Only the list gives way to the panel's maxHeight: a squeezed title or
+          footer loses its padding, and the footer folds onto two rows. */}
+      <box flexDirection="row" justifyContent="space-between" paddingX={2} paddingY={1} flexShrink={0}>
         <text fg={theme.text}>Sync Changes</text>
         <text fg={theme.overlay0}>esc</text>
       </box>
@@ -79,7 +81,7 @@ export function SyncPreview(props: { model: SyncPreviewModel }) {
           </For>
         </box>
       </box>
-      <box flexDirection="row" justifyContent="space-between" alignItems="center" paddingX={2} paddingY={1}>
+      <box flexDirection="row" justifyContent="space-between" alignItems="center" paddingX={2} paddingY={1} flexShrink={0}>
         <Status status={props.model.footer.status} />
         <Show when={props.model.footer.button}>
           {(label: () => string) => (
