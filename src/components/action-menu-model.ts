@@ -91,15 +91,18 @@ const HEADER_ROWS = 2
  * visibleRows(height) entries, headers not counted, and the entries plus
  * HEADER_ROWS for each header in view within the rows PickerFrame leaves
  * for its list, headers counted. The selection and its header are always
- * in view.
+ * in view, unless the two would not fit together: then no header is drawn,
+ * since a panel taller than the terminal hides the selection it is for.
  */
 function paletteWindow(groupOf: readonly (number | null)[], selectedIndex: number, height: number) {
   const total = groupOf.length
-  if (total === 0) return { start: 0, end: 0 }
+  if (total === 0) return { start: 0, end: 0, headers: false }
   const cap = visibleRows(height)
   const room = Math.max(1, height - PICKER_CHROME_ROWS)
+  const headers = 1 + HEADER_ROWS <= room
   const lines = (start: number, end: number) => {
     let count = end - start
+    if (!headers) return count
     for (let i = start; i < end; i++) {
       if (groupOf[i] !== null && (i === start || groupOf[i] !== groupOf[i - 1])) count += HEADER_ROWS
     }
@@ -119,7 +122,7 @@ function paletteWindow(groupOf: readonly (number | null)[], selectedIndex: numbe
       grew = true
     }
   }
-  return { start, end }
+  return { start, end, headers }
 }
 
 /**
@@ -154,14 +157,14 @@ export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number, hei
 
   const groups = groupActionsByCategory(mode.actions)
   const groupOf = groups.flatMap((group, g) => group.items.map(() => g))
-  const { start, end } = paletteWindow(groupOf, selectedIndex, height)
+  const { start, end, headers } = paletteWindow(groupOf, selectedIndex, height)
   const rows: ActionMenuRow[] = []
   let visualIndex = 0
   for (const { category, items } of groups) {
     for (const action of items) {
       const index = visualIndex++
       if (index < start || index >= end) continue
-      if (index === start || groupOf[index] !== groupOf[index - 1]) {
+      if (headers && (index === start || groupOf[index] !== groupOf[index - 1])) {
         rows.push({ kind: "category", id: `cat:${category}`, label: category })
       }
       const selected = index === selectedIndex

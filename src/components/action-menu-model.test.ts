@@ -103,6 +103,22 @@ describe("actionMenuModel on a short terminal", () => {
     expect(model).toMatchObject({ above: 10, below: 10 })
   })
 
+  for (const height of [10, 11]) {
+    for (const selected of [0, 20, 39]) {
+      test(`keeps the list within its room at height ${height}, selection ${selected} in view, a header dropped before it`, () => {
+        const model = actionMenuModel({ kind: "actions", actions: many }, selected, height)
+        expect(lines(model.rows)).toBeLessThanOrEqual(height - 9)
+        expect(model.rows.filter((row) => row.kind === "category")).toEqual([])
+        expect(model.rows.find((row) => row.kind === "action" && row.selected)).toMatchObject({ id: `a${selected}` })
+      })
+    }
+  }
+
+  test("keeps the headers where the selection and its header fit", () => {
+    const model = actionMenuModel({ kind: "actions", actions: many }, 20, 12)
+    expect(model.rows.map((row) => row.id)).toEqual(["cat:View", "a20"])
+  })
+
   test("windows a submenu as pickerWindow does", () => {
     const rows = Array.from({ length: 30 }, (_, i) => ({ id: `r${i}`, label: `R${i}` }))
     const model = actionMenuModel({ kind: "submenu", title: "Links", rows }, 10, 24)

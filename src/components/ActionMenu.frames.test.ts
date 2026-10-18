@@ -181,6 +181,20 @@ describe("on a short terminal", () => {
     expect(Math.abs(selected - above - (below - selected))).toBeLessThanOrEqual(4)
   })
 
+  test("fits the whole panel on an eleven-row terminal, its last row the padding under the selection", async () => {
+    const lines = await frame({ kind: "actions", actions: many }, 20, { width: 80, height: 11 })
+    const spans = mounted!.setup.captureSpans()
+    const selected = lines.findIndex((l) => l.includes("Action 20"))
+    expect(selected).toBeGreaterThan(0)
+    expect(bgAt(spans, 22, selected)).toEqual(ints(theme.surface0))
+    expect(lines.some((l) => /↑ \d+ more/.test(l))).toBe(true)
+    const below = lines.findIndex((l) => /↓ \d+ more/.test(l))
+    expect(below).toBeGreaterThan(selected)
+    expect(below).toBe(9)
+    expect(bgAt(spans, 22, 10)).toEqual(ints(theme.mantle))
+    expect(lines.some((l) => l.includes("View"))).toBe(false)
+  })
+
   test("windows a long submenu the same way", async () => {
     const rows = Array.from({ length: 30 }, (_, i) => ({ id: `link:${i}`, label: `Link ${String(i).padStart(2, "0")}` }))
     const lines = await frame({ kind: "submenu", title: "Links", rows }, 29, { width: 80, height: 24 })
