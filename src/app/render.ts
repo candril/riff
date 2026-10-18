@@ -6,10 +6,7 @@
 
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
-import {
-  InlineCommentOverlay,
-  FeedView,
-} from "../components"
+import { InlineCommentOverlay } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import { syncPromptSession, endPromptSession } from "../components/PromptInput"
 import { discard } from "../utils/renderables"
@@ -55,6 +52,8 @@ import { syncPreviewModel } from "../components/sync-preview-model"
 import type { SyncPreviewIsland } from "./sync-preview"
 import { reviewPreviewModel } from "../components/review-preview-model"
 import type { ReviewPreviewIsland } from "./review-preview"
+import { feedModel } from "../components/feed-model"
+import type { FeedIsland } from "./feed"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
 import type { PeekIsland } from "./peek-island"
@@ -114,6 +113,7 @@ export interface RenderContext {
   confirmDialog: ConfirmDialogIsland
   reviewPreview: ReviewPreviewIsland
   syncPreview: SyncPreviewIsland
+  feed: FeedIsland
   helpOverlay: HelpOverlayIsland
   diffPeek: PeekIsland
   hunkPeek: PeekIsland
@@ -274,17 +274,18 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       // PR overview (spec 041): mount the panel inline next to the tree.
       view = prInfoPanelInstance.getContainer()
     } else if (state.viewMode === "feed") {
-      const feedEvents = visibleFeedEvents(state)
-      const feedRows = visibleFeedRows(state)
-      view = FeedView({
-        events: feedEvents,
-        rows: feedRows,
-        feed: state.feed,
-        unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-        flashLabels: flashLabelsOn(flashState, "feed"),
-        renderer: ctx.renderer,
-        loading: state.feed.loading,
-      })
+      ctx.feed.update(
+        feedModel({
+          events: visibleFeedEvents(state),
+          rows: visibleFeedRows(state),
+          feed: state.feed,
+          unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+          flashLabels: flashLabelsOn(flashState, "feed"),
+          loading: state.feed.loading,
+          now: Date.now(),
+        })
+      )
+      view = ctx.feed.host
     } else if (state.files.length === 0) {
       view = Text({ content: "No changes to display", fg: colors.textDim })
       withTree = false
@@ -315,6 +316,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       view = splitOn ? ctx.split.island.host : ctx.unified.island.host
       unifiedOn = !splitOn
     }
+    // Hidden while another view is up, so it does no work for a screen it is not on.
+    if (view !== ctx.feed.host) ctx.feed.update(null)
     ctx.unified.syncDrawn(unifiedOn)
     ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
 

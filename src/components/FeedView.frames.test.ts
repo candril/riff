@@ -1,5 +1,6 @@
 import { test, expect, describe, afterEach, beforeAll, afterAll, setSystemTime } from "bun:test"
-import { FeedView } from "./FeedView"
+import { feedModel } from "./feed-model"
+import { createFeedIsland } from "../app/feed"
 import { endPromptSession, syncPromptSession } from "./PromptInput"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
@@ -8,7 +9,7 @@ import type { FeedEvent } from "../utils/feed"
 
 /*
  * The feed on a 100x30 screen, padded by two cells on each side and one on
- * top: the header is row 1, the legend row 2, the rule row 3, the rows from
+ * top: the header is row 1, the legend row 2, the spacer row 3, the rows from
  * row 4. Every row starts with the two-cell flash gutter at column 2.
  */
 
@@ -33,6 +34,7 @@ interface Show {
   flash?: [number, string][]
   loading?: boolean
   height?: number
+  width?: number
   /** Typed into the feed filter's field before the frame is taken. */
   typed?: string
 }
@@ -50,33 +52,37 @@ function rowsOf(events: FeedEvent[], feed: FeedState): FeedRow[] {
   })
 }
 
-async function show({ events, feed: over = {}, unseen = [], flash = [], loading = false, height = 30, typed }: Show) {
+async function show({ events, feed: over = {}, unseen = [], flash = [], loading = false, height = 30, width = 100, typed }: Show) {
   const feed: FeedState = { ...createFeedState(), events, ...over }
   mounted = await mountRenderable(
     (renderer) => {
       if (typed !== undefined) {
         syncPromptSession({ renderer, key: "feed-filter", initialValue: typed, placeholder: "filter the feed…", onChange: () => {} })
       }
-      return FeedView({
-        events,
-        rows: rowsOf(events, feed),
-        feed,
-        unseenIds: new Set(unseen),
-        flashLabels: new Map(flash.map(([index, label]) => [String(index), label])),
-        renderer,
-        loading,
-      })
+      const island = createFeedIsland(renderer)
+      island.update(
+        feedModel({
+          events,
+          rows: rowsOf(events, feed),
+          feed,
+          unseenIds: new Set(unseen),
+          flashLabels: new Map(flash.map(([index, label]) => [String(index), label])),
+          loading,
+          now: Date.now(),
+        })
+      )
+      return island.host
     },
-    { width: 100, height }
+    { width, height }
   )
   const lines = (await mounted.frame()).split("\n")
   return { lines, spans: mounted.setup.captureSpans() }
 }
 
-const RULE = "  " + "─".repeat(78)
-// The legend is wider than the 96 cells it gets, so the layout squeezes some
-// of its texts: a key loses its trailing space and runs into its label.
-const LEGEND_ALL = "   ccommits    mcomments    rreviews    b checks   t resolved   p pushes   u unseen   / filter"
+const SPACER = ""
+// The legend is wider than the 96 cells it gets, so the gaps between its
+// entries give way, a cell here and there.
+const LEGEND_ALL = "   c commits   m comments   r reviews   b checks    t resolved   p pushes   u unseen   / filter"
 
 const comment = (id: string, minutes: number, extra: Partial<FeedEvent> = {}): FeedEvent => ({
   id,
@@ -138,12 +144,12 @@ describe("an empty feed", () => {
       "",
       "  Feed   0 events · all types · loading",
       LEGEND_ALL,
-      RULE,
+      SPACER,
       "  Reading the timeline…",
     ])
     expect(fgAt(spans, 2, 1)).toEqual(ints(colors.headerFg))
     expect(fgAt(spans, 9, 1)).toEqual(ints(colors.textDim))
-    expect(fgAt(spans, 2, 3)).toEqual(ints(theme.surface1))
+    expect(bgAt(spans, 2, 3)).toEqual(bgAt(spans, 0, 0)!)
     expect(fgAt(spans, 2, 4)).toEqual(ints(colors.textDim))
   })
 
@@ -152,8 +158,8 @@ describe("an empty feed", () => {
     expect(lines).toEqual([
       "",
       "  Feed   0 events · all types",
-      "   ccommits   m comments   rreviews   b checks   t resolved   ppushes   u unseen   / zzz   esc all",
-      RULE,
+      "   c commits  m comments   r reviews  b checks   t resolved   p pushes  u unseen   / zzz   esc all",
+      SPACER,
       "  Nothing matches — `0` shows everything",
     ])
     expect(fgAt(spans, ...find(lines, "zzz"))).toEqual(ints(colors.text))
@@ -178,7 +184,7 @@ describe("a feed of every kind of event", () => {
       "",
       "  Feed   8 events · all types  ● 1 unseen",
       LEGEND_ALL,
-      RULE,
+      SPACER,
       "      5m ● comment  @alice         src/greet.ts:12                       Rename this",
       "         ✓ comment  @bob           …ome/deeply/nested/module/file.ts:40  Typo",
       "      3h   review   @carol                                               approved  LGTM overall",
@@ -220,8 +226,8 @@ describe("a feed of every kind of event", () => {
   })
 
   test("marks the first row as selected, across the padded width, in the text colour", () => {
-    expect(bgAt(spans, 2, 4)).toEqual(ints(theme.surface1))
-    expect(bgAt(spans, 97, 4)).toEqual(ints(theme.surface1))
+    expect(bgAt(spans, 2, 4)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 97, 4)).toEqual(ints(theme.surface0))
     expect(bgAt(spans, 1, 4)).toEqual(bgAt(spans, 0, 0)!)
     expect(bgAt(spans, 98, 4)).toEqual(bgAt(spans, 0, 0)!)
     expect(bgAt(spans, 2, 5)).toEqual(bgAt(spans, 0, 0)!)
@@ -239,7 +245,7 @@ describe("a commit opened into its files", () => {
       "",
       "  Feed   3 events · all types",
       LEGEND_ALL,
-      RULE,
+      SPACER,
       "      1d   commit   @a-very-long…  ▾ abc1234  fix: handle empty hunks                        ✓ 3/3",
       "                                   loading…",
       "           commit   @dave          ▸ def5678  feat: word diff                                ✗ 1/3",
@@ -257,7 +263,7 @@ describe("a commit opened into its files", () => {
       "",
       "  Feed   3 events · all types",
       LEGEND_ALL,
-      RULE,
+      SPACER,
       "      1d   commit   @a-very-long…  ▾ abc1234  fix: handle empty hunks                        ✓ 3/3",
       "                                   ├ src/diff.ts  +12 -3",
       "                                   └ src/diff.test.ts  +40 -0",
@@ -268,17 +274,17 @@ describe("a commit opened into its files", () => {
     expect(fgAt(spans, ...find(lines, "+12"))).toEqual(ints(theme.green))
     expect(fgAt(spans, ...find(lines, "-3"))).toEqual(ints(theme.red))
     expect(fgAt(spans, ...find(lines, "└ src/diff.test.ts"))).toEqual(ints(colors.text))
-    expect(bgAt(spans, 2, 6)).toEqual(ints(theme.surface1))
-    expect(bgAt(spans, 97, 6)).toEqual(ints(theme.surface1))
+    expect(bgAt(spans, 2, 6)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 97, 6)).toEqual(ints(theme.surface0))
     expect(bgAt(spans, 2, 4)).toEqual(bgAt(spans, 0, 0)!)
     expect(bgAt(spans, 2, 5)).toEqual(bgAt(spans, 0, 0)!)
   })
 })
 
-test("selects an event row further down in surface1", async () => {
+test("selects an event row further down in surface0", async () => {
   const { lines, spans } = await show({ events: MIXED, feed: { highlightIndex: 2 } })
-  expect(bgAt(spans, 2, 6)).toEqual(ints(theme.surface1))
-  expect(bgAt(spans, 97, 6)).toEqual(ints(theme.surface1))
+  expect(bgAt(spans, 2, 6)).toEqual(ints(theme.surface0))
+  expect(bgAt(spans, 97, 6)).toEqual(ints(theme.surface0))
   expect(bgAt(spans, 2, 4)).toEqual(bgAt(spans, 0, 0)!)
   expect(fgAt(spans, ...find(lines, "approved"))).toEqual(ints(colors.text))
   expect(fgAt(spans, ...find(lines, "Rename this"))).toEqual(ints(theme.subtext1))
@@ -306,8 +312,8 @@ describe("the legend", () => {
     expect(lines.slice(0, 4)).toEqual([
       "",
       "  Feed   2 events · commit · review",
-      "   ccommits   mcomments   r reviews  b checks   t resolved  p pushes   uunseen   / filter   esc",
-      RULE,
+      "   c commits  m comments  r reviews  b checks   t resolved  p pushes  u unseen  / filter   esc all",
+      SPACER,
     ])
     const key = (label: string) => {
       const [x, y] = find(lines, label, 2)
@@ -324,7 +330,14 @@ describe("the legend", () => {
     expect(label("comments")).toEqual(ints(colors.textDim))
     expect(label("checks")).toEqual(ints(colors.textDim))
     expect(label("filter")).toEqual(ints(colors.textDim))
-    expect(label("esc")).toEqual(ints(colors.textDim))
+    expect(label("esc all")).toEqual(ints(colors.textDim))
+  })
+
+  test("keeps its gaps whole where it fits", async () => {
+    const { lines } = await show({ events: [], feed: { types: new Set(["commit"]), filter: "zzz" }, width: 120 })
+    expect(lines[2]).toBe(
+      "   c commits    m comments    r reviews    b checks    t resolved    p pushes    u unseen    / zzz    esc all"
+    )
   })
 
   test("gives its row to the filter field while the filter is typed", async () => {
@@ -337,7 +350,7 @@ describe("the legend", () => {
       "",
       "  Feed   2 events · all types",
       "  /fix",
-      RULE,
+      SPACER,
       "      1d   commit   @a-very-long…  ▸ abc1234  fix: handle empty hunks                        ✓ 3/3",
       "           commit   @dave          ▸ def5678  feat: word diff                                ✗ 1/3",
     ])
@@ -353,5 +366,5 @@ test("a feed longer than the screen is clipped at the bottom, highlight and all"
   expect(lines[28]).toBe("      1d   comment  @alice         src/greet.ts:12  Note 24")
   expect(lines[29]).toBe("           comment  @alice         src/greet.ts:12  Note 25")
   expect(lines.join("\n")).not.toContain("Note 40")
-  for (let y = 4; y < 30; y++) expect(bgAt(spans, 2, y)).not.toEqual(ints(theme.surface1))
+  for (let y = 4; y < 30; y++) expect(bgAt(spans, 2, y)).not.toEqual(ints(theme.surface0))
 })

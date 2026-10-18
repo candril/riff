@@ -10,10 +10,13 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { diffFile } from "../diff-rows/fixtures"
 import type { Comment } from "../types"
 import { createRenderFunction, type RenderContext } from "./render"
+import { createFeedIsland } from "./feed"
+import type { FeedEvent } from "../utils/feed"
 
 /*
- * Only where render.ts puts the overlay islands' hosts: every other island
- * is a bare host, and with no files the diff views are never drawn.
+ * Only where render.ts puts the overlay islands' hosts, and the feed's: every
+ * other island is a bare host, and with no files the diff views are never
+ * drawn.
  */
 
 let setup: TestRendererSetup | null = null
@@ -25,7 +28,7 @@ afterEach(() => {
   setup = null
 })
 
-async function harness() {
+async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partial<RenderContext> = () => ({})) {
   setup = await createTestRenderer({ width: 120, height: 40 })
   const renderer = setup.renderer
   const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, dispose() {} })
@@ -62,10 +65,12 @@ async function harness() {
         "occurrencePicker",
         "commitPicker",
         "actionMenu",
+        "feed",
       ].map((name) => [name, island(name)])
     ),
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
+    ...real(renderer),
   } as unknown as RenderContext
   const render = createRenderFunction(ctx)
   const overlays = () => {
@@ -246,4 +251,46 @@ test("the review preview is mounted only while it is open, between the toast and
       filePicker: initial.filePicker,
     })
   ).toEqual([])
+})
+
+function findById(root: Renderable, id: string): Renderable | undefined {
+  for (const child of root.getChildren()) {
+    if (child.id === id) return child
+    const found = findById(child, id)
+    if (found) return found
+  }
+  return undefined
+}
+
+test("the feed view mounts the feed island's host with its rows, and hides it on leaving", async () => {
+  let feed: ReturnType<typeof createFeedIsland> | null = null
+  const app = await harness((renderer) => ({ feed: (feed = createFeedIsland(renderer)) }))
+  const initial = createInitialState([], [], "test", "")
+  const events: FeedEvent[] = [
+    { id: "r1", type: "review", at: new Date().toISOString(), actor: "carol", title: "approved" },
+    { id: "k1", type: "check", at: new Date().toISOString(), title: "build", trailing: "✓ passed" },
+  ]
+  const frame = async () => {
+    await setup!.renderOnce()
+    await setup!.renderOnce()
+    return setup!.captureCharFrame()
+  }
+
+  app.show({ viewMode: "feed", feed: { ...initial.feed, events } })
+  const host = findById(setup!.renderer.root, "feed-view")
+  expect(host).toBe(feed!.host)
+  const screen = await frame()
+  expect(screen).toContain("Feed   2 events · all types")
+  expect(screen).toContain("@carol")
+  expect(screen).toContain("build")
+
+  app.show({ viewMode: "diff" })
+  expect(findById(setup!.renderer.root, "feed-view")).toBeUndefined()
+  expect(await frame()).not.toContain("Feed")
+  expect(feed!.host.isDestroyed).toBe(false)
+
+  app.show({ viewMode: "feed" })
+  expect(findById(setup!.renderer.root, "feed-view")).toBe(feed!.host)
+  expect(await frame()).toContain("@carol")
+  feed!.dispose()
 })
