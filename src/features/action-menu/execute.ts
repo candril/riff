@@ -42,6 +42,7 @@ export interface ActionHandlers {
   handleDeleteComment: () => Promise<void>
   handleClearLocalComments: () => Promise<void>
   handleOpenPRInfoPanel: () => Promise<void>
+  handleOpenInBoard: () => void
   handleOpenFileInEditor: () => Promise<void>
   handleDiffFileInEditor: (opts?: { tmux?: boolean }) => Promise<void>
   handleOpenFileInTmuxWindow: () => Promise<void>
@@ -209,6 +210,10 @@ export async function executeAction(
       if (state.prInfo) {
         handlers.handleOpenPRInfoPanel()
       }
+      break
+
+    case "open-in-board":
+      handlers.handleOpenInBoard()
       break
 
     case "copy-pr-url":

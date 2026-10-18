@@ -102,6 +102,14 @@ export interface PreviewsConfig {
 }
 
 /**
+ * riff board is a separate web app the user runs themselves, so where it
+ * listens is theirs to say.
+ */
+export interface BoardConfig {
+  url: string
+}
+
+/**
  * Root configuration
  */
 export interface Config {
@@ -112,4 +120,5 @@ export interface Config {
   poll: PollConfig
   previews: PreviewsConfig
   editor: EditorConfig
+  board: BoardConfig
 }

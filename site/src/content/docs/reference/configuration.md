@@ -30,6 +30,9 @@ onFocus = true
 [diff]
 wrap = false
 alignMarkdownTables = true
+
+[board]
+url = "http://localhost:4477"
 ```
 
 ## ignore
@@ -178,6 +181,17 @@ hide_source     = true                         # default
 A link in a row that qualified comes along even when it does not qualify itself — that is how
 the BrowserStack links in a mobile row survive next to the preview URL. Italic cells
 (`*on demand*`, `*building*`) are shown as status rather than as dead links.
+
+## board
+
+```toml
+[board]
+url = "http://localhost:4477"
+```
+
+| Key | Default | What |
+| --- | --- | --- |
+| `url` | `"http://localhost:4477"` | Where riff board listens. `gB` opens `<url>/pr/<owner>/<repo>/<number>` for the current PR in the browser. riff board is a separate app you run yourself; riff never starts or probes it, so when it is down the browser shows the connection error. |
 
 ## Environment
 

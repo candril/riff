@@ -61,6 +61,13 @@ test("the composer's keys are drawn with what they do, above the footer", async 
   expect(footer).toBeGreaterThan(Math.max(publish, newline, pick))
 })
 
+test("gB is drawn with riff board, above the footer", async () => {
+  const rows = await frame()
+  const board = rows.findIndex((line) => /gB\s+Open PR in riff board/.test(line))
+  expect(board).toBeGreaterThan(-1)
+  expect(rows.findIndex((line) => line.includes("Press g? or Esc to close"))).toBeGreaterThan(board)
+})
+
 test("where every key fits, the footer offers no scrolling and nothing is marked as more", async () => {
   const rows = await frame()
   expect(rows.join("\n")).not.toContain("j / k scroll")

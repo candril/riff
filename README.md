@@ -120,6 +120,9 @@ extra = ["my-org/backend-team"]                      # teams the @ picker can't 
 [poll]
 interval = 300                                       # seconds between comment checks; 0 disables
 onFocus = true                                       # only while the terminal has focus
+
+[board]
+url = "http://localhost:4477"                        # where riff board listens (gB)
 ```
 
 The [configuration reference](https://candril.github.io/riff/reference/configuration/) has the rest.

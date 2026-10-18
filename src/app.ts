@@ -37,6 +37,7 @@ import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
 import { markVisit } from "./utils/visit"
+import { openUrl } from "./utils/open-url"
 import { saveVisitSync, saveMarks, loadMarks } from "./storage"
 import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
@@ -96,6 +97,7 @@ import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
 import * as permalink from "./features/permalink"
+import { openPrInBoard } from "./features/riff-board"
 import { startMentionPrefetch } from "./features/mentions"
 import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
@@ -1134,6 +1136,14 @@ export async function createApp(options: AppOptions = {}) {
     handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
     handleClearLocalComments: () => commentsFeature.handleClearLocalComments(commentsContext),
     handleOpenPRInfoPanel: () => prInfoPanelFeature.handleOpenPRInfoPanel(prInfoPanelOpenContext),
+    handleOpenInBoard: () =>
+      openPrInBoard({
+        getState: () => state,
+        setState: (fn) => { state = fn(state) },
+        render,
+        openUrl,
+        boardUrl: loadConfig().board.url,
+      }),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleDiffFileInEditor: (opts) => externalTools.handleDiffFileInEditor(externalToolsContext, opts),
     handleOpenFileInTmuxWindow: () => externalTools.handleOpenFileInTmuxWindow(externalToolsContext),

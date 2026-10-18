@@ -63,4 +63,7 @@ export const defaultConfig: Config = {
     interval: 300,
     onFocus: true,
   },
+  board: {
+    url: "http://localhost:4477",
+  },
 }

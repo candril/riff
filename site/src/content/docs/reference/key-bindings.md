@@ -169,6 +169,7 @@ everywhere, tmux included. In local mode both just save — there's nothing to p
 | `c` `m` `r` `b` `t` `p` `u` | In the feed: toggle a type, unseen only; `Esc` puts everything back |
 | `za` | In the feed: open a commit into its files |
 | `go` | Open the PR in a browser |
+| `gB` | Open the PR in riff board — PRs only; elsewhere it says so |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, line, or file |
 | `gP` | Edit the PR title and body — or create a PR, in local mode |

@@ -1446,6 +1446,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           ctx.executeAction("copy-pr-url")
         }
         return
+      } else if (sequence === "gB!" || sequence === "gb!") {
+        ctx.executeAction("open-in-board")
+        return
       } else if (sequence === "gY!" || sequence === "gy!") {
         // Copy a GitHub permalink for the selection / current line / file.
         // Both spellings are accepted because terminals differ in whether

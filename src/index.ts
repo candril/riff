@@ -171,6 +171,7 @@ const HELP_TEXT = `
     gs                        Sync edits/replies/resolutions to GitHub
     gi                        PR overview panel
     go / gy / gY              Open PR / copy its URL / copy permalink
+    gB                        Open PR in riff board
     gP                        Create PR (local) or edit PR title & body
     gc                        Checkout the PR branch, open the file in $EDITOR
 

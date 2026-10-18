@@ -116,6 +116,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["i / a / d", "PR state / feed / diff"],
       ["c m r b t p", "Feed: toggle a type · u unseen · Esc all"],
       ["go / gy", "Open PR / copy its URL"],
+      ["gB", "Open PR in riff board"],
       ["gY", "Copy permalink"],
       ["gP", "Create / edit PR"],
       ["gc", "Checkout & edit (PR)"],

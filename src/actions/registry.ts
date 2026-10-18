@@ -457,6 +457,14 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" || state.branchPr !== null,
   },
   {
+    id: "open-in-board",
+    label: "Open in riff board",
+    description: "Open the PR in riff board",
+    shortcut: "gB",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo !== null,
+  },
+  {
     id: "pr-info",
     label: "PR Info",
     description: "Show PR details, author, branch info",

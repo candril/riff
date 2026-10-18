@@ -42,7 +42,7 @@ export function loadConfig(): Config {
 /**
  * Merge parsed TOML with defaults
  */
-function mergeConfig(parsed: Record<string, unknown>): Config {
+export function mergeConfig(parsed: Record<string, unknown>): Config {
   const config: Config = {
     ignore: { ...defaultConfig.ignore },
     diff: { ...defaultConfig.diff },
@@ -51,6 +51,7 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     poll: { ...defaultConfig.poll },
     previews: { ...defaultConfig.previews, hosts: [...defaultConfig.previews.hosts] },
     editor: { ...defaultConfig.editor },
+    board: { ...defaultConfig.board },
   }
 
   // Merge ignore section
@@ -147,6 +148,11 @@ function mergeConfig(parsed: Record<string, unknown>): Config {
     if (typeof poll.onFocus === "boolean") {
       config.poll.onFocus = poll.onFocus
     }
+  }
+
+  if (parsed.board && typeof parsed.board === "object") {
+    const board = parsed.board as Record<string, unknown>
+    if (typeof board.url === "string") config.board.url = board.url
   }
 
   return config
