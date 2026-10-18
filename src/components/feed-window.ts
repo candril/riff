@@ -12,7 +12,7 @@ export const FEED_CHROME_ROWS = 6
 export type FeedLine = { kind: "row"; index: number } | { kind: "loading"; index: number }
 
 /** A commit opened before its files have arrived, which draws a loading line under it. */
-export function awaitsFiles(row: FeedRow, feed: FeedState): boolean {
+function awaitsFiles(row: FeedRow, feed: FeedState): boolean {
   const target = row.event.target
   return row.kind === "event" && target?.kind === "commit" && feed.expandedIds.has(row.event.id) && !feed.commitFiles.has(target.sha)
 }

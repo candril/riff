@@ -111,7 +111,8 @@ const TYPE_TONE: Record<FeedEvent["type"], FeedTone> = {
 export function feedModel({ events, rows, feed, unseenIds, flashLabels, loading, now, height }: FeedModelInput): FeedModel {
   const leadWidth = leadWidthFor(events)
   const lines = events.length === 0 ? [] : feedWindow(rows, feed, height)
-  const firstInView = lines[0]?.index ?? 0
+  // A loading line at the top stands for a commit that has scrolled away.
+  const firstRowInView = lines.find((line) => line.kind === "row")?.index ?? 0
   return {
     header: header(events, feed, unseenIds, loading),
     legend: legend(feed),
@@ -136,9 +137,9 @@ export function feedModel({ events, rows, feed, unseenIds, flashLabels, loading,
           deletions: row.file.deletions,
         }
       }
-      // The top line in view writes its time even when an event scrolled
-      // away above it shares it: the gutter would otherwise start blank.
-      const previous = previousEvent(rows, index, firstInView)
+      // The first event row in view writes its time even when an event
+      // scrolled away above it shares it: the gutter would otherwise start blank.
+      const previous = previousEvent(rows, index, firstRowInView)
       return eventRowOf(row.event, previous, { selected, flashCell, feed, unseenIds, leadWidth, now })
     }),
   }

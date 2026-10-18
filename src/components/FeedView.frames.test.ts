@@ -360,8 +360,9 @@ describe("the legend", () => {
   })
 })
 
-// The test screen stands for the whole terminal, but only the feed is on it:
-// the two rows the app's header and status bar would take stay blank.
+// The test screen stands for the whole terminal but mounts the feed without
+// the header and the status bar, so the two rows they would take are left
+// over at the bottom of the frame.
 test("a feed longer than the screen scrolls to keep its highlight in view", async () => {
   const { lines, spans } = await show({ events: many, feed: { highlightIndex: 59 } })
   expect(lines.length).toBeLessThanOrEqual(28)
@@ -376,8 +377,23 @@ test("a feed longer than the screen scrolls to keep its highlight in view", asyn
 
 test("a commit's loading line takes a row of the window", async () => {
   const events = [...many.slice(0, 30), commit("abc1234", 60 * 24 * 3), ...many.slice(30)]
-  const { lines } = await show({ events, feed: { highlightIndex: 30, expandedIds: new Set(["commit-abc1234"]) } })
-  expect(lines.length).toBeLessThanOrEqual(28)
-  expect(lines.join("\n")).toContain("loading…")
-  expect(lines.join("\n")).toContain("abc1234")
+  const { lines, spans } = await show({ events, feed: { highlightIndex: 30, expandedIds: new Set(["commit-abc1234"]) } })
+  expect(lines[16]).toBe("      3d   commit   @dave          ▾ abc1234        fix: handle empty hunks")
+  expect(lines[17]).toBe("                                   loading…")
+  expect(lines[18]).toBe("      1d   comment  @alice         src/greet.ts:12  Note 30")
+  // Twenty-four rows for the list: the loading line costs Note 40 its place at the bottom.
+  expect(lines.length).toBe(28)
+  expect(lines[27]).toBe("           comment  @alice         src/greet.ts:12  Note 39")
+  expect(bgAt(spans, 2, 16)).toEqual(ints(theme.surface0))
+  expect(bgAt(spans, 97, 16)).toEqual(ints(theme.surface0))
+  expect(bgAt(spans, 2, 17)).not.toEqual(ints(theme.surface0))
+})
+
+test("the first event row under a commit's loading line writes its own time", async () => {
+  const events = [...many.slice(0, 10), commit("abc1234", 10 * 61), ...many.slice(10)]
+  const { lines } = await show({ events, height: 12, feed: { highlightIndex: 13, expandedIds: new Set(["commit-abc1234"]) } })
+  const [, loading] = find(lines, "loading…")
+  expect(loading).toBe(4)
+  expect(lines.join("\n")).not.toContain("abc1234")
+  expect(lines[loading + 1]).toBe("     10h   comment  @alice         src/greet.ts:12  Note 10")
 })
