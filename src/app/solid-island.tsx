@@ -1,7 +1,7 @@
 /**
  * A Solid tree mounted inside riff's imperative render tree (spec 100's
- * strangler): one view at a time moves to Solid while render.ts keeps
- * rebuilding everything around it.
+ * strangler): one view at a time moves to Solid while render.ts still
+ * drives everything around it.
  */
 
 import { BoxRenderable, type BoxOptions, type CliRenderer } from "@opentui/core"
@@ -11,7 +11,7 @@ import { _render, createComponent, RendererContext, type JSX } from "@opentui/so
 import { keepAlive } from "../utils/renderables"
 
 export interface SolidIsland {
-  /** Kept alive, so render.ts's `discard` unmounts it and the next pass re-adds it. */
+  /** Kept alive, so `discard` of whatever holds it unmounts it rather than destroying it. */
   host: BoxRenderable
   dispose(): void
 }

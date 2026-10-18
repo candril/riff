@@ -4,12 +4,12 @@
  * Creates the main render function that orchestrates all UI updates.
  */
 
-import { Box, Text } from "@opentui/core"
+import { TextRenderable, instantiate } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { InlineCommentOverlay } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import { syncPromptSession, endPromptSession } from "../components/PromptInput"
-import { discard } from "../utils/renderables"
+import { keepAlive } from "../utils/renderables"
 import { reviewCandidates } from "../utils/publishable"
 import {
   collectMentionCandidates,
@@ -61,7 +61,6 @@ import type {
 import { pickerModels } from "./picker-models"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
-import type { FileTreePanel } from "../components/FileTreePanel"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
@@ -80,8 +79,8 @@ import { paletteMode } from "../features/action-menu"
 import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { composerOpen, diffCursorShown } from "./diff-focus"
-import { mainContentRow } from "./content-row"
 import { openPrompt } from "./open-prompt"
+import type { AppShell } from "./shell"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -96,7 +95,7 @@ export interface RenderContext {
   getPrInfoPanel: () => PRInfoPanelClass | null
   // UI panels
   renderer: CliRenderer
-  fileTreePanel: FileTreePanel
+  shell: AppShell
   statusBar: StatusBarIsland
   header: HeaderIsland
   searchPrompt: SearchPromptIsland
@@ -130,6 +129,9 @@ export interface RenderContext {
  * Create the main render function
  */
 export function createRenderFunction(ctx: RenderContext): () => void {
+  const errorText = keepAlive(new TextRenderable(ctx.renderer, { fg: colors.error }))
+  const emptyText = keepAlive(new TextRenderable(ctx.renderer, { content: "No changes to display", fg: colors.textDim }))
+
   return function render() {
     const state = ctx.getState()
     const vimState = ctx.getVimState()
@@ -151,14 +153,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const prompt = openPrompt(state, ctx, render)
     const diffFocused = diffCursorShown(state, prompt !== null)
 
-    // Main content based on view mode. The row around it is built once the
-    // thread panel is, which has to wait for the composer's session below.
+    // Main content based on view mode. It is mounted once the thread panel
+    // is built, which has to wait for the composer's session below.
     let view
     let withTree = true
     let unifiedOn = false
     const prInfoPanelInstance = ctx.getPrInfoPanel()
     if (state.error) {
-      view = Text({ content: `Error: ${state.error}`, fg: colors.error })
+      errorText.content = `Error: ${state.error}`
+      view = errorText
       withTree = false
     } else if (state.viewMode === "state" && prInfoPanelInstance) {
       // PR overview (spec 041): mount the panel inline next to the tree.
@@ -178,7 +181,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
       view = ctx.feed.host
     } else if (state.files.length === 0) {
-      view = Text({ content: "No changes to display", fg: colors.textDim })
+      view = emptyText
       withTree = false
     } else {
       // The text of the files riff has already read, so they can be
@@ -212,17 +215,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.unified.syncDrawn(unifiedOn)
     ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
 
-    // Clear and re-render (preserve indicator renderables and file tree panel)
-    const children = ctx.renderer.root.getChildren()
-    for (const child of children) {
-      if (child.id === "cursor-indicator" || child.id?.startsWith("comment-indicator-")) {
-        continue
-      }
-      if (child.id === "file-tree-panel") {
-        continue
-      }
-      discard(child)
-    }
+    // The last pass's thread panel goes before the sessions below run, so
+    // the composer's textarea is out of it while its session seeds it.
+    ctx.shell.setThreadPanel(null)
 
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
@@ -346,7 +341,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     })
 
     const commentPanel = state.inlineCommentOverlay.open
-      ? InlineCommentOverlay({
+      ? instantiate(ctx.renderer, InlineCommentOverlay({
         comments: getInlineCommentOverlayComments(state),
         scopeFilename: getCommentsPanelScopeFilename(state),
         composeFilename: state.inlineCommentOverlay.filename,
@@ -376,9 +371,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         filterInput: state.inlineCommentOverlay.filterInput,
         flashLabels: flashLabelsOn(flashState, "comments"),
         renderer: ctx.renderer,
-      })
+      }))
       : null
-    const content = mainContentRow(view, commentPanel, { withTree })
 
     ctx.header.update({
       ...headerModel({
@@ -441,56 +435,25 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       state.actionMenu.open ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex, ctx.renderer.height) : null
     )
 
-    ctx.renderer.root.add(
-      Box(
-        {
-          width: "100%",
-          height: "100%",
-          flexDirection: "column",
-        },
-        ctx.header.host,
-        Box(
-          {
-            flexGrow: 1,
-            width: "100%",
-          },
-          content
-        ),
-        searchShown ? ctx.searchPrompt.host : null,
-        // Flash takes the status bar's row rather than a row of its own:
-        // growing the footer would shrink every panel by a line, and the
-        // labels would land on rows that had just moved.
-        flashShown ? ctx.flashPrompt.host : ctx.statusBar.host,
-        state.actionMenu.open ? ctx.actionMenu.host : null,
-        state.toast.message ? ctx.toast.host : null,
-        state.reviewPreview.open ? ctx.reviewPreview.host : null,
-        state.syncPreview.open ? ctx.syncPreview.host : null,
-        state.filePicker.open ? ctx.filePicker.host : null,
-        state.commentsPicker.open ? ctx.commentsPicker.host : null,
-        state.marksPicker.open ? ctx.marksPicker.host : null,
-        state.occurrencePicker.open ? ctx.occurrencePicker.host : null,
-        state.commitPicker.open ? ctx.commitPicker.host : null,
-        state.showHelp ? ctx.helpOverlay.host : null,
-        diffPeek ? ctx.diffPeek.host : null,
-        hunkPeek ? ctx.hunkPeek.host : null,
-        state.confirmDialog ? ctx.confirmDialog.host : null,
-        state.draftNotification ? ctx.draftNotification.host : null,
-
-      )
-    )
-
-    // Insert file tree panel into the content row as first child
-    if (state.files.length > 0) {
-      const contentRow = ctx.renderer.root.findDescendantById("main-content-row")
-      if (contentRow && ctx.fileTreePanel.getContainer().parent !== contentRow) {
-        const firstChild = contentRow.getChildren()[0]
-        if (firstChild) {
-          contentRow.insertBefore(ctx.fileTreePanel.getContainer(), firstChild)
-        } else {
-          contentRow.add(ctx.fileTreePanel.getContainer())
-        }
-      }
-    }
+    // The tree has nothing to list without files, whatever the view.
+    ctx.shell.setView(view, { withTree: withTree && state.files.length > 0 })
+    ctx.shell.setThreadPanel(commentPanel)
+    ctx.shell.show("searchPrompt", searchShown)
+    ctx.shell.showFlash(flashShown)
+    ctx.shell.show("actionMenu", state.actionMenu.open)
+    ctx.shell.show("toast", !!state.toast.message)
+    ctx.shell.show("reviewPreview", state.reviewPreview.open)
+    ctx.shell.show("syncPreview", state.syncPreview.open)
+    ctx.shell.show("filePicker", state.filePicker.open)
+    ctx.shell.show("commentsPicker", state.commentsPicker.open)
+    ctx.shell.show("marksPicker", state.marksPicker.open)
+    ctx.shell.show("occurrencePicker", state.occurrencePicker.open)
+    ctx.shell.show("commitPicker", state.commitPicker.open)
+    ctx.shell.show("helpOverlay", state.showHelp)
+    ctx.shell.show("diffPeek", diffPeek !== null)
+    ctx.shell.show("hunkPeek", hunkPeek !== null)
+    ctx.shell.show("confirmDialog", !!state.confirmDialog)
+    ctx.shell.show("draftNotification", !!state.draftNotification)
 
     // Keep the PR-level comment input overlay (a modal *inside* the PR
     // panel) in sync whenever the panel exists — it renders itself only

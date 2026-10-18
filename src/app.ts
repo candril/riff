@@ -55,6 +55,7 @@ const HIGHLIGHT_SOURCE_DELAY_MS = 150
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
 import { createRenderFunction } from "./app/render"
+import { createAppShell } from "./app/shell"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
@@ -551,6 +552,30 @@ export async function createApp(options: AppOptions = {}) {
     refreshCursor,
   })
 
+  const shell = createAppShell(renderer, {
+    header: header.host,
+    tree: fileTreePanel.getContainer(),
+    searchPrompt: searchPrompt.host,
+    statusBar: statusBar.host,
+    flashPrompt: flashPrompt.host,
+    overlays: {
+      actionMenu: actionMenuIsland.host,
+      toast: toast.host,
+      reviewPreview: reviewPreviewIsland.host,
+      syncPreview: syncPreviewIsland.host,
+      filePicker: filePickerIsland.host,
+      commentsPicker: commentsPickerIsland.host,
+      marksPicker: marksPickerIsland.host,
+      occurrencePicker: occurrencePickerIsland.host,
+      commitPicker: commitPickerIsland.host,
+      helpOverlay: helpOverlay.host,
+      diffPeek: diffPeek.host,
+      hunkPeek: hunkPeek.host,
+      confirmDialog: confirmDialog.host,
+      draftNotification: draftNotification.host,
+    },
+  })
+
   const renderFrame = createRenderFunction({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -561,7 +586,7 @@ export async function createApp(options: AppOptions = {}) {
     getCachedCurrentUser: () => cachedCurrentUser,
     getPrInfoPanel: () => prInfoPanel,
     renderer,
-    fileTreePanel,
+    shell,
     statusBar,
     header,
     searchPrompt,
@@ -794,7 +819,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // Which files are on screen is known once a frame is laid out, not when
-  // `render()` rebuilds the tree — the rows it would walk then are the old
+  // `render()` updates the tree — the rows it would walk then are the old
   // layout's, or none — and moving the cursor draws without calling it at
   // all (spec 080). The walk is cheap; the reads behind it are debounced.
   renderer.addPostProcessFn(() => requestHighlightSource())

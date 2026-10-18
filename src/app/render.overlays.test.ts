@@ -11,6 +11,7 @@ import { diffFile } from "../diff-rows/fixtures"
 import type { Comment } from "../types"
 import { createRenderFunction, type RenderContext } from "./render"
 import { createFeedIsland } from "./feed"
+import { createAppShell, OVERLAYS, type OverlayId, type ShellParts } from "./shell"
 import type { FeedEvent } from "../utils/feed"
 
 /*
@@ -33,6 +34,23 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const renderer = setup.renderer
   const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, dispose() {} })
   let state = createInitialState([], [], "test", "")
+  const realParts = real(renderer)
+  const islands = {
+    ...Object.fromEntries(
+      ["statusBar", "header", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
+    ),
+    ...realParts,
+  } as unknown as Pick<RenderContext, "statusBar" | "header" | "searchPrompt" | "flashPrompt" | OverlayId>
+  const overlayHosts = {} as ShellParts["overlays"]
+  for (const id of OVERLAYS) overlayHosts[id] = islands[id].host
+  const shell = createAppShell(renderer, {
+    header: islands.header.host,
+    tree: new BoxRenderable(renderer, {}),
+    searchPrompt: islands.searchPrompt.host,
+    statusBar: islands.statusBar.host,
+    flashPrompt: islands.flashPrompt.host,
+    overlays: overlayHosts,
+  })
   const ctx = {
     getState: () => state,
     setState: (updater: (s: AppState) => AppState) => (state = updater(state)),
@@ -43,56 +61,19 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     getCachedCurrentUser: () => null,
     getPrInfoPanel: () => null,
     renderer,
+    shell,
     updateFileTreePanel() {},
     updateSearchPattern() {},
-    ...Object.fromEntries(
-      [
-        "statusBar",
-        "header",
-        "searchPrompt",
-        "flashPrompt",
-        "toast",
-        "draftNotification",
-        "confirmDialog",
-        "reviewPreview",
-        "syncPreview",
-        "helpOverlay",
-        "diffPeek",
-        "hunkPeek",
-        "filePicker",
-        "commentsPicker",
-        "marksPicker",
-        "occurrencePicker",
-        "commitPicker",
-        "actionMenu",
-        "feed",
-      ].map((name) => [name, island(name)])
-    ),
+    ...islands,
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
-    ...real(renderer),
+    ...realParts,
   } as unknown as RenderContext
   const render = createRenderFunction(ctx)
-  const overlays = () => {
-    const root = renderer.root.getChildren().find((child) => !child.id.startsWith("comment-indicator-"))!
-    const ids = new Set([
-      "actionMenu",
-      "toast",
-      "reviewPreview",
-      "syncPreview",
-      "filePicker",
-      "commentsPicker",
-      "marksPicker",
-      "occurrencePicker",
-      "commitPicker",
-      "helpOverlay",
-      "diffPeek",
-      "hunkPeek",
-      "confirmDialog",
-      "draftNotification",
-    ])
-    return root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) ? [child.id] : []))
-  }
+  // Every overlay host stays mounted; what counts as shown is a visible one, in the order the shell stacks them.
+  const ids = new Set<string>(OVERLAYS)
+  const overlays = () =>
+    shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
     show(patch: Partial<AppState>) {
       state = { ...state, ...patch }

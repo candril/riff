@@ -27,6 +27,7 @@ import {
   createMarksPickerIsland,
   createOccurrencePickerIsland,
 } from "../app/pickers"
+import { createAppShell, OVERLAYS, type ShellParts } from "../app/shell"
 import { createDiffHighlights } from "../app/diff-highlights"
 import { createSplitDiff } from "../app/split-diff"
 import { createUnifiedDiff } from "../app/unified-diff"
@@ -65,6 +66,39 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const split = createSplitDiff({ ...diffDeps, onShownChanged: () => render() })
   const unified = createUnifiedDiff(diffDeps)
 
+  const overlays = {
+    actionMenu: createActionMenuIsland(renderer),
+    toast: createToastIsland(renderer),
+    reviewPreview: createReviewPreviewIsland(renderer),
+    syncPreview: createSyncPreviewIsland(renderer),
+    filePicker: createFilePickerIsland(renderer),
+    commentsPicker: createCommentsPickerIsland(renderer),
+    marksPicker: createMarksPickerIsland(renderer),
+    occurrencePicker: createOccurrencePickerIsland(renderer),
+    commitPicker: createCommitPickerIsland(renderer),
+    helpOverlay: createHelpOverlayIsland(renderer),
+    diffPeek: createPeekIsland(renderer, { id: "diff-peek-island" }),
+    hunkPeek: createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 }),
+    confirmDialog: createConfirmDialogIsland(renderer),
+    draftNotification: createDraftNotificationIsland(renderer),
+  }
+  const chrome = {
+    statusBar: createStatusBarIsland(renderer),
+    header: createHeaderIsland(renderer),
+    searchPrompt: createSearchPromptIsland(renderer),
+    flashPrompt: createFlashPromptIsland(renderer),
+  }
+  const overlayHosts = {} as ShellParts["overlays"]
+  for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host
+  const shell = createAppShell(renderer, {
+    header: chrome.header.host,
+    tree: fileTreePanel.getContainer(),
+    searchPrompt: chrome.searchPrompt.host,
+    statusBar: chrome.statusBar.host,
+    flashPrompt: chrome.flashPrompt.host,
+    overlays: overlayHosts,
+  })
+
   const ctx: RenderContext = {
     getState: () => state,
     setState: (updater) => (state = updater(state)),
@@ -75,26 +109,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     getCachedCurrentUser: () => null,
     getPrInfoPanel: () => null,
     renderer,
-    fileTreePanel,
-    statusBar: createStatusBarIsland(renderer),
-    header: createHeaderIsland(renderer),
-    searchPrompt: createSearchPromptIsland(renderer),
-    flashPrompt: createFlashPromptIsland(renderer),
-    toast: createToastIsland(renderer),
-    draftNotification: createDraftNotificationIsland(renderer),
-    confirmDialog: createConfirmDialogIsland(renderer),
-    reviewPreview: createReviewPreviewIsland(renderer),
-    syncPreview: createSyncPreviewIsland(renderer),
+    shell,
+    ...chrome,
+    ...overlays,
     feed: createFeedIsland(renderer),
-    helpOverlay: createHelpOverlayIsland(renderer),
-    diffPeek: createPeekIsland(renderer, { id: "diff-peek-island" }),
-    hunkPeek: createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 }),
-    filePicker: createFilePickerIsland(renderer),
-    commentsPicker: createCommentsPickerIsland(renderer),
-    marksPicker: createMarksPickerIsland(renderer),
-    occurrencePicker: createOccurrencePickerIsland(renderer),
-    commitPicker: createCommitPickerIsland(renderer),
-    actionMenu: createActionMenuIsland(renderer),
     split,
     unified,
     parses,
@@ -119,6 +137,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   return {
     setup,
     ctx,
+    fileTreePanel,
     render,
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
