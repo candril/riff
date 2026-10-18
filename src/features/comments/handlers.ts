@@ -9,7 +9,7 @@ import type { Comment, FileReviewStatus } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
-import type { ValidatedComment } from "../../components"
+import type { ValidatedComment } from "../../components/review-preview-model"
 import type { PrInfo, SubmitResult } from "../../providers/github"
 import {
   addComment,

@@ -20,8 +20,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
-import type { ValidatedComment } from "../../components"
-import { canSubmit } from "../../components"
+import { canSubmit, type ValidatedComment } from "../../components/review-preview-model"
 import { readReviewSummaryValue } from "../../components/ReviewSummaryComposer"
 import {
   closeReviewPreview,
