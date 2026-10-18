@@ -99,6 +99,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
   }
 
   let drawnLastPass = false
+  let paneWidthLastDrawn: number | null = null
 
   return {
     island,
@@ -115,10 +116,22 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
      * the first: a host laid out before reports any size it comes back at
      * that differs, and a guess over a size it comes back at unchanged
      * would never be corrected.
+     *
+     * The tree's toggle and the thread panel change the pane's width in
+     * this very pass, but the host learns its new size only from the
+     * layout of the frame this pass draws, after that frame's rows are
+     * composed. Taking the width from the state instead keeps that frame
+     * from drawing the rows at the old width.
      */
     syncDrawn(drawnNow: boolean): void {
-      if (drawnNow && !drawnLastPass && island.viewportHeight() === 0) {
-        island.seedSize(paneWidth(), diffPaneHeight(deps.renderer.height))
+      if (drawnNow) {
+        const width = paneWidth()
+        if (!drawnLastPass && island.viewportHeight() === 0) {
+          island.seedSize(width, diffPaneHeight(deps.renderer.height))
+        } else if (width !== paneWidthLastDrawn) {
+          island.seedSize(width, island.viewportHeight())
+        }
+        paneWidthLastDrawn = width
       }
       // The block is placed from the host's render hook, which stops with the host out of the tree, and
       // the island lives on to be drawn again, so nothing else hides it over split or the error text.

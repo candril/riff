@@ -64,6 +64,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
   }
 
   let drawnLastPass = false
+  let paneWidthLastDrawn: number | null = null
 
   // The layout follows a resize on its own, but which view draws the diff
   // is decided in render(), and below 120 columns unified must take over.
@@ -134,9 +135,19 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     shown,
     rowAtLine,
     cursorRow,
-    /** Called every pass; the pane unified fills is the size split takes when it comes in. */
+    /**
+     * Called every pass; the pane unified fills is the size split takes when
+     * it comes in. A width that changes in this pass, with the tree or the
+     * thread panel, is taken from the state, as unified takes it: the host
+     * reports its own only after the frame drawn at the old one.
+     */
     syncDrawn(drawn: boolean, unifiedHeight: number): void {
-      if (drawn && !drawnLastPass) island.seedSize(paneWidth(), unifiedHeight || island.viewportHeight())
+      if (drawn) {
+        const width = paneWidth()
+        if (!drawnLastPass) island.seedSize(width, unifiedHeight || island.viewportHeight())
+        else if (width !== paneWidthLastDrawn) island.seedSize(width, island.viewportHeight())
+        paneWidthLastDrawn = width
+      }
       drawnLastPass = drawn
     },
     /** A removed line opens in the old pane, anything else in the new one. */
