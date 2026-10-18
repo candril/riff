@@ -61,6 +61,7 @@ import { createHeaderIsland } from "./app/header"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
+import { createReviewPreviewIsland } from "./app/review-preview"
 import { createHelpOverlayIsland } from "./app/help-overlay"
 import { createPeekIsland } from "./app/peek-island"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
@@ -298,6 +299,7 @@ export async function createApp(options: AppOptions = {}) {
     toast.dispose()
     draftNotification.dispose()
     confirmDialog.dispose()
+    reviewPreviewIsland.dispose()
     syncPreviewIsland.dispose()
     helpOverlay.dispose()
     diffPeek.dispose()
@@ -485,6 +487,7 @@ export async function createApp(options: AppOptions = {}) {
   const toast = createToastIsland(renderer)
   const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
+  const reviewPreviewIsland = createReviewPreviewIsland(renderer)
   const syncPreviewIsland = createSyncPreviewIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
   const diffPeek = createPeekIsland(renderer, { id: "diff-peek-island" })
@@ -563,6 +566,7 @@ export async function createApp(options: AppOptions = {}) {
     toast,
     draftNotification,
     confirmDialog,
+    reviewPreview: reviewPreviewIsland,
     syncPreview: syncPreviewIsland,
     helpOverlay,
     diffPeek,

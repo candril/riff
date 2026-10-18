@@ -51,6 +51,7 @@ async function harness() {
         "toast",
         "draftNotification",
         "confirmDialog",
+        "reviewPreview",
         "syncPreview",
         "helpOverlay",
         "diffPeek",
@@ -72,6 +73,7 @@ async function harness() {
     const ids = new Set([
       "actionMenu",
       "toast",
+      "reviewPreview",
       "syncPreview",
       "filePicker",
       "commentsPicker",
@@ -201,9 +203,6 @@ test("the command palette is mounted only while it is open, under the pickers", 
   expect(app.show({ filePicker: { ...initial.filePicker, open: false } })).toEqual([])
 })
 
-// The review preview's slot lies between the toast and the sync preview, but
-// it is left shut here: its summary textarea is a module-level singleton
-// bound to the first renderer that draws it, and would outlive this one.
 test("the sync preview is mounted only while it is open, above the palette and the toast and under the pickers", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
@@ -221,4 +220,30 @@ test("the sync preview is mounted only while it is open, above the palette and t
     "syncPreview",
   ])
   expect(app.show(sync(false))).toEqual([])
+})
+
+test("the review preview is mounted only while it is open, between the toast and the sync preview and under the pickers", async () => {
+  const app = await harness()
+  const initial = createInitialState([], [], "test", "")
+  const review = (open: boolean) => ({ reviewPreview: { ...initial.reviewPreview, open } })
+  expect(app.show(review(true))).toEqual(["reviewPreview"])
+  expect(
+    app.show({
+      toast: { message: "Saved", type: "info" },
+      actionMenu: { ...initial.actionMenu, open: true },
+      syncPreview: { ...initial.syncPreview, open: true },
+      filePicker: { ...initial.filePicker, open: true },
+    })
+  ).toEqual(["actionMenu", "toast", "reviewPreview", "syncPreview", "filePicker"])
+  expect(app.show(review(false))).toEqual(["actionMenu", "toast", "syncPreview", "filePicker"])
+  expect(app.show(review(true))).toEqual(["actionMenu", "toast", "reviewPreview", "syncPreview", "filePicker"])
+  expect(
+    app.show({
+      ...review(false),
+      toast: initial.toast,
+      actionMenu: initial.actionMenu,
+      syncPreview: initial.syncPreview,
+      filePicker: initial.filePicker,
+    })
+  ).toEqual([])
 })

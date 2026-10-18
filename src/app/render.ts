@@ -7,7 +7,6 @@
 import { Box, Text } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import {
-  ReviewPreview,
   InlineCommentOverlay,
   FeedView,
 } from "../components"
@@ -54,6 +53,8 @@ import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { gatherSyncItems } from "../components/sync-items"
 import { syncPreviewModel } from "../components/sync-preview-model"
 import type { SyncPreviewIsland } from "./sync-preview"
+import { reviewPreviewModel } from "../components/review-preview-model"
+import type { ReviewPreviewIsland } from "./review-preview"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import type { HelpOverlayIsland } from "./help-overlay"
 import type { PeekIsland } from "./peek-island"
@@ -111,6 +112,7 @@ export interface RenderContext {
   toast: ToastIsland
   draftNotification: DraftNotificationIsland
   confirmDialog: ConfirmDialogIsland
+  reviewPreview: ReviewPreviewIsland
   syncPreview: SyncPreviewIsland
   helpOverlay: HelpOverlayIsland
   diffPeek: PeekIsland
@@ -513,6 +515,15 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
     )
     ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
+    ctx.reviewPreview.update(
+      state.reviewPreview.open
+        ? reviewPreviewModel(
+            commentsFeature.validateCommentsForSubmit(reviewCandidates(state.comments), state.files),
+            state.reviewPreview,
+            state.prInfo !== null && cachedCurrentUser === state.prInfo.author
+          )
+        : null
+    )
     ctx.syncPreview.update(state.syncPreview.open ? syncPreviewModel(gatherSyncItems(state.comments), state.syncPreview) : null)
     ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version, state.helpScroll, ctx.renderer.height) : null)
     const diffPeek =
@@ -558,17 +569,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         flashShown ? ctx.flashPrompt.host : ctx.statusBar.host,
         state.actionMenu.open ? ctx.actionMenu.host : null,
         state.toast.message ? ctx.toast.host : null,
-        state.reviewPreview.open
-          ? ReviewPreview({
-              comments: commentsFeature.validateCommentsForSubmit(
-                reviewCandidates(state.comments),
-                state.files
-              ),
-              state: state.reviewPreview,
-              isOwnPr: state.prInfo !== null && cachedCurrentUser === state.prInfo.author,
-              renderer: ctx.renderer,
-            })
-          : null,
+        state.reviewPreview.open ? ctx.reviewPreview.host : null,
         state.syncPreview.open ? ctx.syncPreview.host : null,
         state.filePicker.open ? ctx.filePicker.host : null,
         state.commentsPicker.open ? ctx.commentsPicker.host : null,

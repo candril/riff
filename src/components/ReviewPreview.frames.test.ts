@@ -1,8 +1,8 @@
 import { test, expect, describe, beforeAll, afterAll } from "bun:test"
-import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import { ReviewPreview, type ValidatedComment } from "./ReviewPreview"
-import { bgAt, fgAt, ints, trimFrame } from "../testing/frame"
-import { discard } from "../utils/renderables"
+import type { TestRendererSetup } from "@opentui/core/testing"
+import { reviewPreviewModel, type ValidatedComment } from "./review-preview-model"
+import { createReviewPreviewIsland } from "../app/review-preview"
+import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
 import type { ReviewPreviewState } from "../state"
 import type { Comment } from "../types"
@@ -70,28 +70,31 @@ const PLACEHOLDER = [
 const footer = (status: string) => at([TEXT, status], [77, "Enter"])
 const blank = (n: number): string[] => Array(n).fill("")
 
-// The summary textarea is one per process until it becomes one per renderer,
-// so every state is drawn on the same screen in turn.
-let setup: TestRendererSetup
+let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
+let dispose = () => {}
 let lines: string[]
 let spans: ReturnType<TestRendererSetup["captureSpans"]>
 
-beforeAll(async () => {
-  setup = await createTestRenderer({ width: 100, height: 40 })
-})
-
 afterAll(async () => {
-  await setup.waitForVisualIdle().catch(() => {})
-  setup.renderer.destroy()
+  dispose()
+  await mounted?.dispose()
 })
 
+/** Each state on a screen of its own, as the island draws it when render.ts first opens it. */
 async function show(comments: ValidatedComment[], state: ReviewPreviewState, isOwnPr = false) {
-  for (const child of setup.renderer.root.getChildren()) discard(child)
-  setup.renderer.root.add(ReviewPreview({ comments, state, isOwnPr, renderer: setup.renderer }))
-  await setup.renderOnce()
-  await setup.renderOnce()
-  lines = trimFrame(setup.captureCharFrame()).split("\n")
-  spans = setup.captureSpans()
+  dispose()
+  await mounted?.dispose()
+  mounted = await mountRenderable(
+    (renderer) => {
+      const island = createReviewPreviewIsland(renderer)
+      dispose = island.dispose
+      island.update(reviewPreviewModel(comments, state, isOwnPr))
+      return island.host
+    },
+    { width: 100, height: 40 }
+  )
+  lines = (await mounted.frame()).split("\n")
+  spans = mounted.setup.captureSpans()
 }
 
 const rowOf = (needle: string) => lines.findIndex((line) => line.includes(needle))

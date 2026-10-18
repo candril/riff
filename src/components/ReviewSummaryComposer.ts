@@ -4,10 +4,13 @@
  * undo/redo, Ctrl-w, Alt-arrow word jumps, mouse selection, etc. all
  * work for free instead of being hand-rolled on top of state.
  *
- * The textarea is a module-level singleton so its cursor/selection/edit
- * state survives re-renders. Open/close lifecycle is driven by
- * `syncReviewSummarySession` / `endReviewSummarySession`, called from the
- * render pass when the modal opens/closes.
+ * Each renderer gets one textarea, which outlives the modal so its
+ * cursor, selection and edit history survive every render. A textarea
+ * belongs to the renderer that built it and cannot be mounted into
+ * another, which is why they are kept per renderer rather than one per
+ * process. Open/close lifecycle is driven by `syncReviewSummarySession`
+ * / `endReviewSummarySession`, called from the render pass when the
+ * modal opens/closes.
  *
  * Live edits flow back into `state.reviewPreview.body` via an
  * `onContentChange` listener so the dialog's "can submit" check stays
@@ -21,14 +24,17 @@ import { keepAlive } from "../utils/renderables"
 
 const PLACEHOLDER = "Summary (optional) — Enter to submit, Ctrl-J for a newline, Esc to cancel"
 
-let composerInstance: TextareaRenderable | null = null
+const textareas = new WeakMap<CliRenderer, TextareaRenderable>()
+// One modal is open at a time, whichever renderer it belongs to.
+let sessionTextarea: TextareaRenderable | null = null
 let lastSyncKey: string | null = null
 let lastFocused: boolean = false
 let mirrorListener: ((value: string) => void) | null = null
 
 function ensureComposer(renderer: CliRenderer): TextareaRenderable {
-  if (composerInstance) return composerInstance
-  composerInstance = new TextareaRenderable(renderer, {
+  const existing = textareas.get(renderer)
+  if (existing) return existing
+  const textarea = new TextareaRenderable(renderer, {
     id: "review-summary-composer",
     backgroundColor: theme.surface0,
     textColor: theme.text,
@@ -43,11 +49,12 @@ function ensureComposer(renderer: CliRenderer): TextareaRenderable {
     minHeight: 3,
     maxHeight: 10,
   })
-  composerInstance.onContentChange = () => {
-    mirrorListener?.(composerInstance!.plainText)
+  textarea.onContentChange = () => {
+    if (textarea === sessionTextarea) mirrorListener?.(textarea.plainText)
   }
-  keepAlive(composerInstance)
-  return composerInstance
+  keepAlive(textarea)
+  textareas.set(renderer, textarea)
+  return textarea
 }
 
 /**
@@ -68,7 +75,9 @@ export function syncReviewSummarySession(
 ): void {
   const ta = ensureComposer(renderer)
   mirrorListener = onMirror
-  if (lastSyncKey !== key) {
+  if (lastSyncKey !== key || sessionTextarea !== ta) {
+    sessionTextarea?.blur()
+    sessionTextarea = ta
     lastSyncKey = key
     ta.setText(initialValue)
     lastFocused = false
@@ -80,21 +89,22 @@ export function syncReviewSummarySession(
   }
 }
 
-/** Read the textarea's current text. "" before the composer ever opens. */
+/** Read the open session's text. "" while no session is open. */
 export function readReviewSummaryValue(): string {
-  return composerInstance?.plainText ?? ""
+  return sessionTextarea?.plainText ?? ""
 }
 
 /** Tear down the current session — modal is closing. */
 export function endReviewSummarySession(): void {
   if (lastSyncKey === null) return
+  sessionTextarea?.blur()
+  sessionTextarea = null
   lastSyncKey = null
   lastFocused = false
   mirrorListener = null
-  composerInstance?.blur()
 }
 
-/** Mount point used by `ReviewPreview` to embed the textarea. */
+/** The renderer's textarea, for the Submit Review modal to embed. */
 export function getReviewSummaryRenderable(
   renderer: CliRenderer
 ): TextareaRenderable {
