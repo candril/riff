@@ -95,8 +95,9 @@ async function mountDocked(width: number, { withPanel, tree }: { withPanel: bool
   const renderer = mounted.setup.renderer
   const shell = bareShell(renderer, tree?.(renderer))
   shell.setView(mounted.island.host, { withTree: true })
-  if (withPanel) shell.setThreadPanel(panel(renderer, commentPanelWidth(width, false)))
-  return mounted
+  const threadPanel = withPanel ? panel(renderer, commentPanelWidth(width, false)) : null
+  shell.setThreadPanel(threadPanel)
+  return { ...mounted, threadPanel }
 }
 
 describe("the thread panel docked in the content row", () => {
@@ -138,7 +139,7 @@ describe("the thread panel docked in the content row", () => {
     const width = 80
     const panelWidth = commentPanelWidth(width, false)
     let tree: FileTreePanel | null = null
-    const { setup, frame } = await mountDocked(width, {
+    const { setup, frame, threadPanel } = await mountDocked(width, {
       withPanel: true,
       tree: (renderer) => (tree = new FileTreePanel({ renderer, width: 35 })).getContainer(),
     })
@@ -146,6 +147,10 @@ describe("the thread panel docked in the content row", () => {
     const rows = await frame()
     expect(panelWidth).toBe(48)
     expect(rows[0]!.slice(2, 7)).toBe("Files")
+    const treeLastColumn = tree!.getContainer().x + tree!.getContainer().width - 1
+    expect(treeLastColumn).toBe(34)
+    expect(threadPanel!.x).toBe(treeLastColumn + 1)
+    expect(threadPanel!.width).toBe(width - 35)
     expectPanelShadeAt(setup.captureSpans(), [0, 34, 35, width - 1])
     expect(rows.join("\n")).not.toContain(TAIL)
   })
@@ -173,7 +178,8 @@ describe("the thread panel docked in the content row", () => {
 test("the error and an empty diff keep clear of the open panel, with the tree hidden", async () => {
   const width = 100
   const panelWidth = commentPanelWidth(width, false)
-  const setup = await createTestRenderer({ width, height: 6 })
+  const height = 6
+  const setup = await createTestRenderer({ width, height })
   disposers.push(() => setup.renderer.destroy())
   const renderer = setup.renderer
   const tree = new FileTreePanel({ renderer, width: 35 })
@@ -182,10 +188,15 @@ test("the error and an empty diff keep clear of the open panel, with the tree hi
   shell.setThreadPanel(panel(renderer, panelWidth))
   await setup.renderOnce()
   await setup.renderOnce()
-  const rows = setup.captureCharFrame().split("\n")
+  const captured = setup.captureCharFrame().split("\n")
+  // The last row ends in a newline too, which the split leaves as an empty entry after it.
+  const afterLastRow = captured.at(-1)
+  const rows = captured.slice(0, -1)
+  expect(afterLastRow).toBe("")
+  expect(rows).toHaveLength(height)
   const spans = setup.captureSpans()
   expectPanelShadeAt(spans, [width - panelWidth, width - 1])
-  for (let y = 0; y < rows.length - 1; y++) expect(bgAt(spans, width - panelWidth - 1, y)).not.toEqual(ints(theme.mantle))
+  for (let y = 0; y < rows.length; y++) expect(bgAt(spans, width - panelWidth - 1, y)).not.toEqual(ints(theme.mantle))
   expect(rows[0]!.slice(0, width - panelWidth)).toBe("x".repeat(width - panelWidth))
   // The tree keeps its own toggle: hiding it for the view is the slot's doing.
   expect(tree.visible).toBe(true)
