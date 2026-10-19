@@ -17,6 +17,21 @@ describe("a position restored before the first frame", () => {
     expect(() => find(after.lines, "Description")).toThrow()
   })
 
+  test("survives a second rebuild before any frame", async () => {
+    const first = await mount({ section: "commits", height: 30, prepare: (p) => p.moveCursor(15) })
+    let carried!: ReturnType<typeof first.panel.capturePosition>
+    await mount({
+      height: 30,
+      prepare: (p) => {
+        p.restorePosition(first.panel.capturePosition())
+        carried = p.capturePosition()
+      },
+    })
+
+    const last = await mount({ height: 30, prepare: (p) => p.restorePosition(carried) })
+    expect(last.lines).toEqual(first.lines)
+  })
+
   test("gives way to a cursor move made after it", async () => {
     const before = await mount({ section: "commits", height: 30, prepare: (p) => p.moveCursor(15) })
     const position = before.panel.capturePosition()

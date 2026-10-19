@@ -87,7 +87,7 @@ import { createKeyHandler } from "./app/global-keys"
 import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
-import { loadCheckAnnotations } from "./features/pr-info-panel/check-annotations"
+import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
@@ -195,15 +195,11 @@ export async function createApp(options: AppOptions = {}) {
     panel.setOnOpenFailingCheck((check) => {
       if (!state.prInfo) return
       const { owner, repo } = state.prInfo
-      void loadCheckAnnotations(
-        check,
-        () => getPrCheckAnnotations(owner, repo, check.id),
-        () => {
-          // A panel rebuilt while the fetch is in flight draws these same PrCheck objects.
-          prInfoPanel?.checksChanged()
-          render()
-        }
-      )
+      void openFailingCheck(check, {
+        fetch: () => getPrCheckAnnotations(owner, repo, check.id),
+        currentPanel: () => prInfoPanel,
+        render,
+      })
     })
     panel.setOnFilterChange((value) => {
       state = setViewFilter(state, value)

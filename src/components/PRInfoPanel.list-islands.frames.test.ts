@@ -122,6 +122,31 @@ describe("flash labels", () => {
     expect(cleared[24]).toStartWith("    23h    c00abcd feat:")
     expect(fgAt(mounted.setup.captureSpans(), 4, 20)).toEqual(ints(theme.subtext1))
   })
+
+  // Commits past the twentieth are only counted, so `s` has no row to put
+  // their labels on.
+  test("go on the twenty drawn commit rows and on none of the three counted below them", async () => {
+    const label = (i: number) => String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26))
+    let labels = new Map<string, string>()
+    const { lines } = await mount({
+      section: "commits",
+      height: 60,
+      prepare: (p) => {
+        labels = new Map(p.flashTargets().map((id, i) => [id, label(i)]))
+        p.setFlashLabels(labels)
+      },
+    })
+    expect([...labels.keys()].filter((id) => id.startsWith("commits:"))).toEqual(
+      Array.from({ length: 20 }, (_, i) => `commits:${i}`)
+    )
+
+    const commitLines = lines.filter((line) => /c\d\dabcd /.test(line))
+    expect(commitLines).toHaveLength(20)
+    // The long first commit squeezes out its label's trailing space.
+    commitLines.forEach((line, i) => expect(line).toMatch(new RegExp(`^    ${labels.get(`commits:${i}`)} ?\\d+h`)))
+    for (const sha of ["c20abcd", "c21abcd", "c22abcd"]) expect(() => find(lines, sha)).toThrow()
+    find(lines, "... +3 more")
+  })
 })
 
 describe("flash labels in checks", () => {

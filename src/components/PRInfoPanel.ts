@@ -341,7 +341,9 @@ export class PRInfoPanelClass {
       expandedThreads: new Set(this.expandedThreads),
       expandedContent: new Set(this.expandedContent),
       expandedCheckIds: new Set(this.expandedCheckIds),
-      scrollTop: this.scrollBox.scrollTop,
+      // A panel rebuilt again before its first frame has not applied its
+      // restored scroll yet; the box still reads 0.
+      scrollTop: this.pendingScrollTop ?? this.scrollBox.scrollTop,
     }
   }
 
@@ -543,13 +545,13 @@ export class PRInfoPanelClass {
 
   /**
    * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
-   * the edges, and say whether it scrolled. Runs from the scroll box's own
+   * the edges. Runs from the scroll box's own
    * render, after layout, so a row the move just rebuilt is measured where
    * it now is.
    */
-  private revealCursor(): boolean {
+  private revealCursor(): void {
     const bounds = this.cursorBounds()
-    if (!bounds) return false
+    if (!bounds) return
 
     const viewport = this.scrollBox.viewport
     const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
@@ -557,13 +559,11 @@ export class PRInfoPanelClass {
     // A row taller than the room between the margins shows its top.
     const bottom = top + Math.min(bounds.height, viewport.height - 2 * off)
 
-    const before = this.scrollBox.scrollTop
     if (top < off) {
       this.scrollBox.scrollBy(top - off)
     } else if (bottom > viewport.height - off) {
       this.scrollBox.scrollBy(bottom - (viewport.height - off))
     }
-    return this.scrollBox.scrollTop !== before
   }
 
   /**
@@ -1971,18 +1971,17 @@ export class PRInfoPanelClass {
       paddingTop: 1,
       scrollY: true,
       // The first point a frame has the rows a move rebuilt laid out. A
-      // scroll made here only reaches the next frame, so it asks for one.
+      // scroll made here only reaches the next frame, but setting scrollTop
+      // moves the content, which asks the renderer for that frame itself.
       renderBefore: () => {
         if (this.pendingScrollTop !== null) {
-          const before = this.scrollBox.scrollTop
           this.scrollBox.scrollTop = this.pendingScrollTop
           this.pendingScrollTop = null
-          if (this.scrollBox.scrollTop !== before) this.renderer.requestRender()
           return
         }
         if (!this.revealPending) return
         this.revealPending = false
-        if (this.revealCursor()) this.renderer.requestRender()
+        this.revealCursor()
       },
     })
     container.add(scrollBox)

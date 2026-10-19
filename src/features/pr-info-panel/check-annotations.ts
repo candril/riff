@@ -22,3 +22,22 @@ export async function loadCheckAnnotations(
   }
   onChange()
 }
+
+export interface OpenFailingCheck {
+  fetch: () => Promise<PrCheckAnnotation[]>
+  /** Read on every change, not once: a refresh can rebuild the panel while the fetch is in flight. */
+  currentPanel: () => { checksChanged(): void } | null
+  render: () => void
+}
+
+/**
+ * Load a failing check's annotations into whichever panel shows it when
+ * each change lands. A rebuilt panel draws these same PrCheck objects, so
+ * the one current at the settle is the one to tell.
+ */
+export function openFailingCheck(check: PrCheck, { fetch, currentPanel, render }: OpenFailingCheck): Promise<void> {
+  return loadCheckAnnotations(check, fetch, () => {
+    currentPanel()?.checksChanged()
+    render()
+  })
+}
