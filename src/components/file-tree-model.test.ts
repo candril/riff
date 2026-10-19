@@ -222,10 +222,15 @@ test("a flash label takes the marker's cell", () => {
 
 test("a name too long for the width is cut with an ellipsis", () => {
   const { rows } = model({ width: 16 })
-  // 16 wide leaves README.md 6 cells; main.ts, two levels down, falls to the floor of 5.
-  expect(rowNamed(rows, "README.md").name.text).toBe("  READM…")
+  // 16 wide, less the padding, leaves README.md 8 cells; main.ts, two levels down, falls to the floor of 5.
+  expect(rowNamed(rows, "README.md").name.text).toBe("  README.…")
   expect(rowNamed(rows, "src/app/main.ts").name.text).toBe("      main…")
   expect(model({ width: 35 }).rows.find((row) => row.key === "README.md")!.name.text).toBe("  README.md")
+})
+
+test("a cut name makes room for its marks instead of losing them off the edge", () => {
+  const { rows } = model({ width: 16, unseenFiles: new Set(["README.md"]), changedSinceVisit: new Set(["README.md"]) })
+  expect(rowNamed(rows, "README.md").name.text).toBe("  READ… ● ▴")
 })
 
 test("rows keep their keys when a sibling directory folds", () => {

@@ -140,11 +140,6 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
       : { text: "○ ", fg: colors.viewedNone }
   const flashLabel = input.flashLabels.get(String(index))
 
-  // marker, space, status, space, then the panel's padding, scrollbar and margin.
-  const prefixLen = 4 + indent.length + icon.length
-  const reserved = 4
-  const displayName = truncate(node.name, Math.max(5, input.width - prefixLen - reserved))
-
   // Two marks for "since you last looked": a dot for something said here, a
   // caret for content that moved (spec 069).
   const marksNode = (names: ReadonlySet<string>): boolean =>
@@ -153,6 +148,14 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
       : [...names].some((name) => name.startsWith(node.path + "/"))
   const unseen = marksNode(input.unseenFiles)
   const moved = marksNode(input.changedSinceVisit)
+  const marks = `${unseen ? " ●" : ""}${moved ? " ▴" : ""}`
+
+  // marker, space, status, space. The panel's padding takes a cell on each
+  // side, and the marks are reserved for, so a long name is cut before them
+  // rather than pushing them off the edge.
+  const prefixLen = 4 + indent.length + icon.length
+  const reserved = 2 + marks.length
+  const displayName = truncate(node.name, Math.max(5, input.width - prefixLen - reserved))
 
   return {
     key: node.path,
@@ -166,7 +169,7 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
       fg: viewed ? colors.fileViewed : node.file ? getStatusColor(node.file.status) : colors.text,
     },
     name: {
-      text: `${indent}${icon}${displayName}${unseen ? " ●" : ""}${moved ? " ▴" : ""}`,
+      text: `${indent}${icon}${displayName}${marks}`,
       fg: unseen && !node.isDirectory ? colors.commentLocal : nameFg,
     },
   }

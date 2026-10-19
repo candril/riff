@@ -112,3 +112,19 @@ test("the filter prompt takes focus with the applied filter, reports typing, and
   expect((await frame()).split("\n")[0]).toBe("  Files (0/5)")
   expect(bgAt(setup.captureSpans(), 1, 0)).toEqual(ints(theme.mantle))
 })
+
+test("visibleRows leaves out the rows the edge hints cover, so flash never labels one", async () => {
+  const { tree, push, frame } = await mountIsland({}, { height: 6 })
+  const top = (await frame()).split("\n")
+  expect(top[5]).toContain("more")
+  expect(tree.visibleRows()).toEqual({ first: 0, last: 3 })
+
+  push({ highlightIndex: 7 })
+  tree.ensureHighlightVisible()
+  const end = (await frame()).split("\n")
+  expect(end[1]).toContain("↑")
+  expect(end.join("\n")).not.toContain("more")
+  const { first, last } = tree.visibleRows()
+  expect(first).toBe(4)
+  expect(last).toBe(7)
+})
