@@ -55,7 +55,7 @@ import {
   type ReviewThread,
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
-import { commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
+import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 
@@ -238,6 +238,9 @@ export class PRInfoPanelClass {
   // Set when the cursor moved; the next frame scrolls it into view, once
   // layout has placed whatever the move rebuilt.
   private revealPending = false
+  // Where a restored position had scrolled to. A panel restored before its
+  // first layout would clamp it to 0, so the first frame applies it.
+  private pendingScrollTop: number | null = null
   
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
@@ -363,7 +366,7 @@ export class PRInfoPanelClass {
     // Where the reader had scrolled to wins over a reveal asked for before
     // the restore: the cursor was in view there when it was captured.
     this.revealPending = false
-    this.scrollBox.scrollTop = position.scrollTop
+    this.pendingScrollTop = position.scrollTop
   }
 
   /**
@@ -515,6 +518,7 @@ export class PRInfoPanelClass {
 
   private followCursor(): void {
     this.placeDescriptionCursor()
+    this.pendingScrollTop = null
     this.revealPending = true
     this.renderer.requestRender()
   }
@@ -678,7 +682,7 @@ export class PRInfoPanelClass {
       case 'files':
         return this.visibleFiles.length
       case 'commits':
-        return this.visibleCommits.length
+        return commitRowCount(this.visibleCommits)
       case 'previews':
         return this.visiblePreviews.length
     }
@@ -1969,6 +1973,13 @@ export class PRInfoPanelClass {
       // The first point a frame has the rows a move rebuilt laid out. A
       // scroll made here only reaches the next frame, so it asks for one.
       renderBefore: () => {
+        if (this.pendingScrollTop !== null) {
+          const before = this.scrollBox.scrollTop
+          this.scrollBox.scrollTop = this.pendingScrollTop
+          this.pendingScrollTop = null
+          if (this.scrollBox.scrollTop !== before) this.renderer.requestRender()
+          return
+        }
         if (!this.revealPending) return
         this.revealPending = false
         if (this.revealCursor()) this.renderer.requestRender()

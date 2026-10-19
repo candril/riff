@@ -199,8 +199,8 @@ export async function createApp(options: AppOptions = {}) {
         check,
         () => getPrCheckAnnotations(owner, repo, check.id),
         () => {
-          if (prInfoPanel !== panel) return
-          panel.checksChanged()
+          // A panel rebuilt while the fetch is in flight draws these same PrCheck objects.
+          prInfoPanel?.checksChanged()
           render()
         }
       )

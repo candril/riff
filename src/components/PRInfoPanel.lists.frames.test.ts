@@ -1,4 +1,4 @@
-import { test, expect, describe } from "bun:test"
+import { test, expect, describe, spyOn } from "bun:test"
 import { bgAt, fgAt, ints } from "../testing/frame"
 import { commits, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"
@@ -96,8 +96,7 @@ describe("the cursor in a section longer than the screen", () => {
     expect(y).toBe(first + 3)
   })
 
-  // Twenty commits are drawn at most, so G on the 23 of fullPr would land
-  // on a row that has no renderable to reveal.
+  // Under the twenty-row cap, so the row G lands on is the PR's last commit.
   test("shows the last commit after G", async () => {
     const { lines, panel } = await mount({
       info: prInfo("Adds the skill.", { commits: commits(15) }),
@@ -114,6 +113,54 @@ describe("the cursor in a section longer than the screen", () => {
     const [first, last] = viewportRows(panel)
     expect(y).toBeGreaterThanOrEqual(first)
     expect(y).toBeLessThanOrEqual(last)
+  })
+
+  // Only twenty of the 23 commits are drawn; the rest are counted in a note.
+  test("puts the cursor on the twentieth commit row after G, and j goes no further", async () => {
+    const { panel, mounted } = await mount({
+      height: 30,
+      prepare: (p) => {
+        p.setActiveSection("commits")
+        p.expandSection()
+        p.cycleSection(-1)
+        p.jumpToBottom()
+      },
+    })
+    expect(panel.getCursorIndex()).toBe(19)
+    expect(panel.moveCursor(1)).toBe(false)
+    const lines = (await mounted.frame()).split("\n")
+    const [, y] = find(lines, "c19abcd")
+    const [first, last] = viewportRows(panel)
+    expect(y).toBeGreaterThanOrEqual(first)
+    expect(y).toBeLessThanOrEqual(last)
+    expect(bgAt(mounted.setup.captureSpans(), 4, y)).toEqual(ints(theme.surface0))
+    expect(panel.getSelectedCommit()?.sha).toStartWith("c19")
+  })
+
+  // The reveal scrolls inside a frame, after that frame's layout, so only
+  // the frame after it shows the scroll.
+  describe("asks for one more frame", () => {
+    /** Whether drawing one frame after `move` asked for another. */
+    async function asksAfterOneFrame(move: (panel: PRInfoPanelClass) => void): Promise<boolean> {
+      const { panel, mounted } = await mount({ section: "commits", height: 30 })
+      const requestRender = spyOn(mounted.setup.renderer, "requestRender")
+      try {
+        move(panel)
+        requestRender.mockClear()
+        await mounted.setup.renderOnce()
+        return requestRender.mock.calls.length > 0
+      } finally {
+        requestRender.mockRestore()
+      }
+    }
+
+    test("after a move that scrolls", async () => {
+      expect(await asksAfterOneFrame((p) => p.moveCursor(15))).toBe(true)
+    })
+
+    test("not after a move that does not", async () => {
+      expect(await asksAfterOneFrame((p) => p.moveCursor(1))).toBe(false)
+    })
   })
 
   // The commits header starts at the bottom edge, so the cursor steps

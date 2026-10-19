@@ -59,8 +59,9 @@ export function usePrInfoPanel() {
   const askedForAnnotations = mock((_check: PrCheck) => {
     throw new Error("a frame test asked for check annotations")
   })
-  let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
-  let panel: PRInfoPanelClass | null = null
+  // A test can mount a second panel, as a refresh rebuilds one.
+  let mounted: Awaited<ReturnType<typeof mountRenderable>>[] = []
+  let panels: PRInfoPanelClass[] = []
   let restoreColumns: (() => void) | null = null
 
   beforeEach(() => {
@@ -70,10 +71,10 @@ export function usePrInfoPanel() {
   })
 
   afterEach(async () => {
-    panel?.destroy()
-    panel = null
-    await mounted?.dispose()
-    mounted = null
+    for (const panel of panels) panel.destroy()
+    panels = []
+    for (const screen of mounted) await screen.dispose()
+    mounted = []
     restoreColumns?.()
     setSystemTime()
     expect(askedForAnnotations).not.toHaveBeenCalled()
@@ -91,16 +92,17 @@ export function usePrInfoPanel() {
   }: MountPrInfoPanel = {}) {
     const restore = columns === undefined ? null : pinStdoutColumns(columns)
     try {
+      let shown!: PRInfoPanelClass
       const screen = await mountRenderable(
         (renderer) => {
-          panel = new PRInfoPanelClass(renderer, info, files, comments)
-          panel.setOnOpenFailingCheck(askedForAnnotations)
-          return panel.getContainer()
+          shown = new PRInfoPanelClass(renderer, info, files, comments)
+          shown.setOnOpenFailingCheck(askedForAnnotations)
+          panels.push(shown)
+          return shown.getContainer()
         },
         { width: 120, height }
       )
-      mounted = screen
-      const shown = panel!
+      mounted.push(screen)
       if (section) {
         shown.setActiveSection(section)
         shown.expandSection()

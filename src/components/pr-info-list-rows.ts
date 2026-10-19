@@ -101,6 +101,11 @@ export function fileRows(files: DiffFile[], input: ListInput & { listWidth: numb
   return { rows, note: null }
 }
 
+/** How many commit rows `commitRows` draws, which is how far the cursor may go. */
+export function commitRowCount(commits: PrCommit[]): number {
+  return Math.min(commits.length, MAX_COMMITS)
+}
+
 /**
  * The newest twenty commits; the rest are only counted. The message gets
  * what the time and sha columns leave of the terminal's width.

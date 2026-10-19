@@ -45,7 +45,8 @@ most well-configured pipelines across CI providers.
 - **Fetch annotations on demand** via
   `gh api repos/{o}/{r}/check-runs/{id}/annotations --paginate`.
   Lazy — no fetch happens until the user expands a check.
-- **Inline expansion** in `PRInfoPanel.buildChecksContent`. A failed
+- **Inline expansion** in the checks rows built by
+  `src/components/pr-info-check-rows.ts` and drawn by `PRInfoListView`. A failed
   check gets a disclosure indicator and expands to show annotations
   below it. Cursor navigation walks flattened rows (check +
   visible annotations), same pattern as `buildConversationContent`.
@@ -129,7 +130,8 @@ Maps snake_case response to camelCase. Filters out annotations missing
 ### Panel rendering
 
 `PRInfoPanel` tracks `expandedCheckIds: Set<number>`. In
-`buildChecksContent`, each check produces one row; if expanded,
+`checkRows` (`src/components/pr-info-check-rows.ts`, drawn by
+`PRInfoListView`), each check produces one row; if expanded,
 additional rows for each annotation (or status placeholder).
 
 The panel already flattens conversation items for cursor navigation —

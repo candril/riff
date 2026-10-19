@@ -3,7 +3,7 @@ import { commits, PR_NOW, previews } from "../testing/pr-info"
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow } from "../utils/previews"
-import { commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
+import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 
 const NO_LABELS: ReadonlyMap<string, string> = new Map()
 const none = { selected: -1, labels: NO_LABELS }
@@ -117,5 +117,14 @@ describe("commitRows", () => {
 
   test("says there are none", () => {
     expect(commitRows([], input)).toEqual({ rows: [], note: "No commits" })
+  })
+})
+
+describe("commitRowCount", () => {
+  test("counts the rows commitRows draws, which stop at twenty", () => {
+    for (const n of [0, 1, 20, 23]) {
+      expect(commitRowCount(commits(n))).toBe(commitRows(commits(n), { ...none, terminalWidth: 120 }).rows.length)
+    }
+    expect(commitRowCount(commits(23))).toBe(20)
   })
 })
