@@ -58,6 +58,7 @@ import {
   type ReviewThread,
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
+import { commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -2069,184 +2070,51 @@ export class PRInfoPanelClass {
     }
   }
 
-  /**
-   * Build files content
-   */
-  /**
-   * One row per app: its label, then the places it is deployed by name
-   * (spec 068). The URLs themselves are never drawn — that is the whole
-   * point of lifting them out of the table.
-   */
+  private listSelection(isActive: boolean): number {
+    return isActive ? this.cursorIndex : -1
+  }
+
   private buildPreviewsContent(container: BoxRenderable, isActive: boolean): void {
-    const previews = this.visiblePreviews
-    if (previews.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No preview links in this PR's conversation",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-
-    const rows: ItemRowRefs[] = []
-    // Emoji are two columns wide and one character long, so the label
-    // column is measured the way it is drawn.
-    const width = Math.min(
-      28,
-      Math.max(12, ...previews.map((row) => Bun.stringWidth(row.app) + 2))
-    )
-
-    for (let i = 0; i < previews.length; i++) {
-      const preview = previews[i]!
-      const isSelected = isActive && i === this.cursorIndex
-
-      const row = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: isSelected ? theme.surface0 : undefined,
-      })
-
-      const appText = new TextRenderable(this.renderer, {
-        content: preview.app + " ".repeat(Math.max(1, width - Bun.stringWidth(preview.app))),
-        fg: isSelected ? theme.text : theme.subtext1,
-      })
-      row.add(appText)
-
-      if (preview.links.length > 0) {
-        row.add(new TextRenderable(this.renderer, {
-          content: preview.links.map((link) => link.label).join("  "),
-          fg: theme.blue,
-        }))
-      } else if (preview.status) {
-        row.add(new TextRenderable(this.renderer, { content: preview.status, fg: theme.overlay0 }))
-      }
-
-      if (preview.built) {
-        row.add(new TextRenderable(this.renderer, {
-          content: `  ${preview.built.label}`,
-          fg: theme.overlay0,
-        }))
-      }
-
-      container.add(row)
-      rows.push({ container: row, primary: appText })
-    }
-
-    this.itemRows.set('previews', rows)
+    const list = previewRows(this.visiblePreviews, { selected: this.listSelection(isActive), labels: this.flashLabels })
+    this.itemRows.set('previews', this.buildListRows(container, list).map(({ box, texts }) => ({ container: box, primary: texts[0]! })))
   }
 
   private buildFilesContent(container: BoxRenderable, isActive: boolean): void {
-    const rows: ItemRowRefs[] = []
-    
-    if (this.visibleFiles.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No files changed",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-
-    // One column for the names, so the counts after them line up: as wide as
-    // the longest name, and no wider than the room the counts leave.
-    const nameWidth = Math.min(
-      getListItemWidth() - 12,
-      Math.max(...this.visibleFiles.map((file) => Bun.stringWidth(file.filename)))
-    )
-    
-    for (let i = 0; i < this.visibleFiles.length; i++) {
-      const file = this.visibleFiles[i]!
-      const isSelected = isActive && i === this.cursorIndex
-      
-      const row = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: isSelected ? theme.surface0 : undefined,
-      })
-      
-      const name = truncate(file.filename, nameWidth)
-      const filenameText = new TextRenderable(this.renderer, {
-        content: name + " ".repeat(Math.max(0, nameWidth - Bun.stringWidth(name))),
-        fg: isSelected ? theme.text : theme.subtext1,
-      })
-      row.add(filenameText)
-      
-      row.add(new TextRenderable(this.renderer, {
-        content: `+${file.additions}`.padStart(6),
-        fg: theme.green,
-      }))
-      row.add(new TextRenderable(this.renderer, {
-        content: `-${file.deletions}`.padStart(6),
-        fg: theme.red,
-      }))
-      
-      container.add(row)
-      rows.push({ container: row, primary: filenameText })
-    }
-    
-    this.itemRows.set('files', rows)
+    const list = fileRows(this.visibleFiles, {
+      selected: this.listSelection(isActive),
+      listWidth: getListItemWidth(),
+      labels: this.flashLabels,
+    })
+    this.itemRows.set('files', this.buildListRows(container, list).map(({ box, texts }) => ({ container: box, primary: texts[0]! })))
   }
 
-  /**
-   * Build commits content
-   */
   private buildCommitsContent(container: BoxRenderable, isActive: boolean): void {
-    const commits = this.visibleCommits
-    const rows: ItemRowRefs[] = []
-    
-    if (commits.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No commits",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-    
-    const maxDisplay = 20
-    // Calculate message width: terminal - timeAgo(8) - sha(8) - padding(4)
-    const termWidth = getTerminalWidth()
-    const messageWidth = Math.max(20, termWidth - 8 - 8 - 4)
-    
-    for (let i = 0; i < Math.min(maxDisplay, commits.length); i++) {
-      const commit = commits[i]!
-      const isSelected = isActive && i === this.cursorIndex
-      
-      const row = new BoxRenderable(this.renderer, {
+    const list = commitRows(this.visibleCommits, {
+      selected: this.listSelection(isActive),
+      terminalWidth: getTerminalWidth(),
+      labels: this.flashLabels,
+    })
+    this.itemRows.set('commits', this.buildListRows(container, list).map(({ box, texts }) => ({
+      container: box,
+      primary: texts[1]!,
+      secondary: texts[2],
+    })))
+  }
+
+  private buildListRows(container: BoxRenderable, list: ListRows): { box: BoxRenderable; texts: TextRenderable[] }[] {
+    const built = list.rows.map((row) => {
+      const box = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         height: 1,
-        backgroundColor: isSelected ? theme.surface0 : undefined,
+        backgroundColor: row.selected ? theme.surface0 : undefined,
       })
-      
-      // Relative date (right-padded to 8 chars for alignment)
-      row.add(new TextRenderable(this.renderer, {
-        content: formatTimeAgo(commit.date).padEnd(8),
-        fg: theme.subtext0,
-      }))
-      
-      // SHA (7 chars + 1 space)
-      const shaText = new TextRenderable(this.renderer, {
-        content: commit.sha.slice(0, 7) + " ",
-        fg: isSelected ? theme.peach : theme.yellow,
-      })
-      row.add(shaText)
-      
-      // Message (truncated)
-      const messageText = new TextRenderable(this.renderer, {
-        content: truncate(commit.message, messageWidth),
-        fg: isSelected ? theme.text : theme.subtext1,
-      })
-      row.add(messageText)
-      
-      container.add(row)
-      rows.push({ container: row, primary: shaText, secondary: messageText })
-    }
-    
-    if (commits.length > maxDisplay) {
-      container.add(new TextRenderable(this.renderer, {
-        content: `... +${commits.length - maxDisplay} more`,
-        fg: theme.overlay0,
-      }))
-    }
-    
-    this.itemRows.set('commits', rows)
+      const texts = row.segments.map((segment) => new TextRenderable(this.renderer, { content: segment.text, fg: segment.fg }))
+      for (const text of texts) box.add(text)
+      container.add(box)
+      return { box, texts }
+    })
+    if (list.note) container.add(new TextRenderable(this.renderer, { content: list.note, fg: theme.overlay0 }))
+    return built
   }
 
   /**
