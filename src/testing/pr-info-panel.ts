@@ -38,6 +38,8 @@ export interface MountPrInfoPanel {
   files?: DiffFile[]
   comments?: Comment[]
   height?: number
+  /** process.stdout.columns while the panel is built and drawn, instead of the screen's width. */
+  columns?: number
   /** Opened and made active before `prepare` runs. */
   section?: PRInfoPanelSection
   prepare?: (panel: PRInfoPanelClass) => void
@@ -89,24 +91,30 @@ export function usePrInfoPanel() {
     files = PR_FILES,
     comments = reviewThreadComments(),
     height = 40,
+    columns,
     section,
     prepare = () => {},
   }: MountPrInfoPanel = {}) {
-    const screen = await mountRenderable(
-      (renderer) => {
-        panel = new PRInfoPanelClass(renderer, info, files, comments)
-        return panel.getContainer()
-      },
-      { width: 120, height }
-    )
-    mounted = screen
-    const shown = panel!
-    if (section) {
-      shown.setActiveSection(section)
-      shown.expandSection()
+    const restore = columns === undefined ? null : pinStdoutColumns(columns)
+    try {
+      const screen = await mountRenderable(
+        (renderer) => {
+          panel = new PRInfoPanelClass(renderer, info, files, comments)
+          return panel.getContainer()
+        },
+        { width: 120, height }
+      )
+      mounted = screen
+      const shown = panel!
+      if (section) {
+        shown.setActiveSection(section)
+        shown.expandSection()
+      }
+      prepare(shown)
+      const lines = (await screen.frame()).split("\n")
+      return { lines, spans: screen.setup.captureSpans(), panel: shown, mounted: screen }
+    } finally {
+      restore?.()
     }
-    prepare(shown)
-    const lines = (await screen.frame()).split("\n")
-    return { lines, spans: screen.setup.captureSpans(), panel: shown, mounted: screen }
   }
 }

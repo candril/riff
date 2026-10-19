@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { bgAt, fgAt, ints, pinStdoutColumns } from "../testing/frame"
+import { bgAt, fgAt, ints } from "../testing/frame"
 import { find, MARKDOWN_WHITE, usePrInfoPanel } from "../testing/pr-info-panel"
 import { theme } from "../theme"
 
@@ -151,15 +151,14 @@ describe("the conversation", () => {
   })
 
   test("cuts its previews to process.stdout.columns, not to the panel's width", async () => {
-    const restoreColumns = pinStdoutColumns(80)
     const { lines } = await mount({
+      columns: 80,
       section: "conversation",
       prepare: (p) => {
         p.moveCursor(5)
         p.toggleSelectedThread()
       },
     })
-    restoreColumns()
     expect(lines[17]).toBe(
       "    ▶ PR @dana  I tried this on staging and it work…                                                     👍2 🚀1    6h"
     )

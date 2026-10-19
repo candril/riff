@@ -15,7 +15,7 @@ import {
   RGBA,
   type CliRenderer,
 } from "@opentui/core"
-import type { PrInfo, PrReview, PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
+import type { PrInfo, PrReview, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { getPrCheckAnnotations } from "../providers/github"
 import { discard, keepAlive } from "../utils/renderables"
 import { highlightCell } from "../utils/cells"
@@ -33,68 +33,31 @@ import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { MarkdownBodies } from "./markdown-bodies"
 import { colors, theme } from "../theme"
-
-/**
- * Unified conversation item for display
- */
-type ConversationItem = 
-  | { type: 'pr-comment'; data: PrConversationComment }
-  | { type: 'review'; data: ReviewWithThreads }
-  | { type: 'pending-reviewer'; data: string[] }
-
-/**
- * Flattened conversation item (for navigation when reviews are expanded)
- */
-type FlatConversationItem =
-  | { type: 'pr-comment'; data: PrConversationComment }
-  | { type: 'review-header'; data: ReviewWithThreads }
-  | { type: 'review-thread'; data: ReviewThread; parentReview: ReviewWithThreads }
-  | { type: 'pending-reviewer'; data: string[] }
-
-/**
- * Flattened check item (spec 043). Mirrors how the conversation section
- * flattens reviews+threads for single-axis cursor nav.
- */
-type FlatCheckItem =
-  | { kind: 'check'; check: PrCheck }
-  | { kind: 'annotation'; check: PrCheck; annotation: PrCheckAnnotation }
-  | { kind: 'placeholder'; check: PrCheck; placeholder: 'loading' | 'empty' | 'error' }
-
-/**
- * A review with its code comment threads
- */
-interface ReviewWithThreads {
-  id: string
-  /** Numeric REST id — needed to build a `{kind:"review"}` reaction target (spec 042) */
-  databaseId?: number
-  author: string
-  state: PrReview["state"]
-  body?: string
-  submittedAt?: string
-  threads: ReviewThread[]
-  reactions?: ReactionSummary[]
-}
-
-/**
- * A code comment thread (root comment with replies)
- */
-interface ReviewThread {
-  id: string
-  /** Root comment's numeric GitHub id — needed to build a
-   *  `{kind:"review-comment"}` reaction target (spec 042). Undefined for
-   *  local (not-yet-synced) threads. */
-  githubId?: number
-  filename: string
-  line: number
-  author: string
-  body: string
-  createdAt: string
-  url?: string
-  isResolved: boolean
-  diffHunk?: string
-  replies: Comment[]
-  reactions?: ReactionSummary[]
-}
+import {
+  TIME_COLUMN_WIDTH,
+  cleanBodyPreview,
+  formatTimeAgo,
+  getCheckStatusDisplay,
+  getReviewIcon,
+  threadActivityAt,
+  truncate,
+} from "./pr-info-format"
+import {
+  ALL_SECTIONS,
+  conversationItems,
+  flatCheckItems,
+  flatConversationItemId,
+  flatConversationItems,
+  isFailingCheck,
+  visibleCommits,
+  visibleFiles,
+  visiblePreviews,
+  type ConversationItem,
+  type FlatCheckItem,
+  type FlatConversationItem,
+  type ReviewThread,
+} from "./pr-info-items"
+import { sectionConfigs } from "./pr-info-sections"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -128,9 +91,6 @@ function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
 }
 
 /**
- * Format a relative time string (compact, no "ago")
- */
-/**
  * A body with its `#412`s answered — the title and state of what they point
  * at, where riff has been told (spec 059).
  */
@@ -138,123 +98,11 @@ function withReferences(body: string): string {
   return annotateReferences(body, resolvedReferences(), referenceRepo())
 }
 
-function formatTimeAgo(isoDate: string): string {
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return "now"
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 30) return `${diffDays}d`
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo`
-  return `${Math.floor(diffDays / 365)}y`
-}
-
-/**
- * Width of the relative-time column in the Conversation section. Sized
- * for the widest string `formatTimeAgo` produces ("11mo") so the times
- * line up across rows that otherwise have very different shapes.
- */
-const TIME_COLUMN_WIDTH = 4
-
-/**
- * Last activity on a thread. The time column reads as "when did this
- * last move", so a thread reports its newest reply rather than when it
- * was opened — an old thread with a fresh reply shouldn't look stale.
- */
-function threadActivityAt(thread: ReviewThread): string {
-  return thread.replies[thread.replies.length - 1]?.createdAt ?? thread.createdAt
-}
-
-/**
- * Format a date/time for commits
- */
-function formatDateTime(isoDate: string): string {
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  
-  if (diffDays === 0) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  } else if (diffDays < 7) {
-    return `${diffDays}d ago`
-  } else {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-  }
-}
-
-/**
- * Get status color and label
- */
-function getStatusInfo(state: PrInfo["state"], isDraft?: boolean): { label: string; color: string } {
-  if (isDraft) {
-    return { label: "Draft", color: theme.overlay1 }
-  }
-  switch (state) {
-    case "open":
-      return { label: "Open", color: theme.green }
-    case "closed":
-      return { label: "Closed", color: theme.red }
-    case "merged":
-      return { label: "Merged", color: theme.mauve }
-  }
-}
-
-/**
- * Get review state icon and color
- */
-function getReviewIcon(state: PrReview["state"]): { icon: string; color: string } {
-  switch (state) {
-    case "APPROVED":
-      return { icon: "✓", color: theme.green }
-    case "CHANGES_REQUESTED":
-      return { icon: "✗", color: theme.red }
-    case "COMMENTED":
-      return { icon: "○", color: theme.subtext0 }
-    case "PENDING":
-      return { icon: "○", color: theme.yellow }
-    case "DISMISSED":
-      return { icon: "─", color: theme.overlay0 }
-  }
-}
-
 /**
  * Get terminal width (defaults to 80 if unavailable)
  */
 function getTerminalWidth(): number {
   return process.stdout.columns || 80
-}
-
-/**
- * Truncate string to max length with ellipsis
- */
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str
-  return str.slice(0, maxLen - 1) + "…"
-}
-
-/**
- * Clean up a comment body for single-line preview display.
- * Strips HTML comments, markdown noise, collapses whitespace.
- */
-function cleanBodyPreview(body: string): string {
-  return body
-    .replace(/<!--[\s\S]*?-->/g, "")      // Remove HTML comments
-    .replace(/<[^>]+>/g, "")               // Remove HTML tags
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
-    .replace(/^#{1,6}\s+/gm, "")           // Remove heading markers
-    .replace(/\|[^|\n]*\|/g, "")           // Remove markdown table rows
-    .replace(/[:\-|]{3,}/g, "")            // Remove table separators
-    .replace(/^\s*[-*+]\s+/gm, "")         // Remove list markers
-    .replace(/`{1,3}/g, "")               // Remove backticks
-    .replace(/\n/g, " ")                   // Collapse newlines to spaces
-    .replace(/\s+/g, " ")                  // Collapse multiple spaces
-    .trim()
 }
 
 /**
@@ -297,33 +145,11 @@ interface ItemRowRefs {
   secondary?: TextRenderable
 }
 
-/**
- * Section configuration
- */
-interface SectionConfig {
-  id: PRInfoPanelSection
-  title: string
-  count: number
-  /** Appended inside the header's brackets, e.g. `(2 · 1 hidden)`. */
-  countSuffix?: string
-  preview: string
-  hasItems: boolean
-}
-
 /** The description's cursor row: the background every other selected row has. */
 const DESCRIPTION_CURSOR_BG = RGBA.fromHex(theme.surface1)
 
 /** Rows kept between the cursor and the edge it is moving towards. */
 const CURSOR_SCROLL_OFF = 3
-
-const ALL_SECTIONS: PRInfoPanelSection[] = [
-  'description',
-  'previews',
-  'checks',
-  'conversation',
-  'files',
-  'commits',
-]
 
 /**
  * Everything about the panel that is the reader's rather than the PR's,
@@ -337,20 +163,6 @@ export interface PRInfoPanelPosition {
   expandedContent: Set<string>
   expandedCheckIds: Set<number>
   scrollTop: number
-}
-
-/**
- * A check is "failing" in the sense that expanding it to view annotations
- * makes sense (spec 043). `neutral` and `skipped` don't qualify even
- * though they're technically non-success.
- */
-function isFailingCheck(check: PrCheck): boolean {
-  if (check.status !== "completed") return false
-  return (
-    check.conclusion === "failure" ||
-    check.conclusion === "timed_out" ||
-    check.conclusion === "action_required"
-  )
 }
 
 /**
@@ -455,7 +267,7 @@ export class PRInfoPanelClass {
     })
 
     // Build conversation items
-    this.conversationItems = this.buildConversationItems()
+    this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
     
@@ -604,223 +416,12 @@ export class PRInfoPanelClass {
     return itemCount > 0 ? itemCount - 1 : -1
   }
 
-  /**
-   * Build conversation items from PR comments, reviews, and code comments
-   */
-  private buildConversationItems(): ConversationItem[] {
-    const items: ConversationItem[] = []
-    
-    // Add PR conversation comments
-    for (const comment of this.prInfo.conversationComments ?? []) {
-      if (this.hiddenConversationIds.has(String(comment.id))) continue
-      items.push({ type: 'pr-comment', data: comment })
-    }
-    
-    // Build thread map from code comments (root comments only)
-    const threadMap = new Map<string, ReviewThread>()
-    for (const comment of this.comments) {
-      if (comment.inReplyTo) continue // Skip replies
-      
-      const thread: ReviewThread = {
-        id: comment.id,
-        githubId: comment.githubId,
-        filename: comment.filename,
-        line: comment.line,
-        author: comment.author ?? 'you',
-        body: comment.body,
-        createdAt: comment.createdAt,
-        url: comment.githubUrl,
-        isResolved: comment.isThreadResolved ?? false,
-        diffHunk: comment.diffHunk,
-        replies: [],
-        reactions: comment.reactions,
-      }
-      threadMap.set(comment.id, thread)
-    }
-    
-    // Add replies to their parent threads
-    for (const comment of this.comments) {
-      if (comment.inReplyTo) {
-        const parentThread = threadMap.get(comment.inReplyTo)
-        if (parentThread) {
-          parentThread.replies.push(comment)
-        }
-      }
-    }
-    
-    // Sort replies within each thread
-    for (const thread of threadMap.values()) {
-      thread.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    }
-    
-    // Group threads by their parent review ID
-    const reviewThreadsMap = new Map<number, ReviewThread[]>()
-    const orphanThreads: ReviewThread[] = [] // Threads not linked to a review
-    
-    for (const comment of this.comments) {
-      if (comment.inReplyTo) continue // Only process root comments
-      const thread = threadMap.get(comment.id)
-      if (!thread) continue
-      
-      if (comment.githubReviewId) {
-        const existing = reviewThreadsMap.get(comment.githubReviewId) ?? []
-        existing.push(thread)
-        reviewThreadsMap.set(comment.githubReviewId, existing)
-      } else {
-        orphanThreads.push(thread)
-      }
-    }
-    
-    // Build reviews with their threads
-    const reviews = this.prInfo.reviews ?? []
-    for (const review of reviews) {
-      if (review.state === "PENDING") continue // Skip pending reviews
-      
-      const reviewWithThreads: ReviewWithThreads = {
-        id: review.id,
-        databaseId: review.databaseId,
-        author: review.author,
-        state: review.state,
-        body: review.body,
-        submittedAt: review.submittedAt,
-        threads: [], // Will be populated below
-        reactions: review.reactions,
-      }
-      
-      // Find threads that belong to this review
-      // Match using databaseId (numeric REST API ID) which matches comment.githubReviewId
-      if (review.databaseId) {
-        const threads = reviewThreadsMap.get(review.databaseId)
-        if (threads) {
-          reviewWithThreads.threads.push(...threads)
-          reviewThreadsMap.delete(review.databaseId)
-        }
-      }
-      
-      // Skip empty COMMENTED reviews (auto-generated when posting inline comments without a body)
-      if (review.state === "COMMENTED" && !review.body && reviewWithThreads.threads.length === 0) {
-        continue
-      }
-      
-      items.push({ type: 'review', data: reviewWithThreads })
-    }
-    
-    // Add unmatched threads from reviewThreadsMap (review ID didn't match any known review)
-    for (const [, threads] of reviewThreadsMap) {
-      orphanThreads.push(...threads)
-    }
-    
-    // Add orphan threads as standalone reviews (shouldn't happen normally)
-    for (const thread of orphanThreads) {
-      items.push({
-        type: 'review',
-        data: {
-          id: `orphan-${thread.id}`,
-          author: thread.author,
-          state: "COMMENTED",
-          threads: [thread],
-        }
-      })
-    }
-    
-    // Collapse all pending reviewers into a single item at the end.
-    // Listing each as its own row bloats the section (spec 041 polish).
-    const requestedReviewers = this.prInfo.requestedReviewers ?? []
-    const submittedReviews = this.prInfo.reviews ?? []
-    const pendingReviewers = requestedReviewers.filter(
-      r => !submittedReviews.some(rev => rev.author === r)
-    )
-    if (pendingReviewers.length > 0) {
-      items.push({ type: 'pending-reviewer', data: pendingReviewers })
-    }
-    
-    // Sort items by date (pending reviewers go at the end since they have no date)
-    items.sort((a, b) => {
-      if (a.type === 'pending-reviewer') return 1
-      if (b.type === 'pending-reviewer') return -1
-      const dateA = a.type === 'pr-comment' 
-        ? a.data.createdAt 
-        : a.data.submittedAt ?? a.data.threads[0]?.createdAt ?? ''
-      const dateB = b.type === 'pr-comment' 
-        ? b.data.createdAt 
-        : b.data.submittedAt ?? b.data.threads[0]?.createdAt ?? ''
-      return new Date(dateA).getTime() - new Date(dateB).getTime()
-    })
-    
-    return items
-  }
-
-  /**
-   * Build flattened conversation items (expands reviews to include their threads)
-   */
-  private buildFlatConversationItems(): FlatConversationItem[] {
-    const flat: FlatConversationItem[] = []
-    
-    for (const item of this.conversationItems) {
-      if (item.type === 'pr-comment') {
-        if (this.matches(item.data.author, item.data.body)) flat.push(item)
-      } else if (item.type === 'pending-reviewer') {
-        if (this.matches(item.data.join(" "))) flat.push(item)
-      } else if (
-        // A review matches on its own text or on any thread under it —
-        // otherwise filtering for a filename would hide the review that
-        // holds the comment on it.
-        this.matches(item.data.author, item.data.body, item.data.state) ||
-        item.data.threads.some((thread) =>
-          this.matches(thread.author, thread.body, thread.filename)
-        )
-      ) {
-        // Review - add header, then threads if expanded
-        flat.push({ type: 'review-header', data: item.data })
-        
-        if (this.isContentExpanded(item) || this.filter) {
-          for (const thread of item.data.threads) {
-            if (this.matches(thread.author, thread.body, thread.filename)) {
-              flat.push({ type: 'review-thread', data: thread, parentReview: item.data })
-            }
-          }
-        }
-      }
-    }
-    
-    return flat
-  }
-
-  /**
-   * Refresh the flat conversation items cache
-   */
   private refreshFlatItems(): void {
-    this.flatConversationItems = this.buildFlatConversationItems()
+    this.flatConversationItems = flatConversationItems(this.conversationItems, this.filter, this.expandedContent)
   }
 
-  /**
-   * Rebuild flat check items list — checks + any inline annotation /
-   * placeholder rows for currently-expanded failing checks (spec 043).
-   */
   private refreshFlatCheckItems(): void {
-    const flat: FlatCheckItem[] = []
-    const checks = (this.prInfo.checks ?? []).filter((check) =>
-      this.matches(check.name, check.conclusion ?? undefined)
-    )
-    for (const check of checks) {
-      flat.push({ kind: 'check', check })
-      if (!this.expandedCheckIds.has(check.id)) continue
-      if (!isFailingCheck(check)) continue
-
-      const status = check.annotationsStatus ?? 'idle'
-      if (status === 'loading') {
-        flat.push({ kind: 'placeholder', check, placeholder: 'loading' })
-      } else if (status === 'error') {
-        flat.push({ kind: 'placeholder', check, placeholder: 'error' })
-      } else if (check.annotations && check.annotations.length > 0) {
-        for (const annotation of check.annotations) {
-          flat.push({ kind: 'annotation', check, annotation })
-        }
-      } else if (status === 'loaded') {
-        flat.push({ kind: 'placeholder', check, placeholder: 'empty' })
-      }
-    }
-    this.flatCheckItems = flat
+    this.flatCheckItems = flatCheckItems(this.prInfo.checks, this.expandedCheckIds, this.filter)
   }
 
   /**
@@ -982,34 +583,16 @@ export class PRInfoPanelClass {
     this.followCursor()
   }
 
-  /**
-   * What the filter leaves. Rows are matched on the text the reader can
-   * see — a filename, a commit subject, who said what.
-   */
-  private matches(...text: (string | undefined)[]): boolean {
-    if (!this.filter) return true
-    const needle = this.filter.toLowerCase()
-    return text.some((part) => part?.toLowerCase().includes(needle))
-  }
-
   private get visibleFiles(): DiffFile[] {
-    return this.filter ? this.files.filter((file) => this.matches(file.filename)) : this.files
+    return visibleFiles(this.files, this.filter)
   }
 
   private get visiblePreviews(): PreviewRow[] {
-    const rows = this.previews?.rows ?? []
-    return this.filter
-      ? rows.filter((row) =>
-          this.matches(row.app, row.status, ...row.links.map((link) => link.label))
-        )
-      : rows
+    return visiblePreviews(this.previews?.rows ?? [], this.filter)
   }
 
   private get visibleCommits(): PrCommit[] {
-    const commits = this.prInfo.commits ?? []
-    return this.filter
-      ? commits.filter((commit) => this.matches(commit.message, commit.sha, commit.author))
-      : commits
+    return visibleCommits(this.prInfo.commits ?? [], this.filter)
   }
 
   /**
@@ -1321,7 +904,7 @@ export class PRInfoPanelClass {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
     
-    const itemId = this.getFlatItemId(flatItem)
+    const itemId = flatConversationItemId(flatItem)
     if (this.expandedContent.has(itemId)) {
       this.expandedContent.delete(itemId)
     } else {
@@ -1339,7 +922,7 @@ export class PRInfoPanelClass {
   expandSelectedThread(): void {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
-    const itemId = this.getFlatItemId(flatItem)
+    const itemId = flatConversationItemId(flatItem)
     if (!this.expandedContent.has(itemId)) {
       this.expandedContent.add(itemId)
       this.refreshFlatItems()
@@ -1353,41 +936,11 @@ export class PRInfoPanelClass {
   collapseSelectedThread(): void {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
-    const itemId = this.getFlatItemId(flatItem)
+    const itemId = flatConversationItemId(flatItem)
     if (this.expandedContent.has(itemId)) {
       this.expandedContent.delete(itemId)
       this.refreshFlatItems()
       this.rebuildSections()
-    }
-  }
-  
-  /**
-   * Get the string id for a conversation item
-   */
-  private getItemId(item: ConversationItem): string {
-    switch (item.type) {
-      case 'pr-comment':
-        return String(item.data.id)
-      case 'review':
-        return item.data.id
-      case 'pending-reviewer':
-        return `pending-${item.data.join(",")}`
-    }
-  }
-
-  /**
-   * Get the string id for a flat conversation item
-   */
-  private getFlatItemId(item: FlatConversationItem): string {
-    switch (item.type) {
-      case 'pr-comment':
-        return String(item.data.id)
-      case 'review-header':
-        return item.data.id
-      case 'review-thread':
-        return item.data.id
-      case 'pending-reviewer':
-        return `pending-${item.data.join(",")}`
     }
   }
   
@@ -1399,13 +952,6 @@ export class PRInfoPanelClass {
     return this.flatConversationItems[this.cursorIndex]
   }
   
-  /**
-   * Check if an item's content is expanded (showing full body/threads)
-   */
-  private isContentExpanded(item: ConversationItem): boolean {
-    return this.expandedContent.has(this.getItemId(item))
-  }
-
   /**
    * Update a row's visual state
    */
@@ -1436,42 +982,6 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Get aggregated checks status for collapsed preview
-   */
-  private getChecksAggregateStatus(): { icon: string; color: string; text: string } {
-    const checks = this.prInfo.checks ?? []
-    if (checks.length === 0) {
-      return { icon: "○", color: theme.overlay0, text: "no checks" }
-    }
-    
-    const pending = checks.filter(c => c.status !== "completed")
-    const failed = checks.filter(c => c.status === "completed" && c.conclusion !== "success" && c.conclusion !== "neutral" && c.conclusion !== "skipped")
-    const succeeded = checks.filter(c => c.status === "completed" && (c.conclusion === "success" || c.conclusion === "neutral" || c.conclusion === "skipped"))
-    
-    if (failed.length > 0) {
-      return { icon: "✗", color: theme.red, text: `${failed.length} failed` }
-    } else if (pending.length > 0) {
-      return { icon: "○", color: theme.yellow, text: `${pending.length} pending` }
-    } else {
-      return { icon: "✓", color: theme.green, text: "all passed" }
-    }
-  }
-
-  /**
-   * A collapsed Previews header says who posted them and when — the rows
-   * themselves are one line per app (spec 068).
-   */
-  private previewsSummary(): string {
-    if (!this.previews) return ""
-    const live = this.visiblePreviews.filter((row) => row.links.length > 0).length
-    const other = this.visiblePreviews.length - live
-    const counts = [live > 0 ? `${live} live` : null, other > 0 ? `${other} on demand` : null]
-      .filter(Boolean)
-      .join(" · ")
-    return `${counts}${counts ? "  ·  " : ""}from ${this.previews.author}`
-  }
-
-  /**
    * Fresh PR data for the panel to draw from.
    *
    * The panel takes `prInfo` in its constructor and every section reads
@@ -1482,7 +992,7 @@ export class PRInfoPanelClass {
   setPrInfo(prInfo: PrInfo): void {
     if (prInfo === this.prInfo) return
     this.prInfo = prInfo
-    this.conversationItems = this.buildConversationItems()
+    this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
     this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
@@ -1509,89 +1019,6 @@ export class PRInfoPanelClass {
   getSelectedPreview(): PreviewRow | undefined {
     if (this.activeSection !== 'previews' || this.cursorIndex < 0) return undefined
     return this.visiblePreviews[this.cursorIndex]
-  }
-
-  /**
-   * What a collapsed Conversation header says at a glance (spec 067): what
-   * is still open, since a resolved thread is not something to come back to.
-   */
-  private unresolvedSummary(): string {
-    let unresolved = 0
-    for (const item of this.conversationItems) {
-      if (item.type !== 'review') continue
-      unresolved += item.data.threads.filter((thread) => !thread.isResolved).length
-    }
-    return unresolved > 0 ? `${unresolved} unresolved` : ""
-  }
-
-  /** And what a collapsed Commits header says: when the last one landed. */
-  private lastCommitSummary(): string {
-    const commits = this.visibleCommits
-    const last = commits[commits.length - 1]
-    return last ? `last ${formatTimeAgo(last.date)}` : ""
-  }
-
-  /**
-   * Build section configs
-   */
-  private getSectionConfigs(): SectionConfig[] {
-    const conversationCount = this.conversationItems.length
-    const commitCount = this.visibleCommits.length
-    const fileCount = this.visibleFiles.length
-    const bodyLines = (this.prInfo.body || "").split("\n").filter(l => l.trim()).length
-    const checkCount = this.prInfo.checks?.length ?? 0
-    const checksStatus = this.getChecksAggregateStatus()
-
-    return [
-      {
-        id: 'description',
-        title: 'Description',
-        count: bodyLines,
-        preview: bodyLines > 0 ? `${bodyLines} lines` : "empty",
-        hasItems: false,
-      },
-      {
-        id: 'previews',
-        title: 'Previews',
-        count: this.visiblePreviews.length,
-        preview: this.previewsSummary(),
-        hasItems: this.visiblePreviews.length > 0,
-      },
-      {
-        id: 'checks',
-        title: 'Checks',
-        count: checkCount,
-        preview: `${checksStatus.icon} ${checksStatus.text}`,
-        hasItems: checkCount > 0,
-      },
-      {
-        id: 'conversation',
-        title: 'Conversation',
-        count: conversationCount,
-        // A comment whose content has been lifted into a section of its own
-        // is folded away here rather than dropped, and the header says so
-        // (spec 067).
-        countSuffix: this.hiddenConversationIds.size > 0
-          ? ` · ${this.hiddenConversationIds.size} hidden`
-          : undefined,
-        preview: this.unresolvedSummary(),
-        hasItems: conversationCount > 0,
-      },
-      {
-        id: 'files',
-        title: 'Files',
-        count: fileCount,
-        preview: `+${this.prInfo.additions} -${this.prInfo.deletions}`,
-        hasItems: fileCount > 0,
-      },
-      {
-        id: 'commits',
-        title: 'Commits',
-        count: commitCount,
-        preview: this.lastCommitSummary(),
-        hasItems: commitCount > 0,
-      },
-    ]
   }
 
   /**
@@ -1725,7 +1152,7 @@ export class PRInfoPanelClass {
       if (same) return
     }
     this.hiddenConversationIds = ids
-    this.conversationItems = this.buildConversationItems()
+    this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.rebuildSections()
   }
@@ -1768,7 +1195,14 @@ export class PRInfoPanelClass {
    */
   private buildSections(container: BoxRenderable): void {
     this.bodies.begin()
-    const configs = this.getSectionConfigs()
+    const configs = sectionConfigs({
+      prInfo: this.prInfo,
+      files: this.files,
+      previews: this.previews,
+      conversationItems: this.conversationItems,
+      hiddenConversationIds: this.hiddenConversationIds,
+      filter: this.filter,
+    })
     
     for (const config of configs) {
       const isActive = config.id === this.activeSection
@@ -1973,34 +1407,6 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Get icon and color for a check status
-   */
-  private getCheckStatusDisplay(check: PrCheck): { icon: string; color: string } {
-    if (check.status !== "completed") {
-      // In progress or queued
-      return { icon: "○", color: theme.yellow }
-    }
-    
-    switch (check.conclusion) {
-      case "success":
-        return { icon: "✓", color: theme.green }
-      case "failure":
-      case "timed_out":
-        return { icon: "✗", color: theme.red }
-      case "cancelled":
-        return { icon: "⊘", color: theme.overlay0 }
-      case "skipped":
-        return { icon: "⊘", color: theme.overlay0 }
-      case "neutral":
-        return { icon: "◇", color: theme.subtext0 }
-      case "action_required":
-        return { icon: "!", color: theme.peach }
-      default:
-        return { icon: "?", color: theme.overlay0 }
-    }
-  }
-
-  /**
    * Build checks content. Renders checks plus, for expanded failing
    * checks, inline annotation rows below them (spec 043).
    */
@@ -2035,7 +1441,7 @@ export class PRInfoPanelClass {
   }
 
   private buildCheckRow(container: BoxRenderable, check: PrCheck, isSelected: boolean): ItemRowRefs {
-    const { icon, color } = this.getCheckStatusDisplay(check)
+    const { icon, color } = getCheckStatusDisplay(check)
     const expandable = isFailingCheck(check)
     const expanded = this.expandedCheckIds.has(check.id)
 
