@@ -65,7 +65,7 @@ export function createPrInfoConversationIsland(
     },
     /**
      * The drawn header of the row at `index`: an item's one-row header, or
-     * the reviewers' whole block. The body boxes between rows are none.
+     * the reviewers' whole block. The body boxes between rows are skipped.
      */
     rowAt(index: number): Renderable | undefined {
       const key = state.model.rows[index]?.key

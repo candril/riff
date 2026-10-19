@@ -307,3 +307,56 @@ describe("the pending reviewers", () => {
     expect(fgAt(spans, 7, y)).toEqual(ints(theme.yellow))
   })
 })
+
+// The rows a cursor move restyles are drawn from the model, as a rebuild draws them.
+describe("rows j moves onto and off", () => {
+  async function stepTo(info: ReturnType<typeof fullPr>, steps: number) {
+    const { panel, mounted } = await mount({ info, section: "conversation" })
+    const press = async () => {
+      panel.step(1)
+      const lines = (await mounted.frame()).split("\n")
+      return { lines, spans: mounted.setup.captureSpans() }
+    }
+    let shown = await press()
+    for (let i = 1; i < steps; i++) shown = await press()
+    return { ...shown, press }
+  }
+
+  test("keep a review's thread count overlay0, selected and after", async () => {
+    const on = await stepTo(fullPr(), 5)
+    const [, y] = find(on.lines, "requested changes")
+    expect(bgAt(on.spans, 4, y)).toEqual(ints(theme.surface0))
+    expect(fgAt(on.spans, ...find(on.lines, "(3 threads)"))).toEqual(ints(theme.overlay0))
+
+    const off = await on.press()
+    expect(bgAt(off.spans, 4, y)).toEqual(ints(theme.base))
+    expect(fgAt(off.spans, ...find(off.lines, "(3 threads)"))).toEqual(ints(theme.overlay0))
+  })
+
+  test("keep the pending reviewers' header yellow, their names blue while selected and sapphire after", async () => {
+    const info = { ...fullPr(), requestedReviewers: ["frank-the-reviewer", "grace-hopper"] }
+    const on = await stepTo(info, 8)
+    const [, y] = find(on.lines, "awaiting review")
+    expect(bgAt(on.spans, 4, y)).toEqual(ints(theme.surface0))
+    expect(fgAt(on.spans, ...find(on.lines, "○ awaiting"))).toEqual(ints(theme.yellow))
+    expect(fgAt(on.spans, ...find(on.lines, "awaiting review"))).toEqual(ints(theme.yellow))
+    expect(fgAt(on.spans, ...find(on.lines, "@frank"))).toEqual(ints(theme.blue))
+    expect(fgAt(on.spans, ...find(on.lines, "@grace"))).toEqual(ints(theme.blue))
+
+    const off = await on.press()
+    expect(bgAt(off.spans, 4, y)).toEqual(ints(theme.base))
+    expect(fgAt(off.spans, ...find(off.lines, "awaiting review"))).toEqual(ints(theme.yellow))
+    expect(fgAt(off.spans, ...find(off.lines, "@frank"))).toEqual(ints(theme.sapphire))
+  })
+
+  test("keep a bot's name overlay0, selected and after", async () => {
+    const on = await stepTo(fullPr(), 7)
+    const [, y] = find(on.lines, "@deploy-bot[bot]")
+    expect(bgAt(on.spans, 4, y)).toEqual(ints(theme.surface0))
+    expect(fgAt(on.spans, ...find(on.lines, "@deploy-bot[bot]"))).toEqual(ints(theme.overlay0))
+
+    const off = await on.press()
+    expect(bgAt(off.spans, 4, y)).toEqual(ints(theme.base))
+    expect(fgAt(off.spans, ...find(off.lines, "@deploy-bot[bot]"))).toEqual(ints(theme.overlay0))
+  })
+})

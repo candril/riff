@@ -42,7 +42,6 @@ export function PRInfoConversationView(props: {
   )
 }
 
-
 function ItemRow(props: { row: Item; markdown: ConversationMarkdown; onRow: OnRow }) {
   return (
     <>
