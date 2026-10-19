@@ -1,11 +1,14 @@
 import { test, expect, describe } from "bun:test"
+import { BoxRenderable, type Renderable } from "@opentui/core"
+import type { PrCheck } from "../providers/github"
 import { bgAt, fgAt, findText, ints } from "../testing/frame"
-import { previews } from "../testing/pr-info"
+import { previews, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"
 import { colors, theme } from "../theme"
 
-// The previews, files and commits sections as Solid islands: what a push
-// after a cursor move, a label or a filter draws, and what destroy leaves.
+// The previews, checks, files and commits sections as Solid islands: what
+// a push after a cursor move, a label or a filter draws, and what destroy
+// leaves.
 
 const mount = usePrInfoPanel()
 
@@ -35,6 +38,41 @@ describe("previews", () => {
     expect(fgAt(spans, ...find(lines, "on demand"))).toEqual(ints(theme.overlay0))
     expect(bgAt(spans, 4, 14)).toEqual(ints(theme.base))
     expect(fgAt(spans, 4, 15)).toEqual(ints(theme.subtext1))
+  })
+})
+
+/** The rows an island has drawn, one per cursor stop. */
+const islandRows = (root: Renderable, id: string) =>
+  root.findDescendantById(id)!.getChildren().filter((child) => child instanceof BoxRenderable)
+
+describe("a cursor move in checks", () => {
+  test("from a check onto its annotation restyles both on the renderables already drawn", async () => {
+    const { lines, spans, panel, mounted } = await mount({
+      section: "checks",
+      prepare: (p) => {
+        p.toggleCheckExpansion(3)
+        p.moveCursor(3)
+      },
+    })
+    const [, y] = find(lines, "✗ test")
+    expect(bgAt(spans, 4, y)).toEqual(ints(theme.surface0))
+    const root = mounted.setup.renderer.root
+    const before = islandRows(root, "pr-info-checks")
+
+    panel.moveCursor(1)
+    const moved = (await mounted.frame()).split("\n")
+    const after = mounted.setup.captureSpans()
+    expect(moved.slice(y, y + 3)).toEqual(["    ✗ test (failure)  ▼ [2]", "      • src/greet.ts:12:5", "          Expected 2, got 3"])
+    expect(bgAt(after, 4, y)).toEqual(ints(theme.base))
+    expect(fgAt(after, 6, y)).toEqual(ints(theme.subtext1))
+    for (const row of [y + 1, y + 2]) {
+      expect(bgAt(after, 4, row)).toEqual(ints(theme.surface0))
+      expect(bgAt(after, 115, row)).toEqual(ints(theme.surface0))
+    }
+    expect(fgAt(after, 8, y + 1)).toEqual(ints(theme.text))
+    const rows = islandRows(root, "pr-info-checks")
+    expect(rows).toHaveLength(before.length)
+    rows.forEach((row, i) => expect(row).toBe(before[i]!))
   })
 })
 
@@ -83,6 +121,85 @@ describe("flash labels", () => {
     expect(cleared[20]).toBe("    src/farewell.ts    +5    -0")
     expect(cleared[24]).toStartWith("    23h    c00abcd feat:")
     expect(fgAt(mounted.setup.captureSpans(), 4, 20)).toEqual(ints(theme.subtext1))
+  })
+})
+
+describe("flash labels in checks", () => {
+  test("go in front of a check and an annotation's location, which keeps its message on a second line", async () => {
+    const { lines, spans, panel, mounted } = await mount({
+      section: "checks",
+      prepare: (p) => {
+        p.toggleCheckExpansion(3)
+        p.setFlashLabels(new Map([["checks:2", "a"], ["checks:3", "sd"]]))
+      },
+    })
+    const [, y] = find(lines, "✗ test")
+    expect(lines.slice(y, y + 5)).toEqual([
+      "    a ✗ test (failure)  ▼ [2]",
+      "    sd   • src/greet.ts:12:5",
+      "          Expected 2, got 3",
+      "      • src/farewell.ts",
+      "          Unused export",
+    ])
+    expect(fgAt(spans, 4, y)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 6, y)).toEqual(ints(theme.red))
+    expect(fgAt(spans, 4, y + 1)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, ...find(lines, "• src/greet.ts"))).toEqual(ints(theme.red))
+
+    panel.setFlashLabels(new Map())
+    const cleared = (await mounted.frame()).split("\n")
+    expect(cleared.slice(y, y + 3)).toEqual([
+      "    ✗ test (failure)  ▼ [2]",
+      "      • src/greet.ts:12:5",
+      "          Expected 2, got 3",
+    ])
+    expect(fgAt(mounted.setup.captureSpans(), 4, y)).toEqual(ints(theme.red))
+  })
+})
+
+describe("j through checks longer than the screen", () => {
+  const failing = (id: number): PrCheck => ({
+    id,
+    name: `check-${id}`,
+    status: "completed",
+    conclusion: "failure",
+    detailsUrl: null,
+    startedAt: null,
+    completedAt: null,
+    annotationsStatus: "loaded",
+    annotations: [0, 1].map((n) => ({
+      path: `src/f${id}-${n}.ts`,
+      startLine: 1,
+      endLine: 1,
+      level: "failure" as const,
+      message: `message ${id}-${n}`,
+    })),
+  })
+
+  test("keeps both lines of an annotation in view", async () => {
+    const ids = Array.from({ length: 8 }, (_, i) => i + 1)
+    const { panel, mounted } = await mount({
+      section: "checks",
+      height: 20,
+      info: prInfo("Adds the skill.", { checks: ids.map(failing) }),
+      prepare: (p) => ids.forEach((id) => p.toggleCheckExpansion(id)),
+    })
+    const viewport = panel.getScrollBox().viewport
+    let annotations = 0
+    while (panel.moveCursor(1)) {
+      const lines = (await mounted.frame()).split("\n")
+      const annotation = panel.getSelectedAnnotation()
+      if (!annotation) continue
+      annotations++
+      const [, y] = find(lines, `${annotation.annotation.path}:1`)
+      expect(lines[y + 1]).toContain(annotation.annotation.message)
+      expect(y).toBeGreaterThanOrEqual(viewport.y)
+      // Three rows short of the bottom edge, measured from the message line:
+      // the row is one cursor stop two lines tall.
+      expect(y + 1).toBeLessThanOrEqual(viewport.y + viewport.height - 1 - 3)
+    }
+    expect(annotations).toBe(16)
+    expect(panel.getScrollBox().scrollTop).toBeGreaterThan(0)
   })
 })
 

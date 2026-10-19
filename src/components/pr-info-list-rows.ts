@@ -16,6 +16,8 @@ export interface ListRow {
   selected: boolean
   /** The `s` label drawn in front of the row while flash is labelling. */
   label?: string
+  /** A second line under the first, the same cursor stop: an annotation's message. */
+  below?: ListSegment[]
 }
 
 /** The rows of one list section, and the muted line under them: what is hidden, or that there is nothing. */
@@ -24,7 +26,7 @@ export interface ListRows {
   note: string | null
 }
 
-interface ListInput {
+export interface ListInput {
   /** The cursor's row, or -1 when the cursor is elsewhere. */
   selected: number
   /** The panel's flash labels, keyed `${section}:${index}`. */
@@ -33,7 +35,7 @@ interface ListInput {
 
 const MAX_COMMITS = 20
 
-function row(
+export function row(
   section: string,
   index: number,
   key: string,

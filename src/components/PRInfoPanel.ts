@@ -35,7 +35,6 @@ import {
   TIME_COLUMN_WIDTH,
   cleanBodyPreview,
   formatTimeAgo,
-  getCheckStatusDisplay,
   getReviewIcon,
   threadActivityAt,
   truncate,
@@ -57,6 +56,7 @@ import {
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
 import { commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
+import { checkRows } from "./pr-info-check-rows"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
@@ -145,10 +145,10 @@ interface ItemRowRefs {
   secondary?: TextRenderable
 }
 
-type ListSection = 'previews' | 'files' | 'commits'
+type ListSection = 'previews' | 'checks' | 'files' | 'commits'
 
 function isListSection(section: PRInfoPanelSection): section is ListSection {
-  return section === 'previews' || section === 'files' || section === 'commits'
+  return section === 'previews' || section === 'checks' || section === 'files' || section === 'commits'
 }
 
 /** The description's cursor row: the background every other selected row has. */
@@ -842,9 +842,7 @@ export class PRInfoPanelClass {
     )
     this.toggleCheckExpansion(check.id)
     if (parentIndex >= 0 && this.cursorIndex !== parentIndex) {
-      this.updateItemRow(this.activeSection, this.cursorIndex, false)
       this.cursorIndex = parentIndex
-      this.updateItemRow(this.activeSection, this.cursorIndex, true)
       this.rebuildSections()
     }
   }
@@ -967,9 +965,6 @@ export class PRInfoPanelClass {
       case 'conversation':
         row.primary.fg = selected ? theme.blue : theme.sapphire
         if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
-        break
-      case 'checks':
-        row.primary.fg = selected ? theme.text : theme.subtext1
         break
     }
   }
@@ -1269,12 +1264,10 @@ export class PRInfoPanelClass {
         this.buildDescriptionContent(contentBox)
         break
       case 'previews':
+      case 'checks':
       case 'files':
       case 'commits':
         contentBox.add(this.listIsland(section, isActive).host)
-        break
-      case 'checks':
-        this.buildChecksContent(contentBox, isActive)
         break
       case 'conversation':
         this.buildConversationContent(contentBox, isActive)
@@ -1306,6 +1299,12 @@ export class PRInfoPanelClass {
     switch (section) {
       case 'previews':
         return previewRows(this.visiblePreviews, input)
+      case 'checks':
+        return checkRows(this.flatCheckItems, {
+          ...input,
+          expanded: this.expandedCheckIds,
+          hasChecks: (this.prInfo.checks ?? []).length > 0,
+        })
       case 'files':
         return fileRows(this.visibleFiles, { ...input, listWidth: getListItemWidth() })
       case 'commits':
@@ -1422,166 +1421,6 @@ export class PRInfoPanelClass {
       row.add(pill)
     }
     container.add(row)
-  }
-
-  /**
-   * Build checks content. Renders checks plus, for expanded failing
-   * checks, inline annotation rows below them (spec 043).
-   */
-  private buildChecksContent(container: BoxRenderable, isActive: boolean): void {
-    const rows: ItemRowRefs[] = []
-    const checks = this.prInfo.checks ?? []
-
-    if (checks.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No checks configured",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-
-    this.refreshFlatCheckItems()
-
-    for (let i = 0; i < this.flatCheckItems.length; i++) {
-      const item = this.flatCheckItems[i]!
-      const isSelected = isActive && i === this.cursorIndex
-
-      if (item.kind === 'check') {
-        rows.push(this.buildCheckRow(container, item.check, isSelected))
-      } else if (item.kind === 'annotation') {
-        rows.push(this.buildAnnotationRow(container, item.annotation, isSelected))
-      } else {
-        rows.push(this.buildPlaceholderRow(container, item.placeholder, isSelected))
-      }
-    }
-
-    this.itemRows.set('checks', rows)
-  }
-
-  private buildCheckRow(container: BoxRenderable, check: PrCheck, isSelected: boolean): ItemRowRefs {
-    const { icon, color } = getCheckStatusDisplay(check)
-    const expandable = isFailingCheck(check)
-    const expanded = this.expandedCheckIds.has(check.id)
-
-    const row = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-      backgroundColor: isSelected ? theme.surface0 : undefined,
-    })
-
-    row.add(new TextRenderable(this.renderer, {
-      content: `${icon} `,
-      fg: color,
-    }))
-
-    const nameText = new TextRenderable(this.renderer, {
-      content: check.name,
-      fg: isSelected ? theme.text : theme.subtext1,
-    })
-    row.add(nameText)
-
-    let statusText = ""
-    if (check.status !== "completed") {
-      statusText = ` (${check.status})`
-    } else if (check.conclusion && check.conclusion !== "success") {
-      statusText = ` (${check.conclusion})`
-    }
-
-    const statusTextEl = new TextRenderable(this.renderer, {
-      content: statusText,
-      fg: theme.overlay0,
-    })
-    row.add(statusTextEl)
-
-    if (expandable) {
-      const count = check.annotations?.length
-      const suffix = count !== undefined && count > 0 ? ` [${count}]` : ""
-      row.add(new TextRenderable(this.renderer, {
-        content: `  ${expanded ? "▼" : "▶"}${suffix}`,
-        fg: theme.overlay0,
-      }))
-    }
-
-    container.add(row)
-    return { container: row, primary: nameText, secondary: statusTextEl }
-  }
-
-  private buildAnnotationRow(container: BoxRenderable, annotation: PrCheckAnnotation, isSelected: boolean): ItemRowRefs {
-    // Two visual lines per annotation — path on line 1, message indented
-    // on line 2. Long paths + long messages each get a full-width budget
-    // and the row is still a single cursor stop (spec 043).
-    const outer = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      backgroundColor: isSelected ? theme.surface0 : undefined,
-    })
-
-    const bulletColor =
-      annotation.level === "failure" ? theme.red :
-      annotation.level === "warning" ? theme.yellow :
-      theme.subtext0
-
-    // Line 1: bullet + path:line[:col]. Omit the trailing `:0` when the
-    // annotation is file-level (GitHub uses start_line=0 as "whole file").
-    const locText = annotation.startLine > 0
-      ? (annotation.startColumn !== undefined
-          ? `${annotation.path}:${annotation.startLine}:${annotation.startColumn}`
-          : `${annotation.path}:${annotation.startLine}`)
-      : annotation.path
-
-    const pathRow = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-    })
-    pathRow.add(new TextRenderable(this.renderer, {
-      content: "  ",
-      fg: theme.overlay0,
-    }))
-    pathRow.add(new TextRenderable(this.renderer, {
-      content: "• ",
-      fg: bulletColor,
-    }))
-    const pathText = new TextRenderable(this.renderer, {
-      content: locText,
-      fg: isSelected ? theme.text : theme.subtext1,
-    })
-    pathRow.add(pathText)
-    outer.add(pathRow)
-
-    // Line 2: message (first line only; long messages get truncated
-    // by the terminal).
-    const firstLine = (annotation.message || "").split("\n")[0] ?? ""
-    const msgRow = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-    })
-    const msgEl = new TextRenderable(this.renderer, {
-      content: firstLine ? `      ${firstLine}` : "",
-      fg: theme.overlay0,
-    })
-    msgRow.add(msgEl)
-    outer.add(msgRow)
-
-    container.add(outer)
-    return { container: outer, primary: pathText, secondary: msgEl }
-  }
-
-  private buildPlaceholderRow(container: BoxRenderable, kind: 'loading' | 'empty' | 'error', isSelected: boolean): ItemRowRefs {
-    const content =
-      kind === 'loading' ? "  Loading annotations…" :
-      kind === 'empty'   ? "  No annotations — press o to open log" :
-                           "  Could not fetch annotations"
-    const row = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-      backgroundColor: isSelected ? theme.surface0 : undefined,
-    })
-    const text = new TextRenderable(this.renderer, {
-      content,
-      fg: theme.overlay0,
-    })
-    row.add(text)
-    container.add(row)
-    return { container: row, primary: text }
   }
 
   /**
