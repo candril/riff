@@ -67,6 +67,7 @@ function spanAt(spans: Spans, x: number, y: number) {
 
 export const bgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.bg.toInts()
 export const fgAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.fg.toInts()
+export const attributesAt = (spans: Spans, x: number, y: number) => spanAt(spans, x, y)?.attributes
 export const ints = (hex: string) => RGBA.fromHex(hex).toInts()
 
 /** Every span's text and colours as plain data, so two screens can be compared cell for cell and colour for colour. */
@@ -74,4 +75,18 @@ export function paintOf(spans: Spans) {
   return spans.lines.map((line) =>
     line.spans.map((span) => ({ text: span.text, fg: span.fg.toInts(), bg: span.bg.toInts(), attributes: span.attributes }))
   )
+}
+
+/**
+ * Sets `process.stdout.columns` until the returned undo runs. Some views
+ * still cut their rows to the terminal's width rather than their own, so a
+ * frame of them is only repeatable with it pinned.
+ */
+export function pinStdoutColumns(columns: number): () => void {
+  const original = Object.getOwnPropertyDescriptor(process.stdout, "columns")
+  Object.defineProperty(process.stdout, "columns", { value: columns, configurable: true, writable: true })
+  return () => {
+    if (original) Object.defineProperty(process.stdout, "columns", original)
+    else delete (process.stdout as { columns?: number }).columns
+  }
 }
