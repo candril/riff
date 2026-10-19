@@ -20,3 +20,22 @@ export function overflowHints(total: number, top: number, height: number): Overf
     below: below > 0 ? `↓ ${below + 1} more` : null,
   }
 }
+
+/**
+ * The same hints for a list that knows what lies past each edge in whole
+ * items rather than rows, so the edge row covers nothing it has to count.
+ */
+export function edgeHints(above: number, below: number): OverflowHints {
+  return {
+    above: above > 0 ? `↑ ${above}` : null,
+    below: below > 0 ? `↓ ${below} more` : null,
+  }
+}
+
+/**
+ * How many threads the bottom edge hides: every one past the window, and
+ * every one in it whose last row is at or under the edge row the hint covers.
+ */
+export function threadsHiddenBelow(threadLastRows: readonly number[], edgeRow: number, after: number): number {
+  return after + threadLastRows.filter((row) => row >= edgeRow).length
+}

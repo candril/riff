@@ -32,6 +32,7 @@ import { fuzzyFilter } from "../utils/fuzzy"
 import { filterEmoji } from "../utils/emoji"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
+import { bottomThreadHint, topThreadHint } from "./thread-edge-hints"
 
 export const MENTION_VISIBLE_LIMIT = 6
 
@@ -261,7 +262,8 @@ function renderHintRow(hints: Hint[]) {
  * and, because the start point follows the cursor, the view scrolls as
  * the user moves through threads with j/k. `windowSize` caps how many
  * threads mount at once — the viewport clips whatever runs past the
- * bottom.
+ * bottom, and its edge rows count the threads hidden past each edge
+ * (`thread-edge-hints.ts`).
  *
  * Note this is thread-granular: navigating *within* a very tall thread
  * (many replies) doesn't re-scroll, so a deep reply in an oversized
@@ -614,12 +616,6 @@ export function InlineCommentOverlay({
               flexShrink: 0,
               gap: 1,
             },
-            visible.before > 0
-              ? Text({
-                  content: `↑ ${visible.before} earlier thread${visible.before !== 1 ? "s" : ""}`,
-                  fg: theme.overlay0,
-                })
-              : null,
             ...visible.threads.flatMap((thread) => {
               const root = thread.comments[0]!
               // Show filename in the divider too when the panel is
@@ -765,12 +761,13 @@ export function InlineCommentOverlay({
               }),
               ]
             }),
-            visible.after > 0
-              ? Text({
-                  content: `↓ ${visible.after} more thread${visible.after !== 1 ? "s" : ""}`,
-                  fg: theme.overlay0,
-                })
-              : null
+            ),
+            topThreadHint(visible.before),
+            bottomThreadHint(
+              visible.threads.map((thread) =>
+                isThreadCollapsed(thread, expandedThreadIds) ? 1 : 1 + thread.comments.length
+              ),
+              visible.after
             )
           )
         : Box(

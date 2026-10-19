@@ -151,7 +151,7 @@ function treeRow(item: FlatTreeItem, input: FileTreeModelInput): FileTreeRow {
   const marks = `${unseen ? " ●" : ""}${moved ? " ▴" : ""}`
 
   // marker, space, status, space. The panel's padding takes a cell on each
-  // side, and the marks are reserved for, so a long name is cut before them
+  // side, and room is kept for the marks, so a long name is cut before them
   // rather than pushing them off the edge.
   const prefixLen = 4 + indent.length + icon.length
   const reserved = 2 + marks.length
