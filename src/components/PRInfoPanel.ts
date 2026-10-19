@@ -21,24 +21,15 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
 import { stackText, type StackInfo } from "../utils/stack"
-import type { Comment, ReactionSummary, ReactionTarget } from "../types"
-import { REACTION_META } from "../types"
+import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
-import { extractCommentImages, type CommentImage } from "../utils/comment-images"
+import { extractCommentImages } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
 import { annotateReferences } from "../utils/references"
 import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { MarkdownBodies } from "./markdown-bodies"
 import { colors, theme } from "../theme"
-import {
-  TIME_COLUMN_WIDTH,
-  cleanBodyPreview,
-  formatTimeAgo,
-  getReviewIcon,
-  threadActivityAt,
-  truncate,
-} from "./pr-info-format"
 import {
   ALL_SECTIONS,
   conversationItems,
@@ -52,11 +43,12 @@ import {
   type ConversationItem,
   type FlatCheckItem,
   type FlatConversationItem,
-  type ReviewThread,
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
 import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
+import { fileDiffContext, reactionPills, type Segment } from "./pr-info-conversation-parts"
+import { conversationRows, type BodyPart, type ConversationRow, type HeaderSegment } from "./pr-info-conversation-rows"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
@@ -103,27 +95,6 @@ function withReferences(body: string): string {
  */
 function getTerminalWidth(): number {
   return process.stdout.columns || 80
-}
-
-/**
- * Calculate available width for body text in conversation rows.
- * Total width minus fixed elements: indent, icons, author, time, padding
- */
-function getBodyPreviewWidth(): number {
-  const termWidth = getTerminalWidth()
-  // Reserve space for: indent (4) + icon (2) + author (~20) + time (~12) + padding (~6)
-  const reserved = 44
-  return Math.max(20, termWidth - reserved)
-}
-
-/**
- * Calculate available width for thread rows (has file:line prefix).
- * Thread rows have: indent (4) + icon (2) + file:line (padded 24) + author (~15) + reply count (~6) + time (6) + padding (~6)
- */
-function getThreadBodyPreviewWidth(): number {
-  const termWidth = getTerminalWidth()
-  const reserved = 63
-  return Math.max(15, termWidth - reserved)
 }
 
 /**
@@ -1029,7 +1000,6 @@ export class PRInfoPanelClass {
 
     // Rebuild
     this.buildSections(this.sectionsContainer)
-    this.applyFlashLabels()
   }
 
   /**
@@ -1154,26 +1124,6 @@ export class PRInfoPanelClass {
   setFlashLabels(labels: ReadonlyMap<string, string>): void {
     this.flashLabels = labels
     this.rebuildSections()
-  }
-
-  /**
-   * Paint the labels onto the rows the section builders have already made —
-   * one pass over the refs they leave behind, rather than a branch in each
-   * of them. The label goes in front of the row, so nothing it says is lost.
-   */
-  private applyFlashLabels(): void {
-    if (this.flashLabels.size === 0) return
-
-    for (const [section, rows] of this.itemRows) {
-      rows.forEach((row, index) => {
-        const label = this.flashLabels.get(`${section}:${index}`)
-        if (!label) return
-        row.container.add(
-          new TextRenderable(this.renderer, { content: `${label} `, fg: colors.flashLabel }),
-          0
-        )
-      })
-    }
   }
 
   /**
@@ -1345,9 +1295,9 @@ export class PRInfoPanelClass {
       if (body.text) {
         container.add(this.markdownBody("pr-info-description", body.text))
       }
-      this.appendImageRows(container, body.images, 0)
+      this.appendImageRows(container, body.images.map((image) => image.label))
     }
-    this.appendReactionRow(container, this.prInfo.bodyReactions)
+    this.appendReactionRow(container, reactionPills(this.prInfo.bodyReactions))
   }
 
   /**
@@ -1366,418 +1316,141 @@ export class PRInfoPanelClass {
     row.visible = shown
   }
 
-  /**
-   * Append the row's relative timestamp. Every conversation row ends with
-   * this column so the times form a single right-aligned strip down the
-   * section; the preceding flex-grown body is what pushes it to the edge.
-   */
-  private addTimeColumn(row: BoxRenderable, isoDate: string): void {
-    row.add(new TextRenderable(this.renderer, {
-      content: `  ${formatTimeAgo(isoDate).padStart(TIME_COLUMN_WIDTH)}`,
-      fg: theme.overlay0,
-      flexShrink: 0,
-    }))
-  }
-
-  /**
-   * Format reactions as a single compact line like "👍2 ❤️1". Empty string
-   * if there are no reactions. Used in collapsed conversation rows where a
-   * full pill list would blow out the single-line height (spec 042).
-   */
-  private formatInlineReactions(reactions: ReactionSummary[] | undefined): string {
-    if (!reactions) return ""
-    const visible = reactions.filter(r => r.count > 0)
-    if (visible.length === 0) return ""
-    return visible.map(r => `${REACTION_META[r.content].emoji}${r.count}`).join(" ")
-  }
-
-  /**
-   * Append a compact inline reaction row to a container. No-op when the
-   * reactions list is empty (spec 042). Uses imperative BoxRenderable /
-   * TextRenderable to match the rest of this panel.
-   */
-  private appendReactionRow(
-    container: BoxRenderable,
-    reactions: ReactionSummary[] | undefined,
-    indent: number = 0,
-  ): void {
-    if (!reactions) return
-    const visible = reactions.filter(r => r.count > 0 || r.viewerHasReacted)
-    if (visible.length === 0) return
-
+  private appendReactionRow(container: BoxRenderable, pills: Segment[], indent: number = 0): void {
+    if (pills.length === 0) return
     const row = new BoxRenderable(this.renderer, {
       flexDirection: "row",
       paddingLeft: indent,
     })
-    for (const r of visible) {
-      const meta = REACTION_META[r.content]
-      const pill = new BoxRenderable(this.renderer, {
+    for (const pill of pills) {
+      const box = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         paddingX: 1,
         marginRight: 1,
       })
-      pill.add(new TextRenderable(this.renderer, {
-        content: `${meta.emoji} ${r.count}`,
-        // "You reacted" → blue accent on the text; no background so the
-        // emoji doesn't sit inside a color block.
-        fg: r.viewerHasReacted ? theme.blue : theme.subtext1,
-      }))
-      row.add(pill)
+      box.add(new TextRenderable(this.renderer, { content: pill.text, fg: pill.fg }))
+      row.add(box)
     }
     container.add(row)
   }
 
-  /**
-   * Build conversation content using flattened items (reviews expand to show threads as separate items)
-   */
   private buildConversationContent(container: BoxRenderable, isActive: boolean): void {
-    const rows: ItemRowRefs[] = []
-    
-    // Refresh flat items before rendering
     this.refreshFlatItems()
-    
-    if (this.flatConversationItems.length === 0) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No comments",
-        fg: theme.overlay0,
-      }))
-      return
-    }
-    
-    for (let i = 0; i < this.flatConversationItems.length; i++) {
-      const item = this.flatConversationItems[i]!
-      const isSelected = isActive && i === this.cursorIndex
-      
-      if (item.type === 'pr-comment') {
-        const comment = item.data
-        const isExpanded = this.expandedContent.has(String(comment.id))
-        const isBot = comment.isBot
-        
-        const row = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          height: 1,
-          overflow: "hidden",
-          backgroundColor: isSelected ? theme.surface0 : undefined,
-        })
-
-        const expandIcon = isExpanded ? "▼" : "▶"
-        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0, flexShrink: 0 }))
-        row.add(new TextRenderable(this.renderer, { content: "PR ", fg: theme.overlay1, flexShrink: 0 }))
-
-        const authorText = new TextRenderable(this.renderer, {
-          content: `@${comment.author}`,
-          fg: isBot ? theme.overlay0 : (isSelected ? theme.blue : theme.sapphire),
-          flexShrink: 0,
-        })
-        row.add(authorText)
-
-        let bodyText: TextRenderable
-        if (isExpanded) {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
-        } else {
-          const bodyPreview = truncate(cleanBodyPreview(comment.body), getBodyPreviewWidth())
-          bodyText = new TextRenderable(this.renderer, {
-            content: `  ${bodyPreview}`,
-            fg: isBot ? theme.overlay0 : (isSelected ? theme.text : theme.subtext1),
-            flexGrow: 1,
-            flexShrink: 1,
-          })
-        }
-        row.add(bodyText)
-
-        const reactionSummary = this.formatInlineReactions(comment.reactions)
-        if (reactionSummary) {
-          row.add(new TextRenderable(this.renderer, {
-            content: `  ${reactionSummary}`,
-            fg: theme.overlay1,
-            flexShrink: 0,
-          }))
-        }
-
-        this.addTimeColumn(row, comment.createdAt)
-
-        container.add(row)
-        rows.push({ container: row, primary: authorText, secondary: bodyText })
-
-        if (isExpanded) {
-          this.buildExpandedCommentBody(container, `pr-comment-${comment.id}`, comment.body, 4)
-          this.appendReactionRow(container, comment.reactions, 4)
-        }
-
-      } else if (item.type === 'review-header') {
-        const review = item.data
-        const isExpanded = this.expandedContent.has(review.id)
-        const hasThreads = review.threads.length > 0
-        const hasBody = review.body && review.body.trim().length > 0
-        const { icon: stateIcon, color: stateColor } = getReviewIcon(review.state)
-        
-        const row = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          height: 1,
-          overflow: "hidden",
-          backgroundColor: isSelected ? theme.surface0 : undefined,
-        })
-
-        const expandIcon = isExpanded ? "▼" : "▶"
-        row.add(new TextRenderable(this.renderer, { content: `${expandIcon} `, fg: theme.subtext0, flexShrink: 0 }))
-        row.add(new TextRenderable(this.renderer, { content: `${stateIcon}  `, fg: stateColor, flexShrink: 0 }))
-
-        const authorText = new TextRenderable(this.renderer, {
-          content: `@${review.author}`,
-          fg: isSelected ? theme.blue : theme.sapphire,
-          flexShrink: 0,
-        })
-        row.add(authorText)
-
-        const stateLabel = review.state === "CHANGES_REQUESTED"
-          ? "requested changes"
-          : review.state === "APPROVED"
-            ? "approved"
-            : "commented"
-        row.add(new TextRenderable(this.renderer, {
-          content: `  ${stateLabel}`,
-          fg: theme.subtext0,
-          flexShrink: 0,
-        }))
-
-        let bodyText: TextRenderable
-        if (!isExpanded && hasThreads) {
-          bodyText = new TextRenderable(this.renderer, {
-            content: `  (${review.threads.length} ${review.threads.length === 1 ? 'thread' : 'threads'})`,
-            fg: theme.overlay0,
-            flexGrow: 1,
-            flexShrink: 1,
-          })
-        } else {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
-        }
-        row.add(bodyText)
-
-        const reviewReactionSummary = this.formatInlineReactions(review.reactions)
-        if (reviewReactionSummary) {
-          row.add(new TextRenderable(this.renderer, {
-            content: `  ${reviewReactionSummary}`,
-            fg: theme.overlay1,
-            flexShrink: 0,
-          }))
-        }
-
-        if (review.submittedAt) {
-          this.addTimeColumn(row, review.submittedAt)
-        }
-
-        container.add(row)
-        rows.push({ container: row, primary: authorText, secondary: bodyText })
-        
-        // Show review body if expanded (but threads are separate items now)
-        if (isExpanded && hasBody) {
-          this.buildExpandedCommentBody(container, `review-${review.id}`, review.body!, 4)
-        }
-        if (isExpanded) {
-          this.appendReactionRow(container, review.reactions, 4)
-        }
-
-      } else if (item.type === 'review-thread') {
-        const thread = item.data
-        const isExpanded = this.expandedContent.has(thread.id)
-        const hasReplies = thread.replies.length > 0
-        
-        const row = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          height: 1,
-          overflow: "hidden",
-          paddingLeft: 2,  // Indent to show it's under a review
-          backgroundColor: isSelected ? theme.surface0 : undefined,
-        })
-
-        // Thread icon
-        const icon = thread.isResolved ? "✓" : (isExpanded ? "▼" : "▶")
-        const iconColor = thread.isResolved ? theme.green : theme.subtext0
-        row.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor, flexShrink: 0 }))
-
-        // File:line - use more width on wider terminals
-        const fileLineWidth = Math.min(40, Math.max(20, Math.floor(getTerminalWidth() * 0.25)))
-        const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, fileLineWidth - 5) // Leave room for :line
-        row.add(new TextRenderable(this.renderer, {
-          content: ` ${fileShort}:${thread.line}  `,
-          fg: theme.yellow,
-          flexShrink: 0,
-        }))
-
-        const authorText = new TextRenderable(this.renderer, {
-          content: `@${thread.author}`,
-          fg: isSelected ? theme.blue : theme.sapphire,
-          flexShrink: 0,
-        })
-        row.add(authorText)
-
-        let bodyText: TextRenderable
-        if (isExpanded) {
-          bodyText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext1, flexGrow: 1, flexShrink: 1 })
-        } else {
-          const bodyPreview = truncate(cleanBodyPreview(thread.body), getThreadBodyPreviewWidth())
-          bodyText = new TextRenderable(this.renderer, {
-            content: `  ${bodyPreview}`,
-            fg: isSelected ? theme.text : theme.subtext1,
-            flexGrow: 1,
-            flexShrink: 1,
-          })
-        }
-        row.add(bodyText)
-
-        if (hasReplies && !isExpanded) {
-          row.add(new TextRenderable(this.renderer, {
-            content: `  (${thread.replies.length + 1})`,
-            fg: theme.overlay0,
-            flexShrink: 0,
-          }))
-        }
-
-        const threadReactionSummary = this.formatInlineReactions(thread.reactions)
-        if (threadReactionSummary) {
-          row.add(new TextRenderable(this.renderer, {
-            content: `  ${threadReactionSummary}`,
-            fg: theme.overlay1,
-            flexShrink: 0,
-          }))
-        }
-
-        this.addTimeColumn(row, threadActivityAt(thread))
-
-        container.add(row)
-        rows.push({ container: row, primary: authorText, secondary: bodyText })
-        
-        // Show thread content if expanded
-        if (isExpanded) {
-          // Show diff hunk context if available
-          if (thread.diffHunk && thread.diffHunk.trim()) {
-            this.buildDiffHunkDisplay(container, thread.diffHunk, 6)
-          } else {
-            // No diff hunk from API — try to extract from loaded diff files
-            const fileContent = this.getFileDiffContent(thread.filename, thread.line)
-            if (fileContent) {
-              this.buildDiffHunkDisplay(container, fileContent, 6)
-            }
-          }
-          
-          // Comment body
-          this.buildExpandedCommentBody(container, `thread-${thread.id}`, thread.body, 6)
-          this.appendReactionRow(container, thread.reactions, 6)
-
-          // Replies
-          for (const reply of thread.replies) {
-            const replyHeader = new BoxRenderable(this.renderer, {
-              flexDirection: "row",
-              height: 1,
-              paddingLeft: 6,
-            })
-            replyHeader.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
-            replyHeader.add(new TextRenderable(this.renderer, {
-              content: `@${reply.author ?? 'you'}`,
-              fg: theme.sapphire,
-              flexShrink: 0,
-            }))
-            replyHeader.add(new TextRenderable(this.renderer, {
-              content: "",
-              flexGrow: 1,
-              flexShrink: 1,
-            }))
-            this.addTimeColumn(replyHeader, reply.createdAt)
-            container.add(replyHeader)
-
-            this.buildExpandedCommentBody(container, `reply-${reply.id}`, reply.body, 8)
-            this.appendReactionRow(container, reply.reactions, 8)
-          }
-        }
-
-
-      } else {
-        // Pending reviewers — one selectable block with a header row and
-        // the reviewers wrapped onto as many name-rows as needed so the
-        // list stays scannable without flooding the section with N
-        // identical "awaiting review" rows.
-        const reviewers = item.data
-
-        const block = new BoxRenderable(this.renderer, {
-          flexDirection: "column",
-          marginTop: 1,
-          backgroundColor: isSelected ? theme.surface0 : undefined,
-        })
-
-        const headerRow = new BoxRenderable(this.renderer, {
-          flexDirection: "row",
-          height: 1,
-        })
-        headerRow.add(new TextRenderable(this.renderer, { content: "○ ", fg: theme.yellow, flexShrink: 0 }))
-        const authorText = new TextRenderable(this.renderer, {
-          content: `awaiting review (${reviewers.length})`,
-          fg: theme.yellow,
-          flexShrink: 0,
-        })
-        headerRow.add(authorText)
-        block.add(headerRow)
-
-        // Pack names into rows; leave 4 cols of left indent and a small
-        // right gutter so the wrap matches terminal width.
-        const LEFT_INDENT = 4
-        const RIGHT_GUTTER = 4
-        const available = Math.max(20, getTerminalWidth() - LEFT_INDENT - RIGHT_GUTTER)
-        const chunks: string[][] = []
-        let current: string[] = []
-        let currentWidth = 0
-        for (const name of reviewers) {
-          const piece = `@${name}`
-          const pieceWidth = piece.length + 2 // trailing 2-space separator
-          if (current.length > 0 && currentWidth + pieceWidth > available) {
-            chunks.push(current)
-            current = []
-            currentWidth = 0
-          }
-          current.push(piece)
-          currentWidth += pieceWidth
-        }
-        if (current.length > 0) chunks.push(current)
-
-        for (const chunk of chunks) {
-          const nameRow = new BoxRenderable(this.renderer, {
-            flexDirection: "row",
-            height: 1,
-            paddingLeft: LEFT_INDENT,
-          })
-          nameRow.add(new TextRenderable(this.renderer, {
-            content: chunk.join("  "),
-            fg: isSelected ? theme.blue : theme.sapphire,
-          }))
-          block.add(nameRow)
-        }
-
-        container.add(block)
-        rows.push({ container: block, primary: authorText })
-      }
-    }
-    
-    this.itemRows.set('conversation', rows)
-  }
-  
-  /**
-   * Build expanded comment body with markdown rendering
-   */
-  private buildExpandedCommentBody(container: BoxRenderable, id: string, body: string, indent: number): void {
-    const bodyBox = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      paddingLeft: indent,
-      paddingRight: 2,
-      marginTop: 1,
-      marginBottom: 1,
+    const { rows, note } = conversationRows(this.flatConversationItems, {
+      selected: isActive ? this.cursorIndex : -1,
+      labels: this.flashLabels,
+      expanded: this.expandedContent,
+      terminalWidth: getTerminalWidth(),
+      diffContext: (filename, line) => fileDiffContext(this.files, filename, line),
     })
 
-    const parsed = extractCommentImages(body)
-    if (parsed.text) {
-      bodyBox.add(this.markdownBody(id, parsed.text))
+    if (note) {
+      container.add(new TextRenderable(this.renderer, { content: note, fg: theme.overlay0 }))
+      return
     }
-    this.appendImageRows(bodyBox, parsed.images, 0)
 
-    container.add(bodyBox)
+    const refs: ItemRowRefs[] = []
+    for (const row of rows) {
+      if (row.kind === 'reviewers') {
+        refs.push(this.buildReviewersBlock(container, row))
+        continue
+      }
+      const box = new BoxRenderable(this.renderer, {
+        flexDirection: "row",
+        height: 1,
+        overflow: "hidden",
+        ...(row.indent > 0 ? { paddingLeft: row.indent } : {}),
+        backgroundColor: row.selected ? theme.surface0 : undefined,
+      })
+      if (row.label) box.add(this.flashLabelText(row.label))
+      const cells = row.header.map((segment) => this.headerCell(segment))
+      for (const cell of cells) box.add(cell)
+      container.add(box)
+      refs.push({
+        container: box,
+        primary: cells[row.header.findIndex((segment) => segment.primary)]!,
+        secondary: cells[row.header.findIndex((segment) => segment.flex === 'grow')],
+      })
+      for (const part of row.body) this.buildBodyPart(container, part)
+    }
+    this.itemRows.set('conversation', refs)
+  }
+
+  private flashLabelText(label: string): TextRenderable {
+    return new TextRenderable(this.renderer, { content: `${label} `, fg: colors.flashLabel })
+  }
+
+  private headerCell(segment: HeaderSegment): TextRenderable {
+    const flex = segment.flex === 'fixed'
+      ? { flexShrink: 0 }
+      : segment.flex === 'grow' ? { flexGrow: 1, flexShrink: 1 } : {}
+    return new TextRenderable(this.renderer, { content: segment.text, fg: segment.fg, ...flex })
+  }
+
+  /** The block's own background marks it selected, so its names sit on surface0 too. */
+  private buildReviewersBlock(
+    container: BoxRenderable,
+    row: Extract<ConversationRow, { kind: 'reviewers' }>
+  ): ItemRowRefs {
+    const block = new BoxRenderable(this.renderer, {
+      flexDirection: "column",
+      marginTop: 1,
+      backgroundColor: row.selected ? theme.surface0 : undefined,
+    })
+    if (row.label) block.add(this.flashLabelText(row.label))
+    const header = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
+    const cells = row.header.map((segment) => this.headerCell(segment))
+    for (const cell of cells) header.add(cell)
+    block.add(header)
+    for (const name of row.names) {
+      const line = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1, paddingLeft: row.namesIndent })
+      line.add(new TextRenderable(this.renderer, { content: name.text, fg: name.fg }))
+      block.add(line)
+    }
+    container.add(block)
+    return { container: block, primary: cells[row.header.findIndex((segment) => segment.primary)]! }
+  }
+
+  private buildBodyPart(container: BoxRenderable, part: BodyPart): void {
+    switch (part.kind) {
+      case 'hunk': {
+        const box = new BoxRenderable(this.renderer, {
+          flexDirection: "column",
+          paddingLeft: part.indent,
+          paddingRight: 2,
+          marginTop: 1,
+          backgroundColor: theme.mantle,
+        })
+        for (const line of part.lines) box.add(new TextRenderable(this.renderer, { content: line.text, fg: line.fg }))
+        container.add(box)
+        return
+      }
+      case 'markdown': {
+        const box = new BoxRenderable(this.renderer, {
+          flexDirection: "column",
+          paddingLeft: part.indent,
+          paddingRight: 2,
+          marginTop: 1,
+          marginBottom: 1,
+        })
+        if (part.text) box.add(this.markdownBody(part.id, part.text))
+        this.appendImageRows(box, part.images)
+        container.add(box)
+        return
+      }
+      case 'reactions':
+        this.appendReactionRow(container, part.pills, part.indent)
+        return
+      case 'reply': {
+        const header = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1, paddingLeft: part.indent })
+        header.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
+        header.add(new TextRenderable(this.renderer, { content: `@${part.author}`, fg: theme.sapphire, flexShrink: 0 }))
+        header.add(new TextRenderable(this.renderer, { content: "", flexGrow: 1, flexShrink: 1 }))
+        header.add(new TextRenderable(this.renderer, { content: part.time, fg: theme.overlay0, flexShrink: 0 }))
+        container.add(header)
+        return
+      }
+    }
   }
 
   /**
@@ -1797,136 +1470,9 @@ export class PRInfoPanelClass {
    * section's Enter binding already opens the item on github.com, which is
    * where the image can actually be looked at.
    */
-  private appendImageRows(
-    container: BoxRenderable,
-    images: readonly CommentImage[],
-    indent: number
-  ): void {
-    for (const image of images) {
-      container.add(new TextRenderable(this.renderer, {
-        content: `${" ".repeat(indent)}▣ ${image.label}`,
-        fg: theme.sapphire,
-      }))
-    }
-  }
-
-  /**
-   * Extract diff context around a line from the loaded diff files.
-   * Returns a few lines of context or null if the file isn't found.
-   */
-  private getFileDiffContent(filename: string, line: number): string | null {
-    const file = this.files.find(f => f.filename === filename)
-    if (!file?.content) return null
-
-    const lines = file.content.split("\n")
-    // Find content lines near the target line number
-    // The diff format includes headers, so we scan for the relevant hunk
-    const contextRadius = 4
-    const start = Math.max(0, line - contextRadius - 1)
-    const end = Math.min(lines.length, line + contextRadius)
-
-    // Find the closest @@ hunk header before our target
-    let hunkStart = start
-    for (let i = start; i >= 0; i--) {
-      if (lines[i]?.startsWith("@@")) {
-        hunkStart = i
-        break
-      }
-    }
-
-    const contextLines = lines.slice(hunkStart, end)
-    if (contextLines.length === 0) return null
-    return contextLines.join("\n")
-  }
-
-  /**
-   * Build a diff hunk display showing code context for a thread.
-   * Shows the last few lines of the diff hunk with diff coloring.
-   */
-  private buildDiffHunkDisplay(container: BoxRenderable, diffHunk: string, indent: number): void {
-    const lines = diffHunk.split("\n")
-    // Show only the last ~8 lines of the hunk (the most relevant context)
-    const maxLines = 8
-    const startIdx = Math.max(0, lines.length - maxLines)
-    const visibleLines = lines.slice(startIdx)
-
-    const hunkBox = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      paddingLeft: indent,
-      paddingRight: 2,
-      marginTop: 1,
-      backgroundColor: theme.mantle,
-    })
-
-    for (const line of visibleLines) {
-      if (!line && visibleLines.indexOf(line) === visibleLines.length - 1) continue // skip trailing empty line
-      let fg: string = theme.overlay1
-      if (line.startsWith("+")) {
-        fg = theme.green
-      } else if (line.startsWith("-")) {
-        fg = theme.red
-      } else if (line.startsWith("@@")) {
-        fg = theme.blue
-      }
-      hunkBox.add(new TextRenderable(this.renderer, {
-        content: line || " ",
-        fg,
-      }))
-    }
-
-    container.add(hunkBox)
-  }
-
-  /**
-   * Build a code comment thread display (file:line, body, replies)
-   */
-  private buildThreadDisplay(container: BoxRenderable, thread: ReviewThread, indent: number): void {
-    // Thread header with file:line
-    const headerRow = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-      paddingLeft: indent,
-      marginTop: 1,
-    })
-    
-    // Resolved indicator
-    const icon = thread.isResolved ? "✓" : "○"
-    const iconColor = thread.isResolved ? theme.green : theme.subtext0
-    headerRow.add(new TextRenderable(this.renderer, { content: `${icon} `, fg: iconColor }))
-    
-    // File:line
-    const fileShort = truncate(thread.filename.split('/').pop() || thread.filename, 30)
-    headerRow.add(new TextRenderable(this.renderer, {
-      content: `${fileShort}:${thread.line}`,
-      fg: theme.yellow,
-    }))
-    
-    container.add(headerRow)
-    
-    // Thread root comment body
-    this.buildExpandedCommentBody(container, `thread-${thread.id}`, thread.body, indent + 2)
-    this.appendReactionRow(container, thread.reactions, indent + 2)
-
-    // Replies
-    for (const reply of thread.replies) {
-      const replyHeader = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        paddingLeft: indent + 2,
-      })
-      replyHeader.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
-      replyHeader.add(new TextRenderable(this.renderer, {
-        content: `@${reply.author ?? 'you'}`,
-        fg: theme.sapphire,
-      }))
-      replyHeader.add(new TextRenderable(this.renderer, {
-        content: `  ${formatTimeAgo(reply.createdAt)}`,
-        fg: theme.overlay0,
-      }))
-      container.add(replyHeader)
-
-      this.buildExpandedCommentBody(container, `reply-${reply.id}`, reply.body, indent + 4)
-      this.appendReactionRow(container, reply.reactions, indent + 4)
+  private appendImageRows(container: BoxRenderable, labels: readonly string[]): void {
+    for (const label of labels) {
+      container.add(new TextRenderable(this.renderer, { content: `▣ ${label}`, fg: theme.sapphire }))
     }
   }
 
