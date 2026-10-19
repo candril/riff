@@ -1,6 +1,6 @@
 import type { PrCheck, PrInfo, PrReview } from "../providers/github"
 import { theme } from "../theme"
-import type { ReviewThread } from "./pr-info-items"
+import type { ReviewThread } from "./pr-info-conversation"
 
 /**
  * Format a relative time string (compact, no "ago")
@@ -134,8 +134,9 @@ export function cleanBodyPreview(body: string): string {
     .replace(/<[^>]+>/g, "")               // Remove HTML tags
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [text](url) -> text
     .replace(/^#{1,6}\s+/gm, "")           // Remove heading markers
-    .replace(/\|[^|\n]*\|/g, "")           // Remove markdown table rows
-    .replace(/[:\-|]{3,}/g, "")            // Remove table separators
+    .replace(/^[ \t|:-]*---[ \t|:-]*$/gm, "") // Remove table separator rows
+    .replace(/[:\-|]{3,}/g, "")            // Remove rules
+    .replace(/\|/g, " ")                   // Keep table cells, not their borders
     .replace(/^\s*[-*+]\s+/gm, "")         // Remove list markers
     .replace(/`{1,3}/g, "")               // Remove backticks
     .replace(/\n/g, " ")                   // Collapse newlines to spaces

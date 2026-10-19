@@ -1,7 +1,8 @@
 import { test, expect, describe } from "bun:test"
 import { bgAt, fgAt, ints } from "../testing/frame"
-import { find, MARKDOWN_WHITE, usePrInfoPanel } from "../testing/pr-info-panel"
-import { theme } from "../theme"
+import { find, fullPr, MARKDOWN_WHITE, usePrInfoPanel } from "../testing/pr-info-panel"
+import type { PRInfoPanelClass } from "./PRInfoPanel"
+import { colors, theme } from "../theme"
 
 // The conversation section opened: comments, reviews, their threads and what each opens onto.
 
@@ -167,5 +168,112 @@ describe("the conversation", () => {
       "      ✓  farewell.ts:3  @bob  Typo here                                                                             2h",
       "      ▶  an-extremely-l…:40  @bob  This moved                                                                       2h",
     ])
+  })
+})
+
+/** A two-letter label for every row `s` can jump to, in flashTargets() order. */
+function labelEveryTarget(panel: PRInfoPanelClass): Map<string, string> {
+  const label = (i: number) => String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26))
+  return new Map(panel.flashTargets().map((id, i) => [id, label(i)]))
+}
+
+describe("flash labels in the conversation", () => {
+  test("go in front of collapsed rows and an open review's thread rows, and leave with the labels", async () => {
+    const { lines, spans, panel, mounted } = await mount({
+      section: "conversation",
+      prepare: (p) => {
+        p.moveCursor(5)
+        p.toggleSelectedThread()
+        p.setFlashLabels(labelEveryTarget(p))
+      },
+    })
+    expect(lines.slice(17, 27)).toEqual([
+      "    ae ▶ PR @dana  I tried this on staging and it works for me. one two                                  👍2 🚀1    6h",
+      "    af ▶ ✓  @alice  approved                                                                                        5h",
+      "    ag ▶ ✓  @bob  approved                                                                                          4h",
+      "    ah ▶ ✓  @erin  approved                                                                                         3h",
+      "    ai ▼ ✗  @bob  requested changes                                                                                 2h",
+      "      aj ▶  greet.ts:12  @bob  Rename greet to welcome, it reads better in the call sit…                     (3)    1h",
+      "      ak ✓  farewell.ts:3  @bob  Typo here                                                                          2h",
+      "      al ▶  an-extremely-long-module…:40  @bob  This moved                                                          2h",
+      "    am ▶ ○  @carol  commented                                                                                       1h",
+      "    an ▶ PR @deploy-bot[bot]  Deployed to the preview environment.                                                 30m",
+    ])
+    expect(fgAt(spans, 4, 17)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 7, 17)).toEqual(ints(theme.subtext0))
+    expect(fgAt(spans, 6, 22)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 9, 22)).toEqual(ints(theme.subtext0))
+
+    panel.setFlashLabels(new Map())
+    const cleared = (await mounted.frame()).split("\n")
+    expect(cleared.slice(21, 23)).toEqual([
+      "    ▼ ✗  @bob  requested changes                                                                                    2h",
+      "      ▶  greet.ts:12  @bob  Rename greet to welcome, it reads better in the call sit…                        (3)    1h",
+    ])
+    expect(fgAt(mounted.setup.captureSpans(), 4, 17)).toEqual(ints(theme.subtext0))
+  })
+})
+
+describe("the pending reviewers", () => {
+  const REVIEWERS = [
+    "frank-the-reviewer",
+    "grace-hopper",
+    "heidi-klum",
+    "ivan-the-terrible",
+    "judy-garland",
+    "mallory-mallet",
+    "niaj-sharma",
+    "olivia-pope",
+  ]
+  const info = () => ({ ...fullPr(), requestedReviewers: REVIEWERS })
+
+  test("sit under one yellow header, their names packed onto as many rows as the terminal needs", async () => {
+    const { lines, spans } = await mount({ info: info(), section: "conversation" })
+    expect(lines.slice(23, 29)).toEqual([
+      "    ▶ PR @deploy-bot[bot]  Deployed to the preview environment.                                                    30m",
+      "",
+      "    ○ awaiting review (8)",
+      "        @frank-the-reviewer  @grace-hopper  @heidi-klum  @ivan-the-terrible  @judy-garland  @mallory-mallet",
+      "        @niaj-sharma  @olivia-pope",
+      "",
+    ])
+    expect(fgAt(spans, ...find(lines, "○ awaiting"))).toEqual(ints(theme.yellow))
+    expect(fgAt(spans, ...find(lines, "awaiting review"))).toEqual(ints(theme.yellow))
+    expect(fgAt(spans, ...find(lines, "@frank"))).toEqual(ints(theme.sapphire))
+    expect(fgAt(spans, ...find(lines, "@niaj"))).toEqual(ints(theme.sapphire))
+  })
+
+  test("pack to process.stdout.columns, not to the panel's width", async () => {
+    const { lines } = await mount({ info: info(), columns: 80, section: "conversation" })
+    expect(lines.slice(25, 28)).toEqual([
+      "    ○ awaiting review (8)",
+      "        @frank-the-reviewer  @grace-hopper  @heidi-klum  @ivan-the-terrible",
+      "        @judy-garland  @mallory-mallet  @niaj-sharma  @olivia-pope",
+    ])
+  })
+
+  test("sit on surface0 as one block when selected, their names blue", async () => {
+    const { lines, spans } = await mount({ info: info(), section: "conversation", prepare: (p) => p.moveCursor(8) })
+    const [, y] = find(lines, "awaiting review")
+    for (const row of [y, y + 1, y + 2]) {
+      expect(bgAt(spans, 4, row)).toEqual(ints(theme.surface0))
+      expect(bgAt(spans, 115, row)).toEqual(ints(theme.surface0))
+    }
+    expect(bgAt(spans, 4, y + 3)).toEqual(ints(theme.base))
+    expect(fgAt(spans, ...find(lines, "@frank"))).toEqual(ints(theme.blue))
+  })
+
+  test("take their flash label on a line of its own, above the header", async () => {
+    const { lines, spans } = await mount({
+      info: info(),
+      section: "conversation",
+      prepare: (p) => p.setFlashLabels(labelEveryTarget(p)),
+    })
+    const [, y] = find(lines, "awaiting review")
+    expect(lines.slice(y - 1, y + 1)).toEqual([
+      "    al",
+      "    ○ awaiting review (8)",
+    ])
+    expect(fgAt(spans, 4, y - 1)).toEqual(ints(colors.flashLabel))
   })
 })

@@ -516,9 +516,8 @@ export class PRInfoPanelClass {
 
   /**
    * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
-   * the edges. Runs from the scroll box's own
-   * render, after layout, so a row the move just rebuilt is measured where
-   * it now is.
+   * the edges. Runs from the scroll box's own render, after layout, so a
+   * row the move just rebuilt is measured where it now is.
    */
   private revealCursor(): void {
     const bounds = this.cursorBounds()

@@ -76,8 +76,9 @@ describe("cleanBodyPreview", () => {
     expect(cleanBodyPreview("## Summary\nShort")).toBe("Summary Short")
   })
 
-  test("drops table cells and separators", () => {
-    expect(cleanBodyPreview("Before\n| Name |\n| :---: |\n| x |\nAfter")).toBe("Before After")
+  test("keeps a table's cells, without its borders or separator row", () => {
+    expect(cleanBodyPreview("| a | b |\n|---|---|\n| 1 | 2 |")).toBe("a b 1 2")
+    expect(cleanBodyPreview("Before\n| Name | Kind |\n| :---: | --- |\n| x | y |\nAfter")).toBe("Before Name Kind x y After")
   })
 
   test("drops backticks", () => {
