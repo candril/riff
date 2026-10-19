@@ -22,20 +22,20 @@ import type { PrConversationComment } from "../providers/github"
  */
 export interface HeaderSegment extends Segment {
   flex?: "fixed" | "grow"
-  /** The cell a cursor move recolours without a rebuild: who wrote it. */
-  primary?: boolean
 }
 
-/** What an expanded item opens onto, in order, each part indented as drawn. */
+/**
+ * What an expanded item opens onto, in order, each part indented as drawn.
+ * `key` is unique within the row, so a push matches a part to the one it
+ * drew before rather than to whatever sits at its position, and a markdown
+ * body whose text did not change is never laid out again.
+ */
 export type BodyPart =
-  | { kind: "hunk"; indent: number; lines: Segment[] }
-  /**
-   * `id` names the pooled markdown renderable, so a rebuild keeps it alive.
-   * The pictures it carried are named under it, in the same padded box.
-   */
-  | { kind: "markdown"; id: string; text: string; images: string[]; indent: number }
-  | { kind: "reactions"; indent: number; pills: Segment[] }
-  | { kind: "reply"; indent: number; author: string; time: string }
+  | { kind: "hunk"; key: string; indent: number; lines: Segment[] }
+  /** The pictures the body carried are named under it, in the same padded box. */
+  | { kind: "markdown"; key: string; id: string; text: string; images: string[]; indent: number }
+  | { kind: "reactions"; key: string; indent: number; pills: Segment[] }
+  | { kind: "reply"; key: string; indent: number; author: string; time: string }
 
 interface RowBase {
   /** Stable across a cursor move or a rebuild, as each item's own id. */
@@ -79,11 +79,11 @@ export function conversationRows(items: FlatConversationItem[], input: Conversat
     const base: RowBase = { key: flatConversationItemId(item), selected, ...(label ? { label } : {}) }
     switch (item.type) {
       case "pr-comment":
-        return { ...base, kind: "item", indent: 0, ...commentRow(item.data, selected, input) }
+        return { ...base, kind: "item", indent: 0, ...commentRow(item.data, selected, input, base.key) }
       case "review-header":
-        return { ...base, kind: "item", indent: 0, ...reviewRow(item.data, selected, input) }
+        return { ...base, kind: "item", indent: 0, ...reviewRow(item.data, selected, input, base.key) }
       case "review-thread":
-        return { ...base, kind: "item", indent: 2, ...threadRow(item.data, selected, input) }
+        return { ...base, kind: "item", indent: 2, ...threadRow(item.data, selected, input, base.key) }
       case "pending-reviewer":
         return { ...base, kind: "reviewers", ...reviewersRow(item.data, selected, input.terminalWidth) }
     }
@@ -93,15 +93,10 @@ export function conversationRows(items: FlatConversationItem[], input: Conversat
 
 type ItemParts = { header: HeaderSegment[]; body: BodyPart[] }
 
-const fixed = (text: string, fg: string, primary = false): HeaderSegment => ({
-  text,
-  fg,
-  flex: "fixed",
-  ...(primary ? { primary } : {}),
-})
+const fixed = (text: string, fg: string): HeaderSegment => ({ text, fg, flex: "fixed" })
 const grow = (text: string, fg: string): HeaderSegment => ({ text, fg, flex: "grow" })
 
-const author = (name: string, selected: boolean) => fixed(`@${name}`, selected ? theme.blue : theme.sapphire, true)
+const author = (name: string, selected: boolean) => fixed(`@${name}`, selected ? theme.blue : theme.sapphire)
 const expandIcon = (expanded: boolean) => fixed(`${expanded ? "▼" : "▶"} `, theme.subtext0)
 
 function timeColumn(isoDate: string, now: number | undefined): string {
@@ -118,21 +113,21 @@ function trailing(reactions: ReactionSummary[] | undefined, isoDate: string | un
 
 function markdown(id: string, body: string, indent: number): BodyPart {
   const parsed = extractCommentImages(body)
-  return { kind: "markdown", id, text: parsed.text, images: parsed.images.map((image) => image.label), indent }
+  return { kind: "markdown", key: id, id, text: parsed.text, images: parsed.images.map((image) => image.label), indent }
 }
 
-function reactions(summary: ReactionSummary[] | undefined, indent: number): BodyPart[] {
+function reactions(key: string, summary: ReactionSummary[] | undefined, indent: number): BodyPart[] {
   const pills = reactionPills(summary)
-  return pills.length > 0 ? [{ kind: "reactions", indent, pills }] : []
+  return pills.length > 0 ? [{ kind: "reactions", key, indent, pills }] : []
 }
 
-function commentRow(comment: PrConversationComment, selected: boolean, input: ConversationInput): ItemParts {
+function commentRow(comment: PrConversationComment, selected: boolean, input: ConversationInput, rowKey: string): ItemParts {
   const expanded = input.expanded.has(String(comment.id))
   const bot = comment.isBot
   const header = [
     expandIcon(expanded),
     fixed("PR ", theme.overlay1),
-    bot ? fixed(`@${comment.author}`, theme.overlay0, true) : author(comment.author, selected),
+    bot ? fixed(`@${comment.author}`, theme.overlay0) : author(comment.author, selected),
     expanded
       ? grow("", theme.subtext1)
       : grow(
@@ -142,7 +137,7 @@ function commentRow(comment: PrConversationComment, selected: boolean, input: Co
     ...trailing(comment.reactions, comment.createdAt, input.now),
   ]
   const body = expanded
-    ? [markdown(`pr-comment-${comment.id}`, comment.body, 4), ...reactions(comment.reactions, 4)]
+    ? [markdown(`pr-comment-${comment.id}`, comment.body, 4), ...reactions(`${rowKey}:reactions`, comment.reactions, 4)]
     : []
   return { header, body }
 }
@@ -153,7 +148,7 @@ function stateLabel(state: ReviewWithThreads["state"]): string {
   return "commented"
 }
 
-function reviewRow(review: ReviewWithThreads, selected: boolean, input: ConversationInput): ItemParts {
+function reviewRow(review: ReviewWithThreads, selected: boolean, input: ConversationInput, rowKey: string): ItemParts {
   const expanded = input.expanded.has(review.id)
   const threads = review.threads.length
   const { icon, color } = getReviewIcon(review.state)
@@ -169,11 +164,11 @@ function reviewRow(review: ReviewWithThreads, selected: boolean, input: Conversa
   ]
   const body: BodyPart[] = []
   if (expanded && review.body?.trim()) body.push(markdown(`review-${review.id}`, review.body, 4))
-  if (expanded) body.push(...reactions(review.reactions, 4))
+  if (expanded) body.push(...reactions(`${rowKey}:reactions`, review.reactions, 4))
   return { header, body }
 }
 
-function threadRow(thread: ReviewThread, selected: boolean, input: ConversationInput): ItemParts {
+function threadRow(thread: ReviewThread, selected: boolean, input: ConversationInput, rowKey: string): ItemParts {
   const expanded = input.expanded.has(thread.id)
   const icon = thread.isResolved ? "✓" : expanded ? "▼" : "▶"
   // Five cells of the column stay free for ":line".
@@ -191,20 +186,21 @@ function threadRow(thread: ReviewThread, selected: boolean, input: ConversationI
     ...(thread.replies.length > 0 && !expanded ? [fixed(`  (${thread.replies.length + 1})`, theme.overlay0)] : []),
     ...trailing(thread.reactions, threadActivityAt(thread), input.now),
   ]
-  return { header, body: expanded ? threadBody(thread, input) : [] }
+  return { header, body: expanded ? threadBody(thread, input, rowKey) : [] }
 }
 
-function threadBody(thread: ReviewThread, input: ConversationInput): BodyPart[] {
+function threadBody(thread: ReviewThread, input: ConversationInput, rowKey: string): BodyPart[] {
   const hunk = thread.diffHunk?.trim() ? thread.diffHunk : input.diffContext(thread.filename, thread.line)
-  const body: BodyPart[] = hunk ? [{ kind: "hunk", indent: 6, lines: hunkLines(hunk) }] : []
-  body.push(markdown(`thread-${thread.id}`, thread.body, 6), ...reactions(thread.reactions, 6))
-  for (const reply of thread.replies) {
+  const body: BodyPart[] = hunk ? [{ kind: "hunk", key: `${rowKey}:hunk`, indent: 6, lines: hunkLines(hunk) }] : []
+  body.push(markdown(`thread-${thread.id}`, thread.body, 6), ...reactions(`${rowKey}:reactions`, thread.reactions, 6))
+  thread.replies.forEach((reply, n) => {
+    const replyKey = `${rowKey}:reply:${n}`
     body.push(
-      { kind: "reply", indent: 6, author: reply.author ?? "you", time: timeColumn(reply.createdAt, input.now) },
+      { kind: "reply", key: replyKey, indent: 6, author: reply.author ?? "you", time: timeColumn(reply.createdAt, input.now) },
       markdown(`reply-${reply.id}`, reply.body, 8),
-      ...reactions(reply.reactions, 8)
+      ...reactions(`${replyKey}:reactions`, reply.reactions, 8)
     )
-  }
+  })
   return body
 }
 
@@ -214,7 +210,7 @@ function threadBody(thread: ReviewThread, input: ConversationInput): BodyPart[] 
  * "awaiting review" row each.
  */
 function reviewersRow(reviewers: string[], selected: boolean, terminalWidth: number) {
-  const header = [fixed("○ ", theme.yellow), fixed(`awaiting review (${reviewers.length})`, theme.yellow, true)]
+  const header = [fixed("○ ", theme.yellow), fixed(`awaiting review (${reviewers.length})`, theme.yellow)]
   const fg = selected ? theme.blue : theme.sapphire
   return {
     header,

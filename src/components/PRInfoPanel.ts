@@ -25,8 +25,7 @@ import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { extractCommentImages } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
-import { annotateReferences } from "../utils/references"
-import { resolvedReferences, referenceRepo } from "../features/references"
+import { withReferences } from "./with-references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
 import { MarkdownBodies } from "./markdown-bodies"
 import { colors, theme } from "../theme"
@@ -48,8 +47,9 @@ import { sectionConfigs } from "./pr-info-sections"
 import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
 import { fileDiffContext, reactionPills, type Segment } from "./pr-info-conversation-parts"
-import { conversationRows, type BodyPart, type ConversationRow, type HeaderSegment } from "./pr-info-conversation-rows"
+import { conversationRows, type ConversationRows } from "./pr-info-conversation-rows"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
+import { createPrInfoConversationIsland, type PrInfoConversationIsland } from "../app/pr-info-conversation"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -83,14 +83,6 @@ function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
 }
 
 /**
- * A body with its `#412`s answered — the title and state of what they point
- * at, where riff has been told (spec 059).
- */
-function withReferences(body: string): string {
-  return annotateReferences(body, resolvedReferences(), referenceRepo())
-}
-
-/**
  * Get terminal width (defaults to 80 if unavailable)
  */
 function getTerminalWidth(): number {
@@ -105,15 +97,6 @@ function getListItemWidth(): number {
   // Reserve space for: indent (4) + icon (2) + status (~15) + padding (~6)
   const reserved = 27
   return Math.max(30, termWidth - reserved)
-}
-
-/**
- * Row references for selection updates
- */
-interface ItemRowRefs {
-  container: BoxRenderable
-  primary: TextRenderable
-  secondary?: TextRenderable
 }
 
 type ListSection = 'previews' | 'checks' | 'files' | 'commits'
@@ -147,7 +130,7 @@ export interface PRInfoPanelPosition {
  */
 export class PRInfoPanelClass {
   private renderer: CliRenderer
-  /** Comment and description bodies, kept alive across rebuilds. */
+  /** The description's body, kept alive across rebuilds. */
   private bodies: MarkdownBodies
   private container: BoxRenderable
   private scrollBox: ScrollBoxRenderable
@@ -213,12 +196,10 @@ export class PRInfoPanelClass {
   // first layout would clamp it to 0, so the first frame applies it.
   private pendingScrollTop: number | null = null
   
-  // Item row refs for cursor updates
-  private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
-
   // Made the first time their section opens, and mounted into each rebuild's
   // section box from then on.
   private listIslands: Map<ListSection, PrInfoListIsland> = new Map()
+  private conversation: PrInfoConversationIsland | null = null
 
   // Flash labels by row id, while `s` is labelling (spec 066), and the
   // header texts they are painted onto.
@@ -429,17 +410,8 @@ export class PRInfoPanelClass {
     const wasOnHeader = this.cursorIndex === -1
     const isOnHeader = newIndex === -1
 
-    // Update old row (deselect) - only for items, not header
-    if (this.cursorIndex >= 0) {
-      this.updateItemRow(this.activeSection, this.cursorIndex, false)
-    }
-
-    // Update new row (select) - only for items, not header
     this.cursorIndex = newIndex
-    if (this.cursorIndex >= 0) {
-      this.updateItemRow(this.activeSection, this.cursorIndex, true)
-    }
-    this.pushListRows(this.activeSection)
+    this.pushRows(this.activeSection)
 
     // Section header highlight only changes when the cursor crosses
     // the header / item boundary — skip the rebuild otherwise so j/k
@@ -510,7 +482,7 @@ export class PRInfoPanelClass {
     }
     const row = isListSection(this.activeSection)
       ? this.listIslands.get(this.activeSection)?.rowAt(this.cursorIndex)
-      : this.itemRows.get(this.activeSection)?.[this.cursorIndex]?.container
+      : this.conversation?.rowAt(this.cursorIndex)
     return row ? { y: row.y, height: Math.max(1, row.height) } : null
   }
 
@@ -556,20 +528,12 @@ export class PRInfoPanelClass {
     const newIndex = (currentIndex + delta + ALL_SECTIONS.length) % ALL_SECTIONS.length
     const newSection = ALL_SECTIONS[newIndex]!
     
-    // Deselect old cursor
-    if (this.cursorIndex >= 0) {
-      this.updateItemRow(this.activeSection, this.cursorIndex, false)
-    }
-    
     this.activeSection = newSection
     
     // If new section is expanded, go to last item; otherwise stay on header
     if (this.expandedSections.has(newSection)) {
       const itemCount = this.getItemCountForSection(newSection)
       this.cursorIndex = itemCount > 0 ? itemCount - 1 : -1
-      if (this.cursorIndex >= 0) {
-        this.updateItemRow(newSection, this.cursorIndex, true)
-      }
     } else {
       this.cursorIndex = -1
     }
@@ -663,11 +627,6 @@ export class PRInfoPanelClass {
    */
   setActiveSection(section: PRInfoPanelSection): void {
     if (section === this.activeSection) return
-    
-    // Deselect old section's cursor (only for items, not header)
-    if (this.cursorIndex >= 0) {
-      this.updateItemRow(this.activeSection, this.cursorIndex, false)
-    }
     
     this.activeSection = section
     this.cursorIndex = -1  // Start on section header
@@ -925,25 +884,6 @@ export class PRInfoPanelClass {
   }
   
   /**
-   * Update a row's visual state
-   */
-  private updateItemRow(section: PRInfoPanelSection, index: number, selected: boolean): void {
-    const rows = this.itemRows.get(section)
-    const row = rows?.[index]
-    if (!row) return
-
-    row.container.backgroundColor = selected ? theme.surface0 : undefined
-    
-    // Update colors based on section type
-    switch (section) {
-      case 'conversation':
-        row.primary.fg = selected ? theme.blue : theme.sapphire
-        if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
-        break
-    }
-  }
-
-  /**
    * Fresh PR data for the panel to draw from.
    *
    * The panel takes `prInfo` in its constructor and every section reads
@@ -993,7 +933,6 @@ export class PRInfoPanelClass {
       discard(box)
     }
     this.sectionBoxes = []
-    this.itemRows.clear()
     this.descriptionBox = null
     this.descriptionCursorRow = null
 
@@ -1223,7 +1162,7 @@ export class PRInfoPanelClass {
         contentBox.add(this.listIsland(section, isActive).host)
         break
       case 'conversation':
-        this.buildConversationContent(contentBox, isActive)
+        contentBox.add(this.conversationIsland(isActive).host)
         break
     }
     
@@ -1241,10 +1180,35 @@ export class PRInfoPanelClass {
     return island
   }
 
-  /** A cursor move inside a list section restyles its rows without a rebuild. */
-  private pushListRows(section: PRInfoPanelSection): void {
-    if (!isListSection(section)) return
-    this.listIslands.get(section)?.update(this.listRows(section, section === this.activeSection))
+  /** The conversation's island, made on first use, holding the rows as they are now. */
+  private conversationIsland(isActive: boolean): PrInfoConversationIsland {
+    this.conversation ??= createPrInfoConversationIsland(this.renderer, {
+      id: "pr-info-conversation",
+      markdown: {
+        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
+        syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
+      },
+    })
+    this.conversation.update(this.conversationRows(isActive))
+    return this.conversation
+  }
+
+  /** A cursor move inside a section on an island restyles its rows without a rebuild. */
+  private pushRows(section: PRInfoPanelSection): void {
+    const isActive = section === this.activeSection
+    if (section === 'conversation') this.conversation?.update(this.conversationRows(isActive))
+    else if (isListSection(section)) this.listIslands.get(section)?.update(this.listRows(section, isActive))
+  }
+
+  private conversationRows(isActive: boolean): ConversationRows {
+    this.refreshFlatItems()
+    return conversationRows(this.flatConversationItems, {
+      selected: isActive ? this.cursorIndex : -1,
+      labels: this.flashLabels,
+      expanded: this.expandedContent,
+      terminalWidth: getTerminalWidth(),
+      diffContext: (filename, line) => fileDiffContext(this.files, filename, line),
+    })
   }
 
   private listRows(section: ListSection, isActive: boolean): ListRows {
@@ -1331,125 +1295,6 @@ export class PRInfoPanelClass {
       row.add(box)
     }
     container.add(row)
-  }
-
-  private buildConversationContent(container: BoxRenderable, isActive: boolean): void {
-    this.refreshFlatItems()
-    const { rows, note } = conversationRows(this.flatConversationItems, {
-      selected: isActive ? this.cursorIndex : -1,
-      labels: this.flashLabels,
-      expanded: this.expandedContent,
-      terminalWidth: getTerminalWidth(),
-      diffContext: (filename, line) => fileDiffContext(this.files, filename, line),
-    })
-
-    if (note) {
-      container.add(new TextRenderable(this.renderer, { content: note, fg: theme.overlay0 }))
-      return
-    }
-
-    const refs: ItemRowRefs[] = []
-    for (const row of rows) {
-      if (row.kind === 'reviewers') {
-        refs.push(this.buildReviewersBlock(container, row))
-        continue
-      }
-      const box = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        overflow: "hidden",
-        ...(row.indent > 0 ? { paddingLeft: row.indent } : {}),
-        backgroundColor: row.selected ? theme.surface0 : undefined,
-      })
-      if (row.label) box.add(this.flashLabelText(row.label))
-      const cells = row.header.map((segment) => this.headerCell(segment))
-      for (const cell of cells) box.add(cell)
-      container.add(box)
-      refs.push({
-        container: box,
-        primary: cells[row.header.findIndex((segment) => segment.primary)]!,
-        secondary: cells[row.header.findIndex((segment) => segment.flex === 'grow')],
-      })
-      for (const part of row.body) this.buildBodyPart(container, part)
-    }
-    this.itemRows.set('conversation', refs)
-  }
-
-  private flashLabelText(label: string): TextRenderable {
-    return new TextRenderable(this.renderer, { content: `${label} `, fg: colors.flashLabel })
-  }
-
-  private headerCell(segment: HeaderSegment): TextRenderable {
-    const flex = segment.flex === 'fixed'
-      ? { flexShrink: 0 }
-      : segment.flex === 'grow' ? { flexGrow: 1, flexShrink: 1 } : {}
-    return new TextRenderable(this.renderer, { content: segment.text, fg: segment.fg, ...flex })
-  }
-
-  /** The block's own background marks it selected, so its names sit on surface0 too. */
-  private buildReviewersBlock(
-    container: BoxRenderable,
-    row: Extract<ConversationRow, { kind: 'reviewers' }>
-  ): ItemRowRefs {
-    const block = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      marginTop: 1,
-      backgroundColor: row.selected ? theme.surface0 : undefined,
-    })
-    if (row.label) block.add(this.flashLabelText(row.label))
-    const header = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1 })
-    const cells = row.header.map((segment) => this.headerCell(segment))
-    for (const cell of cells) header.add(cell)
-    block.add(header)
-    for (const name of row.names) {
-      const line = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1, paddingLeft: row.namesIndent })
-      line.add(new TextRenderable(this.renderer, { content: name.text, fg: name.fg }))
-      block.add(line)
-    }
-    container.add(block)
-    return { container: block, primary: cells[row.header.findIndex((segment) => segment.primary)]! }
-  }
-
-  private buildBodyPart(container: BoxRenderable, part: BodyPart): void {
-    switch (part.kind) {
-      case 'hunk': {
-        const box = new BoxRenderable(this.renderer, {
-          flexDirection: "column",
-          paddingLeft: part.indent,
-          paddingRight: 2,
-          marginTop: 1,
-          backgroundColor: theme.mantle,
-        })
-        for (const line of part.lines) box.add(new TextRenderable(this.renderer, { content: line.text, fg: line.fg }))
-        container.add(box)
-        return
-      }
-      case 'markdown': {
-        const box = new BoxRenderable(this.renderer, {
-          flexDirection: "column",
-          paddingLeft: part.indent,
-          paddingRight: 2,
-          marginTop: 1,
-          marginBottom: 1,
-        })
-        if (part.text) box.add(this.markdownBody(part.id, part.text))
-        this.appendImageRows(box, part.images)
-        container.add(box)
-        return
-      }
-      case 'reactions':
-        this.appendReactionRow(container, part.pills, part.indent)
-        return
-      case 'reply': {
-        const header = new BoxRenderable(this.renderer, { flexDirection: "row", height: 1, paddingLeft: part.indent })
-        header.add(new TextRenderable(this.renderer, { content: "└ ", fg: theme.surface2 }))
-        header.add(new TextRenderable(this.renderer, { content: `@${part.author}`, fg: theme.sapphire, flexShrink: 0 }))
-        header.add(new TextRenderable(this.renderer, { content: "", flexGrow: 1, flexShrink: 1 }))
-        header.add(new TextRenderable(this.renderer, { content: part.time, fg: theme.overlay0, flexShrink: 0 }))
-        container.add(header)
-        return
-      }
-    }
   }
 
   /**
@@ -1718,6 +1563,8 @@ export class PRInfoPanelClass {
     this.bodies.destroy()
     for (const island of this.listIslands.values()) island.dispose()
     this.listIslands.clear()
+    this.conversation?.dispose()
+    this.conversation = null
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }

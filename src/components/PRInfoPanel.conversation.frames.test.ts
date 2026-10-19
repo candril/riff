@@ -151,6 +151,35 @@ describe("the conversation", () => {
     expect(fgAt(spans, ...find(lines, "🚀 1"))).toEqual(ints(theme.blue))
   })
 
+  test("moves the cursor through an open thread restyling its rows, the thread's body still drawn on the same frame", async () => {
+    const before = await mount({
+      section: "conversation",
+      prepare: (p) => {
+        p.moveCursor(5)
+        p.toggleSelectedThread()
+        p.moveCursor(1)
+        p.expandSelectedThread()
+      },
+      height: 60,
+    })
+    const { panel, mounted } = before
+    expect(bgAt(before.spans, 6, find(before.lines, "greet.ts:12")[1])).toEqual(ints(theme.surface0))
+
+    panel.step(1)
+    await mounted.setup.renderOnce()
+    const lines = mounted.setup.captureCharFrame().split("\n")
+    const spans = mounted.setup.captureSpans()
+    const [, thread] = find(lines, "greet.ts:12")
+    const [, next] = find(lines, "farewell.ts:3")
+    expect(bgAt(spans, 6, thread)).toEqual(ints(theme.base))
+    expect(fgAt(spans, ...find(lines, "@bob", thread))).toEqual(ints(theme.sapphire))
+    expect(bgAt(spans, 6, next)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 115, next)).toEqual(ints(theme.surface0))
+    expect(fgAt(spans, ...find(lines, "@bob", next))).toEqual(ints(theme.blue))
+    find(lines, "Rename greet to welcome, it reads better in the call sites.")
+    find(lines, "Done, renamed.")
+  })
+
   test("cuts its previews to process.stdout.columns, not to the panel's width", async () => {
     const { lines } = await mount({
       columns: 80,
@@ -263,7 +292,7 @@ describe("the pending reviewers", () => {
     expect(fgAt(spans, ...find(lines, "@frank"))).toEqual(ints(theme.blue))
   })
 
-  test("take their flash label on a line of its own, above the header", async () => {
+  test("take their flash label in front of the header, as every other row does", async () => {
     const { lines, spans } = await mount({
       info: info(),
       section: "conversation",
@@ -271,9 +300,10 @@ describe("the pending reviewers", () => {
     })
     const [, y] = find(lines, "awaiting review")
     expect(lines.slice(y - 1, y + 1)).toEqual([
-      "    al",
-      "    ○ awaiting review (8)",
+      "",
+      "    al ○ awaiting review (8)",
     ])
-    expect(fgAt(spans, 4, y - 1)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 4, y)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 7, y)).toEqual(ints(theme.yellow))
   })
 })

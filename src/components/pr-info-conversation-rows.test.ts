@@ -66,7 +66,6 @@ describe("conversationRows", () => {
       theme.overlay1,
       theme.overlay0,
     ])
-    expect(cell(dana!, "@dana").primary).toBe(true)
     expect(bodyOf(dana!)).toEqual([])
   })
 
@@ -77,9 +76,10 @@ describe("conversationRows", () => {
     expect(cell(dana!, "@dana").fg).toBe(theme.sapphire)
     expect(dana!.header[3]).toEqual({ text: "", fg: theme.subtext1, flex: "grow" })
     expect(bodyOf(dana!)).toEqual([
-      { kind: "markdown", id: "pr-comment-501", text: conversationComments()[0]!.body, images: [], indent: 4 },
+      { kind: "markdown", key: "pr-comment-501", id: "pr-comment-501", text: conversationComments()[0]!.body, images: [], indent: 4 },
       {
         kind: "reactions",
+        key: "501:reactions",
         indent: 4,
         pills: [
           { text: "👍 2", fg: theme.subtext1 },
@@ -138,7 +138,7 @@ describe("conversationRows", () => {
     expect(bodyOf(list[4]!)).toEqual([])
     const carol = list.find((row) => row.key === "PRR_carol")!
     expect(bodyOf(carol)).toEqual([
-      { kind: "markdown", id: "review-PRR_carol", text: reviews()[4]!.body!, images: [], indent: 4 },
+      { kind: "markdown", key: "review-PRR_carol", id: "review-PRR_carol", text: reviews()[4]!.body!, images: [], indent: 4 },
     ])
     const thread = list[5]!
     expect(thread.kind === "item" && thread.indent).toBe(2)
@@ -166,6 +166,7 @@ describe("conversationRows", () => {
     expect(bodyOf(t1!)).toEqual([
       {
         kind: "hunk",
+        key: "t1:hunk",
         indent: 6,
         lines: [
           { text: "@@ -10,3 +10,4 @@ export function greet()", fg: theme.blue },
@@ -174,11 +175,38 @@ describe("conversationRows", () => {
           { text: "+const greet = 3", fg: theme.green },
         ],
       },
-      { kind: "markdown", id: "thread-t1", text: "Rename `greet` to `welcome`, it reads better in the call sites.", images: [], indent: 6 },
-      { kind: "reply", indent: 6, author: "someone", time: "    1h" },
-      { kind: "markdown", id: "reply-t1r1", text: "Done, renamed.", images: [], indent: 8 },
-      { kind: "reply", indent: 6, author: "bob", time: "    1h" },
-      { kind: "markdown", id: "reply-t1r2", text: "Thanks!", images: [], indent: 8 },
+      {
+        kind: "markdown",
+        key: "thread-t1",
+        id: "thread-t1",
+        text: "Rename `greet` to `welcome`, it reads better in the call sites.",
+        images: [],
+        indent: 6,
+      },
+      { kind: "reply", key: "t1:reply:0", indent: 6, author: "someone", time: "    1h" },
+      { kind: "markdown", key: "reply-t1r1", id: "reply-t1r1", text: "Done, renamed.", images: [], indent: 8 },
+      { kind: "reply", key: "t1:reply:1", indent: 6, author: "bob", time: "    1h" },
+      { kind: "markdown", key: "reply-t1r2", id: "reply-t1r2", text: "Thanks!", images: [], indent: 8 },
+    ])
+  })
+
+  test("keys every part uniquely within its row, a reply's reactions under the reply", () => {
+    const thumbs: ReactionSummary[] = [{ content: "+1", count: 1, viewerHasReacted: false }]
+    const comments = reviewThreadComments().map((comment) => ({ ...comment, reactions: thumbs }))
+    const info = prInfo("", { reviews: reviews(), conversationComments: conversationComments() })
+    const expanded = withThreads("t1")
+    const items = flatConversationItems(conversationItems(info, comments, new Set()), "", expanded)
+    const t1 = rows(items, { expanded })[5]!
+    expect(bodyOf(t1).map((part) => part.key)).toEqual([
+      "t1:hunk",
+      "thread-t1",
+      "t1:reactions",
+      "t1:reply:0",
+      "reply-t1r1",
+      "t1:reply:0:reactions",
+      "t1:reply:1",
+      "reply-t1r2",
+      "t1:reply:1:reactions",
     ])
   })
 
@@ -195,6 +223,7 @@ describe("conversationRows", () => {
     expect(asked).toEqual([["src/farewell.ts", 3]])
     expect(bodyOf(t2)[0]).toEqual({
       kind: "hunk",
+      key: "t2:hunk",
       indent: 6,
       lines: [
         { text: "@@ -1,2 +1,3 @@", fg: theme.blue },
@@ -221,7 +250,7 @@ describe("conversationRows", () => {
     if (block.kind !== "reviewers") return
     expect(block.header).toEqual([
       { text: "○ ", fg: theme.yellow, flex: "fixed" },
-      { text: "awaiting review (2)", fg: theme.yellow, flex: "fixed", primary: true },
+      { text: "awaiting review (2)", fg: theme.yellow, flex: "fixed" },
     ])
     expect(block.names).toEqual([{ text: "@frank  @grace", fg: theme.blue }])
     expect(block.namesIndent).toBe(4)
