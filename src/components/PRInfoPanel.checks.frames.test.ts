@@ -39,24 +39,65 @@ describe("the description", () => {
     expect(fgAt(spans, 4, 8)).toEqual(ints(theme.overlay0))
   })
 
-  // The cursor row reads the cells it repaints from inside a paint hook,
-  // which OpenTUI refuses: every frame logs the refusal and the row is
-  // never painted.
-  test("leaves its cursor row unpainted, the paint hook refused", async () => {
+  /** The description after `act`, as drawn, and how often console.error was called while drawing it. */
+  const withCursor = async (act: (panel: PRInfoPanelClass) => void) => {
     const { panel, mounted } = await mount({ section: "description", info: prInfo(BODY) })
     const consoleError = spyOn(console, "error").mockImplementation(() => {})
     try {
-      panel.moveCursor(2)
+      act(panel)
       const lines = (await mounted.frame()).split("\n")
-      const spans = mounted.setup.captureSpans()
-      expect(panel.getCursorIndex()).toBe(1)
-      expect(lines[9]).toBe("    - one")
-      expect(bgAt(spans, 4, 9)).toEqual(ints(theme.base))
-      expect(bgAt(spans, 4, 9)).not.toEqual(ints(theme.surface1))
-      expect(String(consoleError.mock.calls[0]?.[0])).toContain("Paint hooks record drawing and cannot read the frame")
+      return { panel, lines, spans: mounted.setup.captureSpans(), errors: consoleError.mock.calls.length }
     } finally {
       consoleError.mockRestore()
     }
+  }
+
+  test("paints its cursor row on surface1, keeping the text's colours", async () => {
+    const { panel, lines, spans, errors } = await withCursor((p) => p.moveCursor(2))
+    expect(panel.getCursorIndex()).toBe(1)
+    expect(lines[9]).toBe("    - one")
+    for (const x of [4, 6, 60, 115]) expect(bgAt(spans, x, 9)).toEqual(ints(theme.surface1))
+    expect(fgAt(spans, ...find(lines, "- one"))).toEqual(ints(theme.yellow))
+    expect(bgAt(spans, 4, 8)).toEqual(ints(theme.base))
+    expect(bgAt(spans, 4, 10)).toEqual(ints(theme.base))
+    expect(errors).toBe(0)
+  })
+
+  test("clears its cursor row once the cursor moves onto the header", async () => {
+    const { lines, spans, errors } = await withCursor((p) => {
+      p.moveCursor(2)
+      p.moveCursor(-2)
+    })
+    expect(lines[9]).toBe("    - one")
+    expect(bgAt(spans, 4, 9)).toEqual(ints(theme.base))
+    expect(errors).toBe(0)
+  })
+
+  test("clears its cursor row once the cursor leaves for the next section", async () => {
+    const { panel, lines, spans } = await withCursor((p) => {
+      p.moveCursor(2)
+      p.cycleSection(1)
+    })
+    expect(panel.getActiveSection()).toBe("previews")
+    expect(lines[9]).toBe("    - one")
+    expect(bgAt(spans, 4, 9)).toEqual(ints(theme.base))
+  })
+
+  // A refreshed panel is handed a row before its description has been laid
+  // out, so the row may lie past the lines it turns out to have.
+  test("paints its last line for a restored cursor past the end", async () => {
+    const { panel, mounted } = await mount({
+      section: "description",
+      info: prInfo(BODY),
+      prepare: (p) => p.restorePosition({ ...p.capturePosition(), cursorIndex: 40 }),
+    })
+    const lines = (await mounted.frame()).split("\n")
+    const spans = mounted.setup.captureSpans()
+    expect(panel.getCursorIndex()).toBe(40)
+    expect(lines[10]).toBe("    - two")
+    expect(bgAt(spans, 4, 10)).toEqual(ints(theme.surface1))
+    expect(fgAt(spans, ...find(lines, "two"))).toEqual(ints(theme.green))
+    expect(bgAt(spans, 4, 9)).toEqual(ints(theme.base))
   })
 })
 
@@ -90,6 +131,26 @@ describe("previews", () => {
     expect(bgAt(spans, 4, 14)).toEqual(ints(theme.base))
     expect(fgAt(spans, 4, 14)).toEqual(ints(theme.subtext1))
     expect(fgAt(spans, ...find(lines, "on demand"))).toEqual(ints(theme.overlay0))
+  })
+
+  // The row just left goes back to the unselected colours, not only the
+  // background: the app name is restyled with it.
+  test("restyle the row the cursor leaves and the one it lands on", async () => {
+    const { panel, mounted } = await mount({
+      section: "previews",
+      prepare: (p) => {
+        p.setPreviews(previews())
+        p.moveCursor(1)
+      },
+    })
+    panel.moveCursor(1)
+    const lines = (await mounted.frame()).split("\n")
+    const spans = mounted.setup.captureSpans()
+    expect(lines.slice(13, 15)).toEqual(["    web         preview  storybook  #812", "    admin       on demand"])
+    expect(bgAt(spans, 4, 13)).toEqual(ints(theme.base))
+    expect(fgAt(spans, 4, 13)).toEqual(ints(theme.subtext1))
+    expect(bgAt(spans, 4, 14)).toEqual(ints(theme.surface0))
+    expect(fgAt(spans, 4, 14)).toEqual(ints(theme.text))
   })
 })
 

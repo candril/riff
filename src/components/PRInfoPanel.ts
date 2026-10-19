@@ -18,7 +18,6 @@ import {
 import type { PrInfo, PrReview, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { getPrCheckAnnotations } from "../providers/github"
 import { discard, keepAlive } from "../utils/renderables"
-import { highlightCell } from "../utils/cells"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
@@ -236,6 +235,7 @@ export class PRInfoPanelClass {
   private sectionsContainer: BoxRenderable | null = null
   private sectionBoxes: BoxRenderable[] = []
   private descriptionBox: BoxRenderable | null = null
+  private descriptionCursorRow: BoxRenderable | null = null
   // Set when the cursor moved; the next frame scrolls it into view, once
   // layout has placed whatever the move rebuilt.
   private revealPending = false
@@ -361,6 +361,9 @@ export class PRInfoPanelClass {
       : Math.min(position.cursorIndex, this.getMaxCursorIndex())
 
     this.rebuildSections()
+    // Where the reader had scrolled to wins over a reveal asked for before
+    // the restore: the cursor was in view there when it was captured.
+    this.revealPending = false
     this.scrollBox.scrollTop = position.scrollTop
   }
 
@@ -512,6 +515,7 @@ export class PRInfoPanelClass {
   }
 
   private followCursor(): void {
+    this.placeDescriptionCursor()
     this.revealPending = true
     this.renderer.requestRender()
   }
@@ -536,12 +540,13 @@ export class PRInfoPanelClass {
 
   /**
    * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
-   * the edges. Runs from the scroll box's own render, after layout, so a
-   * row the move just rebuilt is measured where it now is.
+   * the edges, and say whether it scrolled. Runs from the scroll box's own
+   * render, after layout, so a row the move just rebuilt is measured where
+   * it now is.
    */
-  private revealCursor(): void {
+  private revealCursor(): boolean {
     const bounds = this.cursorBounds()
-    if (!bounds) return
+    if (!bounds) return false
 
     const viewport = this.scrollBox.viewport
     const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
@@ -549,11 +554,13 @@ export class PRInfoPanelClass {
     // A row taller than the room between the margins shows its top.
     const bottom = top + Math.min(bounds.height, viewport.height - 2 * off)
 
+    const before = this.scrollBox.scrollTop
     if (top < off) {
       this.scrollBox.scrollBy(top - off)
     } else if (bottom > viewport.height - off) {
       this.scrollBox.scrollBy(bottom - (viewport.height - off))
     }
+    return this.scrollBox.scrollTop !== before
   }
 
   /**
@@ -1041,6 +1048,7 @@ export class PRInfoPanelClass {
     this.sectionBoxes = []
     this.itemRows.clear()
     this.descriptionBox = null
+    this.descriptionCursorRow = null
 
     // Rebuild
     this.buildSections(this.sectionsContainer)
@@ -1332,6 +1340,19 @@ export class PRInfoPanelClass {
    */
   private buildDescriptionContent(container: BoxRenderable): void {
     this.descriptionBox = container
+    // First, so the text after it draws over it and keeps its colours: paint
+    // hooks cannot read the cells a highlight would have to repaint.
+    this.descriptionCursorRow = new BoxRenderable(this.renderer, {
+      position: "absolute",
+      left: 0,
+      top: 0,
+      width: "100%",
+      height: 1,
+      backgroundColor: DESCRIPTION_CURSOR_BG,
+      visible: false,
+    })
+    container.add(this.descriptionCursorRow)
+    container.onSizeChange = () => this.placeDescriptionCursor()
 
     if (!this.prInfo.body?.trim()) {
       container.add(new TextRenderable(this.renderer, {
@@ -1346,36 +1367,22 @@ export class PRInfoPanelClass {
       this.appendImageRows(container, body.images, 0)
     }
     this.appendReactionRow(container, this.prInfo.bodyReactions)
-    container.add(this.descriptionCursor(container))
   }
 
   /**
-   * The cursor row, painted over the description once it is drawn. A box's
-   * own `renderAfter` runs before its children draw, so this is the box's
-   * last child instead — sized to nothing, so layout never sees it.
+   * Put the description's cursor row under the line the cursor is on. A
+   * description that only laid out after the cursor was put in it (a
+   * refresh) may be shorter than the row it names, so the last line stands
+   * in for it.
    */
-  private descriptionCursor(description: BoxRenderable): BoxRenderable {
-    return new BoxRenderable(this.renderer, {
-      position: "absolute",
-      width: 0,
-      height: 0,
-      renderAfter: (buffer) => {
-        if (this.activeSection !== 'description' || this.cursorIndex < 0) return
-        // A description that only laid out after the cursor was put in it
-        // (a refresh) may be shorter than the row it names.
-        const row = Math.min(this.cursorIndex, description.height - 1)
-        if (row < 0) return
-        // Painted over text that is already drawn, so only the background is
-        // replaced: a fill would take the glyphs with it, and a translucent
-        // one fades them along with the background.
-        const y = description.y + row
-        if (y < 0 || y >= buffer.height) return
-        const end = Math.min(description.x + description.width, buffer.width)
-        for (let x = Math.max(0, description.x); x < end; x++) {
-          highlightCell(buffer, x, y, DESCRIPTION_CURSOR_BG)
-        }
-      },
-    })
+  private placeDescriptionCursor(): void {
+    const box = this.descriptionBox
+    const row = this.descriptionCursorRow
+    if (!box || !row) return
+    const line = Math.min(this.cursorIndex, box.height - 1)
+    const shown = this.activeSection === 'description' && this.cursorIndex >= 0 && line >= 0
+    if (shown) row.top = line
+    row.visible = shown
   }
 
   /**
@@ -2142,6 +2149,13 @@ export class PRInfoPanelClass {
       paddingRight: 2,
       paddingTop: 1,
       scrollY: true,
+      // The first point a frame has the rows a move rebuilt laid out. A
+      // scroll made here only reaches the next frame, so it asks for one.
+      renderBefore: () => {
+        if (!this.revealPending) return
+        this.revealPending = false
+        if (this.revealCursor()) this.renderer.requestRender()
+      },
     })
     container.add(scrollBox)
 

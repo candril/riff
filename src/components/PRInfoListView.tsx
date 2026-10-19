@@ -4,9 +4,8 @@ import type { ListRows } from "./pr-info-list-rows"
 
 /**
  * One list section of the PR info panel: a row per item, then the muted
- * note. The boxes and texts carry no flex settings of their own, as the
- * imperative rows did not, so a message too wide for its row still
- * squeezes the columns before it.
+ * note. The boxes and texts carry no flex settings of their own, so a
+ * message too wide for its row squeezes the columns before it.
  */
 export function PRInfoListView(props: { model: ListRows }) {
   return (

@@ -1,8 +1,9 @@
 import { test, expect, describe } from "bun:test"
 import { bgAt, fgAt, ints } from "../testing/frame"
-import { prInfo } from "../testing/pr-info"
+import { commits, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"
 import { theme } from "../theme"
+import type { PRInfoPanelClass } from "./PRInfoPanel"
 
 // The files and commits sections opened, and the cursor in a section taller than the screen.
 
@@ -71,13 +72,72 @@ describe("commits", () => {
 })
 
 describe("the cursor in a section longer than the screen", () => {
-  // moveCursor asks for the row to be revealed, but nothing acts on the
-  // request, so the row it selects is left below the screen.
-  test("is left off screen: the scroll box does not follow it", async () => {
+  /** The rows the scroll box shows, as [first, last] screen rows. */
+  const viewportRows = (panel: PRInfoPanelClass): [number, number] => {
+    const viewport = panel.getScrollBox().viewport
+    return [viewport.y, viewport.y + viewport.height - 1]
+  }
+
+  test("is followed by the scroll box, three rows short of the bottom edge", async () => {
     const { lines, panel } = await mount({ section: "commits", prepare: (p) => p.moveCursor(15), height: 30 })
-    expect(panel.getScrollBox().scrollTop).toBe(0)
-    expect(lines[0]!.trim()).toBe("█")
-    expect(lines.join("\n")).not.toContain("c14abcd")
-    expect(lines[29]).toContain("c08abcd")
+    expect(panel.getScrollBox().scrollTop).toBeGreaterThan(0)
+    const [, y] = find(lines, "c14abcd")
+    const [, last] = viewportRows(panel)
+    expect(y).toBe(last - 3)
+  })
+
+  test("scrolls back up on k, keeping three rows above the cursor", async () => {
+    const { panel, mounted } = await mount({ section: "commits", prepare: (p) => p.moveCursor(20), height: 20 })
+    for (let i = 0; i < 17; i++) panel.moveCursor(-1)
+    const lines = (await mounted.frame()).split("\n")
+    const [, y] = find(lines, "c02abcd")
+    const [first] = viewportRows(panel)
+    expect(panel.getScrollBox().scrollTop).toBeGreaterThan(0)
+    expect(y).toBe(first + 3)
+  })
+
+  // Twenty commits are drawn at most, so G on the 23 of fullPr would land
+  // on a row that has no renderable to reveal.
+  test("shows the last commit after G", async () => {
+    const { lines, panel } = await mount({
+      info: prInfo("Adds the skill.", { commits: commits(15) }),
+      height: 30,
+      prepare: (p) => {
+        p.setActiveSection("commits")
+        p.expandSection()
+        p.cycleSection(-1)
+        p.jumpToBottom()
+      },
+    })
+    expect(panel.getActiveSection()).toBe("commits")
+    const [, y] = find(lines, "c14abcd")
+    const [first, last] = viewportRows(panel)
+    expect(y).toBeGreaterThanOrEqual(first)
+    expect(y).toBeLessThanOrEqual(last)
+  })
+
+  // The commits header starts at the bottom edge, so the cursor steps
+  // further down the content than the half page the view scrolls.
+  test("stays on screen through Ctrl-d", async () => {
+    const { panel, mounted } = await mount({ section: "commits", height: 20 })
+    panel.halfPage(1)
+    const lines = (await mounted.frame()).split("\n")
+    const cursor = panel.getCursorIndex()
+    expect(cursor).toBeGreaterThan(0)
+    const [, y] = find(lines, `c${String(cursor).padStart(2, "0")}abcd`)
+    const [first, last] = viewportRows(panel)
+    expect(y).toBeGreaterThanOrEqual(first + 3)
+    expect(y).toBeLessThanOrEqual(last - 3)
+  })
+
+  // A refreshed panel is handed the reader's scroll position, and a reveal
+  // asked for before it would throw that away on the first frame.
+  test("keeps a restored scroll position rather than revealing the cursor", async () => {
+    const { panel, mounted } = await mount({ section: "commits", height: 30 })
+    panel.moveCursor(15)
+    panel.restorePosition({ ...panel.capturePosition(), scrollTop: 2 })
+    await mounted.frame()
+    expect(panel.getCursorIndex()).toBe(14)
+    expect(panel.getScrollBox().scrollTop).toBe(2)
   })
 })
