@@ -10,143 +10,24 @@ import {
   TextRenderable,
   ScrollBoxRenderable,
   type CliRenderer,
-  type Renderable,
 } from "@opentui/core"
 import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
-import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
+import type { FileTreeNode } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
-import { flattenTree, filterTree } from "../utils/file-tree"
 import { colors, theme } from "../theme"
-import { flashLabelCell } from "../vim-diff/flash-state"
+import { fileTreeModel, type FileTreeModel, type FileTreeModelInput, type FileTreeRow } from "./file-tree-model"
 
 export interface FileTreePanelOptions {
   renderer: CliRenderer
   width?: number
 }
 
-/**
- * Get color for file status
- */
-function getStatusColor(status: DiffFile["status"]): string {
-  switch (status) {
-    case "added":
-      return colors.fileAdded
-    case "modified":
-      return colors.fileModified
-    case "deleted":
-      return colors.fileDeleted
-    case "renamed":
-      return colors.fileRenamed
-    case "unchanged":
-      return colors.text
-  }
-}
-
-/**
- * Get status indicator character for a file (A/M/D/R)
- */
-function getStatusIndicator(status: DiffFile["status"]): string {
-  switch (status) {
-    case "added":
-      return "A"
-    case "modified":
-      return "M"
-    case "deleted":
-      return "D"
-    case "renamed":
-      return "R"
-    // Nothing changed, so there is no letter for what changed (spec 084).
-    case "unchanged":
-      return " "
-  }
-}
-
-/**
- * Truncate a string to fit within maxLen, adding ellipsis if needed
- */
-function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str
-  if (maxLen <= 3) return str.slice(0, maxLen)
-  return str.slice(0, maxLen - 1) + "…"
-}
-
-/**
- * Directory viewed status - aggregates status of all files under a directory
- */
-interface DirViewedStatus {
-  allViewed: boolean      // All files in dir are viewed
-  anyViewed: boolean      // At least one file is viewed
-  anyStale: boolean       // At least one viewed file is stale
-  totalFiles: number      // Total files under this dir
-  viewedFiles: number     // Number of viewed files
-}
-
-/**
- * Compute viewed status for a directory based on all files under it.
- * Handles merged directory paths like "src/components" where files are
- * "src/components/Header.ts" etc.
- */
-function computeDirViewedStatus(
-  dirPath: string,
-  files: DiffFile[],
-  statuses: Map<string, FileReviewStatus>
-): DirViewedStatus {
-  // Files under this directory start with "dirPath/"
-  const prefix = dirPath + "/"
-  
-  // Find all files that are under this directory
-  const filesInDir = files.filter(f => f.filename.startsWith(prefix))
-  
-  return computeDirViewedStatusForFiles(filesInDir, statuses)
-}
-
-/**
- * Helper to compute viewed status from a list of files
- */
-function computeDirViewedStatusForFiles(
-  filesInDir: DiffFile[],
-  statuses: Map<string, FileReviewStatus>
-): DirViewedStatus {
-  let viewedCount = 0
-  let staleCount = 0
-  
-  for (const file of filesInDir) {
-    const status = statuses.get(file.filename)
-    if (status?.viewed) {
-      viewedCount++
-      if (status.isStale) {
-        staleCount++
-      }
-    }
-  }
-  
-  return {
-    allViewed: filesInDir.length > 0 && viewedCount === filesInDir.length,
-    anyViewed: viewedCount > 0,
-    anyStale: staleCount > 0,
-    totalFiles: filesInDir.length,
-    viewedFiles: viewedCount,
-  }
-}
-
-/**
- * Remove directory items from flattened tree that have no visible (non-ignored) file children.
- * A directory is "empty" if all its descendant files are ignored.
- */
-function removeEmptyDirs(
-  flatItems: FlatTreeItem[],
-  files: DiffFile[],
-  ignoredFiles: Set<string>
-): FlatTreeItem[] {
-  // For each directory node, check if it has any non-ignored files under it
-  return flatItems.filter(item => {
-    if (!item.node.isDirectory) return true
-    
-    // Check if any file under this directory path is not ignored
-    const dirPrefix = item.node.path + "/"
-    return files.some(f => f.filename.startsWith(dirPrefix) && !ignoredFiles.has(f.filename))
-  })
+interface RowRenderables {
+  box: BoxRenderable
+  markerText: TextRenderable
+  statusText: TextRenderable
+  text: TextRenderable
 }
 
 export class FileTreePanel {
@@ -166,33 +47,12 @@ export class FileTreePanel {
   private onFilterChange: ((value: string) => void) | null = null
   private scrollBox: ScrollBoxRenderable
   private content: BoxRenderable
-  private itemRenderables: Map<string, { 
-    box: BoxRenderable
-    text: TextRenderable
-    markerText: TextRenderable
-    statusText: TextRenderable 
-  }> = new Map()
+  private itemRenderables: Map<number, RowRenderables> = new Map()
   private hiddenCountRenderable: { box: BoxRenderable; text: TextRenderable } | null = null
   private width: number
-
-  // Current state
-  private currentFiles: DiffFile[] = []
-  private currentFileTree: FileTreeNode[] = []
-  private currentFileStatuses: Map<string, FileReviewStatus> = new Map()
-  private currentCollapsedFiles: Set<string> = new Set()
-  private currentIgnoredFiles: Set<string> = new Set()
-  private currentShowHidden: boolean = false
-  private currentFilter: string = ""
-  /** Flash labels by flat row index, while `s` is labelling (spec 066). */
-  private currentFlashLabels: ReadonlyMap<string, string> = new Map()
-  /** Files carrying a comment that arrived since your last visit (spec 069). */
-  private currentUnseenFiles: ReadonlySet<string> = new Set()
-  /** And the ones whose content moved since then. */
-  private currentChangedSinceVisit: ReadonlySet<string> = new Set()
-  private highlightIndex: number = 0      // Navigation highlight
-  private selectedFileIndex: number | null = null  // Actual selection (scopes views)
-  private multiSelectedFilenames: Set<string> = new Set()  // V-mode tree selection
-  private focused: boolean = false
+  /** What the last update drew from, so a width change can redraw without a new push. */
+  private input: Omit<FileTreeModelInput, "width"> | null = null
+  private highlightIndex: number = 0
 
   constructor(options: FileTreePanelOptions) {
     this.renderer = options.renderer
@@ -326,15 +186,11 @@ export class FileTreePanel {
   }
 
   /**
-   * Update the file tree with new state.
-   * Only recreates item renderables if the tree structure changed.
+   * Update the file tree with new state. Rows are recreated only when the
+   * tree's structure changed; otherwise the existing ones are restyled, which
+   * keeps j/k from flickering.
    *
-   * @param highlightIndex - Which item is highlighted (navigation cursor)
    * @param selectedFileIndex - Which file is selected (scopes views), null = all files
-   * @param fileStatuses - Map of file viewed/reviewed statuses
-   * @param collapsedFiles - Set of filenames that are collapsed in diff view
-   * @param ignoredFiles - Set of filenames that match ignore patterns
-   * @param showHiddenFiles - Whether to show ignored files in the tree
    * @param multiSelectedFilenames - Filenames currently inside the V-mode
    *                                 tree multi-select range. Empty = no
    *                                 multi-select active.
@@ -346,7 +202,8 @@ export class FileTreePanel {
     selectedFileIndex: number | null,
     focused: boolean,
     fileStatuses?: Map<string, FileReviewStatus>,
-    collapsedFiles?: Set<string>,
+    // Kept for the call sites; nothing the tree draws depends on it.
+    _collapsedFiles?: Set<string>,
     ignoredFiles?: Set<string>,
     showHiddenFiles?: boolean,
     multiSelectedFilenames?: Set<string>,
@@ -356,351 +213,101 @@ export class FileTreePanel {
     unseenFiles: ReadonlySet<string> = new Set(),
     changedSinceVisit: ReadonlySet<string> = new Set()
   ): void {
-    this.currentFlashLabels = flashLabels
-    this.currentUnseenFiles = unseenFiles
-    this.currentChangedSinceVisit = changedSinceVisit
-    const newIgnored = ignoredFiles ?? new Set<string>()
-    const newShowHidden = showHiddenFiles ?? false
-    const newMulti = multiSelectedFilenames ?? new Set<string>()
+    const previous = this.input
+    const input: Omit<FileTreeModelInput, "width"> = {
+      files,
+      fileTree,
+      highlightIndex,
+      selectedFileIndex,
+      focused,
+      fileStatuses: fileStatuses ?? new Map(),
+      ignoredFiles: ignoredFiles ?? new Set(),
+      showHiddenFiles: showHiddenFiles ?? false,
+      multiSelectedFilenames: multiSelectedFilenames ?? new Set(),
+      treeFilter,
+      treeFilterInput,
+      flashLabels,
+      unseenFiles,
+      changedSinceVisit,
+    }
+    this.input = input
+    this.highlightIndex = highlightIndex
 
     const structureChanged =
-      files !== this.currentFiles ||
-      fileTree !== this.currentFileTree ||
-      newIgnored !== this.currentIgnoredFiles ||
-      newShowHidden !== this.currentShowHidden ||
-      treeFilter !== this.currentFilter
+      previous === null ||
+      files !== previous.files ||
+      fileTree !== previous.fileTree ||
+      input.ignoredFiles !== previous.ignoredFiles ||
+      input.showHiddenFiles !== previous.showHiddenFiles ||
+      treeFilter !== previous.treeFilter
 
-    this.currentFiles = files
-    this.currentFileTree = fileTree
-    this.currentFileStatuses = fileStatuses ?? new Map()
-    this.currentCollapsedFiles = collapsedFiles ?? new Set()
-    this.currentIgnoredFiles = newIgnored
-    this.currentShowHidden = newShowHidden
-    this.currentFilter = treeFilter
-    this.multiSelectedFilenames = newMulti
-    this.highlightIndex = highlightIndex
-    this.selectedFileIndex = selectedFileIndex
-    this.focused = focused
+    const model = fileTreeModel({ ...input, width: this.width })
+    this.headerText.content = model.header.text
+    this.headerText.fg = model.header.fg
+    this.syncFilterInput(treeFilter, model.header.filtering)
 
-    // Calculate review progress (exclude ignored files)
-    let total = 0
-    let reviewed = 0
-    for (const file of files) {
-      if (newIgnored.has(file.filename)) continue
-      total++
-      if (this.currentFileStatuses.get(file.filename)?.viewed) {
-        reviewed++
-      }
-    }
-
-    const hiddenCount = newIgnored.size
-
-    // Update header with progress. While filtering, the header is the prompt:
-    // the panel is narrow, and a separate input row would cost a file row.
-    const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
-    this.headerText.content = treeFilter ? `/${treeFilter}` : `Files${progressText}`
-    this.headerText.fg = treeFilter
-      ? colors.secondary
-      : focused
-        ? colors.primary
-        : colors.textMuted
-    this.syncFilterInput(treeFilter, treeFilterInput)
-
-    const flatItems = this.visibleItems()
-
-    if (structureChanged) {
-      // Rebuild all items
-      this.rebuildItems(flatItems)
-      this.updateHiddenCount(hiddenCount, newShowHidden)
-    } else {
-      // Just update styles (selection, current file highlighting)
-      this.updateItemStyles(flatItems)
-      this.updateHiddenCount(hiddenCount, newShowHidden)
-    }
+    if (structureChanged) this.rebuildItems(model)
+    else this.updateItemStyles(model)
+    this.updateHiddenCount(model.hidden)
   }
 
-  /**
-   * Rebuild all tree item renderables
-   */
-  private rebuildItems(flatItems: FlatTreeItem[]): void {
+  private rebuildItems(model: FileTreeModel): void {
     for (const [, item] of this.itemRenderables) {
       discard(item.box)
     }
     this.itemRenderables.clear()
 
-    // Create new items
-    for (let index = 0; index < flatItems.length; index++) {
-      const item = flatItems[index]!
-      const { node, depth } = item
-      
-      // Skip nodes with empty names (shouldn't happen, but defensive)
-      if (!node.name) continue
-      
-      const isHighlighted = index === this.highlightIndex && this.focused
-      // Unfocused, the highlight is still where the diff cursor is. It
-      // marks the file you are in rather than drawing the cursor, so the
-      // tree answers which file you are reading without claiming focus.
-      const isSelected =
-        item.fileIndex === this.selectedFileIndex ||
-        (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
-      const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
-
-      // Compute viewed status - different for files vs directories
-      let isViewed = false
-      let isStale = false
-      let isPartiallyViewed = false  // For directories: some but not all viewed
-
-      if (node.isDirectory) {
-        // Directory: aggregate status from all files under it
-        const dirStatus = computeDirViewedStatus(node.path, this.currentFiles, this.currentFileStatuses)
-        isViewed = dirStatus.allViewed
-        isPartiallyViewed = dirStatus.anyViewed && !dirStatus.allViewed
-        isStale = dirStatus.anyStale
-      } else if (node.file) {
-        // File: use direct status
-        const viewedStatus = this.currentFileStatuses.get(node.file.filename)
-        isViewed = viewedStatus?.viewed ?? false
-        isStale = viewedStatus?.isStale ?? false
-      }
-
-      const indent = "  ".repeat(depth)
-      const icon = node.isDirectory
-        ? node.expanded ? "▼ " : "▶ "
-        : "  "
-
-      // Files get color based on status, directories get subtext color
-      // Viewed files/dirs get dimmed color
-      // The panel has one shade for "selected", and the cursor owns it, so
-      // the file you are in is told apart by its name's colour instead.
-      const nameFg = isSelected
-        ? colors.primary
-        : isViewed
-          ? colors.fileViewed
-          : node.isDirectory
-            ? theme.subtext0
-            : node.file
-              ? getStatusColor(node.file.status)
-              : colors.text
-
-      // Three shades only: the cursor and the V-range are both "selected",
-      // so they share surface0; everything else shows the panel's mantle.
-      const bgColor = isHighlighted || isMultiSelected ? theme.surface0 : undefined
-
-      // Create box for this item
-      // Use index for ID to avoid issues with special chars in paths
+    for (const row of model.rows) {
+      // Ids go by index rather than path, which can hold characters an id shouldn't.
       const box = new BoxRenderable(this.renderer, {
-        id: `tree-item-${index}`,
+        id: `tree-item-${row.index}`,
         height: 1,
         width: "100%",
         flexDirection: "row",
-        backgroundColor: bgColor,
       })
-
-      // Viewed marker with states:
-      // ✓ green - all viewed, unchanged
-      // ✓ orange - viewed, but modified since (or dir has stale files)
-      // ◐ dim - partially viewed (directories only)
-      // ○ dim - not viewed
-      let marker: string
-      let markerColor: string
-      
-      if (isViewed) {
-        marker = "✓"
-        markerColor = isStale ? colors.viewedStale : colors.viewedOk
-      } else if (isPartiallyViewed) {
-        marker = "◐"
-        markerColor = isStale ? colors.viewedStale : colors.viewedNone
-      } else {
-        marker = "○"
-        markerColor = colors.viewedNone
+      const renderables: RowRenderables = {
+        box,
+        markerText: new TextRenderable(this.renderer, { id: `tree-item-marker-${row.index}`, content: "" }),
+        statusText: new TextRenderable(this.renderer, { id: `tree-item-status-${row.index}`, content: "" }),
+        text: new TextRenderable(this.renderer, { id: `tree-item-text-${row.index}`, content: "" }),
       }
-
-      // Status indicator (A/M/D/R) for files, empty for directories
-      // Dim the color when file is viewed
-      const statusIndicator = node.file ? getStatusIndicator(node.file.status) : " "
-      const statusColor = isViewed 
-        ? colors.fileViewed 
-        : (node.file ? getStatusColor(node.file.status) : colors.text)
-
-      // Calculate available width for name
-      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + panel padding (2) + scrollbar (1) + margin (1)
-      const prefixLen = 4 + indent.length + icon.length
-      const reserved = 4  // panel padding + scrollbar + margin
-      const availableWidth = Math.max(5, this.width - prefixLen - reserved)
-      const displayName = truncate(node.name, availableWidth)
-
-      // Column 1: Viewed marker with trailing space
-      const markerText = new TextRenderable(this.renderer, {
-        id: `tree-item-marker-${index}`,
-        content: `${marker} `,
-        fg: markerColor,
-      })
-      box.add(markerText)
-
-      // Column 2: Status indicator (A/M/D/R) with trailing space
-      const statusText = new TextRenderable(this.renderer, {
-        id: `tree-item-status-${index}`,
-        content: `${statusIndicator} `,
-        fg: statusColor,
-      })
-      box.add(statusText)
-
-      // Column 3: Indent, icon, and name
-      const text = new TextRenderable(this.renderer, {
-        id: `tree-item-text-${index}`,
-        content: `${indent}${icon}${displayName}`,
-        fg: nameFg,
-      })
-      box.add(text)
-
+      styleRow(renderables, row)
+      box.add(renderables.markerText)
+      box.add(renderables.statusText)
+      box.add(renderables.text)
       this.content.add(box)
-      this.itemRenderables.set(String(index), { box, text, markerText, statusText })
+      this.itemRenderables.set(row.index, renderables)
     }
   }
 
-  /**
-   * Update styles on existing items without recreating them
-   */
-  private updateItemStyles(flatItems: FlatTreeItem[]): void {
-    for (let index = 0; index < flatItems.length; index++) {
-      const item = flatItems[index]!
-      const { node, depth } = item
-      
-      // Skip nodes with empty names
-      if (!node.name) continue
-      
-      const isHighlighted = index === this.highlightIndex && this.focused
-      // Unfocused, the highlight is still where the diff cursor is. It
-      // marks the file you are in rather than drawing the cursor, so the
-      // tree answers which file you are reading without claiming focus.
-      const isSelected =
-        item.fileIndex === this.selectedFileIndex ||
-        (!this.focused && index === this.highlightIndex && item.fileIndex !== undefined)
-      const isMultiSelected = !!node.file && this.multiSelectedFilenames.has(node.file.filename)
-
-      const renderables = this.itemRenderables.get(String(index))
-      if (!renderables) continue
-
-      // Compute viewed status - different for files vs directories
-      let isViewed = false
-      let isStale = false
-      let isPartiallyViewed = false  // For directories: some but not all viewed
-      
-      if (node.isDirectory) {
-        // Directory: aggregate status from all files under it
-        const dirStatus = computeDirViewedStatus(node.path, this.currentFiles, this.currentFileStatuses)
-        isViewed = dirStatus.allViewed
-        isPartiallyViewed = dirStatus.anyViewed && !dirStatus.allViewed
-        isStale = dirStatus.anyStale
-      } else if (node.file) {
-        // File: use direct status
-        const viewedStatus = this.currentFileStatuses.get(node.file.filename)
-        isViewed = viewedStatus?.viewed ?? false
-        isStale = viewedStatus?.isStale ?? false
-      }
-
-      const indent = "  ".repeat(depth)
-      const icon = node.isDirectory
-        ? node.expanded ? "▼ " : "▶ "
-        : "  "
-
-      // Files get color based on status, directories get subtext color
-      // Viewed files/dirs get dimmed color
-      // The panel has one shade for "selected", and the cursor owns it, so
-      // the file you are in is told apart by its name's colour instead.
-      const nameFg = isSelected
-        ? colors.primary
-        : isViewed
-          ? colors.fileViewed
-          : node.isDirectory
-            ? theme.subtext0
-            : node.file
-              ? getStatusColor(node.file.status)
-              : colors.text
-
-      // Same shades as rebuildItems.
-      const bgColor = isHighlighted || isMultiSelected ? theme.surface0 : null
-
-      // Viewed marker with states:
-      // ✓ green - all viewed, unchanged
-      // ✓ orange - viewed, but modified since (or dir has stale files)
-      // ◐ dim - partially viewed (directories only)
-      // ○ dim - not viewed
-      let marker: string
-      let markerColor: string
-      
-      if (isViewed) {
-        marker = "✓"
-        markerColor = isStale ? colors.viewedStale : colors.viewedOk
-      } else if (isPartiallyViewed) {
-        marker = "◐"
-        markerColor = isStale ? colors.viewedStale : colors.viewedNone
-      } else {
-        marker = "○"
-        markerColor = colors.viewedNone
-      }
-
-      // Status indicator (A/M/D/R) for files, empty for directories
-      // Dim the color when file is viewed
-      const statusIndicator = node.file ? getStatusIndicator(node.file.status) : " "
-      const statusColor = isViewed 
-        ? colors.fileViewed 
-        : (node.file ? getStatusColor(node.file.status) : colors.text)
-
-      // Calculate available width for name
-      // Account for: marker (1) + space (1) + status (1) + space (1) + indent + icon (2) + panel padding (2) + scrollbar (1) + margin (1)
-      const prefixLen = 4 + indent.length + icon.length
-      const reserved = 4
-      const availableWidth = Math.max(5, this.width - prefixLen - reserved)
-      const displayName = truncate(node.name, availableWidth)
-
-      // Update properties
-      const flashLabel = this.currentFlashLabels.get(String(index))
-      renderables.box.backgroundColor = bgColor ?? undefined
-      renderables.markerText.content = flashLabel !== undefined ? flashLabelCell(flashLabel) : `${marker} `
-      renderables.markerText.fg = flashLabel !== undefined ? colors.flashLabel : markerColor
-      renderables.statusText.content = `${statusIndicator} `
-      renderables.statusText.fg = statusColor
-      // Two marks for "since you last looked": a dot for something said
-      // here, a caret for content that moved (spec 069).
-      const marksFile = (names: ReadonlySet<string>): boolean =>
-        node.file
-          ? names.has(node.file.filename)
-          : [...names].some((name) => name.startsWith(node.path + "/"))
-      const unseen = marksFile(this.currentUnseenFiles)
-      const moved = marksFile(this.currentChangedSinceVisit)
-      const marks = `${unseen ? " ●" : ""}${moved ? " ▴" : ""}`
-      renderables.text.content = `${indent}${icon}${displayName}${marks}`
-      renderables.text.fg = unseen && !node.isDirectory ? colors.commentLocal : nameFg
+  private updateItemStyles(model: FileTreeModel): void {
+    for (const row of model.rows) {
+      const renderables = this.itemRenderables.get(row.index)
+      if (renderables) styleRow(renderables, row)
     }
   }
 
-  /**
-   * Update the "(+N hidden)" indicator at the bottom of the tree
-   */
-  private updateHiddenCount(hiddenCount: number, showHidden: boolean): void {
+  private updateHiddenCount(hidden: string | null): void {
     if (this.hiddenCountRenderable) {
       discard(this.hiddenCountRenderable.box)
       this.hiddenCountRenderable = null
     }
+    if (hidden === null) return
 
-    // Show hidden count indicator if there are hidden files and we're not showing them
-    if (hiddenCount > 0 && !showHidden) {
-      const box = new BoxRenderable(this.renderer, {
-        id: "tree-hidden-count",
-        height: 1,
-        width: "100%",
-        paddingLeft: 1,
-      })
-      const text = new TextRenderable(this.renderer, {
-        id: "tree-hidden-count-text",
-        content: `(+${hiddenCount} hidden)`,
-        fg: colors.textMuted,
-      })
-      box.add(text)
-      this.content.add(box)
-      this.hiddenCountRenderable = { box, text }
-    }
+    const box = new BoxRenderable(this.renderer, {
+      id: "tree-hidden-count",
+      height: 1,
+      width: "100%",
+      paddingLeft: 1,
+    })
+    const text = new TextRenderable(this.renderer, {
+      id: "tree-hidden-count-text",
+      content: hidden,
+      fg: colors.textMuted,
+    })
+    box.add(text)
+    this.content.add(box)
+    this.hiddenCountRenderable = { box, text }
   }
 
   /** The first and last row index the scroll box is showing. */
@@ -746,39 +353,21 @@ export class FileTreePanel {
     return this.width
   }
 
-  /**
-   * Set the panel width and update the container
-   */
   setWidth(width: number): void {
     if (this.width === width) return
     this.width = width
     this.container.width = width
     // Rebuild so the new width can re-truncate every label.
-    this.rebuildItems(this.visibleItems())
+    if (this.input) this.rebuildItems(fileTreeModel({ ...this.input, width }))
   }
+}
 
-  /**
-   * The rows the panel should be showing: the tree narrowed by the path
-   * filter, minus ignored files and the directories left empty by dropping
-   * them. Every rebuild goes through here — a rebuild that derived the list
-   * differently (a width change used to skip the filter) left rows on screen
-   * that the next style-only update had no reason to touch.
-   */
-  private visibleItems(): FlatTreeItem[] {
-    let flatItems = flattenTree(
-      filterTree(this.currentFileTree, this.currentFilter),
-      this.currentFiles
-    )
-    if (this.currentShowHidden || this.currentIgnoredFiles.size === 0) return flatItems
-
-    flatItems = flatItems.filter((item) => {
-      // Keep directory nodes (they might contain non-ignored files)
-      if (item.node.isDirectory) return true
-      if (item.node.file && this.currentIgnoredFiles.has(item.node.file.filename)) return false
-      return true
-    })
-    flatItems = removeEmptyDirs(flatItems, this.currentFiles, this.currentIgnoredFiles)
-    flatItems.forEach((item, i) => { item.index = i })
-    return flatItems
-  }
+function styleRow(renderables: RowRenderables, row: FileTreeRow): void {
+  renderables.box.backgroundColor = row.bg ?? undefined
+  renderables.markerText.content = row.marker.text
+  renderables.markerText.fg = row.marker.fg
+  renderables.statusText.content = row.status.text
+  renderables.statusText.fg = row.status.fg
+  renderables.text.content = row.name.text
+  renderables.text.fg = row.name.fg
 }
