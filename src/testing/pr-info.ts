@@ -87,7 +87,7 @@ const check = (id: number, name: string, over: Partial<PrCheck>): PrCheck => ({
 
 /**
  * Every failing check has its annotations already settled: expanding one
- * whose status is unset would ask gh for them.
+ * whose status is unset would ask the app for them.
  */
 export function checks(): PrCheck[] {
   return [

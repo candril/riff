@@ -1,7 +1,6 @@
-import { afterAll, afterEach, beforeAll, beforeEach, expect, setSystemTime, spyOn, type Mock } from "bun:test"
+import { afterEach, beforeEach, expect, mock, setSystemTime } from "bun:test"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import * as github from "../providers/github"
-import type { PrInfo } from "../providers/github"
+import type { PrCheck, PrInfo } from "../providers/github"
 import type { PRInfoPanelSection } from "../state"
 import type { Comment } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
@@ -52,25 +51,20 @@ export interface MountPrInfoPanel {
  * process.stdout.columns is pinned to the screen's width, since the panel
  * cuts its rows to the terminal's width rather than its own.
  *
- * Expanding a failing check whose annotations are not settled asks gh for
- * them. Every fixture check has them settled, and the guard fails any test
- * that slips. It is installed per file in beforeAll, so two files loaded in
- * one process never stack a spy on a spy.
+ * Expanding a failing check whose annotations are not settled asks the app
+ * for them. Every fixture check has them settled, so the panel is handed a
+ * request that throws, and any test that slips fails.
  */
 export function usePrInfoPanel() {
-  let fetchAnnotations: Mock<typeof github.getPrCheckAnnotations> | null = null
+  const askedForAnnotations = mock((_check: PrCheck) => {
+    throw new Error("a frame test asked for check annotations")
+  })
   let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
   let panel: PRInfoPanelClass | null = null
   let restoreColumns: (() => void) | null = null
 
-  beforeAll(() => {
-    fetchAnnotations = spyOn(github, "getPrCheckAnnotations").mockImplementation(() => {
-      throw new Error("a frame test asked gh for check annotations")
-    })
-  })
-  afterAll(() => fetchAnnotations?.mockRestore())
-
   beforeEach(() => {
+    askedForAnnotations.mockClear()
     setSystemTime(PR_NOW)
     restoreColumns = pinStdoutColumns(120)
   })
@@ -82,7 +76,7 @@ export function usePrInfoPanel() {
     mounted = null
     restoreColumns?.()
     setSystemTime()
-    expect(fetchAnnotations).not.toHaveBeenCalled()
+    expect(askedForAnnotations).not.toHaveBeenCalled()
   })
 
   /** The panel showing `info`, after `section` is opened and `prepare` has run, as drawn. */
@@ -100,6 +94,7 @@ export function usePrInfoPanel() {
       const screen = await mountRenderable(
         (renderer) => {
           panel = new PRInfoPanelClass(renderer, info, files, comments)
+          panel.setOnOpenFailingCheck(askedForAnnotations)
           return panel.getContainer()
         },
         { width: 120, height }

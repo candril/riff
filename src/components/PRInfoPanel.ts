@@ -16,7 +16,6 @@ import {
   type CliRenderer,
 } from "@opentui/core"
 import type { PrInfo, PrReview, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
-import { getPrCheckAnnotations } from "../providers/github"
 import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
@@ -228,8 +227,8 @@ export class PRInfoPanelClass {
   // Checks expand state (spec 043) — per-session only, not persisted.
   private expandedCheckIds: Set<number> = new Set()
   private flatCheckItems: FlatCheckItem[] = []
-  // Signals a re-render to the outer app (set by app.ts).
-  private onExternalRerender: (() => void) | null = null
+  // Where a failing check asks for its annotations; the app fetches them (set by app.ts).
+  private onOpenFailingCheck: ((check: PrCheck) => void) | null = null
   
   // Section containers (for rebuilding on section change)
   private sectionsContainer: BoxRenderable | null = null
@@ -797,8 +796,8 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * Toggle expansion of a failing check. Kicks off an annotations fetch
-   * on first expand (spec 043).
+   * Toggle expansion of a failing check. Asks for its annotations on first
+   * expand (spec 043).
    */
   toggleCheckExpansion(checkId: number): void {
     if (this.expandedCheckIds.has(checkId)) {
@@ -807,7 +806,7 @@ export class PRInfoPanelClass {
       this.expandedCheckIds.add(checkId)
       const check = this.prInfo.checks?.find(c => c.id === checkId)
       if (check && !check.annotationsStatus && isFailingCheck(check)) {
-        void this.fetchAnnotationsFor(check)
+        this.onOpenFailingCheck?.(check)
       }
     }
     this.refreshFlatCheckItems()
@@ -863,39 +862,18 @@ export class PRInfoPanelClass {
     return item.check
   }
 
-  /**
-   * Lazy fetch of annotations for a single check. Mutates the check in
-   * place (session-local state — app state does not carry annotations).
-   * Rebuilds the panel on transitions so the user sees
-   * loading → loaded/empty/error (spec 043).
-   */
-  private async fetchAnnotationsFor(check: PrCheck): Promise<void> {
-    check.annotationsStatus = "loading"
-    this.refreshFlatCheckItems()
-    this.rebuildSections()
-    this.onExternalRerender?.()
-    try {
-      const annotations = await getPrCheckAnnotations(
-        this.prInfo.owner,
-        this.prInfo.repo,
-        check.id,
-      )
-      check.annotations = annotations
-      check.annotationsStatus = "loaded"
-    } catch {
-      check.annotationsStatus = "error"
-    }
-    this.refreshFlatCheckItems()
-    this.rebuildSections()
-    this.onExternalRerender?.()
+  /** Where a failing check opened for the first time asks for its annotations. */
+  setOnOpenFailingCheck(cb: ((check: PrCheck) => void) | null): void {
+    this.onOpenFailingCheck = cb
   }
 
-  /**
-   * Allow the outer app to register a callback so async state transitions
-   * inside the panel (annotation fetches) trigger a full app re-render.
-   */
-  setOnExternalRerender(cb: (() => void) | null): void {
-    this.onExternalRerender = cb
+  /** A check's annotations moved on — loading, loaded or failed — and its rows follow. */
+  checksChanged(): void {
+    this.refreshFlatCheckItems()
+    if (this.activeSection === 'checks') {
+      this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    }
+    this.rebuildSections()
   }
 
   /**

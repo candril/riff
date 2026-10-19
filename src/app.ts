@@ -7,7 +7,7 @@ import { commentsWithRows } from "./utils/notes"
 import { collapseViewedFiles, loadFileStatuses, toggleSplitView } from "./state"
 import { getCurrentRepo } from "./providers/github"
 import { loadComments, loadOrCreateSession, loadViewedStatuses } from "./storage"
-import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo } from "./providers/github"
+import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo, getPrCheckAnnotations } from "./providers/github"
 import {
   setFileContentLoading,
   setFileContent,
@@ -87,6 +87,7 @@ import { createKeyHandler } from "./app/global-keys"
 import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
+import { loadCheckAnnotations } from "./features/pr-info-panel/check-annotations"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
@@ -191,7 +192,19 @@ export async function createApp(options: AppOptions = {}) {
 
   /** Hooks a panel instance — the first or a replacement — up to the app. */
   function wirePrInfoPanel(panel: PRInfoPanelClass): void {
-    panel.setOnExternalRerender(() => render())
+    panel.setOnOpenFailingCheck((check) => {
+      if (!state.prInfo) return
+      const { owner, repo } = state.prInfo
+      void loadCheckAnnotations(
+        check,
+        () => getPrCheckAnnotations(owner, repo, check.id),
+        () => {
+          if (prInfoPanel !== panel) return
+          panel.checksChanged()
+          render()
+        }
+      )
+    })
     panel.setOnFilterChange((value) => {
       state = setViewFilter(state, value)
       render()
