@@ -59,6 +59,7 @@ import {
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
 import { commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
+import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -144,6 +145,12 @@ interface ItemRowRefs {
   container: BoxRenderable
   primary: TextRenderable
   secondary?: TextRenderable
+}
+
+type ListSection = 'previews' | 'files' | 'commits'
+
+function isListSection(section: PRInfoPanelSection): section is ListSection {
+  return section === 'previews' || section === 'files' || section === 'commits'
 }
 
 /** The description's cursor row: the background every other selected row has. */
@@ -235,6 +242,10 @@ export class PRInfoPanelClass {
   
   // Item row refs for cursor updates
   private itemRows: Map<PRInfoPanelSection, ItemRowRefs[]> = new Map()
+
+  // Made the first time their section opens, and mounted into each rebuild's
+  // section box from then on.
+  private listIslands: Map<ListSection, PrInfoListIsland> = new Map()
 
   // Flash labels by row id, while `s` is labelling (spec 066), and the
   // header texts they are painted onto.
@@ -450,6 +461,7 @@ export class PRInfoPanelClass {
     if (this.cursorIndex >= 0) {
       this.updateItemRow(this.activeSection, this.cursorIndex, true)
     }
+    this.pushListRows(this.activeSection)
 
     // Section header highlight only changes when the cursor crosses
     // the header / item boundary — skip the rebuild otherwise so j/k
@@ -516,7 +528,9 @@ export class PRInfoPanelClass {
       if (!box || box.height === 0) return null
       return { y: box.y + Math.min(this.cursorIndex, box.height - 1), height: 1 }
     }
-    const row = this.itemRows.get(this.activeSection)?.[this.cursorIndex]?.container
+    const row = isListSection(this.activeSection)
+      ? this.listIslands.get(this.activeSection)?.rowAt(this.cursorIndex)
+      : this.itemRows.get(this.activeSection)?.[this.cursorIndex]?.container
     return row ? { y: row.y, height: Math.max(1, row.height) } : null
   }
 
@@ -965,13 +979,6 @@ export class PRInfoPanelClass {
     
     // Update colors based on section type
     switch (section) {
-      case 'commits':
-        row.primary.fg = selected ? theme.peach : theme.yellow
-        if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
-        break
-      case 'files':
-        row.primary.fg = selected ? theme.text : theme.subtext1
-        break
       case 'conversation':
         row.primary.fg = selected ? theme.blue : theme.sapphire
         if (row.secondary) row.secondary.fg = selected ? theme.text : theme.subtext1
@@ -1276,7 +1283,9 @@ export class PRInfoPanelClass {
         this.buildDescriptionContent(contentBox)
         break
       case 'previews':
-        this.buildPreviewsContent(contentBox, isActive)
+      case 'files':
+      case 'commits':
+        contentBox.add(this.listIsland(section, isActive).host)
         break
       case 'checks':
         this.buildChecksContent(contentBox, isActive)
@@ -1284,15 +1293,38 @@ export class PRInfoPanelClass {
       case 'conversation':
         this.buildConversationContent(contentBox, isActive)
         break
-      case 'files':
-        this.buildFilesContent(contentBox, isActive)
-        break
-      case 'commits':
-        this.buildCommitsContent(contentBox, isActive)
-        break
     }
     
     container.add(contentBox)
+  }
+
+  /** The section's island, made on first use, holding the rows as they are now. */
+  private listIsland(section: ListSection, isActive: boolean): PrInfoListIsland {
+    let island = this.listIslands.get(section)
+    if (!island) {
+      island = createPrInfoListIsland(this.renderer, { id: `pr-info-${section}` })
+      this.listIslands.set(section, island)
+    }
+    island.update(this.listRows(section, isActive))
+    return island
+  }
+
+  /** A cursor move inside a list section restyles its rows without a rebuild. */
+  private pushListRows(section: PRInfoPanelSection): void {
+    if (!isListSection(section)) return
+    this.listIslands.get(section)?.update(this.listRows(section, section === this.activeSection))
+  }
+
+  private listRows(section: ListSection, isActive: boolean): ListRows {
+    const input = { selected: isActive ? this.cursorIndex : -1, labels: this.flashLabels }
+    switch (section) {
+      case 'previews':
+        return previewRows(this.visiblePreviews, input)
+      case 'files':
+        return fileRows(this.visibleFiles, { ...input, listWidth: getListItemWidth() })
+      case 'commits':
+        return commitRows(this.visibleCommits, { ...input, terminalWidth: getTerminalWidth() })
+    }
   }
 
   /**
@@ -2070,53 +2102,6 @@ export class PRInfoPanelClass {
     }
   }
 
-  private listSelection(isActive: boolean): number {
-    return isActive ? this.cursorIndex : -1
-  }
-
-  private buildPreviewsContent(container: BoxRenderable, isActive: boolean): void {
-    const list = previewRows(this.visiblePreviews, { selected: this.listSelection(isActive), labels: this.flashLabels })
-    this.itemRows.set('previews', this.buildListRows(container, list).map(({ box, texts }) => ({ container: box, primary: texts[0]! })))
-  }
-
-  private buildFilesContent(container: BoxRenderable, isActive: boolean): void {
-    const list = fileRows(this.visibleFiles, {
-      selected: this.listSelection(isActive),
-      listWidth: getListItemWidth(),
-      labels: this.flashLabels,
-    })
-    this.itemRows.set('files', this.buildListRows(container, list).map(({ box, texts }) => ({ container: box, primary: texts[0]! })))
-  }
-
-  private buildCommitsContent(container: BoxRenderable, isActive: boolean): void {
-    const list = commitRows(this.visibleCommits, {
-      selected: this.listSelection(isActive),
-      terminalWidth: getTerminalWidth(),
-      labels: this.flashLabels,
-    })
-    this.itemRows.set('commits', this.buildListRows(container, list).map(({ box, texts }) => ({
-      container: box,
-      primary: texts[1]!,
-      secondary: texts[2],
-    })))
-  }
-
-  private buildListRows(container: BoxRenderable, list: ListRows): { box: BoxRenderable; texts: TextRenderable[] }[] {
-    const built = list.rows.map((row) => {
-      const box = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: row.selected ? theme.surface0 : undefined,
-      })
-      const texts = row.segments.map((segment) => new TextRenderable(this.renderer, { content: segment.text, fg: segment.fg }))
-      for (const text of texts) box.add(text)
-      container.add(box)
-      return { box, texts }
-    })
-    if (list.note) container.add(new TextRenderable(this.renderer, { content: list.note, fg: theme.overlay0 }))
-    return built
-  }
-
   /**
    * Build the panel
    */
@@ -2345,6 +2330,8 @@ export class PRInfoPanelClass {
    */
   destroy(): void {
     this.bodies.destroy()
+    for (const island of this.listIslands.values()) island.dispose()
+    this.listIslands.clear()
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }
