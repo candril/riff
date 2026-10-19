@@ -1,7 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
-import { FileTreePanel } from "./FileTreePanel"
+import { createFileTreeIsland, type FileTreeIsland } from "../app/file-tree"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion, type FileTreeNode } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
@@ -69,9 +69,6 @@ interface TreeState {
   changedSinceVisit: Set<string>
 }
 
-const NOTHING_IGNORED = new Set<string>()
-const NOTHING_COLLAPSED = new Set<string>()
-
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 /** The panel as app.ts refreshFileTreePanel feeds it, with `state` over a fresh tree. */
@@ -89,35 +86,24 @@ async function mountTree(state: Partial<TreeState> = {}) {
     changedSinceVisit: new Set(),
     ...state,
   }
-  let panel!: FileTreePanel
+  let tree!: FileTreeIsland
   mounted = await mountRenderable((renderer) => {
-    panel = new FileTreePanel({ renderer, width: 35 })
-    return panel.getContainer()
+    tree = createFileTreeIsland(renderer, { width: 35 })
+    return tree.host
   }, { width: 35, height: 12 })
-
-  // The app pushes state on every render. A push that changes the tree's
-  // structure rebuilds the rows without the since-last-visit marks, and only
-  // the next one draws them, so one push would pin a frame the user never
-  // sees for longer than a render.
-  for (let push = 0; push < 2; push++) {
-    panel.update(
-      FILES,
-      s.fileTree,
-      s.treeHighlightIndex,
-      s.selectedFileIndex,
-      s.focused,
-      s.fileStatuses,
-      NOTHING_COLLAPSED,
-      NOTHING_IGNORED,
-      false,
-      s.multiSelectedFilenames,
-      s.treeFilter,
-      s.treeFilterInput,
-      new Map(),
-      s.unseenFiles,
-      s.changedSinceVisit
-    )
-  }
+  tree.update({
+    files: FILES,
+    fileTree: s.fileTree,
+    highlightIndex: s.treeHighlightIndex,
+    selectedFileIndex: s.selectedFileIndex,
+    focused: s.focused,
+    fileStatuses: s.fileStatuses,
+    multiSelectedFilenames: s.multiSelectedFilenames,
+    treeFilter: s.treeFilter,
+    treeFilterInput: s.treeFilterInput,
+    unseenFiles: s.unseenFiles,
+    changedSinceVisit: s.changedSinceVisit,
+  })
   const text = await mounted.frame()
   return { text, rows: text.split("\n"), spans: mounted.setup.captureSpans() }
 }

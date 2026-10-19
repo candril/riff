@@ -6,7 +6,7 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
-import type { FileTreePanel } from "../../components/FileTreePanel"
+import type { FileTreeIsland } from "../../app/file-tree"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
   startTreeFilter,
@@ -29,7 +29,7 @@ export interface FileTreeInputContext {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   // File tree panel instance
-  getPanel: () => FileTreePanel
+  getPanel: () => FileTreeIsland
   // Update panel after state change
   updatePanel: () => void
   // Called after file selection to reset vim state

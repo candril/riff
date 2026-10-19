@@ -1,5 +1,5 @@
 import { createTestRenderer } from "@opentui/core/testing"
-import { FileTreePanel } from "../components/FileTreePanel"
+import { createFileTreeIsland } from "../app/file-tree"
 import { createInitialState, type AppState } from "../state"
 import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
@@ -50,7 +50,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const searchState = createSearchState()
   const flashState = createFlashState()
   let mapping = buildLineMapping(state)
-  const fileTreePanel = new FileTreePanel({ renderer, width: 35 })
+  const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   let render = () => {}
   const highlights = createDiffHighlights(parses, () => render(), async () => null)
@@ -97,7 +97,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host
   const shell = createAppShell(renderer, {
     header: chrome.header.host,
-    tree: fileTreePanel.getContainer(),
+    tree: fileTreePanel.host,
     searchPrompt: chrome.searchPrompt.host,
     statusBar: chrome.statusBar.host,
     flashPrompt: chrome.flashPrompt.host,
@@ -122,17 +122,16 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     unified,
     parses,
     updateFileTreePanel() {
-      fileTreePanel.update(
-        state.files,
-        state.fileTree,
-        state.treeHighlightIndex,
-        state.selectedFileIndex,
-        state.focusedPanel === "tree",
-        state.fileStatuses,
-        state.collapsedFiles,
-        state.ignoredFiles,
-        state.showHiddenFiles
-      )
+      fileTreePanel.update({
+        files: state.files,
+        fileTree: state.fileTree,
+        highlightIndex: state.treeHighlightIndex,
+        selectedFileIndex: state.selectedFileIndex,
+        focused: state.focusedPanel === "tree",
+        fileStatuses: state.fileStatuses,
+        ignoredFiles: state.ignoredFiles,
+        showHiddenFiles: state.showHiddenFiles,
+      })
       fileTreePanel.visible = state.showFilePanel
     },
     updateSearchPattern() {},

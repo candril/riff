@@ -1,7 +1,7 @@
 import { test, expect, afterEach, describe } from "bun:test"
 import { BoxRenderable, TextRenderable, instantiate, type CliRenderer, type Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import { FileTreePanel } from "../components/FileTreePanel"
+import { createFileTreeIsland, type FileTreeIsland } from "./file-tree"
 import { InlineCommentOverlay } from "../components/InlineCommentOverlay"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import { bgAt, ints } from "../testing/frame"
@@ -138,16 +138,16 @@ describe("the thread panel docked in the content row", () => {
   test("at 80 columns beside the tree the diff has no room left, and the panel gives up what it must to stay whole on screen", async () => {
     const width = 80
     const panelWidth = commentPanelWidth(width, false)
-    let tree: FileTreePanel | null = null
+    let tree: FileTreeIsland | null = null
     const { setup, frame, threadPanel } = await mountDocked(width, {
       withPanel: true,
-      tree: (renderer) => (tree = new FileTreePanel({ renderer, width: 35 })).getContainer(),
+      tree: (renderer) => (tree = createFileTreeIsland(renderer, { width: 35 })).host,
     })
-    disposers.unshift(() => tree!.getContainer().destroyRecursively())
+    disposers.unshift(() => tree!.dispose())
     const rows = await frame()
     expect(panelWidth).toBe(48)
     expect(rows[0]!.slice(2, 7)).toBe("Files")
-    const treeLastColumn = tree!.getContainer().x + tree!.getContainer().width - 1
+    const treeLastColumn = tree!.host.x + tree!.host.width - 1
     expect(treeLastColumn).toBe(34)
     expect(threadPanel!.x).toBe(treeLastColumn + 1)
     expect(threadPanel!.width).toBe(width - 35)
@@ -160,15 +160,15 @@ describe("the thread panel docked in the content row", () => {
       const setup = await createTestRenderer({ width, height: 8 })
       disposers.push(() => setup.renderer.destroy())
       const renderer = setup.renderer
-      const tree = new FileTreePanel({ renderer, width: 35 })
-      disposers.unshift(() => tree.getContainer().destroyRecursively())
-      const shell = bareShell(renderer, tree.getContainer())
+      const tree = createFileTreeIsland(renderer, { width: 35 })
+      disposers.unshift(() => tree.dispose())
+      const shell = bareShell(renderer, tree.host)
       shell.setView(keepAlive(new TextRenderable(renderer, { content: "x" })), { withTree: true })
       const threadPanel = panel(renderer, panelWidth)
       shell.setThreadPanel(threadPanel)
       await setup.renderOnce()
       await setup.renderOnce()
-      expect(tree.getContainer().width).toBe(35)
+      expect(tree.host.width).toBe(35)
       expect(threadPanel.x).toBe(35)
       expect(threadPanel.width).toBe(width - 35)
     })
@@ -182,8 +182,8 @@ test("the error and an empty diff keep clear of the open panel, with the tree hi
   const setup = await createTestRenderer({ width, height })
   disposers.push(() => setup.renderer.destroy())
   const renderer = setup.renderer
-  const tree = new FileTreePanel({ renderer, width: 35 })
-  const shell = bareShell(renderer, tree.getContainer())
+  const tree = createFileTreeIsland(renderer, { width: 35 })
+  const shell = bareShell(renderer, tree.host)
   shell.setView(keepAlive(new TextRenderable(renderer, { content: "x".repeat(width) })), { withTree: false })
   shell.setThreadPanel(panel(renderer, panelWidth))
   await setup.renderOnce()

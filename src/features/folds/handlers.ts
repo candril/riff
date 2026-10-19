@@ -7,7 +7,7 @@
 import type { AppState } from "../../state"
 import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { FileTreePanel } from "../../components/FileTreePanel"
+import type { FileTreeIsland } from "../../app/file-tree"
 import { getVisibleFlatTreeItems } from "../../components"
 import {
   updateFileTree,
@@ -31,7 +31,7 @@ export interface FoldsContext {
   getLineMapping: () => DiffLineMapping
   rebuildLineMapping: () => void
   // Panels
-  getFileTreePanel: () => FileTreePanel
+  getFileTreePanel: () => FileTreeIsland
   getCursorView: () => CursorView
   // Update helpers
   updateFileTreePanel: () => void

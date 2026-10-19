@@ -227,8 +227,6 @@ interface DirViewedStatus {
   allViewed: boolean
   anyViewed: boolean
   anyStale: boolean
-  totalFiles: number
-  viewedFiles: number
 }
 
 /**
@@ -261,8 +259,6 @@ function computeDirViewedStatusForFiles(
     allViewed: filesInDir.length > 0 && viewedCount === filesInDir.length,
     anyViewed: viewedCount > 0,
     anyStale: staleCount > 0,
-    totalFiles: filesInDir.length,
-    viewedFiles: viewedCount,
   }
 }
 

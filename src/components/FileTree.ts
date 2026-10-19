@@ -13,7 +13,7 @@ export function getFlatTreeItems(
   return flattenTree(fileTree, files)
 }
 
-/** The rows FileTreePanel draws, for navigation to index into. */
+/** The rows the file tree island draws, for navigation to index into. */
 export function getVisibleFlatTreeItems(
   fileTree: FileTreeNode[],
   files: DiffFile[],
@@ -22,11 +22,4 @@ export function getVisibleFlatTreeItems(
   treeFilter = ""
 ): FlatTreeItem[] {
   return visibleTreeItems(fileTree, files, ignoredFiles, showHiddenFiles, treeFilter)
-}
-
-/**
- * Get a reference to the file tree scroll box for programmatic scrolling
- */
-export function getFileTreeScrollBox(renderer: { root: { findDescendantById: (id: string) => unknown } }): import("@opentui/core").ScrollBoxRenderable | null {
-  return renderer.root.findDescendantById("file-tree-scroll") as import("@opentui/core").ScrollBoxRenderable | null
 }

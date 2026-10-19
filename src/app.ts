@@ -430,23 +430,22 @@ export async function createApp(options: AppOptions = {}) {
 
   /** Push the current state into the tree panel. */
   function refreshFileTreePanel(): void {
-    fileTreePanel.update(
-      state.files,
-      state.fileTree,
-      state.treeHighlightIndex,
-      state.selectedFileIndex,
-      state.focusedPanel === "tree",
-      state.fileStatuses,
-      state.collapsedFiles,
-      state.ignoredFiles,
-      state.showHiddenFiles,
-      aiReview.getTreeMultiSelectionFilenames(state),
-      state.treeFilter,
-      state.treeFilterInput,
-      flashLabelsOn(flashState, "tree"),
-      filesWithUnseenComments(state),
-      state.filesChangedSinceVisit
-    )
+    fileTreePanel.update({
+      files: state.files,
+      fileTree: state.fileTree,
+      highlightIndex: state.treeHighlightIndex,
+      selectedFileIndex: state.selectedFileIndex,
+      focused: state.focusedPanel === "tree",
+      fileStatuses: state.fileStatuses,
+      ignoredFiles: state.ignoredFiles,
+      showHiddenFiles: state.showHiddenFiles,
+      multiSelectedFilenames: aiReview.getTreeMultiSelectionFilenames(state),
+      treeFilter: state.treeFilter,
+      treeFilterInput: state.treeFilterInput,
+      flashLabels: flashLabelsOn(flashState, "tree"),
+      unseenFiles: filesWithUnseenComments(state),
+      changedSinceVisit: state.filesChangedSinceVisit,
+    })
   }
 
   function updateFileTreePanel() {
@@ -565,7 +564,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const shell = createAppShell(renderer, {
     header: header.host,
-    tree: fileTreePanel.getContainer(),
+    tree: fileTreePanel.host,
     searchPrompt: searchPrompt.host,
     statusBar: statusBar.host,
     flashPrompt: flashPrompt.host,

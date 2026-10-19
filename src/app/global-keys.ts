@@ -24,7 +24,7 @@ import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
 import { handleHelpKey } from "./help-keys"
 import type { PRInfoPanelClass } from "../components"
-import type { FileTreePanel } from "../components/FileTreePanel"
+import type { FileTreeIsland } from "./file-tree"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/InlineCommentOverlay"
@@ -79,7 +79,7 @@ export interface GlobalKeyContext {
   // UI
   renderer: { console: { toggle: () => void }; height: number }
   cursorView: DiffViewport
-  fileTreePanel: FileTreePanel
+  fileTreePanel: FileTreeIsland
   getPrInfoPanel: () => PRInfoPanelClass | null
   // Vim handlers
   vimHandler: VimMotionHandler

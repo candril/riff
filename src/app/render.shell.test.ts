@@ -47,7 +47,7 @@ test("two passes leave every piece of the layout the same instance", async () =>
     view: viewSlotChild(app.ctx.shell.root),
     header: app.ctx.header.host.parent,
     status: app.ctx.statusBar.host.parent,
-    tree: app.fileTreePanel.getContainer().parent,
+    tree: app.fileTreePanel.host.parent,
   }
   app.show({ showHelp: true })
   app.show({ showHelp: false })
@@ -57,7 +57,7 @@ test("two passes leave every piece of the layout the same instance", async () =>
   expect(first.view).toBe(app.ctx.unified.island.host)
   expect(app.ctx.header.host.parent).toBe(first.header!)
   expect(app.ctx.statusBar.host.parent).toBe(first.status!)
-  expect(app.fileTreePanel.getContainer().parent).toBe(first.tree!)
+  expect(app.fileTreePanel.host.parent).toBe(first.tree!)
   expect(app.ctx.header.host.isDestroyed).toBe(false)
 })
 

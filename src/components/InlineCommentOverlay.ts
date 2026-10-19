@@ -266,7 +266,7 @@ function renderHintRow(hints: Hint[]) {
  * Note this is thread-granular: navigating *within* a very tall thread
  * (many replies) doesn't re-scroll, so a deep reply in an oversized
  * thread can fall below the fold. Pixel-accurate scroll-off would need a
- * persistent panel that reads real layout offsets (cf. FileTreePanel).
+ * persistent panel that reads real layout offsets (cf. the file tree island).
  */
 const WINDOW_LEAD = 2
 
@@ -544,7 +544,7 @@ export function InlineCommentOverlay({
       paddingX: 1,
       overflow: "hidden",
     },
-    // Header — file + comment count. Mirrors FileTreePanel: 1-row tall,
+    // Header — file + comment count. Mirrors the file tree header: 1-row tall,
     // single-column padding, mantle background. Focus is signalled by
     // the header text's colour alone.
     Box(
@@ -813,7 +813,7 @@ export function InlineCommentOverlay({
 
     // View-mode key hints, a different set focused vs unfocused so the
     // user always knows the next move; 1-row tall to match the header and
-    // FileTreePanel's tight shell. While composing the row is not drawn:
+    // the file tree's tight shell. While composing the row is not drawn:
     // the composer's keys would not fit the panel's width, so they are
     // listed in the help overlay (g?) and the row goes to the threads.
     isComposing

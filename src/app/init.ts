@@ -8,7 +8,7 @@
 import { createCliRenderer } from "@opentui/core"
 import { registerSyntaxParsers } from "../syntax-parsers"
 import { PRInfoPanelClass } from "../components"
-import { FileTreePanel } from "../components/FileTreePanel"
+import { createFileTreeIsland, type FileTreeIsland } from "./file-tree"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree, filteredFilenames, collapseTree, expandToFile } from "../utils/file-tree"
@@ -58,7 +58,7 @@ export interface InitResult {
   headSha: string
   // Renderer and UI panels
   renderer: Awaited<ReturnType<typeof createCliRenderer>>
-  fileTreePanel: FileTreePanel
+  fileTreePanel: FileTreeIsland
 }
 
 /**
@@ -276,7 +276,7 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
  */
 export async function initializeRenderer(): Promise<{
   renderer: Awaited<ReturnType<typeof createCliRenderer>>
-  fileTreePanel: FileTreePanel
+  fileTreePanel: FileTreeIsland
   parses: FileParses
 }> {
   // Register additional syntax highlighting parsers
@@ -290,7 +290,7 @@ export async function initializeRenderer(): Promise<{
     exitOnCtrlC: true,
   })
 
-  const fileTreePanel = new FileTreePanel({ renderer, width: 35 })
+  const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses()
 
   return { renderer, fileTreePanel, parses }
