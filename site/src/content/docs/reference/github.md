@@ -78,7 +78,7 @@ review.
 | `gi` / `i` | PR overview |
 | `a` / `d` | The feed / the diff |
 | `go` | Open the PR in a browser |
-| `gB` | Open the PR in riff board, at the [`board.url`](/riff/reference/configuration/#board) you configured |
+| `gB` | Open the PR in riff board, at the [`board.url`](/riff/reference/configuration/#board) you configured; from the diff, at the file and line under the cursor |
 | `gy` | Copy the PR URL |
 | `gY` | Copy a permalink to the selection, the line, or the file |
 | `gP` | Edit the PR title and body in `$EDITOR` |

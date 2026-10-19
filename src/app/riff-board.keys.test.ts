@@ -2,10 +2,13 @@ import { test, expect, afterEach } from "bun:test"
 import { KeyEvent } from "@opentui/core"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 import { mountApp } from "../testing/app-render"
+import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { openPrInBoard } from "../features/riff-board"
+import { handleInput as prInfoPanelInput, type PRInfoPanelInputContext } from "../features/pr-info-panel/input"
+import { prInfo } from "../testing/pr-info"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -42,6 +45,8 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     executeAction: executeAction as GlobalKeyContext["executeAction"],
     // An unbound chord falls through to the diff's vim keys; swallowing it there keeps plain gb inert.
     vimHandler: { handleKey: () => true } as unknown as GlobalKeyContext["vimHandler"],
+    // The review preview reads who you are on every key once a PR is loaded.
+    reviewPreviewOpenContext: { getCachedCurrentUser: () => null } as unknown as GlobalKeyContext["reviewPreviewOpenContext"],
   }
   const ctx = new Proxy(known, {
     get(target, name) {
@@ -96,10 +101,52 @@ test("gB outside a PR leaves the browser alone and says riff board is for PRs", 
       render: () => { if (!mounted.setup.renderer.isDestroyed) mounted.render() },
       openUrl: (url) => { opened.push(url); return true },
       boardUrl: "http://localhost:4477",
+      location: () => {
+        throw new Error("asked where the reader is with no PR to open")
+      },
     })
   })
 
   await app.setup.mockInput.typeText("gB")
   expect(await app.frame()).toContain("riff board opens GitHub PRs only")
   expect(opened).toEqual([])
+})
+
+/** A key as a terminal reports it; the mock renderer cannot send an uppercase name with shift. */
+function key(name: string, shift = false): KeyEvent {
+  return new KeyEvent({
+    name, sequence: shift ? name.toUpperCase() : name, raw: name, shift,
+    ctrl: false, meta: false, option: false, number: false, eventType: "press", source: "raw",
+  })
+}
+
+test("gB in the feed dispatches the same open-in-board as everywhere else", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  app.show({ appMode: "pr", prInfo: prInfo(""), viewMode: "feed" })
+  const dispatched: string[] = []
+  keysOn(app, (id) => { dispatched.push(id) })
+
+  await app.setup.mockInput.typeText("gB")
+  expect(dispatched).toEqual(["open-in-board"])
+  await app.frame()
+})
+
+test("gB in the overview dispatches open-in-board, whichever case shift+b arrives in, and plain gb does nothing", () => {
+  const dispatched: string[] = []
+  let state: AppState = { ...createInitialState([], [], "test", ""), viewMode: "state" }
+  const ctx: PRInfoPanelInputContext = {
+    get state() { return state },
+    setState: (fn) => { state = fn(state) },
+    render() {},
+    getPanel: () => null,
+    executeAction: (id) => { dispatched.push(id) },
+  }
+  const type = (...keys: KeyEvent[]) => { for (const k of keys) prInfoPanelInput(k, ctx) }
+
+  type(key("g"), key("B", true))
+  expect(dispatched).toEqual(["open-in-board"])
+  type(key("g"), key("b", true))
+  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
+  type(key("g"), key("b"))
+  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
 })

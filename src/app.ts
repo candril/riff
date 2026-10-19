@@ -97,7 +97,7 @@ import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import * as aiReview from "./features/ai-review"
 import * as permalink from "./features/permalink"
-import { openPrInBoard } from "./features/riff-board"
+import { boardLocation, openPrInBoard } from "./features/riff-board"
 import { startMentionPrefetch } from "./features/mentions"
 import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
@@ -1142,6 +1142,7 @@ export async function createApp(options: AppOptions = {}) {
         render,
         openUrl,
         boardUrl: loadConfig().board.url,
+        location: () => boardLocation(state, permalink.diffTargetAt(permalinkContext)),
       }),
     handleOpenFileInEditor: () => externalTools.handleOpenFileInEditor(externalToolsContext),
     handleDiffFileInEditor: (opts) => externalTools.handleDiffFileInEditor(externalToolsContext, opts),

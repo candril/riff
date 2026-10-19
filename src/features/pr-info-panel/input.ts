@@ -225,6 +225,13 @@ function handleInputInner(
       case "y":
         ctx.executeAction?.("copy-pr-url")
         return true
+      // Terminals differ in whether shift+b reports its name as `B` or `b`.
+      case "B":
+        ctx.executeAction?.("open-in-board")
+        return true
+      case "b":
+        if (key.shift) ctx.executeAction?.("open-in-board")
+        return true
       case "x":
       case "X":
         // The links in the view — a rendered body has no column to put a

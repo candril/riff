@@ -4,6 +4,7 @@
  */
 
 import { showToast, clearToast, type AppState } from "../../state"
+import type { DiffTarget } from "../permalink"
 
 export interface BoardPr {
   owner: string
@@ -11,8 +12,44 @@ export interface BoardPr {
   number: number
 }
 
-export function boardPrUrl(base: string, pr: BoardPr): string {
-  return `${base.replace(/\/+$/, "")}/pr/${pr.owner}/${pr.repo}/${pr.number}`
+/**
+ * Where in the PR the reader is. A removed line has no new-side number, so
+ * it is sent by its old-side one and says so.
+ */
+export interface BoardLocation {
+  file: string
+  line?: number
+  side?: "old"
+}
+
+/**
+ * The query is extra: a board that does not read it still lands on the PR,
+ * so the path stays the same with or without one. encodeURIComponent rather
+ * than URLSearchParams, which would write a space as `+`.
+ */
+export function boardPrUrl(base: string, pr: BoardPr, location?: BoardLocation | null): string {
+  const path = `${base.replace(/\/+$/, "")}/pr/${pr.owner}/${pr.repo}/${pr.number}`
+  if (!location) return path
+  let query = `?file=${encodeURIComponent(location.file)}`
+  if (location.line !== undefined) query += `&line=${location.line}`
+  if (location.line !== undefined && location.side) query += `&side=${location.side}`
+  return path + query
+}
+
+/**
+ * Only the diff and the file tree point at a file; the overview, the feed
+ * and the thread panel are about the PR as a whole. The view is checked
+ * before the target because the permalink resolver hands back a file in any
+ * view.
+ */
+export function boardLocation(state: AppState, target: DiffTarget | null): BoardLocation | null {
+  if (state.viewMode !== "diff" || !target) return null
+  if (state.focusedPanel === "tree") return { file: target.filename }
+  if (state.focusedPanel !== "diff") return null
+  if (target.line === undefined) return { file: target.filename }
+  return target.side === "LEFT"
+    ? { file: target.filename, line: target.line, side: "old" }
+    : { file: target.filename, line: target.line }
 }
 
 export interface RiffBoardContext {
@@ -21,6 +58,7 @@ export interface RiffBoardContext {
   render: () => void
   openUrl: (url: string) => boolean
   boardUrl: string
+  location: () => BoardLocation | null
 }
 
 /**
@@ -34,7 +72,7 @@ export function openPrInBoard(ctx: RiffBoardContext): void {
     flash(ctx, (s) => showToast(s, "riff board opens GitHub PRs only", "info"))
     return
   }
-  const url = boardPrUrl(ctx.boardUrl, prInfo)
+  const url = boardPrUrl(ctx.boardUrl, prInfo, ctx.location())
   if (!ctx.openUrl(url)) {
     flash(ctx, (s) => showToast(s, `Could not open riff board: ${url}`, "error"))
   }

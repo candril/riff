@@ -10,6 +10,8 @@ export {
   handleCopyPrDiffLink,
   handleCopyCommentLink,
   detectPermalinkScope,
+  diffTargetAt,
+  type DiffTarget,
   type PermalinkContext,
   type PermalinkScope,
 } from "./handlers"

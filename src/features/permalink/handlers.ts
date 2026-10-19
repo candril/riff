@@ -125,7 +125,7 @@ export async function handleCopyPrDiffLink(ctx: PermalinkContext): Promise<void>
     return
   }
 
-  const target = resolveDiffTarget(ctx)
+  const target = diffTargetAt(ctx)
   if (!target) {
     toast(ctx, "No file under the cursor", "info")
     return
@@ -212,7 +212,7 @@ function commentAtCursor(ctx: PermalinkContext): Comment | null {
   return onLine[0] ?? null
 }
 
-interface DiffTarget {
+export interface DiffTarget {
   filename: string
   line?: number
   side?: "LEFT" | "RIGHT"
@@ -226,7 +226,7 @@ interface DiffTarget {
  * A selection lands on its first line: GitHub's diff rows have no range
  * anchor to point at.
  */
-function resolveDiffTarget(ctx: PermalinkContext): DiffTarget | null {
+export function diffTargetAt(ctx: PermalinkContext): DiffTarget | null {
   const state = ctx.getState()
   const fileOnly = resolveTarget(ctx, false)
   if (!fileOnly) return null
