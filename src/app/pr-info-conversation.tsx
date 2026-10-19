@@ -1,7 +1,8 @@
 import type { CliRenderer, Renderable } from "@opentui/core"
 import { batch } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { PRInfoConversationView, type ConversationMarkdown } from "../components/PRInfoConversationView"
+import { PRInfoConversationView } from "../components/PRInfoConversationView"
+import type { PanelMarkdownStyle } from "../components/PanelMarkdown"
 import type { ConversationRows } from "../components/pr-info-conversation-rows"
 import { softenCommentHtml } from "../utils/comment-html"
 import { withReferences } from "../components/with-references"
@@ -40,7 +41,7 @@ function asDrawn(model: ConversationRows): ConversationRows {
  */
 export function createPrInfoConversationIsland(
   renderer: CliRenderer,
-  { id, markdown }: { id?: string; markdown: ConversationMarkdown }
+  { id, markdown }: { id?: string; markdown: PanelMarkdownStyle }
 ) {
   const [state, setState] = createStore({ model: empty() })
   const headers = new Map<string, Renderable>()

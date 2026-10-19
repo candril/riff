@@ -1,12 +1,9 @@
-import { MarkdownRenderable, type Renderable } from "@opentui/core"
-import { useRenderer } from "@opentui/solid"
-import { createEffect, For, Match, Show, Switch } from "solid-js"
+import type { Renderable } from "@opentui/core"
+import { For, Match, Show, Switch } from "solid-js"
 import { colors, theme } from "../theme"
-import type { Segment } from "./pr-info-conversation-parts"
+import { PanelMarkdown, Pills, type PanelMarkdownStyle } from "./PanelMarkdown"
 import type { BodyPart, ConversationRow, ConversationRows, HeaderSegment } from "./pr-info-conversation-rows"
 
-/** How the panel draws markdown: its table renderer and its syntax colours. */
-export type ConversationMarkdown = Pick<ConstructorParameters<typeof MarkdownRenderable>[1], "renderNode" | "syntaxStyle">
 type Item = Extract<ConversationRow, { kind: "item" }>
 type Reviewers = Extract<ConversationRow, { kind: "reviewers" }>
 type Part<K extends BodyPart["kind"]> = Extract<BodyPart, { kind: K }>
@@ -20,7 +17,7 @@ type OnRow = ((key: string, header: Renderable) => void) | undefined
  */
 export function PRInfoConversationView(props: {
   model: ConversationRows
-  markdown: ConversationMarkdown
+  markdown: PanelMarkdownStyle
   onRow?: OnRow
 }) {
   return (
@@ -42,7 +39,7 @@ export function PRInfoConversationView(props: {
   )
 }
 
-function ItemRow(props: { row: Item; markdown: ConversationMarkdown; onRow: OnRow }) {
+function ItemRow(props: { row: Item; markdown: PanelMarkdownStyle; onRow: OnRow }) {
   return (
     <>
       <box
@@ -107,7 +104,7 @@ function Cell(props: { segment: HeaderSegment }) {
   )
 }
 
-function BodyPartView(props: { part: BodyPart; markdown: ConversationMarkdown }) {
+function BodyPartView(props: { part: BodyPart; markdown: PanelMarkdownStyle }) {
   return (
     <Switch>
       <Match when={props.part.kind === "hunk" && props.part}>
@@ -135,48 +132,14 @@ function Hunk(props: { part: Part<"hunk"> }) {
 }
 
 /**
- * The model's text is the markdown as drawn. The pictures it carried are
- * named under it: the panel cannot draw them, and Enter opens the item on
- * github.com, where they can be looked at.
- *
- * The body is built here, with its style in its constructor, rather than as
- * a `<markdown>` element: Solid hands an element its props after it is
- * made, and in OpenTUI 0.6.0 a syntax style set after construction, on a
- * body with a renderNode, redraws its list items empty until the
- * highlighter answers — a frame or more of bullets with no words.
+ * The pictures the body carried are named under it: the panel cannot draw
+ * them, and Enter opens the item on github.com, where they can be looked at.
  */
-function MarkdownBody(props: { part: Part<"markdown">; markdown: ConversationMarkdown }) {
-  const body = new MarkdownRenderable(useRenderer(), {
-    ...props.markdown,
-    id: props.part.id,
-    content: props.part.text,
-    // Nothing streams here — but streaming is what makes OpenTUI lay the
-    // text down from the markdown tokens up front instead of waiting on the
-    // highlighter, so the first frame a body appears on is the frame it
-    // reads on.
-    streaming: true,
-  })
-  createEffect(() => {
-    body.content = props.part.text
-  })
+function MarkdownBody(props: { part: Part<"markdown">; markdown: PanelMarkdownStyle }) {
   return (
     <box flexDirection="column" paddingLeft={props.part.indent} paddingRight={2} marginTop={1} marginBottom={1}>
-      {body}
+      <PanelMarkdown id={props.part.id} text={props.part.text} style={props.markdown} />
       <For each={props.part.images}>{(label) => <text fg={theme.sapphire}>{`▣ ${label}`}</text>}</For>
-    </box>
-  )
-}
-
-function Pills(props: { indent: number; pills: Segment[] }) {
-  return (
-    <box flexDirection="row" paddingLeft={props.indent}>
-      <For each={props.pills}>
-        {(pill) => (
-          <box flexDirection="row" paddingX={1} marginRight={1}>
-            <text fg={pill.fg}>{pill.text}</text>
-          </box>
-        )}
-      </For>
     </box>
   )
 }

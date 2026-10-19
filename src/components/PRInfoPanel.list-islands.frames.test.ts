@@ -266,13 +266,18 @@ describe("destroy", () => {
     const root = mounted.setup.renderer.root
     const islands = ["pr-info-previews", "pr-info-files", "pr-info-commits"].map((id) => root.findDescendantById(id)!)
     expect(islands.every(Boolean)).toBe(true)
+    const description = root.findDescendantById("pr-info-description")!.parent!
 
+    panel.collapseSection()
+    panel.setActiveSection("description")
     panel.collapseSection()
     await mounted.frame()
     expect(root.findDescendantById("pr-info-previews")).toBeUndefined()
+    expect(root.findDescendantById("pr-info-description")).toBeUndefined()
 
     panel.destroy()
     expect(root.getChildren()).toHaveLength(0)
     expect(islands.map((island) => island.isDestroyed)).toEqual([true, true, true])
+    expect(description.isDestroyed).toBe(true)
   })
 })

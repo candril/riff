@@ -7,7 +7,6 @@ import {
   BoxRenderable,
   TextRenderable,
   ScrollBoxRenderable,
-  MarkdownRenderable,
   InputRenderable,
   InputRenderableEvents,
   SyntaxStyle,
@@ -23,11 +22,7 @@ import type { LinkSource } from "../utils/link-targets"
 import { stackText, type StackInfo } from "../utils/stack"
 import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
-import { extractCommentImages } from "../utils/comment-images"
-import { softenCommentHtml } from "../utils/comment-html"
-import { withReferences } from "./with-references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
-import { MarkdownBodies } from "./markdown-bodies"
 import { colors, theme } from "../theme"
 import {
   ALL_SECTIONS,
@@ -46,10 +41,12 @@ import {
 import { sectionConfigs } from "./pr-info-sections"
 import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
-import { fileDiffContext, reactionPills, type Segment } from "./pr-info-conversation-parts"
+import { fileDiffContext } from "./pr-info-conversation-parts"
 import { conversationRows, type ConversationRows } from "./pr-info-conversation-rows"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 import { createPrInfoConversationIsland, type PrInfoConversationIsland } from "../app/pr-info-conversation"
+import { createPrInfoDescriptionIsland, type PrInfoDescriptionIsland } from "../app/pr-info-description"
+import { descriptionModel, type DescriptionModel } from "./pr-info-description"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -105,9 +102,6 @@ function isListSection(section: PRInfoPanelSection): section is ListSection {
   return section === 'previews' || section === 'checks' || section === 'files' || section === 'commits'
 }
 
-/** The description's cursor row: the background every other selected row has. */
-const DESCRIPTION_CURSOR_BG = RGBA.fromHex(theme.surface1)
-
 /** Rows kept between the cursor and the edge it is moving towards. */
 const CURSOR_SCROLL_OFF = 3
 
@@ -130,8 +124,6 @@ export interface PRInfoPanelPosition {
  */
 export class PRInfoPanelClass {
   private renderer: CliRenderer
-  /** The description's body, kept alive across rebuilds. */
-  private bodies: MarkdownBodies
   private container: BoxRenderable
   private scrollBox: ScrollBoxRenderable
   private prInfo: PrInfo
@@ -188,7 +180,6 @@ export class PRInfoPanelClass {
   private sectionsContainer: BoxRenderable | null = null
   private sectionBoxes: BoxRenderable[] = []
   private descriptionBox: BoxRenderable | null = null
-  private descriptionCursorRow: BoxRenderable | null = null
   // Set when the cursor moved; the next frame scrolls it into view, once
   // layout has placed whatever the move rebuilt.
   private revealPending = false
@@ -200,6 +191,7 @@ export class PRInfoPanelClass {
   // section box from then on.
   private listIslands: Map<ListSection, PrInfoListIsland> = new Map()
   private conversation: PrInfoConversationIsland | null = null
+  private description: PrInfoDescriptionIsland | null = null
 
   // Flash labels by row id, while `s` is labelling (spec 066), and the
   // header texts they are painted onto.
@@ -212,7 +204,6 @@ export class PRInfoPanelClass {
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
-    this.bodies = new MarkdownBodies(renderer)
     this.prInfo = prInfo
     this.files = files
     this.comments = comments
@@ -462,7 +453,6 @@ export class PRInfoPanelClass {
   }
 
   private followCursor(): void {
-    this.placeDescriptionCursor()
     this.pendingScrollTop = null
     this.revealPending = true
     this.renderer.requestRender()
@@ -934,7 +924,6 @@ export class PRInfoPanelClass {
     }
     this.sectionBoxes = []
     this.descriptionBox = null
-    this.descriptionCursorRow = null
 
     // Rebuild
     this.buildSections(this.sectionsContainer)
@@ -1075,7 +1064,6 @@ export class PRInfoPanelClass {
    * Build the sections content
    */
   private buildSections(container: BoxRenderable): void {
-    this.bodies.begin()
     const configs = sectionConfigs({
       prInfo: this.prInfo,
       files: this.files,
@@ -1136,14 +1124,19 @@ export class PRInfoPanelClass {
       
       container.add(sectionBox)
     }
-
-    this.bodies.end()
   }
 
   /**
    * Build content for a section
    */
   private buildSectionContent(container: BoxRenderable, section: PRInfoPanelSection, isActive: boolean): void {
+    if (section === 'description') {
+      // The island's host is the section's content box, so the cursor row spans its padding.
+      this.descriptionBox = this.descriptionIsland(isActive).host
+      container.add(this.descriptionBox)
+      return
+    }
+
     const contentBox = new BoxRenderable(this.renderer, {
       flexDirection: "column",
       width: "100%",
@@ -1152,9 +1145,6 @@ export class PRInfoPanelClass {
     })
     
     switch (section) {
-      case 'description':
-        this.buildDescriptionContent(contentBox)
-        break
       case 'previews':
       case 'checks':
       case 'files':
@@ -1193,11 +1183,29 @@ export class PRInfoPanelClass {
     return this.conversation
   }
 
+  /** The description's island, made on first use, holding the description as it is now. */
+  private descriptionIsland(isActive: boolean): PrInfoDescriptionIsland {
+    this.description ??= createPrInfoDescriptionIsland(this.renderer, {
+      id: "pr-info-description",
+      markdown: {
+        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
+        syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
+      },
+    })
+    this.description.update(this.descriptionModel(isActive))
+    return this.description
+  }
+
   /** A cursor move inside a section on an island restyles its rows without a rebuild. */
   private pushRows(section: PRInfoPanelSection): void {
     const isActive = section === this.activeSection
-    if (section === 'conversation') this.conversation?.update(this.conversationRows(isActive))
+    if (section === 'description') this.description?.update(this.descriptionModel(isActive))
+    else if (section === 'conversation') this.conversation?.update(this.conversationRows(isActive))
     else if (isListSection(section)) this.listIslands.get(section)?.update(this.listRows(section, isActive))
+  }
+
+  private descriptionModel(isActive: boolean): DescriptionModel {
+    return descriptionModel(this.prInfo, { cursor: this.cursorIndex, active: isActive })
   }
 
   private conversationRows(isActive: boolean): ConversationRows {
@@ -1226,97 +1234,6 @@ export class PRInfoPanelClass {
         return fileRows(this.visibleFiles, { ...input, listWidth: getListItemWidth() })
       case 'commits':
         return commitRows(this.visibleCommits, { ...input, terminalWidth: getTerminalWidth() })
-    }
-  }
-
-  /**
-   * Build full description content (markdown)
-   */
-  private buildDescriptionContent(container: BoxRenderable): void {
-    this.descriptionBox = container
-    // First, so the text after it draws over it and keeps its colours: paint
-    // hooks cannot read the cells a highlight would have to repaint.
-    this.descriptionCursorRow = new BoxRenderable(this.renderer, {
-      position: "absolute",
-      left: 0,
-      top: 0,
-      width: "100%",
-      height: 1,
-      backgroundColor: DESCRIPTION_CURSOR_BG,
-      visible: false,
-    })
-    container.add(this.descriptionCursorRow)
-    container.onSizeChange = () => this.placeDescriptionCursor()
-
-    if (!this.prInfo.body?.trim()) {
-      container.add(new TextRenderable(this.renderer, {
-        content: "No description provided",
-        fg: theme.overlay0,
-      }))
-    } else {
-      const body = extractCommentImages(this.prInfo.body)
-      if (body.text) {
-        container.add(this.markdownBody("pr-info-description", body.text))
-      }
-      this.appendImageRows(container, body.images.map((image) => image.label))
-    }
-    this.appendReactionRow(container, reactionPills(this.prInfo.bodyReactions))
-  }
-
-  /**
-   * Put the description's cursor row under the line the cursor is on. A
-   * description that only laid out after the cursor was put in it (a
-   * refresh) may be shorter than the row it names, so the last line stands
-   * in for it.
-   */
-  private placeDescriptionCursor(): void {
-    const box = this.descriptionBox
-    const row = this.descriptionCursorRow
-    if (!box || !row) return
-    const line = Math.min(this.cursorIndex, box.height - 1)
-    const shown = this.activeSection === 'description' && this.cursorIndex >= 0 && line >= 0
-    if (shown) row.top = line
-    row.visible = shown
-  }
-
-  private appendReactionRow(container: BoxRenderable, pills: Segment[], indent: number = 0): void {
-    if (pills.length === 0) return
-    const row = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      paddingLeft: indent,
-    })
-    for (const pill of pills) {
-      const box = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        paddingX: 1,
-        marginRight: 1,
-      })
-      box.add(new TextRenderable(this.renderer, { content: pill.text, fg: pill.fg }))
-      row.add(box)
-    }
-    container.add(row)
-  }
-
-  /**
-   * A body from the pool — one renderable per id, alive across the
-   * rebuilds this panel does on almost every keypress.
-   */
-  private markdownBody(id: string, text: string): MarkdownRenderable {
-    return this.bodies.mount(id, withReferences(softenCommentHtml(text)), {
-      renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
-      syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
-    })
-  }
-
-  /**
-   * Name the pictures the body carried. The panel can't draw them, and the
-   * raw `<img>` HTML GitHub pastes in reads as a wall of attributes; the
-   * section's Enter binding already opens the item on github.com, which is
-   * where the image can actually be looked at.
-   */
-  private appendImageRows(container: BoxRenderable, labels: readonly string[]): void {
-    for (const label of labels) {
-      container.add(new TextRenderable(this.renderer, { content: `▣ ${label}`, fg: theme.sapphire }))
     }
   }
 
@@ -1560,11 +1477,12 @@ export class PRInfoPanelClass {
    * Destroy the panel
    */
   destroy(): void {
-    this.bodies.destroy()
     for (const island of this.listIslands.values()) island.dispose()
     this.listIslands.clear()
     this.conversation?.dispose()
     this.conversation = null
+    this.description?.dispose()
+    this.description = null
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }
