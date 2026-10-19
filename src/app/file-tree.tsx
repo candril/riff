@@ -144,7 +144,6 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
     },
     dispose() {
       island.dispose()
-      field.destroyRecursively()
     },
   }
 }

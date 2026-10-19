@@ -25,12 +25,12 @@ afterEach(async () => {
   mounted = null
 })
 
-async function mountIsland(input: Partial<FileTreeInput>, { width = 35, height = 12 } = {}) {
+async function mountIsland(input: Partial<FileTreeInput>, { screenWidth = 35, height = 12 } = {}) {
   let tree!: FileTreeIsland
   mounted = await mountRenderable((renderer) => {
     tree = createFileTreeIsland(renderer, { width: 35 })
     return tree.host
-  }, { width, height })
+  }, { width: screenWidth, height })
   const push = (over: Partial<FileTreeInput> = {}) =>
     tree.update({ files: FILES, fileTree: TREE, highlightIndex: 0, selectedFileIndex: null, focused: true, ...input, ...over })
   push()
@@ -40,7 +40,7 @@ async function mountIsland(input: Partial<FileTreeInput>, { width = 35, height =
 test("a resize re-truncates the labels and keeps the hidden-count line below every file row", async () => {
   const { tree, frame } = await mountIsland(
     { ignoredFiles: new Set(["package-lock.json"]), showHiddenFiles: false },
-    { width: 50 }
+    { screenWidth: 50 }
   )
   const narrow = (await frame()).split("\n")
   expect(narrow.at(-1)).toBe("  (+1 hidden)")
