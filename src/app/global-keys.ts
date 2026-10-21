@@ -50,7 +50,6 @@ import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
 import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
-import * as flash from "../features/flash"
 import * as feed from "../features/feed"
 import * as fileTreeFeature from "../features/file-tree"
 import * as diffView from "../features/diff-view"
@@ -638,33 +637,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== FLASH JUMP (captures all input while active, specs 022, 066) ==========
-    // Ahead of the panels: a label is typed into whichever surface is being
-    // labelled, and that surface's own keys must not see it first.
-    if (flash.handleInput(key, { flashState: ctx.getFlashState(), flashHandler: ctx.flashHandler })) {
-      return
-    }
-
-    // ========== CONFIRMATION DIALOG (y/n to confirm/cancel) ==========
-    // First of all of them: a question waiting for an answer outranks every
-    // panel, and `y`/`n` mean the answer while it is up — not "copy a link"
-    // and "new comment", which is what the comments panel read them as.
-    {
-      const dialogState = ctx.getState()
-      if (dialogState.confirmDialog) {
-        if (key.name === "y" || key.name === "Y") {
-          dialogState.confirmDialog.onConfirm()
-          return
-        } else if (key.name === "n" || key.name === "N" || key.name === "escape") {
-          dialogState.confirmDialog.onCancel()
-          return
-        }
-        // Other keys are ignored while dialog is open
-        return
-      }
-    }
-
 
     // ========== ACTION MENU (captures all input when open) ==========
     if (

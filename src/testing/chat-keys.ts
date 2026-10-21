@@ -1,5 +1,6 @@
 import { expect } from "bun:test"
-import { createKeyHandler, type GlobalKeyContext } from "../app/global-keys"
+import type { GlobalKeyContext } from "../app/global-keys"
+import { createAppKeys } from "../app/keys"
 import type { mountApp } from "./app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -70,7 +71,7 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
       }
     },
   }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
+  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
   // Where a search or a flash jump would land the cursor, without walking there.
   const jumpTo = (line: number) => setVimState({ ...vimState, line })
   return { quits, vimState: () => vimState, jumpTo }

@@ -144,8 +144,8 @@ and there is no fourth level.
 
 Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
-`@opentui/keymap` keymap's layers (`src/app/keymap.ts`, global keys in
-`src/app/app-keys.ts`), and only a key no layer takes reaches the priority
+`@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
+in `src/app/keys.ts`, and only a key no layer takes reaches the priority
 chain in `src/app/global-keys.ts`, which hands it to each feature's
 `input.ts` ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
@@ -210,7 +210,9 @@ src/
 │   ├── unified-*, split-*  # The diff views' islands, cursor, columns and the split toggle
 │   ├── frame-pass.ts     # Each pass: draws the diff, publishes the frame islands follow
 │   ├── keymap.ts         # The keymap riff feeds every key first (ADR-002)
+│   ├── keys.ts           # Builds the keymap with every layer in front of the chain
 │   ├── app-keys.ts       # The keymap's global layer
+│   ├── confirm-keys.ts   # The confirmation dialog's layer, which captures every key
 │   ├── global-keys.ts    # The priority chain for keys no keymap layer takes
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters

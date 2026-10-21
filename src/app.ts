@@ -92,10 +92,7 @@ import { createSplitDiff } from "./app/split-diff"
 import { createUnifiedDiff } from "./app/unified-diff"
 import { toLineState, toRowState } from "./app/split-cursor"
 import { routeDiffViewport } from "./app/diff-viewport"
-import { createKeyHandler } from "./app/global-keys"
-import { createRiffKeymap } from "./app/keymap"
-import { composeKeys } from "./app/keys-dispatch"
-import { registerAppKeys } from "./app/app-keys"
+import { createAppKeys } from "./app/keys"
 
 // Feature modules
 import * as actionMenu from "./features/action-menu"
@@ -1723,9 +1720,7 @@ export async function createApp(options: AppOptions = {}) {
   let loadingBranchPr = false
 
   // ===== KEYBOARD INPUT =====
-  const riffKeymap = createRiffKeymap(renderer)
-  registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
-  const dispatchKeypress = composeKeys(riffKeymap, createKeyHandler({
+  const dispatchKeypress = createAppKeys(renderer, {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
@@ -1774,7 +1769,7 @@ export async function createApp(options: AppOptions = {}) {
     blame,
     chat: { state: chat, input: chatColumn.input },
     composerSettled: proposals.composerSettled,
-  }))
+  })
 
   /**
    * Every navigation records where it came from (spec 089).

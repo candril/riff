@@ -142,3 +142,77 @@ test("F12 as the terminal sends it reaches the app layer through riff's one keyp
   expect(toggles).toBe(1)
   expect(legacyKeys).toEqual(["j"])
 })
+
+test("while a capture is active an unbound key goes to its rest and never reaches the chain", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const rest: string[] = []
+  riffKeymap.capture(() => true, (key) => void rest.push(key.name))
+
+  keys(press("j"))
+
+  expect(rest).toEqual(["j"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("while a capture is inactive a key reaches the chain exactly once and its rest sees nothing", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const rest: string[] = []
+  riffKeymap.capture(() => false, (key) => void rest.push(key.name))
+
+  keys(press("j"))
+
+  expect(rest).toEqual([])
+  expect(legacyKeys).toEqual(["j"])
+})
+
+test("a key bound in a layer enabled with the capture runs its command, not the capture's rest", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const active = () => true
+  const runs: string[] = []
+  const rest: string[] = []
+  riffKeymap.keymap.registerLayer({
+    enabled: active,
+    commands: [{ name: "test.x", run: () => void runs.push("x") }],
+    bindings: [{ key: "x", cmd: "test.x" }],
+  })
+  riffKeymap.capture(active, (key) => void rest.push(key.name))
+
+  keys(press("x"))
+
+  expect(runs).toEqual(["x"])
+  expect(rest).toEqual([])
+  expect(legacyKeys).toEqual([])
+})
+
+test("a binding that ends the capture as it runs still keeps its key from the chain", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  let open = true
+  const rest: string[] = []
+  riffKeymap.keymap.registerLayer({
+    enabled: () => open,
+    commands: [{ name: "test.close", run: () => void (open = false) }],
+    bindings: [{ key: "escape", cmd: "test.close" }],
+  })
+  riffKeymap.capture(() => open, (key) => void rest.push(key.name))
+
+  keys(press("escape"))
+  expect(open).toBe(false)
+  expect(legacyKeys).toEqual([])
+
+  keys(press("escape"))
+  expect(legacyKeys).toEqual(["escape"])
+  expect(rest).toEqual([])
+})
+
+test("an unregistered capture lets keys through again", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const rest: string[] = []
+  const unregister = riffKeymap.capture(() => true, (key) => void rest.push(key.name))
+
+  keys(press("j"))
+  unregister()
+  keys(press("k"))
+
+  expect(rest).toEqual(["j"])
+  expect(legacyKeys).toEqual(["k"])
+})

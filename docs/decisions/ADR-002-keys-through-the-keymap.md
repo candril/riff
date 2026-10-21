@@ -22,5 +22,6 @@ B. The jump recorder is riff's single entry point for keys, and moving branches 
 ## Consequences
 - Every binding in the keymap outranks every branch still in the chain. Branches move top-down in chain order, or the step that moves one out of order proves the two can never be active together.
 - A handled binding calls `preventDefault`, so a focused input or textarea does not also receive that key. Where a chain branch swallowed a key without `preventDefault`, moving it can change what a focused field sees, and the step that moves it checks that.
+- A modal that captures every key (flash, the confirm dialog) registers `capture` next to its layer, so the chain never sees a key while that modal is active.
 - `chordPending` covers both the chain's `pendingKey` and the keymap's pending sequence, so the jump recorder keeps judging a chord as one interaction whichever side holds it.
 - The palette and help keep their display-only `shortcut` strings until the commands they name live in the keymap; `getCommandEntries` becomes the catalog then, as in tenor's `src/app/registry.ts`.

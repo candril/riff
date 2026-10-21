@@ -8,6 +8,16 @@ export interface RiffKeymap {
   /** Feeds one keypress to the keymap; true when a binding took it or it continued a sequence. */
   offer(key: KeyEvent): boolean
   chordPending(): boolean
+  /**
+   * While `active`, every key no binding takes is kept from the chain and
+   * handed to `rest`, for a modal that owns the keyboard. Returns the unregister.
+   */
+  capture(active: () => boolean, rest?: (key: KeyEvent) => void): () => void
+}
+
+interface Capture {
+  active: () => boolean
+  rest?: (key: KeyEvent) => void
 }
 
 /**
@@ -56,14 +66,29 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
   keymap.intercept("key:after", (ctx) => {
     handled = ctx.handled
   })
+  const captures: Capture[] = []
 
   return {
     keymap,
     offer(key) {
+      // Read before the key runs: a key that closes the modal (Esc in flash,
+      // y on the dialog) arrived while it was up, and the chain must not see it.
+      const capturing = captures.find((c) => c.active())
       handled = false
       feed?.(key)
-      return handled
+      if (handled) return true
+      if (!capturing) return false
+      capturing.rest?.(key)
+      return true
     },
     chordPending: () => keymap.hasPendingSequence(),
+    capture(active, rest) {
+      const capture: Capture = { active, rest }
+      captures.push(capture)
+      return () => {
+        const at = captures.indexOf(capture)
+        if (at >= 0) captures.splice(at, 1)
+      }
+    },
   }
 }
