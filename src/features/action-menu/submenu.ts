@@ -3,7 +3,7 @@
  *
  * When the palette is in a submenu, its frame model (the actionMenu entry
  * of frameModels, which the action-menu island in app/pickers.tsx draws)
- * and input.ts both need the same filtered-and-ordered row list. This
+ * and its keys (keys.ts) both need the same filtered-and-ordered row list. This
  * module is the single place that turns `state.actionMenu.submenu` +
  * `state.actionMenu.query` into rows.
  */

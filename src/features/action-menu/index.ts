@@ -7,7 +7,6 @@
  * - Action execution
  */
 
-export { handleInput, type ActionMenuInputContext } from "./input"
 export { executeAction, openReactSubmenu, type ActionHandlers, type ExecuteContext } from "./execute"
 export { getSubmenuRows, reactionContentFromRowId } from "./submenu"
 export { paletteMode } from "./palette-mode"

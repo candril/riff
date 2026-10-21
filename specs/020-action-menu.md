@@ -190,38 +190,12 @@ interface AppState {
 
 ### Keyboard Handling
 
-When action menu is open, it captures all input:
-
-```typescript
-if (state.actionMenu.open) {
-  switch (key.name) {
-    case "escape":
-      closeActionMenu()
-      break
-    case "return":
-    case "enter":
-      executeSelectedAction()
-      break
-    case "up":
-    case "k":
-      moveSelection(-1)
-      break
-    case "down":
-    case "j":
-      moveSelection(1)
-      break
-    case "backspace":
-      updateQuery(state.actionMenu.query.slice(0, -1))
-      break
-    default:
-      if (key.sequence && key.sequence.length === 1) {
-        updateQuery(state.actionMenu.query + key.sequence)
-      }
-      break
-  }
-  return // Don't process other keys
-}
-```
+While the palette is open its keys are a keymap layer
+(`src/features/action-menu/keys.ts`, [ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)):
+`Esc` closes, `Enter` runs the selected action, and `Up`/`Down` and
+`Ctrl+p`/`Ctrl+n` move the selection. Its capture keeps every other key from
+the panels behind it without preventing it, so the palette's prompt field
+types the query ([065](./065-text-inputs-and-filters.md)).
 
 ### Component
 

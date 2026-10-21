@@ -36,7 +36,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
-import { copyToClipboard } from "../utils/clipboard"
+import { createOpenLink, openerCommand } from "./open-link"
 import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 
@@ -212,12 +212,6 @@ function reservedKeysFor(surface: FlashSurface): string {
   }
 }
 
-/** The platform's "open this the way the desktop would" command. */
-function openerCommand(): string {
-  if (process.platform === "darwin") return "open"
-  return process.platform === "win32" ? "start" : "xdg-open"
-}
-
 function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
   const state = ctx.getState()
   const lineMapping = ctx.getLineMapping()
@@ -255,6 +249,8 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 export type GlobalKeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
+  const openLink = createOpenLink(ctx)
+
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
    * cursor behind would hide it the moment it left the window, which is
@@ -507,32 +503,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   }
 
   /**
-   * Open a link in the browser, or put it on the clipboard. riff never
-   * ticks a deploy checkbox — a row opens and copies, and that is all it
-   * does (spec 068).
-   */
-  function openLink(action: "open" | "copy", link: { label: string; url: string }): void {
-    if (action === "open") {
-      Bun.spawn([openerCommand(), link.url], { stdout: "ignore", stderr: "ignore" })
-      return
-    }
-    void copyToClipboard(link.url).then((copied) => {
-      ctx.setState((s) =>
-        showToast(
-          s,
-          copied.ok ? `Copied ${link.label}` : `Copy failed: ${copied.error}`,
-          copied.ok ? "success" : "error"
-        )
-      )
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 2000)
-    })
-  }
-
-  /**
    * What the feed needs to act: where its rows lead, and the files of a
    * commit row that has just been opened (spec 070).
    */
@@ -637,21 +607,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== ACTION MENU (captures all input when open) ==========
-    if (
-      actionMenu.handleInput(key, {
-        state: ctx.getState(),
-        getVimState: ctx.getVimState,
-        setState: ctx.setState,
-        render: ctx.render,
-        executeAction: ctx.executeAction,
-        onToggleReaction: ctx.onToggleReaction,
-        onLink: openLink,
-      })
-    ) {
-      return
-    }
 
     // ========== FILE PICKER (captures all input when open) ==========
     if (
