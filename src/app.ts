@@ -72,13 +72,9 @@ import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
-import { createToastIsland } from "./app/notifications"
-import { createConfirmDialogIsland } from "./app/confirm-dialog"
-import { createSyncPreviewIsland } from "./app/sync-preview"
 import { createFeedIsland } from "./app/feed"
-import { createReviewPreviewIsland } from "./app/review-preview"
-import { createHelpOverlayIsland } from "./app/help-overlay"
-import { createPeekIsland } from "./app/peek-island"
+import { createFrameOverlays, followFrame } from "./app/overlays"
+import { createFrame } from "./app/frame"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
 import {
   createActionMenuIsland,
@@ -322,15 +318,9 @@ export async function createApp(options: AppOptions = {}) {
     header.dispose()
     searchPrompt.dispose()
     flashPrompt.dispose()
-    toast.dispose()
-    confirmDialog.dispose()
-    reviewPreviewIsland.dispose()
-    syncPreviewIsland.dispose()
+    stopFollowing()
+    for (const overlay of Object.values(overlays)) overlay.dispose()
     feedIsland.dispose()
-    helpOverlay.dispose()
-    diffPeek.dispose()
-    blamePeek.dispose()
-    hunkPeek.dispose()
     filePickerIsland.dispose()
     commentsPickerIsland.dispose()
     marksPickerIsland.dispose()
@@ -524,9 +514,7 @@ export async function createApp(options: AppOptions = {}) {
   }
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
-  const toast = createToastIsland(renderer)
-  const confirmDialog = createConfirmDialogIsland(renderer)
-  const reviewPreviewIsland = createReviewPreviewIsland(renderer, {
+  const overlays = createFrameOverlays(renderer, {
     onSummaryChange(value) {
       state =
         state.reviewPreview.open && state.reviewPreview.body !== value
@@ -536,13 +524,7 @@ export async function createApp(options: AppOptions = {}) {
       render()
     },
   })
-  const syncPreviewIsland = createSyncPreviewIsland(renderer)
   const feedIsland = createFeedIsland(renderer)
-  const helpOverlay = createHelpOverlayIsland(renderer)
-  const diffPeek = createPeekIsland(renderer, { id: "diff-peek-island" })
-  const blamePeek = createPeekIsland(renderer, { id: "blame-peek-island" })
-  // Above the comments panel (50), which is what this is drawn over.
-  const hunkPeek = createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 })
   const filePickerIsland = createFilePickerIsland(renderer)
   const commentsPickerIsland = createCommentsPickerIsland(renderer)
   const marksPickerIsland = createMarksPickerIsland(renderer)
@@ -608,21 +590,23 @@ export async function createApp(options: AppOptions = {}) {
     flashPrompt: flashPrompt.host,
     overlays: {
       actionMenu: actionMenuIsland.host,
-      toast: toast.host,
-      reviewPreview: reviewPreviewIsland.host,
-      syncPreview: syncPreviewIsland.host,
+      toast: overlays.toast.host,
+      reviewPreview: overlays.reviewPreview.host,
+      syncPreview: overlays.syncPreview.host,
       filePicker: filePickerIsland.host,
       commentsPicker: commentsPickerIsland.host,
       marksPicker: marksPickerIsland.host,
       occurrencePicker: occurrencePickerIsland.host,
       commitPicker: commitPickerIsland.host,
-      helpOverlay: helpOverlay.host,
-      diffPeek: diffPeek.host,
-      blamePeek: blamePeek.host,
-      hunkPeek: hunkPeek.host,
-      confirmDialog: confirmDialog.host,
+      helpOverlay: overlays.helpOverlay.host,
+      diffPeek: overlays.diffPeek.host,
+      blamePeek: overlays.blamePeek.host,
+      hunkPeek: overlays.hunkPeek.host,
+      confirmDialog: overlays.confirmDialog.host,
     },
   })
+  const frame = createFrame()
+  const stopFollowing = followFrame(frame.frame, overlays, shell)
 
   const renderFrame = createRenderFunction({
     getState: () => state,
@@ -642,15 +626,7 @@ export async function createApp(options: AppOptions = {}) {
     chat,
     searchPrompt,
     flashPrompt,
-    toast,
-    confirmDialog,
-    reviewPreview: reviewPreviewIsland,
-    syncPreview: syncPreviewIsland,
     feed: feedIsland,
-    helpOverlay,
-    diffPeek,
-    blamePeek,
-    hunkPeek,
     filePicker: filePickerIsland,
     commentsPicker: commentsPickerIsland,
     marksPicker: marksPickerIsland,
@@ -662,6 +638,7 @@ export async function createApp(options: AppOptions = {}) {
     parses,
     updateFileTreePanel,
     updateSearchPattern: (value) => searchHandler.updatePattern(value),
+    publishFrame: frame.publish,
   })
 
   // Give the panel a way to request a re-render from async transitions
@@ -1798,7 +1775,7 @@ export async function createApp(options: AppOptions = {}) {
     refreshContext: { handleRefresh: () => refresh.handleRefresh(refreshContext) },
     feedLoadContext,
     reviewPreviewOpenContext,
-    readReviewSummary: reviewPreviewIsland.summaryValue,
+    readReviewSummary: overlays.reviewPreview.summaryValue,
     composer: threadPanel.composer,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,

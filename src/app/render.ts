@@ -7,7 +7,6 @@
 import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { keepAlive } from "../utils/renderables"
-import { reviewCandidates } from "../utils/publishable"
 import {
   collectMentionCandidates,
   detectMentionTrigger,
@@ -32,20 +31,8 @@ import type { ChatState } from "../features/chat/state"
 import { chatColumnWidth } from "../features/chat/width"
 import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
 import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
-import { toastModel } from "../components/notification-model"
-import type { ToastIsland } from "./notifications"
-import { confirmDialogModel } from "../components/confirm-dialog-model"
-import type { ConfirmDialogIsland } from "./confirm-dialog"
-import { gatherSyncItems } from "../components/sync-items"
-import { syncPreviewModel } from "../components/sync-preview-model"
-import type { SyncPreviewIsland } from "./sync-preview"
-import { reviewPreviewModel } from "../components/review-preview-model"
-import type { ReviewPreviewIsland } from "./review-preview"
 import { feedModel } from "../components/feed-model"
 import type { FeedIsland } from "./feed"
-import { helpOverlayModel } from "../components/help-overlay-model"
-import type { HelpOverlayIsland } from "./help-overlay"
-import type { PeekIsland } from "./peek-island"
 import type {
   ActionMenuIsland,
   CommentsPickerIsland,
@@ -55,8 +42,6 @@ import type {
   OccurrencePickerIsland,
 } from "./pickers"
 import { pickerModels } from "./picker-models"
-import { diffPeekModel, hunkPeekModel } from "./peeks"
-import { blamePeekModel } from "../components/blame-peek-model"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
@@ -71,7 +56,6 @@ import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
-import * as commentsFeature from "../features/comments"
 import { paletteMode } from "../features/action-menu"
 import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
@@ -79,6 +63,7 @@ import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
 import { routePrompt, type PromptIsland, type PromptOwner } from "./prompt-routing"
 import type { AppShell } from "./shell"
+import type { Frame } from "./frame"
 
 export interface RenderContext {
   // Mutable state accessors
@@ -102,15 +87,7 @@ export interface RenderContext {
   chat: ChatState
   searchPrompt: SearchPromptIsland
   flashPrompt: FlashPromptIsland
-  toast: ToastIsland
-  confirmDialog: ConfirmDialogIsland
-  reviewPreview: ReviewPreviewIsland
-  syncPreview: SyncPreviewIsland
   feed: FeedIsland
-  helpOverlay: HelpOverlayIsland
-  diffPeek: PeekIsland
-  blamePeek: PeekIsland
-  hunkPeek: PeekIsland
   filePicker: FilePickerIsland
   commentsPicker: CommentsPickerIsland
   marksPicker: MarksPickerIsland
@@ -125,6 +102,8 @@ export interface RenderContext {
   updateFileTreePanel: () => void
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
+  /** Hands the pass's snapshot to every view that derives its own model from it. */
+  publishFrame: (frame: Frame) => void
 }
 
 /**
@@ -151,6 +130,17 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const lineMapping = ctx.getLineMapping()
     const searchState = ctx.getSearchState()
     const flashState = ctx.getFlashState()
+    const frame: Frame = {
+      state,
+      vimState,
+      mapping: lineMapping,
+      searchState,
+      flashState,
+      cachedCurrentUser: ctx.getCachedCurrentUser(),
+      width: ctx.renderer.width,
+      height: ctx.renderer.height,
+      now: Date.now(),
+    }
 
     const selectedFile = getSelectedFile(state)
     const visibleComments = getVisibleComments(state)
@@ -226,8 +216,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     if (view !== ctx.feed.host) ctx.feed.update(null)
     ctx.unified.syncDrawn(unifiedOn)
     ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
-
-    const cachedCurrentUser = ctx.getCachedCurrentUser()
 
     // Drive the composer textarea's lifecycle from overlay state. We do
     // this BEFORE the thread panel is pushed so the textarea is focused /
@@ -389,35 +377,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.searchPrompt.update(searchShown ? searchPromptModel(searchState) : null)
     const flashShown = flashState.active && state.viewMode === "diff"
     ctx.flashPrompt.update(flashShown ? flashPromptModel(flashState) : null)
-    ctx.toast.update(state.toast.message ? toastModel(state.toast.message, state.toast.type) : null)
-    ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
-    ctx.reviewPreview.update(
-      state.reviewPreview.open
-        ? reviewPreviewModel(
-            commentsFeature.validateCommentsForSubmit(reviewCandidates(state.comments), state.files),
-            state.reviewPreview,
-            state.prInfo !== null && cachedCurrentUser === state.prInfo.author
-          )
-        : null
-    )
-    ctx.syncPreview.update(state.syncPreview.open ? syncPreviewModel(gatherSyncItems(state.comments), state.syncPreview) : null)
-    ctx.helpOverlay.update(state.showHelp ? helpOverlayModel(version, state.helpScroll, ctx.renderer.height) : null)
-    const diffPeek =
-      state.showLinePeek && state.viewMode === "diff"
-        ? diffPeekModel(lineMapping, vimState.line, state.peekSide, state.peekScroll, ctx.renderer.width, ctx.renderer.height)
-        : null
-    const codePeekId = state.inlineCommentOverlay.open ? state.inlineCommentOverlay.codePeekId : null
-    const hunkPeek =
-      codePeekId !== null
-        ? hunkPeekModel(getInlineCommentOverlayComments(state), codePeekId, ctx.renderer.width, ctx.renderer.height)
-        : null
-    const blamePeek =
-      state.blamePeek && state.viewMode === "diff"
-        ? blamePeekModel({ ...state.blamePeek, now: Date.now(), terminalWidth: ctx.renderer.width, terminalHeight: ctx.renderer.height })
-        : null
-    ctx.diffPeek.update(diffPeek)
-    ctx.blamePeek.update(blamePeek)
-    ctx.hunkPeek.update(hunkPeek)
+    // After routePrompt and the chat, which focus their own inputs: the
+    // review preview focuses its summary as it opens.
+    ctx.publishFrame(frame)
     const pickers = pickerModels(state, ctx.renderer.width, ctx.renderer.height, new Date())
     ctx.filePicker.update(pickers.file)
     ctx.commentsPicker.update(pickers.comments)
@@ -433,19 +395,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.shell.show("searchPrompt", searchShown)
     ctx.shell.showFlash(flashShown)
     ctx.shell.show("actionMenu", state.actionMenu.open)
-    ctx.shell.show("toast", !!state.toast.message)
-    ctx.shell.show("reviewPreview", state.reviewPreview.open)
-    ctx.shell.show("syncPreview", state.syncPreview.open)
     ctx.shell.show("filePicker", state.filePicker.open)
     ctx.shell.show("commentsPicker", state.commentsPicker.open)
     ctx.shell.show("marksPicker", state.marksPicker.open)
     ctx.shell.show("occurrencePicker", state.occurrencePicker.open)
     ctx.shell.show("commitPicker", state.commitPicker.open)
-    ctx.shell.show("helpOverlay", state.showHelp)
-    ctx.shell.show("diffPeek", diffPeek !== null)
-    ctx.shell.show("blamePeek", blamePeek !== null)
-    ctx.shell.show("hunkPeek", hunkPeek !== null)
-    ctx.shell.show("confirmDialog", !!state.confirmDialog)
 
     // Keep the PR-level comment input overlay (a modal *inside* the PR
     // panel) in sync whenever the panel exists — it renders itself only

@@ -16,13 +16,9 @@ import { buildLineMapping } from "../app/init"
 import { createRenderFunction, type RenderContext } from "../app/render"
 import { createStatusBarIsland } from "../app/status-bar"
 import { createHeaderIsland } from "../app/header"
-import { createToastIsland } from "../app/notifications"
-import { createConfirmDialogIsland } from "../app/confirm-dialog"
-import { createSyncPreviewIsland } from "../app/sync-preview"
 import { createFeedIsland } from "../app/feed"
-import { createReviewPreviewIsland } from "../app/review-preview"
-import { createHelpOverlayIsland } from "../app/help-overlay"
-import { createPeekIsland } from "../app/peek-island"
+import { createFrameOverlays, followFrame } from "../app/overlays"
+import { createFrame } from "../app/frame"
 import { createFlashPromptIsland, createSearchPromptIsland } from "../app/prompt-line"
 import {
   createActionMenuIsland,
@@ -72,27 +68,21 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const split = createSplitDiff({ ...diffDeps, onShownChanged: () => render() })
   const unified = createUnifiedDiff(diffDeps)
 
-  const overlays = {
+  const frameOverlays = createFrameOverlays(renderer, {
+    onSummaryChange(value) {
+      if (state.reviewPreview.open) state = { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
+      render()
+    },
+  })
+  const pickers = {
     actionMenu: createActionMenuIsland(renderer),
-    toast: createToastIsland(renderer),
-    reviewPreview: createReviewPreviewIsland(renderer, {
-      onSummaryChange(value) {
-        if (state.reviewPreview.open) state = { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
-        render()
-      },
-    }),
-    syncPreview: createSyncPreviewIsland(renderer),
     filePicker: createFilePickerIsland(renderer),
     commentsPicker: createCommentsPickerIsland(renderer),
     marksPicker: createMarksPickerIsland(renderer),
     occurrencePicker: createOccurrencePickerIsland(renderer),
     commitPicker: createCommitPickerIsland(renderer),
-    helpOverlay: createHelpOverlayIsland(renderer),
-    diffPeek: createPeekIsland(renderer, { id: "diff-peek-island" }),
-    blamePeek: createPeekIsland(renderer, { id: "blame-peek-island" }),
-    hunkPeek: createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 }),
-    confirmDialog: createConfirmDialogIsland(renderer),
   }
+  const overlays = { ...frameOverlays, ...pickers }
   const chrome = {
     statusBar: createStatusBarIsland(renderer),
     header: createHeaderIsland(renderer),
@@ -126,6 +116,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     flashPrompt: chrome.flashPrompt.host,
     overlays: overlayHosts,
   })
+  const frame = createFrame()
+  followFrame(frame.frame, frameOverlays, shell)
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
@@ -141,7 +133,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     shell,
     ...chrome,
     chat,
-    ...overlays,
+    ...pickers,
     feed: createFeedIsland(renderer),
     split,
     unified,
@@ -165,12 +157,15 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       fileTreePanel.visible = state.showFilePanel
     },
     updateSearchPattern() {},
+    publishFrame: frame.publish,
   }
   render = createRenderFunction(ctx)
 
   return {
     setup,
     ctx,
+    /** The overlays that follow the frame rather than the render context. */
+    overlays: frameOverlays,
     fileTreePanel,
     render,
     agent,

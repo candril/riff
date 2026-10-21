@@ -12,6 +12,8 @@ import type { Comment } from "../types"
 import { createRenderFunction, type RenderContext } from "./render"
 import { createFeedIsland } from "./feed"
 import { createAppShell, OVERLAYS, type OverlayId, type ShellParts } from "./shell"
+import { createFrame } from "./frame"
+import { followFrame } from "./overlays"
 import type { FeedEvent } from "../utils/feed"
 
 /*
@@ -40,7 +42,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       ["statusBar", "header", "threadPanel", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
     ),
     ...realParts,
-  } as unknown as Pick<RenderContext, "statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId>
+  } as unknown as Record<"statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId, { host: Renderable }>
   const overlayHosts = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlayHosts[id] = islands[id].host
   const shell = createAppShell(renderer, {
@@ -53,6 +55,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     flashPrompt: islands.flashPrompt.host,
     overlays: overlayHosts,
   })
+  const frame = createFrame()
+  followFrame(frame.frame, islands as unknown as Parameters<typeof followFrame>[1], shell)
   const ctx = {
     getState: () => state,
     setState: (updater: (s: AppState) => AppState) => (state = updater(state)),
@@ -66,6 +70,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     shell,
     updateFileTreePanel() {},
     updateSearchPattern() {},
+    publishFrame: frame.publish,
     ...islands,
     chatColumn: { ...island("chat"), input: () => null },
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
