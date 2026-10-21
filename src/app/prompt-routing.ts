@@ -39,3 +39,26 @@ export function routePrompt(
   for (const other of promptOwners) if (other !== owner) islands[other].prompt(null)
   if (session && owner) islands[owner].prompt(session)
 }
+
+type PromptFrameIslands = Record<
+  "searchPrompt" | "filePicker" | "commentsPicker" | "marksPicker" | "occurrencePicker" | "commitPicker" | "actionMenu",
+  PromptIsland
+>
+
+export function promptIslandsOf(
+  islands: PromptFrameIslands,
+  feed: PromptIsland,
+  threadPanel: PromptIsland
+): Record<PromptOwner, PromptIsland> {
+  return {
+    search: islands.searchPrompt,
+    "file-picker": islands.filePicker,
+    "comments-picker": islands.commentsPicker,
+    "marks-picker": islands.marksPicker,
+    "occurrence-picker": islands.occurrencePicker,
+    "commit-picker": islands.commitPicker,
+    "action-menu": islands.actionMenu,
+    "feed-filter": feed,
+    "comments-filter": threadPanel,
+  }
+}

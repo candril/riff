@@ -16,9 +16,9 @@ const hidden = (): FeedModel => ({
 })
 
 /**
- * The activity feed as a long-lived island: it follows the frame, which
- * builds a fresh model on every pass, and the keyed reconcile turns that into updates of only the
- * rows that changed. The host carries the old view's own padding.
+ * The activity feed as a long-lived island that follows the frame. Every
+ * pass builds a fresh model; the keyed reconcile updates only the rows that
+ * changed. The host carries the old view's own padding.
  */
 export function createFeedIsland(renderer: CliRenderer) {
   const prompt = createIslandPrompt("feed-filter")

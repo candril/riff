@@ -39,7 +39,7 @@ afterEach(async () => {
   app = null
 })
 
-// Both follow the frame now: what a key changes is drawn by the pass it renders.
+// Both follow the frame: what a key changes is drawn by the pass it renders.
 test("Ctrl-t draws the thread panel and q takes it away; a and d draw the feed and leave it", async () => {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ comments: [COMMENT] })

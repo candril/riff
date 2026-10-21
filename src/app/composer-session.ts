@@ -99,5 +99,3 @@ export function createComposerSession(textarea: () => ComposerTextarea) {
     },
   }
 }
-
-export type ComposerSessionController = ReturnType<typeof createComposerSession>

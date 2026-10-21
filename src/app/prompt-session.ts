@@ -69,5 +69,3 @@ export function createPromptSession(field: () => PromptField) {
     },
   }
 }
-
-export type PromptSessionController = ReturnType<typeof createPromptSession>

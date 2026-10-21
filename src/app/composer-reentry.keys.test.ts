@@ -6,9 +6,9 @@ import { mountApp } from "../testing/app-render"
 import { keysOn, moveTo } from "../testing/chat-keys"
 import { composerTextareaIn } from "../testing/composer"
 
-// Seeding the composer's textarea can report itself as typing. The composer
-// follows the frame, so that report arrives from inside the pass's publish,
-// where a nested pass must not publish again.
+// Seeding the composer with "ask @al" opens no mention picker inside the
+// pass that seeds it, so no nested pass publishes: the textarea reports the
+// seeding a tick later, outside any pass.
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644

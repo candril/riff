@@ -2,7 +2,7 @@ import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
 import { createSearchState } from "../vim-diff/search-state"
 import { openPromptModel } from "./open-prompt"
-import { ownerOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
+import { ownerOf, promptIslandsOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
 import type { PromptSession } from "./prompt-session"
 
 const initial = createInitialState([], [], "test", "")
@@ -59,5 +59,31 @@ describe("routing the open prompt", () => {
     ]
     const owners = new Set(opened.map((prompt) => ownerOf(prompt!.key)))
     expect([...owners].sort()).toEqual([...promptOwners].sort())
+  })
+
+  test("each owner's prompt goes to the island that draws it", () => {
+    const island = (name: string) => ({ name, prompt() {} })
+    const islands = Object.fromEntries(
+      ["searchPrompt", "filePicker", "commentsPicker", "marksPicker", "occurrencePicker", "commitPicker", "actionMenu"].map(
+        (name) => [name, island(name)]
+      )
+    ) as unknown as Parameters<typeof promptIslandsOf>[0]
+    const names = Object.fromEntries(
+      Object.entries(promptIslandsOf(islands, island("feed"), island("threadPanel"))).map(([owner, to]) => [
+        owner,
+        (to as unknown as { name: string }).name,
+      ])
+    )
+    expect(names).toEqual({
+      search: "searchPrompt",
+      "file-picker": "filePicker",
+      "comments-picker": "commentsPicker",
+      "marks-picker": "marksPicker",
+      "occurrence-picker": "occurrencePicker",
+      "commit-picker": "commitPicker",
+      "action-menu": "actionMenu",
+      "feed-filter": "feed",
+      "comments-filter": "threadPanel",
+    })
   })
 })

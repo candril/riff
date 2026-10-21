@@ -45,11 +45,11 @@ function withBodiesAsDrawn(model: ThreadPanelModel): ThreadPanelModel {
 }
 
 /**
- * The thread panel as a long-lived island, docked beside the diff. It
- * follows the frame, and every frame redraws the model from scratch, and the keyed reconcile turns that
- * into restyles of the rows that changed, so a comment's body is built once
- * and kept for as long as the comment is drawn. Closing hides the host
- * rather than unmounting the view.
+ * The thread panel as a long-lived island, docked beside the diff, that
+ * follows the frame. Every frame builds the model from scratch; the keyed
+ * reconcile only restyles the rows that changed, so a comment's body is
+ * built once and kept for as long as the comment is drawn. Closing hides
+ * the host rather than unmounting the view.
  */
 export function createThreadPanelIsland(renderer: CliRenderer) {
   const [state, setState] = createStore({ model: empty() })

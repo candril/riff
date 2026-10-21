@@ -14,12 +14,13 @@ import { createFeedIsland } from "./feed"
 import { createAppShell, OVERLAYS, type OverlayId, type ShellParts } from "./shell"
 import { createFrame } from "./frame"
 import { followFrame } from "./overlays"
+import { FRAME_ISLANDS } from "./frame-models"
 import type { FeedEvent } from "../utils/feed"
 
 /*
- * Only where the frame pass and its followers put the overlay islands' hosts, and the feed's: every
- * other island is a bare host, and with no files the diff views are never
- * drawn.
+ * Only where the frame pass and its followers put the overlay islands' hosts,
+ * and the feed's: every other island is a bare host, and with no files the
+ * diff views are never drawn.
  */
 
 let setup: TestRendererSetup | null = null
@@ -39,7 +40,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
-      ["composer", "prompt", "statusBar", "header", "threadPanel", "prInfoPanel", "chatColumn", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
+      FRAME_ISLANDS.map((name) => [name, island(name)])
     ),
     ...realParts,
   } as unknown as Record<"statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId, { host: Renderable }>
@@ -76,7 +77,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     ...realParts,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
-  // Every overlay host stays mounted; what counts as shown is a visible one, in the order the shell stacks them.
+  // Every overlay host stays mounted; what counts as shown is a visible one,
+  // in the order the shell stacks them.
   const ids = new Set<string>(OVERLAYS)
   const overlays = () =>
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))

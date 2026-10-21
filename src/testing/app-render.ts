@@ -21,7 +21,7 @@ import { createPrInfoPanelFollower } from "../app/pr-info-panel-follower"
 import { createComposerFollower } from "../app/composer-follower"
 import { createPromptFollower } from "../app/prompt-follower"
 import { writePrompt } from "../app/open-prompt"
-import type { PromptIsland, PromptOwner } from "../app/prompt-routing"
+import { promptIslandsOf } from "../app/prompt-routing"
 import { createFrame } from "../app/frame"
 import { createTreeHighlightSync } from "../app/tree-highlight"
 import { createAppShell } from "../app/shell"
@@ -100,17 +100,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const setState = (updater: (s: AppState) => AppState) => {
     state = updater(state)
   }
-  const promptIslands: Record<PromptOwner, PromptIsland> = {
-    search: islands.searchPrompt,
-    "file-picker": islands.filePicker,
-    "comments-picker": islands.commentsPicker,
-    "marks-picker": islands.marksPicker,
-    "occurrence-picker": islands.occurrencePicker,
-    "commit-picker": islands.commitPicker,
-    "action-menu": islands.actionMenu,
-    "feed-filter": chrome.feed,
-    "comments-filter": chrome.threadPanel,
-  }
   followFrame(
     frame.frame,
     {
@@ -118,7 +107,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       ...chrome,
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render() }),
       prompt: createPromptFollower(
-        promptIslands,
+        promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
         writePrompt({ setState, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       // The harness mounts no PR info panel.
@@ -164,7 +153,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     publishFrame: frame.publish,
   }
   render = createFramePass(framePassContext)
-  // Keys tests reach the composer through the thread panel, which the pass no longer drives.
+  // Keys tests reach the composer through the thread panel, and the frame
+  // pass's context does not carry it.
   const ctx = { ...framePassContext, threadPanel: chrome.threadPanel }
 
   return {

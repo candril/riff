@@ -214,7 +214,7 @@ test("closing and reopening keeps the same summary textarea, undestroyed", async
   island.dispose()
 })
 
-test("unmounted the way the shell's discard does it, the host keeps the modal for the next pass", async () => {
+test("removed from a parent box that is then destroyed, the host keeps the modal for the next pass", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
   const island = islandOn(setup.renderer)
   const first = mount(island.host)

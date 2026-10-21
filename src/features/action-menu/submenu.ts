@@ -1,9 +1,11 @@
 /**
  * Action-menu submenu row building (spec 042).
  *
- * When the palette is in a submenu, the menu the frame draws and input.ts
- * both need the same filtered-and-ordered row list. This module is the single place that
- * turns `state.actionMenu.submenu` + `state.actionMenu.query` into rows.
+ * When the palette is in a submenu, its frame model (the actionMenu entry
+ * of frameModels, which the action-menu island in app/pickers.tsx draws)
+ * and input.ts both need the same filtered-and-ordered row list. This
+ * module is the single place that turns `state.actionMenu.submenu` +
+ * `state.actionMenu.query` into rows.
  */
 
 import type { AppState } from "../../state"

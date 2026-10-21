@@ -13,9 +13,7 @@ export interface ComposerFollowerDeps {
 
 /**
  * Hands each frame's composer session to the thread panel's textarea, which
- * focuses and seeds it. Composing hides the diff's cursor, which keeps the
- * textarea's cursor visible; otherwise the diff would re-claim it after the
- * textarea's renderCursor pass.
+ * focuses and seeds it.
  */
 export function createComposerFollower(
   compose: (session: ComposerSession | null) => void,

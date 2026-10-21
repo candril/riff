@@ -33,6 +33,9 @@ export function diffCursorShown(state: AppState, promptOpen: boolean): boolean {
   const comments = state.inlineCommentOverlay
   const readingComments = comments.open && state.focusedPanel === "comments"
   const chatting = state.chatOpen && state.focusedPanel === "chat"
+  // Composing hides the diff's cursor, which keeps the textarea's cursor
+  // visible; otherwise the diff would re-claim it after the textarea's
+  // renderCursor pass.
   return !(composerOpen(state) || readingComments || chatting || overlayOpen(state, promptOpen))
 }
 

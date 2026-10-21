@@ -77,7 +77,7 @@ import { createPrInfoPanelFollower } from "./app/pr-info-panel-follower"
 import { createComposerFollower } from "./app/composer-follower"
 import { createPromptFollower } from "./app/prompt-follower"
 import { writePrompt } from "./app/open-prompt"
-import type { PromptIsland, PromptOwner } from "./app/prompt-routing"
+import { promptIslandsOf } from "./app/prompt-routing"
 import { createFrame } from "./app/frame"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -573,26 +573,22 @@ export async function createApp(options: AppOptions = {}) {
     statusBar: statusBar.host,
   })
   const frame = createFrame()
-  const promptIslands: Record<PromptOwner, PromptIsland> = {
-    search: islands.searchPrompt,
-    "file-picker": islands.filePicker,
-    "comments-picker": islands.commentsPicker,
-    "marks-picker": islands.marksPicker,
-    "occurrence-picker": islands.occurrencePicker,
-    "commit-picker": islands.commitPicker,
-    "action-menu": islands.actionMenu,
-    "feed-filter": feedIsland,
-    "comments-filter": threadPanel,
-  }
   const setAppState = (fn: (s: AppState) => AppState) => { state = fn(state) }
   const stopFollowing = followFrame(
     frame.frame,
     {
       ...islands,
-      composer: createComposerFollower(threadPanel.compose, { getState: () => state, setState: setAppState, render }),
+      composer: createComposerFollower(threadPanel.compose, {
+        getState: () => state,
+        setState: setAppState,
+        render: () => renderFrame(),
+      }),
       prompt: createPromptFollower(
-        promptIslands,
-        writePrompt({ setState: setAppState, updateSearchPattern: (value) => searchHandler.updatePattern(value) }, render)
+        promptIslandsOf(islands, feedIsland, threadPanel),
+        writePrompt(
+          { setState: setAppState, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          () => renderFrame()
+        )
       ),
       threadPanel,
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),

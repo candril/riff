@@ -82,7 +82,12 @@ export function followFrame(frame: Accessor<Frame | null>, islands: Followers, s
     // effects drift out of this order after the first frame.
     createRenderEffect(() => {
       const current = models()
-      if (!current) return
+      if (!current) {
+        // Marked all the same, so a first publish made inside a batch is
+        // caught like any later one.
+        markDrawn(frame, null)
+        return
+      }
       // Untracked: an island reading its own state while it updates must
       // not subscribe this effect to it.
       untrack(() => {

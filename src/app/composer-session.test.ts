@@ -3,13 +3,12 @@ import {
   createComposerSession,
   PLACEHOLDER_COMPOSE,
   PLACEHOLDER_EDIT,
-  type ComposerSessionController,
   type ComposerTextarea,
 } from "./composer-session"
 
 /** A textarea that reports its edits as activity, as OpenTUI's does. */
 function stubTextarea() {
-  let session: ComposerSessionController | null = null
+  let session: ReturnType<typeof createComposerSession> | null = null
   let text = ""
   let cursor = 0
   const textarea = {
@@ -136,7 +135,6 @@ describe("a composer session", () => {
     const heardBeforeRefresh = [...first]
     type("@b")
     expect(first).toEqual(heardBeforeRefresh)
-    expect(first).not.toContain("@b")
     expect(second.at(-1)).toEqual(["@b", 2])
 
     const count = second.length

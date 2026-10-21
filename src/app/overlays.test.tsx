@@ -49,15 +49,9 @@ async function mount(width: number, height: number) {
   })
   const shown: [FrameIslandId, boolean][] = []
   const { frame, publish } = createFrame()
-  const stop = followFrame(frame, {
-    ...islands,
-    ...panels,
-    composer: { update() {} },
-    prompt: { update() {} },
-    statusBar: { update() {} },
-    prInfoPanel: { update() {} },
-    chatColumn: { update() {} },
-  }, {
+  const stubs = Object.fromEntries(FRAME_ISLANDS.map((id) => [id, { update() {} }]))
+  const followers = { ...stubs, ...islands, ...panels } as unknown as Parameters<typeof followFrame>[1]
+  const stop = followFrame(frame, followers, {
     show(id, visible) {
       shown.push([id, visible])
       shell.show(id, visible)
@@ -136,7 +130,7 @@ test("one frame draws a picker, the search and flash lines in the status bar's s
 })
 
 test("the shell shows every follower but the ones that show themselves", async () => {
-  const { panels, shown, publish, pass, stop, initial } = await mount(110, 40)
+  const { islands, panels, shown, publish, pass, stop, initial } = await mount(110, 40)
 
   publish(pass({ ...openFilePicker(initial), viewMode: "feed", inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true } }))
   expect(panels.threadPanel.host.visible).toBe(true)
@@ -146,17 +140,27 @@ test("the shell shows every follower but the ones that show themselves", async (
   expect(shown).toContainEqual(["filePicker", true])
 
   stop()
-  for (const island of Object.values(panels)) island.dispose()
+  for (const island of [...Object.values(islands), ...Object.values(panels)]) island.dispose()
 })
 
 test("publishing inside a Solid batch throws, as the islands would draw only after render() returned", async () => {
-  const { publish, pass, stop } = await mount(80, 24)
+  const { islands, panels, publish, pass, stop } = await mount(80, 24)
 
   expect(() => publish(pass({ showHelp: true }))).not.toThrow()
   expect(() => batch(() => publish(pass({ showHelp: false })))).toThrow("render() ran inside a Solid batch")
 
   stop()
   expect(() => batch(() => publish(pass({})))).not.toThrow()
+  for (const island of [...Object.values(islands), ...Object.values(panels)]) island.dispose()
+})
+
+test("the first frame published inside a Solid batch throws too", async () => {
+  const { islands, panels, publish, pass, stop } = await mount(80, 24)
+
+  expect(() => batch(() => publish(pass({ showHelp: true })))).toThrow("render() ran inside a Solid batch")
+
+  stop()
+  for (const island of [...Object.values(islands), ...Object.values(panels)]) island.dispose()
 })
 
 test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes down it", () => {

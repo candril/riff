@@ -52,9 +52,11 @@ export function createFrame(): { frame: Accessor<Frame | null>; publish(next: Fr
     frame,
     publish(next) {
       setFrame(() => next)
-      // The frame pass expects the islands to have drawn, and the composer and
-      // the prompts to have focused their fields, by the time this returns, which a batch or an effect would
-      // defer. Checked in tests only, where it costs nothing to be loud.
+      // The composer and the prompts focus their fields here, as the first
+      // followers, and the frame pass expects them to have done so and every
+      // island to have drawn by the time this returns, which a batch or an
+      // effect would defer. Checked in tests only, where it costs nothing to
+      // be loud.
       if (process.env.NODE_ENV === "test" && drawn.has(frame) && drawn.get(frame) !== next) {
         throw new Error("render() ran inside a Solid batch or update, so the frame islands would draw after it returns")
       }
