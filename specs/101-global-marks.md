@@ -123,4 +123,5 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
   the way those are, through `storage`.
 - The keys go through the keymap layers spec 100 introduces (M6). If 101
   is built before M6 finishes, they go into the diff's key handling like
-  the other sequences, and move with it.
+  the other sequences, and move with it. The list's keys are a keymap
+  layer in `src/features/marks/picker-keys.ts`.

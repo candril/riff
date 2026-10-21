@@ -16,7 +16,7 @@ import { showToast, switchView, toggleBlockFold } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 import type { OccurrenceHit } from "./filter"
 
-export { handleInput, type OccurrencePickerInputContext } from "./input"
+export { registerOccurrencePickerKeys, type OccurrencePickerKeyDeps } from "./keys"
 export {
   findOccurrences,
   getOccurrenceResults,

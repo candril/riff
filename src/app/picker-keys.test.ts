@@ -5,6 +5,7 @@ import {
   openActionMenu,
   openCommentsPicker,
   openFilePicker,
+  openOccurrencePicker,
   setCommentsPickerQuery,
   setFilePickerQuery,
   type AppState,
@@ -16,7 +17,8 @@ import type { Comment } from "../types"
 import { keymapHarness } from "../testing/keymap-keys"
 import { registerFilePickerKeys } from "../features/file-picker"
 import { registerCommentsPickerKeys } from "../features/comments-picker"
-import type { Mark } from "../features/marks"
+import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mark } from "../features/marks"
+import { registerOccurrencePickerKeys } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { registerModalKeys } from "./keys"
 import type { GlobalKeyContext } from "./global-keys"
@@ -85,9 +87,29 @@ const PICKERS: PickerCase[] = [
     picked: "comment c1",
     emptyEnterCloses: false,
   },
+  {
+    name: "marks picker",
+    open: openMarksPicker,
+    openEmpty: (s) => setMarksPickerQuery(openMarksPicker(s), NO_MATCH),
+    isOpen: (s) => s.marksPicker.open,
+    index: (s) => s.marksPicker.selectedIndex,
+    wraps: false,
+    picked: "jump b",
+    emptyEnterCloses: true,
+  },
+  {
+    name: "occurrence picker",
+    open: (s) => openOccurrencePicker(s, "hit"),
+    openEmpty: (s) => openOccurrencePicker(s, NO_MATCH),
+    isOpen: (s) => s.occurrencePicker.open,
+    index: (s) => s.occurrencePicker.selectedIndex,
+    wraps: true,
+    picked: "hit b.ts",
+    emptyEnterCloses: false,
+  },
 ]
 
-/** The layers on recording deps, in registerPickerKeys' order. */
+/** The four layers on recording deps, in registerPickerKeys' order. */
 async function setup(initial: AppState) {
   const harness = await keymapHarness()
   let state = initial
@@ -99,6 +121,15 @@ async function setup(initial: AppState) {
     },
     render: () => void calls.push("render"),
   }
+  registerOccurrencePickerKeys(harness.riffKeymap, {
+    ...base,
+    onSelectHit: (hit) => void calls.push(`hit ${hit.row.filename}`),
+  })
+  registerMarksPickerKeys(harness.riffKeymap, {
+    ...base,
+    onJump: (letter) => void calls.push(`jump ${letter}`),
+    save: () => void calls.push("save"),
+  })
   registerCommentsPickerKeys(harness.riffKeymap, {
     ...base,
     onSelectComment: (picked) => void calls.push(`comment ${picked.id}`),
@@ -192,6 +223,20 @@ for (const picker of PICKERS) {
   })
 }
 
+test("ctrl+g in the occurrence picker switches the prompt to the filter and back, and a bare g is typing", async () => {
+  const { state, calls, legacyKeys, press } = await setup(openOccurrencePicker(closed(), "hit"))
+
+  expect(press(CTRL_G).defaultPrevented).toBe(true)
+  expect(state().occurrencePicker.narrowing).toBe(true)
+  expect(press("g").defaultPrevented).toBe(false)
+  expect(state().occurrencePicker.narrowing).toBe(true)
+  press(CTRL_G)
+
+  expect(state().occurrencePicker.narrowing).toBe(false)
+  expect(calls).toEqual(["render", "render"])
+  expect(legacyKeys).toEqual([])
+})
+
 test("ctrl+x and ctrl+g are left for the field in the pickers that do not bind them", async () => {
   const { state, calls, legacyKeys, press } = await setup(openCommentsPicker(openFilePicker(closed())))
 
@@ -251,4 +296,13 @@ test("with the file and comments pickers both open escape closes the file picker
 
   expect(state().filePicker.open).toBe(false)
   expect(state().commentsPicker.open).toBe(true)
+})
+
+test("with the marks and occurrence pickers both open escape closes the marks picker", async () => {
+  const { state, press } = await setupApp(openMarksPicker(openOccurrencePicker(closed(), "hit")))
+
+  press(ESC)
+
+  expect(state().marksPicker.open).toBe(false)
+  expect(state().occurrencePicker.open).toBe(true)
 })

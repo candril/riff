@@ -4,9 +4,11 @@ import { switchView } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { registerFilePickerKeys } from "../features/file-picker"
 import { jumpToComment, registerCommentsPickerKeys } from "../features/comments-picker"
+import { jumpToMark, registerMarksPickerKeys } from "../features/marks"
+import { jumpToOccurrence, registerOccurrencePickerKeys } from "../features/occurrence-picker"
 import * as fileNavigation from "../features/file-navigation"
 
-/** The query pickers' layers, wired to the jumps they end in. */
+/** The four query pickers' layers, wired to the jumps they end in. */
 export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext): void {
   const { getState, setState, render } = ctx
   const jumpContext = () => ({
@@ -21,8 +23,25 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext
   })
 
   // Later registration wins, for layers and captures alike. The chain these
-  // layers replaced asked the file picker first, then comments, so they
-  // register in the reverse order.
+  // layers replaced asked the file picker first, then comments, marks and
+  // occurrences, so they register in the reverse order.
+  registerOccurrencePickerKeys(riffKeymap, {
+    getState,
+    setState,
+    render,
+    onSelectHit: (hit) => jumpToOccurrence(hit, jumpContext()),
+  })
+  registerMarksPickerKeys(riffKeymap, {
+    getState,
+    setState,
+    render,
+    onJump: (letter) => {
+      // A mark is a place in the diff, so going to one leaves the overview or the feed.
+      if (ctx.getState().viewMode !== "diff") ctx.setState((s) => switchView(s, "diff"))
+      jumpToMark(letter, ctx.marksContext)
+    },
+    save: (marks) => ctx.marksContext.save(marks),
+  })
   registerCommentsPickerKeys(riffKeymap, {
     getState,
     setState,

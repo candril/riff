@@ -185,78 +185,43 @@ export type { ActionMenuState } from "./state"
 
 ### Feature Input Handler
 
-Each feature owns its complete input handling:
+Each feature registers its own keys as a keymap layer:
 
 ```typescript
-// src/features/action-menu/keys.ts (registerActionMenuKeys registers this as a keymap layer, ADR-002)
-import type { KeyEvent } from "@opentui/core"
-import type { FeatureContext } from "../types"
-import * as state from "./state"
-import { executeAction } from "./execute"
+// src/features/occurrence-picker/keys.ts: one keymap layer per feature (ADR-002)
+import type { RiffKeymap } from "../../app/keymap"
+import { registerQueryPickerKeys } from "../../app/query-picker-keys"
 
-/**
- * Handle input when action menu is open.
- * Returns true if key was handled (menu is open), false otherwise.
- */
-export function handleInput(key: KeyEvent, ctx: FeatureContext): boolean {
-  if (!state.isOpen(ctx.state)) {
-    return false
-  }
-  
-  const filtered = state.getFilteredActions(ctx.state)
-  
-  switch (key.name) {
-    case "escape":
-      ctx.setState(state.close)
-      return true
-    
-    case "return":
-    case "enter":
-      const selected = filtered[ctx.state.actionMenu.selectedIndex]
-      if (selected) {
-        ctx.setState(state.close)
-        executeAction(selected.id, ctx)
-      }
-      return true
-    
-    case "up":
-      ctx.setState(s => state.moveSelection(s, -1))
-      return true
-    
-    case "down":
-      ctx.setState(s => state.moveSelection(s, 1))
-      return true
-    
-    case "p":
-      if (key.ctrl) {
-        ctx.setState(s => state.moveSelection(s, -1))
-        return true
-      }
-      ctx.setState(s => state.setQuery(s, s.actionMenu.query + "p"))
-      return true
-    
-    case "n":
-      if (key.ctrl) {
-        ctx.setState(s => state.moveSelection(s, 1))
-        return true
-      }
-      ctx.setState(s => state.setQuery(s, s.actionMenu.query + "n"))
-      return true
-    
-    case "backspace":
-      if (ctx.state.actionMenu.query.length > 0) {
-        ctx.setState(s => state.setQuery(s, s.actionMenu.query.slice(0, -1)))
-      }
-      return true
-    
-    default:
-      if (key.sequence?.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState(s => state.setQuery(s, s.actionMenu.query + key.sequence))
-      }
-      return true  // Capture all keys when open
-  }
+export function registerOccurrencePickerKeys(riffKeymap: RiffKeymap, deps: OccurrencePickerKeyDeps): () => void {
+  return registerQueryPickerKeys(riffKeymap, {
+    name: "occurrencePicker",
+    category: "Occurrence picker",
+    active: () => deps.getState().occurrencePicker.open,
+    close: () => {
+      deps.setState(closeOccurrencePicker)
+      deps.render()
+    },
+    pick: () => {
+      const state = deps.getState()
+      const hit = getOccurrenceResults(state).hits[state.occurrencePicker.selectedIndex]
+      if (!hit) return
+      deps.setState(closeOccurrencePicker)
+      deps.onSelectHit(hit)
+    },
+    move: (delta) => {
+      /* ... */
+    },
+    extra: [{ key: "ctrl+g", name: "narrow", title: "…", run: () => { /* ... */ } }],
+  })
 }
 ```
+
+`registerQueryPickerKeys` registers the layer with `enabled: active`, binds
+each key with every modifier held (`anyModifiers`), and adds a `capture`
+without a `rest` handler: a key the layer leaves is neither prevented nor
+passed to the priority chain, so the picker's prompt field types it.
+`src/app/keys.ts` registers every feature's layer in `createAppKeys`; of
+two enabled layers binding a key, the later registered wins.
 
 ### Feature State Slice
 

@@ -607,46 +607,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
 
-    // ========== MARKS PICKER (captures all input when open, spec 101) ==========
-    if (
-      marks.handleMarksPickerInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onJump: (letter) => {
-          // A mark is a place in the diff, so going to one leaves the overview or the feed.
-          if (ctx.getState().viewMode !== "diff") ctx.setState((s) => switchView(s, "diff"))
-          marks.jumpToMark(letter, ctx.marksContext)
-        },
-        save: ctx.marksContext.save,
-      })
-    ) {
-      return
-    }
-
-    // ========== OCCURRENCE PICKER (captures all input when open, spec 088) ==========
-    if (
-      occurrencePicker.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onSelectHit: (hit) => {
-          occurrencePicker.jumpToOccurrence(hit, {
-            getState: ctx.getState,
-            setState: ctx.setState,
-            getVimState: ctx.getVimState,
-            setVimState: ctx.setVimState,
-            getLineMapping: ctx.getLineMapping,
-            ensureCursorVisible: ctx.ensureCursorVisible,
-            render: ctx.render,
-            fileNavContext: ctx.fileNavContext,
-          })
-        },
-      })
-    ) {
-      return
-    }
-
     // ========== COMMIT PICKER (captures all input when open) ==========
     if (
       commitPicker.handleInput(key, {

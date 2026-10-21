@@ -88,8 +88,8 @@ The `@opentui/keymap` keymap is wired and offered every key first, ahead
 of the priority chain in `global-keys.ts`
 ([ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)); it
 holds F12, the debug console, the flash jump's keys, the confirmation
-dialog's, the command palette's and those of the file and comments
-pickers. A modal layer captures the keys it does not bind, so
+dialog's, the command palette's and those of the file, comments, marks and
+occurrence pickers. A modal layer captures the keys it does not bind, so
 none of them reaches the chain while it is up; the palette's and the
 pickers' captures leave them unprevented for their prompt fields to type.
 

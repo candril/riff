@@ -142,7 +142,7 @@ extracting it is worth its own change once this one works.
 
 - `src/features/occurrence-picker/` — `index.ts` (open/close, jump),
   `corpus.ts` (rows from `DiffFile[]`), `filter.ts` (query → grouped
-  entries), `input.ts` (keys, as `comments-picker/input.ts`).
+  entries), `keys.ts` (the keymap layer, as `comments-picker/keys.ts`).
 - `src/components/OccurrencePicker.ts` — the overlay, modelled on
   `CommentsPicker.ts`.
 - `state.ts` — `occurrencePicker: { open, query, selectedIndex }` with
@@ -151,9 +151,10 @@ extracting it is worth its own change once this one works.
   `render.ts` ~705).
 - `app/render.ts` — a prompt entry in the prompt-config chain next to
   `comments-picker`, and the overlay.
-- `app/global-keys.ts` — route input to the picker while it is open, and
-  a `case "s"` branch for `key.ctrl` in the global switch. The existing
-  `case "s"` is flash and already requires `!key.ctrl`.
+- `app/picker-keys.ts` — register the picker's layer, which takes every
+  key while it is open; `app/global-keys.ts` — a `case "s"` branch for
+  `key.ctrl` in the global switch. The existing `case "s"` is flash and
+  already requires `!key.ctrl`.
 - `src/index.ts` help text and `HelpOverlay.ts`. The CLI help still lists
   `Ctrl+g` as "Show the current file's path"; it is the commit picker. Fix
   that line while there.

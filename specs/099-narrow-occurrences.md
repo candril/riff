@@ -66,5 +66,5 @@ again goes back to the grep with the filter kept.
 - The prompt key is `occurrence-picker:search` or `occurrence-picker:narrow`.
   A new key re-seeds the shared field (spec 065), which is how switching
   modes shows the other string.
-- `input.ts` handles `Ctrl-g` and prevents the default, so the field never
-  sees it.
+- The picker's keymap layer (`keys.ts`) binds `Ctrl-g`, which prevents the
+  default, so the field never sees it.
