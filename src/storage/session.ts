@@ -1,5 +1,5 @@
 import { join } from "path"
-import { mkdir, unlink } from "fs/promises"
+import { mkdir } from "fs/promises"
 import { type ReviewSession, createSession } from "../types"
 import { localStorageDir } from "./resolve"
 
@@ -45,14 +45,4 @@ export async function loadOrCreateSession(source: string): Promise<ReviewSession
   const session = createSession(source)
   await saveSession(session)
   return session
-}
-
-export async function deleteSession(): Promise<void> {
-  const filepath = join(localStorageDir(), SESSION_FILE)
-
-  try {
-    await unlink(filepath)
-  } catch {
-    // File may not exist
-  }
 }

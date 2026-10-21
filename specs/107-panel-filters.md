@@ -38,7 +38,7 @@ the reader sees what is left without losing the rest, which is a key away.
 
 ## Technical Notes
 
-- `src/storage.ts`: `PanelFilters` and `updatePanelFilters`, which
+- `src/storage/caches.ts`: `PanelFilters` and `updatePanelFilters`, which
   serialises its writes so two quick toggles cannot lose one.
 - Thread panel: `src/features/inline-comment-overlay/input.ts`,
   `src/components/thread-panel-model.ts`.

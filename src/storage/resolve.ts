@@ -12,8 +12,8 @@ const GLOBAL_STORAGE_DIR = join(homedir(), ".riff")
 export const LOCAL_DIR = "local"
 
 /**
- * Filled once riff has asked about an auto-detected path, so every later
- * read of the same source lands where the reader agreed it should.
+ * What startup resolved for every source, so later reads of the same source
+ * agree with it, including where the reader accepted or refused a guess.
  */
 const resolvedStorageDirs = new Map<string, string>()
 
@@ -169,16 +169,18 @@ async function workspaceStorageDir(source: string): Promise<string | null> {
 /**
  * Resolution order:
  * 1. Config storage.path override
- * 2. Config storage.repos explicit mapping (for GitHub PRs)
- * 3. Current directory if it matches the PR's repo
- * 4. Config storage.basePath auto-detection (needs confirmation)
- * 5. Repo root (find .git/.jj)
- * 6. Global ~/.riff/ as fallback
+ * 2. The jj workspace a `name@` source names
+ * 3. Config storage.repos explicit mapping (GitHub PRs)
+ * 4. The current checkout, when it is the PR's repo
+ * 5. Config storage.basePath auto-detection (needs confirmation)
+ * 6. The current checkout, for local sources
+ * 7. The repo root above the working directory
+ * 8. The global ~/.riff/
  */
 async function resolveStorageDir(source: string): Promise<RepoResolution> {
   const config = loadConfig()
 
-  // 1. Explicit config path override
+  // An explicit path wins over every guess.
   if (config.storage.path) {
     return {
       path: expandPath(config.storage.path),
@@ -204,7 +206,7 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
   if (parsed) {
     const { owner, repo } = parsed
 
-    // 2. Explicit mapping in config
+    // The reader said where this repo lives, so no confirmation is needed.
     const mappedRepo = await findLocalRepoFromConfig(owner, repo)
     if (mappedRepo) {
       return {
@@ -215,7 +217,6 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
       }
     }
 
-    // 3. Check if cwd matches
     const isLocal = await isCurrentRepo(source)
     if (isLocal) {
       return {
@@ -225,7 +226,7 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
       }
     }
 
-    // 4. Try basePath auto-detection (needs confirmation)
+    // A checkout found by name alone is a guess the reader has to accept.
     if (config.storage.basePath) {
       const autoDetected = await autoDetectRepoInBasePath(repo, config.storage.basePath)
       if (autoDetected) {
@@ -239,7 +240,6 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
     }
   }
 
-  // 5. Check if cwd matches (for non-PR sources like "local")
   const isLocal = await isCurrentRepo(source)
   if (isLocal) {
     return {
@@ -249,7 +249,6 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
     }
   }
 
-  // 6. Try to find repo root
   const repoRoot = await findRepoRoot()
   if (repoRoot) {
     return {
@@ -260,7 +259,7 @@ async function resolveStorageDir(source: string): Promise<RepoResolution> {
     }
   }
 
-  // 7. Global fallback
+  // Outside any repo there is no checkout to anchor to.
   return {
     path: GLOBAL_STORAGE_DIR,
     source: "global",

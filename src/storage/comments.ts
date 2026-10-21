@@ -84,7 +84,7 @@ export async function loadComments(source: string): Promise<Comment[]> {
           comments.push(parseComment(meta, body))
         }
       } catch {
-        // Skip invalid files
+        // A hand-edited or half-written note must not keep the others from loading.
       }
     }
 
@@ -113,7 +113,7 @@ export async function deleteCommentFile(commentId: string, source: string): Prom
   try {
     await unlink(filepath)
   } catch {
-    // File may not exist
+    // Already gone is what deleting asked for.
   }
 }
 
@@ -135,8 +135,4 @@ export async function clearLocalComments(source: string): Promise<number> {
   const local = comments.filter((c) => c.status === "local")
   await Promise.all(local.map((c) => deleteCommentFile(c.id, source)))
   return local.length
-}
-
-export async function updateComment(comment: Comment, source: string): Promise<void> {
-  await saveComment(comment, source)
 }
