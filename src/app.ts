@@ -31,7 +31,7 @@ import {
   setFileDiff,
   toggleThreadPanelOpenOnly,
 } from "./state"
-import { toggleUnviewedFilesOnly, keepDiffFileInTree } from "./app/tree-unviewed"
+import { toggleUnviewedFilesOnly, keepDiffFileHighlighted } from "./app/tree-unviewed"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -476,7 +476,8 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
 
-    state = keepDiffFileInTree(state, lineMapping.getLine(vimState.line)?.filename ?? null)
+    const kept = keepDiffFileHighlighted(state, lineMapping.getLine(vimState.line)?.filename ?? null)
+    state = kept.state
     const followedCursor = syncTreeHighlightToCursor()
 
     // Calculate file panel width based on expanded state
@@ -491,7 +492,7 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     refreshFileTreePanel()
-    if (followedCursor) {
+    if (followedCursor || kept.moved) {
       fileTreePanel.ensureHighlightVisible()
     }
     fileTreePanel.visible = state.showFilePanel

@@ -2,7 +2,8 @@ import { test, expect, describe } from "bun:test"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { createSearchState } from "../../vim-diff/search-state"
-import { createInitialState } from "../../state"
+import { createInitialState, updateFileStatuses } from "../../state"
+import { treeRowsOf } from "../../components/FileTree"
 import { buildFileTree } from "../../utils/file-tree"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { VimCursorState } from "../../vim-diff/types"
@@ -12,6 +13,7 @@ import {
   rebuildAfterRefresh,
   refreshMessage,
   relocate,
+  reseatTreeHighlight,
   restorePosition,
   restoreSearch,
   wasForcePushed,
@@ -158,6 +160,27 @@ describe("restoring the view", () => {
 
     const after = restorePosition({ ...stateWith([files[1]!, files[0]!]), fileStatuses: viewed }, position)
     expect(after.treeHighlightIndex).toBe(0)
+  })
+
+  test("the tree highlight is found again once the reload's viewed states arrive", () => {
+    const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
+    const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    expect(position.treeHighlightPath).toBe("c.ts")
+
+    // The statuses land after the restore, and hide a row above the highlight.
+    const restored = restorePosition(stateWith(three), position)
+    const settled = updateFileStatuses(restored, new Map([["b.ts", { filename: "b.ts", viewed: true }]]))
+    const highlighted = (s: typeof settled) => treeRowsOf(s)[s.treeHighlightIndex]?.node.path
+    expect(highlighted(settled)).not.toBe("c.ts")
+
+    expect(highlighted(reseatTreeHighlight(settled, position.treeHighlightPath))).toBe("c.ts")
+  })
+
+  test("reseating on a path the tree no longer draws goes to the top", () => {
+    const state = { ...stateWith(files), treeHighlightIndex: 1 }
+    expect(reseatTreeHighlight(state, "gone.ts").treeHighlightIndex).toBe(0)
+    expect(reseatTreeHighlight(state, null).treeHighlightIndex).toBe(0)
   })
 
   test("an open chat with the keys stays open and keeps them", () => {

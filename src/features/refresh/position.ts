@@ -103,12 +103,18 @@ export function capturePosition(
  * or ignored — are unioned on top by the caller afterwards.
  */
 export function restorePosition(state: AppState, position: RefreshPosition): AppState {
-  const restored = restoreFields(state, position)
-  const flatItems = treeRowsOf(restored)
-  const treeHighlightIndex = position.treeHighlightPath
-    ? Math.max(0, flatItems.findIndex((item) => item.node.path === position.treeHighlightPath))
-    : 0
-  return { ...restored, treeHighlightIndex }
+  return reseatTreeHighlight(restoreFields(state, position), position.treeHighlightPath)
+}
+
+/**
+ * Point the tree's highlight at `path` among the rows drawn now. The refresh
+ * calls this again once the viewed states have loaded: with viewed files
+ * hidden they add and drop rows, and an index found before then names a
+ * neighbour.
+ */
+export function reseatTreeHighlight(state: AppState, path: string | null): AppState {
+  const treeHighlightIndex = path ? Math.max(0, treeRowsOf(state).findIndex((item) => item.node.path === path)) : 0
+  return treeHighlightIndex === state.treeHighlightIndex ? state : { ...state, treeHighlightIndex }
 }
 
 function restoreFields(state: AppState, position: RefreshPosition): AppState {

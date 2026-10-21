@@ -32,6 +32,7 @@ import {
   createMarksPickerIsland,
   createOccurrencePickerIsland,
 } from "../app/pickers"
+import { keepDiffFileHighlighted } from "../app/tree-unviewed"
 import { createAppShell, OVERLAYS, type ShellParts } from "../app/shell"
 import { createDiffHighlights } from "../app/diff-highlights"
 import { createSplitDiff } from "../app/split-diff"
@@ -145,6 +146,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     unified,
     parses,
     updateFileTreePanel() {
+      const kept = keepDiffFileHighlighted(state, mapping.getLine(vimState.line)?.filename ?? null)
+      state = kept.state
       fileTreePanel.update({
         files: state.files,
         fileTree: state.fileTree,
@@ -158,6 +161,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
         treeFilterInput: state.treeFilterInput,
         unviewedOnly: state.treeUnviewedOnly ? { keep: state.treeKeptFile } : null,
       })
+      if (kept.moved) fileTreePanel.ensureHighlightVisible()
       fileTreePanel.visible = state.showFilePanel
     },
     updateSearchPattern() {},

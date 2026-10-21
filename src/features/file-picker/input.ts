@@ -10,11 +10,13 @@ import type { AppState } from "../../state"
 import type { FilteredFile } from "../../components"
 import {
   closeFilePicker,
+  keepTreeFile,
   moveFilePickerSelection,
   selectFile,
   updateFileTree,
 } from "../../state"
-import { expandToFile, findFileTreeIndex } from "../../utils/file-tree"
+import { treeRowsOf } from "../../components/FileTree"
+import { expandToFile } from "../../utils/file-tree"
 import { fuzzyFilter } from "../../utils/fuzzy"
 
 export interface FilePickerInputContext {
@@ -86,11 +88,11 @@ export function handleInput(
           // Expand tree to show the selected file
           const filename = s.files[selectedFile.index]?.filename
           if (filename) {
-            const expandedTree = expandToFile(s.fileTree, filename)
-            newState = updateFileTree(newState, expandedTree)
+            newState = updateFileTree(newState, expandToFile(s.fileTree, filename))
+            // A picked viewed file would otherwise stay hidden, as `]f` keeps its own.
+            if (newState.treeUnviewedOnly) newState = keepTreeFile(newState, filename)
 
-            // Find and set the tree highlight index
-            const treeIndex = findFileTreeIndex(expandedTree, s.files, filename)
+            const treeIndex = treeRowsOf(newState).findIndex((item) => item.node.file?.filename === filename)
             if (treeIndex !== -1) {
               newState = { ...newState, treeHighlightIndex: treeIndex }
             }

@@ -38,6 +38,7 @@ import {
   refreshMessage,
   rebuildAfterRefresh,
   relocate,
+  reseatTreeHighlight,
   restoreSearch,
   wasForcePushed,
   type RefreshPosition,
@@ -163,8 +164,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         )
       }
 
-      // Collapse viewed files
-      ctx.setState((s) => collapseViewedFiles(s))
+      ctx.setState((s) => reseatTreeHighlight(collapseViewedFiles(s), position.treeHighlightPath))
 
       // The stream is rebuilt from the new data — from the timeline again
       // when the feed is what the reader is looking at.
@@ -214,7 +214,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       const threads = groupIntoThreads(ctx.getState().comments)
       ctx.setState((s) => collapseResolvedThreads(s, threads))
       const localViewedStatuses = await loadViewedStatuses(state.source)
-      ctx.setState((s) => collapseViewedFiles(loadFileStatuses(s, localViewedStatuses)))
+      ctx.setState((s) =>
+        reseatTreeHighlight(collapseViewedFiles(loadFileStatuses(s, localViewedStatuses)), position.treeHighlightPath)
+      )
     }
 
     const landed = restoreCursor(ctx, position)

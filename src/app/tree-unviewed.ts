@@ -42,3 +42,16 @@ export function keepDiffFileInTree(state: AppState, cursorFile: string | null): 
   const index = treeRowsOf(kept).findIndex((item) => item.fileIndex === kept.selectedFileIndex)
   return index !== -1 && index !== kept.treeHighlightIndex ? { ...kept, treeHighlightIndex: index } : kept
 }
+
+/**
+ * keepDiffFileInTree, and whether that moved the highlight. A single-file
+ * view gives the tree no cursor to follow, so this move is the only cue the
+ * panel gets to scroll the highlight into view.
+ */
+export function keepDiffFileHighlighted(
+  state: AppState,
+  cursorFile: string | null
+): { state: AppState; moved: boolean } {
+  const kept = keepDiffFileInTree(state, cursorFile)
+  return { state: kept, moved: kept.treeHighlightIndex !== state.treeHighlightIndex }
+}

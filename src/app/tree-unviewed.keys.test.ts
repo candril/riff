@@ -104,6 +104,16 @@ async function treeText(): Promise<string> {
     .join("\n")
 }
 
+/** The tree once `ready` holds: `x` redraws only after its write has landed. */
+async function treeTextOnce(ready: (text: string) => boolean): Promise<string> {
+  let text = await treeText()
+  for (let i = 0; i < 100 && !ready(text); i++) {
+    await Bun.sleep(5)
+    text = await treeText()
+  }
+  return text
+}
+
 async function until(done: () => boolean): Promise<void> {
   for (let i = 0; i < 100 && !done(); i++) await Bun.sleep(5)
   expect(done()).toBe(true)
@@ -148,6 +158,27 @@ describe("H in the file tree", () => {
     expect(app.ctx.getState().treeHighlightIndex).toBe(1)
   })
 
+  test("x keeps the file it just marked, until x marks another", async () => {
+    app = await mountApp(FILES, { width: 100, height: 20 })
+    app.show({ focusedPanel: "tree" })
+    app.ctx.updateFileTreePanel()
+    keysOn(app, [])
+    await app.frame()
+
+    await app.setup.mockInput.typeText("H")
+    await app.setup.mockInput.typeText("x")
+    await until(() => app!.ctx.getState().fileStatuses.get("alpha.ts")?.viewed === true)
+    expect(await treeText()).toContain("alpha.ts")
+
+    await app.setup.mockInput.typeText("j")
+    await app.setup.mockInput.typeText("x")
+    await until(() => app!.ctx.getState().fileStatuses.get("bravo.ts")?.viewed === true)
+    const after = await treeTextOnce((text) => text.includes("Files (2/4)"))
+    expect(after).not.toContain("alpha.ts")
+    expect(after).toContain("bravo.ts")
+    expect(after).toContain("charlie.ts")
+  })
+
   test("a shifted h toggles rather than folding", async () => {
     app = await mountApp(FILES, { width: 100, height: 20 })
     app.show({ focusedPanel: "tree" })
@@ -157,5 +188,27 @@ describe("H in the file tree", () => {
     app.setup.mockInput.pressKey("h", { shift: true })
     expect(app.ctx.getState().treeUnviewedOnly).toBe(true)
     expect(await treeText()).toContain("Files (0/4)  unviewed only · 0 h")
+  })
+})
+
+describe("a single file in view while viewed files are hidden", () => {
+  const MANY = Array.from({ length: 30 }, (_, i) => `file${String(i).padStart(2, "0")}.ts`)
+
+  test("the tree scrolls to the selected file's row", async () => {
+    app = await mountApp(MANY.map(fileDiff).join(""), { width: 100, height: 14 })
+    const files = app.ctx.getState().files
+    const target = files.findIndex((file) => file.filename === "file26.ts")
+    const viewed = new Map<string, FileReviewStatus>([["file26.ts", { filename: "file26.ts", viewed: true }]])
+    app.show({ treeUnviewedOnly: true, fileStatuses: viewed, focusedPanel: "diff", treeHighlightIndex: 0 })
+    app.ctx.updateFileTreePanel()
+    // The header names the selected file too; only the rows under it say where the tree is.
+    const rows = async () => (await treeText()).split("\n").slice(1).join("\n")
+    expect(await rows()).not.toContain("file26.ts")
+
+    app.show({ selectedFileIndex: target })
+    app.ctx.updateFileTreePanel()
+    const tree = await rows()
+    expect(tree).toContain("file26.ts")
+    expect(tree).not.toContain("file00.ts")
   })
 })

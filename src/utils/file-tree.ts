@@ -319,15 +319,3 @@ function checkContainsFile(node: FileTreeNode, filename: string): boolean {
   
   return false
 }
-
-/**
- * Find the flat index of a file in the tree (after flattening with current expansion state)
- */
-export function findFileTreeIndex(
-  nodes: FileTreeNode[],
-  files: DiffFile[],
-  filename: string
-): number {
-  const flatItems = flattenTree(nodes, files)
-  return flatItems.findIndex(item => item.node.file?.filename === filename)
-}
