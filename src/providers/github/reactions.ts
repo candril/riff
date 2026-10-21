@@ -55,13 +55,13 @@ export function parseReactionGroups(groups: RawReactionGroup[] | undefined): Rea
   return out
 }
 
-export interface AddReactionResult {
+interface AddReactionResult {
   success: boolean
   reactionId?: number
   error?: string
 }
 
-export interface RemoveReactionResult {
+interface RemoveReactionResult {
   success: boolean
   error?: string
 }

@@ -7,8 +7,7 @@ import type { Comment } from "../../types"
 type ReviewEvent = "COMMENT" | "APPROVE" | "REQUEST_CHANGES"
 
 /**
- * Fetch the current user's pending (draft) review on a PR, if any.
- * Returns null if no pending review exists.
+ * The current user's pending (draft) review on a PR, or null.
  */
 export async function getPendingReview(
   owner: string,
@@ -16,16 +15,13 @@ export async function getPendingReview(
   prNumber: number
 ): Promise<PendingReview | null> {
   try {
-    // Get current user
     const currentUser = await getCurrentUser()
     if (currentUser === "@you") {
-      return null // Can't determine user
+      return null
     }
 
-    // Fetch all reviews for the PR
     const reviews = await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews`.json() as any[]
 
-    // Find pending review by current user
     const pendingReview = reviews.find(
       (r: any) => r.state === "PENDING" && r.user?.login === currentUser
     )
@@ -34,7 +30,6 @@ export async function getPendingReview(
       return null
     }
 
-    // Fetch comments for this pending review
     const reviewComments = await $`gh api --paginate repos/${owner}/${repo}/pulls/${prNumber}/reviews/${pendingReview.id}/comments`.json() as any[]
 
     return {
@@ -58,26 +53,6 @@ export async function getPendingReview(
   }
 }
 
-/**
- * Delete a pending review (to allow submitting a new one or standalone comments)
- */
-export async function deletePendingReview(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  reviewId: number
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await $`gh api -X DELETE repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}`.quiet()
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: extractShellError(err) }
-  }
-}
-
-/**
- * Submit an existing pending review (without adding new comments)
- */
 async function submitExistingReview(
   owner: string,
   repo: string,
@@ -190,8 +165,6 @@ export async function submitReview(
 
     const payload = reviewPayload(commitSha, event, body, comments)
 
-    // Submit via gh api with JSON input using echo pipe
-    // Must use --method POST explicitly when using --input
     const result = await $`echo ${payload} | gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --method POST --input -`.json() as { id: number; html_url: string }
 
     return {

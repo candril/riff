@@ -95,7 +95,7 @@ const PR_BUNDLE_QUERY = `
   }
 `
 
-export interface PrBundle {
+interface PrBundle {
   /** Fully populated — commits, reviews, reviewers, conversation, checks, reactions. */
   prInfo: PrInfo
   headSha: string
@@ -201,7 +201,7 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
     // panel has always shown.
     .sort((a: PrCheck, b: PrCheck) => b.id - a.id)
 
-  const prInfo: PrInfo = {
+  return {
     number: pr.number,
     title: pr.title,
     body: pr.body || "",
@@ -230,8 +230,6 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
     checks,
     bodyReactions: parseReactionGroups(pr.reactionGroups),
   }
-
-  return prInfo
 }
 
 /**

@@ -10,10 +10,8 @@ export interface SubmitResult {
 }
 
 /**
- * Submit a single comment immediately to GitHub (like "Add single comment").
- *
- * If `range` is provided, the comment is posted as a multi-line review
- * comment spanning `range.startLine`..`comment.line` inclusive.
+ * Posts at once, like GitHub's "Add single comment", outside any review.
+ * With `range` it spans `range.startLine`..`comment.line` inclusive.
  */
 export async function submitSingleComment(
   owner: string,
@@ -55,9 +53,6 @@ export async function submitSingleComment(
   }
 }
 
-/**
- * Submit a reply to an existing comment thread
- */
 export async function submitReply(
   owner: string,
   repo: string,
@@ -83,8 +78,8 @@ export async function submitReply(
 }
 
 /**
- * Submit a PR-level comment (appears in the conversation tab, not attached to code)
- * These use the issues API endpoint
+ * A PR-level comment, the kind the conversation tab shows. GitHub files those
+ * under the PR's issue, so it goes through the issues API, not the pulls one.
  */
 export async function submitPrComment(
   owner: string,
@@ -109,9 +104,6 @@ export async function submitPrComment(
   }
 }
 
-/**
- * Update an existing comment on GitHub (PATCH)
- */
 export async function updateComment(
   owner: string,
   repo: string,
@@ -135,14 +127,11 @@ export async function updateComment(
   }
 }
 
-export interface DeleteResult {
+interface DeleteResult {
   success: boolean
   error?: string
 }
 
-/**
- * Delete an existing comment on GitHub
- */
 export async function deleteGitHubComment(
   owner: string,
   repo: string,
@@ -159,9 +148,6 @@ export async function deleteGitHubComment(
   }
 }
 
-/**
- * Edit PR title and/or body
- */
 export async function editPullRequest(
   prNumber: number,
   title: string,
@@ -175,14 +161,13 @@ export async function editPullRequest(
   })
 }
 
-export interface CreatePrResult {
+interface CreatePrResult {
   prNumber: number
   url: string
 }
 
 /**
- * Create a new pull request from the current branch.
- * Uses `gh pr create` which handles pushing the branch if needed.
+ * Uses `gh pr create` because it pushes the branch first when needed.
  */
 export async function createPullRequest(
   title: string,
@@ -191,7 +176,6 @@ export async function createPullRequest(
 ): Promise<CreatePrResult> {
   return safeGhCommand(async () => {
     const draftArgs = draft ? ["--draft"] : []
-    // gh pr create will push the branch if needed
     const result = await $`gh pr create --title ${title} --body ${body} ${draftArgs} --json number,url`.json()
     return {
       prNumber: result.number,

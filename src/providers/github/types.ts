@@ -40,7 +40,7 @@ export interface PrInfo {
 }
 
 /** How a PR's head sits against its base, as GitHub reports it. */
-export type MergeStateStatus =
+type MergeStateStatus =
   | "BEHIND"
   | "BLOCKED"
   | "CLEAN"
@@ -149,7 +149,7 @@ export interface PrComment {
 /**
  * A pending review comment from GitHub
  */
-export interface PendingReviewComment {
+interface PendingReviewComment {
   id: number
   body: string
   path: string

@@ -3,11 +3,6 @@ import { extractShellError } from "./exec"
 
 export type ViewerViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED"
 
-export interface ViewedFileStatus {
-  path: string
-  viewerViewedState: ViewerViewedState
-}
-
 const VIEWED_STATUS_PAGE_QUERY = `
   query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
     repository(owner: $owner, name: $repo) {
@@ -53,7 +48,7 @@ export async function fetchRemainingViewedStatuses(
   }
 }
 
-export interface ViewedSyncResult {
+interface ViewedSyncResult {
   success: boolean
   error?: string
 }
@@ -108,29 +103,4 @@ export async function markFileViewedOnGitHub(
   } catch (err) {
     return { success: false, error: extractShellError(err) }
   }
-}
-
-/**
- * Batch mark multiple files as viewed on GitHub.
- * More efficient than individual calls for bulk operations.
- */
-export async function markFilesViewedOnGitHub(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  files: { path: string; viewed: boolean }[]
-): Promise<ViewedSyncResult[]> {
-  // Run in parallel with limited concurrency
-  const results: ViewedSyncResult[] = []
-  const concurrency = 5
-  
-  for (let i = 0; i < files.length; i += concurrency) {
-    const batch = files.slice(i, i + concurrency)
-    const batchResults = await Promise.all(
-      batch.map(f => markFileViewedOnGitHub(owner, repo, prNumber, f.path, f.viewed))
-    )
-    results.push(...batchResults)
-  }
-  
-  return results
 }

@@ -1,7 +1,7 @@
 import { $ } from "bun"
 import { extractShellError, safeGhCommand } from "./exec"
 import { parseReactionGroups, type RawReactionGroup } from "./reactions"
-import type { PrComment, PrConversationComment } from "./types"
+import type { PrComment } from "./types"
 import type { Comment, ReactionSummary } from "../../types"
 
 /**
@@ -26,7 +26,7 @@ export interface GraphQLThreadInfo {
 /**
  * Resolution state for a PR's review threads, keyed by root comment id.
  */
-export interface ReviewThreadState {
+interface ReviewThreadState {
   rootCommentId: number
   isResolved: boolean
   isOutdated: boolean
@@ -100,9 +100,6 @@ export const THREAD_COMMENTS_FULL = 50
  */
 export const THREAD_COMMENTS_PROBE = 1
 
-/**
- * Fetch PR review threads via GraphQL (includes resolution state + reactions)
- */
 async function getPrReviewThreads(
   owner: string,
   repo: string,
@@ -146,9 +143,6 @@ async function getPrReviewThreads(
   }
 }
 
-/**
- * Fetch PR review comments (inline comments on diff)
- */
 export async function getPrComments(
   owner: string,
   repo: string,
@@ -156,7 +150,6 @@ export async function getPrComments(
   commentsPerThread: number = THREAD_COMMENTS_FULL
 ): Promise<PrComment[]> {
   return safeGhCommand(async () => {
-    // Fetch REST comments and GraphQL threads in parallel
     const [restComments, threads] = await Promise.all([
       fetchRestReviewComments(owner, repo, prNumber),
       getPrReviewThreads(owner, repo, prNumber, commentsPerThread),
@@ -188,7 +181,6 @@ export function mergeReviewComments(
   restComments: any[],
   threads: GraphQLThreadInfo[]
 ): PrComment[] {
-  // Build a map from first comment ID to thread info
   const threadByFirstCommentId = new Map<number, GraphQLThreadInfo>()
   // Reactions by comment databaseId — every comment in every thread, not
   // just roots (spec 042).
@@ -206,10 +198,8 @@ export function mergeReviewComments(
     }
   }
 
-  // First pass: convert all comments
   const comments: PrComment[] = restComments.map((c: any) => {
-    // Find thread info for this comment
-    // If this is a root comment (no in_reply_to_id), check if it's in our map
+    // Only a root comment heads a thread, so only a root is looked up.
     const thread = !c.in_reply_to_id ? threadByFirstCommentId.get(c.id) : undefined
 
     return {
@@ -238,7 +228,7 @@ export function mergeReviewComments(
     }
   })
 
-  // Second pass: replies often have line=null from the REST API.
+  // Replies often have line=null from the REST API.
   // Inherit line/side/path from the root comment in the same thread.
   const byId = new Map<number, PrComment>()
   for (const c of comments) byId.set(c.id, c)
@@ -262,34 +252,6 @@ export function mergeReviewComments(
   return comments
 }
 
-/**
- * Fetch PR conversation comments (issue comments - not attached to code)
- * These appear in the PR "Conversation" tab
- */
-export async function getPrConversationComments(
-  owner: string,
-  repo: string,
-  prNumber: number
-): Promise<PrConversationComment[]> {
-  return safeGhCommand(async () => {
-    // PR conversation comments use the issues API endpoint
-    const comments = await $`gh api --paginate repos/${owner}/${repo}/issues/${prNumber}/comments`.json() as any[]
-    
-    return comments.map((c: any) => ({
-      id: c.id,
-      body: c.body,
-      author: c.user.login,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-      url: c.html_url,
-      isBot: c.user.login.endsWith('[bot]') || c.user.type === 'Bot',
-    }))
-  })
-}
-
-/**
- * Convert a GitHub PR comment to our Comment type
- */
 export function convertPrComment(c: PrComment, prHeadSha: string): Comment {
   return {
     id: `gh-${c.id}`,
@@ -332,16 +294,13 @@ export async function fetchPrReviewComments(
   return prComments.map((c) => convertPrComment(c, headSha))
 }
 
-export interface ResolveResult {
+interface ResolveResult {
   success: boolean
   isResolved?: boolean
   error?: string
 }
 
-/**
- * Resolve a review thread via GraphQL API
- */
-export async function resolveThread(threadId: string): Promise<ResolveResult> {
+async function resolveThread(threadId: string): Promise<ResolveResult> {
   const mutation = `
     mutation($threadId: ID!) {
       resolveReviewThread(input: { threadId: $threadId }) {
@@ -366,10 +325,7 @@ export async function resolveThread(threadId: string): Promise<ResolveResult> {
   }
 }
 
-/**
- * Unresolve a review thread via GraphQL API
- */
-export async function unresolveThread(threadId: string): Promise<ResolveResult> {
+async function unresolveThread(threadId: string): Promise<ResolveResult> {
   const mutation = `
     mutation($threadId: ID!) {
       unresolveReviewThread(input: { threadId: $threadId }) {
@@ -394,9 +350,6 @@ export async function unresolveThread(threadId: string): Promise<ResolveResult> 
   }
 }
 
-/**
- * Toggle thread resolution state
- */
 export async function toggleThreadResolution(
   threadId: string,
   currentlyResolved: boolean
