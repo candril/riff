@@ -12,6 +12,9 @@ import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { ThreadPanelInput } from "../components/thread-panel-model"
 import { feedModel, type FeedModel } from "../components/feed-model"
 import { flashLabelsOn } from "../vim-diff/flash-state"
+import { chatColumnWidth } from "../features/chat/width"
+import { chatInputFocused } from "./diff-focus"
+import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
@@ -63,4 +66,10 @@ export function feedFrameModel({ state, flashState, height, now }: Frame): FeedM
     now,
     height,
   })
+}
+
+/** The chat column for `frame`, or null while it is closed. */
+export function chatColumnFrameModel({ state, searchState, width }: Frame): { width: number; focused: boolean } | null {
+  if (!state.chatOpen) return null
+  return { width: chatColumnWidth(width), focused: chatInputFocused(state, promptOpenIn(state, searchState)) }
 }

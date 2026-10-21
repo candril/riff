@@ -451,7 +451,6 @@ export async function createApp(options: AppOptions = {}) {
 
   const statusBar = createStatusBarIsland(renderer)
   const threadPanel = createThreadPanelIsland(renderer)
-  const chatColumn = createChatColumnIsland(renderer)
   const chat = createReviewChat({
     demo: options.demo === true,
     getState: () => state,
@@ -477,6 +476,7 @@ export async function createApp(options: AppOptions = {}) {
     note: chat.note,
   })
   chat.onSessionClosed(proposals.endConversation)
+  const chatColumn = createChatColumnIsland(renderer, chat)
   const blame: BlameDeps = {
     source: options.demo
       ? demoBlameSource()
@@ -560,7 +560,7 @@ export async function createApp(options: AppOptions = {}) {
     statusBar: statusBar.host,
   })
   const frame = createFrame()
-  const stopFollowing = followFrame(frame.frame, { ...islands, threadPanel, feed: feedIsland }, shell)
+  const stopFollowing = followFrame(frame.frame, { ...islands, threadPanel, chatColumn, statusBar, feed: feedIsland }, shell)
 
   const renderFrame = createRenderFunction({
     getState: () => state,
@@ -573,10 +573,7 @@ export async function createApp(options: AppOptions = {}) {
     getPrInfoPanel: () => prInfoPanel,
     renderer,
     shell,
-    statusBar,
     threadPanel,
-    chatColumn,
-    chat,
     searchPrompt: islands.searchPrompt,
     feed: feedIsland,
     filePicker: islands.filePicker,

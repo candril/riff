@@ -45,6 +45,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   let render = () => {}
+  let updateSearchPattern = (_value: string) => {}
   const highlights = createDiffHighlights(parses, () => render(), async () => null)
   const diffDeps = {
     renderer,
@@ -64,12 +65,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       render()
     },
   })
-  const chrome = {
-    statusBar: createStatusBarIsland(renderer),
-    threadPanel: createThreadPanelIsland(renderer),
-    chatColumn: createChatColumnIsland(renderer),
-    feed: createFeedIsland(renderer),
-  }
   // The fake answers only when a test tells it to, so nothing here ever reaches Claude.
   const agent = fakeAgent()
   const chat = createChatState(
@@ -83,6 +78,12 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     }),
     reviewReferences(() => state),
   )
+  const chrome = {
+    statusBar: createStatusBarIsland(renderer),
+    threadPanel: createThreadPanelIsland(renderer),
+    chatColumn: createChatColumnIsland(renderer, chat),
+    feed: createFeedIsland(renderer),
+  }
   const shell = createAppShell(renderer, {
     ...frameIslandHosts(islands),
     tree: fileTreePanel.host,
@@ -91,7 +92,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: chrome.statusBar.host,
   })
   const frame = createFrame()
-  followFrame(frame.frame, { ...islands, threadPanel: chrome.threadPanel, feed: chrome.feed }, shell)
+  followFrame(frame.frame, { ...islands, ...chrome }, shell)
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
@@ -105,8 +106,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     getPrInfoPanel: () => null,
     renderer,
     shell,
-    ...chrome,
-    chat,
+    threadPanel: chrome.threadPanel,
+    feed: chrome.feed,
     searchPrompt: islands.searchPrompt,
     filePicker: islands.filePicker,
     commentsPicker: islands.commentsPicker,
@@ -135,7 +136,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       )
       fileTreePanel.visible = state.showFilePanel
     },
-    updateSearchPattern() {},
+    updateSearchPattern: (value) => updateSearchPattern(value),
     publishFrame: frame.publish,
   }
   render = createRenderFunction(ctx)
@@ -145,6 +146,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     ctx,
     /** The islands that follow the frame rather than the render context. */
     islands,
+    statusBar: chrome.statusBar,
+    chatColumn: chrome.chatColumn,
+    /** The one conversation with riff's agent, which outlives the column's opening and closing. */
+    chat,
     fileTreePanel,
     render,
     agent,
@@ -159,6 +164,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     },
     setSearchState(next: typeof searchState) {
       searchState = next
+    },
+    /** Where what is typed into the search line goes; nowhere until a test wires a handler. */
+    onSearchPattern(update: (value: string) => void) {
+      updateSearchPattern = update
     },
     async frame() {
       await setup.renderOnce()

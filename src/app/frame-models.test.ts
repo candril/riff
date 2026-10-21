@@ -33,6 +33,7 @@ function frame(
     width: 120,
     height: 40,
     now,
+    diff: { columnInfo: null, selectionInfo: null },
   }
 }
 
@@ -48,6 +49,8 @@ describe("frameModels", () => {
     expect(keys).toEqual([
       "feed",
       "threadPanel",
+      "chatColumn",
+      "statusBar",
       "searchPrompt",
       "flashPrompt",
       ...Object.keys(overlayModels(frame(state()))),
@@ -61,9 +64,9 @@ describe("frameModels", () => {
     ])
   })
 
-  test("shows only the header while nothing else is open", () => {
+  test("shows only the status bar and the header while nothing else is open", () => {
     const models = frameModels(frame(state()))
-    expect(shown(models)).toEqual(["header"])
+    expect(shown(models)).toEqual(["statusBar", "header"])
     expect(models.header.left.length).toBeGreaterThan(0)
   })
 
@@ -84,11 +87,11 @@ describe("frameModels", () => {
   })
 
   test("shows each picker and the palette exactly while it is open", () => {
-    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["filePicker", "header"])
-    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["commentsPicker", "header"])
-    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["commitPicker", "header"])
+    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["statusBar", "filePicker", "header"])
+    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["statusBar", "commentsPicker", "header"])
+    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
-    expect(shown(frameModels(frame(palette)))).toEqual(["actionMenu", "header"])
+    expect(shown(frameModels(frame(palette)))).toEqual(["statusBar", "actionMenu", "header"])
   })
 
   test("dates the commit picker's commits against the frame's clock", () => {

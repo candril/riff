@@ -66,9 +66,11 @@ type Followers = { [K in FrameIslandId]: { update(model: FrameModels[K]): void }
  * Returns the teardown.
  *
  * The effects run inside publish only because render() is never called
- * within a Solid batch or update: the review preview focuses its summary as
- * it opens, and that has to land after render.ts has routed the prompts and
- * the chat their focus. Publishing checks it in tests.
+ * within a Solid batch or update: the chat focuses its input, and the review
+ * preview its summary as it opens, and both have to land after render.ts has
+ * driven the composer and routed the prompts their focus. The chat follows
+ * ahead of the overlays, so the summary still takes focus after it.
+ * Publishing checks it in tests.
  */
 export function followFrame(frame: Accessor<Frame | null>, islands: Followers, shell: Pick<AppShell, "show">): () => void {
   return createRoot((dispose) => {

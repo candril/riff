@@ -38,6 +38,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     width: 100,
     height: 30,
     now: NOW,
+    diff: { columnInfo: null, selectionInfo: null },
     ...rest,
   }
 }

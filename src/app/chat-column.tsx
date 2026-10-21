@@ -5,35 +5,42 @@ import { chatColors } from "../features/chat/markdown-style"
 import type { ChatState } from "../features/chat/state"
 import { mountSolid } from "./solid-island"
 
-type View = { state: ChatState; focused: boolean }
-
 export interface ChatColumnInput {
-  state: ChatState
   width: number
   focused: boolean
 }
 
 /**
  * The chat column as a long-lived island, docked right of the thread panel.
- * The conversation lives in its ChatState, so the island is only handed
- * that and redraws from its signals; closing hides the host and keeps the
- * input, with whatever was half typed in it.
+ * The conversation lives in `chat`, which outlives the column, so the island
+ * is handed it once and redraws from its signals; closing hides the host and
+ * keeps the input, with whatever was half typed in it.
  */
-export function createChatColumnIsland(renderer: CliRenderer) {
-  const [view, setView] = createSignal<View | null>(null)
+export function createChatColumnIsland(renderer: CliRenderer, chat: ChatState) {
+  const [focused, setFocused] = createSignal<boolean | null>(null)
   let input: TextareaRenderable | null = null
+
+  // The pane mounts after the update that first opens it has returned, as an
+  // update runs inside the frame's effects, so the input takes the focus it
+  // was handed once it exists.
+  let wantsFocus = false
+  const settleFocus = () => {
+    if (wantsFocus) input?.focus()
+    else if (input?.focused) input.blur()
+  }
 
   const island = mountSolid(
     renderer,
     () => (
-      <Show when={view()}>
-        {(current: () => View) => (
-          <ChatPane
-            state={current().state}
-            focused={current().focused}
-            onInput={(textarea) => (input = textarea)}
-          />
-        )}
+      <Show when={focused() !== null}>
+        <ChatPane
+          state={chat}
+          focused={focused() === true}
+          onInput={(textarea) => {
+            input = textarea
+            settleFocus()
+          }}
+        />
       </Show>
     ),
     {
@@ -56,12 +63,11 @@ export function createChatColumnIsland(renderer: CliRenderer) {
         island.host.width = next.width
         // OpenTUI turns shrinking off on any box handed a fixed width after it is built.
         island.host.flexShrink = 1
-        const current = view()
-        if (!current || current.state !== next.state || current.focused !== next.focused) {
-          setView({ state: next.state, focused: next.focused })
-        }
+        setFocused(next.focused)
       }
       island.host.visible = next !== null
+      wantsFocus = next?.focused === true
+      settleFocus()
     },
     /** Null until the first update draws the pane. */
     input: () => input,

@@ -4,8 +4,8 @@ import { StatusBar, type StatusBarProps } from "../components/StatusBar"
 import { mountSolid } from "./solid-island"
 
 /**
- * The status bar as a long-lived island: render.ts hands it fresh props on
- * every pass, and `reconcile` turns that into updates of only what changed.
+ * The status bar as a long-lived island: it is handed fresh props from every
+ * frame, and `reconcile` turns that into updates of only what changed.
  */
 export function createStatusBarIsland(renderer: CliRenderer) {
   const [props, setProps] = createStore<StatusBarProps>({})

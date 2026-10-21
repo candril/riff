@@ -61,7 +61,7 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
   ctrl(app, "r")
   const state = app.ctx.getState()
   expect([state.chatOpen, state.focusedPanel]).toEqual([true, "chat"])
-  const input = app.ctx.chatColumn.input()!
+  const input = app.chatColumn.input()!
   expect(app.setup.renderer.currentFocusedRenderable).toBe(input)
   const opened = await app.frame()
   expect(opened.replace(/\s+/g, " ")).toContain("Ask about this review.")
@@ -83,7 +83,7 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
 
   ctrl(app, "r")
   expect([app.ctx.getState().chatOpen, app.ctx.getState().focusedPanel]).toEqual([false, "diff"])
-  expect(app.ctx.chatColumn.host.visible).toBe(false)
+  expect(app.chatColumn.host.visible).toBe(false)
   expect(app.setup.renderer.currentFocusedRenderable).not.toBe(input)
   await app.frame()
   expect(diff.width).toBe(closedWidth)
@@ -130,7 +130,7 @@ test("in the chat, backspace deletes what is typed before it walks anywhere", as
   openChat(app)
   await app.setup.mockInput.typeText("ab")
   app.setup.mockInput.pressBackspace()
-  expect(app.ctx.chatColumn.input()!.plainText).toBe("a")
+  expect(app.chatColumn.input()!.plainText).toBe("a")
   expect(app.ctx.getState().focusedPanel).toBe("chat")
 })
 

@@ -17,16 +17,16 @@ afterEach(async () => {
 
 async function mountColumn(width: number, focused = true) {
   const setup = await createTestRenderer({ width, height: HEIGHT })
-  const island = createChatColumnIsland(setup.renderer)
+  const fake = fakeAgent()
+  const state = createChatState(fake.agent)
+  const island = createChatColumnIsland(setup.renderer, state)
   teardown.push(async () => {
     await setup.waitForVisualIdle().catch(() => {})
     island.dispose()
     setup.renderer.destroy()
   })
   setup.renderer.root.add(island.host)
-  const fake = fakeAgent()
-  const state = createChatState(fake.agent)
-  island.update({ state, width, focused })
+  island.update({ width, focused })
   return { setup, island, fake, state }
 }
 
@@ -126,7 +126,7 @@ describe("the input's shade says whether the chat has the keys", () => {
     expect(bgAt(focused, 4, inputRow)).toEqual(ints(theme.surface0))
     expect(bgAt(focused, 4, 2)).toEqual(ints(theme.mantle))
 
-    island.update({ state, width: 50, focused: false })
+    island.update({ width: 50, focused: false })
     await draw(setup)
     const idle = setup.captureSpans()
     expect(bgAt(idle, 4, inputRow)).toEqual(ints(theme.mantle))
@@ -140,7 +140,7 @@ describe("the input's shade says whether the chat has the keys", () => {
     island.update(null)
     expect(island.host.visible).toBe(false)
     expect(await draw(setup)).not.toContain("kept")
-    island.update({ state, width: 50, focused: true })
+    island.update({ width: 50, focused: true })
     expect(await draw(setup)).toContain("› kept")
   })
 })
@@ -150,6 +150,6 @@ test("a drifted claude's note is there when the column opens, before anything is
   island.update(null)
   const drift = "claude 2.2.0 is installed; riff's agent is built for 2.1.296 and may not work until they match"
   state.note(drift, "info")
-  island.update({ state, width: 50, focused: true })
+  island.update({ width: 50, focused: true })
   expect(flat(await draw(setup))).toContain(drift)
 })

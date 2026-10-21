@@ -4,6 +4,8 @@ import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import type { FlashState } from "../vim-diff/flash-state"
+import type { ColumnStatus } from "./column-status"
+import type { SelectionStatus } from "./selection-status"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -21,6 +23,12 @@ export interface Frame {
   height: number
   /** The pass's clock, so every age drawn in one pass is measured from the same instant. */
   now: number
+  /**
+   * The status bar's readout of the diff. It is read off the views once the
+   * pass has drawn them, since only their layout knows the columns and the
+   * rows a selection spans; no function of the state alone can compute it.
+   */
+  diff: { columnInfo: ColumnStatus; selectionInfo: SelectionStatus }
 }
 
 // The last frame each followed accessor's followers finished drawing.

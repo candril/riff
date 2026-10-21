@@ -19,6 +19,24 @@ export type OpenPromptContext = {
 }
 
 /**
+ * Whether a prompt is typing right now: openPrompt's guards, in its order,
+ * without the closures, so a frame can tell from state alone.
+ */
+export function promptOpenIn(state: AppState, searchState: SearchState): boolean {
+  return (
+    state.actionMenu.open ||
+    state.filePicker.open ||
+    state.commentsPicker.open ||
+    state.marksPicker.open ||
+    state.occurrencePicker.open ||
+    (state.commitPicker.open && state.commitPicker.queryInput) ||
+    state.inlineCommentOverlay.filterInput ||
+    state.feed.filterInput ||
+    searchState.active
+  )
+}
+
+/**
  * Which prompt is typing right now, and what it does with what is typed.
  * One field types at a time, so at most one of these can be open (spec 065).
  */

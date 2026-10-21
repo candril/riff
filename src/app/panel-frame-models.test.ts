@@ -54,6 +54,7 @@ function frame(
     width,
     height,
     now,
+    diff: { columnInfo: null, selectionInfo: null },
   }
 }
 

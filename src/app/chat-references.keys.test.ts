@@ -32,7 +32,7 @@ test("in visual mode Ctrl-r puts @selection in the input, and every selected lin
   app.setup.mockInput.pressKey("j")
 
   ctrl(app, "r")
-  const input = app.ctx.chatColumn.input()!
+  const input = app.chatColumn.input()!
   expect(input.plainText).toBe("@selection ")
   expect(input.cursorOffset).toBe("@selection ".length)
   // Focus moving to the chat leaves the diff's selection where it was, so the send still reads it.
@@ -69,7 +69,7 @@ test("in normal mode Ctrl-r puts @file in the input, and the file's diff goes al
   moveTo(app, vimState, "  const c = 3")
 
   ctrl(app, "r")
-  expect(app.ctx.chatColumn.input()!.plainText).toBe("@file ")
+  expect(app.chatColumn.input()!.plainText).toBe("@file ")
   await app.setup.mockInput.typeText("what is this?")
   app.setup.mockInput.pressEnter()
 
@@ -87,7 +87,7 @@ test("Ctrl-r does not add a token the input already holds", async () => {
   await Bun.sleep(50)
   expect(app.ctx.getState().focusedPanel).toBe("diff")
   ctrl(app, "r")
-  expect(app.ctx.chatColumn.input()!.plainText).toBe("@file ")
+  expect(app.chatColumn.input()!.plainText).toBe("@file ")
 })
 
 test("a path that is no changed file shows an error, sends nothing and keeps the text", async () => {
@@ -99,7 +99,7 @@ test("a path that is no changed file shows an error, sends nothing and keeps the
   app.setup.mockInput.pressEnter()
 
   expect(app.agent.asked).toEqual([])
-  expect(app.ctx.chatColumn.input()!.plainText).toBe("@nope/missing.ts why")
+  expect(app.chatColumn.input()!.plainText).toBe("@nope/missing.ts why")
   expect((await app.frame()).replace(/\s+/g, " ")).toContain("@nope/missing.ts is not a file of this change")
 })
 
@@ -122,7 +122,7 @@ test("Ctrl-r from the chat closes it and puts nothing in the input", async () =>
   openChat(app)
   await app.setup.mockInput.typeText("draft")
   ctrl(app, "r")
-  expect([app.ctx.getState().chatOpen, app.ctx.chatColumn.input()!.plainText]).toEqual([false, "draft"])
+  expect([app.ctx.getState().chatOpen, app.chatColumn.input()!.plainText]).toEqual([false, "draft"])
   // The diff widens again on the next frame; let it land before the app is torn down.
   await app.frame()
 })
@@ -132,7 +132,7 @@ test("Ctrl-r from the file tree opens the chat with nothing in the input", async
   app.show({ focusedPanel: "tree" })
   keysOn(app)
   ctrl(app, "r")
-  expect([app.ctx.getState().focusedPanel, app.ctx.chatColumn.input()!.plainText]).toEqual(["chat", ""])
+  expect([app.ctx.getState().focusedPanel, app.chatColumn.input()!.plainText]).toEqual(["chat", ""])
 })
 
 test("labels too long for the column are cut on their one line, not wrapped", async () => {

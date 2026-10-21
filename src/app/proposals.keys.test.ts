@@ -44,7 +44,7 @@ async function proposing(comments: Comment[] = []) {
       if (line !== null) jumpTo(line)
     },
     fillComposer: (text) => mounted.ctx.threadPanel.composer.setValue(text),
-    note: mounted.ctx.chat.note,
+    note: mounted.chat.note,
   })
   const keys = keysOn(mounted, {
     composerSettled: proposals.composerSettled,

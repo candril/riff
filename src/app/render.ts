@@ -15,9 +15,6 @@ import { detectEmojiTrigger } from "../utils/emoji"
 import { setMentionPicker, setEmojiPicker, markCommentsSeen } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import type { ThreadPanelIsland } from "./thread-panel"
-import type { ChatColumnIsland } from "./chat-column"
-import type { ChatState } from "../features/chat/state"
-import { chatColumnWidth } from "../features/chat/width"
 import type { SearchPromptIsland } from "./prompt-line"
 import type { FeedIsland } from "./feed"
 import type {
@@ -28,7 +25,6 @@ import type {
   MarksPickerIsland,
   OccurrencePickerIsland,
 } from "./pickers"
-import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
@@ -42,7 +38,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
-import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
+import { composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
 import { routePrompt, type PromptIsland, type PromptOwner } from "./prompt-routing"
 import type { AppShell } from "./shell"
@@ -62,11 +58,7 @@ export interface RenderContext {
   // UI panels
   renderer: CliRenderer
   shell: AppShell
-  statusBar: StatusBarIsland
   threadPanel: ThreadPanelIsland
-  chatColumn: ChatColumnIsland
-  /** The one conversation with riff's agent, which outlives the column's opening and closing. */
-  chat: ChatState
   searchPrompt: SearchPromptIsland
   feed: FeedIsland
   filePicker: FilePickerIsland
@@ -111,17 +103,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const lineMapping = ctx.getLineMapping()
     const searchState = ctx.getSearchState()
     const flashState = ctx.getFlashState()
-    const frame: Frame = {
-      state,
-      vimState,
-      mapping: lineMapping,
-      searchState,
-      flashState,
-      cachedCurrentUser: ctx.getCachedCurrentUser(),
-      width: ctx.renderer.width,
-      height: ctx.renderer.height,
-      now: Date.now(),
-    }
+    const now = Date.now()
 
     // Update file tree panel state
     ctx.updateFileTreePanel()
@@ -248,39 +230,33 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       routePrompt(promptIslands, prompt)
 
       if (splitOn) ctx.split.island.update({ focused: diffFocused })
-
-      // After the composer and the prompts, which focus their own inputs: the
-      // chat takes the keys only while neither is up.
-      const chatFocused = chatInputFocused(state, prompt !== null)
-      ctx.chatColumn.update(
-        state.chatOpen ? { state: ctx.chat, width: chatColumnWidth(ctx.renderer.width), focused: chatFocused } : null
-      )
-      const chatInput = ctx.chatColumn.input()
-      if (chatFocused) chatInput?.focus()
-      else if (chatInput?.focused) chatInput.blur()
     }
 
-    ctx.statusBar.update({
-      searchInfo:
-        searchState.pattern && state.viewMode === "diff"
-          ? {
-              current: searchState.currentMatchIndex + 1,
-              total: searchState.matches.length,
-              pattern: searchState.pattern,
-              wrapped: searchState.wrapped,
-            }
-          : null,
-      columnInfo: diffColumnStatus(splitOn, {
-        viewMode: state.viewMode,
-        split: ctx.split,
-        unified: ctx.unified,
-      }),
-      // Split counts the rows it draws: a pair row holds a removal and an addition.
-      selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
-    })
+    const frame: Frame = {
+      state,
+      vimState,
+      mapping: lineMapping,
+      searchState,
+      flashState,
+      cachedCurrentUser: ctx.getCachedCurrentUser(),
+      width: ctx.renderer.width,
+      height: ctx.renderer.height,
+      now,
+      diff: {
+        columnInfo: diffColumnStatus(splitOn, {
+          viewMode: state.viewMode,
+          split: ctx.split,
+          unified: ctx.unified,
+        }),
+        // Split counts the rows it draws: a pair row holds a removal and an addition.
+        selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
+      },
+    }
 
-    // After routePrompt and the chat, which focus their own inputs: the review
-    // preview focuses its summary as it opens, before this call returns.
+    // After the composer and routePrompt, which focus their own inputs: the
+    // chat follows the frame and takes the keys only while neither is up, and
+    // the review preview focuses its summary as it opens, both before this
+    // call returns.
     ctx.publishFrame(frame)
 
     // The tree has nothing to list without files, whatever the view.

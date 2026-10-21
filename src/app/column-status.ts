@@ -1,6 +1,6 @@
 import type { AppState } from "../state"
 
-type ColumnStatus = { col: number; total: number } | null
+export type ColumnStatus = { col: number; total: number } | null
 
 export interface ColumnStatusDeps {
   viewMode: AppState["viewMode"]
@@ -14,8 +14,8 @@ export function splitOn(state: Pick<AppState, "error" | "files">, split: { shown
 }
 
 /**
- * The status bar's `col n/total`. render.ts writes it on every pass, and
- * refreshCursor on every motion, which moves the cursor without a render.
+ * The status bar's `col n/total`. render.ts reads it into every frame, and
+ * refreshCursor patches it on every motion, which moves the cursor without a render.
  */
 export function diffColumnStatus(split: boolean, deps: ColumnStatusDeps): ColumnStatus {
   if (deps.viewMode !== "diff") return null

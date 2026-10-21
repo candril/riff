@@ -46,7 +46,7 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
     },
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,
-    chat: { state: render.chat, input: render.chatColumn.input },
+    chat: { state: mounted.chat, input: mounted.chatColumn.input },
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({
@@ -81,7 +81,7 @@ export const ctrl = (mounted: Mounted, name: string) => mounted.setup.mockInput.
 /** Opens the chat and empties what Ctrl-r put in its input, for tests about something else. */
 export function openChat(mounted: Mounted) {
   ctrl(mounted, "r")
-  mounted.ctx.chatColumn.input()?.clear()
+  mounted.chatColumn.input()?.clear()
 }
 
 export function moveTo(mounted: Mounted, vimState: () => { line: number }, content: string) {
