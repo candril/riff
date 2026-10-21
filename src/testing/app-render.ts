@@ -1,6 +1,9 @@
 import { createTestRenderer } from "@opentui/core/testing"
 import { createFileTreeIsland } from "../app/file-tree"
 import { createThreadPanelIsland } from "../app/thread-panel"
+import { createChatColumnIsland } from "../app/chat-column"
+import { createChatState } from "../features/chat/state"
+import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
 import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
@@ -94,13 +97,18 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     searchPrompt: createSearchPromptIsland(renderer),
     flashPrompt: createFlashPromptIsland(renderer),
     threadPanel: createThreadPanelIsland(renderer),
+    chatColumn: createChatColumnIsland(renderer),
   }
+  // The fake answers only when a test tells it to, so nothing here ever reaches Claude.
+  const agent = fakeAgent()
+  const chat = createChatState(agent.agent)
   const overlayHosts = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host
   const shell = createAppShell(renderer, {
     header: chrome.header.host,
     tree: fileTreePanel.host,
     threadPanel: chrome.threadPanel.host,
+    chat: chrome.chatColumn.host,
     searchPrompt: chrome.searchPrompt.host,
     statusBar: chrome.statusBar.host,
     flashPrompt: chrome.flashPrompt.host,
@@ -119,6 +127,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     renderer,
     shell,
     ...chrome,
+    chat,
     ...overlays,
     feed: createFeedIsland(renderer),
     split,
@@ -146,6 +155,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     ctx,
     fileTreePanel,
     render,
+    agent,
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
       state = { ...state, ...patch }

@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
-import { composerOpen, diffCursorShown } from "./diff-focus"
+import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 
@@ -20,6 +20,7 @@ const hidden: [string, (s: AppState) => AppState][] = [
   ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
   ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
   ["a composer", comments({ mode: "compose" }, "diff")],
+  ["the chat holding the keys", (s) => ({ ...s, chatOpen: true, focusedPanel: "chat" })],
 ]
 
 describe("the diff's cursor", () => {
@@ -60,5 +61,19 @@ describe("the composer", () => {
   test("is not open with the overlay in another mode, or closed", () => {
     expect(composerOpen(comments({ mode: "view" }, "diff")(initial))).toBe(false)
     expect(composerOpen(comments({ mode: "compose", open: false }, "diff")(initial))).toBe(false)
+  })
+})
+
+describe("the chat's input", () => {
+  const chatting: AppState = { ...initial, chatOpen: true, focusedPanel: "chat" }
+
+  test("has the keys while the chat is focused and nothing is drawn over it", () => {
+    expect(chatInputFocused(chatting, false)).toBe(true)
+    expect(chatInputFocused({ ...chatting, focusedPanel: "diff" }, false)).toBe(false)
+  })
+
+  test("gives them up to a prompt or an overlay drawn over it", () => {
+    expect(chatInputFocused(chatting, true)).toBe(false)
+    for (const [, open] of hidden.slice(0, 10)) expect(chatInputFocused(open(chatting), false)).toBe(false)
   })
 })

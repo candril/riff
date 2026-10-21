@@ -144,6 +144,13 @@ describe("restoring the view", () => {
     expect(after.viewMode).toBe("diff")
   })
 
+  test("an open chat with the keys stays open and keeps them", () => {
+    const before = { ...stateWith(files), chatOpen: true, focusedPanel: "chat" as const }
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const after = restorePosition(stateWith(files), position)
+    expect([after.chatOpen, after.focusedPanel]).toEqual([true, "chat"])
+  })
+
   test("the marks and the two last visited survive a reload", () => {
     const marks = {
       marks: [{ letter: "a", filename: "b.ts", line: 2, side: "RIGHT" as const }],

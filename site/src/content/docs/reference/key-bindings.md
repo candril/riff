@@ -87,9 +87,10 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | --- | --- |
 | `Ctrl+b` | Toggle the file tree |
 | `Ctrl+e` | Toggle the file tree — or the comments panel, when it has focus — to full width |
-| `Ctrl+h` | Move focus left: comments → diff → tree |
-| `Ctrl+l` | Move focus right: tree → diff → comments |
+| `Ctrl+h` | Move focus left: chat → comments → diff → tree |
+| `Ctrl+l` | Move focus right: tree → diff → comments → chat |
 | `Ctrl+t` | Toggle the comments panel |
+| `Ctrl+r` | Open the chat with riff's agent and focus it; from inside the chat, close it |
 | `Ctrl+f` | Fuzzy file picker, from every view |
 | `/` | Filter the list that has focus — tree, PR overview, feed, comments panel; search, in the diff |
 | `Ctrl+g` | Pick commits to scope the diff to — `Space` marks, `V` marks a run (`Esc` in the diff leaves it) |
@@ -156,6 +157,20 @@ While **writing** a comment:
 
 `Ctrl+Enter` also posts, in the terminals that can send it. `Ctrl+p` is the one that works
 everywhere, tmux included. In local mode both just save — there's nothing to post to.
+
+## Chat
+
+`Ctrl+r` opens a column right of the diff (and of the comments panel, when that is open too) that
+holds one conversation with riff's agent. While it has focus every key types into its input, so
+letters never run diff commands; `Ctrl+r`, `Ctrl+h` and `Ctrl+l` still move focus.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Send the question — queued while an answer is still coming |
+| `Ctrl+j` | Newline |
+| `Esc` | Stop the answer; with none running, hand focus back to the diff |
+| `Ctrl+n` `Ctrl+n` | Start a new conversation |
+| `Backspace` / `Ctrl+h` | Delete; on an empty input, move focus left |
 
 ## GitHub
 

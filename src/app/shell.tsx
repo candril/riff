@@ -34,6 +34,8 @@ export interface ShellParts {
   tree: Renderable
   /** The thread panel's host, which shows and hides itself as the panel opens and closes. */
   threadPanel: Renderable
+  /** The chat column's host, shown and hidden the same way, right of the thread panel. */
+  chat: Renderable
   searchPrompt: Renderable
   statusBar: Renderable
   flashPrompt: Renderable
@@ -88,6 +90,8 @@ export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShe
              * no columns, since OpenTUI lays out a hidden box as display none.
              */}
             {parts.threadPanel}
+            {/* After the thread panel, so the threads sit between the diff and the chat (spec 102). */}
+            {parts.chat}
           </box>
         </box>
         {parts.searchPrompt}

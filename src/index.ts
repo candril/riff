@@ -125,6 +125,7 @@ const HELP_TEXT = `
     \x1b[1mPanels\x1b[0m
     Ctrl+b                    Toggle file tree panel
     Ctrl+t                    Toggle comments panel
+    Ctrl+r                    Open the chat with riff's agent / close it
     Ctrl+h / Ctrl+l           Move focus left/right
     Ctrl+e                    Expand focused panel to full width
     Ctrl+f                    Find files (fuzzy)
@@ -372,6 +373,7 @@ async function main() {
         prInfo,
         githubViewedStatuses: viewedStatuses,
         headSha,
+        demo: args.demo,
       })
     } else if (args.type === "files") {
       await confirmStorageLocation("local")
@@ -379,6 +381,7 @@ async function main() {
       await createApp({
         mode: "local",
         filesTarget: args.filesTarget,
+        demo: args.demo,
       })
     } else {
       // Local diff mode - confirm storage for local source
@@ -388,6 +391,7 @@ async function main() {
       await createApp({
         mode: "local",
         target: args.target,
+        demo: args.demo,
       })
     }
   } catch (error) {

@@ -30,6 +30,12 @@ describe("when split is drawn", () => {
     expect(diffPaneWidth(240, { visible: true, width: 35 }, { open: false, width: 64 })).toBe(205)
   })
 
+  test("the chat column's width comes off the pane as well, only while it is open", () => {
+    expect(diffPaneWidth(240, { visible: true, width: 35 }, { open: true, width: 64 }, { open: true, width: 56 })).toBe(85)
+    expect(diffPaneWidth(240, { visible: true, width: 35 }, NO_COMMENT_PANEL, { open: true, width: 56 })).toBe(149)
+    expect(diffPaneWidth(240, { visible: true, width: 35 }, NO_COMMENT_PANEL, { open: false, width: 56 })).toBe(205)
+  })
+
   test("a screen narrower than both panels leaves the pane no columns rather than fewer than none", () => {
     expect(diffPaneWidth(80, { visible: true, width: 35 }, { open: true, width: 48 })).toBe(0)
   })
@@ -41,9 +47,10 @@ test("the diff's pane is the screen less the header and the status bar", () => {
 })
 
 describe("the pane the views draw the diff in", () => {
-  const withPanel = (open: boolean, viewMode: "diff" | "state" | "feed" = "diff") => ({
+  const withPanel = (open: boolean, viewMode: "diff" | "state" | "feed" = "diff", chatOpen = false) => ({
     showFilePanel: true,
     viewMode,
+    chatOpen,
     inlineCommentOverlay: { open, expanded: false },
   })
 
@@ -64,5 +71,17 @@ describe("the pane the views draw the diff in", () => {
   test("leaves the panel out outside the diff view, where no diff is drawn beside it", () => {
     expect(diffPaneWidthOf(withPanel(true, "state"), 200, 35)).toBe(165)
     expect(diffPaneWidthOf(withPanel(true, "feed"), 200, 35)).toBe(165)
+  })
+
+  test("gives up the open chat's columns, and split falls back to unified where that leaves too little", () => {
+    expect(diffPaneWidthOf(withPanel(false, "diff", true), 240, 35)).toBe(149)
+    expect(splitShown(true, diffPaneWidthOf(withPanel(false, "diff", true), 240, 35), 10)).toBe(true)
+    expect(diffPaneWidthOf(withPanel(false, "diff", true), 200, 35)).toBe(109)
+    expect(splitShown(true, diffPaneWidthOf(withPanel(false, "diff", true), 200, 35), 10)).toBe(false)
+    expect(diffPaneWidthOf(withPanel(true, "diff", true), 300, 35)).toBe(145)
+  })
+
+  test("leaves the chat out outside the diff view", () => {
+    expect(diffPaneWidthOf(withPanel(false, "state", true), 200, 35)).toBe(165)
   })
 })

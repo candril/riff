@@ -61,6 +61,8 @@ import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
 import { createThreadPanelIsland } from "./app/thread-panel"
+import { createChatColumnIsland } from "./app/chat-column"
+import { createReviewChat } from "./app/review-chat"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
@@ -139,6 +141,8 @@ export interface AppOptions {
   githubViewedStatuses?: Map<string, ViewerViewedState>
   // PR head commit SHA (for tracking viewed at commit)
   headSha?: string
+  // `--demo`: the chat runs on a canned agent rather than Claude
+  demo?: boolean
 }
 
 export async function createApp(options: AppOptions = {}) {
@@ -306,6 +310,8 @@ export async function createApp(options: AppOptions = {}) {
     // skill) — the renderer's teardown drops the exit hook that would
     // otherwise remove them.
     aiReview.removeSessionFiles()
+    chat.dispose()
+    chatColumn.dispose()
     statusBar.dispose()
     header.dispose()
     searchPrompt.dispose()
@@ -343,9 +349,10 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== POST-PROCESS (cursor positioning) =====
   // Prompts draw their own cursor now that they are real input widgets
-  // (spec 065); the views that have no cursor of their own park it.
+  // (spec 065); the views that have no cursor of their own park it. The
+  // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state)) {
+    if (state.viewMode !== "diff" && !promptOpen(state) && !(state.chatOpen && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -497,6 +504,13 @@ export async function createApp(options: AppOptions = {}) {
   const statusBar = createStatusBarIsland(renderer)
   const header = createHeaderIsland(renderer)
   const threadPanel = createThreadPanelIsland(renderer)
+  const chatColumn = createChatColumnIsland(renderer)
+  const chat = createReviewChat({
+    demo: options.demo === true,
+    getState: () => state,
+    target: options.target,
+    headSha: () => currentHeadSha ?? null,
+  })
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
@@ -577,6 +591,7 @@ export async function createApp(options: AppOptions = {}) {
     header: header.host,
     tree: fileTreePanel.host,
     threadPanel: threadPanel.host,
+    chat: chatColumn.host,
     searchPrompt: searchPrompt.host,
     statusBar: statusBar.host,
     flashPrompt: flashPrompt.host,
@@ -612,6 +627,8 @@ export async function createApp(options: AppOptions = {}) {
     statusBar,
     header,
     threadPanel,
+    chatColumn,
+    chat,
     searchPrompt,
     flashPrompt,
     toast,
@@ -1766,6 +1783,7 @@ export async function createApp(options: AppOptions = {}) {
     aiReviewContext,
     threadMotionContext,
     marksContext,
+    chat: { state: chat, input: chatColumn.input },
   })
 
   /**

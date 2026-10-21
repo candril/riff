@@ -5,10 +5,10 @@
  * modal overlays first, then global shortcuts, then panel-specific handlers.
  */
 
-import type { KeyEvent } from "@opentui/core"
+import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
-import { clearTreeFilter, expandFiles } from "../state"
+import { clearTreeFilter, expandFiles, focusLeft, focusRight, promptOpen, toggleChat } from "../state"
 import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -23,6 +23,9 @@ import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
 import { handleHelpKey } from "./help-keys"
+import { composerOpen } from "./diff-focus"
+import { handleChatKey } from "../features/chat/keys"
+import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -122,6 +125,8 @@ export interface GlobalKeyContext {
   aiReviewContext: aiReview.AiReviewContext
   threadMotionContext: threadMotion.ThreadMotionContext
   marksContext: marks.MarksContext
+  /** The chat column's conversation and its input (spec 102). */
+  chat: { state: ChatState; input: () => TextareaRenderable | null }
 }
 
 /**
@@ -551,6 +556,48 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     }
   }
 
+  /**
+   * Ctrl-r, the walk into and out of the chat, and every key while the chat
+   * has focus. A composer or a one-line prompt keeps its keys, Ctrl-r
+   * included: the chat taking focus from under it would strand what is
+   * being typed there.
+   */
+  function handleChatKeys(key: KeyEvent): boolean {
+    const state = ctx.getState()
+    if (
+      composerOpen(state) ||
+      promptOpen(state) ||
+      ctx.getSearchState().active ||
+      state.prInfoPanel.commentInputOpen
+    ) {
+      return false
+    }
+    const move = (to: (s: AppState) => AppState) => {
+      ctx.setState(to)
+      ctx.render()
+      return true
+    }
+    if (key.ctrl && key.name === "r") {
+      clearPendingKey()
+      return move(toggleChat)
+    }
+    if (state.chatOpen && state.focusedPanel === "chat") {
+      // The chat is the last panel on the right; Ctrl-l has nowhere further to go.
+      if (key.ctrl && key.name === "l") return true
+      return handleChatKey(key, {
+        state: ctx.chat.state,
+        input: ctx.chat.input,
+        focusDiff: () => move((s) => ({ ...s, focusedPanel: "diff" })),
+        walkLeft: () => move(focusLeft),
+      })
+    }
+    // The thread panel swallows the keys it does not know, so the step from it to the chat is taken here.
+    if (key.ctrl && key.name === "l" && state.focusedPanel === "comments" && state.chatOpen) {
+      return move(focusRight)
+    }
+    return false
+  }
+
   return Object.assign(handleKeypress, { chordPending: () => pendingKey !== null })
 
   function handleKeypress(key: KeyEvent) {
@@ -760,6 +807,13 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       !pendingKey &&
       handleHelpKey(key, { getState: ctx.getState, setState: ctx.setState, render: ctx.render, height: ctx.renderer.height })
     ) {
+      return
+    }
+
+    // ========== CHAT (captures all input while focused, spec 102) ==========
+    // Ahead of the panels: Ctrl-r reaches the chat from every view, and
+    // nothing typed into the chat may reach the diff, the tree or the threads.
+    if (handleChatKeys(key)) {
       return
     }
 
@@ -1310,17 +1364,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         // Terminals deliver bare Ctrl-h as backspace, so this key is both
         // things at once — and walking back to the tree has to come first,
         // or returning to look at what the filter left would drop it.
-        if (state.mode === "normal") {
-          if (state.focusedPanel === "comments") {
-            ctx.setState((s) => ({ ...s, focusedPanel: "diff" }))
-            ctx.render()
-            return
-          }
-          if (state.showFilePanel && state.focusedPanel === "diff") {
-            ctx.setState((s) => ({ ...s, focusedPanel: "tree" }))
-            ctx.render()
-            return
-          }
+        if (state.mode === "normal" && focusLeft(state) !== state) {
+          ctx.setState(focusLeft)
+          ctx.render()
+          return
         }
         // Nowhere left to move: a tree filter is the next thing backspace
         // takes down — it is the state most easily forgotten about, and it
@@ -1335,18 +1382,8 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
       case "l":
         if (key.ctrl) {
-          // Ctrl-l moves focus one panel right: tree → diff → comments.
-          // From tree we also drop any visual-line selection so it
-          // doesn't linger as dormant state.
-          ctx.setState((s) => {
-            if (s.focusedPanel === "tree") {
-              return { ...s, focusedPanel: "diff", treeSelectionAnchor: null }
-            }
-            if (s.focusedPanel === "diff" && s.inlineCommentOverlay.open) {
-              return { ...s, focusedPanel: "comments" }
-            }
-            return s
-          })
+          // Ctrl-l moves focus one panel right: tree → diff → comments → chat.
+          ctx.setState(focusRight)
           ctx.render()
           setTimeout(() => {
             ctx.render()

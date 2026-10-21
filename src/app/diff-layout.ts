@@ -1,5 +1,6 @@
 import type { AppState } from "../state"
 import { commentPanelWidth } from "../features/inline-comment-overlay/width"
+import { chatColumnWidth } from "../features/chat/width"
 
 /**
  * Below this a pane is under 60 cells, and a gutter, a sign and a number
@@ -7,28 +8,33 @@ import { commentPanelWidth } from "../features/inline-comment-overlay/width"
  */
 export const SPLIT_MIN_WIDTH = 120
 
-export interface CommentPanelColumn {
+export interface SideColumn {
   open: boolean
   width: number
 }
 
-/** What is left of the screen for the diff once the file panel and the thread panel have their share. */
+const CLOSED: SideColumn = { open: false, width: 0 }
+
+/** What is left of the screen for the diff once the file panel, the thread panel and the chat have their share. */
 export function diffPaneWidth(
   screenWidth: number,
   filePanel: { visible: boolean; width: number },
-  commentPanel: CommentPanelColumn
+  commentPanel: SideColumn,
+  chatColumn: SideColumn = CLOSED
 ): number {
   const tree = filePanel.visible ? filePanel.width : 0
   const threads = commentPanel.open ? commentPanel.width : 0
-  return Math.max(0, screenWidth - tree - threads)
+  const chat = chatColumn.open ? chatColumn.width : 0
+  return Math.max(0, screenWidth - tree - threads - chat)
 }
 
 /**
- * The pane the diff is drawn in, beside the tree and the thread panel. The
- * panel is drawn in every view, but only the diff view's pane is measured.
+ * The pane the diff is drawn in, beside the tree, the thread panel and the
+ * chat. The columns are drawn in every view, but only the diff view's pane
+ * is measured.
  */
 export function diffPaneWidthOf(
-  state: Pick<AppState, "showFilePanel" | "viewMode"> & {
+  state: Pick<AppState, "showFilePanel" | "viewMode" | "chatOpen"> & {
     inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
   },
   screenWidth: number,
@@ -38,7 +44,8 @@ export function diffPaneWidthOf(
   return diffPaneWidth(
     screenWidth,
     { visible: state.showFilePanel, width: treeWidth },
-    { open: panel.open && state.viewMode === "diff", width: commentPanelWidth(screenWidth, panel.expanded) }
+    { open: panel.open && state.viewMode === "diff", width: commentPanelWidth(screenWidth, panel.expanded) },
+    { open: state.chatOpen && state.viewMode === "diff", width: chatColumnWidth(screenWidth) }
   )
 }
 

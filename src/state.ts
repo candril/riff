@@ -439,7 +439,9 @@ export interface AppState {
   alignMarkdownTables: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
-  focusedPanel: "tree" | "diff" | "comments"
+  focusedPanel: "tree" | "diff" | "comments" | "chat"
+  /** The chat column beside the diff (spec 102); its conversation lives outside AppState. */
+  chatOpen: boolean
   mode: UIMode
 
   // Diff view state
@@ -680,6 +682,7 @@ export function createInitialState(
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
+    chatOpen: false,
     mode: "normal",
     cursorLine: 1,
     collapsedThreadIds: new Set(),
@@ -1195,6 +1198,44 @@ export function toggleFilePanelExpanded(state: AppState): AppState {
   return {
     ...state,
     filePanelExpanded: !state.filePanelExpanded,
+  }
+}
+
+/** `Ctrl-r`: opens the chat and gives it the keys, focuses it when open elsewhere, and closes it from inside. */
+export function toggleChat(state: AppState): AppState {
+  if (state.chatOpen && state.focusedPanel === "chat") {
+    return { ...state, chatOpen: false, focusedPanel: "diff" }
+  }
+  return { ...state, chatOpen: true, focusedPanel: "chat" }
+}
+
+/** `Ctrl-l`: one panel right along tree → diff → comments → chat, skipping what is not open. */
+export function focusRight(state: AppState): AppState {
+  switch (state.focusedPanel) {
+    case "tree":
+      // Leaving the tree drops its visual-line selection, so it does not linger as dormant state.
+      return { ...state, focusedPanel: "diff", treeSelectionAnchor: null }
+    case "diff":
+      if (state.inlineCommentOverlay.open) return { ...state, focusedPanel: "comments" }
+      return state.chatOpen ? { ...state, focusedPanel: "chat" } : state
+    case "comments":
+      return state.chatOpen ? { ...state, focusedPanel: "chat" } : state
+    case "chat":
+      return state
+  }
+}
+
+/** `Ctrl-h`: one panel left along chat → comments → diff → tree, skipping what is not open. */
+export function focusLeft(state: AppState): AppState {
+  switch (state.focusedPanel) {
+    case "chat":
+      return { ...state, focusedPanel: state.inlineCommentOverlay.open ? "comments" : "diff" }
+    case "comments":
+      return { ...state, focusedPanel: "diff" }
+    case "diff":
+      return state.showFilePanel ? { ...state, focusedPanel: "tree" } : state
+    case "tree":
+      return state
   }
 }
 

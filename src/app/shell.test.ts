@@ -11,6 +11,10 @@ import { keepAlive } from "../utils/renderables"
 import { createAppShell, OVERLAYS, type ShellParts } from "./shell"
 import { createConfirmDialogIsland } from "./confirm-dialog"
 import { confirmDialogModel } from "../components/confirm-dialog-model"
+import { createChatColumnIsland } from "./chat-column"
+import { chatColumnWidth } from "../features/chat/width"
+import { createChatState } from "../features/chat/state"
+import { fakeAgent } from "../features/chat/fake-agent"
 
 const TAIL = "TAILMARK"
 const LONG = `  const greeting = [first, second, third, fourth, fifth, sixth, seventh, eighth].join(" ") // ${TAIL}`
@@ -37,20 +41,22 @@ function bareShell(
   renderer: CliRenderer,
   tree: Renderable = new BoxRenderable(renderer, {}),
   real: Partial<ShellParts["overlays"]> = {},
-  threadPanel?: ThreadPanelIsland
+  threadPanel?: ThreadPanelIsland,
+  chat?: Renderable
 ) {
   const box = (id: string) => keepAlive(new BoxRenderable(renderer, { id }))
   const overlays = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlays[id] = real[id] ?? box(id)
-  const hiddenPanel = () => {
-    const host = box("threadPanel")
+  const hidden = (id: string) => {
+    const host = box(id)
     host.visible = false
     return host
   }
   return createAppShell(renderer, {
     header: box("header"),
     tree,
-    threadPanel: threadPanel?.host ?? hiddenPanel(),
+    threadPanel: threadPanel?.host ?? hidden("threadPanel"),
+    chat: chat ?? hidden("chat"),
     searchPrompt: box("searchPrompt"),
     statusBar: box("statusBar"),
     flashPrompt: box("flashPrompt"),
@@ -182,6 +188,26 @@ describe("the thread panel docked in the content row", () => {
   }
 })
 
+test("with the thread panel and the chat both open, the threads sit between the diff and the chat", async () => {
+  const width = 200
+  const setup = await createTestRenderer({ width, height: 8 })
+  disposers.push(() => setup.renderer.destroy())
+  const renderer = setup.renderer
+  const threads = panel(renderer, commentPanelWidth(width, false))
+  const chat = createChatColumnIsland(renderer)
+  disposers.unshift(() => chat.dispose())
+  chat.update({ state: createChatState(fakeAgent().agent), width: chatColumnWidth(width), focused: false })
+  const shell = bareShell(renderer, undefined, {}, threads, chat.host)
+  const view = keepAlive(new TextRenderable(renderer, { content: "x" }))
+  shell.setView(view, { withTree: false })
+  await setup.renderOnce()
+  await setup.renderOnce()
+  expect(chat.host.width).toBe(56)
+  expect(chat.host.x).toBe(width - 56)
+  expect(threads.host.x + threads.host.width).toBe(chat.host.x)
+  expect(view.parent!.x + view.parent!.width).toBe(threads.host.x)
+})
+
 test("the error and an empty diff keep clear of the open panel, with the tree hidden", async () => {
   const width = 100
   const panelWidth = commentPanelWidth(width, false)
@@ -252,11 +278,11 @@ test("the hosts are stacked header first and the overlays in their fixed order, 
   const shell = bareShell(setup.renderer)
   expect(setup.renderer.root.getChildren()).toEqual([shell.root])
   const [header, content, ...rest] = shell.root.getChildren()
-  // The content box holds the row: the tree's slot, the view's, and the thread panel's host, hidden until it opens.
+  // The content box holds the row: the tree's slot, the view's, then the thread panel's host and the chat's, hidden until they open.
   const row = content!.getChildren()[0]!.getChildren()
-  expect(row.map((child) => child.id).at(-1)).toBe("threadPanel")
-  expect(row).toHaveLength(3)
-  expect(row[2]!.visible).toBe(false)
+  expect(row.map((child) => child.id).slice(2)).toEqual(["threadPanel", "chat"])
+  expect(row).toHaveLength(4)
+  expect([row[2]!.visible, row[3]!.visible]).toEqual([false, false])
   expect([header!.id, ...rest.map((child) => child.id)]).toEqual([
     "header",
     "searchPrompt",

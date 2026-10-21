@@ -70,6 +70,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["Ctrl+b", "Toggle file tree"],
       ["Ctrl+e", "Expand panel to full width"],
       ["Ctrl+t", "Toggle comments panel"],
+      ["Ctrl+r", "Open the chat with riff's agent, or close it from inside"],
       ["Ctrl+h / Ctrl+l", "Focus panel left / right"],
       ["Ctrl+f", "Find files (fuzzy)"],
       ["Ctrl+s", "Find in the diff (word or selection under the cursor); Ctrl+g in it narrows"],

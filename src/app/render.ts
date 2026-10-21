@@ -29,6 +29,9 @@ import { version } from "../version"
 import { headerModel } from "../components/header-model"
 import type { HeaderIsland } from "./header"
 import type { ThreadPanelIsland } from "./thread-panel"
+import type { ChatColumnIsland } from "./chat-column"
+import type { ChatState } from "../features/chat/state"
+import { chatColumnWidth } from "../features/chat/width"
 import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
 import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
 import { draftNotificationModel, toastModel } from "../components/notification-model"
@@ -74,7 +77,7 @@ import * as commentsFeature from "../features/comments"
 import { paletteMode } from "../features/action-menu"
 import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
-import { composerOpen, diffCursorShown } from "./diff-focus"
+import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
 import type { AppShell } from "./shell"
 
@@ -95,6 +98,9 @@ export interface RenderContext {
   statusBar: StatusBarIsland
   header: HeaderIsland
   threadPanel: ThreadPanelIsland
+  chatColumn: ChatColumnIsland
+  /** The one conversation with riff's agent, which outlives the column's opening and closing. */
+  chat: ChatState
   searchPrompt: SearchPromptIsland
   flashPrompt: FlashPromptIsland
   toast: ToastIsland
@@ -284,6 +290,16 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       else endPromptSession()
 
       if (splitOn) ctx.split.island.update({ focused: diffFocused })
+
+      // After the composer and the prompts, which focus their own inputs: the
+      // chat takes the keys only while neither is up.
+      const chatFocused = chatInputFocused(state, prompt !== null)
+      ctx.chatColumn.update(
+        state.chatOpen ? { state: ctx.chat, width: chatColumnWidth(ctx.renderer.width), focused: chatFocused } : null
+      )
+      const chatInput = ctx.chatColumn.input()
+      if (chatFocused) chatInput?.focus()
+      else if (chatInput?.focused) chatInput.blur()
     }
 
     ctx.statusBar.update({
