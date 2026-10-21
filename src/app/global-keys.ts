@@ -62,6 +62,7 @@ import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 import { createBlameKeys, type BlameDeps } from "../features/blame/keys"
+import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
@@ -265,14 +266,14 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     ctx.render()
   }
 
-  const blame = createBlameKeys({
+  const blameContext = {
     deps: ctx.blame,
     getState: ctx.getState,
     setState: ctx.setState,
     getLineMapping: ctx.getLineMapping,
     getVimState: ctx.getVimState,
     render: ctx.render,
-    toast(message, type) {
+    toast(message: string, type: "success" | "error" | "info") {
       ctx.setState((s) => showToast(s, message, type))
       ctx.render()
       setTimeout(() => {
@@ -280,7 +281,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         ctx.render()
       }, 2000)
     },
-  })
+  }
+  const blame = createBlameKeys(blameContext)
+  const blameColumn = createBlameColumnKeys(blameContext)
 
   // Key sequence tracking
   let pendingKey: string | null = null
@@ -1634,6 +1637,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         ctx.setState(toggleWrapLines)
         ctx.rebuildLineMapping()
         ctx.render()
+        return
+      } else if (sequence === "zB!" || sequence === "zb!") {
+        // Both spellings are accepted because terminals differ in whether
+        // shift+letter reports the key name as lower- or uppercase.
+        if (s.viewMode === "diff") blameColumn.toggle()
         return
       } else if (sequence === "zl" || sequence === "zh") {
         scrollColumns(sequence === "zl" ? 1 : -1)

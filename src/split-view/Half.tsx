@@ -71,6 +71,7 @@ export function Half(props: {
   }
   const gutterBg = () => (lineSelected() ? theme.surface1 : undefined)
   const width = () => env.panes()[props.side]
+  const blameWidth = () => (props.index === undefined ? 0 : env.blameWidthOf(props.index))
   const mark = () =>
     props.index === undefined ? undefined : env.marks().get(props.index)?.find((found) => found.side === props.side)?.letter
   const sign = () => {
@@ -93,7 +94,7 @@ export function Half(props: {
       flash: env.flashHits() && { matches: flashMatchesOn(env.flashHits()!.get(props.index), props.side) },
       cursor: props.active && view.focused ? view.cursor.col : undefined,
     })
-    return halfContent(full, view.columns[props.side], width() - contentOrigin(env.gutter())).segments
+    return halfContent(full, view.columns[props.side], width() - contentOrigin(env.gutter(), blameWidth())).segments
   })
 
   return (
@@ -105,6 +106,11 @@ export function Half(props: {
         <text wrapMode="none" flexShrink={0} fg={mark() ? colors.markLetter : theme.overlay0} bg={gutterBg()}>
           {mark() ?? " "}
         </text>
+        <Show when={blameWidth() > 0}>
+          <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
+            {env.blameCells()[props.side].get(props.index!) ?? " ".repeat(blameWidth())}
+          </text>
+        </Show>
         <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={gutterBg()}>
           {`${lineNumber(line()!, props.side).padStart(env.gutter())} `}
         </text>

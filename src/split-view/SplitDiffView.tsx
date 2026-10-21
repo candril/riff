@@ -1,4 +1,5 @@
 import { For, createMemo } from "solid-js"
+import { blameWidthIn, splitBlameCells, type BlameColumns } from "../components/blame-column-model"
 import { commentSigns } from "../diff-rows/signs"
 import { markSigns } from "../features/marks/signs"
 import type { SplitDiffViewProps, SplitEnv } from "./env"
@@ -12,6 +13,8 @@ import { wordsOf } from "./words"
 
 export type { SplitDiffViewProps } from "./env"
 
+const NO_BLAME: BlameColumns = new Map()
+
 /**
  * A diff drawn as one-cell rows, old file on the left and new on the right,
  * each pane with its own column window. Only the rows on screen are laid
@@ -20,11 +23,22 @@ export type { SplitDiffViewProps } from "./env"
  */
 export function SplitDiffView(props: SplitDiffViewProps) {
   const gutter = createMemo(() => gutterWidth(props.mapping))
+  const blameColumns = () => props.blameColumns ?? NO_BLAME
+  const blameWidthOf = (lineIndex: number) => blameWidthIn(blameColumns(), props.mapping.getLine(lineIndex))
   const env: SplitEnv = {
     props,
     gutter,
     rowWidth: () => props.width,
-    originOf: () => contentOrigin(gutter()),
+    originOf: (lineIndex) => contentOrigin(gutter(), blameWidthOf(lineIndex)),
+    blameWidthOf,
+    blameCells: createMemo(() => {
+      const { rows } = props.source
+      const lines = props.mapping.allLines
+      return {
+        left: splitBlameCells(rows, lines, blameColumns(), "left"),
+        right: splitBlameCells(rows, lines, blameColumns(), "right"),
+      }
+    }),
     chromeGutterBg: () => undefined,
     // The terminal's cursor is hidden here, so the block stands in for it, and a composer or prompt suspends it.
     headerCursor: () => (props.focused ? props.cursor.col : undefined),

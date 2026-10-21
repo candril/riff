@@ -1,3 +1,4 @@
+import type { BlameColumns } from "../components/blame-column-model"
 import type { LineSpans } from "../diff-rows/line-spans"
 import type { RowLineSource } from "../diff-rows/row-source"
 import type { Side } from "../diff-rows/rows"
@@ -21,6 +22,8 @@ export interface SplitDiffViewProps {
   highlightVersion: number
   comments: readonly Comment[]
   marks: readonly Mark[]
+  /** Files whose blame column is on (spec 103); none when left out. */
+  blameColumns?: BlameColumns
   fileStatuses: ReadonlyMap<string, FileReviewStatus>
   expandingDivider: string | null
   /** `row` indexes the source's rows; `col` is a column of the active side's line. */
@@ -76,4 +79,8 @@ export interface SplitEnv extends RowEnv {
   signs: () => ReadonlyMap<number, CommentSign>
   words: () => ReadonlyMap<number, readonly WordSpan[]>
   searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
+  /** The blame column's cells beside a line, 0 where its file has no column. */
+  blameWidthOf: (lineIndex: number) => number
+  /** What each pane's blame column draws beside each line that has one. */
+  blameCells: () => Record<Side, ReadonlyMap<number, string>>
 }

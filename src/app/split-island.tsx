@@ -1,6 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
+import { blameWidthIn, type BlameColumns } from "../components/blame-column-model"
 import { cellOfColumn, wholeColumns } from "../diff-rows/cells"
 import { rowOfLine } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"
@@ -21,6 +22,8 @@ type LineWindow = { startCol: number; endCol: number }
 const other = (side: Side): Side => (side === "left" ? "right" : "left")
 
 const IN_HALVES = new Set(["context", "addition", "deletion", "no-newline"])
+
+const NO_BLAME: BlameColumns = new Map()
 
 /**
  * The split view as a long-lived island. It owns its scroll and each
@@ -62,15 +65,16 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
   const window = () => ({ scrollTop: scrollTop(), height: size().height, rows: rowCount() })
   const ensureCursorVisible = (row: number) => setScrollTop(revealRow(window(), row, scrollOff))
 
-  const codeWidth = (props: SplitInputs, side: Side) =>
-    paneWidths(size().width)[side] - contentOrigin(gutterWidth(props.mapping))
+  const codeWidth = (props: SplitInputs, side: Side, line: number) =>
+    paneWidths(size().width)[side] -
+    contentOrigin(gutterWidth(props.mapping), blameWidthIn(props.blameColumns ?? NO_BLAME, props.mapping.getLine(line)))
 
   /** The columns of a mapping line that `side`'s pane shows. */
   function windowOn(line: number, side: Side): LineWindow {
     const props = inputs.value
     const shown = props?.mapping.getLine(line)
     if (!props || !shown) return { startCol: 0, endCol: 0 }
-    const width = Math.max(0, codeWidth(props, side))
+    const width = Math.max(0, codeWidth(props, side, line))
     if (!IN_HALVES.has(shown.type)) return { startCol: 0, endCol: width }
     const { content } = shown
     const { first, last } = visibleCells(columns()[side], width, cellOfColumn(content, content.length))
@@ -88,8 +92,8 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     if (!props || row?.kind !== "pair") return null
     const index = props.side === "left" ? row.left : row.right
     const content = index === undefined ? undefined : props.mapping.getLine(index)?.content
-    if (content === undefined) return null
-    const width = codeWidth(props, props.side)
+    if (index === undefined || content === undefined) return null
+    const width = codeWidth(props, props.side, index)
     const cells = cellOfColumn(content, content.length)
     return { side: props.side, content, width, cells, cursorCell: cellOfColumn(content, props.cursor.col) }
   }

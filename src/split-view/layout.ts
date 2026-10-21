@@ -45,8 +45,8 @@ export function gutterWidth(mapping: DiffLineMapping): number {
   return Math.max(3, String(widest).length + 1)
 }
 
-/** Where a half's code starts: its sign cells, the number and the space after it. */
-export const contentOrigin = (gutter: number) => SIGN_CELLS + gutter + 1
+/** Where a half's code starts: its sign cells, any blame column, the number and the space after it. */
+export const contentOrigin = (gutter: number, blame = 0) => SIGN_CELLS + blame + gutter + 1
 
 /** The number unified's gutter shows for a line, the old one only on a deletion; 0 for none. */
 function unifiedNumber(line: DiffLine): number {
@@ -65,6 +65,10 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
  * or the widest number in the whole diff. All files gives every file
  * section its own gutter; a single file, with no header, is one section.
  *
+ * `blameWidthOf` is the blame column's cells beside a line, 0 where its
+ * file has none; it sits between the mark and the number, so the code of a
+ * section with one starts that much further right.
+ *
  * `wrapWidth`, the pane's width when wrapping, makes a row of every slice,
  * as OpenTUI counts a wrapped buffer's virtual lines. Those depend on the
  * code width the gutter leaves, so the gutter widens until its digits hold
@@ -74,7 +78,8 @@ const digits = (value: number) => (value > 0 ? Math.floor(Math.log10(value)) + 1
 export function unifiedOrigins(
   mapping: DiffLineMapping,
   wrapWidth?: number,
-  wrapper: LineWrapper = lineWrapper(mapping.allLines)
+  wrapper: LineWrapper = lineWrapper(mapping.allLines),
+  blameWidthOf: (lineIndex: number) => number = () => 0
 ): (lineIndex: number) => number {
   const lines = mapping.allLines
   let widest = 0
@@ -97,9 +102,10 @@ export function unifiedOrigins(
       for (let i = codeStart; i < end; i++) rows += wrapper(i, unifiedWrapWidth(wrapWidth, origin))?.length ?? 1
       return rows
     }
-    let origin = originFor(Math.max(end - codeStart, largest))
+    const blame = blameWidthOf(start)
+    let origin = originFor(Math.max(end - codeStart, largest)) + blame
     for (;;) {
-      const needed = originFor(Math.max(rowsAt(origin), largest))
+      const needed = originFor(Math.max(rowsAt(origin), largest)) + blame
       if (needed <= origin) break
       origin = needed
     }

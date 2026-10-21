@@ -82,6 +82,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
       highlightVersion: deps.highlights.version(),
       comments: state.comments,
       marks: state.marks.marks,
+      blameColumns: state.blameColumns,
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,
       cursor: { line: vimState.line, col: vimState.col },

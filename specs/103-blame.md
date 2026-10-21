@@ -1,8 +1,6 @@
 # Blame
 
-**Status**: In Progress
-
-**Not built**: P2
+**Status**: Complete
 
 ## Description
 
@@ -88,6 +86,36 @@ never kept: it changes while riff runs.
 A file the side does not have, and a line past its end, answer null;
 any other failure carries the tool's message.
 
+### The column (P2)
+
+`zB` turns the column on or off for the file under the cursor: the file
+shown, or in all files the one the cursor's line or header belongs to.
+Turning it on reads the whole file's blame through `fileBlame`, the same
+cached read `lineBlame` answers from, for each side the file has: an added
+file asks no base, a deleted one no head, and a rename's base is read under
+its old name. A failure, or no blame on either side, drops the column and
+says why in a toast. The column is not kept across sessions.
+
+The column sits between the mark's cell and the line number, so a row is
+`[sign][mark][blame][number][space][code]`. It is 18 cells wide: the
+8-cell short sha, a space, the author cut to 8 cells (by cells, so a wide
+character never overflows) and a space before the number. It is drawn in
+`overlay0` on the gutter's own background and carries no separator. Only
+a file with the column on moves its code right; in unified the width is
+part of each file section's origin, so wrapping, the terminal cursor,
+sideways scrolling, flash and search all move with it. In split each
+half's code origin is worked out per line the same way.
+
+Unified blames a removed line in the base and any other line in the head,
+as the peek does. Split blames the left half in the base and the right
+half in the head, by the number each half draws.
+
+A run of lines from one commit names it once, on its first line. Any row
+that is not code (a file header, a hunk header, a divider, a folded
+block) ends the run, so each hunk names its first commit again. A line not
+yet committed reads `uncommitted`, also once per run. While the file's
+blame loads, `…` stands at the top of its lines.
+
 ### Files
 
 - `src/providers/blame/types.ts`: `BlameCommit`, `BlameLine`, `FileBlame`
@@ -97,4 +125,12 @@ any other failure carries the tool's message.
 - `src/providers/blame/sides.ts`: which revision a side means.
 - `src/providers/blame/pr-lookup.ts`: `prForCommit`.
 - `src/providers/blame/source.ts`: `createBlameSource`, with injectable
-  runners for every spawn.
+  runners for every spawn; `fileBlame` and `lineBlame` share one cache.
+- `src/features/blame/keys.ts`, `peek-state.ts`, `peek-chords.ts`: `gb`'s
+  peek, and which chords may act while a peek is up.
+- `src/features/blame/column-keys.ts`, `column-state.ts`: `zB` and the
+  per-file column state.
+- `src/features/blame/demo-source.ts`: `--demo`'s blame, two commits per
+  file and no network.
+- `src/components/blame-column-model.ts`: what the column draws beside
+  each line, and which side a line blames in each view.

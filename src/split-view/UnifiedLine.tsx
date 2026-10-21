@@ -1,4 +1,4 @@
-import { For, createMemo } from "solid-js"
+import { For, Show, createMemo } from "solid-js"
 import { columnOfCell } from "../diff-rows/cells"
 import { ADDITION_BG, DELETION_BG, cursorLineBg } from "../diff-rows/line-colors"
 import { buildSegments, fade, sliceSegments, type Segment } from "../diff-rows/segments"
@@ -84,6 +84,7 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
   const selected = createMemo(() => inLineSelection(view.selection, props.index))
   const colors = createMemo(() => unifiedLineColors(props.line.type, selected(), props.atCursor))
   const origin = () => env.originOf(props.index)
+  const blameWidth = () => env.blameWidthOf(props.index)
   const sign = () => env.signs().get(props.index)
   // Unified has one cell for the line's two sides, so the first letter in letter order takes it.
   const mark = () => env.marks().get(props.index)?.[0]?.letter
@@ -175,8 +176,13 @@ export function UnifiedLine(props: { env: UnifiedEnv; line: DiffLine; index: num
               <text wrapMode="none" flexShrink={0} fg={mark() ? themeColors.markLetter : theme.overlay0} bg={colors().gutter}>
                 {(!continuation && mark()) || " "}
               </text>
+              <Show when={blameWidth() > 0}>
+                <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
+                  {(!continuation && env.blameCells().get(props.index)) || " ".repeat(blameWidth())}
+                </text>
+              </Show>
               <text wrapMode="none" flexShrink={0} fg={theme.overlay0} bg={colors().gutter}>
-                {(continuation ? "" : lineNumber(props.line)).padStart(origin() - SIGN_CELLS - 1)}
+                {(continuation ? "" : lineNumber(props.line)).padStart(origin() - SIGN_CELLS - blameWidth() - 1)}
               </text>
               <text wrapMode="none" flexShrink={0} fg={gutterMark() ? theme.surface2 : theme.overlay0} bg={colors().gutter}>
                 {gutterMark() ?? " "}

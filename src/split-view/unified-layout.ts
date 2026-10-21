@@ -1,5 +1,6 @@
 import { useRenderer } from "@opentui/solid"
 import { createMemo } from "solid-js"
+import { BLAME_CELLS, type BlameColumns } from "../components/blame-column-model"
 import { buildRows } from "../diff-rows/rows"
 import { buildVisualRows, lineWrapper } from "../diff-rows/visual-rows"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -14,7 +15,10 @@ export interface UnifiedLayoutInput {
   readonly width: number
   readonly height: number
   readonly scrollTop: number
+  readonly blameColumns?: BlameColumns
 }
+
+const NO_COLUMNS: BlameColumns = new Map()
 
 /**
  * Where unified's rows go: their wrap, gutters, scrollbar and pinned
@@ -27,7 +31,18 @@ export function createUnifiedLayout(input: UnifiedLayoutInput) {
     void (input.wrap ? input.width : undefined)
     return lineWrapper(input.mapping.allLines)
   })
-  const origins = createMemo(() => unifiedOrigins(input.mapping, input.wrap ? input.width : undefined, wrapper()))
+  // Keyed by which files have a column, so blame settling into one leaves every row where it was.
+  const blameFiles = createMemo(() => [...(input.blameColumns ?? NO_COLUMNS).keys()].sort().join("\0"))
+  const blameWidthOf = createMemo(() => {
+    const files = new Set(blameFiles() ? blameFiles().split("\0") : [])
+    return (lineIndex: number) => {
+      const filename = input.mapping.allLines[lineIndex]?.filename
+      return filename !== undefined && files.has(filename) ? BLAME_CELLS : 0
+    }
+  })
+  const origins = createMemo(() =>
+    unifiedOrigins(input.mapping, input.wrap ? input.width : undefined, wrapper(), blameWidthOf())
+  )
   const rows = createMemo(() => buildRows(input.mapping.allLines, "unified"))
   const visual = createMemo(() => {
     const originOf = origins()
@@ -54,6 +69,7 @@ export function createUnifiedLayout(input: UnifiedLayoutInput) {
     held: createHeldRows(useRenderer()),
     wrapper,
     originOf: (lineIndex: number) => origins()(lineIndex),
+    blameWidthOf: (lineIndex: number) => blameWidthOf()(lineIndex),
     rows,
     visual,
     contentWidth,

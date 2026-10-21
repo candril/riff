@@ -1,3 +1,4 @@
+import type { BlameColumns } from "../components/blame-column-model"
 import type { LineSpans } from "../diff-rows/line-spans"
 import type { CommentSign } from "../diff-rows/signs"
 import type { Mark } from "../features/marks/types"
@@ -20,6 +21,8 @@ export interface UnifiedDiffViewProps {
   highlightVersion: number
   comments: readonly Comment[]
   marks: readonly Mark[]
+  /** Files whose blame column is on (spec 103); none when left out. */
+  blameColumns?: BlameColumns
   fileStatuses: ReadonlyMap<string, FileReviewStatus>
   expandingDivider: string | null
   /** `line` indexes the mapping's lines; `col` is a UTF-16 column of it, as the vim cursor keeps it. */
@@ -49,6 +52,10 @@ export interface UnifiedEnv extends RowEnv {
   signs: () => ReadonlyMap<number, CommentSign>
   words: () => ReadonlyMap<number, readonly WordSpan[]>
   searchHits: () => ReadonlyMap<number, readonly SearchHit[]>
+  /** The blame column's cells beside a line, 0 where its file has no column. */
+  blameWidthOf: (lineIndex: number) => number
+  /** What the blame column draws beside each line that has one. */
+  blameCells: () => ReadonlyMap<number, string>
   visual: () => VisualRows
   /** The visual rows mounted: the window's, and any a wheel tick has scrolled out of it but held. */
   mounted: () => RowSpan

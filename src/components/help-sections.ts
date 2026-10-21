@@ -28,6 +28,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["gl", "Peek the line, its table, or a diagram"],
       ["gb", "Who last changed this line"],
       ["zw", "Toggle soft wrap"],
+      ["zB", "Blame column for this file"],
       ["\\", "Toggle side by side (120+ columns)"],
     ],
   },

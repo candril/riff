@@ -1,5 +1,6 @@
 import { For, Show, createMemo } from "solid-js"
 import type { Row } from "../diff-rows/rows"
+import { unifiedBlameCells, type BlameColumns } from "../components/blame-column-model"
 import { commentSigns } from "../diff-rows/signs"
 import { markSigns } from "../features/marks/signs"
 import { theme } from "../theme"
@@ -16,6 +17,8 @@ import { UnifiedLine } from "./UnifiedLine"
 import { wordsOf } from "./words"
 
 export type { UnifiedDiffViewProps } from "./unified-env"
+
+const NO_BLAME: BlameColumns = new Map()
 
 // Drawn by riff beside the code rather than as code, so never wrapped.
 const CHROME_TYPES = new Set<DiffLineType>(["file-header", "divider", "spacing"])
@@ -43,6 +46,8 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
     marks: createMemo(() => markSigns(props.mapping, props.marks)),
     words: createMemo(() => wordsOf(props.mapping)),
     searchHits: createMemo(() => searchByLine(props.search)),
+    blameWidthOf: layout.blameWidthOf,
+    blameCells: createMemo(() => unifiedBlameCells(props.mapping.allLines, props.blameColumns ?? NO_BLAME)),
     visual,
     mounted: createMemo(() => mountedRows(props.scrollTop, props.height, layout.held.span())),
     inWindow: (row) => row >= props.scrollTop && row < props.scrollTop + props.height,

@@ -42,6 +42,7 @@ These are for moving the view on its own.
 | `gl` | Peek the line in full — or, in a markdown table, the table as a grid |
 | `gb` | Who last changed this line: its commit and PR; then `go` opens it and `y` copies the sha |
 | `zw` | Toggle soft wrap for the whole diff |
+| `zB` | Who last changed each line of this file, as a dimmed column beside the line numbers |
 
 ## Jumping
 
