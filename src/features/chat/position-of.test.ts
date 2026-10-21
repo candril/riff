@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { commentScope } from "../../diff-rows/comment-scope"
-import { diffFile, doc, code, mappingOf, middleDivider } from "../../diff-rows/fixtures"
+import { diffFile, doc, code, fenceId, mappingOf, middleDivider } from "../../diff-rows/fixtures"
 import { RowLineSource } from "../../diff-rows/row-source"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
@@ -171,6 +171,74 @@ describe("chatPositionOf", () => {
 
   test("rows equally near above and below give the one above", () => {
     expect(positionAt("gone", "right")).toMatchObject({ side: "new", line: 4, label: "s.ts:4" })
+  })
+
+  test("an empty half takes the nearest line in its own hunk, never one across a divider", () => {
+    const w = diffFile("w.ts", ["@@ -1,1 +1,1 @@", " a", "@@ -40,3 +40,1 @@", "-x", "-y", "-z", " k"])
+    const mapping = new DiffLineMapping([w], "all")
+    const position = positionOf(mapping, cursor(at(mapping, "x")), [w], "right")!
+    expect(position).toMatchObject({ side: "new", line: 40, label: "w.ts:40", hunkHeader: "@@ -40,3 +40,1 @@" })
+    expect(position.excerpt[position.cursorIndex!]).toMatchObject({ text: "k" })
+  })
+
+  test("a hunk with no line in the pane is the file alone, though the hunk above has one", () => {
+    const r = diffFile("r.ts", ["@@ -1,1 +1,1 @@", " a", "@@ -40,2 +39,0 @@", "-x", "-y"])
+    const mapping = new DiffLineMapping([r], "all")
+    expect(positionOf(mapping, cursor(at(mapping, "y")), [r], "right")).toEqual({
+      path: "r.ts",
+      excerpt: [],
+      label: "r.ts",
+    })
+  })
+
+  test("a folded block is the file alone in unified and in either split pane", () => {
+    const mapping = mappingOf({ collapsedBlocks: new Set([fenceId()]) })
+    const fold = mapping.allLines.findIndex((line) => line.filename === "doc.md" && line.blockFoldId)
+    expect(fold).toBeGreaterThanOrEqual(0)
+    for (const pane of [undefined, "left", "right"] as const) {
+      expect(positionOf(mapping, cursor(fold), [doc, code], pane)).toEqual({
+        path: "doc.md",
+        excerpt: [],
+        label: "doc.md",
+      })
+    }
+  })
+
+  test("a cursor on a divider with a selection above it anchors on the selection's hunk", () => {
+    const body = Array.from({ length: 5 }, (_, i) => ` line ${i + 1}`)
+    const two = diffFile("t.ts", ["@@ -1,2 +1,1 @@", " top", "-old", "@@ -50,5 +50,5 @@", ...body])
+    const mapping = new DiffLineMapping([two], "all")
+    const divider = mapping.allLines.findIndex((line) => line.type === "divider")
+    for (const pane of [undefined, "left"] as const) {
+      const position = positionOf(mapping, cursor(divider, at(mapping, "old")), [two], pane)!
+      expect(position).toMatchObject({
+        path: "t.ts",
+        side: "old",
+        line: 2,
+        hunkHeader: "@@ -1,2 +1,1 @@",
+        label: "t.ts:2 (old)",
+        selection: { start: 2, end: 2 },
+      })
+      expect(position.excerpt[position.cursorIndex!]).toMatchObject({ kind: "removed", text: "old" })
+    }
+  })
+
+  test("a selection reaching a divider from another file leaves the divider's own hunk below", () => {
+    const a = diffFile("a.ts", ["@@ -1,2 +1,1 @@", " top", "-old"])
+    const b = diffFile("b.ts", ["@@ -50,2 +50,2 @@", " p", " q"])
+    const mapping = new DiffLineMapping([a, b], "all")
+    const divider = mapping.allLines.findIndex((line) => line.type === "divider" && line.filename === "b.ts")
+    for (const pane of [undefined, "left"] as const) {
+      expect(positionOf(mapping, cursor(divider, at(mapping, "old")), [a, b], pane)).toEqual({
+        path: "b.ts",
+        hunkHeader: "@@ -50,2 +50,2 @@",
+        excerpt: [
+          { kind: "context", text: "p", oldLine: 50, newLine: 50 },
+          { kind: "context", text: "q", oldLine: 51, newLine: 51 },
+        ],
+        label: "b.ts",
+      })
+    }
   })
 
   test("a pane with no line anywhere in the file is the file alone", () => {

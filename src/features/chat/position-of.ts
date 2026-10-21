@@ -5,7 +5,7 @@ import type { ExcerptLine, Position } from "../../providers/agent/position"
 import type { DiffFile } from "../../utils/diff-parser"
 import { getSelectionRange } from "../../vim-diff/cursor-state"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { DiffLine, VimCursorState } from "../../vim-diff/types"
+import type { CommentAnchor, DiffLine, VimCursorState } from "../../vim-diff/types"
 
 export const EXCERPT_RADIUS = 20
 
@@ -39,25 +39,23 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
   if (!line?.filename) return null
   const path = line.filename
   const file = files.find((f) => f.filename === path)
-  const selectionOnSide = (side: Side) =>
-    getSelectionRange(vim) ? selectionOn(mapping, scope.lines, path, side) : undefined
+  const selecting = getSelectionRange(vim) !== null
+  const selectionOnSide = (side: Side) => (selecting ? selectionOn(mapping, scope.lines, path, side) : undefined)
 
   const onDivider = line.type === "divider" || line.type === "hunk-header"
-  const at = onDivider ? null : anchoredLine(mapping, vim.line, scope.pane, rows ?? null, path)
-  const anchor = at === null ? null : mapping.getCommentAnchor(at, scope.pane)
-  if (at === null || !anchor) {
+  const anchored = !onDivider
+    ? anchoredLine(mapping, vim.line, scope.pane, rows ?? null, path)
+    : selecting
+      ? nearestSelected(mapping, vim.line, scope, path)
+      : null
+  if (!anchored) {
     const side: Side = scope.pane === "left" ? "old" : "new"
     const selection = selectionOnSide(side)
-    const base = onDivider && hunkBelow(mapping, vim.line, path, file)
-    if (!selection) return base || { path, excerpt: [], label: path }
-    return {
-      ...(base || { path, excerpt: [] }),
-      side,
-      label: labelOf(path, side, selection),
-      selection,
-    }
+    if (!selection) return (onDivider && hunkBelow(mapping, vim.line, path, file)) || { path, excerpt: [], label: path }
+    return { path, excerpt: [], side, label: labelOf(path, side, selection), selection }
   }
 
+  const { index: at, anchor } = anchored
   const side: Side = anchor.side === "LEFT" ? "old" : "new"
   const { excerpt, cursorIndex } = excerptAround(mapping, at, path)
   const selection = selectionOnSide(side)
@@ -79,14 +77,48 @@ function labelOf(path: string, side: Side, { start, end }: { start: number; end:
   return `${path}:${place}${side === "old" ? " (old)" : ""}`
 }
 
-const commentable = (mapping: DiffLineMapping, index: number, pane: CommentScope["pane"]) =>
-  !mapping.getLine(index)?.blockFoldId && mapping.getCommentAnchor(index, pane) !== null
+interface Anchored {
+  index: number
+  anchor: CommentAnchor
+}
+
+function anchoredAt(mapping: DiffLineMapping, index: number, pane: CommentScope["pane"]): Anchored | null {
+  if (mapping.getLine(index)?.blockFoldId) return null
+  const anchor = mapping.getCommentAnchor(index, pane)
+  return anchor ? { index, anchor } : null
+}
+
+/**
+ * A divider is in no hunk, so a selection reaching it is placed by the
+ * selected line nearest the cursor, the one above on a tie: the selection's
+ * hunk, not the one below the divider. Only the divider's own file counts,
+ * since the position is labelled with its path.
+ */
+function nearestSelected(
+  mapping: DiffLineMapping,
+  cursor: number,
+  scope: CommentScope,
+  path: string,
+): Anchored | null {
+  let best: Anchored | null = null
+  for (const index of scope.lines) {
+    if (mapping.getLine(index)?.filename !== path) continue
+    const hit = anchoredAt(mapping, index, scope.pane)
+    if (hit && (!best || Math.abs(index - cursor) < Math.abs(best.index - cursor))) best = hit
+  }
+  return best
+}
+
+// "\ No newline" sits between a hunk's lines without ending the hunk.
+const inHunk = (line: DiffLine | undefined, path: string) =>
+  line?.filename === path && (KINDS[line.type] !== undefined || line.type === "no-newline")
 
 /**
  * The line a question is anchored on. In split, the active half of the
  * cursor's row may be empty, and then the cursor holds the other half's
- * line; the nearest row in the file with a line in this pane stands in,
- * the one above on a tie.
+ * line; the nearest row in the cursor's hunk with a line in this pane
+ * stands in, the one above on a tie. A folded block is no line, so it
+ * anchors on none, as in unified.
  */
 function anchoredLine(
   mapping: DiffLineMapping,
@@ -94,29 +126,31 @@ function anchoredLine(
   pane: CommentScope["pane"],
   rows: SplitRows | null,
   path: string,
-): number | null {
-  if (commentable(mapping, cursor, pane)) return cursor
-  if (!rows || !pane) return null
+): Anchored | null {
+  if (mapping.getLine(cursor)?.blockFoldId) return null
+  const own = anchoredAt(mapping, cursor, pane)
+  if (own || !rows || !pane) return own
   const start = rowOfLine(cursor, rows)
   const hit = (r: number) => {
     const row = rows.rows[r]
     const index = row?.kind === "line" ? row.index : row?.[rows.side]
-    return index !== undefined && commentable(mapping, index, pane) ? index : undefined
+    return index === undefined ? null : anchoredAt(mapping, index, pane)
   }
-  const inFile = (r: number) => {
+  // Expanded context is drawn with no divider before the hunk, so the walk carries on into it.
+  const within = (r: number) => {
     const row = rows.rows[r]
     if (!row) return false
     const index = row.kind === "line" ? row.index : (row.left ?? row.right)!
-    return mapping.getLine(index)?.filename === path
+    return inHunk(mapping.getLine(index), path)
   }
   let [up, down] = [true, true]
   for (let d = 1; up || down; d++) {
-    up &&= inFile(start - d)
-    const above = up ? hit(start - d) : undefined
-    if (above !== undefined) return above
-    down &&= inFile(start + d)
-    const below = down ? hit(start + d) : undefined
-    if (below !== undefined) return below
+    up &&= within(start - d)
+    const above = up ? hit(start - d) : null
+    if (above) return above
+    down &&= within(start + d)
+    const below = down ? hit(start + d) : null
+    if (below) return below
   }
   return null
 }
