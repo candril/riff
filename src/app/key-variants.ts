@@ -1,12 +1,12 @@
-const MODIFIERS = ["ctrl", "shift", "meta"] as const
+const MODIFIERS = ["ctrl", "shift", "meta", "super", "hyper"] as const
 
 /**
  * `key` with every combination of the modifiers it does not already name,
- * all bound to `cmd`. The keymap matches modifiers exactly, while the
- * priority chain these layers replaced matched the key name alone, so a
- * layer that must answer whatever is held lists the variants itself. The
- * binding parser reads alt and option as meta, which is also what the
- * terminal parser sets for them.
+ * all bound to `cmd`. The keymap compares all five modifiers it knows
+ * exactly, while the priority chain these layers replaced matched the key
+ * name alone, so a layer that must answer whatever is held lists the
+ * variants itself. Alt and option need no entry: the binding parser reads
+ * them as meta, which is also what the terminal parser sets for them.
  */
 export function anyModifiers(key: string, cmd: string): { key: string; cmd: string }[] {
   const parts = key.split("+")

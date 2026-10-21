@@ -14,7 +14,7 @@ afterEach(() => {
   while (disposers.length) disposers.pop()!()
 })
 
-async function setup({ flash = true, palette = false } = {}) {
+async function setup({ flash = true, palette = false, dialog = true } = {}) {
   const rendered = await createTestRenderer({ width: 20, height: 4 })
   disposers.push(() => rendered.renderer.destroy())
   const riffKeymap = createRiffKeymap(rendered.renderer)
@@ -27,12 +27,14 @@ async function setup({ flash = true, palette = false } = {}) {
   let state: AppState = {
     ...initial,
     actionMenu: { ...initial.actionMenu, open: palette },
-    confirmDialog: {
-      title: "Delete?",
-      message: "Gone.",
-      onConfirm: () => void calls.push("dialog yes"),
-      onCancel: () => void calls.push("dialog no"),
-    },
+    confirmDialog: dialog
+      ? {
+          title: "Delete?",
+          message: "Gone.",
+          onConfirm: () => void calls.push("dialog yes"),
+          onCancel: () => void calls.push("dialog no"),
+        }
+      : null,
   }
   const flashState = { ...createFlashState(), active: flash }
   const handler = {
@@ -54,7 +56,8 @@ async function setup({ flash = true, palette = false } = {}) {
     flashHandler: () => handler,
   })
   const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => keys(new KeyEvent(parseKeypress(sequence)!))
+  const press = (sequence: string) =>
+    keys(new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!))
   return { calls, legacyKeys, press, state: () => state }
 }
 
@@ -84,5 +87,31 @@ test("with the palette and the dialog both up y answers the dialog and escape ca
 
   expect(calls).toEqual(["dialog yes", "dialog no"])
   expect(state().actionMenu.open).toBe(true)
+  expect(legacyKeys).toEqual([])
+})
+
+const KITTY_SUPER_Y = "\x1b[121;9u"
+const KITTY_HYPER_Y = "\x1b[121;17u"
+const KITTY_SUPER_DOWN = "\x1b[1;9B"
+
+test("with the dialog up y answers it with super or hyper held", async () => {
+  expect(parseKeypress(KITTY_SUPER_Y, { useKittyKeyboard: true })).toMatchObject({ name: "y", super: true })
+  expect(parseKeypress(KITTY_HYPER_Y, { useKittyKeyboard: true })).toMatchObject({ name: "y", hyper: true })
+  const { calls, legacyKeys, press } = await setup({ flash: false })
+
+  press(KITTY_SUPER_Y)
+  press(KITTY_HYPER_Y)
+
+  expect(calls).toEqual(["dialog yes", "dialog yes"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("with the palette open down moves its selection with super held", async () => {
+  expect(parseKeypress(KITTY_SUPER_DOWN, { useKittyKeyboard: true })).toMatchObject({ name: "down", super: true })
+  const { legacyKeys, press, state } = await setup({ flash: false, palette: true, dialog: false })
+
+  press(KITTY_SUPER_DOWN)
+
+  expect(state().actionMenu.selectedIndex).toBe(1)
   expect(legacyKeys).toEqual([])
 })

@@ -193,7 +193,10 @@ interface AppState {
 While the palette is open its keys are a keymap layer
 (`src/features/action-menu/keys.ts`, [ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)):
 `Esc` closes, `Enter` runs the selected action, and `Up`/`Down` and
-`Ctrl+p`/`Ctrl+n` move the selection. Its capture keeps every other key from
+`Ctrl+p`/`Ctrl+n` move the selection. `Ctrl+y` copies the selected row of
+a links submenu. In a submenu `Enter` acts on the row rather than running an
+action, and `Esc` backs out to the action list when the palette opened the
+submenu itself. The palette's capture keeps every other key from
 the panels behind it without preventing it, so the palette's prompt field
 types the query ([065](./065-text-inputs-and-filters.md)).
 

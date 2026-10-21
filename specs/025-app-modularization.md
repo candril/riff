@@ -169,7 +169,7 @@ Each feature exports a consistent interface:
 
 ```typescript
 // src/features/action-menu/index.ts
-export { handleInput } from "./input"
+export { registerActionMenuKeys } from "./keys"
 export { 
   isOpen,
   open,
@@ -188,7 +188,7 @@ export type { ActionMenuState } from "./state"
 Each feature owns its complete input handling:
 
 ```typescript
-// src/features/action-menu/input.ts
+// src/features/action-menu/keys.ts (registerActionMenuKeys registers this as a keymap layer, ADR-002)
 import type { KeyEvent } from "@opentui/core"
 import type { FeatureContext } from "../types"
 import * as state from "./state"
@@ -617,7 +617,7 @@ export async function createApp(options: AppOptions = {}) {
   // Input dispatch - features in priority order
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
     // Modal overlays (capture all input)
-    if (actionMenu.handleInput(key, ctx)) return
+    // actionMenu: its keymap layer (registerActionMenuKeys) takes its keys before this listener
     if (reviewPreview.handleInput(key, ctx)) return
     
     // Global keys

@@ -157,6 +157,19 @@ test("F12 with shift or ctrl held still toggles the debug console", async () => 
   expect(legacyKeys).toEqual([])
 })
 
+test("F12 with super held still toggles the debug console", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  let toggles = 0
+  registerAppKeys(riffKeymap.keymap, { toggleConsole: () => void toggles++ })
+  const superF12 = parseKeypress("\x1b[24;9~", { useKittyKeyboard: true })!
+  expect(superF12).toMatchObject({ name: "f12", super: true })
+
+  keys(new KeyEvent(superF12))
+
+  expect(toggles).toBe(1)
+  expect(legacyKeys).toEqual([])
+})
+
 test("of two layers binding a key the later registered runs, and of two active captures the later takes the rest", async () => {
   const { riffKeymap, legacyKeys, keys } = await setup()
   const runs: string[] = []

@@ -343,7 +343,7 @@ src/
 ├── components/CommentsViewPanel.ts      # ReactionRow, set reactionTarget (P1)
 ├── components/PRInfoPanel.ts            # ReactionRow in desc/conversation/reviews (P2)
 ├── features/action-menu/execute.ts      # submenu-opening branch for "react"
-├── features/action-menu/input.ts        # route Enter/Esc differently in submenu mode
+├── features/action-menu/keys.ts         # route Enter/Esc differently in submenu mode
 ├── features/reactions/toggle.ts         # NEW: add/remove + optimistic
 ├── features/thread-preview/input.ts     # set reactionTarget on focus change
 ├── actions/registry.ts                  # "react" action entry

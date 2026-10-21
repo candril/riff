@@ -30,7 +30,6 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   return composeKeys(riffKeymap, createKeyHandler(ctx))
 }
 
-/** The layers that own the keyboard while they are up. */
 export function registerModalKeys(
   riffKeymap: RiffKeymap,
   deps: ConfirmKeyDeps & FlashKeyDeps & ActionMenuKeyDeps,
