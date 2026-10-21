@@ -14,12 +14,12 @@ import {
   RGBA,
   type CliRenderer,
 } from "@opentui/core"
-import type { PrInfo, PrReview, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
+import type { PrInfo, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
 import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
-import { stackText, type StackInfo } from "../utils/stack"
+import type { StackInfo } from "../utils/stack"
 import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { tableRenderer } from "./markdown-tables-in-markdown"
@@ -39,6 +39,7 @@ import {
   type FlatConversationItem,
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
+import { panelMeta, sectionHeaderRow, stackLine } from "./pr-info-header"
 import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
 import { fileDiffContext } from "./pr-info-conversation-parts"
@@ -894,9 +895,10 @@ export class PRInfoPanelClass {
   /** What this PR is stacked on, and how that base has moved (spec 072). */
   setStack(stack: StackInfo | null): void {
     if (!this.stackText) return
-    this.stackText.content = stack ? stackText(stack) : ""
-    this.stackText.fg = stack?.status === "rewritten" ? theme.yellow : theme.subtext0
-    this.stackText.visible = stack !== null
+    const line = stackLine(stack)
+    this.stackText.content = line.text
+    this.stackText.fg = line.fg
+    this.stackText.visible = line.visible
   }
 
   /** The links riff was given for this PR, and where they came from. */
@@ -1090,28 +1092,27 @@ export class PRInfoPanelClass {
       })
       this.sectionBoxes.push(sectionBox)
       
-      // Section header
-      const indicator = isExpanded ? "▼" : "▶"
+      const header = sectionHeaderRow(config, {
+        active: isActive,
+        expanded: isExpanded,
+        highlighted: headerHighlighted,
+        label: this.flashLabels.get(config.id) ?? null,
+      })
       const headerRow = new BoxRenderable(this.renderer, {
         flexDirection: "row",
         height: 1,
-        backgroundColor: headerHighlighted ? theme.surface0 : undefined,
+        backgroundColor: header.highlighted ? theme.surface0 : undefined,
       })
-      const headerLabel = this.flashLabels.get(config.id)
-      if (headerLabel) {
+      if (header.label) {
         headerRow.add(new TextRenderable(this.renderer, {
-          content: `${headerLabel} `,
+          content: `${header.label} `,
           fg: colors.flashLabel,
         }))
       }
-      headerRow.add(new TextRenderable(this.renderer, {
-        content: `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`,
-        fg: isActive ? theme.blue : theme.overlay0,
-      }))
-      // Show preview only when collapsed
-      if (config.preview && !isExpanded) {
+      headerRow.add(new TextRenderable(this.renderer, { content: header.text, fg: header.fg }))
+      if (header.preview) {
         headerRow.add(new TextRenderable(this.renderer, {
-          content: `  ${config.preview}`,
+          content: `  ${header.preview}`,
           fg: theme.subtext0,
         }))
       }
@@ -1309,28 +1310,13 @@ export class PRInfoPanelClass {
       height: 1,
       width: "100%",
     })
-    metaRow.add(new TextRenderable(this.renderer, { content: `@${prInfo.author}`, fg: theme.blue }))
+    const meta = panelMeta(prInfo)
+    metaRow.add(new TextRenderable(this.renderer, { content: `@${meta.author}`, fg: theme.blue }))
     metaRow.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.overlay0 }))
-    metaRow.add(new TextRenderable(this.renderer, {
-      content: `${prInfo.headRef} → ${prInfo.baseRef}`,
-      fg: theme.subtext0,
-    }))
-    // Who has approved — the one review state that decides whether this
-    // can merge, and the header line only carries the checks.
-    // A later review from the same person supersedes an earlier one: an
-    // approval followed by "changes requested" is not an approval.
-    const latestByAuthor = new Map<string, PrReview>()
-    for (const review of [...(prInfo.reviews ?? [])].sort((a, b) =>
-      (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "")
-    )) {
-      if (review.state !== "COMMENTED" && review.state !== "PENDING") latestByAuthor.set(review.author, review)
-    }
-    const approvers = [...latestByAuthor.values()]
-      .filter((review) => review.state === "APPROVED")
-      .map((review) => review.author)
-    if (approvers.length > 0) {
+    metaRow.add(new TextRenderable(this.renderer, { content: meta.branches, fg: theme.subtext0 }))
+    if (meta.approvers.length > 0) {
       metaRow.add(new TextRenderable(this.renderer, {
-        content: `   ✓ ${approvers.map((name) => `@${name}`).join(" ")}`,
+        content: `   ✓ ${meta.approvers.map((name) => `@${name}`).join(" ")}`,
         fg: theme.green,
       }))
     }
