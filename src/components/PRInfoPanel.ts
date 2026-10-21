@@ -31,23 +31,17 @@ import {
   flatConversationItemId,
   flatConversationItems,
   isFailingCheck,
-  visibleCommits,
-  visibleFiles,
-  visiblePreviews,
+  visibleRows,
   type ConversationItem,
   type FlatCheckItem,
   type FlatConversationItem,
 } from "./pr-info-items"
-import { sectionConfigs } from "./pr-info-sections"
-import { panelMeta, sectionHeaderRow, stackLine, type SectionHeaderRow } from "./pr-info-header"
-import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
-import { checkRows } from "./pr-info-check-rows"
-import { fileDiffContext } from "./pr-info-conversation-parts"
-import { conversationRows, type ConversationRows } from "./pr-info-conversation-rows"
+import { panelMeta, stackLine, type SectionHeaderRow } from "./pr-info-header"
+import { commitRowCount } from "./pr-info-list-rows"
+import { isListSection, panelSections, type ListSection, type PanelSection } from "./pr-info-panel-model"
 import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
 import { createPrInfoConversationIsland, type PrInfoConversationIsland } from "../app/pr-info-conversation"
 import { createPrInfoDescriptionIsland, type PrInfoDescriptionIsland } from "../app/pr-info-description"
-import { descriptionModel, type DescriptionModel } from "./pr-info-description"
 import {
   createPrInfoHeaderIsland,
   createPrInfoMetaIsland,
@@ -105,12 +99,6 @@ function getListItemWidth(): number {
   // Reserve space for: indent (4) + icon (2) + status (~15) + padding (~6)
   const reserved = 27
   return Math.max(30, termWidth - reserved)
-}
-
-type ListSection = 'previews' | 'checks' | 'files' | 'commits'
-
-function isListSection(section: PRInfoPanelSection): section is ListSection {
-  return section === 'previews' || section === 'checks' || section === 'files' || section === 'commits'
 }
 
 /** Rows kept between the cursor and the edge it is moving towards. */
@@ -287,20 +275,12 @@ export class PRInfoPanelClass {
   }
 
   restorePosition(position: PRInfoPanelPosition): void {
-    const restored: PrInfoNav = {
-      activeSection: position.activeSection,
-      cursorIndex: position.cursorIndex,
-      expandedSections: new Set(position.expandedSections),
-      expandedThreads: new Set(position.expandedThreads),
-      expandedContent: new Set(position.expandedContent),
-      expandedCheckIds: new Set(position.expandedCheckIds),
-      filter: this.nav.filter,
-    }
+    const restored = Nav.navAt(position, this.nav.filter)
     // The section can have fewer items than it had — a review that was
     // resolved away, a check that finished and folded its annotations.
     this.refreshFlatItems(restored)
     this.refreshFlatCheckItems(restored)
-    this.nav = Nav.restoreNav(restored, this.counts)
+    this.nav = Nav.restoreNav(restored, (section) => this.getItemCountForSection(section, restored))
 
     this.rebuildSections()
     // Where the reader had scrolled to wins over a reveal asked for before
@@ -458,22 +438,14 @@ export class PRInfoPanelClass {
     this.applySection(Nav.cycleSectionToEnd(this.nav, delta, this.counts))
   }
 
-  private get visibleFiles(): DiffFile[] {
-    return visibleFiles(this.files, this.nav.filter)
-  }
-
-  private get visiblePreviews(): PreviewRow[] {
-    return visiblePreviews(this.previews?.rows ?? [], this.nav.filter)
-  }
-
-  private get visibleCommits(): PrCommit[] {
-    return visibleCommits(this.prInfo.commits ?? [], this.nav.filter)
+  private visible(nav: PrInfoNav = this.nav) {
+    return visibleRows({ prInfo: this.prInfo, files: this.files, previews: this.previews }, nav.filter)
   }
 
   /** Narrow the panel to rows containing this text, or clear it with "". */
   setFilter(filter: string): void {
     if (filter === this.nav.filter) return
-    const filtered = { ...this.nav, filter }
+    const filtered = Nav.withFilter(this.nav, filter)
     this.refreshFlatItems(filtered)
     this.refreshFlatCheckItems(filtered)
     this.nav = Nav.setFilter(this.nav, filter, (section) => this.getItemCountForSection(section, filtered))
@@ -520,11 +492,11 @@ export class PRInfoPanelClass {
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
-        return visibleFiles(this.files, nav.filter).length
+        return this.visible(nav).files.length
       case 'commits':
-        return commitRowCount(visibleCommits(this.prInfo.commits ?? [], nav.filter))
+        return commitRowCount(this.visible(nav).commits)
       case 'previews':
-        return visiblePreviews(this.previews?.rows ?? [], nav.filter).length
+        return this.visible(nav).previews.length
     }
   }
 
@@ -599,7 +571,7 @@ export class PRInfoPanelClass {
    */
   getSelectedCommit(): PrCommit | undefined {
     if (this.nav.activeSection !== 'commits' || this.nav.cursorIndex < 0) return undefined
-    return this.visibleCommits[this.nav.cursorIndex]
+    return this.visible().commits[this.nav.cursorIndex]
   }
 
   /**
@@ -607,7 +579,7 @@ export class PRInfoPanelClass {
    */
   getSelectedFile(): DiffFile | undefined {
     if (this.nav.activeSection !== 'files' || this.nav.cursorIndex < 0) return undefined
-    return this.visibleFiles[this.nav.cursorIndex]
+    return this.visible().files[this.nav.cursorIndex]
   }
 
   /**
@@ -676,7 +648,7 @@ export class PRInfoPanelClass {
     )
     this.toggleCheckExpansion(check.id)
     if (parentIndex >= 0 && this.nav.cursorIndex !== parentIndex) {
-      this.nav = { ...this.nav, cursorIndex: parentIndex }
+      this.nav = Nav.withCursor(this.nav, parentIndex)
       this.rebuildSections()
     }
   }
@@ -813,7 +785,7 @@ export class PRInfoPanelClass {
   /** The row the cursor is on, when it is on one (spec 068). */
   getSelectedPreview(): PreviewRow | undefined {
     if (this.nav.activeSection !== 'previews' || this.nav.cursorIndex < 0) return undefined
-    return this.visiblePreviews[this.nav.cursorIndex]
+    return this.visible().previews[this.nav.cursorIndex]
   }
 
   /**
@@ -850,7 +822,8 @@ export class PRInfoPanelClass {
     const focused = this.focusedSource()
     const all: LinkSource[] = [{ title: "Description", text: this.prInfo.body ?? "" }]
 
-    for (const row of this.visiblePreviews) all.push(this.previewSource(row))
+    const visible = this.visible()
+    for (const row of visible.previews) all.push(this.previewSource(row))
     for (const item of this.flatConversationItems) {
       if (item.type === 'pending-reviewer') continue
       all.push({ title: `@${item.data.author}`, text: item.data.body ?? "" })
@@ -860,7 +833,7 @@ export class PRInfoPanelClass {
     for (const check of this.prInfo.checks ?? []) {
       if (check.detailsUrl && isFailingCheck(check)) all.push({ title: check.name, text: check.detailsUrl })
     }
-    for (const commit of this.visibleCommits) {
+    for (const commit of visible.commits) {
       all.push({ title: commit.sha.slice(0, 7), text: commit.message })
     }
 
@@ -885,7 +858,7 @@ export class PRInfoPanelClass {
         return { title: `@${item.data.author}`, text: item.data.body ?? "" }
       }
       case 'commits': {
-        const commit = this.visibleCommits[this.nav.cursorIndex]
+        const commit = this.visible().commits[this.nav.cursorIndex]
         return commit ? { title: commit.sha.slice(0, 7), text: commit.message } : null
       }
       case 'checks': {
@@ -895,7 +868,7 @@ export class PRInfoPanelClass {
         return url ? { title: item.check.name, text: url } : null
       }
       case 'previews': {
-        const row = this.visiblePreviews[this.nav.cursorIndex]
+        const row = this.visible().previews[this.nav.cursorIndex]
         return row ? this.previewSource(row) : null
       }
       default:
@@ -943,67 +916,45 @@ export class PRInfoPanelClass {
     this.rebuildSections()
   }
 
-  /**
-   * Check if a section has selectable items
-   */
-  private sectionHasItems(section: PRInfoPanelSection): boolean {
-    return section !== 'description'
-  }
-
-  /**
-   * Build the sections content
-   */
-  private buildSections(container: BoxRenderable): void {
-    const configs = sectionConfigs({
+  /** The sections as they are drawn now, from everything the panel holds. */
+  private sections(): PanelSection[] {
+    this.refreshFlatItems()
+    return panelSections({
       prInfo: this.prInfo,
       files: this.files,
       previews: this.previews,
       conversationItems: this.conversationItems,
       hiddenConversationIds: this.hiddenConversationIds,
-      filter: this.nav.filter,
+      flatConversationItems: this.flatConversationItems,
+      flatCheckItems: this.flatCheckItems,
+      nav: this.nav,
+      flashLabels: this.flashLabels,
+      terminalWidth: getTerminalWidth(),
+      listWidth: getListItemWidth(),
     })
-    
-    for (const config of configs) {
-      const isActive = config.id === this.nav.activeSection
-      const isExpanded = this.nav.expandedSections.has(config.id)
-      const hasItems = this.sectionHasItems(config.id)
-      
-      // Header is highlighted when:
-      // - Section is active AND cursor is on header (index -1)
-      const headerHighlighted = isActive && this.nav.cursorIndex === -1
-      
+  }
+
+  private buildSections(container: BoxRenderable): void {
+    for (const section of this.sections()) {
       const sectionBox = new BoxRenderable(this.renderer, {
-        id: `section-${config.id}`,
+        id: `section-${section.key}`,
         flexDirection: "column",
         width: "100%",
         marginTop: 1,
       })
       this.sectionBoxes.push(sectionBox)
-      
-      const header = sectionHeaderRow(config, {
-        active: isActive,
-        expanded: isExpanded,
-        highlighted: headerHighlighted,
-        label: this.flashLabels.get(config.id) ?? null,
-      })
-      sectionBox.add(this.headerIsland(config.id, header).host)
-      
-      // Section content (only if expanded)
-      if (isExpanded) {
-        this.buildSectionContent(sectionBox, config.id, isActive)
-      }
-      
+      sectionBox.add(this.headerIsland(section.key, section.header).host)
+      if (section.body) this.buildSectionContent(sectionBox, section)
       container.add(sectionBox)
     }
   }
 
-  /**
-   * Build content for a section
-   */
-  private buildSectionContent(container: BoxRenderable, section: PRInfoPanelSection, isActive: boolean): void {
-    if (section === 'description') {
-      this.descriptionBox = this.descriptionIsland(isActive).host
-      container.add(this.descriptionBox)
+  private buildSectionContent(container: BoxRenderable, section: PanelSection): void {
+    const island = this.bodyIsland(section)
+    if (!island) return
+    if (section.key === 'description') {
+      this.descriptionBox = island.host
+      container.add(island.host)
       return
     }
 
@@ -1013,30 +964,41 @@ export class PRInfoPanelClass {
       paddingLeft: 2,
       marginTop: 1,
     })
-    
-    switch (section) {
-      case 'previews':
-      case 'checks':
-      case 'files':
-      case 'commits':
-        contentBox.add(this.listIsland(section, isActive).host)
-        break
-      case 'conversation':
-        contentBox.add(this.conversationIsland(isActive).host)
-        break
-    }
-    
+    contentBox.add(island.host)
     container.add(contentBox)
   }
 
-  /** The section's island, made on first use, holding the rows as they are now. */
-  private listIsland(section: ListSection, isActive: boolean): PrInfoListIsland {
+  /** The section's body island, made on first use, holding the body the section has now. */
+  private bodyIsland(section: PanelSection): { host: BoxRenderable } | null {
+    const body = section.body
+    if (!body) return null
+    switch (body.kind) {
+      case 'description': {
+        const island = this.descriptionIsland()
+        island.update(body.model)
+        return island
+      }
+      case 'conversation': {
+        const island = this.conversationIsland()
+        island.update(body.rows)
+        return island
+      }
+      case 'list': {
+        if (!isListSection(section.key)) return null
+        const island = this.listIsland(section.key)
+        island.update(body.rows)
+        return island
+      }
+    }
+  }
+
+  /** The section's island, made on first use. */
+  private listIsland(section: ListSection): PrInfoListIsland {
     let island = this.listIslands.get(section)
     if (!island) {
       island = createPrInfoListIsland(this.renderer, { id: `pr-info-${section}` })
       this.listIslands.set(section, island)
     }
-    island.update(this.listRows(section, isActive))
     return island
   }
 
@@ -1051,8 +1013,8 @@ export class PRInfoPanelClass {
     return island
   }
 
-  /** The conversation's island, made on first use, holding the rows as they are now. */
-  private conversationIsland(isActive: boolean): PrInfoConversationIsland {
+  /** The conversation's island, made on first use. */
+  private conversationIsland(): PrInfoConversationIsland {
     this.conversation ??= createPrInfoConversationIsland(this.renderer, {
       id: "pr-info-conversation",
       markdown: {
@@ -1060,12 +1022,11 @@ export class PRInfoPanelClass {
         syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
       },
     })
-    this.conversation.update(this.conversationRows(isActive))
     return this.conversation
   }
 
-  /** The description's island, made on first use, holding the description as it is now. */
-  private descriptionIsland(isActive: boolean): PrInfoDescriptionIsland {
+  /** The description's island, made on first use. */
+  private descriptionIsland(): PrInfoDescriptionIsland {
     this.description ??= createPrInfoDescriptionIsland(this.renderer, {
       id: "pr-info-description",
       markdown: {
@@ -1074,7 +1035,6 @@ export class PRInfoPanelClass {
       },
       onResize: () => this.descriptionResized(),
     })
-    this.description.update(this.descriptionModel(isActive))
     return this.description
   }
 
@@ -1087,44 +1047,16 @@ export class PRInfoPanelClass {
   }
 
   /** A cursor move inside a section on an island restyles its rows without a rebuild. */
-  private pushRows(section: PRInfoPanelSection): void {
-    const isActive = section === this.nav.activeSection
-    if (section === 'description') this.description?.update(this.descriptionModel(isActive))
-    else if (section === 'conversation') this.conversation?.update(this.conversationRows(isActive))
-    else if (isListSection(section)) this.listIslands.get(section)?.update(this.listRows(section, isActive))
+  private pushRows(key: PRInfoPanelSection): void {
+    const section = this.sections().find((candidate) => candidate.key === key)
+    if (section?.body && this.mountedBody(key)) this.bodyIsland(section)
   }
 
-  private descriptionModel(isActive: boolean): DescriptionModel {
-    return descriptionModel(this.prInfo, { cursor: this.nav.cursorIndex, active: isActive })
-  }
-
-  private conversationRows(isActive: boolean): ConversationRows {
-    this.refreshFlatItems()
-    return conversationRows(this.flatConversationItems, {
-      selected: isActive ? this.nav.cursorIndex : -1,
-      labels: this.flashLabels,
-      expanded: this.nav.expandedContent,
-      terminalWidth: getTerminalWidth(),
-      diffContext: (filename, line) => fileDiffContext(this.files, filename, line),
-    })
-  }
-
-  private listRows(section: ListSection, isActive: boolean): ListRows {
-    const input = { selected: isActive ? this.nav.cursorIndex : -1, labels: this.flashLabels }
-    switch (section) {
-      case 'previews':
-        return previewRows(this.visiblePreviews, input)
-      case 'checks':
-        return checkRows(this.flatCheckItems, {
-          ...input,
-          expanded: this.nav.expandedCheckIds,
-          hasChecks: (this.prInfo.checks ?? []).length > 0,
-        })
-      case 'files':
-        return fileRows(this.visibleFiles, { ...input, listWidth: getListItemWidth() })
-      case 'commits':
-        return commitRows(this.visibleCommits, { ...input, terminalWidth: getTerminalWidth() })
-    }
+  /** Whether the section's body island exists yet; a push never makes one. */
+  private mountedBody(section: PRInfoPanelSection): boolean {
+    if (section === 'description') return this.description !== null
+    if (section === 'conversation') return this.conversation !== null
+    return isListSection(section) && this.listIslands.has(section)
   }
 
   /**

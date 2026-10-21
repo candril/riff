@@ -43,7 +43,8 @@ export function maxCursorIndex(nav: PrInfoNav, counts: SectionCounts): number {
   return lastIndex(counts(nav.activeSection))
 }
 
-function withCursor(nav: PrInfoNav, cursorIndex: number): PrInfoNav {
+/** The cursor on a row the panel picked itself, such as the check whose annotation it just folded. */
+export function withCursor(nav: PrInfoNav, cursorIndex: number): PrInfoNav {
   return cursorIndex === nav.cursorIndex ? nav : { ...nav, cursorIndex }
 }
 
@@ -142,6 +143,14 @@ export function expandAll(nav: PrInfoNav): PrInfoNav {
  * so `counts` must already answer for it: the panel refilters its rows
  * before it asks.
  */
+/**
+ * The nav with a new filter and nothing else changed: what the panel
+ * refilters its rows against before `setFilter` asks it for counts.
+ */
+export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
+  return filter === nav.filter ? nav : { ...nav, filter }
+}
+
 export function setFilter(nav: PrInfoNav, filter: string, counts: SectionCounts): PrInfoNav {
   if (filter === nav.filter) return nav
   let expandedSections = nav.expandedSections
@@ -173,6 +182,25 @@ export function collapseContent(nav: PrInfoNav, itemId: string): PrInfoNav {
 
 export function toggleCheck(nav: PrInfoNav, checkId: number): PrInfoNav {
   return { ...nav, expandedCheckIds: toggled(nav.expandedCheckIds, checkId) }
+}
+
+/** Everything about a nav a refresh carries over to the next panel; the filter lives in app state. */
+export type NavPosition = Omit<PrInfoNav, "filter">
+
+/**
+ * A captured position as a nav under the panel's own filter, holding sets
+ * of its own so the position it was read from cannot change it later.
+ */
+export function navAt(position: NavPosition, filter: string): PrInfoNav {
+  return {
+    activeSection: position.activeSection,
+    cursorIndex: position.cursorIndex,
+    expandedSections: new Set(position.expandedSections),
+    expandedThreads: new Set(position.expandedThreads),
+    expandedContent: new Set(position.expandedContent),
+    expandedCheckIds: new Set(position.expandedCheckIds),
+    filter,
+  }
 }
 
 /** A captured position handed to a new panel, its cursor fitted to the rows it has now. */

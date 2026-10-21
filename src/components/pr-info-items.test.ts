@@ -11,6 +11,7 @@ import {
   visibleCommits,
   visibleFiles,
   visiblePreviews,
+  visibleRows,
   type ConversationItem,
   type FlatCheckItem,
 } from "./pr-info-items"
@@ -220,5 +221,17 @@ describe("visible rows", () => {
     expect(visibleCommits(list, "step 2").map((commit) => commit.sha)).toEqual(["c02abcdef0123"])
     expect(visibleCommits(list, "c01").map((commit) => commit.message)).toEqual(["fix: step 1"])
     expect(visibleCommits(list, "someone")).toHaveLength(3)
+  })
+  test("of a whole PR are the files, previews and commits the one filter leaves, with no previews at all read as none", () => {
+    const info = prInfo("", { commits: commits(3) })
+    const rows = visibleRows({ prInfo: info, files, previews: previews() }, "step 2")
+    expect(rows.files).toEqual([])
+    expect(rows.previews).toEqual([])
+    expect(rows.commits.map((commit) => commit.sha)).toEqual(["c02abcdef0123"])
+    expect(visibleRows({ prInfo: info, files, previews: null }, "greet")).toEqual({
+      files: [files[0]!],
+      previews: [],
+      commits: [],
+    })
   })
 })

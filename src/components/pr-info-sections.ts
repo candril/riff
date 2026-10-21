@@ -4,7 +4,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import { theme } from "../theme"
 import { formatTimeAgo } from "./pr-info-format"
-import { visibleCommits, visibleFiles, visiblePreviews, type ConversationItem } from "./pr-info-items"
+import { visibleRows, type ConversationItem } from "./pr-info-items"
 
 export interface SectionConfig {
   id: PRInfoPanelSection
@@ -81,9 +81,7 @@ export function lastCommitSummary(commits: PrCommit[], now: number = Date.now())
 
 export function sectionConfigs(input: SectionConfigsInput): SectionConfig[] {
   const { prInfo, conversationItems, hiddenConversationIds, filter } = input
-  const commits = visibleCommits(prInfo.commits ?? [], filter)
-  const files = visibleFiles(input.files, filter)
-  const previews = visiblePreviews(input.previews?.rows ?? [], filter)
+  const { commits, files, previews } = visibleRows(input, filter)
   const bodyLines = (prInfo.body || "").split("\n").filter(l => l.trim()).length
   const checkCount = prInfo.checks?.length ?? 0
   const checksStatus = checksAggregateStatus(prInfo.checks ?? [])

@@ -14,12 +14,15 @@ import {
   flashTargets,
   initialNav,
   moveCursor,
+  navAt,
   reactionTargetOf,
   restoreNav,
   setFilter,
   stepNav,
   toggleCheck,
   toggleContent,
+  withCursor,
+  withFilter,
   type PrInfoNav,
   type SectionCounts,
 } from "./pr-info-nav"
@@ -153,6 +156,43 @@ describe("setFilter", () => {
   test("folds nothing when it is cleared", () => {
     const from = nav({ filter: "x", expandedSections: open('files', 'checks') })
     expect(setFilter(from, "", counts()).expandedSections).toEqual(open('files', 'checks'))
+  })
+})
+
+describe("withFilter", () => {
+  test("changes the filter alone, and hands back the same nav for the same filter", () => {
+    const from = nav({ activeSection: 'files', cursorIndex: 4, expandedSections: open() })
+    expect(withFilter(from, "x")).toEqual({ ...from, filter: "x" })
+    expect(withFilter(from, "")).toBe(from)
+  })
+})
+
+describe("withCursor", () => {
+  test("puts the cursor on the row asked for and leaves the rest", () => {
+    const from = nav({ activeSection: 'checks', cursorIndex: 3, expandedCheckIds: new Set([7]) })
+    expect(withCursor(from, 1)).toEqual({ ...from, cursorIndex: 1 })
+  })
+
+  test("hands back the same nav when the cursor is already there", () => {
+    const from = nav({ activeSection: 'checks', cursorIndex: 1 })
+    expect(withCursor(from, 1)).toBe(from)
+  })
+})
+
+describe("navAt", () => {
+  test("reads a position under the given filter, with sets of its own", () => {
+    const position = {
+      activeSection: 'files' as const,
+      cursorIndex: 2,
+      expandedSections: open('files'),
+      expandedThreads: new Set(["t"]),
+      expandedContent: new Set(["c"]),
+      expandedCheckIds: new Set([3]),
+    }
+    const restored = navAt(position, "greet")
+    expect(restored).toEqual({ ...position, filter: "greet" })
+    position.expandedSections.add('commits')
+    expect(restored.expandedSections).toEqual(open('files'))
   })
 })
 

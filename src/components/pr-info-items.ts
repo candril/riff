@@ -1,6 +1,6 @@
-import type { PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation } from "../providers/github"
+import type { PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation, PrInfo } from "../providers/github"
 import type { DiffFile } from "../utils/diff-parser"
-import type { PreviewRow } from "../utils/previews"
+import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { PRInfoPanelSection } from "../state"
 import { conversationItemId, type ConversationItem, type ReviewThread, type ReviewWithThreads } from "./pr-info-conversation"
 
@@ -167,4 +167,27 @@ export function visibleCommits(commits: PrCommit[], filter: string): PrCommit[] 
   return filter
     ? commits.filter((commit) => matchesFilter(filter, commit.message, commit.sha, commit.author))
     : commits
+}
+
+/** The rows of the filterable lists the panel draws and counts. */
+export interface VisibleRows {
+  files: DiffFile[]
+  previews: PreviewRow[]
+  commits: PrCommit[]
+}
+
+/**
+ * What a filter leaves of the files, previews and commits. Every reader —
+ * the headers' counts, the cursor's bounds, the rows drawn and what a row
+ * under the cursor is — asks here, so they cannot disagree about a row.
+ */
+export function visibleRows(
+  source: { prInfo: Pick<PrInfo, "commits">; files: DiffFile[]; previews: PreviewSet | null },
+  filter: string
+): VisibleRows {
+  return {
+    files: visibleFiles(source.files, filter),
+    previews: visiblePreviews(source.previews?.rows ?? [], filter),
+    commits: visibleCommits(source.prInfo.commits ?? [], filter),
+  }
 }
