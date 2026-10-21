@@ -223,6 +223,31 @@ describe("chatPositionOf", () => {
     }
   })
 
+  test("selected lines equally near a divider give the one above, in whatever order the scope lists them", () => {
+    const two = diffFile("t.ts", ["@@ -1,2 +1,1 @@", " top", "-old", "@@ -50,2 +49,1 @@", "-gone", " keep"])
+    const mapping = new DiffLineMapping([two], "all")
+    const divider = mapping.allLines.findIndex((line) => line.type === "divider")
+    const [above, below] = [at(mapping, "old"), at(mapping, "gone")]
+    expect(divider - above).toBe(below - divider)
+    const position = chatPositionOf({
+      mapping,
+      vim: cursor(divider, above),
+      scope: { lines: [below, divider, above], pane: "left" },
+      files: [two],
+      rows: new RowLineSource(mapping, "split", "left"),
+    })
+    expect(position).toMatchObject({ side: "old", line: 2, hunkHeader: "@@ -1,2 +1,1 @@", label: "t.ts:2-50 (old)" })
+  })
+
+  test("with no divider between two hunks, an empty half's walk reaches into the next one", () => {
+    const adjacent = diffFile("u.ts", ["@@ -1,2 +0,0 @@", "-a", "-b", "@@ -3,1 +1,1 @@", " c"])
+    const mapping = new DiffLineMapping([adjacent], "all")
+    expect(mapping.allLines.some((line) => line.type === "divider" && line.content !== "rest of the file")).toBe(false)
+    const position = positionOf(mapping, cursor(at(mapping, "b")), [adjacent], "right")!
+    expect(position).toMatchObject({ side: "new", line: 1, label: "u.ts:1", hunkHeader: "@@ -3,1 +1,1 @@" })
+    expect(position.excerpt[position.cursorIndex!]).toMatchObject({ text: "c" })
+  })
+
   test("a selection reaching a divider from another file leaves the divider's own hunk below", () => {
     const a = diffFile("a.ts", ["@@ -1,2 +1,1 @@", " top", "-old"])
     const b = diffFile("b.ts", ["@@ -50,2 +50,2 @@", " p", " q"])

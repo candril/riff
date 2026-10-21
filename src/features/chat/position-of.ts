@@ -90,9 +90,10 @@ function anchoredAt(mapping: DiffLineMapping, index: number, pane: CommentScope[
 
 /**
  * A divider is in no hunk, so a selection reaching it is placed by the
- * selected line nearest the cursor, the one above on a tie: the selection's
- * hunk, not the one below the divider. Only the divider's own file counts,
- * since the position is labelled with its path.
+ * selected line nearest the cursor: the selection's hunk, not the one below
+ * the divider. A tie goes to the lower mapping index, the line above,
+ * whatever order the scope lists its lines in. Only the divider's own file
+ * counts, since the position is labelled with its path.
  */
 function nearestSelected(
   mapping: DiffLineMapping,
@@ -100,25 +101,29 @@ function nearestSelected(
   scope: CommentScope,
   path: string,
 ): Anchored | null {
+  const nearer = (a: number, b: number) => Math.abs(a - cursor) - Math.abs(b - cursor) || a - b
   let best: Anchored | null = null
   for (const index of scope.lines) {
     if (mapping.getLine(index)?.filename !== path) continue
     const hit = anchoredAt(mapping, index, scope.pane)
-    if (hit && (!best || Math.abs(index - cursor) < Math.abs(best.index - cursor))) best = hit
+    if (hit && (!best || nearer(index, best.index) < 0)) best = hit
   }
   return best
 }
 
-// "\ No newline" sits between a hunk's lines without ending the hunk.
-const inHunk = (line: DiffLine | undefined, path: string) =>
+// Expanded context counts as much as a hunk's own lines, and "\ No newline"
+// sits between lines without ending the run.
+const walkable = (line: DiffLine | undefined, path: string) =>
   line?.filename === path && (KINDS[line.type] !== undefined || line.type === "no-newline")
 
 /**
  * The line a question is anchored on. In split, the active half of the
  * cursor's row may be empty, and then the cursor holds the other half's
- * line; the nearest row in the cursor's hunk with a line in this pane
- * stands in, the one above on a tie. A folded block is no line, so it
- * anchors on none, as in unified.
+ * line; the nearest row with a line in this pane stands in, the one above
+ * on a tie. The walk stops at a divider, not at a hunk's edge, so it
+ * carries on into expanded context or into a hunk that follows with no
+ * lines skipped. A folded block is no line, so it anchors on none, as in
+ * unified.
  */
 function anchoredLine(
   mapping: DiffLineMapping,
@@ -141,7 +146,7 @@ function anchoredLine(
     const row = rows.rows[r]
     if (!row) return false
     const index = row.kind === "line" ? row.index : (row.left ?? row.right)!
-    return inHunk(mapping.getLine(index), path)
+    return walkable(mapping.getLine(index), path)
   }
   let [up, down] = [true, true]
   for (let d = 1; up || down; d++) {
