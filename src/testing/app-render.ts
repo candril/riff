@@ -68,6 +68,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: createStatusBarIsland(renderer),
     threadPanel: createThreadPanelIsland(renderer),
     chatColumn: createChatColumnIsland(renderer),
+    feed: createFeedIsland(renderer),
   }
   // The fake answers only when a test tells it to, so nothing here ever reaches Claude.
   const agent = fakeAgent()
@@ -90,7 +91,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: chrome.statusBar.host,
   })
   const frame = createFrame()
-  followFrame(frame.frame, islands, shell)
+  followFrame(frame.frame, { ...islands, threadPanel: chrome.threadPanel, feed: chrome.feed }, shell)
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
@@ -113,7 +114,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     occurrencePicker: islands.occurrencePicker,
     commitPicker: islands.commitPicker,
     actionMenu: islands.actionMenu,
-    feed: createFeedIsland(renderer),
     split,
     unified,
     parses,

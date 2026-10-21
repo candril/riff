@@ -560,7 +560,7 @@ export async function createApp(options: AppOptions = {}) {
     statusBar: statusBar.host,
   })
   const frame = createFrame()
-  const stopFollowing = followFrame(frame.frame, islands, shell)
+  const stopFollowing = followFrame(frame.frame, { ...islands, threadPanel, feed: feedIsland }, shell)
 
   const renderFrame = createRenderFunction({
     getState: () => state,

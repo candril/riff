@@ -45,8 +45,8 @@ function withBodiesAsDrawn(model: ThreadPanelModel): ThreadPanelModel {
 }
 
 /**
- * The thread panel as a long-lived island, docked beside the diff. Every
- * push redraws the model from scratch, and the keyed reconcile turns that
+ * The thread panel as a long-lived island, docked beside the diff. It
+ * follows the frame, and every frame redraws the model from scratch, and the keyed reconcile turns that
  * into restyles of the rows that changed, so a comment's body is built once
  * and kept for as long as the comment is drawn. Closing hides the host
  * rather than unmounting the view.
@@ -89,13 +89,13 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
 
   return {
     host: island.host,
-    update(input: ThreadPanelInput | null) {
+    update(input: (ThreadPanelInput & { now: number }) | null) {
       if (input) {
         island.host.width = input.width
         // OpenTUI turns shrinking off on any box handed a fixed width after
         // it is built, and the panel must still give way to the tree.
         island.host.flexShrink = 1
-        const model = withBodiesAsDrawn(threadPanelModel({ ...input, now: Date.now() }))
+        const model = withBodiesAsDrawn(threadPanelModel(input))
         batch(() => setState("model", reconcile(model, { key: "key" })))
       }
       island.host.visible = input !== null

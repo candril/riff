@@ -92,6 +92,7 @@ function panel(renderer: CliRenderer, width: number) {
     filterInput: false,
     openOnly: null,
     flashLabels: new Map(),
+    now: Date.now(),
   })
   return island
 }

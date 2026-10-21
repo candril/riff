@@ -16,8 +16,8 @@ import {
   createMarksPickerIsland,
   createOccurrencePickerIsland,
 } from "./pickers"
-import { FRAME_ISLANDS, frameModels, type FrameIslandId, type FrameModels } from "./frame-models"
-import type { Frame } from "./frame"
+import { FRAME_ISLANDS, frameModels, shownByShell, type FrameIslandId, type FrameModels } from "./frame-models"
+import { markDrawn, unmarkDrawn, type Frame } from "./frame"
 import { OVERLAYS, type AppShell, type ShellParts } from "./shell"
 
 /** The islands that only draw a model, created as both app.ts and the test harness mount them. */
@@ -62,12 +62,13 @@ type Followers = { [K in FrameIslandId]: { update(model: FrameModels[K]): void }
 
 /**
  * Each island draws its model from every published frame, and all but the
- * header are shown exactly while they have one. Returns the teardown.
+ * self-shown ones are shown by the shell exactly while they have one.
+ * Returns the teardown.
  *
  * The effects run inside publish only because render() is never called
  * within a Solid batch or update: the review preview focuses its summary as
  * it opens, and that has to land after render.ts has routed the prompts and
- * the chat their focus.
+ * the chat their focus. Publishing checks it in tests.
  */
 export function followFrame(frame: Accessor<Frame | null>, islands: Followers, shell: Pick<AppShell, "show">): () => void {
   return createRoot((dispose) => {
@@ -83,9 +84,17 @@ export function followFrame(frame: Accessor<Frame | null>, islands: Followers, s
         // Untracked: an island reading its own state while it updates must
         // not subscribe this effect to it.
         untrack(() => (islands[id].update as (next: typeof model) => void)(model))
-        if (id !== "header") shell.show(id, model !== null)
+        if (shownByShell(id)) shell.show(id, model !== null)
       })
     }
-    return dispose
+    // Last, so it runs once every island above has drawn the frame.
+    createRenderEffect(() => {
+      models()
+      markDrawn(frame, untrack(frame))
+    })
+    return () => {
+      unmarkDrawn(frame)
+      dispose()
+    }
   })
 }

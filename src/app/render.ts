@@ -12,21 +12,13 @@ import {
   detectMentionTrigger,
 } from "../utils/mentions"
 import { detectEmojiTrigger } from "../utils/emoji"
-import {
-  setMentionPicker,
-  setEmojiPicker,
-  markCommentsSeen,
-  unseenIn,
-  visibleFeedEvents,
-  visibleFeedRows,
-} from "../state"
+import { setMentionPicker, setEmojiPicker, markCommentsSeen } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import type { ThreadPanelIsland } from "./thread-panel"
 import type { ChatColumnIsland } from "./chat-column"
 import type { ChatState } from "../features/chat/state"
 import { chatColumnWidth } from "../features/chat/width"
 import type { SearchPromptIsland } from "./prompt-line"
-import { feedModel } from "../components/feed-model"
 import type { FeedIsland } from "./feed"
 import type {
   ActionMenuIsland,
@@ -36,13 +28,12 @@ import type {
   MarksPickerIsland,
   OccurrencePickerIsland,
 } from "./pickers"
-import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getInlineCommentOverlayComments, getInlineCommentOverlayHiddenThreadCount, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
+import { getInlineCommentOverlayComments } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { selectionStatus } from "./selection-status"
@@ -156,18 +147,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       // PR overview (spec 041): mount the panel inline next to the tree.
       view = prInfoPanelInstance.getContainer()
     } else if (state.viewMode === "feed") {
-      ctx.feed.update(
-        feedModel({
-          events: visibleFeedEvents(state),
-          rows: visibleFeedRows(state),
-          feed: state.feed,
-          unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-          flashLabels: flashLabelsOn(flashState, "feed"),
-          loading: state.feed.loading,
-          now: Date.now(),
-          height: ctx.renderer.height,
-        })
-      )
       view = ctx.feed.host
     } else if (state.files.length === 0) {
       view = emptyText
@@ -199,13 +178,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       view = splitOn ? ctx.split.island.host : ctx.unified.island.host
       unifiedOn = !splitOn
     }
-    // Hidden while another view is up, so it does no work for a screen it is not on.
-    if (view !== ctx.feed.host) ctx.feed.update(null)
     ctx.unified.syncDrawn(unifiedOn)
     ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
 
     // Drive the composer textarea's lifecycle from overlay state. We do
-    // this BEFORE the thread panel is pushed so the textarea is focused /
+    // this BEFORE the frame is published, which shows the thread panel, so the textarea is focused /
     // seeded by the time the panel shows it. With the composer
     // open the diff's cursor is not shown (diffFocused false), which keeps
     // the textarea's cursor visible; otherwise the diff would re-claim it
@@ -301,44 +278,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       // Split counts the rows it draws: a pair row holds a removal and an addition.
       selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
     })
-
-    ctx.threadPanel.update(
-      state.inlineCommentOverlay.open
-        ? {
-            comments: getInlineCommentOverlayComments(state),
-            scopeFilename: getCommentsPanelScopeFilename(state),
-            composeFilename: state.inlineCommentOverlay.filename,
-            line: state.inlineCommentOverlay.line,
-            replyToThread: state.inlineCommentOverlay.replyToThread === true,
-            note: state.inlineCommentOverlay.note === true,
-            mode: state.inlineCommentOverlay.mode,
-            appMode: state.appMode,
-            highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
-            editingId: state.inlineCommentOverlay.editingId,
-            draft: commentDraftFor(
-              state,
-              state.inlineCommentOverlay.filename,
-              state.inlineCommentOverlay.line,
-              state.inlineCommentOverlay.side
-            ),
-            focused: state.focusedPanel === "comments",
-            expanded: state.inlineCommentOverlay.expanded,
-            width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
-            mentionPicker: state.inlineCommentOverlay.mentionPicker,
-            emojiPicker: state.inlineCommentOverlay.emojiPicker,
-            mentionCandidates: collectMentionCandidates(state),
-            mentionSearchQuery: state.mentionSearchQuery,
-            expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
-            unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-            filter: state.inlineCommentOverlay.filter,
-            filterInput: state.inlineCommentOverlay.filterInput,
-            openOnly: state.threadPanelOpenOnly
-              ? { hidden: getInlineCommentOverlayHiddenThreadCount(state) }
-              : null,
-            flashLabels: flashLabelsOn(flashState, "comments"),
-          }
-        : null
-    )
 
     // After routePrompt and the chat, which focus their own inputs: the review
     // preview focuses its summary as it opens, before this call returns.

@@ -47,7 +47,7 @@ const COMMENTS = [
   comment("l1", 9, { body: "A `nit`" }),
 ]
 
-function input(width: number, fields: Partial<ThreadPanelInput> = {}): ThreadPanelInput {
+function input(width: number, fields: Partial<ThreadPanelInput> = {}): ThreadPanelInput & { now: number } {
   return {
     comments: COMMENTS,
     scopeFilename: "src/greet.ts",
@@ -73,6 +73,7 @@ function input(width: number, fields: Partial<ThreadPanelInput> = {}): ThreadPan
     filterInput: false,
     openOnly: null,
     flashLabels: new Map(),
+    now: Date.now(),
     ...fields,
   }
 }
@@ -94,7 +95,7 @@ async function draw(setup: TestRendererSetup) {
   return { frame: trimFrame(setup.captureCharFrame()), spans: JSON.stringify(setup.captureSpans()) }
 }
 
-async function pushed(width: number, pushes: ThreadPanelInput[]) {
+async function pushed(width: number, pushes: (ThreadPanelInput & { now: number })[]) {
   const { setup, island } = await mountPanel(width)
   let last = { frame: "", spans: "" }
   for (const next of pushes) {
@@ -107,7 +108,7 @@ async function pushed(width: number, pushes: ThreadPanelInput[]) {
 describe("a reused island draws what a fresh one does", () => {
   for (const width of [64, 40]) {
     const a = input(width)
-    const moves: [string, ThreadPanelInput][] = [
+    const moves: [string, ThreadPanelInput & { now: number }][] = [
       ["a j move", input(width, { highlightedIndex: 1 })],
       ["a fold with za", input(width, { highlightedIndex: 1, expandedThreadIds: new Set(["o1"]) })],
       ["an unfold of the resolved thread", input(width, { expandedThreadIds: new Set(["r1"]) })],

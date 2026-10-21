@@ -65,6 +65,7 @@ function mount(props: Partial<ThreadPanelInput>) {
         filterInput: false,
         openOnly: null,
         flashLabels: new Map(),
+        now: Date.now(),
         ...props,
       })
       return island.host

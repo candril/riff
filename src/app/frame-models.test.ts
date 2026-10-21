@@ -46,6 +46,8 @@ describe("frameModels", () => {
     const keys = Object.keys(frameModels(frame(state())))
     expect(keys).toEqual([...FRAME_ISLANDS])
     expect(keys).toEqual([
+      "feed",
+      "threadPanel",
       "searchPrompt",
       "flashPrompt",
       ...Object.keys(overlayModels(frame(state()))),

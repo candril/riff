@@ -26,7 +26,7 @@ afterEach(async () => {
   teardown = []
 })
 
-function composing(width: number): ThreadPanelInput {
+function composing(width: number): ThreadPanelInput & { now: number } {
   return {
     comments: [],
     scopeFilename: "src/greet.ts",
@@ -52,6 +52,7 @@ function composing(width: number): ThreadPanelInput {
     filterInput: false,
     openOnly: null,
     flashLabels: new Map(),
+    now: Date.now(),
   }
 }
 

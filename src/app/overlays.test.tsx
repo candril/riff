@@ -1,4 +1,5 @@
 import { test, expect, afterEach } from "bun:test"
+import { batch } from "solid-js"
 import { BoxRenderable, TextRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createInitialState, openFilePicker, type AppState } from "../state"
@@ -9,8 +10,10 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { X, Y } from "../testing/marks"
 import { createFrame, type Frame } from "./frame"
 import { createAppShell } from "./shell"
-import type { FrameIslandId } from "./frame-models"
+import { FRAME_ISLANDS, SELF_SHOWN, type FrameIslandId } from "./frame-models"
 import { createFrameIslands, followFrame, frameIslandHosts } from "./overlays"
+import { createThreadPanelIsland } from "./thread-panel"
+import { createFeedIsland } from "./feed"
 
 let setup: TestRendererSetup | null = null
 
@@ -30,6 +33,7 @@ async function mount(width: number, height: number) {
   setup = await createTestRenderer({ width, height })
   const renderer = setup.renderer
   const islands = createFrameIslands(renderer, { onSummaryChange() {} })
+  const panels = { threadPanel: createThreadPanelIsland(renderer), feed: createFeedIsland(renderer) }
   const hidden = () => {
     const box = new BoxRenderable(renderer, {})
     box.visible = false
@@ -39,13 +43,13 @@ async function mount(width: number, height: number) {
   const shell = createAppShell(renderer, {
     ...frameIslandHosts(islands),
     tree: hidden(),
-    threadPanel: hidden(),
+    threadPanel: panels.threadPanel.host,
     chat: hidden(),
     statusBar,
   })
   const shown: [FrameIslandId, boolean][] = []
   const { frame, publish } = createFrame()
-  const stop = followFrame(frame, islands, {
+  const stop = followFrame(frame, { ...islands, ...panels }, {
     show(id, visible) {
       shown.push([id, visible])
       shell.show(id, visible)
@@ -66,7 +70,7 @@ async function mount(width: number, height: number) {
     height,
     now: 0,
   })
-  return { islands, statusBar, shown, publish, pass, stop, initial }
+  return { islands, panels, statusBar, shown, publish, pass, stop, initial }
 }
 
 test("a published frame shows its overlays before publish returns, and the next one hides them", async () => {
@@ -120,4 +124,28 @@ test("one frame draws a picker, the search and flash lines in the status bar's s
 
   stop()
   for (const island of Object.values(islands)) island.dispose()
+})
+
+test("the shell shows every follower but the ones that show themselves", async () => {
+  const { panels, shown, publish, pass, stop, initial } = await mount(110, 40)
+
+  publish(pass({ ...openFilePicker(initial), viewMode: "feed", inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true } }))
+  expect(panels.threadPanel.host.visible).toBe(true)
+  const ids = new Set(shown.map(([id]) => id))
+  for (const id of SELF_SHOWN) expect(ids.has(id)).toBe(false)
+  expect(ids).toEqual(new Set(FRAME_ISLANDS.filter((id) => !SELF_SHOWN.has(id))))
+  expect(shown).toContainEqual(["filePicker", true])
+
+  stop()
+  for (const island of Object.values(panels)) island.dispose()
+})
+
+test("publishing inside a Solid batch throws, as the islands would draw only after render() returned", async () => {
+  const { publish, pass, stop } = await mount(80, 24)
+
+  expect(() => publish(pass({ showHelp: true }))).not.toThrow()
+  expect(() => batch(() => publish(pass({ showHelp: false })))).toThrow("render() ran inside a Solid batch")
+
+  stop()
+  expect(() => batch(() => publish(pass({})))).not.toThrow()
 })
