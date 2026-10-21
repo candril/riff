@@ -1,4 +1,4 @@
-import type { PrCheck, PrInfo, PrReview } from "../providers/github"
+import type { PrCheck, PrReview } from "../providers/github"
 import { theme } from "../theme"
 import type { ReviewThread } from "./pr-info-conversation"
 
@@ -34,40 +34,6 @@ export const TIME_COLUMN_WIDTH = 4
  */
 export function threadActivityAt(thread: ReviewThread): string {
   return thread.replies[thread.replies.length - 1]?.createdAt ?? thread.createdAt
-}
-
-/**
- * Format a date/time for commits
- */
-export function formatDateTime(isoDate: string, now: number = Date.now()): string {
-  const date = new Date(isoDate)
-  const diffMs = now - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  } else if (diffDays < 7) {
-    return `${diffDays}d ago`
-  } else {
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-  }
-}
-
-/**
- * Get status color and label
- */
-export function getStatusInfo(state: PrInfo["state"], isDraft?: boolean): { label: string; color: string } {
-  if (isDraft) {
-    return { label: "Draft", color: theme.overlay1 }
-  }
-  switch (state) {
-    case "open":
-      return { label: "Open", color: theme.green }
-    case "closed":
-      return { label: "Closed", color: theme.red }
-    case "merged":
-      return { label: "Merged", color: theme.mauve }
-  }
 }
 
 /**

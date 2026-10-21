@@ -54,6 +54,8 @@ import {
   type PrInfoHeaderIsland,
   type PrInfoMetaIsland,
 } from "../app/pr-info-header"
+import { createPrCommentPromptIsland, type PrCommentPromptIsland } from "../app/pr-comment-prompt"
+import { prCommentPromptModel } from "./pr-comment-prompt"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -208,10 +210,7 @@ export class PRInfoPanelClass {
   // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
   
-  // Comment input overlay
-  private commentInputOverlay: BoxRenderable | null = null
-  private commentInputText: TextRenderable | null = null
-  private commentInputStatus: TextRenderable | null = null
+  private commentPrompt: PrCommentPromptIsland
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
@@ -238,6 +237,8 @@ export class PRInfoPanelClass {
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
+
+    this.commentPrompt = createPrCommentPromptIsland(renderer)
     
     // Build the panel
     const { container, scrollBox } = this.build()
@@ -1335,121 +1336,14 @@ export class PRInfoPanelClass {
     // Build sections
     this.buildSections(this.sectionsContainer)
 
+    container.add(this.commentPrompt.host)
+
     return { container, scrollBox }
   }
 
-  /**
-   * Update comment input overlay
-   */
+  /** Opens, restyles or closes the `gC` prompt; render.ts pushes it from state on every render. */
   updateCommentInput(open: boolean, text: string, loading: boolean, error: string | null): void {
-    if (!open) {
-      // Remove overlay if it exists
-      if (this.commentInputOverlay) {
-        discard(this.commentInputOverlay)
-        this.commentInputOverlay = null
-        this.commentInputText = null
-        this.commentInputStatus = null
-      }
-      return
-    }
-
-    // Create overlay if it doesn't exist
-    if (!this.commentInputOverlay) {
-      this.commentInputOverlay = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-overlay",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: 100,
-        justifyContent: "center",
-        alignItems: "center",
-      })
-      
-      // Dim background
-      const bg = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-bg",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        backgroundColor: "#00000080",
-      })
-      this.commentInputOverlay.add(bg)
-      
-      // Input box
-      const inputBox = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-box",
-        width: 60,
-        flexDirection: "column",
-        backgroundColor: theme.mantle,
-        paddingX: 2,
-        paddingY: 1,
-      })
-      
-      // Header
-      const header = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-header",
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 1,
-      })
-      header.add(new TextRenderable(this.renderer, { content: "Add PR Comment", fg: theme.text }))
-      header.add(new TextRenderable(this.renderer, { content: "Esc to cancel", fg: theme.overlay0 }))
-      inputBox.add(header)
-      
-      // Text display area
-      this.commentInputText = new TextRenderable(this.renderer, {
-        id: "pr-comment-input-text",
-        content: text || "Type your comment...",
-        fg: text ? theme.text : theme.overlay0,
-      })
-      const textBox = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-text-box",
-        backgroundColor: theme.surface0,
-        paddingX: 1,
-      })
-      textBox.add(this.commentInputText)
-      inputBox.add(textBox)
-      
-      // Status line
-      this.commentInputStatus = new TextRenderable(this.renderer, {
-        id: "pr-comment-input-status",
-        content: "",
-        fg: theme.overlay0,
-      })
-      const statusBox = new BoxRenderable(this.renderer, {
-        id: "pr-comment-input-status-box",
-        marginTop: 1,
-      })
-      statusBox.add(this.commentInputStatus)
-      inputBox.add(statusBox)
-      
-      this.commentInputOverlay.add(inputBox)
-      this.container.add(this.commentInputOverlay)
-    }
-
-    // Update text
-    if (this.commentInputText) {
-      this.commentInputText.content = text || "Type your comment..."
-      this.commentInputText.fg = text ? theme.text : theme.overlay0
-    }
-    
-    // Update status
-    if (this.commentInputStatus) {
-      if (loading) {
-        this.commentInputStatus.content = "Submitting..."
-        this.commentInputStatus.fg = theme.yellow
-      } else if (error) {
-        this.commentInputStatus.content = error
-        this.commentInputStatus.fg = theme.red
-      } else {
-        this.commentInputStatus.content = "Enter to submit"
-        this.commentInputStatus.fg = theme.overlay0
-      }
-    }
+    this.commentPrompt.update(prCommentPromptModel({ open, text, loading, error }))
   }
 
   /**
@@ -1466,6 +1360,7 @@ export class PRInfoPanelClass {
     this.headerIslands.clear()
     this.meta?.dispose()
     this.meta = null
+    this.commentPrompt.dispose()
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }

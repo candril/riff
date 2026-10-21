@@ -4,6 +4,7 @@ import type { PrCheck } from "../providers/github"
 import { bgAt, fgAt, findText, ints } from "../testing/frame"
 import { previews, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"
+import { ALL_SECTIONS } from "./pr-info-items"
 import { colors, theme } from "../theme"
 
 // The previews, checks, files and commits sections as Solid islands: what
@@ -267,6 +268,13 @@ describe("destroy", () => {
     const islands = ["pr-info-previews", "pr-info-files", "pr-info-commits"].map((id) => root.findDescendantById(id)!)
     expect(islands.every(Boolean)).toBe(true)
     const description = root.findDescendantById("pr-info-description")!.parent!
+    panel.updateCommentInput(true, "hello", false, null)
+    const panelIslands = [
+      ...ALL_SECTIONS.map((section) => `pr-info-header-${section}`),
+      "pr-info-meta",
+      "pr-comment-input-overlay",
+    ].map((id) => root.findDescendantById(id)!)
+    expect(panelIslands.every(Boolean)).toBe(true)
 
     panel.collapseSection()
     panel.setActiveSection("description")
@@ -275,9 +283,14 @@ describe("destroy", () => {
     expect(root.findDescendantById("pr-info-previews")).toBeUndefined()
     expect(root.findDescendantById("pr-info-description")).toBeUndefined()
 
+    // Out of the tree, the container's own teardown cannot reach them: only
+    // the islands' dispose can destroy them.
+    for (const host of panelIslands) host.parent!.remove(host)
+
     panel.destroy()
     expect(root.getChildren()).toHaveLength(0)
     expect(islands.map((island) => island.isDestroyed)).toEqual([true, true, true])
     expect(description.isDestroyed).toBe(true)
+    expect(panelIslands.filter((host) => !host.isDestroyed).map((host) => host.id)).toEqual([])
   })
 })

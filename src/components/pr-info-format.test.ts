@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { PrCheck } from "../providers/github"
 import { theme } from "../theme"
-import { cleanBodyPreview, formatDateTime, formatTimeAgo, getCheckStatusDisplay, truncate } from "./pr-info-format"
+import { cleanBodyPreview, formatTimeAgo, getCheckStatusDisplay, truncate } from "./pr-info-format"
 
 const NOW = Date.parse("2026-03-01T12:00:00Z")
 const minutesAgo = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString()
@@ -33,23 +33,6 @@ describe("formatTimeAgo", () => {
   test("counts years from 365 days", () => {
     expect(formatTimeAgo(minutesAgo(365 * DAY), NOW)).toBe("1y")
     expect(formatTimeAgo(minutesAgo(800 * DAY), NOW)).toBe("2y")
-  })
-})
-
-describe("formatDateTime", () => {
-  test("gives the time of day for the same day", () => {
-    expect(formatDateTime(minutesAgo(90), NOW)).toMatch(/^\d{1,2}:\d{2}/)
-  })
-
-  test("gives days ago under a week", () => {
-    expect(formatDateTime(minutesAgo(DAY), NOW)).toBe("1d ago")
-    expect(formatDateTime(minutesAgo(6 * DAY + 60), NOW)).toBe("6d ago")
-  })
-
-  test("gives the date from a week on", () => {
-    const shown = formatDateTime(minutesAgo(7 * DAY), NOW)
-    expect(shown).toContain("Feb")
-    expect(shown).toContain("22")
   })
 })
 
