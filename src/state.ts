@@ -13,7 +13,7 @@ import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState, type MarksPickerState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
-import type { BlamePeekState } from "./features/blame/peek-state"
+import { closeBlamePeek, type BlamePeekState } from "./features/blame/peek-state"
 import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -892,12 +892,17 @@ export function clearTreeSelectionAnchor(state: AppState): AppState {
 export function switchView(state: AppState, target: ViewMode): AppState {
   if (target !== "diff" && state.appMode !== "pr") return state
   if (state.viewMode !== target) {
-    return { ...state, viewMode: target, previousView: state.viewMode, focusedPanel: "diff" }
+    return leftDiff({ ...state, viewMode: target, previousView: state.viewMode, focusedPanel: "diff" })
   }
 
   const back = state.previousView
   if (!back || back === target) return state
-  return { ...state, viewMode: back, previousView: target, focusedPanel: "diff" }
+  return leftDiff({ ...state, viewMode: back, previousView: target, focusedPanel: "diff" })
+}
+
+/** The blame peek blames a line of the diff; kept across a switch it would come back over a line it no longer names. */
+function leftDiff(state: AppState): AppState {
+  return state.viewMode === "diff" ? state : closeBlamePeek(state)
 }
 
 /**

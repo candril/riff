@@ -1,6 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { SplitRows } from "../../diff-rows/row-source"
-import type { BlameSource } from "../../providers/blame/source"
+import type { BlameSource, LineBlame } from "../../providers/blame/source"
+import type { BlameCommit } from "../../providers/blame/types"
 import type { RepoRef } from "../../providers/repo"
 import type { AppState } from "../../state"
 import type { CopyResult } from "../../utils/clipboard"
@@ -60,19 +61,29 @@ export function createBlameKeys(ctx: BlameKeysContext) {
     ctx.render()
   }
 
-  function settledResult() {
+  /** The peek's commit, or null once it has toasted why there is none to act on. */
+  function committedResult(noCommit: string): { result: LineBlame; commit: BlameCommit } | null {
     const peek = ctx.getState().blamePeek
-    return peek?.status === "ready" ? peek.result : null
+    if (peek?.status === "loading") {
+      ctx.toast("Blame is still loading", "info")
+      return null
+    }
+    const result = peek?.status === "ready" ? peek.result : null
+    if (result?.line.kind === "uncommitted") {
+      ctx.toast("Not committed yet", "info")
+      return null
+    }
+    if (result?.line.kind !== "commit") {
+      ctx.toast(noCommit, "info")
+      return null
+    }
+    return { result, commit: result.line.commit }
   }
 
   function copySha(): void {
-    const line = settledResult()?.line
-    if (!line) return
-    if (line.kind === "uncommitted") {
-      ctx.toast("Not committed yet", "info")
-      return
-    }
-    const { sha, shortSha } = line.commit
+    const committed = committedResult("No commit to copy")
+    if (!committed) return
+    const { sha, shortSha } = committed.commit
     void ctx.deps.copy(sha).then((copied) =>
       copied.ok ? ctx.toast(`Copied ${shortSha}`, "success") : ctx.toast(`Copy failed: ${copied.error}`, "error"),
     )
@@ -105,11 +116,11 @@ export function createBlameKeys(ctx: BlameKeysContext) {
     /** `go` with the peek up: the PR that brought the line in, or its commit. False when no peek is open. */
     openLink(): boolean {
       if (!ctx.getState().blamePeek) return false
-      const result = settledResult()
-      if (result?.line.kind !== "commit") return true
+      const committed = committedResult("No commit to open")
+      if (!committed) return true
       const { deps } = ctx
       void deps.repoRef().then((repo) => {
-        const url = blameLinkOf(result, repo)
+        const url = blameLinkOf(committed.result, repo)
         if (url) deps.openUrl(url)
         else ctx.toast("No GitHub remote to open the commit on", "info")
       })

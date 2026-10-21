@@ -5,6 +5,7 @@ import type { BlameDeps } from "../features/blame/keys"
 import type { BlameSide } from "../providers/blame/sides"
 import type { LineBlame } from "../providers/blame/source"
 import type { RepoRef } from "../providers/repo"
+import { switchView } from "../state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -213,5 +214,78 @@ describe("gb", () => {
     expect(app!.ctx.split.splitRows()?.side).toBe("left")
     press("g", "b")
     expect(asked).toEqual([["src/greet.ts", "base", 2]])
+  })
+
+  test("with the peek up gg, gi and gl move nothing and open nothing, and the peek stays drawn", async () => {
+    const { vimState, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    const before = vimState().line
+    press("g", "b")
+    press("g", "g", "g", "i", "g", "l")
+    const state = app!.ctx.getState()
+    expect(vimState().line).toBe(before)
+    expect(state.viewMode).toBe("diff")
+    expect(state.showLinePeek).toBe(false)
+    expect(state.blamePeek).not.toBeNull()
+    expect(await app!.frame()).toContain("Reading blame…")
+  })
+
+  test("with the line peek up gb does not open the blame peek", async () => {
+    const { asked, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    press("g", "l")
+    expect(app!.ctx.getState().showLinePeek).toBe(true)
+    press("g", "b")
+    expect(asked).toEqual([])
+    expect(app!.ctx.getState().blamePeek).toBeNull()
+  })
+
+  test("a view switch closes the peek, and it stays closed on return", async () => {
+    const { jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    press("g", "b")
+    app!.ctx.setState((s) => switchView({ ...s, appMode: "pr" }, "state"))
+    expect(app!.ctx.getState().blamePeek).toBeNull()
+    app!.ctx.setState((s) => switchView(s, "diff"))
+    expect(app!.ctx.getState().viewMode).toBe("diff")
+    expect(app!.ctx.getState().blamePeek).toBeNull()
+  })
+
+  test("while blame loads, go and y say so", async () => {
+    const { opened, copied, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    press("g", "b")
+    press("y")
+    expect(app!.ctx.getState().toast.message).toBe("Blame is still loading")
+    app!.ctx.setState((s) => ({ ...s, toast: { ...s.toast, message: null } }))
+    press("g", "o")
+    await flush()
+    expect(app!.ctx.getState().toast.message).toBe("Blame is still loading")
+    expect(opened).toEqual([])
+    expect(copied).toEqual([])
+  })
+
+  test("after a failed read, go and y say there is no commit", async () => {
+    const { fail, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    press("g", "b")
+    fail("boom")
+    await flush()
+    press("y")
+    expect(app!.ctx.getState().toast.message).toBe("No commit to copy")
+    press("g", "o")
+    expect(app!.ctx.getState().toast.message).toBe("No commit to open")
+  })
+
+  test("go on a line not yet committed says so", async () => {
+    const { answer, opened, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    press("g", "b")
+    answer({ line: { kind: "uncommitted" }, pr: null })
+    await flush()
+    press("g", "o")
+    await flush()
+    expect(opened).toEqual([])
+    expect(app!.ctx.getState().toast.message).toBe("Not committed yet")
   })
 })

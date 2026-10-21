@@ -62,6 +62,7 @@ import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 import { createBlameKeys, type BlameDeps } from "../features/blame/keys"
+import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
 import { openTextInEditor } from "../utils/editor"
@@ -1441,6 +1442,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       clearPendingKey()
 
       const s = ctx.getState()
+      if (!chordAllowedUnderPeek(sequence, s)) return
 
       if (sequence === "]f") {
         if (s.selectedFileIndex === null) {
