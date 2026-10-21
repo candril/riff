@@ -56,16 +56,19 @@ own, handed their session through `prompt()` and `compose()` by the
 frame's first followers. The diff views draw ahead of publish because the
 frame carries the status bar's readout of them.
 
-M5 is in progress. `src/providers/github/` holds eight modules: the
-GitHub data types (`types.ts`), running `gh` and making its failures
-readable (`exec.ts`), diff fetching (`diff.ts`), file content fetching
-(`content.ts`), review threads and their resolution (`threads.ts`),
-reactions (`reactions.ts`), viewed-file sync (`viewed.ts`) and the PR
-session bundle with session loading (`session.ts`). Only the mutations
-and the PR lookups are still in `src/providers/github.ts`.
+M5's GitHub split is complete: `src/providers/github.ts` is gone and
+`src/providers/github/` holds twelve modules: the GitHub data types
+(`types.ts`), running `gh` and making its failures readable (`exec.ts`),
+diff fetching (`diff.ts`), file content fetching (`content.ts`), review
+threads and their resolution (`threads.ts`), reactions (`reactions.ts`),
+viewed-file sync (`viewed.ts`), the PR session bundle with session loading
+(`session.ts`), comment and PR mutations (`mutations.ts`), the pending
+review and batch review submission (`review.ts`), the PR lookups for
+check annotations, stacks, the timeline and references (`lookups.ts`) and
+the mentionable users (`mentions.ts`). Every caller imports the module it
+needs; there is no barrel.
 
-**Not built**: the rest of M5 (the mutations and the PR lookups out of
-`github.ts`; `storage.ts`; `utils/editor.ts`); M6 (state factories and
+**Not built**: the rest of M5 (`storage.ts`; `utils/editor.ts`); M6 (state factories and
 `@opentui/keymap` layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
@@ -242,7 +245,7 @@ inline comment overlay. Split their pure models out first, as their own
 steps.
 
 **M5 — Monoliths without UI.** `providers/github.ts` into
-`github/{types,exec,diff,threads,session,content,mutations,reactions,viewed}.ts`;
+`github/{types,exec,diff,content,threads,reactions,viewed,session,mutations,review,lookups,mentions}.ts`;
 `storage.ts` into `storage/{resolve,comments-md,comments,session,caches}.ts`;
 `utils/editor.ts` into templates and spawning. These can run any time; they
 sit here because they do not block the payoff.

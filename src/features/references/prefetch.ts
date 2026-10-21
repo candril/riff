@@ -9,7 +9,7 @@
 
 import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
-import { getReferenceTitles } from "../../providers/github"
+import { getReferenceTitles } from "../../providers/github/lookups"
 import { getCurrentRepoInfo } from "../../storage"
 import { findReferences, referenceKey, type Repo } from "../../utils/references"
 import {

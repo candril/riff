@@ -12,7 +12,7 @@
 
 import type { AppState } from "../../state"
 import { mergeMentionableUsers, setMentionSearchQuery } from "../../state"
-import { searchMentionableUsers } from "../../providers/github"
+import { searchMentionableUsers } from "../../providers/github/mentions"
 import {
   getFilteredMentionCandidates,
   MENTION_VISIBLE_LIMIT,

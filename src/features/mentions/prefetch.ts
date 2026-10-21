@@ -15,7 +15,7 @@
 import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
 import { mergeMentionableUsers } from "../../state"
-import { getMentionableUsers } from "../../providers/github"
+import { getMentionableUsers } from "../../providers/github/mentions"
 import {
   getCurrentRepoInfo,
   loadMentionableUsers,
