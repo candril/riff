@@ -49,6 +49,7 @@ describe("frameModels", () => {
     expect(keys).toEqual([
       "feed",
       "threadPanel",
+      "prInfoPanel",
       "chatColumn",
       "statusBar",
       "searchPrompt",
@@ -64,9 +65,9 @@ describe("frameModels", () => {
     ])
   })
 
-  test("shows only the status bar and the header while nothing else is open", () => {
+  test("shows only the PR info panel, the status bar and the header while nothing else is open", () => {
     const models = frameModels(frame(state()))
-    expect(shown(models)).toEqual(["statusBar", "header"])
+    expect(shown(models)).toEqual(["prInfoPanel", "statusBar", "header"])
     expect(models.header.left.length).toBeGreaterThan(0)
   })
 
@@ -87,11 +88,11 @@ describe("frameModels", () => {
   })
 
   test("shows each picker and the palette exactly while it is open", () => {
-    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["statusBar", "filePicker", "header"])
-    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["statusBar", "commentsPicker", "header"])
-    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["statusBar", "commitPicker", "header"])
+    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["prInfoPanel", "statusBar", "filePicker", "header"])
+    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commentsPicker", "header"])
+    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
-    expect(shown(frameModels(frame(palette)))).toEqual(["statusBar", "actionMenu", "header"])
+    expect(shown(frameModels(frame(palette)))).toEqual(["prInfoPanel", "statusBar", "actionMenu", "header"])
   })
 
   test("dates the commit picker's commits against the frame's clock", () => {

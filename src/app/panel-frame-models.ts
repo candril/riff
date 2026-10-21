@@ -73,3 +73,29 @@ export function chatColumnFrameModel({ state, searchState, width }: Frame): { wi
   if (!state.chatOpen) return null
   return { width: chatColumnWidth(width), focused: chatInputFocused(state, promptOpenIn(state, searchState)) }
 }
+
+export interface PrInfoPanelFrameModel {
+  flashLabels: Map<string, string>
+  filterOpen: boolean
+  filter: string
+  commentInput: { open: boolean; text: string; loading: boolean; error: string | null }
+}
+
+/**
+ * What the PR info panel is handed for `frame`. Never null: the panel lives
+ * on while another view is up, and is kept in step with the state all along.
+ */
+export function prInfoPanelFrameModel({ state, flashState }: Frame): PrInfoPanelFrameModel {
+  const panel = state.prInfoPanel
+  return {
+    flashLabels: flashLabelsOn(flashState, "state"),
+    filterOpen: panel.filterInput,
+    filter: panel.filter,
+    commentInput: {
+      open: panel.commentInputOpen,
+      text: panel.commentInputText,
+      loading: panel.commentInputLoading,
+      error: panel.commentInputError,
+    },
+  }
+}

@@ -36,7 +36,7 @@ import { selectionStatus } from "./selection-status"
 import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
-import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
+import type { FlashState } from "../vim-diff/flash-state"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
@@ -214,19 +214,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         ctx.setState((s) => markCommentsSeen(s, seen))
       }
 
-      // Flash labels, painted by whichever surface is being labelled
-      // (spec 066). The diff draws its own in its rows.
-      prInfoPanelInstance?.setFlashLabels(flashLabelsOn(flashState, "state"))
-
-      // The info panel's filter box is the panel's own, like the tree's:
-      // both are persistent panels rather than overlays rebuilt per render.
-      prInfoPanelInstance?.syncFilterInput(
-        state.prInfoPanel.filterInput,
-        state.prInfoPanel.filter
-      )
-      prInfoPanelInstance?.setFilter(state.prInfoPanel.filter)
-
-      // And the one-line prompts (spec 065), each typed into its own island's field.
+      // The one-line prompts (spec 065), each typed into its own island's field.
       routePrompt(promptIslands, prompt)
 
       if (splitOn) ctx.split.island.update({ focused: diffFocused })
@@ -261,17 +249,5 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // The tree has nothing to list without files, whatever the view.
     ctx.shell.setView(view, { withTree: withTree && state.files.length > 0 })
-
-    // Keep the PR-level comment input overlay (a modal *inside* the PR
-    // panel) in sync whenever the panel exists — it renders itself only
-    // when `commentInputOpen` is true.
-    if (prInfoPanelInstance) {
-      prInfoPanelInstance.updateCommentInput(
-        state.prInfoPanel.commentInputOpen,
-        state.prInfoPanel.commentInputText,
-        state.prInfoPanel.commentInputLoading,
-        state.prInfoPanel.commentInputError
-      )
-    }
   }
 }

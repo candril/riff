@@ -8,7 +8,7 @@ import { commentPanelWidth } from "../features/inline-comment-overlay"
 import { threadPanelModel } from "../components/thread-panel-model"
 import type { Comment } from "../types"
 import type { FeedEvent } from "../utils/feed"
-import { feedFrameModel, threadPanelFrameInput } from "./panel-frame-models"
+import { feedFrameModel, prInfoPanelFrameModel, threadPanelFrameInput } from "./panel-frame-models"
 import type { Frame } from "./frame"
 
 const NOW = Date.parse("2026-01-10T12:00:00Z")
@@ -110,5 +110,49 @@ describe("feedFrameModel", () => {
     const labelled = (surface: FlashState["surface"]) =>
       feedFrameModel(frame(base({ viewMode: "feed" }), { flash: { active: true, surface, rows } }))!
     expect(labelled("feed")).not.toEqual(labelled("comments"))
+  })
+})
+
+describe("prInfoPanelFrameModel", () => {
+  const prPanel = (patch: Partial<AppState["prInfoPanel"]>) => {
+    const state = base()
+    return { ...state, prInfoPanel: { ...state.prInfoPanel, ...patch } }
+  }
+
+  test("is handed whatever the view, closed and unlabelled at rest", () => {
+    for (const viewMode of ["diff", "feed", "state"] as const) {
+      expect(prInfoPanelFrameModel(frame(base({ viewMode })))).toEqual({
+        flashLabels: new Map(),
+        filterOpen: false,
+        filter: "",
+        commentInput: { open: false, text: "", loading: false, error: null },
+      })
+    }
+  })
+
+  test("carries flash labels only while the PR panel is being labelled", () => {
+    const rows = [{ id: "files:1", label: "sd" }]
+    const labelled = (surface: FlashState["surface"]) =>
+      prInfoPanelFrameModel(frame(base({ viewMode: "state" }), { flash: { active: true, surface, rows } })).flashLabels
+    expect([...labelled("state")]).toEqual([["files:1", "sd"]])
+    expect(labelled("comments").size).toBe(0)
+  })
+
+  test("carries the filter, open or closed", () => {
+    expect(prInfoPanelFrameModel(frame(prPanel({ filterInput: true, filter: "greet" })))).toMatchObject({
+      filterOpen: true,
+      filter: "greet",
+    })
+    expect(prInfoPanelFrameModel(frame(prPanel({ filterInput: false, filter: "greet" })))).toMatchObject({
+      filterOpen: false,
+      filter: "greet",
+    })
+  })
+
+  test("passes the comment prompt's fields through", () => {
+    const model = prInfoPanelFrameModel(
+      frame(prPanel({ commentInputOpen: true, commentInputText: "hi", commentInputLoading: true, commentInputError: "boom" }))
+    )
+    expect(model.commentInput).toEqual({ open: true, text: "hi", loading: true, error: "boom" })
   })
 })

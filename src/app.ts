@@ -73,6 +73,7 @@ import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
 import { createFeedIsland } from "./app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "./app/overlays"
+import { createPrInfoPanelFollower } from "./app/pr-info-panel-follower"
 import { createFrame } from "./app/frame"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -568,7 +569,18 @@ export async function createApp(options: AppOptions = {}) {
     statusBar: statusBar.host,
   })
   const frame = createFrame()
-  const stopFollowing = followFrame(frame.frame, { ...islands, threadPanel, chatColumn, statusBar, feed: feedIsland }, shell)
+  const stopFollowing = followFrame(
+    frame.frame,
+    {
+      ...islands,
+      threadPanel,
+      prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
+      chatColumn,
+      statusBar,
+      feed: feedIsland,
+    },
+    shell
+  )
 
   const renderFrame = createRenderFunction({
     getState: () => state,

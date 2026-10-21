@@ -7,7 +7,7 @@ import { paletteMode } from "../features/action-menu"
 import { actionMenuModel } from "../components/action-menu-model"
 import { pickerModels } from "./picker-models"
 import { overlayModels } from "./overlay-models"
-import { chatColumnFrameModel, feedFrameModel, threadPanelFrameInput } from "./panel-frame-models"
+import { chatColumnFrameModel, feedFrameModel, prInfoPanelFrameModel, threadPanelFrameInput } from "./panel-frame-models"
 import { statusBarFrameModel } from "./chrome-frame-models"
 import type { Frame } from "./frame"
 
@@ -15,8 +15,9 @@ import type { Frame } from "./frame"
  * What each island that follows the frame draws for `frame`, or null while
  * it is not shown. The key order is the order the islands update in: the
  * feed and the thread panel first, as render.ts pushed them ahead of every
- * other island, then the chat and the status bar ahead of the lines and the
- * overlays.
+ * other island, then the PR info panel, whose filter box takes focus and has
+ * to give it up to the chat and the review preview's summary when they take
+ * it, then the chat and the status bar ahead of the lines and the overlays.
  */
 export function frameModels(frame: Frame) {
   const { state, vimState, searchState, flashState, width, height, now } = frame
@@ -24,6 +25,7 @@ export function frameModels(frame: Frame) {
   return {
     feed: feedFrameModel(frame),
     threadPanel: threadPanelFrameInput(frame),
+    prInfoPanel: prInfoPanelFrameModel(frame),
     chatColumn: chatColumnFrameModel(frame),
     statusBar: statusBarFrameModel(frame),
     searchPrompt:
@@ -65,6 +67,7 @@ export type FrameIslandId = keyof FrameModels
 export const FRAME_ISLANDS = [
   "feed",
   "threadPanel",
+  "prInfoPanel",
   "chatColumn",
   "statusBar",
   "searchPrompt",
@@ -90,14 +93,15 @@ export const FRAME_ISLANDS = [
 // which would leave that island never drawn.
 const everyIslandFollowed: [Exclude<FrameIslandId, (typeof FRAME_ISLANDS)[number]>] extends [never] ? true : never = true
 
-const selfShown = ["feed", "threadPanel", "chatColumn", "statusBar", "header"] as const satisfies readonly FrameIslandId[]
+const selfShown = ["feed", "threadPanel", "prInfoPanel", "chatColumn", "statusBar", "header"] as const satisfies readonly FrameIslandId[]
 export type SelfShownId = (typeof selfShown)[number]
 
 /**
  * The followers that show and hide their own host, which the shell does not
- * stack: the header is always up, the feed, the thread panel and the chat sit
- * in the view and the panel slots, and the status bar is hidden only by the
- * flash line, which takes its row through the flash line's own show.
+ * stack: the header is always up, the feed and the PR info panel sit in the
+ * view slot, which setView fills, the thread panel and the chat in the panel
+ * slots, and the status bar is hidden only by the flash line, which takes its
+ * row through the flash line's own show.
  */
 export const SELF_SHOWN: ReadonlySet<FrameIslandId> = new Set(selfShown)
 

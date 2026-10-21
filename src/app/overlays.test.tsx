@@ -49,7 +49,7 @@ async function mount(width: number, height: number) {
   })
   const shown: [FrameIslandId, boolean][] = []
   const { frame, publish } = createFrame()
-  const stop = followFrame(frame, { ...islands, ...panels, statusBar: { update() {} }, chatColumn: { update() {} } }, {
+  const stop = followFrame(frame, { ...islands, ...panels, statusBar: { update() {} }, prInfoPanel: { update() {} }, chatColumn: { update() {} } }, {
     show(id, visible) {
       shown.push([id, visible])
       shell.show(id, visible)

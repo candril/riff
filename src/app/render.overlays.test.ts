@@ -39,7 +39,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
-      ["statusBar", "header", "threadPanel", "chatColumn", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
+      ["statusBar", "header", "threadPanel", "prInfoPanel", "chatColumn", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
     ),
     ...realParts,
   } as unknown as Record<"statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId, { host: Renderable }>

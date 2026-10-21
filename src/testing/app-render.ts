@@ -17,6 +17,7 @@ import { createRenderFunction, type RenderContext } from "../app/render"
 import { createStatusBarIsland } from "../app/status-bar"
 import { createFeedIsland } from "../app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
+import { createPrInfoPanelFollower } from "../app/pr-info-panel-follower"
 import { createFrame } from "../app/frame"
 import { createTreeHighlightSync } from "../app/tree-highlight"
 import { createAppShell } from "../app/shell"
@@ -92,7 +93,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: chrome.statusBar.host,
   })
   const frame = createFrame()
-  followFrame(frame.frame, { ...islands, ...chrome }, shell)
+  // The harness mounts no PR info panel.
+  followFrame(frame.frame, { ...islands, ...chrome, prInfoPanel: createPrInfoPanelFollower(() => null) }, shell)
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
