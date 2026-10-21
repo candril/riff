@@ -39,7 +39,6 @@ describe("the diff's cursor", () => {
   }
 
   const shown: [string, (s: AppState) => AppState][] = [
-    ["a drafted comment's notification", (s) => ({ ...s, draftNotification: { filename: "a.ts", line: 1, side: "RIGHT", bodyPreview: "", mtimeMs: 0 } })],
     ["a toast", (s) => ({ ...s, toast: { ...s.toast, message: "Copied" } })],
     ["the file tree's focus", (s) => ({ ...s, focusedPanel: "tree" })],
     ["the comments panel open beside a diff that keeps the keys", comments({ mode: "view" }, "diff")],

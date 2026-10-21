@@ -243,12 +243,13 @@ touched.
 **Or just leave them.** Opening the PR later neither imports nor removes them — a PR review
 keeps its own set under `.riff/comments/gh-owner-repo-123/`.
 
-## Claude-drafted comments
+## Comments the agent drafts
 
-riff never posts on Claude's behalf. When a Claude Code session drafts an inline comment, riff
-raises a notification; **Claude: Copy drafted comment** in the action menu puts it on your clipboard and
-clears it, **Claude: Dismiss drafted comment** throws it away. What you do with the text after that is a
-normal comment, written by you.
+`Ctrl+r` opens the chat with riff's agent and focuses it; from the diff it also puts `@selection`
+(in visual mode) or `@file` in the input. A question carries the line you are on, and `@selection`, `@file`,
+`@pr` and `@path` attach that content too.
 
-The Claude actions in `Ctrl+p` go the other way — they hand a scope (the selection, the file, the
-folder, a multi-select, or the whole diff) to a Claude Code session to talk about.
+riff never saves or posts on the agent's behalf. When the agent drafts a comment on a line, riff
+opens it in the comments panel's composer at that line; when it suggests new wording for one of
+your comments, that comment opens in edit mode. Nothing is stored until you save it, and what you
+save is a normal comment, written by you.

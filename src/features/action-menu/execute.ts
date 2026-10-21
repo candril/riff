@@ -56,16 +56,12 @@ export interface ActionHandlers {
   handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
   handleAddPrComment: () => Promise<void>
-  handleAiReviewContextAware: () => Promise<void>
-  handleAiReviewFull: () => Promise<void>
-  handleCopyDraftedComment: () => Promise<void>
   handleCopyPermalink: (options: { includeLines: boolean }) => Promise<void>
   handleCopyPrDiffLink: () => Promise<void>
   handleCopyCommentLink: () => Promise<void>
   handleYank: (options: { raw: boolean }) => void
   /** Resolves false when the cursor isn't on a collapsed-context divider. */
   handleExpandDivider: () => Promise<boolean>
-  handleDiscardDraftedComment: () => Promise<void>
   handleToggleOpenThreadsOnly: () => void
   handleToggleUnviewedFilesOnly: () => void
 }
@@ -337,22 +333,6 @@ export async function executeAction(
 
     case "diff-nvim":
       handlers.handleOpenExternalDiff("nvim")
-      break
-
-    case "claude-discuss":
-      await handlers.handleAiReviewContextAware()
-      break
-
-    case "claude-discuss-full":
-      await handlers.handleAiReviewFull()
-      break
-
-    case "claude-copy-drafted-comment":
-      await handlers.handleCopyDraftedComment()
-      break
-
-    case "claude-discard-drafted-comment":
-      await handlers.handleDiscardDraftedComment()
       break
 
     case "react": {

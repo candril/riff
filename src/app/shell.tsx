@@ -23,7 +23,6 @@ export const OVERLAYS = [
   "diffPeek",
   "hunkPeek",
   "confirmDialog",
-  "draftNotification",
 ] as const
 
 export type OverlayId = (typeof OVERLAYS)[number]

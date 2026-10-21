@@ -1,6 +1,6 @@
 # 036 - AI-drafted Inline PR Comments
 
-**Status**: Done
+**Status**: Superseded by 102
 
 **Not built**: reply and PR-level drafts, a queue of drafts
 

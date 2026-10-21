@@ -120,7 +120,7 @@ Both open a preview first. Nothing is sent until you confirm in it.
 `Ctrl+p` is the answer to "can riff do X". It lists every action that applies to the state you're
 in right now, with its shortcut — creating a PR from local changes (`gP`), copying a permalink
 (`gY`), opening the file in your editor (`gf`), viewing the file through `difftastic` or `delta`,
-handing the selection to Claude Code, and the rest.
+and the rest. `Ctrl+r` opens the chat with riff's agent, to ask about the selection or the review.
 
 `g?` draws the keymap over the diff when you'd rather see the shape of it than search. `q`
 quits — your drafts are already on disk.

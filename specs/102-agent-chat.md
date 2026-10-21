@@ -1,6 +1,8 @@
 # Agent Chat
 
-**Status**: In Progress
+**Status**: Done
+
+**Not built**: P2 (continuity, search), P3 (proposing a review)
 
 ## Description
 

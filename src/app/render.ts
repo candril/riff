@@ -34,9 +34,8 @@ import type { ChatState } from "../features/chat/state"
 import { chatColumnWidth } from "../features/chat/width"
 import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
 import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
-import { draftNotificationModel, toastModel } from "../components/notification-model"
-import { DRAFT_INNER_WIDTH } from "../components/DraftNotification"
-import type { DraftNotificationIsland, ToastIsland } from "./notifications"
+import { toastModel } from "../components/notification-model"
+import type { ToastIsland } from "./notifications"
 import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { ConfirmDialogIsland } from "./confirm-dialog"
 import { gatherSyncItems } from "../components/sync-items"
@@ -104,7 +103,6 @@ export interface RenderContext {
   searchPrompt: SearchPromptIsland
   flashPrompt: FlashPromptIsland
   toast: ToastIsland
-  draftNotification: DraftNotificationIsland
   confirmDialog: ConfirmDialogIsland
   reviewPreview: ReviewPreviewIsland
   syncPreview: SyncPreviewIsland
@@ -384,9 +382,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     const flashShown = flashState.active && state.viewMode === "diff"
     ctx.flashPrompt.update(flashShown ? flashPromptModel(flashState) : null)
     ctx.toast.update(state.toast.message ? toastModel(state.toast.message, state.toast.type) : null)
-    ctx.draftNotification.update(
-      state.draftNotification ? draftNotificationModel(state.draftNotification, DRAFT_INNER_WIDTH) : null
-    )
     ctx.confirmDialog.update(state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null)
     ctx.reviewPreview.update(
       state.reviewPreview.open
@@ -437,7 +432,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.shell.show("diffPeek", diffPeek !== null)
     ctx.shell.show("hunkPeek", hunkPeek !== null)
     ctx.shell.show("confirmDialog", !!state.confirmDialog)
-    ctx.shell.show("draftNotification", !!state.draftNotification)
 
     // Keep the PR-level comment input overlay (a modal *inside* the PR
     // panel) in sync whenever the panel exists — it renders itself only

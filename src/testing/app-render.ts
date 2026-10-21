@@ -16,7 +16,7 @@ import { buildLineMapping } from "../app/init"
 import { createRenderFunction, type RenderContext } from "../app/render"
 import { createStatusBarIsland } from "../app/status-bar"
 import { createHeaderIsland } from "../app/header"
-import { createDraftNotificationIsland, createToastIsland } from "../app/notifications"
+import { createToastIsland } from "../app/notifications"
 import { createConfirmDialogIsland } from "../app/confirm-dialog"
 import { createSyncPreviewIsland } from "../app/sync-preview"
 import { createFeedIsland } from "../app/feed"
@@ -90,7 +90,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     diffPeek: createPeekIsland(renderer, { id: "diff-peek-island" }),
     hunkPeek: createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 }),
     confirmDialog: createConfirmDialogIsland(renderer),
-    draftNotification: createDraftNotificationIsland(renderer),
   }
   const chrome = {
     statusBar: createStatusBarIsland(renderer),

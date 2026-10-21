@@ -1,11 +1,9 @@
 import { test, expect, afterEach } from "bun:test"
 import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import { createDraftNotificationIsland, createToastIsland } from "./notifications"
-import { draftNotificationModel, toastModel } from "../components/notification-model"
-import { DRAFT_INNER_WIDTH } from "../components/DraftNotification"
-import { bgAt, findText, ints } from "../testing/frame"
-import { theme } from "../theme"
+import { createToastIsland } from "./notifications"
+import { toastModel } from "../components/notification-model"
+import { findText } from "../testing/frame"
 
 let setup: TestRendererSetup | null = null
 
@@ -46,38 +44,5 @@ test("the toast sits at the top right, clears on null, and an identical update k
   island.update(null)
   screen = await rows()
   expect(screen.join("\n")).not.toContain("Mark a set")
-  island.dispose()
-})
-
-test("the draft notice ends two rows above the bottom, clears on null, and an identical update keeps its text", async () => {
-  setup = await createTestRenderer({ width: 80, height: 24 })
-  const island = createDraftNotificationIsland(setup.renderer)
-  mount(island.host)
-
-  const model = () =>
-    draftNotificationModel(
-      { filename: "src/greet.ts", line: 3, side: "RIGHT", bodyPreview: "Rename this.", mtimeMs: 0 },
-      DRAFT_INNER_WIDTH
-    )
-  island.update(model())
-  let screen = await rows()
-  // Padding row, title, target, one preview line, hint, padding row.
-  const last = 24 - 1 - 2
-  expect(screen[last - 1]!.trimEnd().endsWith("Ctrl+p: copy or discard it")).toBe(true)
-  expect(screen[last - 4]!.indexOf("Claude drafted a comment")).toBe(80 - 2 - 64 + 2)
-  expect(screen[last + 1]!.trim()).toBe("")
-  const spans = setup.captureSpans()
-  expect(bgAt(spans, 80 - 2 - 1, last)).toEqual(ints(theme.mantle))
-  expect(bgAt(spans, 80 - 2 - 1, last + 1)).not.toEqual(ints(theme.mantle))
-  const title = findText(island.host, "Claude drafted a comment")
-  expect(title).toBeDefined()
-
-  island.update(model())
-  await rows()
-  expect(findText(island.host, "Claude drafted a comment")).toBe(title!)
-
-  island.update(null)
-  screen = await rows()
-  expect(screen.join("\n")).not.toContain("Claude drafted")
   island.dispose()
 })

@@ -2,7 +2,6 @@ import type { Action, ResolvedAction } from "./types"
 import { resolveActionLabel } from "./types"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
-import { detectReviewScope } from "../features/ai-review"
 import { detectPermalinkScope } from "../features/permalink"
 import { publishableLocalComments } from "../utils/publishable"
 import { isVisualMode } from "../vim-diff/cursor-state"
@@ -482,8 +481,7 @@ export const actions: Action[] = [
   },
   {
     id: "copy-permalink",
-    // Label names the scope the link will cover, mirroring how the
-    // Claude actions announce theirs.
+    // Label names the scope the link will cover.
     label: (state, vimState) => {
       switch (detectPermalinkScope(state, vimState)) {
         case "selection": return "Copy Permalink (selection)"
@@ -635,53 +633,6 @@ export const actions: Action[] = [
     available: () => true,
   },
   
-  // Claude
-  {
-    id: "claude-discuss",
-    // Label adapts to current scope: multi > selection > folder > file. The
-    // handler dispatches on the same detection.
-    label: (state, vimState) => {
-      const scope = detectReviewScope(state, vimState)
-      switch (scope.kind) {
-        case "multi":
-          return scope.count === 1
-            ? "Claude: Chat about 1 selected file"
-            : `Claude: Chat about ${scope.count} selected files`
-        case "selection": return "Claude: Chat about selection"
-        case "folder":    return "Claude: Chat about folder"
-        case "file":      return "Claude: Chat about file"
-        case "none":      return "Claude: Chat (nothing to send)"
-      }
-    },
-    description: "Open a Claude Code chat about the active scope (multi-select, selection, folder, or file)",
-    category: "claude",
-    available: (state, vimState) =>
-      state.files.length > 0 && detectReviewScope(state, vimState).kind !== "none",
-  },
-  {
-    id: "claude-discuss-full",
-    label: "Claude: Chat about whole diff",
-    description: "Open a Claude Code chat about the whole diff (ignored files excluded)",
-    category: "claude",
-    available: (state) => state.files.length > 0,
-  },
-  {
-    id: "claude-copy-drafted-comment",
-    label: "Claude: Copy drafted comment",
-    description: "Copy Claude's drafted inline PR comment and clear it",
-    category: "claude",
-    // Gated on the poller having already detected a valid draft. The
-    // predicate is just a state read — no disk I/O per menu render.
-    available: (state) => state.appMode === "pr" && state.draftNotification !== null,
-  },
-  {
-    id: "claude-discard-drafted-comment",
-    label: "Claude: Dismiss drafted comment",
-    description: "Delete Claude's drafted comment and clear the notification",
-    category: "claude",
-    available: (state) => state.appMode === "pr" && state.draftNotification !== null,
-  },
-
   // Local review housekeeping (spec 049)
   {
     id: "clear-local-comments",

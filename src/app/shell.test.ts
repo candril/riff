@@ -302,6 +302,5 @@ test("the hosts are stacked header first and the overlays in their fixed order, 
     "diffPeek",
     "hunkPeek",
     "confirmDialog",
-    "draftNotification",
   ])
 })

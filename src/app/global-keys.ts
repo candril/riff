@@ -58,7 +58,6 @@ import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
 import * as prOperations from "../features/pr-operations"
-import * as aiReview from "../features/ai-review"
 import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
@@ -129,7 +128,6 @@ export interface GlobalKeyContext {
   readReviewSummary: () => string
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
-  aiReviewContext: aiReview.AiReviewContext
   threadMotionContext: threadMotion.ThreadMotionContext
   marksContext: marks.MarksContext
   /** The chat column's conversation and its input (spec 102). */

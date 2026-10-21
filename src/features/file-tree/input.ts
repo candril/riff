@@ -22,7 +22,7 @@ import {
   clearTreeSelectionAnchor,
   keepTreeFile,
 } from "../../state"
-import { collectMultiSelectionFiles } from "../ai-review"
+import { collectMultiSelectionFiles } from "./multi-selection"
 import { toggleNodeExpansion } from "../../utils/file-tree"
 import { halfPage } from "../../utils/half-page"
 

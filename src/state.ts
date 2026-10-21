@@ -581,11 +581,6 @@ export interface AppState {
   // Confirmation dialog state
   confirmDialog: ConfirmDialogState | null
 
-  // Claude drafted-comment notification (spec 036). Non-null when the
-  // background poller has detected a valid `draft-comment.json` for the
-  // current PR. Pinned bottom-right, does not auto-dismiss.
-  draftNotification: DraftNotificationState | null
-
   // GitHub users this repo accepts as @mentions, fetched in the background
   // (spec 046). Empty until the fetch lands — the picker falls back to the
   // participants derived from the PR in the meantime. Grows when a typed
@@ -609,24 +604,6 @@ export interface AppState {
   // Global marks (spec 101): the letters `m` sets and `'` returns to.
   marks: MarksState
   marksPicker: MarksPickerState
-}
-
-/**
- * Display-only snapshot of a Claude-drafted inline PR comment (spec 036).
- * The full draft lives on disk at `draftPathFor(...)`; we store just
- * enough here to render the notification. The review action re-reads and
- * re-validates from disk so we always post what's actually there.
- */
-export interface DraftNotificationState {
-  filename: string
-  line: number
-  startLine?: number
-  side: "LEFT" | "RIGHT"
-  /** First ~140 chars of the draft body, newlines collapsed. */
-  bodyPreview: string
-  /** mtimeMs of the draft file at the last successful load. Used by the
-   * poller to skip unchanged ticks. */
-  mtimeMs: number
 }
 
 /**
@@ -813,7 +790,6 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     confirmDialog: null,
-    draftNotification: null,
     mentionableUsers: [],
     mentionSearchQuery: null,
     reactionTarget: null,
@@ -2117,25 +2093,6 @@ export function closeConfirmDialog(state: AppState): AppState {
     confirmDialog: null,
   }
 }
-
-// ============================================================================
-// Draft Notification State (spec 036)
-// ============================================================================
-
-/** Replace the drafted-comment notification (or set it for the first time). */
-export function setDraftNotification(
-  state: AppState,
-  notification: DraftNotificationState,
-): AppState {
-  return { ...state, draftNotification: notification }
-}
-
-/** Clear the drafted-comment notification. Idempotent. */
-export function clearDraftNotification(state: AppState): AppState {
-  if (state.draftNotification === null) return state
-  return { ...state, draftNotification: null }
-}
-
 
 // ============================================================================
 // Mentionable Users (spec 046)

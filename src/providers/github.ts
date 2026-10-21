@@ -1864,9 +1864,7 @@ export interface SubmitResult {
  * Submit a single comment immediately to GitHub (like "Add single comment").
  *
  * If `range` is provided, the comment is posted as a multi-line review
- * comment spanning `range.startLine`..`comment.line` inclusive. Used by the
- * AI-drafted comment flow (spec 036) so Claude can flag a block of code
- * instead of just one line.
+ * comment spanning `range.startLine`..`comment.line` inclusive.
  */
 export async function submitSingleComment(
   owner: string,

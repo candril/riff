@@ -331,10 +331,9 @@ PR's diff.
 ## Action menu
 
 `Ctrl+p`. Type to filter, `Enter` to run. It only lists what applies right now: no
-**Submit Review** on a local diff, no **Open in Editor (tmux window)** outside tmux, no
-**Copy drafted comment** without a draft. It also carries the actions that have no key of their
-own — creating a PR comment, viewing the file through `difftastic`, `delta` or `nvim` diff mode,
-toggling hidden files, reactions, and the Claude Code handoffs.
+**Submit Review** on a local diff, no **Open in Editor (tmux window)** outside tmux. It also
+carries the actions that have no key of their own — creating a PR comment, viewing the file
+through `difftastic`, `delta` or `nvim` diff mode, toggling hidden files, and reactions.
 
 ![The action menu](../../../assets/screenshots/action-menu.png)
 

@@ -24,8 +24,7 @@ export interface Action {
   /** Category for grouping */
   category?: ActionCategory
   /** Check if action is available in current state.
-   *  `vimState` is optional — most actions only need AppState. AI review
-   *  actions peek at it to distinguish selection vs file vs folder scopes. */
+   *  `vimState` is optional — most actions only need AppState. */
   available: (state: AppState, vimState?: VimCursorState) => boolean
 }
 

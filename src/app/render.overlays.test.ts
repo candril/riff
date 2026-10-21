@@ -87,14 +87,13 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
 }
 
 const dialog = { title: "Clear?", message: "Gone.", onConfirm() {}, onCancel() {} }
-const draft = { filename: "a.ts", line: 1, side: "RIGHT", bodyPreview: "x" } as AppState["draftNotification"]
 
-test("help and the confirm dialog are mounted only while shown, both above the draft notice", async () => {
+test("help and the confirm dialog are mounted only while shown, the dialog above help", async () => {
   const app = await harness()
-  expect(app.show({ draftNotification: draft })).toEqual(["draftNotification"])
-  expect(app.show({ showHelp: true, confirmDialog: dialog })).toEqual(["helpOverlay", "confirmDialog", "draftNotification"])
-  expect(app.show({ showHelp: false })).toEqual(["confirmDialog", "draftNotification"])
-  expect(app.show({ confirmDialog: null, showHelp: true })).toEqual(["helpOverlay", "draftNotification"])
+  expect(app.show({})).toEqual([])
+  expect(app.show({ showHelp: true, confirmDialog: dialog })).toEqual(["helpOverlay", "confirmDialog"])
+  expect(app.show({ showHelp: false })).toEqual(["confirmDialog"])
+  expect(app.show({ confirmDialog: null, showHelp: true })).toEqual(["helpOverlay"])
 })
 
 const hunked: Comment = {
@@ -123,22 +122,19 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
       comments: [hunked],
       inlineCommentOverlay: overlay("c1"),
       confirmDialog: dialog,
-      draftNotification: draft,
     })
-  ).toEqual(["helpOverlay", "diffPeek", "hunkPeek", "confirmDialog", "draftNotification"])
+  ).toEqual(["helpOverlay", "diffPeek", "hunkPeek", "confirmDialog"])
   expect(app.show({ comments: [{ ...hunked, diffHunk: undefined }] })).toEqual([
     "helpOverlay",
     "diffPeek",
     "confirmDialog",
-    "draftNotification",
   ])
   expect(app.show({ showLinePeek: false, comments: [hunked] })).toEqual([
     "helpOverlay",
     "hunkPeek",
     "confirmDialog",
-    "draftNotification",
   ])
-  expect(app.show({ inlineCommentOverlay: overlay(null) })).toEqual(["helpOverlay", "confirmDialog", "draftNotification"])
+  expect(app.show({ inlineCommentOverlay: overlay(null) })).toEqual(["helpOverlay", "confirmDialog"])
 })
 
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
@@ -158,28 +154,23 @@ test("each picker is mounted only while it is open, under help and the confirm d
   expect(app.show({ ...open("filePicker", false), ...open("commentsPicker", true), showHelp: false, confirmDialog: null })).toEqual([
     "commentsPicker",
   ])
-  expect(app.show({ ...open("commentsPicker", false), ...open("marksPicker", true), draftNotification: draft })).toEqual([
+  expect(app.show({ ...open("commentsPicker", false), ...open("marksPicker", true) })).toEqual([
     "marksPicker",
-    "draftNotification",
   ])
   expect(app.show({ ...open("marksPicker", false), ...open("occurrencePicker", true) })).toEqual([
     "occurrencePicker",
-    "draftNotification",
   ])
   expect(app.show({ ...open("occurrencePicker", false), ...open("commitPicker", true), showHelp: true })).toEqual([
     "commitPicker",
     "helpOverlay",
-    "draftNotification",
   ])
   expect(app.show({ ...open("filePicker", true), ...open("occurrencePicker", true) })).toEqual([
     "filePicker",
     "occurrencePicker",
     "commitPicker",
     "helpOverlay",
-    "draftNotification",
   ])
   expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([
-    "draftNotification",
   ])
 })
 

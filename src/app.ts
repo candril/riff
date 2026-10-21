@@ -67,7 +67,7 @@ import { createChatColumnIsland } from "./app/chat-column"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
 import { setComposerValue } from "./components/CommentComposer"
-import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
+import { createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
 import { createFeedIsland } from "./app/feed"
@@ -103,7 +103,7 @@ import * as folds from "./features/folds"
 import * as fileNavigation from "./features/file-navigation"
 import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
-import * as aiReview from "./features/ai-review"
+import { getTreeMultiSelectionFilenames } from "./features/file-tree/multi-selection"
 import * as permalink from "./features/permalink"
 import { boardLocation, openPrInBoard } from "./features/riff-board"
 import { startMentionPrefetch } from "./features/mentions"
@@ -310,10 +310,6 @@ export async function createApp(options: AppOptions = {}) {
     // Mode 1004 outlives the process if we don't turn it off — the shell that
     // gets the terminal back would start receiving focus escape sequences.
     stopFocusReporting?.()
-    // Files installed into the repo for a Claude session (slash command,
-    // skill) — the renderer's teardown drops the exit hook that would
-    // otherwise remove them.
-    aiReview.removeSessionFiles()
     chat.dispose()
     chatColumn.dispose()
     statusBar.dispose()
@@ -321,7 +317,6 @@ export async function createApp(options: AppOptions = {}) {
     searchPrompt.dispose()
     flashPrompt.dispose()
     toast.dispose()
-    draftNotification.dispose()
     confirmDialog.dispose()
     reviewPreviewIsland.dispose()
     syncPreviewIsland.dispose()
@@ -454,7 +449,7 @@ export async function createApp(options: AppOptions = {}) {
       fileStatuses: state.fileStatuses,
       ignoredFiles: state.ignoredFiles,
       showHiddenFiles: state.showHiddenFiles,
-      multiSelectedFilenames: aiReview.getTreeMultiSelectionFilenames(state),
+      multiSelectedFilenames: getTreeMultiSelectionFilenames(state),
       treeFilter: state.treeFilter,
       treeFilterInput: state.treeFilterInput,
       flashLabels: flashLabelsOn(flashState, "tree"),
@@ -534,7 +529,6 @@ export async function createApp(options: AppOptions = {}) {
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
-  const draftNotification = createDraftNotificationIsland(renderer)
   const confirmDialog = createConfirmDialogIsland(renderer)
   const reviewPreviewIsland = createReviewPreviewIsland(renderer, {
     onSummaryChange(value) {
@@ -629,7 +623,6 @@ export async function createApp(options: AppOptions = {}) {
       diffPeek: diffPeek.host,
       hunkPeek: hunkPeek.host,
       confirmDialog: confirmDialog.host,
-      draftNotification: draftNotification.host,
     },
   })
 
@@ -652,7 +645,6 @@ export async function createApp(options: AppOptions = {}) {
     searchPrompt,
     flashPrompt,
     toast,
-    draftNotification,
     confirmDialog,
     reviewPreview: reviewPreviewIsland,
     syncPreview: syncPreviewIsland,
@@ -1112,19 +1104,6 @@ export async function createApp(options: AppOptions = {}) {
     options,
   }
 
-  const aiReviewContext: aiReview.AiReviewContext = {
-    getState: () => state,
-    setState: (fn) => { state = fn(state) },
-    getVimState: () => vimState,
-    getLineMapping: () => lineMapping,
-    render,
-    suspendRenderer: () => renderer.suspend(),
-    resumeRenderer: () => renderer.resume(),
-    mode,
-    prInfo: prInfo ?? null,
-    options,
-  }
-
   const yankContext: yank.YankContext = {
     setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
@@ -1213,10 +1192,6 @@ export async function createApp(options: AppOptions = {}) {
     handleOpenFileInTmuxWindow: () => externalTools.handleOpenFileInTmuxWindow(externalToolsContext),
     handleCheckoutAndEdit: () => externalTools.handleCheckoutAndEdit(externalToolsContext),
     handleOpenExternalDiff: (viewer) => externalTools.handleOpenExternalDiff(viewer, externalToolsContext),
-    handleAiReviewContextAware: () => aiReview.handleAiReviewContextAware(aiReviewContext),
-    handleAiReviewFull: () => aiReview.handleAiReviewFull(aiReviewContext),
-    handleCopyDraftedComment: () => aiReview.handleCopyDraftedComment(aiReviewContext),
-    handleDiscardDraftedComment: () => aiReview.handleDiscardDraftedComment(aiReviewContext),
     handleCopyPermalink: (opts) => permalink.handleCopyPermalink(permalinkContext, opts),
     handleCopyPrDiffLink: () => permalink.handleCopyPrDiffLink(permalinkContext),
     handleCopyCommentLink: () => permalink.handleCopyCommentLink(permalinkContext),
@@ -1827,7 +1802,6 @@ export async function createApp(options: AppOptions = {}) {
     readReviewSummary: reviewPreviewIsland.summaryValue,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
-    aiReviewContext,
     threadMotionContext,
     marksContext,
     chat: { state: chat, input: chatColumn.input },
@@ -1952,11 +1926,6 @@ export async function createApp(options: AppOptions = {}) {
       }
     })
   }
-
-  // Start the Claude-drafted-comment poller (spec 036). It self-guards on
-  // PR mode, so calling it unconditionally here is fine. The interval is
-  // unref'd internally so it won't hold the event loop open.
-  aiReview.startDraftPoller(aiReviewContext)
 
   // Silently poll GitHub for new / updated review comments so replies show up
   // without a manual refresh. Self-guards on PR mode; interval is unref'd.
