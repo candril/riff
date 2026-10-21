@@ -79,38 +79,70 @@ Use Bun instead of Node.js:
 - `bun install` for dependencies
 - Bun automatically loads `.env` files
 
-### UI: OpenTUI
+### UI: OpenTUI and Solid
 
-Terminal UI built with `@opentui/core`. Key patterns:
+The UI is [OpenTUI](https://github.com/sst/opentui) driven by
+`@opentui/solid`, mounted piece by piece into a layout riff owns
+([spec 100](specs/100-solid-migration.md)). `@opentui/core`,
+`@opentui/solid` and `@opentui/keymap` are pinned exact at 0.6.0 and
+`solid-js` at 1.9.12: upstream breaks APIs in patch releases.
 
-```typescript
-import { createCliRenderer, Box, Text, Diff, ScrollBox, Input } from "@opentui/core"
+**Islands.** `src/app/shell.tsx` mounts the layout once at startup. Each
+view is a Solid island: `mountSolid` in `src/app/solid-island.tsx` mounts a
+Solid tree into a `BoxRenderable` host that riff places in that layout.
+`src/app/render.ts` is the coordinator: on every pass it builds each
+island's model from `AppState` and pushes it in, and flips which hosts are
+visible. An island keeps its model in a store and `reconcile`s each push,
+so only what changed is restyled:
 
-const renderer = await createCliRenderer({
-  exitOnCtrlC: true,
-})
-
-// Components are factory functions
-renderer.root.add(
-  Box(
-    { width: "100%", height: "100%", flexDirection: "column" },
-    Text({ content: "Hello", fg: "#7aa2f7" }),
+```tsx
+// src/app/notifications.tsx
+export function createToastIsland(renderer: CliRenderer) {
+  const [state, setState] = createStore<{ model: ToastModel | null }>({ model: null })
+  const island = mountSolid(
+    renderer,
+    () => <Show when={state.model}>{(model: () => ToastModel) => <Toast model={model()} />}</Show>,
+    { id: "toast-container", position: "absolute", top: 1, right: 2, zIndex: 100 }
   )
-)
-
-// Keyboard handling
-renderer.keyInput.on("keypress", (key) => {
-  // key.name, key.ctrl, key.alt, key.shift
-})
+  return {
+    host: island.host,
+    update: (next: ToastModel | null) => setState("model", reconcile(next)),
+    dispose: island.dispose,
+  }
+}
 ```
 
-Key components:
-- `Box` - Flexbox container
-- `Text` - Text display
-- `Diff` - Diff rendering with syntax highlighting
-- `ScrollBox` - Scrollable container
-- `Input` - Text input
-- `Select` - Selection list
+**A model and a component per view.** What a view shows is a pure function
+of state in `src/components/*-model.ts` (`toastModel`, `threadPanelModel`,
+`fileTreeModel`…); the component beside it (`Toast.tsx`,
+`ThreadPanelView.tsx`…) only draws the model. The model is unit-tested; the
+component is frame-tested.
+
+**Frame tests** render a component or an island on a test screen and
+assert the characters drawn: `testRender` from `@opentui/solid` or
+`createTestRenderer` from `@opentui/core/testing`, then `captureCharFrame()`.
+`src/testing/frame.ts` wraps both (`mountJsx`, `mountRenderable`,
+`trimFrame`, and `bgAt` / `fgAt` for shades); `src/testing/app-render.ts`
+mounts the whole app for keys tests.
+
+**Wiring.** `bunfig.toml` preloads `@opentui/solid/preload` for `bun run`
+and `bun test`, and `tsconfig.json` sets `"jsx": "preserve"` with
+`"jsxImportSource": "@opentui/solid"`. `scripts/build.ts` passes
+`solidPlugin` from `@opentui/solid/bun-plugin` and OpenTUI's tree-sitter
+`parser.worker.js` as a second entrypoint; without the worker every
+highlight fails silently in the compiled binary.
+
+**Borderless.** Surfaces separate by background shade, never by a border
+([spec 106](specs/106-borderless-ui.md)): `base` for content (the diff, the
+PR description), `mantle` for everything around it (tree, thread panel,
+chat, header, status bar, pickers, modals, toasts), `surface0` for inputs
+and the selected row of a list, all from `src/theme.ts`. Focus shows by
+shade or a coloured title, padding of one cell replaces a border's inset,
+and there is no fourth level.
+
+Keyboard input still arrives through `renderer.keyInput.on("keypress")`
+and is dispatched by `src/app/global-keys.ts` to each feature's
+`input.ts`.
 
 ### GitHub: `gh` CLI
 
@@ -167,11 +199,17 @@ src/
 ├── index.ts              # Entry point, CLI parsing
 ├── app.ts                # Renderer setup, keypress loop
 ├── app/
-│   ├── init.ts           # Loading a session into state
-│   ├── render.ts         # Mounting and updating the views
-│   └── global-keys.ts    # Every key binding outside a focused feature
+│   ├── shell.tsx         # The layout, mounted once
+│   ├── solid-island.tsx  # mountSolid: a Solid tree in a host riff owns
+│   ├── *.tsx             # One island per view (header, file-tree, thread-panel, chat-column, pickers…)
+│   ├── unified-*, split-*  # The diff views' islands, cursor, columns and the split toggle
+│   ├── render.ts         # The coordinator: builds each island's model and pushes it in
+│   ├── global-keys.ts    # Every key binding outside a focused feature
+│   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters
 ├── types.ts              # Type definitions
+├── theme.ts              # Catppuccin tokens; the three shades (spec 106)
+├── version.ts            # The version the build stamps
 ├── storage.ts            # .riff/ persistence
 ├── actions/
 │   ├── registry.ts       # Ctrl-p palette actions (add new actions here!)
@@ -182,14 +220,25 @@ src/
 │   ├── local.ts          # git/jj diffs
 │   ├── files.ts          # file mode (`riff <path>`)
 │   ├── github.ts         # GitHub via gh (GraphQL and REST)
-│   └── demo.ts           # --demo fixture
+│   ├── demo.ts           # --demo fixture
+│   └── agent/            # riff's agent: SDK session, prompt, read tools (spec 102)
 ├── features/             # one directory per feature: index.ts, plus input.ts / handlers.ts
+│   ├── marks/            # global marks (spec 101)
+│   └── chat/             # the chat column's state, keys and components (spec 102)
 ├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff
-├── diff-rows/            # rows, segments, wrap and colours both diff views draw
+├── diff-rows/            # rows, pairing, segments, wrap and colours both diff views draw
 ├── split-view/           # the diff views, split and unified, as Solid components
-├── components/           # OpenTUI renderables (PRInfoPanel, pickers…)
+├── components/           # a pure model per view (*-model.ts) and its component (*.tsx)
+├── testing/              # frame and app harnesses for tests
 └── utils/                # parsing, markdown, links, fuzzy matching, editor hand-off
 ```
+
+Two kinds of file in `src/components` are not model-and-component pairs.
+`PRInfoPanel.ts` is the one view still built imperatively: it holds the PR
+overview's cursor, scroll and section boxes, and mounts an island per
+section. `PromptInput.ts` and `CommentComposer.ts` keep OpenTUI's native
+input and textarea alive across passes, so a field keeps its cursor while
+the islands that host it redraw.
 
 ## Configuration
 
