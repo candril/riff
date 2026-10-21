@@ -8,6 +8,9 @@ export type Entry =
       waiting: boolean
       // Taken when the question was asked; the chat shows its label so the reviewer sees what went.
       position: Position | null
+      // The question's @ tokens, expanded when it was asked: the agent gets the attachments, the chat shows the labels.
+      attachments: string[]
+      labels: string[]
     }
   | { kind: "answer"; text: string; streaming: boolean; interrupted: boolean }
   | { kind: "note"; text: string; tone: "error" | "info" }

@@ -139,7 +139,7 @@ function start(
 
 test("locks the agent down: no built-in tools, no settings, own directory, only riff's tools", async () => {
   const { session, seen, settle } = start(() => [result()], undefined, noTools([listFiles]))
-  session.send("hi", null)
+  session.send("hi", null, [])
   await settle()
   const o = seen.options!
   expect(o.tools).toEqual([])
@@ -159,14 +159,14 @@ test("locks the agent down: no built-in tools, no settings, own directory, only 
 
 test("streams text and reports the answer's tokens", async () => {
   const { session, log, settle } = start(() => [text("Short "), text("answer."), result()])
-  session.send("what?", null)
+  session.send("what?", null, [])
   await settle()
   expect(log).toEqual(["text:Short ", "text:answer.", "done:false:100/5"])
 })
 
 test("an interrupted answer ends marked as interrupted", async () => {
   const { session, seen, log, settle } = start(() => [text("par"), result({ is_error: true })])
-  session.send("q", null)
+  session.send("q", null, [])
   session.interrupt()
   await settle()
   expect(seen.interrupts).toBeGreaterThan(0)
@@ -184,7 +184,7 @@ test.each([
     { type: "assistant", error, message: { content: [] } },
     result({ is_error: true }),
   ])
-  session.send("q", null)
+  session.send("q", null, [])
   await settle()
   expect(log).toEqual([`failed:${JSON.stringify(failure)}`])
 })
@@ -193,7 +193,7 @@ test("a result that says the CLI is not logged in is reported as such", async ()
   const { session, log, settle } = start(() => [
     result({ is_error: true, result: "Not logged in · Please run /login" }),
   ])
-  session.send("q", null)
+  session.send("q", null, [])
   await settle()
   expect(log).toEqual(['failed:{"kind":"not-logged-in"}'])
 })
@@ -201,10 +201,10 @@ test("a result that says the CLI is not logged in is reported as such", async ()
 test("a dropped session is reported, and the next question opens a new one", async () => {
   let calls = 0
   const { session, seen, log, settle } = start(() => (calls++ === 0 ? [{ drop: true }] : [result()]))
-  session.send("first", null)
+  session.send("first", null, [])
   await settle()
   expect(log).toEqual(['failed:{"kind":"session-dropped"}'])
-  session.send("second", null)
+  session.send("second", null, [])
   await settle()
   expect(seen.opened).toBe(2)
   expect(log.at(-1)).toBe("done:false:100/5")
@@ -219,16 +219,29 @@ test("the position block goes ahead of the question", async () => {
     excerpt: [{ kind: "added", text: "x", newLine: 3 }],
     cursorIndex: 0,
     label: "a.ts:3",
-  })
+  }, [])
   await settle()
   expect(asked.at(-1)).toBe(
     "[Reviewer's position: a.ts:3 (new side)]\n>          3 +x\n\nwhat does this do?",
   )
 })
 
+test("attachments go between the position block and the question, each set apart by a blank line", async () => {
+  const { session, settle } = start(() => [result()])
+  session.send(
+    "@file @src/b.ts why?",
+    { path: "a.ts", excerpt: [], label: "a.ts" },
+    ["[@file: the diff of a.ts]\n@@ -1 +1 @@", "[@src/b.ts: its diff]\n@@ -0,0 +1 @@"],
+  )
+  await settle()
+  expect(asked.at(-1)).toBe(
+    "[Reviewer's position: a.ts]\n\n[@file: the diff of a.ts]\n@@ -1 +1 @@\n\n[@src/b.ts: its diff]\n@@ -0,0 +1 @@\n\n@file @src/b.ts why?",
+  )
+})
+
 test("a stored session that still exists is resumed", async () => {
   const { session, seen, sessions, settle } = start(() => [result()], { id: "s-1", exists: true })
-  session.send("again", null)
+  session.send("again", null, [])
   await settle()
   expect(seen.options?.resume).toBe("s-1")
   expect(seen.options?.sessionId).toBeUndefined()
@@ -240,7 +253,7 @@ test("a stored session the agent no longer has is reported, and a new one starts
     id: "s-gone",
     exists: false,
   })
-  session.send("again", null)
+  session.send("again", null, [])
   await settle()
   expect(seen.options?.resume).toBeUndefined()
   expect(seen.options?.sessionId).toMatch(/^[0-9a-f-]{36}$/)
@@ -278,13 +291,13 @@ test("each question gets a fresh read budget, and a failed read reaches the even
     undefined,
     (events) => (toolset = readToolset(source, events)),
   )
-  session.send("first", null)
+  session.send("first", null, [])
   await settle()
   expect(refused.at(-1)).toBe(true)
   expect(refused.slice(0, -1).some(Boolean)).toBe(false)
   expect(log).toContain("readFailed:a.ts at head: GitHub is not reachable")
   refused.length = 0
-  session.send("second", null)
+  session.send("second", null, [])
   await settle()
   expect(log.filter((l) => l.startsWith("readFailed"))).toHaveLength(2)
   expect(log.at(-1)).toBe("done:false:100/5")

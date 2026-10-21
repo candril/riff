@@ -72,14 +72,30 @@ like any comment the reviewer typed.
   selection when there is one. The chat shows it above the question, so
   the reviewer sees what was sent. "This", "here" and "this line" mean
   that position.
-- **`@` attaches more on purpose**: `@selection`, `@file` (the current
-  file's diff), `@pr` (the PR's description and its file list), or
-  `@path` for another changed file. Each is capped so one reference
-  cannot flood the context.
+- **`@` attaches more on purpose**: `@selection` (or `@s`: every selected
+  line on its side, with its hunk header), `@file` (the current file's
+  diff), `@pr` (the PR's title, number, description and its file list with
+  counts), or `@path` for another changed file. The tokens are expanded
+  when the question is sent, against the same position it carries, and the
+  agent receives each attachment ahead of the question, which keeps its
+  tokens as typed. Each is capped at 400 lines, with a footer that names
+  the `read_diff` or `list_files` call for the rest, so one reference
+  cannot flood the context. A repeated token attaches once; trailing
+  punctuation is not part of a token; `@Inject` or `@handle`, which do not
+  look like a path, stay text.
+- **A reference that names nothing stops the question**: `@selection`
+  with no selection, `@file` with no file under the cursor, `@pr` in a
+  local review, or a path that is no changed file. The chat says why, and
+  the input keeps the text so it can be fixed.
+- **The chat shows what went along**: a short label per attachment
+  (`@selection a.ts:12-30`, `@file src/a.ts`, `@pr #812`, `@src/b.ts`)
+  beside the position label above the question, on one line.
 - **Asking about what is on screen** is one key from the diff: in visual
-  mode, `Ctrl-r` opens the chat with the selection attached; elsewhere it
-  attaches the file. This replaces the palette's "Claude: Chat about
-  selection/file/whole diff" actions.
+  mode, `Ctrl-r` opens the chat with `@selection` at the start of the
+  input; elsewhere in the diff it puts `@file` there. A token the input
+  already holds is not added again, and Ctrl-r from the tree, the thread
+  panel or another view adds nothing. This replaces the palette's
+  "Claude: Chat about selection/file/whole diff" actions.
 
 ### P1 - What the agent can read
 

@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 import { mountApp } from "../testing/app-render"
-import { createFlashState } from "../vim-diff/flash-state"
-import { createSearchState } from "../vim-diff/search-state"
-import { openInlineCommentOverlay, toggleSplitView } from "../state"
+import { ctrl, keysOn, moveTo, openChat } from "../testing/chat-keys"
+import { openInlineCommentOverlay } from "../state"
 import { CHAT_HINT } from "../features/chat/ChatPane"
-import { VimMotionHandler } from "../vim-diff/motion-handler"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -52,72 +49,6 @@ afterEach(async () => {
   app = null
 })
 
-/**
- * riff's key handler on the app's render pass, wired for the chat and the
- * focus walk. Anything else it calls throws, so a key that leaks past the
- * chat into the diff shows up here.
- */
-function keysOn(mounted: NonNullable<typeof app>) {
-  const { ctx: render } = mounted
-  let vimState = render.getVimState()
-  const quits: number[] = []
-  const setVimState = (next: typeof vimState) => {
-    vimState = next
-    mounted.setVimState(next)
-  }
-  const known: Partial<GlobalKeyContext> = {
-    getState: render.getState,
-    setState: render.setState,
-    getVimState: () => vimState,
-    setVimState,
-    toggleSplitView: () => {
-      mounted.show(toggleSplitView(render.getState()))
-      if (render.getState().splitView) render.split.enter()
-      mounted.render()
-    },
-    getFlashState: () => createFlashState(),
-    getSearchState: () => createSearchState(),
-    renderer: mounted.setup.renderer,
-    render: mounted.render,
-    quit: () => void quits.push(1),
-    reviewPreviewOpenContext: {
-      getState: render.getState,
-      setState: render.setState,
-      render: mounted.render,
-      getCachedCurrentUser: () => null,
-      setCachedCurrentUser() {},
-      mode: "local",
-    },
-    readReviewSummary: render.reviewPreview.summaryValue,
-    chat: { state: render.chat, input: render.chatColumn.input },
-    getLineMapping: render.getLineMapping,
-    ensureCursorVisible: () => {},
-    vimHandler: new VimMotionHandler({
-      getMapping: render.getLineMapping,
-      getState: () => vimState,
-      setState: (next) => {
-        vimState = next
-        mounted.setVimState(next)
-      },
-      getViewportHeight: () => 20,
-      onCursorMove: () => mounted.render(),
-    }),
-  }
-  const ctx = new Proxy(known, {
-    get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
-      return () => {
-        throw new Error(`a chat key reached ctx.${String(name)}`)
-      }
-    },
-  }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
-  // Where a search or a flash jump would land the cursor, without walking there.
-  const jumpTo = (line: number) => setVimState({ ...vimState, line })
-  return { quits, vimState: () => vimState, jumpTo }
-}
-
-const ctrl = (mounted: NonNullable<typeof app>, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })
 
 test("Ctrl-r opens the column with the keys in its input, and typed letters stay there", async () => {
   app = await mountApp(DIFF, { width: 120, height: 24 })
@@ -138,17 +69,17 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
   expect(diff.width).toBe(closedWidth - 48)
 
   await app.setup.mockInput.typeText("jq")
-  expect(input.plainText).toBe("jq")
+  expect(input.plainText).toBe("@file jq")
   expect(vimState()).toBe(before)
   expect(quits).toEqual([])
   expect(app.ctx.getState().chatOpen).toBe(true)
 
   app.setup.mockInput.pressEnter()
-  expect(app.agent.asked).toEqual(["jq"])
+  expect(app.agent.asked).toEqual(["@file jq"])
   expect(app.agent.positions).toEqual([{ path: "src/greet.ts", excerpt: [], label: "src/greet.ts" }])
   expect(input.plainText).toBe("")
   const asked = await app.frame()
-  expect(asked).toContain("› jq")
+  expect(asked).toContain("› @file jq")
   expect(asked.replace(/\s+/g, " ")).not.toContain(CHAT_HINT)
 
   ctrl(app, "r")
@@ -163,7 +94,7 @@ test("with the thread panel closed, Ctrl-l steps from the diff to the chat and C
   app = await mountApp(DIFF, { width: 120, height: 24 })
   app.show()
   keysOn(app)
-  ctrl(app, "r")
+  openChat(app)
   app.setup.mockInput.pressBackspace()
   expect(app.ctx.getState().focusedPanel).toBe("diff")
   expect(app.ctx.getState().chatOpen).toBe(true)
@@ -180,7 +111,7 @@ test("with the thread panel open, the walk runs diff → threads → chat and ba
   const walk: string[] = []
   const at = () => walk.push(app!.ctx.getState().focusedPanel)
   app.show({ ...openInlineCommentOverlay(app.ctx.getState(), "src/greet.ts", 2, "RIGHT", "view"), focusedPanel: "diff" })
-  ctrl(app, "r")
+  openChat(app)
   at()
   app.setup.mockInput.pressBackspace()
   at()
@@ -197,18 +128,13 @@ test("in the chat, backspace deletes what is typed before it walks anywhere", as
   app = await mountApp(DIFF, { width: 120, height: 24 })
   app.show()
   keysOn(app)
-  ctrl(app, "r")
+  openChat(app)
   await app.setup.mockInput.typeText("ab")
   app.setup.mockInput.pressBackspace()
   expect(app.ctx.chatColumn.input()!.plainText).toBe("a")
   expect(app.ctx.getState().focusedPanel).toBe("chat")
 })
 
-function moveTo(mounted: NonNullable<typeof app>, vimState: () => { line: number }, content: string) {
-  const target = mounted.ctx.getLineMapping().allLines.findIndex((line) => line.content === content)
-  expect(target).toBeGreaterThan(vimState().line)
-  while (vimState().line < target) mounted.setup.mockInput.pressKey("j")
-}
 
 describe("a question carries the reviewer's place in the diff", () => {
   test("on an added line, the agent gets its file, side and line, and the chat shows them above the question", async () => {
@@ -217,7 +143,7 @@ describe("a question carries the reviewer's place in the diff", () => {
     const { vimState } = keysOn(app)
     moveTo(app, vimState, '  return "hello"')
 
-    ctrl(app, "r")
+    openChat(app)
     await app.setup.mockInput.typeText("why hello")
     app.setup.mockInput.pressEnter()
 
@@ -244,7 +170,7 @@ describe("a question carries the reviewer's place in the diff", () => {
     app.setup.mockInput.pressKey("V")
     app.setup.mockInput.pressKey("j")
     app.setup.mockInput.pressKey("j")
-    ctrl(app, "r")
+    openChat(app)
     expect(vimState()).toMatchObject({ mode: "visual-line" })
     await app.setup.mockInput.typeText("these three")
     app.setup.mockInput.pressEnter()
@@ -268,7 +194,7 @@ describe("a question carries the reviewer's place in the diff", () => {
     moveTo(app, vimState, "  const c = 3")
 
     app.setup.mockInput.pressKey("V")
-    ctrl(app, "r")
+    openChat(app)
     await app.setup.mockInput.typeText("just this")
     app.setup.mockInput.pressEnter()
 
@@ -288,7 +214,7 @@ describe("a question carries the reviewer's place in the diff", () => {
     expect(app.ctx.getState().splitView).toBe(true)
     jumpTo(app.ctx.getLineMapping().allLines.findIndex((line) => line.content === "  }"))
 
-    ctrl(app, "r")
+    openChat(app)
     await app.setup.mockInput.typeText("what about this")
     app.setup.mockInput.pressEnter()
 

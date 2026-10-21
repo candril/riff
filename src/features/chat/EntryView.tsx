@@ -2,7 +2,6 @@ import { MarkdownRenderable } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import { createEffect, Show } from "solid-js"
 import { chatColors, chatSyntaxStyle } from "./markdown-style"
-import type { Position } from "../../providers/agent/position"
 import type { Entry } from "./entries"
 
 /**
@@ -25,14 +24,22 @@ function Answer(props: { text: string }) {
   return body
 }
 
+const sentWith = (question: Extract<Entry, { kind: "question" }>) =>
+  [question.position?.label, ...question.labels].filter(Boolean).join("  ")
+
 // <For> hands each EntryView one entry for its whole life; its kind never changes.
 export function EntryView(props: { entry: Entry; paused: boolean }) {
   const entry = props.entry
   if (entry.kind === "question") {
     return (
       <box flexDirection="column" marginTop={1} marginBottom={1}>
-        <Show when={entry.position}>
-          {(position: () => Position) => <text fg={chatColors.dim}>{position().label}</text>}
+        <Show when={sentWith(entry)}>
+          {/* One line however much went along; the column cuts it rather than growing taller. */}
+          {(label: () => string) => (
+            <text fg={chatColors.dim} wrapMode="none">
+              {label()}
+            </text>
+          )}
         </Show>
         <text fg={chatColors.question}>
           {`› ${entry.text}${entry.waiting ? (props.paused ? "  (paused)" : "  (waiting)") : ""}`}

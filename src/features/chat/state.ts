@@ -3,6 +3,7 @@ import { createStore, produce } from "solid-js/store"
 import type { Agent, AgentSession, Usage } from "../../providers/agent/agent"
 import type { Position } from "../../providers/agent/position"
 import { describeFailure, type Entry } from "./entries"
+import type { Expanded } from "./references"
 
 export type { Entry } from "./entries"
 
@@ -21,9 +22,14 @@ export const NEW_CONVERSATION_PROMPT = "Press Ctrl-n again to start a new conver
 /**
  * One conversation with riff's agent. The session opens on the first
  * question, not before: opening the chat costs nothing until something is
- * asked. `position` is read once per question, when it is sent.
+ * asked. `position` is read once per question, when it is sent, and its
+ * `@` tokens are expanded against that same position.
  */
-export function createChatState(agent: Agent, position: () => Position | null = () => null) {
+export function createChatState(
+  agent: Agent,
+  position: () => Position | null = () => null,
+  expand: (text: string, position: Position | null) => Expanded = () => ({ attachments: [], labels: [] }),
+) {
   const [entries, setEntries] = createStore<Entry[]>([])
   const [status, setStatus] = createSignal<AgentStatus>("idle")
   // After a failure the queue holds still until the reviewer asks again.
@@ -84,7 +90,7 @@ export function createChatState(agent: Agent, position: () => Position | null = 
         })
       },
     })
-    session.send(question.text, question.position)
+    session.send(question.text, question.position, question.attachments)
   }
 
   return {
@@ -102,16 +108,24 @@ export function createChatState(agent: Agent, position: () => Position | null = 
         waiting: entries.filter((e) => e.kind === "question" && e.waiting).length,
       }
     },
-    send(text: string) {
+    /** False when the question did not go: it was blank, or one of its `@` tokens named nothing. */
+    send(text: string): boolean {
       setClearPrompt(null)
       const trimmed = text.trim()
-      if (trimmed === "") return
-      push({ kind: "question", text: trimmed, waiting: true, position: position() })
+      if (trimmed === "") return false
+      const at = position()
+      const expanded = expand(trimmed, at)
+      if ("error" in expanded) {
+        push({ kind: "note", text: expanded.error, tone: "error" })
+        return false
+      }
+      push({ kind: "question", text: trimmed, waiting: true, position: at, ...expanded })
       batch(() => {
         if (status() === "failed") setStatus("idle")
         setPaused(false)
       })
       sendNext()
+      return true
     },
     interrupt() {
       setClearPrompt(null)

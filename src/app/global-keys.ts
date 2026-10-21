@@ -25,6 +25,7 @@ import { togglesSplit } from "./split-toggle-key"
 import { handleHelpKey } from "./help-keys"
 import { composerOpen } from "./diff-focus"
 import { handleChatKey } from "../features/chat/keys"
+import { attachOnScreen } from "../features/chat/attach"
 import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
@@ -579,7 +580,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     }
     if (key.ctrl && key.name === "r") {
       clearPendingKey()
-      return move(toggleChat)
+      const fromDiff = state.focusedPanel === "diff" && state.viewMode === "diff"
+      move(toggleChat)
+      if (fromDiff) attachOnScreen(ctx.chat.input(), isVisualMode(ctx.getVimState()))
+      return true
     }
     if (state.chatOpen && state.focusedPanel === "chat") {
       // The chat is the last panel on the right; Ctrl-l has nowhere further to go.

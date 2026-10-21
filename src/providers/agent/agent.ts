@@ -24,7 +24,8 @@ export interface AgentEvents {
 }
 
 export interface AgentSession {
-  send(question: string, position: Position | null): void
+  // Attachments are what the question's @ tokens expanded to; the question keeps the tokens as typed.
+  send(question: string, position: Position | null, attachments: readonly string[]): void
   interrupt(): void
   close(): void
 }

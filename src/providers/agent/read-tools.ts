@@ -1,6 +1,6 @@
 import type { Comment } from "../../types"
 import { groupIntoThreads, type Thread } from "../../utils/threads"
-import { describeFile, formatDiffLine, hunksOf, type Hunk } from "./hunks"
+import { describeFile, fileDiffLines, hunkLines, hunksOf } from "./hunks"
 import { TREE_CUT_OFF, type ReviewSource, type Side } from "./review-source"
 
 export const PAGE_LINES = 2000
@@ -20,8 +20,6 @@ function page(lines: readonly string[], offset = 0): string {
       : ""
   return `${shown.join("\n")}${more}`
 }
-
-const hunkLines = (hunk: Hunk) => [hunk.header, ...hunk.lines.map(formatDiffLine)]
 
 const firstLine = (text: string) => text.split("\n", 1)[0] ?? ""
 
@@ -121,7 +119,7 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
         if (hunk !== undefined && !hunks[hunk]) {
           return `${path} has no hunk ${hunk}; it has ${hunks.length}.`
         }
-        const lines = hunk === undefined ? hunks.flatMap(hunkLines) : hunkLines(hunks[hunk]!)
+        const lines = hunk === undefined ? fileDiffLines(file) : hunkLines(hunks[hunk]!)
         return page(lines, offset)
       }),
     readFile: (path: string, side: Side, offset?: number) =>

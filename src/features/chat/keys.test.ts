@@ -92,3 +92,11 @@ test("backspace deletes while there is text, and walks left once the input is em
   keys.pressBackspace()
   expect(moves).toEqual(["left"])
 })
+
+test("a question that does not go keeps its text in the input", async () => {
+  const { keys, input, fake, state } = await chat()
+  state.send = () => false
+  await keys.typeText("@nope.ts why")
+  keys.pressEnter()
+  expect([fake.asked, input.plainText]).toEqual([[], "@nope.ts why"])
+})

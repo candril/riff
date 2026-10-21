@@ -23,10 +23,8 @@ export function handleChatKey(key: KeyEvent, ctx: ChatKeyContext): true {
   if ((key.name === "return" || key.name === "enter") && !key.shift && !key.meta) {
     key.preventDefault()
     const text = input?.plainText ?? ""
-    if (text.trim() !== "") {
-      ctx.state.send(text)
-      input?.clear()
-    }
+    // A question that did not go keeps its text, so a mistyped @path is fixed rather than retyped.
+    if (ctx.state.send(text)) input?.clear()
     return true
   }
   // Ctrl-j is a line feed on the wire; the kitty protocol reports it as itself.

@@ -7,7 +7,7 @@ import {
 import type { Agent, AgentEvents, AgentFailure, AgentSession } from "./agent"
 import { agentDirectory, agentEnv, claudeExecutable } from "./environment"
 import { Inbox } from "./inbox"
-import { formatForAgent } from "./position"
+import { questionText } from "./question"
 import { buildContext } from "./prompt"
 import type { AgentFile, AgentTarget } from "./target"
 import { SERVER, allowedToolsOf, createToolServer, type AgentTool, type AgentToolset } from "./tool-server"
@@ -162,10 +162,10 @@ function startSession(
   }
 
   return {
-    send(question, position) {
+    send(question, position, attachments) {
       toolset.startAnswer()
       interrupted = false
-      const text = position ? `${formatForAgent(position)}\n\n${question}` : question
+      const text = questionText(question, position, attachments)
       void ensureOpen().then((running) => running?.inbox.push(text))
     },
     interrupt() {

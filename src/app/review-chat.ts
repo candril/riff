@@ -9,6 +9,7 @@ import { agentFilesOf, agentTargetOf, hiddenFileCount } from "../providers/agent
 import { demoAgent } from "../features/chat/demo-agent"
 import { createChatState, type ChatState } from "../features/chat/state"
 import { chatPositionOf } from "../features/chat/position-of"
+import { expandReferences, type Expanded } from "../features/chat/references"
 import type { Position } from "../providers/agent/position"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
@@ -40,7 +41,20 @@ export function reviewAgent(deps: ReviewChatDeps): Agent {
 
 /** One conversation per app; its session opens on the first question, so building it spawns nothing. */
 export function createReviewChat(deps: ReviewChatDeps): ChatState {
-  return createChatState(reviewAgent(deps), deps.position)
+  return createChatState(reviewAgent(deps), deps.position, reviewReferences(deps.getState))
+}
+
+/** A question's `@` tokens, read against the review as it stands when the question is sent. */
+export function reviewReferences(getState: () => AppState) {
+  return (text: string, position: Position | null): Expanded => {
+    const state = getState()
+    const pr = state.prInfo
+    return expandReferences(text, {
+      files: state.files,
+      position,
+      pr: pr && { number: pr.number, title: pr.title, description: pr.body, files: agentFilesOf(state) },
+    })
+  }
 }
 
 export interface DiffCursorDeps {

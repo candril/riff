@@ -3,7 +3,7 @@ import { createFileTreeIsland } from "../app/file-tree"
 import { createThreadPanelIsland } from "../app/thread-panel"
 import { createChatColumnIsland } from "../app/chat-column"
 import { createChatState } from "../features/chat/state"
-import { diffCursorPosition } from "../app/review-chat"
+import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
 import { parseDiff } from "../utils/diff-parser"
@@ -111,6 +111,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       getScope: () => split.commentScope(),
       getRows: () => split.splitRows(),
     }),
+    reviewReferences(() => state),
   )
   const overlayHosts = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host

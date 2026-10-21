@@ -44,6 +44,11 @@ export function formatDiffLine(line: ExcerptLine): string {
   return `${number(line.oldLine)} ${number(line.newLine)} ${sign}${line.text}`
 }
 
+export const hunkLines = (hunk: Hunk) => [hunk.header, ...hunk.lines.map(formatDiffLine)]
+
+// What read_diff pages through and what an @file attaches: one text, so the agent's offsets agree.
+export const fileDiffLines = (file: DiffFile) => hunksOf(file).flatMap(hunkLines)
+
 export function countsOf(file: DiffFile): string {
   return /^@@ /m.test(file.content) ? `+${file.additions} -${file.deletions}` : "no line changes"
 }

@@ -154,3 +154,25 @@ test("dispose closes the session it opened", () => {
   chat.dispose()
   expect(fake.closes()).toBe(1)
 })
+
+test("@ tokens expand against the question's own position; the agent gets the attachments, the entry the labels", () => {
+  const fake = fakeAgent()
+  const where: Position = { path: "a.ts", excerpt: [], label: "a.ts:1" }
+  const seen: Array<Position | null> = []
+  const chat = createChatState(fake.agent, () => where, (text, position) => {
+    seen.push(position)
+    return { attachments: [`[${text}]`], labels: ["@file a.ts"] }
+  })
+  expect(chat.send("@file why")).toBe(true)
+  expect(seen).toEqual([where])
+  expect(fake.attachments).toEqual([["[@file why]"]])
+  const question = chat.entries[0] as Extract<(typeof chat.entries)[number], { kind: "question" }>
+  expect([question.text, [...question.labels]]).toEqual(["@file why", ["@file a.ts"]])
+})
+
+test("a token that names nothing sends nothing and leaves an error note", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, () => null, () => ({ error: "@x.ts is not a file of this change." }))
+  expect(chat.send("@x.ts why")).toBe(false)
+  expect([fake.starts(), kinds(chat)]).toEqual([0, ["N:error:@x.ts is not a file of this change."]])
+})
