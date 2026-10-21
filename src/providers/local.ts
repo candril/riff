@@ -1,5 +1,6 @@
 import { $ } from "bun"
 import type { PrCommit } from "./github"
+import { gitSidesOf, type GitBase } from "./git-target"
 
 export type VcsType = "git" | "jj" | "none"
 
@@ -342,13 +343,16 @@ async function getGitFileContent(filename: string, target?: string): Promise<str
     return await $`git show HEAD:${filename}`.text()
   }
 
-  if (target.startsWith("branch:")) {
-    const branch = target.slice(7)
-    return await $`git show ${branch}:${filename}`.text()
-  }
+  return await $`git show ${gitSidesOf(target).head}:${filename}`.text()
+}
 
-  // Specific commit
-  return await $`git show ${target}:${filename}`.text()
+// The diff is measured from where the two ends last met, so its old line numbers count from there;
+// either tip is the wrong version of the file whenever its side has moved on since.
+async function resolveGitBase(base: GitBase): Promise<string> {
+  if ("rev" in base) return base.rev
+  const [from, to] = base.mergeBaseOf
+  const mergeBase = (await $`git merge-base ${from} ${to}`.text()).trim()
+  return mergeBase || from
 }
 
 /**
@@ -377,23 +381,7 @@ export async function getOldFileContent(
       return await $`git show HEAD:${filename}`.text()
     }
 
-    if (target.startsWith("branch:")) {
-      const branch = target.slice(7)
-      // The diff is `branch...HEAD`, measured from where the two last met.
-      // Its old line numbers count from there, so the branch's tip is the
-      // wrong version of the file whenever the branch has moved on since.
-      const mergeBase = (await $`git merge-base ${branch} HEAD`.text()).trim()
-      return await $`git show ${mergeBase || branch}:${filename}`.text()
-    }
-
-    // For a commit range like "abc123..def456", get the first commit
-    if (target.includes("..")) {
-      const base = target.split("..")[0]
-      return await $`git show ${base}:${filename}`.text()
-    }
-
-    // Single commit - get its parent
-    return await $`git show ${target}^:${filename}`.text()
+    return await $`git show ${await resolveGitBase(gitSidesOf(target).base)}:${filename}`.text()
   } catch {
     return null
   }

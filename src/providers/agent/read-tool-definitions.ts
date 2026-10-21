@@ -22,8 +22,8 @@ export function readToolDefinitions(tools: ReadTools): AgentTool[] {
     tool(
       "list_files",
       "List the changed files with status and +/- counts, optionally under one directory.",
-      { dir: z.string().optional().describe("Directory path, without trailing slash") },
-      async ({ dir }) => asContent(await tools.listFiles(dir)),
+      { dir: z.string().optional().describe("Directory path, without trailing slash"), offset },
+      async ({ dir, offset }) => asContent(await tools.listFiles(dir, offset)),
       always,
     ),
     tool(

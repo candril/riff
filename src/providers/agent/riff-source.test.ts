@@ -82,12 +82,44 @@ test("a local file the VCS cannot read is missing, and the target reaches the re
   expect(targets).toEqual(["branch:main", "branch:main"])
 })
 
-test("the tree is listed once per revision", async () => {
+test("a local tree is listed on every read, so a file added since shows up", async () => {
+  const paths = ["a.ts", "b.ts"]
   let listed = 0
-  const source = localSource({ localTree: async () => (listed++, ["a.ts", "b.ts"]) })
+  const source = localSource({ localTree: async () => (listed++, [...paths]) })
   expect(await source.tree()).toEqual(["a.ts", "b.ts"])
-  expect(await source.tree()).toEqual(["a.ts", "b.ts"])
-  expect(listed).toBe(1)
+  paths.push("c.ts")
+  expect(await source.tree()).toEqual(["a.ts", "b.ts", "c.ts"])
+  expect(listed).toBe(2)
+})
+
+test("a PR's tree is listed once per head", async () => {
+  let head = "abc123"
+  const shas: string[] = []
+  const source = createRiffSource({
+    state: () => prState,
+    target: undefined,
+    headSha: () => head,
+    readers: stubbed({
+      prTree: async (_owner, _repo, sha) => (shas.push(sha), { paths: [sha], truncated: false }),
+    }),
+  })
+  expect(await source.tree()).toEqual(["abc123"])
+  expect(await source.tree()).toEqual(["abc123"])
+  head = "def456"
+  expect(await source.tree()).toEqual(["def456"])
+  expect(shas).toEqual(["abc123", "def456"])
+})
+
+test("a failed PR listing is tried again on the next read", async () => {
+  let calls = 0
+  const source = prSource({
+    prTree: async () => {
+      if (calls++ === 0) throw new Error("GitHub is down")
+      return { paths: ["a.ts"], truncated: false }
+    },
+  })
+  await expect(source.tree()).rejects.toThrow("GitHub is down")
+  expect(await source.tree()).toEqual(["a.ts"])
 })
 
 test("a PR's tree is listed at the head, and says so when GitHub cut it off", async () => {

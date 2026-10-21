@@ -43,7 +43,10 @@ test("the changed files carry their status and counts", () => {
 })
 
 test("files the reviewer's ignore patterns hide are left out and counted", () => {
-  const state = { ...createInitialState(files, buildFileTree(files), "local", ""), ignoredFiles: new Set([files[1]!.filename]) }
+  const state = {
+    ...createInitialState(files, buildFileTree(files), "local", ""),
+    ignoredFiles: new Set([files[1]!.filename]),
+  }
   expect(agentFilesOf(state).map((f) => f.path)).toEqual([files[0]!.filename])
   expect(hiddenFileCount(state)).toBe(1)
 })

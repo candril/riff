@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import type { AppState } from "../../state"
 import { getPrBaseFileContent, getPrFileContent, type FileContentResult } from "../github"
+import { gitSidesOf } from "../git-target"
 import { detectVcs, getFileContent, getOldFileContent } from "../local"
 import { TREE_CUT_OFF, type FileText, type ReviewSource } from "./review-source"
 
@@ -37,14 +38,6 @@ async function githubTree(owner: string, repo: string, sha: string) {
   }
 }
 
-// The revision a git review's diff runs to: `branch...HEAD` for a branch target, the right end of
-// a range, and otherwise the commit getFileContent reads the head from.
-function gitHeadOf(target: string): string {
-  if (target.startsWith("branch:")) return "HEAD"
-  if (target.includes("..")) return target.split("..").at(-1) || "HEAD"
-  return target
-}
-
 async function vcsTree(target?: string): Promise<string[] | null> {
   const vcs = await detectVcs()
   if (vcs === "none") return null
@@ -52,7 +45,7 @@ async function vcsTree(target?: string): Promise<string[] | null> {
     vcs === "jj"
       ? $`jj file list -r ${target ?? "@"}`
       : target
-        ? $`git ls-tree -r --name-only ${gitHeadOf(target)}`
+        ? $`git ls-tree -r --name-only ${gitSidesOf(target).head}`
         : $`git ls-files`
   return (await listing.quiet().text()).split("\n").filter(Boolean)
 }
@@ -79,7 +72,7 @@ function textOf(content: string): FileText {
  */
 export function createRiffSource(deps: RiffSourceDeps): ReviewSource {
   const read = { ...DEFAULT_READERS, ...deps.readers }
-  const trees = new Map<string, Promise<readonly string[]>>()
+  const prTrees = new Map<string | null, Promise<readonly string[]>>()
   const prOf = () => {
     const state = deps.state()
     return state.appMode === "pr" ? state.prInfo : null
@@ -91,14 +84,13 @@ export function createRiffSource(deps: RiffSourceDeps): ReviewSource {
     throw new Error(result.error)
   }
 
-  async function loadTree(): Promise<readonly string[]> {
-    const pr = prOf()
-    if (pr) {
-      const sha = deps.headSha()
-      if (!sha) throw new Error("the PR's head commit is not loaded yet")
-      const { paths, truncated } = await read.prTree(pr.owner, pr.repo, sha)
-      return truncated ? [...paths, TREE_CUT_OFF] : paths
-    }
+  async function loadPrTree(owner: string, repo: string, sha: string | null): Promise<readonly string[]> {
+    if (!sha) throw new Error("the PR's head commit is not loaded yet")
+    const { paths, truncated } = await read.prTree(owner, repo, sha)
+    return truncated ? [...paths, TREE_CUT_OFF] : paths
+  }
+
+  async function loadLocalTree(): Promise<readonly string[]> {
     const paths = await read.localTree(deps.target)
     return paths ?? deps.state().files.map((file) => file.filename)
   }
@@ -121,14 +113,18 @@ export function createRiffSource(deps: RiffSourceDeps): ReviewSource {
         side === "head" ? await read.localHead(path, deps.target) : await read.localBase(path, deps.target)
       return content === null ? { kind: "missing" } : textOf(content)
     },
+    // Only a PR's tree is remembered, per head: listing it is a GitHub call, while a local listing
+    // is a cheap spawn over a working copy that keeps changing while riff runs.
     tree() {
-      const key = prOf() ? `pr:${deps.headSha()}` : `local:${deps.target ?? "@"}`
-      const cached = trees.get(key)
+      const pr = prOf()
+      if (!pr) return loadLocalTree()
+      const sha = deps.headSha()
+      const cached = prTrees.get(sha)
       if (cached) return cached
-      const loading = loadTree()
-      trees.set(key, loading)
+      const loading = loadPrTree(pr.owner, pr.repo, sha)
+      prTrees.set(sha, loading)
       // A failed listing is not remembered, so the next read tries again.
-      loading.catch(() => trees.delete(key))
+      loading.catch(() => prTrees.delete(sha))
       return loading
     },
   }

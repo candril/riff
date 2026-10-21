@@ -82,7 +82,7 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
     startAnswer: () => {
       reads = 0
     },
-    listFiles: (dir?: string) =>
+    listFiles: (dir?: string, offset?: number) =>
       guarded(`list files${dir ? ` in ${dir}` : ""}`, () => {
         const prefix = prefixOf(dir)
         const hidden = source.hiddenPaths()
@@ -95,7 +95,7 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
         const note = left
           ? `${left} more ${left === 1 ? "file" : "files"} hidden by the reviewer's ignore patterns; read_diff reads them by path.`
           : ""
-        return [page(shown.map(describeFile)), note].filter(Boolean).join("\n")
+        return [page(shown.map(describeFile), offset), note].filter(Boolean).join("\n")
       }),
     listHunks: (path: string) =>
       guarded(`hunks of ${path}`, () => {

@@ -54,6 +54,25 @@ test("hidden files are left out of the list, counted, and still readable by path
   expect((await t.readDiff("src/farewell.ts")).text).toContain("    1 +export function farewell")
 })
 
+test("a long file list pages by offset, and every page says what is hidden", async () => {
+  const many = Array.from({ length: PAGE_LINES + 500 }, (_, i) => ({ ...files[0]!, filename: `src/f${i}.ts` }))
+  const t = tools({ files: () => [...many, files[1]!], hiddenPaths: () => new Set([files[1]!.filename]) })
+  const hiddenNote = "1 more file hidden by the reviewer's ignore patterns; read_diff reads them by path."
+
+  const first = (await t.listFiles()).text.split("\n")
+  expect(first[0]).toBe("modified src/f0.ts (+2 -1)")
+  expect(first.at(-2)).toBe(
+    `[lines 1–${PAGE_LINES} of ${PAGE_LINES + 500}; call again with offset=${PAGE_LINES} for more]`,
+  )
+  expect(first.at(-1)).toBe(hiddenNote)
+
+  const rest = (await t.listFiles(undefined, PAGE_LINES)).text.split("\n")
+  expect(rest[0]).toBe(`modified src/f${PAGE_LINES}.ts (+2 -1)`)
+  expect(rest.at(-2)).toBe(`modified src/f${PAGE_LINES + 499}.ts (+2 -1)`)
+  expect(rest.at(-1)).toBe(hiddenNote)
+  expect(rest).toHaveLength(501)
+})
+
 test("lists hunks and reads one with old and new numbers", async () => {
   const t = tools()
   expect((await t.listHunks("src/greet.ts")).text).toBe("0: @@ -1,5 +1,5 @@")
