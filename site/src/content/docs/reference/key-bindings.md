@@ -40,6 +40,7 @@ These are for moving the view on its own.
 | `zL` `zH` | Scroll half a screen right, left |
 | `zs` `ze` | Put the cursor's column at the left, right edge |
 | `gl` | Peek the line in full — or, in a markdown table, the table as a grid |
+| `gb` | Who last changed this line: its commit and PR; then `go` opens it and `y` copies the sha |
 | `zw` | Toggle soft wrap for the whole diff |
 
 ## Jumping

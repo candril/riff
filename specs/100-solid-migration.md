@@ -65,7 +65,7 @@ queue. At the user's request the migration also added:
 - page motions in the file tree and the thread panel, and the open-only
   and unviewed-only filters ([107](./107-panel-filters.md))
 - the agent chat ([102](./102-agent-chat.md), in progress)
-- blame (103, planned, not yet written)
+- blame ([103](./103-blame.md), in progress)
 
 ## Out of Scope
 

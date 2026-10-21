@@ -61,6 +61,7 @@ import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
+import { createBlameKeys, type BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
 import { openTextInEditor } from "../utils/editor"
@@ -130,6 +131,8 @@ export interface GlobalKeyContext {
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   threadMotionContext: threadMotion.ThreadMotionContext
   marksContext: marks.MarksContext
+  /** `gb`'s blame source and the browser and clipboard its peek hands off to (spec 103). */
+  blame: BlameDeps
   /** The chat column's conversation and its input (spec 102). */
   chat: { state: ChatState; input: () => TextareaRenderable | null }
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
@@ -260,6 +263,23 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     }
     ctx.render()
   }
+
+  const blame = createBlameKeys({
+    deps: ctx.blame,
+    getState: ctx.getState,
+    setState: ctx.setState,
+    getLineMapping: ctx.getLineMapping,
+    getVimState: ctx.getVimState,
+    render: ctx.render,
+    toast(message, type) {
+      ctx.setState((s) => showToast(s, message, type))
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2000)
+    },
+  })
 
   // Key sequence tracking
   let pendingKey: string | null = null
@@ -1114,6 +1134,11 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       return
     }
 
+    // ========== BLAME PEEK (modal: gb toggles it, Esc or q closes) ==========
+    if (ctx.getState().blamePeek && ctx.getState().viewMode === "diff" && !pendingKey && blame.handleKey(key)) {
+      return
+    }
+
     // ========== PEEK (modal: gl toggles it, Esc or q closes) ==========
     if (ctx.getState().showLinePeek && !pendingKey) {
       if (key.name === "escape" || key.name === "q") {
@@ -1475,6 +1500,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         syncPreview.handleOpenSyncPreview(ctx.syncPreviewOpenContext)
         return
       } else if (sequence === "go") {
+        if (s.viewMode === "diff" && blame.openLink()) return
         if (s.appMode === "pr" && s.prInfo) {
           const { owner, repo, number: prNumber } = s.prInfo
           Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
@@ -1555,6 +1581,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         } else if (s.appMode === "local") {
           ctx.executeAction("create-pr")
         }
+        return
+      } else if (sequence === "gb") {
+        // Who last changed the cursor's line, and the commit that says why (spec 103).
+        if (s.viewMode === "diff") blame.toggle()
         return
       } else if (sequence === "gl") {
         // The whole line, wrapped, for when scrolling through it sideways

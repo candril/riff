@@ -1,0 +1,119 @@
+import type { KeyEvent } from "@opentui/core"
+import type { SplitRows } from "../../diff-rows/row-source"
+import type { BlameSource } from "../../providers/blame/source"
+import type { RepoRef } from "../../providers/repo"
+import type { AppState } from "../../state"
+import type { CopyResult } from "../../utils/clipboard"
+import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import type { VimCursorState } from "../../vim-diff/types"
+import { blameLinkOf } from "./link"
+import { closeBlamePeek, openBlamePeek, settleBlamePeek, type BlameOutcome } from "./peek-state"
+import { blameTargetOf } from "./target"
+
+/** What `gb` and its peek reach outside riff's state; every spawn is injected, so tests stub them all. */
+export interface BlameDeps {
+  source: BlameSource
+  openUrl(url: string): void
+  copy(text: string): Promise<CopyResult>
+  repoRef(): Promise<RepoRef | null>
+  /** The split view's rows while it is drawn; null in unified. */
+  splitRows(): SplitRows | null
+}
+
+export interface BlameKeysContext {
+  deps: BlameDeps
+  getState(): AppState
+  setState(fn: (state: AppState) => AppState): void
+  getLineMapping(): DiffLineMapping
+  getVimState(): VimCursorState
+  render(): void
+  toast(message: string, type: "success" | "error" | "info"): void
+}
+
+export function createBlameKeys(ctx: BlameKeysContext) {
+  // Never reset, so an answer for a peek already closed can never match a later one.
+  let lastRequest = 0
+
+  function settle(request: number, outcome: BlameOutcome): void {
+    ctx.setState((s) => settleBlamePeek(s, request, outcome))
+    ctx.render()
+  }
+
+  function open(): void {
+    const { deps } = ctx
+    const target = blameTargetOf({ mapping: ctx.getLineMapping(), vim: ctx.getVimState(), rows: deps.splitRows() })
+    if (!target) {
+      ctx.toast("No line to blame here", "info")
+      return
+    }
+    const request = ++lastRequest
+    ctx.setState((s) => openBlamePeek(s, target, request))
+    ctx.render()
+    deps.source.lineBlame(target.path, target.side, target.line).then(
+      (result) => settle(request, { result }),
+      (error: unknown) => settle(request, { message: error instanceof Error ? error.message : String(error) }),
+    )
+  }
+
+  function close(): void {
+    ctx.setState(closeBlamePeek)
+    ctx.render()
+  }
+
+  function settledResult() {
+    const peek = ctx.getState().blamePeek
+    return peek?.status === "ready" ? peek.result : null
+  }
+
+  function copySha(): void {
+    const line = settledResult()?.line
+    if (!line) return
+    if (line.kind === "uncommitted") {
+      ctx.toast("Not committed yet", "info")
+      return
+    }
+    const { sha, shortSha } = line.commit
+    void ctx.deps.copy(sha).then((copied) =>
+      copied.ok ? ctx.toast(`Copied ${shortSha}`, "success") : ctx.toast(`Copy failed: ${copied.error}`, "error"),
+    )
+  }
+
+  return {
+    /** `gb`: opens the peek on the cursor's line, or closes it, as `gl` toggles its own. */
+    toggle(): void {
+      if (ctx.getState().blamePeek) close()
+      else open()
+    },
+
+    /**
+     * The open peek's keys. Every key but `g` stops here, so nothing behind
+     * the peek moves while it is up; `g` goes on to the chord matcher for
+     * `go` and `gb`.
+     */
+    handleKey(key: Pick<KeyEvent, "name" | "ctrl" | "shift">): boolean {
+      if (key.name === "escape" || key.name === "q") {
+        close()
+        return true
+      }
+      if (key.name === "y" && !key.ctrl && !key.shift) {
+        copySha()
+        return true
+      }
+      return !(key.name === "g" && !key.ctrl && !key.shift)
+    },
+
+    /** `go` with the peek up: the PR that brought the line in, or its commit. False when no peek is open. */
+    openLink(): boolean {
+      if (!ctx.getState().blamePeek) return false
+      const result = settledResult()
+      if (result?.line.kind !== "commit") return true
+      const { deps } = ctx
+      void deps.repoRef().then((repo) => {
+        const url = blameLinkOf(result, repo)
+        if (url) deps.openUrl(url)
+        else ctx.toast("No GitHub remote to open the commit on", "info")
+      })
+      return true
+    },
+  }
+}

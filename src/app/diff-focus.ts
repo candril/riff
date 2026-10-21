@@ -18,7 +18,7 @@ export function overlayOpen(state: AppState, promptOpen: boolean): boolean {
     state.commitPicker.open ||
     state.syncPreview.open ||
     state.confirmDialog !== null ||
-    (state.showLinePeek && state.viewMode === "diff")
+    ((state.showLinePeek || state.blamePeek !== null) && state.viewMode === "diff")
   )
 }
 

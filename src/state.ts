@@ -13,6 +13,7 @@ import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState, type MarksPickerState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
+import type { BlamePeekState } from "./features/blame/peek-state"
 import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -427,6 +428,8 @@ export interface AppState {
   helpScroll: number
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
+  /** `gb` — who last changed the cursor's line (spec 103). */
+  blamePeek: BlamePeekState | null
   /** Which version of a changed block the peek is drawing (spec 058). */
   peekSide: "new" | "old"
   /** Where a peek too big for the window is scrolled to, in rows and
@@ -661,6 +664,7 @@ export function createInitialState(
     showHelp: false,
     helpScroll: 0,
     showLinePeek: false,
+    blamePeek: null,
     peekSide: "new",
     peekScroll: { row: 0, col: 0 },
     wrapLines: false,

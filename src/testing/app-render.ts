@@ -88,6 +88,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     commitPicker: createCommitPickerIsland(renderer),
     helpOverlay: createHelpOverlayIsland(renderer),
     diffPeek: createPeekIsland(renderer, { id: "diff-peek-island" }),
+    blamePeek: createPeekIsland(renderer, { id: "blame-peek-island" }),
     hunkPeek: createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 }),
     confirmDialog: createConfirmDialogIsland(renderer),
   }

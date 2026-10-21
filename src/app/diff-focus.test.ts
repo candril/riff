@@ -18,6 +18,7 @@ const hidden: [string, (s: AppState) => AppState][] = [
   ["the review preview", (s) => ({ ...s, reviewPreview: { ...s.reviewPreview, open: true } })],
   ["a confirmation", (s) => ({ ...s, confirmDialog: { title: "Delete", message: "Sure?", onConfirm() {}, onCancel() {} } })],
   ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
+  ["the blame peek over the diff", (s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } })],
   ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
   ["a composer", comments({ mode: "compose" }, "diff")],
   ["the chat holding the keys", (s) => ({ ...s, chatOpen: true, focusedPanel: "chat" })],

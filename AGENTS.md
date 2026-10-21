@@ -304,6 +304,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Sync Changes | gs | Sync local comments/edits/replies |
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
+| Blame | gb | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
 | PR Info | gi | Show PR details |
 | PR state / feed / diff | i / a / d | The three views; the same key again goes back |
 | Filter | Ctrl+f | Narrow whatever has focus |

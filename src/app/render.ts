@@ -58,6 +58,7 @@ import type {
 } from "./pickers"
 import { pickerModels } from "./picker-models"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
+import { blamePeekModel } from "../components/blame-peek-model"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
@@ -109,6 +110,7 @@ export interface RenderContext {
   feed: FeedIsland
   helpOverlay: HelpOverlayIsland
   diffPeek: PeekIsland
+  blamePeek: PeekIsland
   hunkPeek: PeekIsland
   filePicker: FilePickerIsland
   commentsPicker: CommentsPickerIsland
@@ -403,7 +405,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       codePeekId !== null
         ? hunkPeekModel(getInlineCommentOverlayComments(state), codePeekId, ctx.renderer.width, ctx.renderer.height)
         : null
+    const blamePeek =
+      state.blamePeek && state.viewMode === "diff"
+        ? blamePeekModel({ ...state.blamePeek, now: Date.now(), terminalWidth: ctx.renderer.width, terminalHeight: ctx.renderer.height })
+        : null
     ctx.diffPeek.update(diffPeek)
+    ctx.blamePeek.update(blamePeek)
     ctx.hunkPeek.update(hunkPeek)
     const pickers = pickerModels(state, ctx.renderer.width, ctx.renderer.height, new Date())
     ctx.filePicker.update(pickers.file)
@@ -430,6 +437,7 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.shell.show("commitPicker", state.commitPicker.open)
     ctx.shell.show("helpOverlay", state.showHelp)
     ctx.shell.show("diffPeek", diffPeek !== null)
+    ctx.shell.show("blamePeek", blamePeek !== null)
     ctx.shell.show("hunkPeek", hunkPeek !== null)
     ctx.shell.show("confirmDialog", !!state.confirmDialog)
 

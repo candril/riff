@@ -300,6 +300,7 @@ test("the hosts are stacked header first and the overlays in their fixed order, 
     "commitPicker",
     "helpOverlay",
     "diffPeek",
+    "blamePeek",
     "hunkPeek",
     "confirmDialog",
   ])

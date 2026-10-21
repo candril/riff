@@ -40,6 +40,11 @@ import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
 import { markVisit } from "./utils/visit"
 import { openUrl } from "./utils/open-url"
+import { copyToClipboard } from "./utils/clipboard"
+import { getCurrentRepoRef } from "./providers/repo"
+import { createBlameSource } from "./providers/blame/source"
+import { demoBlameSource } from "./features/blame/demo-source"
+import type { BlameDeps } from "./features/blame/keys"
 import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage"
 import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
@@ -323,6 +328,7 @@ export async function createApp(options: AppOptions = {}) {
     feedIsland.dispose()
     helpOverlay.dispose()
     diffPeek.dispose()
+    blamePeek.dispose()
     hunkPeek.dispose()
     filePickerIsland.dispose()
     commentsPickerIsland.dispose()
@@ -526,6 +532,21 @@ export async function createApp(options: AppOptions = {}) {
     note: chat.note,
   })
   chat.onSessionClosed(proposals.endConversation)
+  const blame: BlameDeps = {
+    source: options.demo
+      ? demoBlameSource()
+      : createBlameSource({ state: () => state, target: options.target, headSha: () => currentHeadSha ?? null }),
+    openUrl: (url) => void openUrl(url),
+    copy: copyToClipboard,
+    repoRef: async () =>
+      state.appMode === "pr" && state.prInfo ? { owner: state.prInfo.owner, repo: state.prInfo.repo } : getCurrentRepoRef(),
+    // `split` is built below; gb only ever runs once the app is. A jump may have
+    // landed on the other half of a row, and the pane follows it, as for a comment.
+    splitRows: () => {
+      split.syncPane()
+      return split.splitRows()
+    },
+  }
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
@@ -544,6 +565,7 @@ export async function createApp(options: AppOptions = {}) {
   const feedIsland = createFeedIsland(renderer)
   const helpOverlay = createHelpOverlayIsland(renderer)
   const diffPeek = createPeekIsland(renderer, { id: "diff-peek-island" })
+  const blamePeek = createPeekIsland(renderer, { id: "blame-peek-island" })
   // Above the comments panel (50), which is what this is drawn over.
   const hunkPeek = createPeekIsland(renderer, { id: "hunk-peek-island", zIndex: 60 })
   const filePickerIsland = createFilePickerIsland(renderer)
@@ -621,6 +643,7 @@ export async function createApp(options: AppOptions = {}) {
       commitPicker: commitPickerIsland.host,
       helpOverlay: helpOverlay.host,
       diffPeek: diffPeek.host,
+      blamePeek: blamePeek.host,
       hunkPeek: hunkPeek.host,
       confirmDialog: confirmDialog.host,
     },
@@ -651,6 +674,7 @@ export async function createApp(options: AppOptions = {}) {
     feed: feedIsland,
     helpOverlay,
     diffPeek,
+    blamePeek,
     hunkPeek,
     filePicker: filePickerIsland,
     commentsPicker: commentsPickerIsland,
@@ -1804,6 +1828,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfoPanelOpenContext,
     threadMotionContext,
     marksContext,
+    blame,
     chat: { state: chat, input: chatColumn.input },
     composerSettled: proposals.composerSettled,
   })

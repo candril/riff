@@ -2,7 +2,7 @@
 
 **Status**: In Progress
 
-**Not built**: P1's peek and its keys (`gb`, `go`, `y`), P2
+**Not built**: P2
 
 ## Description
 

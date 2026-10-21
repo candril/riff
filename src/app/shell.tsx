@@ -21,6 +21,7 @@ export const OVERLAYS = [
   "commitPicker",
   "helpOverlay",
   "diffPeek",
+  "blamePeek",
   "hunkPeek",
   "confirmDialog",
 ] as const

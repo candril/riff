@@ -26,6 +26,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["zs / ze", "Cursor column to left / right edge"],
       ["zz / zt / zb", "Cursor row to centre / top / bottom"],
       ["gl", "Peek the line, its table, or a diagram"],
+      ["gb", "Who last changed this line"],
       ["zw", "Toggle soft wrap"],
       ["\\", "Toggle side by side (120+ columns)"],
     ],
