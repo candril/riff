@@ -13,7 +13,7 @@ import {
 import type { ReviewThread, ReviewWithThreads } from "./pr-info-conversation"
 import { TIME_COLUMN_WIDTH, cleanBodyPreview, formatTimeAgo, getReviewIcon, threadActivityAt, truncate } from "./pr-info-format"
 import { flatConversationItemId, type FlatConversationItem } from "./pr-info-items"
-import type { PrConversationComment } from "../providers/github"
+import type { PrConversationComment } from "../providers/github/types"
 
 /**
  * A cell of a one-line row. `fixed` keeps its width (flexShrink 0), `grow`

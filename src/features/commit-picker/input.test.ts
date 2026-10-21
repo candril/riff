@@ -8,7 +8,7 @@ import {
   toggleCommitRange,
   type AppState,
 } from "../../state"
-import type { PrCommit } from "../../providers/github"
+import type { PrCommit } from "../../providers/github/types"
 import type { KeyEvent } from "@opentui/core"
 
 // Newest first, as both providers report them.

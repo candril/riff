@@ -1,4 +1,4 @@
-import type { PrCheck, PrCommit, PrConversationComment, PrInfo, PrReview } from "../providers/github"
+import type { PrCheck, PrCommit, PrConversationComment, PrInfo, PrReview } from "../providers/github/types"
 import type { Comment } from "../types"
 import type { PreviewSet } from "../utils/previews"
 

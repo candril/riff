@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { buildFeed, visibleFeed, type TimelineEntry } from "./feed"
 import type { Comment } from "../types"
-import type { PrCheck, PrCommit } from "../providers/github"
+import type { PrCheck, PrCommit } from "../providers/github/types"
 
 const timeline: TimelineEntry[] = [
   {

@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { colors, theme } from "../theme"
 import { headerModel, summarizeChecks, type HeaderPart } from "./header-model"
-import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
+import type { PrCheck, PrCommit, PrInfo } from "../providers/github/types"
 import type { DiffFile } from "../utils/diff-parser"
 import type { BranchPr } from "../providers/current-pr"
 

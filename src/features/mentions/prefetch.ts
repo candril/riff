@@ -13,7 +13,7 @@
  */
 
 import type { AppState } from "../../state"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import { mergeMentionableUsers } from "../../state"
 import { getMentionableUsers } from "../../providers/github"
 import {

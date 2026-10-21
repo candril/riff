@@ -29,7 +29,7 @@
  */
 
 import type { Comment } from "../../types"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import type { AppMode } from "../../types"
 import type { AppState } from "../../state"
 import {

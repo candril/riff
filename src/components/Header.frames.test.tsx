@@ -3,7 +3,7 @@ import { mountJsx, trimFrame } from "../testing/frame"
 import { Header } from "./Header"
 import { headerModel, type HeaderProps } from "./header-model"
 import { mergeReading } from "../utils/merge-verdict"
-import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
+import type { PrCheck, PrCommit, PrInfo } from "../providers/github/types"
 import type { DiffFile } from "../utils/diff-parser"
 
 /*

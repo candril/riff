@@ -4,7 +4,7 @@
  */
 
 import type { BoxRenderable, CliRenderer, ScrollBoxRenderable } from "@opentui/core"
-import type { PrInfo, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
+import type { PrInfo, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github/types"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"

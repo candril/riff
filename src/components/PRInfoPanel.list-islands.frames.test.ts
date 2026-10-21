@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { BoxRenderable, type Renderable } from "@opentui/core"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import { bgAt, fgAt, findText, ints } from "../testing/frame"
 import { previews, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"

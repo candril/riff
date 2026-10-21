@@ -12,7 +12,7 @@
  */
 
 import type { Comment } from "../types"
-import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
+import type { PrCheck, PrCommit, PrInfo } from "../providers/github/types"
 
 export type FeedEventType =
   | "commit"

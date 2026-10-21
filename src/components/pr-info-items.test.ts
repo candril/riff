@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import { ago, checks, commits, conversationComments, prInfo, previews, reviews, reviewThreadComments } from "../testing/pr-info"
 import type { Comment } from "../types"
 import type { DiffFile } from "../utils/diff-parser"

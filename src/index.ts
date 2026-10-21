@@ -2,7 +2,8 @@
 // This allows the tree-sitter worker to be found in compiled binaries
 
 import { createApp } from "./app"
-import { getCurrentRepo, loadPrSession } from "./providers/github"
+import { loadPrSession } from "./providers/github"
+import { getCurrentRepo } from "./providers/github/exec"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { createDemoRepo } from "./providers/demo"
 import { resolveStorageWithConfirmation } from "./storage"

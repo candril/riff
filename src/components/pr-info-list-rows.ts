@@ -1,4 +1,4 @@
-import type { PrCommit } from "../providers/github"
+import type { PrCommit } from "../providers/github/types"
 import { theme } from "../theme"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow } from "../utils/previews"

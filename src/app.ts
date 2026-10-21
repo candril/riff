@@ -5,9 +5,11 @@ import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRa
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
 import { collapseViewedFiles, loadFileStatuses, toggleSplitView } from "./state"
-import { getCurrentRepo } from "./providers/github"
+import { getCurrentRepo } from "./providers/github/exec"
 import { loadComments, loadOrCreateSession, loadViewedStatuses } from "./storage"
-import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha, getPendingReview, getPrDiff, editPullRequest, createPullRequest, loadPrSession, fetchCommitDiff, fetchCommitRangeDiff, submitPrComment, fetchStackInfo, getPrCheckAnnotations } from "./providers/github"
+import { getPendingReview, editPullRequest, createPullRequest, loadPrSession, submitPrComment, fetchStackInfo, getPrCheckAnnotations } from "./providers/github"
+import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
+import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha } from "./providers/github/content"
 import {
   setFileContentLoading,
   setFileContent,
@@ -50,7 +52,8 @@ import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilte
 import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
-import type { PrInfo, ViewerViewedState } from "./providers/github"
+import type { ViewerViewedState } from "./providers/github"
+import type { PrInfo } from "./providers/github/types"
 import type { DiffFile } from "./utils/diff-parser"
 import { MAX_HIGHLIGHT_BYTES } from "./vim-diff/file-highlights"
 

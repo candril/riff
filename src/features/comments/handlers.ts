@@ -10,7 +10,8 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { ValidatedComment } from "../../components/review-preview-model"
-import type { PrInfo, SubmitResult } from "../../providers/github"
+import type { SubmitResult } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import {
   addComment,
   deleteComment,
@@ -29,14 +30,14 @@ import {
 import { diffHunkAt } from "../../utils/diff-hunk"
 import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 import {
-  getCurrentUser,
-  getPrHeadSha,
   submitSingleComment,
   commentRange,
   submitReply,
   updateComment,
   deleteGitHubComment,
 } from "../../providers/github"
+import { getCurrentUser } from "../../providers/github/exec"
+import { getPrHeadSha } from "../../providers/github/content"
 
 export interface CommentsContext {
   // State access

@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
-import { prFilesAsDiff, type PrFileEntry } from "./github"
-import { parseDiff } from "../utils/diff-parser"
+import { prFilesAsDiff, type PrFileEntry } from "./diff"
+import { parseDiff } from "../../utils/diff-parser"
 
 /** What `parseDiff` makes of one entry, which is the whole point of it. */
 function parsedOne(file: PrFileEntry) {

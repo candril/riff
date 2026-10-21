@@ -1,4 +1,4 @@
-import type { PrInfo, PrReview } from "../providers/github"
+import type { PrInfo, PrReview } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import { theme } from "../theme"
 import { stackText, type StackInfo } from "../utils/stack"

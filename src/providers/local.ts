@@ -1,5 +1,5 @@
 import { $ } from "bun"
-import type { PrCommit } from "./github"
+import type { PrCommit } from "./github/types"
 import { gitSidesOf, type GitBase } from "./git-target"
 
 export type VcsType = "git" | "jj" | "none"

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import type { PrCheck, PrCheckAnnotation } from "../../providers/github"
+import type { PrCheck, PrCheckAnnotation } from "../../providers/github/types"
 import { loadCheckAnnotations, openFailingCheck } from "./check-annotations"
 
 const failing = (): PrCheck => ({

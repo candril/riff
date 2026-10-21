@@ -1,5 +1,5 @@
 import { test, expect, describe, mock } from "bun:test"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import { fgAt, ints } from "../testing/frame"
 import { prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"

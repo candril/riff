@@ -1,4 +1,4 @@
-import type { PrInfo } from "../providers/github"
+import type { PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewSet } from "../utils/previews"

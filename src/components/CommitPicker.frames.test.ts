@@ -4,7 +4,7 @@ import { theme } from "../theme"
 import type { FilteredCommit } from "./CommitPicker"
 import { createCommitPickerIsland } from "../app/pickers"
 import { commitPickerModel, type CommitPickerInput } from "./commit-picker-model"
-import type { PrCommit } from "../providers/github"
+import type { PrCommit } from "../providers/github/types"
 import { EMPTY_CHANGE } from "../providers/local"
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null

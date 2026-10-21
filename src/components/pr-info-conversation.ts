@@ -1,4 +1,4 @@
-import type { PrInfo, PrReview, PrConversationComment } from "../providers/github"
+import type { PrInfo, PrReview, PrConversationComment } from "../providers/github/types"
 import type { Comment, ReactionSummary } from "../types"
 
 /**

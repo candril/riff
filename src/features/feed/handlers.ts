@@ -9,7 +9,8 @@
 
 import type { AppState } from "../../state"
 import { setFeedEvents, setFeedCommitFiles } from "../../state"
-import { fetchPrTimeline, fetchCommitDiff } from "../../providers/github"
+import { fetchPrTimeline } from "../../providers/github"
+import { fetchCommitDiff } from "../../providers/github/diff"
 import { buildFeed } from "../../utils/feed"
 import { parseDiff } from "../../utils/diff-parser"
 

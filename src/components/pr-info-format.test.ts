@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import { theme } from "../theme"
 import { cleanBodyPreview, formatTimeAgo, getCheckStatusDisplay, truncate } from "./pr-info-format"
 

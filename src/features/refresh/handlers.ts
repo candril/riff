@@ -6,7 +6,7 @@
  */
 
 import type { AppState } from "../../state"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import type { AppMode } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"

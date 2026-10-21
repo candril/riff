@@ -1,4 +1,4 @@
-import type { PrCheck, PrCheckAnnotation } from "../../providers/github"
+import type { PrCheck, PrCheckAnnotation } from "../../providers/github/types"
 
 /**
  * Fetch a check's annotations, saying so on the way in and on the way out,

@@ -8,7 +8,7 @@ import type { AppState } from "../../state"
 import type { FileReviewStatus } from "../../types"
 import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import { treeRowsOf, treeRowsWithViewedOf } from "../../components"
 import {
   selectFile,

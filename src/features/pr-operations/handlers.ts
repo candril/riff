@@ -7,7 +7,8 @@
 
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
-import type { PrInfo, SubmitResult } from "../../providers/github"
+import type { SubmitResult } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import {
   showToast,
   clearToast,
@@ -28,10 +29,10 @@ import {
   commentRange,
   submitReview,
   toggleThreadResolution,
-  getPrHeadSha,
-  getCurrentUser,
   getPrComments,
 } from "../../providers/github"
+import { getCurrentUser } from "../../providers/github/exec"
+import { getPrHeadSha } from "../../providers/github/content"
 import { validateCommentsForSubmit } from "../comments"
 
 export interface PrOperationsContext {

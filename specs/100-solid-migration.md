@@ -56,8 +56,15 @@ own, handed their session through `prompt()` and `compose()` by the
 frame's first followers. The diff views draw ahead of publish because the
 frame carries the status bar's readout of them.
 
-**Not built**: M5 (monoliths without UI); M6 (state factories and
-`@opentui/keymap` layers); the file size ratchet (P3).
+M5 is in progress. `src/providers/github/` holds the GitHub data types
+(`types.ts`), running `gh` and making its failures readable (`exec.ts`),
+diff fetching (`diff.ts`) and file content fetching (`content.ts`).
+Threads, the session bundle, mutations, reactions and viewed state are
+still in `src/providers/github.ts`.
+
+**Not built**: the rest of M5 (threads, session, mutations, reactions and
+viewed out of `github.ts`; `storage.ts`; `utils/editor.ts`); M6 (state
+factories and `@opentui/keymap` layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

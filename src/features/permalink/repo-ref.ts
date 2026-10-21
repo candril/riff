@@ -7,7 +7,7 @@
  */
 
 import { $ } from "bun"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import { detectCurrentBranch } from "../../providers/current-pr"
 import { parseRemoteUrl, type RepoRef } from "./url"
 

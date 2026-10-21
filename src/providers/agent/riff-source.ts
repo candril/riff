@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import type { AppState } from "../../state"
-import { getPrBaseFileContent, getPrFileContent, type FileContentResult } from "../github"
+import type { FileContentResult } from "../github/types"
+import { getPrBaseFileContent, getPrFileContent } from "../github/content"
 import { gitSidesOf } from "../git-target"
 import { detectVcs, getFileContent, getOldFileContent } from "../local"
 import { TREE_CUT_OFF, type FileText, type ReviewSource } from "./review-source"

@@ -9,7 +9,7 @@ import { join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { PrInfo } from "../../providers/github"
+import type { PrInfo } from "../../providers/github/types"
 import { showToast, clearToast } from "../../state"
 import { treeRowsOf } from "../../components"
 import {
@@ -23,11 +23,8 @@ import {
 } from "../../utils/editor"
 import { unlink } from "node:fs/promises"
 import { getFileContent, getOldFileContent } from "../../providers/local"
-import {
-  getPrFileContent,
-  getPrBaseFileContent,
-  type FileContentResult,
-} from "../../providers/github"
+import type { FileContentResult } from "../../providers/github/types"
+import { getPrFileContent, getPrBaseFileContent } from "../../providers/github/content"
 import { findLocalRepoPath, checkoutPR } from "../../utils/repo-path"
 import { loadConfig } from "../../config"
 

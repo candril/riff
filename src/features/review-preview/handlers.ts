@@ -7,7 +7,7 @@
 import type { AppState } from "../../state"
 import type { AppMode } from "../../types"
 import { openReviewPreview } from "../../state"
-import { getCurrentUser } from "../../providers/github"
+import { getCurrentUser } from "../../providers/github/exec"
 
 export interface ReviewPreviewOpenContext {
   // State access

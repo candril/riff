@@ -1,5 +1,5 @@
 import { theme } from "../theme"
-import type { PrCommit } from "../providers/github"
+import type { PrCommit } from "../providers/github/types"
 import { EMPTY_CHANGE } from "../providers/local"
 import { pickerWindow, visibleRows, type PickerModel, type PickerRow } from "./picker-window"
 

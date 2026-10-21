@@ -1,4 +1,4 @@
-import type { PrCheck, PrCommit, PrInfo } from "../providers/github"
+import type { PrCheck, PrCommit, PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"

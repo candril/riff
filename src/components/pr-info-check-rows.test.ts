@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import { checks } from "../testing/pr-info"
 import { theme } from "../theme"
 import { checkRows } from "./pr-info-check-rows"

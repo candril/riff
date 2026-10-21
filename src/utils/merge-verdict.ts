@@ -9,7 +9,7 @@
  * merge-state reading, and a red build belongs to the author too.
  */
 
-import type { PrCheck, PrInfo } from "../providers/github"
+import type { PrCheck, PrInfo } from "../providers/github/types"
 import type { Comment } from "../types"
 
 export type MergeVerdict =

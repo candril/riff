@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test"
 import { commitPickerModel, fitKeyLines, formatTimeAgo, COMMIT_KEY_GROUPS, type CommitPickerInput, type FilteredCommit } from "./commit-picker-model"
-import type { PrCommit } from "../providers/github"
+import type { PrCommit } from "../providers/github/types"
 import { EMPTY_CHANGE } from "../providers/local"
 import { theme } from "../theme"
 

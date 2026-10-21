@@ -1,4 +1,4 @@
-import type { PrInfo } from "../providers/github"
+import type { PrInfo } from "../providers/github/types"
 import { extractCommentImages } from "../utils/comment-images"
 import { reactionPills, type Segment } from "./pr-info-conversation-parts"
 

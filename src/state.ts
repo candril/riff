@@ -5,7 +5,7 @@ import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, Re
 import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
 import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
-import type { PrInfo, PrCommit, PendingReview } from "./providers/github"
+import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { ReviewEvent } from "./components/review-preview-model"
 import type { IgnoreMatcher } from "./utils/ignore"

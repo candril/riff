@@ -1,4 +1,4 @@
-import type { PrCheck, PrReview } from "../providers/github"
+import type { PrCheck, PrReview } from "../providers/github/types"
 import { theme } from "../theme"
 import type { ReviewThread } from "./pr-info-conversation"
 

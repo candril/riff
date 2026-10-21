@@ -1,7 +1,7 @@
 import { colors, theme } from "../theme"
 import type { BranchPr } from "../providers/current-pr"
 import type { DiffFile } from "../utils/diff-parser"
-import type { PrInfo, PrCommit, PrCheck } from "../providers/github"
+import type { PrInfo, PrCommit, PrCheck } from "../providers/github/types"
 import type { MergeReading, MergeVerdict } from "../utils/merge-verdict"
 
 export interface HeaderPart {

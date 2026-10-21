@@ -1,4 +1,4 @@
-import type { PrCheck, PrCheckAnnotation } from "../providers/github"
+import type { PrCheck, PrCheckAnnotation } from "../providers/github/types"
 import { theme } from "../theme"
 import { getCheckStatusDisplay } from "./pr-info-format"
 import { isFailingCheck, type FlatCheckItem } from "./pr-info-items"

@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import type { PrReview } from "../providers/github"
+import type { PrReview } from "../providers/github/types"
 import { pinStdoutColumns } from "../testing/frame"
 import { ago, reviews } from "../testing/pr-info"
 import { fullPr, usePrInfoPanel } from "../testing/pr-info-panel"

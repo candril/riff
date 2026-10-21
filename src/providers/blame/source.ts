@@ -1,6 +1,6 @@
 import { $ } from "bun"
 import type { AppState } from "../../state"
-import { baseVersionRef, getPrHeadSha } from "../github"
+import { baseVersionRef, getPrHeadSha } from "../github/content"
 import type { GitBase } from "../git-target"
 import { detectVcs, resolveGitBase, type VcsType } from "../local"
 import { getCurrentRepoRef, type RepoRef } from "../repo"

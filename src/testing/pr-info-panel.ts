@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, mock, setSystemTime } from "bun:test"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import type { PrCheck, PrInfo } from "../providers/github"
+import type { PrCheck, PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { Comment } from "../types"
 import type { DiffFile } from "../utils/diff-parser"

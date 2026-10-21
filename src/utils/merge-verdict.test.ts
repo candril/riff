@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { mergeReading } from "./merge-verdict"
-import type { PrCheck } from "../providers/github"
+import type { PrCheck } from "../providers/github/types"
 import type { Comment } from "../types"
 
 const pr = (over: Partial<Parameters<typeof mergeReading>[0]> = {}) => ({

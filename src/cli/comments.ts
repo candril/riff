@@ -40,7 +40,7 @@ import {
 import { installSkill } from "./skill"
 import { $ } from "bun"
 import { findCurrentPr, detectCurrentBranch } from "../providers/current-pr"
-import { getCurrentRepo } from "../providers/github"
+import { getCurrentRepo } from "../providers/github/exec"
 import { loadPrSession } from "../providers/github"
 
 export interface CommentsCliOptions {
