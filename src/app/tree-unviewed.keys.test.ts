@@ -7,7 +7,7 @@ import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { toggleUnviewedFilesOnly } from "./tree-unviewed"
-import type { PanelFilters } from "../storage"
+import type { PanelFilters } from "../storage/caches"
 import type { FileReviewStatus } from "../types"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}

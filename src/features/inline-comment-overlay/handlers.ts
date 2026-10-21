@@ -17,7 +17,7 @@ import {
   showToast,
 } from "../../state"
 import { createComment } from "../../types"
-import { saveComment } from "../../storage"
+import { saveComment } from "../../storage/comments"
 import type { DraftEditorContext } from "../../utils/editor"
 import { diffHunkAt } from "../../utils/diff-hunk"
 import { extractCommentImages } from "../../utils/comment-images"

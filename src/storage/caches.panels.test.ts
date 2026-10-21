@@ -2,7 +2,7 @@ import { test, expect, describe, afterAll } from "bun:test"
 import { mkdtemp, mkdir, writeFile, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { loadPanelFilters, savePanelFilters, updatePanelFilters } from "./storage"
+import { loadPanelFilters, savePanelFilters, updatePanelFilters } from "./caches"
 
 const roots: string[] = []
 

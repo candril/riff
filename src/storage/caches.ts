@@ -1,15 +1,12 @@
-import { join, resolve } from "path"
-import { mkdir, readdir, rename, unlink } from "fs/promises"
-import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { type Comment, type ReviewSession, type FileReviewStatus, createSession } from "./types"
-import { LOCAL_DIR, getStorageDir, localStorageDir, sourceToDir } from "./storage/resolve"
-import { parseComment, parseFrontmatter, toMarkdown } from "./storage/comments-md"
-import type { VisitWatermark } from "./utils/visit"
-import type { Mark } from "./features/marks/types"
-import { isMarkLetter } from "./features/marks/store"
+import { join } from "path"
+import { mkdir } from "fs/promises"
+import { mkdirSync, writeFileSync } from "fs"
+import type { FileReviewStatus } from "../types"
+import type { VisitWatermark } from "../utils/visit"
+import type { Mark } from "../features/marks/types"
+import { isMarkLetter } from "../features/marks/store"
+import { localStorageDir, sourceToDir } from "./resolve"
 
-const COMMENTS_DIR = "comments"
-const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
 const VISIT_FILE = "visit.json"
 const MARKS_FILE = "marks.json"
@@ -18,239 +15,6 @@ const MENTIONABLE_FILE = "mentionable-users.json"
 
 /** How long a cached mentionable-user roster stays fresh. */
 const MENTIONABLE_TTL_MS = 24 * 60 * 60 * 1000
-
-/** Repos whose per-revset folders have already been folded in this process. */
-const mergedLocalDirs = new Set<string>()
-
-/**
- * Move the comments riff used to file per revset into the one local store.
- *
- * Older versions put them in `comments/@-`, `comments/abc123` and so on.
- * They are moved rather than read in place, so a note edited after the move
- * does not leave a stale twin behind in the folder it came from.
- */
-async function mergeLegacyLocalComments(baseDir: string): Promise<void> {
-  if (mergedLocalDirs.has(baseDir)) return
-  mergedLocalDirs.add(baseDir)
-
-  const root = join(baseDir, COMMENTS_DIR)
-  const target = join(root, LOCAL_DIR)
-
-  let entries
-  try {
-    entries = await readdir(root, { withFileTypes: true })
-  } catch {
-    return
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === LOCAL_DIR || entry.name.startsWith("gh-")) continue
-
-    try {
-      const files = await readdir(join(root, entry.name))
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue
-        const to = join(target, file)
-        if (existsSync(to)) continue
-        await mkdir(target, { recursive: true })
-        await rename(join(root, entry.name, file), to)
-      }
-    } catch {
-      // A folder riff cannot read is a folder riff leaves alone.
-    }
-  }
-}
-
-// ============================================================================
-// Directory helpers
-// ============================================================================
-
-/**
- * Ensure storage directories exist for a given source
- */
-async function ensureStorageDir(source: string): Promise<string> {
-  const baseDir = await getStorageDir(source)
-  const fullPath = join(baseDir, COMMENTS_DIR, sourceToDir(source))
-  await mkdir(fullPath, { recursive: true })
-  return baseDir
-}
-
-/**
- * Get short ID for filename (first 8 chars of UUID)
- */
-function shortId(id: string): string {
-  // For GitHub comments like "gh-12345678", use as-is
-  if (id.startsWith("gh-")) {
-    return id
-  }
-  // For UUIDs, take first 8 chars
-  return id.slice(0, 8)
-}
-
-// ============================================================================
-// Comment storage - markdown files
-// ============================================================================
-
-/**
- * Load all comments from markdown files for a specific source
- */
-export async function loadComments(source: string): Promise<Comment[]> {
-  const baseDir = await getStorageDir(source)
-  if (sourceToDir(source) === LOCAL_DIR) await mergeLegacyLocalComments(baseDir)
-  const commentsPath = join(baseDir, COMMENTS_DIR, sourceToDir(source))
-
-  try {
-    const files = await readdir(commentsPath)
-    const comments: Comment[] = []
-
-    for (const file of files) {
-      if (!file.endsWith(".md")) continue
-
-      try {
-        const content = await Bun.file(join(commentsPath, file)).text()
-        const { meta, body } = parseFrontmatter(content)
-
-        if (meta.id) {
-          comments.push(parseComment(meta, body))
-        }
-      } catch {
-        // Skip invalid files
-      }
-    }
-
-    // Sort by createdAt
-    comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-
-    return comments
-  } catch {
-    return []
-  }
-}
-
-/**
- * Save a comment to a markdown file for a specific source
- */
-export async function saveComment(comment: Comment, source: string): Promise<void> {
-  const baseDir = await ensureStorageDir(source)
-
-  const filename = `${shortId(comment.id)}.md`
-  const filepath = join(baseDir, COMMENTS_DIR, sourceToDir(source), filename)
-
-  await Bun.write(filepath, toMarkdown(comment))
-}
-
-/**
- * Delete a comment file for a specific source
- */
-export async function deleteCommentFile(commentId: string, source: string): Promise<void> {
-  const baseDir = await getStorageDir(source)
-  const filename = `${shortId(commentId)}.md`
-  const filepath = join(baseDir, COMMENTS_DIR, sourceToDir(source), filename)
-
-  try {
-    await unlink(filepath)
-  } catch {
-    // File may not exist
-  }
-}
-
-/**
- * Absolute path of a comment's markdown file — handed to Claude so it can
- * delete a comment once it has acted on it (spec 049).
- */
-export async function commentFilePath(commentId: string, source: string): Promise<string> {
-  const baseDir = await getStorageDir(source)
-  return resolve(join(baseDir, COMMENTS_DIR, sourceToDir(source), `${shortId(commentId)}.md`))
-}
-
-/**
- * Delete every local (never synced) comment file for a source, resolved or
- * not. Synced comments are GitHub's and stay. Returns how many were removed.
- */
-export async function clearLocalComments(source: string): Promise<number> {
-  const comments = await loadComments(source)
-  const local = comments.filter((c) => c.status === "local")
-  await Promise.all(local.map((c) => deleteCommentFile(c.id, source)))
-  return local.length
-}
-
-/**
- * Update a comment (save with same ID) for a specific source
- */
-export async function updateComment(comment: Comment, source: string): Promise<void> {
-  await saveComment(comment, source)
-}
-
-// ============================================================================
-// Session storage - JSON file (metadata only)
-// Sessions are always stored locally in .riff/ (not global)
-// ============================================================================
-
-/**
- * Load session metadata
- */
-export async function loadSession(source: string): Promise<ReviewSession | null> {
-  const filepath = join(localStorageDir(), SESSION_FILE)
-  const file = Bun.file(filepath)
-
-  if (!(await file.exists())) {
-    return null
-  }
-
-  try {
-    const session = await file.json()
-    // Only return if source matches
-    if (session.source === source) {
-      return session
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Save session metadata
- */
-export async function saveSession(session: ReviewSession): Promise<void> {
-  await mkdir(localStorageDir(), { recursive: true })
-
-  const filepath = join(localStorageDir(), SESSION_FILE)
-  session.updatedAt = new Date().toISOString()
-
-  await Bun.write(filepath, JSON.stringify(session, null, 2))
-}
-
-/**
- * Load or create a session for a source
- */
-export async function loadOrCreateSession(source: string): Promise<ReviewSession> {
-  const existing = await loadSession(source)
-  if (existing) {
-    return existing
-  }
-
-  const session = createSession(source)
-  await saveSession(session)
-  return session
-}
-
-/**
- * Delete session file
- */
-export async function deleteSession(): Promise<void> {
-  const filepath = join(localStorageDir(), SESSION_FILE)
-
-  try {
-    await unlink(filepath)
-  } catch {
-    // File may not exist
-  }
-}
-
-// ============================================================================
-// Mentionable-user cache - one JSON file per repo checkout
-// ============================================================================
 
 interface MentionableCache {
   [ownerRepo: string]: { fetchedAt: string; logins: string[] }
@@ -301,13 +65,6 @@ export async function saveMentionableUsers(
   await Bun.write(join(localStorageDir(), MENTIONABLE_FILE), JSON.stringify(cache, null, 2))
 }
 
-// ============================================================================
-// Viewed file status storage - JSON file per source
-// ============================================================================
-
-/**
- * Get the path for viewed status file
- */
 function getViewedFilePath(source: string): string {
   return join(localStorageDir(), sourceToDir(source), VIEWED_FILE)
 }
@@ -343,6 +100,19 @@ export async function loadVisit(source: string): Promise<VisitWatermark | null> 
 export async function saveVisit(source: string, visit: VisitWatermark): Promise<void> {
   await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
   await Bun.write(getVisitFilePath(source), JSON.stringify(visit, null, 2))
+}
+
+/**
+ * The same write, synchronously — riff calls `process.exit` the moment it
+ * has torn the renderer down, and an awaited write never gets to flush.
+ */
+export function saveVisitSync(source: string, visit: VisitWatermark): void {
+  try {
+    mkdirSync(join(localStorageDir(), sourceToDir(source)), { recursive: true })
+    writeFileSync(getVisitFilePath(source), JSON.stringify(visit, null, 2))
+  } catch {
+    // A watermark that cannot be written is not worth failing the exit over.
+  }
 }
 
 function getMarksFilePath(source: string): string {
@@ -450,22 +220,6 @@ export function updatePanelFilters(source: string, patch: Partial<PanelFilters>)
   return write
 }
 
-/**
- * The same write, synchronously — riff calls `process.exit` the moment it
- * has torn the renderer down, and an awaited write never gets to flush.
- */
-export function saveVisitSync(source: string, visit: VisitWatermark): void {
-  try {
-    mkdirSync(join(localStorageDir(), sourceToDir(source)), { recursive: true })
-    writeFileSync(getVisitFilePath(source), JSON.stringify(visit, null, 2))
-  } catch {
-    // A watermark that cannot be written is not worth failing the exit over.
-  }
-}
-
-/**
- * Load viewed file statuses for a source
- */
 export async function loadViewedStatuses(source: string): Promise<FileReviewStatus[]> {
   const filepath = getViewedFilePath(source)
   const file = Bun.file(filepath)
@@ -482,11 +236,8 @@ export async function loadViewedStatuses(source: string): Promise<FileReviewStat
   }
 }
 
-/**
- * Save viewed file statuses for a source
- */
-export async function saveViewedStatuses(
-  source: string, 
+async function saveViewedStatuses(
+  source: string,
   statuses: Map<string, FileReviewStatus>
 ): Promise<void> {
   const dirPath = join(localStorageDir(), sourceToDir(source))
@@ -498,21 +249,17 @@ export async function saveViewedStatuses(
   await Bun.write(filepath, JSON.stringify(data, null, 2))
 }
 
-/**
- * Save a single file's viewed status
- */
 export async function saveFileViewedStatus(
   source: string,
   status: FileReviewStatus
 ): Promise<void> {
-  // Load existing, update, and save
   const existing = await loadViewedStatuses(source)
   const statuses = new Map<string, FileReviewStatus>()
-  
+
   for (const s of existing) {
     statuses.set(s.filename, s)
   }
   statuses.set(status.filename, status)
-  
+
   await saveViewedStatuses(source, statuses)
 }

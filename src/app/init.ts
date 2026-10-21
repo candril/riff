@@ -22,7 +22,9 @@ import {
   type AppState,
 } from "../state"
 import { followLoadedMarks } from "../features/marks/load"
-import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage"
+import { loadOrCreateSession } from "../storage/session"
+import { loadComments } from "../storage/comments"
+import { loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage/caches"
 import { createMarksState } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"

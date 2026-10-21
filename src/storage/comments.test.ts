@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, readdir } from "fs/promises"
 import { rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { commentFilePath, loadComments } from "./storage"
+import { commentFilePath, loadComments } from "./comments"
 
 const roots: string[] = []
 

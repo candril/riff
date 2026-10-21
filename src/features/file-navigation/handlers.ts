@@ -22,7 +22,7 @@ import {
 } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { createViewedStatus, getHeadCommit } from "../../utils/viewed-status"
-import { saveFileViewedStatus } from "../../storage"
+import { saveFileViewedStatus } from "../../storage/caches"
 import { markFileViewedOnGitHub } from "../../providers/github/viewed"
 
 export interface FileNavigationContext {

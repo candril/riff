@@ -1,5 +1,5 @@
 import type { DiffFile } from "../../utils/diff-parser"
-import { saveMarks } from "../../storage"
+import { saveMarks } from "../../storage/caches"
 import { followMarks } from "./follow"
 import type { Mark } from "./types"
 

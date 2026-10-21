@@ -1,5 +1,6 @@
 import { $ } from "bun"
-import { saveComment, saveSession, loadComments, deleteCommentFile } from "../../storage"
+import { saveComment, loadComments, deleteCommentFile } from "../../storage/comments"
+import { saveSession } from "../../storage/session"
 import { getCurrentRepo, safeGhCommand } from "./exec"
 import { getPrDiff } from "./diff"
 import { parseReactionGroups } from "./reactions"

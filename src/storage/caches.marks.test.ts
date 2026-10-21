@@ -2,8 +2,8 @@ import { test, expect, describe, afterAll } from "bun:test"
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { loadMarks, saveMarks } from "./storage"
-import type { Mark } from "./features/marks/types"
+import { loadMarks, saveMarks } from "./caches"
+import type { Mark } from "../features/marks/types"
 
 const roots: string[] = []
 

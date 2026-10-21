@@ -212,7 +212,12 @@ src/
 ├── types.ts              # Type definitions
 ├── theme.ts              # Catppuccin tokens; the three shades (spec 106)
 ├── version.ts            # The version the build stamps
-├── storage.ts            # .riff/ persistence
+├── storage/              # .riff/ persistence
+│   ├── resolve.ts        # where a review's storage lives: repo root, jj workspace, mapped checkout, ~/.riff
+│   ├── comments-md.ts    # the comment file format: frontmatter and body, no I/O
+│   ├── comments.ts       # the comment store: one Markdown file per comment
+│   ├── session.ts        # the checkout's session.json
+│   └── caches.ts         # per-review viewed, visit, marks and panel filters; the mentionable-user cache
 ├── actions/
 │   ├── registry.ts       # Ctrl-p palette actions (add new actions here!)
 │   └── types.ts          # Action types

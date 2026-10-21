@@ -19,7 +19,7 @@ import {
 } from "../../state"
 import { gatherSyncItems } from "../../components"
 import type { ValidatedComment } from "../../components/review-preview-model"
-import { saveComment } from "../../storage"
+import { saveComment } from "../../storage/comments"
 import { publishableLocalComments } from "../../utils/publishable"
 import { type Thread } from "../../utils/threads"
 import {

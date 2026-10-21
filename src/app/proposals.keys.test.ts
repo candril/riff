@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test"
-import * as storage from "../storage"
+import * as comments from "../storage/comments"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import type { CommentsContext } from "../features/comments"
@@ -20,7 +20,7 @@ index 1111111..2222222 100644
 const TEXT = "Say hello to the caller by name."
 
 // Saving writes the comment under .riff/; a test has no business there.
-const saveComment = spyOn(storage, "saveComment").mockResolvedValue()
+const saveComment = spyOn(comments, "saveComment").mockResolvedValue()
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 afterEach(async () => {

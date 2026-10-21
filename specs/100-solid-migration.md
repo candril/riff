@@ -68,7 +68,16 @@ check annotations, stacks, the timeline and references (`lookups.ts`) and
 the mentionable users (`mentions.ts`). Every caller imports the module it
 needs; there is no barrel.
 
-**Not built**: the rest of M5 (`storage.ts`; `utils/editor.ts`); M6 (state factories and
+The storage split is complete too: `src/storage.ts` is gone and
+`src/storage/` holds five modules: where a review's storage lives and the
+cache of what startup resolved (`resolve.ts`), the comment file format,
+pure and without I/O (`comments-md.ts`), the comment store
+(`comments.ts`), the checkout's session (`session.ts`) and the small
+per-review JSON files for viewed files, the visit watermark, marks and
+panel filters, with the mentionable-user cache (`caches.ts`). As with
+GitHub, there is no barrel.
+
+**Not built**: the rest of M5 (`utils/editor.ts`); M6 (state factories and
 `@opentui/keymap` layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback

@@ -1,6 +1,6 @@
 import { treeRowsOf } from "../components/FileTree"
 import { keepTreeFile, toggleTreeUnviewedOnly, type AppState } from "../state"
-import { updatePanelFilters, type PanelFilters } from "../storage"
+import { updatePanelFilters, type PanelFilters } from "../storage/caches"
 
 export type SavePanelFilters = (source: string, patch: Partial<PanelFilters>) => Promise<void>
 

@@ -35,7 +35,7 @@ import {
   deleteCommentFile,
   clearLocalComments,
   commentFilePath,
-} from "../storage"
+} from "../storage/comments"
 import { findRepoRoot } from "../storage/resolve"
 import { installSkill } from "./skill"
 import { $ } from "bun"

@@ -21,7 +21,7 @@ import {
   closeConfirmDialog,
 } from "../../state"
 import { createComment } from "../../types"
-import { saveComment, deleteCommentFile, clearLocalComments } from "../../storage"
+import { saveComment, deleteCommentFile, clearLocalComments } from "../../storage/comments"
 import { isLocallyResolved, publishableLocalComments } from "../../utils/publishable"
 import {
   openCommentEditor,
