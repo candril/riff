@@ -78,6 +78,12 @@ async function stampedVersion(): Promise<string> {
 }
 
 const version = await stampedVersion()
+
+// The claude the agent SDK was built against. The SDK's exports map hides its package.json,
+// so it is read from disk here rather than imported in src.
+const { claudeCodeVersion } = (await Bun.file(
+  resolve(projectDir, "node_modules/@anthropic-ai/claude-agent-sdk/package.json"),
+).json()) as { claudeCodeVersion: string }
 await $`mkdir -p dist`
 
 // A local single-target build is what `just install-bin` copies, so it is plain
@@ -106,6 +112,7 @@ for (const target of targets) {
     define: {
       OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(workerInBinary),
       RIFF_VERSION: JSON.stringify(version),
+      RIFF_CLAUDE_CODE_VERSION: JSON.stringify(claudeCodeVersion),
     },
   })
   if (!result.success) {

@@ -150,8 +150,8 @@ export function createChatState(
       })
     },
     cancelNewConversation: () => setClearPrompt(null),
-    /** Something riff did for the agent, said in the conversation. */
-    note: (text: string) => push({ kind: "note", text, tone: "info" }),
+    /** Something riff did for the agent, or noticed about it, said in the conversation. */
+    note: (text: string, tone: "error" | "info" = "info") => push({ kind: "note", text, tone }),
     // A tool call still waiting on the reviewer belongs to the session; it has no one to answer once that closes.
     onSessionClosed: (listener: () => void) => void sessionClosed.add(listener),
     dispose: closeSession,

@@ -5,6 +5,7 @@ import {
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk"
 import type { Agent, AgentEvents, AgentFailure, AgentSession } from "./agent"
+import { CLAUDE_MISSING } from "./claude-version"
 import { agentDirectory, agentEnv, claudeExecutable } from "./environment"
 import { Inbox } from "./inbox"
 import { questionText } from "./question"
@@ -141,7 +142,7 @@ function startSession(
     if (claudeExecutable().missing) {
       events.failed({
         kind: "other",
-        message: "claude is not installed; riff's agent runs the claude CLI",
+        message: CLAUDE_MISSING,
       })
       return null
     }

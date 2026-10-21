@@ -198,3 +198,9 @@ test("a note riff writes for the agent's tools is an info note", () => {
   chat.note("Proposed a comment on src/a.ts:2 — it is open in the thread panel.")
   expect(kinds(chat)).toEqual(["N:info:Proposed a comment on src/a.ts:2 — it is open in the thread panel."])
 })
+
+test("a note from outside the conversation keeps the tone it is given", () => {
+  const chat = createChatState(fakeAgent().agent)
+  chat.note("claude 2.2.0 is installed", "error")
+  expect(kinds(chat)).toEqual(["N:error:claude 2.2.0 is installed"])
+})

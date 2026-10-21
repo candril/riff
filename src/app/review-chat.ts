@@ -9,6 +9,13 @@ import type { ReviewSource } from "../providers/agent/review-source"
 import type { AgentToolset } from "../providers/agent/tool-server"
 import { createRiffSource } from "../providers/agent/riff-source"
 import { createClaudeAgent } from "../providers/agent/session"
+import {
+  checkClaudeVersion,
+  claudeVersionOutput,
+  pinnedClaudeVersion,
+  type ClaudeVersionNote,
+} from "../providers/agent/claude-version"
+import { claudeExecutable } from "../providers/agent/environment"
 import { agentFilesOf, agentTargetOf, hiddenFileCount } from "../providers/agent/target"
 import { demoAgent } from "../features/chat/demo-agent"
 import { createChatState, type ChatState } from "../features/chat/state"
@@ -29,6 +36,8 @@ export interface ReviewChatDeps {
   position: () => Position | null
   /** Asked for when a session opens: app.ts builds the chat before the diff the proposals move. */
   proposer: () => Proposer
+  /** Defaults to asking the installed claude; tests hand in their own. */
+  claudeVersion?: () => Promise<ClaudeVersionNote | null>
 }
 
 /** What the agent can call: the read tools, budgeted per answer, and the proposals, which are not. */
@@ -59,9 +68,25 @@ export function reviewAgent(deps: ReviewChatDeps): Agent {
   })
 }
 
-/** One conversation per app; its session opens on the first question, so building it spawns nothing. */
+/**
+ * One conversation per app; its session opens on the first question. The one thing spawned
+ * up front is `claude --version`, unawaited, so a drifted claude is already said in the chat
+ * when the reviewer first opens it rather than as a failure on the first question.
+ */
 export function createReviewChat(deps: ReviewChatDeps): ChatState {
-  return createChatState(reviewAgent(deps), deps.position, reviewReferences(deps.getState))
+  const chat = createChatState(reviewAgent(deps), deps.position, reviewReferences(deps.getState))
+  if (!deps.demo) {
+    void (deps.claudeVersion ?? installedClaudeVersion)()
+      .then((note) => note && chat.note(note.text, note.tone))
+      .catch(() => {})
+  }
+  return chat
+}
+
+// Only a compiled riff has a pin, and only a compiled riff runs the user's own claude.
+function installedClaudeVersion(): Promise<ClaudeVersionNote | null> {
+  if (pinnedClaudeVersion === undefined) return Promise.resolve(null)
+  return checkClaudeVersion({ executable: claudeExecutable(), pinned: pinnedClaudeVersion, run: claudeVersionOutput })
 }
 
 /** A question's `@` tokens, read against the review as it stands when the question is sent. */

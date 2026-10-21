@@ -144,3 +144,12 @@ describe("the input's shade says whether the chat has the keys", () => {
     expect(await draw(setup)).toContain("› kept")
   })
 })
+
+test("a drifted claude's note is there when the column opens, before anything is asked", async () => {
+  const { setup, island, state } = await mountColumn(50)
+  island.update(null)
+  const drift = "claude 2.2.0 is installed; riff's agent is built for 2.1.296 and may not work until they match"
+  state.note(drift, "info")
+  island.update({ state, width: 50, focused: true })
+  expect(flat(await draw(setup))).toContain(drift)
+})

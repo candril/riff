@@ -186,7 +186,9 @@ like any comment the reviewer typed.
   points `pathToClaudeCodeExecutable` at the installed one. A `claude`
   that drifts from the pinned SDK can break the chat, so riff checks the
   version at startup and says so in the chat rather than failing on the
-  first question.
+  first question. The same major.minor with an installed patch at or
+  above the pinned one counts as matching, since `claude` auto-updates
+  patches constantly; an older patch or another major or minor is drift.
 - **The system prompt** is the preset plus riff's posture, the review's
   target (PR title, number, state, description; or the local revision),
   the changed files with their counts (directories with counts above 300
