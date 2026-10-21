@@ -63,7 +63,6 @@ function describeApiError(buf?: Buffer): string | null {
   }
 }
 
-
 /**
  * Wrap gh CLI commands with user-friendly error messages
  */

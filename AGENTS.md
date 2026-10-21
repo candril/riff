@@ -221,12 +221,15 @@ src/
 ├── providers/
 │   ├── local.ts          # git/jj diffs
 │   ├── files.ts          # file mode (`riff <path>`)
-│   ├── github.ts         # GitHub via gh (GraphQL and REST): threads, session, mutations, reactions, viewed
+│   ├── github.ts         # GitHub via gh (GraphQL and REST): the session bundle and the mutations
 │   ├── github/
 │   │   ├── types.ts      # PR data shapes: PrInfo, PrCheck, PrComment…
 │   │   ├── exec.ts       # running gh, turning its failures into readable errors
 │   │   ├── diff.ts       # PR and commit diffs, past GitHub's file cap via the files API
-│   │   └── content.ts    # file content at a PR's head, base or any revision
+│   │   ├── content.ts    # file content at a PR's head, base or any revision
+│   │   ├── threads.ts    # review threads and their comments, resolving and unresolving them
+│   │   ├── reactions.ts  # reading reactions off the API, adding and removing them
+│   │   └── viewed.ts     # GitHub's viewed state per file, read and marked
 │   ├── demo.ts           # --demo fixture
 │   ├── blame/            # who last changed a line, from jj, git or GitHub (spec 103)
 │   └── agent/            # riff's agent: SDK session, prompt, read tools (spec 102)

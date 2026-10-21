@@ -56,14 +56,15 @@ own, handed their session through `prompt()` and `compose()` by the
 frame's first followers. The diff views draw ahead of publish because the
 frame carries the status bar's readout of them.
 
-M5 is in progress. `src/providers/github/` holds the GitHub data types
-(`types.ts`), running `gh` and making its failures readable (`exec.ts`),
-diff fetching (`diff.ts`) and file content fetching (`content.ts`).
-Threads, the session bundle, mutations, reactions and viewed state are
-still in `src/providers/github.ts`.
+M5 is in progress. `src/providers/github/` holds seven modules: the
+GitHub data types (`types.ts`), running `gh` and making its failures
+readable (`exec.ts`), diff fetching (`diff.ts`), file content fetching
+(`content.ts`), review threads and their resolution (`threads.ts`),
+reactions (`reactions.ts`) and viewed-file sync (`viewed.ts`). Only the
+session bundle and the mutations are still in `src/providers/github.ts`.
 
-**Not built**: the rest of M5 (threads, session, mutations, reactions and
-viewed out of `github.ts`; `storage.ts`; `utils/editor.ts`); M6 (state
+**Not built**: the rest of M5 (the session bundle and the mutations out of
+`github.ts`; `storage.ts`; `utils/editor.ts`); M6 (state
 factories and `@opentui/keymap` layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback

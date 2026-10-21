@@ -28,9 +28,8 @@ import {
   submitSingleComment,
   commentRange,
   submitReview,
-  toggleThreadResolution,
-  getPrComments,
 } from "../../providers/github"
+import { getPrComments, toggleThreadResolution } from "../../providers/github/threads"
 import { getCurrentUser } from "../../providers/github/exec"
 import { getPrHeadSha } from "../../providers/github/content"
 import { validateCommentsForSubmit } from "../comments"

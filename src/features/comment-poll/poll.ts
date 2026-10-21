@@ -36,7 +36,7 @@ import {
   fetchPrReviewComments,
   getPrThreadStates,
   THREAD_COMMENTS_PROBE,
-} from "../../providers/github"
+} from "../../providers/github/threads"
 import { reviewCommentsChanged } from "../../providers/rest"
 
 /** Fallback when config carries no interval. See `PollConfig.interval`. */
