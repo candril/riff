@@ -7,9 +7,9 @@ import { find, usePrInfoPanel } from "../testing/pr-info-panel"
 import { ALL_SECTIONS } from "./pr-info-items"
 import { colors, theme } from "../theme"
 
-// The previews, checks, files and commits sections as Solid islands: what
-// a push after a cursor move, a label or a filter draws, and what destroy
-// leaves.
+// The previews, checks, files and commits sections in the panel's island:
+// what a push after a cursor move, a label or a filter draws, and what
+// destroy leaves.
 
 const mount = usePrInfoPanel()
 
@@ -42,7 +42,7 @@ describe("previews", () => {
   })
 })
 
-/** The rows an island has drawn, one per cursor stop. */
+/** The rows a list section has drawn, one per cursor stop. */
 const islandRows = (root: Renderable, id: string) =>
   root.findDescendantById(id)!.getChildren().filter((child) => child instanceof BoxRenderable)
 
@@ -254,7 +254,7 @@ describe("a filter", () => {
 })
 
 describe("destroy", () => {
-  test("disposes every island, mounted or not, and leaves nothing of the panel under the root", async () => {
+  test("disposes the one island, and with it every body, open or folded, and leaves nothing of the panel under the root", async () => {
     const { panel, mounted } = await mount({
       section: "files",
       prepare: (p) => {
@@ -265,32 +265,33 @@ describe("destroy", () => {
       },
     })
     const root = mounted.setup.renderer.root
-    const islands = ["pr-info-previews", "pr-info-files", "pr-info-commits"].map((id) => root.findDescendantById(id)!)
-    expect(islands.every(Boolean)).toBe(true)
+    const lists = ["pr-info-previews", "pr-info-files", "pr-info-commits"].map((id) => root.findDescendantById(id)!)
+    expect(lists.every(Boolean)).toBe(true)
     const description = root.findDescendantById("pr-info-description")!.parent!
     panel.updateCommentInput(true, "hello", false, null)
-    const panelIslands = [
+    const panelParts = [
       ...ALL_SECTIONS.map((section) => `pr-info-header-${section}`),
       "pr-info-meta",
       "pr-comment-input-overlay",
     ].map((id) => root.findDescendantById(id)!)
-    expect(panelIslands.every(Boolean)).toBe(true)
+    expect(panelParts.every(Boolean)).toBe(true)
 
     panel.collapseSection()
     panel.setActiveSection("description")
     panel.collapseSection()
-    await mounted.frame()
-    expect(root.findDescendantById("pr-info-previews")).toBeUndefined()
-    expect(root.findDescendantById("pr-info-description")).toBeUndefined()
-
-    // Out of the tree, the container's own teardown cannot reach them: only
-    // the islands' dispose can destroy them.
-    for (const host of panelIslands) host.parent!.remove(host)
+    const folded = await mounted.frame()
+    expect(folded).not.toContain("on demand")
+    expect(folded).not.toContain("Adds the")
+    // Folded bodies stay mounted, hidden, for the next time they open.
+    expect(root.findDescendantById("pr-info-previews")).toBe(lists[0]!)
+    expect(lists[0]!.parent!.visible).toBe(false)
+    expect(root.findDescendantById("pr-info-description")?.parent).toBe(description)
+    expect(description.visible).toBe(false)
 
     panel.destroy()
     expect(root.getChildren()).toHaveLength(0)
-    expect(islands.map((island) => island.isDestroyed)).toEqual([true, true, true])
+    expect(lists.map((list) => list.isDestroyed)).toEqual([true, true, true])
     expect(description.isDestroyed).toBe(true)
-    expect(panelIslands.filter((host) => !host.isDestroyed).map((host) => host.id)).toEqual([])
+    expect(panelParts.filter((part) => !part.isDestroyed).map((part) => part.id)).toEqual([])
   })
 })

@@ -33,20 +33,18 @@ behind.
 
 ## Progress
 
-M0, M1, M2 and M3 are done: OpenTUI and Solid are pinned and wired, split
-view and unified both draw from the row model in `src/split-view`, and
+M0 to M4 are done: OpenTUI and Solid are pinned and wired, split view and
+unified both draw from the row model in `src/split-view`, and
 `VimDiffView` is gone. Every piece of chrome is a Solid island: header,
 status bar, prompts, toasts, confirm dialog, pickers, peeks, the palette,
 the help overlay, the sync preview, Submit Review and the activity feed.
-
-M4 is in progress. The file tree, each section of the PR info panel and
-the thread panel are islands, each handed a pure model; the thread panel's
-mention and emoji pickers are a subcomponent (`ThreadPanelPicker.tsx`)
-and its window is a model of its own (`thread-panel-window.ts`). What M4
-still lacks is the PR info panel's shell: `PRInfoPanelClass`
-(`src/components/PRInfoPanel.ts`) still builds the container, the `Ctrl-f`
-filter row, the scroll box and the section boxes imperatively and holds
-the cursor, expansion and scroll state the islands are drawn from.
+So are the file tree, the thread panel and the PR info panel, each handed
+a pure model; the thread panel's mention and emoji pickers are a
+subcomponent (`ThreadPanelPicker.tsx`) and its window is a model of its
+own (`thread-panel-window.ts`). The PR info panel is one island
+(`src/app/pr-info-panel.tsx`) drawn from `panelSections`; its cursor,
+open sections and filter are the `pr-info-nav` model, and
+`PRInfoPanelClass` is left as the controller that holds them and pushes.
 
 **Not built**: the deletion of `src/app/render.ts`, which stays as the
 coordinator that builds each island's model and pushes it in, and still

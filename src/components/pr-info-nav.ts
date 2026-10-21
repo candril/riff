@@ -56,16 +56,6 @@ export function clampCursor(nav: PrInfoNav, counts: SectionCounts): PrInfoNav {
   return withCursor(nav, Math.min(nav.cursorIndex, maxCursorIndex(nav, counts)))
 }
 
-/**
- * Section header highlight only changes when the cursor crosses the header /
- * item boundary — a move that does not can skip the rebuild, so j/k inside a
- * section doesn't tear down + rebuild every renderable (which causes visible
- * flicker on markdown bodies in particular).
- */
-export function crossedHeader(before: PrInfoNav, after: PrInfoNav): boolean {
-  return (before.cursorIndex === -1) !== (after.cursorIndex === -1)
-}
-
 function sectionAt(nav: PrInfoNav, delta: number): PRInfoPanelSection {
   const index = ALL_SECTIONS.indexOf(nav.activeSection)
   return ALL_SECTIONS[(index + delta + ALL_SECTIONS.length) % ALL_SECTIONS.length]!

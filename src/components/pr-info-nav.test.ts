@@ -5,7 +5,6 @@ import {
   bottomTarget,
   collapseAll,
   collapseContent,
-  crossedHeader,
   cycleSection,
   cycleSectionToEnd,
   expandAll,
@@ -231,14 +230,6 @@ describe("bottomTarget", () => {
     expect(bottomTarget(nav({ expandedSections: open() }), counts())).toBe('commits')
     expect(bottomTarget(nav({ expandedSections: open('commits') }), counts({ commits: 0 }))).toBe('commits')
     expect(bottomTarget(nav({ expandedSections: open('commits') }), counts())).toBe('commits:1')
-  })
-})
-
-describe("crossedHeader", () => {
-  test("is true only when the cursor moves between the header and a row", () => {
-    expect(crossedHeader(nav({ cursorIndex: -1 }), nav({ cursorIndex: 0 }))).toBe(true)
-    expect(crossedHeader(nav({ cursorIndex: 2 }), nav({ cursorIndex: -1 }))).toBe(true)
-    expect(crossedHeader(nav({ cursorIndex: 0 }), nav({ cursorIndex: 1 }))).toBe(false)
   })
 })
 

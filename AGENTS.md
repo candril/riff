@@ -234,9 +234,9 @@ src/
 ```
 
 Two kinds of file in `src/components` are not model-and-component pairs.
-`PRInfoPanel.ts` is the one view still built imperatively: it holds the PR
-overview's cursor, scroll and section boxes, and mounts an island per
-section. `PromptInput.ts` and `CommentComposer.ts` keep OpenTUI's native
+`PRInfoPanel.ts` is the PR overview's controller rather than a view: it
+holds the cursor, the open sections and the scroll, and pushes the
+sections `panelSections` builds into one island (`src/app/pr-info-panel.tsx`). `PromptInput.ts` and `CommentComposer.ts` keep OpenTUI's native
 input and textarea alive across passes, so a field keeps its cursor while
 the islands that host it redraw.
 

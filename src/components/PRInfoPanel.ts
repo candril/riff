@@ -3,19 +3,8 @@
  * Shows PR metadata with collapsible sections navigated via Tab/j/k
  */
 
-import {
-  BoxRenderable,
-  TextRenderable,
-  ScrollBoxRenderable,
-  InputRenderable,
-  InputRenderableEvents,
-  SyntaxStyle,
-  type NativeResourceOwner,
-  RGBA,
-  type CliRenderer,
-} from "@opentui/core"
+import type { BoxRenderable, CliRenderer, ScrollBoxRenderable } from "@opentui/core"
 import type { PrInfo, PrCommit, PrCheck, PrCheckAnnotation } from "../providers/github"
-import { discard, keepAlive } from "../utils/renderables"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { LinkSource } from "../utils/link-targets"
@@ -23,7 +12,6 @@ import type { StackInfo } from "../utils/stack"
 import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { tableRenderer } from "./markdown-tables-in-markdown"
-import { colors, theme } from "../theme"
 import {
   ALL_SECTIONS,
   conversationItems,
@@ -36,53 +24,14 @@ import {
   type FlatCheckItem,
   type FlatConversationItem,
 } from "./pr-info-items"
-import { panelMeta, stackLine, type SectionHeaderRow } from "./pr-info-header"
+import { panelMeta, stackLine } from "./pr-info-header"
 import { commitRowCount } from "./pr-info-list-rows"
-import { isListSection, panelSections, type ListSection, type PanelSection } from "./pr-info-panel-model"
-import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-lists"
-import { createPrInfoConversationIsland, type PrInfoConversationIsland } from "../app/pr-info-conversation"
-import { createPrInfoDescriptionIsland, type PrInfoDescriptionIsland } from "../app/pr-info-description"
-import {
-  createPrInfoHeaderIsland,
-  createPrInfoMetaIsland,
-  type PrInfoHeaderIsland,
-  type PrInfoMetaIsland,
-} from "../app/pr-info-header"
-import { createPrCommentPromptIsland, type PrCommentPromptIsland } from "../app/pr-comment-prompt"
+import { panelSections } from "./pr-info-panel-model"
+import { getSyntaxStyle } from "./pr-info-syntax-style"
+import { createPrInfoPanelIsland, type PrInfoPanelIsland } from "../app/pr-info-panel"
 import { prCommentPromptModel } from "./pr-comment-prompt"
 import * as Nav from "./pr-info-nav"
 import type { PrInfoNav } from "./pr-info-nav"
-
-// Tests run several renderers in one process, and a style dies with the renderer that owns it.
-const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
-function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
-  if (!syntaxStyles.has(owner)) {
-    syntaxStyles.set(owner, SyntaxStyle.fromStyles({
-      "markup.heading": { fg: RGBA.fromHex(theme.blue), bold: true },
-      "markup.strong": { bold: true },
-      "markup.italic": { italic: true },
-      "markup.raw": { fg: RGBA.fromHex(theme.green) },
-      "markup.strikethrough": { dim: true },
-      "markup.link": { fg: RGBA.fromHex(theme.blue) },
-      "markup.link.label": { fg: RGBA.fromHex(theme.blue), underline: true },
-      "markup.link.url": { fg: RGBA.fromHex(theme.subtext0) },
-      "markup.list": { fg: RGBA.fromHex(theme.yellow) },
-      "punctuation.special": { fg: RGBA.fromHex(theme.subtext0), italic: true },
-      "keyword": { fg: RGBA.fromHex(theme.mauve) },
-      "string": { fg: RGBA.fromHex(theme.green) },
-      "number": { fg: RGBA.fromHex(theme.peach) },
-      "comment": { fg: RGBA.fromHex(theme.overlay0), italic: true },
-      "function": { fg: RGBA.fromHex(theme.blue) },
-      "type": { fg: RGBA.fromHex(theme.yellow) },
-      "variable": { fg: RGBA.fromHex(theme.text) },
-      "operator": { fg: RGBA.fromHex(theme.sky) },
-      "punctuation": { fg: RGBA.fromHex(theme.overlay2) },
-      "property": { fg: RGBA.fromHex(theme.lavender) },
-      "constant": { fg: RGBA.fromHex(theme.peach) },
-    }, owner))
-  }
-  return syntaxStyles.get(owner)!
-}
 
 /**
  * Get terminal width (defaults to 80 if unavailable)
@@ -123,8 +72,7 @@ export interface PRInfoPanelPosition {
  */
 export class PRInfoPanelClass {
   private renderer: CliRenderer
-  private container: BoxRenderable
-  private scrollBox: ScrollBoxRenderable
+  private island: PrInfoPanelIsland
   private prInfo: PrInfo
   private files: DiffFile[]
   private comments: Comment[]
@@ -132,8 +80,6 @@ export class PRInfoPanelClass {
   private nav: PrInfoNav = Nav.initialNav()
   private readonly counts: Nav.SectionCounts = (section) => this.getItemCountForSection(section)
 
-  private filterInput: InputRenderable
-  private filterRow: BoxRenderable | null = null
   private filterFocused: boolean = false
   private onFilterChange: ((value: string) => void) | null = null
 
@@ -157,32 +103,19 @@ export class PRInfoPanelClass {
   // Where a failing check asks for its annotations; the app fetches them (set by app.ts).
   private onOpenFailingCheck: ((check: PrCheck) => void) | null = null
   
-  // Section containers (for rebuilding on section change)
-  private sectionsContainer: BoxRenderable | null = null
-  private sectionBoxes: BoxRenderable[] = []
-  private descriptionBox: BoxRenderable | null = null
   // Set when the cursor moved; the next frame scrolls it into view, once
-  // layout has placed whatever the move rebuilt.
+  // layout has placed whatever the move changed.
   private revealPending = false
   // Where a restored position had scrolled to. A panel restored before its
   // first layout would clamp it to 0, so the first frame applies it.
   private pendingScrollTop: number | null = null
   
-  // Made the first time their section opens, and mounted into each rebuild's
-  // section box from then on.
-  private listIslands: Map<ListSection, PrInfoListIsland> = new Map()
-  private conversation: PrInfoConversationIsland | null = null
-  private description: PrInfoDescriptionIsland | null = null
   // A new body is only measured by the next layout, so the cursor that was
   // in the old one is taken back onto the new one's last line from there.
   private clampDescriptionOnResize = false
-  private headerIslands: Map<PRInfoPanelSection, PrInfoHeaderIsland> = new Map()
-  private meta: PrInfoMetaIsland | null = null
 
   // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
-  
-  private commentPrompt: PrCommentPromptIsland
 
   constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
     this.renderer = renderer
@@ -190,62 +123,49 @@ export class PRInfoPanelClass {
     this.files = files
     this.comments = comments
     
-    this.filterInput = new InputRenderable(renderer, {
-      id: "pr-info-filter",
-      placeholder: "filter rows…",
-      placeholderColor: theme.overlay0,
-      backgroundColor: theme.base,
-      textColor: theme.text,
-      focusedBackgroundColor: theme.base,
-      focusedTextColor: theme.text,
-      cursorColor: theme.yellow,
-      flexGrow: 1,
-    })
-    this.filterInput.on(InputRenderableEvents.INPUT, (value: string) => {
-      this.onFilterChange?.(value)
-    })
-
     // Build conversation items
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
 
-    this.commentPrompt = createPrCommentPromptIsland(renderer)
-    
-    // Build the panel
-    const { container, scrollBox } = this.build()
-    this.container = keepAlive(container)
-    this.scrollBox = scrollBox
+    this.island = createPrInfoPanelIsland(renderer, {
+      markdown: {
+        renderNode: tableRenderer(renderer, () => this.markdownWidth()),
+        syntaxStyle: getSyntaxStyle(renderer.nativeScene),
+      },
+      onFilterInput: (value) => this.onFilterChange?.(value),
+      beforeScrollRender: () => this.beforeScrollRender(),
+      onDescriptionResize: () => this.descriptionResized(),
+    })
+    this.pushMeta()
+    this.push()
   }
 
   /**
    * Get the container element
    */
   getContainer(): BoxRenderable {
-    return this.container
+    return this.island.host
   }
 
   /**
    * How wide a markdown table in this panel may be.
    *
-   * The panel's own width, once it has one. It does not have one while the
-   * first build runs: `build()` is called from the constructor and
-   * `this.container` is assigned from what it returns, so a table in the
-   * PR's description — rendered inside that build — asks a panel that does
-   * not exist yet. The panel is the whole of the row it is mounted in, so
-   * the terminal's width is the width it is about to have, and it is what
-   * the inline overlay's tables already measure against.
+   * The panel's own width, once it has one. It has none before its first
+   * layout, when the first push already renders a table in the PR's
+   * description. The panel is the whole of the row it is mounted in, so the
+   * terminal's width is the width it is about to have, and it is what the
+   * inline overlay's tables already measure against.
    */
   private markdownWidth(): number {
-    const container = this.container as BoxRenderable | undefined
-    return container?.width || this.renderer.width
+    return this.island.host.width || this.renderer.width
   }
 
   /**
    * Get the scroll box for external scrolling
    */
   getScrollBox(): ScrollBoxRenderable {
-    return this.scrollBox
+    return this.island.scrollBox
   }
 
   /**
@@ -270,7 +190,7 @@ export class PRInfoPanelClass {
       expandedCheckIds: new Set(this.nav.expandedCheckIds),
       // A panel rebuilt again before its first frame has not applied its
       // restored scroll yet; the box still reads 0.
-      scrollTop: this.pendingScrollTop ?? this.scrollBox.scrollTop,
+      scrollTop: this.pendingScrollTop ?? this.island.scrollBox.scrollTop,
     }
   }
 
@@ -282,7 +202,7 @@ export class PRInfoPanelClass {
     this.refreshFlatCheckItems(restored)
     this.nav = Nav.restoreNav(restored, (section) => this.getItemCountForSection(section, restored))
 
-    this.rebuildSections()
+    this.push()
     // Where the reader had scrolled to wins over a reveal asked for before
     // the restore: the cursor was in view there when it was captured.
     this.revealPending = false
@@ -335,10 +255,8 @@ export class PRInfoPanelClass {
 
   private moveTo(next: PrInfoNav): boolean {
     if (next === this.nav) return false
-    const before = this.nav
     this.nav = next
-    this.pushRows(next.activeSection)
-    if (Nav.crossedHeader(before, next)) this.rebuildSections()
+    this.push()
     this.followCursor()
     return true
   }
@@ -360,15 +278,15 @@ export class PRInfoPanelClass {
    * the cursor keeps its place on screen for as long as there is room.
    */
   halfPage(delta: 1 | -1): void {
-    const half = Math.max(1, Math.floor(this.scrollBox.viewport.height / 2))
-    this.scrollBox.scrollBy(delta * half)
+    const half = Math.max(1, Math.floor(this.island.scrollBox.viewport.height / 2))
+    this.island.scrollBox.scrollBy(delta * half)
     for (let i = 0; i < half && this.step(delta); i++) {}
   }
 
   /** `gg`: the description's header, with the lines above it in view. */
   jumpToTop(): void {
     this.flashJump(ALL_SECTIONS[0]!)
-    this.scrollBox.scrollTo(0)
+    this.island.scrollBox.scrollTo(0)
   }
 
   /** `G`: the last row of the last section, or its header if it is folded. */
@@ -384,41 +302,44 @@ export class PRInfoPanelClass {
 
   /** Where the cursor row is on screen, and how tall. */
   private cursorBounds(): { y: number; height: number } | null {
+    const section = this.nav.activeSection
     if (this.nav.cursorIndex === -1) {
-      const box = this.sectionBoxes[ALL_SECTIONS.indexOf(this.nav.activeSection)]
-      const header = box?.getChildren()[0]
+      const header = this.island.headerOf(section)
       return header ? { y: header.y, height: 1 } : null
     }
-    if (this.nav.activeSection === 'description') {
-      const box = this.descriptionBox
+    if (section === 'description') {
+      const box = this.openDescription()
       if (!box || box.height === 0) return null
       return { y: box.y + Math.min(this.nav.cursorIndex, box.height - 1), height: 1 }
     }
-    const row = isListSection(this.nav.activeSection)
-      ? this.listIslands.get(this.nav.activeSection)?.rowAt(this.nav.cursorIndex)
-      : this.conversation?.rowAt(this.nav.cursorIndex)
+    const row = this.island.rowAt(section, this.nav.cursorIndex)
     return row ? { y: row.y, height: Math.max(1, row.height) } : null
+  }
+
+  /** The description's box while its section is open; a folded one is hidden and counts no rows. */
+  private openDescription(): BoxRenderable | null {
+    return this.nav.expandedSections.has('description') ? this.island.descriptionBox() : null
   }
 
   /**
    * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
    * the edges. Runs from the scroll box's own render, after layout, so a
-   * row the move just rebuilt is measured where it now is.
+   * row the move just changed is measured where it now is.
    */
   private revealCursor(): void {
     const bounds = this.cursorBounds()
     if (!bounds) return
 
-    const viewport = this.scrollBox.viewport
+    const viewport = this.island.scrollBox.viewport
     const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
     const top = bounds.y - viewport.y
     // A row taller than the room between the margins shows its top.
     const bottom = top + Math.min(bounds.height, viewport.height - 2 * off)
 
     if (top < off) {
-      this.scrollBox.scrollBy(top - off)
+      this.island.scrollBox.scrollBy(top - off)
     } else if (bottom > viewport.height - off) {
-      this.scrollBox.scrollBy(bottom - (viewport.height - off))
+      this.island.scrollBox.scrollBy(bottom - (viewport.height - off))
     }
   }
 
@@ -449,7 +370,7 @@ export class PRInfoPanelClass {
     this.refreshFlatItems(filtered)
     this.refreshFlatCheckItems(filtered)
     this.nav = Nav.setFilter(this.nav, filter, (section) => this.getItemCountForSection(section, filtered))
-    this.rebuildSections()
+    this.push()
   }
 
   getFilter(): string {
@@ -469,13 +390,14 @@ export class PRInfoPanelClass {
   syncFilterInput(open: boolean, filter: string): void {
     if (open === this.filterFocused) return
     this.filterFocused = open
-    if (this.filterRow) this.filterRow.visible = open
+    this.island.update({ filterOpen: open })
 
+    const input = this.island.filterInput
     if (open) {
-      this.filterInput.value = filter
-      this.filterInput.focus()
+      input.value = filter
+      input.focus()
     } else {
-      this.filterInput.blur()
+      input.blur()
     }
   }
 
@@ -486,7 +408,7 @@ export class PRInfoPanelClass {
     switch (section) {
       case 'description':
         // Read like a buffer: its items are the rows it renders to.
-        return this.descriptionBox?.height ?? 0
+        return this.openDescription()?.height ?? 0
       case 'checks':
         return this.flatCheckItems.length
       case 'conversation':
@@ -510,7 +432,7 @@ export class PRInfoPanelClass {
   private applySection(next: PrInfoNav): void {
     if (next === this.nav) return
     this.nav = next
-    this.rebuildSections()
+    this.push()
     this.followCursor()
   }
 
@@ -519,7 +441,7 @@ export class PRInfoPanelClass {
    */
   toggleSection(): void {
     this.nav = Nav.toggleSection(this.nav)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -527,7 +449,7 @@ export class PRInfoPanelClass {
    */
   collapseSection(): void {
     this.nav = Nav.collapseSection(this.nav)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -535,7 +457,7 @@ export class PRInfoPanelClass {
    */
   expandSection(): void {
     this.nav = Nav.expandSection(this.nav)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -543,7 +465,7 @@ export class PRInfoPanelClass {
    */
   collapseAllSections(): void {
     this.nav = Nav.collapseAll(this.nav)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -551,7 +473,7 @@ export class PRInfoPanelClass {
    */
   expandAllSections(): void {
     this.nav = Nav.expandAll(this.nav)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -616,7 +538,7 @@ export class PRInfoPanelClass {
       }
     }
     this.refreshFlatCheckItems()
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -649,7 +571,7 @@ export class PRInfoPanelClass {
     this.toggleCheckExpansion(check.id)
     if (parentIndex >= 0 && this.nav.cursorIndex !== parentIndex) {
       this.nav = Nav.withCursor(this.nav, parentIndex)
-      this.rebuildSections()
+      this.push()
     }
   }
 
@@ -675,7 +597,7 @@ export class PRInfoPanelClass {
   checksChanged(): void {
     this.refreshFlatCheckItems()
     if (this.nav.activeSection === 'checks') this.nav = Nav.clampCursor(this.nav, this.counts)
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -708,7 +630,7 @@ export class PRInfoPanelClass {
     
     this.nav = Nav.toggleContent(this.nav, flatConversationItemId(flatItem))
     this.refreshFlatItems()
-    this.rebuildSections()
+    this.push()
   }
 
   /**
@@ -733,7 +655,7 @@ export class PRInfoPanelClass {
     if (next === this.nav) return
     this.nav = next
     this.refreshFlatItems()
-    this.rebuildSections()
+    this.push()
   }
   
   /**
@@ -761,11 +683,11 @@ export class PRInfoPanelClass {
     this.refreshFlatCheckItems()
     this.nav = Nav.clampCursor(this.nav, this.counts)
     this.pushMeta()
-    this.rebuildSections()
+    this.push()
   }
 
   private pushMeta(): void {
-    this.meta?.update({ meta: panelMeta(this.prInfo), stack: stackLine(this.stack) })
+    this.island.update({ meta: { meta: panelMeta(this.prInfo), stack: stackLine(this.stack) } })
   }
 
   /** What this PR is stacked on, and how that base has moved (spec 072). */
@@ -779,29 +701,13 @@ export class PRInfoPanelClass {
     if (previews === this.previews) return
     this.previews = previews
     this.nav = Nav.clampCursor(this.nav, this.counts)
-    this.rebuildSections()
+    this.push()
   }
 
   /** The row the cursor is on, when it is on one (spec 068). */
   getSelectedPreview(): PreviewRow | undefined {
     if (this.nav.activeSection !== 'previews' || this.nav.cursorIndex < 0) return undefined
     return this.visible().previews[this.nav.cursorIndex]
-  }
-
-  /**
-   * Rebuild just the sections container
-   */
-  private rebuildSections(): void {
-    if (!this.sectionsContainer) return
-    
-    for (const box of this.sectionBoxes) {
-      discard(box)
-    }
-    this.sectionBoxes = []
-    this.descriptionBox = null
-
-    // Rebuild
-    this.buildSections(this.sectionsContainer)
   }
 
   /** Every row `s` can jump to (spec 066). Ids are the panel's own. */
@@ -890,7 +796,7 @@ export class PRInfoPanelClass {
 
     this.setActiveSection(target.activeSection)
     this.nav = target
-    this.rebuildSections()
+    this.push()
     this.followCursor()
   }
 
@@ -907,135 +813,33 @@ export class PRInfoPanelClass {
     this.hiddenConversationIds = ids
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
-    this.rebuildSections()
+    this.push()
   }
 
   /** Show or hide the labels. */
   setFlashLabels(labels: ReadonlyMap<string, string>): void {
     this.flashLabels = labels
-    this.rebuildSections()
+    this.push()
   }
 
-  /** The sections as they are drawn now, from everything the panel holds. */
-  private sections(): PanelSection[] {
+  /** Hands the island the sections as they are now, from everything the panel holds. */
+  private push(): void {
     this.refreshFlatItems()
-    return panelSections({
-      prInfo: this.prInfo,
-      files: this.files,
-      previews: this.previews,
-      conversationItems: this.conversationItems,
-      hiddenConversationIds: this.hiddenConversationIds,
-      flatConversationItems: this.flatConversationItems,
-      flatCheckItems: this.flatCheckItems,
-      nav: this.nav,
-      flashLabels: this.flashLabels,
-      terminalWidth: getTerminalWidth(),
-      listWidth: getListItemWidth(),
+    this.island.update({
+      sections: panelSections({
+        prInfo: this.prInfo,
+        files: this.files,
+        previews: this.previews,
+        conversationItems: this.conversationItems,
+        hiddenConversationIds: this.hiddenConversationIds,
+        flatConversationItems: this.flatConversationItems,
+        flatCheckItems: this.flatCheckItems,
+        nav: this.nav,
+        flashLabels: this.flashLabels,
+        terminalWidth: getTerminalWidth(),
+        listWidth: getListItemWidth(),
+      }),
     })
-  }
-
-  private buildSections(container: BoxRenderable): void {
-    for (const section of this.sections()) {
-      const sectionBox = new BoxRenderable(this.renderer, {
-        id: `section-${section.key}`,
-        flexDirection: "column",
-        width: "100%",
-        marginTop: 1,
-      })
-      this.sectionBoxes.push(sectionBox)
-      sectionBox.add(this.headerIsland(section.key, section.header).host)
-      if (section.body) this.buildSectionContent(sectionBox, section)
-      container.add(sectionBox)
-    }
-  }
-
-  private buildSectionContent(container: BoxRenderable, section: PanelSection): void {
-    const island = this.bodyIsland(section)
-    if (!island) return
-    if (section.key === 'description') {
-      this.descriptionBox = island.host
-      container.add(island.host)
-      return
-    }
-
-    const contentBox = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      width: "100%",
-      paddingLeft: 2,
-      marginTop: 1,
-    })
-    contentBox.add(island.host)
-    container.add(contentBox)
-  }
-
-  /** The section's body island, made on first use, holding the body the section has now. */
-  private bodyIsland(section: PanelSection): { host: BoxRenderable } | null {
-    const body = section.body
-    if (!body) return null
-    switch (body.kind) {
-      case 'description': {
-        const island = this.descriptionIsland()
-        island.update(body.model)
-        return island
-      }
-      case 'conversation': {
-        const island = this.conversationIsland()
-        island.update(body.rows)
-        return island
-      }
-      case 'list': {
-        if (!isListSection(section.key)) return null
-        const island = this.listIsland(section.key)
-        island.update(body.rows)
-        return island
-      }
-    }
-  }
-
-  /** The section's island, made on first use. */
-  private listIsland(section: ListSection): PrInfoListIsland {
-    let island = this.listIslands.get(section)
-    if (!island) {
-      island = createPrInfoListIsland(this.renderer, { id: `pr-info-${section}` })
-      this.listIslands.set(section, island)
-    }
-    return island
-  }
-
-  /** The section's header island, made on first use, holding the header as it is now. */
-  private headerIsland(section: PRInfoPanelSection, row: SectionHeaderRow): PrInfoHeaderIsland {
-    let island = this.headerIslands.get(section)
-    if (!island) {
-      island = createPrInfoHeaderIsland(this.renderer, section)
-      this.headerIslands.set(section, island)
-    }
-    island.update(row)
-    return island
-  }
-
-  /** The conversation's island, made on first use. */
-  private conversationIsland(): PrInfoConversationIsland {
-    this.conversation ??= createPrInfoConversationIsland(this.renderer, {
-      id: "pr-info-conversation",
-      markdown: {
-        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
-        syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
-      },
-    })
-    return this.conversation
-  }
-
-  /** The description's island, made on first use. */
-  private descriptionIsland(): PrInfoDescriptionIsland {
-    this.description ??= createPrInfoDescriptionIsland(this.renderer, {
-      id: "pr-info-description",
-      markdown: {
-        renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
-        syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
-      },
-      onResize: () => this.descriptionResized(),
-    })
-    return this.description
   }
 
   private descriptionResized(): void {
@@ -1043,131 +847,34 @@ export class PRInfoPanelClass {
     this.clampDescriptionOnResize = false
     if (this.nav.activeSection !== 'description' || this.nav.cursorIndex <= this.getMaxCursorIndex()) return
     this.nav = Nav.clampCursor(this.nav, this.counts)
-    this.pushRows('description')
-  }
-
-  /** A cursor move inside a section on an island restyles its rows without a rebuild. */
-  private pushRows(key: PRInfoPanelSection): void {
-    const section = this.sections().find((candidate) => candidate.key === key)
-    if (section?.body && this.mountedBody(key)) this.bodyIsland(section)
-  }
-
-  /** Whether the section's body island exists yet; a push never makes one. */
-  private mountedBody(section: PRInfoPanelSection): boolean {
-    if (section === 'description') return this.description !== null
-    if (section === 'conversation') return this.conversation !== null
-    return isListSection(section) && this.listIslands.has(section)
+    this.push()
   }
 
   /**
-   * Build the panel
+   * The first point a frame has the rows a push changed laid out. A scroll
+   * made here only reaches the next frame, but setting scrollTop moves the
+   * content, which asks the renderer for that frame itself.
    */
-  private build(): { container: BoxRenderable; scrollBox: ScrollBoxRenderable } {
-    // Main container — inline flex child of the main content row (spec 041,
-    // previously an absolute overlay).
-    const container = new BoxRenderable(this.renderer, {
-      id: "pr-info-panel",
-      flexGrow: 1,
-      height: "100%",
-      flexDirection: "column",
-      backgroundColor: theme.base,
-    })
-
-    // The `Ctrl-f` prompt (spec 065). Hidden until it is opened, and a real
-    // input widget so word deletion, paste and the rest come from OpenTUI.
-    const filterRow = new BoxRenderable(this.renderer, {
-      id: "pr-info-filter-row",
-      height: 1,
-      width: "100%",
-      flexDirection: "row",
-      paddingLeft: 2,
-      visible: false,
-    })
-    filterRow.add(new TextRenderable(this.renderer, { content: "/", fg: colors.secondary }))
-    filterRow.add(this.filterInput)
-    container.add(filterRow)
-    this.filterRow = filterRow
-
-    // Scroll box
-    const scrollBox = new ScrollBoxRenderable(this.renderer, {
-      id: "pr-info-scroll",
-      flexGrow: 1,
-      width: "100%",
-      paddingLeft: 2,
-      paddingRight: 2,
-      paddingTop: 1,
-      scrollY: true,
-      // The first point a frame has the rows a move rebuilt laid out. A
-      // scroll made here only reaches the next frame, but setting scrollTop
-      // moves the content, which asks the renderer for that frame itself.
-      renderBefore: () => {
-        if (this.pendingScrollTop !== null) {
-          this.scrollBox.scrollTop = this.pendingScrollTop
-          this.pendingScrollTop = null
-          return
-        }
-        if (!this.revealPending) return
-        this.revealPending = false
-        this.revealCursor()
-      },
-    })
-    container.add(scrollBox)
-
-    // Content container inside scroll box
-    const content = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      width: "100%",
-    })
-    scrollBox.add(content)
-
-    // What the header line does not already say (spec 067), and what this
-    // PR is stacked on. Repeating the title, status and counts spent five
-    // rows saying nothing and pushed the sections off the first screen.
-    this.meta = createPrInfoMetaIsland(this.renderer)
-    this.pushMeta()
-    content.add(this.meta.host)
-
-    // Separator before sections
-    const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })
-    separator2.add(new TextRenderable(this.renderer, { content: "─".repeat(70), fg: theme.surface1 }))
-    content.add(separator2)
-
-    // Sections container
-    this.sectionsContainer = new BoxRenderable(this.renderer, {
-      flexDirection: "column",
-      width: "100%",
-    })
-    content.add(this.sectionsContainer)
-    
-    // Build sections
-    this.buildSections(this.sectionsContainer)
-
-    container.add(this.commentPrompt.host)
-
-    return { container, scrollBox }
+  private beforeScrollRender(): void {
+    if (this.pendingScrollTop !== null) {
+      this.island.scrollBox.scrollTop = this.pendingScrollTop
+      this.pendingScrollTop = null
+      return
+    }
+    if (!this.revealPending) return
+    this.revealPending = false
+    this.revealCursor()
   }
 
   /** Opens, restyles or closes the `gC` prompt; render.ts pushes it from state on every render. */
   updateCommentInput(open: boolean, text: string, loading: boolean, error: string | null): void {
-    this.commentPrompt.update(prCommentPromptModel({ open, text, loading, error }))
+    this.island.update({ prompt: prCommentPromptModel({ open, text, loading, error }) })
   }
 
   /**
    * Destroy the panel
    */
   destroy(): void {
-    for (const island of this.listIslands.values()) island.dispose()
-    this.listIslands.clear()
-    this.conversation?.dispose()
-    this.conversation = null
-    this.description?.dispose()
-    this.description = null
-    for (const island of this.headerIslands.values()) island.dispose()
-    this.headerIslands.clear()
-    this.meta?.dispose()
-    this.meta = null
-    this.commentPrompt.dispose()
-    this.container.parent?.remove(this.container)
-    this.container.destroyRecursively()
+    this.island.dispose()
   }
 }

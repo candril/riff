@@ -5,10 +5,10 @@ import { ago, reviews } from "../testing/pr-info"
 import { fullPr, usePrInfoPanel } from "../testing/pr-info-panel"
 import type { StackInfo } from "../utils/stack"
 
-// The meta row, the stack line and the section headers are islands the
-// panel keeps across rebuilds. Reused renderables can lay out differently
-// from fresh ones once a row overflows, so whatever a sequence of pushes
-// leaves on screen is held against a panel built straight into that state.
+// The meta row, the stack line and the section headers are pushed to again,
+// never rebuilt. Reused renderables can lay out differently from fresh ones
+// once a row overflows, so whatever a sequence of pushes leaves on screen is
+// held against a panel built straight into that state.
 
 const mount = usePrInfoPanel()
 
@@ -25,7 +25,7 @@ const approved = (): PrReview[] => [
   })),
 ]
 
-describe("the header and meta islands, pushed to again", () => {
+describe("the header and meta rows, pushed to again", () => {
   for (const width of [100, 80]) {
     test(`draw what a fresh panel draws at ${width} columns after a header move, a stack and a new approval`, async () => {
       const restoreColumns = pinStdoutColumns(width)
