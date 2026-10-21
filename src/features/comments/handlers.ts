@@ -23,10 +23,8 @@ import {
 import { createComment } from "../../types"
 import { saveComment, deleteCommentFile, clearLocalComments } from "../../storage/comments"
 import { isLocallyResolved, publishableLocalComments } from "../../utils/publishable"
-import {
-  openCommentEditor,
-  parseEditorOutput,
-} from "../../utils/editor"
+import { openCommentEditor } from "../../utils/editor"
+import { parseEditorOutput } from "../../utils/editor/comment-template"
 import { diffHunkAt } from "../../utils/diff-hunk"
 import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 import {

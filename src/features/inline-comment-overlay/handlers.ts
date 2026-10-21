@@ -18,7 +18,7 @@ import {
 } from "../../state"
 import { createComment } from "../../types"
 import { saveComment } from "../../storage/comments"
-import type { DraftEditorContext } from "../../utils/editor"
+import type { DraftEditorContext } from "../../utils/editor/comment-template"
 import { diffHunkAt } from "../../utils/diff-hunk"
 import { extractCommentImages } from "../../utils/comment-images"
 import { openUrl } from "../../utils/open-url"
