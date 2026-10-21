@@ -64,7 +64,7 @@ import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
 import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
-import { createReviewChat } from "./app/review-chat"
+import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
@@ -508,6 +508,13 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     target: options.target,
     headSha: () => currentHeadSha ?? null,
+    position: diffCursorPosition({
+      getState: () => state,
+      getVimState: () => vimState,
+      getMapping: () => lineMapping,
+      // `split` is built below; a question is only ever sent once the app is running.
+      getScope: () => split.commentScope(),
+    }),
   })
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)

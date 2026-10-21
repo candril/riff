@@ -1,10 +1,11 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { openInlineCommentOverlay } from "../state"
 import { CHAT_HINT } from "../features/chat/ChatPane"
+import { VimMotionHandler } from "../vim-diff/motion-handler"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -15,6 +16,18 @@ index 1111111..2222222 100644
 -  return "hi"
 +  return "hello"
  }
+`
+
+const THREE_ADDED = `diff --git a/src/sum.ts b/src/sum.ts
+index 1111111..2222222 100644
+--- a/src/sum.ts
++++ b/src/sum.ts
+@@ -1,2 +1,5 @@
+ export function sum() {
++  const b = 2
++  const c = 3
++  const d = 4
+   return 1
 `
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
@@ -55,6 +68,18 @@ function keysOn(mounted: NonNullable<typeof app>) {
     },
     readReviewSummary: render.reviewPreview.summaryValue,
     chat: { state: render.chat, input: render.chatColumn.input },
+    getLineMapping: render.getLineMapping,
+    ensureCursorVisible: () => {},
+    vimHandler: new VimMotionHandler({
+      getMapping: render.getLineMapping,
+      getState: () => vimState,
+      setState: (next) => {
+        vimState = next
+        mounted.setVimState(next)
+      },
+      getViewportHeight: () => 20,
+      onCursorMove: () => mounted.render(),
+    }),
   }
   const ctx = new Proxy(known, {
     get(target, name) {
@@ -96,7 +121,7 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
 
   app.setup.mockInput.pressEnter()
   expect(app.agent.asked).toEqual(["jq"])
-  expect(app.agent.positions).toEqual([null])
+  expect(app.agent.positions).toEqual([{ path: "src/greet.ts", excerpt: [], label: "src/greet.ts" }])
   expect(input.plainText).toBe("")
   const asked = await app.frame()
   expect(asked).toContain("› jq")
@@ -153,4 +178,63 @@ test("in the chat, backspace deletes what is typed before it walks anywhere", as
   app.setup.mockInput.pressBackspace()
   expect(app.ctx.chatColumn.input()!.plainText).toBe("a")
   expect(app.ctx.getState().focusedPanel).toBe("chat")
+})
+
+/** Presses `j` until the cursor sits on the line whose text is `content`. */
+function moveTo(mounted: NonNullable<typeof app>, vimState: () => { line: number }, content: string) {
+  const target = mounted.ctx.getLineMapping().allLines.findIndex((line) => line.content === content)
+  expect(target).toBeGreaterThan(vimState().line)
+  while (vimState().line < target) mounted.setup.mockInput.pressKey("j")
+}
+
+describe("a question carries the reviewer's place in the diff", () => {
+  test("on an added line, the agent gets its file, side and line, and the chat shows them above the question", async () => {
+    app = await mountApp(DIFF, { width: 120, height: 24 })
+    app.show()
+    const { vimState } = keysOn(app)
+    moveTo(app, vimState, '  return "hello"')
+
+    ctrl(app, "r")
+    await app.setup.mockInput.typeText("why hello")
+    app.setup.mockInput.pressEnter()
+
+    expect(app.agent.asked).toEqual(["why hello"])
+    expect(app.agent.positions[0]).toMatchObject({
+      path: "src/greet.ts",
+      side: "new",
+      line: 2,
+      hunkHeader: "@@ -1,3 +1,3 @@",
+      label: "src/greet.ts:2",
+    })
+    const lines = (await app.frame()).split("\n")
+    const question = lines.findIndex((line) => line.includes("› why hello"))
+    expect(question).toBeGreaterThan(0)
+    expect(lines[question - 1]).toContain("src/greet.ts:2")
+  })
+
+  test("from visual-line mode, the selection goes along and the label gives its range", async () => {
+    app = await mountApp(THREE_ADDED, { width: 120, height: 24 })
+    app.show()
+    const { vimState } = keysOn(app)
+    moveTo(app, vimState, "  const b = 2")
+
+    app.setup.mockInput.pressKey("V")
+    app.setup.mockInput.pressKey("j")
+    app.setup.mockInput.pressKey("j")
+    ctrl(app, "r")
+    expect(vimState()).toMatchObject({ mode: "visual-line" })
+    await app.setup.mockInput.typeText("these three")
+    app.setup.mockInput.pressEnter()
+
+    expect(app.agent.positions[0]).toMatchObject({
+      path: "src/sum.ts",
+      side: "new",
+      line: 4,
+      selection: { start: 2, end: 4 },
+      label: "src/sum.ts:2-4",
+    })
+    const lines = (await app.frame()).split("\n")
+    const question = lines.findIndex((line) => line.includes("› these three"))
+    expect(lines[question - 1]).toContain("src/sum.ts:2-4")
+  })
 })

@@ -7,6 +7,7 @@ const deps = (demo: boolean) => ({
   getState: () => createInitialState([], [], "local", ""),
   target: undefined,
   headSha: () => null,
+  position: () => null,
 })
 
 test("--demo runs on the canned agent, and a review on Claude Opus", () => {
