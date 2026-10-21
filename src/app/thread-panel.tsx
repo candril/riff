@@ -1,7 +1,6 @@
 import type { BoxRenderable, CliRenderer } from "@opentui/core"
 import { batch } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { composerTextarea } from "../components/CommentComposer"
 import { ThreadPanelView } from "../components/ThreadPanelView"
 import { threadPanelMarkdown } from "../components/thread-panel-markdown"
 import { threadPanelModel, type ThreadPanelInput, type ThreadPanelModel } from "../components/thread-panel-model"
@@ -9,6 +8,7 @@ import { withReferences } from "../components/with-references"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { colors, theme } from "../theme"
 import { softenCommentHtml } from "../utils/comment-html"
+import { createIslandComposer } from "./island-composer"
 import { createIslandPrompt } from "./island-prompt"
 import { mountSolid } from "./solid-island"
 
@@ -54,7 +54,7 @@ function withBodiesAsDrawn(model: ThreadPanelModel): ThreadPanelModel {
 export function createThreadPanelIsland(renderer: CliRenderer) {
   const [state, setState] = createStore({ model: empty() })
   const prompt = createIslandPrompt("comments-filter")
-  const composer = composerTextarea(renderer)
+  const composer = createIslandComposer()
   const markdown = threadPanelMarkdown(renderer)
   let viewport: BoxRenderable | undefined
 
@@ -62,11 +62,12 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
     renderer,
     () => {
       const field = prompt.createField()
+      const composerField = composer.createField()
       return (
         <ThreadPanelView
           model={state.model}
           field={field}
-          composer={composer}
+          composer={composerField}
           markdown={markdown}
           viewportRef={(ref) => (viewport = ref)}
         />
@@ -101,6 +102,8 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
     },
     prompt: prompt.prompt,
     field: prompt.field,
+    compose: composer.compose,
+    composer: composer.handle,
     /**
      * Where each mounted entry was last laid out. The stack is flat, each
      * thread's header and then its comments, and only a collapsed thread's

@@ -4,7 +4,6 @@ import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { getInlineCommentOverlayDisplayOrder, startInlineCompose, toggleThreadPanelOpenOnly } from "../state"
-import { readComposerValue } from "../components/CommentComposer"
 import type { Comment } from "../types"
 
 const FILE = `diff --git a/src/greet.ts b/src/greet.ts
@@ -70,6 +69,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     fileTreePanel: mounted.fileTreePanel,
     updateFileTreePanel: render.updateFileTreePanel,
     threadPanelLayout: () => render.threadPanel.layout(),
+    composer: render.threadPanel.composer,
     getCommentScope: render.split.commentScope,
     toggleOpenThreadsOnly: () => {
       render.setState(toggleThreadPanelOpenOnly)
@@ -186,6 +186,6 @@ describe("H in the thread panel", () => {
     await mounted.setup.mockInput.typeText("H")
     await mounted.frame()
     expect(mounted.ctx.getState().threadPanelOpenOnly).toBe(false)
-    expect(readComposerValue()).toBe("H")
+    expect(mounted.ctx.threadPanel.composer.value()).toBe("H")
   })
 })

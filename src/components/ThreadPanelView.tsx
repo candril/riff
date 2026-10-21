@@ -1,4 +1,4 @@
-import type { BoxRenderable, TextareaRenderable } from "@opentui/core"
+import type { BoxRenderable } from "@opentui/core"
 import { createMemo, For, Show, type JSX } from "solid-js"
 import { colors, theme } from "../theme"
 import type { PanelMarkdownStyle } from "./PanelMarkdown"
@@ -19,7 +19,7 @@ import type { Hint, ThreadCommentModel, ThreadModel, ThreadPanelHeader, ThreadPa
 export function ThreadPanelView(props: {
   model: ThreadPanelModel
   field: JSX.Element
-  composer: TextareaRenderable
+  composer: JSX.Element
   markdown: PanelMarkdownStyle
   /** The threads' clipping viewport, for the half-page motions to read their layout off. */
   viewportRef?: (viewport: BoxRenderable) => void
@@ -165,7 +165,7 @@ function Threads(props: {
  * textarea (label and placeholder glyphs interleaved) and its bottom edge
  * was clipped off the panel.
  */
-function Composer(props: { model: ThreadPanelModel; textarea: TextareaRenderable }) {
+function Composer(props: { model: ThreadPanelModel; textarea: JSX.Element }) {
   return (
     <box visible={props.model.composer !== null} flexDirection="column" paddingX={1} paddingY={1} flexShrink={0}>
       {/*

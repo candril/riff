@@ -3,7 +3,6 @@ import type { CliRenderer } from "@opentui/core"
 import type { TestRendererSetup } from "@opentui/core/testing"
 import { createThreadPanelIsland } from "../app/thread-panel"
 import type { ThreadPanelInput } from "./thread-panel-model"
-import { endComposerSession } from "./CommentComposer"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
 import type { Comment } from "../types"
@@ -18,7 +17,6 @@ type Spans = ReturnType<TestRendererSetup["captureSpans"]>
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 afterEach(async () => {
-  endComposerSession()
   await mounted?.dispose()
   mounted = null
 })

@@ -6,7 +6,6 @@
 
 import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
-import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import { keepAlive } from "../utils/renderables"
 import { reviewCandidates } from "../utils/publishable"
 import {
@@ -237,37 +236,35 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     // the textarea's cursor visible; otherwise the diff would re-claim it
     // after the textarea's renderCursor pass.
     {
-      if (composerActive) {
-        const key = `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`
-        syncComposerSession(
-          ctx.renderer,
-          key,
-          ov.input,
-          ov.mode as "compose" | "edit",
-          (text, cursorOffset) => {
-            // Detect `@<query>` against the live textarea state. The
-            // mention picker is feature-gated to PR mode (no candidates
-            // in local diff review) — `setMentionPicker` short-circuits
-            // when there's nothing to set.
-            const trigger = detectMentionTrigger(text, cursorOffset)
-            ctx.setState((s) => setMentionPicker(s, trigger))
-            // And `:shortcode`, which needs nothing fetched (spec 082).
-            ctx.setState((s) => setEmojiPicker(s, detectEmojiTrigger(text, cursorOffset)))
-            if (trigger) {
-              // Widen the pool for fragments the cached roster can't cover
-              // (large orgs) — debounced, so this is a no-op most keystrokes.
-              requestMentionSearch(
-                { setState: ctx.setState, render },
-                trigger.query,
-                collectMentionCandidates(ctx.getState()),
-              )
+      ctx.threadPanel.compose(
+        composerActive
+          ? {
+              key: `${ov.filename}:${ov.line}:${ov.mode}:${ov.editingId ?? ""}`,
+              initialValue: ov.input,
+              mode: ov.mode as "compose" | "edit",
+              onActivity: (text, cursorOffset) => {
+                // Detect `@<query>` against the live textarea state. The
+                // mention picker is feature-gated to PR mode (no candidates
+                // in local diff review) — `setMentionPicker` short-circuits
+                // when there's nothing to set.
+                const trigger = detectMentionTrigger(text, cursorOffset)
+                ctx.setState((s) => setMentionPicker(s, trigger))
+                // And `:shortcode`, which needs nothing fetched (spec 082).
+                ctx.setState((s) => setEmojiPicker(s, detectEmojiTrigger(text, cursorOffset)))
+                if (trigger) {
+                  // Widen the pool for fragments the cached roster can't cover
+                  // (large orgs) — debounced, so this is a no-op most keystrokes.
+                  requestMentionSearch(
+                    { setState: ctx.setState, render },
+                    trigger.query,
+                    collectMentionCandidates(ctx.getState()),
+                  )
+                }
+                render()
+              },
             }
-            render()
-          }
-        )
-      } else {
-        endComposerSession()
-      }
+          : null
+      )
 
       // What is on screen has been read (spec 069): the comments the panel
       // is showing, and the threads of an open Conversation section. Being

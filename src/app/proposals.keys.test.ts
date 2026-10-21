@@ -2,7 +2,6 @@ import { afterEach, expect, spyOn, test } from "bun:test"
 import * as storage from "../storage"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
-import { readComposerCursorOffset, setComposerValue } from "../components/CommentComposer"
 import type { CommentsContext } from "../features/comments"
 import { createComment, type Comment } from "../types"
 import { DROPPED, createProposals } from "./proposals"
@@ -44,7 +43,7 @@ async function proposing(comments: Comment[] = []) {
       const line = mounted.ctx.getLineMapping().findLineForComment(anchor)
       if (line !== null) jumpTo(line)
     },
-    fillComposer: setComposerValue,
+    fillComposer: (text) => mounted.ctx.threadPanel.composer.setValue(text),
     note: mounted.ctx.chat.note,
   })
   const keys = keysOn(mounted, {
@@ -68,7 +67,7 @@ test("the agent's comment opens in the thread panel's composer on its line, the 
   const state = app.ctx.getState()
   expect([state.inlineCommentOverlay.mode, state.focusedPanel]).toEqual(["compose", "comments"])
   expect(app.ctx.getLineMapping().getLine(keys.vimState().line)?.content).toContain('return "hello"')
-  expect(readComposerCursorOffset()).toBe(TEXT.length)
+  expect(app.ctx.threadPanel.composer.cursorOffset()).toBe(TEXT.length)
 
   await app.setup.mockInput.typeText(" Thanks!")
   app.setup.mockInput.pressEnter()
@@ -100,7 +99,7 @@ test("the agent's new wording opens the reviewer's comment in edit mode, and Ent
   expect(frame).toContain("Editing comment")
   const ov = app.ctx.getState().inlineCommentOverlay
   expect([ov.mode, ov.editingId]).toEqual(["edit", "local-1"])
-  expect(readComposerCursorOffset()).toBe(TEXT.length)
+  expect(app.ctx.threadPanel.composer.cursorOffset()).toBe(TEXT.length)
 
   app.setup.mockInput.pressEnter()
   expect(await outcome).toBe(`The reviewer saved the new wording on src/greet.ts:2: ${TEXT}`)

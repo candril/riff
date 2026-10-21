@@ -45,6 +45,7 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
       mode: "local",
     },
     readReviewSummary: render.reviewPreview.summaryValue,
+    composer: render.threadPanel.composer,
     chat: { state: render.chat, input: render.chatColumn.input },
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},

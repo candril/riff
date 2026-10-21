@@ -48,12 +48,6 @@ import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
 import { filterEmoji } from "../../utils/emoji"
 import { groupIntoThreads } from "../../utils/threads"
-import {
-  readComposerValue,
-  readComposerCursorOffset,
-  replaceComposerRange,
-  setComposerValue,
-} from "../../components/CommentComposer"
 import { collectMentionCandidates } from "../../utils/mentions"
 import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
 import {
@@ -61,11 +55,14 @@ import {
   submitInlineEditDraft,
   type InlineComposerHandlersContext,
 } from "./handlers"
+import type { ComposerHandle } from "../../app/island-composer"
 
 /** How the composer closed: the reviewer's own keys, which a proposal of the agent's is told about. */
 export type ComposerOutcome = "saved" | "published" | "dropped"
 
 export interface InlineCommentOverlayInputContext extends InlineComposerHandlersContext {
+  /** The composer's textarea, whose live text is the source of truth over `ov.input`. */
+  composer: ComposerHandle
   /** Called once state holds the outcome: a saved comment is in `state.comments`, a dropped draft remembered. */
   composerSettled?: (outcome: ComposerOutcome) => void
   /** $EDITOR reply (Shift-r). Reuses the existing add-comment flow. */
@@ -147,9 +144,9 @@ function findThreadRootId(comments: Comment[], commentId: string): string | null
 }
 
 /** Put text in at the cursor, leaving the rest of the draft alone. */
-function insertAtComposerCursor(text: string): void {
-  const at = readComposerCursorOffset()
-  replaceComposerRange(at, at, text)
+function insertAtComposerCursor(composer: ComposerHandle, text: string): void {
+  const at = composer.cursorOffset()
+  composer.replaceRange(at, at, text)
 }
 
 /**
@@ -581,11 +578,11 @@ function handleComposerInput(
   // into the same textarea so Ctrl-s still submits it.
   if (key.ctrl && key.name === "g") {
     key.preventDefault()
-    const current = readComposerValue()
+    const current = ctx.composer.value()
     void (async () => {
       const edited = await ctx.openDraftInEditor(current)
       if (edited !== null) {
-        setComposerValue(edited)
+        ctx.composer.setValue(edited)
         ctx.setState((s) => setInlineCommentInput(s, edited))
       }
       ctx.render()
@@ -609,8 +606,8 @@ function handleComposerInput(
       }, 2500)
       return true
     }
-    insertAtComposerCursor(suggestionBlock(lines))
-    ctx.setState((s) => setInlineCommentInput(s, readComposerValue()))
+    insertAtComposerCursor(ctx.composer, suggestionBlock(lines))
+    ctx.setState((s) => setInlineCommentInput(s, ctx.composer.value()))
     ctx.render()
     return true
   }
@@ -621,7 +618,7 @@ function handleComposerInput(
   // We `preventDefault` so the focused textarea doesn't also process it.
   if (key.name === "escape") {
     key.preventDefault()
-    const draft = readComposerValue()
+    const draft = ctx.composer.value()
     ctx.setState((s) => cancelInlineComposer(rememberCommentDraft(s, draft)))
     ctx.composerSettled?.("dropped")
     ctx.render()
@@ -664,7 +661,7 @@ function handleComposerInput(
   const saveChord = publish || (key.ctrl && key.name === "s") || key.name === "return"
   if (saveChord) {
     key.preventDefault()
-    const value = readComposerValue()
+    const value = ctx.composer.value()
     ctx.setState((s) => setInlineCommentInput(s, value))
     const saving = ov.mode === "edit" ? submitInlineEditDraft(ctx) : submitInlineDraft(ctx)
     // The handlers change state before their first await, so the outcome is already there.
@@ -735,7 +732,7 @@ function handleEmojiPickerInput(
     if (!chosen) return true
     // The emoji itself rather than its shortcode: GitHub renders both, and
     // only one of them is legible in riff's own panel.
-    replaceComposerRange(picker.colonOffset, readComposerCursorOffset(), `${chosen.char} `)
+    ctx.composer.replaceRange(picker.colonOffset, ctx.composer.cursorOffset(), `${chosen.char} `)
     ctx.setState((s) => setEmojiPicker(s, null))
     ctx.render()
     return true
@@ -799,7 +796,7 @@ function handleMentionPickerInput(
 /**
  * Replace the active `@<query>` with `@<username> ` in the textarea
  * and close the picker. The textarea's onContentChange fires after
- * `replaceComposerRange`, which re-runs `detectMentionTrigger`; with
+ * `replaceRange`, which re-runs `detectMentionTrigger`; with
  * the trailing space the regex no longer matches, so the picker stays
  * closed.
  */
@@ -808,8 +805,8 @@ function acceptMention(
   atOffset: number,
   username: string
 ): void {
-  const cursor = readComposerCursorOffset()
-  replaceComposerRange(atOffset, cursor, `@${username} `)
+  const cursor = ctx.composer.cursorOffset()
+  ctx.composer.replaceRange(atOffset, cursor, `@${username} `)
   // Defensive: clear the picker explicitly even though the activity
   // callback will also clear it. Avoids a one-frame flash if the event
   // ordering ever changes.

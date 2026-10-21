@@ -1,8 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
-import { createThreadPanelIsland } from "../app/thread-panel"
+import { createThreadPanelIsland, type ThreadPanelIsland } from "../app/thread-panel"
 import type { ThreadPanelInput } from "./thread-panel-model"
-import { endComposerSession, setComposerValue } from "./CommentComposer"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
 import type { Comment } from "../types"
@@ -12,9 +11,9 @@ const HEIGHT = 30
 const FRAME_GLYPHS = /[┌┐└┘│─├┤]/
 
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
+let island: ThreadPanelIsland | null = null
 
 afterEach(async () => {
-  endComposerSession()
   await mounted?.dispose()
   mounted = null
 })
@@ -39,7 +38,7 @@ const COMMENTS = [comment("a1", 3, true, "Looks good"), comment("b1", 10, false,
 async function mountPanel(props: Partial<ThreadPanelInput> = {}) {
   mounted = await mountRenderable(
     (renderer) => {
-      const island = createThreadPanelIsland(renderer as unknown as CliRenderer)
+      island = createThreadPanelIsland(renderer as unknown as CliRenderer)
       island.update({
         comments: COMMENTS,
         scopeFilename: "greet.ts",
@@ -140,7 +139,7 @@ describe("the thread panel", () => {
     expect(rows[label + 1]).toContain("Type a comment")
     expect(bgAt(spans, textColumn, label + 2)).toEqual(ints(theme.mantle))
 
-    setComposerValue("one\ntwo\nthree")
+    island!.composer.setValue("one\ntwo\nthree")
     const typed = (await mounted!.frame()).split("\n")
     const typedSpans = mounted!.setup.captureSpans()
     const typedLabel = rowWith(typed, "New thread @ greet.ts:3")

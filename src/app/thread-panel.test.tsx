@@ -3,7 +3,6 @@ import type { Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createThreadPanelIsland } from "./thread-panel"
 import type { ThreadPanelInput } from "../components/thread-panel-model"
-import { composerTextarea, endComposerSession } from "../components/CommentComposer"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import {
   closeInlineCommentOverlay,
@@ -14,6 +13,7 @@ import {
   type AppState,
 } from "../state"
 import { mountApp } from "../testing/app-render"
+import { composerTextareaIn } from "../testing/composer"
 import { trimFrame } from "../testing/frame"
 import type { Comment } from "../types"
 
@@ -21,7 +21,6 @@ const HEIGHT = 30
 
 let teardown: (() => void | Promise<void>)[] = []
 afterEach(async () => {
-  endComposerSession()
   for (const dispose of teardown) await dispose()
   teardown = []
 })
@@ -258,7 +257,7 @@ describe("the panel in the app", () => {
     const app = await mountApp(DIFF, { width: 120, height: 24 })
     teardown.push(() => app.dispose())
     const { renderer, mockInput } = app.setup
-    const textarea = composerTextarea(renderer)
+    const textarea = composerTextareaIn(app.ctx.threadPanel.host)
     const at = (state: AppState) => openInlineCommentOverlay(state, "src/greet.ts", 2, "RIGHT", "view")
 
     app.show({ ...at(app.ctx.getState()), comments: COMMENTS })

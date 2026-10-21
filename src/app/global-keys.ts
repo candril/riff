@@ -6,6 +6,7 @@
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
+import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles, focusLeft, focusRight, promptOpen, toggleChat } from "../state"
@@ -129,6 +130,8 @@ export interface GlobalKeyContext {
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   /** What the Submit Review summary holds right now. */
   readReviewSummary: () => string
+  /** The comment composer's textarea, which the overlay's keys read and fill. */
+  composer: ComposerHandle
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
   prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
   threadMotionContext: threadMotion.ThreadMotionContext
@@ -848,6 +851,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
     if (
       inlineCommentOverlay.handleInput(key, {
+        composer: ctx.composer,
         getState: ctx.getState,
         setState: ctx.setState,
         render: ctx.render,

@@ -256,7 +256,7 @@ New components in `src/components/`:
 - `ConversationOverlay.ts` — centered modal reusing the same internal
   composer + reaction-picker widgets.
 - `ReactionPicker.ts` — horizontal row shown inside either overlay.
-- `CommentComposer.ts` — multiline input with `Ctrl-s` to submit, `Esc` to
+- `CommentComposer.tsx` — multiline input with `Ctrl-s` to submit, `Esc` to
   cancel; shared by both overlays and by edit flows.
 
 Delete:

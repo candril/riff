@@ -72,7 +72,6 @@ import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
-import { setComposerValue } from "./components/CommentComposer"
 import { createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
@@ -504,7 +503,7 @@ export async function createApp(options: AppOptions = {}) {
     render,
     // Built below with the diff; a proposal only ever arrives once the app is running.
     reveal: (anchor) => threadMotion.revealAnchor(anchor, threadMotionContext),
-    fillComposer: setComposerValue,
+    fillComposer: (text) => threadPanel.composer.setValue(text),
     note: chat.note,
   })
   chat.onSessionClosed(proposals.endConversation)
@@ -1800,6 +1799,7 @@ export async function createApp(options: AppOptions = {}) {
     feedLoadContext,
     reviewPreviewOpenContext,
     readReviewSummary: reviewPreviewIsland.summaryValue,
+    composer: threadPanel.composer,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
     threadMotionContext,

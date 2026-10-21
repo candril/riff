@@ -234,15 +234,19 @@ src/
 └── utils/                # parsing, markdown, links, fuzzy matching, editor hand-off
 ```
 
-Two kinds of file in `src/components` are not model-and-component pairs.
-`PRInfoPanel.ts` is the PR overview's controller rather than a view: it
-holds the cursor, the open sections and the scroll, and pushes the
-sections `panelSections` builds into one island (`src/app/pr-info-panel.tsx`). `CommentComposer.ts` keeps OpenTUI's native
-textarea alive across passes, so the composer keeps its cursor while the
-thread panel redraws. A one-line prompt's field is its island's own
-(`src/app/island-prompt.tsx`): mounted once and only ever hidden, and
-handed its typing session through the island's `prompt()`, which
-`src/app/prompt-routing.ts` calls from the render pass.
+`PRInfoPanel.ts` in `src/components` is not a model-and-component pair:
+it is the PR overview's controller rather than a view. It holds the
+cursor, the open sections and the scroll, and pushes the sections
+`panelSections` builds into one island (`src/app/pr-info-panel.tsx`).
+
+A field that is typed into is its island's own, mounted once and only
+ever hidden, so it keeps its cursor while the island redraws. A one-line
+prompt's field (`src/app/island-prompt.tsx`) is handed its typing
+session through the island's `prompt()`, which
+`src/app/prompt-routing.ts` calls from the render pass. The comment
+composer's textarea is the thread panel island's own
+(`src/app/island-composer.tsx`), handed its session through
+`compose()`.
 
 ## Configuration
 
