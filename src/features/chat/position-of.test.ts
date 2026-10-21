@@ -10,6 +10,19 @@ import { chatPositionOf, EXCERPT_RADIUS } from "./position-of"
 const small = diffFile("s.ts", ["@@ -1,6 +1,5 @@", " a", "-b", "-c", "+B", "+C", " d", "-gone", " e"])
 const smallMapping = new DiffLineMapping([small], "all")
 
+// In the right pane the "  }" row's half is empty, so the cursor there holds the removal.
+const cart = diffFile("src/cart.ts", [
+  "@@ -1,7 +1,3 @@",
+  "-let total = 0",
+  "-for (const item of items) {",
+  "-  total += item.price",
+  "-  }",
+  "-return total",
+  "+return items.length",
+  " }",
+  " tail",
+])
+
 const at = (mapping: DiffLineMapping, content: string) =>
   mapping.allLines.findIndex((line) => line.content === content)
 
@@ -28,7 +41,7 @@ const positionOf = (
   pane?: "left" | "right",
 ) => {
   const rows = pane ? new RowLineSource(mapping, "split", pane) : null
-  return chatPositionOf({ mapping, vim, scope: commentScope(vim, rows), files })
+  return chatPositionOf({ mapping, vim, scope: commentScope(vim, rows), files, rows })
 }
 
 const positionAt = (content: string, pane?: "left" | "right", mapping = smallMapping, files = [small]) =>
@@ -59,7 +72,7 @@ describe("chatPositionOf", () => {
     expect(position.excerpt[position.cursorIndex!]).toMatchObject({ kind: "context", text: "middle two", newLine: 8 })
   })
 
-  test("a file header or a divider is the file alone", () => {
+  test("a file header, or a divider with no hunk below it, is the file alone", () => {
     const mapping = mappingOf()
     const header = mapping.allLines.findIndex((line) => line.type === "file-header" && line.filename === "b.ts")
     expect(positionOf(mapping, cursor(header), [doc, code])).toEqual({
@@ -67,12 +80,30 @@ describe("chatPositionOf", () => {
       excerpt: [],
       label: "b.ts",
     })
-    const divider = mapping.allLines.findIndex((line) => line.type === "divider")
-    expect(positionOf(mapping, cursor(divider), [doc, code])).toEqual({
-      path: "doc.md",
+    const last = mapping.allLines.findLastIndex((line) => line.type === "divider")
+    expect(positionOf(mapping, cursor(last), [doc, code])).toEqual({
+      path: "b.ts",
       excerpt: [],
-      label: "doc.md",
+      label: "b.ts",
     })
+  })
+
+  test("a divider above a hunk is that hunk: its header and its first lines, on no line of its own", () => {
+    const body = Array.from({ length: 30 }, (_, i) => ` line ${i + 1}`)
+    const two = diffFile("t.ts", ["@@ -1,1 +1,1 @@", " top", "@@ -50,30 +50,30 @@", ...body])
+    const mapping = new DiffLineMapping([two], "all")
+    const divider = mapping.allLines.findIndex((line) => line.type === "divider")
+    for (const pane of [undefined, "left", "right"] as const) {
+      const position = positionOf(mapping, cursor(divider), [two], pane)!
+      expect(position).toEqual({
+        path: "t.ts",
+        hunkHeader: "@@ -50,30 +50,30 @@",
+        excerpt: position.excerpt,
+        label: "t.ts",
+      })
+      expect(position.excerpt).toHaveLength(EXCERPT_RADIUS + 1)
+      expect(position.excerpt[0]).toEqual({ kind: "context", text: "line 1", oldLine: 50, newLine: 50 })
+    }
   })
 
   test("the excerpt reaches twenty lines either side and stops at the hunk's divider", () => {
@@ -106,21 +137,50 @@ describe("chatPositionOf", () => {
   })
 
   test("a split selection covers only the rows selected, though the mapping holds every removal before the additions", () => {
-    // In the right pane the "  }" row's half is empty, so the cursor there holds the removal.
-    const cart = diffFile("src/cart.ts", [
-      "@@ -1,7 +1,3 @@",
-      "-let total = 0",
-      "-for (const item of items) {",
-      "-  total += item.price",
-      "-  }",
-      "-return total",
-      "+return items.length",
-      " }",
-      " tail",
-    ])
     const mapping = new DiffLineMapping([cart], "all")
     const position = positionOf(mapping, cursor(at(mapping, "}"), at(mapping, "  }")), [cart], "right")!
-    expect(position).toMatchObject({ side: "new", line: 2, selection: { start: 2, end: 2 }, label: "src/cart.ts:2-2" })
+    expect(position).toMatchObject({ side: "new", line: 2, selection: { start: 2, end: 2 }, label: "src/cart.ts:2" })
+  })
+
+  test("a one-line selection is labelled with its line alone", () => {
+    const position = positionOf(smallMapping, cursor(at(smallMapping, "gone"), at(smallMapping, "gone")))!
+    expect(position).toMatchObject({ selection: { start: 5, end: 5 }, label: "s.ts:5 (old)" })
+  })
+
+  test("an empty right half takes the nearest row with a new line, and the selection is still read from the pane", () => {
+    const mapping = new DiffLineMapping([cart], "all")
+    const position = positionOf(mapping, cursor(at(mapping, "  }"), at(mapping, "}")), [cart], "right")!
+    expect(position).toMatchObject({
+      path: "src/cart.ts",
+      side: "new",
+      line: 2,
+      hunkHeader: "@@ -1,7 +1,3 @@",
+      selection: { start: 2, end: 2 },
+      label: "src/cart.ts:2",
+    })
+    expect(position.excerpt[position.cursorIndex!]).toEqual({ kind: "context", text: "}", oldLine: 6, newLine: 2 })
+  })
+
+  test("an empty left half in a run of additions takes the nearest old line", () => {
+    const added = diffFile("a.ts", ["@@ -1,2 +1,5 @@", " a", "+x", "+y", "+z", " b"])
+    const mapping = new DiffLineMapping([added], "all")
+    const position = positionOf(mapping, cursor(at(mapping, "z")), [added], "left")!
+    expect(position).toMatchObject({ side: "old", line: 2, label: "a.ts:2 (old)" })
+    expect(position.excerpt[position.cursorIndex!]).toMatchObject({ text: "b" })
+  })
+
+  test("rows equally near above and below give the one above", () => {
+    expect(positionAt("gone", "right")).toMatchObject({ side: "new", line: 4, label: "s.ts:4" })
+  })
+
+  test("a pane with no line anywhere in the file is the file alone", () => {
+    const created = diffFile("new.ts", ["@@ -0,0 +1,2 @@", "+x", "+y"])
+    const mapping = new DiffLineMapping([created], "all")
+    expect(positionOf(mapping, cursor(at(mapping, "y")), [created], "left")).toEqual({
+      path: "new.ts",
+      excerpt: [],
+      label: "new.ts",
+    })
   })
 
   test("with no diff on screen there is no position", () => {

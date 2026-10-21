@@ -28,7 +28,7 @@ export function formatForAgent(position: Position): string {
   const lines = [`[Reviewer's position: ${where}]`]
   if (position.selection) {
     const { start, end } = position.selection
-    lines.push(`Selected: ${position.path}:${start}-${end}`)
+    lines.push(`Selected: ${position.path}:${start === end ? start : `${start}-${end}`}`)
   }
   if (position.hunkHeader) {
     lines.push(position.hunkHeader)

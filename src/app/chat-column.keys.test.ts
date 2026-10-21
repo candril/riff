@@ -3,7 +3,7 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
-import { openInlineCommentOverlay } from "../state"
+import { openInlineCommentOverlay, toggleSplitView } from "../state"
 import { CHAT_HINT } from "../features/chat/ChatPane"
 import { VimMotionHandler } from "../vim-diff/motion-handler"
 
@@ -30,6 +30,22 @@ index 1111111..2222222 100644
    return 1
 `
 
+// In the right pane the row of "  }" has an empty half.
+const CART = `diff --git a/src/cart.ts b/src/cart.ts
+index 1111111..2222222 100644
+--- a/src/cart.ts
++++ b/src/cart.ts
+@@ -1,7 +1,3 @@
+-let total = 0
+-for (const item of items) {
+-  total += item.price
+-  }
+-return total
++return items.length
+ }
+ tail
+`
+
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 afterEach(async () => {
   await app?.dispose()
@@ -45,13 +61,19 @@ function keysOn(mounted: NonNullable<typeof app>) {
   const { ctx: render } = mounted
   let vimState = render.getVimState()
   const quits: number[] = []
+  const setVimState = (next: typeof vimState) => {
+    vimState = next
+    mounted.setVimState(next)
+  }
   const known: Partial<GlobalKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => vimState,
-    setVimState: (next) => {
-      vimState = next
-      mounted.setVimState(next)
+    setVimState,
+    toggleSplitView: () => {
+      mounted.show(toggleSplitView(render.getState()))
+      if (render.getState().splitView) render.split.enter()
+      mounted.render()
     },
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
@@ -90,7 +112,9 @@ function keysOn(mounted: NonNullable<typeof app>) {
     },
   }) as GlobalKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
-  return { quits, vimState: () => vimState }
+  // Where a search or a flash jump would land the cursor, without walking there.
+  const jumpTo = (line: number) => setVimState({ ...vimState, line })
+  return { quits, vimState: () => vimState, jumpTo }
 }
 
 const ctrl = (mounted: NonNullable<typeof app>, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })
@@ -180,7 +204,6 @@ test("in the chat, backspace deletes what is typed before it walks anywhere", as
   expect(app.ctx.getState().focusedPanel).toBe("chat")
 })
 
-/** Presses `j` until the cursor sits on the line whose text is `content`. */
 function moveTo(mounted: NonNullable<typeof app>, vimState: () => { line: number }, content: string) {
   const target = mounted.ctx.getLineMapping().allLines.findIndex((line) => line.content === content)
   expect(target).toBeGreaterThan(vimState().line)
@@ -236,5 +259,44 @@ describe("a question carries the reviewer's place in the diff", () => {
     const lines = (await app.frame()).split("\n")
     const question = lines.findIndex((line) => line.includes("› these three"))
     expect(lines[question - 1]).toContain("src/sum.ts:2-4")
+  })
+
+  test("a one-line selection is labelled with its line alone", async () => {
+    app = await mountApp(THREE_ADDED, { width: 120, height: 24 })
+    app.show()
+    const { vimState } = keysOn(app)
+    moveTo(app, vimState, "  const c = 3")
+
+    app.setup.mockInput.pressKey("V")
+    ctrl(app, "r")
+    await app.setup.mockInput.typeText("just this")
+    app.setup.mockInput.pressEnter()
+
+    expect(app.agent.positions[0]).toMatchObject({ selection: { start: 3, end: 3 }, label: "src/sum.ts:3" })
+    const frame = await app.frame()
+    const lines = frame.split("\n")
+    const question = lines.findIndex((line) => line.includes("› just this"))
+    expect(lines[question - 1]).toContain("src/sum.ts:3")
+    expect(frame).not.toContain("src/sum.ts:3-3")
+  })
+
+  test("in split, a cursor on an empty right half asks from the nearest line in that pane", async () => {
+    app = await mountApp(CART, { width: 240, height: 24 })
+    app.show()
+    const { jumpTo } = keysOn(app)
+    app.setup.mockInput.pressKey("\\")
+    expect(app.ctx.getState().splitView).toBe(true)
+    jumpTo(app.ctx.getLineMapping().allLines.findIndex((line) => line.content === "  }"))
+
+    ctrl(app, "r")
+    await app.setup.mockInput.typeText("what about this")
+    app.setup.mockInput.pressEnter()
+
+    expect(app.agent.positions[0]).toMatchObject({ path: "src/cart.ts", side: "new", line: 2, label: "src/cart.ts:2" })
+    const frame = await app.frame()
+    expect(app.ctx.split.shown()).toBe(true)
+    const lines = frame.split("\n")
+    const question = lines.findIndex((line) => line.includes("› what about this"))
+    expect(lines[question - 1]).toContain("src/cart.ts:2")
   })
 })

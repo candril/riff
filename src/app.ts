@@ -514,6 +514,7 @@ export async function createApp(options: AppOptions = {}) {
       getMapping: () => lineMapping,
       // `split` is built below; a question is only ever sent once the app is running.
       getScope: () => split.commentScope(),
+      getRows: () => split.splitRows(),
     }),
   })
   const searchPrompt = createSearchPromptIsland(renderer)

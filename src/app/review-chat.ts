@@ -1,4 +1,5 @@
 import type { CommentScope } from "../diff-rows/comment-scope"
+import type { SplitRows } from "../diff-rows/row-source"
 import type { AppState } from "../state"
 import type { Agent } from "../providers/agent/agent"
 import { readToolset } from "../providers/agent/read-tool-definitions"
@@ -47,6 +48,8 @@ export interface DiffCursorDeps {
   getVimState: () => VimCursorState
   getMapping: () => DiffLineMapping
   getScope: () => CommentScope
+  /** The split rows the scope is read from, so an empty half can find its nearest line; null in unified. */
+  getRows: () => SplitRows | null
 }
 
 /** Only the diff has a cursor in the change; a question asked over the overview, the feed or the PR info carries none. */
@@ -58,6 +61,7 @@ export function diffCursorPosition(deps: DiffCursorDeps): () => Position | null 
       mapping: deps.getMapping(),
       vim: deps.getVimState(),
       scope: deps.getScope(),
+      rows: deps.getRows(),
       files: state.files,
     })
   }

@@ -1,7 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
 import { sideOf } from "../diff-rows/line-spans"
-import { RowLineSource, rowOfLine } from "../diff-rows/row-source"
+import { RowLineSource, rowOfLine, type SplitRows } from "../diff-rows/row-source"
 import type { AppState } from "../state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -166,6 +166,10 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       if (!shown()) return commentScope(deps.getVimState(), null)
       syncPane()
       return commentScope(deps.getVimState(), source())
+    },
+    /** The rows commentScope reads in split; null while unified is drawn. */
+    splitRows(): SplitRows | null {
+      return shown() ? source() : null
     },
     /** The status bar counts the rows a selection spans, as the split view draws them. */
     selectionStatus(vimState: VimCursorState) {

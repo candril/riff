@@ -109,6 +109,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       getVimState: () => vimState,
       getMapping: () => mapping,
       getScope: () => split.commentScope(),
+      getRows: () => split.splitRows(),
     }),
   )
   const overlayHosts = {} as ShellParts["overlays"]
