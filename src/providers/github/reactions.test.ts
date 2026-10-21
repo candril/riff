@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { parseReactionGroupsForTest as parse } from "./github"
+import { parseReactionGroups as parse } from "./reactions"
 
 describe("reading reactions off the API", () => {
   test("GraphQL's names are riff's names", () => {

@@ -2,6 +2,8 @@ import { $ } from "bun"
 import { saveComment, saveSession, loadComments, deleteCommentFile } from "../storage"
 import { extractShellError, getCurrentRepo, getCurrentUser, safeGhCommand, safeJson } from "./github/exec"
 import { getPrDiff } from "./github/diff"
+import { parseReactionGroups, type RawReactionGroup } from "./github/reactions"
+import { fetchRemainingViewedStatuses, type ViewerViewedState } from "./github/viewed"
 import type {
   PendingReview,
   PrCheck,
@@ -14,8 +16,7 @@ import type {
 } from "./github/types"
 import type { TimelineEntry } from "../utils/feed"
 import { readStack, type StackInfo } from "../utils/stack"
-import type { Comment, ReviewSession, ReactionContent, ReactionSummary, ReactionTarget } from "../types"
-import { REACTION_CONTENT } from "../types"
+import type { Comment, ReviewSession, ReactionSummary } from "../types"
 
 /** References resolved per GraphQL call — GitHub caps a query's node count. */
 const REFERENCE_BATCH = 25
@@ -181,60 +182,6 @@ export async function createPullRequest(
       url: result.url,
     }
   })
-}
-
-/**
- * Raw reactionGroups node as returned by GitHub GraphQL.
- */
-interface RawReactionGroup {
-  content: string
-  viewerHasReacted: boolean
-  reactors: { totalCount: number }
-}
-
-/**
- * Convert GitHub's GraphQL reactionGroups array into riff's ReactionSummary[].
- * Drops unknown content values (future GitHub additions) and zero-count groups
- * — the palette submenu fabricates rows for the full 8-reaction set anyway,
- * so we only carry non-empty state.
- */
-/**
- * GraphQL names a reaction `THUMBS_UP`; REST — and riff, and the add/remove
- * mutations — call it `+1`. Reading the one as the other silently dropped
- * every reaction riff ever loaded, while posting them kept working.
- */
-const REACTION_BY_GRAPHQL_NAME: Record<string, ReactionContent> = {
-  THUMBS_UP: "+1",
-  THUMBS_DOWN: "-1",
-  LAUGH: "laugh",
-  CONFUSED: "confused",
-  HEART: "heart",
-  HOORAY: "hooray",
-  ROCKET: "rocket",
-  EYES: "eyes",
-}
-
-export { parseReactionGroups as parseReactionGroupsForTest }
-
-function parseReactionGroups(groups: RawReactionGroup[] | undefined): ReactionSummary[] {
-  if (!groups) return []
-  const known = new Set<string>(REACTION_CONTENT)
-  const out: ReactionSummary[] = []
-  for (const raw of groups) {
-    // Accept either spelling: the bundle asks GraphQL, and REST answers
-    // elsewhere with the same shape.
-    const content = REACTION_BY_GRAPHQL_NAME[raw.content] ?? raw.content
-    const g = { ...raw, content }
-    if (!known.has(g.content)) continue
-    const count = g.reactors?.totalCount ?? 0
-    if (count === 0 && !g.viewerHasReacted) continue
-    out.push({
-      content: g.content as ReactionContent,
-      count,
-      viewerHasReacted: Boolean(g.viewerHasReacted),
-    })
-  }
-  return out
 }
 
 /**
@@ -1445,101 +1392,6 @@ export async function submitReview(
 }
 
 // ============================================================================
-// Reactions (spec 042)
-// ============================================================================
-
-export interface AddReactionResult {
-  success: boolean
-  reactionId?: number
-  error?: string
-}
-
-export interface RemoveReactionResult {
-  success: boolean
-  error?: string
-}
-
-/**
- * Build the REST path for a reaction target. All four reactable surfaces
- * mount reactions at `<target>/reactions`; POST creates, DELETE at
- * `<target>/reactions/<id>` removes.
- */
-function reactionPath(
-  target: ReactionTarget,
-  owner: string,
-  repo: string,
-): string {
-  switch (target.kind) {
-    case "review-comment":
-      return `repos/${owner}/${repo}/pulls/comments/${target.githubId}/reactions`
-    case "issue-comment":
-      return `repos/${owner}/${repo}/issues/comments/${target.githubId}/reactions`
-    case "review":
-      return `repos/${owner}/${repo}/pulls/${target.prNumber}/reviews/${target.reviewId}/reactions`
-    case "issue":
-      return `repos/${owner}/${repo}/issues/${target.prNumber}/reactions`
-  }
-}
-
-/**
- * Add a reaction to a PR-side entity. Returns the new reaction's REST id
- * so callers can stash it for fast removal later (spec 042).
- */
-export async function addReaction(
-  target: ReactionTarget,
-  content: ReactionContent,
-  owner: string,
-  repo: string,
-): Promise<AddReactionResult> {
-  try {
-    const path = reactionPath(target, owner, repo)
-    const result = await $`gh api -X POST ${path} -f content=${content}`.json() as { id: number }
-    return { success: true, reactionId: result.id }
-  } catch (err) {
-    return { success: false, error: extractShellError(err) }
-  }
-}
-
-/**
- * Remove a reaction. If `reactionId` is known (e.g. stashed from a prior
- * add in this session), we DELETE it directly. If it isn't — the viewer
- * reacted before riff was loaded and we only know they reacted, not the
- * reaction id — list the reactions on the target, find the viewer's, and
- * delete that one. Two round-trips for this rarer case.
- */
-export async function removeReaction(
-  target: ReactionTarget,
-  content: ReactionContent,
-  owner: string,
-  repo: string,
-  reactionId: number | undefined,
-): Promise<RemoveReactionResult> {
-  try {
-    const basePath = reactionPath(target, owner, repo)
-    let id = reactionId
-    if (id === undefined) {
-      const currentUser = await getCurrentUser()
-      const reactions = await $`gh api --paginate ${basePath}?content=${content}`.json() as Array<{
-        id: number
-        content: string
-        user?: { login?: string }
-      }>
-      const mine = reactions.find(r => r.content === content && r.user?.login === currentUser)
-      if (!mine) {
-        // Nothing to delete — treat as success so the optimistic UI
-        // stays consistent with the real server state.
-        return { success: true }
-      }
-      id = mine.id
-    }
-    await $`gh api -X DELETE ${basePath}/${id}`.quiet()
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: extractShellError(err) }
-  }
-}
-
-// ============================================================================
 // Thread Resolution
 // ============================================================================
 
@@ -1613,142 +1465,4 @@ export async function toggleThreadResolution(
   currentlyResolved: boolean
 ): Promise<ResolveResult> {
   return currentlyResolved ? unresolveThread(threadId) : resolveThread(threadId)
-}
-
-// ============================================================================
-// Viewed Files Sync
-// ============================================================================
-
-export type ViewerViewedState = "VIEWED" | "UNVIEWED" | "DISMISSED"
-
-export interface ViewedFileStatus {
-  path: string
-  viewerViewedState: ViewerViewedState
-}
-
-const VIEWED_STATUS_PAGE_QUERY = `
-  query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $prNumber) {
-        files(first: 100, after: $cursor) {
-          nodes { path viewerViewedState }
-          pageInfo { hasNextPage endCursor }
-        }
-      }
-    }
-  }
-`
-
-/**
- * Continue a viewed-status listing past the first page of files that
- * `fetchPrBundle` already carries. Only PRs over 100 files get here.
- */
-async function fetchRemainingViewedStatuses(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  cursor: string
-): Promise<Map<string, ViewerViewedState>> {
-  const statuses = new Map<string, ViewerViewedState>()
-
-  try {
-    while (true) {
-      const result = await $`gh api graphql -f query=${VIEWED_STATUS_PAGE_QUERY} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber} -F cursor=${cursor}`.json() as any
-      const files = result?.data?.repository?.pullRequest?.files
-
-      for (const file of files?.nodes ?? []) {
-        statuses.set(file.path, file.viewerViewedState)
-      }
-
-      if (!files?.pageInfo?.hasNextPage || !files.pageInfo.endCursor) {
-        return statuses
-      }
-      cursor = files.pageInfo.endCursor
-    }
-  } catch {
-    // Partial statuses beat none — the rest just show as unviewed.
-    return statuses
-  }
-}
-
-export interface ViewedSyncResult {
-  success: boolean
-  error?: string
-}
-
-/**
- * Mark a file as viewed or unviewed on GitHub via GraphQL mutation.
- */
-export async function markFileViewedOnGitHub(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  path: string,
-  viewed: boolean
-): Promise<ViewedSyncResult> {
-  try {
-    // First get the PR node ID (required for the mutation)
-    const prQuery = `
-      query($owner: String!, $repo: String!, $prNumber: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $prNumber) {
-            id
-          }
-        }
-      }
-    `
-    
-    const prResult = await $`gh api graphql -f query=${prQuery} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
-    const prId = prResult?.data?.repository?.pullRequest?.id
-    
-    if (!prId) {
-      return { success: false, error: "Could not get PR ID" }
-    }
-    
-    // Use the appropriate mutation
-    const mutationName = viewed ? "markFileAsViewed" : "unmarkFileAsViewed"
-    const mutation = `
-      mutation($prId: ID!, $path: String!) {
-        ${mutationName}(input: {
-          pullRequestId: $prId
-          path: $path
-        }) {
-          pullRequest {
-            id
-          }
-        }
-      }
-    `
-    
-    await $`gh api graphql -f query=${mutation} -F prId=${prId} -F path=${path}`.quiet()
-    
-    return { success: true }
-  } catch (err) {
-    return { success: false, error: extractShellError(err) }
-  }
-}
-
-/**
- * Batch mark multiple files as viewed on GitHub.
- * More efficient than individual calls for bulk operations.
- */
-export async function markFilesViewedOnGitHub(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  files: { path: string; viewed: boolean }[]
-): Promise<ViewedSyncResult[]> {
-  // Run in parallel with limited concurrency
-  const results: ViewedSyncResult[] = []
-  const concurrency = 5
-  
-  for (let i = 0; i < files.length; i += concurrency) {
-    const batch = files.slice(i, i + concurrency)
-    const batchResults = await Promise.all(
-      batch.map(f => markFileViewedOnGitHub(owner, repo, prNumber, f.path, f.viewed))
-    )
-    results.push(...batchResults)
-  }
-  
-  return results
 }

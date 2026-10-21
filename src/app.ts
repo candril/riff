@@ -52,7 +52,7 @@ import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilte
 import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
-import type { ViewerViewedState } from "./providers/github"
+import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
 import type { DiffFile } from "./utils/diff-parser"
 import { MAX_HIGHLIGHT_BYTES } from "./vim-diff/file-highlights"

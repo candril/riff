@@ -7,7 +7,7 @@
 
 import { $ } from "bun"
 import type { FileReviewStatus, ViewedStats } from "../types"
-import type { ViewerViewedState } from "../providers/github"
+import type { ViewerViewedState } from "../providers/github/viewed"
 import type { DiffFile } from "./diff-parser"
 
 // ============================================================================

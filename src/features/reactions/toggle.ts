@@ -14,7 +14,7 @@ import {
   clearToast,
 } from "../../state"
 import type { ReactionContent, ReactionTarget } from "../../types"
-import { addReaction, removeReaction } from "../../providers/github"
+import { addReaction, removeReaction } from "../../providers/github/reactions"
 
 export interface ReactionsContext {
   getState: () => AppState
