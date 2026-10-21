@@ -146,6 +146,35 @@ describe("the thread panel's open-only toggle", () => {
     expect(resolved.inlineCommentOverlay.highlightedIndex).toBe(1)
   })
 
+  test("resolving the highlighted thread moves the reaction target and drops a peek on it", () => {
+    const withIds = COMMENTS.map((c, i) => ({ ...c, githubId: 100 + i }))
+    const state = toggleThreadPanelOpenOnly(panelOn(withIds))
+    const onOpen1 = setCommentCodePeek(
+      { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, highlightedIndex: 0 } },
+      "open1"
+    )
+    expect(onOpen1.inlineCommentOverlay.codePeekId).toBe("open1")
+
+    const resolved = setThreadResolved(onOpen1, "open1", true)
+    expect(highlightedId(resolved)).toBe("open2")
+    expect(resolved.reactionTarget).toEqual({ kind: "review-comment", githubId: 105 })
+    expect(resolved.inlineCommentOverlay.codePeekId).toBeNull()
+  })
+
+  test("resolving a thread off the highlight leaves the reaction target and the peek alone", () => {
+    const withIds = COMMENTS.map((c, i) => ({ ...c, githubId: 100 + i }))
+    const state = toggleThreadPanelOpenOnly(panelOn(withIds))
+    const onOpen2 = setCommentCodePeek(
+      { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, highlightedIndex: 0 }, reactionTarget: null },
+      "open1"
+    )
+
+    const resolved = setThreadResolved(onOpen2, "open2", true)
+    expect(highlightedId(resolved)).toBe("open1")
+    expect(resolved.reactionTarget).toBeNull()
+    expect(resolved.inlineCommentOverlay.codePeekId).toBe("open1")
+  })
+
   test("outlives the panel closing, being app state rather than the panel's", () => {
     const state = toggleThreadPanelOpenOnly(panelOn(COMMENTS))
     const reopened = openInlineCommentOverlay({ ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, open: false } }, "src/a.ts", 1, "RIGHT", "view")

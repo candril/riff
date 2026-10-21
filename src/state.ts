@@ -1394,8 +1394,8 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
 
   // With open-only on, resolving the highlighted thread takes it out of
   // the panel; the highlight stays at its index rather than pointing past
-  // the end.
-  return clampInlineCommentOverlayHighlight({
+  // the end, and whatever hung off the comment it left goes with it.
+  return followInlineCommentOverlayHighlight(state, {
     ...state,
     comments: newComments,
     collapsedThreadIds: newCollapsed,
@@ -3227,27 +3227,45 @@ export function toggleThreadPanelOpenOnly(state: AppState): AppState {
   const highlightedIndex = kept >= 0
     ? kept
     : Math.max(0, Math.min(order.length - 1, ov.highlightedIndex))
-  const shown = getInlineCommentOverlayComments(next)
+  return settleInlineCommentOverlayHighlight(next, highlightedIndex)
+}
+
+/**
+ * After the panel's comments changed under it: the highlight keeps its
+ * index, clamped, and when that now lands on a different comment, or the
+ * peeked comment is gone, the reaction target and the peek follow.
+ */
+function followInlineCommentOverlayHighlight(before: AppState, after: AppState): AppState {
+  const ov = after.inlineCommentOverlay
+  if (!ov.open) return after
+  const was = getInlineCommentOverlayDisplayOrder(before)[before.inlineCommentOverlay.highlightedIndex]
+  const order = getInlineCommentOverlayDisplayOrder(after)
+  const highlightedIndex = Math.min(ov.highlightedIndex, Math.max(0, order.length - 1))
+  const peekShown = ov.codePeekId === null || getInlineCommentOverlayComments(after).some((c) => c.id === ov.codePeekId)
+  if (order[highlightedIndex]?.id === was?.id && peekShown) {
+    return highlightedIndex === ov.highlightedIndex
+      ? after
+      : { ...after, inlineCommentOverlay: { ...ov, highlightedIndex } }
+  }
+  return settleInlineCommentOverlayHighlight(after, highlightedIndex)
+}
+
+/** Puts the highlight at `highlightedIndex` and points the reaction target and the peek at what it now shows. */
+function settleInlineCommentOverlayHighlight(state: AppState, highlightedIndex: number): AppState {
+  const ov = state.inlineCommentOverlay
+  const shown = getInlineCommentOverlayComments(state)
   const codePeekId = ov.codePeekId !== null && shown.some((c) => c.id === ov.codePeekId)
     ? ov.codePeekId
     : null
-  const highlighted = order[highlightedIndex]
+  const highlighted = getInlineCommentOverlayDisplayOrder(state)[highlightedIndex]
   const reactionTarget: ReactionTarget | null = highlighted?.githubId
     ? { kind: "review-comment", githubId: highlighted.githubId }
     : null
   return {
-    ...next,
+    ...state,
     inlineCommentOverlay: { ...ov, highlightedIndex, codePeekId },
     reactionTarget,
   }
-}
-
-function clampInlineCommentOverlayHighlight(state: AppState): AppState {
-  const ov = state.inlineCommentOverlay
-  if (!ov.open) return state
-  const last = Math.max(0, getInlineCommentOverlayDisplayOrder(state).length - 1)
-  if (ov.highlightedIndex <= last) return state
-  return { ...state, inlineCommentOverlay: { ...ov, highlightedIndex: last } }
 }
 
 /**
