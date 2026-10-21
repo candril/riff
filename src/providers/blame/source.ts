@@ -1,6 +1,6 @@
 import { $ } from "bun"
 import type { AppState } from "../../state"
-import { baseVersionRef } from "../github"
+import { baseVersionRef, getPrHeadSha } from "../github"
 import type { GitBase } from "../git-target"
 import { detectVcs, resolveGitBase, type VcsType } from "../local"
 import { getCurrentRepoRef, type RepoRef } from "../repo"
@@ -19,6 +19,7 @@ export interface BlameRunners {
   gitBlame(rev: string | null, path: string): Promise<string | null>
   gitBase(base: GitBase): Promise<string>
   prBase(owner: string, repo: string, number: number, baseRef: string, headSha: string): Promise<string>
+  prHead(owner: string, repo: string, number: number): Promise<string>
   githubBlame(owner: string, repo: string, commit: string, path: string): Promise<unknown>
   repoRef(): Promise<RepoRef | null>
   prForCommit(owner: string, repo: string, sha: string): Promise<PrRef | null>
@@ -49,13 +50,19 @@ export interface BlameSource {
   lineBlame(path: string, side: BlameSide, line: number): Promise<LineBlame | null>
 }
 
-const NO_SUCH_PATH = /no such path|cannot stat path|no such file/i
+/**
+ * jj's and git's words for a path the revision does not have. A bare "no
+ * such file" would also swallow an unrelated ENOENT as a silent null.
+ */
+export function isMissingPath(message: string): boolean {
+  return /no such path|cannot stat path/i.test(message)
+}
 
 async function spawnText(command: ReturnType<typeof $>): Promise<string | null> {
   const result = await command.quiet().nothrow()
   if (result.exitCode === 0) return result.text()
   const message = result.stderr.toString().trim()
-  if (NO_SUCH_PATH.test(message)) return null
+  if (isMissingPath(message)) return null
   throw new Error(message || `exit code ${result.exitCode}`)
 }
 
@@ -66,6 +73,7 @@ const DEFAULT_RUNNERS: BlameRunners = {
     spawnText(rev === null ? $`git blame --porcelain -- ${path}` : $`git blame --porcelain ${rev} -- ${path}`),
   gitBase: resolveGitBase,
   prBase: baseVersionRef,
+  prHead: (owner, repo, number) => getPrHeadSha(number, owner, repo),
   async githubBlame(owner, repo, commit, path) {
     const text = await spawnText(
       $`gh api graphql -f query=${BLAME_QUERY} -f owner=${owner} -f name=${repo} -f expression=${commit} -f path=${path}`,
@@ -83,10 +91,10 @@ export function createBlameSource(deps: BlameSourceDeps): BlameSource {
 
   async function sideRevision(side: BlameSide): Promise<SideRevision> {
     const state = deps.state()
-    if (state.appMode === "pr" && state.prInfo) {
-      const head = deps.headSha()
-      if (!head) throw new Error("the PR's head commit is not loaded yet")
-      return prSide(side, state.prInfo.baseRef, head)
+    const pr = state.appMode === "pr" ? state.prInfo : null
+    if (pr) {
+      const head = deps.headSha() ?? (await run.prHead(pr.owner, pr.repo, pr.number))
+      return prSide(side, pr.baseRef, head)
     }
     const vcs = await run.vcs()
     if (vcs === "none") throw new Error("not in a git or jj repository")

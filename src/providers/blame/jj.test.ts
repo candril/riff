@@ -5,7 +5,7 @@ const A = "204703d97324d5e27aef19adefd7c78febb9e2f1"
 const B = "5706210c7a3780d220b24eb335ec4fb872f97ffe"
 
 test("jj's annotate records become one commit per line, in line order", () => {
-  // Captured from `jj file annotate -T JJ_ANNOTATE_TEMPLATE src/version.ts`, authors replaced.
+  // Shaped like `jj file annotate -T JJ_ANNOTATE_TEMPLATE` output; the second commit, with an empty subject, is made up.
   const sample = [
     `1\x1f${A}\x1fAda Lovelace\x1f2026-09-06T17:57:37Z\x1falign distribution and docs: brew tap, nix`,
     `2\x1f${A}\x1fAda Lovelace\x1f2026-09-06T17:57:37Z\x1falign distribution and docs: brew tap, nix`,

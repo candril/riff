@@ -14,3 +14,25 @@ test("the first PR is taken and remembered per commit; a failure is asked again"
   expect(await prForCommit("o", "r", "none")).toBeNull()
   expect(calls).toBe(3)
 })
+
+test("a commit GitHub does not know is no PR, and is not asked about again", async () => {
+  let calls = 0
+  const prForCommit = createPrLookup(async () => {
+    calls++
+    throw new Error("gh: No commit found for SHA: abc (HTTP 422)")
+  })
+  expect(await prForCommit("o", "r", "abc")).toBeNull()
+  expect(await prForCommit("o", "r", "abc")).toBeNull()
+  expect(calls).toBe(1)
+})
+
+test("any other failure rejects and is asked again", async () => {
+  let calls = 0
+  const prForCommit = createPrLookup(async () => {
+    calls++
+    throw new Error("error connecting to api.github.com")
+  })
+  await expect(prForCommit("o", "r", "abc")).rejects.toThrow("error connecting")
+  await expect(prForCommit("o", "r", "abc")).rejects.toThrow("error connecting")
+  expect(calls).toBe(2)
+})

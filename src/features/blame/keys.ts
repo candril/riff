@@ -42,7 +42,12 @@ export function createBlameKeys(ctx: BlameKeysContext) {
 
   function open(): void {
     const { deps } = ctx
-    const target = blameTargetOf({ mapping: ctx.getLineMapping(), vim: ctx.getVimState(), rows: deps.splitRows() })
+    const target = blameTargetOf({
+      mapping: ctx.getLineMapping(),
+      vim: ctx.getVimState(),
+      rows: deps.splitRows(),
+      files: ctx.getState().files,
+    })
     if (!target) {
       ctx.toast("No line to blame here", "info")
       return

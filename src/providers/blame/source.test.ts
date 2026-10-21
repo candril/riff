@@ -1,10 +1,10 @@
-import { expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { createInitialState } from "../../state"
 import { TWO_FILES } from "../../testing/diffs"
 import { prInfo } from "../../testing/pr-info"
 import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
-import { createBlameSource, type BlameRunners } from "./source"
+import { createBlameSource, isMissingPath, type BlameRunners } from "./source"
 
 const files = parseDiff(TWO_FILES)
 const tree = buildFileTree(files)
@@ -25,6 +25,7 @@ const stubbed = (runners: Partial<BlameRunners>): BlameRunners => ({
   gitBlame: unreachable("gitBlame"),
   gitBase: unreachable("gitBase"),
   prBase: unreachable("prBase"),
+  prHead: unreachable("prHead"),
   githubBlame: unreachable("githubBlame"),
   repoRef: async () => null,
   prForCommit: unreachable("prForCommit"),
@@ -176,4 +177,35 @@ test("a PR's whole-file blame carries the PRs GitHub names", async () => {
   const loaded = await source.fileBlame("a.ts", "head")
   expect(loaded?.blame[2]).toMatchObject({ kind: "commit" })
   expect(loaded?.prs?.get(SHA)).toEqual({ number: 5, url: "u" })
+})
+
+test("a PR whose head is not loaded yet asks GitHub for it, and its blame is kept under that commit", async () => {
+  const heads: unknown[][] = []
+  const blamed: string[] = []
+  const source = createBlameSource({
+    state: () => prState,
+    target: undefined,
+    headSha: () => null,
+    runners: stubbed({
+      prHead: async (...args) => (heads.push(args), "def456"),
+      githubBlame: async (_owner, _repo, commit) => (blamed.push(commit), { data: { repository: { object: { blame: { ranges: [] } } } } }),
+    }),
+  })
+  await source.lineBlame("a.ts", "head", 1)
+  expect(heads).toEqual([["owner", "repo", 1259]])
+  expect(blamed).toEqual(["def456"])
+  await source.lineBlame("a.ts", "head", 2)
+  expect(blamed).toEqual(["def456"])
+})
+
+describe("isMissingPath", () => {
+  test("jj's and git's words for a path the revision lacks", () => {
+    expect(isMissingPath("Error: No such path: nope.ts")).toBe(true)
+    expect(isMissingPath("fatal: no such path nope.ts in HEAD")).toBe(true)
+    expect(isMissingPath("fatal: cannot stat path 'x': No such file or directory")).toBe(true)
+  })
+
+  test("an unrelated missing file is a failure, not a missing path", () => {
+    expect(isMissingPath("ENOENT: No such file or directory, posix_spawn 'jj'")).toBe(false)
+  })
 })

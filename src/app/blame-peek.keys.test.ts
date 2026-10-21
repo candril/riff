@@ -21,6 +21,20 @@ index 1111111..2222222 100644
  away
 `
 
+const RENAMED = `diff --git a/src/hello.ts b/src/greet.ts
+similarity index 80%
+rename from src/hello.ts
+rename to src/greet.ts
+index 1111111..2222222 100644
+--- a/src/hello.ts
++++ b/src/greet.ts
+@@ -1,3 +1,3 @@
+ export function greet() {
+-  return "hi"
++  return "hello"
+ }
+`
+
 const SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
 const commit = (pr: LineBlame["pr"]): LineBlame => ({
   line: {
@@ -67,8 +81,8 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 const press = (...keys: string[]) => keys.forEach((key) => app!.setup.mockInput.pressKey(key))
 const lineOf = (content: string) => app!.ctx.getLineMapping().allLines.findIndex((line) => line.content === content)
 
-async function mount(repo?: RepoRef | null, width = 120) {
-  app = await mountApp(DIFF, { width, height: 24 })
+async function mount(repo?: RepoRef | null, width = 120, diff = DIFF) {
+  app = await mountApp(diff, { width, height: 24 })
   app.show()
   // Lets the diff take its laid-out size now, rather than after the test has torn the renderer down.
   await app.frame()
@@ -101,6 +115,16 @@ describe("gb", () => {
     jumpTo(lineOf('  return "hi"'))
     press("g", "b")
     expect(asked).toEqual([["src/greet.ts", "base", 2]])
+  })
+
+  test("on a removed line of a renamed file asks the base under its old name, and the peek names it", async () => {
+    const { asked, jumpTo } = await mount(undefined, 120, RENAMED)
+    jumpTo(lineOf('  return "hi"'))
+    press("g", "b")
+    expect(asked).toEqual([["src/hello.ts", "base", 2]])
+    const frame = await app!.frame()
+    expect(frame).toContain("src/hello.ts:2")
+    expect(frame).toContain("base")
   })
 
   test("y copies the full sha and go opens the PR", async () => {

@@ -10,11 +10,12 @@ const smallMapping = new DiffLineMapping([small], "all")
 const at = (mapping: DiffLineMapping, content: string) =>
   mapping.allLines.findIndex((line) => line.content === content)
 
-const targetAt = (content: string, pane?: "left" | "right", mapping = smallMapping) =>
+const targetAt = (content: string, pane?: "left" | "right", mapping = smallMapping, files = [small]) =>
   blameTargetOf({
     mapping,
     vim: { line: at(mapping, content) },
     rows: pane ? new RowLineSource(mapping, "split", pane) : null,
+    files,
   })
 
 describe("blameTargetOf", () => {
@@ -30,10 +31,20 @@ describe("blameTargetOf", () => {
     expect(targetAt("e")).toEqual({ path: "s.ts", side: "head", line: 5 })
   })
 
+  test("on a renamed file the base is blamed under the old name, the head under the new", () => {
+    const moved = { ...diffFile("new.ts", small.content.split("\n").slice(3)), status: "renamed" as const, oldFilename: "old.ts" }
+    const mapping = new DiffLineMapping([moved], "all")
+    const files = [moved]
+    expect(targetAt("gone", undefined, mapping, files)).toEqual({ path: "old.ts", side: "base", line: 5 })
+    expect(targetAt("b", "left", mapping, files)).toEqual({ path: "old.ts", side: "base", line: 2 })
+    expect(targetAt("B", undefined, mapping, files)).toEqual({ path: "new.ts", side: "head", line: 2 })
+    expect(targetAt("e", undefined, mapping, files)).toEqual({ path: "new.ts", side: "head", line: 5 })
+  })
+
   test("expanded context is blamed like any context line", () => {
     const mapping = mappingOf({ expandedDividers: new Set([middleDivider]) }, [doc, code])
     expect(mapping.getLine(at(mapping, "middle two"))?.expanded).toBe(true)
-    expect(targetAt("middle two", undefined, mapping)).toEqual({ path: "doc.md", side: "head", line: 8 })
+    expect(targetAt("middle two", undefined, mapping, [doc, code])).toEqual({ path: "doc.md", side: "head", line: 8 })
   })
 
   test("a modified split row is blamed in the base from the left pane and in the head from the right", () => {
@@ -52,13 +63,13 @@ describe("blameTargetOf", () => {
     const mapping = new DiffLineMapping([two], "all")
     const divider = mapping.allLines.findIndex((line) => line.type === "divider")
     const fileHeader = mapping.allLines.findIndex((line) => line.type === "file-header")
-    expect(blameTargetOf({ mapping, vim: { line: divider }, rows: null })).toBeNull()
-    expect(blameTargetOf({ mapping, vim: { line: divider }, rows: new RowLineSource(mapping, "split", "left") })).toBeNull()
-    expect(blameTargetOf({ mapping, vim: { line: fileHeader }, rows: null })).toBeNull()
+    expect(blameTargetOf({ mapping, vim: { line: divider }, rows: null, files: [two] })).toBeNull()
+    expect(blameTargetOf({ mapping, vim: { line: divider }, rows: new RowLineSource(mapping, "split", "left"), files: [two] })).toBeNull()
+    expect(blameTargetOf({ mapping, vim: { line: fileHeader }, rows: null, files: [two] })).toBeNull()
 
     // The mapping draws dividers in place of hunk headers now, so a header only arrives from a stub.
     const hunkHeader = { type: "hunk-header", filename: "t.ts", oldLineNum: 50, newLineNum: 50 }
     const withHeader = { getLine: () => hunkHeader } as unknown as DiffLineMapping
-    expect(blameTargetOf({ mapping: withHeader, vim: { line: 0 }, rows: null })).toBeNull()
+    expect(blameTargetOf({ mapping: withHeader, vim: { line: 0 }, rows: null, files: [two] })).toBeNull()
   })
 })

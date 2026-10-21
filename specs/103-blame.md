@@ -59,7 +59,9 @@ context line, or one revealed by expanding context.
   `associatedPullRequests(first: 1)`, which is the PR the peek names.
 - **A local review's PR** comes from
   `gh api repos/{owner}/{repo}/commits/{sha}/pulls`, asked only when the
-  remote is on GitHub, and remembered per commit unless it failed.
+  remote is on GitHub, and remembered per commit unless it failed. A
+  commit GitHub does not know (`HTTP 404` or `422`, as an unpushed one
+  answers) is remembered as no PR, so it is asked once.
 
 ### Which revision each side means
 
@@ -74,7 +76,7 @@ existing file readers (`getFileContent`, `getOldFileContent`,
 | jj, a revision | the revision | its parent (`rev-`) |
 | git, no target | the working tree | `HEAD` |
 | git, a target | `gitSidesOf(target).head` | `gitSidesOf(target).base`, through `resolveGitBase` |
-| PR | the loaded head sha | where head and base last met (`baseVersionRef`) |
+| PR | the loaded head sha, or `getPrHeadSha` while none is loaded | where head and base last met (`baseVersionRef`) |
 
 ### Caching
 
@@ -85,6 +87,9 @@ never kept: it changes while riff runs.
 
 A file the side does not have, and a line past its end, answer null;
 any other failure carries the tool's message.
+
+The base side of a renamed file is read under its old name, by the `gb`
+peek as by the column, so the peek names `old/path:line` with `base`.
 
 ### The column (P2)
 
