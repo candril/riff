@@ -1,6 +1,7 @@
 import { test, expect, afterEach } from "bun:test"
 import { KeyEvent } from "@opentui/core"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import type { GlobalKeyContext } from "./global-keys"
+import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -57,7 +58,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
       }
     },
   }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
+  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 
 test("gB dispatches open-in-board, whichever case the terminal reports the shifted b in", async () => {

@@ -20,10 +20,7 @@ import {
 } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 
-export {
-  handleInput,
-  type CommentsPickerInputContext,
-} from "./input"
+export { registerCommentsPickerKeys, type CommentsPickerKeyDeps } from "./keys"
 
 export {
   buildEntries,

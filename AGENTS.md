@@ -145,7 +145,7 @@ and there is no fourth level.
 Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
 `@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
-in `src/app/keys.ts`, and only a key no layer takes reaches the priority
+from `src/app/keys.ts`, and only a key no layer takes reaches the priority
 chain in `src/app/global-keys.ts`, which hands it to each feature's
 `input.ts` ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
@@ -249,7 +249,7 @@ src/
 │   ├── demo.ts           # --demo fixture
 │   ├── blame/            # who last changed a line, from jj, git or GitHub (spec 103)
 │   └── agent/            # riff's agent: SDK session, prompt, read tools (spec 102)
-├── features/             # one directory per feature: index.ts, plus input.ts / handlers.ts
+├── features/             # one directory per feature: index.ts, plus keys.ts / input.ts / handlers.ts
 │   ├── marks/            # global marks (spec 101)
 │   └── chat/             # the chat column's state, keys and components (spec 102)
 ├── vim-diff/             # line mapping, cursor, motions, search, flash, word diff

@@ -98,7 +98,7 @@ Initialize as `{ open: false, query: "", selectedIndex: 0 }` in
 ```
 src/features/comments-picker/
 ├── index.ts        # Public exports
-├── input.ts        # handleInput (captures all input when open)
+├── keys.ts         # keymap layer (captures all input when open)
 └── filter.ts       # buildEntries, filter & sort
 ```
 
@@ -122,18 +122,17 @@ returns `[body, filename, author]`. Sort: `filename` then `line` then
 
 ### Selection handler
 
-In `handleInput`, on `Enter`:
+The layer's pick command (`keys.ts`), on `Enter`:
 
 ```ts
-const entry = filtered[ctx.state.commentsPicker.selectedIndex]
-if (!entry) return true
-ctx.recordJump?.()
-ctx.setState((s) => closeCommentsPicker(s))
-ctx.onSelectComment(entry.comment)
+const entry = getFilteredEntries(state)[state.commentsPicker.selectedIndex]
+if (!entry) return
+deps.setState(closeCommentsPicker)
+deps.onSelectComment(entry.comment)
 ```
 
-`onSelectComment(comment)` is a callback owned by the global-keys wiring
-that:
+`onSelectComment(comment)` is a callback owned by the wiring in
+`src/app/picker-keys.ts` that:
 
 1. Calls `fileNavigation.handleSelectFile` if the comment's file isn't the
    currently selected one.
@@ -164,22 +163,25 @@ Status glyph table:
 | Synced resolved              | `✓`   | `theme.green`   |
 | Reply (any status)           | `↳`   | inherits parent |
 
-### Key wiring — `src/app/global-keys.ts`
+### Key wiring
 
-Two changes:
+Two parts:
 
-1. Pre-modal capture block (alongside `filePicker.handleInput`):
+1. A keymap layer (ADR-002), registered by `src/app/picker-keys.ts` next
+   to the file picker's:
    ```ts
-   if (commentsPicker.handleInput(key, {
-     state: ctx.getState(),
-     setState: ctx.setState,
-     render: ctx.render,
-     recordJump,
-     onSelectComment: (c) => jumpToComment(c, ctx),
-   })) return
+   registerCommentsPickerKeys(riffKeymap, {
+     getState,
+     setState,
+     render,
+     onSelectComment: (comment) => jumpToComment(comment, jumpContext()),
+   })
    ```
-2. Add a `gC` chord (capital `C`, paired with the existing `gc`
-   = checkout & edit) inside the chord-sequence block:
+   Its capture keeps every key from the priority chain while the picker
+   is open, and leaves the keys it does not bind to the prompt field.
+2. A `gC` chord (capital `C`, paired with the existing `gc`
+   = checkout & edit) inside the chord-sequence block of
+   `src/app/global-keys.ts`:
    ```ts
    else if (sequence === "gC!") {
      if (s.comments.length > 0) {

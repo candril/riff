@@ -87,3 +87,44 @@ test("the palette's Enter opens the file picker on a fresh field of its own, and
   await mockInput.typeText("he")
   expect((await app.frame()).split("\n").find((line) => line.trimStart().startsWith("/"))?.trim()).toBe("/he")
 })
+
+const TWO_FILES = `${DIFF}diff --git a/src/farewell.ts b/src/farewell.ts
+index 3333333..4444444 100644
+--- a/src/farewell.ts
++++ b/src/farewell.ts
+@@ -1,3 +1,3 @@
+ export function farewell() {
+-  return "bye"
++  return "goodbye"
+ }
+`
+
+test("Ctrl-f's field types the query, and Enter swaps the one file on screen for the picked one", async () => {
+  app = await mountApp(TWO_FILES, { width: 100, height: 30 })
+  const mounted = app
+  const greet = mounted.ctx.getState().files.findIndex((file) => file.filename === "src/greet.ts")
+  const { files } = mounted.ctx.getState()
+  // Passing the files along rebuilds the mapping, so the diff holds the one file.
+  mounted.show({ selectedFileIndex: greet, files })
+  keysOn(mounted, { rebuildLineMapping: () => mounted.show({ files: mounted.ctx.getState().files }) })
+  const { mockInput } = mounted.setup
+  const before = await mounted.frame()
+  expect(before).toContain(`return "hello"`)
+  expect(before).not.toContain(`return "goodbye"`)
+
+  mockInput.pressKey("f", { ctrl: true })
+  await mockInput.typeText("farew")
+  expect(mounted.ctx.getState().filePicker.query).toBe("farew")
+  const picker = (await mounted.frame()).split("\n")
+  expect(picker.join("\n")).toContain("Find Files")
+  expect(picker.find((line) => line.includes("farew") && !line.includes("src/"))).toBeDefined()
+
+  mockInput.pressEnter()
+
+  const after = await mounted.frame()
+  expect(mounted.ctx.getState().filePicker.open).toBe(false)
+  expect(after).not.toContain("Find Files")
+  expect(after.split("\n")[0]).toContain("src/farewell.ts")
+  expect(after).toContain(`return "goodbye"`)
+  expect(after).not.toContain(`return "hello"`)
+})

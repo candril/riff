@@ -41,7 +41,6 @@ import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 
 import * as actionMenu from "../features/action-menu"
-import * as filePicker from "../features/file-picker"
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
 import * as commitPicker from "../features/commit-picker"
@@ -607,63 +606,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== FILE PICKER (captures all input when open) ==========
-    if (
-      filePicker.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onFileSelected: () => {
-          ctx.setVimState(createCursorState())
-          ctx.rebuildLineMapping()
-        },
-        revealFile: (fileIndex: number) => {
-          // Picking a file is asking to read it, and files live in the
-          // diff: from the overview or the feed, that is where it lands.
-          // The scroll waits for the diff to be built, or it is measured
-          // against a view that is not on screen yet and lands elsewhere.
-          if (ctx.getState().viewMode === "diff") {
-            fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
-            return
-          }
-          ctx.setState((s) => switchView(s, "diff"))
-          ctx.render()
-          // The scroll waits for revealFile, which puts the cursor on the
-          // file and draws it: placed before that, it would put whatever
-          // line the cursor left at the top.
-          ctx.cursorView.onceRebuilt(() =>
-            ctx.cursorView.scrollCursorTo(ctx.getVimState().line, "top")
-          )
-          fileNavigation.revealFile(fileIndex, ctx.fileNavContext)
-        },
-      })
-    ) {
-      return
-    }
-
-    // ========== COMMENTS PICKER (captures all input when open, spec 044) ==========
-    if (
-      commentsPicker.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onSelectComment: (comment) => {
-          commentsPicker.jumpToComment(comment, {
-            getState: ctx.getState,
-            setState: ctx.setState,
-            getVimState: ctx.getVimState,
-            setVimState: ctx.setVimState,
-            getLineMapping: ctx.getLineMapping,
-            ensureCursorVisible: ctx.ensureCursorVisible,
-            render: ctx.render,
-            fileNavContext: ctx.fileNavContext,
-          })
-        },
-      })
-    ) {
-      return
-    }
 
     // ========== MARKS PICKER (captures all input when open, spec 101) ==========
     if (

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import type { GlobalKeyContext } from "./global-keys"
+import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -69,7 +70,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
       }
     },
   }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
+  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 
 /** The tree's rows under its header, which names the selected file too and so cannot say where the tree is. */

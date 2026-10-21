@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { mkdtemp, mkdir, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import type { GlobalKeyContext } from "./global-keys"
+import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -93,7 +94,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
       }
     },
   }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createKeyHandler(ctx))
+  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 
 /** The tree's columns of the frame, so the diff's file headers don't answer for it. */

@@ -88,7 +88,7 @@ so both halves agree on what "in view" means.
 ```
 src/features/file-navigation/handlers.ts   # revealFile
 src/features/file-tree/input.ts            # Enter reveals
-src/features/file-picker/input.ts          # Enter reveals
+src/features/file-picker/keys.ts           # Enter reveals
 src/app.ts                                 # highlight sync, scroll callback
 src/components/VimDiffView.ts              # dragCursorIntoView
 src/actions/registry.ts                    # Open File Alone

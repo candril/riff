@@ -5,6 +5,7 @@ import { registerAppKeys } from "./app-keys"
 import { registerConfirmKeys, type ConfirmKeyDeps } from "./confirm-keys"
 import { registerFlashKeys, type FlashKeyDeps } from "../features/flash/keys"
 import { registerActionMenuKeys, type ActionMenuKeyDeps } from "../features/action-menu/keys"
+import { registerPickerKeys } from "./picker-keys"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 
@@ -16,6 +17,9 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
+  // Ahead of the modals: in the chain, flash, the dialog and the palette
+  // were asked before any picker, and later registration wins.
+  registerPickerKeys(riffKeymap, ctx)
   registerModalKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,
