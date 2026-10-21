@@ -1,5 +1,6 @@
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
+import type { AppState } from "../state"
 import { flattenTree } from "../utils/file-tree"
 import { visibleTreeItems } from "./file-tree-model"
 
@@ -13,13 +14,11 @@ export function getFlatTreeItems(
   return flattenTree(fileTree, files)
 }
 
-/** The rows the file tree island draws, for navigation to index into. */
-export function getVisibleFlatTreeItems(
-  fileTree: FileTreeNode[],
-  files: DiffFile[],
-  ignoredFiles: Set<string>,
-  showHiddenFiles: boolean,
-  treeFilter = ""
-): FlatTreeItem[] {
-  return visibleTreeItems(fileTree, files, ignoredFiles, showHiddenFiles, treeFilter)
+/**
+ * The rows the file tree island draws, for navigation to index into. Every
+ * reader asks here, so a filter on the tree reaches the cursor and the
+ * drawing alike.
+ */
+export function treeRowsOf(state: AppState): FlatTreeItem[] {
+  return visibleTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
 }

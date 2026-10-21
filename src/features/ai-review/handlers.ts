@@ -24,7 +24,7 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
 import type { DiffFile } from "../../utils/diff-parser"
 import { showToast, clearToast, clearTreeSelectionAnchor } from "../../state"
-import { getVisibleFlatTreeItems } from "../../components"
+import { treeRowsOf } from "../../components"
 import { getSelectionRange } from "../../vim-diff/cursor-state"
 import {
   buildFileContextMd,
@@ -103,7 +103,7 @@ function resolveCurrentFile(ctx: AiReviewContext): DiffFile | null {
     state.files.find((f) => f.filename === name) ?? null
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+    const flatItems = treeRowsOf(state)
     const highlighted = flatItems[state.treeHighlightIndex]
     if (highlighted && !highlighted.node.isDirectory) {
       return findByName(highlighted.node.path)
@@ -199,7 +199,7 @@ async function handleFileOrSelection(ctx: AiReviewContext): Promise<void> {
 function resolveHighlightedDirectory(ctx: AiReviewContext): string | null {
   const state = ctx.getState()
   if (state.focusedPanel !== "tree") return null
-  const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+  const flatItems = treeRowsOf(state)
   const highlighted = flatItems[state.treeHighlightIndex]
   if (!highlighted?.node.isDirectory) return null
   return highlighted.node.path
@@ -264,7 +264,7 @@ async function handleMulti(ctx: AiReviewContext): Promise<void> {
 
   // Re-collect the selection here (we can't trust the scope detector's count
   // to still be accurate by the time this runs — state could have changed).
-  const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+  const flatItems = treeRowsOf(state)
   const files = collectMultiSelectionFiles(state, flatItems)
 
   if (files.length === 0) {

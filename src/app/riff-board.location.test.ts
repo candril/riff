@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import { mountApp } from "../testing/app-render"
 import { prInfo } from "../testing/pr-info"
 import { createCursorState } from "../vim-diff/cursor-state"
-import { getVisibleFlatTreeItems } from "../components"
+import { treeRowsOf } from "../components"
 import { diffTargetAt, type PermalinkContext } from "../features/permalink"
 import { boardLocation, openPrInBoard } from "../features/riff-board"
 
@@ -84,7 +84,7 @@ test("gB on a removed line opens the board at its old-side line", async () => {
 test("gB on a file in the tree opens the board at the file only", async () => {
   const app = await mounted()
   const s = app.ctx.getState()
-  const index = getVisibleFlatTreeItems(s.fileTree, s.files, s.ignoredFiles, s.showHiddenFiles, s.treeFilter).findIndex(
+  const index = treeRowsOf(s).findIndex(
     (item) => item.node.path === "src/greet.ts",
   )
   expect(index).toBeGreaterThanOrEqual(0)

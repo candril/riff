@@ -16,7 +16,7 @@ import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { PrInfo } from "../../providers/github"
 import type { Comment } from "../../types"
 import { showToast, clearToast } from "../../state"
-import { getVisibleFlatTreeItems } from "../../components"
+import { treeRowsOf } from "../../components"
 import { copyToClipboard } from "../../utils/clipboard"
 import { getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
 import { buildPermalinkUrl, buildPrDiffUrl, lineAnchor, type RepoRef } from "./url"
@@ -273,7 +273,7 @@ export function resolveTarget(ctx: PermalinkContext, includeLines: boolean): Tar
   const lineMapping = ctx.getLineMapping()
 
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+    const flatItems = treeRowsOf(state)
     const highlighted = flatItems[state.treeHighlightIndex]
     if (!highlighted || highlighted.node.isDirectory) return null
     return { filename: highlighted.node.path }

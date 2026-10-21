@@ -7,7 +7,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
 import type { FileTreeIsland } from "../../app/file-tree"
-import { getVisibleFlatTreeItems } from "../../components"
+import { treeRowsOf } from "../../components"
 import {
   startTreeFilter,
   setTreeFilter,
@@ -54,7 +54,7 @@ export function handleInput(
     return false
   }
 
-  const flatItems = getVisibleFlatTreeItems(ctx.state.fileTree, ctx.state.files, ctx.state.ignoredFiles, ctx.state.showHiddenFiles, ctx.state.treeFilter)
+  const flatItems = treeRowsOf(ctx.state)
   const panel = ctx.getPanel()
 
   // The filter prompt owns every key while it is open.

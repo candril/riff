@@ -30,7 +30,7 @@ import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { createCursorState } from "../vim-diff/cursor-state"
-import { getVisibleFlatTreeItems } from "../components"
+import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import { copyToClipboard } from "../utils/clipboard"
@@ -159,13 +159,7 @@ function flashSurface(state: AppState): FlashSurface | null {
 function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
   switch (flashSurface(state)) {
     case "tree": {
-      const count = getVisibleFlatTreeItems(
-        state.fileTree,
-        state.files,
-        state.ignoredFiles,
-        state.showHiddenFiles,
-        state.treeFilter
-      ).length
+      const count = treeRowsOf(state).length
       const { first, last } = ctx.fileTreePanel.visibleRows()
       const ids: string[] = []
       for (let index = first; index <= Math.min(last, count - 1); index++) ids.push(String(index))
@@ -219,7 +213,7 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 
   if (state.focusedPanel === "tree") {
     // From file tree - use highlighted item
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+    const flatItems = treeRowsOf(state)
     const highlightedItem = flatItems[state.treeHighlightIndex]
     if (highlightedItem) {
       return highlightedItem.node.path

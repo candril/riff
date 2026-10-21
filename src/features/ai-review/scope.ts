@@ -16,7 +16,7 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { FlatTreeItem } from "../../utils/file-tree"
-import { getVisibleFlatTreeItems } from "../../components"
+import { treeRowsOf } from "../../components"
 import { isVisualMode } from "../../vim-diff/cursor-state"
 
 export type ReviewScopeKind = "selection" | "multi" | "folder" | "file" | "none"
@@ -54,7 +54,7 @@ export function detectReviewScope(
 
   // 2-4. Tree-panel scopes.
   if (state.focusedPanel === "tree") {
-    const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+    const flatItems = treeRowsOf(state)
 
     // 2. Tree multi-select: count the files inside the range (skipping dirs
     // and ignored files). If the anchor row has vanished or the range
@@ -141,7 +141,7 @@ export function collectMultiSelectionFiles(
  */
 export function getTreeMultiSelectionFilenames(state: AppState): Set<string> {
   if (state.treeSelectionAnchor === null) return new Set()
-  const flatItems = getVisibleFlatTreeItems(state.fileTree, state.files, state.ignoredFiles, state.showHiddenFiles, state.treeFilter)
+  const flatItems = treeRowsOf(state)
   const files = collectMultiSelectionFiles(state, flatItems)
   return new Set(files.map((f) => f.filename))
 }

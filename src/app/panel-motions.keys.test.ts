@@ -3,7 +3,7 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
-import { getVisibleFlatTreeItems } from "../components"
+import { treeRowsOf } from "../components"
 import { getInlineCommentOverlayDisplayOrder, openInlineCommentOverlay, startTreeFilter, type AppState } from "../state"
 import type { Comment } from "../types"
 import { halfPage } from "../utils/half-page"
@@ -118,7 +118,7 @@ describe("the file tree", () => {
     const keys = keysOn(app)
     await app.frame()
     const s = app.ctx.getState()
-    const rows = getVisibleFlatTreeItems(s.fileTree, s.files, s.ignoredFiles, s.showHiddenFiles, s.treeFilter)
+    const rows = treeRowsOf(s)
     return { ...keys, rows, mounted: app }
   }
 

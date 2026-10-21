@@ -1,5 +1,5 @@
 import type { KeyEvent } from "@opentui/core"
-import { PRInfoPanelClass, getVisibleFlatTreeItems } from "./components"
+import { PRInfoPanelClass, treeRowsOf } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
@@ -430,13 +430,7 @@ export async function createApp(options: AppOptions = {}) {
     const filename = lineMapping.getLine(vimState.line)?.filename
     if (!filename) return false
 
-    const items = getVisibleFlatTreeItems(
-      state.fileTree,
-      state.files,
-      state.ignoredFiles,
-      state.showHiddenFiles,
-      state.treeFilter
-    )
+    const items = treeRowsOf(state)
     const index = items.findIndex(
       (item) => item.fileIndex !== undefined && state.files[item.fileIndex]?.filename === filename
     )
