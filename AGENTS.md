@@ -142,9 +142,12 @@ and the selected row of a list, all from `src/theme.ts`. Focus shows by
 shade or a coloured title, padding of one cell replaces a border's inset,
 and there is no fourth level.
 
-Keyboard input still arrives through `renderer.keyInput.on("keypress")`
-and is dispatched by `src/app/global-keys.ts` to each feature's
-`input.ts`.
+Keyboard input arrives through one `renderer.keyInput.on("keypress")`
+listener, inside the jump recorder. Each key goes first to the
+`@opentui/keymap` keymap's layers (`src/app/keymap.ts`, global keys in
+`src/app/app-keys.ts`), and only a key no layer takes reaches the priority
+chain in `src/app/global-keys.ts`, which hands it to each feature's
+`input.ts` ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
 ### GitHub: `gh` CLI
 
@@ -206,7 +209,9 @@ src/
 │   ├── *.tsx             # One island per view (header, file-tree, thread-panel, chat-column, pickers…)
 │   ├── unified-*, split-*  # The diff views' islands, cursor, columns and the split toggle
 │   ├── frame-pass.ts     # Each pass: draws the diff, publishes the frame islands follow
-│   ├── global-keys.ts    # Every key binding outside a focused feature
+│   ├── keymap.ts         # The keymap riff feeds every key first (ADR-002)
+│   ├── app-keys.ts       # The keymap's global layer
+│   ├── global-keys.ts    # The priority chain for keys no keymap layer takes
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters
 ├── types.ts              # Type definitions
@@ -320,7 +325,10 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 
 2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module
 
-3. If adding a keyboard shortcut, wire it up in `src/app/global-keys.ts`
+3. If adding a keyboard shortcut, bind it in a keymap layer; the priority
+   chain in `src/app/global-keys.ts` only takes a key no layer takes, so a
+   branch still there outranks nothing in the keymap
+   ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md))
 
 ### Current Actions
 

@@ -1,0 +1,26 @@
+# ADR-002: Keys reach the keymap through riff's own entry point
+
+## Status
+Accepted
+
+## Context
+riff moves its keys from the priority chain in `src/app/global-keys.ts` into `@opentui/keymap` layers ([spec 100](../../specs/100-solid-migration.md), M6), as tenor already holds them. The chain has 30-odd branches, and they move one or a few at a time, each step shipping on its own; for the length of the migration both dispatchers are live.
+
+riff records navigation in one place: every keypress passes through the jump recorder ([spec 089](../../specs/089-jump-history.md)), which captures where the cursor was before an interaction and judges whether the interaction has settled, a pending chord included. Anything that handles a key outside that call escapes the jumplist.
+
+The stock OpenTUI adapter (`createOpenTuiKeymapHost`) subscribes the keymap itself, with `prependListener` on `renderer.keyInput`.
+
+| Approach | Pros | Cons |
+|---|---|---|
+| **A. Stock adapter.** The keymap listens on `keyInput` itself, ahead of riff's listener. | <ul><li>No host code of riff's own</li><li>tenor's setup unchanged</li></ul> | <ul><li>Keymap commands run outside the jump recorder: a navigation moved into a layer leaves the jumplist</li><li>A key the keymap took still reaches the chain unless every branch checks `defaultPrevented`</li><li>Two entry points for keys</li></ul> |
+| **B. A host riff feeds.** The OpenTUI host in every respect but `onKeyPress`, which stores the listener; riff's one keypress listener offers each key to it and passes what it leaves to the chain. | <ul><li>One entry point, inside the jump recorder</li><li>The chain sees only what the keymap did not take, by construction</li><li>A pending sequence is visible to the recorder as a chord</li></ul> | <ul><li>A small host wrapper riff maintains against the keymap's `KeymapHost` interface</li></ul> |
+| **C. Port the whole chain in one step.** | <ul><li>No period with two dispatchers</li></ul> | <ul><li>One unreviewable change across every feature's keys; a regression cannot be pinned to a branch</li></ul> |
+
+## Decision
+B. The jump recorder is riff's single entry point for keys, and moving branches one at a time needs the chain to see only what the keymap leaves. `createRiffKeymap` (`src/app/keymap.ts`) builds the keymap on that host with the addons `createDefaultOpenTuiKeymap` installs, and `composeKeys` (`src/app/keys-dispatch.ts`) puts it in front of the chain.
+
+## Consequences
+- Every binding in the keymap outranks every branch still in the chain. Branches move top-down in chain order, or the step that moves one out of order proves the two can never be active together.
+- A handled binding calls `preventDefault`, so a focused input or textarea does not also receive that key. Where a chain branch swallowed a key without `preventDefault`, moving it can change what a focused field sees, and the step that moves it checks that.
+- `chordPending` covers both the chain's `pendingKey` and the keymap's pending sequence, so the jump recorder keeps judging a chord as one interaction whichever side holds it.
+- The palette and help keep their display-only `shortcut` strings until the commands they name live in the keymap; `getCommandEntries` becomes the catalog then, as in tenor's `src/app/registry.ts`.

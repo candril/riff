@@ -84,8 +84,13 @@ for editing and creating a PR (`pr-template.ts`); editor spawning
 (`diff-viewer.ts`). The templates are pure, so their round trips are
 tested without spawning anything.
 
-**Not built**: M6 (state factories and `@opentui/keymap` layers); the
-file size ratchet (P3).
+The `@opentui/keymap` keymap is wired and offered every key first, ahead
+of the priority chain in `global-keys.ts`
+([ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)); it
+holds F12, the debug console.
+
+**Not built**: the rest of M6 (state factories and the remaining keymap
+layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

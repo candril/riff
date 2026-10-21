@@ -27,7 +27,7 @@ function keysFor(state: AppState, height: number) {
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
-    renderer: { console: { toggle() {} }, height },
+    renderer: { height },
     flashHandler: { startList: (surface: string, ids: string[]) => lists.push({ surface, ids }) } as never,
     render() {},
   }

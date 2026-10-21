@@ -1,8 +1,9 @@
 /**
  * Global key handling
  *
- * Dispatches keyboard events to feature modules. Features are checked in priority order:
- * modal overlays first, then global shortcuts, then panel-specific handlers.
+ * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules.
+ * Features are checked in priority order: modal overlays first, then global
+ * shortcuts, then panel-specific handlers.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
@@ -85,7 +86,7 @@ export interface GlobalKeyContext {
   // Flash jump state (spec 022)
   getFlashState: () => FlashState
   // UI
-  renderer: { console: { toggle: () => void }; height: number }
+  renderer: { height: number }
   cursorView: DiffViewport
   fileTreePanel: FileTreeIsland
   threadPanelLayout: () => ThreadPanelLayout | null
@@ -633,12 +634,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   return Object.assign(handleKeypress, { chordPending: () => pendingKey !== null })
 
   function handleKeypress(key: KeyEvent) {
-    // F12 toggles debug console
-    if (key.name === "f12") {
-      ctx.renderer.console.toggle()
-      return
-    }
-
     // A click into the tree between `m` and its letter leaves the chord
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
