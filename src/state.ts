@@ -3071,12 +3071,23 @@ export function forgetCommentDraft(state: AppState): AppState {
   return { ...state, commentDrafts: drafts }
 }
 
+/** What a draft was written on: a line, or an edit of a comment. */
+export type DraftOn =
+  | { filename: string; line: number; side: "LEFT" | "RIGHT" }
+  | { editingId: string }
+
+function draftKeyOn(on: DraftOn): string {
+  return "editingId" in on ? `edit:${on.editingId}` : anchorKey(on.filename, on.line, on.side)
+}
+
+/** The draft remembered on a line or an edit, wherever the composer is now. */
+export function commentDraftOn(state: AppState, on: DraftOn): string {
+  return state.commentDrafts.get(draftKeyOn(on)) ?? ""
+}
+
 /** Drop the draft on a line, or on an edit of a comment, wherever the composer is now. */
-export function forgetCommentDraftOn(
-  state: AppState,
-  on: { filename: string; line: number; side: "LEFT" | "RIGHT" } | { editingId: string }
-): AppState {
-  const key = "editingId" in on ? `edit:${on.editingId}` : anchorKey(on.filename, on.line, on.side)
+export function forgetCommentDraftOn(state: AppState, on: DraftOn): AppState {
+  const key = draftKeyOn(on)
   if (!state.commentDrafts.has(key)) return state
   const drafts = new Map(state.commentDrafts)
   drafts.delete(key)

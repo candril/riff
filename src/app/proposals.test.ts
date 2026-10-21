@@ -110,7 +110,7 @@ test("a proposal waits while the reviewer writes a comment, and opens once it is
   void t.propose()
   expect(t.state().inlineCommentOverlay.input).toBe("mine")
   expect(t.notes).toEqual([
-    "The comment proposed on src/a.ts:2 waits until the comment open in the thread panel is saved or dropped.",
+    "The agent's proposal on src/a.ts:2 waits until the comment open in the thread panel is saved or dropped.",
   ])
   t.proposals.check()
   expect(t.state().inlineCommentOverlay.line).toBe(1)
@@ -194,4 +194,95 @@ test("the conversation ending answers a waiting proposal and leaves the composer
   t.proposals.composerSettled("dropped")
   await settled()
   expect(t.outcomes).toEqual([ENDED])
+})
+
+const LOCAL = { ...createComment("src/a.ts", 2, "Why?", "RIGHT", "@you"), id: "local-1" }
+const SYNCED = { ...createComment("src/a.ts", 3, "On GitHub", "RIGHT", "@you"), id: "gh-1", status: "synced" as const }
+const STAGED = { ...SYNCED, id: "gh-2", line: 1, localEdit: "Staged wording" }
+const withComments = (s: AppState) => ({ ...s, comments: [LOCAL, SYNCED, STAGED] })
+
+// What Enter does to an edit, before the composer reports.
+function saveEdit(s: AppState): AppState {
+  const ov = s.inlineCommentOverlay
+  const comments = s.comments.map((c) =>
+    c.id !== ov.editingId ? c : c.status === "synced" ? { ...c, localEdit: ov.input } : { ...c, body: ov.input },
+  )
+  return cancelInlineComposer({ ...s, comments })
+}
+
+test("new wording opens the reviewer's comment in edit mode, holding the agent's text", () => {
+  const t = setup(withComments)
+  void t.proposals.proposeEdit("local-1", "Why upper case here?")
+  const ov = t.state().inlineCommentOverlay
+  expect([ov.open, ov.mode, ov.editingId, ov.input]).toEqual([true, "edit", "local-1", "Why upper case here?"])
+  expect(t.revealed).toEqual([ANCHOR])
+  expect(t.notes).toEqual(["Proposed new wording for your comment on src/a.ts:2 — it is open in the thread panel."])
+})
+
+test("an unknown id, a comment on GitHub as written, or a second proposal is refused", async () => {
+  const t = setup(withComments)
+  const answers = await Promise.all([
+    t.proposals.proposeEdit("nope", "x"),
+    t.proposals.proposeEdit("gh-1", "x"),
+  ])
+  expect(answers).toEqual([
+    "No comment nope; list_comments lists them.",
+    "Comment gh-1 is on GitHub as written, not one of the reviewer's own comments; list_comments lists those.",
+  ])
+  void t.proposals.proposeEdit("local-1", "x")
+  expect(await t.proposals.proposeEdit("gh-2", "y")).toBe(BUSY)
+})
+
+test("an edit of the comment the reviewer left unsaved is never replaced", async () => {
+  const t = setup((s) => ({ ...withComments(s), commentDrafts: new Map([["edit:local-1", "half"]]) }))
+  expect(await t.proposals.proposeEdit("local-1", "x")).toBe(
+    "The reviewer has an unsaved edit of the comment on src/a.ts:2; it stays theirs, so nothing opened there.",
+  )
+})
+
+test("new wording waits while the reviewer writes a comment", () => {
+  const t = setup((s) => setInlineCommentInput(openInlineCommentOverlay(withComments(s), "src/a.ts", 1, "RIGHT", "compose"), "mine"))
+  void t.proposals.proposeEdit("local-1", "x")
+  expect(t.state().inlineCommentOverlay.mode).toBe("compose")
+  t.update(cancelInlineComposer)
+  t.proposals.check()
+  expect(t.state().inlineCommentOverlay.editingId).toBe("local-1")
+})
+
+test("saving new wording reports it; a synced comment's says it is staged", async () => {
+  const t = setup(withComments)
+  const local = t.proposals.proposeEdit("local-1", "Why upper case here?")
+  t.update(saveEdit)
+  t.proposals.composerSettled("saved")
+  expect(await local).toBe("The reviewer saved the new wording on src/a.ts:2: Why upper case here?")
+
+  const staged = t.proposals.proposeEdit("gh-2", "Better staged wording")
+  t.update(saveEdit)
+  t.proposals.composerSettled("saved")
+  expect(await staged).toBe(
+    "The reviewer saved the new wording on src/a.ts:1, staged; it reaches GitHub when they push it: Better staged wording",
+  )
+})
+
+test("saving the comment back as it was says it was kept", async () => {
+  const t = setup(withComments)
+  const outcome = t.proposals.proposeEdit("local-1", "Why upper case here?")
+  t.update((s) => cancelInlineComposer(s))
+  t.proposals.composerSettled("saved")
+  expect(await outcome).toBe("The reviewer kept the comment as it was.")
+})
+
+test("dropping new wording untouched forgets it; edited, it is kept", async () => {
+  const t = setup(withComments)
+  const untouched = t.proposals.proposeEdit("local-1", "Why upper case here?")
+  t.update(escape)
+  t.proposals.composerSettled("dropped")
+  expect(await untouched).toBe(DROPPED)
+  expect(t.state().commentDrafts.size).toBe(0)
+
+  const edited = t.proposals.proposeEdit("local-1", "Why upper case here?")
+  t.update((s) => escape(setInlineCommentInput(s, "Mine now")))
+  t.proposals.composerSettled("dropped")
+  expect(await edited).toBe(DROPPED)
+  expect(t.state().commentDrafts.get("edit:local-1")).toBe("Mine now")
 })

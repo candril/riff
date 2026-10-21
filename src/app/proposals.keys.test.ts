@@ -4,6 +4,7 @@ import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { readComposerCursorOffset, setComposerValue } from "../components/CommentComposer"
 import type { CommentsContext } from "../features/comments"
+import { createComment, type Comment } from "../types"
 import { DROPPED, createProposals } from "./proposals"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -30,9 +31,9 @@ afterEach(async () => {
 })
 
 // riff's proposals on the test app, wired as app.ts wires them, and the composer's keys reporting to them.
-async function proposing() {
+async function proposing(comments: Comment[] = []) {
   app = await mountApp(DIFF, { width: 140, height: 24 })
-  app.show()
+  app.show({ comments })
   const mounted = app
   let jumpTo = (_line: number) => {}
   const proposals = createProposals({
@@ -51,8 +52,11 @@ async function proposing() {
     commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
   })
   jumpTo = keys.jumpTo
-  // As the propose_comment handler calls it.
-  const outcome = proposals.proposeComment({ path: "src/greet.ts", line: 2, side: "new", text: TEXT })
+  // As the propose tools' handlers call it.
+  const outcome =
+    comments.length > 0
+      ? proposals.proposeEdit(comments[0]!.id, TEXT)
+      : proposals.proposeComment({ path: "src/greet.ts", line: 2, side: "new", text: TEXT })
   return { app: mounted, outcome, keys }
 }
 
@@ -83,4 +87,22 @@ test("Esc drops the agent's comment, and the line keeps no draft of it", async (
   expect(app.ctx.getState().comments).toEqual([])
   expect(app.ctx.getState().commentDrafts.size).toBe(0)
   expect(app.ctx.getState().toast.message).toBeNull()
+})
+
+test("the agent's new wording opens the reviewer's comment in edit mode, and Enter saves it", async () => {
+  const mine = { ...createComment("src/greet.ts", 2, "Greet them properly.", "RIGHT", "@you"), id: "local-1" }
+  const { app, outcome } = await proposing([mine])
+  const frame = await app.frame()
+  expect(frame).toContain(TEXT)
+  // The comment as it stands, marked as the one being edited, and the composer under it.
+  expect(frame).toContain("@you now [local] (editing)")
+  expect(frame).toContain("Greet them properly.")
+  expect(frame).toContain("Editing comment")
+  const ov = app.ctx.getState().inlineCommentOverlay
+  expect([ov.mode, ov.editingId]).toEqual(["edit", "local-1"])
+  expect(readComposerCursorOffset()).toBe(TEXT.length)
+
+  app.setup.mockInput.pressEnter()
+  expect(await outcome).toBe(`The reviewer saved the new wording on src/greet.ts:2: ${TEXT}`)
+  expect(app.ctx.getState().comments.map((c) => c.body)).toEqual([TEXT])
 })

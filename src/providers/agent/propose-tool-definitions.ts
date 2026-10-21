@@ -23,5 +23,15 @@ export function proposeToolDefinitions(proposer: Proposer): AgentTool[] {
       async (proposal) => asContent(await proposer.proposeComment(proposal)),
       always,
     ),
+    tool(
+      "propose_edit",
+      "Propose new wording for one of the reviewer's own comments, by the id list_comments gives, only when the reviewer asked for it. riff opens the comment in edit mode in their composer, with your wording; returns what they did.",
+      {
+        id: z.string().describe("Comment id from list_comments"),
+        text: z.string().describe("The whole new wording, in the reviewer's voice"),
+      },
+      async ({ id, text }) => asContent(await proposer.proposeEdit(id, text)),
+      always,
+    ),
   ] as AgentTool[]
 }

@@ -41,6 +41,9 @@ function unsyncedOf(comment: Comment): string | null {
   return comment.localEdit !== undefined ? `${kind}edited, not yet on GitHub` : null
 }
 
+/** The reviewer's own comments the agent may see and reword: those list_comments lists. */
+export const isUnsynced = (comment: Comment) => unsyncedOf(comment) !== null
+
 function threadText(thread: Thread): string[] {
   const root = thread.comments[0]!
   const lines = [`Thread ${thread.id} on ${placeOf(root)} (${stateOf(thread)})`]
@@ -163,7 +166,7 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
       }),
     listComments: (offset?: number) =>
       guarded("list comments", () => {
-        const own = source.comments().filter((c) => unsyncedOf(c) !== null)
+        const own = source.comments().filter(isUnsynced)
         if (own.length === 0) {
           return "The reviewer has no local, pending or edited comments."
         }

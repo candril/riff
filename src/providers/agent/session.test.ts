@@ -305,13 +305,14 @@ test("each question gets a fresh read budget, and a failed read reaches the even
   expect(log.at(-1)).toBe("done:false:100/5")
 })
 
-test("the review's session may call propose_comment beside the read tools, and the call returns the reviewer's outcome", async () => {
+test("the review's session may call propose_comment and propose_edit beside the read tools, and a call returns the reviewer's outcome", async () => {
   const proposed: CommentProposal[] = []
   const proposer = {
     proposeComment: async (proposal: CommentProposal) => {
       proposed.push(proposal)
       return "The reviewer dropped it; nothing was saved."
     },
+    proposeEdit: async (id: string, text: string) => `edit ${id}: ${text}`,
   }
   const source = {
     files: () => parseDiff(TWO_FILES),
@@ -329,9 +330,12 @@ test("the review's session may call propose_comment beside the read tools, and t
   await settle()
   expect(seen.options!.allowedTools).toContain("mcp__riff__list_files")
   expect(seen.options!.allowedTools).toContain("mcp__riff__propose_comment")
+  expect(seen.options!.allowedTools).toContain("mcp__riff__propose_edit")
 
   const args = { path: "src/greet.ts", line: 2, side: "new", text: "Use a template literal." }
   const answer = await toolset!.definitions.find((d) => d.name === "propose_comment")!.handler(args, {})
   expect(proposed).toEqual([args as CommentProposal])
   expect(answer.content).toEqual([{ type: "text", text: "The reviewer dropped it; nothing was saved." }])
+  const edited = await toolset!.definitions.find((d) => d.name === "propose_edit")!.handler({ id: "c1", text: "Tighter." }, {})
+  expect(edited.content).toEqual([{ type: "text", text: "edit c1: Tighter." }])
 })

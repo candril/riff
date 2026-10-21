@@ -8,7 +8,7 @@ const deps = (demo: boolean) => ({
   target: undefined,
   headSha: () => null,
   position: () => null,
-  proposer: () => ({ proposeComment: async () => "" }),
+  proposer: () => ({ proposeComment: async () => "", proposeEdit: async () => "" }),
 })
 
 test("--demo runs on the canned agent, and a review on Claude Opus", () => {
