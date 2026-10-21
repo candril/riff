@@ -1,5 +1,4 @@
-import { For, Match, Show, Switch } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { colors, theme } from "../theme"
 import {
   FILE_INDENT,
@@ -44,10 +43,10 @@ function Header(props: { header: FeedHeader }) {
 
 /**
  * The toggles, or the filter's field while it is typed. The field row is
- * hidden rather than unmounted: unmounting it would take PromptInput's field
- * down with it.
+ * hidden rather than unmounted: a node Solid removes is destroyed on the next
+ * tick, and the field keeps its cursor across openings.
  */
-function Legend(props: { legend: FeedLegend; field: InputRenderable }) {
+function Legend(props: { legend: FeedLegend; field: JSX.Element }) {
   return (
     <>
       <box visible={props.legend.filterInput} flexDirection="row" height={1} width="100%">
@@ -151,7 +150,7 @@ function Row(props: { row: FeedModelRow }) {
  * content, like the diff, so it stays on base and only the selected row is
  * shaded; an empty row, not a line, sets the legend apart from the rows.
  */
-export function FeedView(props: { model: FeedModel; field: InputRenderable }) {
+export function FeedView(props: { model: FeedModel; field: JSX.Element }) {
   return (
     <>
       <Header header={props.model.header} />

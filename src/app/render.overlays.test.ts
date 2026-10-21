@@ -32,7 +32,7 @@ afterEach(() => {
 async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partial<RenderContext> = () => ({})) {
   setup = await createTestRenderer({ width: 120, height: 40 })
   const renderer = setup.renderer
-  const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, dispose() {} })
+  const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, prompt() {}, dispose() {} })
   let state = createInitialState([], [], "test", "")
   const realParts = real(renderer)
   const islands = {

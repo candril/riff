@@ -1,5 +1,5 @@
-import type { BoxRenderable, InputRenderable, TextareaRenderable } from "@opentui/core"
-import { createMemo, For, Show } from "solid-js"
+import type { BoxRenderable, TextareaRenderable } from "@opentui/core"
+import { createMemo, For, Show, type JSX } from "solid-js"
 import { colors, theme } from "../theme"
 import type { PanelMarkdownStyle } from "./PanelMarkdown"
 import { BottomThreadHint, TopThreadHint } from "./ThreadEdgeHints"
@@ -18,7 +18,7 @@ import type { Hint, ThreadCommentModel, ThreadModel, ThreadPanelHeader, ThreadPa
  */
 export function ThreadPanelView(props: {
   model: ThreadPanelModel
-  field: InputRenderable
+  field: JSX.Element
   composer: TextareaRenderable
   markdown: PanelMarkdownStyle
   /** The threads' clipping viewport, for the half-page motions to read their layout off. */
@@ -60,7 +60,7 @@ export function ThreadPanelView(props: {
  * single-column padding, mantle background. Focus is signalled by the
  * header text's colour alone.
  */
-function PanelHeader(props: { header: ThreadPanelHeader; field: InputRenderable }) {
+function PanelHeader(props: { header: ThreadPanelHeader; field: JSX.Element }) {
   const label = () =>
     props.header.filterText !== null ? `${props.header.label}  /${props.header.filterText}` : props.header.label
   return (

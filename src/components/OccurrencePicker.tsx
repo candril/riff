@@ -1,5 +1,4 @@
-import { For, Match, Switch } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Match, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { Segment } from "./occurrence-excerpt"
@@ -69,7 +68,7 @@ function OccurrenceRow(props: { row: OccurrencePickerRow }) {
 }
 
 /** Ctrl-s (spec 088): every row of the diff the query hits, under a header per file. */
-export function OccurrencePicker(props: { model: OccurrencePickerModel; field: InputRenderable }) {
+export function OccurrencePicker(props: { model: OccurrencePickerModel; field: JSX.Element }) {
   return (
     <PickerFrame model={props.model} field={props.field} width="80%" left="10%">
       <For each={props.model.rows}>{(row) => <OccurrenceRow row={row} />}</For>

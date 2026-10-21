@@ -2,7 +2,6 @@ import type { BoxRenderable, CliRenderer } from "@opentui/core"
 import { batch } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { composerTextarea } from "../components/CommentComposer"
-import { PromptInput } from "../components/PromptInput"
 import { ThreadPanelView } from "../components/ThreadPanelView"
 import { threadPanelMarkdown } from "../components/thread-panel-markdown"
 import { threadPanelModel, type ThreadPanelInput, type ThreadPanelModel } from "../components/thread-panel-model"
@@ -10,6 +9,7 @@ import { withReferences } from "../components/with-references"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { colors, theme } from "../theme"
 import { softenCommentHtml } from "../utils/comment-html"
+import { createIslandPrompt } from "./island-prompt"
 import { mountSolid } from "./solid-island"
 
 // A fresh object per island: a store wraps the object it is given, and two
@@ -53,22 +53,25 @@ function withBodiesAsDrawn(model: ThreadPanelModel): ThreadPanelModel {
  */
 export function createThreadPanelIsland(renderer: CliRenderer) {
   const [state, setState] = createStore({ model: empty() })
-  const field = PromptInput(renderer, "comments-filter")
+  const prompt = createIslandPrompt("comments-filter")
   const composer = composerTextarea(renderer)
   const markdown = threadPanelMarkdown(renderer)
   let viewport: BoxRenderable | undefined
 
   const island = mountSolid(
     renderer,
-    () => (
-      <ThreadPanelView
-        model={state.model}
-        field={field}
-        composer={composer}
-        markdown={markdown}
-        viewportRef={(ref) => (viewport = ref)}
-      />
-    ),
+    () => {
+      const field = prompt.createField()
+      return (
+        <ThreadPanelView
+          model={state.model}
+          field={field}
+          composer={composer}
+          markdown={markdown}
+          viewportRef={(ref) => (viewport = ref)}
+        />
+      )
+    },
     {
       id: "thread-panel",
       // A column of the content row (app/shell.tsx), narrowed only where it and the tree overflow the screen.
@@ -96,6 +99,8 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
       }
       island.host.visible = input !== null
     },
+    prompt: prompt.prompt,
+    field: prompt.field,
     /**
      * Where each mounted entry was last laid out. The stack is flat, each
      * thread's header and then its comments, and only a collapsed thread's

@@ -1,7 +1,6 @@
 import { test, expect, describe, afterEach, beforeAll, afterAll, setSystemTime } from "bun:test"
 import { feedModel } from "./feed-model"
 import { createFeedIsland } from "../app/feed"
-import { endPromptSession, syncPromptSession } from "./PromptInput"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
 import { createFeedState, type CommitFileSummary, type FeedRow, type FeedState } from "../state"
@@ -22,7 +21,6 @@ afterAll(() => setSystemTime())
 let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
 
 afterEach(async () => {
-  endPromptSession()
   await mounted?.dispose()
   mounted = null
 })
@@ -56,10 +54,10 @@ async function show({ events, feed: over = {}, unseen = [], flash = [], loading 
   const feed: FeedState = { ...createFeedState(), events, ...over }
   mounted = await mountRenderable(
     (renderer) => {
-      if (typed !== undefined) {
-        syncPromptSession({ renderer, key: "feed-filter", initialValue: typed, placeholder: "filter the feed…", onChange: () => {} })
-      }
       const island = createFeedIsland(renderer)
+      if (typed !== undefined) {
+        island.prompt({ key: "feed-filter", initialValue: typed, placeholder: "filter the feed…", onChange: () => {} })
+      }
       island.update(
         feedModel({
           events,

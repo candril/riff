@@ -54,7 +54,7 @@ export function getFilteredFiles(state: AppState): FilteredFile[] {
 /**
  * Handle input when file picker is open.
  *
- * The query belongs to the shared prompt field, which sees every key this
+ * The query belongs to the picker's prompt field, which sees every key this
  * handler does not `preventDefault` (spec 065).
  *
  * Returns true if the key was handled (picker is open), false otherwise.

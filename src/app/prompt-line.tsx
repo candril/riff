@@ -3,8 +3,8 @@ import { Show } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { SearchPrompt } from "../components/SearchPrompt"
 import { FlashPrompt } from "../components/FlashPrompt"
-import { PromptInput } from "../components/PromptInput"
 import type { FlashPromptModel, SearchPromptModel } from "../components/prompt-line-model"
+import { createIslandPrompt } from "./island-prompt"
 import { mountSolid } from "./solid-island"
 
 // A fresh object per island: a store wraps the object it is given, and
@@ -24,17 +24,20 @@ const noSearch = (): SearchPromptModel => ({
  * every pass, and `reconcile` turns that into updates of only what changed.
  */
 export function createSearchPromptIsland(renderer: CliRenderer) {
-  const field = PromptInput(renderer, "search")
+  const prompt = createIslandPrompt("search")
   const [state, setState] = createStore({ shown: false, model: noSearch() })
   // Hidden rather than unmounted when there is no search: unmounting the row
-  // would take PromptInput's field down with it.
+  // would take the island's field down with it.
   const island = mountSolid(
     renderer,
-    () => (
-      <box visible={state.shown} width="100%">
-        <SearchPrompt model={state.model} field={field} />
-      </box>
-    ),
+    () => {
+      const field = prompt.createField()
+      return (
+        <box visible={state.shown} width="100%">
+          <SearchPrompt model={state.model} field={field} />
+        </box>
+      )
+    },
     { height: 1, width: "100%" }
   )
   return {
@@ -43,6 +46,8 @@ export function createSearchPromptIsland(renderer: CliRenderer) {
       setState("shown", next !== null)
       if (next) setState("model", reconcile(next))
     },
+    prompt: prompt.prompt,
+    field: prompt.field,
     dispose: island.dispose,
   }
 }

@@ -18,7 +18,6 @@ import { actionMenuModel } from "../components/action-menu-model"
 import type { ResolvedAction } from "../actions"
 import { findOccurrences } from "../features/occurrence-picker/filter"
 import type { OccurrenceRow } from "../features/occurrence-picker/corpus"
-import { PromptInput } from "../components/PromptInput"
 import { findText, trimFrame } from "../testing/frame"
 
 let setup: TestRendererSetup | null = null
@@ -51,7 +50,7 @@ const files: FilteredFile[] = ["a.ts", "b.ts", "c.ts"].map((filename, index) => 
 
 test("the file picker opens, moves its selection in place, closes and reopens on the same live field", async () => {
   const island = await mount(createFilePickerIsland)
-  const field = PromptInput(setup!.renderer, "file-picker")
+  const field = island.field()
   expect(await screen()).toBe("")
 
   island.update(filePickerModel(files, 0, 24))
@@ -64,6 +63,19 @@ test("the file picker opens, moves its selection in place, closes and reopens on
   expect(await screen()).toMatch(/Find Files\s+2\/3  esc/)
   expect(findText(island.host, "b.ts")).toBe(row!)
 
+  const typed: string[] = []
+  const session = { key: "file-picker", initialValue: "", placeholder: "Type to search…", onChange: (value: string) => typed.push(value) }
+  island.prompt(session)
+  await setup!.mockInput.typeText("bt")
+  setup!.mockInput.pressArrow("left")
+  island.prompt(session)
+  await setup!.mockInput.typeText(".")
+  expect(typed).toEqual(["b", "bt", "b.t"])
+  expect(field.cursorOffset).toBe(2)
+  expect(await screen()).toContain("b.t")
+  expect(setup!.renderer.root.findDescendantById("prompt-input-file-picker")).toBe(field)
+
+  island.prompt(null)
   island.update(null)
   expect(await screen()).toBe("")
   // Past the tick on which Solid destroys a node it has let go of.
@@ -73,7 +85,7 @@ test("the file picker opens, moves its selection in place, closes and reopens on
 
   island.update(filePickerModel(files, 2, 24))
   expect(await screen()).toMatch(/Find Files\s+3\/3  esc/)
-  expect(PromptInput(setup!.renderer, "file-picker")).toBe(field)
+  expect(island.field()).toBe(field)
   expect(field.isDestroyed).toBe(false)
   expect(field.parent).not.toBeNull()
   island.dispose()
@@ -83,8 +95,8 @@ test("the comments and marks pickers each keep their own field across a close", 
   const comments = await mount(createCommentsPickerIsland)
   const marks = createMarksPickerIsland(setup!.renderer)
   setup!.renderer.root.getChildren()[0]!.add(marks.host)
-  const commentsField = PromptInput(setup!.renderer, "comments-picker")
-  const marksField = PromptInput(setup!.renderer, "marks-picker")
+  const commentsField = comments.field()
+  const marksField = marks.field()
   expect(commentsField).not.toBe(marksField)
 
   comments.update(commentsPickerModel([], 0, 24))
@@ -109,7 +121,7 @@ const rows: OccurrenceRow[] = [{ fileIndex: 0, filename: "a.ts", kind: "addition
 
 test("the occurrence picker hides on null and reopens on the same live field", async () => {
   const island = await mount(createOccurrencePickerIsland)
-  const field = PromptInput(setup!.renderer, "occurrence-picker")
+  const field = island.field()
   island.update(occurrencePickerModel("const", false, findOccurrences(rows, "const"), 0, 24))
   expect(await screen()).toMatch(/Occurrences\s+\^g narrow  1 in 1 file  esc/)
 
@@ -121,14 +133,14 @@ test("the occurrence picker hides on null and reopens on the same live field", a
 
   island.update(occurrencePickerModel("const", true, findOccurrences(rows, "const"), 0, 24))
   expect(await screen()).toContain("const ›")
-  expect(PromptInput(setup!.renderer, "occurrence-picker")).toBe(field)
+  expect(island.field()).toBe(field)
   expect(field.parent).not.toBeNull()
   island.dispose()
 })
 
 test("the commit picker keeps its field mounted, only hidden, while not filtering and across a close", async () => {
   const island = await mount(createCommitPickerIsland)
-  const field = PromptInput(setup!.renderer, "commit-picker")
+  const field = island.field()
   const input = (filtering: boolean): CommitPickerInput => ({
     commits: [],
     selectedIndex: 0,
@@ -154,7 +166,7 @@ test("the commit picker keeps its field mounted, only hidden, while not filterin
 
   island.update(commitPickerModel(input(true), 80, 24, new Date()))
   expect(await screen()).toContain("Select Commit")
-  expect(PromptInput(setup!.renderer, "commit-picker")).toBe(field)
+  expect(island.field()).toBe(field)
   expect(field.parent).not.toBeNull()
   island.dispose()
 })
@@ -166,7 +178,7 @@ const actions: ResolvedAction[] = [
 
 test("the command palette swaps its list for a submenu and back on one live field, above the comments panel", async () => {
   const island = await mount(createActionMenuIsland)
-  const field = PromptInput(setup!.renderer, "action-menu")
+  const field = island.field()
   expect(island.host.zIndex).toBe(100)
 
   island.update(actionMenuModel({ kind: "actions", actions }, 1, 24))
@@ -181,7 +193,7 @@ test("the command palette swaps its list for a submenu and back on one live fiel
   expect(submenu).toMatch(/React\s+esc to back/)
   expect(submenu).toContain("♥  Heart")
   expect(submenu).not.toContain("Quit")
-  expect(PromptInput(setup!.renderer, "action-menu")).toBe(field)
+  expect(island.field()).toBe(field)
   expect(field.parent).toBe(fieldBox)
 
   island.update(actionMenuModel({ kind: "actions", actions }, 0, 24))

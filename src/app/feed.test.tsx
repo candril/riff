@@ -3,7 +3,6 @@ import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createFeedIsland } from "./feed"
 import { feedModel, type FeedModel } from "../components/feed-model"
-import { PromptInput, endPromptSession, syncPromptSession } from "../components/PromptInput"
 import { findText, paintOf } from "../testing/frame"
 import { createFeedState, type CommitFileSummary, type FeedRow, type FeedState } from "../state"
 import type { FeedEvent } from "../utils/feed"
@@ -14,7 +13,6 @@ const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString()
 let setup: TestRendererSetup | null = null
 
 afterEach(() => {
-  endPromptSession()
   setup?.renderer.destroy()
   setup = null
 })
@@ -128,14 +126,14 @@ test("keeps one feed-filter field across updates, mounted and undestroyed", asyn
   setup = await createTestRenderer({ width: 100, height: 30 })
   const island = createFeedIsland(setup.renderer)
   mount(setup, island.host)
-  const field = PromptInput(setup.renderer, "feed-filter")
+  const field = island.field()
 
-  syncPromptSession({ renderer: setup.renderer, key: "feed-filter", initialValue: "fix", onChange: () => {} })
+  island.prompt({ key: "feed-filter", initialValue: "fix", onChange: () => {} })
   island.update(model(EVENTS, { filterInput: true, filter: "fix" }))
   expect((await painted(setup)).chars).toContain("/fix")
   const parent = field.parent
 
-  endPromptSession()
+  island.prompt(null)
   island.update(model(EVENTS, { filter: "fix" }))
   await painted(setup)
   island.update(null)
@@ -143,12 +141,21 @@ test("keeps one feed-filter field across updates, mounted and undestroyed", asyn
   // Solid destroys what it removes on the next tick.
   await new Promise((resolve) => setTimeout(resolve, 10))
 
-  syncPromptSession({ renderer: setup.renderer, key: "feed-filter", initialValue: "hunk", onChange: () => {} })
+  const typed: string[] = []
+  const session = { key: "feed-filter", initialValue: "hunk", onChange: (value: string) => typed.push(value) }
+  island.prompt(session)
   island.update(model(EVENTS, { filterInput: true, filter: "hunk" }))
   expect((await painted(setup)).chars).toContain("/hunk")
-  expect(PromptInput(setup.renderer, "feed-filter")).toBe(field)
+  expect(island.field()).toBe(field)
+  expect(setup.renderer.root.findDescendantById("prompt-input-feed-filter")).toBe(field)
   expect(field.isDestroyed).toBe(false)
   expect(field.parent).toBe(parent)
+
+  setup.mockInput.pressArrow("left")
+  island.prompt(session)
+  await setup.mockInput.typeText("s")
+  expect(typed).toEqual(["hunsk"])
+  expect(field.cursorOffset).toBe(4)
   island.dispose()
 })
 

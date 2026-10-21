@@ -1,0 +1,67 @@
+import { test, expect, describe } from "bun:test"
+import { createInitialState, type AppState } from "../state"
+import { createSearchState } from "../vim-diff/search-state"
+import { openPrompt } from "./open-prompt"
+import { ownerOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
+import type { PromptSession } from "./prompt-session"
+
+const initial = createInitialState([], [], "test", "")
+
+function islands() {
+  const calls: [PromptOwner, string | null][] = []
+  const record = Object.fromEntries(
+    promptOwners.map((owner) => [owner, { prompt: (session: PromptSession | null) => void calls.push([owner, session?.key ?? null]) }])
+  ) as unknown as Record<PromptOwner, PromptIsland>
+  return { record, calls }
+}
+
+describe("routing the open prompt", () => {
+  test("closes every other island's prompt before handing the owner its session", () => {
+    const { record, calls } = islands()
+    routePrompt(record, { key: "occurrence-picker:narrow", initialValue: "", onChange: () => {} })
+    expect(calls.at(-1)).toEqual(["occurrence-picker", "occurrence-picker:narrow"])
+    expect(calls.slice(0, -1)).toEqual(
+      promptOwners.filter((owner) => owner !== "occurrence-picker").map((owner) => [owner, null])
+    )
+  })
+
+  test("with no prompt open, every island's prompt is closed", () => {
+    const { record, calls } = islands()
+    routePrompt(record, null)
+    expect(calls).toEqual(promptOwners.map((owner) => [owner, null]))
+  })
+
+  test("a key's owner is its first segment", () => {
+    expect(ownerOf("search:forward:0:0")).toBe("search")
+    expect(ownerOf("action-menu:")).toBe("action-menu")
+    expect(ownerOf("feed-filter")).toBe("feed-filter")
+    // @ts-expect-error a prompt no island owns does not type-check
+    const stray: PromptKey = "chat:input"
+    expect(String(stray)).toBe("chat:input")
+  })
+
+  test("every prompt open-prompt can open has an island, and every island a prompt", () => {
+    const states: Partial<AppState>[] = [
+      { actionMenu: { ...initial.actionMenu, open: true } },
+      { filePicker: { ...initial.filePicker, open: true } },
+      { commentsPicker: { ...initial.commentsPicker, open: true } },
+      { marksPicker: { ...initial.marksPicker, open: true } },
+      { occurrencePicker: { ...initial.occurrencePicker, open: true, narrowing: true } },
+      { occurrencePicker: { ...initial.occurrencePicker, open: true, narrowing: false } },
+      { commitPicker: { ...initial.commitPicker, open: true, queryInput: true } },
+      { inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } },
+      { feed: { ...initial.feed, filterInput: true } },
+    ]
+    const ctx = (search: boolean) => ({
+      setState: () => {},
+      getSearchState: () => ({ ...createSearchState(), active: search }),
+      updateSearchPattern: () => {},
+    })
+    const opened = [
+      ...states.map((patch) => openPrompt({ ...initial, ...patch }, ctx(false), () => {})),
+      openPrompt(initial, ctx(true), () => {}),
+    ]
+    const owners = new Set(opened.map((prompt) => ownerOf(prompt!.key)))
+    expect([...owners].sort()).toEqual([...promptOwners].sort())
+  })
+})

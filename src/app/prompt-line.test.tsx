@@ -2,7 +2,6 @@ import { test, expect, afterEach, describe } from "bun:test"
 import { BoxRenderable, type Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createFlashPromptIsland, createSearchPromptIsland } from "./prompt-line"
-import { PromptInput, syncPromptSession, endPromptSession } from "../components/PromptInput"
 import type { FlashPromptModel, SearchPromptModel } from "../components/prompt-line-model"
 import { findText, trimFrame } from "../testing/frame"
 import { fgAt, ints } from "../testing/split-frame"
@@ -11,7 +10,6 @@ import { theme } from "../theme"
 let setup: TestRendererSetup | null = null
 
 afterEach(() => {
-  endPromptSession()
   setup?.renderer.destroy()
   setup = null
 })
@@ -86,29 +84,48 @@ describe("the search prompt", () => {
 
   test("while typing draws the field, and keeps the same live field across a confirm", async () => {
     const search = await mount(createSearchPromptIsland)
-    syncPromptSession({ renderer: setup!.renderer, key: "search:forward:0:0", initialValue: "ba", onChange: () => {} })
-    const field = PromptInput(setup!.renderer, "search")
+    search.prompt({ key: "search:forward:0:0", initialValue: "ba", onChange: () => {} })
+    const field = search.field()
     search.update(confirmed({ typing: true, pattern: "" }))
     expect(await frame()).toBe(" /ba")
 
-    endPromptSession()
+    search.prompt(null)
     search.update(confirmed({ pattern: "bar" }))
     expect(await frame()).toBe(" /bar")
     await new Promise((resolve) => setTimeout(resolve, 10))
 
-    syncPromptSession({ renderer: setup!.renderer, key: "search:forward:1:0", initialValue: "", onChange: () => {} })
+    search.prompt({ key: "search:forward:1:0", initialValue: "", onChange: () => {} })
     search.update(confirmed({ typing: true, pattern: "bar" }))
     expect(await frame()).toBe(" /")
     await new Promise((resolve) => setTimeout(resolve, 10))
-    expect(PromptInput(setup!.renderer, "search")).toBe(field)
+    expect(search.field()).toBe(field)
+    expect(setup!.renderer.root.findDescendantById("prompt-input-search")).toBe(field)
     expect(field.isDestroyed).toBe(false)
     expect(field.parent).not.toBeNull()
     search.dispose()
   })
 
+  test("what is typed reaches the session, and a pass with the same key keeps it and the cursor", async () => {
+    const search = await mount(createSearchPromptIsland)
+    const typed: string[] = []
+    const session = { key: "search:forward:0:0", initialValue: "", onChange: (value: string) => typed.push(value) }
+    search.prompt(session)
+    search.update(confirmed({ typing: true, pattern: "" }))
+    await frame()
+    await setup!.mockInput.typeText("foo")
+    expect(typed.at(-1)).toBe("foo")
+    setup!.mockInput.pressArrow("left")
+    search.prompt(session)
+    await setup!.mockInput.typeText("d")
+    expect(typed.at(-1)).toBe("fodo")
+    expect(search.field().cursorOffset).toBe(3)
+    expect(await frame()).toBe(" /fodo")
+    search.dispose()
+  })
+
   test("while typing, the field takes the row and pushes the suffixes to its end", async () => {
     const search = await mount(createSearchPromptIsland)
-    syncPromptSession({ renderer: setup!.renderer, key: "search:forward:0:0", initialValue: "ba", onChange: () => {} })
+    search.prompt({ key: "search:forward:0:0", initialValue: "ba", onChange: () => {} })
     search.update(confirmed({ typing: true, pattern: "", loading: true, tone: "error", error: "bad" }))
     expect(await frame()).toBe(" /ba" + " ".repeat(22) + "Loading... bad")
     search.dispose()

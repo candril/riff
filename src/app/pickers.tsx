@@ -1,7 +1,6 @@
-import type { CliRenderer, InputRenderable } from "@opentui/core"
+import type { CliRenderer } from "@opentui/core"
 import { batch, type JSX } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { PromptInput } from "../components/PromptInput"
 import { FilePicker } from "../components/FilePicker"
 import { CommentsPicker } from "../components/CommentsPicker"
 import { MarksPicker } from "../components/MarksPicker"
@@ -15,6 +14,7 @@ import { occurrencePickerModel, type OccurrencePickerModel } from "../components
 import { commitPickerModel, type CommitPickerModel } from "../components/commit-picker-model"
 import { actionMenuModel, type ActionMenuModel } from "../components/action-menu-model"
 import { findOccurrences } from "../features/occurrence-picker/filter"
+import { createIslandPrompt } from "./island-prompt"
 import { mountSolid } from "./solid-island"
 
 /**
@@ -29,26 +29,29 @@ export function createPickerIsland<Model extends object>(
     owner: string
     closed: Model
     zIndex?: number
-    draw: (props: { model: Model; field: InputRenderable }) => JSX.Element
+    draw: (props: { model: Model; field: JSX.Element }) => JSX.Element
   }
 ) {
-  const field = PromptInput(renderer, options.owner)
+  const prompt = createIslandPrompt(options.owner)
   const [state, setState] = createStore<{ shown: boolean; model: Model }>({ shown: false, model: options.closed })
   // Hidden rather than unmounted when the picker closes: a node Solid removes
-  // is destroyed on the next tick once it has no parent, and PromptInput
-  // hands out this same field every time the picker opens.
+  // is destroyed on the next tick once it has no parent, and the field keeps
+  // its cursor across every opening.
   const island = mountSolid(
     renderer,
-    () => (
-      <box visible={state.shown} width="100%" height="100%">
-        {options.draw({
-          get model() {
-            return state.model
-          },
-          field,
-        })}
-      </box>
-    ),
+    () => {
+      const field = prompt.createField()
+      return (
+        <box visible={state.shown} width="100%" height="100%">
+          {options.draw({
+            get model() {
+              return state.model
+            },
+            field,
+          })}
+        </box>
+      )
+    },
     { id: options.id, position: "absolute", top: 0, left: 0, width: "100%", height: "100%", zIndex: options.zIndex }
   )
   return {
@@ -59,6 +62,8 @@ export function createPickerIsland<Model extends object>(
         if (next) setState("model", reconcile(next))
       })
     },
+    prompt: prompt.prompt,
+    field: prompt.field,
     dispose: island.dispose,
   }
 }

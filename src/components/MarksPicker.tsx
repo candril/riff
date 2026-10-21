@@ -1,5 +1,4 @@
-import { For } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, type JSX } from "solid-js"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { MarksPickerModel, MarksPickerRow } from "./marks-picker-model"
 
@@ -20,7 +19,7 @@ function MarkRow(props: { row: MarksPickerRow }) {
 }
 
 /** Ctrl-k: every global mark (spec 101), laid out as the comments picker is. */
-export function MarksPicker(props: { model: MarksPickerModel; field: InputRenderable }) {
+export function MarksPicker(props: { model: MarksPickerModel; field: JSX.Element }) {
   return (
     <PickerFrame model={props.model} field={props.field} width="70%" left="15%">
       <For each={props.model.rows}>{(row) => <MarkRow row={row} />}</For>

@@ -1,5 +1,4 @@
-import { For, Match, Show, Switch } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { AllCommitsRow, CommitPickerModel, CommitPickerRow, CommitRow } from "./commit-picker-model"
@@ -74,7 +73,7 @@ function Row(props: { row: CommitPickerRow }) {
 }
 
 /** Ctrl-g (spec 078): scope the diff to one commit, or to the ones marked. */
-export function CommitPicker(props: { model: CommitPickerModel; field: InputRenderable }) {
+export function CommitPicker(props: { model: CommitPickerModel; field: JSX.Element }) {
   return (
     <PickerFrame
       model={props.model}

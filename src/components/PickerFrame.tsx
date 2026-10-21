@@ -1,5 +1,4 @@
 import { For, Show, type JSX } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
 import { theme } from "../theme"
 import type { PickerModel, PickerRow } from "./picker-window"
 
@@ -12,8 +11,8 @@ type FrameModel = Pick<PickerModel<PickerRow>, "title" | "hints" | "above" | "be
 
 export interface PickerFrameProps {
   model: FrameModel
-  /** PromptInput's field for this picker, which outlives every time it opens. */
-  field: InputRenderable
+  /** The picker island's field, which outlives every time it opens. */
+  field: JSX.Element
   fieldPrefix?: string
   /** Shown in the field row in place of the prefix and the field, which then stay mounted but hidden. */
   fieldText?: { text: string; fg: string } | null
@@ -61,9 +60,8 @@ export function PickerFrame(props: PickerFrameProps) {
             <For each={props.model.hints}>{(hint) => <text fg={theme.overlay0}>{hint}</text>}</For>
           </box>
         </box>
-        {/* One row, always: the shared input has no height of its own, and a
-            box that has to measure it can come out wrong when the field has
-            just moved here from another prompt. */}
+        {/* One row, always: the input has no height of its own, and a box
+            that has to measure it can come out wrong. */}
         <box flexDirection="row" paddingX={2} paddingBottom={1} height={1} backgroundColor={theme.surface0}>
           <box flexDirection="row" flexGrow={1} visible={!props.fieldText}>
             <Show when={props.fieldPrefix}>{(prefix: () => string) => <text fg={theme.subtext0}>{prefix()}</text>}</Show>

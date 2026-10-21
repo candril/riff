@@ -1,5 +1,4 @@
-import { For, Show } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Show, type JSX } from "solid-js"
 import { theme } from "../theme"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { FilePickerModel, FilePickerRow } from "./file-picker-model"
@@ -24,7 +23,7 @@ function FileRow(props: { row: FilePickerRow }) {
 }
 
 /** Ctrl+f: fuzzy search over the diff's files. */
-export function FilePicker(props: { model: FilePickerModel; field: InputRenderable }) {
+export function FilePicker(props: { model: FilePickerModel; field: JSX.Element }) {
   return (
     <PickerFrame model={props.model} field={props.field} width="50%" left="25%">
       <For each={props.model.rows}>{(row) => <FileRow row={row} />}</For>

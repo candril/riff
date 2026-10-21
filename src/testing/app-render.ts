@@ -53,7 +53,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const files = parseDiff(raw)
   let state: AppState = createInitialState(files, buildFileTree(files), "test", "")
   let vimState = createCursorState()
-  const searchState = createSearchState()
+  let searchState = createSearchState()
   const flashState = createFlashState()
   let mapping = buildLineMapping(state)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
@@ -182,6 +182,9 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     },
     setVimState(next: typeof vimState) {
       vimState = next
+    },
+    setSearchState(next: typeof searchState) {
+      searchState = next
     },
     async frame() {
       await setup.renderOnce()

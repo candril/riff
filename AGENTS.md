@@ -237,9 +237,12 @@ src/
 Two kinds of file in `src/components` are not model-and-component pairs.
 `PRInfoPanel.ts` is the PR overview's controller rather than a view: it
 holds the cursor, the open sections and the scroll, and pushes the
-sections `panelSections` builds into one island (`src/app/pr-info-panel.tsx`). `PromptInput.ts` and `CommentComposer.ts` keep OpenTUI's native
-input and textarea alive across passes, so a field keeps its cursor while
-the islands that host it redraw.
+sections `panelSections` builds into one island (`src/app/pr-info-panel.tsx`). `CommentComposer.ts` keeps OpenTUI's native
+textarea alive across passes, so the composer keeps its cursor while the
+thread panel redraws. A one-line prompt's field is its island's own
+(`src/app/island-prompt.tsx`): mounted once and only ever hidden, and
+handed its typing session through the island's `prompt()`, which
+`src/app/prompt-routing.ts` calls from the render pass.
 
 ## Configuration
 

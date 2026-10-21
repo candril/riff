@@ -1,12 +1,11 @@
-import { Show } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { Show, type JSX } from "solid-js"
 import { theme } from "../theme"
 import type { SearchPromptModel } from "./prompt-line-model"
 
 export interface SearchPromptProps {
   model: SearchPromptModel
-  /** PromptInput's search field, which outlives every search. */
-  field: InputRenderable
+  /** The island's search field, which outlives every search. */
+  field: JSX.Element
 }
 
 /** The search row: `/pattern` or `?pattern`. Match counts are the status bar's. */
@@ -18,8 +17,8 @@ export function SearchPrompt(props: SearchPromptProps) {
       <text fg={promptColor()}>{props.model.prefix}</text>
       {/* The field stays mounted and is only hidden once the search is
           confirmed: a node Solid removes is destroyed on the next tick
-          once it has no parent, and PromptInput hands out this same field
-          for every search. */}
+          once it has no parent, and the field keeps its cursor across
+          every search. */}
       <box visible={props.model.typing} flexGrow={1} flexDirection="row">
         {props.field}
       </box>

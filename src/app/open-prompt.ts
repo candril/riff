@@ -10,6 +10,7 @@ import {
 import type { AppState } from "../state"
 import type { SearchState } from "../vim-diff/search-state"
 import { setMarksPickerQuery } from "../features/marks"
+import type { PromptKey } from "./prompt-routing"
 
 export type OpenPromptContext = {
   setState: (updater: (s: AppState) => AppState) => void
@@ -19,14 +20,13 @@ export type OpenPromptContext = {
 
 /**
  * Which prompt is typing right now, and what it does with what is typed.
- * Every one-line prompt in riff shares a single input field, so at most one
- * of these can be open (spec 065).
+ * One field types at a time, so at most one of these can be open (spec 065).
  */
 export function openPrompt(
   state: AppState,
   ctx: OpenPromptContext,
   render: () => void
-): { key: string; initialValue: string; placeholder?: string; onChange: (value: string) => void } | null {
+): { key: PromptKey; initialValue: string; placeholder?: string; onChange: (value: string) => void } | null {
   const typeInto = (
     set: (s: AppState, value: string) => AppState
   ): ((value: string) => void) => (value) => {

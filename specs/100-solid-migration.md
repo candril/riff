@@ -48,7 +48,8 @@ open sections and filter are the `pr-info-nav` model, and
 
 **Not built**: the deletion of `src/app/render.ts`, which stays as the
 coordinator that builds each island's model and pushes it in, and still
-syncs the comment composer's and the prompts' input sessions; M5
+syncs the comment composer's input session (each prompt's field is its
+island's own, handed its session through the island's `prompt()`); M5
 (monoliths without UI); M6 (state factories and `@opentui/keymap`
 layers); the file size ratchet (P3).
 

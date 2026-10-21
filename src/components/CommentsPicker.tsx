@@ -1,5 +1,4 @@
-import { For, Show } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Show, type JSX } from "solid-js"
 import { theme } from "../theme"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { CommentsPickerModel, CommentsPickerRow } from "./comments-picker-model"
@@ -28,7 +27,7 @@ function CommentRow(props: { row: CommentsPickerRow }) {
 }
 
 /** gC (spec 044): fuzzy search over every comment in the diff. */
-export function CommentsPicker(props: { model: CommentsPickerModel; field: InputRenderable }) {
+export function CommentsPicker(props: { model: CommentsPickerModel; field: JSX.Element }) {
   return (
     <PickerFrame model={props.model} field={props.field} width="70%" left="15%">
       <For each={props.model.rows}>{(row) => <CommentRow row={row} />}</For>

@@ -7,7 +7,6 @@
 import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
-import { syncPromptSession, endPromptSession } from "../components/PromptInput"
 import { keepAlive } from "../utils/renderables"
 import { reviewCandidates } from "../utils/publishable"
 import {
@@ -79,6 +78,7 @@ import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
+import { routePrompt, type PromptIsland, type PromptOwner } from "./prompt-routing"
 import type { AppShell } from "./shell"
 
 export interface RenderContext {
@@ -134,6 +134,17 @@ export interface RenderContext {
 export function createRenderFunction(ctx: RenderContext): () => void {
   const errorText = keepAlive(new TextRenderable(ctx.renderer, { fg: colors.error }))
   const emptyText = keepAlive(new TextRenderable(ctx.renderer, { content: "No changes to display", fg: colors.textDim }))
+  const promptIslands: Record<PromptOwner, PromptIsland> = {
+    search: ctx.searchPrompt,
+    "file-picker": ctx.filePicker,
+    "comments-picker": ctx.commentsPicker,
+    "marks-picker": ctx.marksPicker,
+    "occurrence-picker": ctx.occurrencePicker,
+    "commit-picker": ctx.commitPicker,
+    "action-menu": ctx.actionMenu,
+    "feed-filter": ctx.feed,
+    "comments-filter": ctx.threadPanel,
+  }
 
   return function render() {
     const state = ctx.getState()
@@ -284,10 +295,8 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       )
       prInfoPanelInstance?.setFilter(state.prInfoPanel.filter)
 
-      // And the one-line prompts (spec 065). They all type into the same
-      // field, so exactly one session can be open — whichever prompt is.
-      if (prompt) syncPromptSession({ renderer: ctx.renderer, ...prompt })
-      else endPromptSession()
+      // And the one-line prompts (spec 065), each typed into its own island's field.
+      routePrompt(promptIslands, prompt)
 
       if (splitOn) ctx.split.island.update({ focused: diffFocused })
 

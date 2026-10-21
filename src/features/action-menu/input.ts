@@ -46,7 +46,7 @@ function linkForRow(submenu: ActionSubmenu, rowId: string): LinkTarget | null {
  * Handle input when action menu is open.
  *
  * Only the keys that mean something to the palette are taken; the query
- * itself belongs to the shared prompt field, which sees every key this
+ * itself belongs to the palette's prompt field, which sees every key this
  * handler does not `preventDefault` (spec 065).
  *
  * Returns true if the key was handled (menu is open), false otherwise.

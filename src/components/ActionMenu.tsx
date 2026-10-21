@@ -1,5 +1,4 @@
-import { For, Match, Show, Switch } from "solid-js"
-import type { InputRenderable } from "@opentui/core"
+import { For, Match, Show, Switch, type JSX } from "solid-js"
 import { theme } from "../theme"
 import { PickerFrame, rowBackground } from "./PickerFrame"
 import type { ActionMenuModel, ActionMenuRow } from "./action-menu-model"
@@ -49,7 +48,7 @@ function SubmenuRowView(props: { row: Of<"submenu"> }) {
  * The command palette, and the submenus (spec 042) that take its list's
  * place while it stays open.
  */
-export function ActionMenu(props: { model: ActionMenuModel; field: InputRenderable }) {
+export function ActionMenu(props: { model: ActionMenuModel; field: JSX.Element }) {
   const frame = {
     get title() {
       return props.model.title
