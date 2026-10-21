@@ -50,6 +50,8 @@ spec 010; that panel is retired.
   with inline reaction summary per comment.
 - Navigation inside the overlay:
   - `j` / `k` — move highlight between comments in the thread
+  - `Ctrl-d` / `Ctrl-u` — half the panel's height in drawn rows, to the
+    comment holding that row (at least one); `gg` / `G` — first / last comment
   - `Ctrl-n` / `Ctrl-p` — close this overlay and open the next/previous
     thread in the PR (cursor follows)
   - `Esc` — close

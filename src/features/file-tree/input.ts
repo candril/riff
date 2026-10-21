@@ -23,6 +23,7 @@ import {
 } from "../../state"
 import { collectMultiSelectionFiles } from "../ai-review"
 import { toggleNodeExpansion } from "../../utils/file-tree"
+import { halfPage } from "../../utils/half-page"
 
 export interface FileTreeInputContext {
   readonly state: AppState
@@ -69,6 +70,14 @@ export function handleInput(
     ctx.setState(startTreeFilter)
     ctx.updatePanel()
     ctx.render()
+    return true
+  }
+
+  if (key.ctrl && (key.name === "d" || key.name === "u")) {
+    const step = halfPage(panel.viewportRows()) * (key.name === "d" ? 1 : -1)
+    ctx.setState((s) => moveTreeHighlight(s, step, flatItems.length - 1))
+    ctx.updatePanel()
+    panel.ensureHighlightVisible()
     return true
   }
 

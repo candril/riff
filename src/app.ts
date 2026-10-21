@@ -1753,6 +1753,7 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     cursorView: diffViewport,
     fileTreePanel,
+    threadPanelLayout: () => threadPanel.layout(),
     getPrInfoPanel: () => prInfoPanel,
     vimHandler,
     searchHandler,

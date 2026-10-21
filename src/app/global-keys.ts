@@ -28,6 +28,7 @@ import { handleChatKey } from "../features/chat/keys"
 import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
+import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { getVisibleFlatTreeItems } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
@@ -83,6 +84,7 @@ export interface GlobalKeyContext {
   renderer: { console: { toggle: () => void }; height: number }
   cursorView: DiffViewport
   fileTreePanel: FileTreeIsland
+  threadPanelLayout: () => ThreadPanelLayout | null
   getPrInfoPanel: () => PRInfoPanelClass | null
   // Vim handlers
   vimHandler: VimMotionHandler
@@ -934,6 +936,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
             ctx.externalToolsContext.resumeRenderer()
           }
         },
+        getPanelLayout: () => ctx.threadPanelLayout(),
         syncCursorToHighlight: () => {
           // Mirror j/k navigation in the panel onto the diff cursor: jump
           // to the source line of the highlighted comment so the diff
@@ -1194,16 +1197,23 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         break
 
       case "g":
+      case "G":
         // Ctrl-g is the commit picker — `g` is riff's letter for commits
         // (`]g`, `[g`), and the picker was two keystrokes and a search away
         // in the palette. The file-path toast it used to show is still there
         // as Show File Path.
-        if (key.ctrl) {
+        if (key.ctrl && key.name === "g") {
           if (state.commits.length > 0) {
             key.preventDefault()
             ctx.setState(openCommitPicker)
             ctx.render()
           }
+          return
+        }
+        // The diff's own G is its motion handler's; the tree's is here. A
+        // terminal reports it as a shifted `g` or as `G`.
+        if ((key.name === "G" || key.shift) && state.focusedPanel === "tree") {
+          folds.handleGoToBottom(ctx.foldsContext)
           return
         }
         break
@@ -1302,14 +1312,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         // binding, so this only ever opens.
         if (key.ctrl && !key.shift) {
           if (!openCommentsOverlay("view")) openCommentsPanelForCursor()
-          return
-        }
-        break
-
-      case "g":
-      case "G":
-        if ((key.name === "G" || key.shift) && state.focusedPanel !== "diff") {
-          folds.handleGoToBottom(ctx.foldsContext)
           return
         }
         break

@@ -1,4 +1,4 @@
-import type { InputRenderable, TextareaRenderable } from "@opentui/core"
+import type { BoxRenderable, InputRenderable, TextareaRenderable } from "@opentui/core"
 import { createMemo, For, Show } from "solid-js"
 import { colors, theme } from "../theme"
 import type { PanelMarkdownStyle } from "./PanelMarkdown"
@@ -21,6 +21,8 @@ export function ThreadPanelView(props: {
   field: InputRenderable
   composer: TextareaRenderable
   markdown: PanelMarkdownStyle
+  /** The threads' clipping viewport, for the half-page motions to read their layout off. */
+  viewportRef?: (viewport: BoxRenderable) => void
 }) {
   return (
     <>
@@ -33,7 +35,7 @@ export function ThreadPanelView(props: {
           </box>
         }
       >
-        <Threads model={props.model} markdown={props.markdown} />
+        <Threads model={props.model} markdown={props.markdown} viewportRef={props.viewportRef} />
       </Show>
       <Composer model={props.model} textarea={props.composer} />
       {/*
@@ -101,12 +103,17 @@ function PanelHeader(props: { header: ThreadPanelHeader; field: InputRenderable 
  * comments, and come first in the viewport: the bottom hint counts threads
  * by walking them.
  */
-function Threads(props: { model: ThreadPanelModel; markdown: PanelMarkdownStyle }) {
+function Threads(props: {
+  model: ThreadPanelModel
+  markdown: PanelMarkdownStyle
+  viewportRef?: (viewport: BoxRenderable) => void
+}) {
   const rows = createMemo(() =>
     props.model.threads.flatMap((thread): (ThreadModel | ThreadCommentModel)[] => [thread, ...thread.comments])
   )
   return (
     <box
+      ref={props.viewportRef}
       flexDirection="column"
       overflow="hidden"
       flexGrow={1}

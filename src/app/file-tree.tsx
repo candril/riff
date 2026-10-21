@@ -157,6 +157,8 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
       island.host.visible = value
     },
     visibleRows,
+    /** The scroll box's rows, the page Ctrl-d and Ctrl-u take half of. */
+    viewportRows: viewportHeight,
     /**
      * Brings the highlight into the readable rows. Where rows lie past an
      * edge, a hint covers that edge's row, so the highlight keeps one row off

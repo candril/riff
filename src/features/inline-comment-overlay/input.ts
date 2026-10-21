@@ -4,7 +4,8 @@
  * Single capture point for every comment action while the overlay is
  * open. Two distinct modes:
  *
- *  - **view**: `j/k` highlight, `r/R` reply, `e/E` edit, `d` delete,
+ *  - **view**: `j/k` highlight, `Ctrl-d`/`Ctrl-u` half a page, `gg`/`G`
+ *    the ends, `r/R` reply, `e/E` edit, `d` delete,
  *    `x` resolve, `S` submit, `Ctrl-n`/`Ctrl-p` adjacent thread,
  *    `Ctrl-p` falls through (palette). `Esc` closes.
  *  - **compose / edit**: char input flows into `state.inlineCommentOverlay.input`.
@@ -44,6 +45,7 @@ import {
   clearToast,
 } from "../../state"
 import { commentHunk } from "./hunk"
+import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
 import { filterEmoji } from "../../utils/emoji"
 import { groupIntoThreads } from "../../utils/threads"
 import {
@@ -87,6 +89,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  the diff stays in sync as the user navigates threads with j/k.
    *  Wired at the app level (needs lineMapping + vim state). */
   syncCursorToHighlight: () => void
+  /** Where the panel's entries were last drawn, for Ctrl-d / Ctrl-u; null before the panel is laid out. */
+  getPanelLayout: () => ThreadPanelLayout | null
   /** `y` — copy a GitHub link to the highlighted comment. */
   handleCopyLink: (comment: Comment) => void
   /** `o` — open the highlighted comment's file in $EDITOR at its
@@ -107,12 +111,6 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
    *  needs renderer suspend/resume. */
   openDraftInEditor: (current: string) => Promise<string | null>
 }
-
-// Half-page jump for Ctrl-d / Ctrl-u. Measured in displayOrder entries
-// (comments) rather than rows — the panel's scroll follows the
-// highlighted comment, so moving the highlight several entries scrolls
-// the view by roughly a screenful.
-const SCROLL_STEP = 6
 
 // `za` chord state, scoped to the panel input handler. Cleared after the
 // follow-up key arrives or the timeout expires so a stray `z` doesn't get
@@ -280,15 +278,19 @@ export function handleInput(
     return true
   }
 
-  // Ctrl-d / Ctrl-u — half-page scroll. The window follows the
-  // highlighted comment, so jumping the highlight several entries
-  // scrolls the view. Handled before the `d` (delete) case so Ctrl-d
-  // never deletes.
-  if (key.ctrl && (key.name === "d" || key.name === "u")) {
-    const delta = key.name === "d" ? SCROLL_STEP : -SCROLL_STEP
-    ctx.setState((s) => moveInlineCommentOverlayHighlight(s, delta))
+  const highlightEntry = (index: number) => {
+    ctx.setState((s) => moveInlineCommentOverlayHighlight(s, index - s.inlineCommentOverlay.highlightedIndex))
     ctx.syncCursorToHighlight()
     ctx.render()
+  }
+
+  // Ctrl-d / Ctrl-u — half a page of drawn rows. The window follows the
+  // highlighted comment, so moving the highlight scrolls the view.
+  // Handled before the `d` (delete) case so Ctrl-d never deletes.
+  if (key.ctrl && (key.name === "d" || key.name === "u")) {
+    const layout = ctx.getPanelLayout() ?? UNLAID
+    const spans = entrySpans(displayOrder, layout)
+    highlightEntry(halfPageEntry(spans, ov.highlightedIndex, key.name === "d" ? 1 : -1, layout.viewportRows))
     return true
   }
 
@@ -335,12 +337,21 @@ export function handleInput(
       ctx.onToggleHelp()
       return true
     }
+    if (key.name === "g" && !key.shift && !key.ctrl) {
+      highlightEntry(0)
+      return true
+    }
     if ((key.name === "x" || key.name === "X") && highlighted) {
       // preventDefault so the picker's prompt field, focused in this same
       // keypress, does not read the `x` as the start of a query.
       key.preventDefault()
       ctx.onOpenLinks(highlighted, key.shift || key.name === "X" ? "copy" : "open")
     }
+    return true
+  }
+
+  if ((key.name === "G" || (key.name === "g" && key.shift)) && !key.ctrl) {
+    highlightEntry(Math.max(0, displayOrder.length - 1))
     return true
   }
 

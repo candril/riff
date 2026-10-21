@@ -97,8 +97,9 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `v` | Mark the file viewed and advance to the next unviewed |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
 
-In the **file tree**: `j`/`k` moves, `l`/`Enter` opens a file or expands a folder, `h` collapses,
-`v` toggles viewed, `/` filters by path, `Esc` hands focus back to the diff.
+In the **file tree**: `j`/`k` moves, `Ctrl+d`/`Ctrl+u` half a page, `gg`/`G` to the top and
+bottom, `l`/`Enter` opens a file or expands a folder, `h` collapses, `v` toggles viewed, `/`
+filters by path, `Esc` hands focus back to the diff.
 
 Filtering: `/` opens an input in the panel header, typing narrows the tree live (loosely, against
 the whole path — `apicl` finds `src/api/client.ts`), `Enter` keeps the filter and returns to
@@ -127,7 +128,8 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | --- | --- |
 | `j` `k` | Move between comments |
 | `J` `K` | Jump to the next, previous thread |
-| `Ctrl+d` `Ctrl+u` | Half a screen of comments |
+| `Ctrl+d` `Ctrl+u` | Half a page down, up — counted in the panel's rows, so a long thread is a long way |
+| `gg` `G` | First, last comment |
 | `za` / `Enter` | Expand or collapse the highlighted thread |
 | `n` | New thread at the diff cursor's line |
 | `s` | Flash — label every visible comment, next key jumps |

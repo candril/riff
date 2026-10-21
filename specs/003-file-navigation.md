@@ -28,6 +28,8 @@ Navigate between files in a multi-file diff. Shows a collapsible file tree panel
 - **Select from tree**: Navigate with j/k, Enter to jump. Enter scrolls the
   all-files diff to the file rather than narrowing to it — see
   [052](./052-tree-and-diff-in-step.md)
+- **Page motions**: `Ctrl+d`/`Ctrl+u` move half the tree's height, `gg`/`G`
+  to the first and last row, as they move the cursor in the diff
 - **Change indicators**: Color-code added/modified/deleted files
 - **Expand/collapse folders**: Toggle folder expansion
 
