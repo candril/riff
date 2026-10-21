@@ -41,7 +41,7 @@ import { installSkill } from "./skill"
 import { $ } from "bun"
 import { findCurrentPr, detectCurrentBranch } from "../providers/current-pr"
 import { getCurrentRepo } from "../providers/github/exec"
-import { loadPrSession } from "../providers/github"
+import { loadPrSession } from "../providers/github/session"
 
 export interface CommentsCliOptions {
   /** Resolve `<target>` to the storage source id (`local`, `HEAD~3`, `gh:o/r#1`). */

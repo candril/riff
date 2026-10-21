@@ -21,7 +21,7 @@ import {
   updateFileStatuses,
   collapseViewedFiles,
 } from "../../state"
-import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github"
+import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github/session"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments, loadViewedStatuses, saveVisit } from "../../storage"
 import { mergeGitHubViewedStates } from "../../utils/viewed-status"
