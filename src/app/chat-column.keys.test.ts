@@ -49,7 +49,6 @@ afterEach(async () => {
   app = null
 })
 
-
 test("Ctrl-r opens the column with the keys in its input, and typed letters stay there", async () => {
   app = await mountApp(DIFF, { width: 120, height: 24 })
   app.show()
@@ -134,7 +133,6 @@ test("in the chat, backspace deletes what is typed before it walks anywhere", as
   expect(app.ctx.chatColumn.input()!.plainText).toBe("a")
   expect(app.ctx.getState().focusedPanel).toBe("chat")
 })
-
 
 describe("a question carries the reviewer's place in the diff", () => {
   test("on an added line, the agent gets its file, side and line, and the chat shows them above the question", async () => {

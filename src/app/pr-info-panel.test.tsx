@@ -1,84 +1,15 @@
-import { test, expect, afterEach, describe } from "bun:test"
-import { MarkdownRenderable, SyntaxStyle, type Renderable } from "@opentui/core"
-import { createPrInfoPanelIsland, type PrInfoPanelIsland } from "./pr-info-panel"
-import type { ConversationRows } from "../components/pr-info-conversation-rows"
-import type { DescriptionModel } from "../components/pr-info-description"
-import { panelMeta, sectionHeaderRow, stackLine, type SectionHeaderRow } from "../components/pr-info-header"
+import { test, expect, describe } from "bun:test"
+import { panelMeta, sectionHeaderRow, stackLine } from "../components/pr-info-header"
 import { fileRows } from "../components/pr-info-list-rows"
-import type { PanelSection, SectionBody } from "../components/pr-info-panel-model"
+import type { PanelSection } from "../components/pr-info-panel-model"
 import type { SectionConfig } from "../components/pr-info-sections"
-import type { PRInfoPanelSection } from "../state"
-import { bgAt, fgAt, ints, mountRenderable, trimFrame } from "../testing/frame"
-import { opened, dana, reviewers } from "../testing/conversation-rows"
+import { ints } from "../testing/frame"
 import { ago, prInfo, reviews } from "../testing/pr-info"
 import { PR_FILES } from "../testing/pr-info-panel"
+import { section, usePrInfoPanelIsland } from "../testing/pr-info-panel-island"
 import { colors, theme } from "../theme"
 
-// The island's own pushes, each view held against the box it is drawn in:
-// `inside` reads the frame and the colours from that box's corner, so the
-// panel's padding, meta row and separator around it do not move the numbers.
-
-let mounted: Awaited<ReturnType<typeof mountRenderable>> | null = null
-let island: PrInfoPanelIsland | null = null
-
-afterEach(async () => {
-  island?.dispose()
-  island = null
-  await mounted?.dispose()
-  mounted = null
-})
-
-async function mountIsland({ width, height }: { width: number; height: number }) {
-  mounted = await mountRenderable((renderer) => {
-    island = createPrInfoPanelIsland(renderer, {
-      markdown: { syntaxStyle: SyntaxStyle.fromStyles({}, renderer.nativeScene) },
-      onFilterInput: () => {},
-      beforeScrollRender: () => {},
-      onDescriptionResize: () => {},
-    })
-    return island.host
-  }, { width, height })
-  const screen = mounted
-  const root = screen.setup.renderer.root
-  const byId = (id: string) => root.findDescendantById(id)!
-
-  /** The frame and spans from `above` rows over `node`'s corner, `rows` high and as wide as the node. */
-  const inside = async (node: () => Renderable, rows: number, renders = 2, above = 0) => {
-    for (let i = 0; i < renders; i++) await screen.setup.renderOnce()
-    const found = node()
-    const box = { x: found.x, y: found.y - above, width: found.width }
-    const lines = screen.setup
-      .captureCharFrame()
-      .split("\n")
-      .slice(box.y, box.y + rows)
-      .map((line) => line.slice(box.x, box.x + box.width))
-    const spans = screen.setup.captureSpans()
-    return {
-      frame: trimFrame(lines.join("\n")),
-      lines: lines.map((line) => line.trimEnd()),
-      bg: (x: number, y: number) => bgAt(spans, box.x + x, box.y + y),
-      fg: (x: number, y: number) => fgAt(spans, box.x + x, box.y + y),
-    }
-  }
-  return { island: island!, screen, root, byId, inside }
-}
-
-const header = (key: PRInfoPanelSection, over: Partial<SectionHeaderRow> = {}): SectionHeaderRow => ({
-  key,
-  label: null,
-  text: `▼  ${key}`,
-  fg: theme.blue,
-  preview: null,
-  highlighted: false,
-  ...over,
-})
-
-const section = (key: PRInfoPanelSection, body: SectionBody | null): PanelSection => ({
-  key,
-  header: header(key),
-  expanded: body !== null,
-  body,
-})
+const mountIsland = usePrInfoPanelIsland()
 
 describe("a list section", () => {
   const files = (selected: number, labels: ReadonlyMap<string, string> = new Map()): PanelSection[] => [
@@ -130,7 +61,6 @@ describe("a list section", () => {
     shown.update({ sections: files(0) })
     await screen.frame()
     shown.dispose()
-    island = null
     expect(shown.host.isDestroyed).toBe(true)
     expect(screen.setup.renderer.root.getChildren()).toHaveLength(0)
     expect(await screen.frame()).toBe("")
@@ -192,139 +122,5 @@ describe("the meta row", () => {
 
     island.update({ meta: { meta: panelMeta(prInfo("")), stack: stackLine(null) } })
     expect((await inside(() => byId("pr-info-meta"), 2)).frame).toBe("@someone  a-branch → master")
-  })
-})
-
-describe("the description", () => {
-  const BODY = "Adds `greet`.\n\n- one\n- two"
-  const description = (over: Partial<DescriptionModel> = {}): PanelSection[] => [
-    section("description", {
-      kind: "description",
-      model: { body: { text: BODY, images: [] }, reactions: [], cursorLine: null, ...over },
-    }),
-  ]
-
-  // The description's box, padding included, is 30 wide on a 34-wide screen,
-  // read from the margin row above it.
-  async function mountDescription() {
-    const shown = await mountIsland({ width: 34, height: 20 })
-    const at = (renders = 1) => shown.inside(() => shown.island.descriptionBox()!, 10, renders, 1)
-    return { ...shown, at }
-  }
-
-  test("reads on the first frame after it is mounted", async () => {
-    const { island, at } = await mountDescription()
-    island.update({ sections: description() })
-    expect((await at()).lines.slice(0, 5)).toEqual(["", "  Adds greet.", "", "  - one", "  - two"])
-  })
-
-  test("a push that only moves the cursor keeps the markdown body, and moves the cursor row", async () => {
-    const { island, byId, at } = await mountDescription()
-    island.update({ sections: description({ cursorLine: 0 }) })
-    await at(2)
-    const body = byId("pr-info-description")
-    expect(body).toBeInstanceOf(MarkdownRenderable)
-
-    island.update({ sections: description({ cursorLine: 2 }) })
-    expect(byId("pr-info-description")).toBe(body)
-    const { lines, bg, fg } = await at()
-    expect(lines[3]).toBe("  - one")
-    expect(bg(0, 1)).not.toEqual(ints(theme.surface1))
-    expect(bg(0, 3)).toEqual(ints(theme.surface1))
-    expect(bg(29, 3)).toEqual(ints(theme.surface1))
-    expect(fg(4, 3)).not.toEqual(ints(theme.surface1))
-  })
-
-  test("updates changed text in place, in the same body", async () => {
-    const { island, byId, at } = await mountDescription()
-    island.update({ sections: description() })
-    await at(2)
-    const body = byId("pr-info-description")
-
-    island.update({ sections: description({ body: { text: "Something else entirely.", images: [] } }) })
-    expect(byId("pr-info-description")).toBe(body)
-    expect((await at()).lines.slice(1, 3)).toEqual(["  Something else entirely.", ""])
-  })
-
-  test("clamps the cursor row to the last line it draws, and hides it with no cursor line", async () => {
-    const { island, at } = await mountDescription()
-    island.update({ sections: description({ cursorLine: 9 }) })
-    await at(2)
-    let { bg } = await at()
-    expect(bg(0, 4)).toEqual(ints(theme.surface1))
-    expect(bg(0, 5)).not.toEqual(ints(theme.surface1))
-
-    island.update({ sections: description() })
-    ;({ bg } = await at())
-    for (const y of [1, 2, 3, 4]) expect(bg(0, y)).not.toEqual(ints(theme.surface1))
-  })
-
-  test("says there is no description, then names the pictures and draws the pills", async () => {
-    const { island, at } = await mountDescription()
-    island.update({ sections: description({ body: null, reactions: [{ text: "🚀 1", fg: theme.blue }] }) })
-    await at(2)
-    let { lines, fg } = await at()
-    expect(lines.slice(1, 3)).toEqual(["  No description provided", "   🚀 1"])
-    expect(fg(2, 1)).toEqual(ints(theme.overlay0))
-    expect(fg(3, 2)).toEqual(ints(theme.blue))
-
-    island.update({ sections: description({ body: { text: "", images: ["Login screen"] } }) })
-    ;({ lines, fg } = await at())
-    expect(lines.slice(1, 3)).toEqual(["  ▣ Login screen", ""])
-    expect(fg(2, 1)).toEqual(ints(theme.sapphire))
-  })
-})
-
-describe("the conversation", () => {
-  const conversation = (rows: ConversationRows): PanelSection[] => [
-    section("conversation", { kind: "conversation", rows }),
-  ]
-
-  // The conversation's box is 44 wide on a 50-wide screen.
-  async function mountConversation() {
-    const shown = await mountIsland({ width: 50, height: 30 })
-    const at = (renders = 2) => shown.inside(() => shown.byId("pr-info-conversation"), 14, renders)
-    return { ...shown, at }
-  }
-
-  test("a push that only moves the cursor keeps the markdown body it drew, and its text on the next render", async () => {
-    const { island, byId, at } = await mountConversation()
-    island.update({ sections: conversation(opened(true)) })
-    await at()
-    const body = byId("pr-comment-501")
-    expect(body).toBeInstanceOf(MarkdownRenderable)
-
-    island.update({ sections: conversation(opened(false)) })
-    expect(byId("pr-comment-501")).toBe(body)
-    const { lines, bg } = await at(1)
-    expect(lines[2]).toBe("    Rename greet to welcome.")
-    expect(lines[4]).toBe("    - one")
-    expect(bg(0, 0)).not.toEqual(ints(theme.surface0))
-    expect(bg(0, 9)).toEqual(ints(theme.surface0))
-  })
-
-  test("finds each row's drawn header past the body boxes between them", async () => {
-    const { island, byId, at } = await mountConversation()
-    island.update({ sections: conversation(opened(true)) })
-    await at()
-    const top = byId("pr-info-conversation").y
-    expect(island.rowAt("conversation", 0)!.y - top).toBe(0)
-    expect(island.rowAt("conversation", 1)!.y - top).toBe(9)
-    expect(island.rowAt("conversation", 1)!.height).toBe(1)
-    expect(island.rowAt("conversation", 2)).toBeUndefined()
-
-    island.update({ sections: conversation({ rows: [reviewers(false)], note: null }) })
-    await at()
-    expect(island.rowAt("conversation", 0)!.y - top).toBe(1)
-    expect(island.rowAt("conversation", 0)!.height).toBe(3)
-  })
-
-  test("drops a body whose row closed", async () => {
-    const { island, root, at } = await mountConversation()
-    island.update({ sections: conversation(opened(true)) })
-    await at()
-    island.update({ sections: conversation({ rows: [dana()], note: null }) })
-    expect((await at()).frame).toBe("▶ @dana  a preview far too long for       6h")
-    expect(root.findDescendantById("pr-comment-501")).toBeUndefined()
   })
 })

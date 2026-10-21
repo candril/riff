@@ -125,6 +125,14 @@ export function expandAll(nav: PrInfoNav): PrInfoNav {
 }
 
 /**
+ * The nav with a new filter and nothing else changed: what the panel
+ * refilters its rows against before `setFilter` asks it for counts.
+ */
+export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
+  return filter === nav.filter ? nav : { ...nav, filter }
+}
+
+/**
  * Narrow the panel to rows containing this text, or clear it with "". A
  * filter opens every section it matches in: hiding the matches inside a
  * collapsed header would make the filter look broken.
@@ -133,14 +141,6 @@ export function expandAll(nav: PrInfoNav): PrInfoNav {
  * so `counts` must already answer for it: the panel refilters its rows
  * before it asks.
  */
-/**
- * The nav with a new filter and nothing else changed: what the panel
- * refilters its rows against before `setFilter` asks it for counts.
- */
-export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
-  return filter === nav.filter ? nav : { ...nav, filter }
-}
-
 export function setFilter(nav: PrInfoNav, filter: string, counts: SectionCounts): PrInfoNav {
   if (filter === nav.filter) return nav
   let expandedSections = nav.expandedSections

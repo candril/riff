@@ -181,7 +181,7 @@ const HELP_TEXT = `
     gf / gF                   Follow the link under the cursor / in a tmux window
     gx                        Open the URL under the cursor in a browser
     ge / gE                   Open the current file in $EDITOR / in a tmux window
-    gd / gD                   Copy / dismiss a comment Claude drafted
+    gd / gD                   Diff this file in $EDITOR / a tmux pane
     Ctrl+p                    Action menu
     g?                        Keymap overlay
     q                         Quit

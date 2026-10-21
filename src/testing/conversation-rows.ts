@@ -1,7 +1,7 @@
 import type { ConversationRow, ConversationRows } from "../components/pr-info-conversation-rows"
 import { theme } from "../theme"
 
-/** Conversation rows as panelSections would build them, for the views' and the panel island's tests. */
+// Conversation rows as panelSections would build them, for the views' and the panel island's tests.
 
 export const BODY = "Rename `greet` to **welcome**.\n\n- one\n- two"
 

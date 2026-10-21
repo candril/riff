@@ -1573,10 +1573,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         }
         return
       } else if (sequence === "gd") {
-        // Both versions of this file, side by side (spec 075). Claude's
-        // drafted comment used to own this key; it is a palette action now,
-        // since a key that means two things depending on a notification is
-        // a key you cannot trust.
+        // Both versions of this file, side by side (spec 075).
         void externalTools.handleDiffFileInEditor(ctx.externalToolsContext)
         return
       } else if (sequence === "gD!" || sequence === "gd!") {

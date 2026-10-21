@@ -170,8 +170,7 @@ test("each picker is mounted only while it is open, under help and the confirm d
     "commitPicker",
     "helpOverlay",
   ])
-  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([
-  ])
+  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([])
 })
 
 test("the command palette is mounted only while it is open, under the pickers", async () => {
