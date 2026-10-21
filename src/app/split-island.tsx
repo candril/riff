@@ -28,7 +28,7 @@ const NO_BLAME: BlameColumns = new Map()
 /**
  * The split view as a long-lived island. It owns its scroll and each
  * pane's column window, the way unified's island owns its one window,
- * and takes its size from the box render.ts lays it out in rather than
+ * and takes its size from the box the shell lays it out in rather than
  * from the terminal. The pane the cursor is not in keeps its window, even
  * where that leaves a short line showing only its `‹`: crossing back finds
  * it where it was left, as unified's single window is.
@@ -170,7 +170,7 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     update(next: Partial<SplitInputs>) {
       const current = inputs.value
       if (!current) {
-        // Only a full set of inputs can draw; render.ts sends one before anything partial.
+        // Only a full set of inputs can draw; the frame pass sends one before anything partial.
         if (next.mapping) setInputs("value", next as SplitInputs)
         return
       }

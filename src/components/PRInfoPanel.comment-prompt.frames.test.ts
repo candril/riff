@@ -4,7 +4,7 @@ import { bgAt, fgAt, ints } from "../testing/frame"
 import { find, fullPr, usePrInfoPanel } from "../testing/pr-info-panel"
 
 // The `gC` prompt: a modal over the whole panel, opened and restyled by
-// whatever render.ts pushes from state.prInfoPanel.commentInput*.
+// whatever its frame follower pushes from state.prInfoPanel.commentInput*.
 
 const mount = usePrInfoPanel()
 

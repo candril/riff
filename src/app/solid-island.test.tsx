@@ -9,7 +9,7 @@ import { trimFrame } from "../testing/frame"
 
 /*
  * Both directions of spec 100's strangler: a Solid island inside the
- * imperative tree render.ts rebuilds, and one of riff's class renderables
+ * imperative tree the shell lays out, and one of riff's class renderables
  * inside a Solid tree.
  */
 

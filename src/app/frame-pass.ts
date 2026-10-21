@@ -1,9 +1,3 @@
-/**
- * App render coordination
- *
- * Creates the main render function that orchestrates all UI updates.
- */
-
 import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { keepAlive } from "../utils/renderables"
@@ -28,7 +22,7 @@ import { promptOpenIn } from "./open-prompt"
 import type { AppShell } from "./shell"
 import type { Frame } from "./frame"
 
-export interface RenderContext {
+export interface FramePassContext {
   // Mutable state accessors
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
@@ -54,9 +48,11 @@ export interface RenderContext {
 }
 
 /**
- * Create the main render function
+ * One render pass: it draws the diff views, publishes the frame every
+ * other island follows, and mounts the view the content row shows. The
+ * diff views draw ahead of publish because the frame carries their readout.
  */
-export function createRenderFunction(ctx: RenderContext): () => void {
+export function createFramePass(ctx: FramePassContext): () => void {
   const errorText = keepAlive(new TextRenderable(ctx.renderer, { fg: colors.error }))
   const emptyText = keepAlive(new TextRenderable(ctx.renderer, { content: "No changes to display", fg: colors.textDim }))
   const diffPass = createDiffPass(ctx)

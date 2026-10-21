@@ -63,7 +63,7 @@ const HIGHLIGHT_SOURCE_DELAY_MS = 150
 
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
-import { createRenderFunction } from "./app/render"
+import { createFramePass } from "./app/frame-pass"
 import { createAppShell } from "./app/shell"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
@@ -364,7 +364,7 @@ export async function createApp(options: AppOptions = {}) {
   function refreshCursor(): void {
     if (split.shown()) split.refreshCursor()
     else unified.refreshCursor()
-    // A motion takes this path without a render, so render.ts alone would leave the readout behind.
+    // A motion takes this path without a render, so the frame pass alone would leave the readout behind.
     statusBar.patch({
       columnInfo: diffColumnStatus(splitOn(state, split), { viewMode: state.viewMode, split, unified }),
     })
@@ -603,7 +603,7 @@ export async function createApp(options: AppOptions = {}) {
     shell
   )
 
-  const renderFrame = createRenderFunction({
+  const renderFrame = createFramePass({
     getState: () => state,
     setState: setAppState,
     getVimState: () => vimState,

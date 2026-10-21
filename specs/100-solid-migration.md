@@ -10,7 +10,7 @@ thing the move delivers is a split diff view.
 
 Today a state change reaches the screen by hand. `app.ts` keeps `AppState`
 in a closure, about 430 `setState` calls are each followed by a `render()`,
-and `app/render.ts` destroys and rebuilds every piece of chrome on every
+and the render pass destroys and rebuilds every piece of chrome on every
 call while three long-lived classes (`VimDiffView`, `FileTreePanel`,
 `PRInfoPanel`) diff their own inputs by reference. Each of those files has
 grown past 3k lines because nothing in the shape stops it.
@@ -46,14 +46,18 @@ own (`thread-panel-window.ts`). The PR info panel is one island
 open sections and filter are the `pr-info-nav` model, and
 `PRInfoPanelClass` is left as the controller that holds them and pushes.
 
-**Not built**: the deletion of `src/app/render.ts`, which stays as the
-coordinator that draws the diff views, swaps the view slot and publishes
-the frame every island derives its model from (the prompts and the comment
-composer too: each prompt's field and the composer's textarea are their
-island's own, handed their session through `prompt()` and `compose()` by
-the frame's first followers); M5
-(monoliths without UI); M6 (state factories and `@opentui/keymap`
-layers); the file size ratchet (P3).
+The render coordinator is deleted. `src/app/frame-pass.ts` runs each pass:
+it draws both diff views (`diff-pass.ts`), marks the comments on screen as
+seen (`comments-seen.ts`), publishes one `Frame` and mounts the view
+`viewSlotOf` picks (`view-slot.ts`). Every other island follows the frame
+and derives its own model from it, the prompts and the comment composer
+too: each prompt's field and the composer's textarea are their island's
+own, handed their session through `prompt()` and `compose()` by the
+frame's first followers. The diff views draw ahead of publish because the
+frame carries the status bar's readout of them.
+
+**Not built**: M5 (monoliths without UI); M6 (state factories and
+`@opentui/keymap` layers); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:
@@ -135,14 +139,15 @@ queue. At the user's request the migration also added:
 ### P2 - The rest of the UI
 
 - **Chrome as components:** header, status bar, prompts, toasts, confirm
-  dialog, pickers and previews leave `app/render.ts` one at a time. The
+  dialog, pickers and previews leave the render pass one at a time. The
   `keepAlive` input sessions become components that stay mounted.
 - **`FileTreePanel`** becomes a `<For>` over the flat tree model.
 - **`PRInfoPanel`** becomes a pure model plus one component per section;
   the annotation fetch moves out of the view.
 - **`InlineCommentOverlay`** becomes a windowing model plus components,
   with the mention and emoji pickers as subcomponents.
-- **`app/render.ts` is deleted.**
+- **The render coordinator is deleted**: what is left of the pass draws
+  the diff and publishes the frame.
 
 ### P2 - State and keys
 
@@ -220,8 +225,8 @@ is described.
 13. Switch unified over, prove it against the M0 frame tests, delete
     `VimDiffView` and its painters.
 
-**M3 — Chrome.** One step per piece `app/render.ts` rebuilds, then delete
-`render.ts`.
+**M3 — Chrome.** One step per piece the render pass rebuilds, then delete
+the coordinator.
 
 **M4 — Panels.** File tree, then PR info panel section by section, then the
 inline comment overlay. Split their pure models out first, as their own

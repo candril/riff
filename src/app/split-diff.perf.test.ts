@@ -52,7 +52,7 @@ async function mount() {
   await setup.renderOnce()
 
   // The split calls app.ts makes for a motion: ensureCursorVisible's revealCursor, then refreshCursor.
-  // Not timed: followCursorInTree (there is no tree here) and render.ts's chrome, which M3 replaces.
+  // Not timed: followCursorInTree (there is no tree here) and the chrome the frame's followers draw.
   const followCursor = () => {
     diff.revealCursor()
     diff.refreshCursor()

@@ -60,7 +60,7 @@ async function mount() {
   split = diff
   setup.renderer.root.add(diff.island.host)
   diff.syncDrawn(true, 12)
-  // As render.ts hands split its focus: the draw, then the diff's focus.
+  // As the frame pass hands split its focus: the draw, then the diff's focus.
   const draw = () => {
     diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState() })
     diff.island.update({ focused: diffCursorShown(state, false) })

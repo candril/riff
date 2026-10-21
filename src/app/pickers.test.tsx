@@ -33,7 +33,7 @@ async function screen() {
   return trimFrame(setup!.captureCharFrame())
 }
 
-/** A full-screen parent, as render.ts's root box is, for the absolute host to sit in. */
+/** A full-screen parent, as the shell's root is, for the absolute host to sit in. */
 async function mount<T extends { host: BoxRenderable }>(create: (renderer: TestRendererSetup["renderer"]) => T) {
   setup = await createTestRenderer({ width: 100, height: 24 })
   const island = create(setup.renderer)

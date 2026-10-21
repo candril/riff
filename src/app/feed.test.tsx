@@ -82,7 +82,7 @@ const CYCLE: (FeedModel | null)[] = [
   model(LONG, { expandedIds: expanded, commitFiles: withFiles, highlightIndex: 4, types: new Set(["comment", "review", "check"]) }),
 ]
 
-/** A full-size parent, as render.ts's content row is, for the host to fill. */
+/** A full-size parent, as the shell's content row is, for the host to fill. */
 function mount(screen: TestRendererSetup, host: BoxRenderable) {
   const parent = new BoxRenderable(screen.renderer, { width: "100%", height: "100%" })
   screen.renderer.root.add(parent)

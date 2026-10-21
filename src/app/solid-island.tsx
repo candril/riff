@@ -1,7 +1,7 @@
 /**
  * A Solid tree mounted inside riff's imperative render tree (spec 100's
- * strangler): one view at a time moves to Solid while render.ts still
- * drives everything around it.
+ * strangler): each island is a Solid view in a box the shell lays out
+ * imperatively.
  */
 
 import { BoxRenderable, type BoxOptions, type CliRenderer } from "@opentui/core"

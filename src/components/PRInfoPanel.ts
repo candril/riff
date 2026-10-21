@@ -866,7 +866,7 @@ export class PRInfoPanelClass {
     this.revealCursor()
   }
 
-  /** Opens, restyles or closes the `gC` prompt; render.ts pushes it from state on every render. */
+  /** Opens, restyles or closes the `gC` prompt; its frame follower pushes it from state on every frame. */
   updateCommentInput(open: boolean, text: string, loading: boolean, error: string | null): void {
     this.island.update({ prompt: prCommentPromptModel({ open, text, loading, error }) })
   }

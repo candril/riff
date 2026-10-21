@@ -40,7 +40,7 @@ async function rows() {
   return setup!.captureCharFrame().split("\n")
 }
 
-/** A full-screen parent, as render.ts's root box is, for the absolute host to sit in. */
+/** A full-screen parent, as the shell's root is, for the absolute host to sit in. */
 function mount(host: BoxRenderable) {
   const parent = new BoxRenderable(setup!.renderer, { width: "100%", height: "100%" })
   setup!.renderer.root.add(parent)
@@ -214,7 +214,7 @@ test("closing and reopening keeps the same summary textarea, undestroyed", async
   island.dispose()
 })
 
-test("unmounted the way render.ts's discard does it, the host keeps the modal for the next pass", async () => {
+test("unmounted the way the shell's discard does it, the host keeps the modal for the next pass", async () => {
   setup = await createTestRenderer({ width: 100, height: 40 })
   const island = islandOn(setup.renderer)
   const first = mount(island.host)

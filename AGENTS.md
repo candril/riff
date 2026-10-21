@@ -90,10 +90,12 @@ The UI is [OpenTUI](https://github.com/sst/opentui) driven by
 **Islands.** `src/app/shell.tsx` mounts the layout once at startup. Each
 view is a Solid island: `mountSolid` in `src/app/solid-island.tsx` mounts a
 Solid tree into a `BoxRenderable` host that riff places in that layout.
-`src/app/render.ts` is the coordinator: on every pass it builds each
-island's model from `AppState` and pushes it in, and flips which hosts are
-visible. An island keeps its model in a store and `reconcile`s each push,
-so only what changed is restyled:
+`src/app/frame-pass.ts` runs each pass: it draws the diff views, publishes
+one `Frame` (`src/app/frame.ts`) that every other island follows, and sets
+the shell's view slot. Each follower derives its island's model from the
+frame (`followFrame` in `src/app/overlays.ts`, and the `*-follower.ts`
+files) and pushes it in. An island keeps its model in a store and
+`reconcile`s each push, so only what changed is restyled:
 
 ```tsx
 // src/app/notifications.tsx
@@ -203,7 +205,7 @@ src/
 │   ├── solid-island.tsx  # mountSolid: a Solid tree in a host riff owns
 │   ├── *.tsx             # One island per view (header, file-tree, thread-panel, chat-column, pickers…)
 │   ├── unified-*, split-*  # The diff views' islands, cursor, columns and the split toggle
-│   ├── render.ts         # The coordinator: builds each island's model and pushes it in
+│   ├── frame-pass.ts     # Each pass: draws the diff, publishes the frame islands follow
 │   ├── global-keys.ts    # Every key binding outside a focused feature
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters

@@ -39,4 +39,5 @@ the right end of the header and on the help overlay's title row.
 - `src/components/Header.tsx` decides from the terminal's width, which is
   known before the first layout and follows every resize;
   `src/components/HelpOverlay.tsx` and `help-overlay-model.ts` draw the
-  title row. `src/app/render.ts` hands both the version.
+  title row. Their frame models, in `src/app/frame-models.ts` and
+  `src/app/overlay-models.ts`, hand both the version.

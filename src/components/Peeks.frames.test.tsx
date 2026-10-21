@@ -27,7 +27,7 @@ const screen = { terminalWidth: SIZE.width, terminalHeight: SIZE.height }
 const at = (col: number, text: string) => " ".repeat(col) + text
 const blank = (count: number) => Array.from({ length: count }, () => "")
 
-/** The peek on its island, in a full-screen parent as render.ts's root box is. */
+/** The peek on its island, in a full-screen parent as the shell's root is. */
 async function frame(model: PeekModel) {
   let island: ReturnType<typeof createPeekIsland> | undefined
   const mount = await mountRenderable((renderer) => {

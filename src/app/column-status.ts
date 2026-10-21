@@ -14,7 +14,7 @@ export function splitOn(state: Pick<AppState, "error" | "files">, split: { shown
 }
 
 /**
- * The status bar's `col n/total`. render.ts reads it into every frame, and
+ * The status bar's `col n/total`. The frame pass reads it into every frame, and
  * refreshCursor patches it on every motion, which moves the cursor without a render.
  */
 export function diffColumnStatus(split: boolean, deps: ColumnStatusDeps): ColumnStatus {

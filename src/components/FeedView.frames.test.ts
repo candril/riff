@@ -37,7 +37,7 @@ interface Show {
   typed?: string
 }
 
-/** The rows as render.ts builds them: a commit's files under it once it is open. */
+/** The rows as visibleFeedRows builds them: a commit's files under it once it is open. */
 function rowsOf(events: FeedEvent[], feed: FeedState): FeedRow[] {
   return events.flatMap((event): FeedRow[] => {
     const target = event.target

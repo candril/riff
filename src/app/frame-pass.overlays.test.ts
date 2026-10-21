@@ -9,7 +9,7 @@ import { keepAlive } from "../utils/renderables"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { diffFile } from "../diff-rows/fixtures"
 import type { Comment } from "../types"
-import { createRenderFunction, type RenderContext } from "./render"
+import { createFramePass, type FramePassContext } from "./frame-pass"
 import { createFeedIsland } from "./feed"
 import { createAppShell, OVERLAYS, type OverlayId, type ShellParts } from "./shell"
 import { createFrame } from "./frame"
@@ -17,7 +17,7 @@ import { followFrame } from "./overlays"
 import type { FeedEvent } from "../utils/feed"
 
 /*
- * Only where render.ts puts the overlay islands' hosts, and the feed's: every
+ * Only where the frame pass and its followers put the overlay islands' hosts, and the feed's: every
  * other island is a bare host, and with no files the diff views are never
  * drawn.
  */
@@ -31,7 +31,7 @@ afterEach(() => {
   setup = null
 })
 
-async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partial<RenderContext> = () => ({})) {
+async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partial<FramePassContext> = () => ({})) {
   setup = await createTestRenderer({ width: 120, height: 40 })
   const renderer = setup.renderer
   const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, prompt() {}, compose() {}, dispose() {} })
@@ -74,8 +74,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
     ...realParts,
-  } as unknown as RenderContext
-  const render = createRenderFunction(ctx)
+  } as unknown as FramePassContext
+  const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one, in the order the shell stacks them.
   const ids = new Set<string>(OVERLAYS)
   const overlays = () =>

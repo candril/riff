@@ -21,7 +21,7 @@ async function screen() {
 test("the overlay draws on a model, clears on null, and an identical update keeps its text", async () => {
   setup = await createTestRenderer({ width: 110, height: 70 })
   const island = createHelpOverlayIsland(setup.renderer)
-  // A full-screen parent, as render.ts's root box is, for the absolute host to sit in.
+  // A full-screen parent, as the shell's root is, for the absolute host to sit in.
   const parent = new BoxRenderable(setup.renderer, { width: "100%", height: "100%" })
   setup.renderer.root.add(parent)
   parent.add(island.host)

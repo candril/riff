@@ -37,7 +37,7 @@ interface MountOptions {
   parse?: Parse
 }
 
-/** createUnifiedDiff on a test screen, drawn as render.ts draws it, with the app's state kept here. */
+/** createUnifiedDiff on a test screen, drawn as the frame pass draws it, with the app's state kept here. */
 async function mount(options: MountOptions) {
   const { files, width = 80, height = 12, selectedFileIndex } = options
   setup = await createTestRenderer({ width, height })

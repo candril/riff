@@ -80,7 +80,7 @@ afterAll(async () => {
   await mounted?.dispose()
 })
 
-/** Each state on a screen of its own, as the island draws it when render.ts first opens it. */
+/** Each state on a screen of its own, as the island draws it when its frame follower first opens it. */
 async function show(comments: ValidatedComment[], state: ReviewPreviewState, isOwnPr = false) {
   dispose()
   await mounted?.dispose()

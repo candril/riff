@@ -13,7 +13,7 @@ import { createFlashState } from "../vim-diff/flash-state"
 import { FileParses } from "../vim-diff/file-parses"
 import { createSearchState } from "../vim-diff/search-state"
 import { buildLineMapping } from "../app/init"
-import { createRenderFunction, type RenderContext } from "../app/render"
+import { createFramePass, type FramePassContext } from "../app/frame-pass"
 import { createStatusBarIsland } from "../app/status-bar"
 import { createFeedIsland } from "../app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
@@ -128,7 +128,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   )
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
-  const renderContext: RenderContext = {
+  const framePassContext: FramePassContext = {
     getState: () => state,
     setState,
     getVimState: () => vimState,
@@ -163,9 +163,9 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     },
     publishFrame: frame.publish,
   }
-  render = createRenderFunction(renderContext)
+  render = createFramePass(framePassContext)
   // Keys tests reach the composer through the thread panel, which the pass no longer drives.
-  const ctx = { ...renderContext, threadPanel: chrome.threadPanel }
+  const ctx = { ...framePassContext, threadPanel: chrome.threadPanel }
 
   return {
     setup,

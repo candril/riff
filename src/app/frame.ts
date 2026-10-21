@@ -52,8 +52,8 @@ export function createFrame(): { frame: Accessor<Frame | null>; publish(next: Fr
     frame,
     publish(next) {
       setFrame(() => next)
-      // render.ts focuses its inputs around publish and expects the islands to
-      // have drawn by the time it returns, which a batch or an effect would
+      // The frame pass expects the islands to have drawn, and the composer and
+      // the prompts to have focused their fields, by the time this returns, which a batch or an effect would
       // defer. Checked in tests only, where it costs nothing to be loud.
       if (process.env.NODE_ENV === "test" && drawn.has(frame) && drawn.get(frame) !== next) {
         throw new Error("render() ran inside a Solid batch or update, so the frame islands would draw after it returns")

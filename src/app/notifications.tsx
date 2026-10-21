@@ -6,8 +6,8 @@ import type { ToastModel } from "../components/notification-model"
 import { mountSolid } from "./solid-island"
 
 /**
- * The toast as a long-lived island: render.ts hands it a fresh model on every
- * pass, and `reconcile` turns that into updates of only what changed. The host
+ * The toast as a long-lived island: its frame follower hands it a fresh model on
+ * every frame, and `reconcile` turns that into updates of only what changed. The host
  * is the absolutely placed box, since an absolute child of a static host would
  * be placed against the host rather than the screen.
  */
