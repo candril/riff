@@ -61,6 +61,9 @@ like any comment the reviewer typed.
   free today. Not `Ctrl-m` (it is `Enter`), `Ctrl-a` (a common tmux
   prefix), `Ctrl-q` (terminal flow control) or `Ctrl-w` (deletes a word
   in the input).
+  Free in the global keys, that is: the thread panel's `r` (reply inline)
+  and the PR info panel's `r` (expand a section) ignore ctrl, so `Ctrl-r`
+  is taken ahead of both and opens the chat there too.
 
 ### P1 - What a question carries
 

@@ -168,6 +168,9 @@ everywhere, tmux included. In local mode both just save — there's nothing to p
 holds one conversation with riff's agent. While it has focus every key types into its input, so
 letters never run diff commands; `Ctrl+r`, `Ctrl+h` and `Ctrl+l` still move focus.
 
+From the comments panel and the PR overview `Ctrl+r` opens the chat too: it is not the `r` that
+replies there or expands a section.
+
 | Key | Action |
 | --- | --- |
 | `Enter` | Send the question — queued while an answer is still coming |

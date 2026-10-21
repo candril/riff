@@ -27,6 +27,27 @@ spec 010; that panel is retired.
 - Unifying on the overlay eliminates a whole mode, removes a mental model,
   and keeps the cursor anchored to the code throughout review.
 
+## As built
+
+- **A column, not an overlay.** The panel docks as the last column of the
+  content row, beside the diff, rather than over it near the line
+  (rktwxkwu, utlwqunx). The diff pane narrows to make room, so split view
+  falls back to unified below 120 columns while the panel is open; where
+  the panel and the file tree cannot both fit, the panel gives up columns
+  rather than draw over the tree.
+- **The composer's keys are in `g?`**, under "Comment composer". While
+  composing, the panel's hint row is not drawn and its row goes to the
+  threads; in view mode the hint row stays.
+- **Borderless on `mantle`** against the diff's `base`, with the composer
+  and the selected picker row on `surface0`
+  ([106](./106-borderless-ui.md)). Focus shows in the header title's
+  colour. There is no scrollbar: the viewport's top and bottom edge rows
+  say `↑ N` and `↓ N more` for the threads above and below the window.
+- **A Solid island handed a model**: `src/app/thread-panel.tsx` mounts
+  `ThreadPanelView`, drawn from `thread-panel-model.ts`, with the mention
+  and emoji pickers as `ThreadPanelPicker`; the keys stay in
+  `src/features/inline-comment-overlay`.
+
 ## Out of Scope
 
 - Virtual-text inline comment previews in the diff itself (spec 013 — still

@@ -30,6 +30,14 @@ Navigate between files in a multi-file diff. Shows a collapsible file tree panel
   [052](./052-tree-and-diff-in-step.md)
 - **Page motions**: `Ctrl+d`/`Ctrl+u` move half the tree's height, `gg`/`G`
   to the first and last row, as they move the cursor in the diff
+- **Unviewed only**: `H` in the tree (or the palette's "Show Only Unviewed
+  Files") hides viewed files, and a directory left with nothing to show
+  disappears. The file you are on stays, viewed or not, so the highlight
+  never jumps away. While on, the header reads `unviewed only · N hidden`,
+  N counting files; a `/` filter's prompt or label takes the row instead.
+  The toggle is kept per review in `.riff/<review>/panels.json`
+  (`unviewedFilesOnly`). `]f`/`[f` and the diff still walk every file
+  ([107](./107-panel-filters.md))
 - **Change indicators**: Color-code added/modified/deleted files
 - **Expand/collapse folders**: Toggle folder expansion
 

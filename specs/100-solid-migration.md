@@ -1,6 +1,6 @@
 # Solid Migration
 
-**Status**: Ready
+**Status**: In Progress
 
 ## Description
 
@@ -30,6 +30,44 @@ shippable: it typechecks, its tests pass, the binary builds and runs.
 delivered nothing until everything was ported; this spec orders the work
 so the payoff comes first and a stall at any point leaves a better riff
 behind.
+
+## Progress
+
+M0, M1, M2 and M3 are done: OpenTUI and Solid are pinned and wired, split
+view and unified both draw from the row model in `src/split-view`, and
+`VimDiffView` is gone. Every piece of chrome is a Solid island: header,
+status bar, prompts, toasts, confirm dialog, pickers, peeks, the palette,
+the help overlay, the sync preview, Submit Review and the activity feed.
+
+M4 is in progress. The file tree, each section of the PR info panel and
+the thread panel are islands, each handed a pure model; the thread panel's
+mention and emoji pickers are a subcomponent (`ThreadPanelPicker.tsx`)
+and its window is a model of its own (`thread-panel-window.ts`). What M4
+still lacks is the PR info panel's shell: `PRInfoPanelClass`
+(`src/components/PRInfoPanel.ts`) still builds the container, the `Ctrl-f`
+filter row, the scroll box and the section boxes imperatively and holds
+the cursor, expansion and scroll state the islands are drawn from.
+
+**Not built**: the deletion of `src/app/render.ts`, which stays as the
+coordinator that builds each island's model and pushes it in, and still
+syncs the comment composer's and the prompts' input sessions; M5
+(monoliths without UI); M6 (state factories and `@opentui/keymap`
+layers); the file size ratchet (P3).
+
+The Out of Scope line on new features gave way to the user's feedback
+queue. At the user's request the migration also added:
+
+- the borderless UI in three shades ([106](./106-borderless-ui.md))
+- global marks ([101](./101-global-marks.md))
+- the thread panel as a column beside the diff
+  ([039](./039-inline-comment-overlay.md))
+- the version in the header and the help overlay
+  ([105](./105-version-in-chrome.md))
+- `gB`, opening the PR in riff board ([104](./104-riff-board.md))
+- page motions in the file tree and the thread panel, and the open-only
+  and unviewed-only filters ([107](./107-panel-filters.md))
+- the agent chat ([102](./102-agent-chat.md), in progress)
+- blame (103, planned, not yet written)
 
 ## Out of Scope
 

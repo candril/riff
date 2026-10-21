@@ -62,6 +62,16 @@ is the shape a diff is scanned in.
   gutter draws a line number once per line, so without it a wrapped row
   reads as a new one. Markdown table padding is dropped while wrapping.
 
+## As built on the Solid view
+
+Since the Solid migration ([100](./100-solid-migration.md)) wrap (`zw`) and
+sideways scroll run on the new unified view, which draws one-cell rows and
+slices each line to its column window itself, so the width clamp and the
+repainted gutter described below no longer apply. The `‹`, `›` and `↳`
+markers are drawn by the line component rather than painted over the
+frame afterwards. Split view ([032](./032-diff-strategies.md)) scrolls each
+pane sideways on its own and never wraps.
+
 ## Technical Notes
 
 ### Why scrolling did not work before
@@ -122,10 +132,18 @@ clamp above, and the two `lineInfo` spellings.
 ### File Structure
 
 ```
-src/components/VimDiffView.ts      # geometry, overlays, wrap index
-src/components/LinePeek.ts         # gl overlay
-src/components/StatusBar.ts        # column readout
-src/app.ts                         # ensureCursorVisible, both axes
-src/app/global-keys.ts             # z-chords, gl
-src/config/                        # [diff] wrap
+src/split-view/UnifiedDiffView.tsx  # unified rows, the sticky header
+src/split-view/UnifiedLine.tsx      # one line: gutter, code window, ‹ › ↳ markers
+src/split-view/unified-markers.ts   # which lines run past an edge
+src/split-view/layout.ts            # a split half's window and its markers
+src/diff-rows/wrap.ts               # word-breaking wrap slices
+src/diff-rows/visual-rows.ts        # mapping lines to visual rows
+src/app/unified-island.tsx          # cursor reveal on both axes
+src/app/unified-windows.ts          # unified's column window
+src/app/split-columns.ts            # each split pane's column window
+src/app/column-status.ts            # column readout
+src/components/StatusBar.tsx        # draws the readout
+src/components/line-peek-model.ts   # gl overlay (Peek.tsx draws it)
+src/app/global-keys.ts              # z-chords, gl
+src/config/                         # [diff] wrap
 ```

@@ -1,6 +1,8 @@
 # Alternate Diff Strategies
 
-**Status**: Draft
+**Status**: Done — the spec has no P1; split view (P3) is built in the Solid migration ([100](./100-solid-migration.md)) on rows of its own rather than on `VimDiffView`
+
+**Not built**: difftastic as a span provider (P2).
 
 ## Description
 
@@ -53,6 +55,30 @@ needs none of this.
 - Falls back to unified below a terminal width that makes two panes
   legible. Two gutters and a file panel leave roughly half of what is left
   per side.
+
+## As built
+
+Split view came with the Solid migration ([100](./100-solid-migration.md)),
+which replaced the one-column renderer the Technical Notes below cost out,
+so neither of its problems had to be solved inside `VimDiffView`:
+
+- **Only at 120 columns or wider** for the diff pane (`SPLIT_MIN_WIDTH`);
+  below that the view is unified whatever was asked for, and split comes
+  back once the pane is wide enough again, as when a side panel closes.
+- **No wrap in split.** `zw` wraps unified only; split keeps one row per
+  pair so the panes stay aligned.
+- **Each pane scrolls sideways on its own**, with its own column window
+  and its own overflow markers.
+- **`\` toggles split and unified** in the diff view, except where it
+  completes `f`/`t` or a prefix chord.
+- **One cursor, in the active pane.** `h` and `l` cross to the other pane
+  at a line edge; motions, search, flash and visual mode read that pane.
+- **Comments anchor to the active pane**, not to a side inferred from the
+  row's type.
+
+The rows and their pairing are in `src/diff-rows`, the components in
+`src/split-view`, and the island, cursor, columns and toggle in
+`src/app/split-*`.
 
 ## Technical Notes
 
