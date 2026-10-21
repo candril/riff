@@ -7,7 +7,7 @@
 
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
-import type { SubmitResult } from "../../providers/github"
+import type { SubmitResult } from "../../providers/github/mutations"
 import type { PrInfo } from "../../providers/github/types"
 import {
   showToast,
@@ -26,9 +26,8 @@ import {
   updateComment,
   submitReply,
   submitSingleComment,
-  commentRange,
-  submitReview,
-} from "../../providers/github"
+} from "../../providers/github/mutations"
+import { commentRange, submitReview } from "../../providers/github/review"
 import { getPrComments, toggleThreadResolution } from "../../providers/github/threads"
 import { getCurrentUser } from "../../providers/github/exec"
 import { getPrHeadSha } from "../../providers/github/content"

@@ -27,7 +27,7 @@ import {
   setPRCommentInputError,
   setReactionTarget,
 } from "../../state"
-import { submitPrComment } from "../../providers/github"
+import { submitPrComment } from "../../providers/github/mutations"
 import { copyToClipboard } from "../../utils/clipboard"
 
 // Key sequence state for multi-key commands (e.g., "gg" for go to top)
