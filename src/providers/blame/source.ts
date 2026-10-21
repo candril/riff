@@ -1,0 +1,141 @@
+import { $ } from "bun"
+import type { AppState } from "../../state"
+import { baseVersionRef } from "../github"
+import type { GitBase } from "../git-target"
+import { detectVcs, resolveGitBase, type VcsType } from "../local"
+import { getCurrentRepoRef, type RepoRef } from "../repo"
+import { parseGitBlamePorcelain } from "./git"
+import { BLAME_QUERY, parseGithubBlame } from "./github"
+import { JJ_ANNOTATE_TEMPLATE, parseJjAnnotate } from "./jj"
+import { prForCommit } from "./pr-lookup"
+import { gitSide, jjSide, prSide, revisionLabel, type BlameSide, type SideRevision } from "./sides"
+import type { BlameLine, FileBlame, PrRef } from "./types"
+
+export interface BlameRunners {
+  vcs(): Promise<VcsType>
+  // Null when the file is not at that revision.
+  jjAnnotate(rev: string, path: string): Promise<string | null>
+  // A null rev blames the working tree.
+  gitBlame(rev: string | null, path: string): Promise<string | null>
+  gitBase(base: GitBase): Promise<string>
+  prBase(owner: string, repo: string, number: number, baseRef: string, headSha: string): Promise<string>
+  githubBlame(owner: string, repo: string, commit: string, path: string): Promise<unknown>
+  repoRef(): Promise<RepoRef | null>
+  prForCommit(owner: string, repo: string, sha: string): Promise<PrRef | null>
+}
+
+export interface BlameSourceDeps {
+  state: () => AppState
+  target: string | undefined
+  headSha: () => string | null
+  runners?: Partial<BlameRunners>
+}
+
+export interface LineBlame {
+  line: BlameLine
+  pr: PrRef | null
+}
+
+export interface BlameSource {
+  /** Null past the end of the file, or for a file that side does not have. */
+  lineBlame(path: string, side: BlameSide, line: number): Promise<LineBlame | null>
+}
+
+const NO_SUCH_PATH = /no such path|cannot stat path|no such file/i
+
+async function spawnText(command: ReturnType<typeof $>): Promise<string | null> {
+  const result = await command.quiet().nothrow()
+  if (result.exitCode === 0) return result.text()
+  const message = result.stderr.toString().trim()
+  if (NO_SUCH_PATH.test(message)) return null
+  throw new Error(message || `exit code ${result.exitCode}`)
+}
+
+const DEFAULT_RUNNERS: BlameRunners = {
+  vcs: detectVcs,
+  jjAnnotate: (rev, path) => spawnText($`jj file annotate -r ${rev} -T ${JJ_ANNOTATE_TEMPLATE} ${path}`),
+  gitBlame: (rev, path) =>
+    spawnText(rev === null ? $`git blame --porcelain -- ${path}` : $`git blame --porcelain ${rev} -- ${path}`),
+  gitBase: resolveGitBase,
+  prBase: baseVersionRef,
+  async githubBlame(owner, repo, commit, path) {
+    const text = await spawnText(
+      $`gh api graphql -f query=${BLAME_QUERY} -f owner=${owner} -f name=${repo} -f expression=${commit} -f path=${path}`,
+    )
+    return text === null ? null : JSON.parse(text)
+  },
+  repoRef: getCurrentRepoRef,
+  prForCommit,
+}
+
+interface LoadedBlame {
+  blame: FileBlame
+  // Only a PR's blame carries its PRs; a local one asks per commit.
+  prs: Map<string, PrRef> | null
+}
+
+/** Who last changed a line of the review, by the revisions the diff's line numbers count in. */
+export function createBlameSource(deps: BlameSourceDeps): BlameSource {
+  const run = { ...DEFAULT_RUNNERS, ...deps.runners }
+  const files = new Map<string, Promise<LoadedBlame | null>>()
+
+  async function sideRevision(side: BlameSide): Promise<SideRevision> {
+    const state = deps.state()
+    if (state.appMode === "pr" && state.prInfo) {
+      const head = deps.headSha()
+      if (!head) throw new Error("the PR's head commit is not loaded yet")
+      return prSide(side, state.prInfo.baseRef, head)
+    }
+    const vcs = await run.vcs()
+    if (vcs === "none") throw new Error("not in a git or jj repository")
+    return vcs === "jj" ? jjSide(side, deps.target) : gitSide(side, deps.target)
+  }
+
+  async function load(path: string, revision: SideRevision): Promise<LoadedBlame | null> {
+    if (revision.tool === "jj") {
+      const text = await run.jjAnnotate(revision.rev, path)
+      return text === null ? null : { blame: parseJjAnnotate(text), prs: null }
+    }
+    if (revision.tool === "git") {
+      const rev = revision.rev && (await run.gitBase(revision.rev))
+      const text = await run.gitBlame(rev, path)
+      return text === null ? null : { blame: parseGitBlamePorcelain(text), prs: null }
+    }
+    const pr = deps.state().prInfo!
+    const commit =
+      "commit" in revision.rev
+        ? revision.rev.commit
+        : await run.prBase(pr.owner, pr.repo, pr.number, ...revision.rev.mergeBaseOf)
+    return parseGithubBlame(await run.githubBlame(pr.owner, pr.repo, commit, path))
+  }
+
+  function fileBlame(path: string, revision: SideRevision): Promise<LoadedBlame | null> {
+    // A working copy is edited while riff runs, so its blame is read fresh every time.
+    if (revision.live) return load(path, revision)
+    const key = `${path}@${revisionLabel(revision)}`
+    const cached = files.get(key)
+    if (cached) return cached
+    const loading = load(path, revision)
+    files.set(key, loading)
+    loading.catch(() => files.delete(key))
+    return loading
+  }
+
+  async function localPr(sha: string): Promise<PrRef | null> {
+    const repo = await run.repoRef()
+    if (!repo) return null
+    // The PR is garnish on the commit, so a failed lookup costs only the PR.
+    return run.prForCommit(repo.owner, repo.repo, sha).catch(() => null)
+  }
+
+  return {
+    async lineBlame(path, side, line) {
+      const loaded = await fileBlame(path, await sideRevision(side))
+      const entry = loaded?.blame[line]
+      if (!loaded || !entry) return null
+      if (entry.kind === "uncommitted") return { line: entry, pr: null }
+      const pr = loaded.prs ? (loaded.prs.get(entry.commit.sha) ?? null) : await localPr(entry.commit.sha)
+      return { line: entry, pr }
+    },
+  }
+}

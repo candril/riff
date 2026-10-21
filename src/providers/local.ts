@@ -348,7 +348,7 @@ async function getGitFileContent(filename: string, target?: string): Promise<str
 
 // The diff is measured from where the two ends last met, so its old line numbers count from there;
 // either tip is the wrong version of the file whenever its side has moved on since.
-async function resolveGitBase(base: GitBase): Promise<string> {
+export async function resolveGitBase(base: GitBase): Promise<string> {
   if ("rev" in base) return base.rev
   const [from, to] = base.mergeBaseOf
   const mergeBase = (await $`git merge-base ${from} ${to}`.text()).trim()

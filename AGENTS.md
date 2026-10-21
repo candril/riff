@@ -221,6 +221,7 @@ src/
 │   ├── files.ts          # file mode (`riff <path>`)
 │   ├── github.ts         # GitHub via gh (GraphQL and REST)
 │   ├── demo.ts           # --demo fixture
+│   ├── blame/            # who last changed a line, from jj, git or GitHub (spec 103)
 │   └── agent/            # riff's agent: SDK session, prompt, read tools (spec 102)
 ├── features/             # one directory per feature: index.ts, plus input.ts / handlers.ts
 │   ├── marks/            # global marks (spec 101)

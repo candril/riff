@@ -1782,7 +1782,7 @@ export async function getPrBaseFileContent(
  * that has taken the same change by another route — serves a file those
  * numbers do not fit.
  */
-async function baseVersionRef(
+export async function baseVersionRef(
   owner: string,
   repo: string,
   prNumber: number,
