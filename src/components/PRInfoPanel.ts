@@ -56,6 +56,8 @@ import {
 } from "../app/pr-info-header"
 import { createPrCommentPromptIsland, type PrCommentPromptIsland } from "../app/pr-comment-prompt"
 import { prCommentPromptModel } from "./pr-comment-prompt"
+import * as Nav from "./pr-info-nav"
+import type { PrInfoNav } from "./pr-info-nav"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -139,30 +141,14 @@ export class PRInfoPanelClass {
   private files: DiffFile[]
   private comments: Comment[]
   
-  // What `Ctrl-f` narrows the panel to: rows whose text contains it, in
-  // every section that has rows (spec 065). Empty means everything.
-  private filter: string = ""
+  private nav: PrInfoNav = Nav.initialNav()
+  private readonly counts: Nav.SectionCounts = (section) => this.getItemCountForSection(section)
+
   private filterInput: InputRenderable
   private filterRow: BoxRenderable | null = null
   private filterFocused: boolean = false
   private onFilterChange: ((value: string) => void) | null = null
 
-  // Section state
-  private activeSection: PRInfoPanelSection = 'description'
-  private cursorIndex: number = -1  // -1 = on section header
-  
-  // Sections are collapsed on arrival but for the description: the panel's
-  // job is to say what there is — headers with their counts and a summary
-  // each — and let you open the one you came for, while the one thing you
-  // always want is what the PR says it does (specs 062, 067).
-  private expandedSections: Set<PRInfoPanelSection> = new Set(['description'])
-  
-  // Thread expanded state (by thread root comment id) - shows replies
-  private expandedThreads: Set<string> = new Set()
-  
-  // Content expanded state (by item id) - shows full comment body
-  private expandedContent: Set<string> = new Set()
-  
   // Conversation items (computed from prInfo + comments)
   private conversationItems: ConversationItem[] = []
 
@@ -179,8 +165,6 @@ export class PRInfoPanelClass {
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
 
-  // Checks expand state (spec 043) — per-session only, not persisted.
-  private expandedCheckIds: Set<number> = new Set()
   private flatCheckItems: FlatCheckItem[] = []
   // Where a failing check asks for its annotations; the app fetches them (set by app.ts).
   private onOpenFailingCheck: ((check: PrCheck) => void) | null = null
@@ -280,7 +264,7 @@ export class PRInfoPanelClass {
    * Get current active section
    */
   getActiveSection(): PRInfoPanelSection {
-    return this.activeSection
+    return this.nav.activeSection
   }
 
   /**
@@ -290,12 +274,12 @@ export class PRInfoPanelClass {
    */
   capturePosition(): PRInfoPanelPosition {
     return {
-      activeSection: this.activeSection,
-      cursorIndex: this.cursorIndex,
-      expandedSections: new Set(this.expandedSections),
-      expandedThreads: new Set(this.expandedThreads),
-      expandedContent: new Set(this.expandedContent),
-      expandedCheckIds: new Set(this.expandedCheckIds),
+      activeSection: this.nav.activeSection,
+      cursorIndex: this.nav.cursorIndex,
+      expandedSections: new Set(this.nav.expandedSections),
+      expandedThreads: new Set(this.nav.expandedThreads),
+      expandedContent: new Set(this.nav.expandedContent),
+      expandedCheckIds: new Set(this.nav.expandedCheckIds),
       // A panel rebuilt again before its first frame has not applied its
       // restored scroll yet; the box still reads 0.
       scrollTop: this.pendingScrollTop ?? this.scrollBox.scrollTop,
@@ -303,21 +287,20 @@ export class PRInfoPanelClass {
   }
 
   restorePosition(position: PRInfoPanelPosition): void {
-    this.activeSection = position.activeSection
-    this.expandedSections = new Set(position.expandedSections)
-    this.expandedThreads = new Set(position.expandedThreads)
-    this.expandedContent = new Set(position.expandedContent)
-    this.expandedCheckIds = new Set(position.expandedCheckIds)
-
+    const restored: PrInfoNav = {
+      activeSection: position.activeSection,
+      cursorIndex: position.cursorIndex,
+      expandedSections: new Set(position.expandedSections),
+      expandedThreads: new Set(position.expandedThreads),
+      expandedContent: new Set(position.expandedContent),
+      expandedCheckIds: new Set(position.expandedCheckIds),
+      filter: this.nav.filter,
+    }
     // The section can have fewer items than it had — a review that was
     // resolved away, a check that finished and folded its annotations.
-    this.refreshFlatItems()
-    this.refreshFlatCheckItems()
-    // Description rows are counted by layout, which a new panel has not had
-    // yet; the cursor row is clamped where it is painted instead.
-    this.cursorIndex = this.activeSection === 'description'
-      ? position.cursorIndex
-      : Math.min(position.cursorIndex, this.getMaxCursorIndex())
+    this.refreshFlatItems(restored)
+    this.refreshFlatCheckItems(restored)
+    this.nav = Nav.restoreNav(restored, this.counts)
 
     this.rebuildSections()
     // Where the reader had scrolled to wins over a reveal asked for before
@@ -330,55 +313,19 @@ export class PRInfoPanelClass {
    * Get the current cursor index
    */
   getCursorIndex(): number {
-    return this.cursorIndex
+    return this.nav.cursorIndex
   }
 
   /**
    * Check if cursor is on section header (index -1)
    */
   isOnSectionHeader(): boolean {
-    return this.cursorIndex === -1
+    return this.nav.cursorIndex === -1
   }
 
-  /**
-   * Derive the reaction target for the currently-focused item (spec 042).
-   * Returns null for sections/items that don't carry reactions (checks,
-   * files, commits, pending-reviewer).
-   *
-   * - Description section → the PR body.
-   * - Conversation section:
-   *   - pr-comment → the issue comment.
-   *   - review-header → the review summary (requires databaseId).
-   *   - review-thread → the root inline comment (requires githubId).
-   */
+  /** What a reaction lands on from where the cursor is (spec 042). */
   getReactionTarget(): ReactionTarget | null {
-    if (this.activeSection === 'description') {
-      return { kind: "issue", prNumber: this.prInfo.number }
-    }
-    if (this.activeSection !== 'conversation') return null
-    const flat = this.getSelectedFlatItem()
-    if (!flat) return null
-    switch (flat.type) {
-      case 'pr-comment':
-        return { kind: "issue-comment", githubId: flat.data.id }
-      case 'review-header':
-        return flat.data.databaseId !== undefined
-          ? { kind: "review", reviewId: flat.data.databaseId, prNumber: this.prInfo.number }
-          : null
-      case 'review-thread':
-        return flat.data.githubId !== undefined
-          ? { kind: "review-comment", githubId: flat.data.githubId }
-          : null
-      case 'pending-reviewer':
-        return null
-    }
-  }
-
-  /**
-   * Get the item count for the current section (not including header)
-   */
-  private getItemCount(): number {
-    return this.getItemCountForSection(this.activeSection)
+    return Nav.reactionTargetOf(this.getSelectedFlatItem(), this.nav.activeSection, this.prInfo.number)
   }
 
   /**
@@ -386,16 +333,15 @@ export class PRInfoPanelClass {
    * -1 = section header, 0+ = items
    */
   getMaxCursorIndex(): number {
-    const itemCount = this.getItemCount()
-    return itemCount > 0 ? itemCount - 1 : -1
+    return Nav.maxCursorIndex(this.nav, this.counts)
   }
 
-  private refreshFlatItems(): void {
-    this.flatConversationItems = flatConversationItems(this.conversationItems, this.filter, this.expandedContent)
+  private refreshFlatItems(nav: PrInfoNav = this.nav): void {
+    this.flatConversationItems = flatConversationItems(this.conversationItems, nav.filter, nav.expandedContent)
   }
 
-  private refreshFlatCheckItems(): void {
-    this.flatCheckItems = flatCheckItems(this.prInfo.checks, this.expandedCheckIds, this.filter)
+  private refreshFlatCheckItems(nav: PrInfoNav = this.nav): void {
+    this.flatCheckItems = flatCheckItems(this.prInfo.checks, nav.expandedCheckIds, nav.filter)
   }
 
   /**
@@ -404,25 +350,15 @@ export class PRInfoPanelClass {
    * Cursor -1 = section header, 0+ = items
    */
   moveCursor(delta: number): boolean {
-    const maxIndex = this.getMaxCursorIndex()
-    // Min is -1 (header), max is the last item index
-    const newIndex = Math.max(-1, Math.min(maxIndex, this.cursorIndex + delta))
+    return this.moveTo(Nav.moveCursor(this.nav, delta, this.counts))
+  }
 
-    if (newIndex === this.cursorIndex) return false
-
-    const wasOnHeader = this.cursorIndex === -1
-    const isOnHeader = newIndex === -1
-
-    this.cursorIndex = newIndex
-    this.pushRows(this.activeSection)
-
-    // Section header highlight only changes when the cursor crosses
-    // the header / item boundary — skip the rebuild otherwise so j/k
-    // inside a section doesn't tear down + rebuild every renderable
-    // (which causes visible flicker on markdown bodies in particular).
-    if (wasOnHeader !== isOnHeader) {
-      this.rebuildSections()
-    }
+  private moveTo(next: PrInfoNav): boolean {
+    if (next === this.nav) return false
+    const before = this.nav
+    this.nav = next
+    this.pushRows(next.activeSection)
+    if (Nav.crossedHeader(before, next)) this.rebuildSections()
     this.followCursor()
     return true
   }
@@ -432,12 +368,10 @@ export class PRInfoPanelClass {
    * one. False at either end of the panel: like a buffer, it does not wrap.
    */
   step(delta: 1 | -1): boolean {
-    if (this.isSectionExpanded() && this.moveCursor(delta)) return true
-
-    const next = ALL_SECTIONS.indexOf(this.activeSection) + delta
-    if (next < 0 || next >= ALL_SECTIONS.length) return false
-    if (delta > 0) this.cycleSection(1)
-    else this.cycleSectionToEnd(-1)
+    const next = Nav.stepNav(this.nav, delta, this.counts)
+    if (!next) return false
+    if (next.activeSection === this.nav.activeSection) return this.moveTo(next)
+    this.applySection(next)
     return true
   }
 
@@ -459,9 +393,7 @@ export class PRInfoPanelClass {
 
   /** `G`: the last row of the last section, or its header if it is folded. */
   jumpToBottom(): void {
-    const last = ALL_SECTIONS[ALL_SECTIONS.length - 1]!
-    const rows = this.expandedSections.has(last) ? this.getItemCountForSection(last) : 0
-    this.flashJump(rows > 0 ? `${last}:${rows - 1}` : last)
+    this.flashJump(Nav.bottomTarget(this.nav, this.counts))
   }
 
   private followCursor(): void {
@@ -472,19 +404,19 @@ export class PRInfoPanelClass {
 
   /** Where the cursor row is on screen, and how tall. */
   private cursorBounds(): { y: number; height: number } | null {
-    if (this.cursorIndex === -1) {
-      const box = this.sectionBoxes[ALL_SECTIONS.indexOf(this.activeSection)]
+    if (this.nav.cursorIndex === -1) {
+      const box = this.sectionBoxes[ALL_SECTIONS.indexOf(this.nav.activeSection)]
       const header = box?.getChildren()[0]
       return header ? { y: header.y, height: 1 } : null
     }
-    if (this.activeSection === 'description') {
+    if (this.nav.activeSection === 'description') {
       const box = this.descriptionBox
       if (!box || box.height === 0) return null
-      return { y: box.y + Math.min(this.cursorIndex, box.height - 1), height: 1 }
+      return { y: box.y + Math.min(this.nav.cursorIndex, box.height - 1), height: 1 }
     }
-    const row = isListSection(this.activeSection)
-      ? this.listIslands.get(this.activeSection)?.rowAt(this.cursorIndex)
-      : this.conversation?.rowAt(this.cursorIndex)
+    const row = isListSection(this.nav.activeSection)
+      ? this.listIslands.get(this.nav.activeSection)?.rowAt(this.nav.cursorIndex)
+      : this.conversation?.rowAt(this.nav.cursorIndex)
     return row ? { y: row.y, height: Math.max(1, row.height) } : null
   }
 
@@ -515,10 +447,7 @@ export class PRInfoPanelClass {
    * Positions cursor at section header (-1)
    */
   cycleSection(delta: number): void {
-    const currentIndex = ALL_SECTIONS.indexOf(this.activeSection)
-    const newIndex = (currentIndex + delta + ALL_SECTIONS.length) % ALL_SECTIONS.length
-    
-    this.setActiveSection(ALL_SECTIONS[newIndex]!)
+    this.applySection(Nav.cycleSection(this.nav, delta))
   }
 
   /**
@@ -526,58 +455,33 @@ export class PRInfoPanelClass {
    * Used when navigating up from a section header
    */
   cycleSectionToEnd(delta: number): void {
-    const currentIndex = ALL_SECTIONS.indexOf(this.activeSection)
-    const newIndex = (currentIndex + delta + ALL_SECTIONS.length) % ALL_SECTIONS.length
-    const newSection = ALL_SECTIONS[newIndex]!
-    
-    this.activeSection = newSection
-    
-    // If new section is expanded, go to last item; otherwise stay on header
-    if (this.expandedSections.has(newSection)) {
-      const itemCount = this.getItemCountForSection(newSection)
-      this.cursorIndex = itemCount > 0 ? itemCount - 1 : -1
-    } else {
-      this.cursorIndex = -1
-    }
-
-    this.rebuildSections()
-    this.followCursor()
+    this.applySection(Nav.cycleSectionToEnd(this.nav, delta, this.counts))
   }
 
   private get visibleFiles(): DiffFile[] {
-    return visibleFiles(this.files, this.filter)
+    return visibleFiles(this.files, this.nav.filter)
   }
 
   private get visiblePreviews(): PreviewRow[] {
-    return visiblePreviews(this.previews?.rows ?? [], this.filter)
+    return visiblePreviews(this.previews?.rows ?? [], this.nav.filter)
   }
 
   private get visibleCommits(): PrCommit[] {
-    return visibleCommits(this.prInfo.commits ?? [], this.filter)
+    return visibleCommits(this.prInfo.commits ?? [], this.nav.filter)
   }
 
-  /**
-   * Narrow the panel to rows containing this text, or clear it with "".
-   * A filter opens every section it matches in: hiding the matches inside
-   * a collapsed header would make the filter look broken.
-   */
+  /** Narrow the panel to rows containing this text, or clear it with "". */
   setFilter(filter: string): void {
-    if (filter === this.filter) return
-    this.filter = filter
-    this.refreshFlatItems()
-    this.refreshFlatCheckItems()
-    if (filter) {
-      for (const section of ALL_SECTIONS) {
-        if (section === 'description') continue
-        if (this.getItemCountForSection(section) > 0) this.expandedSections.add(section)
-      }
-    }
-    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    if (filter === this.nav.filter) return
+    const filtered = { ...this.nav, filter }
+    this.refreshFlatItems(filtered)
+    this.refreshFlatCheckItems(filtered)
+    this.nav = Nav.setFilter(this.nav, filter, (section) => this.getItemCountForSection(section, filtered))
     this.rebuildSections()
   }
 
   getFilter(): string {
-    return this.filter
+    return this.nav.filter
   }
 
   /** Where the filter box sends what is typed. Set once, from app.ts. */
@@ -606,7 +510,7 @@ export class PRInfoPanelClass {
   /**
    * Get item count for a specific section
    */
-  private getItemCountForSection(section: PRInfoPanelSection): number {
+  private getItemCountForSection(section: PRInfoPanelSection, nav: PrInfoNav = this.nav): number {
     switch (section) {
       case 'description':
         // Read like a buffer: its items are the rows it renders to.
@@ -616,11 +520,11 @@ export class PRInfoPanelClass {
       case 'conversation':
         return this.flatConversationItems.length
       case 'files':
-        return this.visibleFiles.length
+        return visibleFiles(this.files, nav.filter).length
       case 'commits':
-        return commitRowCount(this.visibleCommits)
+        return commitRowCount(visibleCommits(this.prInfo.commits ?? [], nav.filter))
       case 'previews':
-        return this.visiblePreviews.length
+        return visiblePreviews(this.previews?.rows ?? [], nav.filter).length
     }
   }
 
@@ -628,12 +532,12 @@ export class PRInfoPanelClass {
    * Set the active section
    */
   setActiveSection(section: PRInfoPanelSection): void {
-    if (section === this.activeSection) return
-    
-    this.activeSection = section
-    this.cursorIndex = -1  // Start on section header
+    this.applySection(Nav.setActiveSection(this.nav, section))
+  }
 
-    // Rebuild to update section header styling
+  private applySection(next: PrInfoNav): void {
+    if (next === this.nav) return
+    this.nav = next
     this.rebuildSections()
     this.followCursor()
   }
@@ -642,11 +546,7 @@ export class PRInfoPanelClass {
    * Toggle expand/collapse for the active section (za)
    */
   toggleSection(): void {
-    if (this.expandedSections.has(this.activeSection)) {
-      this.expandedSections.delete(this.activeSection)
-    } else {
-      this.expandedSections.add(this.activeSection)
-    }
+    this.nav = Nav.toggleSection(this.nav)
     this.rebuildSections()
   }
 
@@ -654,7 +554,7 @@ export class PRInfoPanelClass {
    * Collapse the active section (zm)
    */
   collapseSection(): void {
-    this.expandedSections.delete(this.activeSection)
+    this.nav = Nav.collapseSection(this.nav)
     this.rebuildSections()
   }
 
@@ -662,7 +562,7 @@ export class PRInfoPanelClass {
    * Expand the active section (zr)
    */
   expandSection(): void {
-    this.expandedSections.add(this.activeSection)
+    this.nav = Nav.expandSection(this.nav)
     this.rebuildSections()
   }
 
@@ -670,7 +570,7 @@ export class PRInfoPanelClass {
    * Collapse all sections (zM)
    */
   collapseAllSections(): void {
-    this.expandedSections.clear()
+    this.nav = Nav.collapseAll(this.nav)
     this.rebuildSections()
   }
 
@@ -678,7 +578,7 @@ export class PRInfoPanelClass {
    * Expand all sections (zR)
    */
   expandAllSections(): void {
-    this.expandedSections = new Set(ALL_SECTIONS)
+    this.nav = Nav.expandAll(this.nav)
     this.rebuildSections()
   }
 
@@ -686,36 +586,36 @@ export class PRInfoPanelClass {
    * Check if active section is expanded
    */
   isSectionExpanded(): boolean {
-    return this.expandedSections.has(this.activeSection)
+    return this.nav.expandedSections.has(this.nav.activeSection)
   }
 
   /** Whether a named section is open, whichever one has the cursor. */
   isSectionExpandedNamed(section: PRInfoPanelSection): boolean {
-    return this.expandedSections.has(section)
+    return this.nav.expandedSections.has(section)
   }
 
   /**
    * Get selected commit
    */
   getSelectedCommit(): PrCommit | undefined {
-    if (this.activeSection !== 'commits' || this.cursorIndex < 0) return undefined
-    return this.visibleCommits[this.cursorIndex]
+    if (this.nav.activeSection !== 'commits' || this.nav.cursorIndex < 0) return undefined
+    return this.visibleCommits[this.nav.cursorIndex]
   }
 
   /**
    * Get selected file
    */
   getSelectedFile(): DiffFile | undefined {
-    if (this.activeSection !== 'files' || this.cursorIndex < 0) return undefined
-    return this.visibleFiles[this.cursorIndex]
+    if (this.nav.activeSection !== 'files' || this.nav.cursorIndex < 0) return undefined
+    return this.visibleFiles[this.nav.cursorIndex]
   }
 
   /**
    * Get selected check
    */
   getSelectedCheck(): PrCheck | undefined {
-    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return undefined
-    return this.flatCheckItems[this.cursorIndex]?.check
+    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return undefined
+    return this.flatCheckItems[this.nav.cursorIndex]?.check
   }
 
   /**
@@ -724,8 +624,8 @@ export class PRInfoPanelClass {
    * a check row itself) (spec 043).
    */
   getSelectedAnnotation(): { check: PrCheck; annotation: PrCheckAnnotation } | null {
-    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return null
-    const item = this.flatCheckItems[this.cursorIndex]
+    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return null
+    const item = this.flatCheckItems[this.nav.cursorIndex]
     if (!item || item.kind !== 'annotation') return null
     return { check: item.check, annotation: item.annotation }
   }
@@ -735,10 +635,9 @@ export class PRInfoPanelClass {
    * expand (spec 043).
    */
   toggleCheckExpansion(checkId: number): void {
-    if (this.expandedCheckIds.has(checkId)) {
-      this.expandedCheckIds.delete(checkId)
-    } else {
-      this.expandedCheckIds.add(checkId)
+    const opening = !this.nav.expandedCheckIds.has(checkId)
+    this.nav = Nav.toggleCheck(this.nav, checkId)
+    if (opening) {
       const check = this.prInfo.checks?.find(c => c.id === checkId)
       if (check && !check.annotationsStatus && isFailingCheck(check)) {
         this.onOpenFailingCheck?.(check)
@@ -756,7 +655,7 @@ export class PRInfoPanelClass {
   expandSelectedCheck(): void {
     const check = this.getSelectedCheckRow()
     if (!check || !isFailingCheck(check)) return
-    if (this.expandedCheckIds.has(check.id)) return
+    if (this.nav.expandedCheckIds.has(check.id)) return
     this.toggleCheckExpansion(check.id)
   }
 
@@ -766,18 +665,18 @@ export class PRInfoPanelClass {
    * the cursor back onto the check row (spec 043).
    */
   collapseSelectedCheck(): void {
-    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return
-    const item = this.flatCheckItems[this.cursorIndex]
+    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return
+    const item = this.flatCheckItems[this.nav.cursorIndex]
     if (!item) return
     const check = item.check
-    if (!this.expandedCheckIds.has(check.id)) return
+    if (!this.nav.expandedCheckIds.has(check.id)) return
 
     const parentIndex = this.flatCheckItems.findIndex(
       i => i.kind === 'check' && i.check.id === check.id,
     )
     this.toggleCheckExpansion(check.id)
-    if (parentIndex >= 0 && this.cursorIndex !== parentIndex) {
-      this.cursorIndex = parentIndex
+    if (parentIndex >= 0 && this.nav.cursorIndex !== parentIndex) {
+      this.nav = { ...this.nav, cursorIndex: parentIndex }
       this.rebuildSections()
     }
   }
@@ -789,8 +688,8 @@ export class PRInfoPanelClass {
    * `l` on a deep annotation row doesn't re-expand the parent.
    */
   private getSelectedCheckRow(): PrCheck | undefined {
-    if (this.activeSection !== 'checks' || this.cursorIndex < 0) return undefined
-    const item = this.flatCheckItems[this.cursorIndex]
+    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return undefined
+    const item = this.flatCheckItems[this.nav.cursorIndex]
     if (!item || item.kind !== 'check') return undefined
     return item.check
   }
@@ -803,9 +702,7 @@ export class PRInfoPanelClass {
   /** A check's annotations moved on — loading, loaded or failed — and its rows follow. */
   checksChanged(): void {
     this.refreshFlatCheckItems()
-    if (this.activeSection === 'checks') {
-      this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
-    }
+    if (this.nav.activeSection === 'checks') this.nav = Nav.clampCursor(this.nav, this.counts)
     this.rebuildSections()
   }
 
@@ -837,14 +734,7 @@ export class PRInfoPanelClass {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
     
-    const itemId = flatConversationItemId(flatItem)
-    if (this.expandedContent.has(itemId)) {
-      this.expandedContent.delete(itemId)
-    } else {
-      this.expandedContent.add(itemId)
-    }
-    
-    // Refresh flat items and rebuild
+    this.nav = Nav.toggleContent(this.nav, flatConversationItemId(flatItem))
     this.refreshFlatItems()
     this.rebuildSections()
   }
@@ -855,12 +745,7 @@ export class PRInfoPanelClass {
   expandSelectedThread(): void {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
-    const itemId = flatConversationItemId(flatItem)
-    if (!this.expandedContent.has(itemId)) {
-      this.expandedContent.add(itemId)
-      this.refreshFlatItems()
-      this.rebuildSections()
-    }
+    this.applyContent(Nav.expandContent(this.nav, flatConversationItemId(flatItem)))
   }
 
   /**
@@ -869,20 +754,22 @@ export class PRInfoPanelClass {
   collapseSelectedThread(): void {
     const flatItem = this.getSelectedFlatItem()
     if (!flatItem) return
-    const itemId = flatConversationItemId(flatItem)
-    if (this.expandedContent.has(itemId)) {
-      this.expandedContent.delete(itemId)
-      this.refreshFlatItems()
-      this.rebuildSections()
-    }
+    this.applyContent(Nav.collapseContent(this.nav, flatConversationItemId(flatItem)))
+  }
+
+  private applyContent(next: PrInfoNav): void {
+    if (next === this.nav) return
+    this.nav = next
+    this.refreshFlatItems()
+    this.rebuildSections()
   }
   
   /**
    * Get the currently selected flat conversation item
    */
   getSelectedFlatItem(): FlatConversationItem | undefined {
-    if (this.activeSection !== 'conversation' || this.cursorIndex < 0) return undefined
-    return this.flatConversationItems[this.cursorIndex]
+    if (this.nav.activeSection !== 'conversation' || this.nav.cursorIndex < 0) return undefined
+    return this.flatConversationItems[this.nav.cursorIndex]
   }
   
   /**
@@ -895,12 +782,12 @@ export class PRInfoPanelClass {
    */
   setPrInfo(prInfo: PrInfo): void {
     if (prInfo === this.prInfo) return
-    if (prInfo.body !== this.prInfo.body && this.activeSection === 'description') this.clampDescriptionOnResize = true
+    if (prInfo.body !== this.prInfo.body && this.nav.activeSection === 'description') this.clampDescriptionOnResize = true
     this.prInfo = prInfo
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
-    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.nav = Nav.clampCursor(this.nav, this.counts)
     this.pushMeta()
     this.rebuildSections()
   }
@@ -919,14 +806,14 @@ export class PRInfoPanelClass {
   setPreviews(previews: PreviewSet | null): void {
     if (previews === this.previews) return
     this.previews = previews
-    this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.nav = Nav.clampCursor(this.nav, this.counts)
     this.rebuildSections()
   }
 
   /** The row the cursor is on, when it is on one (spec 068). */
   getSelectedPreview(): PreviewRow | undefined {
-    if (this.activeSection !== 'previews' || this.cursorIndex < 0) return undefined
-    return this.visiblePreviews[this.cursorIndex]
+    if (this.nav.activeSection !== 'previews' || this.nav.cursorIndex < 0) return undefined
+    return this.visiblePreviews[this.nav.cursorIndex]
   }
 
   /**
@@ -945,20 +832,9 @@ export class PRInfoPanelClass {
     this.buildSections(this.sectionsContainer)
   }
 
-  /**
-   * Every row `s` can jump to: the five section headers, plus the rows of
-   * the sections that are open (spec 066). Ids are the panel's own.
-   */
+  /** Every row `s` can jump to (spec 066). Ids are the panel's own. */
   flashTargets(): string[] {
-    const ids: string[] = []
-    for (const section of ALL_SECTIONS) {
-      ids.push(section)
-      // A label per line of prose would bury the ones worth jumping to.
-      if (!this.expandedSections.has(section) || section === 'description') continue
-      const count = this.getItemCountForSection(section)
-      for (let i = 0; i < count; i++) ids.push(`${section}:${i}`)
-    }
-    return ids
+    return Nav.flashTargets(this.nav, this.counts)
   }
 
   /**
@@ -999,27 +875,27 @@ export class PRInfoPanelClass {
   }
 
   private focusedSource(): LinkSource | null {
-    switch (this.activeSection) {
+    switch (this.nav.activeSection) {
       case 'description':
         return { title: "Description", text: this.prInfo.body ?? "" }
       case 'conversation': {
-        const item = this.flatConversationItems[this.cursorIndex]
+        const item = this.flatConversationItems[this.nav.cursorIndex]
         if (!item) return { title: "Conversation", text: this.conversationText() }
         if (item.type === 'pending-reviewer') return null
         return { title: `@${item.data.author}`, text: item.data.body ?? "" }
       }
       case 'commits': {
-        const commit = this.visibleCommits[this.cursorIndex]
+        const commit = this.visibleCommits[this.nav.cursorIndex]
         return commit ? { title: commit.sha.slice(0, 7), text: commit.message } : null
       }
       case 'checks': {
-        const item = this.flatCheckItems[this.cursorIndex]
+        const item = this.flatCheckItems[this.nav.cursorIndex]
         if (!item) return null
         const url = item.kind === 'annotation' ? item.annotation.message : item.check.detailsUrl
         return url ? { title: item.check.name, text: url } : null
       }
       case 'previews': {
-        const row = this.visiblePreviews[this.cursorIndex]
+        const row = this.visiblePreviews[this.nav.cursorIndex]
         return row ? this.previewSource(row) : null
       }
       default:
@@ -1036,13 +912,11 @@ export class PRInfoPanelClass {
 
   /** Put the cursor on the row a label picked. */
   flashJump(id: string): void {
-    const [name, index] = id.split(":")
-    const section = ALL_SECTIONS.find((candidate) => candidate === name)
-    if (!section) return
+    const target = Nav.flashJumpNav(this.nav, id, this.counts)
+    if (!target) return
 
-    this.setActiveSection(section)
-    this.activeSection = section
-    this.cursorIndex = index === undefined ? -1 : Math.min(Number(index), this.getMaxCursorIndex())
+    this.setActiveSection(target.activeSection)
+    this.nav = target
     this.rebuildSections()
     this.followCursor()
   }
@@ -1086,17 +960,17 @@ export class PRInfoPanelClass {
       previews: this.previews,
       conversationItems: this.conversationItems,
       hiddenConversationIds: this.hiddenConversationIds,
-      filter: this.filter,
+      filter: this.nav.filter,
     })
     
     for (const config of configs) {
-      const isActive = config.id === this.activeSection
-      const isExpanded = this.expandedSections.has(config.id)
+      const isActive = config.id === this.nav.activeSection
+      const isExpanded = this.nav.expandedSections.has(config.id)
       const hasItems = this.sectionHasItems(config.id)
       
       // Header is highlighted when:
       // - Section is active AND cursor is on header (index -1)
-      const headerHighlighted = isActive && this.cursorIndex === -1
+      const headerHighlighted = isActive && this.nav.cursorIndex === -1
       
       const sectionBox = new BoxRenderable(this.renderer, {
         id: `section-${config.id}`,
@@ -1207,43 +1081,43 @@ export class PRInfoPanelClass {
   private descriptionResized(): void {
     if (!this.clampDescriptionOnResize) return
     this.clampDescriptionOnResize = false
-    if (this.activeSection !== 'description' || this.cursorIndex <= this.getMaxCursorIndex()) return
-    this.cursorIndex = this.getMaxCursorIndex()
+    if (this.nav.activeSection !== 'description' || this.nav.cursorIndex <= this.getMaxCursorIndex()) return
+    this.nav = Nav.clampCursor(this.nav, this.counts)
     this.pushRows('description')
   }
 
   /** A cursor move inside a section on an island restyles its rows without a rebuild. */
   private pushRows(section: PRInfoPanelSection): void {
-    const isActive = section === this.activeSection
+    const isActive = section === this.nav.activeSection
     if (section === 'description') this.description?.update(this.descriptionModel(isActive))
     else if (section === 'conversation') this.conversation?.update(this.conversationRows(isActive))
     else if (isListSection(section)) this.listIslands.get(section)?.update(this.listRows(section, isActive))
   }
 
   private descriptionModel(isActive: boolean): DescriptionModel {
-    return descriptionModel(this.prInfo, { cursor: this.cursorIndex, active: isActive })
+    return descriptionModel(this.prInfo, { cursor: this.nav.cursorIndex, active: isActive })
   }
 
   private conversationRows(isActive: boolean): ConversationRows {
     this.refreshFlatItems()
     return conversationRows(this.flatConversationItems, {
-      selected: isActive ? this.cursorIndex : -1,
+      selected: isActive ? this.nav.cursorIndex : -1,
       labels: this.flashLabels,
-      expanded: this.expandedContent,
+      expanded: this.nav.expandedContent,
       terminalWidth: getTerminalWidth(),
       diffContext: (filename, line) => fileDiffContext(this.files, filename, line),
     })
   }
 
   private listRows(section: ListSection, isActive: boolean): ListRows {
-    const input = { selected: isActive ? this.cursorIndex : -1, labels: this.flashLabels }
+    const input = { selected: isActive ? this.nav.cursorIndex : -1, labels: this.flashLabels }
     switch (section) {
       case 'previews':
         return previewRows(this.visiblePreviews, input)
       case 'checks':
         return checkRows(this.flatCheckItems, {
           ...input,
-          expanded: this.expandedCheckIds,
+          expanded: this.nav.expandedCheckIds,
           hasChecks: (this.prInfo.checks ?? []).length > 0,
         })
       case 'files':
