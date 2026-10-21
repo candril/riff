@@ -10,6 +10,8 @@ Feature specifications live in `specs/`. Before implementing a feature:
 2. Follow the capabilities priority (P1 first, then P2, then P3)
 3. Use the file structure and technical notes as guidance
 
+Architecture decisions are recorded in `docs/decisions/` as numbered ADRs.
+
 ### Spec Status
 
 The `**Status**:` line in each spec is the only record of its state;
