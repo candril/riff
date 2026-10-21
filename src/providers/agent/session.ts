@@ -10,13 +10,13 @@ import { Inbox } from "./inbox"
 import { formatForAgent } from "./position"
 import { buildContext } from "./prompt"
 import type { AgentFile, AgentTarget } from "./target"
-import { SERVER, allowedToolsOf, createToolServer, type AgentTool } from "./tool-server"
+import { SERVER, allowedToolsOf, createToolServer, type AgentTool, type AgentToolset } from "./tool-server"
 
 export interface ClaudeAgentOptions {
   model: string
   // Read when a session opens, so a resumed or reopened session describes the review as it is.
-  context: () => { target: AgentTarget; files: readonly AgentFile[] }
-  tools: () => readonly AgentTool[]
+  context: () => { target: AgentTarget; files: readonly AgentFile[]; hidden: number }
+  tools: (events: AgentEvents) => AgentToolset
   query?: typeof query
   sessionInfo?: typeof getSessionInfo
 }
@@ -42,14 +42,13 @@ function failureOf(error: string, model: string, resetsAt?: number): AgentFailur
   return { kind: "other", message: error }
 }
 
-export function sessionOptions(opts: ClaudeAgentOptions): Options {
+export function sessionOptions(opts: ClaudeAgentOptions, tools: readonly AgentTool[]): Options {
   const executable = claudeExecutable()
-  const { target, files } = opts.context()
-  const tools = opts.tools()
+  const { target, files, hidden } = opts.context()
   return {
     cwd: agentDirectory(),
     model: opts.model,
-    systemPrompt: { type: "preset", preset: "claude_code", append: buildContext(target, files) },
+    systemPrompt: { type: "preset", preset: "claude_code", append: buildContext(target, files, hidden) },
     tools: [],
     settingSources: [],
     strictMcpConfig: true,
@@ -69,6 +68,7 @@ function startSession(
   events: AgentEvents,
   resumeId: string | null,
 ): AgentSession {
+  const toolset = opts.tools(events)
   const run = opts.query ?? query
   let current: Promise<Running | null> | null = null
   let wantResume = resumeId
@@ -147,7 +147,7 @@ function startSession(
     }
     const target = await sessionTarget()
     const inbox = new Inbox()
-    const options = { ...sessionOptions(opts), ...target }
+    const options = { ...sessionOptions(opts, toolset.definitions), ...target }
     return { inbox, q: run({ prompt: inbox, options }) }
   }
 
@@ -163,6 +163,7 @@ function startSession(
 
   return {
     send(question, position) {
+      toolset.startAnswer()
       interrupted = false
       const text = position ? `${formatForAgent(position)}\n\n${question}` : question
       void ensureOpen().then((running) => running?.inbox.push(text))

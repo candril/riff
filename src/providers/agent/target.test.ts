@@ -4,7 +4,7 @@ import { TWO_FILES } from "../../testing/diffs"
 import { prInfo } from "../../testing/pr-info"
 import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
-import { agentFilesOf, agentTargetOf } from "./target"
+import { agentFilesOf, agentTargetOf, hiddenFileCount } from "./target"
 
 const files = parseDiff(TWO_FILES)
 
@@ -40,4 +40,10 @@ test("the changed files carry their status and counts", () => {
   expect(agentFilesOf(state)).toEqual(
     files.map((f) => ({ path: f.filename, status: f.status, additions: f.additions, deletions: f.deletions })),
   )
+})
+
+test("files the reviewer's ignore patterns hide are left out and counted", () => {
+  const state = { ...createInitialState(files, buildFileTree(files), "local", ""), ignoredFiles: new Set([files[1]!.filename]) }
+  expect(agentFilesOf(state).map((f) => f.path)).toEqual([files[0]!.filename])
+  expect(hiddenFileCount(state)).toBe(1)
 })

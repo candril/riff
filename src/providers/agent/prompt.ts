@@ -47,27 +47,33 @@ function directorySummary(files: readonly AgentFile[]): string {
 const describeFile = (file: AgentFile) =>
   `${file.status} ${file.path} (+${file.additions} -${file.deletions})`
 
-function listingOf(files: readonly AgentFile[]): string {
-  return files.length > MAX_LISTED_FILES
-    ? `${files.length} files changed, too many to list. Directories, with file counts; use list_files with a directory to see its files:\n${directorySummary(files)}`
-    : files.map(describeFile).join("\n")
+function listingOf(files: readonly AgentFile[], hidden: number): string {
+  const listing =
+    files.length > MAX_LISTED_FILES
+      ? `${files.length} files changed, too many to list. Directories, with file counts; use list_files with a directory to see its files:\n${directorySummary(files)}`
+      : files.map(describeFile).join("\n")
+  const note = hidden
+    ? `${hidden} more ${hidden === 1 ? "file" : "files"} hidden by the reviewer's ignore patterns; read_diff reads them by path`
+    : ""
+  return [listing, note].filter(Boolean).join("\n")
 }
 
 function headingOf(target: AgentTarget): string {
   if (target.kind === "local") {
     const on = target.label ? ` on ${target.label}` : ""
-    return `# Local changes\nUnder review: the reviewer's own local changes${on} (${target.description}); there is no PR.`
+    const what = target.description.trim() ? ` (${target.description.trim()})` : ""
+    return `# Local changes\nUnder review: the reviewer's own local changes${on}${what}; there is no PR.`
   }
   return `# ${target.title}\n${target.owner}/${target.repo}#${target.number} · ${target.state}\n\n## Description\n${target.description.trim() || "(none)"}`
 }
 
-export function buildContext(target: AgentTarget, files: readonly AgentFile[]): string {
+export function buildContext(target: AgentTarget, files: readonly AgentFile[], hidden: number): string {
   return `${POSTURE}
 
 ${headingOf(target)}
 
 ## Changed files
-${listingOf(files)}
+${listingOf(files, hidden)}
 
 ${REMINDER}`
 }

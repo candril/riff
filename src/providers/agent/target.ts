@@ -39,11 +39,18 @@ export function agentTargetOf(state: AppState): AgentTarget {
   return { kind: "local", label: state.branchInfo, description: state.description }
 }
 
+// The prompt lists what the reviewer sees; the files their ignore patterns hide are only counted.
 export function agentFilesOf(state: AppState): AgentFile[] {
-  return state.files.map((file) => ({
+  return visibleFiles(state).map((file) => ({
     path: file.filename,
     status: file.status,
     additions: file.additions,
     deletions: file.deletions,
   }))
 }
+
+export function hiddenFileCount(state: AppState): number {
+  return state.files.length - visibleFiles(state).length
+}
+
+const visibleFiles = (state: AppState) => state.files.filter((file) => !state.ignoredFiles.has(file.filename))

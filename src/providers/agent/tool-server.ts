@@ -2,9 +2,13 @@ import { createSdkMcpServer, type SdkMcpToolDefinition } from "@anthropic-ai/cla
 
 export const SERVER = "riff"
 
-// Each definition is built with `alwaysLoad: true`: without it the model spends a round trip on
-// ToolSearch before its first read.
 export type AgentTool = SdkMcpToolDefinition<any>
+
+// One per session, so the read budget lasts the session and startAnswer refills it per question.
+export interface AgentToolset {
+  definitions: readonly AgentTool[]
+  startAnswer(): void
+}
 
 export function createToolServer(tools: readonly AgentTool[]) {
   return createSdkMcpServer({ name: SERVER, tools: [...tools] })

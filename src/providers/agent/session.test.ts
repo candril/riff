@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test"
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -9,9 +9,13 @@ import {
   type SDKUserMessage,
   type query,
 } from "@anthropic-ai/claude-agent-sdk"
-import type { AgentEvents } from "./agent"
+import { TWO_FILES } from "../../testing/diffs"
+import { parseDiff } from "../../utils/diff-parser"
+import type { AgentEvents, AgentSession } from "./agent"
+import { readToolset } from "./read-tool-definitions"
+import { READS_PER_ANSWER } from "./read-tools"
 import { createClaudeAgent } from "./session"
-import type { AgentTool } from "./tool-server"
+import type { AgentTool, AgentToolset } from "./tool-server"
 
 type Script = (question: string) => object[]
 
@@ -34,6 +38,11 @@ afterAll(() => {
 })
 
 const asked: string[] = []
+const started: AgentSession[] = []
+
+afterEach(() => {
+  started.splice(0).forEach((session) => session.close())
+})
 
 const text = (t: string) => ({
   type: "stream_event",
@@ -48,7 +57,8 @@ const result = (extra: object = {}) => ({
   ...extra,
 })
 
-// Answers each question from the script; `drop` ends the stream the way a dying process does.
+// Answers each question from the script; `drop` ends the stream the way a dying process does,
+// and `run` stands for the model calling tools before it answers.
 function fakeQuery(script: Script, seen: { options?: Options; opened: number; interrupts: number }) {
   return ((args: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => {
     seen.options = args.options
@@ -60,6 +70,10 @@ function fakeQuery(script: Script, seen: { options?: Options; opened: number; in
         for (const reply of script(question)) {
           if ("drop" in reply) {
             return
+          }
+          if ("run" in reply) {
+            await (reply as { run: () => Promise<void> }).run()
+            continue
           }
           yield reply as SDKMessage
         }
@@ -77,27 +91,37 @@ const listFiles = tool("list_files", "List the changed files.", {}, async () => 
   annotations: { readOnlyHint: true },
 }) as AgentTool
 
+const noTools = (tools: AgentTool[] = []) => (): AgentToolset => ({ definitions: tools, startAnswer: () => {} })
+
 function start(
   script: Script,
   resume?: { id: string; exists: boolean },
-  tools: AgentTool[] = [],
+  tools: (events: AgentEvents) => AgentToolset = noTools(),
 ) {
   const seen = { opened: 0, interrupts: 0 } as { options?: Options; opened: number; interrupts: number }
   const log: string[] = []
   const sessions: string[] = []
+  let wake: (() => void) | undefined
+  // Every answer ends in answerDone or failed; a test waits for that instead of for time.
+  const settle = () => new Promise<void>((resolve) => (wake = resolve))
+  const settled = (entry: string) => {
+    log.push(entry)
+    wake?.()
+  }
   const events: AgentEvents = {
     text: (t) => log.push(`text:${t}`),
     readFailed: (w) => log.push(`readFailed:${w}`),
-    answerDone: (r) => log.push(`done:${r.interrupted}:${r.usage?.input}/${r.usage?.output}`),
-    failed: (f) => log.push(`failed:${JSON.stringify(f)}`),
+    answerDone: (r) => settled(`done:${r.interrupted}:${r.usage?.input}/${r.usage?.output}`),
+    failed: (f) => settled(`failed:${JSON.stringify(f)}`),
   }
   const agent = createClaudeAgent({
     model: "claude-opus-5-5",
     context: () => ({
       target: { kind: "local", label: "feature → main", description: "Changes since trunk" },
       files: [],
+      hidden: 0,
     }),
-    tools: () => tools,
+    tools,
     query: fakeQuery(script, seen),
     sessionInfo: (async () => (resume?.exists ? { sessionId: resume.id } : undefined)) as never,
   })
@@ -109,12 +133,12 @@ function start(
     },
     resume?.id,
   )
-  const settle = () => new Promise((r) => setTimeout(r, 10))
+  started.push(session)
   return { session, seen, log, sessions, settle }
 }
 
 test("locks the agent down: no built-in tools, no settings, own directory, only riff's tools", async () => {
-  const { session, seen, settle } = start(() => [result()], undefined, [listFiles])
+  const { session, seen, settle } = start(() => [result()], undefined, noTools([listFiles]))
   session.send("hi", null)
   await settle()
   const o = seen.options!
@@ -221,4 +245,47 @@ test("a stored session the agent no longer has is reported, and a new one starts
   expect(seen.options?.resume).toBeUndefined()
   expect(seen.options?.sessionId).toMatch(/^[0-9a-f-]{36}$/)
   expect(sessions).toEqual(["lost", "started:36"])
+})
+
+test("each question gets a fresh read budget, and a failed read reaches the events", async () => {
+  let toolset: AgentToolset | undefined
+  const call = (name: string, args: Record<string, unknown>) =>
+    toolset!.definitions.find((d) => d.name === name)!.handler(args, {})
+  const refused: (boolean | undefined)[] = []
+  const source = {
+    files: () => parseDiff(TWO_FILES),
+    hiddenPaths: () => new Set<string>(),
+    fileText: async () => {
+      throw new Error("GitHub is not reachable")
+    },
+    tree: async () => [],
+    comments: () => [],
+  }
+  let calls = 0
+  const { session, log, settle } = start(
+    () => [
+      {
+        run: async () => {
+          const reads = calls++ === 0 ? READS_PER_ANSWER + 1 : 1
+          await call("read_file", { path: "a.ts", side: "head" })
+          for (let i = 1; i < reads; i++) {
+            refused.push((await call("list_files", {})).isError)
+          }
+        },
+      },
+      result(),
+    ],
+    undefined,
+    (events) => (toolset = readToolset(source, events)),
+  )
+  session.send("first", null)
+  await settle()
+  expect(refused.at(-1)).toBe(true)
+  expect(refused.slice(0, -1).some(Boolean)).toBe(false)
+  expect(log).toContain("readFailed:a.ts at head: GitHub is not reachable")
+  refused.length = 0
+  session.send("second", null)
+  await settle()
+  expect(log.filter((l) => l.startsWith("readFailed"))).toHaveLength(2)
+  expect(log.at(-1)).toBe("done:false:100/5")
 })

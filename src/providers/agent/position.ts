@@ -1,3 +1,5 @@
+import { formatDiffLine } from "./hunks"
+
 export interface ExcerptLine {
   kind: "added" | "removed" | "context"
   text: string
@@ -18,12 +20,8 @@ export interface Position {
   selection?: { start: number; end: number }
 }
 
-const number = (n?: number) => (n === undefined ? "" : String(n)).padStart(5)
-
-function formatLine(line: ExcerptLine, atCursor: boolean): string {
-  const sign = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "
-  return `${atCursor ? ">" : " "}${number(line.oldLine)} ${number(line.newLine)} ${sign}${line.text}`
-}
+const formatLine = (line: ExcerptLine, atCursor: boolean) =>
+  `${atCursor ? ">" : " "}${formatDiffLine(line)}`
 
 export function formatForAgent(position: Position): string {
   const where = position.side ? `${position.label} (${position.side} side)` : position.label
