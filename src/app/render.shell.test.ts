@@ -45,7 +45,7 @@ test("two passes leave every piece of the layout the same instance", async () =>
   const first = {
     root: renderer.root.getChildren(),
     view: viewSlotChild(app.ctx.shell.root),
-    header: app.ctx.header.host.parent,
+    header: app.islands.header.host.parent,
     status: app.ctx.statusBar.host.parent,
     tree: app.fileTreePanel.host.parent,
   }
@@ -55,10 +55,10 @@ test("two passes leave every piece of the layout the same instance", async () =>
   expect(renderer.root.getChildren()[0]).toBe(app.ctx.shell.root)
   expect(viewSlotChild(app.ctx.shell.root)).toBe(first.view!)
   expect(first.view).toBe(app.ctx.unified.island.host)
-  expect(app.ctx.header.host.parent).toBe(first.header!)
+  expect(app.islands.header.host.parent).toBe(first.header!)
   expect(app.ctx.statusBar.host.parent).toBe(first.status!)
   expect(app.fileTreePanel.host.parent).toBe(first.tree!)
-  expect(app.ctx.header.host.isDestroyed).toBe(false)
+  expect(app.islands.header.host.isDestroyed).toBe(false)
 })
 
 test("the view slot swaps between the diff and the feed, and the tree hides for the error and the empty diff", async () => {

@@ -1,0 +1,97 @@
+import { describe, expect, test } from "bun:test"
+import { createInitialState, openCommentsPicker, openCommitPicker, openFilePicker, type AppState } from "../state"
+import { createCursorState } from "../vim-diff/cursor-state"
+import { createSearchState, type SearchState } from "../vim-diff/search-state"
+import { createFlashState, type FlashState } from "../vim-diff/flash-state"
+import { DiffLineMapping } from "../vim-diff/line-mapping"
+import { X, Y } from "../testing/marks"
+import { FRAME_ISLANDS, frameModels } from "./frame-models"
+import { overlayModels } from "./overlay-models"
+import type { Frame } from "./frame"
+
+const NOW = Date.parse("2026-10-17T12:00:00Z")
+
+function state(patch: Partial<AppState> = {}): AppState {
+  return {
+    ...createInitialState([X, Y], [], "local", "local changes"),
+    commits: [{ sha: "a1b2c3d", message: "Add greeting", author: "octocat", date: new Date(NOW - 5 * 60_000).toISOString() }],
+    ...patch,
+  }
+}
+
+function frame(
+  appState: AppState,
+  { search = {}, flash = {}, now = NOW }: { search?: Partial<SearchState>; flash?: Partial<FlashState>; now?: number } = {}
+): Frame {
+  return {
+    state: appState,
+    vimState: createCursorState(),
+    mapping: new DiffLineMapping([], "all"),
+    searchState: { ...createSearchState(), ...search },
+    flashState: { ...createFlashState(), ...flash },
+    cachedCurrentUser: null,
+    width: 120,
+    height: 40,
+    now,
+  }
+}
+
+const shown = (models: Record<string, unknown>) =>
+  Object.entries(models)
+    .filter(([, model]) => model !== null)
+    .map(([id]) => id)
+
+describe("frameModels", () => {
+  test("keys its models in the order the islands update in", () => {
+    const keys = Object.keys(frameModels(frame(state())))
+    expect(keys).toEqual([...FRAME_ISLANDS])
+    expect(keys).toEqual([
+      "searchPrompt",
+      "flashPrompt",
+      ...Object.keys(overlayModels(frame(state()))),
+      "filePicker",
+      "commentsPicker",
+      "marksPicker",
+      "occurrencePicker",
+      "commitPicker",
+      "actionMenu",
+      "header",
+    ])
+  })
+
+  test("shows only the header while nothing else is open", () => {
+    const models = frameModels(frame(state()))
+    expect(shown(models)).toEqual(["header"])
+    expect(models.header.left.length).toBeGreaterThan(0)
+  })
+
+  test("shows the search line while typing or while a confirmed pattern stays, in the diff only", () => {
+    expect(frameModels(frame(state(), { search: { active: true } })).searchPrompt).toMatchObject({ typing: true })
+    expect(frameModels(frame(state(), { search: { pattern: "greet" } })).searchPrompt).toMatchObject({
+      typing: false,
+      pattern: "greet",
+    })
+    for (const viewMode of ["feed", "state"] as const) {
+      expect(frameModels(frame(state({ viewMode }), { search: { active: true, pattern: "greet" } })).searchPrompt).toBeNull()
+    }
+  })
+
+  test("shows the flash line while flash is active, in the diff only", () => {
+    expect(frameModels(frame(state(), { flash: { active: true } })).flashPrompt).toMatchObject({ hint: "type to jump" })
+    expect(frameModels(frame(state({ viewMode: "feed" }), { flash: { active: true } })).flashPrompt).toBeNull()
+  })
+
+  test("shows each picker and the palette exactly while it is open", () => {
+    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["filePicker", "header"])
+    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["commentsPicker", "header"])
+    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["commitPicker", "header"])
+    const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
+    expect(shown(frameModels(frame(palette)))).toEqual(["actionMenu", "header"])
+  })
+
+  test("dates the commit picker's commits against the frame's clock", () => {
+    const at = (now: number) => frameModels(frame(openCommitPicker(state()), { now })).commitPicker!.rows[1]
+    expect(at(NOW)).toMatchObject({ sha: "a1b2c3d", time: "5m ago" })
+    expect(at(NOW + 60 * 60_000)).toMatchObject({ time: "1h ago" })
+  })
+})

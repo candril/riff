@@ -21,16 +21,11 @@ import {
   visibleFeedRows,
 } from "../state"
 import { requestMentionSearch } from "../features/mentions"
-import { mergeReading } from "../utils/merge-verdict"
-import { version } from "../version"
-import { headerModel } from "../components/header-model"
-import type { HeaderIsland } from "./header"
 import type { ThreadPanelIsland } from "./thread-panel"
 import type { ChatColumnIsland } from "./chat-column"
 import type { ChatState } from "../features/chat/state"
 import { chatColumnWidth } from "../features/chat/width"
-import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
-import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
+import type { SearchPromptIsland } from "./prompt-line"
 import { feedModel } from "../components/feed-model"
 import type { FeedIsland } from "./feed"
 import type {
@@ -41,14 +36,13 @@ import type {
   MarksPickerIsland,
   OccurrencePickerIsland,
 } from "./pickers"
-import { pickerModels } from "./picker-models"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import type { StatusBarIsland } from "./status-bar"
 import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getInlineCommentOverlayHiddenThreadCount, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
+import { getInlineCommentOverlayComments, getInlineCommentOverlayHiddenThreadCount, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { selectionStatus } from "./selection-status"
@@ -56,8 +50,6 @@ import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
 import { flashLabelsOn, type FlashState } from "../vim-diff/flash-state"
-import { paletteMode } from "../features/action-menu"
-import { actionMenuModel } from "../components/action-menu-model"
 import { diffColumnStatus, splitOn as isSplitOn } from "./column-status"
 import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
 import { openPrompt } from "./open-prompt"
@@ -80,13 +72,11 @@ export interface RenderContext {
   renderer: CliRenderer
   shell: AppShell
   statusBar: StatusBarIsland
-  header: HeaderIsland
   threadPanel: ThreadPanelIsland
   chatColumn: ChatColumnIsland
   /** The one conversation with riff's agent, which outlives the column's opening and closing. */
   chat: ChatState
   searchPrompt: SearchPromptIsland
-  flashPrompt: FlashPromptIsland
   feed: FeedIsland
   filePicker: FilePickerIsland
   commentsPicker: CommentsPickerIsland
@@ -141,9 +131,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       height: ctx.renderer.height,
       now: Date.now(),
     }
-
-    const selectedFile = getSelectedFile(state)
-    const visibleComments = getVisibleComments(state)
 
     // Update file tree panel state
     ctx.updateFileTreePanel()
@@ -353,53 +340,12 @@ export function createRenderFunction(ctx: RenderContext): () => void {
         : null
     )
 
-    ctx.header.update({
-      ...headerModel({
-        title: "riff",
-        selectedFile,
-        totalFiles: state.files.length,
-        prInfo: state.prInfo,
-        reviewProgress: getReviewProgress(state),
-        branchInfo: state.branchInfo,
-        viewingCommit: state.viewingCommit,
-        viewingCommitScope: state.viewingCommitScope,
-        branchPr: state.branchPr,
-        commits: state.commits,
-        lastRefreshedAt: state.lastRefreshedAt,
-        merge: state.prInfo
-          ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments)
-          : null,
-      }),
-      version,
-    })
-
-    const searchShown = (searchState.active || !!searchState.pattern) && state.viewMode === "diff"
-    ctx.searchPrompt.update(searchShown ? searchPromptModel(searchState) : null)
-    const flashShown = flashState.active && state.viewMode === "diff"
-    ctx.flashPrompt.update(flashShown ? flashPromptModel(flashState) : null)
-    // After routePrompt and the chat, which focus their own inputs: the
-    // review preview focuses its summary as it opens.
+    // After routePrompt and the chat, which focus their own inputs: the review
+    // preview focuses its summary as it opens, before this call returns.
     ctx.publishFrame(frame)
-    const pickers = pickerModels(state, ctx.renderer.width, ctx.renderer.height, new Date())
-    ctx.filePicker.update(pickers.file)
-    ctx.commentsPicker.update(pickers.comments)
-    ctx.marksPicker.update(pickers.marks)
-    ctx.occurrencePicker.update(pickers.occurrence)
-    ctx.commitPicker.update(pickers.commit)
-    ctx.actionMenu.update(
-      state.actionMenu.open ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex, ctx.renderer.height) : null
-    )
 
     // The tree has nothing to list without files, whatever the view.
     ctx.shell.setView(view, { withTree: withTree && state.files.length > 0 })
-    ctx.shell.show("searchPrompt", searchShown)
-    ctx.shell.showFlash(flashShown)
-    ctx.shell.show("actionMenu", state.actionMenu.open)
-    ctx.shell.show("filePicker", state.filePicker.open)
-    ctx.shell.show("commentsPicker", state.commentsPicker.open)
-    ctx.shell.show("marksPicker", state.marksPicker.open)
-    ctx.shell.show("occurrencePicker", state.occurrencePicker.open)
-    ctx.shell.show("commitPicker", state.commitPicker.open)
 
     // Keep the PR-level comment input overlay (a modal *inside* the PR
     // panel) in sync whenever the panel exists — it renders itself only

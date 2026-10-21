@@ -46,8 +46,8 @@ export interface AppShell {
   /** The column at the renderer's root that everything else is mounted in. */
   root: BoxRenderable
   setView(node: Renderable, options: { withTree: boolean }): void
-  show(id: OverlayId | "searchPrompt", shown: boolean): void
-  showFlash(shown: boolean): void
+  /** Flash takes the status bar's row, so showing it hides the status bar. */
+  show(id: OverlayId | "searchPrompt" | "flashPrompt", shown: boolean): void
 }
 
 export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShell {
@@ -119,11 +119,8 @@ export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShe
       view = node
     },
     show(id, shown) {
-      ;(id === "searchPrompt" ? parts.searchPrompt : parts.overlays[id]).visible = shown
-    },
-    showFlash(shown) {
-      parts.flashPrompt.visible = shown
-      parts.statusBar.visible = !shown
+      if (id === "flashPrompt") parts.statusBar.visible = !shown
+      ;(id === "searchPrompt" || id === "flashPrompt" ? parts[id] : parts.overlays[id]).visible = shown
     },
   }
 }

@@ -18,7 +18,6 @@ export function overlayModels({ state, vimState, mapping, cachedCurrentUser, wid
   return {
     toast: state.toast.message ? toastModel(state.toast.message, state.toast.type) : null,
     confirmDialog: state.confirmDialog ? confirmDialogModel(state.confirmDialog) : null,
-    helpOverlay: state.showHelp ? helpOverlayModel(version, state.helpScroll, height) : null,
     reviewPreview: state.reviewPreview.open
       ? reviewPreviewModel(
           commentsFeature.validateCommentsForSubmit(reviewCandidates(state.comments), state.files),
@@ -27,6 +26,7 @@ export function overlayModels({ state, vimState, mapping, cachedCurrentUser, wid
         )
       : null,
     syncPreview: state.syncPreview.open ? syncPreviewModel(gatherSyncItems(state.comments), state.syncPreview) : null,
+    helpOverlay: state.showHelp ? helpOverlayModel(version, state.helpScroll, height) : null,
     diffPeek:
       state.showLinePeek && state.viewMode === "diff"
         ? diffPeekModel(mapping, vimState.line, state.peekSide, state.peekScroll, width, height)

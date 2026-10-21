@@ -44,7 +44,7 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
       setCachedCurrentUser() {},
       mode: "local",
     },
-    readReviewSummary: mounted.overlays.reviewPreview.summaryValue,
+    readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,
     chat: { state: render.chat, input: render.chatColumn.input },
     getLineMapping: render.getLineMapping,

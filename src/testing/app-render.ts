@@ -15,21 +15,11 @@ import { createSearchState } from "../vim-diff/search-state"
 import { buildLineMapping } from "../app/init"
 import { createRenderFunction, type RenderContext } from "../app/render"
 import { createStatusBarIsland } from "../app/status-bar"
-import { createHeaderIsland } from "../app/header"
 import { createFeedIsland } from "../app/feed"
-import { createFrameOverlays, followFrame } from "../app/overlays"
+import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
 import { createFrame } from "../app/frame"
-import { createFlashPromptIsland, createSearchPromptIsland } from "../app/prompt-line"
-import {
-  createActionMenuIsland,
-  createCommentsPickerIsland,
-  createCommitPickerIsland,
-  createFilePickerIsland,
-  createMarksPickerIsland,
-  createOccurrencePickerIsland,
-} from "../app/pickers"
 import { createTreeHighlightSync } from "../app/tree-highlight"
-import { createAppShell, OVERLAYS, type ShellParts } from "../app/shell"
+import { createAppShell } from "../app/shell"
 import { createDiffHighlights } from "../app/diff-highlights"
 import { createSplitDiff } from "../app/split-diff"
 import { createUnifiedDiff } from "../app/unified-diff"
@@ -68,26 +58,14 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const split = createSplitDiff({ ...diffDeps, onShownChanged: () => render() })
   const unified = createUnifiedDiff(diffDeps)
 
-  const frameOverlays = createFrameOverlays(renderer, {
+  const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
       if (state.reviewPreview.open) state = { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
       render()
     },
   })
-  const pickers = {
-    actionMenu: createActionMenuIsland(renderer),
-    filePicker: createFilePickerIsland(renderer),
-    commentsPicker: createCommentsPickerIsland(renderer),
-    marksPicker: createMarksPickerIsland(renderer),
-    occurrencePicker: createOccurrencePickerIsland(renderer),
-    commitPicker: createCommitPickerIsland(renderer),
-  }
-  const overlays = { ...frameOverlays, ...pickers }
   const chrome = {
     statusBar: createStatusBarIsland(renderer),
-    header: createHeaderIsland(renderer),
-    searchPrompt: createSearchPromptIsland(renderer),
-    flashPrompt: createFlashPromptIsland(renderer),
     threadPanel: createThreadPanelIsland(renderer),
     chatColumn: createChatColumnIsland(renderer),
   }
@@ -104,20 +82,15 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     }),
     reviewReferences(() => state),
   )
-  const overlayHosts = {} as ShellParts["overlays"]
-  for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host
   const shell = createAppShell(renderer, {
-    header: chrome.header.host,
+    ...frameIslandHosts(islands),
     tree: fileTreePanel.host,
     threadPanel: chrome.threadPanel.host,
     chat: chrome.chatColumn.host,
-    searchPrompt: chrome.searchPrompt.host,
     statusBar: chrome.statusBar.host,
-    flashPrompt: chrome.flashPrompt.host,
-    overlays: overlayHosts,
   })
   const frame = createFrame()
-  followFrame(frame.frame, frameOverlays, shell)
+  followFrame(frame.frame, islands, shell)
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
@@ -133,7 +106,13 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     shell,
     ...chrome,
     chat,
-    ...pickers,
+    searchPrompt: islands.searchPrompt,
+    filePicker: islands.filePicker,
+    commentsPicker: islands.commentsPicker,
+    marksPicker: islands.marksPicker,
+    occurrencePicker: islands.occurrencePicker,
+    commitPicker: islands.commitPicker,
+    actionMenu: islands.actionMenu,
     feed: createFeedIsland(renderer),
     split,
     unified,
@@ -164,8 +143,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   return {
     setup,
     ctx,
-    /** The overlays that follow the frame rather than the render context. */
-    overlays: frameOverlays,
+    /** The islands that follow the frame rather than the render context. */
+    islands,
     fileTreePanel,
     render,
     agent,

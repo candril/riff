@@ -57,7 +57,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
       setCachedCurrentUser() {},
       mode: "local",
     },
-    readReviewSummary: mounted.overlays.reviewPreview.summaryValue,
+    readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     prOperationsContext,
   }
   const ctx = new Proxy(known, {
@@ -90,5 +90,5 @@ test("what is typed into the summary is the body Enter confirms, and the opening
 
   expect(app.ctx.getState().reviewPreview.body).toBe("Ship it")
   expect(confirms).toEqual(["Ship it"])
-  expect(app.overlays.reviewPreview.summaryValue()).toBe("Ship it")
+  expect(app.islands.reviewPreview.summaryValue()).toBe("Ship it")
 })

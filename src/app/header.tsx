@@ -4,8 +4,8 @@ import { Header, type HeaderViewProps } from "../components/Header"
 import { mountSolid } from "./solid-island"
 
 /**
- * The header as a long-lived island: render.ts hands it a fresh model on
- * every pass, and `reconcile` turns that into updates of only what changed.
+ * The header as a long-lived island: it draws a fresh model from
+ * every frame, and `reconcile` turns that into updates of only what changed.
  */
 export function createHeaderIsland(renderer: CliRenderer) {
   const [props, setProps] = createStore<HeaderViewProps>({ left: [], leftGap: 0, right: [] })

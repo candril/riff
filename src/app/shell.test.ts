@@ -267,9 +267,9 @@ test("flash and the status bar share one row, exactly one of them shown", async 
   const shell = bareShell(setup.renderer)
   const host = (id: string) => shell.root.getChildren().find((child) => child.id === id)!
   expect([host("statusBar").visible, host("flashPrompt").visible]).toEqual([true, false])
-  shell.showFlash(true)
+  shell.show("flashPrompt", true)
   expect([host("statusBar").visible, host("flashPrompt").visible]).toEqual([false, true])
-  shell.showFlash(false)
+  shell.show("flashPrompt", false)
   expect([host("statusBar").visible, host("flashPrompt").visible]).toEqual([true, false])
 })
 

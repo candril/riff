@@ -67,23 +67,13 @@ import { createRenderFunction } from "./app/render"
 import { createAppShell } from "./app/shell"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
-import { createHeaderIsland } from "./app/header"
 import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
 import { createFeedIsland } from "./app/feed"
-import { createFrameOverlays, followFrame } from "./app/overlays"
+import { createFrameIslands, followFrame, frameIslandHosts } from "./app/overlays"
 import { createFrame } from "./app/frame"
-import { createFlashPromptIsland, createSearchPromptIsland } from "./app/prompt-line"
-import {
-  createActionMenuIsland,
-  createCommentsPickerIsland,
-  createCommitPickerIsland,
-  createFilePickerIsland,
-  createMarksPickerIsland,
-  createOccurrencePickerIsland,
-} from "./app/pickers"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
 import { createUnifiedDiff } from "./app/unified-diff"
@@ -315,18 +305,9 @@ export async function createApp(options: AppOptions = {}) {
     chat.dispose()
     chatColumn.dispose()
     statusBar.dispose()
-    header.dispose()
-    searchPrompt.dispose()
-    flashPrompt.dispose()
     stopFollowing()
-    for (const overlay of Object.values(overlays)) overlay.dispose()
+    for (const island of Object.values(islands)) island.dispose()
     feedIsland.dispose()
-    filePickerIsland.dispose()
-    commentsPickerIsland.dispose()
-    marksPickerIsland.dispose()
-    occurrencePickerIsland.dispose()
-    commitPickerIsland.dispose()
-    actionMenuIsland.dispose()
     split.dispose()
     unified.dispose()
     highlights.dispose()
@@ -469,7 +450,6 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   const statusBar = createStatusBarIsland(renderer)
-  const header = createHeaderIsland(renderer)
   const threadPanel = createThreadPanelIsland(renderer)
   const chatColumn = createChatColumnIsland(renderer)
   const chat = createReviewChat({
@@ -512,9 +492,7 @@ export async function createApp(options: AppOptions = {}) {
       return split.splitRows()
     },
   }
-  const searchPrompt = createSearchPromptIsland(renderer)
-  const flashPrompt = createFlashPromptIsland(renderer)
-  const overlays = createFrameOverlays(renderer, {
+  const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
       state =
         state.reviewPreview.open && state.reviewPreview.body !== value
@@ -525,12 +503,6 @@ export async function createApp(options: AppOptions = {}) {
     },
   })
   const feedIsland = createFeedIsland(renderer)
-  const filePickerIsland = createFilePickerIsland(renderer)
-  const commentsPickerIsland = createCommentsPickerIsland(renderer)
-  const marksPickerIsland = createMarksPickerIsland(renderer)
-  const occurrencePickerIsland = createOccurrencePickerIsland(renderer)
-  const commitPickerIsland = createCommitPickerIsland(renderer)
-  const actionMenuIsland = createActionMenuIsland(renderer)
   const highlights = createDiffHighlights(parses, () => render())
   const split = createSplitDiff({
     renderer,
@@ -581,32 +553,14 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   const shell = createAppShell(renderer, {
-    header: header.host,
+    ...frameIslandHosts(islands),
     tree: fileTreePanel.host,
     threadPanel: threadPanel.host,
     chat: chatColumn.host,
-    searchPrompt: searchPrompt.host,
     statusBar: statusBar.host,
-    flashPrompt: flashPrompt.host,
-    overlays: {
-      actionMenu: actionMenuIsland.host,
-      toast: overlays.toast.host,
-      reviewPreview: overlays.reviewPreview.host,
-      syncPreview: overlays.syncPreview.host,
-      filePicker: filePickerIsland.host,
-      commentsPicker: commentsPickerIsland.host,
-      marksPicker: marksPickerIsland.host,
-      occurrencePicker: occurrencePickerIsland.host,
-      commitPicker: commitPickerIsland.host,
-      helpOverlay: overlays.helpOverlay.host,
-      diffPeek: overlays.diffPeek.host,
-      blamePeek: overlays.blamePeek.host,
-      hunkPeek: overlays.hunkPeek.host,
-      confirmDialog: overlays.confirmDialog.host,
-    },
   })
   const frame = createFrame()
-  const stopFollowing = followFrame(frame.frame, overlays, shell)
+  const stopFollowing = followFrame(frame.frame, islands, shell)
 
   const renderFrame = createRenderFunction({
     getState: () => state,
@@ -620,19 +574,17 @@ export async function createApp(options: AppOptions = {}) {
     renderer,
     shell,
     statusBar,
-    header,
     threadPanel,
     chatColumn,
     chat,
-    searchPrompt,
-    flashPrompt,
+    searchPrompt: islands.searchPrompt,
     feed: feedIsland,
-    filePicker: filePickerIsland,
-    commentsPicker: commentsPickerIsland,
-    marksPicker: marksPickerIsland,
-    occurrencePicker: occurrencePickerIsland,
-    commitPicker: commitPickerIsland,
-    actionMenu: actionMenuIsland,
+    filePicker: islands.filePicker,
+    commentsPicker: islands.commentsPicker,
+    marksPicker: islands.marksPicker,
+    occurrencePicker: islands.occurrencePicker,
+    commitPicker: islands.commitPicker,
+    actionMenu: islands.actionMenu,
     split,
     unified,
     parses,
@@ -1775,7 +1727,7 @@ export async function createApp(options: AppOptions = {}) {
     refreshContext: { handleRefresh: () => refresh.handleRefresh(refreshContext) },
     feedLoadContext,
     reviewPreviewOpenContext,
-    readReviewSummary: overlays.reviewPreview.summaryValue,
+    readReviewSummary: islands.reviewPreview.summaryValue,
     composer: threadPanel.composer,
     syncPreviewOpenContext,
     prInfoPanelOpenContext,
