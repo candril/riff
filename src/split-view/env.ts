@@ -1,4 +1,3 @@
-import type { BlameColumns } from "../components/blame-column-model"
 import type { LineSpans } from "../diff-rows/line-spans"
 import type { RowLineSource } from "../diff-rows/row-source"
 import type { Side } from "../diff-rows/rows"
@@ -10,6 +9,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { FlashMatch } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { WordSpan } from "../vim-diff/word-diff"
+import type { BlameColumns } from "./blame-cells"
 import type { RowSpan } from "./held-rows"
 import type { SearchHit, SplitSearch, SplitSelection } from "./overlays"
 

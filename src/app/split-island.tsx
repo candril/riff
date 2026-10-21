@@ -1,7 +1,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { Show, batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { blameWidthIn, type BlameColumns } from "../components/blame-column-model"
+import { blameWidthIn, type BlameColumns } from "../split-view/blame-cells"
 import { cellOfColumn, wholeColumns } from "../diff-rows/cells"
 import { rowOfLine } from "../diff-rows/row-source"
 import { lineOf, type Side } from "../diff-rows/rows"

@@ -1,7 +1,7 @@
 import { For, createMemo } from "solid-js"
-import { blameWidthIn, splitBlameCells, type BlameColumns } from "../components/blame-column-model"
 import { commentSigns } from "../diff-rows/signs"
 import { markSigns } from "../features/marks/signs"
+import { blameWidthIn, splitBlameCells, type BlameColumns } from "./blame-cells"
 import type { SplitDiffViewProps, SplitEnv } from "./env"
 import { FullRow } from "./FullRow"
 import { mountedRows } from "./held-rows"

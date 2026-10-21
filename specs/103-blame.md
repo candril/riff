@@ -139,3 +139,5 @@ blame loads, `…` stands at the top of its lines.
   file and no network.
 - `src/components/blame-column-model.ts`: what the column draws beside
   each line, and which side a line blames in each view.
+- `src/split-view/blame-cells.ts`: the column's cells for the unified view
+  and each split pane, and the width a line's column takes.
