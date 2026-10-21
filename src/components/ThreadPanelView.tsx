@@ -31,7 +31,7 @@ export function ThreadPanelView(props: {
         when={!props.model.empty}
         fallback={
           <box flexDirection="column" paddingX={2} paddingY={1}>
-            <text fg={theme.overlay0}>No comments in this file yet.</text>
+            <text fg={theme.overlay0}>{props.model.emptyText}</text>
           </box>
         }
       >
@@ -79,6 +79,23 @@ function PanelHeader(props: { header: ThreadPanelHeader; field: InputRenderable 
       <text visible={!props.header.filterInput} fg={props.header.labelFg}>
         {label()}
       </text>
+      {/*
+       * Grows into the gap so the count stays right-aligned. The outsized
+       * shrink makes it give up its columns before the label or the count
+       * lose any, which then share what is left as they did without it.
+       */}
+      <box
+        visible={!props.header.filterInput && props.header.note !== null}
+        flexGrow={1}
+        flexShrink={1000}
+        minWidth={0}
+        paddingRight={1}
+        overflow="hidden"
+      >
+        <text fg={props.header.noteFg} wrapMode="none">
+          {props.header.note ? `  ${props.header.note}` : ""}
+        </text>
+      </box>
       <Show when={props.header.right}>{(right: () => string) => <text fg={props.header.rightFg}>{right()}</text>}</Show>
     </box>
   )

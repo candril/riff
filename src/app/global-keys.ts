@@ -101,6 +101,8 @@ export interface GlobalKeyContext {
   handleYank: (options: { raw: boolean }) => void
   handleCopyCommentLink: (comment?: Comment | null) => Promise<void>
   executeAction: (id: string) => void
+  /** `H` in the thread panel: open threads only, saved with the review. */
+  toggleOpenThreadsOnly: () => void
   /** Toggle a reaction on a target — fired when the user presses Enter
    *  on a React… submenu row (spec 042). */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
@@ -837,6 +839,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
         handleToggleResolved: (thread) =>
           prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
+        handleToggleOpenOnly: ctx.toggleOpenThreadsOnly,
         handleJumpAdjacent: (direction) =>
           threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
         onToggleHelp: () => {

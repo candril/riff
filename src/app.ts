@@ -29,6 +29,7 @@ import {
   highlightInlineComment,
   commitScopeKey,
   setFileDiff,
+  toggleThreadPanelOpenOnly,
 } from "./state"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
@@ -38,7 +39,7 @@ import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
 import { markVisit } from "./utils/visit"
 import { openUrl } from "./utils/open-url"
-import { saveVisitSync, saveMarks, loadMarks } from "./storage"
+import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage"
 import { followLoadedMarks } from "./features/marks/load"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
@@ -1155,8 +1156,15 @@ export async function createApp(options: AppOptions = {}) {
     getHead: markHead,
   }
 
+  const toggleOpenThreadsOnly = () => {
+    state = toggleThreadPanelOpenOnly(state)
+    void updatePanelFilters(state.source, { openThreadsOnly: state.threadPanelOpenOnly })
+    render()
+  }
+
   // ===== ACTION EXECUTION =====
   const actionHandlers: actionMenu.ActionHandlers = {
+    handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
@@ -1367,7 +1375,11 @@ export async function createApp(options: AppOptions = {}) {
         }
         // Marks belong to the review: the PR's own, or the next `m` would save over them.
         const followed = await followLoadedMarks(newSource, await loadMarks(newSource), state.allFiles, prSession.headSha || undefined)
-        state = { ...state, marks: { ...state.marks, marks: followed } }
+        state = {
+          ...state,
+          marks: { ...state.marks, marks: followed },
+          threadPanelOpenOnly: (await loadPanelFilters(newSource)).openThreadsOnly,
+        }
 
         // Reset vim state and rebuild line mapping
         vimState = createCursorState()
@@ -1711,6 +1723,7 @@ export async function createApp(options: AppOptions = {}) {
         wrapLines: state.wrapLines,
         splitView: state.splitView,
         alignMarkdownTables: state.alignMarkdownTables,
+        threadPanelOpenOnly: (await loadPanelFilters(source)).openThreadsOnly,
         viewMode: view,
         marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
@@ -1767,6 +1780,7 @@ export async function createApp(options: AppOptions = {}) {
     handleYank: (opts: { raw: boolean }) => yank.handleYank(yankContext, opts),
     handleCopyCommentLink: (comment) => permalink.handleCopyCommentLink(permalinkContext, comment),
     executeAction,
+    toggleOpenThreadsOnly,
     onToggleReaction: handleToggleReaction,
     onCommitSelected: handleCommitSelected,
     openBranchPr: (view) => { void openBranchPr(view) },

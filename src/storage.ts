@@ -17,6 +17,7 @@ const SESSION_FILE = "session.json"
 const VIEWED_FILE = "viewed.json"
 const VISIT_FILE = "visit.json"
 const MARKS_FILE = "marks.json"
+const PANELS_FILE = "panels.json"
 const MENTIONABLE_FILE = "mentionable-users.json"
 
 /**
@@ -900,6 +901,42 @@ function toMark(entry: unknown): Mark | null {
 export async function saveMarks(source: string, marks: readonly Mark[]): Promise<void> {
   await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
   await Bun.write(getMarksFilePath(source), JSON.stringify(marks, null, 2))
+}
+
+/** What the panels hide, per review: the reader narrows one review, not every review in the repo. */
+export interface PanelFilters {
+  openThreadsOnly: boolean
+  unviewedFilesOnly: boolean
+}
+
+function getPanelsFilePath(source: string): string {
+  return join(localStorageDir(), sourceToDir(source), PANELS_FILE)
+}
+
+/** Never throws: a missing or mangled file shows everything, which is never wrong, only wider. */
+export async function loadPanelFilters(source: string): Promise<PanelFilters> {
+  try {
+    const file = Bun.file(getPanelsFilePath(source))
+    if (!(await file.exists())) return { openThreadsOnly: false, unviewedFilesOnly: false }
+    const data: unknown = await file.json()
+    const fields = typeof data === "object" && data !== null ? data as Record<string, unknown> : {}
+    return {
+      openThreadsOnly: fields.openThreadsOnly === true,
+      unviewedFilesOnly: fields.unviewedFilesOnly === true,
+    }
+  } catch {
+    return { openThreadsOnly: false, unviewedFilesOnly: false }
+  }
+}
+
+export async function savePanelFilters(source: string, filters: PanelFilters): Promise<void> {
+  await mkdir(join(localStorageDir(), sourceToDir(source)), { recursive: true })
+  await Bun.write(getPanelsFilePath(source), JSON.stringify(filters, null, 2))
+}
+
+/** Writes one filter and keeps the rest as the file has them, so each panel owns only its own field. */
+export async function updatePanelFilters(source: string, patch: Partial<PanelFilters>): Promise<void> {
+  await savePanelFilters(source, { ...(await loadPanelFilters(source)), ...patch })
 }
 
 /**

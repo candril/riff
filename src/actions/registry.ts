@@ -578,6 +578,14 @@ export const actions: Action[] = [
     available: (state) => state.ignoredFiles.size > 0,
   },
   {
+    id: "toggle-open-threads-only",
+    label: "Show Only Open Threads",
+    description: "Hide resolved and outdated threads in the comments panel",
+    shortcut: "H (comments panel)",
+    category: "view",
+    available: (state) => state.comments.length > 0,
+  },
+  {
     id: "show-file-path",
     label: "Show File Path",
     description: "Display the current file path",

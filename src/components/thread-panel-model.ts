@@ -62,6 +62,8 @@ export interface ThreadPanelInput {
   /** The `/` filter over the panel's comments, and whether it is being typed. */
   filter: string
   filterInput: boolean
+  /** The open-only toggle and how many threads it keeps out; null while it is off. */
+  openOnly: { hidden: number } | null
   /** Flash labels by comment id, while `s` is labelling the panel (spec 066). */
   flashLabels: ReadonlyMap<string, string>
 }
@@ -72,6 +74,9 @@ export interface ThreadPanelHeader {
   filterText: string | null
   /** While `/` is open the header is the prompt, as it is in the tree. */
   filterInput: boolean
+  /** Says the open-only toggle is on; it is cut before the count is. */
+  note: string | null
+  noteFg: string
   /** The count, or what the composer is doing; null while the prompt is open. */
   right: string | null
   labelFg: string
@@ -128,6 +133,7 @@ export interface ThreadPanelModel {
   /** How many of the stack's rows each window thread takes, in order. */
   threadSizes: number[]
   empty: boolean
+  emptyText: string
   composer: { mode: "compose" | "edit"; label: string } | null
   picker: ThreadPanelPicker
   /** Null while composing: the composer's keys would not fit the panel's width. */
@@ -151,6 +157,8 @@ export function threadPanelModel(input: ThreadPanelInput & { now: number }): Thr
       label: input.scopeFilename ? basename(input.scopeFilename) : "all files",
       filterText: input.filter ? input.filter : null,
       filterInput: input.filterInput,
+      note: input.openOnly ? `open only · ${input.openOnly.hidden} hidden` : null,
+      noteFg: colors.secondary,
       right: input.filterInput
         ? null
         : isComposing
@@ -165,6 +173,10 @@ export function threadPanelModel(input: ThreadPanelInput & { now: number }): Thr
     threads,
     threadSizes: threads.map((thread) => 1 + thread.comments.length),
     empty: comments.length === 0,
+    // Hidden threads are still there; an empty panel that does not say so reads as a review without any.
+    emptyText: input.openOnly && input.openOnly.hidden > 0
+      ? "No open threads · H shows all"
+      : "No comments in this file yet.",
     composer: isComposing
       ? { mode: mode === "edit" ? "edit" : "compose", label: composerLabel(input, highlighted) }
       : null,

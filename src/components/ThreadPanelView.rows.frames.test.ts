@@ -68,6 +68,7 @@ async function mountPanel(props: Partial<ThreadPanelInput> = {}, width = WIDTH) 
         unseenIds: new Set(),
         filter: "",
         filterInput: false,
+        openOnly: null,
         flashLabels: new Map(),
         ...props,
       })

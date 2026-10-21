@@ -42,6 +42,7 @@ export interface RefreshPosition {
   filePanelExpanded: boolean
   treeFilter: string
   showHiddenFiles: boolean
+  threadPanelOpenOnly: boolean
   wrapLines: boolean
   alignMarkdownTables: boolean
   collapsedFiles: Set<string>
@@ -77,6 +78,7 @@ export function capturePosition(
     filePanelExpanded: state.filePanelExpanded,
     treeFilter: state.treeFilter,
     showHiddenFiles: state.showHiddenFiles,
+    threadPanelOpenOnly: state.threadPanelOpenOnly,
     wrapLines: state.wrapLines,
     alignMarkdownTables: state.alignMarkdownTables,
     collapsedFiles: new Set(state.collapsedFiles),
@@ -115,6 +117,7 @@ export function restorePosition(state: AppState, position: RefreshPosition): App
     filePanelExpanded: position.filePanelExpanded,
     treeFilter: position.treeFilter,
     showHiddenFiles: position.showHiddenFiles,
+    threadPanelOpenOnly: position.threadPanelOpenOnly,
     wrapLines: position.wrapLines,
     alignMarkdownTables: position.alignMarkdownTables,
     collapsedFiles: new Set(position.collapsedFiles),

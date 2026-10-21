@@ -553,6 +553,9 @@ export interface AppState {
   // Ignore patterns state
   ignoredFiles: Set<string>          // Filenames matching ignore patterns
   showHiddenFiles: boolean           // Toggle to show/hide ignored files in tree
+  /** The thread panel shows only threads that are neither resolved nor
+   *  outdated. Top level so it outlives the panel closing (spec 039). */
+  threadPanelOpenOnly: boolean
   ignoreMatcher: IgnoreMatcher | null  // The matcher instance (null = no patterns)
   
   // Commit picker state
@@ -783,6 +786,7 @@ export function createInitialState(
     },
     ignoredFiles,
     showHiddenFiles: false,
+    threadPanelOpenOnly: false,
     ignoreMatcher,
     commitPicker: {
       open: false,
@@ -1379,11 +1383,14 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
     newCollapsed.delete(rootCommentId)
   }
 
-  return {
+  // With open-only on, resolving the highlighted thread takes it out of
+  // the panel; the highlight stays at its index rather than pointing past
+  // the end.
+  return clampInlineCommentOverlayHighlight({
     ...state,
     comments: newComments,
     collapsedThreadIds: newCollapsed,
-  }
+  })
 }
 
 /**
@@ -2771,9 +2778,31 @@ export function getCommentsPanelScopeFilename(state: AppState): string | null {
  * all-files view → every comment. Compose / edit modes share this list
  * — the composer is anchored at (filename, line, side) but the
  * surrounding panel still shows the file's whole conversation.
+ *
+ * `H` narrows this list, and only this list, to open threads: every panel
+ * motion, the window and flash read it, so none of them can disagree about
+ * what is shown.
  */
 export function getInlineCommentOverlayComments(state: AppState): Comment[] {
-  if (!state.inlineCommentOverlay.open) return []
+  const { shown } = inlineCommentOverlayPool(state)
+  return [...shown].sort((a, b) => {
+    if (a.filename !== b.filename) return a.filename.localeCompare(b.filename)
+    if (a.line !== b.line) return a.line - b.line
+    return a.createdAt.localeCompare(b.createdAt)
+  })
+}
+
+/**
+ * How many threads the open-only toggle keeps out of the panel: counted
+ * after scope and `/`, so the header never claims to hide what `/` already
+ * dropped.
+ */
+export function getInlineCommentOverlayHiddenThreadCount(state: AppState): number {
+  return inlineCommentOverlayPool(state).hiddenThreads
+}
+
+function inlineCommentOverlayPool(state: AppState): { shown: Comment[]; hiddenThreads: number } {
+  if (!state.inlineCommentOverlay.open) return { shown: [], hiddenThreads: 0 }
   const scope = getCommentsPanelScopeFilename(state)
   const scoped = scope === null
     ? state.comments
@@ -2789,14 +2818,14 @@ export function getInlineCommentOverlayComments(state: AppState): Comment[] {
   const matchedThreads = needle
     ? new Set(groupIntoThreads(scoped).filter((t) => t.comments.some(hit)).map((t) => t.id))
     : null
-  const pool = matchedThreads
+  const filtered = matchedThreads
     ? scoped.filter((c) => matchedThreads.has(c.inReplyTo ?? c.id))
     : scoped
-  return [...pool].sort((a, b) => {
-    if (a.filename !== b.filename) return a.filename.localeCompare(b.filename)
-    if (a.line !== b.line) return a.line - b.line
-    return a.createdAt.localeCompare(b.createdAt)
-  })
+  if (!state.threadPanelOpenOnly) return { shown: filtered, hiddenThreads: 0 }
+  const closed = groupIntoThreads(filtered).filter((t) => t.resolved || t.outdated)
+  if (closed.length === 0) return { shown: filtered, hiddenThreads: 0 }
+  const closedIds = new Set(closed.flatMap((t) => t.comments.map((c) => c.id)))
+  return { shown: filtered.filter((c) => !closedIds.has(c.id)), hiddenThreads: closed.length }
 }
 
 /**
@@ -3172,6 +3201,44 @@ export function moveMentionPickerSelection(
       mentionPicker: { ...ov.mentionPicker, selectedIndex: next },
     },
   }
+}
+
+/**
+ * Show only open threads in the panel, or everything again. The highlight
+ * follows the comment it was on when that comment is still shown, so the
+ * toggle never moves the reader off what they were reading.
+ */
+export function toggleThreadPanelOpenOnly(state: AppState): AppState {
+  const ov = state.inlineCommentOverlay
+  const before = getInlineCommentOverlayDisplayOrder(state)[ov.highlightedIndex]
+  const next: AppState = { ...state, threadPanelOpenOnly: !state.threadPanelOpenOnly }
+  if (!ov.open) return next
+  const order = getInlineCommentOverlayDisplayOrder(next)
+  const kept = before ? order.findIndex((c) => c.id === before.id) : -1
+  const highlightedIndex = kept >= 0
+    ? kept
+    : Math.max(0, Math.min(order.length - 1, ov.highlightedIndex))
+  const shown = getInlineCommentOverlayComments(next)
+  const codePeekId = ov.codePeekId !== null && shown.some((c) => c.id === ov.codePeekId)
+    ? ov.codePeekId
+    : null
+  const highlighted = order[highlightedIndex]
+  const reactionTarget: ReactionTarget | null = highlighted?.githubId
+    ? { kind: "review-comment", githubId: highlighted.githubId }
+    : null
+  return {
+    ...next,
+    inlineCommentOverlay: { ...ov, highlightedIndex, codePeekId },
+    reactionTarget,
+  }
+}
+
+function clampInlineCommentOverlayHighlight(state: AppState): AppState {
+  const ov = state.inlineCommentOverlay
+  if (!ov.open) return state
+  const last = Math.max(0, getInlineCommentOverlayDisplayOrder(state).length - 1)
+  if (ov.highlightedIndex <= last) return state
+  return { ...state, inlineCommentOverlay: { ...ov, highlightedIndex: last } }
 }
 
 /**

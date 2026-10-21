@@ -22,7 +22,7 @@ import {
   type AppState,
 } from "../state"
 import { followLoadedMarks } from "../features/marks/load"
-import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit, loadMarks } from "../storage"
+import { loadOrCreateSession, loadComments, loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage"
 import { createMarksState } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
@@ -83,7 +83,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Nothing below depends on anything else below, and in local mode each
   // entry costs a process spawn — so ask for all of it at once.
-  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks] =
+  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks, panelFilters] =
     await Promise.all([
       isPreloadedPr || filesTarget ? null : loadLocalDiff(target),
       // A path is not a revision, so there is no branch and no commit range
@@ -94,6 +94,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       loadOrCreateSession(source),
       loadViewedStatuses(source),
       loadMarks(source),
+      loadPanelFilters(source),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
@@ -141,6 +142,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     branchInfo,
     wrapLines: config.diff.wrap,
     alignMarkdownTables: config.diff.alignMarkdownTables,
+    threadPanelOpenOnly: panelFilters.openThreadsOnly,
     marks: { ...createMarksState(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
   }
 

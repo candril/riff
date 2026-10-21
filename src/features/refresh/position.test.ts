@@ -126,6 +126,7 @@ describe("restoring the view", () => {
       expandedDividers: new Set(["b.ts:1"]),
       wrapLines: true,
       treeFilter: "b",
+      threadPanelOpenOnly: true,
       focusedPanel: "tree" as const,
     }
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
@@ -140,6 +141,7 @@ describe("restoring the view", () => {
     expect(after.expandedDividers).toEqual(new Set(["b.ts:1"]))
     expect(after.wrapLines).toBe(true)
     expect(after.treeFilter).toBe("b")
+    expect(after.threadPanelOpenOnly).toBe(true)
     expect(after.focusedPanel).toBe("tree")
     expect(after.viewMode).toBe("diff")
   })

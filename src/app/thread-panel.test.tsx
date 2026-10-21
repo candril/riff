@@ -72,6 +72,7 @@ function input(width: number, fields: Partial<ThreadPanelInput> = {}): ThreadPan
     unseenIds: new Set(),
     filter: "",
     filterInput: false,
+    openOnly: null,
     flashLabels: new Map(),
     ...fields,
   }

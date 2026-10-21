@@ -139,6 +139,7 @@ In the **comments panel** (focused — `Ctrl+t`, or `Enter` on a thread):
 | `e` `E` | Edit inline, edit in `$EDITOR` |
 | `d` | Delete the highlighted comment |
 | `x` | Toggle the thread resolved |
+| `H` | Show only open threads — hide resolved and outdated ones — or all again; kept per review |
 | `S` | Post this one comment now |
 | `y` | Copy a link to it |
 | `o` | Open its file at its line in `$EDITOR` |

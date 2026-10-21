@@ -66,6 +66,7 @@ export interface ActionHandlers {
   /** Resolves false when the cursor isn't on a collapsed-context divider. */
   handleExpandDivider: () => Promise<boolean>
   handleDiscardDraftedComment: () => Promise<void>
+  handleToggleOpenThreadsOnly: () => void
 }
 
 export interface ExecuteContext {
@@ -143,6 +144,10 @@ export async function executeAction(
     case "toggle-hidden-files":
       setState(toggleShowHiddenFiles)
       render()
+      break
+
+    case "toggle-open-threads-only":
+      handlers.handleToggleOpenThreadsOnly()
       break
 
     case "toggle-file-panel-expanded":

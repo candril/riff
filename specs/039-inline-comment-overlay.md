@@ -65,6 +65,27 @@ spec 010; that panel is retired.
     highlighted)
   - `S` — submit highlighted local or edited-synced comment
   - `+` — enter reaction picker (see below)
+- Open threads only:
+  - `H` (view mode, panel focused; never while composing, editing or typing
+    a `/` filter) toggles the panel between every thread and only the open
+    ones: a thread that is resolved or outdated is hidden with all its
+    replies. The palette's "Show Only Open Threads" does the same.
+  - It narrows what scope and `/` already left, so `j`/`k`, `Ctrl-d`/`Ctrl-u`,
+    `gg`/`G`, flash labels and the window all move among open threads only.
+  - While on, the header reads `open only · N hidden` after the label and any
+    `/` filter text, in the filter's colour; N counts threads, not comments.
+    The count on the right is what is shown. On a narrow panel the note is cut
+    from its right end first, so the count stays whole.
+  - When it hides every thread in scope, the panel says `No open threads · H
+    shows all` instead of the no-comments text.
+  - The highlight stays on the same comment when the toggle keeps it shown,
+    and otherwise stays at its index, clamped — also when `x` resolves the
+    highlighted thread and it leaves the panel.
+  - It is kept per review in `.riff/<review>/panels.json`
+    (`openThreadsOnly`), next to the review's marks, survives closing the
+    panel and `gr`, and is read again when riff switches review.
+  - Only the panel narrows: the diff's thread markers, `]r`/`[r`/`]R`/`[R`,
+    the feed and the PR overview ignore it.
 - Inline compose area:
   - Multiline input at the bottom of the overlay
   - `Ctrl-s` submits (saves the reply/edit locally — does *not* push to

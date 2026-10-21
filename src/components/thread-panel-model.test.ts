@@ -56,6 +56,7 @@ function model(input: Partial<ThreadPanelInput> = {}) {
     unseenIds: new Set(),
     filter: "",
     filterInput: false,
+    openOnly: null,
     flashLabels: new Map(),
     now: NOW,
     ...input,
@@ -214,6 +215,8 @@ describe("the thread panel's header", () => {
       label: "greet.ts",
       filterText: "nit",
       filterInput: false,
+      note: null,
+      noteFg: colors.secondary,
       right: "1 comment",
       labelFg: colors.textMuted,
       rightFg: theme.overlay0,
@@ -230,6 +233,30 @@ describe("the thread panel's header", () => {
     expect(model({ filterInput: true }).header.right).toBeNull()
     expect(model({ mode: "compose" }).header.right).toBe("Composing")
     expect(model({ mode: "edit" }).header.right).toBe("Editing")
+  })
+
+  test("says when the open-only toggle is on and how many threads it hides, in the filter's colour", () => {
+    const header = model({ comments: many(2), filter: "nit", openOnly: { hidden: 3 } }).header
+    expect(header.note).toBe("open only · 3 hidden")
+    expect(header.noteFg).toBe(colors.secondary)
+    expect(header.filterText).toBe("nit")
+    // The count is what is shown, not what there is.
+    expect(header.right).toBe("2 comments")
+    expect(model({ comments: many(2), openOnly: { hidden: 0 } }).header.note).toBe("open only · 0 hidden")
+    expect(model({ comments: many(2) }).header.note).toBeNull()
+  })
+})
+
+describe("the thread panel's empty text", () => {
+  test("says the toggle hides every thread, and how to show them", () => {
+    const m = model({ openOnly: { hidden: 2 } })
+    expect(m.empty).toBe(true)
+    expect(m.emptyText).toBe("No open threads · H shows all")
+  })
+
+  test("stays as it was when there are no threads to hide", () => {
+    expect(model().emptyText).toBe("No comments in this file yet.")
+    expect(model({ openOnly: { hidden: 0 } }).emptyText).toBe("No comments in this file yet.")
   })
 })
 

@@ -15,11 +15,12 @@ import { mountSolid } from "./solid-island"
 // A fresh object per island: a store wraps the object it is given, and two
 // stores built on one shared constant would write through to each other.
 const empty = (): ThreadPanelModel => ({
-  header: { label: "", filterText: null, filterInput: false, right: null, labelFg: colors.textMuted, rightFg: theme.overlay0 },
+  header: { label: "", filterText: null, filterInput: false, note: null, noteFg: colors.secondary, right: null, labelFg: colors.textMuted, rightFg: theme.overlay0 },
   window: { before: 0, after: 0 },
   threads: [],
   threadSizes: [],
   empty: true,
+  emptyText: "",
   composer: null,
   picker: null,
   hints: null,

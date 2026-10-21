@@ -6,7 +6,7 @@
  *
  *  - **view**: `j/k` highlight, `Ctrl-d`/`Ctrl-u` half a page, `gg`/`G`
  *    the ends, `r/R` reply, `e/E` edit, `d` delete,
- *    `x` resolve, `S` submit, `Ctrl-n`/`Ctrl-p` adjacent thread,
+ *    `x` resolve, `H` open threads only, `S` submit, `Ctrl-n`/`Ctrl-p` adjacent thread,
  *    `Ctrl-p` falls through (palette). `Esc` closes.
  *  - **compose / edit**: char input flows into `state.inlineCommentOverlay.input`.
  *    `Enter` / `Ctrl-s` flush the draft (delegating to handlers);
@@ -75,6 +75,8 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   handleSubmit: (comment: Comment) => void
   /** Toggle the thread's resolved state. */
   handleToggleResolved: (thread: Thread) => void
+  /** `H` — show only open threads, or all of them again. */
+  handleToggleOpenOnly: () => void
   /** Ctrl-n / Ctrl-p — jump to next/previous thread, repositioning the
    *  overlay. */
   handleJumpAdjacent: (direction: 1 | -1) => void
@@ -347,6 +349,11 @@ export function handleInput(
       key.preventDefault()
       ctx.onOpenLinks(highlighted, key.shift || key.name === "X" ? "copy" : "open")
     }
+    return true
+  }
+
+  if ((key.name === "H" || (key.name === "h" && key.shift)) && !key.ctrl && !key.meta) {
+    ctx.handleToggleOpenOnly()
     return true
   }
 

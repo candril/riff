@@ -65,7 +65,7 @@ import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
+import { getSelectedFile, getVisibleComments, getReviewProgress, getInlineCommentOverlayComments, getInlineCommentOverlayHiddenThreadCount, getCommentsPanelScopeFilename, commentDraftFor } from "../state"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { selectionStatus } from "./selection-status"
@@ -351,6 +351,9 @@ export function createRenderFunction(ctx: RenderContext): () => void {
             unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
             filter: state.inlineCommentOverlay.filter,
             filterInput: state.inlineCommentOverlay.filterInput,
+            openOnly: state.threadPanelOpenOnly
+              ? { hidden: getInlineCommentOverlayHiddenThreadCount(state) }
+              : null,
             flashLabels: flashLabelsOn(flashState, "comments"),
           }
         : null

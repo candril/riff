@@ -90,6 +90,7 @@ function panel(renderer: CliRenderer, width: number) {
     unseenIds: new Set(),
     filter: "",
     filterInput: false,
+    openOnly: null,
     flashLabels: new Map(),
   })
   return island
