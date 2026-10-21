@@ -1,7 +1,8 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
 import type { TestRendererSetup } from "@opentui/core/testing"
-import { InlineCommentOverlay, type InlineCommentOverlayProps } from "./InlineCommentOverlay"
+import { createThreadPanelIsland } from "../app/thread-panel"
+import type { ThreadPanelInput } from "./thread-panel-model"
 import { endComposerSession } from "./CommentComposer"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
@@ -39,11 +40,12 @@ function comment(id: string, line: number, fields: Partial<Comment> = {}): Comme
   }
 }
 
-async function mountPanel(props: Partial<InlineCommentOverlayProps> = {}, width = WIDTH) {
+async function mountPanel(props: Partial<ThreadPanelInput> = {}, width = WIDTH) {
   await mounted?.dispose()
   mounted = await mountRenderable(
-    (renderer) =>
-      InlineCommentOverlay({
+    (renderer) => {
+      const island = createThreadPanelIsland(renderer as unknown as CliRenderer)
+      island.update({
         comments: [],
         scopeFilename: "src/greet.ts",
         composeFilename: "src/greet.ts",
@@ -67,9 +69,10 @@ async function mountPanel(props: Partial<InlineCommentOverlayProps> = {}, width 
         filter: "",
         filterInput: false,
         flashLabels: new Map(),
-        renderer: renderer as unknown as CliRenderer,
         ...props,
-      }),
+      })
+      return island.host
+    },
     { width, height: HEIGHT }
   )
   const rows = (await mounted.frame()).split("\n")
@@ -331,7 +334,7 @@ describe("the thread panel's composer label", () => {
   const onLine3 = comment("a1", 3)
 
   test("says what is being written, and where", async () => {
-    const cases: [Partial<InlineCommentOverlayProps>, string][] = [
+    const cases: [Partial<ThreadPanelInput>, string][] = [
       [{ mode: "edit", editingId: "a1" }, "Editing comment"],
       [{ mode: "compose", note: true }, "Note @ greet.ts:3 — local only, never published"],
       [{ mode: "compose", replyToThread: true }, "Reply @ greet.ts:3"],
@@ -381,7 +384,7 @@ describe("the thread panel's pickers", () => {
   })
 
   test("say why the mention picker is empty", async () => {
-    const cases: [Partial<InlineCommentOverlayProps>, string][] = [
+    const cases: [Partial<ThreadPanelInput>, string][] = [
       [{ mentionPicker: { query: "", selectedIndex: 0, atOffset: 0 } }, "No participants to mention"],
       [{ mentionPicker: { query: "zed", selectedIndex: 0, atOffset: 0 }, mentionSearchQuery: "zed" }, "Searching GitHub for @zed…"],
       [{ mentionPicker: { query: "zed", selectedIndex: 0, atOffset: 0 }, mentionSearchQuery: "ze" }, "No match for @zed"],

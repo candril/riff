@@ -16,7 +16,7 @@ import { searchMentionableUsers } from "../../providers/github"
 import {
   getFilteredMentionCandidates,
   MENTION_VISIBLE_LIMIT,
-} from "../../components/InlineCommentOverlay"
+} from "../../components/thread-panel-picker"
 import { getActiveMentionRepo } from "./prefetch"
 
 // Long enough that a fragment is worth a round-trip, short enough to still

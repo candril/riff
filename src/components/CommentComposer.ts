@@ -1,7 +1,7 @@
 /**
  * CommentComposer — multiline input area used inside the inline comment
- * overlay (spec 039). Embedded by `InlineCommentOverlay` when the
- * overlay is in compose / edit mode.
+ * overlay (spec 039). Hosted by the thread panel island, which shows it
+ * in compose / edit mode.
  *
  * Wraps OpenTUI's native `TextareaRenderable` so we get cursor, paste,
  * undo/redo, Ctrl-w, Alt-arrow word jumps, mouse selection, etc. for
@@ -13,19 +13,10 @@
  * pass when the overlay enters or leaves compose/edit mode.
  */
 
-import { Box, Text, TextareaRenderable } from "@opentui/core"
+import { TextareaRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme } from "../theme"
 import { keepAlive } from "../utils/renderables"
-
-export interface CommentComposerProps {
-  /** "compose" => new reply / new comment; "edit" => updating an existing one */
-  mode: "compose" | "edit"
-  /** Optional one-line label shown above the input area */
-  label?: string
-  /** Renderer — needed to mount / focus the underlying textarea. */
-  renderer: CliRenderer
-}
 
 // The composer's keys are listed in the help overlay (g?). Ctrl-g alone is
 // named here, as the way out to a roomier editor: the textarea is only as
@@ -46,9 +37,10 @@ let lastSyncKey: string | null = null
 let activityCallback: ComposerActivityCallback | null = null
 
 function ensureComposer(renderer: CliRenderer): TextareaRenderable {
-  // A destroyed renderer takes the textarea down with it. riff draws on one
+  // A destroyed renderer takes the textarea down with it, and one that was
+  // never mounted cannot move to another renderer. riff draws on one
   // renderer for its whole life; the frame tests make one per test.
-  if (!composerInstance || composerInstance.isDestroyed) {
+  if (!composerInstance || composerInstance.isDestroyed || composerInstance.ctx !== renderer) {
     lastSyncKey = null
     composerInstance = new TextareaRenderable(renderer, {
       id: "inline-comment-composer",
@@ -154,23 +146,7 @@ export function replaceComposerRange(
   composerInstance.cursorOffset = safeStart + replacement.length
 }
 
-export function CommentComposer({ mode, label, renderer }: CommentComposerProps) {
-  const textarea = ensureComposer(renderer)
-  return Box(
-    {
-      flexDirection: "column",
-      paddingX: 1,
-      paddingY: 0,
-      backgroundColor: theme.surface0,
-    },
-    // `height: 1` so the row keeps its line under flex pressure — without
-    // it the label collapses to zero rows and paints over the textarea.
-    label
-      ? Box(
-          { flexDirection: "row", height: 1 },
-          Text({ content: label, fg: theme.blue })
-        )
-      : null,
-    textarea
-  )
+/** The textarea the thread panel hosts; the same one every call, for as long as its renderer lives. */
+export function composerTextarea(renderer: CliRenderer): TextareaRenderable {
+  return ensureComposer(renderer)
 }

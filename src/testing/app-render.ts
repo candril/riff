@@ -1,5 +1,6 @@
 import { createTestRenderer } from "@opentui/core/testing"
 import { createFileTreeIsland } from "../app/file-tree"
+import { createThreadPanelIsland } from "../app/thread-panel"
 import { createInitialState, type AppState } from "../state"
 import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
@@ -92,12 +93,14 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     header: createHeaderIsland(renderer),
     searchPrompt: createSearchPromptIsland(renderer),
     flashPrompt: createFlashPromptIsland(renderer),
+    threadPanel: createThreadPanelIsland(renderer),
   }
   const overlayHosts = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlayHosts[id] = overlays[id].host
   const shell = createAppShell(renderer, {
     header: chrome.header.host,
     tree: fileTreePanel.host,
+    threadPanel: chrome.threadPanel.host,
     searchPrompt: chrome.searchPrompt.host,
     statusBar: chrome.statusBar.host,
     flashPrompt: chrome.flashPrompt.host,

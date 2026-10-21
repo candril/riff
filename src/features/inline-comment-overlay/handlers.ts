@@ -1,6 +1,6 @@
 /**
  * Handlers for inline reply and inline edit composed inside the
- * `InlineCommentOverlay` (spec 039). These bypass `$EDITOR` — the user
+ * thread panel (spec 039). These bypass `$EDITOR` — the user
  * types the body inside the overlay and `Enter` / `Ctrl-s` flushes the
  * draft to local state + disk (`Ctrl-p` also pushes it to GitHub). The capital-letter actions (`R`, `E`) keep the
  * old `$EDITOR` flow via `commentsFeature.handleAddComment`.

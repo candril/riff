@@ -60,6 +60,7 @@ import { createAppShell } from "./app/shell"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createHeaderIsland } from "./app/header"
+import { createThreadPanelIsland } from "./app/thread-panel"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
@@ -495,6 +496,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const statusBar = createStatusBarIsland(renderer)
   const header = createHeaderIsland(renderer)
+  const threadPanel = createThreadPanelIsland(renderer)
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
@@ -574,6 +576,7 @@ export async function createApp(options: AppOptions = {}) {
   const shell = createAppShell(renderer, {
     header: header.host,
     tree: fileTreePanel.host,
+    threadPanel: threadPanel.host,
     searchPrompt: searchPrompt.host,
     statusBar: statusBar.host,
     flashPrompt: flashPrompt.host,
@@ -608,6 +611,7 @@ export async function createApp(options: AppOptions = {}) {
     shell,
     statusBar,
     header,
+    threadPanel,
     searchPrompt,
     flashPrompt,
     toast,

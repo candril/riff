@@ -59,7 +59,7 @@ export function SyncPreview(props: { model: SyncPreviewModel }) {
       </box>
       {/*
        * The outer box clips and the inner one keeps every row at its natural
-       * height, the viewport trick InlineCommentOverlay uses. Without
+       * height, the viewport trick the thread panel uses. Without
        * flexShrink 0 the panel's maxHeight makes the column compress each card
        * below its content height, and its location and body land on the same
        * row, legible as interleaved characters rather than as a cut list.

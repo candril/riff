@@ -1,7 +1,7 @@
 /**
  * riff's layout, mounted once at startup (spec 100, M3). Each render pass
- * feeds the islands, swaps what sits in the view slot and beside it, and
- * flips which hosts are visible; the layout itself stays mounted.
+ * feeds the islands, swaps what sits in the view slot, and flips which
+ * hosts are visible; the layout itself stays mounted.
  */
 
 import type { BoxRenderable, CliRenderer, Renderable } from "@opentui/core"
@@ -32,6 +32,8 @@ export interface ShellParts {
   header: Renderable
   /** The file tree's own container, which keeps its `visible` for the tree's toggle. */
   tree: Renderable
+  /** The thread panel's host, which shows and hides itself as the panel opens and closes. */
+  threadPanel: Renderable
   searchPrompt: Renderable
   statusBar: Renderable
   flashPrompt: Renderable
@@ -42,17 +44,14 @@ export interface AppShell {
   /** The column at the renderer's root that everything else is mounted in. */
   root: BoxRenderable
   setView(node: Renderable, options: { withTree: boolean }): void
-  setThreadPanel(node: Renderable | null): void
   show(id: OverlayId | "searchPrompt", shown: boolean): void
   showFlash(shown: boolean): void
 }
 
 export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShell {
-  let row!: BoxRenderable
   let treeSlot!: BoxRenderable
   let viewSlot!: BoxRenderable
   let view: Renderable | null = null
-  let threadPanel: Renderable | null = null
 
   // Hidden hosts stay mounted with `visible` off rather than empty: several
   // are absolute and full-size, and an empty one would still take the
@@ -67,7 +66,7 @@ export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShe
       <>
         {parts.header}
         <box flexGrow={1} width="100%">
-          <box ref={(node: BoxRenderable) => (row = node)} width="100%" height="100%" flexDirection="row">
+          <box width="100%" height="100%" flexDirection="row">
             {/*
              * A box of its own: the tree's toggle sets the container's
              * `visible` and the view sets the slot's, so neither undoes the other.
@@ -83,6 +82,12 @@ export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShe
              * gives up columns only when it and the tree cannot both fit.
              */}
             <box ref={(node: BoxRenderable) => (viewSlot = node)} flexGrow={1} flexBasis={0} minWidth={0} height="100%" />
+            {/*
+             * A child of the row itself, not of a slot box: the panel sizes and
+             * shrinks against the tree and the view directly. Hidden, it takes
+             * no columns, since OpenTUI lays out a hidden box as display none.
+             */}
+            {parts.threadPanel}
           </box>
         </box>
         {parts.searchPrompt}
@@ -108,14 +113,6 @@ export function createAppShell(renderer: CliRenderer, parts: ShellParts): AppShe
       if (view) discard(view)
       viewSlot.add(node)
       view = node
-    },
-    setThreadPanel(node) {
-      if (node === threadPanel) return
-      if (threadPanel) discard(threadPanel)
-      // A child of the row itself, not of a slot box: the panel sizes and
-      // shrinks against the tree and the view directly.
-      if (node) row.add(node)
-      threadPanel = node
     },
     show(id, shown) {
       ;(id === "searchPrompt" ? parts.searchPrompt : parts.overlays[id]).visible = shown

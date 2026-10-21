@@ -24,7 +24,7 @@ export interface ThreadPanelWindow {
  * follows the cursor, the view scrolls as the user moves through threads
  * with j/k. `windowSize` caps how many threads mount at once — the viewport
  * clips whatever runs past the bottom, and its edge rows count the threads
- * hidden past each edge (`thread-edge-hints.ts`).
+ * hidden past each edge (`ThreadEdgeHints.tsx`).
  *
  * Note this is thread-granular: navigating *within* a very tall thread
  * (many replies) doesn't re-scroll, so a deep reply in an oversized

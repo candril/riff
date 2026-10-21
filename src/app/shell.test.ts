@@ -1,8 +1,8 @@
 import { test, expect, afterEach, describe } from "bun:test"
-import { BoxRenderable, TextRenderable, instantiate, type CliRenderer, type Renderable } from "@opentui/core"
+import { BoxRenderable, TextRenderable, type CliRenderer, type Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createFileTreeIsland, type FileTreeIsland } from "./file-tree"
-import { InlineCommentOverlay } from "../components/InlineCommentOverlay"
+import { createThreadPanelIsland, type ThreadPanelIsland } from "./thread-panel"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import { bgAt, ints } from "../testing/frame"
 import { mountIsland } from "../testing/unified-island"
@@ -36,14 +36,21 @@ afterEach(async () => {
 function bareShell(
   renderer: CliRenderer,
   tree: Renderable = new BoxRenderable(renderer, {}),
-  real: Partial<ShellParts["overlays"]> = {}
+  real: Partial<ShellParts["overlays"]> = {},
+  threadPanel?: ThreadPanelIsland
 ) {
   const box = (id: string) => keepAlive(new BoxRenderable(renderer, { id }))
   const overlays = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlays[id] = real[id] ?? box(id)
+  const hiddenPanel = () => {
+    const host = box("threadPanel")
+    host.visible = false
+    return host
+  }
   return createAppShell(renderer, {
     header: box("header"),
     tree,
+    threadPanel: threadPanel?.host ?? hiddenPanel(),
     searchPrompt: box("searchPrompt"),
     statusBar: box("statusBar"),
     flashPrompt: box("flashPrompt"),
@@ -51,8 +58,10 @@ function bareShell(
   })
 }
 
+/** The thread panel open on an empty file, at `width` columns. */
 function panel(renderer: CliRenderer, width: number) {
-  return instantiate(renderer, InlineCommentOverlay({
+  const island = createThreadPanelIsland(renderer)
+  island.update({
     comments: [],
     scopeFilename: "greet.ts",
     composeFilename: "greet.ts",
@@ -76,8 +85,8 @@ function panel(renderer: CliRenderer, width: number) {
     filter: "",
     filterInput: false,
     flashLabels: new Map(),
-    renderer,
-  }))
+  })
+  return island
 }
 
 type Spans = ReturnType<TestRendererSetup["captureSpans"]>
@@ -93,11 +102,10 @@ async function mountDocked(width: number, { withPanel, tree }: { withPanel: bool
   const mounted = await mountIsland({ raw: DIFF, width, height: 12, wrap: true })
   disposers.push(mounted.dispose)
   const renderer = mounted.setup.renderer
-  const shell = bareShell(renderer, tree?.(renderer))
-  shell.setView(mounted.island.host, { withTree: true })
   const threadPanel = withPanel ? panel(renderer, commentPanelWidth(width, false)) : null
-  shell.setThreadPanel(threadPanel)
-  return { ...mounted, threadPanel }
+  const shell = bareShell(renderer, tree?.(renderer), {}, threadPanel ?? undefined)
+  shell.setView(mounted.island.host, { withTree: true })
+  return { ...mounted, threadPanel: threadPanel?.host ?? null }
 }
 
 describe("the thread panel docked in the content row", () => {
@@ -162,15 +170,14 @@ describe("the thread panel docked in the content row", () => {
       const renderer = setup.renderer
       const tree = createFileTreeIsland(renderer, { width: 35 })
       disposers.unshift(() => tree.dispose())
-      const shell = bareShell(renderer, tree.host)
-      shell.setView(keepAlive(new TextRenderable(renderer, { content: "x" })), { withTree: true })
       const threadPanel = panel(renderer, panelWidth)
-      shell.setThreadPanel(threadPanel)
+      const shell = bareShell(renderer, tree.host, {}, threadPanel)
+      shell.setView(keepAlive(new TextRenderable(renderer, { content: "x" })), { withTree: true })
       await setup.renderOnce()
       await setup.renderOnce()
       expect(tree.host.width).toBe(35)
-      expect(threadPanel.x).toBe(35)
-      expect(threadPanel.width).toBe(width - 35)
+      expect(threadPanel.host.x).toBe(35)
+      expect(threadPanel.host.width).toBe(width - 35)
     })
   }
 })
@@ -183,9 +190,8 @@ test("the error and an empty diff keep clear of the open panel, with the tree hi
   disposers.push(() => setup.renderer.destroy())
   const renderer = setup.renderer
   const tree = createFileTreeIsland(renderer, { width: 35 })
-  const shell = bareShell(renderer, tree.host)
+  const shell = bareShell(renderer, tree.host, {}, panel(renderer, panelWidth))
   shell.setView(keepAlive(new TextRenderable(renderer, { content: "x".repeat(width) })), { withTree: false })
-  shell.setThreadPanel(panel(renderer, panelWidth))
   await setup.renderOnce()
   await setup.renderOnce()
   const captured = setup.captureCharFrame().split("\n")
@@ -246,8 +252,11 @@ test("the hosts are stacked header first and the overlays in their fixed order, 
   const shell = bareShell(setup.renderer)
   expect(setup.renderer.root.getChildren()).toEqual([shell.root])
   const [header, content, ...rest] = shell.root.getChildren()
-  // The content box holds the row: the tree's slot and the view's, the thread panel joining them while open.
-  expect(content!.getChildren()[0]!.getChildren()).toHaveLength(2)
+  // The content box holds the row: the tree's slot, the view's, and the thread panel's host, hidden until it opens.
+  const row = content!.getChildren()[0]!.getChildren()
+  expect(row.map((child) => child.id).at(-1)).toBe("threadPanel")
+  expect(row).toHaveLength(3)
+  expect(row[2]!.visible).toBe(false)
   expect([header!.id, ...rest.map((child) => child.id)]).toEqual([
     "header",
     "searchPrompt",

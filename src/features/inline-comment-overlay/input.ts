@@ -1,5 +1,5 @@
 /**
- * InlineCommentOverlay input handling (spec 039).
+ * Thread panel input handling (spec 039).
  *
  * Single capture point for every comment action while the overlay is
  * open. Two distinct modes:
@@ -53,7 +53,7 @@ import {
   setComposerValue,
 } from "../../components/CommentComposer"
 import { collectMentionCandidates } from "../../utils/mentions"
-import { getFilteredMentionCandidates } from "../../components/InlineCommentOverlay"
+import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
 import {
   submitInlineDraft,
   submitInlineEditDraft,

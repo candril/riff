@@ -1,7 +1,8 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
 import type { TestRendererSetup } from "@opentui/core/testing"
-import { InlineCommentOverlay, type InlineCommentOverlayProps } from "./InlineCommentOverlay"
+import { createThreadPanelIsland } from "../app/thread-panel"
+import type { ThreadPanelInput } from "./thread-panel-model"
 import { bgAt, fgAt, ints, mountRenderable, trimFrame } from "../testing/frame"
 import { theme } from "../theme"
 import type { Comment } from "../types"
@@ -35,10 +36,11 @@ function thread(i: number): Comment {
 
 const threads = (count: number) => Array.from({ length: count }, (_, i) => thread(i))
 
-function mount(props: Partial<InlineCommentOverlayProps>) {
+function mount(props: Partial<ThreadPanelInput>) {
   return mountRenderable(
-    (renderer) =>
-      InlineCommentOverlay({
+    (renderer) => {
+      const island = createThreadPanelIsland(renderer as unknown as CliRenderer)
+      island.update({
         comments: [],
         scopeFilename: "greet.ts",
         composeFilename: "greet.ts",
@@ -62,14 +64,15 @@ function mount(props: Partial<InlineCommentOverlayProps>) {
         filter: "",
         filterInput: false,
         flashLabels: new Map(),
-        renderer: renderer as unknown as CliRenderer,
         ...props,
-      }),
+      })
+      return island.host
+    },
     { width: WIDTH, height: HEIGHT }
   )
 }
 
-async function mountPanel(props: Partial<InlineCommentOverlayProps>) {
+async function mountPanel(props: Partial<ThreadPanelInput>) {
   mounted = await mount(props)
   const rows = (await mounted.frame()).split("\n")
   return { rows, spans: mounted.setup.captureSpans() }

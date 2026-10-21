@@ -37,15 +37,16 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
-      ["statusBar", "header", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
+      ["statusBar", "header", "threadPanel", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
     ),
     ...realParts,
-  } as unknown as Pick<RenderContext, "statusBar" | "header" | "searchPrompt" | "flashPrompt" | OverlayId>
+  } as unknown as Pick<RenderContext, "statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId>
   const overlayHosts = {} as ShellParts["overlays"]
   for (const id of OVERLAYS) overlayHosts[id] = islands[id].host
   const shell = createAppShell(renderer, {
     header: islands.header.host,
     tree: new BoxRenderable(renderer, {}),
+    threadPanel: islands.threadPanel.host,
     searchPrompt: islands.searchPrompt.host,
     statusBar: islands.statusBar.host,
     flashPrompt: islands.flashPrompt.host,

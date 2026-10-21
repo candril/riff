@@ -3418,7 +3418,7 @@ export function applyReactionToggle(
     case "review-comment": {
       // The inline overlay derives its comments live from state.comments
       // via getInlineCommentOverlayComments, so updating comments here is
-      // enough — the overlay's ReactionRow re-renders from the same source.
+      // enough — the thread panel's reaction row re-renders from the same source.
       const comments = state.comments.map(c =>
         c.githubId === target.githubId ? { ...c, reactions: mutate(c.reactions) } : c
       )

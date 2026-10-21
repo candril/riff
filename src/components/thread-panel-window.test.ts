@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { visibleOverlayCommentIds } from "./InlineCommentOverlay"
+import { visibleOverlayCommentIds } from "./thread-panel-window"
 import type { Comment } from "../types"
 
 function comment(id: string, line: number, inReplyTo?: string): Comment {

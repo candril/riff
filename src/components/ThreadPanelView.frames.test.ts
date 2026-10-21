@@ -1,6 +1,7 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import type { CliRenderer } from "@opentui/core"
-import { InlineCommentOverlay, type InlineCommentOverlayProps } from "./InlineCommentOverlay"
+import { createThreadPanelIsland } from "../app/thread-panel"
+import type { ThreadPanelInput } from "./thread-panel-model"
 import { endComposerSession, setComposerValue } from "./CommentComposer"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
@@ -35,10 +36,11 @@ function comment(id: string, line: number, resolved: boolean, body: string): Com
 // The resolved thread is collapsed, so the highlight lands on its header row.
 const COMMENTS = [comment("a1", 3, true, "Looks good"), comment("b1", 10, false, "Rename this")]
 
-async function mountPanel(props: Partial<InlineCommentOverlayProps> = {}) {
+async function mountPanel(props: Partial<ThreadPanelInput> = {}) {
   mounted = await mountRenderable(
-    (renderer) =>
-      InlineCommentOverlay({
+    (renderer) => {
+      const island = createThreadPanelIsland(renderer as unknown as CliRenderer)
+      island.update({
         comments: COMMENTS,
         scopeFilename: "greet.ts",
         composeFilename: "greet.ts",
@@ -62,9 +64,10 @@ async function mountPanel(props: Partial<InlineCommentOverlayProps> = {}) {
         filter: "",
         filterInput: false,
         flashLabels: new Map(),
-        renderer: renderer as unknown as CliRenderer,
         ...props,
-      }),
+      })
+      return island.host
+    },
     { width: WIDTH, height: HEIGHT }
   )
   const rows = (await mounted.frame()).split("\n")

@@ -3,11 +3,12 @@ import { useRenderer } from "@opentui/solid"
 import { createEffect, For } from "solid-js"
 import type { Segment } from "./pr-info-conversation-parts"
 
-/** How the PR info panel draws markdown: its table renderer and its syntax colours. */
+/** How a panel draws markdown: its table renderer and its syntax colours. */
 export type PanelMarkdownStyle = Pick<ConstructorParameters<typeof MarkdownRenderable>[1], "renderNode" | "syntaxStyle">
 
 /**
- * A markdown body in the PR info panel, its text the markdown as drawn.
+ * A markdown body in the PR info panel or the thread panel, its text the
+ * markdown as drawn.
  *
  * The body is built here, with its style in its constructor, rather than as
  * a `<markdown>` element: Solid hands an element its props after it is

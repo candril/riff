@@ -4,9 +4,8 @@
  * Creates the main render function that orchestrates all UI updates.
  */
 
-import { TextRenderable, instantiate } from "@opentui/core"
+import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
-import { InlineCommentOverlay } from "../components"
 import { syncComposerSession, endComposerSession } from "../components/CommentComposer"
 import { syncPromptSession, endPromptSession } from "../components/PromptInput"
 import { keepAlive } from "../utils/renderables"
@@ -29,6 +28,7 @@ import { mergeReading } from "../utils/merge-verdict"
 import { version } from "../version"
 import { headerModel } from "../components/header-model"
 import type { HeaderIsland } from "./header"
+import type { ThreadPanelIsland } from "./thread-panel"
 import { flashPromptModel, searchPromptModel } from "../components/prompt-line-model"
 import type { FlashPromptIsland, SearchPromptIsland } from "./prompt-line"
 import { draftNotificationModel, toastModel } from "../components/notification-model"
@@ -94,6 +94,7 @@ export interface RenderContext {
   shell: AppShell
   statusBar: StatusBarIsland
   header: HeaderIsland
+  threadPanel: ThreadPanelIsland
   searchPrompt: SearchPromptIsland
   flashPrompt: FlashPromptIsland
   toast: ToastIsland
@@ -210,15 +211,11 @@ export function createRenderFunction(ctx: RenderContext): () => void {
     ctx.unified.syncDrawn(unifiedOn)
     ctx.split.syncDrawn(splitOn, ctx.unified.viewportHeight())
 
-    // The last pass's thread panel goes before the sessions below run, so
-    // the composer's textarea is out of it while its session seeds it.
-    ctx.shell.setThreadPanel(null)
-
     const cachedCurrentUser = ctx.getCachedCurrentUser()
 
     // Drive the composer textarea's lifecycle from overlay state. We do
-    // this BEFORE building the next tree so the textarea is focused /
-    // seeded by the time it's mounted into the layout. With the composer
+    // this BEFORE the thread panel is pushed so the textarea is focused /
+    // seeded by the time the panel shows it. With the composer
     // open the diff's cursor is not shown (diffFocused false), which keeps
     // the textarea's cursor visible; otherwise the diff would re-claim it
     // after the textarea's renderCursor pass.
@@ -308,39 +305,40 @@ export function createRenderFunction(ctx: RenderContext): () => void {
       selectionInfo: splitOn ? ctx.split.selectionStatus(vimState) : selectionStatus(vimState),
     })
 
-    const commentPanel = state.inlineCommentOverlay.open
-      ? instantiate(ctx.renderer, InlineCommentOverlay({
-        comments: getInlineCommentOverlayComments(state),
-        scopeFilename: getCommentsPanelScopeFilename(state),
-        composeFilename: state.inlineCommentOverlay.filename,
-        line: state.inlineCommentOverlay.line,
-        replyToThread: state.inlineCommentOverlay.replyToThread === true,
-        note: state.inlineCommentOverlay.note === true,
-        mode: state.inlineCommentOverlay.mode,
-        appMode: state.appMode,
-        highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
-        editingId: state.inlineCommentOverlay.editingId,
-        draft: commentDraftFor(
-          state,
-          state.inlineCommentOverlay.filename,
-          state.inlineCommentOverlay.line,
-          state.inlineCommentOverlay.side
-        ),
-        focused: state.focusedPanel === "comments",
-        expanded: state.inlineCommentOverlay.expanded,
-        width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
-        mentionPicker: state.inlineCommentOverlay.mentionPicker,
-        emojiPicker: state.inlineCommentOverlay.emojiPicker,
-        mentionCandidates: collectMentionCandidates(state),
-        mentionSearchQuery: state.mentionSearchQuery,
-        expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
-        unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
-        filter: state.inlineCommentOverlay.filter,
-        filterInput: state.inlineCommentOverlay.filterInput,
-        flashLabels: flashLabelsOn(flashState, "comments"),
-        renderer: ctx.renderer,
-      }))
-      : null
+    ctx.threadPanel.update(
+      state.inlineCommentOverlay.open
+        ? {
+            comments: getInlineCommentOverlayComments(state),
+            scopeFilename: getCommentsPanelScopeFilename(state),
+            composeFilename: state.inlineCommentOverlay.filename,
+            line: state.inlineCommentOverlay.line,
+            replyToThread: state.inlineCommentOverlay.replyToThread === true,
+            note: state.inlineCommentOverlay.note === true,
+            mode: state.inlineCommentOverlay.mode,
+            appMode: state.appMode,
+            highlightedIndex: state.inlineCommentOverlay.highlightedIndex,
+            editingId: state.inlineCommentOverlay.editingId,
+            draft: commentDraftFor(
+              state,
+              state.inlineCommentOverlay.filename,
+              state.inlineCommentOverlay.line,
+              state.inlineCommentOverlay.side
+            ),
+            focused: state.focusedPanel === "comments",
+            expanded: state.inlineCommentOverlay.expanded,
+            width: commentPanelWidth(ctx.renderer.width, state.inlineCommentOverlay.expanded),
+            mentionPicker: state.inlineCommentOverlay.mentionPicker,
+            emojiPicker: state.inlineCommentOverlay.emojiPicker,
+            mentionCandidates: collectMentionCandidates(state),
+            mentionSearchQuery: state.mentionSearchQuery,
+            expandedThreadIds: state.inlineCommentOverlay.expandedThreadIds,
+            unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+            filter: state.inlineCommentOverlay.filter,
+            filterInput: state.inlineCommentOverlay.filterInput,
+            flashLabels: flashLabelsOn(flashState, "comments"),
+          }
+        : null
+    )
 
     ctx.header.update({
       ...headerModel({
@@ -405,7 +403,6 @@ export function createRenderFunction(ctx: RenderContext): () => void {
 
     // The tree has nothing to list without files, whatever the view.
     ctx.shell.setView(view, { withTree: withTree && state.files.length > 0 })
-    ctx.shell.setThreadPanel(commentPanel)
     ctx.shell.show("searchPrompt", searchShown)
     ctx.shell.showFlash(flashShown)
     ctx.shell.show("actionMenu", state.actionMenu.open)
