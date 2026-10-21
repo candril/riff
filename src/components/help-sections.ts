@@ -76,6 +76,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["Ctrl+s", "Find in the diff (word or selection under the cursor); Ctrl+g in it narrows"],
       ["/", "Filter the list that has focus; search in the diff"],
       ["H", "Comments panel: open threads only"],
+      ["H", "File panel: unviewed files only"],
       ["Ctrl+g", "Pick a commit to scope the diff to"],
       ["x", "Mark file as viewed"],
     ],

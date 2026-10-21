@@ -1,5 +1,6 @@
 import type { DiffFile } from "./utils/diff-parser"
 import type { FileTreeNode } from "./utils/file-tree"
+import { treeRowsOf } from "./components/FileTree"
 import type { Comment, ReviewSession, AppMode, FileReviewStatus, ViewedStats, ReactionContent, ReactionSummary, ReactionTarget } from "./types"
 import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
 import { markStaleFiles } from "./utils/viewed-status"
@@ -556,6 +557,12 @@ export interface AppState {
   /** The thread panel shows only threads that are neither resolved nor
    *  outdated. Top level so it outlives the panel closing (spec 039). */
   threadPanelOpenOnly: boolean
+  /** The file tree shows only files not yet viewed. Top level so it
+   *  outlives the panel being hidden. */
+  treeUnviewedOnly: boolean
+  /** The one viewed file the tree still shows while `treeUnviewedOnly` is
+   *  on: the one the reader is on, so the highlight never loses its row. */
+  treeKeptFile: string | null
   ignoreMatcher: IgnoreMatcher | null  // The matcher instance (null = no patterns)
   
   // Commit picker state
@@ -787,6 +794,8 @@ export function createInitialState(
     ignoredFiles,
     showHiddenFiles: false,
     threadPanelOpenOnly: false,
+    treeUnviewedOnly: false,
+    treeKeptFile: null,
     ignoreMatcher,
     commitPicker: {
       open: false,
@@ -3239,6 +3248,34 @@ function clampInlineCommentOverlayHighlight(state: AppState): AppState {
   const last = Math.max(0, getInlineCommentOverlayDisplayOrder(state).length - 1)
   if (ov.highlightedIndex <= last) return state
   return { ...state, inlineCommentOverlay: { ...ov, highlightedIndex: last } }
+}
+
+/**
+ * Keep `filename` in the tree while viewed files are hidden. The highlight
+ * stays on the path it was on, so a row coming or going above it never
+ * moves it onto a neighbour; when that path itself is gone it clamps.
+ */
+export function keepTreeFile(state: AppState, filename: string | null): AppState {
+  if (state.treeKeptFile === filename) return state
+  return withTreeHighlightKept(state, { ...state, treeKeptFile: filename })
+}
+
+/** Hide viewed files from the tree, or show them again, keeping `readerFile` and the highlight's row. */
+export function toggleTreeUnviewedOnly(state: AppState, readerFile: string | null): AppState {
+  const treeUnviewedOnly = !state.treeUnviewedOnly
+  return withTreeHighlightKept(state, {
+    ...state,
+    treeUnviewedOnly,
+    treeKeptFile: treeUnviewedOnly ? readerFile : null,
+  })
+}
+
+function withTreeHighlightKept(before: AppState, after: AppState): AppState {
+  const path = treeRowsOf(before)[before.treeHighlightIndex]?.node.path
+  const rows = treeRowsOf(after)
+  const found = path === undefined ? -1 : rows.findIndex((item) => item.node.path === path)
+  const treeHighlightIndex = found >= 0 ? found : Math.max(0, Math.min(before.treeHighlightIndex, rows.length - 1))
+  return treeHighlightIndex === after.treeHighlightIndex ? after : { ...after, treeHighlightIndex }
 }
 
 /**

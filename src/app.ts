@@ -31,6 +31,7 @@ import {
   setFileDiff,
   toggleThreadPanelOpenOnly,
 } from "./state"
+import { toggleUnviewedFilesOnly, keepDiffFileInTree } from "./app/tree-unviewed"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -457,6 +458,7 @@ export async function createApp(options: AppOptions = {}) {
       flashLabels: flashLabelsOn(flashState, "tree"),
       unseenFiles: filesWithUnseenComments(state),
       changedSinceVisit: state.filesChangedSinceVisit,
+      unviewedOnly: state.treeUnviewedOnly ? { keep: state.treeKeptFile } : null,
     })
   }
 
@@ -471,6 +473,7 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
 
+    state = keepDiffFileInTree(state, lineMapping.getLine(vimState.line)?.filename ?? null)
     const followedCursor = syncTreeHighlightToCursor()
 
     // Calculate file panel width based on expanded state
@@ -1156,9 +1159,16 @@ export async function createApp(options: AppOptions = {}) {
     render()
   }
 
+  const toggleUnviewedFiles = () => {
+    state = toggleUnviewedFilesOnly(state, lineMapping.getLine(vimState.line)?.filename ?? null)
+    render()
+    fileTreePanel.ensureHighlightVisible()
+  }
+
   // ===== ACTION EXECUTION =====
   const actionHandlers: actionMenu.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
+    handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
@@ -1369,10 +1379,13 @@ export async function createApp(options: AppOptions = {}) {
         }
         // Marks belong to the review: the PR's own, or the next `m` would save over them.
         const followed = await followLoadedMarks(newSource, await loadMarks(newSource), state.allFiles, prSession.headSha || undefined)
+        const panelFilters = await loadPanelFilters(newSource)
         state = {
           ...state,
           marks: { ...state.marks, marks: followed },
-          threadPanelOpenOnly: (await loadPanelFilters(newSource)).openThreadsOnly,
+          threadPanelOpenOnly: panelFilters.openThreadsOnly,
+          treeUnviewedOnly: panelFilters.unviewedFilesOnly,
+          treeKeptFile: null,
         }
 
         // Reset vim state and rebuild line mapping
@@ -1710,6 +1723,7 @@ export async function createApp(options: AppOptions = {}) {
       // A file riff was told not to show opens folded, the way every other
       // load leaves it.
       const ignored = new Set([...next.ignoredFiles].filter((f) => next.files.some((x) => x.filename === f)))
+      const panelFilters = await loadPanelFilters(source)
       state = {
         ...next,
         collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
@@ -1717,7 +1731,8 @@ export async function createApp(options: AppOptions = {}) {
         wrapLines: state.wrapLines,
         splitView: state.splitView,
         alignMarkdownTables: state.alignMarkdownTables,
-        threadPanelOpenOnly: (await loadPanelFilters(source)).openThreadsOnly,
+        threadPanelOpenOnly: panelFilters.openThreadsOnly,
+        treeUnviewedOnly: panelFilters.unviewedFilesOnly,
         viewMode: view,
         marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
@@ -1775,6 +1790,7 @@ export async function createApp(options: AppOptions = {}) {
     handleCopyCommentLink: (comment) => permalink.handleCopyCommentLink(permalinkContext, comment),
     executeAction,
     toggleOpenThreadsOnly,
+    toggleUnviewedFilesOnly: toggleUnviewedFiles,
     onToggleReaction: handleToggleReaction,
     onCommitSelected: handleCommitSelected,
     openBranchPr: (view) => { void openBranchPr(view) },

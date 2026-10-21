@@ -586,6 +586,14 @@ export const actions: Action[] = [
     available: (state) => state.comments.length > 0,
   },
   {
+    id: "toggle-unviewed-files-only",
+    label: "Show Only Unviewed Files",
+    description: "Hide viewed files in the file panel",
+    shortcut: "H (file panel)",
+    category: "view",
+    available: (state) => state.files.length > 0,
+  },
+  {
     id: "show-file-path",
     label: "Show File Path",
     description: "Display the current file path",

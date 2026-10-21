@@ -20,6 +20,7 @@ import {
   isFileViewed,
   setTreeSelectionAnchor,
   clearTreeSelectionAnchor,
+  keepTreeFile,
 } from "../../state"
 import { collectMultiSelectionFiles } from "../ai-review"
 import { toggleNodeExpansion } from "../../utils/file-tree"
@@ -39,6 +40,8 @@ export interface FileTreeInputContext {
   revealFile: (fileIndex: number) => void
   // Toggle viewed status for a file
   toggleViewedForFile: (filename: string) => Promise<boolean>
+  /** `H`: unviewed files only, or all again. app.ts owns it, as only it knows the diff cursor. */
+  toggleUnviewedOnly: () => void
   // Push current location onto the jumplist before selecting (spec 038).
 }
 
@@ -70,6 +73,12 @@ export function handleInput(
     ctx.setState(startTreeFilter)
     ctx.updatePanel()
     ctx.render()
+    return true
+  }
+
+  // Ahead of the switch: a shifted h would otherwise fall into `case "h"` and fold a directory.
+  if ((key.name === "H" || (key.name === "h" && key.shift)) && !key.ctrl && !key.meta) {
+    ctx.toggleUnviewedOnly()
     return true
   }
 
@@ -273,6 +282,9 @@ export function handleInput(
         // File: toggle viewed for this file only
         const file = ctx.state.files[viewItem.fileIndex]
         if (file) {
+          // The file just marked stays on screen under the cursor rather
+          // than vanishing from beneath it.
+          if (ctx.state.treeUnviewedOnly) ctx.setState((s) => keepTreeFile(s, file.filename))
           ctx.toggleViewedForFile(file.filename).then(() => {
             ctx.render()
           })

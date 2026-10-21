@@ -1,7 +1,7 @@
 import type { DiffFile } from "../utils/diff-parser"
 import type { FileTreeNode, FlatTreeItem } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
-import { flattenTree, filterTree } from "../utils/file-tree"
+import { flattenTree, filterTree, filteredFilenames } from "../utils/file-tree"
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
 
@@ -27,6 +27,8 @@ export interface FileTreeModelInput {
   unseenFiles: ReadonlySet<string>
   /** And the ones whose content moved since then. */
   changedSinceVisit: ReadonlySet<string>
+  /** `H` hides viewed files, all but the one the reader is on; null shows them. */
+  unviewedOnly: { keep: string | null } | null
   width: number
 }
 
@@ -47,20 +49,24 @@ export interface FileTreeRow {
 }
 
 export interface FileTreeModel {
-  header: FileTreeCell & { filtering: boolean }
+  header: FileTreeCell & { filtering: boolean; note: string | null; noteFg: string }
   rows: FileTreeRow[]
   hidden: string | null
+  /** What the tree says in place of rows when the viewed filter left none. */
+  empty: string | null
   /** The visible flat items the rows come from, for the cursor and scrolling. */
   items: FlatTreeItem[]
 }
 
 export function fileTreeModel(input: FileTreeModelInput): FileTreeModel {
-  const items = visibleTreeItems(
+  const viewed = input.unviewedOnly ? { statuses: input.fileStatuses, keep: input.unviewedOnly.keep } : null
+  const { items, hiddenViewed } = visibleTreeRows(
     input.fileTree,
     input.files,
     input.ignoredFiles,
     input.showHiddenFiles,
-    input.treeFilter
+    input.treeFilter,
+    viewed
   )
   const rows: FileTreeRow[] = []
   for (const item of items) {
@@ -69,14 +75,15 @@ export function fileTreeModel(input: FileTreeModelInput): FileTreeModel {
   }
   const hiddenCount = input.ignoredFiles.size
   return {
-    header: treeHeader(input),
+    header: treeHeader(input, hiddenViewed),
     rows,
     hidden: hiddenCount > 0 && !input.showHiddenFiles ? `(+${hiddenCount} hidden)` : null,
+    empty: viewed && rows.length === 0 && hiddenViewed > 0 ? "All files viewed · H shows them" : null,
     items,
   }
 }
 
-function treeHeader(input: FileTreeModelInput): FileTreeModel["header"] {
+function treeHeader(input: FileTreeModelInput, hiddenViewed: number): FileTreeModel["header"] {
   const { total, reviewed } = reviewProgress(input.files, input.fileStatuses, input.ignoredFiles)
   const progressText = total > 0 ? ` (${reviewed}/${total})` : ""
   // While filtering, the header is the prompt: the panel is narrow, and a
@@ -85,6 +92,13 @@ function treeHeader(input: FileTreeModelInput): FileTreeModel["header"] {
     text: input.treeFilter ? `/${input.treeFilter}` : `Files${progressText}`,
     fg: input.treeFilter ? colors.secondary : input.focused ? colors.primary : colors.textMuted,
     filtering: input.treeFilterInput,
+    // The prompt and a filter's label own the row, and the note would only
+    // crowd what is being typed or matched.
+    note:
+      input.unviewedOnly && !input.treeFilter && !input.treeFilterInput
+        ? `unviewed only · ${hiddenViewed} hidden`
+        : null,
+    noteFg: colors.secondary,
   }
 }
 
@@ -265,43 +279,80 @@ function computeDirViewedStatusForFiles(
   }
 }
 
+/** Hides viewed files from the tree, all but `keep`, which the reader is on. */
+export interface ViewedFilter {
+  statuses: ReadonlyMap<string, FileReviewStatus>
+  keep: string | null
+}
+
 /**
- * The rows the tree shows: narrowed by the path filter, minus ignored files
- * and the directories left empty by dropping them. Navigation and drawing
- * both go through here, so the cursor's index always names the row on screen.
+ * The rows the tree shows: narrowed by the path filter, minus ignored files,
+ * minus viewed ones while `viewed` is set, and minus the directories left
+ * empty by dropping them. Navigation and drawing both go through here, so
+ * the cursor's index always names the row on screen.
  */
 export function visibleTreeItems(
   fileTree: FileTreeNode[],
   files: DiffFile[],
   ignoredFiles: ReadonlySet<string>,
   showHiddenFiles: boolean,
-  treeFilter = ""
+  treeFilter = "",
+  viewed: ViewedFilter | null = null
 ): FlatTreeItem[] {
+  return visibleTreeRows(fileTree, files, ignoredFiles, showHiddenFiles, treeFilter, viewed).items
+}
+
+/**
+ * The rows, and how many viewed files the viewed filter took out. That count
+ * runs over every file the path filter and the ignore rule leave, folded or
+ * not, so the header never claims to hide what `/` or ignore already dropped.
+ */
+export function visibleTreeRows(
+  fileTree: FileTreeNode[],
+  files: DiffFile[],
+  ignoredFiles: ReadonlySet<string>,
+  showHiddenFiles: boolean,
+  treeFilter = "",
+  viewed: ViewedFilter | null = null
+): { items: FlatTreeItem[]; hiddenViewed: number } {
   const flatItems = flattenTree(filterTree(fileTree, treeFilter), files)
-  if (showHiddenFiles || ignoredFiles.size === 0) return flatItems
+  const hidesIgnored = !showHiddenFiles && ignoredFiles.size > 0
+  if (!hidesIgnored && !viewed) return { items: flatItems, hiddenViewed: 0 }
+
+  const isIgnoredAway = (filename: string) => hidesIgnored && ignoredFiles.has(filename)
+  const isViewedAway = (filename: string) =>
+    viewed !== null && filename !== viewed.keep && viewed.statuses.get(filename)?.viewed === true
+  const isShown = (filename: string) => !isIgnoredAway(filename) && !isViewedAway(filename)
 
   const shown = removeEmptyDirs(
-    flatItems.filter(
-      (item) => item.node.isDirectory || !(item.node.file && ignoredFiles.has(item.node.file.filename))
-    ),
+    flatItems.filter((item) => item.node.isDirectory || !(item.node.file && !isShown(item.node.file.filename))),
     files,
-    ignoredFiles
+    isShown
   )
   shown.forEach((item, i) => {
     item.index = i
   })
-  return shown
+
+  let hiddenViewed = 0
+  if (viewed) {
+    const matched = filteredFilenames(fileTree, treeFilter)
+    for (const file of files) {
+      if (matched && !matched.has(file.filename)) continue
+      if (!isIgnoredAway(file.filename) && isViewedAway(file.filename)) hiddenViewed++
+    }
+  }
+  return { items: shown, hiddenViewed }
 }
 
-/** A directory is empty here when every file under it is ignored. */
+/** A directory is empty here when no file under it is shown. */
 export function removeEmptyDirs(
   flatItems: FlatTreeItem[],
   files: readonly DiffFile[],
-  ignoredFiles: ReadonlySet<string>
+  isShown: (filename: string) => boolean
 ): FlatTreeItem[] {
   return flatItems.filter((item) => {
     if (!item.node.isDirectory) return true
     const dirPrefix = item.node.path + "/"
-    return files.some((f) => f.filename.startsWith(dirPrefix) && !ignoredFiles.has(f.filename))
+    return files.some((f) => f.filename.startsWith(dirPrefix) && isShown(f.filename))
   })
 }

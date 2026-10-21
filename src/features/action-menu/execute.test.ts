@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { executeAction, type ActionHandlers } from "./execute"
 import { getAvailableActions } from "../../actions/registry"
-import { createInitialState, toggleThreadPanelOpenOnly, type AppState } from "../../state"
+import { createInitialState, toggleThreadPanelOpenOnly, toggleTreeUnviewedOnly, type AppState } from "../../state"
+import { parseDiff } from "../../utils/diff-parser"
+import { buildFileTree } from "../../utils/file-tree"
 import type { Comment } from "../../types"
 
 const COMMENT: Comment = {
@@ -43,6 +45,46 @@ describe("Show Only Open Threads", () => {
     expect(state.threadPanelOpenOnly).toBe(true)
     await run()
     expect(state.threadPanelOpenOnly).toBe(false)
+    expect(saves).toBe(2)
+  })
+})
+
+describe("Show Only Unviewed Files", () => {
+  const files = parseDiff(`diff --git a/a.ts b/a.ts
+--- a/a.ts
++++ b/a.ts
+@@ -1,1 +1,1 @@
+-a
++b
+`)
+
+  test("is offered once there are files to hide", () => {
+    const ids = (state: AppState) => getAvailableActions(state).map((action) => action.id)
+    expect(ids(createInitialState([], [], "local", "local changes"))).not.toContain("toggle-unviewed-files-only")
+    expect(ids(createInitialState(files, buildFileTree(files), "local", "local changes"))).toContain("toggle-unviewed-files-only")
+  })
+
+  test("goes through the same toggle as H, and flips the flag each time", async () => {
+    let state: AppState = createInitialState(files, buildFileTree(files), "local", "local changes")
+    let saves = 0
+    const handlers = {
+      handleToggleUnviewedFilesOnly: () => {
+        state = toggleTreeUnviewedOnly(state, null)
+        saves++
+      },
+    } as unknown as ActionHandlers
+    const run = () =>
+      executeAction("toggle-unviewed-files-only", {
+        state,
+        setState: (update) => (state = update(state)),
+        render: () => {},
+        handlers,
+      })
+
+    await run()
+    expect(state.treeUnviewedOnly).toBe(true)
+    await run()
+    expect(state.treeUnviewedOnly).toBe(false)
     expect(saves).toBe(2)
   })
 })

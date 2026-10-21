@@ -103,6 +103,8 @@ export interface GlobalKeyContext {
   executeAction: (id: string) => void
   /** `H` in the thread panel: open threads only, saved with the review. */
   toggleOpenThreadsOnly: () => void
+  /** `H` in the file tree: unviewed files only, saved with the review. */
+  toggleUnviewedFilesOnly: () => void
   /** Toggle a reaction on a target — fired when the user presses Enter
    *  on a React… submenu row (spec 042). */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
@@ -1097,6 +1099,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
         toggleViewedForFile: (filename: string) =>
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
+        toggleUnviewedOnly: ctx.toggleUnviewedFilesOnly,
       })
 
     // ========== FILE TREE FILTER PROMPT (captures input while open) ==========

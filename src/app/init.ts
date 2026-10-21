@@ -143,6 +143,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     wrapLines: config.diff.wrap,
     alignMarkdownTables: config.diff.alignMarkdownTables,
     threadPanelOpenOnly: panelFilters.openThreadsOnly,
+    treeUnviewedOnly: panelFilters.unviewedFilesOnly,
     marks: { ...createMarksState(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
   }
 

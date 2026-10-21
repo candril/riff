@@ -3,7 +3,7 @@ import { colors, theme } from "../theme"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree, toggleNodeExpansion } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
-import { fileTreeModel, type FileTreeModelInput, type FileTreeRow } from "./file-tree-model"
+import { fileTreeModel, visibleTreeRows, type FileTreeModelInput, type FileTreeRow } from "./file-tree-model"
 
 const RAW = `diff --git a/src/app/main.ts b/src/app/main.ts
 index 1111111..2222222 100644
@@ -65,6 +65,7 @@ function model(input: Partial<FileTreeModelInput> = {}) {
     flashLabels: new Map(),
     unseenFiles: new Set(),
     changedSinceVisit: new Set(),
+    unviewedOnly: null,
     width: 35,
     ...input,
   })
@@ -87,7 +88,7 @@ describe("rows", () => {
       "○ A       foo.ts",
       "○ M   README.md",
     ])
-    expect(header).toEqual({ text: "Files (0/5)", fg: colors.primary, filtering: false })
+    expect(header).toEqual({ text: "Files (0/5)", fg: colors.primary, filtering: false, note: null, noteFg: colors.secondary })
     expect(hidden).toBeNull()
     expect(rowNamed(rows, "docs/manual.md").status.fg).toBe(colors.fileRenamed)
     expect(rowNamed(rows, "src/app/main.ts").status.fg).toBe(colors.fileModified)
@@ -170,7 +171,7 @@ describe("viewed", () => {
 describe("filter", () => {
   test("narrows the rows and heads the panel as /text in the secondary colour", () => {
     const { rows, header } = model({ treeFilter: "foo" })
-    expect(header).toEqual({ text: "/foo", fg: colors.secondary, filtering: false })
+    expect(header).toEqual({ text: "/foo", fg: colors.secondary, filtering: false, note: null, noteFg: colors.secondary })
     expect(rows.map(line)).toEqual(["○   ▼ src", "○     ▼ utils", "○ A       foo.ts"])
   })
 
@@ -240,4 +241,72 @@ test("rows keep their keys when a sibling directory folds", () => {
   expect(rowNamed(folded, "src/app").name.text).toBe("  ▶ app")
   for (const row of folded) expect(open.some((o) => o.key === row.key)).toBe(true)
   expect(rowNamed(folded, "src/utils").index).toBe(4)
+})
+
+describe("unviewed only", () => {
+  const viewed = (...names: string[]): Map<string, FileReviewStatus> =>
+    new Map(names.map((filename) => [filename, { filename, viewed: true, viewedAt: "2026-10-21T00:00:00Z" }]))
+
+  test("hides viewed files and the directories they leave empty, and the header says how many", () => {
+    const { rows, header } = model({
+      fileStatuses: viewed("docs/manual.md", "src/app/main.ts", "src/utils/foo.ts"),
+      unviewedOnly: { keep: null },
+    })
+    expect(rows.map(line)).toEqual(["◐   ▼ src", "◐     ▼ app", "○ D       old.ts", "○ M   README.md"])
+    expect(rows.map((row) => row.index)).toEqual([0, 1, 2, 3])
+    expect(header.text).toBe("Files (3/5)")
+    expect(header.note).toBe("unviewed only · 3 hidden")
+  })
+
+  test("a directory of viewed and ignored files disappears too, while ignored files behave as before", () => {
+    const { rows, hidden } = model({
+      fileStatuses: viewed("src/app/main.ts"),
+      ignoredFiles: new Set(["src/app/old.ts"]),
+      unviewedOnly: { keep: null },
+    })
+    expect(rows.map((row) => row.key)).toEqual(["docs", "docs/manual.md", "src", "src/utils", "src/utils/foo.ts", "README.md"])
+    expect(hidden).toBe("(+1 hidden)")
+  })
+
+  test("the kept file stays and does not count as hidden", () => {
+    const { rows, header } = model({
+      fileStatuses: viewed("src/app/main.ts", "src/utils/foo.ts"),
+      unviewedOnly: { keep: "src/app/main.ts" },
+    })
+    expect(rows.map((row) => row.key)).toContain("src/app/main.ts")
+    expect(rows.map((row) => row.key)).not.toContain("src/utils/foo.ts")
+    expect(header.note).toBe("unviewed only · 1 hidden")
+  })
+
+  test("the count leaves out files the path filter or the ignore rule already dropped", () => {
+    const fileStatuses = viewed("docs/manual.md", "src/app/main.ts", "src/utils/foo.ts")
+    expect(model({ fileStatuses, ignoredFiles: new Set(["docs/manual.md"]), unviewedOnly: { keep: null } }).header.note)
+      .toBe("unviewed only · 2 hidden")
+    const filtered = visibleTreeRows(TREE, FILES, new Set(), false, "src/app", { statuses: fileStatuses, keep: null })
+    expect(filtered.hiddenViewed).toBe(1)
+    expect(filtered.items.map((item) => item.node.path)).toEqual(["src", "src/app", "src/app/old.ts"])
+  })
+
+  test("counts viewed files inside a folded directory", () => {
+    const folded = toggleNodeExpansion(TREE, "src")
+    const { rows, header } = model({ fileTree: folded, fileStatuses: viewed("src/app/main.ts"), unviewedOnly: { keep: null } })
+    expect(rows.map((row) => row.key)).toEqual(["docs", "docs/manual.md", "src", "README.md"])
+    expect(header.note).toBe("unviewed only · 1 hidden")
+  })
+
+  test("with nothing hidden the note still says the toggle is on; the prompt and a filter hide it", () => {
+    expect(model({ unviewedOnly: { keep: null } }).header.note).toBe("unviewed only · 0 hidden")
+    expect(model({ unviewedOnly: { keep: null }, treeFilterInput: true }).header.note).toBeNull()
+    expect(model({ unviewedOnly: { keep: null }, treeFilter: "foo" }).header.note).toBeNull()
+    expect(model().header.note).toBeNull()
+  })
+
+  test("every file viewed leaves the empty-state line in place of rows", () => {
+    const all = viewed(...FILES.map((file) => file.filename))
+    const { rows, empty, header } = model({ fileStatuses: all, unviewedOnly: { keep: null } })
+    expect(rows).toEqual([])
+    expect(empty).toBe("All files viewed · H shows them")
+    expect(header.note).toBe("unviewed only · 5 hidden")
+    expect(model({ fileStatuses: all }).empty).toBeNull()
+  })
 })

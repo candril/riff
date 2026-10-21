@@ -143,6 +143,9 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
         fileStatuses: state.fileStatuses,
         ignoredFiles: state.ignoredFiles,
         showHiddenFiles: state.showHiddenFiles,
+        treeFilter: state.treeFilter,
+        treeFilterInput: state.treeFilterInput,
+        unviewedOnly: state.treeUnviewedOnly ? { keep: state.treeKeptFile } : null,
       })
       fileTreePanel.visible = state.showFilePanel
     },

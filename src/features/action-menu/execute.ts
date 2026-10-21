@@ -67,6 +67,7 @@ export interface ActionHandlers {
   handleExpandDivider: () => Promise<boolean>
   handleDiscardDraftedComment: () => Promise<void>
   handleToggleOpenThreadsOnly: () => void
+  handleToggleUnviewedFilesOnly: () => void
 }
 
 export interface ExecuteContext {
@@ -148,6 +149,10 @@ export async function executeAction(
 
     case "toggle-open-threads-only":
       handlers.handleToggleOpenThreadsOnly()
+      break
+
+    case "toggle-unviewed-files-only":
+      handlers.handleToggleUnviewedFilesOnly()
       break
 
     case "toggle-file-panel-expanded":

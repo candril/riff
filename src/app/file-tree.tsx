@@ -18,6 +18,7 @@ type Defaulted =
   | "flashLabels"
   | "unseenFiles"
   | "changedSinceVisit"
+  | "unviewedOnly"
 
 /** What the app pushes into the tree; the island adds the width it is drawn at. */
 export type FileTreeInput = Omit<FileTreeModelInput, "width" | Defaulted> &
@@ -34,6 +35,7 @@ function withDefaults(input: FileTreeInput): Omit<FileTreeModelInput, "width"> {
     flashLabels: new Map(),
     unseenFiles: new Set(),
     changedSinceVisit: new Set(),
+    unviewedOnly: null,
     ...input,
   }
 }
@@ -41,9 +43,10 @@ function withDefaults(input: FileTreeInput): Omit<FileTreeModelInput, "width"> {
 // A fresh object per island: a store wraps the object it is given, and two
 // stores built on one shared constant would write through to each other.
 const empty = (): FileTreeViewModel => ({
-  header: { text: "Files (0)", fg: colors.textMuted, filtering: false },
+  header: { text: "Files (0)", fg: colors.textMuted, filtering: false, note: null, noteFg: colors.secondary },
   rows: [],
   hidden: null,
+  empty: null,
   overflow: { above: null, below: null },
 })
 
@@ -78,8 +81,9 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
 
   const [state, setState] = createStore({ model: empty() })
 
-  /** Rows the list draws: every tree row and the hidden-files line under them. */
-  const drawnRows = (model: Pick<FileTreeViewModel, "rows" | "hidden">) => model.rows.length + (model.hidden ? 1 : 0)
+  /** Rows the list draws: every tree row, the empty-state line, and the hidden-files line under them. */
+  const drawnRows = (model: Pick<FileTreeViewModel, "rows" | "hidden" | "empty">) =>
+    model.rows.length + (model.empty ? 1 : 0) + (model.hidden ? 1 : 0)
   const viewportHeight = () => Math.floor(scroll?.height ?? 0)
   const hintsAt = (total: number, top = scroll?.scrollTop ?? 0): OverflowHints =>
     overflowHints(total, top, viewportHeight())

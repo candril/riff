@@ -2,7 +2,7 @@ import { test, expect, describe, afterAll } from "bun:test"
 import { mkdtemp, mkdir, writeFile, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { loadPanelFilters, savePanelFilters } from "./storage"
+import { loadPanelFilters, savePanelFilters, updatePanelFilters } from "./storage"
 
 const roots: string[] = []
 
@@ -60,6 +60,30 @@ describe("the panels file", () => {
       expect(await loadPanelFilters("local")).toEqual({ openThreadsOnly: false, unviewedFilesOnly: true })
       await writePanels(root, '{"openThreadsOnly": "yes"}')
       expect(await loadPanelFilters("local")).toEqual(NONE)
+    })
+  })
+})
+
+describe("updating one filter", () => {
+  test("keeps the other field as the file has it", async () => {
+    await inRepo(async () => {
+      await savePanelFilters("local", { openThreadsOnly: true, unviewedFilesOnly: false })
+      await updatePanelFilters("local", { unviewedFilesOnly: true })
+      expect(await loadPanelFilters("local")).toEqual({ openThreadsOnly: true, unviewedFilesOnly: true })
+      await updatePanelFilters("local", { openThreadsOnly: false })
+      expect(await loadPanelFilters("local")).toEqual({ openThreadsOnly: false, unviewedFilesOnly: true })
+    })
+  })
+
+  test("overlapping updates, not awaited between, leave the last value of each field", async () => {
+    await inRepo(async () => {
+      const writes: Promise<void>[] = []
+      for (let i = 0; i < 10; i++) {
+        writes.push(updatePanelFilters("local", { unviewedFilesOnly: i % 2 === 0 }))
+        writes.push(updatePanelFilters("local", { openThreadsOnly: i % 2 === 1 }))
+      }
+      await Promise.all(writes)
+      expect(await loadPanelFilters("local")).toEqual({ openThreadsOnly: true, unviewedFilesOnly: false })
     })
   })
 })

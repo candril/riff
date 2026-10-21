@@ -12,7 +12,7 @@ import type { DiffFile } from "../../utils/diff-parser"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { SearchState } from "../../vim-diff/search-state"
 import type { VimCursorState } from "../../vim-diff/types"
-import { flattenTree } from "../../utils/file-tree"
+import { treeRowsOf } from "../../components/FileTree"
 
 /** What the cursor row pointed at. */
 export interface CursorAnchor {
@@ -43,6 +43,8 @@ export interface RefreshPosition {
   treeFilter: string
   showHiddenFiles: boolean
   threadPanelOpenOnly: boolean
+  treeUnviewedOnly: boolean
+  treeKeptFile: string | null
   wrapLines: boolean
   alignMarkdownTables: boolean
   collapsedFiles: Set<string>
@@ -61,7 +63,8 @@ export function capturePosition(
   mapping: DiffLineMapping,
   search: SearchState
 ): RefreshPosition {
-  const flatItems = flattenTree(state.fileTree, state.files)
+  // The rows on screen, which the highlight's index counts in.
+  const flatItems = treeRowsOf(state)
 
   return {
     viewMode: state.viewMode,
@@ -79,6 +82,8 @@ export function capturePosition(
     treeFilter: state.treeFilter,
     showHiddenFiles: state.showHiddenFiles,
     threadPanelOpenOnly: state.threadPanelOpenOnly,
+    treeUnviewedOnly: state.treeUnviewedOnly,
+    treeKeptFile: state.treeKeptFile,
     wrapLines: state.wrapLines,
     alignMarkdownTables: state.alignMarkdownTables,
     collapsedFiles: new Set(state.collapsedFiles),
@@ -98,19 +103,22 @@ export function capturePosition(
  * or ignored — are unioned on top by the caller afterwards.
  */
 export function restorePosition(state: AppState, position: RefreshPosition): AppState {
-  const selectedFileIndex = findFileIndex(state.files, position.selectedFilename)
-  const flatItems = flattenTree(state.fileTree, state.files)
+  const restored = restoreFields(state, position)
+  const flatItems = treeRowsOf(restored)
   const treeHighlightIndex = position.treeHighlightPath
     ? Math.max(0, flatItems.findIndex((item) => item.node.path === position.treeHighlightPath))
     : 0
+  return { ...restored, treeHighlightIndex }
+}
 
+function restoreFields(state: AppState, position: RefreshPosition): AppState {
+  const selectedFileIndex = findFileIndex(state.files, position.selectedFilename)
   return {
     ...state,
     viewMode: position.viewMode,
     previousView: position.previousView,
     feed: position.feed,
     selectedFileIndex,
-    treeHighlightIndex,
     focusedPanel: position.focusedPanel,
     chatOpen: position.chatOpen,
     showFilePanel: position.showFilePanel,
@@ -118,6 +126,8 @@ export function restorePosition(state: AppState, position: RefreshPosition): App
     treeFilter: position.treeFilter,
     showHiddenFiles: position.showHiddenFiles,
     threadPanelOpenOnly: position.threadPanelOpenOnly,
+    treeUnviewedOnly: position.treeUnviewedOnly,
+    treeKeptFile: position.treeKeptFile,
     wrapLines: position.wrapLines,
     alignMarkdownTables: position.alignMarkdownTables,
     collapsedFiles: new Set(position.collapsedFiles),

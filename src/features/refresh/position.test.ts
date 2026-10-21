@@ -127,6 +127,8 @@ describe("restoring the view", () => {
       wrapLines: true,
       treeFilter: "b",
       threadPanelOpenOnly: true,
+      treeUnviewedOnly: true,
+      treeKeptFile: "b.ts",
       focusedPanel: "tree" as const,
     }
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
@@ -142,8 +144,20 @@ describe("restoring the view", () => {
     expect(after.wrapLines).toBe(true)
     expect(after.treeFilter).toBe("b")
     expect(after.threadPanelOpenOnly).toBe(true)
+    expect(after.treeUnviewedOnly).toBe(true)
+    expect(after.treeKeptFile).toBe("b.ts")
     expect(after.focusedPanel).toBe("tree")
     expect(after.viewMode).toBe("diff")
+  })
+
+  test("the tree highlight keeps its row's path among the rows the viewed filter leaves", () => {
+    const viewed = new Map([["a.ts", { filename: "a.ts", viewed: true }]])
+    const before = { ...stateWith(files), fileStatuses: viewed, treeUnviewedOnly: true, treeHighlightIndex: 0 }
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    expect(position.treeHighlightPath).toBe("b.ts")
+
+    const after = restorePosition({ ...stateWith([files[1]!, files[0]!]), fileStatuses: viewed }, position)
+    expect(after.treeHighlightIndex).toBe(0)
   })
 
   test("an open chat with the keys stays open and keeps them", () => {

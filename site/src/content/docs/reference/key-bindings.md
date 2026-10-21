@@ -95,6 +95,7 @@ Expanded context lines are for reading only — GitHub can't anchor a comment ou
 | `/` | Filter the list that has focus — tree, PR overview, feed, comments panel; search, in the diff |
 | `Ctrl+g` | Pick commits to scope the diff to — `Space` marks, `V` marks a run (`Esc` in the diff leaves it) |
 | `v` | Mark the file viewed and advance to the next unviewed |
+| `H` | In the file tree: show only unviewed files — the one you are on stays — or all again; kept per review |
 | `Esc` | Leave single-file view — after clearing a selection or search highlights |
 
 In the **file tree**: `j`/`k` moves, `Ctrl+d`/`Ctrl+u` half a page, `gg`/`G` to the top and

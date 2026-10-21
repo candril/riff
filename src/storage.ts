@@ -934,9 +934,25 @@ export async function savePanelFilters(source: string, filters: PanelFilters): P
   await Bun.write(getPanelsFilePath(source), JSON.stringify(filters, null, 2))
 }
 
-/** Writes one filter and keeps the rest as the file has them, so each panel owns only its own field. */
-export async function updatePanelFilters(source: string, patch: Partial<PanelFilters>): Promise<void> {
-  await savePanelFilters(source, { ...(await loadPanelFilters(source)), ...patch })
+/** The last update queued per panels file, so each read-merge-write starts after the one before it ends. */
+const panelFilterWrites = new Map<string, Promise<void>>()
+
+/**
+ * Writes one filter and keeps the rest as the file has them, so each panel
+ * owns only its own field. Two fast toggles would otherwise both read the
+ * old file, and the slower write could leave the earlier value behind.
+ */
+export function updatePanelFilters(source: string, patch: Partial<PanelFilters>): Promise<void> {
+  const path = getPanelsFilePath(source)
+  const previous = panelFilterWrites.get(path) ?? Promise.resolve()
+  const write = previous
+    .catch(() => {})
+    .then(async () => savePanelFilters(source, { ...(await loadPanelFilters(source)), ...patch }))
+  panelFilterWrites.set(path, write)
+  void write.finally(() => {
+    if (panelFilterWrites.get(path) === write) panelFilterWrites.delete(path)
+  }).catch(() => {})
+  return write
 }
 
 /**

@@ -9,7 +9,7 @@ import type { FileReviewStatus } from "../../types"
 import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github"
-import { treeRowsOf } from "../../components"
+import { treeRowsOf, treeRowsWithViewedOf } from "../../components"
 import {
   selectFile,
   isFileViewed,
@@ -54,7 +54,7 @@ export interface FileNavigationContext {
  * Respects ignore patterns — when hidden files are not shown, ignored files are excluded.
  */
 function getFilesInTreeOrder(state: AppState): number[] {
-  const flatItems = treeRowsOf(state)
+  const flatItems = treeRowsWithViewedOf(state)
   return flatItems
     .filter((item) => item.fileIndex !== undefined)
     .map((item) => item.fileIndex!)

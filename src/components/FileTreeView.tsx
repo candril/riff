@@ -26,9 +26,24 @@ function Header(props: { header: FileTreeViewModel["header"]; field: InputRender
       backgroundColor={props.header.filtering ? theme.surface0 : theme.mantle}
     >
       {/* The header lays its children out in a row; a text with no basis measures as zero wide there. */}
-      <text visible={!props.header.filtering} fg={props.header.fg} flexGrow={1}>
+      <text visible={!props.header.filtering} fg={props.header.fg} flexGrow={props.header.note === null ? 1 : 0}>
         {props.header.text}
       </text>
+      {/*
+       * The outsized shrink makes the note give up its columns before the
+       * label loses any, so a narrow panel cuts the note and keeps the label.
+       */}
+      <box
+        visible={!props.header.filtering && props.header.note !== null}
+        flexGrow={1}
+        flexShrink={1000}
+        minWidth={0}
+        overflow="hidden"
+      >
+        <text fg={props.header.noteFg} wrapMode="none">
+          {props.header.note ? `  ${props.header.note}` : ""}
+        </text>
+      </box>
       <box visible={props.header.filtering} flexDirection="row" flexGrow={1}>
         <text fg={colors.secondary}>/</text>
         {props.field}
@@ -90,6 +105,13 @@ export function FileTreeView(props: {
                 </box>
               )}
             </For>
+            <Show when={props.model.empty}>
+              {(empty: () => string) => (
+                <box height={1} width="100%" paddingLeft={1}>
+                  <text fg={theme.overlay0}>{empty()}</text>
+                </box>
+              )}
+            </Show>
             <Show when={props.model.hidden}>
               {(hidden: () => string) => (
                 <box height={1} width="100%" paddingLeft={1}>
