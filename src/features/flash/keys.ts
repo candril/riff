@@ -9,6 +9,7 @@
  */
 
 import type { RiffKeymap } from "../../app/keymap"
+import { anyModifiers } from "../../app/key-variants"
 import type { FlashState } from "../../vim-diff/flash-state"
 import type { FlashHandler } from "../../vim-diff/flash-handler"
 
@@ -38,13 +39,13 @@ export function registerFlashKeys(riffKeymap: RiffKeymap, deps: FlashKeyDeps): (
       },
     ],
     bindings: [
-      { key: "escape", cmd: "flash.cancel" },
-      { key: "ctrl+c", cmd: "flash.cancel" },
-      { key: "return", cmd: "flash.cancel" },
+      ...anyModifiers("escape", "flash.cancel"),
+      ...anyModifiers("ctrl+c", "flash.cancel"),
+      ...anyModifiers("return", "flash.cancel"),
       // The parser calls the key "return", but the keymap matches an event
       // named "enter" as a different key, and the chain took both.
-      { key: "enter", cmd: "flash.cancel" },
-      { key: "backspace", cmd: "flash.backspace" },
+      ...anyModifiers("enter", "flash.cancel"),
+      ...anyModifiers("backspace", "flash.backspace"),
     ],
   })
   const unregisterCapture = riffKeymap.capture(active, (key) => {

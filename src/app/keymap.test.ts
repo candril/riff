@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from "bun:test"
-import { KeyEvent } from "@opentui/core"
+import { KeyEvent, parseKeypress } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { createRiffKeymap } from "./keymap"
 import { composeKeys, type KeyHandler } from "./keys-dispatch"
@@ -11,15 +11,15 @@ afterEach(() => {
 })
 
 async function setup() {
-  const test = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => test.renderer.destroy())
-  const riffKeymap = createRiffKeymap(test.renderer)
+  const rendered = await createTestRenderer({ width: 20, height: 4 })
+  disposers.push(() => rendered.renderer.destroy())
+  const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
   const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
     chordPending: () => false,
   })
   const keys = composeKeys(riffKeymap, legacy)
-  return { ...test, riffKeymap, legacyKeys, keys }
+  return { ...rendered, riffKeymap, legacyKeys, keys }
 }
 
 function press(name: string) {
@@ -127,7 +127,7 @@ test("F12 toggles the debug console through the app layer", async () => {
     .find((e) => e.command.name === "app.console")
   expect(entry?.command["title"]).toBe("Toggle the debug console")
   expect(entry?.command["category"]).toBe("Debug")
-  expect(entry?.bindings.map((b) => b.sequence.map((p) => p.display).join(" "))).toEqual(["f12"])
+  expect(entry?.bindings.map((b) => b.sequence.map((p) => p.display).join(" "))).toContain("f12")
 })
 
 test("F12 as the terminal sends it reaches the app layer through riff's one keypress listener", async () => {
@@ -141,6 +141,38 @@ test("F12 as the terminal sends it reaches the app layer through riff's one keyp
 
   expect(toggles).toBe(1)
   expect(legacyKeys).toEqual(["j"])
+})
+
+test("F12 with shift or ctrl held still toggles the debug console", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  let toggles = 0
+  registerAppKeys(riffKeymap.keymap, { toggleConsole: () => void toggles++ })
+  expect(parseKeypress("\x1b[24;2~")).toMatchObject({ name: "f12", shift: true, ctrl: false })
+  expect(parseKeypress("\x1b[24;5~")).toMatchObject({ name: "f12", shift: false, ctrl: true })
+
+  keys(new KeyEvent(parseKeypress("\x1b[24;2~")!))
+  keys(new KeyEvent(parseKeypress("\x1b[24;5~")!))
+
+  expect(toggles).toBe(2)
+  expect(legacyKeys).toEqual([])
+})
+
+test("of two layers binding a key the later registered runs, and of two active captures the later takes the rest", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const runs: string[] = []
+  for (const name of ["earlier", "later"]) {
+    riffKeymap.keymap.registerLayer({
+      commands: [{ name, run: () => void runs.push(name) }],
+      bindings: [{ key: "x", cmd: name }],
+    })
+    riffKeymap.capture(() => true, () => void runs.push(`${name} rest`))
+  }
+
+  keys(press("x"))
+  keys(press("j"))
+
+  expect(runs).toEqual(["later", "later rest"])
+  expect(legacyKeys).toEqual([])
 })
 
 test("while a capture is active an unbound key goes to its rest and never reaches the chain", async () => {

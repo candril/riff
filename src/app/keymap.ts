@@ -10,7 +10,8 @@ export interface RiffKeymap {
   chordPending(): boolean
   /**
    * While `active`, every key no binding takes is kept from the chain and
-   * handed to `rest`, for a modal that owns the keyboard. Returns the unregister.
+   * handed to `rest`, for a modal that owns the keyboard. Of two active
+   * captures the later registered one wins. Returns the unregister.
    */
   capture(active: () => boolean, rest?: (key: KeyEvent) => void): () => void
 }
@@ -84,7 +85,9 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
     chordPending: () => keymap.hasPendingSequence(),
     capture(active, rest) {
       const capture: Capture = { active, rest }
-      captures.push(capture)
+      // Newest first: the keymap prefers the later registered of two layers
+      // binding a key, and a modal's capture must rank as its layer does.
+      captures.unshift(capture)
       return () => {
         const at = captures.indexOf(capture)
         if (at >= 0) captures.splice(at, 1)

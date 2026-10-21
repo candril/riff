@@ -1,5 +1,6 @@
 import type { AppState } from "../state"
 import type { RiffKeymap } from "./keymap"
+import { anyModifiers } from "./key-variants"
 
 export interface ConfirmKeyDeps {
   getState: () => AppState
@@ -31,13 +32,10 @@ export function registerConfirmKeys(riffKeymap: RiffKeymap, deps: ConfirmKeyDeps
         run: () => deps.getState().confirmDialog?.onCancel(),
       },
     ],
-    // The parser reports Y as y with shift, which a plain `y` does not match.
     bindings: [
-      { key: "y", cmd: "confirm.yes" },
-      { key: "shift+y", cmd: "confirm.yes" },
-      { key: "n", cmd: "confirm.no" },
-      { key: "shift+n", cmd: "confirm.no" },
-      { key: "escape", cmd: "confirm.no" },
+      ...anyModifiers("y", "confirm.yes"),
+      ...anyModifiers("n", "confirm.no"),
+      ...anyModifiers("escape", "confirm.no"),
     ],
   })
   const unregisterCapture = riffKeymap.capture(active)

@@ -13,9 +13,9 @@ afterEach(() => {
 })
 
 async function setup() {
-  const test = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => test.renderer.destroy())
-  const riffKeymap = createRiffKeymap(test.renderer)
+  const rendered = await createTestRenderer({ width: 20, height: 4 })
+  disposers.push(() => rendered.renderer.destroy())
+  const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
   const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
     chordPending: () => false,
@@ -29,7 +29,7 @@ async function setup() {
   } as unknown as FlashHandler
   registerFlashKeys(riffKeymap, { getFlashState: () => flashState, flashHandler: () => handler })
   const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => keys(new KeyEvent(parseKeypress(sequence)!))
+  const press = (sequence: string) => keys(new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!))
   return { flashState, calls, legacyKeys, keys, press }
 }
 
@@ -54,6 +54,28 @@ test("while flash is active backspace takes back a character and escape, return 
   press("\x03")
 
   expect(calls).toEqual(["backspace", "cancel", "cancel", "cancel"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("while flash is active modified escape, ctrl+c, return and backspace still cancel or take back", async () => {
+  const { flashState, calls, legacyKeys, press } = await setup()
+  flashState.active = true
+  const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: true })
+  expect(parse("\x1b\x1b")).toMatchObject({ name: "escape", ctrl: false, shift: false, meta: true })
+  expect(parse("\x1b[99;6u")).toMatchObject({ name: "c", ctrl: true, shift: true, meta: false })
+  expect(parse("\x1b\x7f")).toMatchObject({ name: "backspace", ctrl: false, shift: false, meta: true })
+  expect(parse("\x1b[127;5u")).toMatchObject({ name: "backspace", ctrl: true, shift: false, meta: false })
+  expect(parse("\x1b\r")).toMatchObject({ name: "return", ctrl: false, shift: false, meta: true })
+  expect(parse("\x1b[13;5u")).toMatchObject({ name: "return", ctrl: true, shift: false, meta: false })
+
+  press("\x1b\x1b")
+  press("\x1b[99;6u")
+  press("\x1b\x7f")
+  press("\x1b[127;5u")
+  press("\x1b\r")
+  press("\x1b[13;5u")
+
+  expect(calls).toEqual(["cancel", "cancel", "backspace", "backspace", "cancel", "cancel"])
   expect(legacyKeys).toEqual([])
 })
 

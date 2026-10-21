@@ -12,9 +12,9 @@ afterEach(() => {
 })
 
 async function setup() {
-  const test = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => test.renderer.destroy())
-  const riffKeymap = createRiffKeymap(test.renderer)
+  const rendered = await createTestRenderer({ width: 20, height: 4 })
+  disposers.push(() => rendered.renderer.destroy())
+  const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
   const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
     chordPending: () => false,
@@ -52,6 +52,32 @@ test("n, N and escape cancel", async () => {
   press("n")
   press("N")
   press("\x1b")
+
+  expect(answers).toEqual(["no", "no", "no"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("ctrl+y and alt+y confirm", async () => {
+  const { answers, legacyKeys, press } = await setup()
+  expect(parseKeypress("\x19")).toMatchObject({ name: "y", ctrl: true, meta: false })
+  expect(parseKeypress("\x1by")).toMatchObject({ name: "y", ctrl: false, meta: true })
+
+  press("\x19")
+  press("\x1by")
+
+  expect(answers).toEqual(["yes", "yes"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("ctrl+n, alt+n and alt+escape cancel", async () => {
+  const { answers, legacyKeys, press } = await setup()
+  expect(parseKeypress("\x0e")).toMatchObject({ name: "n", ctrl: true, meta: false })
+  expect(parseKeypress("\x1bn")).toMatchObject({ name: "n", ctrl: false, meta: true })
+  expect(parseKeypress("\x1b\x1b")).toMatchObject({ name: "escape", ctrl: false, meta: true })
+
+  press("\x0e")
+  press("\x1bn")
+  press("\x1b\x1b")
 
   expect(answers).toEqual(["no", "no", "no"])
   expect(legacyKeys).toEqual([])

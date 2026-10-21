@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
-import { FEED_CHROME_ROWS, feedRowsInView } from "../components/feed-window"
-import { createFeedState, createInitialState, visibleFeedRows, type AppState } from "../state"
+import { FEED_CHROME_ROWS } from "../components/feed-window"
+import { createFeedState, createInitialState, type AppState } from "../state"
 import type { FeedEvent } from "../utils/feed"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -57,6 +57,6 @@ test("s in the feed labels the rows the scrolled window shows, at the renderer's
 
   expect(lists).toHaveLength(1)
   expect(lists[0]!.surface).toBe("feed")
-  expect(lists[0]!.ids).toEqual(feedRowsInView(visibleFeedRows(state), state.feed, height).map(String))
-  expect(lists[0]!.ids).toEqual(Array.from({ length: 10 }, (_, i) => String(30 + i)))
+  // 40 rows, the last highlighted, 10 body rows: the window ends on the highlight.
+  expect(lists[0]!.ids).toEqual(["30", "31", "32", "33", "34", "35", "36", "37", "38", "39"])
 })

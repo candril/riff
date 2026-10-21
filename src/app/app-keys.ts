@@ -1,5 +1,6 @@
 import type { KeyEvent, Renderable } from "@opentui/core"
 import type { Keymap } from "@opentui/keymap"
+import { anyModifiers } from "./key-variants"
 
 export interface AppKeyDeps {
   toggleConsole: () => void
@@ -17,6 +18,6 @@ export function registerAppKeys(keymap: Keymap<Renderable, KeyEvent>, deps: AppK
         run: () => deps.toggleConsole(),
       },
     ],
-    bindings: [{ key: "f12", cmd: "app.console" }],
+    bindings: anyModifiers("f12", "app.console"),
   })
 }
