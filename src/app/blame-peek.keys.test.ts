@@ -46,6 +46,7 @@ function stubBlame(repo: RepoRef | null = { owner: "o", repo: "r" }) {
   const copied: string[] = []
   const deps: BlameDeps = {
     source: {
+      fileBlame: () => Promise.reject(new Error("the peek reads one line")),
       lineBlame(path, side, line) {
         asked.push([path, side, line])
         return new Promise((resolve, reject) => pending.push({ resolve, reject }))

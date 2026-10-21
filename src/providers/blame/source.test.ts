@@ -137,3 +137,43 @@ test("a PR is blamed on GitHub at its head, and its base at the merge base, with
     ["blame", "owner", "repo", "merge-base", "a.ts"],
   ])
 })
+
+test("a whole file's blame is the same read lineBlame shares, by line number", async () => {
+  let runs = 0
+  const source = jjSource({ jjAnnotate: async () => (runs++, annotate(3)) }, "xyz")
+  const loaded = await source.fileBlame("a.ts", "head")
+  expect(loaded?.blame.length).toBe(4)
+  expect(loaded?.blame[2]).toMatchObject({ kind: "commit", commit: { sha: SHA, author: "Ada" } })
+  expect(loaded?.prs).toBeNull()
+  expect((await source.lineBlame("a.ts", "head", 2))?.line).toBe(loaded!.blame[2]!)
+  expect(await source.fileBlame("a.ts", "head")).toBe(loaded!)
+  expect(runs).toBe(1)
+})
+
+test("a whole file the side does not have is no blame", async () => {
+  const source = jjSource({ jjAnnotate: async () => null }, "xyz")
+  expect(await source.fileBlame("gone.ts", "base")).toBeNull()
+})
+
+test("a PR's whole-file blame carries the PRs GitHub names", async () => {
+  const range = {
+    startingLine: 1,
+    endingLine: 2,
+    commit: {
+      oid: SHA,
+      committedDate: "2026-10-02T10:00:00Z",
+      messageHeadline: "subject",
+      author: { name: "Ada", date: null, user: null },
+      associatedPullRequests: { nodes: [{ number: 5, url: "u" }] },
+    },
+  }
+  const source = createBlameSource({
+    state: () => prState,
+    target: undefined,
+    headSha: () => "abc123",
+    runners: stubbed({ githubBlame: async () => ({ data: { repository: { object: { blame: { ranges: [range] } } } } }) }),
+  })
+  const loaded = await source.fileBlame("a.ts", "head")
+  expect(loaded?.blame[2]).toMatchObject({ kind: "commit" })
+  expect(loaded?.prs?.get(SHA)).toEqual({ number: 5, url: "u" })
+})

@@ -14,6 +14,7 @@ import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState, type MarksPickerState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import { closeBlamePeek, type BlamePeekState } from "./features/blame/peek-state"
+import type { BlameColumnState } from "./features/blame/column-state"
 import type { StackInfo } from "./utils/stack"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -430,6 +431,8 @@ export interface AppState {
   showLinePeek: boolean
   /** `gb` — who last changed the cursor's line (spec 103). */
   blamePeek: BlamePeekState | null
+  /** Files whose blame column is on, by path (spec 103). */
+  blameColumns: ReadonlyMap<string, BlameColumnState>
   /** Which version of a changed block the peek is drawing (spec 058). */
   peekSide: "new" | "old"
   /** Where a peek too big for the window is scrolled to, in rows and
@@ -665,6 +668,7 @@ export function createInitialState(
     helpScroll: 0,
     showLinePeek: false,
     blamePeek: null,
+    blameColumns: new Map(),
     peekSide: "new",
     peekScroll: { row: 0, col: 0 },
     wrapLines: false,

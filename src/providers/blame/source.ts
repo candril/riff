@@ -36,7 +36,15 @@ export interface LineBlame {
   pr: PrRef | null
 }
 
+export interface LoadedFileBlame {
+  blame: FileBlame
+  // Only a PR's blame carries its PRs; a local one asks per commit.
+  prs: ReadonlyMap<string, PrRef> | null
+}
+
 export interface BlameSource {
+  /** Null for a file that side does not have. */
+  fileBlame(path: string, side: BlameSide): Promise<LoadedFileBlame | null>
   /** Null past the end of the file, or for a file that side does not have. */
   lineBlame(path: string, side: BlameSide, line: number): Promise<LineBlame | null>
 }
@@ -68,16 +76,10 @@ const DEFAULT_RUNNERS: BlameRunners = {
   prForCommit,
 }
 
-interface LoadedBlame {
-  blame: FileBlame
-  // Only a PR's blame carries its PRs; a local one asks per commit.
-  prs: Map<string, PrRef> | null
-}
-
 /** Who last changed a line of the review, by the revisions the diff's line numbers count in. */
 export function createBlameSource(deps: BlameSourceDeps): BlameSource {
   const run = { ...DEFAULT_RUNNERS, ...deps.runners }
-  const files = new Map<string, Promise<LoadedBlame | null>>()
+  const files = new Map<string, Promise<LoadedFileBlame | null>>()
 
   async function sideRevision(side: BlameSide): Promise<SideRevision> {
     const state = deps.state()
@@ -91,7 +93,7 @@ export function createBlameSource(deps: BlameSourceDeps): BlameSource {
     return vcs === "jj" ? jjSide(side, deps.target) : gitSide(side, deps.target)
   }
 
-  async function load(path: string, revision: SideRevision): Promise<LoadedBlame | null> {
+  async function load(path: string, revision: SideRevision): Promise<LoadedFileBlame | null> {
     if (revision.tool === "jj") {
       const text = await run.jjAnnotate(revision.rev, path)
       return text === null ? null : { blame: parseJjAnnotate(text), prs: null }
@@ -109,7 +111,7 @@ export function createBlameSource(deps: BlameSourceDeps): BlameSource {
     return parseGithubBlame(await run.githubBlame(pr.owner, pr.repo, commit, path))
   }
 
-  function fileBlame(path: string, revision: SideRevision): Promise<LoadedBlame | null> {
+  function cached(path: string, revision: SideRevision): Promise<LoadedFileBlame | null> {
     // A working copy is edited while riff runs, so its blame is read fresh every time.
     if (revision.live) return load(path, revision)
     const key = `${path}@${revisionLabel(revision)}`
@@ -128,9 +130,12 @@ export function createBlameSource(deps: BlameSourceDeps): BlameSource {
     return run.prForCommit(repo.owner, repo.repo, sha).catch(() => null)
   }
 
+  const fileBlame = async (path: string, side: BlameSide) => cached(path, await sideRevision(side))
+
   return {
+    fileBlame,
     async lineBlame(path, side, line) {
-      const loaded = await fileBlame(path, await sideRevision(side))
+      const loaded = await fileBlame(path, side)
       const entry = loaded?.blame[line]
       if (!loaded || !entry) return null
       if (entry.kind === "uncommitted") return { line: entry, pr: null }

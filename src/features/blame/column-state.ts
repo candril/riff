@@ -1,0 +1,40 @@
+import type { FileBlame } from "../../providers/blame/types"
+
+/** One file's blame column (spec 103 P2): asked for, or answered for each side it has. */
+export type BlameColumnState = { status: "loading" } | { status: "ready"; head: FileBlame | null; base: FileBlame | null }
+
+export type BlameColumnOutcome = { head: FileBlame | null; base: FileBlame | null } | { message: string }
+
+interface WithBlameColumns {
+  blameColumns: ReadonlyMap<string, BlameColumnState>
+}
+
+const withColumns = <S extends WithBlameColumns>(state: S, change: (columns: Map<string, BlameColumnState>) => void): S => {
+  const columns = new Map(state.blameColumns)
+  change(columns)
+  return { ...state, blameColumns: columns }
+}
+
+/** Turns a file's column off, or on and loading; `on` says which, so the caller knows whether to fetch. */
+export function toggleBlameColumn<S extends WithBlameColumns>(state: S, path: string): { state: S; on: boolean } {
+  const on = !state.blameColumns.has(path)
+  return {
+    state: withColumns(state, (columns) => (on ? columns.set(path, { status: "loading" }) : columns.delete(path))),
+    on,
+  }
+}
+
+/**
+ * An answer for a column turned off since it was asked is dropped, so a
+ * slow read cannot turn the column back on. A failure drops the column:
+ * the caller says why, and there is nothing to draw.
+ */
+export function settleBlameColumn<S extends WithBlameColumns>(state: S, path: string, outcome: BlameColumnOutcome): S {
+  if (state.blameColumns.get(path)?.status !== "loading") return state
+  if ("message" in outcome) return dropBlameColumn(state, path)
+  return withColumns(state, (columns) => columns.set(path, { status: "ready", head: outcome.head, base: outcome.base }))
+}
+
+export function dropBlameColumn<S extends WithBlameColumns>(state: S, path: string): S {
+  return state.blameColumns.has(path) ? withColumns(state, (columns) => columns.delete(path)) : state
+}
