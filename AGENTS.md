@@ -250,7 +250,14 @@ src/
 ├── split-view/           # the diff views, split and unified, as Solid components
 ├── components/           # a pure model per view (*-model.ts) and its component (*.tsx)
 ├── testing/              # frame and app harnesses for tests
-└── utils/                # parsing, markdown, links, fuzzy matching, editor hand-off
+└── utils/                # parsing, markdown, links, fuzzy matching
+    └── editor/
+        ├── comment-template.ts  # the comment, draft and PR conversation buffers and their parsers
+        ├── diff-context.ts      # the diff rows around a comment's anchor
+        ├── pr-template.ts       # the PR edit and create buffers and their parsers
+        ├── spawn.ts             # $EDITOR on a temp file; the PR, comment and draft editors
+        ├── tmux.ts              # handing a file or command to a tmux window or pane
+        └── diff-viewer.ts       # the configured and external diff viewers
 ```
 
 `PRInfoPanel.ts` in `src/components` is not a model-and-component pair:

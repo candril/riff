@@ -56,7 +56,9 @@ own, handed their session through `prompt()` and `compose()` by the
 frame's first followers. The diff views draw ahead of publish because the
 frame carries the status bar's readout of them.
 
-M5's GitHub split is complete: `src/providers/github.ts` is gone and
+M5 is complete: every caller imports the module it needs, and none of
+the split directories has a barrel.
+
 `src/providers/github/` holds twelve modules: the GitHub data types
 (`types.ts`), running `gh` and making its failures readable (`exec.ts`),
 diff fetching (`diff.ts`), file content fetching (`content.ts`), review
@@ -65,20 +67,25 @@ viewed-file sync (`viewed.ts`), the PR session bundle with session loading
 (`session.ts`), comment and PR mutations (`mutations.ts`), the pending
 review and batch review submission (`review.ts`), the PR lookups for
 check annotations, stacks, the timeline and references (`lookups.ts`) and
-the mentionable users (`mentions.ts`). Every caller imports the module it
-needs; there is no barrel.
+the mentionable users (`mentions.ts`).
 
-The storage split is complete too: `src/storage.ts` is gone and
 `src/storage/` holds five modules: where a review's storage lives and the
 cache of what startup resolved (`resolve.ts`), the comment file format,
 pure and without I/O (`comments-md.ts`), the comment store
 (`comments.ts`), the checkout's session (`session.ts`) and the small
 per-review JSON files for viewed files, the visit watermark, marks and
-panel filters, with the mentionable-user cache (`caches.ts`). As with
-GitHub, there is no barrel.
+panel filters, with the mentionable-user cache (`caches.ts`).
 
-**Not built**: the rest of M5 (`utils/editor.ts`); M6 (state factories and
-`@opentui/keymap` layers); the file size ratchet (P3).
+`src/utils/editor/` holds the comment template: the comment, draft and
+PR conversation buffers and their parsers (`comment-template.ts`, with
+the diff rows around the anchor in `diff-context.ts`); the PR template
+for editing and creating a PR (`pr-template.ts`); editor spawning
+(`spawn.ts`); the tmux hand-off (`tmux.ts`); and the external diff viewer
+(`diff-viewer.ts`). The templates are pure, so their round trips are
+tested without spawning anything.
+
+**Not built**: M6 (state factories and `@opentui/keymap` layers); the
+file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

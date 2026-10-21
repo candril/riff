@@ -67,7 +67,7 @@ import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
-import { openTextInEditor } from "../utils/editor"
+import { openTextInEditor } from "../utils/editor/spawn"
 
 export interface GlobalKeyContext {
   // State access

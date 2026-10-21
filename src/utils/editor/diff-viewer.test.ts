@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { diffCommand } from "./editor"
+import { diffCommand } from "./diff-viewer"
 
 describe("the configured diff command", () => {
   test("puts the two paths where the template says", () => {

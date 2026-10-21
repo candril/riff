@@ -12,15 +12,9 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github/types"
 import { showToast, clearToast } from "../../state"
 import { treeRowsOf } from "../../components"
-import {
-  openFileInEditor,
-  openExternalDiffViewer,
-  openInTmuxWindow,
-  openInTmuxPane,
-  diffCommand,
-  insideTmux,
-  writeSnapshotFile,
-} from "../../utils/editor"
+import { openFileInEditor } from "../../utils/editor/spawn"
+import { openInTmuxWindow, openInTmuxPane, insideTmux } from "../../utils/editor/tmux"
+import { openExternalDiffViewer, diffCommand, writeSnapshotFile } from "../../utils/editor/diff-viewer"
 import { unlink } from "node:fs/promises"
 import { getFileContent, getOldFileContent } from "../../providers/local"
 import type { FileContentResult } from "../../providers/github/types"
