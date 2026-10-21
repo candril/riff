@@ -1,6 +1,7 @@
 import type { EmojiPickerState, MentionPickerState } from "../state"
 import { fuzzyFilter } from "../utils/fuzzy"
 import { filterEmoji, type Emoji } from "../utils/emoji"
+import { displayAuthor } from "./display-author"
 
 export const MENTION_VISIBLE_LIMIT = 6
 
@@ -12,6 +13,9 @@ export function getFilteredMentionCandidates(
 }
 
 /**
+ * Mention rows are names as drawn. Accepting one inserts the raw login,
+ * which the composer reads from `getFilteredMentionCandidates` itself.
+ *
  * The emoji a `:shortcode` found wears the mention picker's clothes — one
  * composer, one kind of picker (spec 082). An open emoji session wins over
  * a mention one.
@@ -40,7 +44,11 @@ export function threadPanelPicker(input: {
     if (filtered.length === 0) {
       return { kind: "mention-empty", text: emptyPickerMessage(mentionPicker.query, input.mentionSearchQuery) }
     }
-    return { kind: "mention", rows: filtered, selected: clampSelection(mentionPicker.selectedIndex, filtered.length) }
+    return {
+      kind: "mention",
+      rows: filtered.map(displayAuthor),
+      selected: clampSelection(mentionPicker.selectedIndex, filtered.length),
+    }
   }
   return null
 }

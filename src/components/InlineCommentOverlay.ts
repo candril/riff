@@ -27,7 +27,6 @@ import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
 import { bottomThreadHint, topThreadHint } from "./thread-edge-hints"
 import {
-  displayAuthor,
   threadPanelModel,
   type Hint,
   type ThreadCommentModel,
@@ -221,7 +220,7 @@ function renderPicker(picker: NonNullable<ThreadPanelModel["picker"]>) {
           Text({ content: "@mention", fg: theme.blue })
         ),
         ...picker.rows.map((name, i) =>
-          pickerRow(i === picker.selected, theme.blue, Text({ content: displayAuthor(name), fg: theme.text }))
+          pickerRow(i === picker.selected, theme.blue, Text({ content: name, fg: theme.text }))
         ),
         pickerFooter()
       )

@@ -2,15 +2,16 @@ import type { Comment, ReactionSummary } from "../types"
 import type { EmojiPickerState, InlineCommentOverlayMode, MentionPickerState } from "../state"
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
-import { isThreadCollapsed, type Thread } from "../utils/threads"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
 import { threadPanelPicker, type ThreadPanelPicker } from "./thread-panel-picker"
 import { threadPanelHints, type Hint } from "./thread-panel-hints"
-import { windowThreads, type ThreadPanelWindow } from "./thread-panel-window"
+import { windowThreads, type WindowThread } from "./thread-panel-window"
+import { displayAuthor } from "./display-author"
 
 export type { Hint } from "./thread-panel-hints"
 export type { ThreadPanelPicker } from "./thread-panel-picker"
-export { visibleOverlayCommentIds, type ThreadPanelWindow } from "./thread-panel-window"
+export { visibleOverlayCommentIds } from "./thread-panel-window"
+export { displayAuthor } from "./display-author"
 
 export interface ThreadPanelInput {
   comments: Comment[]
@@ -84,6 +85,10 @@ export interface ThreadHeaderModel {
   divider: string
   author: string | null
   badge: { text: string; fg: string } | null
+  /**
+   * Drawn as a mark only: the original code an outdated thread was left
+   * on is `c`, which draws the stored hunk over the panel (spec 060).
+   */
   outdated: boolean
   unseen: boolean
   highlighted: boolean
@@ -117,7 +122,8 @@ export interface ThreadModel {
 
 export interface ThreadPanelModel {
   header: ThreadPanelHeader
-  window: ThreadPanelWindow
+  /** How many threads lie past each edge of the window. */
+  window: { before: number; after: number }
   threads: ThreadModel[]
   /** How many of the stack's rows each window thread takes, in order. */
   threadSizes: number[]
@@ -155,7 +161,7 @@ export function threadPanelModel(input: ThreadPanelInput & { now: number }): Thr
       labelFg: input.focused ? colors.primary : colors.textMuted,
       rightFg: theme.overlay0,
     },
-    window,
+    window: { before: window.before, after: window.after },
     threads,
     threadSizes: threads.map((thread) => 1 + thread.comments.length),
     empty: comments.length === 0,
@@ -167,12 +173,13 @@ export function threadPanelModel(input: ThreadPanelInput & { now: number }): Thr
   }
 }
 
-function threadModel(thread: Thread, input: ThreadPanelInput & { now: number }, highlightedId: string | undefined): ThreadModel {
+function threadModel(
+  { thread, collapsed }: WindowThread,
+  input: ThreadPanelInput & { now: number },
+  highlightedId: string | undefined
+): ThreadModel {
   const root = thread.comments[0]!
   const total = thread.comments.length
-  // Resolved threads default to collapsed (scannable), everything else
-  // to expanded; `expandedThreadIds` flips that default.
-  const collapsed = isThreadCollapsed(thread, input.expandedThreadIds)
   const highlighted = collapsed && root.id === highlightedId
   const label = input.flashLabels.get(root.id)
   return {
@@ -281,15 +288,6 @@ export function caretContent(label: string | undefined, highlighted: boolean): s
 function caretFg(label: string | undefined, highlighted: boolean): string {
   if (label !== undefined) return colors.flashLabel
   return highlighted ? theme.blue : theme.overlay0
-}
-
-/**
- * Comments written offline are stored with the placeholder author `@you`,
- * already `@`-prefixed, while GitHub logins are bare. Prefixing blindly
- * rendered the local ones as `@@you`.
- */
-export function displayAuthor(author: string): string {
-  return author.startsWith("@") ? author : `@${author}`
 }
 
 function basename(path: string): string {

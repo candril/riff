@@ -89,11 +89,23 @@ describe("the thread panel's window", () => {
   })
 
   test("is the window flash labels", () => {
-    const comments = many(40)
-    const m = model({ comments, highlightedIndex: 30 })
-    expect(visibleOverlayCommentIds(comments, new Set(), 30, false)).toEqual(
-      m.threads.flatMap((thread) => thread.comments.map((c) => c.key))
+    // Every third thread is a resolved pair, collapsed to its header, except
+    // one that `za` opened; the rest are open pairs.
+    const comments = Array.from({ length: 40 }, (_, i) => {
+      const resolved = i % 3 === 0
+      return [
+        comment(`t${i}`, i + 1, { isThreadResolved: resolved }),
+        comment(`t${i}r`, i + 1, { inReplyTo: `t${i}`, isThreadResolved: resolved }),
+      ]
+    }).flat()
+    const expandedThreadIds = new Set(["t33"])
+    const m = model({ comments, highlightedIndex: 50, expandedThreadIds })
+    const drawn = m.threads.flatMap((thread) =>
+      thread.header.caret !== null ? [thread.key] : thread.comments.map((c) => c.key)
     )
+    expect(m.threads.some((thread) => thread.header.caret !== null)).toBe(true)
+    expect(m.threads.find((thread) => thread.key === "t33")!.comments).toHaveLength(2)
+    expect(visibleOverlayCommentIds(comments, expandedThreadIds, 50, false)).toEqual(drawn)
   })
 })
 
@@ -294,7 +306,16 @@ describe("the thread panel's pickers", () => {
       mentionPicker: { query: "bo", selectedIndex: 3, atOffset: 0 },
       mentionCandidates: ["alice", "bob"],
     }).picker
-    expect(picker).toEqual({ kind: "mention", rows: ["bob"], selected: 0 })
+    expect(picker).toEqual({ kind: "mention", rows: ["@bob"], selected: 0 })
+  })
+
+  test("draw a mention row as its author is drawn, a local @you unprefixed", () => {
+    const picker = model({
+      ...compose,
+      mentionPicker: { query: "", selectedIndex: 0, atOffset: 0 },
+      mentionCandidates: ["@you", "alice"],
+    }).picker
+    expect(picker).toEqual({ kind: "mention", rows: ["@you", "@alice"], selected: 0 })
   })
 
   test("say why a mention finds nobody", () => {
