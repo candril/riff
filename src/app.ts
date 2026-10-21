@@ -103,6 +103,7 @@ import * as yank from "./features/yank"
 import * as jumplist from "./features/jumplist"
 import { createJumpRecorder, type Moment } from "./features/jumplist/recorder"
 import { interactionSettled } from "./app/jump-settled"
+import { createLeave, leaveOnDestroy } from "./app/leave"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
 import * as marks from "./features/marks"
@@ -294,15 +295,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function quit(then?: () => void) {
-    // Leave the watermark: this is the "last time I looked" the next visit
-    // measures against (spec 069). Written on the way out and on refresh,
-    // never continuously — a live watermark would answer "since a moment
-    // ago", which is never useful.
-    writeVisitWatermark()
-    // Mode 1004 outlives the process if we don't turn it off — the shell that
-    // gets the terminal back would start receiving focus escape sequences.
-    stopFocusReporting?.()
-    chat.dispose()
+    leave()
     chatColumn.dispose()
     statusBar.dispose()
     stopFollowing()
@@ -466,6 +459,21 @@ export async function createApp(options: AppOptions = {}) {
     }),
     proposer: () => proposals,
   })
+  const leave = createLeave({
+    // The watermark is the "last time I looked" the next visit measures
+    // against (spec 069). Written on the way out and on refresh, never
+    // continuously — a live watermark would answer "since a moment ago",
+    // which is never useful.
+    writeVisitWatermark,
+    // Mode 1004 outlives the process if we don't turn it off — the shell that
+    // gets the terminal back would start receiving focus escape sequences.
+    // Read late: focus reporting is only switched on once the app is wired.
+    stopFocusReporting: () => stopFocusReporting?.(),
+    disposeChat: () => chat.dispose(),
+  })
+  // Ctrl-c (exitOnCtrlC) and the exit signals destroy the renderer without
+  // going through quit(); "destroy" is the one event both paths emit.
+  leaveOnDestroy(renderer, leave)
   const proposals = createProposals({
     getState: () => state,
     setState: (fn) => { state = fn(state) },
