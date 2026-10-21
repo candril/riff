@@ -346,7 +346,8 @@ async function getGitFileContent(filename: string, target?: string): Promise<str
   return await $`git show ${gitSidesOf(target).head}:${filename}`.text()
 }
 
-// The diff is measured from where the two ends last met, so its old line numbers count from there;
+// A two-dot or single-revision base already names a revision and passes through as is. A three-dot
+// diff is measured from where the two ends last met, so its old line numbers count from there;
 // either tip is the wrong version of the file whenever its side has moved on since.
 export async function resolveGitBase(base: GitBase): Promise<string> {
   if ("rev" in base) return base.rev

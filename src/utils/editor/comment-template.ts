@@ -15,8 +15,6 @@ export interface EditorOptions {
   line: number
   /** Which side of the diff the anchor sits on. */
   side?: "LEFT" | "RIGHT"
-  /** Existing comment to edit (optional) - DEPRECATED, use thread instead */
-  existingComment?: string
   /** Thread of comments on this line */
   thread?: Comment[]
   /** Current username (GitHub username or "@you" for local) */
@@ -58,7 +56,6 @@ export interface EditorResult {
   editedComments: Map<string, string>
 }
 
-// Markers for parsing (markdown format with HTML comments)
 export const MARKER_COMMENT_END = "<!-- Write your comment above this line -->"
 const MARKER_ANCHOR = "## Commenting on"
 const MARKER_THREAD = "## Thread"
@@ -106,7 +103,6 @@ function formatRelativeTime(dateStr: string): string {
  * Get status label for HTML comment (without brackets)
  */
 function getStatusText(comment: Comment): string {
-  // Check for local edits on synced comments
   if (comment.status === "synced" && comment.localEdit !== undefined) {
     return "edited"
   }
@@ -127,21 +123,18 @@ function buildThreadComment(
   const author = (comment.author || (isEditable ? username : "unknown")).replace(/^@/, "")
   const time = formatRelativeTime(comment.createdAt)
   const status = getStatusText(comment)
-  
-  // Use localEdit if present (for edited synced comments), otherwise body
   const displayBody = comment.localEdit ?? comment.body
-  
+
   if (isEditable) {
-    // Editable comment with edit marker in HTML comment
-    // Format: <!-- @author · time · status · edit:id -->
+    // Format: <!-- @author · time · status · edit:id -->, closed by <!-- /edit -->.
+    // parseEditorOutput reads the id back to know which comment was edited.
     lines.push(`${indent}<!-- @${author} · ${time} · ${status} · edit:${shortId(comment.id)} -->`)
     for (const bodyLine of displayBody.split("\n")) {
       lines.push(`${indent}${bodyLine}`)
     }
     lines.push(`${indent}<!-- /edit -->`)
   } else {
-    // Read-only comment
-    // Format: <!-- @author · time · status -->
+    // Format: <!-- @author · time · status --> — no edit id, so it is never read back.
     lines.push(`${indent}<!-- @${author} · ${time} · ${status} -->`)
     for (const bodyLine of displayBody.split("\n")) {
       lines.push(`${indent}${bodyLine}`)
@@ -180,10 +173,8 @@ function buildThreadComment(
  */
 export function buildCommentFileContent(options: EditorOptions): string {
   const lines: string[] = []
-  const username = options.username || "@you"
-  const thread = options.thread || []
-  
-  // New reply area at top (cursor starts here, always empty)
+
+  // Empty first line so the editor opens with the cursor where the reply goes.
   lines.push("")
   lines.push("")
   lines.push(MARKER_COMMENT_END)
@@ -228,13 +219,12 @@ function buildContextSections(options: EditorOptions, editableThread: boolean): 
       const isYours = comment.author === username || !comment.author
       const isEditable = editableThread && isYours
       const isReply = comment.inReplyTo !== undefined
-      const indent = isReply ? "    " : ""  // 4 spaces for reply indent
+      const indent = isReply ? "    " : ""
 
       lines.push(...buildThreadComment(comment, username, isEditable, indent))
     }
   }
 
-  // Context section (a few rows around the anchor) in a diff code block
   const contextHunk =
     options.contextHunk ?? extractContextHunk(options.diffContent, options.line, 3)
   if (contextHunk.trim()) {
@@ -246,7 +236,6 @@ function buildContextSections(options: EditorOptions, editableThread: boolean): 
     lines.push("")
   }
 
-  // Full change section in a diff code block
   const fullDiff = options.fullDiff ?? options.diffContent
   if (fullDiff.trim()) {
     lines.push(MARKER_FULL_CHANGE)
@@ -293,6 +282,7 @@ export function buildDraftFileContent(initial: string, context: DraftEditorConte
 
   return lines.join("\n")
 }
+
 /**
  * Parse the full editor output including edited comments.
  * Returns new reply and map of edited comment IDs to new bodies.
@@ -313,42 +303,31 @@ export function parseEditorOutput(content: string): EditorResult {
     editedComments: new Map(),
   }
   
-  // Find the comment end marker first (primary delimiter for new reply)
   const commentEndIdx = content.indexOf(MARKER_COMMENT_END)
-  
-  // Find section markers
+
   const anchorIdx = content.indexOf(MARKER_ANCHOR)
   const threadIdx = content.indexOf(MARKER_THREAD)
   const contextIdx = content.indexOf(MARKER_CONTEXT)
   const fullChangeIdx = content.indexOf(MARKER_FULL_CHANGE)
-  
-  // New reply ends at the comment end marker, or the first section marker
+
+  // A user who deletes the end marker still keeps riff's sections out of
+  // the reply: it then ends at the earliest section heading left.
   let replyEndIdx: number
   if (commentEndIdx !== -1) {
     replyEndIdx = commentEndIdx
   } else {
-    // Fallback: find the earliest section marker
     const markers = [anchorIdx, threadIdx, contextIdx, fullChangeIdx].filter(i => i !== -1)
     replyEndIdx = markers.length > 0 ? Math.min(...markers) : content.length
   }
-  
-  // Extract new reply (everything before the end marker)
+
   result.newReply = content.slice(0, replyEndIdx).trim()
-  
-  // Parse edited comments from thread section
+
   if (threadIdx !== -1) {
-    const threadEnd = contextIdx !== -1 ? contextIdx : 
+    const threadEnd = contextIdx !== -1 ? contextIdx :
                       fullChangeIdx !== -1 ? fullChangeIdx : content.length
     const threadSection = content.slice(threadIdx + MARKER_THREAD.length, threadEnd)
-    
-    // Find all edit blocks with HTML comment format:
-    // <!-- @author · time · status · edit:ID -->
-    // comment body (may span multiple lines)
-    // <!-- /edit -->
-    // 
-    // The regex captures:
-    // 1. The comment ID from the opening marker
-    // 2. Everything between the markers (the body)
+
+    // <!-- @author · time · status · edit:ID -->\n<body>\n<!-- /edit -->
     const editRegex = /<!--\s*@\S+\s*·[^·]+·[^·]+·\s*edit:(\S+)\s*-->\n([\s\S]*?)<!--\s*\/edit\s*-->/g
     let match
     

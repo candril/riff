@@ -47,26 +47,21 @@ export interface PrEditResult {
 export function buildPrEditContent(options: PrEditOptions): string {
   const lines: string[] = []
 
-  // Title (first line)
   lines.push(options.title)
   lines.push("")
 
-  // Body
   if (options.body.trim()) {
     lines.push(options.body)
-    // Ensure body ends with blank line before scissors
     if (!options.body.endsWith("\n")) {
       lines.push("")
     }
   }
 
-  // Scissors line
   lines.push(PR_EDIT_SCISSORS)
   lines.push(`${PR_EDIT_COMMENT_PREFIX}Do not modify or remove the line above.`)
   lines.push(`${PR_EDIT_COMMENT_PREFIX}Everything below it will be ignored.`)
   lines.push(PR_EDIT_COMMENT_PREFIX)
 
-  // File summary
   if (options.fileSummary && options.fileSummary.length > 0) {
     lines.push(`${PR_EDIT_COMMENT_PREFIX}Files changed:`)
     for (const file of options.fileSummary) {
@@ -87,14 +82,11 @@ export function buildPrEditContent(options: PrEditOptions): string {
  * First line = title, rest = body.
  */
 export function parsePrEditOutput(content: string): PrEditResult | null {
-  // Strip everything at and after scissors line
   const scissorsIdx = content.indexOf(PR_EDIT_SCISSORS)
   const editable = scissorsIdx !== -1 ? content.slice(0, scissorsIdx) : content
 
-  // Split into lines and strip trailing whitespace
   const lines = editable.split("\n")
 
-  // Remove trailing empty lines
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") {
     lines.pop()
   }
@@ -103,13 +95,11 @@ export function parsePrEditOutput(content: string): PrEditResult | null {
     return null // Empty = cancelled
   }
 
-  // First non-empty line is the title
   const title = lines[0]!.trim()
   if (!title) {
     return null // No title = cancelled
   }
 
-  // Skip blank line(s) after title, rest is body
   let bodyStart = 1
   while (bodyStart < lines.length && lines[bodyStart]!.trim() === "") {
     bodyStart++
@@ -163,29 +153,22 @@ export interface PrCreateResult {
 export function buildPrCreateContent(options: PrCreateOptions): string {
   const lines: string[] = []
 
-  // Title placeholder (first line - user fills this in)
   lines.push("")
   lines.push("")
-
-  // Body placeholder
   lines.push("")
 
-  // Draft option
   lines.push("# Draft: no")
 
-  // Scissors line
   lines.push(PR_EDIT_SCISSORS)
   lines.push(`${PR_EDIT_COMMENT_PREFIX}Do not modify or remove the line above.`)
   lines.push(`${PR_EDIT_COMMENT_PREFIX}Everything below it will be ignored.`)
   lines.push(PR_EDIT_COMMENT_PREFIX)
 
-  // Branch info
   if (options.branchInfo) {
     lines.push(`${PR_EDIT_COMMENT_PREFIX}Creating PR for: ${options.branchInfo}`)
     lines.push(PR_EDIT_COMMENT_PREFIX)
   }
 
-  // File summary
   if (options.fileSummary && options.fileSummary.length > 0) {
     lines.push(`${PR_EDIT_COMMENT_PREFIX}Files changed:`)
     for (const file of options.fileSummary) {
@@ -206,21 +189,18 @@ export function buildPrCreateContent(options: PrCreateOptions): string {
  * Returns null if title is empty (cancelled).
  */
 export function parsePrCreateOutput(content: string): PrCreateResult | null {
-  // Strip everything at and after scissors line
   const scissorsIdx = content.indexOf(PR_EDIT_SCISSORS)
   const editable = scissorsIdx !== -1 ? content.slice(0, scissorsIdx) : content
 
-  // Extract draft flag from the "# Draft: yes/no" line before scissors
   let draft = false
   const draftMatch = editable.match(/^#\s*Draft:\s*(yes|no)\s*$/mi)
   if (draftMatch) {
     draft = draftMatch[1]!.toLowerCase() === "yes"
   }
 
-  // Remove comment lines (starting with #) and the draft line
+  // The draft flag is a #-line too, so it goes with the comments once read.
   const lines = editable.split("\n").filter(line => !line.match(/^\s*#/))
 
-  // Remove trailing empty lines
   while (lines.length > 0 && lines[lines.length - 1]!.trim() === "") {
     lines.pop()
   }
@@ -229,7 +209,6 @@ export function parsePrCreateOutput(content: string): PrCreateResult | null {
     return null // Empty = cancelled
   }
 
-  // Find first non-empty line as title
   let titleIdx = 0
   while (titleIdx < lines.length && lines[titleIdx]!.trim() === "") {
     titleIdx++
@@ -244,7 +223,6 @@ export function parsePrCreateOutput(content: string): PrCreateResult | null {
     return null
   }
 
-  // Skip blank line(s) after title, rest is body
   let bodyStart = titleIdx + 1
   while (bodyStart < lines.length && lines[bodyStart]!.trim() === "") {
     bodyStart++

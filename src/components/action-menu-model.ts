@@ -9,15 +9,12 @@ import { PICKER_CHROME_ROWS, visibleRows } from "./picker-window"
  * before passing them in.
  */
 export interface SubmenuRow {
-  /** Stable identifier used by input handling */
   id: string
-  /** Leading glyph (emoji for reactions) */
   icon?: string
-  /** Primary label, left-aligned */
   label: string
-  /** Trailing text, right-aligned (count, hint) */
   trailing?: string
-  /** When true, render with the "viewer already acted" accent */
+  /** The viewer already acted on this row, e.g. reacted with this emoji,
+   *  so choosing it again undoes rather than adds. */
   accented?: boolean
 }
 

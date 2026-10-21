@@ -39,7 +39,8 @@ export interface ReviewPreviewInputContext {
   isOwnPr: boolean
   // Called when user confirms review
   onConfirmReview: () => void
-  /** The summary textarea's live text. */
+  /** Read from the textarea, not `state.reviewPreview.body`: that mirror
+   *  is updated asynchronously and can lag the last keystroke. */
   readSummary: () => string
 }
 

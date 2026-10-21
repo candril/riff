@@ -128,7 +128,8 @@ export interface GlobalKeyContext {
   /** Loading the feed's own data (spec 070). */
   feedLoadContext: feed.FeedLoadContext
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
-  /** What the Submit Review summary holds right now. */
+  /** Read from the textarea, not `state.reviewPreview.body`: that mirror
+   *  is updated asynchronously and can lag the last keystroke. */
   readReviewSummary: () => string
   /** The comment composer's textarea, which the overlay's keys read and fill. */
   composer: ComposerHandle
