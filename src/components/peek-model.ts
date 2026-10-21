@@ -12,11 +12,17 @@ export interface PeekSegment {
 }
 
 export interface PeekModel {
-  id: "line-peek" | "table-peek" | "diagram-peek" | "hunk-peek"
+  id: "line-peek" | "table-peek" | "diagram-peek" | "hunk-peek" | "blame-peek"
   /** The box's outer width, padding included. */
   width: number
+  /** Base when left out. */
+  background?: "base" | "mantle"
   header: PeekSegment[]
-  body: { kind: "rows"; rows: PeekSegment[] } | { kind: "code"; content: string; filetype?: string; width: number }
+  body:
+    | { kind: "rows"; rows: PeekSegment[] }
+    // Rows whose parts differ in colour, each row its segments side by side.
+    | { kind: "lines"; lines: PeekSegment[][] }
+    | { kind: "code"; content: string; filetype?: string; width: number }
   footer: string
 }
 
