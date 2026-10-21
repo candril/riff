@@ -37,6 +37,8 @@ export interface MountPrInfoPanel {
   files?: DiffFile[]
   comments?: Comment[]
   height?: number
+  /** The screen's width; process.stdout.columns follows it unless `columns` says otherwise. */
+  width?: number
   /** process.stdout.columns while the panel is built and drawn, instead of the screen's width. */
   columns?: number
   /** Opened and made active before `prepare` runs. */
@@ -45,7 +47,7 @@ export interface MountPrInfoPanel {
 }
 
 /**
- * The PR info panel on a 120-wide screen, torn down after each test.
+ * The PR info panel on a 120-wide screen unless told otherwise, torn down after each test.
  *
  * The clock is frozen, since the times read `new Date()`, and
  * process.stdout.columns is pinned to the screen's width, since the panel
@@ -86,7 +88,8 @@ export function usePrInfoPanel() {
     files = PR_FILES,
     comments = reviewThreadComments(),
     height = 40,
-    columns,
+    width = 120,
+    columns = width === 120 ? undefined : width,
     section,
     prepare = () => {},
   }: MountPrInfoPanel = {}) {
@@ -100,7 +103,7 @@ export function usePrInfoPanel() {
           panels.push(shown)
           return shown.getContainer()
         },
-        { width: 120, height }
+        { width, height }
       )
       mounted.push(screen)
       if (section) {

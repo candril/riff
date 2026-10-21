@@ -128,6 +128,22 @@ describe("the description's cursor row", () => {
     expect(bgAt(spans, 4, FIRST + 2)).toEqual(ints(theme.base))
   })
 
+  for (const [name, body] of [["one line", "alpha"], ["no body", ""]] as const) {
+    test(`takes the cursor back onto the last line when the body shrinks to ${name}`, async () => {
+      const { panel, mounted } = await mount({ info: prInfo(FOUR_LINES), comments: [] })
+      await press(panel, mounted.frame, 3)
+      expect(panel.getCursorIndex()).toBe(2)
+
+      panel.setPrInfo(prInfo(body))
+      await mounted.frame()
+      expect(panel.getCursorIndex()).toBeLessThanOrEqual(panel.getMaxCursorIndex())
+      expect(panel.getCursorIndex()).toBe(0)
+      const lines = await press(panel, mounted.frame, 1, -1)
+      expect(panel.getCursorIndex()).toBe(-1)
+      expect(lines[FIRST - 2]).toStartWith("  ▼  Description")
+    })
+  }
+
   test("stops at the last drawn line, reactions included, going down and coming back up into it", async () => {
     const body = `Adds the **skill**.\n\n${SCREENSHOT}`
     const { panel, mounted } = await mount({ info: prInfo(body, { bodyReactions: REACTIONS }), comments: [] })

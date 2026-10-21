@@ -39,7 +39,7 @@ import {
   type FlatConversationItem,
 } from "./pr-info-items"
 import { sectionConfigs } from "./pr-info-sections"
-import { panelMeta, sectionHeaderRow, stackLine } from "./pr-info-header"
+import { panelMeta, sectionHeaderRow, stackLine, type SectionHeaderRow } from "./pr-info-header"
 import { commitRowCount, commitRows, fileRows, previewRows, type ListRows } from "./pr-info-list-rows"
 import { checkRows } from "./pr-info-check-rows"
 import { fileDiffContext } from "./pr-info-conversation-parts"
@@ -48,6 +48,12 @@ import { createPrInfoListIsland, type PrInfoListIsland } from "../app/pr-info-li
 import { createPrInfoConversationIsland, type PrInfoConversationIsland } from "../app/pr-info-conversation"
 import { createPrInfoDescriptionIsland, type PrInfoDescriptionIsland } from "../app/pr-info-description"
 import { descriptionModel, type DescriptionModel } from "./pr-info-description"
+import {
+  createPrInfoHeaderIsland,
+  createPrInfoMetaIsland,
+  type PrInfoHeaderIsland,
+  type PrInfoMetaIsland,
+} from "../app/pr-info-header"
 
 // Tests run several renderers in one process, and a style dies with the renderer that owns it.
 const syntaxStyles = new WeakMap<NativeResourceOwner, SyntaxStyle>()
@@ -165,8 +171,8 @@ export class PRInfoPanelClass {
   // Preview links lifted out of a deploy bot's table (spec 068).
   private previews: PreviewSet | null = null
 
-  // The row naming the PR this one is stacked on (spec 072).
-  private stackText: TextRenderable | null = null
+  // What this PR is stacked on (spec 072); undefined until it is known.
+  private stack: StackInfo | null | undefined = undefined
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -193,9 +199,13 @@ export class PRInfoPanelClass {
   private listIslands: Map<ListSection, PrInfoListIsland> = new Map()
   private conversation: PrInfoConversationIsland | null = null
   private description: PrInfoDescriptionIsland | null = null
+  // A new body is only measured by the next layout, so the cursor that was
+  // in the old one is taken back onto the new one's last line from there.
+  private clampDescriptionOnResize = false
+  private headerIslands: Map<PRInfoPanelSection, PrInfoHeaderIsland> = new Map()
+  private meta: PrInfoMetaIsland | null = null
 
-  // Flash labels by row id, while `s` is labelling (spec 066), and the
-  // header texts they are painted onto.
+  // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
   
   // Comment input overlay
@@ -884,21 +894,24 @@ export class PRInfoPanelClass {
    */
   setPrInfo(prInfo: PrInfo): void {
     if (prInfo === this.prInfo) return
+    if (prInfo.body !== this.prInfo.body && this.activeSection === 'description') this.clampDescriptionOnResize = true
     this.prInfo = prInfo
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
     this.cursorIndex = Math.min(this.cursorIndex, this.getMaxCursorIndex())
+    this.pushMeta()
     this.rebuildSections()
+  }
+
+  private pushMeta(): void {
+    this.meta?.update({ meta: panelMeta(this.prInfo), stack: stackLine(this.stack) })
   }
 
   /** What this PR is stacked on, and how that base has moved (spec 072). */
   setStack(stack: StackInfo | null): void {
-    if (!this.stackText) return
-    const line = stackLine(stack)
-    this.stackText.content = line.text
-    this.stackText.fg = line.fg
-    this.stackText.visible = line.visible
+    this.stack = stack
+    this.pushMeta()
   }
 
   /** The links riff was given for this PR, and where they came from. */
@@ -1098,25 +1111,7 @@ export class PRInfoPanelClass {
         highlighted: headerHighlighted,
         label: this.flashLabels.get(config.id) ?? null,
       })
-      const headerRow = new BoxRenderable(this.renderer, {
-        flexDirection: "row",
-        height: 1,
-        backgroundColor: header.highlighted ? theme.surface0 : undefined,
-      })
-      if (header.label) {
-        headerRow.add(new TextRenderable(this.renderer, {
-          content: `${header.label} `,
-          fg: colors.flashLabel,
-        }))
-      }
-      headerRow.add(new TextRenderable(this.renderer, { content: header.text, fg: header.fg }))
-      if (header.preview) {
-        headerRow.add(new TextRenderable(this.renderer, {
-          content: `  ${header.preview}`,
-          fg: theme.subtext0,
-        }))
-      }
-      sectionBox.add(headerRow)
+      sectionBox.add(this.headerIsland(config.id, header).host)
       
       // Section content (only if expanded)
       if (isExpanded) {
@@ -1132,7 +1127,6 @@ export class PRInfoPanelClass {
    */
   private buildSectionContent(container: BoxRenderable, section: PRInfoPanelSection, isActive: boolean): void {
     if (section === 'description') {
-      // The island's host is the section's content box, so the cursor row spans its padding.
       this.descriptionBox = this.descriptionIsland(isActive).host
       container.add(this.descriptionBox)
       return
@@ -1171,6 +1165,17 @@ export class PRInfoPanelClass {
     return island
   }
 
+  /** The section's header island, made on first use, holding the header as it is now. */
+  private headerIsland(section: PRInfoPanelSection, row: SectionHeaderRow): PrInfoHeaderIsland {
+    let island = this.headerIslands.get(section)
+    if (!island) {
+      island = createPrInfoHeaderIsland(this.renderer, section)
+      this.headerIslands.set(section, island)
+    }
+    island.update(row)
+    return island
+  }
+
   /** The conversation's island, made on first use, holding the rows as they are now. */
   private conversationIsland(isActive: boolean): PrInfoConversationIsland {
     this.conversation ??= createPrInfoConversationIsland(this.renderer, {
@@ -1192,9 +1197,18 @@ export class PRInfoPanelClass {
         renderNode: tableRenderer(this.renderer, () => this.markdownWidth()),
         syntaxStyle: getSyntaxStyle(this.renderer.nativeScene),
       },
+      onResize: () => this.descriptionResized(),
     })
     this.description.update(this.descriptionModel(isActive))
     return this.description
+  }
+
+  private descriptionResized(): void {
+    if (!this.clampDescriptionOnResize) return
+    this.clampDescriptionOnResize = false
+    if (this.activeSection !== 'description' || this.cursorIndex <= this.getMaxCursorIndex()) return
+    this.cursorIndex = this.getMaxCursorIndex()
+    this.pushRows('description')
   }
 
   /** A cursor move inside a section on an island restyles its rows without a rebuild. */
@@ -1242,8 +1256,6 @@ export class PRInfoPanelClass {
    * Build the panel
    */
   private build(): { container: BoxRenderable; scrollBox: ScrollBoxRenderable } {
-    const prInfo = this.prInfo
-
     // Main container — inline flex child of the main content row (spec 041,
     // previously an absolute overlay).
     const container = new BoxRenderable(this.renderer, {
@@ -1301,31 +1313,12 @@ export class PRInfoPanelClass {
     })
     scrollBox.add(content)
 
-    // What the header line does not already say (spec 067). The title, the
-    // status, the change counts and the review state are all up there or in
-    // the sections below; repeating them spent five rows saying nothing and
-    // pushed the sections off the first screen.
-    const metaRow = new BoxRenderable(this.renderer, {
-      flexDirection: "row",
-      height: 1,
-      width: "100%",
-    })
-    const meta = panelMeta(prInfo)
-    metaRow.add(new TextRenderable(this.renderer, { content: `@${meta.author}`, fg: theme.blue }))
-    metaRow.add(new TextRenderable(this.renderer, { content: "  ", fg: theme.overlay0 }))
-    metaRow.add(new TextRenderable(this.renderer, { content: meta.branches, fg: theme.subtext0 }))
-    if (meta.approvers.length > 0) {
-      metaRow.add(new TextRenderable(this.renderer, {
-        content: `   ✓ ${meta.approvers.map((name) => `@${name}`).join(" ")}`,
-        fg: theme.green,
-      }))
-    }
-    content.add(metaRow)
-
-    // Stacked on another PR (spec 072): known a moment after the panel is,
-    // so the row is here from the start and says nothing until then.
-    this.stackText = new TextRenderable(this.renderer, { content: "", fg: theme.subtext0 })
-    content.add(this.stackText)
+    // What the header line does not already say (spec 067), and what this
+    // PR is stacked on. Repeating the title, status and counts spent five
+    // rows saying nothing and pushed the sections off the first screen.
+    this.meta = createPrInfoMetaIsland(this.renderer)
+    this.pushMeta()
+    content.add(this.meta.host)
 
     // Separator before sections
     const separator2 = new BoxRenderable(this.renderer, { height: 1, width: "100%", marginTop: 1 })
@@ -1469,6 +1462,10 @@ export class PRInfoPanelClass {
     this.conversation = null
     this.description?.dispose()
     this.description = null
+    for (const island of this.headerIslands.values()) island.dispose()
+    this.headerIslands.clear()
+    this.meta?.dispose()
+    this.meta = null
     this.container.parent?.remove(this.container)
     this.container.destroyRecursively()
   }

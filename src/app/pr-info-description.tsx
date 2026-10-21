@@ -26,12 +26,12 @@ function asDrawn(model: DescriptionModel): DescriptionModel {
  * sections. A push that only moves the cursor moves the cursor row, and the
  * markdown body keeps its renderable and its layout across every push.
  *
- * `id` is the markdown body's. The host is the section's content box, its
- * padding included, so the cursor row spans what it always has.
+ * `id` is the markdown body's. The host is the section's content box itself,
+ * padding included, because the cursor row must span the content box's padding.
  */
 export function createPrInfoDescriptionIsland(
   renderer: CliRenderer,
-  { id, markdown }: { id: string; markdown: PanelMarkdownStyle }
+  { id, markdown, onResize }: { id: string; markdown: PanelMarkdownStyle; onResize?: (height: number) => void }
 ) {
   const [state, setState] = createStore({ model: empty() })
   const [height, setHeight] = createSignal(0)
@@ -40,7 +40,10 @@ export function createPrInfoDescriptionIsland(
     () => <PRInfoDescriptionView model={state.model} bodyId={id} markdown={markdown} height={height()} />,
     { flexDirection: "column", width: "100%", paddingLeft: 2, marginTop: 1 }
   )
-  island.host.onSizeChange = () => setHeight(island.host.height)
+  island.host.onSizeChange = () => {
+    setHeight(island.host.height)
+    onResize?.(island.host.height)
+  }
 
   return {
     host: island.host,

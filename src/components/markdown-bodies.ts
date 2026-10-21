@@ -2,12 +2,10 @@
  * Markdown bodies that outlive the panel rebuilt around them.
  *
  * A MarkdownRenderable holds its text back until tree-sitter has
- * highlighted it, which lands a frame or more later. Both panels tear
- * their tree down and build it again on every pass, so a body built per
- * pass vanished for a frame and came back on the next — the flicker, on
- * open and under every keystroke. In the PR panel the burst of rebuilds
- * an open sets off could also outrun the highlighter altogether and leave
- * the description blank for good.
+ * highlighted it, which lands a frame or more later. The thread panel
+ * (InlineCommentOverlay) tears its tree down and builds it again on every
+ * pass, so a body built per pass would vanish for a frame and come back on
+ * the next: a flicker on open and under every keystroke.
  *
  * So the renderables live here instead, one per body, keyed by the id of
  * whatever they are the body of. `discard` unmounts them with the rest of

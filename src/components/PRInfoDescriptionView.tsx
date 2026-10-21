@@ -5,7 +5,7 @@ import { PanelMarkdown, Pills, type PanelMarkdownStyle } from "./PanelMarkdown"
 import type { DescriptionModel } from "./pr-info-description"
 
 /** The description's cursor row: the background every other selected row has. */
-export const DESCRIPTION_CURSOR_BG = RGBA.fromHex(theme.surface1)
+const DESCRIPTION_CURSOR_BG = RGBA.fromHex(theme.surface1)
 
 type Body = NonNullable<DescriptionModel["body"]>
 
