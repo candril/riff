@@ -38,7 +38,7 @@ import {
   refreshMessage,
   rebuildAfterRefresh,
   relocate,
-  reseatTreeHighlight,
+  keepTreeHighlight,
   restoreSearch,
   wasForcePushed,
   type RefreshPosition,
@@ -152,19 +152,19 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Load file statuses
       const localViewedStatuses = await loadViewedStatuses(state.source)
-      ctx.setState((s) => loadFileStatuses(s, localViewedStatuses))
-
-      // Merge GitHub viewed statuses
-      if (viewedStatuses && headSha) {
-        ctx.setState((s) =>
-          updateFileStatuses(
-            s,
-            mergeGitHubViewedStates(s.fileStatuses, viewedStatuses, headSha, s.allFiles)
-          )
-        )
-      }
-
-      ctx.setState((s) => reseatTreeHighlight(collapseViewedFiles(s), position.treeHighlightPath))
+      ctx.setState((s) =>
+        keepTreeHighlight(s, (loading) => {
+          const local = loadFileStatuses(loading, localViewedStatuses)
+          const merged =
+            viewedStatuses && headSha
+              ? updateFileStatuses(
+                  local,
+                  mergeGitHubViewedStates(local.fileStatuses, viewedStatuses, headSha, local.allFiles)
+                )
+              : local
+          return collapseViewedFiles(merged)
+        })
+      )
 
       // The stream is rebuilt from the new data — from the timeline again
       // when the feed is what the reader is looking at.
@@ -215,7 +215,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.setState((s) => collapseResolvedThreads(s, threads))
       const localViewedStatuses = await loadViewedStatuses(state.source)
       ctx.setState((s) =>
-        reseatTreeHighlight(collapseViewedFiles(loadFileStatuses(s, localViewedStatuses)), position.treeHighlightPath)
+        keepTreeHighlight(s, (loading) => collapseViewedFiles(loadFileStatuses(loading, localViewedStatuses)))
       )
     }
 

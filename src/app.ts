@@ -1,5 +1,5 @@
 import type { KeyEvent } from "@opentui/core"
-import { PRInfoPanelClass, treeRowsOf } from "./components"
+import { PRInfoPanelClass } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
@@ -31,7 +31,8 @@ import {
   setFileDiff,
   toggleThreadPanelOpenOnly,
 } from "./state"
-import { toggleUnviewedFilesOnly, keepDiffFileHighlighted } from "./app/tree-unviewed"
+import { toggleUnviewedFilesOnly } from "./app/tree-unviewed"
+import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
 import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor"
@@ -173,6 +174,7 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   const { renderer, fileTreePanel, parses } = await initializeRenderer()
+  const treeHighlight = createTreeHighlightSync(fileTreePanel)
 
   let stopFocusReporting: (() => void) | null = null
 
@@ -379,10 +381,15 @@ export async function createApp(options: AppOptions = {}) {
   // motion updates the cursor and the viewport without re-rendering the
   // app, so `j` would never have reached the tree at all.
   function followCursorInTree(): void {
-    if (syncTreeHighlightToCursor()) {
-      refreshFileTreePanel()
-      fileTreePanel.ensureHighlightVisible()
-    }
+    const followed = followedInTree(state, cursorFile())
+    if (followed === state) return
+    state = followed
+    refreshFileTreePanel()
+    fileTreePanel.ensureHighlightVisible()
+  }
+
+  function cursorFile(): string | null {
+    return lineMapping.getLine(vimState.line)?.filename ?? null
   }
 
   // vimState stays a mapping line for every reader; only drawing it in split needs a row.
@@ -415,37 +422,9 @@ export async function createApp(options: AppOptions = {}) {
     render()
   })
 
-  /**
-   * Point the tree at the file the diff cursor is in.
-   *
-   * Only in the all-files view, and only while the tree is not the panel
-   * being driven: `j`/`k` there moves the highlight without moving the
-   * diff, and a multi-select range would be dragged out from under the
-   * user. A file inside a collapsed directory is left alone rather than
-   * expanded — scrolling past it should not undo a fold.
-   *
-   * Returns true when the highlight moved, so the panel can scroll it
-   * into view.
-   */
-  function syncTreeHighlightToCursor(): boolean {
-    if (state.selectedFileIndex !== null) return false
-    if (state.focusedPanel === "tree" || state.treeSelectionAnchor !== null) return false
-
-    const filename = lineMapping.getLine(vimState.line)?.filename
-    if (!filename) return false
-
-    const items = treeRowsOf(state)
-    const index = items.findIndex(
-      (item) => item.fileIndex !== undefined && state.files[item.fileIndex]?.filename === filename
-    )
-    if (index === -1 || index === state.treeHighlightIndex) return false
-
-    state = { ...state, treeHighlightIndex: index }
-    return true
-  }
-
   /** Push the current state into the tree panel. */
   function refreshFileTreePanel(): void {
+    treeHighlight.shown(state)
     fileTreePanel.update({
       files: state.files,
       fileTree: state.fileTree,
@@ -476,10 +455,6 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
 
-    const kept = keepDiffFileHighlighted(state, lineMapping.getLine(vimState.line)?.filename ?? null)
-    state = kept.state
-    const followedCursor = syncTreeHighlightToCursor()
-
     // Calculate file panel width based on expanded state
     const normalWidth = 35
     const terminalWidth = process.stdout.columns || 80
@@ -491,10 +466,10 @@ export async function createApp(options: AppOptions = {}) {
       fileTreePanel.setWidth(panelWidth)
     }
 
-    refreshFileTreePanel()
-    if (followedCursor || kept.moved) {
-      fileTreePanel.ensureHighlightVisible()
-    }
+    state = treeHighlight.sync(state, cursorFile(), (synced) => {
+      state = synced
+      refreshFileTreePanel()
+    })
     fileTreePanel.visible = state.showFilePanel
   }
 

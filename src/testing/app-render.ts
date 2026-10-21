@@ -32,7 +32,7 @@ import {
   createMarksPickerIsland,
   createOccurrencePickerIsland,
 } from "../app/pickers"
-import { keepDiffFileHighlighted } from "../app/tree-unviewed"
+import { createTreeHighlightSync } from "../app/tree-highlight"
 import { createAppShell, OVERLAYS, type ShellParts } from "../app/shell"
 import { createDiffHighlights } from "../app/diff-highlights"
 import { createSplitDiff } from "../app/split-diff"
@@ -127,6 +127,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     overlays: overlayHosts,
   })
 
+  const treeHighlight = createTreeHighlightSync(fileTreePanel)
   const ctx: RenderContext = {
     getState: () => state,
     setState: (updater) => (state = updater(state)),
@@ -146,22 +147,21 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     unified,
     parses,
     updateFileTreePanel() {
-      const kept = keepDiffFileHighlighted(state, mapping.getLine(vimState.line)?.filename ?? null)
-      state = kept.state
-      fileTreePanel.update({
-        files: state.files,
-        fileTree: state.fileTree,
-        highlightIndex: state.treeHighlightIndex,
-        selectedFileIndex: state.selectedFileIndex,
-        focused: state.focusedPanel === "tree",
-        fileStatuses: state.fileStatuses,
-        ignoredFiles: state.ignoredFiles,
-        showHiddenFiles: state.showHiddenFiles,
-        treeFilter: state.treeFilter,
-        treeFilterInput: state.treeFilterInput,
-        unviewedOnly: state.treeUnviewedOnly ? { keep: state.treeKeptFile } : null,
-      })
-      if (kept.moved) fileTreePanel.ensureHighlightVisible()
+      state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
+        fileTreePanel.update({
+          files: synced.files,
+          fileTree: synced.fileTree,
+          highlightIndex: synced.treeHighlightIndex,
+          selectedFileIndex: synced.selectedFileIndex,
+          focused: synced.focusedPanel === "tree",
+          fileStatuses: synced.fileStatuses,
+          ignoredFiles: synced.ignoredFiles,
+          showHiddenFiles: synced.showHiddenFiles,
+          treeFilter: synced.treeFilter,
+          treeFilterInput: synced.treeFilterInput,
+          unviewedOnly: synced.treeUnviewedOnly ? { keep: synced.treeKeptFile } : null,
+        })
+      )
       fileTreePanel.visible = state.showFilePanel
     },
     updateSearchPattern() {},

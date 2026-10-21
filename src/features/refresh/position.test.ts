@@ -10,6 +10,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import {
   capturePosition,
   captureAnchor,
+  keepTreeHighlight,
   rebuildAfterRefresh,
   refreshMessage,
   relocate,
@@ -175,6 +176,32 @@ describe("restoring the view", () => {
     expect(highlighted(settled)).not.toBe("c.ts")
 
     expect(highlighted(reseatTreeHighlight(settled, position.treeHighlightPath))).toBe("c.ts")
+  })
+
+  test("a highlight moved after the restore, before the viewed states land, is kept", () => {
+    const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
+    const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    const restored = restorePosition(stateWith(three), position)
+    const highlighted = (s: typeof restored) => treeRowsOf(s)[s.treeHighlightIndex]?.node.path
+
+    // `k` twice while loadViewedStatuses is awaited.
+    const moved = { ...restored, treeHighlightIndex: 0 }
+    const settled = keepTreeHighlight(moved, (s) =>
+      updateFileStatuses(s, new Map([["b.ts", { filename: "b.ts", viewed: true }]]))
+    )
+    expect(highlighted(settled)).toBe("a.ts")
+  })
+
+  test("the viewed states landing keep the restored highlight on its row", () => {
+    const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
+    const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    const restored = restorePosition(stateWith(three), position)
+    const settled = keepTreeHighlight(restored, (s) =>
+      updateFileStatuses(s, new Map([["b.ts", { filename: "b.ts", viewed: true }]]))
+    )
+    expect(treeRowsOf(settled)[settled.treeHighlightIndex]?.node.path).toBe("c.ts")
   })
 
   test("reseating on a path the tree no longer draws goes to the top", () => {

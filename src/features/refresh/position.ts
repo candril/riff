@@ -117,6 +117,16 @@ export function reseatTreeHighlight(state: AppState, path: string | null): AppSt
   return treeHighlightIndex === state.treeHighlightIndex ? state : { ...state, treeHighlightIndex }
 }
 
+/**
+ * Apply what the refresh loads after the restore, with the highlight kept on
+ * the row it is on now rather than the one captured before the reload: the
+ * restore has already put it there, so any other row is one the reader
+ * moved to while the load was awaited.
+ */
+export function keepTreeHighlight(state: AppState, change: (state: AppState) => AppState): AppState {
+  return reseatTreeHighlight(change(state), treeRowsOf(state)[state.treeHighlightIndex]?.node.path ?? null)
+}
+
 function restoreFields(state: AppState, position: RefreshPosition): AppState {
   const selectedFileIndex = findFileIndex(state.files, position.selectedFilename)
   return {

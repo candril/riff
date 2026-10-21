@@ -4,7 +4,7 @@ import { treeRowsOf } from "../components/FileTree"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 import type { FileReviewStatus } from "../types"
-import { keepDiffFileHighlighted, keepDiffFileInTree } from "./tree-unviewed"
+import { keepDiffFileInTree } from "./tree-unviewed"
 
 const diffOf = (name: string) => `diff --git a/${name} b/${name}
 --- a/${name}
@@ -47,18 +47,5 @@ describe("keepDiffFileInTree", () => {
     expect(kept.treeKeptFile).toBe("c.ts")
     expect(paths(kept)).toEqual(["b.ts", "c.ts", "d.ts"])
     expect(highlighted(kept)).toBe("c.ts")
-  })
-})
-
-describe("keepDiffFileHighlighted", () => {
-  test("says the highlight moved when a selected file's row took it", () => {
-    const { state, moved } = keepDiffFileHighlighted(stateWith(["c.ts"], { selectedFileIndex: indexOf("c.ts") }), null)
-    expect(highlighted(state)).toBe("c.ts")
-    expect(moved).toBe(true)
-  })
-
-  test("says nothing moved when the highlight was already there", () => {
-    const { moved } = keepDiffFileHighlighted(stateWith([], { selectedFileIndex: 0 }), null)
-    expect(moved).toBe(false)
   })
 })
