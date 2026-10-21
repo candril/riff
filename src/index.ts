@@ -6,7 +6,7 @@ import { loadPrSession } from "./providers/github/session"
 import { getCurrentRepo } from "./providers/github/exec"
 import { resolveCurrentPr } from "./providers/current-pr"
 import { createDemoRepo } from "./providers/demo"
-import { resolveStorageWithConfirmation } from "./storage"
+import { resolveStorageWithConfirmation } from "./storage/resolve"
 import { runCommentsCli } from "./cli/comments"
 import { parseArgs } from "./cli/args"
 

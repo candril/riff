@@ -16,11 +16,8 @@ import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
 import { mergeMentionableUsers } from "../../state"
 import { getMentionableUsers } from "../../providers/github/mentions"
-import {
-  getCurrentRepoInfo,
-  loadMentionableUsers,
-  saveMentionableUsers,
-} from "../../storage"
+import { getCurrentRepoInfo } from "../../storage/resolve"
+import { loadMentionableUsers, saveMentionableUsers } from "../../storage"
 
 /**
  * Repo the session's mentions resolve against, remembered so the per-query

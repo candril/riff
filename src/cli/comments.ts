@@ -35,8 +35,8 @@ import {
   deleteCommentFile,
   clearLocalComments,
   commentFilePath,
-  findRepoRoot,
 } from "../storage"
+import { findRepoRoot } from "../storage/resolve"
 import { installSkill } from "./skill"
 import { $ } from "bun"
 import { findCurrentPr, detectCurrentBranch } from "../providers/current-pr"
