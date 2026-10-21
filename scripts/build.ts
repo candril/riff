@@ -94,8 +94,15 @@ for (const target of targets) {
     target: "bun",
     plugins: [solidPlugin],
     // riff runs inside the repositories it reviews, and a compiled binary would otherwise
-    // load their bunfig.toml — riff's own names a preload the binary cannot resolve.
-    compile: { target: `bun-${target.os}-${target.arch}`, outfile, autoloadBunfig: false },
+    // load their bunfig.toml and .env. riff's own bunfig names a preload the binary cannot
+    // resolve, and a .env could carry an ANTHROPIC_API_KEY that switches the agent off the
+    // subscription.
+    compile: {
+      target: `bun-${target.os}-${target.arch}`,
+      outfile,
+      autoloadBunfig: false,
+      autoloadDotenv: false,
+    },
     define: {
       OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(workerInBinary),
       RIFF_VERSION: JSON.stringify(version),
