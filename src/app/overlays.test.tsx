@@ -49,7 +49,15 @@ async function mount(width: number, height: number) {
   })
   const shown: [FrameIslandId, boolean][] = []
   const { frame, publish } = createFrame()
-  const stop = followFrame(frame, { ...islands, ...panels, statusBar: { update() {} }, prInfoPanel: { update() {} }, chatColumn: { update() {} } }, {
+  const stop = followFrame(frame, {
+    ...islands,
+    ...panels,
+    composer: { update() {} },
+    prompt: { update() {} },
+    statusBar: { update() {} },
+    prInfoPanel: { update() {} },
+    chatColumn: { update() {} },
+  }, {
     show(id, visible) {
       shown.push([id, visible])
       shell.show(id, visible)
@@ -149,4 +157,29 @@ test("publishing inside a Solid batch throws, as the islands would draw only aft
 
   stop()
   expect(() => batch(() => publish(pass({})))).not.toThrow()
+})
+
+test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes down it", () => {
+  const { frame, publish } = createFrame()
+  const updates: FrameIslandId[] = []
+  const recording = Object.fromEntries(FRAME_ISLANDS.map((id) => [id, { update: () => void updates.push(id) }]))
+  const stop = followFrame(frame, recording as unknown as Parameters<typeof followFrame>[1], { show() {} })
+  const initial = createInitialState([X, Y], [], "test", "")
+  for (let pass = 0; pass < 4; pass++) {
+    updates.length = 0
+    publish({
+      state: initial,
+      vimState: createCursorState(),
+      mapping: new DiffLineMapping([], "all"),
+      searchState: createSearchState(),
+      flashState: createFlashState(),
+      cachedCurrentUser: null,
+      width: 120,
+      height: 40,
+      now: pass,
+      diff: { columnInfo: null, selectionInfo: null },
+    })
+    expect(updates).toEqual([...FRAME_ISLANDS])
+  }
+  stop()
 })

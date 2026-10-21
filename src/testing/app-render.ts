@@ -18,6 +18,10 @@ import { createStatusBarIsland } from "../app/status-bar"
 import { createFeedIsland } from "../app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
 import { createPrInfoPanelFollower } from "../app/pr-info-panel-follower"
+import { createComposerFollower } from "../app/composer-follower"
+import { createPromptFollower } from "../app/prompt-follower"
+import { writePrompt } from "../app/open-prompt"
+import type { PromptIsland, PromptOwner } from "../app/prompt-routing"
 import { createFrame } from "../app/frame"
 import { createTreeHighlightSync } from "../app/tree-highlight"
 import { createAppShell } from "../app/shell"
@@ -93,13 +97,40 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: chrome.statusBar.host,
   })
   const frame = createFrame()
-  // The harness mounts no PR info panel.
-  followFrame(frame.frame, { ...islands, ...chrome, prInfoPanel: createPrInfoPanelFollower(() => null) }, shell)
+  const setState = (updater: (s: AppState) => AppState) => {
+    state = updater(state)
+  }
+  const promptIslands: Record<PromptOwner, PromptIsland> = {
+    search: islands.searchPrompt,
+    "file-picker": islands.filePicker,
+    "comments-picker": islands.commentsPicker,
+    "marks-picker": islands.marksPicker,
+    "occurrence-picker": islands.occurrencePicker,
+    "commit-picker": islands.commitPicker,
+    "action-menu": islands.actionMenu,
+    "feed-filter": chrome.feed,
+    "comments-filter": chrome.threadPanel,
+  }
+  followFrame(
+    frame.frame,
+    {
+      ...islands,
+      ...chrome,
+      composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render() }),
+      prompt: createPromptFollower(
+        promptIslands,
+        writePrompt({ setState, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+      ),
+      // The harness mounts no PR info panel.
+      prInfoPanel: createPrInfoPanelFollower(() => null),
+    },
+    shell
+  )
 
   const treeHighlight = createTreeHighlightSync(fileTreePanel)
-  const ctx: RenderContext = {
+  const renderContext: RenderContext = {
     getState: () => state,
-    setState: (updater) => (state = updater(state)),
+    setState,
     getVimState: () => vimState,
     getLineMapping: () => mapping,
     getSearchState: () => searchState,
@@ -108,15 +139,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     getPrInfoPanel: () => null,
     renderer,
     shell,
-    threadPanel: chrome.threadPanel,
     feed: chrome.feed,
-    searchPrompt: islands.searchPrompt,
-    filePicker: islands.filePicker,
-    commentsPicker: islands.commentsPicker,
-    marksPicker: islands.marksPicker,
-    occurrencePicker: islands.occurrencePicker,
-    commitPicker: islands.commitPicker,
-    actionMenu: islands.actionMenu,
     split,
     unified,
     parses,
@@ -138,10 +161,11 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       )
       fileTreePanel.visible = state.showFilePanel
     },
-    updateSearchPattern: (value) => updateSearchPattern(value),
     publishFrame: frame.publish,
   }
-  render = createRenderFunction(ctx)
+  render = createRenderFunction(renderContext)
+  // Keys tests reach the composer through the thread panel, which the pass no longer drives.
+  const ctx = { ...renderContext, threadPanel: chrome.threadPanel }
 
   return {
     setup,

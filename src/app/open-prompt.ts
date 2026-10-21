@@ -10,79 +10,34 @@ import {
 import type { AppState } from "../state"
 import type { SearchState } from "../vim-diff/search-state"
 import { setMarksPickerQuery } from "../features/marks"
-import type { PromptKey } from "./prompt-routing"
+import { ownerOf, type PromptKey } from "./prompt-routing"
 
-export type OpenPromptContext = {
-  setState: (updater: (s: AppState) => AppState) => void
-  getSearchState: () => SearchState
-  updateSearchPattern: (value: string) => void
+export interface PromptModel {
+  key: PromptKey
+  initialValue: string
+  placeholder?: string
 }
 
 /**
- * Whether a prompt is typing right now: openPrompt's guards, in its order,
- * without the closures, so a frame can tell from state alone.
+ * Which prompt is typing right now. One field types at a time, so at most
+ * one of these can be open (spec 065).
  */
-export function promptOpenIn(state: AppState, searchState: SearchState): boolean {
-  return (
-    state.actionMenu.open ||
-    state.filePicker.open ||
-    state.commentsPicker.open ||
-    state.marksPicker.open ||
-    state.occurrencePicker.open ||
-    (state.commitPicker.open && state.commitPicker.queryInput) ||
-    state.inlineCommentOverlay.filterInput ||
-    state.feed.filterInput ||
-    searchState.active
-  )
-}
-
-/**
- * Which prompt is typing right now, and what it does with what is typed.
- * One field types at a time, so at most one of these can be open (spec 065).
- */
-export function openPrompt(
-  state: AppState,
-  ctx: OpenPromptContext,
-  render: () => void
-): { key: PromptKey; initialValue: string; placeholder?: string; onChange: (value: string) => void } | null {
-  const typeInto = (
-    set: (s: AppState, value: string) => AppState
-  ): ((value: string) => void) => (value) => {
-    ctx.setState((s) => set(s, value))
-    render()
-  }
-
+export function openPromptModel(state: AppState, searchState: SearchState): PromptModel | null {
   if (state.actionMenu.open) {
     return {
       key: `action-menu:${state.actionMenu.submenu?.kind ?? ""}`,
       initialValue: state.actionMenu.query,
       placeholder: "Search",
-      onChange: typeInto(setActionMenuQuery),
     }
   }
   if (state.filePicker.open) {
-    return {
-      key: "file-picker",
-      initialValue: state.filePicker.query,
-      placeholder: "Type to search…",
-      onChange: typeInto(setFilePickerQuery),
-    }
+    return { key: "file-picker", initialValue: state.filePicker.query, placeholder: "Type to search…" }
   }
   if (state.commentsPicker.open) {
-    return {
-      key: "comments-picker",
-      initialValue: state.commentsPicker.query,
-      placeholder: "Type to search…",
-      onChange: typeInto(setCommentsPickerQuery),
-    }
+    return { key: "comments-picker", initialValue: state.commentsPicker.query, placeholder: "Type to search…" }
   }
   if (state.marksPicker.open) {
-    return {
-      key: "marks-picker",
-      initialValue: state.marksPicker.query,
-      placeholder: "Type to search…",
-      onChange: typeInto(setMarksPickerQuery),
-    }
+    return { key: "marks-picker", initialValue: state.marksPicker.query, placeholder: "Type to search…" }
   }
   if (state.occurrencePicker.open) {
     return state.occurrencePicker.narrowing
@@ -90,50 +45,72 @@ export function openPrompt(
           key: "occurrence-picker:narrow",
           initialValue: state.occurrencePicker.filter,
           placeholder: "Narrow by path or text, !term to drop…",
-          onChange: typeInto(setOccurrencePickerFilter),
         }
       : {
           key: "occurrence-picker:search",
           initialValue: state.occurrencePicker.query,
           placeholder: "Search the diff…",
-          onChange: typeInto(setOccurrencePickerQuery),
         }
   }
   if (state.commitPicker.open && state.commitPicker.queryInput) {
-    return {
-      key: "commit-picker",
-      initialValue: state.commitPicker.query,
-      placeholder: "Type to search commits…",
-      onChange: typeInto(setCommitPickerQuery),
-    }
+    return { key: "commit-picker", initialValue: state.commitPicker.query, placeholder: "Type to search commits…" }
   }
 
   if (state.inlineCommentOverlay.filterInput) {
-    return {
-      key: "comments-filter",
-      initialValue: state.inlineCommentOverlay.filter,
-      placeholder: "filter comments…",
-      onChange: typeInto(setViewFilter),
-    }
+    return { key: "comments-filter", initialValue: state.inlineCommentOverlay.filter, placeholder: "filter comments…" }
   }
   if (state.feed.filterInput) {
-    return {
-      key: "feed-filter",
-      initialValue: state.feed.filter,
-      placeholder: "filter the feed…",
-      onChange: typeInto(setViewFilter),
-    }
+    return { key: "feed-filter", initialValue: state.feed.filter, placeholder: "filter the feed…" }
   }
 
-  const searchState = ctx.getSearchState()
   if (searchState.active) {
     return {
       // A fresh prompt seeds the field; typing into the same one does not.
       key: `search:${searchState.direction}:${searchState.originalLine}:${searchState.originalCol}`,
       initialValue: searchState.promptValue,
-      onChange: (value) => ctx.updateSearchPattern(value),
     }
   }
 
   return null
+}
+
+/** Whether a prompt is typing right now, so a frame can tell from state alone. */
+export function promptOpenIn(state: AppState, searchState: SearchState): boolean {
+  return openPromptModel(state, searchState) !== null
+}
+
+export type PromptWriteContext = {
+  setState: (updater: (s: AppState) => AppState) => void
+  /** Incremental search reacting to what the prompt field reports (spec 065). */
+  updateSearchPattern: (value: string) => void
+}
+
+/** Where what is typed into the prompt `key` goes. */
+export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: PromptKey, value: string) => void {
+  const typeInto = (set: (s: AppState, value: string) => AppState, value: string) => {
+    ctx.setState((s) => set(s, value))
+    render()
+  }
+
+  return (key, value) => {
+    switch (ownerOf(key)) {
+      case "action-menu":
+        return typeInto(setActionMenuQuery, value)
+      case "file-picker":
+        return typeInto(setFilePickerQuery, value)
+      case "comments-picker":
+        return typeInto(setCommentsPickerQuery, value)
+      case "marks-picker":
+        return typeInto(setMarksPickerQuery, value)
+      case "occurrence-picker":
+        return typeInto(key === "occurrence-picker:narrow" ? setOccurrencePickerFilter : setOccurrencePickerQuery, value)
+      case "commit-picker":
+        return typeInto(setCommitPickerQuery, value)
+      case "comments-filter":
+      case "feed-filter":
+        return typeInto(setViewFilter, value)
+      case "search":
+        return ctx.updateSearchPattern(value)
+    }
+  }
 }

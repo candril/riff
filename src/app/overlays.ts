@@ -65,12 +65,11 @@ type Followers = { [K in FrameIslandId]: { update(model: FrameModels[K]): void }
  * self-shown ones are shown by the shell exactly while they have one.
  * Returns the teardown.
  *
- * The effects run inside publish only because render() is never called
- * within a Solid batch or update: the chat focuses its input, and the review
- * preview its summary as it opens, and both have to land after render.ts has
- * driven the composer and routed the prompts their focus. The chat follows
- * ahead of the overlays, so the summary still takes focus after it.
- * Publishing checks it in tests.
+ * The islands update inside publish only because render() is never called
+ * within a Solid batch or update, and in FRAME_ISLANDS' order, since focus
+ * passes down it: the composer and the prompts focus their fields first,
+ * then the chat focuses its input and the review preview its summary as it
+ * opens. Publishing checks it in tests.
  */
 export function followFrame(frame: Accessor<Frame | null>, islands: Followers, shell: Pick<AppShell, "show">): () => void {
   return createRoot((dispose) => {
@@ -78,21 +77,22 @@ export function followFrame(frame: Accessor<Frame | null>, islands: Followers, s
       const current = frame()
       return current && frameModels(current)
     })
-    for (const id of FRAME_ISLANDS) {
-      createRenderEffect(() => {
-        const current = models()
-        if (!current) return
-        const model = current[id]
-        // Untracked: an island reading its own state while it updates must
-        // not subscribe this effect to it.
-        untrack(() => (islands[id].update as (next: typeof model) => void)(model))
-        if (shownByShell(id)) shell.show(id, model !== null)
-      })
-    }
-    // Last, so it runs once every island above has drawn the frame.
+    // One effect walking the islands rather than one per island: Solid
+    // reorders an effect's observers as they re-subscribe, so separate
+    // effects drift out of this order after the first frame.
     createRenderEffect(() => {
-      models()
-      markDrawn(frame, untrack(frame))
+      const current = models()
+      if (!current) return
+      // Untracked: an island reading its own state while it updates must
+      // not subscribe this effect to it.
+      untrack(() => {
+        for (const id of FRAME_ISLANDS) {
+          const model = current[id]
+          ;(islands[id].update as (next: typeof model) => void)(model)
+          if (shownByShell(id)) shell.show(id, model !== null)
+        }
+        markDrawn(frame, frame())
+      })
     })
     return () => {
       unmarkDrawn(frame)

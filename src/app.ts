@@ -74,6 +74,10 @@ import { createProposals } from "./app/proposals"
 import { createFeedIsland } from "./app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "./app/overlays"
 import { createPrInfoPanelFollower } from "./app/pr-info-panel-follower"
+import { createComposerFollower } from "./app/composer-follower"
+import { createPromptFollower } from "./app/prompt-follower"
+import { writePrompt } from "./app/open-prompt"
+import type { PromptIsland, PromptOwner } from "./app/prompt-routing"
 import { createFrame } from "./app/frame"
 import { createDiffHighlights } from "./app/diff-highlights"
 import { createSplitDiff } from "./app/split-diff"
@@ -569,10 +573,27 @@ export async function createApp(options: AppOptions = {}) {
     statusBar: statusBar.host,
   })
   const frame = createFrame()
+  const promptIslands: Record<PromptOwner, PromptIsland> = {
+    search: islands.searchPrompt,
+    "file-picker": islands.filePicker,
+    "comments-picker": islands.commentsPicker,
+    "marks-picker": islands.marksPicker,
+    "occurrence-picker": islands.occurrencePicker,
+    "commit-picker": islands.commitPicker,
+    "action-menu": islands.actionMenu,
+    "feed-filter": feedIsland,
+    "comments-filter": threadPanel,
+  }
+  const setAppState = (fn: (s: AppState) => AppState) => { state = fn(state) }
   const stopFollowing = followFrame(
     frame.frame,
     {
       ...islands,
+      composer: createComposerFollower(threadPanel.compose, { getState: () => state, setState: setAppState, render }),
+      prompt: createPromptFollower(
+        promptIslands,
+        writePrompt({ setState: setAppState, updateSearchPattern: (value) => searchHandler.updatePattern(value) }, render)
+      ),
       threadPanel,
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
       chatColumn,
@@ -584,7 +605,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const renderFrame = createRenderFunction({
     getState: () => state,
-    setState: (fn) => { state = fn(state) },
+    setState: setAppState,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getSearchState: () => searchState,
@@ -593,20 +614,11 @@ export async function createApp(options: AppOptions = {}) {
     getPrInfoPanel: () => prInfoPanel,
     renderer,
     shell,
-    threadPanel,
-    searchPrompt: islands.searchPrompt,
     feed: feedIsland,
-    filePicker: islands.filePicker,
-    commentsPicker: islands.commentsPicker,
-    marksPicker: islands.marksPicker,
-    occurrencePicker: islands.occurrencePicker,
-    commitPicker: islands.commitPicker,
-    actionMenu: islands.actionMenu,
     split,
     unified,
     parses,
     updateFileTreePanel,
-    updateSearchPattern: (value) => searchHandler.updatePattern(value),
     publishFrame: frame.publish,
   })
 

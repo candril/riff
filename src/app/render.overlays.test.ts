@@ -39,7 +39,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
-      ["statusBar", "header", "threadPanel", "prInfoPanel", "chatColumn", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
+      ["composer", "prompt", "statusBar", "header", "threadPanel", "prInfoPanel", "chatColumn", "searchPrompt", "flashPrompt", ...OVERLAYS, "feed"].map((name) => [name, island(name)])
     ),
     ...realParts,
   } as unknown as Record<"statusBar" | "header" | "threadPanel" | "searchPrompt" | "flashPrompt" | OverlayId, { host: Renderable }>
@@ -69,7 +69,6 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     renderer,
     shell,
     updateFileTreePanel() {},
-    updateSearchPattern() {},
     publishFrame: frame.publish,
     ...islands,
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },

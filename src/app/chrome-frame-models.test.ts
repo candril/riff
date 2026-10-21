@@ -7,7 +7,7 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { chatColumnWidth } from "../features/chat/width"
 import { statusBarFrameModel } from "./chrome-frame-models"
 import { chatColumnFrameModel } from "./panel-frame-models"
-import { openPrompt, promptOpenIn } from "./open-prompt"
+import { openPromptModel, promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 const initial = createInitialState([], [], "local", "local changes")
@@ -83,11 +83,6 @@ describe("chatColumnFrameModel", () => {
 })
 
 describe("promptOpenIn", () => {
-  const ctx = (searchState: SearchState) => ({
-    setState() {},
-    getSearchState: () => searchState,
-    updateSearchPattern() {},
-  })
   const branches: [string, AppState, Partial<SearchState>, boolean][] = [
     ["the action menu", state({ actionMenu: { ...initial.actionMenu, open: true } }), {}, true],
     ["the file picker", state({ filePicker: { ...initial.filePicker, open: true } }), {}, true],
@@ -104,10 +99,10 @@ describe("promptOpenIn", () => {
   ]
 
   for (const [name, appState, search, open] of branches) {
-    test(`agrees with openPrompt for ${name}`, () => {
+    test(`agrees with openPromptModel for ${name}`, () => {
       const searchState = { ...createSearchState(), ...search }
       expect(promptOpenIn(appState, searchState)).toBe(open)
-      expect(openPrompt(appState, ctx(searchState), () => {}) !== null).toBe(open)
+      expect(openPromptModel(appState, searchState) !== null).toBe(open)
     })
   }
 })

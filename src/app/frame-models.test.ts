@@ -5,7 +5,7 @@ import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { createFlashState, type FlashState } from "../vim-diff/flash-state"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { X, Y } from "../testing/marks"
-import { FRAME_ISLANDS, frameModels } from "./frame-models"
+import { FRAME_ISLANDS, frameModels, shownByShell } from "./frame-models"
 import { overlayModels } from "./overlay-models"
 import type { Frame } from "./frame"
 
@@ -43,10 +43,24 @@ const shown = (models: Record<string, unknown>) =>
     .map(([id]) => id)
 
 describe("frameModels", () => {
+  test("puts the composer and the prompt first, which no shell host shows", () => {
+    expect(FRAME_ISLANDS.slice(0, 2)).toEqual(["composer", "prompt"])
+    expect(shownByShell("composer")).toBe(false)
+    expect(shownByShell("prompt")).toBe(false)
+  })
+
+  test("carries the open prompt and the composer", () => {
+    const models = frameModels(frame(state(), { search: { active: true, promptValue: "foo" } }))
+    expect(models.prompt).toEqual({ key: "search:forward:0:0", initialValue: "foo" })
+    expect(models.composer).toBeNull()
+  })
+
   test("keys its models in the order the islands update in", () => {
     const keys = Object.keys(frameModels(frame(state())))
     expect(keys).toEqual([...FRAME_ISLANDS])
     expect(keys).toEqual([
+      "composer",
+      "prompt",
       "feed",
       "threadPanel",
       "prInfoPanel",
@@ -87,12 +101,12 @@ describe("frameModels", () => {
     expect(frameModels(frame(state({ viewMode: "feed" }), { flash: { active: true } })).flashPrompt).toBeNull()
   })
 
-  test("shows each picker and the palette exactly while it is open", () => {
-    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["prInfoPanel", "statusBar", "filePicker", "header"])
-    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commentsPicker", "header"])
+  test("shows each picker and the palette exactly while it is open, with the prompt of those that type", () => {
+    expect(shown(frameModels(frame(openFilePicker(state()))))).toEqual(["prompt", "prInfoPanel", "statusBar", "filePicker", "header"])
+    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["prompt", "prInfoPanel", "statusBar", "commentsPicker", "header"])
     expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
-    expect(shown(frameModels(frame(palette)))).toEqual(["prInfoPanel", "statusBar", "actionMenu", "header"])
+    expect(shown(frameModels(frame(palette)))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])
   })
 
   test("dates the commit picker's commits against the frame's clock", () => {

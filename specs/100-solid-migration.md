@@ -47,11 +47,11 @@ open sections and filter are the `pr-info-nav` model, and
 `PRInfoPanelClass` is left as the controller that holds them and pushes.
 
 **Not built**: the deletion of `src/app/render.ts`, which stays as the
-coordinator that draws the diff views, swaps the view slot, syncs the PR
-info panel and drives the composer and the prompts (each prompt's field
-and the comment composer's textarea are their island's own, handed their
-session through `prompt()` and `compose()`), and then publishes the frame
-every other island derives its model from; M5
+coordinator that draws the diff views, swaps the view slot and publishes
+the frame every island derives its model from (the prompts and the comment
+composer too: each prompt's field and the composer's textarea are their
+island's own, handed their session through `prompt()` and `compose()` by
+the frame's first followers); M5
 (monoliths without UI); M6 (state factories and `@opentui/keymap`
 layers); the file size ratchet (P3).
 

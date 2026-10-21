@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
 import { createSearchState } from "../vim-diff/search-state"
-import { openPrompt } from "./open-prompt"
+import { openPromptModel } from "./open-prompt"
 import { ownerOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
 import type { PromptSession } from "./prompt-session"
 
@@ -52,14 +52,10 @@ describe("routing the open prompt", () => {
       { inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } },
       { feed: { ...initial.feed, filterInput: true } },
     ]
-    const ctx = (search: boolean) => ({
-      setState: () => {},
-      getSearchState: () => ({ ...createSearchState(), active: search }),
-      updateSearchPattern: () => {},
-    })
+    const searching = (active: boolean) => ({ ...createSearchState(), active })
     const opened = [
-      ...states.map((patch) => openPrompt({ ...initial, ...patch }, ctx(false), () => {})),
-      openPrompt(initial, ctx(true), () => {}),
+      ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false))),
+      openPromptModel(initial, searching(true)),
     ]
     const owners = new Set(opened.map((prompt) => ownerOf(prompt!.key)))
     expect([...owners].sort()).toEqual([...promptOwners].sort())
