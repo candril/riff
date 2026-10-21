@@ -134,29 +134,36 @@ export function navigateToThread(
   const target = findThreadAnchor(anchors, from, direction)
   if (!target) return null
 
-  const inSingleFileView = state.selectedFileIndex !== null
-  const targetFileIndex = state.files.findIndex((f) => f.filename === target.filename)
-
-  if (inSingleFileView && targetFileIndex !== -1 && targetFileIndex !== state.selectedFileIndex) {
-    // Cross-file in single-file view: switch files first, then position cursor
-    handleSelectFile(targetFileIndex, ctx.fileNavContext)
-  } else {
-    ensureFileExpanded(target.filename, ctx.fileNavContext)
-  }
-
-  // Move vim cursor to the anchor line on the (now-current) line mapping
-  const freshMapping = ctx.getLineMapping()
-  const rootComment = state.comments.find((c) => c.id === target.rootCommentId)
-  if (rootComment) {
-    const visualLine = freshMapping.findLineForComment(rootComment)
-    if (visualLine !== null) {
-      ctx.setVimState({ ...ctx.getVimState(), line: visualLine })
-      ctx.ensureCursorVisible()
-    }
-  }
-
+  revealAnchor(target, ctx)
   ctx.render()
   return target
+}
+
+/**
+ * Bring a line into view and put the diff cursor on it: in single-file
+ * view a line in another file switches files first, otherwise its file is
+ * expanded so the line has a row.
+ */
+export function revealAnchor(
+  anchor: Pick<ThreadAnchor, "filename" | "line" | "side">,
+  ctx: ThreadMotionContext
+): void {
+  const state = ctx.getState()
+  const inSingleFileView = state.selectedFileIndex !== null
+  const targetFileIndex = state.files.findIndex((f) => f.filename === anchor.filename)
+
+  if (inSingleFileView && targetFileIndex !== -1 && targetFileIndex !== state.selectedFileIndex) {
+    handleSelectFile(targetFileIndex, ctx.fileNavContext)
+  } else {
+    ensureFileExpanded(anchor.filename, ctx.fileNavContext)
+  }
+
+  // The mapping is read after the file switch, which rebuilds it.
+  const visualLine = ctx.getLineMapping().findLineForComment(anchor)
+  if (visualLine !== null) {
+    ctx.setVimState({ ...ctx.getVimState(), line: visualLine })
+    ctx.ensureCursorVisible()
+  }
 }
 
 /**
@@ -182,24 +189,7 @@ export function jumpOverlayToAdjacentThread(
   const target = findThreadAnchor(anchors, from, direction)
   if (!target) return
 
-  const inSingleFileView = state.selectedFileIndex !== null
-  const targetFileIndex = state.files.findIndex((f) => f.filename === target.filename)
-
-  if (inSingleFileView && targetFileIndex !== -1 && targetFileIndex !== state.selectedFileIndex) {
-    handleSelectFile(targetFileIndex, ctx.fileNavContext)
-  } else {
-    ensureFileExpanded(target.filename, ctx.fileNavContext)
-  }
-
-  const rootComment = state.comments.find((c) => c.id === target.rootCommentId)
-  if (rootComment) {
-    const mapping = ctx.getLineMapping()
-    const visualLine = mapping.findLineForComment(rootComment)
-    if (visualLine !== null) {
-      ctx.setVimState({ ...ctx.getVimState(), line: visualLine })
-      ctx.ensureCursorVisible()
-    }
-  }
+  revealAnchor(target, ctx)
 
   // Reposition the overlay onto the new thread (view mode — adjacent
   // navigation is read-first; the user can still drop into compose

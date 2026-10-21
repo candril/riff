@@ -13,7 +13,7 @@ type Mounted = Awaited<ReturnType<typeof mountApp>>
  * focus walk. Anything else it calls throws, so a key that leaks past the
  * chat into the diff shows up here.
  */
-export function keysOn(mounted: Mounted) {
+export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
   const { ctx: render } = mounted
   let vimState = render.getVimState()
   const quits: number[] = []
@@ -58,6 +58,8 @@ export function keysOn(mounted: Mounted) {
       getViewportHeight: () => 20,
       onCursorMove: () => mounted.render(),
     }),
+    composerSettled: undefined,
+    ...more,
   }
   const ctx = new Proxy(known, {
     get(target, name) {

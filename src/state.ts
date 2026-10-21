@@ -3071,6 +3071,18 @@ export function forgetCommentDraft(state: AppState): AppState {
   return { ...state, commentDrafts: drafts }
 }
 
+/** Drop the draft on a line, or on an edit of a comment, wherever the composer is now. */
+export function forgetCommentDraftOn(
+  state: AppState,
+  on: { filename: string; line: number; side: "LEFT" | "RIGHT" } | { editingId: string }
+): AppState {
+  const key = "editingId" in on ? `edit:${on.editingId}` : anchorKey(on.filename, on.line, on.side)
+  if (!state.commentDrafts.has(key)) return state
+  const drafts = new Map(state.commentDrafts)
+  drafts.delete(key)
+  return { ...state, commentDrafts: drafts }
+}
+
 /** The draft waiting on a line, if any. */
 export function commentDraftFor(
   state: AppState,

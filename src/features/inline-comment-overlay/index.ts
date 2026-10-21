@@ -9,6 +9,7 @@
 export {
   handleInput,
   type InlineCommentOverlayInputContext,
+  type ComposerOutcome,
 } from "./input"
 
 export {

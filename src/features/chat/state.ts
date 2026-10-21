@@ -38,6 +38,7 @@ export function createChatState(
   const [answerStartedAt, setAnswerStartedAt] = createSignal(0)
   const [clearPrompt, setClearPrompt] = createSignal<string | null>(null)
   let session: AgentSession | null = null
+  const sessionClosed = new Set<() => void>()
 
   const push = (entry: Entry) => setEntries(entries.length, entry)
   const streamingAnswer = () => {
@@ -50,8 +51,10 @@ export function createChatState(
   }
 
   function closeSession() {
-    session?.close()
+    if (!session) return
+    session.close()
     session = null
+    sessionClosed.forEach((listener) => listener())
   }
 
   function sendNext() {
@@ -147,6 +150,10 @@ export function createChatState(
       })
     },
     cancelNewConversation: () => setClearPrompt(null),
+    /** Something riff did for the agent, said in the conversation. */
+    note: (text: string) => push({ kind: "note", text, tone: "info" }),
+    // A tool call still waiting on the reviewer belongs to the session; it has no one to answer once that closes.
+    onSessionClosed: (listener: () => void) => void sessionClosed.add(listener),
     dispose: closeSession,
   }
 }

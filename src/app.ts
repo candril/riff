@@ -65,6 +65,8 @@ import { createHeaderIsland } from "./app/header"
 import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
+import { createProposals } from "./app/proposals"
+import { setComposerValue } from "./components/CommentComposer"
 import { createDraftNotificationIsland, createToastIsland } from "./app/notifications"
 import { createConfirmDialogIsland } from "./app/confirm-dialog"
 import { createSyncPreviewIsland } from "./app/sync-preview"
@@ -497,6 +499,7 @@ export async function createApp(options: AppOptions = {}) {
   // ===== RENDER =====
   function render(): void {
     renderFrame()
+    proposals.afterRender()
   }
 
   const statusBar = createStatusBarIsland(renderer)
@@ -516,7 +519,18 @@ export async function createApp(options: AppOptions = {}) {
       getScope: () => split.commentScope(),
       getRows: () => split.splitRows(),
     }),
+    proposer: () => proposals,
   })
+  const proposals = createProposals({
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    // Built below with the diff; a proposal only ever arrives once the app is running.
+    reveal: (anchor) => threadMotion.revealAnchor(anchor, threadMotionContext),
+    fillComposer: setComposerValue,
+    note: chat.note,
+  })
+  chat.onSessionClosed(proposals.endConversation)
   const searchPrompt = createSearchPromptIsland(renderer)
   const flashPrompt = createFlashPromptIsland(renderer)
   const toast = createToastIsland(renderer)
@@ -1817,6 +1831,7 @@ export async function createApp(options: AppOptions = {}) {
     threadMotionContext,
     marksContext,
     chat: { state: chat, input: chatColumn.input },
+    composerSettled: proposals.composerSettled,
   })
 
   /**

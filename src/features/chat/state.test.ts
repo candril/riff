@@ -176,3 +176,25 @@ test("a token that names nothing sends nothing and leaves an error note", () => 
   expect(chat.send("@x.ts why")).toBe(false)
   expect([fake.starts(), kinds(chat)]).toEqual([0, ["N:error:@x.ts is not a file of this change."]])
 })
+
+test("closing a session, by a new conversation or on the way out, is told to whoever listens; none open, nothing is", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent)
+  let closed = 0
+  chat.onSessionClosed(() => closed++)
+  chat.dispose()
+  expect(closed).toBe(0)
+  chat.send("what?")
+  chat.newConversation()
+  chat.newConversation()
+  expect([fake.closes(), closed]).toEqual([1, 1])
+  chat.send("again?")
+  chat.dispose()
+  expect([fake.closes(), closed]).toEqual([2, 2])
+})
+
+test("a note riff writes for the agent's tools is an info note", () => {
+  const chat = createChatState(fakeAgent().agent)
+  chat.note("Proposed a comment on src/a.ts:2 — it is open in the thread panel.")
+  expect(kinds(chat)).toEqual(["N:info:Proposed a comment on src/a.ts:2 — it is open in the thread panel."])
+})

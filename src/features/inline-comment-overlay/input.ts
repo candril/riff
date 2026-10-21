@@ -62,7 +62,12 @@ import {
   type InlineComposerHandlersContext,
 } from "./handlers"
 
+/** How the composer closed: the reviewer's own keys, which a proposal of the agent's is told about. */
+export type ComposerOutcome = "saved" | "published" | "dropped"
+
 export interface InlineCommentOverlayInputContext extends InlineComposerHandlersContext {
+  /** Called once state holds the outcome: a saved comment is in `state.comments`, a dropped draft remembered. */
+  composerSettled?: (outcome: ComposerOutcome) => void
   /** $EDITOR reply (Shift-r). Reuses the existing add-comment flow. */
   handleReplyExternal: () => void
   /** $EDITOR edit (Shift-e). Reuses the existing add-comment flow,
@@ -618,8 +623,11 @@ function handleComposerInput(
     key.preventDefault()
     const draft = readComposerValue()
     ctx.setState((s) => cancelInlineComposer(rememberCommentDraft(s, draft)))
+    ctx.composerSettled?.("dropped")
     ctx.render()
-    if (draft.trim()) {
+    // A proposal of the agent's dropped untouched is forgotten, not kept.
+    const kept = draft.trim() !== "" && [...ctx.getState().commentDrafts.values()].includes(draft)
+    if (kept) {
       ctx.setState((s) => showToast(s, "Draft kept for this line", "info"))
       ctx.render()
       setTimeout(() => {
@@ -659,6 +667,8 @@ function handleComposerInput(
     const value = readComposerValue()
     ctx.setState((s) => setInlineCommentInput(s, value))
     const saving = ov.mode === "edit" ? submitInlineEditDraft(ctx) : submitInlineDraft(ctx)
+    // The handlers change state before their first await, so the outcome is already there.
+    ctx.composerSettled?.(publish ? "published" : "saved")
     void saving.then((saved) => {
       if (publish && saved) ctx.handleSubmit(saved)
     })

@@ -13,6 +13,8 @@ import { TWO_FILES } from "../../testing/diffs"
 import { parseDiff } from "../../utils/diff-parser"
 import type { AgentEvents, AgentSession } from "./agent"
 import { readToolset } from "./read-tool-definitions"
+import { reviewToolset } from "../../app/review-chat"
+import type { CommentProposal } from "./proposer"
 import { READS_PER_ANSWER } from "./read-tools"
 import { createClaudeAgent } from "./session"
 import type { AgentTool, AgentToolset } from "./tool-server"
@@ -301,4 +303,35 @@ test("each question gets a fresh read budget, and a failed read reaches the even
   await settle()
   expect(log.filter((l) => l.startsWith("readFailed"))).toHaveLength(2)
   expect(log.at(-1)).toBe("done:false:100/5")
+})
+
+test("the review's session may call propose_comment beside the read tools, and the call returns the reviewer's outcome", async () => {
+  const proposed: CommentProposal[] = []
+  const proposer = {
+    proposeComment: async (proposal: CommentProposal) => {
+      proposed.push(proposal)
+      return "The reviewer dropped it; nothing was saved."
+    },
+  }
+  const source = {
+    files: () => parseDiff(TWO_FILES),
+    hiddenPaths: () => new Set<string>(),
+    fileText: async () => ({ kind: "missing" as const }),
+    tree: async () => [],
+    comments: () => [],
+  }
+  let toolset: AgentToolset | undefined
+  const { session, seen, settle } = start(() => [result()], undefined, (events) => {
+    toolset = reviewToolset(source, proposer, events)
+    return toolset
+  })
+  session.send("hi", null, [])
+  await settle()
+  expect(seen.options!.allowedTools).toContain("mcp__riff__list_files")
+  expect(seen.options!.allowedTools).toContain("mcp__riff__propose_comment")
+
+  const args = { path: "src/greet.ts", line: 2, side: "new", text: "Use a template literal." }
+  const answer = await toolset!.definitions.find((d) => d.name === "propose_comment")!.handler(args, {})
+  expect(proposed).toEqual([args as CommentProposal])
+  expect(answer.content).toEqual([{ type: "text", text: "The reviewer dropped it; nothing was saved." }])
 })

@@ -134,6 +134,8 @@ export interface GlobalKeyContext {
   marksContext: marks.MarksContext
   /** The chat column's conversation and its input (spec 102). */
   chat: { state: ChatState; input: () => TextareaRenderable | null }
+  /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
+  composerSettled?: (outcome: inlineCommentOverlay.ComposerOutcome) => void
 }
 
 /**
@@ -829,6 +831,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         render: ctx.render,
         source: ctx.commentsContext.source,
         getCachedCurrentUser: ctx.commentsContext.getCachedCurrentUser,
+        composerSettled: ctx.composerSettled,
         handleReplyExternal: () =>
           commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
         handleEditExternal: () =>

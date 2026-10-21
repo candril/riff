@@ -1,8 +1,12 @@
 import type { CommentScope } from "../diff-rows/comment-scope"
 import type { SplitRows } from "../diff-rows/row-source"
 import type { AppState } from "../state"
-import type { Agent } from "../providers/agent/agent"
+import type { Agent, AgentEvents } from "../providers/agent/agent"
 import { readToolset } from "../providers/agent/read-tool-definitions"
+import { proposeToolDefinitions } from "../providers/agent/propose-tool-definitions"
+import type { Proposer } from "../providers/agent/proposer"
+import type { ReviewSource } from "../providers/agent/review-source"
+import type { AgentToolset } from "../providers/agent/tool-server"
 import { createRiffSource } from "../providers/agent/riff-source"
 import { createClaudeAgent } from "../providers/agent/session"
 import { agentFilesOf, agentTargetOf, hiddenFileCount } from "../providers/agent/target"
@@ -23,6 +27,18 @@ export interface ReviewChatDeps {
   headSha: () => string | null
   /** Read once per question, as it is sent. */
   position: () => Position | null
+  /** Asked for when a session opens: app.ts builds the chat before the diff the proposals move. */
+  proposer: () => Proposer
+}
+
+/** What the agent can call: the read tools, budgeted per answer, and the proposals, which are not. */
+export function reviewToolset(
+  source: ReviewSource,
+  proposer: Proposer,
+  events: Pick<AgentEvents, "readFailed">,
+): AgentToolset {
+  const reads = readToolset(source, events)
+  return { definitions: [...reads.definitions, ...proposeToolDefinitions(proposer)], startAnswer: reads.startAnswer }
 }
 
 /** The agent for this review: Claude on the subscription, or a canned one for `--demo`, which promises no network. */
@@ -35,7 +51,11 @@ export function reviewAgent(deps: ReviewChatDeps): Agent {
       return { target: agentTargetOf(state), files: agentFilesOf(state), hidden: hiddenFileCount(state) }
     },
     tools: (events) =>
-      readToolset(createRiffSource({ state: deps.getState, target: deps.target, headSha: deps.headSha }), events),
+      reviewToolset(
+        createRiffSource({ state: deps.getState, target: deps.target, headSha: deps.headSha }),
+        deps.proposer(),
+        events,
+      ),
   })
 }
 
