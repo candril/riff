@@ -16,84 +16,30 @@
 import { Box, Text, MarkdownRenderable, SyntaxStyle, RGBA, type NativeResourceOwner } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { theme, colors } from "../theme"
-import { flashLabelCell } from "../vim-diff/flash-state"
 import { MarkdownBodies } from "./markdown-bodies"
 import { PromptInput } from "./PromptInput"
-import type { Comment } from "../types"
-import type { EmojiPickerState, InlineCommentOverlayMode, MentionPickerState } from "../state"
-import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
-import { extractCommentImages, type CommentImage } from "../utils/comment-images"
+import type { CommentImage } from "../utils/comment-images"
 import { softenCommentHtml } from "../utils/comment-html"
-import { commentHunk } from "../features/inline-comment-overlay/hunk"
 import { annotateReferences } from "../utils/references"
 import { resolvedReferences, referenceRepo } from "../features/references"
 import { tableRenderer } from "./markdown-tables-in-markdown"
-import { fuzzyFilter } from "../utils/fuzzy"
-import { filterEmoji } from "../utils/emoji"
 import { ReactionRow } from "./ReactionRow"
 import { CommentComposer } from "./CommentComposer"
 import { bottomThreadHint, topThreadHint } from "./thread-edge-hints"
+import {
+  displayAuthor,
+  threadPanelModel,
+  type Hint,
+  type ThreadCommentModel,
+  type ThreadModel,
+  type ThreadPanelInput,
+  type ThreadPanelModel,
+} from "./thread-panel-model"
 
-export const MENTION_VISIBLE_LIMIT = 6
+export { visibleOverlayCommentIds } from "./thread-panel-model"
+export { getFilteredMentionCandidates, MENTION_VISIBLE_LIMIT } from "./thread-panel-picker"
 
-export function getFilteredMentionCandidates(
-  candidates: readonly string[],
-  query: string
-): string[] {
-  return fuzzyFilter(query, [...candidates], (c) => c).slice(0, MENTION_VISIBLE_LIMIT)
-}
-
-export interface InlineCommentOverlayProps {
-  comments: Comment[]
-  /** Scope shown in the header — the user's currently selected file,
-   *  or null in all-files view (header reads "all files"). */
-  scopeFilename: string | null
-  /** Anchor file for compose/edit mode (where a new comment lands). */
-  composeFilename: string
-  /** Anchor line for compose/edit mode. Ignored in view mode. */
-  line: number
-  /** Composing a reply rather than a thread of its own (spec 081). */
-  replyToThread: boolean
-  /** GitHub has no anchor for this line: what is written is a note. */
-  note: boolean
-  mode: InlineCommentOverlayMode
-  /** Local diffs have nowhere to publish to — hints must not promise it. */
-  appMode: "local" | "pr"
-  /** Currently highlighted comment index in the displayOrder list. */
-  highlightedIndex: number
-  /** Comment id being edited (edit mode). */
-  editingId: string | null
-  /** A draft left on the composer's anchor line, waiting to be resumed
-   *  (spec 061). Empty when there is none. */
-  draft: string
-  /** True when the panel itself is the focused surface — drives the
-   *  header text's colour so it visibly differs from "panel open but
-   *  user is driving the diff". */
-  focused: boolean
-  /** Wider layout (Ctrl-e). */
-  expanded: boolean
-  /** The panel's columns, which the diff beside it gives up. */
-  width: number
-  /** Active @mention picker session (null when no `@<query>` trigger). */
-  mentionPicker: MentionPickerState | null
-  /** Active `:shortcode` session (spec 082). */
-  emojiPicker: EmojiPickerState | null
-  /** Full PR-participant pool — filtered against `mentionPicker.query`
-   *  to produce the visible candidate list. Empty in local-diff mode. */
-  mentionCandidates: readonly string[]
-  /** Fragment currently being looked up on GitHub, or null when idle. */
-  mentionSearchQuery: string | null
-  /** Root comment ids the user has expanded (`za`/Enter). Resolved
-   *  threads expand to show body + replies; outdated threads expand to
-   *  reveal the stored diff hunk. */
-  expandedThreadIds: ReadonlySet<string>
-  /** Comments that arrived since the reader's last visit (spec 069). */
-  unseenIds: ReadonlySet<string>
-  /** The `/` filter over the panel's comments, and whether it is being typed. */
-  filter: string
-  filterInput: boolean
-  /** Flash labels by comment id, while `s` is labelling the panel (spec 066). */
-  flashLabels: ReadonlyMap<string, string>
+export interface InlineCommentOverlayProps extends ThreadPanelInput {
   renderer: CliRenderer
 }
 
@@ -180,61 +126,6 @@ function getSyntaxStyle(owner: NativeResourceOwner): SyntaxStyle {
   return syntaxStyles.get(owner)!
 }
 
-function getStatusColor(status: Comment["status"]): string {
-  switch (status) {
-    case "local":
-      return colors.commentLocal
-    case "pending":
-      return colors.commentPending
-    case "synced":
-      return colors.commentSynced
-    default:
-      return colors.textDim
-  }
-}
-
-function formatTimeAgo(isoDate: string): string {
-  const date = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return "now"
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`
-  return date.toLocaleDateString([], { month: "short", day: "numeric" })
-}
-
-type Hint = readonly [string, string]
-
-function viewModeHints(
-  canSubmit: boolean,
-  hasComments: boolean,
-  focused: boolean,
-  appMode: "local" | "pr",
-  hasImages: boolean,
-  hasCode: boolean,
-  hasDraft: boolean
-): Hint[] {
-  if (!focused) {
-    return [["Ctrl-l", "focus"], ["Ctrl-t", "close"]]
-  }
-  const hints: Hint[] = [["n", hasDraft ? "draft" : "new"]]
-  if (hasComments) {
-    hints.push(["j/k", "nav"], ["za", "fold"], ["r", "reply"], ["e", "edit"], ["d", "del"], ["x", "resolve"], ["o", "open"])
-    if (hasCode) hints.push(["c", "code"])
-    if (hasImages) hints.push(["O", "image"])
-    // Nothing to submit to in local mode; the key is a no-op there.
-    if (canSubmit && appMode === "pr") hints.push(["S", "submit"])
-  }
-  hints.push(["Ctrl-h", "diff"], ["Ctrl-e", "expand"], ["q", "close"])
-  return hints
-}
-
 function renderHintRow(hints: Hint[]) {
   // PRInfoPanel pattern: rows must declare `height: 1` or OpenTUI's
   // column flex won't measure Text height, and the parent stacks
@@ -251,293 +142,168 @@ function renderHintRow(hints: Hint[]) {
   return Box({ flexDirection: "row", height: 1 }, ...children)
 }
 
-/**
- * Decide which threads to render around the highlighted comment.
- *
- * This doubles as the panel's scroll model. The clipping viewport is
- * rebuilt every frame with its content pinned at the top — only content
- * near the top of the column is on-screen. So we render *starting* a
- * couple of threads above the highlighted one: that keeps the highlighted
- * thread near the top of the viewport (with a little preceding context)
- * and, because the start point follows the cursor, the view scrolls as
- * the user moves through threads with j/k. `windowSize` caps how many
- * threads mount at once — the viewport clips whatever runs past the
- * bottom, and its edge rows count the threads hidden past each edge
- * (`thread-edge-hints.ts`).
- *
- * Note this is thread-granular: navigating *within* a very tall thread
- * (many replies) doesn't re-scroll, so a deep reply in an oversized
- * thread can fall below the fold. Pixel-accurate scroll-off would need a
- * persistent panel that reads real layout offsets (cf. the file tree island).
- */
-const WINDOW_LEAD = 2
-
-/** How many threads are mounted at once — see `maxVisibleThreads` below. */
-function threadWindowSize(expanded: boolean): number {
-  return expanded ? 80 : 24
-}
-
-/**
- * The comment rows the panel is drawing, top to bottom (spec 066).
- *
- * Flash labels what is on screen, and what is on screen is a window around
- * the highlight rather than every thread. Same inputs as the render below,
- * so the two cannot disagree about which rows exist.
- */
-export function visibleOverlayCommentIds(
-  comments: Comment[],
-  expandedThreadIds: ReadonlySet<string>,
-  highlightedIndex: number,
-  expanded: boolean
-): string[] {
-  const threads = groupIntoThreads(comments)
-  const displayOrder = threads.flatMap((t) =>
-    isThreadCollapsed(t, expandedThreadIds) ? [t.comments[0]!] : t.comments
-  )
-  const visible = pickVisibleThreads(
-    threads,
-    displayOrder,
-    highlightedIndex,
-    threadWindowSize(expanded)
-  )
-  return visible.threads.flatMap((thread) =>
-    isThreadCollapsed(thread, expandedThreadIds)
-      ? [thread.comments[0]!.id]
-      : thread.comments.map((comment) => comment.id)
+function pickerFooter() {
+  return Box(
+    { flexDirection: "row", height: 1 },
+    Text({ content: "↑↓ nav  ", fg: theme.overlay0 }),
+    Text({ content: "Tab/⏎ accept  ", fg: theme.overlay0 }),
+    Text({ content: "Esc dismiss", fg: theme.overlay0 })
   )
 }
 
-function pickVisibleThreads(
-  threads: Thread[],
-  displayOrder: Comment[],
-  highlightedIndex: number,
-  windowSize: number
-): { threads: Thread[]; before: number; after: number } {
-  const highlightedId = displayOrder[highlightedIndex]?.id
-  const highlightedThreadIdx = highlightedId
-    ? threads.findIndex((t) => t.comments.some((c) => c.id === highlightedId))
-    : 0
-  const start = Math.max(0, highlightedThreadIdx - WINDOW_LEAD)
-  const end = Math.min(threads.length, start + windowSize)
-  return {
-    threads: threads.slice(start, end),
-    before: start,
-    after: threads.length - end,
-  }
-}
-
-/**
- * Distinguish "nobody matches" from "still asking GitHub" — the lookup takes
- * about half a second, and without the hint that reads as a dead picker.
- */
-function emptyPickerMessage(query: string, searchQuery: string | null): string {
-  if (!query) return "No participants to mention"
-  if (searchQuery === query) return `Searching GitHub for @${query}…`
-  return `No match for @${query}`
-}
-
-/**
- * The emoji a `:shortcode` found, in the mention picker's clothes — one
- * composer, one kind of picker (spec 082).
- */
-function renderEmojiPicker(picker: EmojiPickerState) {
-  const matches = filterEmoji(picker.query)
-  if (matches.length === 0) {
-    return Box(
-      {
-        flexDirection: "column",
-        marginTop: 1,
-        paddingX: 1,
-        backgroundColor: theme.mantle,
-      },
-      Text({ content: `No emoji for :${picker.query}`, fg: theme.overlay0 })
-    )
-  }
-
-  const selected = Math.min(picker.selectedIndex, matches.length - 1)
+function pickerRow(selected: boolean, accent: string, ...cells: ReturnType<typeof Text>[]) {
   return Box(
     {
-      flexDirection: "column",
-      paddingX: 1,
-      backgroundColor: theme.mantle,
+      flexDirection: "row",
+      height: 1,
+      backgroundColor: selected ? theme.surface0 : undefined,
     },
-    Box({ flexDirection: "row", height: 1 }, Text({ content: ":emoji", fg: theme.yellow })),
-    ...matches.map((emoji, i) =>
-      Box(
-        {
-          flexDirection: "row",
-          height: 1,
-          backgroundColor: i === selected ? theme.surface0 : undefined,
-        },
-        Text({
-          content: i === selected ? "▸ " : "  ",
-          fg: i === selected ? theme.yellow : theme.overlay0,
-        }),
-        Text({ content: `${emoji.char}  `, fg: theme.text }),
-        Text({ content: `:${emoji.name}:`, fg: theme.subtext0 })
-      )
-    ),
-    Box(
-      { flexDirection: "row", height: 1 },
-      Text({ content: "↑↓ nav  ", fg: theme.overlay0 }),
-      Text({ content: "Tab/⏎ accept  ", fg: theme.overlay0 }),
-      Text({ content: "Esc dismiss", fg: theme.overlay0 })
-    )
+    Text({
+      content: selected ? "▸ " : "  ",
+      fg: selected ? accent : theme.overlay0,
+    }),
+    ...cells
   )
 }
 
-function renderMentionPicker(
-  picker: MentionPickerState,
-  candidates: readonly string[],
-  searchQuery: string | null
-) {
-  const filtered = getFilteredMentionCandidates(candidates, picker.query)
-  if (filtered.length === 0) {
-    return Box(
-      {
-        flexDirection: "column",
-        marginTop: 1,
-        paddingX: 1,
-        paddingY: 0,
-        backgroundColor: theme.mantle,
-      },
-      Text({
-        content: emptyPickerMessage(picker.query, searchQuery),
-        fg: theme.overlay0,
-      })
-    )
+function renderPicker(picker: NonNullable<ThreadPanelModel["picker"]>) {
+  switch (picker.kind) {
+    case "emoji-empty":
+      return Box(
+        {
+          flexDirection: "column",
+          marginTop: 1,
+          paddingX: 1,
+          backgroundColor: theme.mantle,
+        },
+        Text({ content: picker.text, fg: theme.overlay0 })
+      )
+    case "emoji":
+      return Box(
+        {
+          flexDirection: "column",
+          paddingX: 1,
+          backgroundColor: theme.mantle,
+        },
+        Box({ flexDirection: "row", height: 1 }, Text({ content: ":emoji", fg: theme.yellow })),
+        ...picker.rows.map((emoji, i) =>
+          pickerRow(
+            i === picker.selected,
+            theme.yellow,
+            Text({ content: `${emoji.char}  `, fg: theme.text }),
+            Text({ content: `:${emoji.name}:`, fg: theme.subtext0 })
+          )
+        ),
+        pickerFooter()
+      )
+    case "mention-empty":
+      return Box(
+        {
+          flexDirection: "column",
+          marginTop: 1,
+          paddingX: 1,
+          paddingY: 0,
+          backgroundColor: theme.mantle,
+        },
+        Text({ content: picker.text, fg: theme.overlay0 })
+      )
+    case "mention":
+      return Box(
+        {
+          flexDirection: "column",
+          marginTop: 1,
+          paddingX: 1,
+          paddingY: 0,
+          backgroundColor: theme.mantle,
+        },
+        Box(
+          { flexDirection: "row", height: 1 },
+          Text({ content: "@mention", fg: theme.blue })
+        ),
+        ...picker.rows.map((name, i) =>
+          pickerRow(i === picker.selected, theme.blue, Text({ content: displayAuthor(name), fg: theme.text }))
+        ),
+        pickerFooter()
+      )
   }
-  // Clamp the highlight in case the candidate list shrank since the
-  // last keystroke (e.g. user deleted a character that broadened the
-  // match set, then typed one that narrowed it again).
-  const selected = Math.min(picker.selectedIndex, filtered.length - 1)
+}
+
+function renderThreadHeader({ header }: ThreadModel) {
   return Box(
     {
-      flexDirection: "column",
+      flexDirection: "row",
+      height: 1,
       marginTop: 1,
-      paddingX: 1,
-      paddingY: 0,
-      backgroundColor: theme.mantle,
+      backgroundColor: header.highlighted ? theme.surface0 : undefined,
     },
+    // Filename group — flexShrink:1 so the *filename* truncates
+    // when the row is too narrow, instead of every child being
+    // compressed (which dropped letters mid-word).
     Box(
-      { flexDirection: "row", height: 1 },
-      Text({ content: "@mention", fg: theme.blue })
+      { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
+      header.caret !== null ? Text({ content: header.caret, fg: header.caretFg }) : null,
+      Text({ content: header.divider, fg: theme.overlay0 })
     ),
-    ...filtered.map((name, i) =>
-      Box(
-        {
-          flexDirection: "row",
-          height: 1,
-          backgroundColor: i === selected ? theme.surface0 : undefined,
-        },
-        Text({
-          content: i === selected ? "▸ " : "  ",
-          fg: i === selected ? theme.blue : theme.overlay0,
-        }),
-        Text({ content: displayAuthor(name), fg: theme.text })
-      )
-    ),
+    // Badges group — flexShrink:0 so author / count / resolved /
+    // outdated labels stay readable even on narrow panels.
     Box(
-      { flexDirection: "row", height: 1 },
-      Text({ content: "↑↓ nav  ", fg: theme.overlay0 }),
-      Text({ content: "Tab/⏎ accept  ", fg: theme.overlay0 }),
-      Text({ content: "Esc dismiss", fg: theme.overlay0 })
+      { flexDirection: "row", flexShrink: 0 },
+      header.author !== null ? Text({ content: `  ${header.author}`, fg: theme.blue }) : null,
+      header.badge ? Text({ content: `  ${header.badge.text}`, fg: header.badge.fg }) : null,
+      header.outdated ? Text({ content: "  ⊘", fg: theme.peach }) : null,
+      // Something in this thread arrived since your last visit (spec 069).
+      header.unseen ? Text({ content: "  ●", fg: theme.blue }) : null
     )
   )
 }
 
-/**
- * Comments written offline are stored with the placeholder author `@you`,
- * already `@`-prefixed, while GitHub logins are bare. Prefixing blindly
- * rendered the local ones as `@@you`.
- */
-/** The row's two-cell lead: its flash label while labelling, else the caret. */
-function caretContent(label: string | undefined, highlighted: boolean): string {
-  if (label !== undefined) return flashLabelCell(label)
-  return highlighted ? "▸ " : "  "
-}
-
-function displayAuthor(author: string): string {
-  return author.startsWith("@") ? author : `@${author}`
-}
-
-export function InlineCommentOverlay({
-  comments,
-  scopeFilename,
-  composeFilename,
-  line,
-  replyToThread,
-  note,
-  mode,
-  appMode,
-  highlightedIndex,
-  editingId,
-  draft,
-  focused,
-  expanded,
-  mentionPicker,
-  emojiPicker,
-  mentionCandidates,
-  mentionSearchQuery,
-  expandedThreadIds,
-  unseenIds,
-  filter,
-  filterInput,
-  flashLabels,
-  width,
-  renderer,
-}: InlineCommentOverlayProps) {
-  bodyPool(renderer).begin()
-  const threads = groupIntoThreads(comments)
-  const headerLabel = scopeFilename
-    ? scopeFilename.split("/").pop() || scopeFilename
-    : "all files"
-  // A collapsed thread is one navigable item (its root header); an
-  // expanded thread exposes every comment. Must mirror
-  // `getInlineCommentOverlayDisplayOrder` and the `visibleComments` rule
-  // below so j/k indices align with what's drawn.
-  const displayOrder: Comment[] = threads.flatMap((t) =>
-    isThreadCollapsed(t, expandedThreadIds) ? [t.comments[0]!] : t.comments
+function renderComment(renderer: CliRenderer, comment: ThreadCommentModel) {
+  // Each visual line is its own Box with `height: 1` (PRInfoPanel
+  // pattern). Without explicit per-row height, OpenTUI's column flex
+  // doesn't measure Text and the rows stack on row 0 of the comment Box.
+  // The body uses a MarkdownRenderable, which self-measures correctly, so
+  // its wrapper Box doesn't need a fixed height.
+  return Box(
+    {
+      flexDirection: "column",
+      paddingLeft: comment.indent,
+      backgroundColor: comment.highlighted ? theme.surface0 : undefined,
+    },
+    Box(
+      { flexDirection: "row", height: 1 },
+      Text({ content: comment.caret, fg: comment.caretFg }),
+      comment.connector !== null ? Text({ content: comment.connector, fg: colors.textDim }) : null,
+      Text({ content: comment.author, fg: theme.blue }),
+      Text({ content: ` ${comment.time}`, fg: theme.overlay0 }),
+      Text({ content: ` [${comment.status}]`, fg: comment.statusFg }),
+      comment.edited ? Text({ content: " *edited", fg: colors.commentPending }) : null,
+      comment.editing ? Text({ content: " (editing)", fg: theme.yellow }) : null
+    ),
+    comment.bodyText
+      ? Box(
+          { paddingLeft: comment.bodyIndent },
+          buildMarkdown(renderer, `inline-overlay-body-${comment.key}`, comment.bodyText)
+        )
+      : null,
+    ...imageRows(comment.images, comment.bodyIndent),
+    comment.reactions
+      ? Box(
+          { flexDirection: "row", height: 1, paddingLeft: comment.bodyIndent },
+          ReactionRow({ reactions: comment.reactions })
+        )
+      : null
   )
-  const highlightedId = displayOrder[highlightedIndex]?.id
-  const highlightedComment = displayOrder[highlightedIndex]
-  const canSubmit = highlightedComment
-    ? highlightedComment.status === "local" || highlightedComment.localEdit !== undefined
-    : false
-  const highlightedHasImages = highlightedComment
-    ? extractCommentImages(highlightedComment.localEdit ?? highlightedComment.body).images.length > 0
-    : false
-  const highlightedHasCode =
-    highlightedComment !== undefined && commentHunk(comments, highlightedComment.id) !== null
-  const isComposing = mode === "compose" || mode === "edit"
-  const composeFile = composeFilename.split("/").pop() || composeFilename
-  const onALineWithAThread =
-    highlightedComment !== undefined &&
-    highlightedComment.line === line &&
-    highlightedComment.filename === composeFilename
-  // A note says so before anything is typed. Finding out at publish time
-  // that a comment can never be published is finding out too late.
-  const composerLabel =
-    mode === "edit"
-      ? "Editing comment"
-      : note
-        ? `Note @ ${composeFile}:${line} — local only, never published`
-        : replyToThread
-          ? `Reply @ ${composeFile}:${line}`
-          : onALineWithAThread
-            ? `New thread @ ${composeFile}:${line}`
-            : `New comment @ ${composeFile}:${line}`
+}
 
-  // Cap the rendered thread count when not expanded — the viewport
-  // clips overflow, but mounting hundreds of MarkdownRenderables is a
-  // measurable cost on first paint.
-  const maxVisibleThreads = threadWindowSize(expanded)
-  const visible = pickVisibleThreads(threads, displayOrder, highlightedIndex, maxVisibleThreads)
+export function InlineCommentOverlay({ renderer, ...input }: InlineCommentOverlayProps) {
+  bodyPool(renderer).begin()
+  const model = threadPanelModel({ ...input, now: Date.now() })
+  const { header } = model
 
   const panel = Box(
     {
       // A column of the content row (app/shell.tsx), narrowed only where it and the tree overflow the screen.
-      width,
+      width: input.width,
       flexShrink: 1,
       height: "100%",
       flexDirection: "column",
@@ -558,28 +324,17 @@ export function InlineCommentOverlay({
         paddingRight: 1,
         backgroundColor: theme.mantle,
       },
-      // While `/` is open the header is the prompt, as it is in the tree;
-      // once accepted, the filter stays visible beside the count.
-      filterInput
+      header.filterInput
         ? Box(
             { flexDirection: "row", flexGrow: 1 },
             Text({ content: "/", fg: colors.secondary }),
             PromptInput(renderer, "comments-filter")
           )
         : Text({
-            content: filter ? `${headerLabel}  /${filter}` : headerLabel,
-            fg: focused ? colors.primary : colors.textMuted,
+            content: header.filterText !== null ? `${header.label}  /${header.filterText}` : header.label,
+            fg: header.labelFg,
           }),
-      filterInput
-        ? null
-        : Text({
-            content: isComposing
-              ? mode === "edit"
-                ? "Editing"
-                : "Composing"
-              : `${comments.length} comment${comments.length !== 1 ? "s" : ""}`,
-            fg: theme.overlay0,
-          })
+      header.right !== null ? Text({ content: header.right, fg: header.rightFg }) : null
     ),
 
       // Thread list (or empty-state hint). Two nested boxes reproduce a
@@ -597,7 +352,7 @@ export function InlineCommentOverlay({
       //    of the flex column compressing them below that height — which
       //    crushed the Text renderables into each other (the "scramble"
       //    that a smaller terminal font hid by giving the panel more rows).
-      comments.length > 0
+      !model.empty
         ? Box(
             {
               flexDirection: "column",
@@ -610,165 +365,19 @@ export function InlineCommentOverlay({
               paddingBottom: 1,
             },
             Box(
-            {
-              flexDirection: "column",
-              width: "100%",
-              flexShrink: 0,
-              gap: 1,
-            },
-            ...visible.threads.flatMap((thread) => {
-              const root = thread.comments[0]!
-              // Show filename in the divider too when the panel is
-              // unscoped (all-files view) — otherwise threads from
-              // different files run together with no separator.
-              const threadHeader = scopeFilename === null
-                ? `─ ${(root.filename.split("/").pop() || root.filename)}:${root.line}`
-                : `─ line ${root.line}`
-              // Collapsed threads render as a single header row; `za`/Enter
-              // folds/unfolds. Resolved threads default to collapsed
-              // (scannable), everything else defaults to expanded — the
-              // `expandedThreadIds` set flips that default. Original-code
-              // context for outdated threads is `c`, which draws the stored
-              // hunk over the panel (spec 060).
-              const totalCount = thread.comments.length
-              const isCollapsed = isThreadCollapsed(thread, expandedThreadIds)
-              const visibleComments = isCollapsed ? [] : thread.comments
-              const isThreadHighlighted = isCollapsed && root.id === highlightedId
-              return [
-              Box(
-                {
-                  flexDirection: "row",
-                  height: 1,
-                  marginTop: 1,
-                  backgroundColor: isThreadHighlighted ? theme.surface0 : undefined,
-                },
-                // Filename group — flexShrink:1 so the *filename* truncates
-                // when the row is too narrow, instead of every child being
-                // compressed (which dropped letters mid-word).
-                Box(
-                  { flexDirection: "row", flexShrink: 1, overflow: "hidden" },
-                  // Collapsed threads are the navigable item, so they carry
-                  // the highlight caret on the header itself.
-                  isCollapsed
-                    ? Text({
-                        content: caretContent(flashLabels.get(root.id), isThreadHighlighted),
-                        fg: flashLabels.has(root.id)
-                          ? colors.flashLabel
-                          : isThreadHighlighted
-                            ? theme.blue
-                            : theme.overlay0,
-                      })
-                    : null,
-                  Text({
-                    content: threadHeader,
-                    fg: theme.overlay0,
-                  })
-                ),
-                // Badges group — flexShrink:0 so author / count / resolved /
-                // outdated labels stay readable even on narrow panels.
-                Box(
-                  { flexDirection: "row", flexShrink: 0 },
-                  isCollapsed
-                    ? Text({ content: `  ${displayAuthor(root.author || "you")}`, fg: theme.blue })
-                    : null,
-                  thread.resolved
-                    ? Text({
-                        content: totalCount > 1 ? `  ✓ ${totalCount}` : "  ✓",
-                        fg: theme.green,
-                      })
-                    : isCollapsed
-                      ? Text({
-                          content: totalCount > 1 ? `  ⋯ ${totalCount}` : "  ⋯",
-                          fg: theme.overlay0,
-                        })
-                      : null,
-                  thread.outdated
-                    ? Text({ content: "  ⊘", fg: theme.peach })
-                    : null,
-                  // Something in this thread arrived since your last visit
-                  // (spec 069).
-                  thread.comments.some((comment) => unseenIds.has(comment.id))
-                    ? Text({ content: "  ●", fg: theme.blue })
-                    : null
-                )
-              ),
-              ...visibleComments.map((comment, i) => {
-                const isRoot = i === 0
-                const author = comment.author || "you"
-                const statusColor = getStatusColor(comment.status)
-                const connector = isRoot ? "" : "└ "
-                const isHighlighted = comment.id === highlightedId
-                const isBeingEdited = comment.id === editingId
-
-                // Each visual line is its own Box with `height: 1`
-                // (PRInfoPanel pattern). Without explicit per-row
-                // height, OpenTUI's column flex doesn't measure Text
-                // and the rows stack on row 0 of the comment Box.
-                // The body uses a MarkdownRenderable, which self-
-                // measures correctly, so its wrapper Box doesn't need
-                // a fixed height.
-                const bodyIndent = isRoot ? 4 : 6
-                const body = extractCommentImages(comment.localEdit ?? comment.body)
-                const hasReactions =
-                  comment.reactions !== undefined && comment.reactions.length > 0
-                return Box(
-                  {
-                    flexDirection: "column",
-                    paddingLeft: isRoot ? 0 : 2,
-                    backgroundColor: isHighlighted ? theme.surface0 : undefined,
-                  },
-                  Box(
-                    { flexDirection: "row", height: 1 },
-                    Text({
-                      content: caretContent(flashLabels.get(comment.id), isHighlighted),
-                      fg: flashLabels.has(comment.id)
-                        ? colors.flashLabel
-                        : isHighlighted
-                          ? theme.blue
-                          : theme.overlay0,
-                    }),
-                    !isRoot
-                      ? Text({ content: connector, fg: colors.textDim })
-                      : null,
-                    Text({ content: displayAuthor(author), fg: theme.blue }),
-                    Text({ content: ` ${formatTimeAgo(comment.createdAt)}`, fg: theme.overlay0 }),
-                    Text({ content: ` [${comment.status}]`, fg: statusColor }),
-                    comment.localEdit !== undefined
-                      ? Text({ content: " *edited", fg: colors.commentPending })
-                      : null,
-                    isBeingEdited
-                      ? Text({ content: " (editing)", fg: theme.yellow })
-                      : null
-                  ),
-                  body.text
-                    ? Box(
-                        { paddingLeft: bodyIndent },
-                        buildMarkdown(
-                          renderer,
-                          `inline-overlay-body-${comment.id}`,
-                          body.text
-                        )
-                      )
-                    : null,
-                  ...imageRows(body.images, bodyIndent),
-                  hasReactions
-                    ? Box(
-                        { flexDirection: "row", height: 1, paddingLeft: bodyIndent },
-                        ReactionRow({ reactions: comment.reactions })
-                      )
-                    : null
-                )
-              }),
-              ]
-            }),
+              {
+                flexDirection: "column",
+                width: "100%",
+                flexShrink: 0,
+                gap: 1,
+              },
+              ...model.threads.flatMap((thread) => [
+                renderThreadHeader(thread),
+                ...thread.comments.map((comment) => renderComment(renderer, comment)),
+              ])
             ),
-            topThreadHint(visible.before),
-            bottomThreadHint(
-              visible.threads.map((thread) =>
-                isThreadCollapsed(thread, expandedThreadIds) ? 1 : 1 + thread.comments.length
-              ),
-              visible.after
-            )
+            topThreadHint(model.window.before),
+            bottomThreadHint(model.threadSizes, model.window.after)
           )
         : Box(
             { flexDirection: "column", paddingX: 2, paddingY: 1 },
@@ -785,37 +394,33 @@ export function InlineCommentOverlay({
       // rows too: its label row collapsed onto the textarea (label and
       // placeholder glyphs interleaved) and its bottom edge was clipped
       // off the panel.
-      isComposing
+      model.composer
         ? Box(
             { flexDirection: "column", paddingX: 1, paddingY: 1, flexShrink: 0 },
             // A picker floats above the composer rather than sitting under
             // it: laid out in the column it would push the box you are
             // typing in up the screen on every `:` and back down on every
             // space (specs 046, 082).
-            emojiPicker || mentionPicker
+            model.picker
               ? Box(
                   { position: "absolute", bottom: "100%", left: 1, right: 1, zIndex: 60 },
-                  emojiPicker
-                    ? renderEmojiPicker(emojiPicker)
-                    : renderMentionPicker(mentionPicker!, mentionCandidates, mentionSearchQuery)
+                  renderPicker(model.picker)
                 )
               : null,
             CommentComposer({
-              mode: mode === "edit" ? "edit" : "compose",
-              label: composerLabel,
+              mode: model.composer.mode,
+              label: model.composer.label,
               renderer,
             })
           )
         : null,
 
-    // View-mode key hints, a different set focused vs unfocused so the
-    // user always knows the next move; 1-row tall to match the header and
-    // the file tree's tight shell. While composing the row is not drawn:
-    // the composer's keys would not fit the panel's width, so they are
-    // listed in the help overlay (g?) and the row goes to the threads.
-    isComposing
-      ? null
-      : Box(
+    // 1-row tall to match the header and the file tree's tight shell.
+    // While composing the row is not drawn: the composer's keys would not
+    // fit the panel's width, so they are listed in the help overlay (g?)
+    // and the row goes to the threads.
+    model.hints
+      ? Box(
           {
             flexDirection: "row",
             height: 1,
@@ -823,18 +428,9 @@ export function InlineCommentOverlay({
             paddingRight: 1,
             backgroundColor: theme.mantle,
           },
-          renderHintRow(
-            viewModeHints(
-              canSubmit,
-              comments.length > 0,
-              focused,
-              appMode,
-              highlightedHasImages,
-              highlightedHasCode,
-              draft.length > 0
-            )
-          )
+          renderHintRow(model.hints)
         )
+      : null
   )
 
   bodyPool(renderer).end()

@@ -1,0 +1,96 @@
+import type { Comment } from "../types"
+import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
+
+export interface ThreadPanelWindow {
+  threads: Thread[]
+  before: number
+  after: number
+}
+
+/**
+ * Decide which threads to render around the highlighted comment.
+ *
+ * This doubles as the panel's scroll model. The clipping viewport is
+ * rebuilt every frame with its content pinned at the top — only content
+ * near the top of the column is on-screen. So we render *starting* a
+ * couple of threads above the highlighted one: that keeps the highlighted
+ * thread near the top of the viewport (with a little preceding context)
+ * and, because the start point follows the cursor, the view scrolls as
+ * the user moves through threads with j/k. `windowSize` caps how many
+ * threads mount at once — the viewport clips whatever runs past the
+ * bottom, and its edge rows count the threads hidden past each edge
+ * (`thread-edge-hints.ts`).
+ *
+ * Note this is thread-granular: navigating *within* a very tall thread
+ * (many replies) doesn't re-scroll, so a deep reply in an oversized
+ * thread can fall below the fold. Pixel-accurate scroll-off would need a
+ * persistent panel that reads real layout offsets (cf. the file tree island).
+ */
+export const WINDOW_LEAD = 2
+
+/**
+ * How many threads are mounted at once. The viewport clips overflow, but
+ * mounting hundreds of MarkdownRenderables is a measurable cost on first
+ * paint.
+ */
+export function threadWindowSize(expanded: boolean): number {
+  return expanded ? 80 : 24
+}
+
+export function pickVisibleThreads(
+  threads: Thread[],
+  displayOrder: Comment[],
+  highlightedIndex: number,
+  windowSize: number
+): ThreadPanelWindow {
+  const highlightedId = displayOrder[highlightedIndex]?.id
+  const highlightedThreadIdx = highlightedId
+    ? threads.findIndex((t) => t.comments.some((c) => c.id === highlightedId))
+    : 0
+  const start = Math.max(0, highlightedThreadIdx - WINDOW_LEAD)
+  const end = Math.min(threads.length, start + windowSize)
+  return {
+    threads: threads.slice(start, end),
+    before: start,
+    after: threads.length - end,
+  }
+}
+
+export function windowThreads(
+  comments: Comment[],
+  expandedThreadIds: ReadonlySet<string>,
+  highlightedIndex: number,
+  expanded: boolean
+) {
+  const threads = groupIntoThreads(comments)
+  // A collapsed thread is one navigable item (its root header); an
+  // expanded thread exposes every comment. Must mirror
+  // `getInlineCommentOverlayDisplayOrder` so j/k indices align with
+  // what's drawn.
+  const displayOrder = threads.flatMap((t) =>
+    isThreadCollapsed(t, expandedThreadIds) ? [t.comments[0]!] : t.comments
+  )
+  const window = pickVisibleThreads(threads, displayOrder, highlightedIndex, threadWindowSize(expanded))
+  return { threads, displayOrder, window }
+}
+
+/**
+ * The comment rows the panel is drawing, top to bottom (spec 066).
+ *
+ * Flash labels what is on screen, and what is on screen is a window around
+ * the highlight rather than every thread. The same window the panel draws,
+ * so the two cannot disagree about which rows exist.
+ */
+export function visibleOverlayCommentIds(
+  comments: Comment[],
+  expandedThreadIds: ReadonlySet<string>,
+  highlightedIndex: number,
+  expanded: boolean
+): string[] {
+  const { window } = windowThreads(comments, expandedThreadIds, highlightedIndex, expanded)
+  return window.threads.flatMap((thread) =>
+    isThreadCollapsed(thread, expandedThreadIds)
+      ? [thread.comments[0]!.id]
+      : thread.comments.map((comment) => comment.id)
+  )
+}
