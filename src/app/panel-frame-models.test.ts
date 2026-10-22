@@ -68,6 +68,7 @@ function frame(
     confirmDialog: null,
     syncPreview: null,
     reviewPreview: null,
+    pendingReview: null,
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

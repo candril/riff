@@ -22,7 +22,7 @@ import {
   expandDivider,
   setExpandingDivider,
   expandFiles,
-  setPendingReview,
+  withPendingComments,
   setViewingCommit,
   showToast,
   clearToast,
@@ -64,6 +64,7 @@ import { createMarksPickerState } from "./features/marks/picker-state"
 import { createMarksState } from "./features/marks/state"
 import { createFeedState } from "./features/feed/state"
 import { createVisitState } from "./features/visit/state"
+import { createPendingReviewState } from "./features/review-preview/pending-state"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -484,6 +485,7 @@ export async function createApp(options: AppOptions = {}) {
   const confirm = createConfirmState()
   const syncPreview = createSyncPreviewState()
   const reviewPreview = createReviewPreviewState()
+  const pendingReview = createPendingReviewState()
   const filePicker = createFilePickerState()
   const commentsPicker = createCommentsPickerState()
   const occurrencePicker = createOccurrencePickerState()
@@ -521,6 +523,8 @@ export async function createApp(options: AppOptions = {}) {
     commentDrafts.clear()
     // An entry's anchor names lines in the old diff.
     jumpList.clear()
+    // Nothing loads the new review's draft, and this one's id would submit into the wrong PR.
+    pendingReview.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -692,6 +696,7 @@ export async function createApp(options: AppOptions = {}) {
     confirm,
     syncPreview,
     reviewPreview,
+    pendingReview,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1057,6 +1062,7 @@ export async function createApp(options: AppOptions = {}) {
     confirm,
     syncPreview,
     reviewPreview,
+    pendingReview,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1202,6 +1208,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
     syncPreview,
     reviewPreview,
+    pendingReview,
   }
 
   const threadMotionContext: threadMotion.ThreadMotionContext = {
@@ -1975,8 +1982,9 @@ export async function createApp(options: AppOptions = {}) {
   // Load pending review asynchronously for PR mode
   if (mode === "pr" && prInfo) {
     getPendingReview(prInfo.owner, prInfo.repo, prInfo.number)
-      .then((pendingReview) => {
-        state = setPendingReview(state, pendingReview)
+      .then((review) => {
+        pendingReview.set(review)
+        state = withPendingComments(state, review)
         render()
       })
       .catch(() => {

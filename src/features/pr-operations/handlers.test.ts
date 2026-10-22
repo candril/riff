@@ -4,6 +4,7 @@ import type { Comment } from "../../types"
 import { prInfo } from "../../testing/pr-info"
 import { createSyncPreviewState } from "../sync-preview/state"
 import { createReviewPreviewState } from "../review-preview/state"
+import { createPendingReviewState } from "../review-preview/pending-state"
 import { handleConfirmReview, handleExecuteSync, type PrOperationsContext, type SyncCalls } from "./handlers"
 
 const edited: Comment = {
@@ -34,6 +35,7 @@ function harness(comments: Comment[]) {
     prInfo: prInfo(""),
     syncPreview,
     reviewPreview,
+    pendingReview: createPendingReviewState(),
   }
   const fail = () => {
     throw new Error("only an edit syncs here")

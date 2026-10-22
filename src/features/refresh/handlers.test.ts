@@ -4,6 +4,7 @@ import { createHelpState } from "../help/state"
 import { createConfirmState } from "../confirm/state"
 import { createSyncPreviewState } from "../sync-preview/state"
 import { createReviewPreviewState } from "../review-preview/state"
+import { createPendingReviewState } from "../review-preview/pending-state"
 import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
@@ -32,6 +33,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -62,6 +64,7 @@ describe("a refresh's rebuilt state", () => {
       confirm,
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -93,6 +96,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview,
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -112,11 +116,13 @@ describe("a refresh's rebuilt state", () => {
     expect([syncPreview.open(), syncPreview.loading()]).toEqual([false, false])
   })
 
-  test("closes Submit Review, which createInitialState no longer resets", () => {
+  test("closes Submit Review and drops GitHub's pending review, which createInitialState no longer resets", () => {
     let state: AppState = createInitialState([], [], "local", "")
     const reviewPreview = createReviewPreviewState()
     reviewPreview.show()
     reviewPreview.startSubmit()
+    const pendingReview = createPendingReviewState()
+    pendingReview.set({ id: 7, user: "octo", body: "", comments: [] })
     const ctx = {
       getState: () => state,
       setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
@@ -124,6 +130,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview,
+      pendingReview,
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -141,6 +148,7 @@ describe("a refresh's rebuilt state", () => {
 
     expect(state.description).toBe("reloaded")
     expect([reviewPreview.open(), reviewPreview.loading()]).toEqual([false, false])
+    expect(pendingReview.review()).toBeNull()
   })
 
   test("closes the file picker, which createInitialState no longer resets", () => {
@@ -156,6 +164,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker,
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -189,6 +198,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker,
       occurrencePicker: createOccurrencePickerState(),
@@ -223,6 +233,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker,
@@ -256,6 +267,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -294,6 +306,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -329,6 +342,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -360,6 +374,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -390,6 +405,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -422,6 +438,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
@@ -453,6 +470,7 @@ describe("a refresh's rebuilt state", () => {
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),

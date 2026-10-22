@@ -31,6 +31,7 @@ import { getPrHeadSha } from "../../providers/github/content"
 import { validateCommentsForSubmit } from "../comments"
 import type { SyncPreviewState } from "../sync-preview/state"
 import type { ReviewPreviewState } from "../review-preview/state"
+import type { PendingReviewState } from "../review-preview/pending-state"
 
 export interface PrOperationsContext {
   // State access
@@ -44,6 +45,7 @@ export interface PrOperationsContext {
   prInfo: PrInfo | null
   syncPreview: Pick<SyncPreviewState, "close" | "startSync">
   reviewPreview: Pick<ReviewPreviewState, "selectedEvent" | "body" | "excludedCommentIds" | "startSubmit" | "fail" | "close">
+  pendingReview: Pick<PendingReviewState, "review">
 }
 
 /** What a sync sends its items through; a test hands in its own, so no gh runs. */
@@ -250,6 +252,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   const reviewEvent = ctx.reviewPreview.selectedEvent()
   const body = ctx.reviewPreview.body()
   const excludedCommentIds = ctx.reviewPreview.excludedCommentIds()
+  const pendingReview = ctx.pendingReview.review()
 
   // Check we're in PR mode
   if (state.appMode !== "pr" || !ctx.prInfo) {
@@ -268,7 +271,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   const localComments = validatedComments.filter((vc) => vc.valid).map((vc) => vc.comment)
 
   const hasBody = body.trim().length > 0
-  const hasPendingComments = (state.pendingReview?.comments.length ?? 0) > 0
+  const hasPendingComments = (pendingReview?.comments.length ?? 0) > 0
 
   // For APPROVE, we don't need comments or body
   // For COMMENT or REQUEST_CHANGES, we need at least comments or body (or pending comments from GitHub)
@@ -303,7 +306,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
 
   // Submit as a review batch with selected event and optional body
   // If there's a pending review, merge our comments into it
-  const pendingReviewId = state.pendingReview?.id
+  const pendingReviewId = pendingReview?.id
   const result = await submitReview(
     owner,
     repo,
@@ -375,7 +378,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     }))
 
     // Close the review preview and show success toast
-    const pendingReviewCommentCount = state.pendingReview?.comments.length ?? 0
+    const pendingReviewCommentCount = pendingReview?.comments.length ?? 0
     ctx.reviewPreview.close()
     const eventLabel =
       reviewEvent === "APPROVE"

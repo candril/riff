@@ -8,6 +8,7 @@ import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
+import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -90,6 +91,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const unified = createUnifiedDiff(diffDeps)
 
   const reviewPreview = createReviewPreviewState()
+  const pendingReview = createPendingReviewState()
   const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
       if (reviewPreview.open()) reviewPreview.setBody(value)
@@ -181,6 +183,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     confirm,
     syncPreview,
     reviewPreview,
+    pendingReview,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -240,6 +243,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     syncPreview,
     /** Submit Review's state, which the frame pass and the keys read as app.ts's do. */
     reviewPreview,
+    /** GitHub's pending review, which the frame pass and the PR operations read as app.ts's do. */
+    pendingReview,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -315,6 +320,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview }
 }

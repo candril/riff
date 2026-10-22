@@ -51,6 +51,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     confirmDialog: null,
     syncPreview: null,
     reviewPreview: null,
+    pendingReview: null,
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

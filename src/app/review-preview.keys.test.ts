@@ -1,7 +1,9 @@
 import { test, expect, afterEach } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
+import { adoptReloadedState } from "../features/refresh/handlers"
+import type { PendingReview } from "../providers/github/types"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -44,6 +46,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     prInfo: null,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
+    pendingReview: mounted.pendingReview,
   }
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
@@ -154,4 +157,36 @@ test("gS opens Submit Review, its keys pick the type, leave a comment out and mo
   await Bun.sleep(50)
   expect(app.reviewPreview.open()).toBe(false)
   expect(await app.frame()).not.toContain("Submit Review")
+})
+
+const pendingReview: PendingReview = {
+  id: 7,
+  user: "octo",
+  body: "",
+  comments: [
+    { id: 1, body: "Draft one", path: "src/greet.ts", line: 2, side: "RIGHT" },
+    { id: 2, body: "Draft two", path: "src/greet.ts", line: 3, side: "RIGHT" },
+  ],
+}
+
+test("Submit Review warns of GitHub's pending review, and a reload drops it", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  app.pendingReview.set(pendingReview)
+  keysOn(app)
+  const { mockInput } = app.setup
+
+  await mockInput.typeText("gS")
+  let screen = await app.frame()
+  expect(screen).toContain("! Pending review on GitHub (2 comments)")
+  expect(screen).toContain("Will be merged with your new comments on submit")
+
+  adoptReloadedState(reloadCtx(app), (s) => s)
+  app.render()
+  expect(await app.frame()).not.toContain("Submit Review")
+
+  await mockInput.typeText("gS")
+  screen = await app.frame()
+  expect(screen).toContain("Submit Review")
+  expect(screen).not.toContain("Pending review on GitHub")
+  expect(screen).not.toContain("Will be merged")
 })

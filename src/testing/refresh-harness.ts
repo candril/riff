@@ -18,6 +18,7 @@ import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
+import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -141,6 +142,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     confirm: createConfirmState(),
     syncPreview: createSyncPreviewState(),
     reviewPreview: createReviewPreviewState(),
+    pendingReview: createPendingReviewState(),
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),

@@ -226,9 +226,6 @@ export interface AppState {
   // Commits in this diff (PR commits or local commits)
   commits: PrCommit[]
   
-  // Pending review from GitHub (draft review not yet submitted)
-  pendingReview: PendingReview | null
-
   // File content cache for expansion
   fileContentCache: FileContentCache
   
@@ -346,7 +343,6 @@ export function createInitialState(
     lastRefreshedAt: new Date().toISOString(),
     prInfo,
     commits: [],
-    pendingReview: null,
     fileContentCache: {},
     expandedDividers: new Set(),
     expandingDivider: null,
@@ -1138,20 +1134,21 @@ export function getFileContent(state: AppState, filename: string): {
 // Pending Review
 // ============================================================================
 
-export function setPendingReview(
+/**
+ * The pending review's comments as comments of the review, in place of the
+ * ones the last pending review brought; null leaves none.
+ */
+export function withPendingComments(
   state: AppState,
-  pendingReview: PendingReview | null
+  review: PendingReview | null
 ): AppState {
-  // Remove any existing pending comments (they'll be re-added from the new pending review)
   const nonPendingComments = state.comments.filter(c => c.status !== "pending")
   
-  // Convert pending review comments to Comment objects
   // A pending reply's parent could be a synced comment (gh-${id}) or another pending comment (pending-${id})
   const syncedGithubIds = new Set(nonPendingComments.filter(c => c.githubId).map(c => c.githubId))
-  const pendingComments: Comment[] = pendingReview?.comments.map(pc => {
+  const pendingComments: Comment[] = review?.comments.map(pc => {
     let inReplyTo: string | undefined
     if (pc.inReplyToId) {
-      // Check if parent is a synced comment first, then fall back to pending
       if (syncedGithubIds.has(pc.inReplyToId)) {
         inReplyTo = `gh-${pc.inReplyToId}`
       } else {
@@ -1167,14 +1164,13 @@ export function setPendingReview(
       createdAt: new Date().toISOString(),
       status: "pending" as const,
       githubId: pc.id,
-      author: pendingReview.user,
+      author: review.user,
       inReplyTo,
     }
   }) ?? []
   
   return {
     ...state,
-    pendingReview,
     comments: [...nonPendingComments, ...pendingComments],
   }
 }

@@ -273,6 +273,10 @@ The visit watermark is the twentieth (`createVisitState` in
 `src/features/visit/state.ts`); the frame carries the watermark for the
 unseen markers, the pass marks what it draws as seen in the factory, a PR
 refresh begins a new visit and switching to another PR drops it.
+The pending GitHub review is the twenty-first (`createPendingReviewState`
+in `src/features/review-preview/pending-state.ts`); the frame carries it
+for Submit Review's banner, and a reload or another review drops it,
+since nothing loads it again.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

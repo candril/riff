@@ -8,6 +8,7 @@ import type { ColumnStatus } from "./column-status"
 import type { SelectionStatus } from "./selection-status"
 import type { ConfirmDialogModel } from "../components/confirm-dialog-model"
 import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
+import type { PendingReview } from "../providers/github/types"
 import type { FilePickerSnapshot } from "../features/file-picker/state"
 import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
 import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
@@ -53,6 +54,8 @@ export interface Frame {
   syncPreview: { loading: boolean } | null
   /** Submit Review's state, read off its factory, or null while it is closed. */
   reviewPreview: ReviewPreviewSnapshot | null
+  /** GitHub's pending review, read off its factory, for Submit Review's banner; null when there is none. */
+  pendingReview: PendingReview | null
   /** The file picker's state, read off its factory, or null while it is closed. */
   filePicker: FilePickerSnapshot | null
   /** The comments picker's state, read off its factory, or null while it is closed. */
