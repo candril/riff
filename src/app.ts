@@ -121,6 +121,7 @@ import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
 import * as jumplist from "./features/jumplist"
 import { createJumpRecording } from "./app/jump-recording"
+import { paletteCommandRunner } from "./app/palette-commands"
 import { createLeave, leaveOnDestroy } from "./app/leave"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
@@ -1200,6 +1201,13 @@ export async function createApp(options: AppOptions = {}) {
   const actionHandlers: actionMenu.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
+    handleShowFilePath: () => {
+      // Like nvim's Ctrl-g, which riff's Ctrl-g was until it became the commit picker.
+      const path = externalTools.currentFilePath(externalToolsContext)
+      if (!path) return
+      state = showToast(state, path, "info")
+      render()
+    },
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
@@ -1496,6 +1504,8 @@ export async function createApp(options: AppOptions = {}) {
       setState: (fn) => { state = fn(state) },
       render,
       handlers: actionHandlers,
+      commandKeys: paletteKeys,
+      runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
     })
   }
 

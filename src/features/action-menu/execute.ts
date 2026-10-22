@@ -26,6 +26,8 @@ import {
   getReactionsForTarget,
 } from "../../state"
 import { REACTION_META } from "../../types"
+import { actions } from "../../actions/registry"
+import { actionKeys } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
 import { openMarksPicker } from "../marks"
 
@@ -64,6 +66,8 @@ export interface ActionHandlers {
   handleExpandDivider: () => Promise<boolean>
   handleToggleOpenThreadsOnly: () => void
   handleToggleUnviewedFilesOnly: () => void
+  /** The path of the file at the cursor, or the tree's highlighted one, as a toast. */
+  handleShowFilePath: () => void
 }
 
 export interface ExecuteContext {
@@ -71,15 +75,27 @@ export interface ExecuteContext {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   handlers: ActionHandlers
+  /** Each keymap command's `keys`, the palette's hints. */
+  commandKeys: ReadonlyMap<string, string>
+  /** Runs keymap command `name` on the key `keys` spells; false when it did not take it. */
+  runCommand: (name: string, keys: string) => boolean
 }
 
+/** The diff's catch-all command, which reads its key the way handleInput does. */
+const DIFF_KEY_COMMAND = "diff.key"
+
+/** Actions running through their command now: a command that runs one back would loop. */
+const runningThroughCommand = new Set<string>()
+
 /**
- * Execute an action by its ID.
+ * Execute an action by its ID. An action without a case of its own runs
+ * the command its key runs, on that key, so it does what the key does.
+ * False when nothing ran it: no case, and no command that took the key.
  */
 export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
-): Promise<void> {
+): Promise<boolean> {
   const { state, setState, render, handlers } = ctx
 
   switch (actionId) {
@@ -343,6 +359,30 @@ export async function executeAction(
       render()
       break
     }
+
+    case "show-file-path":
+      handlers.handleShowFilePath()
+      break
+
+    default:
+      return runThroughCommand(actionId, ctx)
+  }
+  return true
+}
+
+function runThroughCommand(actionId: string, ctx: ExecuteContext): boolean {
+  const action = actions.find((candidate) => candidate.id === actionId)
+  const keys = action ? actionKeys(action, ctx.commandKeys) : null
+  if (!action?.command || keys === null || runningThroughCommand.has(actionId)) return false
+  // The diff's keys answer only with the diff focused, and these entries
+  // name the diff: Search in Diff from the tree searches the diff rather
+  // than filtering the tree, as `/` there would.
+  if (action.command === DIFF_KEY_COMMAND) ctx.setState((s) => ({ ...s, focusedPanel: "diff" as const }))
+  runningThroughCommand.add(actionId)
+  try {
+    return ctx.runCommand(action.command, keys)
+  } finally {
+    runningThroughCommand.delete(actionId)
   }
 }
 

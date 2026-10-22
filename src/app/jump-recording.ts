@@ -20,6 +20,7 @@ export interface JumpRecordingDeps {
 
 export interface JumpRecording {
   around(key: KeyEvent, dispatch: () => void): void
+  retake(key: KeyEvent): void
 }
 
 /**
@@ -61,5 +62,6 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
       const jump = recorder.around(key, moment(), dispatch, moment)
       if (jump) deps.setState((s) => jumplist.push(s, jump))
     },
+    retake: (key) => recorder.retake(key),
   }
 }

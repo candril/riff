@@ -49,7 +49,9 @@ export interface ExternalToolsContext {
  * Get the current file to operate on based on context.
  * Returns [filename, lineNumber] or [null, undefined] if no file selected.
  */
-function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | undefined] {
+type CursorContext = Pick<ExternalToolsContext, "getState" | "getLineMapping" | "getVimState">
+
+function getCurrentFile(ctx: CursorContext): [string | null, number | undefined] {
   const state = ctx.getState()
   const lineMapping = ctx.getLineMapping()
   const vimState = ctx.getVimState()
@@ -79,6 +81,11 @@ function getCurrentFile(ctx: ExternalToolsContext): [string | null, number | und
   }
 
   return [null, undefined]
+}
+
+/** The file `ge` would open: the tree's highlighted one, the selected one, or the one at the cursor. */
+export function currentFilePath(ctx: CursorContext): string | null {
+  return getCurrentFile(ctx)[0]
 }
 
 /**

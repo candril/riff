@@ -1,5 +1,5 @@
 import { theme } from "../theme"
-import type { ResolvedAction } from "../actions"
+import { actionKeys, type ResolvedAction } from "../actions"
 import { PICKER_CHROME_ROWS, visibleRows } from "./picker-window"
 
 /**
@@ -127,7 +127,7 @@ function paletteWindow(groupOf: readonly (number | null)[], selectedIndex: numbe
  * order, or a submenu's rows. `height`: the terminal's, which caps how many
  * rows are in view. `commandKeys`: each keymap command's `keys`, which an
  * action that names its command shows as its hint; without them such an
- * action shows none.
+ * action shows its own shortcut, or none.
  */
 export function actionMenuModel(
   mode: ActionMenuMode,
@@ -177,7 +177,7 @@ export function actionMenuModel(
         id: action.id,
         label: action.label,
         labelFg: selected ? theme.text : theme.subtext1,
-        shortcut: action.command ? (commandKeys.get(action.command) ?? null) : (action.shortcut ?? null),
+        shortcut: actionKeys(action, commandKeys),
         selected,
       })
     }

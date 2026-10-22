@@ -59,7 +59,11 @@ export const Z_SEQUENCES = {
 
 export type ZCommand = (typeof Z_SEQUENCES)[keyof typeof Z_SEQUENCES]
 
-/** The one spelling the palette shows for a command several chords run: `zR` rather than `zr`. */
+/**
+ * Each command's key as the palette spells it, beside the action the
+ * command runs, and the key the palette runs the command on. It matters
+ * where several chords run one command: the palette names `zR`, not `zr`.
+ */
 export const Z_PALETTE_KEYS: Partial<Record<ZCommand, string>> = {
   toggleFold: "za",
   openFold: "zo",

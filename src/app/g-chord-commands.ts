@@ -75,8 +75,10 @@ export const G_SEQUENCES = {
 export type GCommand = (typeof G_SEQUENCES)[keyof typeof G_SEQUENCES]
 
 /**
- * The one spelling the palette shows for a command several chords run:
- * `gS` rather than `gs!`, which a terminal reports for the same keys.
+ * Each command's key as the palette spells it, beside the action the
+ * command runs, and the key the palette runs the command on. It matters
+ * where several chords run one command: the palette names `gS`, not the
+ * `gs!` a terminal may report for the same keys.
  */
 export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
   openReviewPreview: "gS",

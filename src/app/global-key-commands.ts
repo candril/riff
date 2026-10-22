@@ -193,6 +193,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
     },
     backspace: {
       title: "Move focus left, or clear the tree filter",
+      keys: "Ctrl+h",
       run: (_key, state) => {
         // Ctrl-h moves focus one panel left: comments → diff → tree.
         // Terminals deliver bare Ctrl-h as backspace, so this key is both
@@ -213,6 +214,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
     },
     right: {
       title: "Move focus right",
+      keys: "Ctrl+l",
       run: (key) => {
         if (!key.ctrl) return false
         // Ctrl-l moves focus one panel right: tree → diff → comments → chat.

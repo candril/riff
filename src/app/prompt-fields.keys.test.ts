@@ -48,7 +48,16 @@ function keysFor(mounted: NonNullable<typeof app>) {
     getSearchState: render.getSearchState,
     searchHandler,
     executeAction: (id) =>
-      void executeAction(id, { state: render.getState(), setState: render.setState, render: mounted.render, handlers }),
+      void executeAction(id, {
+        state: render.getState(),
+        setState: render.setState,
+        render: mounted.render,
+        handlers,
+        commandKeys: new Map(),
+        runCommand: (name) => {
+          throw new Error(`the palette ran ${name}`)
+        },
+      }),
   })
 }
 

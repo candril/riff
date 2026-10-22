@@ -270,6 +270,8 @@ export async function jumpScenario({
   return {
     mounted,
     keys,
+    /** app.ts's jump recording, which the palette's runner tells what key it runs. */
+    recording,
     state,
     /** Each argument is one key; a chord goes in as one call. */
     press(...sequences: string[]) {

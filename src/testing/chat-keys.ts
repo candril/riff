@@ -90,7 +90,7 @@ export function keysOn(
   // Where a search or a flash jump would land the cursor, without walking there.
   const jumpTo = (line: number) => setVimState({ ...vimState, line })
   const setVim = (patch: Partial<typeof vimState>) => setVimState({ ...vimState, ...patch })
-  return { quits, vimState: () => vimState, jumpTo, setVim, chordPending: () => keys.chordPending(), commandKeys: keys.commandKeys }
+  return { quits, vimState: () => vimState, jumpTo, setVim, chordPending: () => keys.chordPending(), commandKeys: keys.commandKeys, keymap: keys.keymap }
 }
 
 export const ctrl = (mounted: Mounted, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })

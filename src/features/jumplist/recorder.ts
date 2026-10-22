@@ -24,6 +24,13 @@ type Kind = "jump" | "step" | "walk" | "z"
 export interface JumpRecorder {
   /** Runs one key, and returns the place to push once the interaction it belongs to is over. */
   around(key: Key, before: Moment, dispatch: () => void, after: () => Moment): Jump | null
+  /**
+   * Judges the interaction under way as one `key` had opened. The palette
+   * runs an action on the key its hint spells, inside the interaction
+   * Ctrl-p opened, and `Ctrl-o` from there must walk the list as the key
+   * does rather than count as a jump.
+   */
+  retake(key: Key): void
 }
 
 function kindOf(key: Key, before: Moment): Kind {
@@ -82,6 +89,9 @@ export function createJumpRecorder(): JumpRecorder {
       if (kind === "step") return now.file !== null && now.file !== from.file ? from.place : null
       if (kind === "z") return changedRow(from.place, now.place) ? from.place : null
       return moved(from.place, now.place) ? from.place : null
+    },
+    retake(key) {
+      if (origin !== null) kind = kindOf(key, origin)
     },
   }
 }

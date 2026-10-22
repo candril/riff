@@ -39,6 +39,8 @@ describe("Show Only Open Threads", () => {
         setState: (update) => (state = update(state)),
         render: () => {},
         handlers,
+        commandKeys: new Map(),
+        runCommand: () => false,
       })
 
     await run()
@@ -79,6 +81,8 @@ describe("Show Only Unviewed Files", () => {
         setState: (update) => (state = update(state)),
         render: () => {},
         handlers,
+        commandKeys: new Map(),
+        runCommand: () => false,
       })
 
     await run()

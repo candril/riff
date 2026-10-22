@@ -1,4 +1,5 @@
-import type { CliRenderer, KeyEvent } from "@opentui/core"
+import type { CliRenderer, KeyEvent, Renderable } from "@opentui/core"
+import type { Keymap } from "@opentui/keymap"
 import { createRiffKeymap, type RiffKeymap } from "./keymap"
 import { composeKeys, type KeyHandler } from "./keys-dispatch"
 import { commandKeys } from "./command-keys"
@@ -47,8 +48,11 @@ import type { AppKeyContext } from "./key-context"
 import { registerDiffKeys } from "../features/diff-view/keys"
 import { diffKeyDeps } from "./diff-key-deps"
 
-/** `commandKeys`: the palette's hints, read off the layers once all of them are registered. */
-export type AppKeys = KeyHandler & { commandKeys: ReadonlyMap<string, string> }
+/**
+ * `commandKeys`: the palette's hints, read off the layers once all of them
+ * are registered. `keymap`: what the palette runs an action's command on.
+ */
+export type AppKeys = KeyHandler & { commandKeys: ReadonlyMap<string, string>; keymap: Keymap<Renderable, KeyEvent> }
 
 /**
  * Every keymap layer, and the tree's leftover behind them (ADR-002), built
@@ -144,7 +148,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     confirm: ctx.confirm,
   })
   const keys = composeKeys(riffKeymap, treeLeftover(tree), markChords.settle)
-  return Object.assign(keys, { commandKeys: commandKeys(riffKeymap.keymap) })
+  return Object.assign(keys, { commandKeys: commandKeys(riffKeymap.keymap), keymap: riffKeymap.keymap })
 }
 
 export function registerModalKeys(

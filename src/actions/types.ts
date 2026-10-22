@@ -19,14 +19,20 @@ export interface Action {
   label: string | ((state: AppState, vimState?: VimCursorState) => string)
   /** Short description */
   description: string
-  /** The keymap command that runs this action; the palette shows that command's `keys`. */
+  /**
+   * The keymap command that runs this action; the palette shows that
+   * command's `keys`, and runs the command on them where no case of the
+   * executor's own handles the action.
+   */
   command?: string
   /**
-   * The palette's hint for a key no keymap command runs this action for:
-   * the diff's and the tree's keys, which their handlers parse behind one
-   * catch-all binding, `/`, which each list binds for itself, and keys
-   * whose command does more, or other, than this action where the action
-   * is offered. Never together with `command`.
+   * The palette's hint for a key no keymap command spells: the diff's and
+   * the tree's keys, which their handlers parse behind one catch-all
+   * binding, `/`, which each list binds for itself, and keys whose command
+   * does more, or other, than this action where the action is offered.
+   * Beside a `command` only when that command has no `keys` of its own, as
+   * the diff's catch-all has none: then it is also the key the command is
+   * run on.
    */
   shortcut?: string
   /** Category for grouping */
@@ -55,6 +61,15 @@ export function resolveActionLabel(
   vimState?: VimCursorState,
 ): string {
   return typeof action.label === "function" ? action.label(state, vimState) : action.label
+}
+
+/**
+ * The key the palette shows beside an action, and runs its command on:
+ * the command's `keys`, or the action's own `shortcut` where the command
+ * spells none.
+ */
+export function actionKeys(action: Pick<Action, "command" | "shortcut">, commandKeys: ReadonlyMap<string, string>): string | null {
+  return (action.command ? commandKeys.get(action.command) : undefined) ?? action.shortcut ?? null
 }
 
 /**

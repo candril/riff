@@ -10,7 +10,8 @@ import { isVisualMode } from "../vim-diff/cursor-state"
  * All available actions in the app.
  * The handler is not stored here - it's looked up by ID in app.ts.
  * The key Ctrl+p shows beside an action is its command's `keys`, read off
- * the keymap, or its own `shortcut` where no command runs it.
+ * the keymap, or its own `shortcut` where no command spells one. An action
+ * the executor has no case for runs its command on that key.
  */
 export const actions: Action[] = [
   // Navigation
@@ -210,6 +211,7 @@ export const actions: Action[] = [
     id: "search-diff",
     label: "Search in Diff",
     description: "Search text in the diff view",
+    command: "diff.key",
     shortcut: "/",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -218,6 +220,7 @@ export const actions: Action[] = [
     id: "search-diff-backward",
     label: "Search Backward",
     description: "Search text backward in the diff view",
+    command: "diff.key",
     shortcut: "?",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -226,6 +229,7 @@ export const actions: Action[] = [
     id: "search-word",
     label: "Search Word Under Cursor",
     description: "Search for the word under the cursor",
+    command: "diff.key",
     shortcut: "*",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -252,6 +256,7 @@ export const actions: Action[] = [
     id: "add-comment",
     label: "Add Comment",
     description: "Add a comment on the current line",
+    command: "diff.key",
     shortcut: "c",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -260,6 +265,7 @@ export const actions: Action[] = [
     id: "visual-select",
     label: "Visual Line Select",
     description: "Select whole lines — for a multi-line comment, a permalink or a yank",
+    command: "diff.key",
     shortcut: "V",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -269,6 +275,7 @@ export const actions: Action[] = [
     label: "Visual Select",
     description:
       "Select by character. `i`/`a` then w, \", (, {, [, h (hunk), f (file) or +/- take a text object",
+    command: "diff.key",
     shortcut: "v",
     category: "navigation",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
@@ -297,9 +304,11 @@ export const actions: Action[] = [
     id: "mark-viewed",
     label: "Mark File Viewed",
     description: "Toggle file as viewed and advance to next",
+    command: "diff.key",
     shortcut: "x",
     category: "navigation",
-    available: (state) => state.files.length > 0,
+    // The diff's `x`: the overview binds its own, which resolves a thread.
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
 
   // Context expansion
@@ -603,7 +612,7 @@ export const actions: Action[] = [
     id: "focus-tree",
     label: "Focus File Tree",
     description: "Move focus to the file tree panel",
-    shortcut: "Ctrl+h",
+    command: "global.backspace",
     category: "view",
     available: (state) => state.showFilePanel,
   },
@@ -611,7 +620,7 @@ export const actions: Action[] = [
     id: "focus-content",
     label: "Focus Content",
     description: "Move focus to the diff or comments panel",
-    shortcut: "Ctrl+l",
+    command: "global.right",
     category: "view",
     available: (state) => state.showFilePanel,
   },
