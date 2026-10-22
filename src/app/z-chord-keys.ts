@@ -1,10 +1,9 @@
 /**
  * The `z` chords as keymap sequences, registered with the bracket and `g`
- * layers behind every other one, because the chain asked its sequences
- * after the global keys and before the tree. Each second stroke is a chord pattern
- * (chord-stroke.ts), so it matches on the suffix the chain spelled,
- * whatever ctrl or meta is held. createAppKeys registers those patterns,
- * once for every sequence layer, and the timeout a lone `z` gives up after
+ * layers behind the tree and ahead of the mark chords and the diff. Each
+ * second stroke is a chord pattern (chord-stroke.ts), so it matches on the
+ * chord suffix, whatever ctrl or meta is held. createAppKeys registers
+ * those patterns, once for every sequence layer, and the timeout a lone `z` gives up after
  * (sequence-expiry.ts).
  */
 
@@ -15,10 +14,10 @@ import { chordAllowedUnderPeek } from "./peek-leaves"
 import { Z_SEQUENCES, zChordCommands, type ZChordDeps, type ZCommand } from "./z-chord-commands"
 
 /**
- * The opener as the chain opened on it: a key named `z`, unshifted, with
- * any other modifier. A plain binding on `z` would not do: the keymap folds
- * key names to lower case, so it would also take a key named `Z` that
- * reports no shift, which the chain left to the diff.
+ * The opener: a key named `z`, unshifted, with any other modifier. A
+ * plain binding on `z` would not do: the keymap folds key names to lower
+ * case, so it would also take a key named `Z` that reports no shift,
+ * which belongs to the diff.
  */
 const OPENER = "chord-opener-z"
 
@@ -33,8 +32,8 @@ export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordDeps): ()
     match: (event: KeyEvent) => (event.name === "z" && !event.shift ? { value: "z" } : undefined),
   })
   const offLayer = riffKeymap.keymap.registerLayer({
-    // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences.
+    // Under a capture no sequence starts or continues: every modal outranks
+    // the sequences.
     enabled: () => !riffKeymap.held(),
     commands: COMMANDS.map((cmd) => ({
       name: `zchord.${cmd}`,

@@ -10,8 +10,8 @@ export interface RiffKeymap {
   /**
    * Offers a key that just broke off a pending sequence once more, with the
    * chord still counting as pending: the keymap does not dispatch a key that
-   * misses a sequence from the root, and the chain asked the chat ahead of
-   * its sequences while every later branch declined under a chord.
+   * misses a sequence from the root, and the chat and the modals come ahead
+   * of the sequences while every layer behind them declines under a chord.
    */
   reoffer(key: KeyEvent): boolean
   /**
@@ -28,7 +28,7 @@ export interface RiffKeymap {
   reoffering(): boolean
   /**
    * While `active(key)`, that key, when no binding takes it, is kept from
-   * the chain and handed to `rest`, for a modal that owns the keyboard. Of
+   * the leftover and handed to `rest`, for a modal that owns the keyboard. Of
    * two active captures the later registered one wins. Returns the
    * unregister.
    */
@@ -108,7 +108,7 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
 
   const offer = (key: KeyEvent) => {
     // Read before the key runs: a key that closes the modal (Esc in flash,
-    // y on the dialog) arrived while it was up, and the chain must not see it.
+    // y on the dialog) arrived while it was up, and the leftover must not see it.
     const capturing = captures.find((c) => c.active(key))
     handled = false
     holding = capturing

@@ -43,7 +43,7 @@ export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPrevie
       ...anyModifiers("escape", "syncPreview.close"),
       ...anyModifiers("return", "syncPreview.sync"),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", "syncPreview.sync"),
     ],
   })

@@ -55,36 +55,30 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
   const riffKeymap = createRiffKeymap(renderer)
   const blame = createBlameKeys(blameKeysContext(ctx))
   // Whether a chord waits for its second key, for every layer that gives
-  // way to one: a mark, bracket, `z` or `g` sequence the keymap holds,
-  // which the chain asked as one of its own.
-  const chain = { chordPending: () => riffKeymap.chordPending() }
-  // Each group registers ahead of the one the priority chain these layers
-  // replaced asked before it, since later registration wins: flash, the
-  // dialog and the palette came first,
+  // way to one: a mark, bracket, `z` or `g` sequence the keymap holds.
+  const chord = { chordPending: () => riffKeymap.chordPending() }
+  // Each group registers after the ones it must outrank, since later
+  // registration wins. Highest first: flash, the dialog and the palette,
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
   // modes, the PR overview, the activity feed, the search and tree filter
   // prompts and the blame and line peeks. A pending text object registers
-  // behind them although the chain asked it before the tree filter prompt
-  // and the peeks, and the order makes no difference: the prompt needs the
+  // behind them, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
   // active together with it. The global keys register behind every modal
-  // layer, as the chain asked them after its modal branches, and stand
-  // aside while any capture holds the key; the tree behind them, as the
-  // chain asked it after them and after its chords; the bracket, `z` and
-  // `g` sequences behind the tree, as the chain asked them after the global
-  // keys and before the tree. Their openers differ, so their order among
-  // them makes no difference, and none reads the pending chord: a pending
-  // sequence holds the next key itself. The mark chords register behind
-  // those, as the chain asked them after everything else that is now a
-  // layer but the diff. The diff registers behind every layer, the mark
-  // chords included, as the chain asked it last: a key every layer above
-  // declines falls through to it. The composer never competes with the
-  // chat, which stands aside while it is open, view mode and compose mode
-  // are never active together, and nor are the overview and the feed,
-  // which are views of their own.
-  registerDiffKeys(riffKeymap, diffKeyDeps(ctx, chain))
+  // layer and stand aside while any capture holds the key; the tree behind
+  // them, so a key the global keys decline falls through to it; the
+  // bracket, `z` and `g` sequences behind the tree. Their openers differ,
+  // so their order among them makes no difference, and none reads the
+  // pending chord: a pending sequence holds the next key itself. The mark
+  // chords register behind those, and the diff behind every layer, the
+  // mark chords included, so a key every layer above declines falls
+  // through to it. The composer never competes with the chat, which stands
+  // aside while it is open, view mode and compose mode are never active
+  // together, and nor are the overview and the feed, which are views of
+  // their own.
+  registerDiffKeys(riffKeymap, diffKeyDeps(ctx, chord))
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   const links = createLinksPicker(ctx)
   const askedFirst = (key: KeyEvent) => chatReaches(key, ctx.getState(), ctx.getSearchState().active)
@@ -94,9 +88,9 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
   registerBracketKeys(riffKeymap, bracketDeps(ctx))
   registerZChordKeys(riffKeymap, zChordDeps(ctx))
   registerGChordKeys(riffKeymap, gChordKeyDeps(ctx, blame, askedFirst))
-  const tree = treeKeyDeps(ctx, chain)
+  const tree = treeKeyDeps(ctx, chord)
   registerTreeKeys(riffKeymap, tree)
-  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
+  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chord))
   registerTextObjectKeys(riffKeymap, {
     getState: ctx.getState,
     getVimState: ctx.getVimState,
@@ -104,9 +98,9 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })
-  registerPeekKeys(riffKeymap, ctx, chain, blame)
+  registerPeekKeys(riffKeymap, ctx, chord, blame)
   registerPromptKeys(riffKeymap, ctx)
-  registerFeedKeys(riffKeymap, feedKeyDeps(ctx, chain))
+  registerFeedKeys(riffKeymap, feedKeyDeps(ctx, chord))
   registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links))
   registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links))
   registerComposerKeys(riffKeymap, composerKeyDeps(ctx))
@@ -124,7 +118,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
     render: ctx.render,
     height: () => ctx.renderer.height,
     // Help gives way to a pending chord, such as the g of `g?`.
-    chainChordPending: () => chain.chordPending(),
+    chordPending: () => chord.chordPending(),
   })
   registerPreviewKeys(riffKeymap, ctx)
   registerCommitPickerKeys(riffKeymap, {
@@ -152,9 +146,9 @@ export function registerModalKeys(
   riffKeymap: RiffKeymap,
   deps: ConfirmKeyDeps & FlashKeyDeps & ActionMenuKeyDeps,
 ): void {
-  // Later registration wins, for layers and captures alike. The chain these
-  // layers replaced asked flash first, then the dialog, then the palette, so
-  // they register in the reverse order.
+  // Later registration wins, for layers and captures alike. Flash outranks
+  // the dialog, and the dialog the palette, so they register in the reverse
+  // order.
   registerActionMenuKeys(riffKeymap, deps)
   registerConfirmKeys(riffKeymap, deps)
   registerFlashKeys(riffKeymap, deps)

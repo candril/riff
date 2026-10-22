@@ -25,7 +25,7 @@ export interface PeekKeyContext {
   getVimState: () => VimCursorState
   searchActive: () => boolean
   /** Whether a chord waits for its second key, which is the chord's rather than the peek's. */
-  chainChordPending: () => boolean
+  chordPending: () => boolean
 }
 
 /**
@@ -33,14 +33,14 @@ export interface PeekKeyContext {
  * goes on to the keymap's g sequences, or `gb`, `go` and `gl` could not
  * complete, and so does every key while a chord is pending. A pending text
  * object (`vi` waiting for its object) is answered by the text object's
- * capture registered behind both peeks, which stand aside for it because
- * the chain asked the text object ahead of them. The chat's reach was
- * asked ahead of them too.
+ * capture registered behind both peeks, which stand aside for it, so `vi`
+ * under a peek still gets its object. The chat's reach comes ahead of them
+ * too.
  */
 export function peekLeaves(key: KeyEvent, ctx: PeekKeyContext): boolean {
   const state = ctx.getState()
   if (key.name === "g" && !key.ctrl && !key.shift) return true
-  if (ctx.chainChordPending()) return true
+  if (ctx.chordPending()) return true
   if (ctx.getVimState().pendingTextObject && state.focusedPanel === "diff") return true
   return chatReaches(key, state, ctx.searchActive())
 }

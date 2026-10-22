@@ -37,7 +37,8 @@ export function registerQueryPickerKeys(riffKeymap: RiffKeymap, picker: QueryPic
     category,
     palette: false,
     // Wrapped so no return value gets through: the keymap reads a `false`
-    // as unhandled, and the chain these replaced prevented every key it acted on.
+    // as unhandled, and a key the picker acts on must be handled, so its
+    // prompt field does not also receive it.
     run: () => {
       run()
     },
@@ -63,7 +64,7 @@ export function registerQueryPickerKeys(riffKeymap: RiffKeymap, picker: QueryPic
       ...anyModifiers("escape", `${name}.close`),
       ...anyModifiers("return", `${name}.pick`),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", `${name}.pick`),
       ...anyModifiers("up", `${name}.up`),
       ...anyModifiers("down", `${name}.down`),

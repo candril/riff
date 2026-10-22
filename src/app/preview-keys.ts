@@ -9,8 +9,8 @@ import * as prOperations from "../features/pr-operations"
 /** The sync preview's and Submit Review's layers, wired to the PR operations they end in. */
 export function registerPreviewKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): void {
   const { getState, setState, render } = ctx
-  // Later registration wins, and the chain these layers replaced asked the
-  // sync preview before Submit Review.
+  // Later registration wins, and the sync preview outranks Submit Review,
+  // so it registers after it.
   registerReviewPreviewKeys(riffKeymap, {
     getState,
     setState,

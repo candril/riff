@@ -2,10 +2,10 @@
  * The thread panel's keys in view mode (spec 039): `j/k` highlight,
  * `Ctrl-d`/`Ctrl-u` half a page, `gg`/`G` the ends, `r/R` reply, `e/E`
  * edit, `d` delete, `x` resolve, `H` open threads only, `S` submit,
- * `Ctrl-n` the next thread, `Esc` closes. While the panel has focus it
- * owns the keyboard, bar the few keys `passesThrough` names. What each key
- * does is in `view-actions.ts`; the composer's keys are in
- * `composer-keys.ts`.
+ * `J`/`Ctrl-n` the next thread, `K` the previous one, `Esc` closes. While
+ * the panel has focus it owns the keyboard, bar the few keys
+ * `passesThrough` names. What each key does is in `view-actions.ts`; the
+ * composer's keys are in `composer-keys.ts`.
  *
  * The bindings mirror checks that matched a key by name, in an order where
  * an earlier check won: which modifiers each one ignores is part of how

@@ -19,8 +19,8 @@ export interface TextObjectKeyDeps {
 }
 
 /**
- * Whether the pending text object takes `key`. The chain asked the chat
- * ahead of the text object, so Ctrl-r opened the chat even with one
+ * Whether the pending text object takes `key`. The chat's reach comes
+ * ahead of the text object, so Ctrl-r opens the chat even with one
  * pending; and the chat's reach stands aside under any capture that holds
  * the key, so a capture active for Ctrl-r would swallow it.
  */
@@ -34,7 +34,7 @@ export function textObjectTakes(
 }
 
 export function registerTextObjectKeys(riffKeymap: RiffKeymap, deps: TextObjectKeyDeps): () => void {
-  // Nothing is prevented: the chain never prevented the keys it fed the vim handler.
+  // Nothing is prevented, the keys fed to the vim handler included.
   return riffKeymap.capture(
     (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive()),
     (key) => {

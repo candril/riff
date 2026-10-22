@@ -12,7 +12,7 @@ const CTRL_SHIFT_P = "\x1b[112;6u"
 const FILE: DiffFile = { filename: "src/a.ts", status: "modified", additions: 1, deletions: 1, content: "" }
 
 /**
- * The global layer on a real keymap, in front of a chain that records the
+ * The global layer on a real keymap, in front of a leftover that records the
  * names it is handed, with every side effect the layer can reach stubbed.
  */
 async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
@@ -39,7 +39,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     flashTargets: () => [],
     openCommentsOverlay: () => false,
     openCommentsPanelForCursor: () => void calls.push("threads"),
-    chain: { chordPending: () => chordPending },
+    chord: { chordPending: () => chordPending },
   }
   registerGlobalKeys(harness.riffKeymap, deps)
   return { ...harness, state: () => state, calls }

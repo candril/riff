@@ -1,10 +1,9 @@
 /**
- * The file tree's keys. The layer registers behind the global keys, as the
- * chain asked those first: Escape clears a toast, Ctrl-l moves focus and
- * Shift-c comments before the tree sees them, and a key the global keys
- * decline falls through to the tree. It stands aside while a chord is
- * pending, and a key that breaks one off reaches the tree through
- * treeLeftover.
+ * The file tree's keys. The layer registers behind the global keys, so
+ * Escape clears a toast, Ctrl-l moves focus and Shift-c comments before
+ * the tree sees them, and a key the global keys decline falls through to
+ * the tree. It stands aside while a chord is pending, and a key that
+ * breaks one off reaches the tree through treeLeftover.
  */
 
 import type { KeyEvent } from "@opentui/core"
@@ -17,7 +16,7 @@ export interface TreeKeyDeps {
   getState: () => AppState
   /** handleInput on a context built for this key, false for a key it does not name. */
   handle: (key: KeyEvent) => boolean
-  chain: { chordPending(): boolean }
+  chord: { chordPending(): boolean }
 }
 
 const treeFocused = (state: AppState) => state.showFilePanel && state.focusedPanel === "tree"
@@ -55,7 +54,7 @@ export function registerTreeKeys(riffKeymap: RiffKeymap, deps: TreeKeyDeps): () 
         // handleInput matches names exactly, so a kitty capital such as "J",
         // which the keymap folds onto the `j` binding, is declined here.
         run: ({ event }: { event: KeyEvent }) => {
-          if (deps.chain.chordPending()) return false
+          if (deps.chord.chordPending()) return false
           return deps.handle(event)
         },
       },

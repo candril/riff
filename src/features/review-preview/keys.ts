@@ -3,7 +3,7 @@
  * Submit Review island, so typing, paste, arrows, undo and word jumps
  * reach it through OpenTUI's renderable dispatch: what the layers here
  * leave unbound stays unprevented, and the modal still keeps it from the
- * chain behind it.
+ * layers behind it.
  */
 
 import type { RiffKeymap } from "../../app/keymap"

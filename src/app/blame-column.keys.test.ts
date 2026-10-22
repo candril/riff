@@ -124,9 +124,9 @@ describe("zB", () => {
   })
 
   // The global layer binds b to the tree with any modifier, and must
-  // decline the shifted b of zB as the chain's global keys declined every
-  // key under a chord. The chain's zB asked only for the diff view, not
-  // for the diff's focus.
+  // decline the shifted b of zB, as the global keys decline every key
+  // under a chord. zB asks only for the diff view, not for the diff's
+  // focus.
   test("with the tree focused toggles the column and leaves the tree alone", async () => {
     await mount()
     app!.show({ focusedPanel: "tree", showFilePanel: true, treeHighlightIndex: 0 })

@@ -6,9 +6,15 @@
  * field types them. `za` belongs to the `z` chords' keymap layer, which
  * owns `z`.
  *
+ * The feed is a way in, not a second comments panel: `Enter` takes you where
+ * the thing lives — a commit to the diff scoped to it, a comment to its
+ * thread, a check to what it says — and the feed keeps its row so `a` comes
+ * back to it.
+ *
  * The capture holds exactly the keys the feed acts on, and leaves every
- * other key to the chain: the feed shares the screen with the global keys,
- * unlike the PR overview, which swallows what it does not know.
+ * other key to the layers behind: the feed shares the screen with the
+ * global keys, unlike the PR overview, which swallows what it does not
+ * know.
  */
 
 import type { KeyEvent } from "@opentui/core"
@@ -35,8 +41,8 @@ export interface FeedKeyDeps {
   onOpenEvent: (event: FeedEvent) => void
   /** Open the diff scoped to a commit, at one of its files. */
   onOpenCommitFile: (sha: string, filename: string) => void
-  /** Whether the chain holds the first key of a chord, whose second key is the chain's. */
-  chainChordPending: () => boolean
+  /** Whether a chord waits for its second key, which is the chord's rather than the feed's. */
+  chordPending: () => boolean
 }
 
 type Key = Pick<KeyEvent, "name" | "sequence" | "shift" | "ctrl" | "meta">
@@ -48,15 +54,15 @@ const narrowed = (feed: AppState["feed"]) => feed.types.size > 0 || feed.unseenO
 /**
  * Whether the feed takes `key`. Names are compared exactly, so shift, super
  * and hyper are ignored, and a capitalised name such as kitty's Shift-g
- * ("G") matches nothing and goes to the chain.
+ * ("G") matches nothing and goes to the layers behind.
  */
-export function feedTakes(state: AppState, key: Key, chainChordPending: boolean): boolean {
+export function feedTakes(state: AppState, key: Key, chordPending: boolean): boolean {
   if (state.viewMode !== "feed") return false
   if (state.feed.filterInput) return true
   // Ctrl and meta keys belong to the global handler — Ctrl-p, Ctrl-f, the
-  // jumplist — and the second half of a chord is the chain's: `gr` must
+  // jumplist — and the second half of a chord is the chord's: `gr` must
   // refresh, not toggle reviews.
-  if (key.ctrl || key.meta || chainChordPending) return false
+  if (key.ctrl || key.meta || chordPending) return false
   switch (key.name) {
     case "j":
     case "down":
@@ -84,7 +90,7 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
     deps.render()
   }
 
-  const takes = (key: KeyEvent) => feedTakes(deps.getState(), key, deps.chainChordPending())
+  const takes = (key: KeyEvent) => feedTakes(deps.getState(), key, deps.chordPending())
 
   const startFilter = (key: KeyEvent) => {
     key.preventDefault()
@@ -135,7 +141,8 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
     else if (highlighted) deps.onOpenEvent(highlighted.event)
   }
 
-  // Ctrl and meta never reach these: the capture leaves them to the chain.
+  // Ctrl and meta never reach these: the capture leaves them to the
+  // layers behind.
   const plain = (key: string, cmd: string) => without(["ctrl", "meta"], anyModifiers(key, cmd))
 
   const unregisterMain = riffKeymap.keymap.registerLayer({

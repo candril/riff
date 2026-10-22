@@ -27,7 +27,11 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
   }
 }
 
-/** What the g layer needs of the app, and of the chat, which a key it reaches is asked about first. */
+/**
+ * What the g layer needs beyond gChordDeps: the keys its pending `g` must
+ * not swallow. They come from outside because they are other layers' keys,
+ * the chat's reach (askedFirst) and the app layer's (ignoresChords).
+ */
 export function gChordKeyDeps(ctx: AppKeyContext, blame: BlameKeys, askedFirst: (key: KeyEvent) => boolean): GChordKeyDeps {
   return { ...gChordDeps(ctx, blame), askedFirst, ignoresChords: appKeyTakes }
 }

@@ -17,7 +17,7 @@ async function treeKeys(patch: Partial<AppState> = TREE, { chordPending = false,
       handled.push(key.name)
       return takes
     },
-    chain: { chordPending: () => chordPending },
+    chord: { chordPending: () => chordPending },
   })
   return { ...harness, handled }
 }

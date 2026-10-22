@@ -1,8 +1,8 @@
 /**
  * The mark chords (spec 101) as keymap sequences: `m{letter}` sets a mark,
  * `'{letter}` jumps to one and `''` flips back. The layer registers behind
- * every other one, the bracket, `z` and `g` layers included, because the
- * chain asked its mark chords after everything else that is now a layer.
+ * every other one but the diff's, the bracket, `z` and `g` layers
+ * included.
  * A mark chord waits as long as it takes (chordTimeoutMs), so its openers
  * are not among the ones sequence-expiry.ts gives up on.
  */
@@ -25,7 +25,7 @@ export interface MarkChordKeyDeps {
   marksContext: MarksContext
   /** Whether the diff has the keys in normal mode, with no find or text object waiting (mark-chord-gate.ts). */
   diffTakesMarkChord: () => boolean
-  /** A key that ends no chord, as the chain asked the chat about it first. */
+  /** A key the chat reaches, which ends no chord and opens the chat at the re-offer. */
   askedFirst: (key: KeyEvent) => boolean
   /** A key a layer that ignores chords takes, such as F12, which a pending chord leaves to it. */
   ignoresChords: (key: KeyEvent) => boolean
@@ -55,7 +55,7 @@ const OTHER = "mark-chord-other"
 export function registerMarkChordKeys(riffKeymap: RiffKeymap, deps: MarkChordKeyDeps): MarkChordKeys {
   const { keymap } = riffKeymap
   // A key the chat or a layer that ignores chords takes breaks off the
-  // chord and acts at the re-offer, as the chain asked those ahead of it.
+  // chord and acts at the re-offer.
   const reachesPast = (event: KeyEvent) => deps.askedFirst(event) || deps.ignoresChords(event)
   const offs = [
     ...(Object.entries(OPENERS) as [MarkChord, string][]).map(([opener, name]) =>
@@ -103,8 +103,8 @@ export function registerMarkChordKeys(riffKeymap: RiffKeymap, deps: MarkChordKey
     run: ({ event }: { event: KeyEvent }) => run(event),
   })
   const offLayer = keymap.registerLayer({
-    // Under a capture no chord starts or continues, as every modal branch
-    // came ahead of the chain's chords.
+    // Under a capture no chord starts or continues: every modal outranks
+    // the chords.
     enabled: () => !riffKeymap.held(),
     commands: [
       command("set", "Set a mark", (event) => setMarkAtCursor(letterOf(event), deps.marksContext)),
@@ -112,7 +112,7 @@ export function registerMarkChordKeys(riffKeymap: RiffKeymap, deps: MarkChordKey
       command("flip", "Back to the mark before", () => void flipMark(deps.marksContext)),
       command("swallow", "Drop the mark chord", () => {}),
     ],
-    // Nothing is prevented: the chain never prevented the keys of its chords.
+    // Nothing is prevented, the keys of a chord included.
     bindings: [
       { key: `{${OPENERS.m}}{${LETTER}}`, cmd: "markchord.set" },
       { key: `{${OPENERS.m}}{${QUOTE}}`, cmd: "markchord.swallow" },
@@ -124,7 +124,9 @@ export function registerMarkChordKeys(riffKeymap: RiffKeymap, deps: MarkChordKey
   })
   // The pending part carries neither the pattern's name nor the key's
   // sequence, so its stroke cannot tell a `'` typed as a shifted key (German
-  // Shift-#) apart from `#`; the opener pattern's display names it either way.
+  // Shift-#) apart from `#`. Its display is the keymap's
+  // `match.display ?? String(match.value)`, which this relies on being "m"
+  // or "'": those are the values the opener patterns match with.
   const pendingOpener = (): MarkChord | null => {
     const pending = keymap.getPendingSequence()
     const display = pending.length === 1 ? pending[0]!.display : undefined

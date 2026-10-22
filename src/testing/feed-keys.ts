@@ -36,10 +36,11 @@ export function feedState(patch: Partial<AppState["feed"]> = {}): AppState {
 }
 
 /**
- * The feed's layers on a real keymap in front of a recording chain, every
- * hand-off to the app in `calls`. The pending chord is `chord`, which
- * the dispatch entry settles the way the mark layer does outside the diff,
- * where every key gives way. Call it inside a test.
+ * The feed's layers on a real keymap in front of a recording leftover,
+ * every hand-off to the app in `calls`. `chord` simulates a pending chord
+ * for the layer under test only: composeKeys' chordPending does not count
+ * it. The dispatch entry settles it the way the mark layer does outside
+ * the diff, where every key gives way. Call it inside a test.
  */
 export async function feedKeys(initial: AppState) {
   let state = initial
@@ -58,7 +59,7 @@ export async function feedKeys(initial: AppState) {
     render() {},
     onOpenEvent: (event) => void calls.push(`openEvent ${event.id}`),
     onOpenCommitFile: (sha, filename) => void calls.push(`openCommitFile ${sha} ${filename}`),
-    chainChordPending: () => chord !== null,
+    chordPending: () => chord !== null,
   }
   const unregister = registerFeedKeys(harness.riffKeymap, deps)
   return {

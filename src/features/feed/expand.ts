@@ -1,11 +1,6 @@
 /**
- * Opening a feed row into its detail (specs 064, 065, 070).
- *
- * The feed is a way in, not a second comments panel: `Enter` takes you where
- * the thing lives — a commit to the diff scoped to it, a comment to its
- * thread, a check to what it says — and the feed keeps its row so `a` comes
- * back to it. `za` is the exception that stays in the feed: it opens a
- * commit row into the files it touched.
+ * `za` on a feed row (specs 064, 065, 070), the one way into a row that
+ * stays in the feed: it opens a commit row into the files it touched.
  */
 
 import type { AppState } from "../../state"

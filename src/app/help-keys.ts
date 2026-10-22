@@ -15,12 +15,12 @@ export interface HelpKeyDeps {
   render: () => void
   /** The terminal's rows, which decide how far the overlay's body scrolls. */
   height: () => number
-  /** The chain holding the first key of a chord, whose second key it must get. */
-  chainChordPending: () => boolean
+  /** Whether a chord waits for its second key, which the help must not take. */
+  chordPending: () => boolean
 }
 
 export function registerHelpKeys(riffKeymap: RiffKeymap, deps: HelpKeyDeps): () => void {
-  const up = () => deps.getState().showHelp && !deps.chainChordPending()
+  const up = () => deps.getState().showHelp && !deps.chordPending()
   const captured = riffKeymap.capture((key) => up() && !(key.name === "g" && !key.ctrl && !key.shift))
   const scroll = (delta: (half: number) => number) => () => {
     const { rows, maxScroll } = helpViewport(deps.height())

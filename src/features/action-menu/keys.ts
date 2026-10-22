@@ -97,8 +97,8 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
     const { submenu, selectedIndex, submenuRows } = view()
     const row = submenuRows[selectedIndex]
     const link = submenu && row ? linkForRow(submenu, row.id) : null
-    // Rejected, the key is left unprevented as the chain left it; the
-    // capture still keeps it from the panels behind the palette.
+    // Rejected, the key is left unprevented; the capture still keeps it
+    // from the panels behind the palette.
     if (!link) return false
     close()
     deps.onLink("copy", link)
@@ -154,7 +154,7 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
       ...anyModifiers("escape", "actionMenu.close"),
       ...anyModifiers("return", "actionMenu.run"),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", "actionMenu.run"),
       ...anyModifiers("up", "actionMenu.up"),
       ...anyModifiers("down", "actionMenu.down"),

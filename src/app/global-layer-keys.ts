@@ -1,10 +1,9 @@
 /**
  * The keys that work in any mode: the palette, the pickers, the three
  * surfaces, the jumplist, the focus walk, list flash and quitting. They
- * register behind every layer but the tree's, because the chain asked them
- * after its modal branches and before its sequences, the tree and the diff,
- * and stand aside while any capture holds the key, where the chain never
- * reached them.
+ * register behind every modal layer and ahead of the tree, the sequences
+ * and the diff, and stand aside while any capture holds the key, so none
+ * acts under a modal.
  */
 
 import type { KeyEvent } from "@opentui/core"
@@ -37,8 +36,8 @@ export interface GlobalLayerKeyDeps {
   flashTargets: (state: AppState) => string[]
   openCommentsOverlay: (mode: "view") => boolean
   openCommentsPanelForCursor: () => void
-  /** The chain these keys sat in, whose pending chord they gave way to. */
-  chain: { chordPending(): boolean }
+  /** Whether a chord is pending, under which every global key declines. */
+  chord: { chordPending(): boolean }
 }
 
 export function registerGlobalKeys(riffKeymap: RiffKeymap, deps: GlobalLayerKeyDeps): () => void {
@@ -55,19 +54,19 @@ export function registerGlobalKeys(riffKeymap: RiffKeymap, deps: GlobalLayerKeyD
       palette: false,
       run: ({ event }: { event: KeyEvent }) => {
         // The keymap folds a name to lower case, so the binding on `q` also
-        // takes kitty's capitalised "Q", which the chain's cases never named.
+        // takes kitty's capitalised "Q", which CASE_NAMES leaves out.
         if (!CASE_NAMES[cmd]!.includes(event.name)) return false
-        // The chain's switch ran only with no chord pending.
-        if (deps.chain.chordPending()) return false
+        // A pending chord's second key belongs to the layers behind.
+        if (deps.chord.chordPending()) return false
         return run(event, deps.getState())
       },
     })),
-    // Each command prevents exactly where the chain did, which a declined key must not be.
+    // Each command prevents the keys it acts on itself, which a declined key must not be.
     bindings: bindings.map((binding) => ({ ...binding, preventDefault: false })),
   })
 }
 
-/** The names each of the chain's cases matched. */
+/** The names each command takes; it declines any other its binding matches. */
 const CASE_NAMES: Record<string, readonly string[]> = {
   back: ["o"],
   palette: ["p"],

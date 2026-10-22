@@ -41,7 +41,7 @@ export function registerSearchKeys(riffKeymap: RiffKeymap, deps: SearchKeyDeps):
       ...anyModifiers("escape", "search.cancel"),
       ...anyModifiers("return", "search.confirm"),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", "search.confirm"),
     ],
   })

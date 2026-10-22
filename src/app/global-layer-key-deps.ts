@@ -7,10 +7,10 @@ import * as commentsFeature from "../features/comments"
 import * as feed from "../features/feed"
 import * as folds from "../features/folds"
 
-/** What the global keys need of the app, and of the chain behind them, the chord it holds. */
+/** What the global keys need of the app, and whether a chord is pending, which they give way to. */
 export function globalLayerKeyDeps(
   ctx: AppKeyContext,
-  chain: { chordPending(): boolean },
+  chord: { chordPending(): boolean },
 ): GlobalLayerKeyDeps {
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
   return {
@@ -31,6 +31,6 @@ export function globalLayerKeyDeps(
     flashTargets: (state) => flashTargets(state, ctx),
     openCommentsOverlay,
     openCommentsPanelForCursor,
-    chain,
+    chord,
   }
 }

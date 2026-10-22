@@ -1,6 +1,6 @@
 /**
- * The `]`/`[` motions, one command each, keyed by the sequence the chain
- * spells for them: the opener, the chord suffix of the second key.
+ * The `]`/`[` motions, one command each, keyed by the sequence they are
+ * spelled as: the opener, the chord suffix of the second key.
  */
 
 import type { AppState } from "../state"
@@ -59,7 +59,7 @@ export function adjacentCommit(
   return idx <= 0 ? null : commits[idx - 1]!.sha
 }
 
-/** Each command returns false for a key it leaves to the chain's tail, as `]m` does outside the diff. */
+/** Each command returns false for a key it leaves to the layers behind, as `]m` does outside the diff. */
 export function bracketCommands(deps: BracketDeps): Record<BracketCommand, () => boolean> {
   const fileStep = (dir: 1 | -1) => () => {
     if (deps.getState().selectedFileIndex === null) {

@@ -74,7 +74,8 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
     category: "Commit picker",
     palette: false,
     // Wrapped so no return value gets through: the keymap reads a `false`
-    // as unhandled, and the chain these replaced prevented every key it acted on.
+    // as unhandled, and a key the picker acts on must be handled, so a
+    // focused field does not also receive it.
     run: () => {
       run()
     },
@@ -97,7 +98,7 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
       ...anyModifiers("escape", "commitPicker.filterCancel"),
       ...anyModifiers("return", "commitPicker.filterKeep"),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", "commitPicker.filterKeep"),
     ],
   })

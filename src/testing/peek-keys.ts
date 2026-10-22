@@ -15,10 +15,11 @@ export function peekState(patch: Partial<AppState> = {}): AppState {
 }
 
 /**
- * Both peeks' layers on a real keymap in front of a recording chain, the
- * blame peek's hand-offs in `calls`. The pending chord is `chord`, which
- * the dispatch entry settles the way the mark layer does outside the diff.
- * Call it inside a test.
+ * Both peeks' layers on a real keymap in front of a recording leftover,
+ * the blame peek's hand-offs in `calls`. `chord` simulates a pending chord
+ * for the layers under test only: composeKeys' chordPending does not count
+ * it. The dispatch entry settles it the way the mark layer does outside
+ * the diff. Call it inside a test.
  */
 export async function peekKeys(initial: AppState, options: { height?: number } = {}) {
   let state = initial
@@ -34,7 +35,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     getState: () => state,
     getVimState: () => vim,
     searchActive: () => false,
-    chainChordPending: () => chord !== null,
+    chordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {
     ...peek,

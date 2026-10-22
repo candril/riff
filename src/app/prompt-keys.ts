@@ -4,11 +4,11 @@ import { registerTreeFilterKeys } from "../features/file-tree/filter-keys"
 import { registerSearchKeys } from "../features/search"
 
 /**
- * The search prompt and the tree's filter prompt. The chain asked search
- * first, then its text object branch, then the tree filter, so the two
- * register in the reverse: later registration wins. The text object, which
- * stays in the chain, never competes with the tree filter: it waits in the
- * diff, and the filter only holds keys while the tree has focus.
+ * The search prompt and the tree's filter prompt. Search outranks the tree
+ * filter, so it registers second: later registration wins. The pending
+ * text object (text-object-keys.ts) never competes with the tree filter:
+ * it waits in the diff, and the filter only holds keys while the tree has
+ * focus.
  */
 export function registerPromptKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): () => void {
   const unregisterTreeFilter = registerTreeFilterKeys(riffKeymap, {

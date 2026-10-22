@@ -24,7 +24,7 @@ async function diffKeys(patch: Partial<AppState> = DIFF, vim: Partial<VimCursorS
       handled.push(key.name)
       return state.focusedPanel === "diff"
     },
-    chain: { chordPending: () => harness.chordPending() },
+    chord: { chordPending: () => harness.chordPending() },
   })
   return { ...harness, handled, toggles }
 }

@@ -23,7 +23,7 @@ import * as comment from "./comment-input"
 export type PRInfoPanelKeyDeps = act.PRInfoPanelDeps
 
 /**
- * The keys the panel leaves to the chain in its main view: `q`/`Esc` quit
+ * The keys the panel leaves to the layers behind in its main view: `q`/`Esc` quit
  * and clear toasts, `Tab` is the jumplist (terminals collapse Ctrl-I to
  * it), `i`/`a` the view router and `s` flash. A bare `d` is the view
  * router's too, except on a file row.
@@ -161,7 +161,8 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
       command("armG", "Start a g chord", () => chords.armG()),
       command("end", "Scroll to the end", () => act.scrollBottom(deps)),
     ],
-    // Ctrl never reaches these: the capture leaves every ctrl key to the chain.
+    // Ctrl never reaches these: the capture leaves every ctrl key to the
+    // layers behind.
     bindings: unprevented([
       ...anyModifiers("+", "prInfoPanel.react"),
       ...anyModifiers("/", "prInfoPanel.filter"),

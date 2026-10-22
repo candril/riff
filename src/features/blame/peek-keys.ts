@@ -18,7 +18,7 @@ export function registerBlamePeekKeys(riffKeymap: RiffKeymap, deps: BlamePeekKey
     const state = deps.getState()
     return state.blamePeek !== null && state.viewMode === "diff"
   }
-  // Nothing is prevented: the chain never prevented the keys the peek took.
+  // Nothing is prevented, the keys the peek takes included.
   const captured = riffKeymap.capture((key) => up() && !peekLeaves(key, deps))
   const command = (name: string, title: string, run: () => void) => ({
     name: `blamePeek.${name}`,

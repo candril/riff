@@ -4,8 +4,7 @@ type Modifier = (typeof MODIFIERS)[number]
 /**
  * `key` with every combination of the modifiers it does not already name,
  * all bound to `cmd`. The keymap compares all five modifiers it knows
- * exactly, while the priority chain these layers replaced matched the key
- * name alone, so a layer that must answer whatever is held lists the
+ * exactly, so a layer that must answer whatever is held lists the
  * variants itself. Alt and option need no entry: the binding parser reads
  * them as meta, which is also what the terminal parser sets for them.
  */

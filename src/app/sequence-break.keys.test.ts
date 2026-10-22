@@ -27,8 +27,8 @@ async function mounted() {
   return { app, keys: keysOn(app) }
 }
 
-// The chain asked the chat's branch ahead of its chord matcher, so Ctrl-r
-// reached the chat whatever first key of a chord was waiting.
+// The chat comes ahead of every chord, so Ctrl-r reaches the chat
+// whatever first key of a chord is waiting.
 for (const first of ["z", "]", "["]) {
   test(`${first} then Ctrl-r opens the chat and leaves no chord pending`, async () => {
     const { app, keys } = await mounted()
@@ -43,7 +43,7 @@ for (const first of ["z", "]", "["]) {
   })
 }
 
-// The chain's global keys declined every key while a chord was pending.
+// The global keys decline every key while a chord is pending.
 test("z then q does not quit", async () => {
   const { app, keys } = await mounted()
 

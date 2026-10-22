@@ -24,14 +24,14 @@ export function treeInputContext(ctx: AppKeyContext): FileTreeInputContext {
   }
 }
 
-/** What the tree's keys need of the app, and of the chain behind them, the chord it holds. */
+/** What the tree's keys need of the app, and whether a chord is pending, which they give way to. */
 export function treeKeyDeps(
   ctx: AppKeyContext,
-  chain: { chordPending(): boolean },
+  chord: { chordPending(): boolean },
 ): TreeKeyDeps {
   return {
     getState: ctx.getState,
     handle: (key) => handleInput(key, treeInputContext(ctx)),
-    chain,
+    chord,
   }
 }

@@ -23,7 +23,7 @@ const HYPER_J = "\x1b[106;17u"
 const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: true })!
 
 async function openHelp(rows: number, { syncPreview = false } = {}) {
-  let chainChordPending = false
+  let chordPending = false
   const { riffKeymap, leftKeys, press } = await keymapHarness()
   const initial = toggleHelp(createInitialState([], [], "", ""))
   let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
@@ -38,7 +38,7 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
       renders++
     },
   }
-  registerHelpKeys(riffKeymap, { ...deps, height: () => height, chainChordPending: () => chainChordPending })
+  registerHelpKeys(riffKeymap, { ...deps, height: () => height, chordPending: () => chordPending })
   registerSyncPreviewKeys(riffKeymap, { ...deps, onExecuteSync: () => {} })
   return {
     press,
@@ -46,7 +46,7 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
     state: () => state,
     renders: () => renders,
     resize: (rows: number) => void (height = rows),
-    holdChainChord: () => void (chainChordPending = true),
+    holdChord: () => void (chordPending = true),
   }
 }
 
@@ -133,7 +133,7 @@ test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; 
 
 test("while the chain holds a chord the help stands aside, so q and ? reach the chain", async () => {
   const help = await openHelp(40)
-  help.holdChainChord()
+  help.holdChord()
   help.press("q")
   help.press("?")
   expect(help.leftKeys).toEqual(["q", "?"])

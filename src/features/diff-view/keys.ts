@@ -1,7 +1,6 @@
 /**
  * The diff view's keys and the split toggle. The layer registers behind
- * every other one, because the chain asked the diff after every other
- * branch: a key any layer above takes or holds as a sequence never
+ * every other one: a key any layer above takes or holds as a sequence never
  * reaches it, and a key they decline falls through to it. It binds a
  * pattern that matches every key rather than a list of names, because the
  * vim handler parses any key: counts, the character after f, F, t or T,
@@ -20,7 +19,7 @@ export interface DiffKeyDeps {
   toggleSplitView: () => void
   /** handleInput on a context built for this key, false for a key it declines. */
   handle: (key: KeyEvent) => boolean
-  chain: { chordPending(): boolean }
+  chord: { chordPending(): boolean }
 }
 
 const ANY_KEY = "diff-key"
@@ -43,10 +42,10 @@ export function registerDiffKeys(riffKeymap: RiffKeymap, deps: DiffKeyDeps): () 
         category: "Diff",
         palette: false,
         // Only the toggle gives way to a chord: a key that broke one off
-        // reaches the diff at the re-offer, as it reached it through the chain.
+        // reaches the diff at the re-offer, before the leftover is reached.
         run: ({ event }: { event: KeyEvent }) => {
           const state = deps.getState()
-          if (togglesSplit(event, state.viewMode, deps.getVimState(), deps.chain.chordPending())) {
+          if (togglesSplit(event, state.viewMode, deps.getVimState(), deps.chord.chordPending())) {
             deps.toggleSplitView()
             return true
           }

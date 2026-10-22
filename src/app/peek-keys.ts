@@ -5,20 +5,20 @@ import type { PeekKeyContext } from "./peek-leaves"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 
-type Chain = { chordPending(): boolean }
+type Chord = { chordPending(): boolean }
 
 /**
- * The blame peek and the line peek. The chain asked the blame peek first,
- * so it registers second: later registration wins. `blame` is the one `gb`
- * and `go` reach through the chain, so a single object owns every blame
+ * The blame peek and the line peek. The blame peek outranks the line peek,
+ * so it registers second: later registration wins. `blame` is the one the
+ * `g` layer's `gb` and `go` reach, so a single object owns every blame
  * request.
  */
-export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, chain: Chain, blame: BlameKeys): () => void {
+export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, chord: Chord, blame: BlameKeys): () => void {
   const peek: PeekKeyContext = {
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     searchActive: () => ctx.getSearchState().active,
-    chainChordPending: () => chain.chordPending(),
+    chordPending: () => chord.chordPending(),
   }
   const unregisterLinePeek = registerLinePeekKeys(riffKeymap, {
     ...peek,

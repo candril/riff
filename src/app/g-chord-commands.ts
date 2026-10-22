@@ -1,6 +1,6 @@
 /**
- * The `g` chords, one command each, keyed by the sequence the chain spells
- * for them: the opener, the chord suffix of the second key.
+ * The `g` chords, one command each, keyed by the sequence they are spelled
+ * as: the opener, the chord suffix of the second key.
  */
 
 import type { KeyEvent } from "@opentui/core"
@@ -74,7 +74,7 @@ export type GCommand = (typeof G_SEQUENCES)[keyof typeof G_SEQUENCES]
 
 /**
  * Every command takes its key, whether or not it acts: no `g` chord leaves
- * one to the chain's tail. `gC` reads the key for its preventDefault.
+ * one to the layers behind. `gC` reads the key for its preventDefault.
  */
 export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEvent) => boolean> {
   const taking = (run: (key: KeyEvent) => void) => (key: KeyEvent) => {
@@ -103,7 +103,6 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
       if (inPr()) deps.executeAction("copy-pr-url")
     }),
     openInBoard: taking(() => deps.executeAction("open-in-board")),
-    // A GitHub permalink for the selection, the current line or the file.
     copyPermalink: taking(() => deps.executeAction("copy-permalink")),
     followLink: taking(() => followLink.handleFollowLink(deps.followLinkContext)),
     followLinkInTmux: taking(() => followLink.handleFollowLink(deps.followLinkContext, { tmux: true })),

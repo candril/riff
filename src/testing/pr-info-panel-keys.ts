@@ -74,9 +74,9 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
 }
 
 /**
- * The PR overview's layers on a real keymap in front of a recording chain,
- * with every hand-off to the app and every call on the panel controller in
- * `calls`. Call it inside a test.
+ * The PR overview's layers on a real keymap in front of a recording
+ * leftover, with every hand-off to the app and every call on the panel
+ * controller in `calls`. Call it inside a test.
  */
 export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptions = {}) {
   const harness = await keymapHarness()

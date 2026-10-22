@@ -50,7 +50,7 @@ export function registerTreeFilterKeys(riffKeymap: RiffKeymap, deps: TreeFilterK
       ...anyModifiers("escape", "treeFilter.close"),
       ...anyModifiers("return", "treeFilter.commit"),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, though both name Enter.
       ...anyModifiers("enter", "treeFilter.commit"),
     ],
   })

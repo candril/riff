@@ -5,18 +5,18 @@ import * as commentsPicker from "../features/comments-picker"
 import * as feed from "../features/feed"
 
 /**
- * What the feed needs to act: where its rows lead (spec 070), and of the
- * chain it sits in front of, the chord the chain holds.
+ * What the feed needs to act: where its rows lead (spec 070), and whether
+ * a chord is pending, whose second key the feed leaves to the layers behind.
  */
 export function feedKeyDeps(
   ctx: AppKeyContext,
-  chain: { chordPending(): boolean },
+  chord: { chordPending(): boolean },
 ): feed.FeedKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
-    chainChordPending: () => chain.chordPending(),
+    chordPending: () => chord.chordPending(),
     onOpenEvent: (event) => {
       const target = event.target
       if (!target) return
@@ -44,8 +44,7 @@ export function feedKeyDeps(
         }
         case "check":
         case "url": {
-          const url = target.kind === "check" ? target.url : target.url
-          if (url) Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
+          if (target.url) Bun.spawn([openerCommand(), target.url], { stdout: "ignore", stderr: "ignore" })
           return
         }
       }

@@ -34,8 +34,8 @@ export function panelState(highlightedIndex = 0, patch: Partial<AppState> = {}):
 }
 
 /**
- * The panel's layers on a real keymap in front of a recording chain, with
- * every hand-off to the app recorded in `calls`. Call it inside a test.
+ * The panel's layers on a real keymap in front of a recording leftover,
+ * with every hand-off to the app recorded in `calls`. Call it inside a test.
  */
 export async function threadPanelKeys(initial: AppState) {
   const harness = await keymapHarness()

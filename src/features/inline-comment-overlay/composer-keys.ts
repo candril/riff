@@ -30,7 +30,6 @@ export interface ComposerKeyDeps extends InlineComposerHandlersContext {
   composer: ComposerHandle
   /** Called once state holds the outcome: a saved comment is in `state.comments`, a dropped draft remembered. */
   composerSettled?: (outcome: ComposerOutcome) => void
-  /** Pushes a saved comment to GitHub. */
   handleSubmit: (comment: Comment) => void
   /** The lines the comment being written replaces, as they read now, or null when riff cannot find them (spec 076). */
   getCommentedLines: () => string[] | null

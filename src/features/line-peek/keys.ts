@@ -24,7 +24,7 @@ const STEPS: [string, number, number][] = [
 ]
 
 export function registerLinePeekKeys(riffKeymap: RiffKeymap, deps: LinePeekKeyDeps): () => void {
-  // Nothing is prevented: the chain never prevented the keys the peek took.
+  // Nothing is prevented, the keys the peek takes included.
   const captured = riffKeymap.capture((key) => deps.getState().showLinePeek && !peekLeaves(key, deps))
   const update = (updater: (s: AppState) => AppState) => {
     deps.setState(updater)

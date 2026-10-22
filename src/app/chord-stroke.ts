@@ -5,7 +5,7 @@ type Stroke = Pick<KeyEvent, "name" | "sequence" | "shift">
 
 /**
  * What a chord's second key adds to its opener in the chord's spelling
- * (`]f`, `zA!`, `g?`), as the priority chain spelled it: the key's name,
+ * (`]f`, `zA!`, `g?`): the key's name,
  * or a lone character the parser left unnamed, with "!" for shift. Ctrl,
  * meta, super and hyper are ignored, which is why `]` then Ctrl-f still
  * steps a file.
@@ -19,7 +19,7 @@ export function chordSuffix(key: Stroke): string {
  * The keymap token naming the second stroke that is `suffix`. Token names
  * are folded to lower case, so neither the shift nor the case of the
  * letter is left to the case of the name: terminals differ in whether
- * shift+a reports "a" or "A", the chain spelled the two `a!` and `A!`, and
+ * shift+a reports "a" or "A", both spellings `a!` and `A!` are bound, and
  * each needs a pattern of its own.
  */
 export function chordStrokeToken(suffix: string): string {
@@ -40,12 +40,12 @@ export function sequenceSuffixes(...layers: readonly Readonly<Record<string, str
 
 /**
  * One sequence pattern per suffix, so a binding written `]{chord-f}` ends
- * on the key the chain would have read as `f`. The keymap compares every
- * modifier of a plain stroke, and the chain compared only the suffix.
- * A key `askedFirst` claims ends no sequence: the chat is asked ahead of
- * every chord, as the chain asked it, so Ctrl-r after `]` reaches the chat
- * rather than reading as `]r`. Such a key misses the sequence and goes round the
- * layers again (keys-dispatch.ts). Returns the unregister.
+ * on any key whose suffix is `f`: the keymap compares every modifier of a
+ * plain stroke, and a chord compares only the suffix. A key `askedFirst`
+ * claims ends no sequence: the chat comes ahead of every chord, so Ctrl-r
+ * after `]` reaches the chat rather than reading as `]r`. Such a key
+ * misses the sequence and goes round the layers again (keys-dispatch.ts).
+ * Returns the unregister.
  */
 export function registerChordStrokes(
   keymap: Keymap<Renderable, KeyEvent>,

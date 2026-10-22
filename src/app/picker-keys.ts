@@ -22,9 +22,9 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
     fileNavContext: ctx.fileNavContext,
   })
 
-  // Later registration wins, for layers and captures alike. The chain these
-  // layers replaced asked the file picker first, then comments, marks and
-  // occurrences, so they register in the reverse order.
+  // Later registration wins, for layers and captures alike. The file picker
+  // outranks comments, comments outrank marks and marks occurrences, so
+  // they register in the reverse order.
   registerOccurrencePickerKeys(riffKeymap, {
     getState,
     setState,

@@ -1,6 +1,6 @@
 /**
- * The `z` chords, one command each, keyed by the sequence the chain spells
- * for them: the opener, the chord suffix of the second key.
+ * The `z` chords, one command each, keyed by the sequence they are spelled
+ * as: the opener, the chord suffix of the second key.
  */
 
 import type { AppState } from "../state"
@@ -59,7 +59,7 @@ export const Z_SEQUENCES = {
 
 export type ZCommand = (typeof Z_SEQUENCES)[keyof typeof Z_SEQUENCES]
 
-/** Every command takes its key: no `z` chord leaves one to the chain's tail. */
+/** Every command takes its key: no `z` chord leaves one to the layers behind. */
 export function zChordCommands(deps: ZChordDeps): Record<ZCommand, () => boolean> {
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the

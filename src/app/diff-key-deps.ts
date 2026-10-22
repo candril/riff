@@ -30,14 +30,14 @@ export function diffInputContext(ctx: AppKeyContext, overlay: CommentsOverlayOpe
   }
 }
 
-/** What the diff's keys need of the app, and of the chain view, the chord pending. */
-export function diffKeyDeps(ctx: AppKeyContext, chain: { chordPending(): boolean }): DiffKeyDeps {
+/** What the diff's keys need of the app, and whether a chord is pending, which the split toggle gives way to. */
+export function diffKeyDeps(ctx: AppKeyContext, chord: { chordPending(): boolean }): DiffKeyDeps {
   const overlay = createCommentsOverlayOpen(ctx)
   return {
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     toggleSplitView: () => ctx.toggleSplitView(),
     handle: (key) => handleInput(key, diffInputContext(ctx, overlay)),
-    chain,
+    chord,
   }
 }

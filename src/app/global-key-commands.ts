@@ -19,12 +19,12 @@ import * as occurrencePicker from "../features/occurrence-picker"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 
-/** A key the command declines, which the chain then sees as it did. */
+/** A key the command declines, which goes on unprevented to the layers behind. */
 export type Outcome = false | void
 
 export type Body = (key: KeyEvent, state: AppState) => Outcome
 
-/** What each of the chain's global cases did, keyed by command name. */
+/** What each global key does, keyed by command name. */
 export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { title: string; run: Body }> {
   const show = (update: (s: AppState) => AppState) => {
     deps.setState(update)

@@ -12,9 +12,10 @@ export function diffState(patch: Partial<AppState> = {}): AppState {
 
 /**
  * The search prompt's and the tree filter's layers on a real keymap in
- * front of a recording chain, every hand-off to the app in `calls`. The
- * pending chord is `chord`, which the dispatch entry settles the way the
- * mark layer does outside the diff. Call it inside a test.
+ * front of a recording leftover, every hand-off to the app in `calls`.
+ * `chord` simulates a pending chord for the layers under test only:
+ * composeKeys' chordPending does not count it. The dispatch entry settles
+ * it the way the mark layer does outside the diff. Call it inside a test.
  */
 export async function promptKeys(initial: AppState) {
   let state = initial
