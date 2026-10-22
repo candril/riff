@@ -6,8 +6,8 @@ import { ago, prInfo } from "../testing/pr-info"
 import { find, PR_FILES, usePrInfoPanel } from "../testing/pr-info-panel"
 import { theme } from "../theme"
 
-// The Merge status section as the panel opens on it: the verdict at the
-// header's right end, a line per gate, and the checks under their line
+// The Merge status section as the panel opens on it: the verdict right
+// after the title, a line per gate, and the checks under their line
 // (spec 108). Demo mode has no PR, so these fixtures are the only place the
 // section is drawn from realistic GitHub answers.
 
@@ -75,9 +75,9 @@ const open = (info: PrInfo, behindBy: number, width = 100) =>
 const gates = (lines: string[]) => lines.filter((line) => /^    \S/.test(line))
 
 describe("the merge status", () => {
-  test("reads ready at the header's right end, and every gate passes", async () => {
+  test("reads ready right after its title, and every gate passes", async () => {
     const { lines, spans } = await open(ready(), 0)
-    expect(lines[6]).toBe(`  ▼  Merge status${" ".repeat(74)}✓ ready`)
+    expect(lines[6]).toBe("  ▼  Merge status  ✓ ready")
     expect(gates(lines).slice(0, 6)).toEqual([
       "    ✓ Checks         9/9 passed  ▼",
       "    ✓ Reviews        2/2 approvals",
@@ -95,7 +95,7 @@ describe("the merge status", () => {
 
   test("reads mergeable with warnings when only an optional check fails", async () => {
     const { lines, spans } = await open(warnings(), 0)
-    expect(lines[6]).toBe(`  ▼  Merge status${" ".repeat(56)}⚠ mergeable with warnings`)
+    expect(lines[6]).toBe("  ▼  Merge status  ⚠ mergeable with warnings")
     expect(gates(lines)[0]).toBe("    ⚠ Checks         1/2 · docs failing (optional)  ▼")
     expect(fgAt(spans, ...find(lines, "⚠ mergeable with warnings"))).toEqual(ints(theme.yellow))
     expect(fgAt(spans, ...find(lines, "⚠ Checks"))).toEqual(ints(theme.yellow))
@@ -103,7 +103,7 @@ describe("the merge status", () => {
 
   test("reads blocked on a failing required check, a change request and a base it must catch up with", async () => {
     const { lines, spans } = await open(blocked(), 3)
-    expect(lines[6]).toBe(`  ▼  Merge status${" ".repeat(72)}✗ blocked`)
+    expect(lines[6]).toBe("  ▼  Merge status  ✗ blocked")
     expect(gates(lines).slice(0, 6)).toEqual([
       "    ✗ Checks         1/2 · test failing  ▼",
       "    ✗ Reviews        1/2 approvals · changes requested by bob",
@@ -275,15 +275,15 @@ describe("the conversations line", () => {
 })
 
 describe("a narrow panel", () => {
-  test("keeps the verdict at 50 columns", async () => {
+  test("keeps the verdict whole at 50 columns", async () => {
     const { lines, spans } = await open(warnings(), 0, 50)
-    expect(lines[6]).toBe(`  ▼  Merge status${" ".repeat(6)}⚠ mergeable with warnings`)
+    expect(lines[6]).toBe("  ▼  Merge status  ⚠ mergeable with warnings")
     expect(fgAt(spans, ...find(lines, "⚠ mergeable"))).toEqual(ints(theme.yellow))
   })
 
-  test("cuts the title, never the verdict, once both do not fit", async () => {
+  test("ends the verdict in … at the edge once it does not fit", async () => {
     const { lines } = await open(warnings(), 0, 36)
-    expect(lines[6]).toEndWith(" ⚠ mergeable with warnings")
-    expect(lines[6]!.length).toBe(34)
+    expect(lines[6]).toBe("  ▼  Merge status  ⚠ mergeable wi…")
+    expect(lines[7]).toBe("")
   })
 })

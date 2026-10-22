@@ -50,7 +50,7 @@ describe("the header and meta rows, pushed to again", () => {
 
         expect(lines[1]).toStartWith("  @someone  a-branch → master   ✓ @alice @erin @frank-from-platform @grace-")
         expect(lines[2]).toBe("  stacked on #1200 Base work · base moved on by 3 commits")
-        expect(lines[6]).toBe(`  ▶  Merge status${" ".repeat(width - 28)}✗ blocked`)
+        expect(lines[6]).toStartWith("  ▶  Merge status  ✗ blocked · test, e2e failing +2")
         expect(lines).toEqual(fresh.lines)
         expect(spans).toEqual(fresh.spans)
       } finally {
@@ -82,8 +82,8 @@ describe("the header and meta rows, pushed to again", () => {
         },
       })
 
-      expect(lines).toContain("  ab ▶  Conversation (6 · 1 hidden")
-      expect(lines[6]).toBe("  c ▶  Merge status      ✗ blocked")
+      expect(lines).toContain("  ab ▶  Conversation (6 · 1 hidde…")
+      expect(lines[6]).toBe("  c ▶  Merge status  ✗ blocked · …")
       expect(lines).toEqual(fresh.lines)
       expect(spans).toEqual(fresh.spans)
     } finally {

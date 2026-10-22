@@ -2,6 +2,7 @@ import type { PrInfo, PrReview } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import { theme } from "../theme"
 import { stackText, type StackInfo } from "../utils/stack"
+import { fitSpans, type SummarySpan } from "./fit-spans"
 import type { SectionConfig } from "./pr-info-sections"
 
 export interface SectionHeaderRow {
@@ -10,29 +11,43 @@ export interface SectionHeaderRow {
   label: string | null
   text: string
   fg: string
-  /** What a collapsed section says at a glance, drawn after the text. */
-  preview: string | null
-  /** Drawn at the row's right end, folded or not. */
-  trailing: { text: string; fg: string } | null
+  /** Drawn after the text, two cells on. Cut with the text to the row's width, `…` where it is cut. */
+  summary: SummarySpan[]
   highlighted: boolean
 }
 
+const SUMMARY_GAP = 2
+
 export function sectionHeaderRow(
   config: SectionConfig,
-  { active, expanded, highlighted, label }: { active: boolean; expanded: boolean; highlighted: boolean; label: string | null }
+  { active, expanded, highlighted, label, width = Infinity }: {
+    active: boolean
+    expanded: boolean
+    highlighted: boolean
+    label: string | null
+    /** The cells the header is drawn in; it is never wrapped onto a second row. */
+    width?: number
+  }
 ): SectionHeaderRow {
   const indicator = expanded ? "▼" : "▶"
-  return {
-    key: config.id,
-    label,
-    text: config.count === null
-      ? `${indicator}  ${config.title}`
-      : `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`,
-    fg: active ? theme.blue : theme.overlay0,
-    preview: config.preview && !expanded ? config.preview : null,
-    trailing: config.trailing ?? null,
-    highlighted,
-  }
+  const fg = active ? theme.blue : theme.overlay0
+  const text = config.count === null
+    ? `${indicator}  ${config.title}`
+    : `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`
+  const summary = expanded ? config.openSummary ?? [] : config.summary
+  // The label goes first and is never cut: it is what `s` asks the reader to type.
+  const room = width - (label === null ? 0 : Bun.stringWidth(`${label} `))
+  return { key: config.id, label, fg, ...fitHeader(text, fg, summary, room), highlighted }
+}
+
+function fitHeader(text: string, fg: string, summary: SummarySpan[], width: number) {
+  const textWidth = Bun.stringWidth(text)
+  const left = width - textWidth - SUMMARY_GAP
+  if (summary.length > 0 && left >= 1) return { text, summary: fitSpans(summary, left) }
+  if (summary.length === 0 && textWidth <= width) return { text, summary }
+  // Not even the summary's `…` fits after the gap, so the title carries it.
+  const cut = fitSpans([{ text, fg }, { text: "…", fg }], Math.min(textWidth, width))
+  return { text: cut.map((span) => span.text).join(""), summary: [] }
 }
 
 /**

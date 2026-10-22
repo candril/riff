@@ -5,14 +5,8 @@ import type { DiffFile } from "../utils/diff-parser"
 import { theme } from "../theme"
 import { mergeStatus } from "./merge-status-model"
 import { conversationItems } from "./pr-info-items"
-import {
-  lastCommitSummary,
-  previewsSummary,
-  sectionConfigs,
-  unresolvedSummary,
-  type SectionConfig,
-  type SectionConfigsInput,
-} from "./pr-info-sections"
+import type { SummarySpan } from "./fit-spans"
+import { sectionConfigs, type SectionConfig, type SectionConfigsInput } from "./pr-info-sections"
 
 const NOW = PR_NOW.getTime()
 
@@ -46,10 +40,12 @@ function input(over: Partial<SectionConfigsInput> = {}): SectionConfigsInput {
   }
 }
 
+const plain = (spans: readonly SummarySpan[] | undefined) => (spans ?? []).map((span) => span.text).join("")
+
 const header = (config: SectionConfig) =>
   config.count === null
-    ? `${config.title} → ${config.trailing?.text}`
-    : `${config.title} (${config.count}${config.countSuffix ?? ""}) ${config.preview}${config.hasItems ? "" : " [no items]"}`
+    ? `${config.title} → ${plain(config.openSummary)}`
+    : `${config.title} (${config.count}${config.countSuffix ?? ""}) ${plain(config.summary)}${config.hasItems ? "" : " [no items]"}`
 
 describe("sectionConfigs", () => {
   test("names, counts and sums up all six sections of the full PR", () => {
@@ -101,50 +97,22 @@ describe("sectionConfigs", () => {
 })
 
 describe("the merge status header", () => {
-  const verdictOf = (status: ReturnType<typeof mergeStatus>) => sectionConfigs(input({ mergeStatus: status }))[0]!.trailing
+  const configOf = (status: ReturnType<typeof mergeStatus>, info: PrInfo) =>
+    sectionConfigs(input({ prInfo: info, mergeStatus: status }))[0]!
 
-  test("carries the verdict in its line state's colour, and no count or preview", () => {
+  test("carries the verdict in its line state's colour open, and no count", () => {
     const pr = prInfo("", { baseRef: "main", mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", checks: [] })
-    expect(verdictOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 0 }))).toEqual({ text: "✓ ready", fg: theme.green })
-    expect(verdictOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 2 })))
-      .toEqual({ text: "⚠ mergeable with warnings", fg: theme.yellow })
-    expect(verdictOf(mergeStatus({ prInfo: { ...pr, isDraft: true }, comments: [], behindBy: 0 })))
-      .toEqual({ text: "✗ blocked", fg: theme.red })
-    expect(sectionConfigs(input())[0]).toMatchObject({ title: "Merge status", count: null, preview: "" })
-  })
-})
-
-describe("previewsSummary", () => {
-  test("counts live and on-demand rows and names who posted them", () => {
-    const set = previews()
-    expect(previewsSummary(set, set.rows)).toBe("1 live · 1 on demand  ·  from deploy-bot[bot]")
+    expect(configOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 0 }), pr).openSummary)
+      .toEqual([{ text: "✓ ready", fg: theme.green }])
+    expect(configOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 2 }), pr).openSummary)
+      .toEqual([{ text: "⚠ mergeable with warnings", fg: theme.yellow }])
+    expect(configOf(mergeStatus({ prInfo: { ...pr, isDraft: true }, comments: [], behindBy: 0 }), pr).openSummary)
+      .toEqual([{ text: "✗ blocked", fg: theme.red }])
+    expect(sectionConfigs(input())[0]).toMatchObject({ title: "Merge status", count: null })
   })
 
-  test("leaves out a count that is zero", () => {
-    const set = previews()
-    expect(previewsSummary(set, set.rows.slice(0, 1))).toBe("1 live  ·  from deploy-bot[bot]")
-    expect(previewsSummary(set, set.rows.slice(1))).toBe("1 on demand  ·  from deploy-bot[bot]")
-  })
-})
-
-describe("unresolvedSummary", () => {
-  test("counts unresolved threads across reviews", () => {
-    expect(unresolvedSummary(conversationItems(fullPr(), reviewThreadComments(), new Set()))).toBe("2 unresolved")
-  })
-
-  test("is empty when every thread is resolved", () => {
-    const resolved = reviewThreadComments().map((comment) => ({ ...comment, isThreadResolved: true }))
-    expect(unresolvedSummary(conversationItems(fullPr(), resolved, new Set()))).toBe("")
-  })
-})
-
-describe("lastCommitSummary", () => {
-  test("says when the last commit landed", () => {
-    expect(lastCommitSummary(commits(3), NOW)).toBe("last 1h")
-    expect(lastCommitSummary(commits(3), NOW + 2 * 24 * 3_600_000)).toBe("last 2d")
-  })
-
-  test("is empty without commits", () => {
-    expect(lastCommitSummary([], NOW)).toBe("")
+  test("names what blocks while folded", () => {
+    const pr = prInfo("", { baseRef: "main", mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", checks: [], isDraft: true })
+    expect(plain(configOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 0 }), pr).summary)).toBe("✗ blocked · draft")
   })
 })

@@ -16,7 +16,7 @@ const SEPARATOR = "  " + "─".repeat(70)
 // The fixture's threads carry no resolution, which the merge status reads as
 // not GitHub's to count and the conversation's summary as open.
 const MERGE_STATUS = [
-  "  ▼  Merge status                                                                                            ✗ blocked",
+  "  ▼  Merge status  ✗ blocked",
   "",
   "    ✗ Checks         1/6 · test, e2e +2 failing  ▼",
   "      ✓ build",
@@ -32,7 +32,7 @@ const MERGE_STATUS = [
   "    ✓ Blockers       none",
 ]
 const FOLDED_MERGE_STATUS =
-  "  ▶  Merge status                                                                                            ✗ blocked"
+  "  ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested"
 const HEADERS = [
   "  ▶  Previews (0)",
   "",
@@ -120,7 +120,7 @@ describe("on arrival", () => {
     expect(bgAt(spans, 2, 4)).toEqual(ints(theme.base))
   })
 
-  test("marks the active header blue on surface0, the others overlay0 with their previews in subtext0", async () => {
+  test("marks the active header blue on surface0, the others overlay0 with their summaries coloured by meaning", async () => {
     const { lines, spans } = await mount({ mergeStatusOpen: true })
     const [, description] = find(lines, "▼  Description")
     expect(fgAt(spans, ...find(lines, "▼  Description"))).toEqual(ints(theme.blue))
@@ -135,8 +135,9 @@ describe("on arrival", () => {
       expect(bgAt(spans, x, y)).toEqual(ints(theme.base))
     }
     expect(fgAt(spans, ...find(lines, "✗ blocked"))).toEqual(ints(theme.red))
-    expect(fgAt(spans, ...find(lines, "2 unresolved"))).toEqual(ints(theme.subtext0))
-    expect(fgAt(spans, ...find(lines, "+98 -0"))).toEqual(ints(theme.subtext0))
+    expect(fgAt(spans, ...find(lines, "2 unresolved"))).toEqual(ints(theme.yellow))
+    expect(fgAt(spans, ...find(lines, "+98"))).toEqual(ints(theme.green))
+    expect(fgAt(spans, ...find(lines, "-0"))).toEqual(ints(theme.red))
     expect(fgAt(spans, ...find(lines, "last 1h"))).toEqual(ints(theme.subtext0))
   })
 
@@ -163,7 +164,7 @@ describe("on arrival", () => {
       "",
       SEPARATOR,
       "",
-      "  ▼  Merge status                                                                            ⚠ mergeable with warnings",
+      "  ▼  Merge status  ⚠ mergeable with warnings",
       "",
       "    ✓ Checks         no checks",
       "    ✓ Reviews        0 approvals",
@@ -294,9 +295,7 @@ describe("flash labels", () => {
         p.setFlashLabels(new Map([["checks", "a"], ["files:1", "sd"]]))
       },
     })
-    expect(lines[6]).toBe(
-      "  a ▶  Merge status                                                                                          ✗ blocked"
-    )
+    expect(lines[6]).toBe("  a ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested")
     expect(lines.slice(17, 21)).toEqual([
       "  ▼  Files (2)",
       "",

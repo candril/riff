@@ -36,20 +36,29 @@ glance, with everything else one keystroke away.
   goes.
 - Sections are collapsed on arrival except **Merge status**
   ([108](./108-merge-status.md)) and **Description**, which are open. Each
-  collapsed header carries its count and a one-glance summary; Merge status
-  carries its verdict instead, folded or not:
+  collapsed header carries its count and a one-glance summary right after
+  it, two cells on; Merge status carries its verdict there, folded or not,
+  and folded it names what blocks:
 
 ```
-  ▼ Merge status                        ✗ blocked
+  ▼  Merge status  ✗ blocked
       ✗ Checks         40/42 · lint, e2e failing  ▼
       …
-  ▼ Description
+  ▼  Description (2)
       …
-  ▶ Previews (6)          4 live · 2 on demand
-  ▶ Conversation (2)      1 unresolved
-  ▶ Files (12)            +487 −53
-  ▶ Commits (5)           last 17:14
+  ▶  Previews (6)  4 live · 2 on demand  ·  from deploy-bot[bot]
+  ▶  Conversation (2)  1 unresolved
+  ▶  Files (12)  +487 -53
+  ▶  Commits (5)  last 17m
 ```
+
+- The summaries are coloured by meaning, from the theme alone, and
+  sparingly: the merge verdict green, yellow or red; `+N` green and `-N`
+  red; `N live` green; `N unresolved` yellow; other counts, times and
+  joins in `subtext0`, readable but quieter than the section name; bot
+  and author names in `overlay1`. The section names keep their colour:
+  blue when active, `overlay0` otherwise. A header is never wrapped: at
+  the panel's edge it ends in `…`, its flash label kept.
 
 - **Previews** is a new section, built from spec 068.
 - A comment whose content has been lifted into a section is folded away in
@@ -66,6 +75,7 @@ instance. Section state (`activeSection`, `expandedSections`, scroll) lives in
 the instance too, so preserving a position across a refresh (spec 063) means
 either lifting that state out or handing it to the replacement.
 
-Section headers are already built from a config list with `count` and
-`preview` (`getSectionConfigs`), so the glance summaries are a matter of
-filling those in — the shape exists.
+Section headers are built from a config list (`sectionConfigs`) with a
+`count` and a `summary` of coloured spans; the summaries themselves are
+pure functions in `src/components/pr-info-summaries.ts`, and
+`sectionHeaderRow` cuts each header to the panel's width.

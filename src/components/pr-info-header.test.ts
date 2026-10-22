@@ -4,8 +4,11 @@ import { theme } from "../theme"
 import { panelMeta, sectionHeaderRow, stackLine } from "./pr-info-header"
 import type { SectionConfig } from "./pr-info-sections"
 
-const checks: SectionConfig = { id: "checks", title: "Checks", count: 6, preview: "✗ 4 failed", hasItems: true }
+const FAILED = { text: "✗ 4 failed", fg: theme.red }
+const checks: SectionConfig = { id: "checks", title: "Checks", count: 6, summary: [FAILED], hasItems: true }
 const plain = { active: false, expanded: false, highlighted: false, label: null }
+const drawn = (row: ReturnType<typeof sectionHeaderRow>) =>
+  `${row.label === null ? "" : `${row.label} `}${row.text}${row.summary.length > 0 ? "  " : ""}${row.summary.map((s) => s.text).join("")}`
 
 describe("sectionHeaderRow", () => {
   test("points right while collapsed and down while expanded", () => {
@@ -13,10 +16,10 @@ describe("sectionHeaderRow", () => {
     expect(sectionHeaderRow(checks, { ...plain, expanded: true }).text).toBe("▼  Checks (6)")
   })
 
-  test("shows the preview only while collapsed", () => {
-    expect(sectionHeaderRow(checks, plain).preview).toBe("✗ 4 failed")
-    expect(sectionHeaderRow(checks, { ...plain, expanded: true }).preview).toBeNull()
-    expect(sectionHeaderRow({ ...checks, preview: "" }, plain).preview).toBeNull()
+  test("shows the summary only while collapsed", () => {
+    expect(sectionHeaderRow(checks, plain).summary).toEqual([FAILED])
+    expect(sectionHeaderRow(checks, { ...plain, expanded: true }).summary).toEqual([])
+    expect(sectionHeaderRow({ ...checks, summary: [] }, plain).summary).toEqual([])
   })
 
   test("puts the count suffix inside the brackets", () => {
@@ -25,7 +28,7 @@ describe("sectionHeaderRow", () => {
       title: "Conversation",
       count: 6,
       countSuffix: " · 1 hidden",
-      preview: "",
+      summary: [],
       hasItems: true,
     }
     expect(sectionHeaderRow(conversation, plain).text).toBe("▶  Conversation (6 · 1 hidden)")
@@ -37,8 +40,7 @@ describe("sectionHeaderRow", () => {
       label: null,
       text: "▶  Checks (6)",
       fg: theme.overlay0,
-      preview: "✗ 4 failed",
-      trailing: null,
+      summary: [FAILED],
       highlighted: false,
     })
     const row = sectionHeaderRow(checks, { active: true, expanded: false, highlighted: true, label: "a" })
@@ -48,22 +50,45 @@ describe("sectionHeaderRow", () => {
   })
 })
 
-describe("a header without a count", () => {
+describe("a header cut to its width", () => {
+  test("is whole when it fits exactly", () => {
+    expect(drawn(sectionHeaderRow(checks, { ...plain, width: 25 }))).toBe("▶  Checks (6)  ✗ 4 failed")
+  })
+
+  test("ends the summary in … in the colour of the span it cuts", () => {
+    const row = sectionHeaderRow(checks, { ...plain, width: 19 })
+    expect(drawn(row)).toBe("▶  Checks (6)  ✗ 4…")
+    expect(row.summary).toEqual([{ text: "✗ 4…", fg: theme.red }])
+  })
+
+  test("cuts the title once not even the summary's … fits after the gap", () => {
+    expect(drawn(sectionHeaderRow(checks, { ...plain, width: 15 }))).toBe("▶  Checks (6…")
+    expect(drawn(sectionHeaderRow(checks, { ...plain, width: 8 }))).toBe("▶  Chec…")
+    expect(drawn(sectionHeaderRow({ ...checks, summary: [] }, { ...plain, width: 8 }))).toBe("▶  Chec…")
+  })
+
+  test("leaves the flash label whole and cuts after it", () => {
+    expect(drawn(sectionHeaderRow(checks, { ...plain, label: "ab", width: 20 }))).toBe("ab ▶  Checks (6)  ✗…")
+  })
+})
+
+describe("the merge status header", () => {
   const status: SectionConfig = {
     id: "checks",
     title: "Merge status",
     count: null,
-    preview: "",
+    summary: [
+      { text: "✗ blocked", fg: theme.red },
+      { text: " · ", fg: theme.subtext0 },
+      { text: "lint failing", fg: theme.red },
+    ],
+    openSummary: [{ text: "✗ blocked", fg: theme.red }],
     hasItems: true,
-    trailing: { text: "✗ blocked", fg: theme.red },
   }
 
-  test("is the title alone, carrying its verdict folded or not", () => {
-    for (const expanded of [false, true]) {
-      const row = sectionHeaderRow(status, { ...plain, expanded })
-      expect(row.text).toBe(`${expanded ? "▼" : "▶"}  Merge status`)
-      expect(row.trailing).toEqual({ text: "✗ blocked", fg: theme.red })
-    }
+  test("names what blocks folded, and is just the verdict open", () => {
+    expect(drawn(sectionHeaderRow(status, plain))).toBe("▶  Merge status  ✗ blocked · lint failing")
+    expect(drawn(sectionHeaderRow(status, { ...plain, expanded: true }))).toBe("▼  Merge status  ✗ blocked")
   })
 })
 

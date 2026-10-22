@@ -1,13 +1,12 @@
-import { Show } from "solid-js"
+import { For, Show } from "solid-js"
 import { colors, theme } from "../theme"
 import type { PanelMeta, SectionHeaderRow, StackLine } from "./pr-info-header"
 
 /**
  * One section header of the PR info panel: label, indicator, title and
- * count, then the collapsed preview, and the verdict at the right end. Like
- * the meta row, the left part is one text cut at the edge rather than a row
- * of texts sharing out the shrink; the verdict never shrinks, so a narrow
- * panel cuts the title before it loses the answer.
+ * count, then its summary. Like the meta row, it is one text rather than a
+ * row of texts sharing out the shrink; the model has already cut it to the
+ * panel's width, `…` where it is cut, so it never wraps.
  */
 export function PRInfoSectionHeader(props: { row: SectionHeaderRow }) {
   return (
@@ -17,20 +16,11 @@ export function PRInfoSectionHeader(props: { row: SectionHeaderRow }) {
           {(label: () => string) => <span style={{ fg: colors.flashLabel }}>{`${label()} `}</span>}
         </Show>
         <span style={{ fg: props.row.fg }}>{props.row.text}</span>
-        <Show when={props.row.preview}>
-          {(preview: () => string) => <span style={{ fg: theme.subtext0 }}>{`  ${preview()}`}</span>}
+        <Show when={props.row.summary.length > 0}>
+          <span style={{ fg: theme.subtext0 }}>{"  "}</span>
         </Show>
+        <For each={props.row.summary}>{(span) => <span style={{ fg: span.fg }}>{span.text}</span>}</For>
       </text>
-      <Show when={props.row.trailing}>
-        {(trailing: () => { text: string; fg: string }) => (
-          <>
-            <box flexGrow={1} minWidth={1} />
-            <text wrapMode="none" flexShrink={0} fg={trailing().fg}>
-              {trailing().text}
-            </text>
-          </>
-        )}
-      </Show>
     </box>
   )
 }

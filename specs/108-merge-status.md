@@ -8,7 +8,7 @@ Whether a PR can merge is the question that sends a reviewer back to the
 web: GitHub spreads the answer over the merge state, the review decision,
 the threads, the checks and the base. The PR info panel answers it in one
 place. A "Merge status" section at the top of the panel, replacing the
-Checks section, carries a verdict at its right end and one line per gate
+Checks section, carries a verdict after its title and one line per gate
 GitHub applies, so nothing hides behind the first thing that blocks.
 
 The header's one-word reading (`src/utils/merge-verdict.ts`) stays: it
@@ -34,15 +34,35 @@ says whose move it is, this section says why.
   ([106](./106-borderless-ui.md)). It is open on arrival, its checks line
   too, beside the description: what the PR does and whether it can merge
   are the two things always wanted. Its header carries no count.
-- **The verdict** at the section header's right end:
+- **The verdict** right after the section's title, two cells on, like
+  every other section's summary: `▶  Merge status  ✓ ready`.
   - `✗ blocked` when any line fails, or GitHub's merge state is `BLOCKED`
     (it refuses the merge, whatever the lines say);
   - else `⚠ mergeable with warnings` when any line warns or is pending, or
     GitHub's merge state is `UNSTABLE`;
   - else `✓ ready`.
   An information line never changes the verdict. The verdict takes the
-  colour of the line state it matches (green, yellow, red), folded or not,
-  and a narrow panel cuts the title before it.
+  colour of the line state it matches (green, yellow, red), and shows
+  folded or not.
+- **A folded section names what blocks.** Open, the header is the verdict
+  alone; folded and not ready, the verdict is followed by ` · ` and the
+  reasons joined by ` · `, in the order of the lines, each in its line's
+  colour (red failing, yellow warning):
+  `✗ blocked · lint failing · 1 unresolved · conflicts`.
+  - Failing checks: at most two names, required before optional, then
+    `+N`: `lint failing`, `lint, e2e failing`, `lint, e2e failing +3`.
+  - Pending checks are counted, never named, in the pending line's
+    colour: `⧗ 4 pending`.
+  - Unresolved threads: `1 unresolved`. Conflicts: `conflicts`.
+  - A failing review line: `changes requested`, `1/2 approvals` when the
+    approvals fall short of the rule, else `review required`.
+  - A base that holds the merge: `behind main`.
+  - Blockers: `draft`, `branch protection`, and `computing` while GitHub
+    is still computing the merge state. An information line (auto-merge)
+    never appears.
+  Long lists stay in the section; the cap of two names keeps them out of
+  the header. The header is never wrapped: at the panel's edge it ends in
+  `…`.
 - **One line per gate**: the icon, the gate's name padded to the longest,
   then its text. The icon comes from its state (`✓` ok, `⚠` warning, `✗`
   failing, `○` pending, `ℹ` information), with detail only where
@@ -146,9 +166,14 @@ a REST compare made once after the first render, like the stacked-PR check
   what the conversations line counts, so its count and its rows cannot
   disagree. `getSelectedMergeThread` hands the row actions the thread
   under the cursor; `getSelectedCheck` never returns one for a thread row.
-- `sectionConfigs` hands the header the verdict as `trailing`, which
-  `PRInfoSectionHeader` (`src/components/PRInfoHeaderViews.tsx`) draws at
-  the row's right end, unshrinking.
+- `sectionConfigs` hands the header a `summary` of coloured spans for the
+  folded section and an `openSummary` for the open one; there is no
+  right-aligned part. `mergeHeaderSummary(status, checks)`
+  (`src/components/merge-status-summary.ts`) builds the folded summary,
+  `failingChecks` (in the model) giving the checks line and the header the
+  same order. `sectionHeaderRow` cuts the header to the panel's width with
+  `fitSpans` (`src/components/fit-spans.ts`), and `PRInfoSectionHeader`
+  (`src/components/PRInfoHeaderViews.tsx`) draws it as one text.
 - `PRInfoPanelClass` recomputes the model when the PR, the comments or the
   behind count change; `setBehindBy` takes the count from
   `fetchBehindBy` (`src/providers/github/lookups.ts`), which `app.ts`

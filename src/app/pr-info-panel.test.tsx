@@ -68,7 +68,7 @@ describe("a list section", () => {
 })
 
 describe("a section header", () => {
-  const checks: SectionConfig = { id: "checks", title: "Checks", count: 6, preview: "✗ 4 failed", hasItems: true }
+  const checks: SectionConfig = { id: "checks", title: "Checks", count: 6, summary: [{ text: "✗ 4 failed", fg: theme.red }], hasItems: true }
 
   test("follows each push: expanded and highlighted, then collapsed with a label", async () => {
     const { island, byId, inside } = await mountIsland({ width: 44, height: 10 })
@@ -88,7 +88,7 @@ describe("a section header", () => {
     expect(drawn.frame).toBe("a ▶  Checks (6)  ✗ 4 failed")
     expect(drawn.fg(0, 0)).toEqual(ints(colors.flashLabel))
     expect(drawn.fg(2, 0)).toEqual(ints(theme.overlay0))
-    expect(drawn.fg(18, 0)).toEqual(ints(theme.subtext0))
+    expect(drawn.fg(18, 0)).toEqual(ints(theme.red))
     expect(drawn.bg(0, 0)).not.toEqual(ints(theme.surface0))
   })
 })

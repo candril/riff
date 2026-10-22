@@ -59,6 +59,9 @@ export interface PanelInput {
   listWidth: number
 }
 
+/** The panel's scroll box pads its rows by two cells on either side. */
+const PANEL_PADDING = 4
+
 export function panelSections(input: PanelInput): PanelSection[] {
   const { nav } = input
   const visible = visibleRows(input, nav.filter)
@@ -81,6 +84,7 @@ export function panelSections(input: PanelInput): PanelSection[] {
         expanded,
         highlighted: active && nav.cursorIndex === -1,
         label: input.flashLabels.get(config.id) ?? null,
+        width: input.terminalWidth - PANEL_PADDING,
       }),
       body: expanded ? sectionBody(config.id, active, input, visible) : null,
     }

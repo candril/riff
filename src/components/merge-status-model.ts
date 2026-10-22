@@ -107,18 +107,22 @@ function requiredChecksHold(checks: readonly PrCheck[]): boolean {
   return checks.some((c) => (failing(c) || c.status !== "completed") && gates(c, checks))
 }
 
+/** The failing checks, the ones that gate first: the order the checks line and the folded header name them in. */
+export function failingChecks(checks: readonly PrCheck[]): PrCheck[] {
+  const failed = checks.filter(failing)
+  return [...failed.filter((c) => gates(c, checks)), ...failed.filter((c) => !gates(c, checks))]
+}
+
 function checksPoint(checks: readonly PrCheck[]): MergePoint {
   if (checks.length === 0) return { id: "checks", state: "ok", text: "no checks" }
   const score = `${checks.filter(passed).length}/${checks.length}`
 
-  const failed = checks.filter(failing)
+  const failed = failingChecks(checks)
   if (failed.length > 0) {
-    const required = failed.filter((c) => gates(c, checks))
-    const named = [...required, ...failed.filter((c) => !gates(c, checks))]
-    const names = named.slice(0, 2).map((c) => c.name).join(", ")
-    const rest = named.length > 2 ? ` +${named.length - 2}` : ""
+    const names = failed.slice(0, 2).map((c) => c.name).join(", ")
+    const rest = failed.length > 2 ? ` +${failed.length - 2}` : ""
     const text = `${score} · ${names}${rest} failing`
-    return required.length > 0
+    return failed.some((c) => gates(c, checks))
       ? { id: "checks", state: "fail", text }
       : { id: "checks", state: "warn", text: `${text} (optional)` }
   }

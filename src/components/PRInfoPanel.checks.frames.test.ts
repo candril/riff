@@ -105,7 +105,7 @@ describe("previews", () => {
   test("say what is live and who posted them while folded", async () => {
     const { lines, spans } = await mount({ section: "files", prepare: (p) => p.setPreviews(previews()) })
     expect(lines[13]).toBe("  ▶  Previews (2)  1 live · 1 on demand  ·  from deploy-bot[bot]")
-    expect(fgAt(spans, ...find(lines, "1 live"))).toEqual(ints(theme.subtext0))
+    expect(fgAt(spans, ...find(lines, "1 live"))).toEqual(ints(theme.green))
   })
 
   test("list one row per app, links in blue, the selected row on surface0", async () => {
@@ -159,7 +159,7 @@ describe("checks", () => {
     for (const id of [3, 4, 5, 6]) p.toggleCheckExpansion(id)
   }
   // The checks sit under the merge status's checks line, the gates after them.
-  const HEADER = `  ▼  Merge status${" ".repeat(92)}✗ blocked`
+  const HEADER = "  ▼  Merge status  ✗ blocked"
   const CHECKS_LINE = "    ✗ Checks         1/6 · test, e2e +2 failing  ▼"
   const OTHER_GATES = [
     "    ✗ Reviews        2 approvals · changes requested by bob",

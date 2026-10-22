@@ -1,0 +1,74 @@
+import type { PrCheck } from "../providers/github/types"
+import { theme } from "../theme"
+import type { SummarySpan } from "./fit-spans"
+import { failingChecks, pointStyle, type MergePoint, type MergeStatus } from "./merge-status-model"
+
+const VERDICT_STATES = { ready: "ok", warnings: "warn", blocked: "fail" } as const
+
+export function verdictSpan(status: MergeStatus): SummarySpan {
+  return { text: status.verdictText, fg: pointStyle(VERDICT_STATES[status.verdict]).fg }
+}
+
+/**
+ * What a folded Merge status header says (spec 108): the verdict, and when
+ * it is not ready, what holds it, gate by gate in the section's order, each
+ * in its line's colour. Only short names go up here; the lists stay in the
+ * section.
+ */
+export function mergeHeaderSummary(status: MergeStatus, checks: readonly PrCheck[]): SummarySpan[] {
+  const verdict = verdictSpan(status)
+  if (status.verdict === "ready") return [verdict]
+  const reasons = status.points.flatMap((point) => reasonsFor(point, checks))
+  return [verdict, ...reasons.flatMap((reason) => [{ text: " · ", fg: theme.subtext0 }, reason])]
+}
+
+function reasonsFor(point: MergePoint, checks: readonly PrCheck[]): SummarySpan[] {
+  const fg = pointStyle(point.state).fg
+  const holds = point.state === "fail" || point.state === "warn"
+  switch (point.id) {
+    case "checks": {
+      const failed = failingChecks(checks)
+      const pending = checks.filter((c) => c.status !== "completed").length
+      return [
+        ...(holds && failed.length > 0 ? [{ text: failingNames(failed), fg }] : []),
+        ...(pending > 0 ? [{ text: `⧗ ${pending} pending`, fg: pointStyle("pending").fg }] : []),
+      ]
+    }
+    case "reviews":
+      return holds ? [{ text: reviewReason(point.text), fg }] : []
+    case "conversations":
+      return holds ? [{ text: point.text, fg }] : []
+    case "conflicts":
+      return holds ? [{ text: "conflicts", fg }] : []
+    case "base":
+      return holds ? [{ text: point.text.slice(point.text.indexOf("behind ")), fg }] : []
+    case "blockers": {
+      const reason = BLOCKER_REASONS[point.text]
+      return reason && (holds || point.state === "pending") ? [{ text: reason, fg }] : []
+    }
+  }
+}
+
+const BLOCKER_REASONS: Record<string, string> = {
+  draft: "draft",
+  "blocked by branch protection": "branch protection",
+  "GitHub is still computing the merge state": "computing",
+}
+
+/**
+ * The reviews line's text is `1/2 approvals · changes requested by bob ·
+ * waiting on carol`; a failing one fails on the change request first, then
+ * on approvals short of the rule, and otherwise on GitHub requiring a review.
+ */
+function reviewReason(text: string): string {
+  if (text.includes("changes requested")) return "changes requested"
+  const short = /^(\d+)\/(\d+) approvals?/.exec(text)
+  if (short && Number(short[1]) < Number(short[2])) return short[0]
+  return "review required"
+}
+
+/** Two names at most, so a long list never crowds the header: `lint, e2e failing +3`. */
+function failingNames(failed: readonly PrCheck[]): string {
+  const names = failed.slice(0, 2).map((c) => c.name).join(", ")
+  return failed.length > 2 ? `${names} failing +${failed.length - 2}` : `${names} failing`
+}
