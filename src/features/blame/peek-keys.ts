@@ -8,7 +8,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import type { BlameKeys } from "./keys"
-import { peekLeaves, type PeekKeyContext } from "./peek-chords"
+import { peekLeaves, type PeekKeyContext } from "../../app/peek-leaves"
 
 export interface BlamePeekKeyDeps extends PeekKeyContext {
   blame: Pick<BlameKeys, "close" | "copySha">

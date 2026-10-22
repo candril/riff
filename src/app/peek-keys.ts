@@ -2,7 +2,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 import type { GlobalKeyContext } from "./global-keys"
 import type { BlameKeys } from "../features/blame/keys"
-import type { PeekKeyContext } from "../features/blame/peek-chords"
+import type { PeekKeyContext } from "./peek-leaves"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 
@@ -11,7 +11,8 @@ type Chain = { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEv
 /**
  * The blame peek and the line peek. The chain asked the blame peek first,
  * so it registers second: later registration wins. `blame` is the one `gb`
- * and `go` reach through the chain, so a single counter numbers requests.
+ * and `go` reach through the chain, so a single object owns every blame
+ * request.
  */
 export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext, chain: Chain, blame: BlameKeys): () => void {
   const settleChainChord = (key: KeyEvent) => chain.settleChord(key)

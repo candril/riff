@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
-import type { AppState } from "../../state"
-import type { VimCursorState } from "../../vim-diff/types"
-import { chatReaches } from "../chat/keys"
+import type { AppState } from "../state"
+import type { VimCursorState } from "../vim-diff/types"
+import { chatReaches } from "../features/chat/keys"
 
 const BLAME_PEEK_CHORDS = new Set(["go", "gb"])
 

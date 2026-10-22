@@ -10,7 +10,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { scrollPeek, toggleLinePeek, togglePeekSide, type AppState } from "../../state"
-import { peekLeaves, type PeekKeyContext } from "../blame/peek-chords"
+import { peekLeaves, type PeekKeyContext } from "../../app/peek-leaves"
 
 export interface LinePeekKeyDeps extends PeekKeyContext {
   setState: (updater: (s: AppState) => AppState) => void

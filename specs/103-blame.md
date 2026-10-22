@@ -131,8 +131,9 @@ blame loads, `…` stands at the top of its lines.
 - `src/providers/blame/pr-lookup.ts`: `prForCommit`.
 - `src/providers/blame/source.ts`: `createBlameSource`, with injectable
   runners for every spawn; `fileBlame` and `lineBlame` share one cache.
-- `src/features/blame/keys.ts`, `peek-state.ts`, `peek-chords.ts`: `gb`'s
-  peek, and which chords may act while a peek is up.
+- `src/features/blame/keys.ts`, `peek-state.ts`: `gb`'s peek.
+- `src/app/peek-leaves.ts`: which chords may act while a peek is up, and
+  which keys either peek leaves to the handlers behind it.
 - `src/features/blame/column-keys.ts`, `column-state.ts`: `zB` and the
   per-file column state.
 - `src/features/blame/demo-source.ts`: `--demo`'s blame, two commits per

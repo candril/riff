@@ -55,7 +55,7 @@ import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 import { createBlameKeys, type BlameDeps, type BlameKeys } from "../features/blame/keys"
 import { createBlameColumnKeys } from "../features/blame/column-keys"
-import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
+import { chordAllowedUnderPeek } from "./peek-leaves"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 
@@ -248,8 +248,8 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
 }
 
 /**
- * `blame` is the one `gb` shares with its peek's keymap layer, so both
- * count requests on a single counter.
+ * `blame` is the one `gb` shares with its peek's keymap layer, so a single
+ * object owns every blame request.
  */
 export function createKeyHandler(
   ctx: GlobalKeyContext,
