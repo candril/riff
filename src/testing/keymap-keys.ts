@@ -2,12 +2,10 @@ import { onTestFinished } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { createRiffKeymap } from "../app/keymap"
-import { composeKeys, type KeyHandler } from "../app/keys-dispatch"
+import { composeKeys, type LegacyKeys } from "../app/keys-dispatch"
 
 export interface KeymapHarnessOptions {
-  /** Whether the chain holds the first key of a chord. */
-  chordPending?: () => boolean
-  /** What the dispatch entry runs ahead of every layer, as createAppKeys hands it the chain's settle. */
+  /** What the dispatch entry runs ahead of every layer, as createAppKeys hands it the mark layer's settle. */
   settle?: (key: KeyEvent) => void
 }
 
@@ -17,7 +15,7 @@ export interface KeymapHarnessOptions {
  * produce (`name: "enter"`) spelled out over one it can. Call it inside a
  * test.
  */
-export async function keymapHarness({ chordPending = () => false, settle }: KeymapHarnessOptions = {}) {
+export async function keymapHarness({ settle }: KeymapHarnessOptions = {}) {
   const rendered = await createTestRenderer({ width: 20, height: 4 })
   // Not a module-level afterEach: bun runs every test file in one process
   // and loads this module once, so such a hook would only ever clean up
@@ -28,13 +26,10 @@ export async function keymapHarness({ chordPending = () => false, settle }: Keym
   const legacyKeys: string[] = []
   // The keys the chain was handed as the second key of a chord the keymap held.
   const brokenKeys: string[] = []
-  const legacy: KeyHandler = Object.assign(
-    (key: KeyEvent, chordBroken?: boolean) => {
-      legacyKeys.push(key.name)
-      if (chordBroken) brokenKeys.push(key.name)
-    },
-    { chordPending },
-  )
+  const legacy: LegacyKeys = (key: KeyEvent, chordBroken?: boolean) => {
+    legacyKeys.push(key.name)
+    if (chordBroken) brokenKeys.push(key.name)
+  }
   const keys = composeKeys(riffKeymap, legacy, settle)
   const press = (sequence: string, rename?: string) => {
     const parsed = parseKeypress(sequence, { useKittyKeyboard: true })!

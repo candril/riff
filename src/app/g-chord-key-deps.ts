@@ -27,15 +27,7 @@ export function gChordDeps(ctx: GlobalKeyContext, blame: BlameKeys): GChordDeps 
   }
 }
 
-/**
- * What the g layer needs of the app, of the chain behind it, the chord it
- * holds, and of the chat, which a key it reaches is asked about first.
- */
-export function gChordKeyDeps(
-  ctx: GlobalKeyContext,
-  blame: BlameKeys,
-  chain: { chordPending(): boolean },
-  askedFirst: (key: KeyEvent) => boolean,
-): GChordKeyDeps {
-  return { ...gChordDeps(ctx, blame), chain, askedFirst, ignoresChords: appKeyTakes }
+/** What the g layer needs of the app, and of the chat, which a key it reaches is asked about first. */
+export function gChordKeyDeps(ctx: GlobalKeyContext, blame: BlameKeys, askedFirst: (key: KeyEvent) => boolean): GChordKeyDeps {
+  return { ...gChordDeps(ctx, blame), askedFirst, ignoresChords: appKeyTakes }
 }

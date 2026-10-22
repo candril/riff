@@ -24,7 +24,7 @@ const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: 
 
 async function openHelp(rows: number, { syncPreview = false } = {}) {
   let chainChordPending = false
-  const { riffKeymap, legacyKeys, press } = await keymapHarness({ chordPending: () => chainChordPending })
+  const { riffKeymap, legacyKeys, press } = await keymapHarness()
   const initial = toggleHelp(createInitialState([], [], "", ""))
   let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
   let renders = 0

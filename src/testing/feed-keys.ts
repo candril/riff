@@ -37,15 +37,14 @@ export function feedState(patch: Partial<AppState["feed"]> = {}): AppState {
 
 /**
  * The feed's layers on a real keymap in front of a recording chain, every
- * hand-off to the app in `calls`. The chain's pending chord is `chord`, and
- * the dispatch entry settles a mark chord the way the chain does outside
- * the diff, where every key gives way. Call it inside a test.
+ * hand-off to the app in `calls`. The pending chord is `chord`, which
+ * the dispatch entry settles the way the mark layer does outside the diff,
+ * where every key gives way. Call it inside a test.
  */
 export async function feedKeys(initial: AppState) {
   let state = initial
   let chord: string | null = null
   const harness = await keymapHarness({
-    chordPending: () => chord !== null,
     settle: (key) => {
       if (pendingMarkChordGivesWay(chord, key, false)) chord = null
     },

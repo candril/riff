@@ -5,12 +5,15 @@ import type { RiffKeymap } from "./keymap"
  * `chordBroken`: the keymap held the first key of a sequence and this key
  * broke it off, so the chain reads it as the second key of a chord.
  */
-export type KeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & { chordPending(): boolean }
+export type LegacyKeys = (key: KeyEvent, chordBroken?: boolean) => void
+
+/** `chordPending`: the jump recorder judges a chord as one interaction. */
+export type KeyHandler = LegacyKeys & { chordPending(): boolean }
 
 /**
  * The keymap's layers first, the legacy priority chain for whatever they
- * leave (ADR-002). Either one waiting for a second key is a chord to the
- * jump recorder.
+ * leave (ADR-002). A sequence the keymap holds is a chord to the jump
+ * recorder.
  *
  * A key that misses a pending sequence only clears it: the keymap does not
  * dispatch that key from the root. The chain asked the chat, then its
@@ -25,7 +28,7 @@ export type KeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & { ch
  */
 export function composeKeys(
   riffKeymap: Pick<RiffKeymap, "offer" | "reoffer" | "chordPending">,
-  legacy: KeyHandler,
+  legacy: LegacyKeys,
   settle?: (key: KeyEvent) => void,
 ): KeyHandler {
   const handle = (key: KeyEvent) => {
@@ -36,5 +39,5 @@ export function composeKeys(
     if (sequencePending && riffKeymap.reoffer(key)) return
     legacy(key, sequencePending)
   }
-  return Object.assign(handle, { chordPending: () => legacy.chordPending() || riffKeymap.chordPending() })
+  return Object.assign(handle, { chordPending: () => riffKeymap.chordPending() })
 }

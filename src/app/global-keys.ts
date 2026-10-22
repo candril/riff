@@ -2,10 +2,8 @@
  * Global key handling
  *
  * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
- * the mark chords first, then the split toggle and the mark chords'
- * openers, the tree for a key that broke off a chord or a slash its layer
- * cannot name, and the diff. The `]`/`[`, `z` and `g` chords are keymap
- * sequences.
+ * the split toggle, the tree for a key that broke off a chord or a slash its
+ * layer cannot name, and the diff. Every chord is a keymap sequence.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
@@ -27,7 +25,6 @@ import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
-import { diffTakesMarkChord } from "./mark-chord-gate"
 
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
@@ -41,7 +38,7 @@ import * as commentsFeature from "../features/comments"
 import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
-import * as marks from "../features/marks"
+import type * as marks from "../features/marks"
 import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
@@ -122,78 +119,17 @@ export interface GlobalKeyContext {
   composerSettled?: (outcome: ComposerOutcome) => void
 }
 
-/**
- * `chordPending` is exposed because the jump recorder judges a chord as one
- * interaction: a place reached by its second key is recorded from where the
- * first key was pressed. `clearChord` is for the keymap layers that take
- * keys ahead of the chain, since a chord left pending under a key a layer
- * took would swallow the next key. `settleChord` runs at the dispatch entry
- * (composeKeys), ahead of every layer.
- */
-export type GlobalKeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & {
-  chordPending(): boolean
-  clearChord(): void
-  /** Drops a pending mark chord that `key` gives way to. */
-  settleChord(key: KeyEvent): void
-}
+/** `chordBroken`: the key broke off a sequence the keymap held, so it is a chord's second key. */
+export type GlobalKeyHandler = (key: KeyEvent, chordBroken?: boolean) => void
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
 
-  // Key sequence tracking
-  let pendingKey: string | null = null
-  let pendingTimeout: ReturnType<typeof setTimeout> | null = null
-
-  function clearPendingKey() {
-    pendingKey = null
-    if (pendingTimeout) {
-      clearTimeout(pendingTimeout)
-      pendingTimeout = null
-    }
-  }
-
-  function openChord(opener: string) {
-    pendingKey = opener
-    const timeout = marks.chordTimeoutMs(opener)
-    if (timeout !== null) pendingTimeout = setTimeout(clearPendingKey, timeout)
-  }
-
-  const takesMarkChord = () => diffTakesMarkChord(ctx)
-
-  return Object.assign(handleKeypress, {
-    chordPending: () => pendingKey !== null,
-    clearChord: clearPendingKey,
-    settleChord,
-  })
-
-  // A click into the tree between `m` and its letter leaves the chord
-  // pending; the next key was typed for the tree, and whatever stands aside
-  // while a chord is pending, in the chain or in a layer ahead of it, would
-  // otherwise never see it.
-  function settleChord(key: KeyEvent) {
-    if (marks.pendingMarkChordGivesWay(pendingKey, key, takesMarkChord())) clearPendingKey()
-  }
+  return handleKeypress
 
   function handleKeypress(key: KeyEvent, chordBroken = false) {
-    // ========== MARK CHORDS (ma, 'a) ==========
-    const chordPending = pendingKey !== null || chordBroken
-    if (pendingKey === "m" || pendingKey === "'") {
-      const action = marks.markChordAction(pendingKey, key, takesMarkChord())
-      clearPendingKey()
-      if (action.kind === "set") marks.setMarkAtCursor(action.letter, ctx.marksContext)
-      else if (action.kind === "jump") marks.jumpToMark(action.letter, ctx.marksContext)
-      else if (action.kind === "flip") marks.flipMark(ctx.marksContext)
-      return
-    }
-
-    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordPending)) {
+    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordBroken)) {
       ctx.toggleSplitView()
-      return
-    }
-
-    const markChord = chordPending ? null : marks.markChordOpenedBy(key, takesMarkChord())
-    if (markChord) {
-      openChord(markChord)
       return
     }
 
@@ -202,7 +138,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // So does a slash the layer has no binding for: where `/` is a shifted key,
     // kitty names a modified slash after its base key ("7") and only its
     // sequence says "/", which the tree's filter opener matches.
-    if ((chordPending || key.sequence === "/") && fileTreeFeature.handleInput(key, treeInputContext(ctx))) {
+    if ((chordBroken || key.sequence === "/") && fileTreeFeature.handleInput(key, treeInputContext(ctx))) {
       return
     }
 

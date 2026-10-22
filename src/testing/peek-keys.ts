@@ -16,16 +16,14 @@ export function peekState(patch: Partial<AppState> = {}): AppState {
 
 /**
  * Both peeks' layers on a real keymap in front of a recording chain, the
- * blame peek's hand-offs in `calls`. The chain's pending chord is `chord`,
- * which the dispatch entry settles the way the chain does outside the
- * diff. Call it inside a test.
+ * blame peek's hand-offs in `calls`. The pending chord is `chord`, which
+ * the dispatch entry settles the way the mark layer does outside the diff. Call it inside a test.
  */
 export async function peekKeys(initial: AppState, options: { height?: number } = {}) {
   let state = initial
   let vim: VimCursorState = createCursorState()
   let chord: string | null = null
   const harness = await keymapHarness({
-    chordPending: () => chord !== null,
     settle: (key) => {
       if (pendingMarkChordGivesWay(chord, key, false)) chord = null
     },

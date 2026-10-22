@@ -2,9 +2,9 @@ import { afterEach, describe, expect, setSystemTime, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import { routeDiffViewport, type DiffViewport } from "./diff-viewport"
-import { registerZChordKeys, type ZChordKeyDeps } from "./z-chord-keys"
+import { registerZChordKeys } from "./z-chord-keys"
 import { registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
-import { Z_SEQUENCES } from "./z-chord-commands"
+import { Z_SEQUENCES, type ZChordDeps } from "./z-chord-commands"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { keymapHarness } from "../testing/keymap-keys"
@@ -290,7 +290,7 @@ describe("a key that breaks off a sequence", () => {
   })
 })
 
-test("mz sets mark z, the chain's mark chord keeping the key", async () => {
+test("mz sets mark z, the mark chord keeping the key", async () => {
   const { type, state, scrolls, keys, lineOf } = await zApp()
   keys.jumpTo(lineOf('  return "hello"'))
   type("m", "z")
@@ -308,8 +308,7 @@ test("shift+z and a key named Z open no z sequence and reach the chain", async (
     cursorView: { scrollCursorTo: (_line: number, where: string) => void ran.push(where) },
     getVimState: () => ({ line: 0 }),
     render: () => {},
-    chain: { chordPending: () => false },
-  } as unknown as ZChordKeyDeps)
+  } as unknown as ZChordDeps)
   harness.press("\x1b[122;2u")
   expect(harness.riffKeymap.chordPending()).toBe(false)
   harness.press("z", "Z")

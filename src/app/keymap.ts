@@ -21,6 +21,12 @@ export interface RiffKeymap {
    */
   chordPending(): boolean
   /**
+   * Whether the key being offered broke off a pending sequence and goes
+   * round the layers again. Unlike chordPending, safe to read in a layer's
+   * `enabled` or a pattern's `match`: it never asks the keymap.
+   */
+  reoffering(): boolean
+  /**
    * While `active(key)`, that key, when no binding takes it, is kept from
    * the chain and handed to `rest`, for a modal that owns the keyboard. Of
    * two active captures the later registered one wins. Returns the
@@ -126,6 +132,7 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
       }
     },
     chordPending: () => keymap.hasPendingSequence() || breaking,
+    reoffering: () => breaking,
     held: () => holding !== undefined,
     capture(active, rest) {
       const capture: Capture = { active, rest }

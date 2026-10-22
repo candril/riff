@@ -14,11 +14,6 @@ import { chordStrokeToken, chordSuffix } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
 import { Z_SEQUENCES, zChordCommands, type ZChordDeps, type ZCommand } from "./z-chord-commands"
 
-export interface ZChordKeyDeps extends ZChordDeps {
-  /** The chain's own chord, not one the keymap holds: the layer is what holds that. */
-  chain: { chordPending(): boolean }
-}
-
 /**
  * The opener as the chain opened on it: a key named `z`, unshifted, with
  * any other modifier. A plain binding on `z` would not do: the keymap folds
@@ -29,7 +24,7 @@ const OPENER = "chord-opener-z"
 
 const COMMANDS = [...new Set(Object.values(Z_SEQUENCES))]
 
-export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordKeyDeps): () => void {
+export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordDeps): () => void {
   const commands = zChordCommands(deps)
   const offOpener = riffKeymap.keymap.registerSequencePattern({
     name: OPENER,
@@ -39,9 +34,8 @@ export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordKeyDeps):
   })
   const offLayer = riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences; and while the chain holds `m` or
-    // `'`, the key is its second.
-    enabled: () => !riffKeymap.held() && !deps.chain.chordPending(),
+    // came ahead of the chain's sequences.
+    enabled: () => !riffKeymap.held(),
     commands: COMMANDS.map((cmd) => ({
       name: `zchord.${cmd}`,
       title: spellingsOf(cmd).join(" "),

@@ -15,8 +15,6 @@ import { chordAllowedUnderPeek } from "./peek-leaves"
 import { G_SEQUENCES, gChordCommands, type GChordDeps, type GCommand } from "./g-chord-commands"
 
 export interface GChordKeyDeps extends GChordDeps {
-  /** The chain's own chord, not one the keymap holds: the layer is what holds that. */
-  chain: { chordPending(): boolean }
   /** A key that ends no sequence, as the chain asked the chat about it first. */
   askedFirst: (key: KeyEvent) => boolean
   /** A key a layer that ignores chords takes, such as F12, which a lone `g` leaves to it. */
@@ -64,9 +62,8 @@ export function registerGChordKeys(riffKeymap: RiffKeymap, deps: GChordKeyDeps):
   })
   const offLayer = riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences; and while the chain holds `m` or
-    // `'`, the key is its second.
-    enabled: () => !riffKeymap.held() && !deps.chain.chordPending(),
+    // came ahead of the chain's sequences.
+    enabled: () => !riffKeymap.held(),
     commands: [
       ...COMMANDS.map((cmd) => ({
         name: `gchord.${cmd}`,

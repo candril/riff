@@ -13,15 +13,14 @@ export function diffState(patch: Partial<AppState> = {}): AppState {
 /**
  * The search prompt's and the tree filter's layers on a real keymap in
  * front of a recording chain, every hand-off to the app in `calls`. The
- * chain's pending chord is `chord`, which the dispatch entry settles the
- * way the chain does outside the diff. Call it inside a test.
+ * pending chord is `chord`, which the dispatch entry settles the way the
+ * mark layer does outside the diff. Call it inside a test.
  */
 export async function promptKeys(initial: AppState) {
   let state = initial
   let search = createSearchState()
   let chord: string | null = null
   const harness = await keymapHarness({
-    chordPending: () => chord !== null,
     settle: (key) => {
       if (pendingMarkChordGivesWay(chord, key, false)) chord = null
     },

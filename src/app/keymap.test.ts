@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { createRiffKeymap } from "./keymap"
-import { composeKeys, type KeyHandler } from "./keys-dispatch"
+import { composeKeys, type LegacyKeys } from "./keys-dispatch"
 import { registerAppKeys } from "./app-keys"
 
 const disposers: (() => void)[] = []
@@ -15,9 +15,7 @@ async function setup() {
   disposers.push(() => rendered.renderer.destroy())
   const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => false,
-  })
+  const legacy: LegacyKeys = (key: KeyEvent) => void legacyKeys.push(key.name)
   const keys = composeKeys(riffKeymap, legacy)
   return { ...rendered, riffKeymap, legacyKeys, keys }
 }
@@ -95,6 +93,33 @@ test("a key that breaks off a sequence goes to the chain", async () => {
 
   expect(keys.chordPending()).toBe(false)
   expect(legacyKeys).toEqual(["j"])
+})
+
+test("reoffering holds only while a key that broke off a sequence goes round the layers again, and is safe in enabled", async () => {
+  const { riffKeymap, keys } = await setup()
+  const seen: boolean[] = []
+  riffKeymap.keymap.registerLayer({
+    commands: [{ name: "test.gx", run: () => {} }],
+    bindings: [{ key: "gx", cmd: "test.gx" }],
+  })
+  riffKeymap.keymap.registerLayer({
+    enabled: () => {
+      seen.push(riffKeymap.reoffering())
+      return true
+    },
+    commands: [{ name: "test.j", run: () => false }],
+    bindings: [{ key: "j", cmd: "test.j" }],
+  })
+
+  keys(press("j"))
+  expect(seen.length).toBeGreaterThan(0)
+  expect(seen.every((reoffered) => !reoffered)).toBe(true)
+
+  seen.length = 0
+  keys(press("g"))
+  keys(press("j"))
+  expect(seen).toContain(true)
+  expect(riffKeymap.reoffering()).toBe(false)
 })
 
 test("the renderer's own keypress stream does not feed the keymap", async () => {

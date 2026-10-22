@@ -27,16 +27,18 @@ import { globalLayerKeyDeps } from "./global-layer-key-deps"
 import { registerTreeKeys } from "../features/file-tree/keys"
 import { treeKeyDeps } from "./tree-key-deps"
 import { registerBracketKeys } from "./bracket-keys"
-import { bracketKeyDeps } from "./bracket-key-deps"
+import { bracketDeps } from "./bracket-key-deps"
 import { BRACKET_SEQUENCES } from "./bracket-commands"
 import { registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
 import { registerZChordKeys } from "./z-chord-keys"
-import { zChordKeyDeps } from "./z-chord-key-deps"
+import { zChordDeps } from "./z-chord-key-deps"
 import { Z_SEQUENCES } from "./z-chord-commands"
 import { registerGChordKeys } from "./g-chord-keys"
 import { gChordKeyDeps } from "./g-chord-key-deps"
 import { G_SEQUENCES } from "./g-chord-commands"
 import { expireSequenceOpeners } from "./sequence-expiry"
+import { registerMarkChordKeys } from "./mark-chord-keys"
+import { markChordKeyDeps } from "./mark-chord-key-deps"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
@@ -51,13 +53,10 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   const riffKeymap = createRiffKeymap(renderer)
   const blame = createBlameKeys(blameKeysContext(ctx))
   const legacy = createKeyHandler(ctx)
-  // Whether the chain holds a chord, for every layer that gives way to one:
-  // the chain's own mark chord or a bracket, `z` or `g` sequence the keymap
-  // holds, which the chain asked as one of its own.
-  const chain = {
-    chordPending: () => legacy.chordPending() || riffKeymap.chordPending(),
-    clearChord: () => legacy.clearChord(),
-  }
+  // Whether a chord waits for its second key, for every layer that gives
+  // way to one: a mark, bracket, `z` or `g` sequence the keymap holds,
+  // which the chain asked as one of its own.
+  const chain = { chordPending: () => riffKeymap.chordPending() }
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
@@ -69,12 +68,13 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and the peeks, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
-  // active together with it. The bracket, `z` and `g` sequences register
-  // first, behind every other layer, as the chain asked them after the
-  // global keys and before the tree; their openers differ, so their order
-  // among them makes no difference. Each is handed the chain's own chord
-  // rather than the composed one, which its own pending sequence is part
-  // of. The tree registers next, behind the global keys, as the chain asked
+  // active together with it. The mark chords register first, behind every
+  // other layer, as the chain asked them after everything else that is now
+  // a layer; the bracket, `z` and `g` sequences next, as the chain asked
+  // them after the global keys and before the tree. Their openers differ,
+  // so their order among them makes no difference, and none reads the
+  // pending chord: a pending sequence holds the next key itself. The tree
+  // registers next, behind the global keys, as the chain asked
   // it after them and after its chords. The global keys register after it,
   // behind every modal layer, as the chain asked them after its modal
   // branches, and stand aside while any capture holds the key. The composer
@@ -85,9 +85,10 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   const askedFirst = (key: KeyEvent) => chatReaches(key, ctx.getState(), ctx.getSearchState().active)
   registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES, G_SEQUENCES), askedFirst)
   expireSequenceOpeners(riffKeymap, ["]", "[", "z", "g"])
-  registerBracketKeys(riffKeymap, bracketKeyDeps(ctx, legacy))
-  registerZChordKeys(riffKeymap, zChordKeyDeps(ctx, legacy))
-  registerGChordKeys(riffKeymap, gChordKeyDeps(ctx, blame, legacy, askedFirst))
+  const markChords = registerMarkChordKeys(riffKeymap, markChordKeyDeps(ctx, askedFirst))
+  registerBracketKeys(riffKeymap, bracketDeps(ctx))
+  registerZChordKeys(riffKeymap, zChordDeps(ctx))
+  registerGChordKeys(riffKeymap, gChordKeyDeps(ctx, blame, askedFirst))
   registerTreeKeys(riffKeymap, treeKeyDeps(ctx, chain))
   registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
   registerTextObjectKeys(riffKeymap, {
@@ -110,14 +111,13 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getVimState: ctx.getVimState,
     getSearchState: ctx.getSearchState,
     chat: ctx.chat,
-    clearChainChord: () => chain.clearChord(),
   })
   registerHelpKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
     height: () => ctx.renderer.height,
-    // Help gives way to a chord the chain holds, such as the g of `g?`.
+    // Help gives way to a pending chord, such as the g of `g?`.
     chainChordPending: () => chain.chordPending(),
   })
   registerPreviewKeys(riffKeymap, ctx)
@@ -139,7 +139,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,
   })
-  return composeKeys(riffKeymap, legacy, legacy.settleChord)
+  return composeKeys(riffKeymap, legacy, markChords.settle)
 }
 
 export function registerModalKeys(

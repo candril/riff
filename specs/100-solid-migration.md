@@ -167,8 +167,7 @@ and shift is not, and a capital is told from its lower-case letter, so
 both spellings of a shifted chord stay; a key the chat
 reaches ends no sequence, so Ctrl-r after `]` opens the chat rather than
 reading as `]r`. The patterns are registered once for every layer. Each
-layer stands aside while any capture holds the key and while the chain
-holds an `m` or `'` chord. A key that breaks off a keymap sequence is
+layer stands aside while any capture holds the key. A key that breaks off a keymap sequence is
 offered to the layers again, with the chord still counting as pending,
 before it reaches the chain as the second key of a chord, as the chain
 asked the chat ahead of its sequences and its global keys declined under
@@ -178,12 +177,26 @@ Under a peek the `g` layer swallows every second key the peek refuses, as
 the chain did. A lone `]`, `[`, `z` or `g` gives up after the chain's
 500 ms chord timeout (`chordTimeoutMs`), as the chain's opener did,
 through one `pendingSequence` listener (`src/app/sequence-expiry.ts`).
-Every layer that gives way to a chord the chain holds counts a pending
-bracket, `z` or `g` sequence as one.
+The mark chords, `m{letter}`, `'{letter}` and `''`, are a fourth layer of
+keymap sequences (`src/app/mark-chord-keys.ts`), registered behind the
+other three, as the chain asked them after everything else that is now a
+layer. Their openers are sequence patterns that take `m` or `'` only
+while the diff has the keys in normal mode with no find or text object
+waiting, never on a key that broke off another sequence, so `]'` opens
+none. The second key is a letter, whose case comes from its spelling and
+whose ctrl and meta are ignored, a `'` after `'`, or any other key, which
+the chord swallows; a key the chat or F12 takes breaks off the chord and
+acts at the re-offer. A mark chord waits as long as it takes, so its
+openers are not among the ones that expire. A pending mark chord whose
+diff has lost the keys, say to a click into the tree, gives way at the
+dispatch entry, before any layer sees the key, so the key reaches the
+tree as one with no chord pending. Every layer that gives way to a chord
+reads the keymap's pending sequence, and the chain holds no chord of its
+own: it toggles the split view and hands the rest to the tree or the
+diff.
 
-**Not built**: the rest of M6 (the mark chords, the diff dispatch, the
-palette reading command entries, and state factories); the file size
-ratchet (P3).
+**Not built**: the rest of M6 (the diff dispatch, the palette reading
+command entries, and the state factories); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

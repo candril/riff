@@ -22,7 +22,6 @@ export interface ChatKeyDeps {
   getVimState: () => VimCursorState
   getSearchState: () => SearchState
   chat: { state: ChatState; input: () => TextareaRenderable | null }
-  clearChainChord: () => void
 }
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
@@ -124,7 +123,6 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
         "toggle",
         "Open or close the chat",
         () => {
-          deps.clearChainChord()
           const state = deps.getState()
           const fromDiff = state.focusedPanel === "diff" && state.viewMode === "diff"
           move(toggleChat)

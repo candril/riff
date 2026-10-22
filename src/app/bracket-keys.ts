@@ -14,11 +14,6 @@ import { chordStrokeToken } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
 import { BRACKET_SEQUENCES, bracketCommands, type BracketDeps } from "./bracket-commands"
 
-export interface BracketKeyDeps extends BracketDeps {
-  /** The chain's own chord, not one the keymap holds: the layer is what holds that. */
-  chain: { chordPending(): boolean }
-}
-
 const SEQUENCES = Object.entries(BRACKET_SEQUENCES).map(([sequence, cmd]) => ({
   opener: sequence[0]!,
   suffix: sequence.slice(1),
@@ -26,13 +21,12 @@ const SEQUENCES = Object.entries(BRACKET_SEQUENCES).map(([sequence, cmd]) => ({
   cmd,
 }))
 
-export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketKeyDeps): () => void {
+export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketDeps): () => void {
   const commands = bracketCommands(deps)
   return riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences; and while the chain holds `m` or
-    // `'`, the key is its second.
-    enabled: () => !riffKeymap.held() && !deps.chain.chordPending(),
+    // came ahead of the chain's sequences.
+    enabled: () => !riffKeymap.held(),
     commands: SEQUENCES.map(({ sequence, cmd }) => ({
       name: `bracket.${cmd}`,
       title: sequence,
