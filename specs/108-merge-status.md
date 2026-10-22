@@ -101,7 +101,9 @@ says whose move it is, this section says why.
   - **Base**: `up to date with <base>`, or `N commits behind <base>`,
     failing when GitHub's merge state is `BEHIND` (the branch must be up
     to date) and a warning otherwise. Before the count arrives: `behind
-    <base>` when `BEHIND`, else a pending `comparing with <base>`.
+    <base>` when `BEHIND`, else a pending `comparing with <base>`. When
+    the compare fails: `behind <base>` when `BEHIND`, else `could not
+    compare with <base>` as info, which leaves the verdict alone.
   - **Queue**, only when the base branch has a merge queue, between Base
     and the blockers:
     - Not queued: `not queued · merging adds it` when the rest of the
@@ -109,7 +111,8 @@ says whose move it is, this section says why.
     - Queued: `#3 of 7 · awaiting checks · ~12m · added by alice 20m
       ago`, with `⧗` in blue (queued, awaiting checks, locked) or green
       (mergeable). The ETA rounds up to minutes (`~1h 5m` past the hour);
-      any part GitHub does not give is left out.
+      any part GitHub does not give is left out. Queued with no entry
+      from GitHub: `queued`, in blue.
     - Unmergeable: failing, `unmergeable`.
     - Removed, while the latest queue event is a removal: failing,
       `removed · <reason>`, GitHub's reason lowercased.
@@ -153,10 +156,11 @@ says whose move it is, this section says why.
 | Required approvals | the larger of `baseRef.branchProtectionRule.requiredApprovingReviewCount` and every ruleset's `PullRequestParameters.requiredApprovingReviewCount` under `baseRef.rules` |
 | Unresolved threads | `reviewThreads.isResolved`, on the root comments |
 | Conflicts | `mergeable`, and `mergeStateStatus` `DIRTY` |
-| Base, behind | `mergeStateStatus` `BEHIND`; the commit count from a compare after the first render |
+| Base, behind | `mergeStateStatus` `BEHIND`; the commit count from a compare on load and refresh |
 | Draft, blocked, auto-merge | `isDraft`, `mergeStateStatus`, `autoMergeRequest` |
 | Whether the base has a queue | `isMergeQueueEnabled` |
 | Queue length | `mergeQueue.entries.totalCount` |
+| Queued | `isInMergeQueue`, or a `mergeQueueEntry` |
 | Place in the queue | `mergeQueueEntry.position` (1-based), `state`, `estimatedTimeToMerge`, `enqueuedAt`, `enqueuer.login` |
 | Removed from the queue | `RemovedFromMergeQueueEvent.reason` through `timelineItems(last: 1)` over the add and remove events |
 
@@ -171,8 +175,9 @@ Everything but the behind count rides in the PR bundle query that riff
 already runs on open and refresh: its measured cost is 54 points with and
 without the new fields, the merge queue's included, and no new query runs
 per poll. The behind count is
-a REST compare made once after the first render, like the stacked-PR check
-([072](./072-stacked-prs.md)), not on the poll.
+a REST compare, and like the stacked-PR check ([072](./072-stacked-prs.md))
+it runs on load and refresh, never on a comment poll: the poll changes only
+comments, so the rebuilt panel keeps the answers it had.
 
 ## Technical Notes
 
@@ -201,9 +206,10 @@ a REST compare made once after the first render, like the stacked-PR check
   `fitSpans` (`src/components/fit-spans.ts`), and `PRInfoSectionHeader`
   (`src/components/PRInfoHeaderViews.tsx`) draws it as one text.
 - `PRInfoPanelClass` recomputes the model when the PR, the comments or the
-  behind count change; `setBehindBy` takes the count from
+  behind count change; `setBehindBy` takes the count, or `"failed"`, from
   `fetchBehindBy` (`src/providers/github/lookups.ts`), which `app.ts`
-  calls once per panel after the first render.
+  calls on load and refresh. A panel rebuilt for a comment poll starts
+  from the count state already holds.
 - `src/components/merge-queue.ts`: `queuePoint(queue, { ready, now })`
   builds the Queue line from `PrInfo.mergeQueue`, which `prInfoOf` reads
   only for an open PR; `mergeStatus` hands it the verdict of the other

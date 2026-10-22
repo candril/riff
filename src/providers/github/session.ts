@@ -270,6 +270,7 @@ function mergeQueueOf(pr: any): PrMergeQueue | null {
           enqueuer: entry.enqueuer?.login ?? null,
         }
       : null,
+    inQueue,
     removal:
       !inQueue && latest?.__typename === "RemovedFromMergeQueueEvent"
         ? { reason: latest.reason ?? "", at: latest.createdAt }

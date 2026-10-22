@@ -110,18 +110,22 @@ export async function fetchStackInfo(
 
 /**
  * How many commits the base has that the PR's head lacks (spec 108). One REST
- * compare, after the first render: the bundle query has no field for it.
+ * compare on load and refresh: the bundle query has no field for it.
  */
 export async function fetchBehindBy(
   owner: string,
   repo: string,
   baseRef: string,
   headSha: string
-): Promise<number | null> {
-  return quiet(
+): Promise<number | "failed"> {
+  // The head is "" until it is known, and a compare against nothing would
+  // only spend a call on an error.
+  if (!headSha) return "failed"
+  const behind = await quiet(
     async () => behindByOf(await $`gh api repos/${owner}/${repo}/compare/${baseRef}...${headSha}`.quiet().json()),
     null
   )
+  return behind ?? "failed"
 }
 
 export function behindByOf(compare: unknown): number | null {

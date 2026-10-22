@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { annotationsOf, behindByOf } from "./lookups"
+import { annotationsOf, behindByOf, fetchBehindBy } from "./lookups"
 
 const raw = (over: Record<string, unknown>) => ({
   path: "src/a.ts",
@@ -77,5 +77,11 @@ describe("behindByOf", () => {
     for (const compare of [null, undefined, {}, { behind_by: "3" }, { behind_by: -1 }, { message: "Not Found" }]) {
       expect(behindByOf(compare)).toBeNull()
     }
+  })
+})
+
+describe("fetchBehindBy", () => {
+  test("fails without asking GitHub while the head is not known", async () => {
+    expect(await fetchBehindBy("o", "r", "main", "")).toBe("failed")
   })
 })

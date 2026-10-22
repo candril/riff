@@ -12,7 +12,7 @@ import type { StackInfo } from "../utils/stack"
 import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { tableRenderer } from "./markdown-tables-in-markdown"
-import { mergeStatus, type MergePoint, type MergeStatus } from "./merge-status-model"
+import { mergeStatus, type BehindBy, type MergePoint, type MergeStatus } from "./merge-status-model"
 import {
   ALL_SECTIONS,
   conversationItems,
@@ -110,8 +110,8 @@ export class PRInfoPanelClass {
   // What this PR is stacked on (spec 072); undefined until it is known.
   private stack: StackInfo | null | undefined = undefined
 
-  // Commits the base has that the head lacks (spec 108); null until known.
-  private behindBy: number | null = null
+  // Commits the base has that the head lacks (spec 108); see BehindBy.
+  private behindBy: BehindBy = null
 
   // Whether the PR can merge, gate by gate (spec 108), from prInfo, the
   // comments and behindBy; recomputed whenever one of them changes.
@@ -762,7 +762,7 @@ export class PRInfoPanelClass {
   }
 
   /** How far the head is behind its base, once the compare has answered. */
-  setBehindBy(behindBy: number | null): void {
+  setBehindBy(behindBy: BehindBy): void {
     if (behindBy === this.behindBy) return
     this.behindBy = behindBy
     this.mergeStatus = this.readMergeStatus()

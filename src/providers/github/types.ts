@@ -51,6 +51,8 @@ export interface PrInfo {
 
 export interface PrMergeQueue {
   entry: PrMergeQueueEntry | null
+  /** GitHub can say the PR is queued and still hand back no entry. */
+  inQueue: boolean
   /** Only while the PR is out of the queue and its latest queue event is a removal. */
   removal: { reason: string; at: string } | null
 }

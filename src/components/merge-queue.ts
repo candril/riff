@@ -36,6 +36,7 @@ export function queuePoint(
       text: parts.filter((part) => part).join(" · "),
     }
   }
+  if (queue.inQueue) return { id: "queue", state: "queued", text: "queued" }
   if (removal) {
     const reason = removal.reason.toLowerCase()
     return { id: "queue", state: "fail", text: reason ? `removed · ${reason}` : "removed" }

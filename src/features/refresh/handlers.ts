@@ -5,7 +5,7 @@
  * reader's position across it (spec 063).
  */
 
-import type { AppState, PRInfoPanelSection } from "../../state"
+import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
 import type { AppMode } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
@@ -34,6 +34,7 @@ import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
 import type { HelpState } from "../help/state"
+import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import {
   capturePosition,
@@ -75,7 +76,7 @@ export interface RefreshContext {
   // in its constructor, so a refresh has to swap the instance). A panel
   // already up hands its folds over; a review that had none, such as a
   // local review just opened onto its PR, starts from `openSections`.
-  recreatePrInfoPanel: (openSections?: ReadonlySet<PRInfoPanelSection>) => void
+  recreatePrInfoPanel: RecreatePrInfoPanel
   saveMarks: (marks: readonly Mark[]) => void
   help: Pick<HelpState, "close">
   // App config (captured from options at init time)

@@ -123,6 +123,26 @@ describe("the merge status", () => {
     expect(fgAt(spans, ...find(lines, "○ Base"))).toEqual(ints(theme.overlay0))
     expect(lines[6]).toEndWith("⚠ mergeable with warnings")
   })
+
+  test("a panel handed the compare's answer before it is drawn never shows it comparing", async () => {
+    const { lines } = await mount({ info: ready(), width: 100, comments: [], mergeStatusOpen: true, prepare: (p) => p.setBehindBy(2) })
+    const frame = lines.join("\n")
+    expect(frame).toContain("2 commits behind main")
+    expect(frame).not.toContain("comparing with")
+  })
+
+  test("a compare that failed says so in blue, and leaves a ready PR ready", async () => {
+    const { lines, spans } = await mount({
+      info: ready(),
+      width: 100,
+      comments: [],
+      mergeStatusOpen: true,
+      prepare: (p) => p.setBehindBy("failed"),
+    })
+    expect(gates(lines)[4]).toBe("    ℹ Base           could not compare with main")
+    expect(fgAt(spans, ...find(lines, "ℹ Base"))).toEqual(ints(theme.blue))
+    expect(lines[6]).toBe("  ▼  Merge status  ✓ ready")
+  })
 })
 
 describe("the checks line", () => {
@@ -299,9 +319,10 @@ describe("the queue line", () => {
       enqueuer: "alice",
       ...over,
     },
+    inQueue: true,
     removal: null,
   })
-  const REMOVED: PrMergeQueue = { entry: null, removal: { reason: "Merge conflicts", at: ago(5) } }
+  const REMOVED: PrMergeQueue = { entry: null, inQueue: false, removal: { reason: "Merge conflicts", at: ago(5) } }
   const folded = (info: PrInfo) =>
     mount({ info, width: 100, comments: [], prepare: (p) => p.setBehindBy(0) })
   const header = (lines: string[]) => lines.find((line) => line.includes("Merge status")) ?? ""
@@ -320,7 +341,7 @@ describe("the queue line", () => {
   })
 
   test("not queued sits dimmed between the base and the blockers, and adds nothing to the header", async () => {
-    const { lines, spans } = await open(ready({ mergeQueue: { entry: null, removal: null } }), 0)
+    const { lines, spans } = await open(ready({ mergeQueue: { entry: null, inQueue: false, removal: null } }), 0)
     expect(lines[6]).toBe("  ▼  Merge status  ✓ ready")
     const at = lines.indexOf("    ✓ Base           up to date with main")
     expect(lines.slice(at + 1, at + 3)).toEqual([
@@ -330,7 +351,7 @@ describe("the queue line", () => {
     expect(fgAt(spans, ...find(lines, "Queue"))).toEqual(ints(theme.overlay0))
     expect(fgAt(spans, ...find(lines, "not queued"))).toEqual(ints(theme.overlay0))
 
-    const closed = await folded(ready({ mergeQueue: { entry: null, removal: null } }))
+    const closed = await folded(ready({ mergeQueue: { entry: null, inQueue: false, removal: null } }))
     expect(header(closed.lines)).toBe("  ▶  Merge status  ✓ ready")
   })
 

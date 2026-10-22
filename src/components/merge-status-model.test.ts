@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { mergeStatus, type MergePoint } from "./merge-status-model"
+import { mergeStatus, type BehindBy, type MergePoint } from "./merge-status-model"
 import type { PrCheck, PrInfo, PrMergeQueue, PrReview } from "../providers/github/types"
 import type { Comment } from "../types"
 import { prInfo } from "../testing/pr-info"
@@ -32,7 +32,7 @@ const thread = (resolved: boolean | undefined, over: Partial<Comment> = {}): Com
   isThreadResolved: resolved, ...over,
 })
 
-const status = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as number | null } = {}) =>
+const status = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as BehindBy } = {}) =>
   mergeStatus({ prInfo: pr, comments, behindBy })
 const point = (pr: PrInfo, id: MergePoint["id"], opts?: Parameters<typeof status>[1]) =>
   status(pr, opts).points.filter((p) => p.id === id).map(({ state, text }) => ({ state, text }))
@@ -214,8 +214,14 @@ describe("base", () => {
     [3, "BEHIND", { state: "fail", text: "3 commits behind main" }],
     [null, "BEHIND", { state: "fail", text: "behind main" }],
     [null, "CLEAN", { state: "pending", text: "comparing with main" }],
-  ] as [number | null, PrInfo["mergeStateStatus"], Omit<MergePoint, "id">][])("%p behind, %s", (behindBy, mergeStateStatus, expected) => {
+    ["failed", "BEHIND", { state: "fail", text: "behind main" }],
+    ["failed", "CLEAN", { state: "info", text: "could not compare with main" }],
+  ] as [BehindBy, PrInfo["mergeStateStatus"], Omit<MergePoint, "id">][])("%p behind, %s", (behindBy, mergeStateStatus, expected) => {
     expect(point(ready({ mergeStateStatus }), "base", { behindBy })).toEqual([expected])
+  })
+
+  test("a compare that failed does not hold an otherwise ready PR", () => {
+    expect(status(ready(), { behindBy: "failed" }).verdictText).toBe("✓ ready")
   })
 })
 
@@ -266,12 +272,13 @@ describe("other blockers", () => {
 
 describe("the queue line", () => {
   const NOW = Date.parse("2026-03-01T12:00:00Z")
-  const IDLE: PrMergeQueue = { entry: null, removal: null }
+  const IDLE: PrMergeQueue = { entry: null, inQueue: false, removal: null }
   const QUEUED: PrMergeQueue = {
     entry: { position: 3, total: 7, state: "AWAITING_CHECKS", etaSeconds: 720, enqueuedAt: null, enqueuer: null },
+    inQueue: true,
     removal: null,
   }
-  const REMOVED: PrMergeQueue = { entry: null, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } }
+  const REMOVED: PrMergeQueue = { entry: null, inQueue: false, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } }
   const withQueue = (mergeQueue: PrMergeQueue | null, over: Partial<PrInfo> = {}) =>
     mergeStatus({ prInfo: ready({ mergeQueue, ...over }), comments: [], behindBy: 0, now: NOW })
 

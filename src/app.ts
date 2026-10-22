@@ -102,6 +102,7 @@ import * as actionMenu from "./features/action-menu"
 import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
+import { commentPollRebuild, rereadsLookups, type PanelRebuild } from "./features/pr-info-panel/rebuild"
 import * as syncPreview from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
@@ -207,8 +208,17 @@ export async function createApp(options: AppOptions = {}) {
     state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
   }
 
-  /** Hooks a panel instance — the first or a replacement — up to the app. */
-  function wirePrInfoPanel(panel: PRInfoPanelClass): void {
+  /**
+   * Hooks a panel instance — the first or a replacement — up to the app. It
+   * starts from the stack and compare state already holds, so a rebuild
+   * never draws them as not yet asked; `reread` asks again.
+   */
+  function wirePrInfoPanel(panel: PRInfoPanelClass, { reread = true }: PanelRebuild = {}): void {
+    // State's null stack is both "not stacked" and "not asked yet", and a
+    // panel keeps the stack line's room until it hears; only a rebuild that
+    // will not ask again has to take the null as an answer.
+    if (state.stack || !reread) panel.setStack(state.stack)
+    panel.setBehindBy(state.behindBy)
     panel.setOnOpenFailingCheck((check) => {
       if (!state.prInfo) return
       const { owner, repo } = state.prInfo
@@ -226,24 +236,38 @@ export async function createApp(options: AppOptions = {}) {
       void saveInfoSections(state.source, open)
     })
     refreshPreviews(panel)
-    void readStack(panel)
-    void readBehindBy(panel)
+    if (!reread) return
+    void readStack()
+    void readBehindBy()
+  }
+
+  /**
+   * What the stack and base lookups compare. An answer lands on whichever
+   * panel is up by then, as long as this still matches: a comment poll can
+   * rebuild the panel while a lookup is out, and that rebuild does not ask
+   * again.
+   */
+  function lookupTarget(): string | null {
+    if (!state.prInfo) return null
+    const { owner, repo, number, baseRef } = state.prInfo
+    return `${owner}/${repo}#${number} ${baseRef}...${currentHeadSha}`
   }
 
   /**
    * Whether this PR is stacked on another, and how that base has moved
-   * since this one branched (spec 072). Three REST calls at most, after the
-   * first render — and a word on opening when the base was rewritten, since
+   * since this one branched (spec 072). Three REST calls at most, on load and
+   * refresh — and a word on opening when the base was rewritten, since
    * that changes what the diff means and is the thing least likely guessed.
    */
-  async function readStack(panel: PRInfoPanelClass): Promise<void> {
+  async function readStack(): Promise<void> {
     if (!state.prInfo) return
     const { owner, repo, baseRef } = state.prInfo
+    const asked = lookupTarget()
     const stack = await fetchStackInfo(owner, repo, baseRef, currentHeadSha)
-    if (prInfoPanel !== panel) return
+    if (lookupTarget() !== asked) return
     const announce = stack?.status === "rewritten" && state.stack?.status !== "rewritten"
     state = { ...state, stack }
-    panel.setStack(stack)
+    prInfoPanel?.setStack(stack)
     if (announce && stack) {
       state = showToast(state, `Stacked on #${stack.basePr.number}, which was rewritten since you branched — rebase`, "info")
       setTimeout(() => { state = clearToast(state); render() }, 5000)
@@ -253,15 +277,16 @@ export async function createApp(options: AppOptions = {}) {
 
   /**
    * How far the head is behind its base, for the merge status's base line
-   * (spec 108). One REST compare after the first render, never on the poll.
+   * (spec 108). One REST compare on load and refresh, never on the poll.
    */
-  async function readBehindBy(panel: PRInfoPanelClass): Promise<void> {
+  async function readBehindBy(): Promise<void> {
     if (!state.prInfo) return
     const { owner, repo, baseRef } = state.prInfo
+    const asked = lookupTarget()
     const behindBy = await fetchBehindBy(owner, repo, baseRef, currentHeadSha)
-    if (prInfoPanel !== panel) return
+    if (lookupTarget() !== asked) return
     state = { ...state, behindBy }
-    panel.setBehindBy(behindBy)
+    prInfoPanel?.setBehindBy(behindBy)
     render()
   }
 
@@ -987,14 +1012,15 @@ export async function createApp(options: AppOptions = {}) {
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     help,
-    recreatePrInfoPanel: (openSections) => {
+    recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
       // from scratch it would drop them back on the description's header.
       const panelPosition = prInfoPanel?.capturePosition()
+      const hadPanel = prInfoPanel !== null
       prInfoPanel?.destroy()
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments, openSections)
-      wirePrInfoPanel(prInfoPanel)
+      wirePrInfoPanel(prInfoPanel, { reread: rereadsLookups(rebuild, { hadPanel }) })
       if (panelPosition) prInfoPanel.restorePosition(panelPosition)
       state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
       // Fresh PR data can carry references riff has never looked up.
@@ -1913,7 +1939,7 @@ export async function createApp(options: AppOptions = {}) {
       render()
       startReferencePrefetch(referenceContext)
     },
-    recreatePrInfoPanel: refreshContext.recreatePrInfoPanel,
+    recreatePrInfoPanel: commentPollRebuild(refreshContext.recreatePrInfoPanel),
     mode,
     prInfo: prInfo ?? null,
     headSha: currentHeadSha,

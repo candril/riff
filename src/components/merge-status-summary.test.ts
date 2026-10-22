@@ -3,7 +3,7 @@ import type { PrCheck, PrInfo, PrMergeQueue, PrReview } from "../providers/githu
 import type { Comment } from "../types"
 import { prInfo } from "../testing/pr-info"
 import { theme } from "../theme"
-import { mergeStatus } from "./merge-status-model"
+import { mergeStatus, type BehindBy } from "./merge-status-model"
 import { mergeHeaderSummary, openMergeSummary } from "./merge-status-summary"
 
 const review = (author: string, state: PrReview["state"]): PrReview => ({
@@ -51,7 +51,7 @@ const openThread: Comment = {
   isThreadResolved: false,
 }
 
-const summary = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as number | null } = {}) =>
+const summary = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as BehindBy } = {}) =>
   mergeHeaderSummary(mergeStatus({ prInfo: pr, comments, behindBy }), pr.checks ?? [])
 const plain = (pr: PrInfo, opts?: Parameters<typeof summary>[1]) => summary(pr, opts).map((s) => s.text).join("")
 
@@ -112,11 +112,17 @@ describe("mergeHeaderSummary", () => {
   test("leaves an info line out: armed auto-merge is no reason", () => {
     expect(summary(ready({ autoMergeMethod: "SQUASH" }))).toEqual([{ text: "✓ ready", fg: theme.green }])
   })
+
+  test("leaves a compare that failed out: riff not knowing is no reason", () => {
+    expect(summary(ready(), { behindBy: "failed" })).toEqual([{ text: "✓ ready", fg: theme.green }])
+    expect(plain(ready(), { behindBy: "failed", comments: [openThread] })).toBe("⚠ mergeable with warnings · 1 unresolved")
+  })
 })
 
 describe("the merge status header with a merge queue", () => {
   const queued = (over: Partial<NonNullable<PrMergeQueue["entry"]>> = {}): PrMergeQueue => ({
     entry: { position: 3, total: 7, state: "AWAITING_CHECKS", etaSeconds: 720, enqueuedAt: null, enqueuer: null, ...over },
+    inQueue: true,
     removal: null,
   })
   const statusOf = (pr: PrInfo) => mergeStatus({ prInfo: pr, comments: [], behindBy: 0 })
@@ -135,7 +141,7 @@ describe("the merge status header with a merge queue", () => {
   })
 
   test("names a removal or an unmergeable entry as what blocks", () => {
-    const removed = ready({ mergeQueue: { entry: null, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } } })
+    const removed = ready({ mergeQueue: { entry: null, inQueue: false, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } } })
     const spans = summary(removed)
     expect(plain(removed)).toBe("✗ blocked · removed from queue")
     expect(spans.at(-1)?.fg).toBe(theme.red)
@@ -144,7 +150,7 @@ describe("the merge status header with a merge queue", () => {
   })
 
   test("not queued adds nothing", () => {
-    const idle: PrMergeQueue = { entry: null, removal: null }
+    const idle: PrMergeQueue = { entry: null, inQueue: false, removal: null }
     expect(summary(ready({ mergeQueue: idle }))).toEqual([{ text: "✓ ready", fg: theme.green }])
     expect(plain(ready({ mergeQueue: idle, isDraft: true }))).toBe("✗ blocked · draft")
   })

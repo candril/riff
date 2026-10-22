@@ -22,6 +22,12 @@ export interface MergePoint {
   text: string
 }
 
+/**
+ * How far the head is behind its base: the compare's answer, `"failed"` once
+ * it was asked and gave none, null until it has been asked.
+ */
+export type BehindBy = number | "failed" | null
+
 export interface MergeStatus {
   verdict: "ready" | "warnings" | "blocked"
   verdictText: "✓ ready" | "⚠ mergeable with warnings" | "✗ blocked"
@@ -55,7 +61,7 @@ export function mergeStatus({
 }: {
   prInfo: PrInfo
   comments: readonly Comment[]
-  behindBy: number | null
+  behindBy: BehindBy
   now?: number
 }): MergeStatus {
   const checks = prInfo.checks ?? []
@@ -198,13 +204,13 @@ function conflictsPoint(prInfo: PrInfo): MergePoint {
   return { id: "conflicts", state: "ok", text: "no conflicts" }
 }
 
-function basePoint(prInfo: PrInfo, behindBy: number | null): MergePoint {
+function basePoint(prInfo: PrInfo, behindBy: BehindBy): MergePoint {
   const base = prInfo.baseRef
   // BEHIND is GitHub saying the branch protection wants the head up to date;
   // without it, being behind is only worth knowing.
   const mustBeCurrent = prInfo.mergeStateStatus === "BEHIND"
   if (behindBy === 0) return { id: "base", state: "ok", text: `up to date with ${base}` }
-  if (behindBy !== null) {
+  if (typeof behindBy === "number") {
     return {
       id: "base",
       state: mustBeCurrent ? "fail" : "warn",
@@ -212,6 +218,9 @@ function basePoint(prInfo: PrInfo, behindBy: number | null): MergePoint {
     }
   }
   if (mustBeCurrent) return { id: "base", state: "fail", text: `behind ${base}` }
+  // Info, not a warning: GitHub has not said the base holds the merge, and a
+  // lookup riff could not make is no reason to hold a ready PR.
+  if (behindBy === "failed") return { id: "base", state: "info", text: `could not compare with ${base}` }
   return { id: "base", state: "pending", text: `comparing with ${base}` }
 }
 

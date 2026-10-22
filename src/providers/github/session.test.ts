@@ -244,6 +244,7 @@ describe("reading the merge queue", () => {
         enqueuedAt: "2026-01-02T00:00:00Z",
         enqueuer: "alice",
       },
+      inQueue: true,
       removal: null,
     })
   })
@@ -266,15 +267,23 @@ describe("reading the merge queue", () => {
   test("reads a removal while it is the latest queue event and the PR is out of the queue", () => {
     expect(prInfoOf(queue(timeline(removal)), "o", "r").mergeQueue).toEqual({
       entry: null,
+      inQueue: false,
       removal: { reason: "Merge conflicts", at: "2026-01-02T00:00:00Z" },
     })
+  })
+
+  test("reads a PR GitHub reports queued without an entry as queued, never removed", () => {
+    expect(
+      prInfoOf(queue({ isInMergeQueue: true, mergeQueueEntry: null, ...timeline(removal) }), "o", "r").mergeQueue
+    ).toEqual({ entry: null, inQueue: true, removal: null })
   })
 
   test("added but not yet entered is neither queued nor removed", () => {
     expect(prInfoOf(queue(timeline({ __typename: "AddedToMergeQueueEvent" })), "o", "r").mergeQueue).toEqual({
       entry: null,
+      inQueue: false,
       removal: null,
     })
-    expect(prInfoOf(queue(), "o", "r").mergeQueue).toEqual({ entry: null, removal: null })
+    expect(prInfoOf(queue(), "o", "r").mergeQueue).toEqual({ entry: null, inQueue: false, removal: null })
   })
 })

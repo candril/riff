@@ -14,8 +14,8 @@ const entry = (over: Partial<PrMergeQueueEntry> = {}): PrMergeQueueEntry => ({
   enqueuer: "alice",
   ...over,
 })
-const queued = (over: Partial<PrMergeQueueEntry> = {}): PrMergeQueue => ({ entry: entry(over), removal: null })
-const IDLE: PrMergeQueue = { entry: null, removal: null }
+const queued = (over: Partial<PrMergeQueueEntry> = {}): PrMergeQueue => ({ entry: entry(over), inQueue: true, removal: null })
+const IDLE: PrMergeQueue = { entry: null, inQueue: false, removal: null }
 
 const point = (queue: PrMergeQueue | null | undefined, ready = true) => queuePoint(queue, { ready, now: NOW })
 
@@ -59,6 +59,10 @@ describe("queuePoint", () => {
     expect(point(queued({ enqueuedAt: null, enqueuer: null }))?.text).toBe("#3 of 7 · awaiting checks · ~12m")
   })
 
+  test("queued without an entry from GitHub still reads queued", () => {
+    expect(point({ entry: null, inQueue: true, removal: null })).toEqual({ id: "queue", state: "queued", text: "queued" })
+  })
+
   test("an entry added this minute was added just now", () => {
     expect(point(queued({ enqueuedAt: ago(0) }))?.text).toEndWith("added by alice just now")
   })
@@ -68,7 +72,7 @@ describe("queuePoint", () => {
   })
 
   test("a removal fails with GitHub's reason, lowercased", () => {
-    const removed = (reason: string): PrMergeQueue => ({ entry: null, removal: { reason, at: ago(5) } })
+    const removed = (reason: string): PrMergeQueue => ({ entry: null, inQueue: false, removal: { reason, at: ago(5) } })
     expect(point(removed("Failed status checks"))).toEqual({
       id: "queue",
       state: "fail",
