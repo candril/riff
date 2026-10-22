@@ -1,24 +1,11 @@
-import { test, expect, afterEach } from "bun:test"
-import { KeyEvent, parseKeypress } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
+import { test, expect } from "bun:test"
+import { parseKeypress } from "@opentui/core"
 import { createInitialState, type AppState } from "../state"
-import { createRiffKeymap } from "./keymap"
-import { composeKeys, type KeyHandler } from "./keys-dispatch"
+import { keymapHarness } from "../testing/keymap-keys"
 import { registerConfirmKeys } from "./confirm-keys"
 
-const disposers: (() => void)[] = []
-afterEach(() => {
-  while (disposers.length) disposers.pop()!()
-})
-
 async function setup() {
-  const rendered = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => rendered.renderer.destroy())
-  const riffKeymap = createRiffKeymap(rendered.renderer)
-  const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => false,
-  })
+  const { riffKeymap, legacyKeys, press } = await keymapHarness()
   const answers: string[] = []
   let state: AppState = {
     ...createInitialState([], [], "local", "local changes"),
@@ -30,8 +17,6 @@ async function setup() {
     },
   }
   registerConfirmKeys(riffKeymap, { getState: () => state })
-  const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => keys(new KeyEvent(parseKeypress(sequence)!))
   const close = () => void (state = { ...state, confirmDialog: null })
   return { answers, legacyKeys, press, close }
 }

@@ -1,25 +1,12 @@
-import { test, expect, afterEach } from "bun:test"
-import { KeyEvent, parseKeypress } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
-import { createRiffKeymap } from "../../app/keymap"
-import { composeKeys, type KeyHandler } from "../../app/keys-dispatch"
+import { test, expect } from "bun:test"
+import { parseKeypress } from "@opentui/core"
+import { keymapHarness } from "../../testing/keymap-keys"
 import { createFlashState } from "../../vim-diff/flash-state"
 import type { FlashHandler } from "../../vim-diff/flash-handler"
 import { registerFlashKeys } from "./keys"
 
-const disposers: (() => void)[] = []
-afterEach(() => {
-  while (disposers.length) disposers.pop()!()
-})
-
 async function setup() {
-  const rendered = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => rendered.renderer.destroy())
-  const riffKeymap = createRiffKeymap(rendered.renderer)
-  const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => false,
-  })
+  const { riffKeymap, legacyKeys, press } = await keymapHarness()
   const flashState = createFlashState()
   const calls: string[] = []
   const handler = {
@@ -28,9 +15,7 @@ async function setup() {
     cancel: () => void calls.push("cancel"),
   } as unknown as FlashHandler
   registerFlashKeys(riffKeymap, { getFlashState: () => flashState, flashHandler: () => handler })
-  const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => keys(new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!))
-  return { flashState, calls, legacyKeys, keys, press }
+  return { flashState, calls, legacyKeys, press }
 }
 
 test("while flash is active a printable key, shifted or not, is typed into the jump", async () => {
@@ -80,10 +65,10 @@ test("while flash is active modified escape, ctrl+c, return and backspace still 
 })
 
 test("while flash is active a key named enter cancels as return does", async () => {
-  const { flashState, calls, legacyKeys, keys } = await setup()
+  const { flashState, calls, legacyKeys, press } = await setup()
   flashState.active = true
 
-  keys(new KeyEvent({ ...parseKeypress("\r")!, name: "enter" }))
+  press("\r", "enter")
 
   expect(calls).toEqual(["cancel"])
   expect(legacyKeys).toEqual([])

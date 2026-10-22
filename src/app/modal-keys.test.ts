@@ -1,27 +1,14 @@
-import { test, expect, afterEach } from "bun:test"
-import { KeyEvent, parseKeypress } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
+import { test, expect } from "bun:test"
+import { parseKeypress } from "@opentui/core"
 import { createInitialState, type AppState } from "../state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { FlashHandler } from "../vim-diff/flash-handler"
-import { createRiffKeymap } from "./keymap"
-import { composeKeys, type KeyHandler } from "./keys-dispatch"
+import { keymapHarness } from "../testing/keymap-keys"
 import { registerModalKeys } from "./keys"
 
-const disposers: (() => void)[] = []
-afterEach(() => {
-  while (disposers.length) disposers.pop()!()
-})
-
 async function setup({ flash = true, palette = false, dialog = true } = {}) {
-  const rendered = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => rendered.renderer.destroy())
-  const riffKeymap = createRiffKeymap(rendered.renderer)
-  const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => false,
-  })
+  const { riffKeymap, legacyKeys, press } = await keymapHarness()
   const calls: string[] = []
   const initial = createInitialState([], [], "local", "local changes")
   let state: AppState = {
@@ -55,9 +42,6 @@ async function setup({ flash = true, palette = false, dialog = true } = {}) {
     getFlashState: () => flashState,
     flashHandler: () => handler,
   })
-  const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) =>
-    keys(new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!))
   return { calls, legacyKeys, press, state: () => state }
 }
 

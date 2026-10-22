@@ -1,18 +1,11 @@
-import { test, expect, afterEach } from "bun:test"
-import { KeyEvent, parseKeypress } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
+import { test, expect } from "bun:test"
+import { parseKeypress } from "@opentui/core"
 import { createInitialState, toggleHelp, type AppState } from "../state"
 import { helpViewport } from "../components/help-sections"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import { registerSyncPreviewKeys } from "../features/sync-preview/keys"
-import { createRiffKeymap } from "./keymap"
-import { composeKeys, type KeyHandler } from "./keys-dispatch"
+import { keymapHarness } from "../testing/keymap-keys"
 import { registerHelpKeys } from "./help-keys"
-
-const disposers: (() => void)[] = []
-afterEach(() => {
-  while (disposers.length) disposers.pop()!()
-})
 
 const ESC = "\x1b"
 const DOWN = "\x1b[B"
@@ -30,18 +23,12 @@ const HYPER_J = "\x1b[106;17u"
 const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: true })!
 
 async function openHelp(rows: number, { syncPreview = false } = {}) {
-  const rendered = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => rendered.renderer.destroy())
-  const riffKeymap = createRiffKeymap(rendered.renderer)
+  let chainChordPending = false
+  const { riffKeymap, legacyKeys, press } = await keymapHarness({ chordPending: () => chainChordPending })
   const initial = toggleHelp(createInitialState([], [], "", ""))
   let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
   let renders = 0
   let height = rows
-  let chainChordPending = false
-  const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => chainChordPending,
-  })
   const deps = {
     getState: () => state,
     setState: (update: (s: AppState) => AppState) => {
@@ -53,8 +40,6 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
   }
   registerHelpKeys(riffKeymap, { ...deps, height: () => height, chainChordPending: () => chainChordPending })
   registerSyncPreviewKeys(riffKeymap, { ...deps, onExecuteSync: () => {} })
-  const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => keys(new KeyEvent(parse(sequence)))
   return {
     press,
     legacyKeys,

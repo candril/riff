@@ -1,19 +1,12 @@
-import { test, expect, afterEach } from "bun:test"
-import { KeyEvent, parseKeypress } from "@opentui/core"
-import { createTestRenderer } from "@opentui/core/testing"
-import { createRiffKeymap } from "../../app/keymap"
-import { composeKeys, type KeyHandler } from "../../app/keys-dispatch"
+import { test, expect } from "bun:test"
+import { parseKeypress } from "@opentui/core"
+import { keymapHarness } from "../../testing/keymap-keys"
 import { createInitialState, openActionMenu, openActionSubmenu, type AppState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { getVisualActionOrder } from "../../components/action-menu-model"
 import type { ActionSubmenu } from "../../actions/types"
 import { paletteMode } from "./palette-mode"
 import { registerActionMenuKeys } from "./keys"
-
-const disposers: (() => void)[] = []
-afterEach(() => {
-  while (disposers.length) disposers.pop()!()
-})
 
 const vim = createCursorState()
 const links = [
@@ -26,13 +19,7 @@ const open = () => openActionMenu(closed())
 const inSubmenu = (submenu: ActionSubmenu) => openActionSubmenu(open(), submenu)
 
 async function setup(initial: AppState) {
-  const rendered = await createTestRenderer({ width: 20, height: 4 })
-  disposers.push(() => rendered.renderer.destroy())
-  const riffKeymap = createRiffKeymap(rendered.renderer)
-  const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), {
-    chordPending: () => false,
-  })
+  const { riffKeymap, legacyKeys, press } = await keymapHarness()
   let state = initial
   const calls: string[] = []
   registerActionMenuKeys(riffKeymap, {
@@ -47,13 +34,7 @@ async function setup(initial: AppState) {
     onToggleReaction: (_, rowId) => void calls.push(`reaction ${rowId}`),
     onLink: (action, link) => void calls.push(`link ${action} ${link.url}`),
   })
-  const keys = composeKeys(riffKeymap, legacy)
-  const press = (sequence: string) => {
-    const key = new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!)
-    keys(key)
-    return key
-  }
-  return { state: () => state, calls, legacyKeys, keys, press }
+  return { state: () => state, calls, legacyKeys, press }
 }
 
 const visualActions = (state: AppState) => {
@@ -224,9 +205,9 @@ test("escape and enter act with shift, ctrl or meta held", async () => {
 })
 
 test("a key named enter runs the selected action as return does", async () => {
-  const { calls, keys } = await setup(open())
+  const { calls, press } = await setup(open())
 
-  keys(new KeyEvent({ ...parseKeypress("\r")!, name: "enter" }))
+  press("\r", "enter")
 
   expect(calls).toEqual(["setState closed", `execute ${visualActions(open())[0]!.id}`])
 })
