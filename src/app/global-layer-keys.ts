@@ -38,7 +38,7 @@ export interface GlobalLayerKeyDeps {
   openCommentsOverlay: (mode: "view") => boolean
   openCommentsPanelForCursor: () => void
   /** The chain these keys sat in, whose pending chord they gave way to. */
-  chain: { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEvent): void }
+  chain: { chordPending(): boolean }
 }
 
 export function registerGlobalKeys(riffKeymap: RiffKeymap, deps: GlobalLayerKeyDeps): () => void {
@@ -57,9 +57,8 @@ export function registerGlobalKeys(riffKeymap: RiffKeymap, deps: GlobalLayerKeyD
         // The keymap folds a name to lower case, so the binding on `q` also
         // takes kitty's capitalised "Q", which the chain's cases never named.
         if (!CASE_NAMES[cmd]!.includes(event.name)) return false
-        // The chain's switch ran only with no chord pending, once the key had settled a mark chord.
-        if (deps.chain.chordPendingAfter(event)) return false
-        deps.chain.settleChord(event)
+        // The chain's switch ran only with no chord pending.
+        if (deps.chain.chordPending()) return false
         return run(event, deps.getState())
       },
     })),

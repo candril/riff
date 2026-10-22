@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { handleInput, type FileTreeInputContext } from "../features/file-tree"
@@ -28,7 +27,7 @@ export function treeInputContext(ctx: GlobalKeyContext): FileTreeInputContext {
 /** What the tree's keys need of the app, and of the chain behind them, the chord it holds. */
 export function treeKeyDeps(
   ctx: GlobalKeyContext,
-  chain: { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEvent): void },
+  chain: { chordPending(): boolean },
 ): TreeKeyDeps {
   return {
     getState: ctx.getState,

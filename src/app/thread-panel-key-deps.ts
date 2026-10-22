@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import type { LinksPicker } from "./links-picker"
 import type { ThreadPanelKeyDeps } from "../features/inline-comment-overlay/view-keys"
@@ -17,17 +16,12 @@ import * as fileNavigation from "../features/file-navigation"
 import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 
-/** What the thread panel's view-mode keys need of the app, and of the chain they sit in front of. */
-export function threadPanelKeyDeps(
-  ctx: GlobalKeyContext,
-  links: LinksPicker,
-  chain: { settleChord(key: KeyEvent): void },
-): ThreadPanelKeyDeps {
+/** What the thread panel's view-mode keys need of the app. */
+export function threadPanelKeyDeps(ctx: GlobalKeyContext, links: LinksPicker): ThreadPanelKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
-    settleChainChord: (key) => chain.settleChord(key),
     searchActive: () => ctx.getSearchState().active,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),

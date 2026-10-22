@@ -14,25 +14,19 @@ import type { SearchState } from "../../vim-diff/search-state"
 export interface SearchKeyDeps {
   searchState: () => SearchState
   searchHandler: () => Pick<SearchHandler, "cancelSearch" | "confirmSearch">
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 export function registerSearchKeys(riffKeymap: RiffKeymap, deps: SearchKeyDeps): () => void {
   // No preventDefault in the rest: everything else is typing, and belongs
   // to the prompt field, Ctrl-w and the rest of the editing keys the widget
   // brings with it included (spec 065).
-  const captured = riffKeymap.capture(
-    () => deps.searchState().active,
-    (key) => deps.settleChainChord(key),
-  )
+  const captured = riffKeymap.capture(() => deps.searchState().active)
   const command = (name: string, title: string, run: () => void) => ({
     name: `search.${name}`,
     title,
     category: "Search",
     palette: false as const,
     run: ({ event }: { event: KeyEvent }) => {
-      deps.settleChainChord(event)
       event.preventDefault()
       run()
     },

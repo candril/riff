@@ -36,8 +36,6 @@ export interface ComposerKeyDeps extends InlineComposerHandlersContext {
   getCommentedLines: () => string[] | null
   /** Hands the draft to $EDITOR, resolving with the edited text, or null if the editor errored. */
   openDraftInEditor: (current: string) => Promise<string | null>
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 type Command = { name: string; title: string; category: string; palette: false; enabled?: () => boolean; run: (ctx: { event: KeyEvent }) => void }
@@ -45,19 +43,13 @@ type Command = { name: string; title: string; category: string; palette: false; 
 export function registerComposerKeys(riffKeymap: RiffKeymap, deps: ComposerKeyDeps): () => void {
   // No preventDefault in the rest: the focused textarea types every key the
   // composer does not bind, and runs only after riff's key handler leaves it.
-  const captured = riffKeymap.capture(
-    () => composerOpen(deps.getState()),
-    (key) => deps.settleChainChord(key),
-  )
+  const captured = riffKeymap.capture(() => composerOpen(deps.getState()))
   const command = (name: string, title: string, run: (event: KeyEvent) => void): Command => ({
     name: `composer.${name}`,
     title,
     category: "Comments",
     palette: false,
-    run: ({ event }) => {
-      deps.settleChainChord(event)
-      run(event)
-    },
+    run: ({ event }) => run(event),
   })
   const prMode = () => deps.getState().appMode === "pr"
 

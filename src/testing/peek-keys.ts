@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { BlamePeekState } from "../features/blame/peek-state"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
@@ -18,24 +17,25 @@ export function peekState(patch: Partial<AppState> = {}): AppState {
 /**
  * Both peeks' layers on a real keymap in front of a recording chain, the
  * blame peek's hand-offs in `calls`. The chain's pending chord is `chord`,
- * which it settles the way it does outside the diff. Call it inside a test.
+ * which the dispatch entry settles the way the chain does outside the
+ * diff. Call it inside a test.
  */
 export async function peekKeys(initial: AppState, options: { height?: number } = {}) {
   let state = initial
   let vim: VimCursorState = createCursorState()
   let chord: string | null = null
-  const harness = await keymapHarness({ chordPending: () => chord !== null })
+  const harness = await keymapHarness({
+    chordPending: () => chord !== null,
+    settle: (key) => {
+      if (pendingMarkChordGivesWay(chord, key, false)) chord = null
+    },
+  })
   const calls: string[] = []
-  const givesWay = (key: KeyEvent) => pendingMarkChordGivesWay(chord, key, false)
-  const settleChainChord = (key: KeyEvent) => {
-    if (givesWay(key)) chord = null
-  }
   const peek = {
     getState: () => state,
     getVimState: () => vim,
     searchActive: () => false,
-    chainChordPending: (key: KeyEvent) => chord !== null && !givesWay(key),
-    settleChainChord,
+    chainChordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {
     ...peek,

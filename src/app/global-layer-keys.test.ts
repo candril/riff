@@ -39,7 +39,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     flashTargets: () => [],
     openCommentsOverlay: () => false,
     openCommentsPanelForCursor: () => void calls.push("threads"),
-    chain: { chordPendingAfter: () => chordPending, settleChord: () => void calls.push("settle") },
+    chain: { chordPending: () => chordPending },
   }
   registerGlobalKeys(harness.riffKeymap, deps)
   return { ...harness, state: () => state, calls }
@@ -105,7 +105,7 @@ test("in the tree, G as kitty names it goes to the bottom without a binding of i
   expect(keys.legacyKeys).toEqual(["g"])
 })
 
-test("while the chain holds a chord every global key is declined, unsettled, for the chain to complete", async () => {
+test("while the chain holds a chord every global key is declined for the chain to complete", async () => {
   const keys = await globalKeys({}, true)
   keys.press("q")
   keys.press(CTRL_P)

@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import type { LinksPicker } from "./links-picker"
 import type { PRInfoPanelKeyDeps } from "../features/pr-info-panel/keys"
@@ -9,17 +8,12 @@ import * as externalTools from "../features/external-tools"
 import * as fileNavigation from "../features/file-navigation"
 import * as prOperations from "../features/pr-operations"
 
-/** What the PR overview's keys need of the app, and of the chain they sit in front of. */
-export function prInfoPanelKeyDeps(
-  ctx: GlobalKeyContext,
-  links: LinksPicker,
-  chain: { settleChord(key: KeyEvent): void },
-): PRInfoPanelKeyDeps {
+/** What the PR overview's keys need of the app. */
+export function prInfoPanelKeyDeps(ctx: GlobalKeyContext, links: LinksPicker): PRInfoPanelKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
-    settleChainChord: (key) => chain.settleChord(key),
     getPanel: ctx.getPrInfoPanel,
     onJumpToFile: (filename) => {
       // Jump to file by filename.

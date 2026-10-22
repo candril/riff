@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import { registerTreeFilterKeys } from "../features/file-tree/filter-keys"
 import { registerSearchKeys } from "../features/search"
 import { pendingMarkChordGivesWay } from "../features/marks"
@@ -14,18 +13,20 @@ export function diffState(patch: Partial<AppState> = {}): AppState {
 /**
  * The search prompt's and the tree filter's layers on a real keymap in
  * front of a recording chain, every hand-off to the app in `calls`. The
- * chain's pending chord is `chord`, which it settles the way it does
- * outside the diff. Call it inside a test.
+ * chain's pending chord is `chord`, which the dispatch entry settles the
+ * way the chain does outside the diff. Call it inside a test.
  */
 export async function promptKeys(initial: AppState) {
   let state = initial
   let search = createSearchState()
   let chord: string | null = null
-  const harness = await keymapHarness({ chordPending: () => chord !== null })
+  const harness = await keymapHarness({
+    chordPending: () => chord !== null,
+    settle: (key) => {
+      if (pendingMarkChordGivesWay(chord, key, false)) chord = null
+    },
+  })
   const calls: string[] = []
-  const settleChainChord = (key: KeyEvent) => {
-    if (pendingMarkChordGivesWay(chord, key, false)) chord = null
-  }
   registerTreeFilterKeys(harness.riffKeymap, {
     getState: () => state,
     setState: (update) => {
@@ -33,7 +34,6 @@ export async function promptKeys(initial: AppState) {
     },
     render() {},
     updatePanel: () => void calls.push("updatePanel"),
-    settleChainChord,
   })
   registerSearchKeys(harness.riffKeymap, {
     searchState: () => search,
@@ -41,7 +41,6 @@ export async function promptKeys(initial: AppState) {
       cancelSearch: () => void calls.push("cancelSearch"),
       confirmSearch: () => void calls.push("confirmSearch"),
     }),
-    settleChainChord,
   })
   return {
     ...harness,

@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import { registerThreadPanelKeys, type ThreadPanelKeyDeps } from "../features/inline-comment-overlay/view-keys"
 import { createInitialState, openInlineCommentOverlay, type AppState } from "../state"
 import type { Comment } from "../types"
@@ -36,14 +35,12 @@ export function panelState(highlightedIndex = 0, patch: Partial<AppState> = {}):
 
 /**
  * The panel's layers on a real keymap in front of a recording chain, with
- * every hand-off to the app recorded in `calls` and each key the layers
- * settled the chain's chord for in `settled`. Call it inside a test.
+ * every hand-off to the app recorded in `calls`. Call it inside a test.
  */
 export async function threadPanelKeys(initial: AppState) {
   const harness = await keymapHarness()
   let state = initial
   const calls: string[] = []
-  const settled: string[] = []
   const record = (entry: string) => () => void calls.push(entry)
   const deps: ThreadPanelKeyDeps = {
     getState: () => state,
@@ -67,14 +64,12 @@ export async function threadPanelKeys(initial: AppState) {
     onOpenLinks: (c, action) => void calls.push(`links ${c.id} ${action}`),
     onToggleHelp: record("help"),
     onReact: record("react"),
-    settleChainChord: (key: KeyEvent) => void settled.push(key.name),
     searchActive: () => false,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {
     ...harness,
     calls,
-    settled,
     unregister,
     state: () => state,
     overlay: () => state.inlineCommentOverlay,

@@ -35,13 +35,8 @@ export interface FeedKeyDeps {
   onOpenEvent: (event: FeedEvent) => void
   /** Open the diff scoped to a commit, at one of its files. */
   onOpenCommitFile: (sha: string, filename: string) => void
-  /**
-   * Whether the chain still holds the first key of a chord once it has
-   * settled its mark chord for `key`, read without settling it.
-   */
-  chainChordPending: (key: KeyEvent) => boolean
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
+  /** Whether the chain holds the first key of a chord, whose second key is the chain's. */
+  chainChordPending: () => boolean
 }
 
 type Key = Pick<KeyEvent, "name" | "sequence" | "shift" | "ctrl" | "meta">
@@ -89,16 +84,7 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
     deps.render()
   }
 
-  // Read, not settled: a capture's `active` is asked before any binding
-  // runs, also for a key a layer outside the captures then takes (F12's
-  // console), and the chain never settled its chord for a key it did not see.
-  const takes = (key: KeyEvent) => feedTakes(deps.getState(), key, deps.chainChordPending(key))
-
-  // The chain settled its mark chord before the feed saw a key.
-  const settled = (key: KeyEvent, run: (key: KeyEvent) => void) => {
-    deps.settleChainChord(key)
-    run(key)
-  }
+  const takes = (key: KeyEvent) => feedTakes(deps.getState(), key, deps.chainChordPending())
 
   const startFilter = (key: KeyEvent) => {
     key.preventDefault()
@@ -109,18 +95,16 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
   // key it is not bound to. Only `/` by its sequence alone (the keypad's)
   // reaches here outside the prompt, since a binding takes every other key
   // the capture holds.
-  const captured = riffKeymap.capture(takes, (key) =>
-    settled(key, () => {
-      if (!feedState().filterInput && isSlash(key)) startFilter(key)
-    }),
-  )
+  const captured = riffKeymap.capture(takes, (key) => {
+    if (!feedState().filterInput && isSlash(key)) startFilter(key)
+  })
 
   const command = (name: string, title: string, run: (event: KeyEvent) => void) => ({
     name: `feed.${name}`,
     title,
     category: "Feed",
     palette: false as const,
-    run: ({ event }: { event: KeyEvent }) => settled(event, run),
+    run: ({ event }: { event: KeyEvent }) => run(event),
   })
   const prevented = (run: () => void) => (event: KeyEvent) => {
     event.preventDefault()

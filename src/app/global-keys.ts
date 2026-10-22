@@ -125,15 +125,14 @@ export interface GlobalKeyContext {
 /**
  * `chordPending` is exposed because the jump recorder judges a chord as one
  * interaction: a place reached by its second key is recorded from where the
- * first key was pressed. `clearChord` and `settleChord` are for the keymap
- * layers that take keys ahead of the chain, since a chord left pending
- * under a key a layer took would swallow the next key.
+ * first key was pressed. `clearChord` is for the keymap layers that take
+ * keys ahead of the chain, since a chord left pending under a key a layer
+ * took would swallow the next key. `settleChord` runs at the dispatch entry
+ * (composeKeys), ahead of every layer.
  */
 export type GlobalKeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & {
   chordPending(): boolean
   clearChord(): void
-  /** Whether a chord is still pending once `key` settles it, without settling it. */
-  chordPendingAfter(key: KeyEvent): boolean
   /** Drops a pending mark chord that `key` gives way to. */
   settleChord(key: KeyEvent): void
 }
@@ -163,8 +162,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
   return Object.assign(handleKeypress, {
     chordPending: () => pendingKey !== null,
-    chordPendingAfter: (key: KeyEvent) =>
-      pendingKey !== null && !marks.pendingMarkChordGivesWay(pendingKey, key, takesMarkChord()),
     clearChord: clearPendingKey,
     settleChord,
   })
@@ -178,8 +175,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   }
 
   function handleKeypress(key: KeyEvent, chordBroken = false) {
-    settleChord(key)
-
     // ========== MARK CHORDS (ma, 'a) ==========
     const chordPending = pendingKey !== null || chordBroken
     if (pendingKey === "m" || pendingKey === "'") {

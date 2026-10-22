@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 import type { GlobalKeyContext } from "./global-keys"
 import type { BlameKeys } from "../features/blame/keys"
@@ -6,7 +5,7 @@ import type { PeekKeyContext } from "./peek-leaves"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 
-type Chain = { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEvent): void }
+type Chain = { chordPending(): boolean }
 
 /**
  * The blame peek and the line peek. The chain asked the blame peek first,
@@ -15,12 +14,11 @@ type Chain = { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEv
  * request.
  */
 export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext, chain: Chain, blame: BlameKeys): () => void {
-  const settleChainChord = (key: KeyEvent) => chain.settleChord(key)
   const peek: PeekKeyContext = {
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     searchActive: () => ctx.getSearchState().active,
-    chainChordPending: (key) => chain.chordPendingAfter(key),
+    chainChordPending: () => chain.chordPending(),
   }
   const unregisterLinePeek = registerLinePeekKeys(riffKeymap, {
     ...peek,
@@ -29,9 +27,8 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext, 
     // The terminal's rows rather than the renderer's height, which parts
     // from them wherever stdout is not a terminal.
     height: () => process.stdout.rows ?? 40,
-    settleChainChord,
   })
-  const unregisterBlamePeek = registerBlamePeekKeys(riffKeymap, { ...peek, blame, settleChainChord })
+  const unregisterBlamePeek = registerBlamePeekKeys(riffKeymap, { ...peek, blame })
   return () => {
     unregisterLinePeek()
     unregisterBlamePeek()

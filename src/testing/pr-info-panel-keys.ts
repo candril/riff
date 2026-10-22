@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { PRInfoPanelClass } from "../components"
 import { registerPrInfoPanelKeys, type PRInfoPanelKeyDeps } from "../features/pr-info-panel/keys"
 import { createInitialState, type AppState, type PRInfoPanelSection } from "../state"
@@ -77,14 +76,12 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
 /**
  * The PR overview's layers on a real keymap in front of a recording chain,
  * with every hand-off to the app and every call on the panel controller in
- * `calls`, and each key the layers settled the chain's chord for in
- * `settled`. Call it inside a test.
+ * `calls`. Call it inside a test.
  */
 export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptions = {}) {
   const harness = await keymapHarness()
   let state = initial
   const calls: string[] = []
-  const settled: string[] = []
   const { panel, controller } = stubPanel(calls, options)
   const record = (entry: string) => (...args: unknown[]) => void calls.push([entry, ...args].join(" "))
   const deps: PRInfoPanelKeyDeps = {
@@ -104,13 +101,11 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     onOpenLinks: record("links"),
     onToggleHelp: record("help"),
     onReact: record("react"),
-    settleChainChord: (key: KeyEvent) => void settled.push(key.name),
   }
   const unregister = registerPrInfoPanelKeys(harness.riffKeymap, deps)
   return {
     ...harness,
     calls,
-    settled,
     panel,
     unregister,
     state: () => state,

@@ -287,15 +287,6 @@ test("the reaction target follows the focus after every key the overview takes, 
   expect(keys.state().reactionTarget).toEqual({ kind: "issue", prNumber: 1259 })
 })
 
-test("the chain's pending chord is settled for every key the overview takes, bound or swallowed", async () => {
-  const keys = await prInfoPanelKeys(overviewState())
-  keys.press("j")
-  keys.press("w")
-  keys.press(CTRL.p)
-  keys.press("s")
-  expect(keys.settled).toEqual(["j", "w"])
-})
-
 test("unregistering leaves every key to the chain", async () => {
   const keys = await prInfoPanelKeys(overviewState())
   keys.press("g")

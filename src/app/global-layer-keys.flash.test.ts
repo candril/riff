@@ -53,7 +53,7 @@ async function keysFor(state: AppState, height: number) {
   const { renderer } = await createTestRenderer({ width: 20, height: 4 })
   disposers.push(() => renderer.destroy())
   const riffKeymap = createRiffKeymap(renderer)
-  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, { chordPendingAfter: () => false, settleChord() {} }))
+  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, { chordPending: () => false }))
   return { offer: (key: KeyEvent) => riffKeymap.offer(key), lists }
 }
 

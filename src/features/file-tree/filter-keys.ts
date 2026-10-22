@@ -18,8 +18,6 @@ export interface TreeFilterKeyDeps {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   updatePanel: () => void
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 export function registerTreeFilterKeys(riffKeymap: RiffKeymap, deps: TreeFilterKeyDeps): () => void {
@@ -28,14 +26,13 @@ export function registerTreeFilterKeys(riffKeymap: RiffKeymap, deps: TreeFilterK
     return state.showFilePanel && state.focusedPanel === "tree" && state.treeFilterInput
   }
   // No preventDefault in the rest: the input types every key not bound here.
-  const captured = riffKeymap.capture(open, (key) => deps.settleChainChord(key))
+  const captured = riffKeymap.capture(open)
   const command = (name: string, title: string, updater: (s: AppState) => AppState) => ({
     name: `treeFilter.${name}`,
     title,
     category: "File tree",
     palette: false as const,
     run: ({ event }: { event: KeyEvent }) => {
-      deps.settleChainChord(event)
       event.preventDefault()
       deps.setState(updater)
       deps.updatePanel()

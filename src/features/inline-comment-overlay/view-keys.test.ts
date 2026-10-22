@@ -364,12 +364,3 @@ describe("the panel's own chords", () => {
     expect(keys.overlay().expandedThreadIds.size).toBe(0)
   })
 })
-
-test("the chain's pending chord is settled for every key the panel takes, bound or swallowed", async () => {
-  const keys = await threadPanelKeys(panelState())
-  keys.press("j")
-  keys.press("a")
-  keys.press(CTRL.s)
-  keys.press("s")
-  expect(keys.settled).toEqual(["j", "a", "s"])
-})

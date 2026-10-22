@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import { switchView } from "../state"
 import { openerCommand } from "./open-link"
@@ -11,14 +10,13 @@ import * as feed from "../features/feed"
  */
 export function feedKeyDeps(
   ctx: GlobalKeyContext,
-  chain: { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEvent): void },
+  chain: { chordPending(): boolean },
 ): feed.FeedKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
-    chainChordPending: (key) => chain.chordPendingAfter(key),
-    settleChainChord: (key) => chain.settleChord(key),
+    chainChordPending: () => chain.chordPending(),
     onOpenEvent: (event) => {
       const target = event.target
       if (!target) return

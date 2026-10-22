@@ -24,11 +24,8 @@ export interface PeekKeyContext {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean
-  /**
-   * Whether the chain still holds the first key of a chord once it has
-   * settled its mark chord for `key`, read without settling it.
-   */
-  chainChordPending: (key: KeyEvent) => boolean
+  /** Whether a chord waits for its second key, which is the chord's rather than the peek's. */
+  chainChordPending: () => boolean
 }
 
 /**
@@ -43,7 +40,7 @@ export interface PeekKeyContext {
 export function peekLeaves(key: KeyEvent, ctx: PeekKeyContext): boolean {
   const state = ctx.getState()
   if (key.name === "g" && !key.ctrl && !key.shift) return true
-  if (ctx.chainChordPending(key)) return true
+  if (ctx.chainChordPending()) return true
   if (ctx.getVimState().pendingTextObject && state.focusedPanel === "diff") return true
   return chatReaches(key, state, ctx.searchActive())
 }

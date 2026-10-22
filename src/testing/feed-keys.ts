@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import { registerFeedKeys, type FeedKeyDeps } from "../features/feed/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
 import { createFeedState, createInitialState, type AppState, type CommitFileSummary } from "../state"
@@ -39,15 +38,19 @@ export function feedState(patch: Partial<AppState["feed"]> = {}): AppState {
 /**
  * The feed's layers on a real keymap in front of a recording chain, every
  * hand-off to the app in `calls`. The chain's pending chord is `chord`, and
- * it settles a mark chord the way the chain does outside the diff, where
- * every key gives way. Call it inside a test.
+ * the dispatch entry settles a mark chord the way the chain does outside
+ * the diff, where every key gives way. Call it inside a test.
  */
 export async function feedKeys(initial: AppState) {
   let state = initial
   let chord: string | null = null
-  const harness = await keymapHarness({ chordPending: () => chord !== null })
+  const harness = await keymapHarness({
+    chordPending: () => chord !== null,
+    settle: (key) => {
+      if (pendingMarkChordGivesWay(chord, key, false)) chord = null
+    },
+  })
   const calls: string[] = []
-  const givesWay = (key: KeyEvent) => pendingMarkChordGivesWay(chord, key, false)
   const deps: FeedKeyDeps = {
     getState: () => state,
     setState: (update) => {
@@ -56,10 +59,7 @@ export async function feedKeys(initial: AppState) {
     render() {},
     onOpenEvent: (event) => void calls.push(`openEvent ${event.id}`),
     onOpenCommitFile: (sha, filename) => void calls.push(`openCommitFile ${sha} ${filename}`),
-    chainChordPending: (key) => chord !== null && !givesWay(key),
-    settleChainChord: (key) => {
-      if (givesWay(key)) chord = null
-    },
+    chainChordPending: () => chord !== null,
   }
   const unregister = registerFeedKeys(harness.riffKeymap, deps)
   return {

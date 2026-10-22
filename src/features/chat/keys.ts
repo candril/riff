@@ -23,8 +23,6 @@ export interface ChatKeyDeps {
   getSearchState: () => SearchState
   chat: { state: ChatState; input: () => TextareaRenderable | null }
   clearChainChord: () => void
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
@@ -59,7 +57,6 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
   // No preventDefault in the rest: the focused textarea types every key the
   // chat does not bind, and runs only after riff's key handler leaves it.
   const captured = riffKeymap.capture(focused, (key) => {
-    deps.settleChainChord(key)
     if (!isNewConversation(key)) chat.state.cancelNewConversation()
   })
   const move = (to: (s: AppState) => AppState) => {
@@ -73,8 +70,7 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     title,
     category: "Chat",
     palette: false,
-    run: ({ event }: { event: KeyEvent }) => {
-      deps.settleChainChord(event)
+    run: () => {
       if (cancels) chat.state.cancelNewConversation()
       run()
     },

@@ -56,8 +56,6 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // holds, which the chain asked as one of its own.
   const chain = {
     chordPending: () => legacy.chordPending() || riffKeymap.chordPending(),
-    chordPendingAfter: (key: KeyEvent) => legacy.chordPendingAfter(key) || riffKeymap.chordPending(),
-    settleChord: (key: KeyEvent) => legacy.settleChord(key),
     clearChord: () => legacy.clearChord(),
   }
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
@@ -98,14 +96,13 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     searchActive: () => ctx.getSearchState().active,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
-    settleChainChord: (key) => chain.settleChord(key),
   })
   registerPeekKeys(riffKeymap, ctx, chain, blame)
-  registerPromptKeys(riffKeymap, ctx, chain)
+  registerPromptKeys(riffKeymap, ctx)
   registerFeedKeys(riffKeymap, feedKeyDeps(ctx, chain))
-  registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, chain))
-  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links, chain))
-  registerComposerKeys(riffKeymap, composerKeyDeps(ctx, chain))
+  registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links))
+  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links))
+  registerComposerKeys(riffKeymap, composerKeyDeps(ctx))
   registerChatKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,
@@ -114,7 +111,6 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getSearchState: ctx.getSearchState,
     chat: ctx.chat,
     clearChainChord: () => chain.clearChord(),
-    settleChainChord: (key) => chain.settleChord(key),
   })
   registerHelpKeys(riffKeymap, {
     getState: ctx.getState,
@@ -143,7 +139,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,
   })
-  return composeKeys(riffKeymap, legacy)
+  return composeKeys(riffKeymap, legacy, legacy.settleChord)
 }
 
 export function registerModalKeys(

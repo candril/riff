@@ -23,8 +23,6 @@ import { createPanelChords } from "./view-chords"
 import * as act from "./view-actions"
 
 export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps {
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
   /** Whether the diff's search prompt is up, under which the chat stands aside. */
   searchActive: () => boolean
 }
@@ -77,7 +75,6 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
       return false
     },
     (key) => {
-      deps.settleChainChord(key)
       if (!inMainView()) return
       // The panel matched `/` and `+` by spelling as well as by name: under
       // kitty Shift-= arrives named "=", and the keypad's keys have names
@@ -101,10 +98,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
     title,
     category: "Comments",
     palette: false as const,
-    run: ({ event }: { event: KeyEvent }) => {
-      deps.settleChainChord(event)
-      run(event)
-    },
+    run: ({ event }: { event: KeyEvent }) => run(event),
   })
   // For a key the panel always checked after its chords: a pending `za` or
   // `g` takes it first.

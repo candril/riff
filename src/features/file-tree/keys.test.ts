@@ -10,7 +10,6 @@ const TREE: Partial<AppState> = { showFilePanel: true, focusedPanel: "tree" }
 async function treeKeys(patch: Partial<AppState> = TREE, { chordPending = false, takes = true } = {}) {
   const state: AppState = { ...createInitialState([], [], "test", ""), ...patch }
   const handled: string[] = []
-  const settled: string[] = []
   const harness = await keymapHarness()
   registerTreeKeys(harness.riffKeymap, {
     getState: () => state,
@@ -18,16 +17,15 @@ async function treeKeys(patch: Partial<AppState> = TREE, { chordPending = false,
       handled.push(key.name)
       return takes
     },
-    chain: { chordPendingAfter: () => chordPending, settleChord: (key) => void settled.push(key.name) },
+    chain: { chordPending: () => chordPending },
   })
-  return { ...harness, handled, settled }
+  return { ...harness, handled }
 }
 
 test("with the tree focused, j goes to the tree and not to the chain", async () => {
   const keys = await treeKeys()
   keys.press("j")
   expect(keys.handled).toEqual(["j"])
-  expect(keys.settled).toEqual(["j"])
   expect(keys.legacyKeys).toEqual([])
 })
 
@@ -40,11 +38,10 @@ test("with focus elsewhere, or the file panel hidden, the key reaches the chain"
   }
 })
 
-test("while the chain holds a chord, the key goes to the chain unsettled", async () => {
+test("while the chain holds a chord, the key goes to the chain", async () => {
   const keys = await treeKeys(TREE, { chordPending: true })
   keys.press("j")
   expect(keys.handled).toEqual([])
-  expect(keys.settled).toEqual([])
   expect(keys.legacyKeys).toEqual(["j"])
 })
 

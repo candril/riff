@@ -6,7 +6,6 @@
  * every other key stops here, bar what peekLeaves hands on.
  */
 
-import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { scrollPeek, toggleLinePeek, togglePeekSide, type AppState } from "../../state"
@@ -17,8 +16,6 @@ export interface LinePeekKeyDeps extends PeekKeyContext {
   render: () => void
   /** The terminal's rows, half of which Ctrl-d and Ctrl-u scroll. */
   height: () => number
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 const STEPS: [string, number, number][] = [
@@ -28,10 +25,7 @@ const STEPS: [string, number, number][] = [
 
 export function registerLinePeekKeys(riffKeymap: RiffKeymap, deps: LinePeekKeyDeps): () => void {
   // Nothing is prevented: the chain never prevented the keys the peek took.
-  const captured = riffKeymap.capture(
-    (key) => deps.getState().showLinePeek && !peekLeaves(key, deps),
-    (key) => deps.settleChainChord(key),
-  )
+  const captured = riffKeymap.capture((key) => deps.getState().showLinePeek && !peekLeaves(key, deps))
   const update = (updater: (s: AppState) => AppState) => {
     deps.setState(updater)
     deps.render()
@@ -42,10 +36,7 @@ export function registerLinePeekKeys(riffKeymap: RiffKeymap, deps: LinePeekKeyDe
     title,
     category: "Peek",
     palette: false as const,
-    run: ({ event }: { event: KeyEvent }) => {
-      deps.settleChainChord(event)
-      run()
-    },
+    run,
   })
   const unregisterLayer = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),

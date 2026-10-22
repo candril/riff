@@ -16,8 +16,6 @@ export interface TextObjectKeyDeps {
   searchActive: () => boolean
   feed: (key: KeyEvent) => void
   render: () => void
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
 }
 
 /**
@@ -40,7 +38,6 @@ export function registerTextObjectKeys(riffKeymap: RiffKeymap, deps: TextObjectK
   return riffKeymap.capture(
     (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive()),
     (key) => {
-      deps.settleChainChord(key)
       deps.feed(key)
       deps.render()
     },

@@ -1,12 +1,11 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import type { ComposerKeyDeps } from "../features/inline-comment-overlay/composer-keys"
 import { buildComposerEditorContext } from "../features/inline-comment-overlay/handlers"
 import * as commentsFeature from "../features/comments"
 import { openTextInEditor } from "../utils/editor/spawn"
 
-/** What the thread panel's composer keys need of the app, and of the chain they sit in front of. */
-export function composerKeyDeps(ctx: GlobalKeyContext, chain: { settleChord(key: KeyEvent): void }): ComposerKeyDeps {
+/** What the thread panel's composer keys need of the app. */
+export function composerKeyDeps(ctx: GlobalKeyContext): ComposerKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
@@ -20,7 +19,6 @@ export function composerKeyDeps(ctx: GlobalKeyContext, chain: { settleChord(key:
     },
     composerSettled: (outcome) => ctx.composerSettled?.(outcome),
     handleSubmit: (comment) => commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
-    settleChainChord: (key) => chain.settleChord(key),
     getCommentedLines: () => {
       // What the comment replaces, read off the diff rows themselves —
       // the file's own text, not the padded display form (spec 076).

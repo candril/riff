@@ -20,10 +20,7 @@ import * as act from "./actions"
 import * as row from "./row-actions"
 import * as comment from "./comment-input"
 
-export interface PRInfoPanelKeyDeps extends act.PRInfoPanelDeps {
-  /** Drops a pending mark chord of the chain's that `key` gives way to. */
-  settleChainChord: (key: KeyEvent) => void
-}
+export type PRInfoPanelKeyDeps = act.PRInfoPanelDeps
 
 /**
  * The keys the panel leaves to the chain in its main view: `q`/`Esc` quit
@@ -86,25 +83,23 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
     }
   }
 
-  // The chain settled its mark chord before the panel saw a key, and the
-  // panel mirrored its focus into the reaction target after every key it
-  // took, for Ctrl+p → React… (spec 042).
-  const settled = (key: KeyEvent, run: (key: KeyEvent) => void) => {
-    deps.settleChainChord(key)
+  // The panel mirrored its focus into the reaction target after every key
+  // it took, for Ctrl+p → React… (spec 042).
+  const synced = (key: KeyEvent, run: (key: KeyEvent) => void) => {
     run(key)
     act.syncReactionTarget(deps)
   }
 
   // No preventDefault in the rest: the filter prompt's field types every
   // key it is not bound to, and the panel never prevented a key it swallowed.
-  const captured = riffKeymap.capture(takes, (key) => settled(key, swallow))
+  const captured = riffKeymap.capture(takes, (key) => synced(key, swallow))
 
   const command = (name: string, title: string, run: (event: KeyEvent) => void) => ({
     name: `prInfoPanel.${name}`,
     title,
     category: "PR",
     palette: false as const,
-    run: ({ event }: { event: KeyEvent }) => settled(event, capitalised(event) ? swallow : run),
+    run: ({ event }: { event: KeyEvent }) => synced(event, capitalised(event) ? swallow : run),
   })
   const prevented = (run: (event: KeyEvent) => void) => (event: KeyEvent) => {
     event.preventDefault()

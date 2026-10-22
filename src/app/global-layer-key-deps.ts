@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import type { GlobalLayerKeyDeps } from "./global-layer-keys"
 import { flashTargets } from "./list-flash"
@@ -11,7 +10,7 @@ import * as folds from "../features/folds"
 /** What the global keys need of the app, and of the chain behind them, the chord it holds. */
 export function globalLayerKeyDeps(
   ctx: GlobalKeyContext,
-  chain: { chordPendingAfter(key: KeyEvent): boolean; settleChord(key: KeyEvent): void },
+  chain: { chordPending(): boolean },
 ): GlobalLayerKeyDeps {
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
   return {
