@@ -88,6 +88,14 @@ export function currentFilePath(ctx: CursorContext): string | null {
   return getCurrentFile(ctx)[0]
 }
 
+/** The path of the file under the cursor, toasted, as nvim's Ctrl-g shows it. */
+export function showFilePath(ctx: CursorContext & Pick<ExternalToolsContext, "setState" | "render">): void {
+  const path = currentFilePath(ctx)
+  if (!path) return
+  ctx.setState((s) => showToast(s, path, "info"))
+  ctx.render()
+}
+
 /**
  * Whether the checkout in front of us is the revision riff is showing.
  *

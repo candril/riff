@@ -12,6 +12,7 @@ import { openInlineCommentOverlay } from "../state"
 import { createComment } from "../types"
 import type { FoldsContext } from "../features/folds"
 import type { BlameDeps } from "../features/blame/keys"
+import { chordTimeoutMs } from "../features/marks/keys"
 import type { SyncPreviewOpenContext } from "../features/sync-preview"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}
@@ -237,7 +238,7 @@ describe("a key that breaks off a g sequence", () => {
     expect(keys.chordPending()).toBe(false)
   })
 
-  test("j reaches the diff through the chain", async () => {
+  test("j reaches the diff once the sequence breaks off", async () => {
     const { type, keys, line } = await gApp()
     keys.jumpTo(0)
     type("g", "j")
@@ -307,8 +308,9 @@ test("a lone g gives up after the chord timeout, so the next g opens a sequence 
   const at = lineOf('  return "hello"', "b.ts")
   keys.jumpTo(at)
   type("g")
+  await Bun.sleep(chordTimeoutMs("g")! - 100)
   expect(keys.chordPending()).toBe(true)
-  expect(await until(() => !keys.chordPending())).toBe(true)
+  expect(await until(() => !keys.chordPending(), 300)).toBe(true)
   type("g")
   expect(keys.chordPending()).toBe(true)
   expect(line()).toBe(at)
@@ -346,6 +348,26 @@ describe("panels with g chords of their own", () => {
     type("l")
     expect(state().showLinePeek).toBe(false)
     expect(state().inlineCommentOverlay.open).toBe(true)
+  })
+
+  test("the thread panel's own gg goes to its first entry", async () => {
+    const { mounted, type, keys, state } = await gApp({
+      threadPanelLayout: () => app!.ctx.threadPanel.layout(),
+      // The highlight brings the diff cursor along, which reads the files.
+      fileNavContext: {
+        getState: () => app!.ctx.getState(),
+        setState: (update: Parameters<AppKeyContext["setState"]>[0]) => app!.ctx.setState(update),
+        createLineMapping: () => {},
+      } as unknown as AppKeyContext["fileNavContext"],
+    })
+    mounted.show({ comments: [createComment("a.ts", 2, "first"), createComment("a.ts", 2, "second")] })
+    mounted.show({ ...openInlineCommentOverlay(state(), "a.ts", 2, "RIGHT", "view"), focusedPanel: "comments" })
+    await mounted.frame()
+    type(SHIFT_G)
+    expect(state().inlineCommentOverlay.highlightedIndex).toBeGreaterThan(0)
+    type("g", "g")
+    expect(state().inlineCommentOverlay.highlightedIndex).toBe(0)
+    expect(keys.chordPending()).toBe(false)
   })
 
   test("the PR overview keeps its g", async () => {

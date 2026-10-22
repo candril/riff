@@ -1201,13 +1201,7 @@ export async function createApp(options: AppOptions = {}) {
   const actionHandlers: actionMenu.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
-    handleShowFilePath: () => {
-      // Like nvim's Ctrl-g, which riff's Ctrl-g was until it became the commit picker.
-      const path = externalTools.currentFilePath(externalToolsContext)
-      if (!path) return
-      state = showToast(state, path, "info")
-      render()
-    },
+    handleShowFilePath: () => externalTools.showFilePath(externalToolsContext),
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),

@@ -35,7 +35,7 @@ function press(name: string) {
   })
 }
 
-test("a key bound in a global layer runs its command and never reaches the chain", async () => {
+test("a key bound in a global layer runs its command and never reaches the leftover", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   const runs: string[] = []
   riffKeymap.keymap.registerLayer({
@@ -50,7 +50,7 @@ test("a key bound in a global layer runs its command and never reaches the chain
   expect(leftKeys).toEqual([])
 })
 
-test("an unbound key reaches the chain exactly once", async () => {
+test("an unbound key reaches the leftover exactly once", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   riffKeymap.keymap.registerLayer({
     commands: [{ name: "test.x", run: () => {} }],
@@ -63,7 +63,7 @@ test("an unbound key reaches the chain exactly once", async () => {
   expect(leftKeys).toEqual(["j"])
 })
 
-test("the first key of a sequence is a pending chord the chain never sees", async () => {
+test("the first key of a sequence is a pending chord the leftover never sees", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   const runs: string[] = []
   riffKeymap.keymap.registerLayer({
@@ -81,7 +81,7 @@ test("the first key of a sequence is a pending chord the chain never sees", asyn
   expect(leftKeys).toEqual([])
 })
 
-test("a key that breaks off a sequence goes to the chain", async () => {
+test("a key that breaks off a sequence goes to the leftover", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   riffKeymap.keymap.registerLayer({
     commands: [{ name: "test.gx", run: () => {} }],
@@ -213,7 +213,7 @@ test("of two layers binding a key the later registered runs, and of two active c
   expect(leftKeys).toEqual([])
 })
 
-test("while a capture is active an unbound key goes to its rest and never reaches the chain", async () => {
+test("while a capture is active an unbound key goes to its rest and never reaches the leftover", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   const rest: string[] = []
   riffKeymap.capture(() => true, (key) => void rest.push(key.name))
@@ -224,7 +224,7 @@ test("while a capture is active an unbound key goes to its rest and never reache
   expect(leftKeys).toEqual([])
 })
 
-test("while a capture is inactive a key reaches the chain exactly once and its rest sees nothing", async () => {
+test("while a capture is inactive a key reaches the leftover exactly once and its rest sees nothing", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   const rest: string[] = []
   riffKeymap.capture(() => false, (key) => void rest.push(key.name))
@@ -235,7 +235,7 @@ test("while a capture is inactive a key reaches the chain exactly once and its r
   expect(leftKeys).toEqual(["j"])
 })
 
-test("a capture that turns down one key lets that key reach the chain and keeps the others", async () => {
+test("a capture that turns down one key lets that key reach the leftover and keeps the others", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   const rest: string[] = []
   riffKeymap.capture((key) => key.name !== "g", (key) => void rest.push(key.name))
@@ -306,7 +306,7 @@ test("a key bound in a layer enabled with the capture runs its command, not the 
   expect(leftKeys).toEqual([])
 })
 
-test("a binding that ends the capture as it runs still keeps its key from the chain", async () => {
+test("a binding that ends the capture as it runs still keeps its key from the leftover", async () => {
   const { riffKeymap, leftKeys, keys } = await setup()
   let open = true
   const rest: string[] = []

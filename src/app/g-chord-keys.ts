@@ -3,8 +3,8 @@
  * layers behind the tree and ahead of the mark chords and the diff. Each
  * second stroke is a chord pattern (chord-stroke.ts), so it matches on the
  * chord suffix, whatever ctrl or meta is held. createAppKeys registers
- * those patterns, once for every sequence layer, and the timeout a lone `g` gives up after
- * (sequence-expiry.ts).
+ * those patterns, once for every sequence layer, and the timeout a lone
+ * `g` gives up after (sequence-expiry.ts).
  */
 
 import type { KeyEvent } from "@opentui/core"

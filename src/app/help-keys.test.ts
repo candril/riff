@@ -132,7 +132,7 @@ test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; 
   expect([help.open(), help.scroll()]).toEqual([true, 0])
 })
 
-test("while the chain holds a chord the help stands aside, so q and ? reach the chain", async () => {
+test("while a chord is pending the help stands aside, so q and ? reach the leftover", async () => {
   const help = await openHelp(40)
   help.holdChord()
   help.press("q")

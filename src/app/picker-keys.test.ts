@@ -203,7 +203,7 @@ for (const picker of PICKERS) {
       expect(leftKeys).toEqual([])
     })
 
-    test("a bare p, n or any other key is left for the field and kept from the chain", async () => {
+    test("a bare p, n or any other key is left for the field and kept from the leftover", async () => {
       const { state, calls, leftKeys, press } = await setup(picker.open(closed()))
       for (const sequence of ["p", "n", "x", "g", "j", BACKSPACE]) {
         expect(press(sequence).defaultPrevented).toBe(false)
@@ -249,7 +249,7 @@ test("ctrl+x and ctrl+g are left for the field in the pickers that do not bind t
   expect(leftKeys).toEqual([])
 })
 
-test("with every picker closed their keys reach the chain", async () => {
+test("with every picker closed their keys reach the leftover", async () => {
   const { leftKeys, press } = await setup(closed())
   for (const sequence of [ESC, "\r", UP, DOWN, CTRL_P, CTRL_N, "p", "x", CTRL_X, CTRL_G]) press(sequence)
   press("\r", "enter")

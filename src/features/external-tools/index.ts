@@ -16,5 +16,6 @@ export {
   handleOpenExternalDiff,
   handleCheckoutAndEdit,
   currentFilePath,
+  showFilePath,
   type ExternalToolsContext,
 } from "./handlers"

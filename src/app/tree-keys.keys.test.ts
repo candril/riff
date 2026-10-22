@@ -81,11 +81,17 @@ test("g then j, a chord broken off, still moves the highlight down", async () =>
   expect(state().treeHighlightIndex).toBe(1)
 })
 
-test("a plain slash and the keypad's slash both start the tree filter", async () => {
+test("a plain slash and the keypad's slash both start the tree filter, through the tree's layer", async () => {
   for (const slash of ["/", KEYPAD_SLASH]) {
-    const { mounted, state } = await treeApp()
+    const { mounted, keys, state } = await treeApp()
+    // The leftover opens the filter on any key spelled "/" too, so the
+    // filter opening alone would not show the layer took the keypad's.
+    const ran: string[] = []
+    keys.keymap.on("dispatch", (event) => {
+      if (event.phase === "binding-execute" && typeof event.command === "string") ran.push(event.command)
+    })
     mounted.setup.renderer.keyInput.emit("keypress", new KeyEvent(parseKeypress(slash, { useKittyKeyboard: true })!))
-    expect({ slash, filtering: state().treeFilterInput }).toEqual({ slash, filtering: true })
+    expect({ slash, filtering: state().treeFilterInput, ran }).toEqual({ slash, filtering: true, ran: ["tree.key"] })
     await app!.dispose()
     app = null
   }

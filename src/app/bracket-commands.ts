@@ -20,6 +20,9 @@ export interface BracketDeps {
   diffTakesMarkChord: () => boolean
 }
 
+// Both spellings of a shifted letter are accepted because terminals differ
+// in whether shift+letter reports the key name as lower- or uppercase. The
+// first spelling of a command is the one its hint shows.
 export const BRACKET_SEQUENCES = {
   "]f": "nextFile",
   "[f": "prevFile",
@@ -32,7 +35,9 @@ export const BRACKET_SEQUENCES = {
   "]n": "nextNewThread",
   "[n": "prevNewThread",
   "]R!": "nextThreadAny",
+  "]r!": "nextThreadAny",
   "[R!": "prevThreadAny",
+  "[r!": "prevThreadAny",
   "]g": "nextCommit",
   "[g": "prevCommit",
   "]m": "nextMark",

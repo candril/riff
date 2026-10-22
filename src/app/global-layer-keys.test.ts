@@ -54,7 +54,7 @@ test("Ctrl-f opens the file picker and prevents the key, so the picker's field d
   expect(keys.leftKeys).toEqual([])
 })
 
-test("Ctrl-f with no files is declined, unprevented, and reaches the chain", async () => {
+test("Ctrl-f with no files is declined, unprevented, and reaches the leftover", async () => {
   const keys = await globalKeys()
   const key = keys.press(CTRL_F)
   expect(keys.state().filePicker.open).toBe(false)
@@ -81,14 +81,14 @@ test("q and Shift-q quit, and the key is left unprevented as the chain left it",
   expect(keys.leftKeys).toEqual([])
 })
 
-test("a capitalised Q, which no case of the chain named, reaches the chain rather than quitting", async () => {
+test("a key named Q that reports no shift reaches the leftover rather than quitting", async () => {
   const keys = await globalKeys()
   keys.press("q", "Q")
   expect(keys.calls).not.toContain("quit")
   expect(keys.leftKeys).toEqual(["Q"])
 })
 
-test("Shift-c and Shift-e hand the line to $EDITOR, and a bare c reaches the chain", async () => {
+test("Shift-c and Shift-e hand the line to $EDITOR, and a bare c reaches the leftover", async () => {
   const keys = await globalKeys()
   keys.press("C")
   keys.press("E")
@@ -106,7 +106,7 @@ test("in the tree, G as kitty names it goes to the bottom without a binding of i
   expect(keys.leftKeys).toEqual(["g"])
 })
 
-test("while the chain holds a chord every global key is declined for the chain to complete", async () => {
+test("while a chord is pending every global key is declined, so the chord can complete", async () => {
   const keys = await globalKeys({}, true)
   keys.press("q")
   keys.press(CTRL_P)

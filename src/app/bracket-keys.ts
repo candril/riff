@@ -12,14 +12,17 @@ import type { RiffKeymap } from "./keymap"
 import { anyModifiers } from "./key-variants"
 import { chordStrokeToken, spelledChord } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
-import { BRACKET_SEQUENCES, bracketCommands, type BracketDeps } from "./bracket-commands"
+import { BRACKET_SEQUENCES, bracketCommands, type BracketCommand, type BracketDeps } from "./bracket-commands"
 
 const SEQUENCES = Object.entries(BRACKET_SEQUENCES).map(([sequence, cmd]) => ({
   opener: sequence[0]!,
   suffix: sequence.slice(1),
-  sequence,
   cmd,
 }))
+
+/** Each command once, by its first spelling, which its hint shows. */
+const COMMANDS = new Map<BracketCommand, string>()
+for (const [sequence, cmd] of Object.entries(BRACKET_SEQUENCES)) if (!COMMANDS.has(cmd)) COMMANDS.set(cmd, sequence)
 
 export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketDeps): () => void {
   const commands = bracketCommands(deps)
@@ -27,7 +30,7 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketDeps): 
     // Under a capture no sequence starts or continues: every modal outranks
     // the sequences.
     enabled: () => !riffKeymap.held(),
-    commands: SEQUENCES.map(({ sequence, cmd }) => ({
+    commands: [...COMMANDS].map(([cmd, sequence]) => ({
       name: `bracket.${cmd}`,
       title: sequence,
       keys: spelledChord(sequence),

@@ -166,7 +166,8 @@ binding on `z` would also take a key named `Z`.
 Each second stroke is a sequence pattern that matches on the suffix the
 chain spelled (`src/app/chord-stroke.ts`), so ctrl and meta are ignored
 and shift is not, and a capital is told from its lower-case letter, so
-both spellings of a shifted chord stay; a key the chat reaches completes
+both spellings of a shifted chord stay, `]R` and `[R` taking both as
+the `z` chords do; a key the chat reaches completes
 no sequence; it breaks off the pending one and acts at the re-offer, so
 Ctrl-r after `]` opens the chat rather than reading as `]r`.
 The patterns are registered once for every layer. Each layer stands

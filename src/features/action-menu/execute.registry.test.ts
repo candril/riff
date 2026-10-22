@@ -7,6 +7,7 @@ import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { mountApp } from "../../testing/app-render"
 import { keysOn } from "../../testing/chat-keys"
+import { spelledStrokes } from "../../app/spelled-keys"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -67,6 +68,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
 test("every action the palette offers is handled, by a case of its own or by the command its key runs", async () => {
   const unhandled: string[] = []
   const throughCommand: string[] = []
+  const unspelled: string[] = []
   for (const action of actions) {
     const { ctx, commands } = recordingContext()
     if (!(await executeAction(action.id, ctx))) unhandled.push(action.id)
@@ -76,8 +78,12 @@ test("every action the palette offers is handled, by a case of its own or by the
       id: action.id,
       commands: [[action.command!, actionKeys(action, commandKeys)!]],
     })
+    // The stub takes any key, but the real runner presses the strokes the
+    // hint spells, and a hint that does not parse leaves it none to press.
+    if (spelledStrokes(actionKeys(action, commandKeys)!) === null) unspelled.push(action.id)
   }
   expect(unhandled).toEqual([])
+  expect(unspelled).toEqual([])
   expect(throughCommand).toEqual(
     expect.arrayContaining(["next-file", "jump-back", "toggle-fold", "search-diff", "visual-select", "focus-tree", "follow-link"]),
   )

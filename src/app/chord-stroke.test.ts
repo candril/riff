@@ -97,7 +97,7 @@ describe("a chord stroke in a keymap sequence", () => {
     expect(leftKeys).toEqual([])
   })
 
-  test("ends on no key asked first, which goes to the chain as the chord's second key", async () => {
+  test("ends on no key asked first, which goes to the leftover as the chord's second key", async () => {
     const { press, runs, leftKeys, brokenKeys, chordPending } = await bracketF(undefined, (key) => key.ctrl)
     press("]")
     press("\x06")

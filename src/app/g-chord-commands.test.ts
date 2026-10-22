@@ -4,8 +4,8 @@ import { G_SEQUENCES, gChordCommands, type GChordDeps } from "./g-chord-commands
 import { createInitialState, type AppState } from "../state"
 import { createComment } from "../types"
 
-// Every spelling the chain's g branch matched, and what it ran.
-const CHAIN = {
+// Every spelling a g chord accepts, and the command it runs.
+const G_SPELLINGS = {
   "gS!": "openReviewPreview",
   "gs!": "openReviewPreview",
   gs: "openSyncPreview",
@@ -45,8 +45,8 @@ const CHAIN = {
 const PR_INFO = { owner: "o", repo: "r", number: 7 } as AppState["prInfo"]
 
 describe("G_SEQUENCES", () => {
-  test("maps every spelling the chain matched to the command it ran", () => {
-    expect(G_SEQUENCES).toEqual(CHAIN)
+  test("maps every spelling a g chord accepts to the command it runs", () => {
+    expect(G_SEQUENCES).toEqual(G_SPELLINGS)
   })
 
   test("maps both spellings of a shifted letter to one command", () => {

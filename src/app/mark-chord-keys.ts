@@ -1,10 +1,9 @@
 /**
  * The mark chords (spec 101) as keymap sequences: `m{letter}` sets a mark,
  * `'{letter}` jumps to one and `''` flips back. The layer registers behind
- * every other one but the diff's, the bracket, `z` and `g` layers
- * included.
- * A mark chord waits as long as it takes (chordTimeoutMs), so its openers
- * are not among the ones sequence-expiry.ts gives up on.
+ * the bracket, `z` and `g` layers and ahead of F12's app layer and the
+ * diff. A mark chord waits as long as it takes (chordTimeoutMs), so its
+ * openers are not among the ones sequence-expiry.ts gives up on.
  */
 
 import type { KeyEvent } from "@opentui/core"

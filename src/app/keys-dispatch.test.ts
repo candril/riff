@@ -28,7 +28,7 @@ test("a layer binding Ctrl-r takes the key that broke off a pending sequence", a
   expect(chordPending()).toBe(false)
 })
 
-test("a layer that gives way to a chord declines that key, which reaches the chain as a chord's second key", async () => {
+test("a layer that gives way to a chord declines that key, which reaches the leftover as a chord's second key", async () => {
   const { riffKeymap, press, leftKeys, brokenKeys, chordPending } = await bracketF()
   const runs: string[] = []
   // Declining in run, as the global layer does: an `enabled` that asks the
@@ -55,7 +55,7 @@ test("a layer that gives way to a chord declines that key, which reaches the cha
   expect(chordPending()).toBe(false)
 })
 
-test("a key nothing takes reaches the chain once, as a chord's second key", async () => {
+test("a key nothing takes reaches the leftover once, as a chord's second key", async () => {
   const { press, leftKeys, brokenKeys, chordPending } = await bracketF()
 
   press("]")

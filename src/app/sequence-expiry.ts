@@ -3,12 +3,11 @@ import { chordTimeoutMs } from "../features/marks"
 
 /**
  * A lone opener of one of `openers` gives up after chordTimeoutMs:
- * otherwise a stray `]` or `z` would hold the next
- * key however long it came, keeping the split toggle, a find and every
- * capture that stands aside for a chord from that key. One listener serves
- * every sequence layer, since each pending sequence replaces the last and
- * a listener per layer would disarm the other's timer. Returns the
- * unregister.
+ * otherwise a stray `]` or `z` would hold the next key however long it
+ * came, keeping the split toggle, a find and every capture that stands
+ * aside for a chord from that key. One listener serves every sequence
+ * layer, since each pending sequence replaces the last and a listener per
+ * layer would disarm the other's timer. Returns the unregister.
  */
 export function expireSequenceOpeners(riffKeymap: RiffKeymap, openers: readonly string[]): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null

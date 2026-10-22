@@ -5,10 +5,9 @@ type Stroke = Pick<KeyEvent, "name" | "sequence" | "shift">
 
 /**
  * What a chord's second key adds to its opener in the chord's spelling
- * (`]f`, `zA!`, `g?`): the key's name,
- * or a lone character the parser left unnamed, with "!" for shift. Ctrl,
- * meta, super and hyper are ignored, which is why `]` then Ctrl-f still
- * steps a file.
+ * (`]f`, `zA!`, `g?`): the key's name, or a lone character the parser
+ * left unnamed, with "!" for shift. Ctrl, meta, super and hyper are
+ * ignored, which is why `]` then Ctrl-f still steps a file.
  */
 export function chordSuffix(key: Stroke): string {
   const name = key.name || (key.sequence?.length === 1 ? key.sequence : "")

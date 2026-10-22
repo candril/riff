@@ -17,9 +17,9 @@ index 1111111..2222222 100644
 `
 
 /**
- * `]R` and `[R` are bound to the shifted R a terminal reports by the name
- * "R", as kitty's `\x1b[82;2u` does, and not to a shifted "r" the way the
- * g and z chords bind both spellings. Their hints are typed that way.
+ * `]R` and `[R`, typed the way kitty reports a shifted R, by the name "R"
+ * (`\x1b[82;2u`); the mock's parser alone would send the shifted "r" a
+ * legacy terminal reports, which the tests below type.
  */
 const TYPED_AS_KITTY: Record<string, string> = {
   "bracket.nextThreadAny": "\x1b[82;2u",
@@ -120,6 +120,15 @@ test.each(COMMAND_KEYS)("%s: its hint %p, typed, runs it", async (command, spell
   // A command that draws again on the next tick, as Ctrl-b does, draws before the app goes.
   await mounted.frame()
 })
+
+test.each(["bracket.nextThreadAny", "bracket.prevThreadAny"])(
+  "%s runs on a shifted r as a legacy terminal reports it, by the name \"r\"",
+  async (command) => {
+    const { mounted, ran } = await typedOn(command)
+    await mounted.setup.mockInput.typeText(command === "bracket.nextThreadAny" ? "]R" : "[R")
+    expect(ran.at(-1)).toBe(command)
+  },
+)
 
 test("the strokes the palette runs a command on are the ones a terminal sends for its hint", () => {
   const strokes = (keys: string) =>

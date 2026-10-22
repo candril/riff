@@ -299,7 +299,7 @@ test("mz sets mark z, the mark chord keeping the key", async () => {
   expect(keys.chordPending()).toBe(false)
 })
 
-test("shift+z and a key named Z open no z sequence and reach the chain", async () => {
+test("shift+z and a key named Z open no z sequence and reach the leftover", async () => {
   const harness = await keymapHarness()
   const ran: string[] = []
   registerChordStrokes(harness.riffKeymap.keymap, sequenceSuffixes(Z_SEQUENCES))
