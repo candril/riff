@@ -2,7 +2,7 @@ import { test, expect, describe, afterEach } from "bun:test"
 import type { Mark } from "../features/marks/types"
 import { followMarks } from "../features/marks/follow"
 import { markAt } from "../features/marks/capture"
-import { createMarksState } from "../features/marks/types"
+import { emptyMarks } from "../features/marks/types"
 import { deleteMark, setMark } from "../features/marks/store"
 import { markSitsAt } from "../features/marks/toggle"
 import { parseDiff } from "../utils/diff-parser"
@@ -75,7 +75,7 @@ describe("a mark on a context line", () => {
   test("m{letter} again on its row in its own pane blanks the letter's cell and leaves the code where it was", async () => {
     const before = await rowsWith({ raw: TWO_FILES })
     const mapping = mounted!.mapping
-    const marked = setMark(createMarksState(), markAt(mapping, 1, "a", "left")!)
+    const marked = setMark(emptyMarks(), markAt(mapping, 1, "a", "left")!)
     await mounted!.dispose()
     const shown = (await rowsWith({ raw: TWO_FILES, marks: [...marked.marks] }))[1]!
     expect(shown[LEFT_LETTER]).toBe("a")

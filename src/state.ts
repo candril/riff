@@ -7,7 +7,7 @@ import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import type { IgnoreMatcher } from "./utils/ignore"
-import { createMarksState, type MarksState } from "./features/marks/types"
+import { emptyMarks, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -578,7 +578,7 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     reactionTarget: null,
-    marks: createMarksState(),
+    marks: emptyMarks(),
   }
 }
 

@@ -2,7 +2,7 @@ import { test, expect, describe } from "bun:test"
 import type { DiffFile } from "../../utils/diff-parser"
 import { markEntries, markLineText, filterMarkEntries, marksPickerEntries } from "./list"
 import { setMark } from "./store"
-import { createMarksState, type Mark } from "./types"
+import { emptyMarks, type Mark } from "./types"
 
 const file: DiffFile = {
   filename: "src/app.ts",
@@ -64,7 +64,7 @@ describe("a mark's line text", () => {
 
 describe("the mark list", () => {
   const marks = [mark(11, "RIGHT", "b"), mark(null, "RIGHT", "A", "docs/readme.md"), mark(41, "RIGHT", "a")]
-    .reduce(setMark, createMarksState())
+    .reduce(setMark, emptyMarks())
   const entries = markEntries(marks, [file])
 
   test("is in letter order, lowercase first", () => {

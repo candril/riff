@@ -10,7 +10,7 @@
  */
 
 export type { Mark, LineAnchor, MarksState } from "./types"
-export { createMarksState } from "./types"
+export { emptyMarks } from "./types"
 export {
   isMarkLetter,
   setMark,
@@ -27,5 +27,6 @@ export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } 
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 export { markEntries, markLineText, markEntryLocation, filterMarkEntries, marksPickerEntries, type MarkEntry } from "./list"
+export { createMarksState, type GlobalMarksState } from "./state"
 export { createMarksPickerState, type MarksPickerState, type MarksPickerSnapshot } from "./picker-state"
 export { registerMarksPickerKeys, type MarksPickerKeyDeps } from "./picker-keys"

@@ -27,7 +27,7 @@ import { loadOrCreateSession } from "../storage/session"
 import { loadComments } from "../storage/comments"
 import { loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage/caches"
 import { loadInfoSections } from "../storage/info-sections"
-import { createMarksState } from "../features/marks"
+import { emptyMarks } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
 import type { ViewerViewedState } from "../providers/github/viewed"
@@ -152,7 +152,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     alignMarkdownTables: config.diff.alignMarkdownTables,
     threadPanelOpenOnly: panelFilters.openThreadsOnly,
     treeUnviewedOnly: panelFilters.unviewedFilesOnly,
-    marks: { ...createMarksState(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
+    marks: { ...emptyMarks(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
   }
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,

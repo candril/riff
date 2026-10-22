@@ -27,6 +27,6 @@ export interface MarksState {
   previous: string | null
 }
 
-export function createMarksState(): MarksState {
+export function emptyMarks(): MarksState {
   return { marks: [], current: null, previous: null }
 }

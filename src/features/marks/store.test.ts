@@ -8,11 +8,11 @@ import {
   marksInOrder,
   stepMark,
 } from "./store"
-import { createMarksState, type Mark, type MarksState } from "./types"
+import { emptyMarks, type Mark, type MarksState } from "./types"
 
 const at = (letter: string, line = 1, filename = "src/x.ts"): Mark => ({ letter, filename, line, side: "RIGHT" })
 const withMarks = (...letters: string[]): MarksState =>
-  letters.reduce((state, letter) => setMark(state, at(letter)), createMarksState())
+  letters.reduce((state, letter) => setMark(state, at(letter)), emptyMarks())
 
 describe("the marks", () => {
   test("take only a single ASCII letter", () => {
@@ -21,7 +21,7 @@ describe("the marks", () => {
   })
 
   test("setting a letter again moves it", () => {
-    const state = setMark(setMark(createMarksState(), at("a", 3)), at("a", 9, "src/y.ts"))
+    const state = setMark(setMark(emptyMarks(), at("a", 3)), at("a", 9, "src/y.ts"))
     expect(state.marks).toEqual([at("a", 9, "src/y.ts")])
   })
 
@@ -79,6 +79,6 @@ describe("stepping through the marks", () => {
   })
 
   test("has nothing to step to without marks", () => {
-    expect(stepMark(createMarksState(), 1)).toBeNull()
+    expect(stepMark(emptyMarks(), 1)).toBeNull()
   })
 })
