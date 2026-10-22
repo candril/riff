@@ -18,6 +18,7 @@ import { composerKeyDeps } from "./composer-key-deps"
 import { threadPanelKeyDeps } from "./thread-panel-key-deps"
 import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 import { feedKeyDeps } from "./feed-key-deps"
+import { registerPromptKeys } from "./prompt-keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
@@ -35,11 +36,13 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // later registration wins: flash, the dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
-  // modes, the PR overview and, last of them, the activity feed. The
-  // composer never competes with the chat, which stands aside while it is
-  // open, view mode and compose mode are never active together, and nor
-  // are the overview and the feed, which are views of their own.
+  // modes, the PR overview, the activity feed and, last of them, the
+  // search and tree filter prompts. The composer never competes with the
+  // chat, which stands aside while it is open, view mode and compose mode
+  // are never active together, and nor are the overview and the feed,
+  // which are views of their own.
   const links = createLinksPicker(ctx)
+  registerPromptKeys(riffKeymap, ctx, legacy)
   registerFeedKeys(riffKeymap, feedKeyDeps(ctx, legacy))
   registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, legacy))
   registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links, legacy))

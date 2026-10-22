@@ -1,8 +1,8 @@
 /**
  * Search Feature
  *
- * Provides the search prompt input handling.
+ * Provides the search prompt's keys.
  * The actual search logic is in vim-diff/search-handler.
  */
 
-export { handleInput, type SearchInputContext } from "./input"
+export { registerSearchKeys, type SearchKeyDeps } from "./keys"

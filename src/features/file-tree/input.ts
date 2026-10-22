@@ -11,7 +11,6 @@ import { treeRowsOf } from "../../components"
 import {
   startTreeFilter,
   setTreeFilter,
-  commitTreeFilter,
   clearTreeFilter,
   moveTreeHighlight,
   updateFileTree,
@@ -59,11 +58,6 @@ export function handleInput(
 
   const flatItems = treeRowsOf(ctx.state)
   const panel = ctx.getPanel()
-
-  // The filter prompt owns every key while it is open.
-  if (ctx.state.treeFilterInput) {
-    return handleFilterInput(key, ctx)
-  }
 
   // `/` filters the tree by path, the same key that searches the diff.
   if (key.name === "/" || key.sequence === "/") {
@@ -296,34 +290,4 @@ export function handleInput(
   }
 
   return false
-}
-
-/**
- * Keys while the `/` prompt is open.
- *
- * Only the two that mean something to riff are taken: Enter keeps the filter
- * and hands navigation back, Escape drops it. Everything else is left to the
- * focused `InputRenderable` — that is where Ctrl-w, word jumps, paste, undo
- * and selection come from. Returning true short-circuits riff's own handler
- * chain without `preventDefault`, so the input still sees the key (the same
- * arrangement the comment composer uses).
- */
-function handleFilterInput(key: KeyEvent, ctx: FileTreeInputContext): boolean {
-  const done = (updater: (s: AppState) => AppState): boolean => {
-    key.preventDefault()
-    ctx.setState(updater)
-    ctx.updatePanel()
-    ctx.render()
-    return true
-  }
-
-  if (key.name === "escape") return done(clearTreeFilter)
-  if (key.name === "return" || key.name === "enter") return done(commitTreeFilter)
-
-  // Backspace on an empty query closes the prompt the way it opened.
-  if (key.name === "backspace" && ctx.state.treeFilter.length === 0) {
-    return done(commitTreeFilter)
-  }
-
-  return true
 }

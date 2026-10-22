@@ -40,7 +40,6 @@ import * as occurrencePicker from "../features/occurrence-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
-import * as search from "../features/search"
 import * as feed from "../features/feed"
 import * as fileTreeFeature from "../features/file-tree"
 import * as diffView from "../features/diff-view"
@@ -473,11 +472,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
 
-    // ========== SEARCH INPUT (captures input when search prompt is active) ==========
-    if (search.handleInput(key, { searchState: ctx.getSearchState(), searchHandler: ctx.searchHandler })) {
-      return
-    }
-
     // ========== TEXT OBJECT (i/a waiting for its object key, spec 055) ==========
     // Ahead of every single-key handler: `vif`'s `f` would otherwise open the
     // file picker and `vi{`'s `{` would reach nobody at all.
@@ -510,13 +504,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
         toggleUnviewedOnly: ctx.toggleUnviewedFilesOnly,
       })
-
-    // ========== FILE TREE FILTER PROMPT (captures input while open) ==========
-    // Before the global single-key handlers, or typing a path would toggle
-    // the PR view on `i` and quit on `q`.
-    if (ctx.getState().treeFilterInput && dispatchToTree()) {
-      return
-    }
 
     // ========== BLAME PEEK (modal: gb toggles it, Esc or q closes) ==========
     if (ctx.getState().blamePeek && ctx.getState().viewMode === "diff" && !pendingKey && blame.handleKey(key)) {
