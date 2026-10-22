@@ -19,7 +19,6 @@ export interface JumpRecordingDeps {
 }
 
 export interface JumpRecording {
-  /** Runs `dispatch` for `key`, and pushes the place it left once the interaction is over. */
   around(key: KeyEvent, dispatch: () => void): void
 }
 

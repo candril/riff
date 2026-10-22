@@ -243,6 +243,23 @@ describe("c: Ctrl-o from the newest place records it", () => {
     a.press(KEY.tab)
     expect(a.where()).toEqual(bottom)
   })
+
+  test("but not from the newest entry Ctrl-i walked to, however far plain motions moved since", async () => {
+    const a = await scenario()
+    const start = a.lineOf("src/alpha.ts", "line 24")
+    a.moveTo(start)
+    // gg rather than G, so j has somewhere to go below the newest entry.
+    a.press("g", "g")
+    const top = a.where().line
+    a.press(KEY.ctrlO)
+    a.press(KEY.tab)
+    expect(a.where().line).toBe(top)
+    a.press("j", "j")
+    expect(a.where().line).not.toBe(top)
+    a.press(KEY.ctrlO)
+    expect(a.where().line).toBe(start)
+    expect(a.list().entries.map((entry) => entry.cursorLine)).toEqual([start, top])
+  })
 })
 
 describe("d: a jump made after going back appends, and keeps what was ahead", () => {

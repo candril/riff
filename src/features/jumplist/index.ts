@@ -70,7 +70,9 @@ export function capture(
  * entries ahead of the index stay, since going back to look at something is
  * no reason to lose where you had been. A line appears once — the older
  * entry for it goes — so walking back never visits the same line twice.
- * Every jump puts the index back at the newest entry.
+ * Every jump puts the index one past the newest entry, where nvim's is
+ * after a jump: the place you are now is not in the list until `Ctrl-o`
+ * leaves it.
  */
 export function push(state: AppState, jump: Jump): AppState {
   const kept = state.jumpList.entries.filter((entry) => !sameLine(entry, jump))
@@ -79,7 +81,7 @@ export function push(state: AppState, jump: Jump): AppState {
 
   return {
     ...state,
-    jumpList: { entries: capped, index: capped.length - 1 },
+    jumpList: { entries: capped, index: capped.length },
   }
 }
 
@@ -126,15 +128,18 @@ export function back(
   pane?: Pane | null,
 ): { state: AppState; jump: Jump } | null {
   const list = state.jumpList
-  if (list.index < 0 || list.entries.length === 0) return null
+  if (list.entries.length === 0) return null
 
-  // From the newest end, where you are is not in the list yet: nvim records
-  // it first, so `Ctrl-i` has somewhere to come back to. Standing on the
-  // newest entry already, the push only refreshes it.
-  const working = list.index === list.entries.length - 1 ? push(state, capture(state, vim, mapping, pane)) : state
+  // Past the newest entry, where you are is not in the list yet: nvim
+  // records it first, so `Ctrl-i` has somewhere to come back to. On an
+  // entry, `Ctrl-i` brought you there and the place is already in the list,
+  // however far plain motions have moved the cursor since.
+  const pastEnd = list.index >= list.entries.length
+  const working = pastEnd ? push(state, capture(state, vim, mapping, pane)) : state
   const workingList = working.jumpList
+  const from = pastEnd ? workingList.entries.length - 1 : workingList.index
 
-  const newIndex = nextReachable(working, workingList.index, -1)
+  const newIndex = nextReachable(working, from, -1)
   if (newIndex === null) return null
   return {
     state: { ...working, jumpList: { ...workingList, index: newIndex } },
@@ -145,7 +150,6 @@ export function back(
 /** Move forward; returns new jumplist state + the jump to apply, or null. */
 export function forward(state: AppState): { state: AppState; jump: Jump } | null {
   const list = state.jumpList
-  if (list.index < 0) return null
   const newIndex = nextReachable(state, list.index, 1)
   if (newIndex === null) return null
   const target = list.entries[newIndex]!

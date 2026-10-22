@@ -20,9 +20,10 @@ export interface Jump {
 
 export interface JumpListState {
   entries: Jump[]
+  /** `entries.length` after a jump: one past the newest entry, on none of them. */
   index: number
 }
 
 export function createJumpListState(): JumpListState {
-  return { entries: [], index: -1 }
+  return { entries: [], index: 0 }
 }

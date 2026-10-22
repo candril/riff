@@ -124,7 +124,7 @@ describe("the list, as nvim keeps it", () => {
     const walked = { ...three, jumpList: { ...three.jumpList, index: 0 } }
     const pushed = push(walked, jump(9))
     expect(lines(pushed)).toEqual([1, 2, 3, 9])
-    expect(pushed.jumpList.index).toBe(3)
+    expect(pushed.jumpList.index).toBe(4)
   })
 
   test("a line already in the list moves to the end, with the column it has now", () => {
@@ -137,7 +137,7 @@ describe("the list, as nvim keeps it", () => {
     const full = pushAll(Array.from({ length: 105 }, (_, i) => i))
     expect(lines(full)).toHaveLength(100)
     expect(lines(full)[0]).toBe(5)
-    expect(full.jumpList.index).toBe(99)
+    expect(full.jumpList.index).toBe(100)
   })
 
   test("back from the newest end records where you are, so forward comes back to it", () => {
@@ -156,6 +156,18 @@ describe("the list, as nvim keeps it", () => {
     expect(backed.jump.cursorLine).toBe(2)
   })
 
+  test("on the newest entry, back goes to the one before without recording where you are", () => {
+    const walked = forward(back(pushAll([1, 2]), { ...createCursorState(), line: 8 }, noRows)!.state)!
+    const backed = back(walked.state, { ...createCursorState(), line: 9 }, noRows)!
+    expect(backed.jump.cursorLine).toBe(2)
+    expect(lines(backed.state)).toEqual([1, 2, 8])
+  })
+
+  test("on the newest entry, forward does nothing", () => {
+    const walked = forward(back(pushAll([1, 2]), { ...createCursorState(), line: 8 }, noRows)!.state)!
+    expect(forward(walked.state)).toBeNull()
+  })
+
   test("at the oldest entry, back does nothing", () => {
     const backed = back(pushAll([1]), { ...createCursorState(), line: 1 }, noRows)
     expect(backed).toBeNull()
@@ -172,7 +184,7 @@ describe("an entry whose file left the diff", () => {
   const lines = (s: typeof start) => s.jumpList.entries.map((entry) => entry.cursorLine)
 
   test("is walked past going back, and kept", () => {
-    const list = listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("left.ts", 3)], 2)
+    const list = listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("left.ts", 3)], 3)
     const backed = back(list, { ...createCursorState(), line: 8 }, noRows)!
     expect(backed.jump.cursorLine).toBe(1)
     expect(backed.state.jumpList.index).toBe(0)

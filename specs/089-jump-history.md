@@ -60,7 +60,10 @@ they arrive.
   the older one.
 - The list holds 100 entries, and the oldest go first.
 - `Ctrl-o` from the newest place records where you are first, so `Ctrl-i`
-  comes back to it.
+  comes back to it. The newest place is past the newest entry, where a
+  jump leaves the index; on the newest entry, which `Ctrl-i` walked to,
+  `Ctrl-o` goes straight to the one before, however far plain motions have
+  moved the cursor since.
 - At either end the key does nothing, quietly.
 - An entry is anchored like a mark ([101](./101-global-marks.md): file,
   line, side, line text), so folds, wrap, the split toggle and a refresh,

@@ -78,7 +78,7 @@ export interface Jump {
 
 export interface JumpListState {
   entries: Jump[]
-  index: number                   // -1 when empty; otherwise points at "current"
+  index: number                   // past the newest entry after a jump
 }
 ```
 
@@ -94,7 +94,7 @@ Add to `AppState` in `src/state.ts`:
 jumpList: JumpListState
 ```
 
-Initialize as `{ entries: [], index: -1 }`.
+Initialize as `{ entries: [], index: 0 }`.
 
 ### Feature module
 
@@ -102,7 +102,7 @@ New `src/features/jumplist/` with:
 
 - `capture(state, vim, lineMapping, pane): Jump` — snapshot current location.
 - `push(state, jump): AppState` — drop the entry for the same line, append,
-  evict past cap, put the index at the end.
+  evict past cap, put the index one past the newest entry.
 - `back(state, vim, lineMapping, pane): { state, jump } | null`
 - `forward(state): { state, jump } | null`
 - `apply(jump, ctx)` — calls existing helpers:
