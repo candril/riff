@@ -10,17 +10,16 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { clearTreeFilter, expandFiles, focusLeft, focusRight } from "../state"
-import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, clearToast } from "../state"
+import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
-import type { FlashState, FlashSurface } from "../vim-diff/flash-state"
+import type { FlashState } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
 import { exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
 import type { CommentScope } from "../diff-rows/comment-scope"
-import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
 import type { ChatState } from "../features/chat/state"
@@ -29,12 +28,13 @@ import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { treeRowsOf } from "../components"
-import { visibleOverlayCommentIds } from "../components/thread-panel-window"
-import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink } from "./open-link"
 import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
 import { blameKeysContext } from "./blame-key-deps"
+import { flashSurface, flashTargets, reservedKeysFor } from "./list-flash"
+import { createCommentsOverlayOpen } from "./comments-overlay-open"
+import { jumpApplyContext } from "./jump-apply"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
@@ -142,66 +142,6 @@ export interface GlobalKeyContext {
  * - Single file view: selected file path
  * - All files view: file at cursor position
  */
-/**
- * Which list `s` labels, or null when the diff has the cursor and its own
- * search-then-label flavour applies (spec 066).
- */
-function flashSurface(state: AppState): FlashSurface | null {
-  // The comments panel is checked first: it is an overlay, so it has focus
-  // over whichever view is behind it.
-  if (state.focusedPanel === "comments" && state.inlineCommentOverlay.mode === "view") {
-    return "comments"
-  }
-  if (state.viewMode === "state") return "state"
-  if (state.viewMode === "feed") return "feed"
-  if (state.focusedPanel === "tree") return "tree"
-  return null
-}
-
-function flashTargets(state: AppState, ctx: GlobalKeyContext): string[] {
-  switch (flashSurface(state)) {
-    case "tree": {
-      const count = treeRowsOf(state).length
-      const { first, last } = ctx.fileTreePanel.visibleRows()
-      const ids: string[] = []
-      for (let index = first; index <= Math.min(last, count - 1); index++) ids.push(String(index))
-      return ids
-    }
-    case "state":
-      return ctx.getPrInfoPanel()?.flashTargets() ?? []
-    case "feed":
-      return feedRowsInView(visibleFeedRows(state), state.feed, ctx.renderer.height).map(String)
-    case "comments":
-      return visibleOverlayCommentIds(
-        getInlineCommentOverlayComments(state),
-        state.inlineCommentOverlay.expandedThreadIds,
-        state.inlineCommentOverlay.highlightedIndex,
-        state.inlineCommentOverlay.expanded
-      )
-    default:
-      return []
-  }
-}
-
-/**
- * Keys the surface acts on, kept out of the label alphabet so a mistyped
- * jump cancels rather than marking a file viewed or resolving a thread.
- */
-function reservedKeysFor(surface: FlashSurface): string {
-  switch (surface) {
-    case "tree":
-      return "vx"
-    case "state":
-      return "xc"
-    case "comments":
-      // Reply, edit, delete and resolve: the keys whose mistake costs the
-      // most are the ones flash refuses to be confused with.
-      return "redx"
-    default:
-      return ""
-  }
-}
-
 function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
   const state = ctx.getState()
   const lineMapping = ctx.getLineMapping()
@@ -257,6 +197,8 @@ export function createKeyHandler(
 ): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
   const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
+  const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
+  const jumpApplyCtx = jumpApplyContext(ctx)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -362,87 +304,6 @@ export function createKeyHandler(
       Bun.spawn([opener, url], { stdout: "ignore", stderr: "ignore" })
     },
     copyUrl: (url) => openLink("copy", { label: "link", url }),
-  }
-
-  const jumpApplyCtx: jumplist.JumpApplyContext = {
-    setState: ctx.setState,
-    getVimState: ctx.getVimState,
-    setVimState: ctx.setVimState,
-    rebuildLineMapping: ctx.rebuildLineMapping,
-    ensureCursorVisible: ctx.ensureCursorVisible,
-    render: ctx.render,
-    onCommitSelected: ctx.onCommitSelected,
-  }
-
-  /**
-   * The comments panel, opened on whatever the diff cursor is pointing at.
-   * Both live here rather than in the diff's own key handling because
-   * `Ctrl-t` reaches them from every view (spec 064).
-   */
-  function openCommentsOverlay(mode: "view" | "compose" | "edit"): boolean {
-    // spec 039: Enter opens the overlay in view mode if there's an
-    // existing thread on this anchor; `c` opens it in compose mode
-    // on any commentable line. Returns true when the overlay was
-    // opened so the caller can fall back (e.g. Enter → expand
-    // divider) when this is a no-op.
-    const s = ctx.getState()
-    const lineMapping = ctx.getLineMapping()
-    const vimState = ctx.getVimState()
-    // A visual-line selection anchors on the first commentable line
-    // it covers — the same rule `handleAddComment` uses for `C`, so
-    // both routes land the comment in the same place.
-    const block = blockAnchor(lineMapping, ctx.getCommentScope())
-    // A line GitHub cannot take is still a line, and what gets written on it
-    // is a note (spec 085).
-    if (!block) return false
-    const { anchor, blockStart, anchorHash } = block
-
-    const root = s.comments.find(
-      (c) =>
-        c.filename === anchor.filename &&
-        c.line === anchor.line &&
-        c.side === anchor.side &&
-        !c.inReplyTo
-    )
-    if (mode === "view" && !root) return false
-
-    // The selection has served its purpose; leave visual mode so the
-    // highlight doesn't linger behind the composer.
-    if (isVisualMode(vimState)) {
-      ctx.setVimState(exitVisualMode(vimState))
-    }
-
-    ctx.setState((st) => {
-      const opened = openInlineCommentOverlay(
-        st, anchor.filename, anchor.line, anchor.side, mode, blockStart, undefined,
-        { note: anchor.note, anchorHash }
-      )
-      // Asked for this thread by name: a resolved one opens rather than
-      // showing its root and hiding the rest.
-      return mode === "view" && root ? expandThreadFor(opened, root.id) : opened
-    })
-    ctx.render()
-    return true
-  }
-
-  function openCommentsPanelForCursor(): void {
-    // Open in view mode without an anchor — use the cursor's file
-    // (or the currently selected file) so the panel scopes
-    // correctly. Anchor line is 0; compose actions inside the
-    // panel will re-anchor to the highlighted thread.
-    const s = ctx.getState()
-    const lineMapping = ctx.getLineMapping()
-    const vimState = ctx.getVimState()
-    const cursorLine = lineMapping.getLine(vimState.line)
-    const filename =
-      cursorLine?.filename ??
-      (s.selectedFileIndex !== null
-        ? s.files[s.selectedFileIndex]?.filename ?? ""
-        : "")
-    ctx.setState((st) =>
-      openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
-    )
-    ctx.render()
   }
 
   return Object.assign(handleKeypress, {
