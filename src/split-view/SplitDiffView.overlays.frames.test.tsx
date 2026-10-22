@@ -199,3 +199,30 @@ describe("flash", () => {
     expect(fgAt(spans(), LEFT + 2, 6)).toEqual(ints(fade(theme.overlay0, theme.mantle)))
   })
 })
+
+/*
+ * The cursor line's tint as literal values, so a frame shows the step
+ * line-colors.test.ts asks for rather than whatever the constants hold.
+ * Row 2's word marks sit on each half's ninth code column.
+ */
+describe("the cursor line's tint", () => {
+  const WORD = 9
+
+  for (const [side, active, plain, word, otherWord] of [
+    ["left", "#502838", "#1e3a2f", "#6b2b3f", "#2b6b4a"],
+    ["right", "#28503c", "#3a1e2f", "#2b6b4a", "#6b2b3f"],
+  ] as const) {
+    test(`on the ${side} half, the other half keeping its plain tint and both their word marks`, async () => {
+      await mount({ cursor: { row: 2, col: 4 }, side })
+      const [here, there] = side === "left" ? [LEFT, RIGHT] : [RIGHT, LEFT]
+      expect([bgAt(spans(), here + 2, 2), bgAt(spans(), here + 30, 2), bgAt(spans(), here + WORD, 2)]).toEqual([ints(active), ints(active), ints(word)])
+      expect([bgAt(spans(), there + 2, 2), bgAt(spans(), there + 30, 2), bgAt(spans(), there + WORD, 2)]).toEqual([ints(plain), ints(plain), ints(otherWord)])
+    })
+  }
+
+  test("a search hit keeps its own colour over it", async () => {
+    await mount({ cursor: { row: 2, col: 0 }, side: "right", search: { matches: [{ line: 3, startCol: 2, endCol: 8 }, { line: 1, startCol: 0, endCol: 6 }], current: 1 } })
+    expect([bgAt(spans(), RIGHT + 2, 2), bgAt(spans(), RIGHT + 7, 2)]).toEqual(Array(2).fill(ints(SYNTAX_PALETTE["search.match"]!.bg!)))
+    expect(bgAt(spans(), RIGHT + 8, 2)).toEqual(ints("#28503c"))
+  })
+})

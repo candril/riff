@@ -1,5 +1,6 @@
 import { test, expect, describe, afterEach } from "bun:test"
 import { ADDITION_BG, CURSOR_LINE_BG, DELETION_BG } from "../diff-rows/line-colors"
+import { SYNTAX_PALETTE } from "../diff-rows/syntax-palette"
 import { ONE_LONG_LINE, ONE_WIDE_LINE, TWO_FILES } from "../testing/diffs"
 import { charAt, screenOf, type At } from "../testing/screen"
 import { bgAt, fgAt, ints } from "../testing/split-frame"
@@ -91,6 +92,59 @@ describe("a line's background", () => {
     test("with the cursor on it", async () => {
       expect(await backgrounds(DIVIDER, null, [DIVIDER], expanding())).toEqual([row(theme.surface0, CURSOR_LINE_BG)])
     })
+  })
+})
+
+/*
+ * The cursor line's tint as literal values, so a frame shows the step
+ * line-colors.test.ts asks for rather than whatever the constants hold.
+ * TWO_FILES's mapping lines 1, 2 and 3 are context, the removed return and
+ * the added one, each one screen row down; code starts at column 6.
+ */
+describe("the cursor line's tint", () => {
+  const CODE = 6
+  const PAST_END = 70
+
+  test("on a context line, a removal and an addition", async () => {
+    const tints = []
+    for (const line of [1, 2, 3]) {
+      const { spans } = await screenWith({ raw: TWO_FILES, cursor: { line } })
+      tints.push([bgAt(spans, CODE, line + 1), bgAt(spans, PAST_END, line + 1)])
+      await mounted!.dispose()
+      mounted = null
+    }
+    expect(tints).toEqual([
+      [ints("#2a2b3d"), ints("#2a2b3d")],
+      [ints("#502838"), ints("#502838")],
+      [ints("#28503c"), ints("#28503c")],
+    ])
+  })
+
+  // The added return's word marks sit on its ` (column 9), ${ (16) and }` (22).
+  test("an addition's word marks keep their own colour over it", async () => {
+    const { spans } = await screenWith({ raw: TWO_FILES, cursor: { line: 3 } })
+    expect([CODE + 9, CODE + 16, CODE + 23].map((x) => bgAt(spans, x, 4))).toEqual(Array(3).fill(ints("#2b6b4a")))
+    expect([CODE + 8, CODE + 10, CODE + 18].map((x) => bgAt(spans, x, 4))).toEqual(Array(3).fill(ints("#28503c")))
+  })
+
+  test("a search hit keeps its own colour over it", async () => {
+    const search = {
+      matches: [
+        { line: 1, startCol: 0, endCol: 6 },
+        { line: 3, startCol: 2, endCol: 8 },
+      ],
+      current: 0,
+    }
+    const { spans } = await screenWith({ raw: TWO_FILES, cursor: { line: 3 }, search })
+    expect([CODE + 2, CODE + 7].map((x) => bgAt(spans, x, 4))).toEqual(Array(2).fill(ints(SYNTAX_PALETTE["search.match"]!.bg!)))
+    expect(bgAt(spans, CODE + 8, 4)).toEqual(ints("#28503c"))
+  })
+
+  // Mapping lines 4 to 6: the closing brace, the added blank line and the line after it.
+  test("in a linewise selection, the cursor's own line keeps its tint and its neighbours take the selection's", async () => {
+    const selection: SplitSelection = { mode: "visual-line", startRow: 4, endRow: 6, startCol: 0, endCol: 0 }
+    const { spans } = await screenWith({ raw: TWO_FILES, cursor: { line: 5 }, selection })
+    expect([5, 6, 7].map((y) => bgAt(spans, CODE, y))).toEqual([ints("#313244"), ints("#28503c"), ints("#313244")])
   })
 })
 
