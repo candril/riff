@@ -222,6 +222,9 @@ src/
 │   ├── z-chord-keys.ts   # The z chords as keymap sequences, beside the bracket layer
 │   ├── z-chord-commands.ts  # One command per z chord
 │   ├── z-chord-key-deps.ts  # What the z chords need of the app
+│   ├── g-chord-commands.ts  # One command per g chord
+│   ├── g-chord-key-deps.ts  # What the g chords need of the app
+│   ├── follow-link-deps.ts  # Where gf, gF, gx and gX take the link under the cursor
 │   ├── chord-stroke.ts   # A chord's second key as the chain spells it, and its sequence patterns
 │   ├── sequence-expiry.ts  # The chord timeout a lone ], [ or z gives up after
 │   ├── mark-chord-gate.ts  # Whether the diff reads m, ' and ]m as mark keys

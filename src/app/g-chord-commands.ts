@@ -1,0 +1,151 @@
+/**
+ * The `g` chords, one command each, keyed by the sequence the chain spells
+ * for them: the opener, the chord suffix of the second key.
+ */
+
+import type { KeyEvent } from "@opentui/core"
+import type { AppState } from "../state"
+import { toggleHelp, toggleLinePeek } from "../state"
+import type { BlameKeys } from "../features/blame/keys"
+import * as commentsPicker from "../features/comments-picker"
+import * as prInfoPanelFeature from "../features/pr-info-panel"
+import * as syncPreview from "../features/sync-preview"
+import * as reviewPreview from "../features/review-preview"
+import * as folds from "../features/folds"
+import * as externalTools from "../features/external-tools"
+import * as followLink from "../features/follow-link"
+
+export interface GChordDeps {
+  getState: () => AppState
+  setState: (updater: (s: AppState) => AppState) => void
+  render: () => void
+  executeAction: (id: string) => void
+  reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
+  syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
+  prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext
+  externalToolsContext: externalTools.ExternalToolsContext
+  foldsContext: folds.FoldsContext
+  refreshContext: { handleRefresh: () => Promise<void> }
+  followLinkContext: followLink.FollowLinkContext
+  /** `gb` and `go`: the one object that owns every blame request, shared with the peek's layer. */
+  blame: Pick<BlameKeys, "toggle" | "openLink">
+}
+
+// Both spellings of a shifted letter are accepted because terminals differ
+// in whether shift+letter reports the key name as lower- or uppercase.
+export const G_SEQUENCES = {
+  "gS!": "openReviewPreview",
+  "gs!": "openReviewPreview",
+  gs: "openSyncPreview",
+  go: "openLink",
+  gi: "openPrInfo",
+  gy: "copyPrUrl",
+  "gB!": "openInBoard",
+  "gb!": "openInBoard",
+  "gY!": "copyPermalink",
+  "gy!": "copyPermalink",
+  gf: "followLink",
+  "gF!": "followLinkInTmux",
+  "gf!": "followLinkInTmux",
+  gx: "followUrl",
+  "gX!": "copyUrl",
+  "gx!": "copyUrl",
+  ge: "openInEditor",
+  "gE!": "openInTmuxWindow",
+  "ge!": "openInTmuxWindow",
+  gc: "checkoutAndEdit",
+  "gC!": "openCommentsPicker",
+  "gc!": "openCommentsPicker",
+  gd: "diffInEditor",
+  "gD!": "diffInTmuxWindow",
+  "gd!": "diffInTmuxWindow",
+  "gP!": "editOrCreatePr",
+  "gp!": "editOrCreatePr",
+  gb: "toggleBlamePeek",
+  gl: "toggleLinePeek",
+  gr: "refresh",
+  gg: "goToTop",
+  "gG!": "goToBottom",
+  "g?": "toggleHelp",
+  "g?!": "toggleHelp",
+} as const
+
+export type GCommand = (typeof G_SEQUENCES)[keyof typeof G_SEQUENCES]
+
+/**
+ * Every command takes its key, whether or not it acts: no `g` chord leaves
+ * one to the chain's tail. `gC` reads the key for its preventDefault.
+ */
+export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEvent) => boolean> {
+  const taking = (run: (key: KeyEvent) => void) => (key: KeyEvent) => {
+    run(key)
+    return true
+  }
+  const inPr = () => {
+    const s = deps.getState()
+    return s.appMode === "pr" && s.prInfo ? s.prInfo : null
+  }
+  return {
+    openReviewPreview: taking(() => reviewPreview.handleOpenReviewPreview(deps.reviewPreviewOpenContext)),
+    openSyncPreview: taking(() => syncPreview.handleOpenSyncPreview(deps.syncPreviewOpenContext)),
+    openLink: taking(() => {
+      if (deps.getState().viewMode === "diff" && deps.blame.openLink()) return
+      const prInfo = inPr()
+      if (prInfo) {
+        const { owner, repo, number: prNumber } = prInfo
+        Bun.spawn(["gh", "pr", "view", String(prNumber), "--web", "-R", `${owner}/${repo}`])
+      }
+    }),
+    openPrInfo: taking(() => {
+      if (inPr()) prInfoPanelFeature.handleOpenPRInfoPanel(deps.prInfoPanelOpenContext)
+    }),
+    copyPrUrl: taking(() => {
+      if (inPr()) deps.executeAction("copy-pr-url")
+    }),
+    openInBoard: taking(() => deps.executeAction("open-in-board")),
+    // A GitHub permalink for the selection, the current line or the file.
+    copyPermalink: taking(() => deps.executeAction("copy-permalink")),
+    followLink: taking(() => followLink.handleFollowLink(deps.followLinkContext)),
+    followLinkInTmux: taking(() => followLink.handleFollowLink(deps.followLinkContext, { tmux: true })),
+    followUrl: taking(() => followLink.handleFollowLink(deps.followLinkContext, { urlsOnly: true })),
+    copyUrl: taking(() => followLink.handleFollowLink(deps.followLinkContext, { urlsOnly: true, copy: true })),
+    openInEditor: taking(() => externalTools.handleOpenFileInEditor(deps.externalToolsContext)),
+    openInTmuxWindow: taking(() => externalTools.handleOpenFileInTmuxWindow(deps.externalToolsContext)),
+    checkoutAndEdit: taking(() => externalTools.handleCheckoutAndEdit(deps.externalToolsContext)),
+    openCommentsPicker: taking((key) => {
+      // spec 044: silent when there is nothing to search, so the chord
+      // doesn't flash an empty modal.
+      if (deps.getState().comments.length > 0) {
+        key.preventDefault()
+        deps.setState(commentsPicker.openCommentsPicker)
+        deps.render()
+      }
+    }),
+    // Both versions of this file, side by side (spec 075).
+    diffInEditor: taking(() => void externalTools.handleDiffFileInEditor(deps.externalToolsContext)),
+    diffInTmuxWindow: taking(
+      () => void externalTools.handleDiffFileInEditor(deps.externalToolsContext, { tmux: true }),
+    ),
+    editOrCreatePr: taking(() => {
+      if (inPr()) deps.executeAction("edit-pr")
+      else if (deps.getState().appMode === "local") deps.executeAction("create-pr")
+    }),
+    toggleBlamePeek: taking(() => {
+      // Who last changed the cursor's line, and the commit that says why (spec 103).
+      if (deps.getState().viewMode === "diff") deps.blame.toggle()
+    }),
+    toggleLinePeek: taking(() => {
+      // The whole line, wrapped, for when scrolling through it sideways
+      // is more work than reading it is worth.
+      deps.setState(toggleLinePeek)
+      deps.render()
+    }),
+    refresh: taking(() => void deps.refreshContext.handleRefresh()),
+    goToTop: taking(() => folds.handleGoToTop(deps.foldsContext)),
+    goToBottom: taking(() => folds.handleGoToBottom(deps.foldsContext)),
+    toggleHelp: taking(() => {
+      deps.setState(toggleHelp)
+      deps.render()
+    }),
+  }
+}
