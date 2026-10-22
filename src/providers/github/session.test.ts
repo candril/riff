@@ -10,7 +10,12 @@ const commit = (oid: string, authors: unknown[]) => ({
   },
 })
 
-const check = (databaseId: number | undefined, status: string | null, conclusion: string | null) => ({
+const check = (
+  databaseId: number | undefined,
+  status: string | null,
+  conclusion: string | null,
+  over: Record<string, unknown> = {},
+) => ({
   databaseId,
   name: `check ${databaseId}`,
   status,
@@ -18,6 +23,15 @@ const check = (databaseId: number | undefined, status: string | null, conclusion
   detailsUrl: "",
   startedAt: null,
   completedAt: null,
+  ...over,
+})
+
+const rollup = (nodes: unknown[]) => ({
+  headCommit: { nodes: [{ commit: { statusCheckRollup: { contexts: { nodes } } } }] },
+})
+
+const rule = (requiredApprovingReviewCount?: number) => ({
+  parameters: requiredApprovingReviewCount === undefined ? {} : { requiredApprovingReviewCount },
 })
 
 const pr = (over: Record<string, unknown> = {}) => ({
@@ -158,5 +172,37 @@ describe("reading a PR out of the GraphQL bundle", () => {
 
     const squash = prInfoOf(pr({ autoMergeRequest: { mergeMethod: "SQUASH" } }), "o", "r")
     expect(squash.autoMergeMethod).toBe("squash")
+  })
+
+  test("a check says whether it is required only when GitHub answered", () => {
+    const info = prInfoOf(
+      pr(rollup([
+        check(3, "COMPLETED", "SUCCESS", { isRequired: true }),
+        check(2, "COMPLETED", "SUCCESS", { isRequired: false }),
+        check(1, "COMPLETED", "SUCCESS"),
+      ])),
+      "o",
+      "r",
+    )
+    expect(info.checks!.map((c) => [c.id, c.isRequired])).toEqual([
+      [3, true],
+      [2, false],
+      [1, undefined],
+    ])
+    expect("isRequired" in info.checks![2]!).toBe(false)
+  })
+
+  test("mergeable passes through, and is null where the query did not ask", () => {
+    expect(prInfoOf(pr({ mergeable: "CONFLICTING" }), "o", "r").mergeable).toBe("CONFLICTING")
+    expect(prInfoOf(pr(), "o", "r").mergeable).toBeNull()
+  })
+
+  test("required approvals are the strictest of branch protection and the rulesets", () => {
+    const approvals = (baseRef: unknown) => prInfoOf(pr({ baseRef }), "o", "r").requiredApprovals
+    expect(approvals({ branchProtectionRule: { requiredApprovingReviewCount: 2 }, rules: { nodes: [rule(1)] } })).toBe(2)
+    expect(approvals({ branchProtectionRule: null, rules: { nodes: [rule(), rule(1), rule(0)] } })).toBe(1)
+    expect(approvals({ branchProtectionRule: { requiredApprovingReviewCount: 0 }, rules: { nodes: [] } })).toBe(0)
+    expect(approvals({ branchProtectionRule: null, rules: { nodes: [rule()] } })).toBeNull()
+    expect(approvals(null)).toBeNull()
   })
 })

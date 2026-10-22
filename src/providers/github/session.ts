@@ -35,7 +35,13 @@ const PR_BUNDLE_QUERY = `
         number title body state isDraft url
         additions deletions changedFiles createdAt updatedAt
         headRefName baseRefName headRefOid
-        mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
+        mergeable mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
+        baseRef {
+          branchProtectionRule { requiredApprovingReviewCount }
+          rules(first: 20) { nodes { parameters {
+            ... on PullRequestParameters { requiredApprovingReviewCount }
+          } } }
+        }
         author { login __typename }
         headRepository { name }
         headRepositoryOwner { login }
@@ -88,6 +94,7 @@ const PR_BUNDLE_QUERY = `
           nodes { commit { statusCheckRollup { contexts(first: 100) { nodes {
             ... on CheckRun {
               databaseId name status conclusion detailsUrl startedAt completedAt
+              isRequired(pullRequestNumber: $prNumber)
             }
           } } } } }
         }
@@ -197,6 +204,7 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
       detailsUrl: n.detailsUrl || null,
       startedAt: n.startedAt || null,
       completedAt: n.completedAt || null,
+      ...(typeof n.isRequired === "boolean" ? { isRequired: n.isRequired } : {}),
     }))
     // The rollup hands them back in its own order; newest-first is what the
     // panel has always shown.
@@ -224,6 +232,8 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
     mergeStateStatus: pr.mergeStateStatus ?? null,
     reviewDecision: pr.reviewDecision ?? null,
     autoMergeMethod: pr.autoMergeRequest?.mergeMethod?.toLowerCase() ?? null,
+    mergeable: pr.mergeable ?? null,
+    requiredApprovals: requiredApprovalsOf(pr.baseRef),
     commits,
     reviews,
     requestedReviewers,
@@ -246,6 +256,18 @@ function authorLogin(author: { login?: string; __typename?: string } | null | un
 
 function isBotAuthor(author: { login?: string; __typename?: string } | null | undefined): boolean {
   return author?.__typename === "Bot" || Boolean(author?.login?.endsWith("[bot]"))
+}
+
+/**
+ * Branch protection and every ruleset that targets the base all apply at
+ * once, so the strictest count is the one a merge has to meet.
+ */
+function requiredApprovalsOf(baseRef: any): number | null {
+  const counts = [
+    baseRef?.branchProtectionRule?.requiredApprovingReviewCount,
+    ...(baseRef?.rules?.nodes ?? []).map((rule: any) => rule?.parameters?.requiredApprovingReviewCount),
+  ].filter((count): count is number => typeof count === "number")
+  return counts.length > 0 ? Math.max(...counts) : null
 }
 
 /**

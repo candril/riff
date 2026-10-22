@@ -30,6 +30,13 @@ export interface PrInfo {
   reviewDecision?: "APPROVED" | "CHANGES_REQUESTED" | "REVIEW_REQUIRED" | null
   /** The method auto-merge is armed with, or null when it is off. */
   autoMergeMethod?: string | null
+  /** Whether the head merges into the base without conflicts — UNKNOWN while
+   *  GitHub is still working it out after a push. */
+  mergeable?: "MERGEABLE" | "CONFLICTING" | "UNKNOWN" | null
+  /** Approvals the base branch demands, null when GitHub does not say: branch
+   *  protection is only readable to admins, so for everyone else this comes
+   *  from rulesets alone. */
+  requiredApprovals?: number | null
   // Extended info (loaded separately)
   commits?: PrCommit[]
   reviews?: PrReview[]
@@ -81,6 +88,9 @@ export interface PrCheck {
   detailsUrl: string | null
   startedAt: string | null
   completedAt: string | null
+  /** Whether branch protection or a ruleset makes this check gate the merge;
+   *  absent where GitHub was not asked. */
+  isRequired?: boolean
   // Session-local (spec 043). Populated lazily when the user expands a
   // failed check. Not persisted; not flowed through app state.
   annotations?: PrCheckAnnotation[]

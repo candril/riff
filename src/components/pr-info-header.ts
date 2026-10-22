@@ -43,21 +43,26 @@ export interface PanelMeta {
 }
 
 export function panelMeta(prInfo: PrInfo): PanelMeta {
-  // A later review from the same person supersedes an earlier one: an
-  // approval followed by "changes requested" is not an approval.
-  const latestByAuthor = new Map<string, PrReview>()
-  for (const review of [...(prInfo.reviews ?? [])].sort((a, b) =>
-    (a.submittedAt ?? "").localeCompare(b.submittedAt ?? "")
-  )) {
-    if (review.state !== "COMMENTED" && review.state !== "PENDING") latestByAuthor.set(review.author, review)
-  }
   return {
     author: prInfo.author,
     branches: `${prInfo.headRef} → ${prInfo.baseRef}`,
-    approvers: [...latestByAuthor.values()]
-      .filter((review) => review.state === "APPROVED")
-      .map((review) => review.author),
+    approvers: [...latestReviewStates(prInfo.reviews ?? [])]
+      .filter(([, state]) => state === "APPROVED")
+      .map(([author]) => author),
   }
+}
+
+/**
+ * Each reviewer's standing verdict, in the order they first gave one. A later
+ * review from the same person supersedes an earlier one: an approval followed
+ * by "changes requested" is not an approval. A comment changes nobody's verdict.
+ */
+export function latestReviewStates(reviews: readonly PrReview[]): Map<string, PrReview["state"]> {
+  const latestByAuthor = new Map<string, PrReview["state"]>()
+  for (const review of [...reviews].sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""))) {
+    if (review.state !== "COMMENTED" && review.state !== "PENDING") latestByAuthor.set(review.author, review.state)
+  }
+  return latestByAuthor
 }
 
 export interface StackLine {

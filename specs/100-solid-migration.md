@@ -228,6 +228,7 @@ queue. At the user's request the migration also added:
   and unviewed-only filters ([107](./107-panel-filters.md))
 - the agent chat ([102](./102-agent-chat.md), in progress)
 - blame, the `gb` peek and the `zB` column ([103](./103-blame.md))
+- the merge status in the PR info panel ([108](./108-merge-status.md), in progress)
 
 ## Out of Scope
 

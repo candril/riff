@@ -326,8 +326,10 @@ Nesting is what costs: `reviewThreads(first:100)` x `comments(first:50)` is 51
 points, while two sibling 100-node connections are 2. Anything on a timer must
 be costed before it ships (`rateLimit { cost }` in the query reports it).
 
-Current measured costs: full thread fetch 51, probe-depth thread fetch 2,
-`getPrThreadStates` 1, `fetchPrMetaReactions` 2, `fetchViewedStatuses` 1.
+Current measured costs: PR bundle 54, full thread fetch 51, probe-depth
+thread fetch 2, `getPrThreadStates` 1, `fetchPrMetaReactions` 2,
+`fetchViewedStatuses` 1. The bundle carries the merge status's required
+checks, mergeability and required approvals (spec 108) at no extra cost.
 Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
 timeline (spec 070) is REST and paginated, and only fetched when the feed is
 opened or refreshed; so is the stacked-PR check (spec 072), after the first
