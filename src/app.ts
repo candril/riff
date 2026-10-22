@@ -57,6 +57,7 @@ import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilte
 import { loadInfoSections, saveInfoSections } from "./storage/info-sections"
 import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
+import { createConfirmState } from "./features/confirm/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -503,6 +504,12 @@ export async function createApp(options: AppOptions = {}) {
   const statusBar = createStatusBarIsland(renderer)
   const threadPanel = createThreadPanelIsland(renderer)
   const help = createHelpState()
+  const confirm = createConfirmState()
+  // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
+  function closeFeatureOverlays(): void {
+    help.close()
+    confirm.close()
+  }
   const chat = createReviewChat({
     demo: options.demo === true,
     getState: () => state,
@@ -669,6 +676,7 @@ export async function createApp(options: AppOptions = {}) {
     unified,
     parses,
     help,
+    confirm,
     updateFileTreePanel,
     publishFrame: frame.publish,
   })
@@ -1012,6 +1020,7 @@ export async function createApp(options: AppOptions = {}) {
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     help,
+    confirm,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1098,6 +1107,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
     getCachedCurrentUser: () => cachedCurrentUser,
     setCachedCurrentUser: (user) => { cachedCurrentUser = user },
+    confirm,
   }
 
   const externalToolsContext: externalTools.ExternalToolsContext = {
@@ -1375,8 +1385,7 @@ export async function createApp(options: AppOptions = {}) {
           prSession.prInfo,
           state.ignoreMatcher
         )
-        // createInitialState never reaches the help's own state, which this reload resets with the rest.
-        help.close()
+        closeFeatureOverlays()
 
         // Auto-collapse ignored files
         if (state.ignoredFiles.size > 0) {
@@ -1745,8 +1754,7 @@ export async function createApp(options: AppOptions = {}) {
         viewMode: view,
         marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
-      // createInitialState never reaches the help's own state, which this reload resets with the rest.
-      help.close()
+      closeFeatureOverlays()
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
       // A local review has no PR info panel — there was no pull request to
@@ -1824,6 +1832,7 @@ export async function createApp(options: AppOptions = {}) {
     blame,
     chat: { state: chat, input: chatColumn.input, atPicker: chatColumn.atPicker },
     help,
+    confirm,
     composerSettled: proposals.composerSettled,
   })
 

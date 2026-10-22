@@ -37,6 +37,7 @@ function frame(
     now: 0,
     diff,
     help: { open: help, scroll: 0 },
+    confirmDialog: null,
   }
 }
 

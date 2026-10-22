@@ -73,6 +73,7 @@ async function mount(width: number, height: number) {
     now: 0,
     diff: { columnInfo: null, selectionInfo: null },
     help: { open: help, scroll: 0 },
+    confirmDialog: null,
   })
   return { islands, panels, statusBar, shown, publish, pass, stop, initial }
 }
@@ -184,6 +185,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       now: pass,
       diff: { columnInfo: null, selectionInfo: null },
       help: { open: false, scroll: 0 },
+      confirmDialog: null,
     })
     expect(updates).toEqual([...FRAME_ISLANDS])
   }

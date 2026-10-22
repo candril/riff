@@ -1,5 +1,4 @@
 import { afterEach, expect, mock, test } from "bun:test"
-import { showConfirmDialog } from "../state"
 import { composing, overlay, send } from "../testing/composer-keys"
 
 let dispose: (() => Promise<void>) | null = null
@@ -154,17 +153,15 @@ test("Ctrl-g hands the live draft to $EDITOR and takes back what it returns", as
 test("with the confirm dialog up over the composer, Esc answers the dialog", async () => {
   const { app, settled } = await composer()
   const answers: string[] = []
-  app.ctx.setState((s) =>
-    showConfirmDialog(s, {
-      title: "Delete comment?",
-      message: "Gone.",
-      onConfirm: () => void answers.push("yes"),
-      onCancel: () => {
-        answers.push("no")
-        app.ctx.setState((s) => ({ ...s, confirmDialog: null }))
-      },
-    }),
-  )
+  app.confirm.show({
+    title: "Delete comment?",
+    message: "Gone.",
+    onConfirm: () => void answers.push("yes"),
+    onCancel: () => {
+      answers.push("no")
+      app.confirm.close()
+    },
+  })
   send(app, "\x1b")
 
   expect(answers).toEqual(["no"])

@@ -36,6 +36,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     getState: render.getState,
     setState: render.setState,
     help: mounted.help,
+    confirm: mounted.confirm,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

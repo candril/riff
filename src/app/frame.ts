@@ -34,6 +34,8 @@ export interface Frame {
   diff: { columnInfo: ColumnStatus; selectionInfo: SelectionStatus }
   /** The help overlay's state, read off its factory as the frame was published. */
   help: { open: boolean; scroll: number }
+  /** The confirm dialog's question, read off its factory; its answers stay there, where the keys reach them. */
+  confirmDialog: { title: string; message: string; details?: string } | null
 }
 
 // The last frame each followed accessor's followers finished drawing.

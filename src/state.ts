@@ -584,9 +584,6 @@ export interface AppState {
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
   commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
-  
-  // Confirmation dialog state
-  confirmDialog: ConfirmDialogState | null
 
   // GitHub users this repo accepts as @mentions, fetched in the background
   // (spec 046). Empty until the fetch lands — the picker falls back to the
@@ -611,22 +608,6 @@ export interface AppState {
   // Global marks (spec 101): the letters `m` sets and `'` returns to.
   marks: MarksState
   marksPicker: MarksPickerState
-}
-
-/**
- * Confirmation dialog state
- */
-export interface ConfirmDialogState {
-  /** Dialog title */
-  title: string
-  /** Main message */
-  message: string
-  /** Optional details */
-  details?: string
-  /** Callback when user confirms (presses 'y') */
-  onConfirm: () => void
-  /** Callback when user cancels (presses 'n' or Escape) */
-  onCancel: () => void
 }
 
 /**
@@ -797,7 +778,6 @@ export function createInitialState(
     allFiles: files,
     allFileTree: fileTree,
     commitDiffCache: new Map(),
-    confirmDialog: null,
     mentionableUsers: [],
     mentionSearchQuery: null,
     reactionTarget: null,
@@ -2055,33 +2035,6 @@ export function clearToast(state: AppState): AppState {
       message: null,
       type: "info",
     },
-  }
-}
-
-// ============================================================================
-// Confirmation Dialog State
-// ============================================================================
-
-/**
- * Show a confirmation dialog
- */
-export function showConfirmDialog(
-  state: AppState,
-  dialog: ConfirmDialogState
-): AppState {
-  return {
-    ...state,
-    confirmDialog: dialog,
-  }
-}
-
-/**
- * Close the confirmation dialog
- */
-export function closeConfirmDialog(state: AppState): AppState {
-  return {
-    ...state,
-    confirmDialog: null,
   }
 }
 

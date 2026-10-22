@@ -58,6 +58,7 @@ export function keysOn(
     composer: render.threadPanel.composer,
     chat: { state: mounted.chat, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     help: mounted.help,
+    confirm: mounted.confirm,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

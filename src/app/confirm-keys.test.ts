@@ -1,23 +1,21 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { createInitialState, type AppState } from "../state"
+import { createConfirmState } from "../features/confirm/state"
 import { keymapHarness } from "../testing/keymap-keys"
 import { registerConfirmKeys } from "./confirm-keys"
 
 async function setup() {
   const { riffKeymap, leftKeys, press } = await keymapHarness()
   const answers: string[] = []
-  let state: AppState = {
-    ...createInitialState([], [], "local", "local changes"),
-    confirmDialog: {
-      title: "Delete?",
-      message: "Gone.",
-      onConfirm: () => void answers.push("yes"),
-      onCancel: () => void answers.push("no"),
-    },
-  }
-  registerConfirmKeys(riffKeymap, { getState: () => state })
-  const close = () => void (state = { ...state, confirmDialog: null })
+  const confirm = createConfirmState()
+  confirm.show({
+    title: "Delete?",
+    message: "Gone.",
+    onConfirm: () => void answers.push("yes"),
+    onCancel: () => void answers.push("no"),
+  })
+  registerConfirmKeys(riffKeymap, { confirm })
+  const close = () => confirm.close()
   return { answers, leftKeys, press, close }
 }
 

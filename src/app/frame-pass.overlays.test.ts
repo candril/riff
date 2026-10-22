@@ -17,6 +17,7 @@ import { followFrame } from "./overlays"
 import { FRAME_ISLANDS } from "./frame-models"
 import type { FeedEvent } from "../utils/feed"
 import { createHelpState } from "../features/help/state"
+import { createConfirmState, type ConfirmDialogState } from "../features/confirm/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -39,6 +40,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, prompt() {}, compose() {}, dispose() {} })
   let state = createInitialState([], [], "test", "")
   const help = createHelpState()
+  const confirm = createConfirmState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -74,6 +76,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     updateFileTreePanel() {},
     publishFrame: frame.publish,
     help,
+    confirm,
     ...islands,
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
@@ -86,11 +89,20 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const overlays = () =>
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
-    /** `help` opens or closes the help through its factory; the rest patches the state. */
-    show({ help: helpOpen, ...patch }: Partial<AppState> & { help?: boolean }) {
+    /**
+     * `help` and `confirmDialog` open or close those overlays through their
+     * factories; the rest patches the state.
+     */
+    show({
+      help: helpOpen,
+      confirmDialog,
+      ...patch
+    }: Partial<AppState> & { help?: boolean; confirmDialog?: ConfirmDialogState | null }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
       if (helpOpen === false) help.close()
+      if (confirmDialog) confirm.show(confirmDialog)
+      if (confirmDialog === null) confirm.close()
       render()
       return overlays()
     },

@@ -242,7 +242,7 @@ test("a hidden overlay host over the whole screen takes neither the clicks nor t
   const renderer = setup.renderer
   // Absolute, full-size and with its backdrop drawn: the host that would swallow most.
   const dialog = createConfirmDialogIsland(renderer)
-  dialog.update(confirmDialogModel({ title: "Clear?", message: "Gone.", onConfirm() {}, onCancel() {} }))
+  dialog.update(confirmDialogModel({ title: "Clear?", message: "Gone." }))
   const shell = bareShell(renderer, undefined, { confirmDialog: dialog.host })
   const view = keepAlive(new BoxRenderable(renderer, { width: "100%", height: "100%" }))
   shell.setView(view, { withTree: false })

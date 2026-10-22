@@ -20,6 +20,7 @@ import { registerCommentsPickerKeys } from "../features/comments-picker"
 import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mark } from "../features/marks"
 import { registerOccurrencePickerKeys } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
+import { createConfirmState } from "../features/confirm/state"
 import { registerModalKeys } from "./keys"
 import type { AppKeyContext } from "./key-context"
 
@@ -275,6 +276,7 @@ async function setupApp(initial: AppState) {
     onLink: () => {},
     getFlashState: () => ({ active: false }) as never,
     flashHandler: () => ({}) as never,
+    confirm: createConfirmState(),
   })
   return { ...harness, state: () => state }
 }

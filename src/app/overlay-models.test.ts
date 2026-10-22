@@ -40,6 +40,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     now: NOW,
     diff: { columnInfo: null, selectionInfo: null },
     help: { open: false, scroll: 0 },
+    confirmDialog: null,
     ...rest,
   }
 }
@@ -91,18 +92,17 @@ describe("overlayModels", () => {
   })
 
   test("an open overlay's model is the one its builder makes", () => {
-    const dialog = { title: "Clear?", message: "Gone.", onConfirm() {}, onCancel() {} }
+    const dialog = { title: "Clear?", message: "Gone." }
     const open = overlayModels(
       frame({
         toast: { message: "Saved", type: "success" },
-        confirmDialog: dialog,
         reviewPreview: { ...initial.reviewPreview, open: true },
         syncPreview: { ...initial.syncPreview, open: true },
         showLinePeek: true,
         blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 } })
+      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))

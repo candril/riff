@@ -38,6 +38,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     getState: render.getState,
     setState: render.setState,
     help: mounted.help,
+    confirm: mounted.confirm,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

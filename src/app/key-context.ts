@@ -18,6 +18,7 @@ import type { DiffViewport } from "./diff-viewport"
 import type { ChatState } from "../features/chat/state"
 import type { ChatAtPicker } from "../features/chat/at-picker"
 import type { HelpState } from "../features/help/state"
+import type { ConfirmState } from "../features/confirm/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -113,6 +114,8 @@ export interface AppKeyContext {
   chat: { state: ChatState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
   /** The help overlay's state, the same instance the frame pass reads. */
   help: HelpState
+  /** The confirm dialog's state, the same instance the frame pass reads. */
+  confirm: ConfirmState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

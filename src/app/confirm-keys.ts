@@ -1,9 +1,9 @@
-import type { AppState } from "../state"
+import type { ConfirmState } from "../features/confirm/state"
 import type { RiffKeymap } from "./keymap"
 import { anyModifiers } from "./key-variants"
 
 export interface ConfirmKeyDeps {
-  getState: () => AppState
+  confirm: Pick<ConfirmState, "dialog">
 }
 
 /**
@@ -13,7 +13,7 @@ export interface ConfirmKeyDeps {
  * it is answered.
  */
 export function registerConfirmKeys(riffKeymap: RiffKeymap, deps: ConfirmKeyDeps): () => void {
-  const captured = riffKeymap.capture(() => deps.getState().confirmDialog !== null)
+  const captured = riffKeymap.capture(() => deps.confirm.dialog() !== null)
   const unregisterLayer = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),
     commands: [
@@ -22,14 +22,14 @@ export function registerConfirmKeys(riffKeymap: RiffKeymap, deps: ConfirmKeyDeps
         title: "Confirm",
         category: "Dialog",
         palette: false,
-        run: () => deps.getState().confirmDialog?.onConfirm(),
+        run: () => deps.confirm.dialog()?.onConfirm(),
       },
       {
         name: "confirm.no",
         title: "Cancel",
         category: "Dialog",
         palette: false,
-        run: () => deps.getState().confirmDialog?.onCancel(),
+        run: () => deps.confirm.dialog()?.onCancel(),
       },
     ],
     bindings: [

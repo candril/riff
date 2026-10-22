@@ -209,7 +209,9 @@ that broke off a chord and a slash kitty names after its base key.
 The help overlay's state is the first feature state factory
 (`createHelpState` in `src/features/help/state.ts`, ADR-003): the frame
 pass reads its accessors into the published frame, so the islands still
-follow one frame.
+follow one frame. The confirm dialog is the second (`createConfirmState`
+in `src/features/confirm/state.ts`); the frame carries only its question,
+and its answers stay in the factory, where the keys read them.
 
 **Not built**: the rest of M6 (the palette reading
 command entries and the rest of the state factories); the file size ratchet (P3).

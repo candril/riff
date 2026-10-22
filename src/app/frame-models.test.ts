@@ -35,6 +35,7 @@ function frame(
     now,
     diff: { columnInfo: null, selectionInfo: null },
     help: { open: false, scroll: 0 },
+    confirmDialog: null,
   }
 }
 

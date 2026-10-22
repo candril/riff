@@ -5,6 +5,7 @@ import { createChatColumnIsland } from "../app/chat-column"
 import { createChatState } from "../features/chat/state"
 import { chatAtCandidates } from "../features/chat/at-candidates"
 import { createHelpState } from "../features/help/state"
+import { createConfirmState } from "../features/confirm/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -103,6 +104,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   })
   const frame = createFrame()
   const help = createHelpState()
+  const confirm = createConfirmState()
   const setState = (updater: (s: AppState) => AppState) => {
     state = updater(state)
   }
@@ -138,6 +140,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     unified,
     parses,
     help,
+    confirm,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({
@@ -174,6 +177,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     chat,
     /** The help overlay's state, which the frame pass reads as app.ts's does. */
     help,
+    /** The confirm dialog's state, which the frame pass and the keys read as app.ts's do. */
+    confirm,
     fileTreePanel,
     render,
     agent,

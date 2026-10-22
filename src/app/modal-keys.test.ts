@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
 import { createInitialState, type AppState } from "../state"
+import { createConfirmState } from "../features/confirm/state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { FlashHandler } from "../vim-diff/flash-handler"
@@ -24,14 +25,15 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
   let state: AppState = {
     ...initial,
     actionMenu: { ...initial.actionMenu, open: palette },
-    confirmDialog: dialog
-      ? {
-          title: "Delete?",
-          message: "Gone.",
-          onConfirm: () => void calls.push("dialog yes"),
-          onCancel: () => void calls.push("dialog no"),
-        }
-      : null,
+  }
+  const confirm = createConfirmState()
+  if (dialog) {
+    confirm.show({
+      title: "Delete?",
+      message: "Gone.",
+      onConfirm: () => void calls.push("dialog yes"),
+      onCancel: () => void calls.push("dialog no"),
+    })
   }
   const flashState = { ...createFlashState(), active: flash }
   const handler = {
@@ -51,6 +53,7 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
     onLink: () => void calls.push("palette link"),
     getFlashState: () => flashState,
     flashHandler: () => handler,
+    confirm,
   })
   return { calls, leftKeys, press, state: () => state }
 }

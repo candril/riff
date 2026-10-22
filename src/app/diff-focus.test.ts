@@ -3,9 +3,10 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
+const confirmation: OutsideOverlays = { ...none, confirm: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
@@ -18,7 +19,6 @@ const hidden: [string, (s: AppState) => AppState][] = [
   ["the commit picker, its query closed", (s) => ({ ...s, commitPicker: { ...s.commitPicker, open: true, queryInput: false } })],
   ["the sync preview", (s) => ({ ...s, syncPreview: { ...s.syncPreview, open: true } })],
   ["the review preview", (s) => ({ ...s, reviewPreview: { ...s.reviewPreview, open: true } })],
-  ["a confirmation", (s) => ({ ...s, confirmDialog: { title: "Delete", message: "Sure?", onConfirm() {}, onCancel() {} } })],
   ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
   ["the blame peek over the diff", (s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } })],
   ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
@@ -37,6 +37,10 @@ describe("the diff's cursor", () => {
 
   test("hides under the help", () => {
     expect(diffCursorShown(initial, help)).toBe(false)
+  })
+
+  test("hides under a confirmation", () => {
+    expect(diffCursorShown(initial, confirmation)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -81,6 +85,7 @@ describe("the chat's input", () => {
   test("gives them up to a prompt or an overlay drawn over it", () => {
     expect(chatInputFocused(chatting, prompt)).toBe(false)
     expect(chatInputFocused(chatting, help)).toBe(false)
-    for (const [, open] of hidden.slice(0, 9)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    expect(chatInputFocused(chatting, confirmation)).toBe(false)
+    for (const [, open] of hidden.slice(0, 8)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })

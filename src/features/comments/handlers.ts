@@ -17,9 +17,8 @@ import {
   deleteComment,
   showToast,
   clearToast,
-  showConfirmDialog,
-  closeConfirmDialog,
 } from "../../state"
+import type { ConfirmState } from "../confirm/state"
 import { createComment } from "../../types"
 import { saveComment, deleteCommentFile, clearLocalComments } from "../../storage/comments"
 import { isLocallyResolved, publishableLocalComments } from "../../utils/publishable"
@@ -60,6 +59,7 @@ export interface CommentsContext {
   // Cached current user (for faster comment creation)
   getCachedCurrentUser: () => string | null
   setCachedCurrentUser: (user: string) => void
+  confirm: Pick<ConfirmState, "show" | "close">
 }
 
 /**
@@ -429,18 +429,16 @@ export async function handleDeleteComment(
       ? toDelete.body.slice(0, 47) + "..."
       : toDelete.body
     
-    ctx.setState((s) =>
-      showConfirmDialog(s, {
-        title: "Delete Comment",
-        message: "Delete this comment on GitHub?",
-        details: truncatedBody,
-        onConfirm: () => executeDeleteOnGitHub(ctx, toDelete),
-        onCancel: () => {
-          ctx.setState(closeConfirmDialog)
-          ctx.render()
-        },
-      })
-    )
+    ctx.confirm.show({
+      title: "Delete Comment",
+      message: "Delete this comment on GitHub?",
+      details: truncatedBody,
+      onConfirm: () => executeDeleteOnGitHub(ctx, toDelete),
+      onCancel: () => {
+        ctx.confirm.close()
+        ctx.render()
+      },
+    })
     ctx.render()
     return
   }
@@ -454,7 +452,8 @@ export async function handleDeleteComment(
  */
 async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): Promise<void> {
   if (!ctx.prInfo || !toDelete.githubId) {
-    ctx.setState((s) => closeConfirmDialog(showToast(s, "Cannot delete: missing GitHub info", "error")))
+    ctx.confirm.close()
+    ctx.setState((s) => showToast(s, "Cannot delete: missing GitHub info", "error"))
     ctx.render()
     return
   }
@@ -462,7 +461,8 @@ async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): P
   const { owner, repo } = ctx.prInfo
 
   // Close dialog and show loading toast
-  ctx.setState((s) => closeConfirmDialog(showToast(s, "Deleting comment...", "info")))
+  ctx.confirm.close()
+  ctx.setState((s) => showToast(s, "Deleting comment...", "info"))
   ctx.render()
 
   // Delete on GitHub
@@ -518,26 +518,25 @@ export async function handleClearLocalComments(ctx: CommentsContext): Promise<vo
     return
   }
 
-  ctx.setState((s) =>
-    showConfirmDialog(s, {
-      title: "Clear Local Comments",
-      message: `Delete ${count} local comment${count === 1 ? "" : "s"}? They were never sent to GitHub.`,
-      onConfirm: () => {
-        void (async () => {
-          const removed = await clearLocalComments(ctx.source)
-          ctx.setState((s2) => ({
-            ...closeConfirmDialog(s2),
-            comments: s2.comments.filter((c) => c.status !== "local"),
-          }))
-          ctx.setState((s2) => showToast(s2, `Removed ${removed} local comment${removed === 1 ? "" : "s"}`, "success"))
-          ctx.render()
-        })()
-      },
-      onCancel: () => {
-        ctx.setState(closeConfirmDialog)
+  ctx.confirm.show({
+    title: "Clear Local Comments",
+    message: `Delete ${count} local comment${count === 1 ? "" : "s"}? They were never sent to GitHub.`,
+    onConfirm: () => {
+      void (async () => {
+        const removed = await clearLocalComments(ctx.source)
+        ctx.confirm.close()
+        ctx.setState((s2) => ({
+          ...s2,
+          comments: s2.comments.filter((c) => c.status !== "local"),
+        }))
+        ctx.setState((s2) => showToast(s2, `Removed ${removed} local comment${removed === 1 ? "" : "s"}`, "success"))
         ctx.render()
-      },
-    })
-  )
+      })()
+    },
+    onCancel: () => {
+      ctx.confirm.close()
+      ctx.render()
+    },
+  })
   ctx.render()
 }

@@ -14,6 +14,7 @@ export function threadPanelHoldsKeys(state: AppState): boolean {
 export interface OutsideOverlays {
   prompt: boolean
   help: boolean
+  confirm: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
@@ -28,7 +29,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     state.occurrencePicker.open ||
     state.commitPicker.open ||
     state.syncPreview.open ||
-    state.confirmDialog !== null ||
+    outside.confirm ||
     ((state.showLinePeek || state.blamePeek !== null) && state.viewMode === "diff")
   )
 }

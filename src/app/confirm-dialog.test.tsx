@@ -33,8 +33,6 @@ const model = () =>
     title: "Delete comment?",
     message: "This removes it on GitHub.",
     details: "Some details here",
-    onConfirm: () => {},
-    onCancel: () => {},
   })
 
 test("the dialog is centred on the screen, clears on null, and an identical update keeps its text", async () => {

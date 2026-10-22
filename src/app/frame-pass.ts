@@ -21,7 +21,9 @@ import { diffCursorShown } from "./diff-focus"
 import { promptOpenIn } from "./open-prompt"
 import type { AppShell } from "./shell"
 import type { Frame } from "./frame"
+import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { HelpState } from "../features/help/state"
+import type { ConfirmState } from "../features/confirm/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -43,6 +45,7 @@ export interface FramePassContext {
   /** The files' own text and their parses, which both diff views colour rows from. */
   parses: FileParses
   help: HelpState
+  confirm: ConfirmState
   // Helper
   updateFileTreePanel: () => void
   /** Hands the pass's snapshot to every view that derives its own model from it. */
@@ -71,7 +74,13 @@ export function createFramePass(ctx: FramePassContext): () => void {
     // After the panel update, which sets the width the diff pane is measured against.
     const splitOn = isSplitOn(state, ctx.split)
     const help = { open: ctx.help.open(), scroll: ctx.help.scroll() }
-    const focused = diffCursorShown(state, { prompt: promptOpenIn(state, searchState), help: help.open })
+    const asked = ctx.confirm.dialog()
+    const confirmDialog = asked ? confirmDialogModel(asked) : null
+    const focused = diffCursorShown(state, {
+      prompt: promptOpenIn(state, searchState),
+      help: help.open,
+      confirm: confirmDialog !== null,
+    })
 
     const prInfoPanel = ctx.getPrInfoPanel()
     const { slot, withTree } = viewSlotOf(state, { overview: prInfoPanel !== null })
@@ -97,6 +106,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       now,
       diff: diffPass.readout(splitOn, state.viewMode, vimState),
       help,
+      confirmDialog,
     }
 
     // The composer and the prompts focus their fields as publish's first

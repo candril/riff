@@ -137,6 +137,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
     onLink: createOpenLink(ctx),
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,
+    confirm: ctx.confirm,
   })
   return composeKeys(riffKeymap, treeLeftover(tree), markChords.settle)
 }
