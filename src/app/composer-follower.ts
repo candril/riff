@@ -4,11 +4,13 @@ import { setEmojiPicker, setMentionPicker, type AppState } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import type { ComposerSession } from "./composer-session"
 import type { ComposerModel } from "./composer-model"
+import type { MentionsState } from "../features/mentions/state"
 
 export interface ComposerFollowerDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  mentions: MentionsState
 }
 
 /**
@@ -17,7 +19,7 @@ export interface ComposerFollowerDeps {
  */
 export function createComposerFollower(
   compose: (session: ComposerSession | null) => void,
-  { getState, setState, render }: ComposerFollowerDeps
+  { getState, setState, render, mentions }: ComposerFollowerDeps
 ) {
   const onActivity = (text: string, cursorOffset: number) => {
     // Detect `@<query>` against the live textarea state. The
@@ -31,7 +33,7 @@ export function createComposerFollower(
     if (trigger) {
       // Widen the pool for fragments the cached roster can't cover
       // (large orgs) — debounced, so this is a no-op most keystrokes.
-      requestMentionSearch({ setState, render }, trigger.query, collectMentionCandidates(getState()))
+      requestMentionSearch({ mentions, render }, trigger.query, collectMentionCandidates(getState(), mentions.pool()))
     }
     render()
   }

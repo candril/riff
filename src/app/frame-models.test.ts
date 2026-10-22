@@ -76,6 +76,7 @@ function frame(
     actionMenu,
     linePeek,
     blamePeek,
+    mentions: { pool: [], searching: null },
     commandKeys: new Map(),
   }
 }

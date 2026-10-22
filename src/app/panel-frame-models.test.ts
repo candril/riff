@@ -42,7 +42,13 @@ const panelOpen = (state: AppState) => openInlineCommentOverlay(state, "src/a.ts
 
 function frame(
   state: AppState,
-  { flash = {}, width = 120, height = 40, now = NOW }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number } = {}
+  {
+    flash = {},
+    width = 120,
+    height = 40,
+    now = NOW,
+    mentions = { pool: [], searching: null },
+  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"] } = {}
 ): Frame {
   return {
     state,
@@ -67,6 +73,7 @@ function frame(
     actionMenu: null,
     linePeek: null,
     blamePeek: null,
+    mentions,
     commandKeys: new Map(),
   }
 }
@@ -84,6 +91,12 @@ describe("threadPanelFrameInput", () => {
     const ages = (now: number) =>
       threadPanelModel(threadPanelFrameInput(frame(panelOpen(base()), { now }))!).threads.map((thread) => thread.comments[0]?.time)
     expect(ages(NOW)).not.toEqual(ages(NOW + 48 * 3600_000))
+  })
+
+  test("offers the @mention pool behind the participants, and says which query is being searched", () => {
+    const input = threadPanelFrameInput(frame(panelOpen(base()), { mentions: { pool: ["dana"], searching: "da" } }))!
+    expect(input.mentionCandidates.at(-1)).toBe("dana")
+    expect(input.mentionSearchQuery).toBe("da")
   })
 
   test("counts the threads open-only hides while it is on, and is null for it while it is off", () => {

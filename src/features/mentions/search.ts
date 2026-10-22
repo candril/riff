@@ -10,12 +10,11 @@
  * Debounced, and each fragment is only ever asked once per session.
  */
 
-import type { AppState } from "../../state"
-import { mergeMentionableUsers, setMentionSearchQuery } from "../../state"
 import { searchMentionableUsers } from "../../providers/github/mentions"
 import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
 import { MENTION_VISIBLE_LIMIT } from "../../components/at-picker"
 import { getActiveMentionRepo } from "./prefetch"
+import type { MentionsState } from "./state"
 
 // Long enough that a fragment is worth a round-trip, short enough to still
 // cover surnames people type in full.
@@ -26,7 +25,7 @@ let pending: ReturnType<typeof setTimeout> | null = null
 const attempted = new Set<string>()
 
 export interface MentionSearchContext {
-  setState: (updater: (s: AppState) => AppState) => void
+  mentions: Pick<MentionsState, "searchStarted" | "searchSettled">
   render: () => void
 }
 
@@ -64,20 +63,13 @@ async function run(ctx: MentionSearchContext, query: string): Promise<void> {
   const repo = getActiveMentionRepo()
   if (!repo) return
 
-  ctx.setState((s) => setMentionSearchQuery(s, query))
+  ctx.mentions.searchStarted(query)
   ctx.render()
 
   const logins = await searchMentionableUsers(repo.owner, repo.repo, query).catch(
     () => [] as string[],
   )
 
-  ctx.setState((s) =>
-    mergeMentionableUsers(
-      // Only clear the hint if it still belongs to this query — a newer
-      // search may have started while this one was in flight.
-      s.mentionSearchQuery === query ? setMentionSearchQuery(s, null) : s,
-      logins,
-    ),
-  )
+  ctx.mentions.searchSettled(query, logins)
   ctx.render()
 }

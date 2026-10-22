@@ -458,16 +458,6 @@ export interface AppState {
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
   commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
 
-  // GitHub users this repo accepts as @mentions, fetched in the background
-  // (spec 046). Empty until the fetch lands — the picker falls back to the
-  // participants derived from the PR in the meantime. Grows when a typed
-  // query is searched server-side.
-  mentionableUsers: string[]
-
-  // Query currently being searched on GitHub, or null when idle. Drives the
-  // picker's "searching" hint so a slow round-trip doesn't read as "no match".
-  mentionSearchQuery: string | null
-
   // What the palette's "React…" action targets right now (spec 042).
   // Views set this when they focus a reactable item (e.g. the inline
   // overlay's highlighted comment) and clear it when they're dismissed.
@@ -599,8 +589,6 @@ export function createInitialState(
     allFiles: files,
     allFileTree: fileTree,
     commitDiffCache: new Map(),
-    mentionableUsers: [],
-    mentionSearchQuery: null,
     reactionTarget: null,
     jumpList: createJumpListState(),
     marks: createMarksState(),
@@ -1548,28 +1536,6 @@ export function clearToast(state: AppState): AppState {
       type: "info",
     },
   }
-}
-
-// ============================================================================
-// Mentionable Users (spec 046)
-// ============================================================================
-
-/**
- * Add to the fetched @mention pool, keeping the existing order. Merging
- * rather than replacing lets the background roster fetch and the per-query
- * searches land in either order without clobbering each other.
- */
-export function mergeMentionableUsers(state: AppState, logins: string[]): AppState {
-  const seen = new Set(state.mentionableUsers.map((l) => l.toLowerCase()))
-  const added = logins.filter((l) => !seen.has(l.toLowerCase()))
-  if (added.length === 0) return state
-  return { ...state, mentionableUsers: [...state.mentionableUsers, ...added] }
-}
-
-/** Mark a query as being searched on GitHub (null once it settles). */
-export function setMentionSearchQuery(state: AppState, query: string | null): AppState {
-  if (state.mentionSearchQuery === query) return state
-  return { ...state, mentionSearchQuery: query }
 }
 
 // ============================================================================

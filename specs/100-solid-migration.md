@@ -248,6 +248,10 @@ it is open, and the pass closes it once the diff is no longer the view.
 The blame columns are the fourteenth (`createBlameColumnsState` in
 `src/features/blame/column-state.ts`); the diff views read their map off
 the factory, and a reload clears it.
+The @mention pool is the fifteenth (`createMentionsState` in
+`src/features/mentions/state.ts`); the frame carries the pool and the
+query being searched, and unlike the others a reload keeps it: it is the
+repo's roster, fetched once a session.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

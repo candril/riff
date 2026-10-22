@@ -11,7 +11,8 @@ afterEach(async () => {
 })
 
 async function composer() {
-  const opened = await composing({ mentionableUsers: ["dana", "dave"] })
+  const opened = await composing()
+  opened.app.mentions.merge(["dana", "dave"])
   dispose = opened.app.dispose
   return opened
 }

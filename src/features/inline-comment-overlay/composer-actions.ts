@@ -130,7 +130,7 @@ export function emojiPicker(deps: ComposerKeyDeps): InputPicker {
 
 export function mentionPicker(deps: ComposerKeyDeps): InputPicker {
   const picker = () => deps.getState().inlineCommentOverlay.mentionPicker
-  const matches = () => getFilteredMentionCandidates(collectMentionCandidates(deps.getState()), picker()?.query ?? "")
+  const matches = () => getFilteredMentionCandidates(collectMentionCandidates(deps.getState(), deps.mentions.pool()), picker()?.query ?? "")
   return {
     open: () => picker() !== null,
     matches: () => matches().length,

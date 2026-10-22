@@ -54,6 +54,7 @@ function frame(
     actionMenu: null,
     linePeek: null,
     blamePeek: null,
+    mentions: { pool: [], searching: null },
     commandKeys: new Map(),
   }
 }

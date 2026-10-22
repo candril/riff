@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createInitialState, type AppState } from "../state"
+import { createMentionsState } from "../features/mentions/state"
 import { createComposerFollower } from "./composer-follower"
 import type { ComposerSession } from "./composer-session"
 
@@ -12,6 +13,7 @@ function follow() {
     getState: () => state,
     setState: (updater) => (state = updater(state)),
     render: () => renders++,
+    mentions: createMentionsState(),
   })
   return { follower, sessions, state: () => state, renders: () => renders }
 }

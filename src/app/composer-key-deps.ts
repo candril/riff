@@ -10,6 +10,7 @@ export function composerKeyDeps(ctx: AppKeyContext): ComposerKeyDeps {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
+    mentions: ctx.mentions,
     get source() {
       return ctx.commentsContext.source
     },

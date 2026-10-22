@@ -8,16 +8,15 @@
  * list once per session and merges it in behind the participants.
  *
  * Everything here is best-effort and silent: `collectMentionCandidates` runs
- * synchronously on every render, so the result has to land in state rather
+ * synchronously on every render, so the result has to land in the pool rather
  * than be awaited, and a failed fetch just leaves the picker as it is today.
  */
 
-import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
-import { mergeMentionableUsers } from "../../state"
 import { getMentionableUsers } from "../../providers/github/mentions"
 import { getCurrentRepoInfo } from "../../storage/resolve"
 import { loadMentionableUsers, saveMentionableUsers } from "../../storage/caches"
+import type { MentionsState } from "./state"
 
 /**
  * Repo the session's mentions resolve against, remembered so the per-query
@@ -30,7 +29,7 @@ export function getActiveMentionRepo(): { owner: string; repo: string } | null {
 }
 
 export interface MentionPrefetchContext {
-  setState: (updater: (s: AppState) => AppState) => void
+  mentions: Pick<MentionsState, "merge">
   render: () => void
   mode: "local" | "pr"
   prInfo: PrInfo | null
@@ -65,7 +64,7 @@ async function prefetch(ctx: MentionPrefetchContext): Promise<void> {
 }
 
 function apply(ctx: MentionPrefetchContext, logins: string[]): void {
-  ctx.setState((s) => mergeMentionableUsers(s, logins))
+  ctx.mentions.merge(logins)
   ctx.render()
 }
 

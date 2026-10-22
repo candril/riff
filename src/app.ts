@@ -68,6 +68,7 @@ import { createActionMenuState } from "./features/action-menu/state"
 import { createLinePeekState } from "./features/line-peek/state"
 import { createBlamePeekState } from "./features/blame/peek-state"
 import { createBlameColumnsState } from "./features/blame/column-state"
+import { createMentionsState } from "./features/mentions/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -488,6 +489,7 @@ export async function createApp(options: AppOptions = {}) {
   const linePeek = createLinePeekState()
   const blamePeek = createBlamePeekState()
   const blameColumns = createBlameColumnsState()
+  const mentions = createMentionsState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -634,6 +636,7 @@ export async function createApp(options: AppOptions = {}) {
         getState: () => state,
         setState: setAppState,
         render: () => renderFrame(),
+        mentions,
       }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
@@ -681,6 +684,7 @@ export async function createApp(options: AppOptions = {}) {
     linePeek,
     blamePeek,
     blameColumns,
+    mentions,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1874,6 +1878,7 @@ export async function createApp(options: AppOptions = {}) {
     linePeek,
     blamePeek,
     blameColumns,
+    mentions,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys
@@ -1940,7 +1945,7 @@ export async function createApp(options: AppOptions = {}) {
   // Fetch the repo's @mention pool in the background (spec 046). Silent and
   // best-effort — the picker works off PR participants until it lands.
   startMentionPrefetch({
-    setState: (fn) => { state = fn(state) },
+    mentions,
     render,
     mode,
     prInfo: prInfo ?? null,

@@ -11,7 +11,7 @@
  *      Complete, but it only shows up once the fetch lands.
  *
  * Nothing here blocks: this runs synchronously on every render, so the
- * fetched pool arrives via `state.mentionableUsers` rather than an await.
+ * fetched pool arrives as the mention factory's `pool` rather than an await.
  */
 
 import type { AppState } from "../state"
@@ -31,7 +31,7 @@ function configuredExtras(): string[] {
   return extras
 }
 
-export function collectMentionCandidates(state: AppState): string[] {
+export function collectMentionCandidates(state: AppState, pool: readonly string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   const push = (name: string | undefined | null) => {
@@ -55,7 +55,7 @@ export function collectMentionCandidates(state: AppState): string[] {
   }
   state.comments.forEach((c) => push(c.author))
   configuredExtras().forEach(push)
-  state.mentionableUsers.forEach(push)
+  pool.forEach(push)
   return out
 }
 

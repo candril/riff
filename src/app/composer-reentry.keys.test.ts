@@ -45,7 +45,8 @@ test("editing a comment whose body ends in a mention seeds the composer without 
     getCommentScope: mounted.ctx.split.commentScope,
     commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
   })
-  mounted.show({ comments: [MENTIONING], mentionableUsers: ["alma"] })
+  mounted.mentions.merge(["alma"])
+  mounted.show({ comments: [MENTIONING] })
   await mounted.frame()
   moveTo(mounted, keys.vimState, '  return "hello"')
   mounted.setup.mockInput.pressKey("c")

@@ -85,6 +85,7 @@ async function mount(width: number, height: number) {
     actionMenu: null,
     linePeek: null,
     blamePeek: null,
+    mentions: { pool: [], searching: null },
     commandKeys: new Map(),
   })
   return { islands, panels, statusBar, shown, publish, pass, stop, initial }
@@ -208,6 +209,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       actionMenu: null,
       linePeek: null,
       blamePeek: null,
+      mentions: { pool: [], searching: null },
       commandKeys: new Map(),
     })
     expect(updates).toEqual([...FRAME_ISLANDS])

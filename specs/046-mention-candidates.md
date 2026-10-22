@@ -58,8 +58,9 @@ and display name — then merges the hits into the same pool, where the
 existing fuzzy filter picks them up. Each fragment is asked at most once per
 session.
 
-The round-trip is ~500ms, so `state.mentionSearchQuery` drives a "Searching
-GitHub for @…" line in the picker; without it the delay reads as "no match".
+The round-trip is ~500ms, so the mention factory's `searching` query drives
+a "Searching GitHub for @…" line in the picker; without it the delay reads
+as "no match".
 
 Note for anyone touching the GraphQL: the variable is named `$q`, not
 `$query`, because `gh api graphql -f query=` uses that name for the document
@@ -67,12 +68,15 @@ itself and a `-F query=` silently replaces it.
 
 ### Where it lands
 
-`collectMentionCandidates(state)` runs synchronously on every render, so the
-fetch can't be awaited there. `features/mentions/prefetch.ts` writes the
-result into `state.mentionableUsers` and re-renders; the cached list is
-applied first so a warm start is instant. Both the roster and the per-query
-hits *merge* into that array rather than replacing it, so they can land in
-either order.
+`collectMentionCandidates(state, pool)` runs synchronously on every render,
+so the fetch can't be awaited there. `features/mentions/prefetch.ts` merges
+the result into the pool of `createMentionsState`
+(`features/mentions/state.ts`) and re-renders; the cached list is applied
+first so a warm start is instant. Both the roster and the per-query hits
+*merge* into that pool rather than replacing it, so they can land in either
+order. The pool lives outside `AppState` and survives a reload: it is the
+repo's roster, not the diff's, and neither the prefetch nor a fragment's
+search is asked again in the same session.
 
 Config extras are read once per process — `loadConfig()` re-reads the TOML on
 every call, which is fine at startup and not on every render.

@@ -66,6 +66,8 @@ export interface Frame {
   linePeek: LinePeekSnapshot | null
   /** The blame peek's line and answer, read off its factory, or null while it is closed. */
   blamePeek: BlamePeekSnapshot | null
+  /** The @mention pool and the query being searched on GitHub, read off their factory. */
+  mentions: { pool: readonly string[]; searching: string | null }
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

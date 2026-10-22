@@ -13,6 +13,7 @@ import type { ComposerHandle } from "../../app/island-composer"
 import { registerAtPickerLayer, type InputPicker } from "../../app/at-picker-keys"
 import type { Comment } from "../../types"
 import type { InlineComposerHandlersContext } from "./handlers"
+import type { MentionsState } from "../mentions/state"
 import {
   cancelComposer,
   editDraftInEditor,
@@ -35,6 +36,8 @@ export interface ComposerKeyDeps extends InlineComposerHandlersContext {
   getCommentedLines: () => string[] | null
   /** Hands the draft to $EDITOR, resolving with the edited text, or null if the editor errored. */
   openDraftInEditor: (current: string) => Promise<string | null>
+  /** The @mention pool the mention picker offers behind the PR's participants. */
+  mentions: Pick<MentionsState, "pool">
 }
 
 type Command = { name: string; title: string; category: string; palette: false; enabled?: () => boolean; run: (ctx: { event: KeyEvent }) => void }

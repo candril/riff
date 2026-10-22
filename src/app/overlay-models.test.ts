@@ -56,6 +56,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     actionMenu: null,
     linePeek: null,
     blamePeek: null,
+    mentions: { pool: [], searching: null },
     commandKeys: new Map(),
     ...rest,
   }

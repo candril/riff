@@ -59,7 +59,7 @@ test("`:smil` opens the emoji picker, and Tab puts the emoji in its place", asyn
 
 test("`@da` opens the mention picker on a known login, and Tab completes it", async () => {
   const { app, textarea } = await composing()
-  app.show({ mentionableUsers: ["dana"] })
+  app.mentions.merge(["dana"])
   await app.setup.mockInput.typeText("ask @da")
 
   expect(app.ctx.getState().inlineCommentOverlay.mentionPicker?.query).toBe("da")
