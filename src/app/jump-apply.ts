@@ -1,9 +1,9 @@
 import type { JumpApplyContext } from "../features/jumplist"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 
 export function jumpApplyContext(
   ctx: Pick<
-    GlobalKeyContext,
+    AppKeyContext,
     "setState" | "getVimState" | "setVimState" | "rebuildLineMapping" | "ensureCursorVisible" | "render" | "onCommitSelected"
   >,
 ): JumpApplyContext {

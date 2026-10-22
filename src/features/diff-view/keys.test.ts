@@ -41,7 +41,7 @@ test("with the diff focused, j goes to the diff and not to the chain", async () 
   const keys = await diffKeys()
   keys.press("j")
   expect(keys.handled).toEqual(["j"])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("with the tree focused, the diff declines the key and it reaches the chain", async () => {
@@ -49,7 +49,7 @@ test("with the tree focused, the diff declines the key and it reaches the chain"
   const key = keys.press("j")
   expect(keys.handled).toEqual(["j"])
   expect(key.defaultPrevented).toBe(false)
-  expect(keys.legacyKeys).toEqual(["j"])
+  expect(keys.leftKeys).toEqual(["j"])
 })
 
 test("under a capture registered after it, the layer stands aside", async () => {
@@ -57,7 +57,7 @@ test("under a capture registered after it, the layer stands aside", async () => 
   keys.riffKeymap.capture(() => true)
   keys.press("j")
   expect(keys.handled).toEqual([])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("\\ toggles split with the diff focused and with the tree focused", async () => {
@@ -66,7 +66,7 @@ test("\\ toggles split with the diff focused and with the tree focused", async (
     keys.press("\\")
     expect(keys.toggles).toEqual([1])
     expect(keys.handled).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   }
 })
 
@@ -85,7 +85,7 @@ test("\\ that breaks off a pending sequence does not toggle, and goes to the dif
   keys.press("\\")
   expect(keys.toggles).toEqual([])
   expect(keys.handled).toEqual(["\\"])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("Ctrl-\\ does not toggle", async () => {
@@ -101,7 +101,7 @@ test("a key that breaks off a sequence goes to the diff at the re-offer, not to 
   keys.press("j")
   expect(keys.handled).toEqual(["j"])
   expect(keys.brokenKeys).toEqual([])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("outside the diff view, the layer stands aside", async () => {
@@ -111,6 +111,6 @@ test("outside the diff view, the layer stands aside", async () => {
     keys.press("\\")
     expect(keys.handled).toEqual([])
     expect(keys.toggles).toEqual([])
-    expect(keys.legacyKeys).toEqual(["j", "\\"])
+    expect(keys.leftKeys).toEqual(["j", "\\"])
   }
 })

@@ -1,4 +1,4 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createOpenLink, openerCommand } from "./open-link"
 import { expandFiles } from "../state"
 import * as fileNavigation from "../features/file-navigation"
@@ -6,7 +6,7 @@ import * as externalTools from "../features/external-tools"
 import type { FollowLinkContext } from "../features/follow-link"
 
 /** Where `gf`, `gF`, `gx` and `gX` take the link under the cursor. */
-export function followLinkContext(ctx: GlobalKeyContext): FollowLinkContext {
+export function followLinkContext(ctx: AppKeyContext): FollowLinkContext {
   const openLink = createOpenLink(ctx)
   return {
     setState: ctx.setState,

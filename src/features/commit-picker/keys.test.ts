@@ -36,7 +36,7 @@ function onRow(state: AppState, row: number): AppState {
 async function harness(setup: (s: AppState) => AppState = (s) => s) {
   let state: AppState = setup(openCommitPicker({ ...createInitialState([], [], "local", "local changes"), commits }))
   const selected: { sha: string | null; scope?: readonly string[] | null }[] = []
-  const { riffKeymap, legacyKeys, press: pressSequence } = await keymapHarness()
+  const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerCommitPickerKeys(riffKeymap, {
     getState: () => state,
     setState: (fn) => {
@@ -50,9 +50,9 @@ async function harness(setup: (s: AppState) => AppState = (s) => s) {
 
   /** Whether the picker kept the key from the chain, and whether it prevented it. */
   const press = (name: string, rename?: string) => {
-    const before = legacyKeys.length
+    const before = leftKeys.length
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
-    return { kept: legacyKeys.length === before, prevented: key.defaultPrevented }
+    return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
   return { press, selected, state: () => state }
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn, openChat } from "../testing/chat-keys"
 import { createFeedState, openInlineCommentOverlay, showToast, toggleHelp } from "../state"
@@ -37,7 +37,7 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, with what the global keys reach and nothing that spawns. */
-async function globalApp(more: Partial<GlobalKeyContext> = {}) {
+async function globalApp(more: Partial<AppKeyContext> = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show()
   const mounted = app
@@ -50,14 +50,14 @@ async function globalApp(more: Partial<GlobalKeyContext> = {}) {
     getCommentScope: () => mounted.ctx.split.commentScope(),
     flashHandler: {
       startList: (surface: string) => void flashes.push(surface),
-    } as unknown as GlobalKeyContext["flashHandler"],
+    } as unknown as AppKeyContext["flashHandler"],
     // handleAddComment reads the state first and stops with no files, before any editor.
     commentsContext: {
       getState: () => {
         comments.push(1)
         return { files: [] }
       },
-    } as unknown as GlobalKeyContext["commentsContext"],
+    } as unknown as AppKeyContext["commentsContext"],
     ...more,
   })
   await mounted.frame()

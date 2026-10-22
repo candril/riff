@@ -1,5 +1,5 @@
 import { expect } from "bun:test"
-import type { GlobalKeyContext } from "../app/global-keys"
+import type { AppKeyContext } from "../app/key-context"
 import { createAppKeys } from "../app/keys"
 import type { mountApp } from "./app-render"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -14,7 +14,7 @@ type Mounted = Awaited<ReturnType<typeof mountApp>>
  * focus walk. Anything else it calls throws, so a key that leaks past the
  * chat into the diff shows up here.
  */
-export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
+export function keysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
   const { ctx: render } = mounted
   let vimState = render.getVimState()
   const quits: number[] = []
@@ -22,7 +22,7 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
     vimState = next
     mounted.setVimState(next)
   }
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => vimState,
@@ -65,12 +65,12 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       return () => {
         throw new Error(`a chat key reached ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   const keys = createAppKeys(mounted.setup.renderer, ctx)
   mounted.setup.renderer.keyInput.on("keypress", keys)
   // Where a search or a flash jump would land the cursor, without walking there.

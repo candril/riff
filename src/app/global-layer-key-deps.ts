@@ -1,4 +1,4 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { GlobalLayerKeyDeps } from "./global-layer-keys"
 import { flashTargets } from "./list-flash"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
@@ -9,7 +9,7 @@ import * as folds from "../features/folds"
 
 /** What the global keys need of the app, and of the chain behind them, the chord it holds. */
 export function globalLayerKeyDeps(
-  ctx: GlobalKeyContext,
+  ctx: AppKeyContext,
   chain: { chordPending(): boolean },
 ): GlobalLayerKeyDeps {
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)

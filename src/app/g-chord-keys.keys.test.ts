@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, setSystemTime, spyOn, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { routeDiffViewport, type DiffViewport } from "./diff-viewport"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
@@ -54,7 +54,7 @@ async function until(done: () => boolean, withinMs = 2000): Promise<boolean> {
 }
 
 /** riff's keys through the real createAppKeys, every scroll the chords ask of the diff recorded. */
-async function gApp(more: Partial<GlobalKeyContext> = {}) {
+async function gApp(more: Partial<AppKeyContext> = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff" })
   const mounted = app
@@ -75,7 +75,7 @@ async function gApp(more: Partial<GlobalKeyContext> = {}) {
   }
   let keys!: ReturnType<typeof keysOn>
   const vim = () => keys.vimState()
-  const setVimState: GlobalKeyContext["setVimState"] = (next) => keys.setVim(next)
+  const setVimState: AppKeyContext["setVimState"] = (next) => keys.setVim(next)
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
   const foldsContext: FoldsContext = {
     getState: render.getState,

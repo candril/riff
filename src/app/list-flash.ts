@@ -4,7 +4,7 @@ import type { FlashSurface } from "../vim-diff/flash-state"
 import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 
 /**
  * Which list `s` labels, or null when the diff has the cursor and its own
@@ -24,7 +24,7 @@ export function flashSurface(state: AppState): FlashSurface | null {
 
 export function flashTargets(
   state: AppState,
-  ctx: Pick<GlobalKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer">,
+  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer">,
 ): string[] {
   switch (flashSurface(state)) {
     case "tree": {

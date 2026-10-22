@@ -33,7 +33,7 @@ describe("the thread panel in view mode", () => {
     keys.press(CTRL.j)
     expect(keys.overlay().highlightedIndex).toBe(1)
     expect(keys.calls).toEqual(["sync", "sync", "sync", "sync", "sync"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("J, K and Ctrl-n jump between threads; Shift-n is swallowed", async () => {
@@ -43,7 +43,7 @@ describe("the thread panel in view mode", () => {
     keys.press(CTRL.n)
     keys.press("N")
     expect(keys.calls).toEqual(["adjacent 1", "adjacent -1", "adjacent 1"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("G goes to the last entry, gg to the first, and H shows open threads only", async () => {
@@ -72,7 +72,7 @@ describe("the thread panel in view mode", () => {
     keys.press("a")
     expect(keys.state()).toBe(before)
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("r replies inline on the highlighted thread and R in $EDITOR", async () => {
@@ -116,7 +116,7 @@ describe("the thread panel in view mode", () => {
     keys.press("S")
     keys.press(CTRL.s)
     expect(keys.calls).toEqual(["submit ar"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("c opens the code the comment was written against, or says there is none", async () => {
@@ -136,7 +136,7 @@ describe("the thread panel in view mode", () => {
     keys.press("O")
     keys.press(CTRL.o)
     expect(keys.calls).toEqual(["editor a", "images a"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("+ reacts and / starts the filter, both prevented so the prompt they open does not type them", async () => {
@@ -156,7 +156,7 @@ describe("the thread panel in view mode", () => {
       expect(keys.press(sequence).defaultPrevented).toBe(true)
     }
     expect(keys.calls).toEqual(["react", "react", "react", "react"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("a pending g takes a + spelled so, and a pending z gives it its own meaning", async () => {
@@ -234,7 +234,7 @@ describe("the panel's filter prompt", () => {
       expect(keys.press(sequence).defaultPrevented).toBe(false)
     }
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.overlay().filterInput).toBe(true)
     expect(keys.overlay().highlightedIndex).toBe(0)
   })
@@ -262,7 +262,7 @@ describe("the code peek over the panel", () => {
     expect(keys.overlay().codePeekId).toBe("a")
     expect(keys.overlay().highlightedIndex).toBe(0)
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 })
 
@@ -272,7 +272,7 @@ describe("what the panel leaves to the chain", () => {
     for (const sequence of [CTRL.p, CTRL.f, "s", "\x1b[115;3u"]) {
       expect(keys.press(sequence).defaultPrevented).toBe(false)
     }
-    expect(keys.legacyKeys).toEqual(["p", "f", "s", "s"])
+    expect(keys.leftKeys).toEqual(["p", "f", "s", "s"])
   })
 
   test("Ctrl-r passes in view mode and under the code peek, whether the chat is open or not", async () => {
@@ -282,7 +282,7 @@ describe("what the panel leaves to the chain", () => {
       keys.press("\x1b[114;6u")
       keys.set(setCommentCodePeek(keys.state(), "a"))
       keys.press(CTRL.r)
-      expect(keys.legacyKeys).toEqual(["r", "r", "r"])
+      expect(keys.leftKeys).toEqual(["r", "r", "r"])
     }
   })
 
@@ -290,30 +290,30 @@ describe("what the panel leaves to the chain", () => {
     const keys = await threadPanelKeys(startViewFilter(panelState(0, { chatOpen: true })))
     keys.press(CTRL.r)
     keys.press(CTRL.l)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.overlay().filterInput).toBe(true)
   })
 
   test("Ctrl-l passes only with the chat open; with it closed the panel swallows it", async () => {
     const closed = await threadPanelKeys(panelState())
     closed.press(CTRL.l)
-    expect(closed.legacyKeys).toEqual([])
+    expect(closed.leftKeys).toEqual([])
 
     const open = await threadPanelKeys(panelState(0, { chatOpen: true }))
     open.press(CTRL.l)
-    expect(open.legacyKeys).toEqual(["l"])
+    expect(open.leftKeys).toEqual(["l"])
   })
 
   test("nothing is held while the diff has focus or the composer is open", async () => {
     const unfocused = await threadPanelKeys({ ...panelState(), focusedPanel: "diff" })
     unfocused.press("j")
     unfocused.press("q")
-    expect(unfocused.legacyKeys).toEqual(["j", "q"])
+    expect(unfocused.leftKeys).toEqual(["j", "q"])
     expect(unfocused.overlay().highlightedIndex).toBe(0)
 
     const composing = await threadPanelKeys(startInlineCompose(panelState()))
     composing.press("j")
-    expect(composing.legacyKeys).toEqual(["j"])
+    expect(composing.leftKeys).toEqual(["j"])
     expect(composing.calls).toEqual([])
   })
 })
@@ -356,10 +356,10 @@ describe("the panel's own chords", () => {
     const keys = await threadPanelKeys(panelState())
     keys.press("g")
     keys.press("s")
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     keys.press("z")
     keys.press("s")
-    expect(keys.legacyKeys).toEqual(["s"])
+    expect(keys.leftKeys).toEqual(["s"])
     keys.press("a")
     expect(keys.overlay().expandedThreadIds.size).toBe(0)
   })

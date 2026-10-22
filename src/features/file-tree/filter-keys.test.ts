@@ -16,7 +16,7 @@ describe("the tree's filter prompt", () => {
     expect(keys.state().treeFilterInput).toBe(false)
     expect(keys.state().treeFilter).toBe("")
     expect(keys.calls).toEqual(["updatePanel"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("Enter keeps the filter and closes the prompt", async () => {
@@ -25,7 +25,7 @@ describe("the tree's filter prompt", () => {
       expect(keys.press(sequence, name).defaultPrevented).toBe(true)
       expect(keys.state().treeFilterInput).toBe(false)
       expect(keys.state().treeFilter).toBe("src")
-      expect(keys.legacyKeys).toEqual([])
+      expect(keys.leftKeys).toEqual([])
     }
   })
 
@@ -42,7 +42,7 @@ describe("the tree's filter prompt", () => {
     expect(keys.state().treeFilterInput).toBe(true)
     expect(keys.state().treeFilter).toBe("src")
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("with focus on the diff, or the tree hidden, it holds nothing", async () => {
@@ -51,7 +51,7 @@ describe("the tree's filter prompt", () => {
       keys.press("q")
       keys.press(ESC)
       expect(keys.state().treeFilterInput).toBe(true)
-      expect(keys.legacyKeys).toEqual(["q", "escape"])
+      expect(keys.leftKeys).toEqual(["q", "escape"])
     }
   })
 })

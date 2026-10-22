@@ -24,7 +24,7 @@ async function harness(setup: (s: AppState) => AppState = openMarksPicker) {
   })
   const jumps: string[] = []
   const saved: (readonly Mark[])[] = []
-  const { riffKeymap, legacyKeys, press: pressSequence } = await keymapHarness()
+  const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerMarksPickerKeys(riffKeymap, {
     getState: () => state,
     setState: (fn) => {
@@ -42,10 +42,10 @@ async function harness(setup: (s: AppState) => AppState = openMarksPicker) {
   let prevented = 0
   /** True when the picker kept the key from the chain. */
   const press = (name: string, ctrl = false) => {
-    const before = legacyKeys.length
+    const before = leftKeys.length
     const key = pressSequence(ctrl ? CTRL[name as keyof typeof CTRL] : (NAMED[name] ?? name))
     if (key.defaultPrevented) prevented++
-    return legacyKeys.length === before
+    return leftKeys.length === before
   }
 
   return { press, jumps, saved, state: () => state, prevented: () => prevented }

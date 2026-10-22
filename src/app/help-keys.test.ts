@@ -24,7 +24,7 @@ const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: 
 
 async function openHelp(rows: number, { syncPreview = false } = {}) {
   let chainChordPending = false
-  const { riffKeymap, legacyKeys, press } = await keymapHarness()
+  const { riffKeymap, leftKeys, press } = await keymapHarness()
   const initial = toggleHelp(createInitialState([], [], "", ""))
   let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
   let renders = 0
@@ -42,7 +42,7 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
   registerSyncPreviewKeys(riffKeymap, { ...deps, onExecuteSync: () => {} })
   return {
     press,
-    legacyKeys,
+    leftKeys,
     state: () => state,
     renders: () => renders,
     resize: (rows: number) => void (height = rows),
@@ -63,7 +63,7 @@ test("j and k scroll the help a row at a time, and k stops at the top", async ()
   help.press(DOWN)
   expect(help.state().helpScroll).toBe(1)
   expect(help.renders()).toBe(6)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("Ctrl-d jumps half the window and stops at the end; Ctrl-u comes back", async () => {
@@ -79,7 +79,7 @@ test("Ctrl-d jumps half the window and stops at the end; Ctrl-u comes back", asy
   expect(help.state().helpScroll).toBe(maxScroll - 1)
   for (let i = 0; i < 5; i++) help.press(CTRL_U)
   expect(help.state().helpScroll).toBe(0)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("where every key fits, scrolling keys leave the help where it is", async () => {
@@ -97,7 +97,7 @@ test("Esc closes the help, and opening it again starts at the top", async () => 
   expect(help.state().showHelp).toBe(false)
   expect(toggleHelp(help.state()).helpScroll).toBe(0)
   expect(help.renders()).toBe(3)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("q closes the help too", async () => {
@@ -105,7 +105,7 @@ test("q closes the help too", async () => {
   help.press("q")
   expect(help.state().showHelp).toBe(false)
   expect(help.renders()).toBe(1)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("every other key is swallowed and changes nothing", async () => {
@@ -115,7 +115,7 @@ test("every other key is swallowed and changes nothing", async () => {
   help.press(CTRL_B)
   expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
   expect(help.renders()).toBe(0)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; Ctrl-g and G do not", async () => {
@@ -127,7 +127,7 @@ test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; 
   help.press(META_G)
   help.press(CTRL_G)
   help.press("G")
-  expect(help.legacyKeys).toEqual(["g", "g"])
+  expect(help.leftKeys).toEqual(["g", "g"])
   expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
 })
 
@@ -136,7 +136,7 @@ test("while the chain holds a chord the help stands aside, so q and ? reach the 
   help.holdChainChord()
   help.press("q")
   help.press("?")
-  expect(help.legacyKeys).toEqual(["q", "?"])
+  expect(help.leftKeys).toEqual(["q", "?"])
   expect(help.state().showHelp).toBe(true)
 })
 
@@ -149,7 +149,7 @@ test("super+j and hyper+j scroll the help, and Ctrl-j does not", async () => {
   help.press(HYPER_J)
   help.press(CTRL_J)
   expect(help.state().helpScroll).toBe(2)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("with the help and the sync preview both up, escape closes the sync preview, not the help", async () => {
@@ -157,7 +157,7 @@ test("with the help and the sync preview both up, escape closes the sync preview
   help.press(ESC)
   expect(help.state().syncPreview.open).toBe(false)
   expect(help.state().showHelp).toBe(true)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("under the sync preview the help scrolls and closes on none of its keys", async () => {
@@ -167,7 +167,7 @@ test("under the sync preview the help scrolls and closes on none of its keys", a
   help.press("q")
   expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
   expect(help.state().syncPreview.open).toBe(true)
-  expect(help.legacyKeys).toEqual([])
+  expect(help.leftKeys).toEqual([])
 })
 
 test("after the terminal grows, the first k moves the help up from where it is drawn", async () => {

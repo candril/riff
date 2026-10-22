@@ -1,7 +1,7 @@
 import { expandThreadFor, openInlineCommentOverlay } from "../state"
 import { exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
 import { blockAnchor } from "../features/comments/block-anchor"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 
 export interface CommentsOverlayOpen {
   openCommentsOverlay(mode: "view" | "compose" | "edit"): boolean
@@ -10,7 +10,7 @@ export interface CommentsOverlayOpen {
 
 export function createCommentsOverlayOpen(
   ctx: Pick<
-    GlobalKeyContext,
+    AppKeyContext,
     "getState" | "setState" | "getVimState" | "setVimState" | "getLineMapping" | "getCommentScope" | "render"
   >,
 ): CommentsOverlayOpen {

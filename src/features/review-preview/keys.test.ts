@@ -39,7 +39,7 @@ async function harness(setup: Setup = {}) {
   const opened = setup.open === false ? base : openReviewPreview(base)
   let state: AppState = { ...opened, reviewPreview: { ...opened.reviewPreview, ...setup.reviewPreview } }
   const confirms: string[] = []
-  const { riffKeymap, legacyKeys, press: pressSequence } = await keymapHarness()
+  const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerReviewPreviewKeys(riffKeymap, {
     getState: () => state,
     setState: (fn) => {
@@ -55,9 +55,9 @@ async function harness(setup: Setup = {}) {
   })
   /** Whether Submit Review kept the key from the chain, and whether it prevented it. */
   const press = (name: string, rename?: string) => {
-    const before = legacyKeys.length
+    const before = leftKeys.length
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
-    return { kept: legacyKeys.length === before, prevented: key.defaultPrevented }
+    return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
   return { press, confirms, state: () => state }
 }

@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { mkdtemp, mkdir, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -53,7 +53,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     vimState = next
     mounted.setVimState(next)
   }
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => vimState,
@@ -84,16 +84,16 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
       source: "test",
       mode: "local",
       prInfo: null,
-    } as unknown as GlobalKeyContext["fileNavContext"],
+    } as unknown as AppKeyContext["fileNavContext"],
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       return () => {
         throw new Error(`the unviewed toggle reached ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 

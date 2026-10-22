@@ -21,7 +21,7 @@ import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mar
 import { registerOccurrencePickerKeys } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { registerModalKeys } from "./keys"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 
 const NAMES = ["a.ts", "b.ts", "c.ts"]
 const diffOf = (name: string) => `diff --git a/${name} b/${name}
@@ -168,27 +168,27 @@ for (const picker of PICKERS) {
   describe(`the ${picker.name}`, () => {
     test("escape closes it, with shift or alt held too", async () => {
       for (const sequence of [ESC, SHIFT_ESC, ALT_ESC]) {
-        const { state, legacyKeys, press } = await setup(picker.open(closed()))
+        const { state, leftKeys, press } = await setup(picker.open(closed()))
         expect(press(sequence).defaultPrevented).toBe(true)
         expect(picker.isOpen(state())).toBe(false)
-        expect(legacyKeys).toEqual([])
+        expect(leftKeys).toEqual([])
       }
     })
 
     test("return and a key named enter both pick the selected row", async () => {
       for (const rename of [undefined, "enter"]) {
-        const { state, calls, legacyKeys, press } = await setup(picker.open(closed()))
+        const { state, calls, leftKeys, press } = await setup(picker.open(closed()))
         press(DOWN)
         calls.length = 0
         expect(press("\r", rename).defaultPrevented).toBe(true)
         expect(calls).toContain(picker.picked)
         expect(picker.isOpen(state())).toBe(false)
-        expect(legacyKeys).toEqual([])
+        expect(leftKeys).toEqual([])
       }
     })
 
     test("the arrows, ctrl+p and ctrl+n move the selection within the list", async () => {
-      const { state, legacyKeys, press } = await setup(picker.open(closed()))
+      const { state, leftKeys, press } = await setup(picker.open(closed()))
       const at = (sequence: string) => {
         expect(press(sequence).defaultPrevented).toBe(true)
         return picker.index(state())
@@ -199,32 +199,32 @@ for (const picker of PICKERS) {
       expect(at(UP)).toBe(picker.wraps ? 2 : 1)
       expect(at(CTRL_P)).toBe(picker.wraps ? 1 : 0)
       expect(at(CTRL_P)).toBe(0)
-      expect(legacyKeys).toEqual([])
+      expect(leftKeys).toEqual([])
     })
 
     test("a bare p, n or any other key is left for the field and kept from the chain", async () => {
-      const { state, calls, legacyKeys, press } = await setup(picker.open(closed()))
+      const { state, calls, leftKeys, press } = await setup(picker.open(closed()))
       for (const sequence of ["p", "n", "x", "g", "j", BACKSPACE]) {
         expect(press(sequence).defaultPrevented).toBe(false)
       }
       expect(picker.isOpen(state())).toBe(true)
       expect(picker.index(state())).toBe(0)
       expect(calls).toEqual([])
-      expect(legacyKeys).toEqual([])
+      expect(leftKeys).toEqual([])
     })
 
     test("enter on an empty list is prevented and picks nothing", async () => {
-      const { state, calls, legacyKeys, press } = await setup(picker.openEmpty(closed()))
+      const { state, calls, leftKeys, press } = await setup(picker.openEmpty(closed()))
       expect(press("\r").defaultPrevented).toBe(true)
       expect(calls).toEqual(picker.emptyEnterCloses ? ["render"] : [])
       expect(picker.isOpen(state())).toBe(!picker.emptyEnterCloses)
-      expect(legacyKeys).toEqual([])
+      expect(leftKeys).toEqual([])
     })
   })
 }
 
 test("ctrl+g in the occurrence picker switches the prompt to the filter and back, and a bare g is typing", async () => {
-  const { state, calls, legacyKeys, press } = await setup(openOccurrencePicker(closed(), "hit"))
+  const { state, calls, leftKeys, press } = await setup(openOccurrencePicker(closed(), "hit"))
 
   expect(press(CTRL_G).defaultPrevented).toBe(true)
   expect(state().occurrencePicker.narrowing).toBe(true)
@@ -234,25 +234,25 @@ test("ctrl+g in the occurrence picker switches the prompt to the filter and back
 
   expect(state().occurrencePicker.narrowing).toBe(false)
   expect(calls).toEqual(["render", "render"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("ctrl+x and ctrl+g are left for the field in the pickers that do not bind them", async () => {
-  const { state, calls, legacyKeys, press } = await setup(openCommentsPicker(openFilePicker(closed())))
+  const { state, calls, leftKeys, press } = await setup(openCommentsPicker(openFilePicker(closed())))
 
   expect(press(CTRL_X).defaultPrevented).toBe(false)
   expect(press(CTRL_G).defaultPrevented).toBe(false)
 
   expect(state().filePicker.open).toBe(true)
   expect(calls).toEqual([])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with every picker closed their keys reach the chain", async () => {
-  const { legacyKeys, press } = await setup(closed())
+  const { leftKeys, press } = await setup(closed())
   for (const sequence of [ESC, "\r", UP, DOWN, CTRL_P, CTRL_N, "p", "x", CTRL_X, CTRL_G]) press(sequence)
   press("\r", "enter")
-  expect(legacyKeys).toEqual(["escape", "return", "up", "down", "p", "n", "p", "x", "x", "g", "enter"])
+  expect(leftKeys).toEqual(["escape", "return", "up", "down", "p", "n", "p", "x", "x", "g", "enter"])
 })
 
 /** registerPickerKeys and registerModalKeys in createAppKeys' order, on a context only Esc needs. */
@@ -266,7 +266,7 @@ async function setupApp(initial: AppState) {
     },
     render: () => {},
   }
-  registerPickerKeys(harness.riffKeymap, ctx as GlobalKeyContext)
+  registerPickerKeys(harness.riffKeymap, ctx as AppKeyContext)
   registerModalKeys(harness.riffKeymap, {
     ...ctx,
     getVimState: () => createCursorState(),
@@ -280,13 +280,13 @@ async function setupApp(initial: AppState) {
 }
 
 test("with the palette open over a picker escape closes the palette", async () => {
-  const { state, legacyKeys, press } = await setupApp(openActionMenu(openFilePicker(closed())))
+  const { state, leftKeys, press } = await setupApp(openActionMenu(openFilePicker(closed())))
 
   press(ESC)
 
   expect(state().actionMenu.open).toBe(false)
   expect(state().filePicker.open).toBe(true)
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with the file and comments pickers both open escape closes the file picker", async () => {

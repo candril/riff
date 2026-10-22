@@ -1,4 +1,4 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { switchView } from "../state"
 import { openerCommand } from "./open-link"
 import * as commentsPicker from "../features/comments-picker"
@@ -9,7 +9,7 @@ import * as feed from "../features/feed"
  * chain it sits in front of, the chord the chain holds.
  */
 export function feedKeyDeps(
-  ctx: GlobalKeyContext,
+  ctx: AppKeyContext,
   chain: { chordPending(): boolean },
 ): feed.FeedKeyDeps {
   return {
@@ -58,7 +58,7 @@ export function feedKeyDeps(
 }
 
 /** What `za` needs to open a feed row: the files of a commit row it has just opened. */
-export function feedExpandDeps(ctx: GlobalKeyContext): feed.FeedExpandDeps {
+export function feedExpandDeps(ctx: AppKeyContext): feed.FeedExpandDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,

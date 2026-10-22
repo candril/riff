@@ -42,7 +42,7 @@ import { markChordKeyDeps } from "./mark-chord-key-deps"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { registerDiffKeys } from "../features/diff-view/keys"
 import { diffKeyDeps } from "./diff-key-deps"
 
@@ -51,7 +51,7 @@ import { diffKeyDeps } from "./diff-key-deps"
  * once here so the app and the keys tests dispatch through the same layers.
  * The renderer comes apart from ctx, whose `renderer` is only its height.
  */
-export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
+export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
   const blame = createBlameKeys(blameKeysContext(ctx))
   // Whether a chord waits for its second key, for every layer that gives

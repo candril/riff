@@ -23,11 +23,11 @@ export async function keymapHarness({ settle }: KeymapHarnessOptions = {}) {
   // keeps a listener on OpenTUI's process-wide console cache.
   onTestFinished(() => rendered.renderer.destroy())
   const riffKeymap = createRiffKeymap(rendered.renderer)
-  const legacyKeys: string[] = []
+  const leftKeys: string[] = []
   // The keys the leftover was handed as the second key of a chord the keymap held.
   const brokenKeys: string[] = []
   const leftover: LeftoverKeys = (key: KeyEvent, chordBroken?: boolean) => {
-    legacyKeys.push(key.name)
+    leftKeys.push(key.name)
     if (chordBroken) brokenKeys.push(key.name)
   }
   const keys = composeKeys(riffKeymap, leftover, settle)
@@ -37,5 +37,5 @@ export async function keymapHarness({ settle }: KeymapHarnessOptions = {}) {
     keys(key)
     return key
   }
-  return { riffKeymap, legacyKeys, brokenKeys, press, chordPending: () => keys.chordPending() }
+  return { riffKeymap, leftKeys, brokenKeys, press, chordPending: () => keys.chordPending() }
 }

@@ -1,9 +1,9 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { BlameKeysContext } from "../features/blame/keys"
 import { clearToast, showToast } from "../state"
 
 /** What `gb`, its peek and the blame column need of the app. */
-export function blameKeysContext(ctx: GlobalKeyContext): BlameKeysContext {
+export function blameKeysContext(ctx: AppKeyContext): BlameKeysContext {
   return {
     deps: ctx.blame,
     getState: ctx.getState,

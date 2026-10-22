@@ -1,5 +1,5 @@
 import type { RiffKeymap } from "./keymap"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { BlameKeys } from "../features/blame/keys"
 import type { PeekKeyContext } from "./peek-leaves"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
@@ -13,7 +13,7 @@ type Chain = { chordPending(): boolean }
  * and `go` reach through the chain, so a single object owns every blame
  * request.
  */
-export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext, chain: Chain, blame: BlameKeys): () => void {
+export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, chain: Chain, blame: BlameKeys): () => void {
   const peek: PeekKeyContext = {
     getState: ctx.getState,
     getVimState: ctx.getVimState,

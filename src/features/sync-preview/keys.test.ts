@@ -14,7 +14,7 @@ async function harness(syncPreview: Partial<AppState["syncPreview"]> = { open: t
   const base = createInitialState([], [], "local", "local changes")
   let state: AppState = { ...base, syncPreview: { ...base.syncPreview, ...syncPreview } }
   let syncs = 0
-  const { riffKeymap, legacyKeys, press: pressSequence } = await keymapHarness()
+  const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerSyncPreviewKeys(riffKeymap, {
     getState: () => state,
     setState: (fn) => {
@@ -27,9 +27,9 @@ async function harness(syncPreview: Partial<AppState["syncPreview"]> = { open: t
   })
   /** Whether the preview kept the key from the chain, and whether it prevented it. */
   const press = (name: string, rename?: string) => {
-    const before = legacyKeys.length
+    const before = leftKeys.length
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
-    return { kept: legacyKeys.length === before, prevented: key.defaultPrevented }
+    return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
   return { press, state: () => state, syncs: () => syncs }
 }

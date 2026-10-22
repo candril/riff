@@ -1,11 +1,11 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { handleInput, type FileTreeInputContext } from "../features/file-tree"
 import type { TreeKeyDeps } from "../features/file-tree/keys"
 import * as fileNavigation from "../features/file-navigation"
 
 /** `state` is a snapshot, so build this for every key rather than keep one. */
-export function treeInputContext(ctx: GlobalKeyContext): FileTreeInputContext {
+export function treeInputContext(ctx: AppKeyContext): FileTreeInputContext {
   return {
     state: ctx.getState(),
     setState: ctx.setState,
@@ -26,7 +26,7 @@ export function treeInputContext(ctx: GlobalKeyContext): FileTreeInputContext {
 
 /** What the tree's keys need of the app, and of the chain behind them, the chord it holds. */
 export function treeKeyDeps(
-  ctx: GlobalKeyContext,
+  ctx: AppKeyContext,
   chain: { chordPending(): boolean },
 ): TreeKeyDeps {
   return {

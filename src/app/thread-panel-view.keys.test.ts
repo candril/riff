@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { getInlineCommentOverlayDisplayOrder, openInlineCommentOverlay } from "../state"
@@ -45,10 +45,10 @@ async function panelApp() {
       getState: mounted.ctx.getState,
       setState: mounted.ctx.setState,
       createLineMapping: () => {},
-    } as unknown as GlobalKeyContext["fileNavContext"],
+    } as unknown as AppKeyContext["fileNavContext"],
     flashHandler: {
       startList: (surface: string, ids: string[]) => void flashes.push({ surface, ids }),
-    } as unknown as GlobalKeyContext["flashHandler"],
+    } as unknown as AppKeyContext["flashHandler"],
   })
   mounted.show({
     ...openInlineCommentOverlay(mounted.ctx.getState(), "src/greet.ts", 2, "RIGHT", "view"),

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { interactionSettled } from "./jump-settled"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
@@ -38,14 +38,14 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, with the marks wired to the app's own state. */
-async function markApp(more: Partial<GlobalKeyContext> = {}) {
+async function markApp(more: Partial<AppKeyContext> = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff", showFilePanel: true, treeHighlightIndex: 0 })
   const mounted = app
   const { ctx: render } = mounted
   let keys!: ReturnType<typeof keysOn>
   const vim = () => keys.vimState()
-  const setVimState: GlobalKeyContext["setVimState"] = (next) => keys.setVim(next)
+  const setVimState: AppKeyContext["setVimState"] = (next) => keys.setVim(next)
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
   const fileNavContext = {
     getState: render.getState,
@@ -61,7 +61,7 @@ async function markApp(more: Partial<GlobalKeyContext> = {}) {
     source: "test",
     mode: "local",
     prInfo: null,
-  } as unknown as GlobalKeyContext["fileNavContext"]
+  } as unknown as AppKeyContext["fileNavContext"]
   keys = keysOn(mounted, {
     rebuildLineMapping,
     fileTreePanel: mounted.fileTreePanel,

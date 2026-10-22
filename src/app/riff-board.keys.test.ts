@@ -1,6 +1,6 @@
 import { test, expect, afterEach } from "bun:test"
 import { KeyEvent } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -34,7 +34,7 @@ afterEach(async () => {
  */
 function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) => void) {
   const { ctx: render } = mounted
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => createCursorState(),
@@ -42,21 +42,21 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     getSearchState: () => createSearchState(),
     renderer: mounted.setup.renderer,
     render: mounted.render,
-    executeAction: executeAction as GlobalKeyContext["executeAction"],
+    executeAction: executeAction as AppKeyContext["executeAction"],
     // An unbound chord falls through to the diff's vim keys; swallowing it there keeps plain gb inert.
-    vimHandler: { handleKey: () => true } as unknown as GlobalKeyContext["vimHandler"],
+    vimHandler: { handleKey: () => true } as unknown as AppKeyContext["vimHandler"],
     // The review preview reads who you are on every key once a PR is loaded.
-    reviewPreviewOpenContext: { getCachedCurrentUser: () => null } as unknown as GlobalKeyContext["reviewPreviewOpenContext"],
+    reviewPreviewOpenContext: { getCachedCurrentUser: () => null } as unknown as AppKeyContext["reviewPreviewOpenContext"],
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       // The handler copies some of ctx into its own contexts when it is built; only a call counts.
       return () => {
         throw new Error(`the gB path called ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 

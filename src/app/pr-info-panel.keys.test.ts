@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { pinStdoutColumns } from "../testing/frame"
@@ -48,7 +48,7 @@ async function overviewApp() {
     getPrInfoPanel: () => shown,
     flashHandler: {
       startList: (surface: string) => void flashes.push(surface),
-    } as unknown as GlobalKeyContext["flashHandler"],
+    } as unknown as AppKeyContext["flashHandler"],
   })
   mounted.show({ appMode: "pr", prInfo: info, viewMode: "state", focusedPanel: "diff" })
   await mounted.frame()

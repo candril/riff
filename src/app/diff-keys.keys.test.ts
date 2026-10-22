@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { routeDiffViewport } from "./diff-viewport"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
@@ -42,7 +42,7 @@ async function diffApp() {
   })
   let keys!: ReturnType<typeof keysOn>
   const vim = () => keys.vimState()
-  const setVimState: GlobalKeyContext["setVimState"] = (next) => keys.setVim(next)
+  const setVimState: AppKeyContext["setVimState"] = (next) => keys.setVim(next)
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
   const foldsContext: FoldsContext = {
     getState: render.getState,
@@ -71,7 +71,7 @@ async function diffApp() {
     source: "test",
     mode: "local",
     prInfo: null,
-  } as unknown as GlobalKeyContext["fileNavContext"]
+  } as unknown as AppKeyContext["fileNavContext"]
   const searchHandler = new SearchHandler({
     getMapping: render.getLineMapping,
     getSearchState: render.getSearchState,

@@ -24,7 +24,7 @@ describe("the PR overview", () => {
     const keys = await prInfoPanelKeys(overviewState())
     for (const key of ["j", "\x1b[B", "k", "\x1b[A"]) keys.press(key)
     expect(keys.calls).toEqual(["moveCursor 1", "moveCursor 1", "moveCursor -1", "moveCursor -1"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("l and h open and close the row in the conversation", async () => {
@@ -40,7 +40,7 @@ describe("the PR overview", () => {
     keys.panel.section = "files"
     keys.press("x")
     expect(keys.calls).toEqual(["resolve t1"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("c opens the comment prompt in the conversation and is swallowed elsewhere", async () => {
@@ -50,7 +50,7 @@ describe("the PR overview", () => {
     keys.panel.section = "conversation"
     keys.press("c")
     expect(keys.state().prInfoPanel.commentInputOpen).toBe(true)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("Enter on a file row closes the overview and opens the diff at that file", async () => {
@@ -75,7 +75,7 @@ describe("the PR overview", () => {
     empty.press("d")
     empty.panel.section = "commits"
     empty.press("d")
-    expect(empty.legacyKeys).toEqual(["d", "d"])
+    expect(empty.leftKeys).toEqual(["d", "d"])
     expect(empty.calls).toEqual([])
   })
 
@@ -85,7 +85,7 @@ describe("the PR overview", () => {
     expect(keys.calls).toEqual(["scrollTo 120"])
     keys.press(KITTY_G)
     expect(keys.calls).toEqual(["scrollTo 120"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("+ reacts and / starts the filter, by name or by spelling, both prevented", async () => {
@@ -104,15 +104,15 @@ describe("the PR overview", () => {
     const keys = await prInfoPanelKeys(overviewState())
     keys.press(KITTY_CTRL_PLUS)
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual(["="])
+    expect(keys.leftKeys).toEqual(["="])
   })
 
   test("i, Tab, q, Esc, a and s go to the chain, shifted too; u and every other key are swallowed", async () => {
     const keys = await prInfoPanelKeys(overviewState())
     for (const key of ["i", TAB, "q", ESC, "a", "s", "Q", "S"]) expect(keys.press(key).defaultPrevented).toBe(false)
-    expect(keys.legacyKeys).toEqual(["i", "tab", "q", "escape", "a", "s", "q", "s"])
+    expect(keys.leftKeys).toEqual(["i", "tab", "q", "escape", "a", "s", "q", "s"])
     for (const key of ["u", "U", "w", "1", " "]) expect(keys.press(key).defaultPrevented).toBe(false)
-    expect(keys.legacyKeys).toHaveLength(8)
+    expect(keys.leftKeys).toHaveLength(8)
     expect(keys.calls).toEqual([])
   })
 
@@ -120,7 +120,7 @@ describe("the PR overview", () => {
     const keys = await prInfoPanelKeys(overviewState())
     keys.press("g")
     for (const key of [CTRL.o, CTRL.p, CTRL.r, CTRL.d, CTRL.u]) keys.press(key)
-    expect(keys.legacyKeys).toEqual(["o", "p", "r", "d", "u"])
+    expect(keys.leftKeys).toEqual(["o", "p", "r", "d", "u"])
     keys.press("g")
     expect(keys.calls).toEqual(["scrollTo 0"])
   })
@@ -129,12 +129,12 @@ describe("the PR overview", () => {
     const diff = await prInfoPanelKeys(overviewState({ viewMode: "diff" }))
     diff.press("j")
     diff.press("/")
-    expect(diff.legacyKeys).toEqual(["j", "/"])
+    expect(diff.leftKeys).toEqual(["j", "/"])
 
     const tree = await prInfoPanelKeys(overviewState({ focusedPanel: "tree" }))
     tree.press("j")
     tree.press("x")
-    expect(tree.legacyKeys).toEqual(["j", "x"])
+    expect(tree.leftKeys).toEqual(["j", "x"])
     expect(tree.calls).toEqual([])
   })
 })
@@ -167,7 +167,7 @@ describe("the overview's z chord", () => {
       keys.press(key)
     }
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("a z left alone for half a second lapses", async () => {
@@ -214,7 +214,7 @@ describe("the overview's g chord", () => {
       expect(keys.press(key).defaultPrevented).toBe(false)
     }
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.state().prInfoPanel.filterInput).toBe(false)
   })
 
@@ -234,7 +234,7 @@ describe("the overview's filter prompt", () => {
       expect(keys.press(key).defaultPrevented).toBe(false)
     }
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.state().prInfoPanel.filterInput).toBe(true)
   })
 
@@ -257,13 +257,13 @@ describe("the overview's comment prompt", () => {
     const keys = await prInfoPanelKeys(commenting())
     for (const key of ["h", "i", "q", "s", CTRL.j, "!", "\x7f"]) keys.press(key)
     expect(keys.state().prInfoPanel.commentInputText).toBe("hiqs\n")
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("holds every key, ctrl ones too, even with the tree focused", async () => {
     const keys = await prInfoPanelKeys(commenting({ focusedPanel: "tree" }))
     for (const key of ["j", CTRL.r, CTRL.p, TAB]) keys.press(key)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.state().prInfoPanel.commentInputText).toBe("j\t")
   })
 
@@ -292,5 +292,5 @@ test("unregistering leaves every key to the chain", async () => {
   keys.press("g")
   keys.unregister()
   keys.press("j")
-  expect(keys.legacyKeys).toEqual(["j"])
+  expect(keys.leftKeys).toEqual(["j"])
 })

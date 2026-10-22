@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -68,7 +68,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     vimState = next
     mounted.setVimState(next)
   }
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => vimState,
@@ -90,21 +90,21 @@ function keysOn(mounted: NonNullable<typeof app>) {
       getFileTreePanel: () => mounted.fileTreePanel,
       updateFileTreePanel: render.updateFileTreePanel,
       render: mounted.render,
-    } as unknown as GlobalKeyContext["foldsContext"],
+    } as unknown as AppKeyContext["foldsContext"],
     fileNavContext: {
       getState: render.getState,
       setState: render.setState,
       createLineMapping: () => {},
-    } as unknown as GlobalKeyContext["fileNavContext"],
+    } as unknown as AppKeyContext["fileNavContext"],
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       return () => {
         throw new Error(`a panel motion reached ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
   return { vimLine: () => vimState.line }
 }

@@ -1,4 +1,4 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { LinksPicker } from "./links-picker"
 import type { ThreadPanelKeyDeps } from "../features/inline-comment-overlay/view-keys"
 import {
@@ -17,7 +17,7 @@ import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 
 /** What the thread panel's view-mode keys need of the app. */
-export function threadPanelKeyDeps(ctx: GlobalKeyContext, links: LinksPicker): ThreadPanelKeyDeps {
+export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): ThreadPanelKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,

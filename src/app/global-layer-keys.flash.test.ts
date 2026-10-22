@@ -1,7 +1,7 @@
 import { test, expect, afterEach } from "bun:test"
 import { KeyEvent } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createRiffKeymap } from "./keymap"
 import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
@@ -31,7 +31,7 @@ const comment = (i: number): FeedEvent => ({
  */
 async function keysFor(state: AppState, height: number) {
   const lists: { surface: string; ids: string[] }[] = []
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: () => state,
     setState: (update) => (state = update(state)),
     getVimState: () => createCursorState(),
@@ -43,13 +43,13 @@ async function keysFor(state: AppState, height: number) {
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       // The deps copy some of ctx into their own contexts when they are built; only a call counts.
       return () => {
         throw new Error(`the s path called ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   const { renderer } = await createTestRenderer({ width: 20, height: 4 })
   disposers.push(() => renderer.destroy())
   const riffKeymap = createRiffKeymap(renderer)

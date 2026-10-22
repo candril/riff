@@ -1,5 +1,5 @@
 import type { RiffKeymap } from "./keymap"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { registerTreeFilterKeys } from "../features/file-tree/filter-keys"
 import { registerSearchKeys } from "../features/search"
 
@@ -10,7 +10,7 @@ import { registerSearchKeys } from "../features/search"
  * stays in the chain, never competes with the tree filter: it waits in the
  * diff, and the filter only holds keys while the tree has focus.
  */
-export function registerPromptKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext): () => void {
+export function registerPromptKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): () => void {
   const unregisterTreeFilter = registerTreeFilterKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,

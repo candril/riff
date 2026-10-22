@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { routeDiffViewport, type DiffViewport } from "./diff-viewport"
 import { registerZChordKeys } from "./z-chord-keys"
 import { registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
@@ -55,7 +55,7 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, every scroll the z chords ask of the diff recorded. */
-async function zApp(more: Partial<GlobalKeyContext> = {}) {
+async function zApp(more: Partial<AppKeyContext> = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff" })
   const mounted = app
@@ -84,7 +84,7 @@ async function zApp(more: Partial<GlobalKeyContext> = {}) {
   }
   let keys!: ReturnType<typeof keysOn>
   const vim = () => keys.vimState()
-  const setVimState: GlobalKeyContext["setVimState"] = (next) => keys.setVim(next)
+  const setVimState: AppKeyContext["setVimState"] = (next) => keys.setVim(next)
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
   const foldsContext: FoldsContext = {
     getState: render.getState,
@@ -115,7 +115,7 @@ async function zApp(more: Partial<GlobalKeyContext> = {}) {
       render: mounted.render,
       save: () => {},
       getHead: () => undefined,
-    } as unknown as GlobalKeyContext["marksContext"],
+    } as unknown as AppKeyContext["marksContext"],
     ...more,
   })
   await mounted.frame()
@@ -313,7 +313,7 @@ test("shift+z and a key named Z open no z sequence and reach the chain", async (
   expect(harness.riffKeymap.chordPending()).toBe(false)
   harness.press("z", "Z")
   expect(harness.riffKeymap.chordPending()).toBe(false)
-  expect(harness.legacyKeys).toEqual(["z", "Z"])
+  expect(harness.leftKeys).toEqual(["z", "Z"])
   harness.press("z")
   harness.press("z")
   expect(ran).toEqual(["center"])

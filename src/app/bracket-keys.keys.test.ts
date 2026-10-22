@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { FEED_EVENTS } from "../testing/feed-keys"
@@ -37,7 +37,7 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, with the contexts the bracket motions reach. */
-async function bracketApp(more: Partial<GlobalKeyContext> = {}) {
+async function bracketApp(more: Partial<AppKeyContext> = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff" })
   const mounted = app
@@ -46,7 +46,7 @@ async function bracketApp(more: Partial<GlobalKeyContext> = {}) {
   const marksReached: number[] = []
   let keys!: ReturnType<typeof keysOn>
   const vim = () => keys.vimState()
-  const setVimState: GlobalKeyContext["setVimState"] = (next) => keys.setVim(next)
+  const setVimState: AppKeyContext["setVimState"] = (next) => keys.setVim(next)
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
   const fileNavContext = {
     getState: render.getState,
@@ -62,7 +62,7 @@ async function bracketApp(more: Partial<GlobalKeyContext> = {}) {
     source: "test",
     mode: "local",
     prInfo: null,
-  } as unknown as GlobalKeyContext["fileNavContext"]
+  } as unknown as AppKeyContext["fileNavContext"]
   keys = keysOn(mounted, {
     rebuildLineMapping,
     fileTreePanel: mounted.fileTreePanel,
@@ -85,7 +85,7 @@ async function bracketApp(more: Partial<GlobalKeyContext> = {}) {
       },
       setState: render.setState,
       render: mounted.render,
-    } as unknown as GlobalKeyContext["marksContext"],
+    } as unknown as AppKeyContext["marksContext"],
     onCommitSelected: (sha) => void selected.push(sha),
     ...more,
   })

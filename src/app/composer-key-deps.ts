@@ -1,11 +1,11 @@
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { ComposerKeyDeps } from "../features/inline-comment-overlay/composer-keys"
 import { buildComposerEditorContext } from "../features/inline-comment-overlay/handlers"
 import * as commentsFeature from "../features/comments"
 import { openTextInEditor } from "../utils/editor/spawn"
 
 /** What the thread panel's composer keys need of the app. */
-export function composerKeyDeps(ctx: GlobalKeyContext): ComposerKeyDeps {
+export function composerKeyDeps(ctx: AppKeyContext): ComposerKeyDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,

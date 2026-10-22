@@ -1,5 +1,5 @@
 import type { KeyEvent } from "@opentui/core"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import type { GChordDeps } from "./g-chord-commands"
 import type { GChordKeyDeps } from "./g-chord-keys"
 import type { BlameKeys } from "../features/blame/keys"
@@ -10,7 +10,7 @@ import { appKeyTakes } from "./app-keys"
  * What the `g` chords need of the app. `blame` is the object createAppKeys
  * shares with the blame peek's layer, so a single one owns every request.
  */
-export function gChordDeps(ctx: GlobalKeyContext, blame: BlameKeys): GChordDeps {
+export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
@@ -28,6 +28,6 @@ export function gChordDeps(ctx: GlobalKeyContext, blame: BlameKeys): GChordDeps 
 }
 
 /** What the g layer needs of the app, and of the chat, which a key it reaches is asked about first. */
-export function gChordKeyDeps(ctx: GlobalKeyContext, blame: BlameKeys, askedFirst: (key: KeyEvent) => boolean): GChordKeyDeps {
+export function gChordKeyDeps(ctx: AppKeyContext, blame: BlameKeys, askedFirst: (key: KeyEvent) => boolean): GChordKeyDeps {
   return { ...gChordDeps(ctx, blame), askedFirst, ignoresChords: appKeyTakes }
 }

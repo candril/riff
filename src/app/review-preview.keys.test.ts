@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -42,7 +42,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     source: "test",
     prInfo: null,
   }
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => createCursorState(),
@@ -63,13 +63,13 @@ function keysOn(mounted: NonNullable<typeof app>) {
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       // The handler copies some of ctx into its own contexts when it is built; only a call counts.
       return () => {
         throw new Error(`the Submit Review path called ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
   return confirms
 }

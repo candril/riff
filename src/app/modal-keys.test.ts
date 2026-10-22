@@ -9,7 +9,7 @@ import { registerQueryPickerKeys } from "./query-picker-keys"
 import { registerModalKeys } from "./keys"
 
 async function setup({ flash = true, palette = false, dialog = true, picker = false } = {}) {
-  const { riffKeymap, legacyKeys, press } = await keymapHarness()
+  const { riffKeymap, leftKeys, press } = await keymapHarness()
   const calls: string[] = []
   // Registered first, as createAppKeys registers the pickers ahead of the modals.
   registerQueryPickerKeys(riffKeymap, {
@@ -52,36 +52,36 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
     getFlashState: () => flashState,
     flashHandler: () => handler,
   })
-  return { calls, legacyKeys, press, state: () => state }
+  return { calls, leftKeys, press, state: () => state }
 }
 
 test("with flash and the dialog both up escape cancels the flash, not the dialog", async () => {
-  const { calls, legacyKeys, press } = await setup()
+  const { calls, leftKeys, press } = await setup()
 
   press("\x1b")
 
   expect(calls).toEqual(["flash cancel"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with flash and the dialog both up a printable key is typed into the flash, not swallowed by the dialog", async () => {
-  const { calls, legacyKeys, press } = await setup()
+  const { calls, leftKeys, press } = await setup()
 
   press("a")
 
   expect(calls).toEqual(["flash char a"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with the palette and the dialog both up y answers the dialog and escape cancels it, leaving the palette open", async () => {
-  const { calls, legacyKeys, press, state } = await setup({ flash: false, palette: true })
+  const { calls, leftKeys, press, state } = await setup({ flash: false, palette: true })
 
   press("y")
   press("\x1b")
 
   expect(calls).toEqual(["dialog yes", "dialog no"])
   expect(state().actionMenu.open).toBe(true)
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 const KITTY_SUPER_Y = "\x1b[121;9u"
@@ -91,27 +91,27 @@ const KITTY_SUPER_DOWN = "\x1b[1;9B"
 test("with the dialog up y answers it with super or hyper held", async () => {
   expect(parseKeypress(KITTY_SUPER_Y, { useKittyKeyboard: true })).toMatchObject({ name: "y", super: true })
   expect(parseKeypress(KITTY_HYPER_Y, { useKittyKeyboard: true })).toMatchObject({ name: "y", hyper: true })
-  const { calls, legacyKeys, press } = await setup({ flash: false })
+  const { calls, leftKeys, press } = await setup({ flash: false })
 
   press(KITTY_SUPER_Y)
   press(KITTY_HYPER_Y)
 
   expect(calls).toEqual(["dialog yes", "dialog yes"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with the palette open down moves its selection with super held", async () => {
   expect(parseKeypress(KITTY_SUPER_DOWN, { useKittyKeyboard: true })).toMatchObject({ name: "down", super: true })
-  const { legacyKeys, press, state } = await setup({ flash: false, palette: true, dialog: false })
+  const { leftKeys, press, state } = await setup({ flash: false, palette: true, dialog: false })
 
   press(KITTY_SUPER_DOWN)
 
   expect(state().actionMenu.selectedIndex).toBe(1)
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with the palette and the dialog both up down and ctrl+n leave the palette's selection alone, and ctrl+n cancels the dialog", async () => {
-  const { calls, legacyKeys, press, state } = await setup({ flash: false, palette: true })
+  const { calls, leftKeys, press, state } = await setup({ flash: false, palette: true })
 
   press("\x1b[B")
   press("\x0e")
@@ -119,27 +119,27 @@ test("with the palette and the dialog both up down and ctrl+n leave the palette'
 
   expect(state().actionMenu.selectedIndex).toBe(0)
   expect(calls).toEqual(["dialog no", "dialog yes"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with flash and the dialog both up y and n are typed into the flash, not answered", async () => {
-  const { calls, legacyKeys, press } = await setup()
+  const { calls, leftKeys, press } = await setup()
 
   press("y")
   press("n")
   press("\x1b")
 
   expect(calls).toEqual(["flash char y", "flash char n", "flash cancel"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("with a picker and the dialog both up the picker's enter and up do not run", async () => {
-  const { calls, legacyKeys, press } = await setup({ flash: false, picker: true })
+  const { calls, leftKeys, press } = await setup({ flash: false, picker: true })
 
   press("\r")
   press("\x1b[A")
   press("n")
 
   expect(calls).toEqual(["dialog no"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })

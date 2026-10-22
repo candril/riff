@@ -216,7 +216,7 @@ src/
 │   ├── keys.ts           # Builds the keymap with every layer, the tree's leftover behind them
 │   ├── app-keys.ts       # The keymap's global layer
 │   ├── confirm-keys.ts   # The confirmation dialog's layer, which captures every key
-│   ├── global-keys.ts    # The context every keymap layer's deps are built from
+│   ├── key-context.ts    # The context every keymap layer's deps are built from
 │   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, the lowest layer
 │   ├── bracket-key-deps.ts  # What those motions need of the app
 │   ├── bracket-commands.ts  # One command per ]/[ motion, and adjacentCommit

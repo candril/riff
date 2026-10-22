@@ -50,7 +50,7 @@ test("Ctrl-f opens the file picker and prevents the key, so the picker's field d
   const key = keys.press(CTRL_F)
   expect(keys.state().filePicker.open).toBe(true)
   expect(key.defaultPrevented).toBe(true)
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("Ctrl-f with no files is declined, unprevented, and reaches the chain", async () => {
@@ -58,7 +58,7 @@ test("Ctrl-f with no files is declined, unprevented, and reaches the chain", asy
   const key = keys.press(CTRL_F)
   expect(keys.state().filePicker.open).toBe(false)
   expect(key.defaultPrevented).toBe(false)
-  expect(keys.legacyKeys).toEqual(["f"])
+  expect(keys.leftKeys).toEqual(["f"])
 })
 
 test("Ctrl-p and Ctrl-Shift-p both open the palette, as the chain matched the name alone", async () => {
@@ -69,7 +69,7 @@ test("Ctrl-p and Ctrl-Shift-p both open the palette, as the chain matched the na
   const shifted = await globalKeys()
   shifted.press(CTRL_SHIFT_P)
   expect(shifted.state().actionMenu.open).toBe(true)
-  expect(shifted.legacyKeys).toEqual([])
+  expect(shifted.leftKeys).toEqual([])
 })
 
 test("q and Shift-q quit, and the key is left unprevented as the chain left it", async () => {
@@ -77,14 +77,14 @@ test("q and Shift-q quit, and the key is left unprevented as the chain left it",
   expect(keys.press("q").defaultPrevented).toBe(false)
   keys.press("Q")
   expect(keys.calls.filter((call) => call === "quit")).toHaveLength(2)
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("a capitalised Q, which no case of the chain named, reaches the chain rather than quitting", async () => {
   const keys = await globalKeys()
   keys.press("q", "Q")
   expect(keys.calls).not.toContain("quit")
-  expect(keys.legacyKeys).toEqual(["Q"])
+  expect(keys.leftKeys).toEqual(["Q"])
 })
 
 test("Shift-c and Shift-e hand the line to $EDITOR, and a bare c reaches the chain", async () => {
@@ -93,7 +93,7 @@ test("Shift-c and Shift-e hand the line to $EDITOR, and a bare c reaches the cha
   keys.press("E")
   keys.press("c")
   expect(keys.calls.filter((call) => call === "addComment")).toHaveLength(2)
-  expect(keys.legacyKeys).toEqual(["c"])
+  expect(keys.leftKeys).toEqual(["c"])
 })
 
 test("in the tree, G as kitty names it goes to the bottom without a binding of its own", async () => {
@@ -102,7 +102,7 @@ test("in the tree, G as kitty names it goes to the bottom without a binding of i
   keys.press("G")
   expect(keys.calls.filter((call) => call === "goToBottom")).toHaveLength(2)
   keys.press("g")
-  expect(keys.legacyKeys).toEqual(["g"])
+  expect(keys.leftKeys).toEqual(["g"])
 })
 
 test("while the chain holds a chord every global key is declined for the chain to complete", async () => {
@@ -111,7 +111,7 @@ test("while the chain holds a chord every global key is declined for the chain t
   keys.press(CTRL_P)
   expect(keys.calls).toEqual([])
   expect(keys.state().actionMenu.open).toBe(false)
-  expect(keys.legacyKeys).toEqual(["q", "p"])
+  expect(keys.leftKeys).toEqual(["q", "p"])
 })
 
 test("under a capture holding the key, the layer stands aside", async () => {
@@ -119,7 +119,7 @@ test("under a capture holding the key, the layer stands aside", async () => {
   keys.riffKeymap.capture(() => true)
   keys.press("q")
   expect(keys.calls).toEqual([])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("a capture that leaves the key lets the layer take it", async () => {
@@ -133,10 +133,10 @@ test("Esc with no toast is declined and unprevented; with one it clears it", asy
   const keys = await globalKeys()
   const declined = keys.press("\x1b")
   expect(declined.defaultPrevented).toBe(false)
-  expect(keys.legacyKeys).toEqual(["escape"])
+  expect(keys.leftKeys).toEqual(["escape"])
 
   const toasted = await globalKeys({ toast: showToast(createInitialState([], [], "test", ""), "saved").toast })
   toasted.press("\x1b")
   expect(toasted.state().toast.message).toBeFalsy()
-  expect(toasted.legacyKeys).toEqual([])
+  expect(toasted.leftKeys).toEqual([])
 })

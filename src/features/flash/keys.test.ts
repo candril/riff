@@ -6,7 +6,7 @@ import type { FlashHandler } from "../../vim-diff/flash-handler"
 import { registerFlashKeys } from "./keys"
 
 async function setup() {
-  const { riffKeymap, legacyKeys, press } = await keymapHarness()
+  const { riffKeymap, leftKeys, press } = await keymapHarness()
   const flashState = createFlashState()
   const calls: string[] = []
   const handler = {
@@ -15,22 +15,22 @@ async function setup() {
     cancel: () => void calls.push("cancel"),
   } as unknown as FlashHandler
   registerFlashKeys(riffKeymap, { getFlashState: () => flashState, flashHandler: () => handler })
-  return { flashState, calls, legacyKeys, press }
+  return { flashState, calls, leftKeys, press }
 }
 
 test("while flash is active a printable key, shifted or not, is typed into the jump", async () => {
-  const { flashState, calls, legacyKeys, press } = await setup()
+  const { flashState, calls, leftKeys, press } = await setup()
   flashState.active = true
 
   press("a")
   press("A")
 
   expect(calls).toEqual(["char a", "char A"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("while flash is active backspace takes back a character and escape, return and ctrl+c cancel", async () => {
-  const { flashState, calls, legacyKeys, press } = await setup()
+  const { flashState, calls, leftKeys, press } = await setup()
   flashState.active = true
 
   press("\x7f")
@@ -39,11 +39,11 @@ test("while flash is active backspace takes back a character and escape, return 
   press("\x03")
 
   expect(calls).toEqual(["backspace", "cancel", "cancel", "cancel"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("while flash is active modified escape, ctrl+c, return and backspace still cancel or take back", async () => {
-  const { flashState, calls, legacyKeys, press } = await setup()
+  const { flashState, calls, leftKeys, press } = await setup()
   flashState.active = true
   const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: true })
   expect(parse("\x1b\x1b")).toMatchObject({ name: "escape", ctrl: false, shift: false, meta: true })
@@ -61,36 +61,36 @@ test("while flash is active modified escape, ctrl+c, return and backspace still 
   press("\x1b[13;5u")
 
   expect(calls).toEqual(["cancel", "cancel", "backspace", "backspace", "cancel", "cancel"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("while flash is active a key named enter cancels as return does", async () => {
-  const { flashState, calls, legacyKeys, press } = await setup()
+  const { flashState, calls, leftKeys, press } = await setup()
   flashState.active = true
 
   press("\r", "enter")
 
   expect(calls).toEqual(["cancel"])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("while flash is active a control key that is not bound is swallowed", async () => {
-  const { flashState, calls, legacyKeys, press } = await setup()
+  const { flashState, calls, leftKeys, press } = await setup()
   flashState.active = true
 
   press("\x18")
 
   expect(calls).toEqual([])
-  expect(legacyKeys).toEqual([])
+  expect(leftKeys).toEqual([])
 })
 
 test("while flash is inactive its keys reach the chain and the handler sees nothing", async () => {
-  const { calls, legacyKeys, press } = await setup()
+  const { calls, leftKeys, press } = await setup()
 
   press("s")
   press("\x1b")
   press("\x7f")
 
   expect(calls).toEqual([])
-  expect(legacyKeys).toEqual(["s", "escape", "backspace"])
+  expect(leftKeys).toEqual(["s", "escape", "backspace"])
 })

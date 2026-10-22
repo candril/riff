@@ -29,7 +29,7 @@ describe("the activity feed", () => {
     expect(keys.state().feed.highlightIndex).toBe(3)
     for (const press of ["k", UP]) keys.press(press)
     expect(keys.state().feed.highlightIndex).toBe(1)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("Shift-j moves too, while the capitalised J and G reach the chain", async () => {
@@ -39,7 +39,7 @@ describe("the activity feed", () => {
     keys.press(KITTY_J)
     keys.press(KITTY_G)
     expect(keys.state().feed.highlightIndex).toBe(1)
-    expect(keys.legacyKeys).toEqual(["J", "G"])
+    expect(keys.leftKeys).toEqual(["J", "G"])
   })
 
   test("u narrows to what is unseen and back", async () => {
@@ -48,7 +48,7 @@ describe("the activity feed", () => {
     expect(keys.state().feed.unseenOnly).toBe(true)
     keys.press("u")
     expect(keys.state().feed.unseenOnly).toBe(false)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("Enter opens an event row's target and a file row's file, and is swallowed on an empty feed", async () => {
@@ -61,7 +61,7 @@ describe("the activity feed", () => {
     const empty = await feedKeys(feedState({ events: [] }))
     empty.press(ENTER)
     expect(empty.calls).toEqual([])
-    expect(empty.legacyKeys).toEqual([])
+    expect(empty.leftKeys).toEqual([])
   })
 
   test("Esc puts every narrowing back, and with nothing narrowed reaches the chain", async () => {
@@ -69,10 +69,10 @@ describe("the activity feed", () => {
     expect(keys.press(ESC).defaultPrevented).toBe(false)
     const feed = keys.state().feed
     expect([feed.types.size, feed.unseenOnly, feed.filter]).toEqual([0, false, ""])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
 
     keys.press(ESC)
-    expect(keys.legacyKeys).toEqual(["escape"])
+    expect(keys.leftKeys).toEqual(["escape"])
   })
 
   test("/ starts the filter and is prevented, the keypad's too; Shift-/ reaches the chain", async () => {
@@ -87,7 +87,7 @@ describe("the activity feed", () => {
     const shifted = await feedKeys(feedState())
     expect(shifted.press(KITTY_SHIFT_SLASH).defaultPrevented).toBe(false)
     expect(shifted.state().feed.filterInput).toBe(false)
-    expect([keys.legacyKeys, keypad.legacyKeys, shifted.legacyKeys]).toEqual([[], [], ["/"]])
+    expect([keys.leftKeys, keypad.leftKeys, shifted.leftKeys]).toEqual([[], [], ["/"]])
   })
 
   test("c, m, r, b, t and p each toggle their type", async () => {
@@ -96,21 +96,21 @@ describe("the activity feed", () => {
     expect([...keys.state().feed.types]).toEqual(["commit", "comment", "review", "check", "resolved", "push"])
     keys.press("c")
     expect(keys.state().feed.types.has("commit")).toBe(false)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("g, q, i, a, Tab, s and an unknown letter reach the chain", async () => {
     const initial = feedState()
     const keys = await feedKeys(initial)
     for (const press of ["g", "q", "i", "a", TAB, "s", "x"]) keys.press(press)
-    expect(keys.legacyKeys).toEqual(["g", "q", "i", "a", "tab", "s", "x"])
+    expect(keys.leftKeys).toEqual(["g", "q", "i", "a", "tab", "s", "x"])
     expect(keys.state()).toBe(initial)
   })
 
   test("Ctrl-p, Ctrl-o and Meta-j reach the chain", async () => {
     const keys = await feedKeys(feedState())
     for (const press of [CTRL_P, CTRL_O, META_J]) keys.press(press)
-    expect(keys.legacyKeys).toEqual(["p", "o", "j"])
+    expect(keys.leftKeys).toEqual(["p", "o", "j"])
     expect(keys.state().feed.highlightIndex).toBe(0)
   })
 
@@ -118,7 +118,7 @@ describe("the activity feed", () => {
     const keys = await feedKeys(feedState())
     keys.setChord("g")
     keys.press("j")
-    expect(keys.legacyKeys).toEqual(["j"])
+    expect(keys.leftKeys).toEqual(["j"])
     expect(keys.state().feed.highlightIndex).toBe(0)
   })
 
@@ -128,7 +128,7 @@ describe("the activity feed", () => {
     keys.press("j")
     expect(keys.chord()).toBeNull()
     expect(keys.state().feed.highlightIndex).toBe(1)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("the filter prompt clears on Esc and keeps on Enter, both prevented", async () => {
@@ -139,7 +139,7 @@ describe("the activity feed", () => {
     keys.set(feedState({ filterInput: true, filter: "fix" }))
     expect(keys.press(ENTER).defaultPrevented).toBe(true)
     expect([keys.state().feed.filterInput, keys.state().feed.filter]).toEqual([false, "fix"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("the filter prompt holds Ctrl-p and letters unprevented, for its field to type", async () => {
@@ -147,14 +147,14 @@ describe("the activity feed", () => {
     expect(keys.press(CTRL_P).defaultPrevented).toBe(false)
     expect(keys.press("j").defaultPrevented).toBe(false)
     expect(keys.press("q").defaultPrevented).toBe(false)
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
     expect(keys.state().feed.highlightIndex).toBe(0)
   })
 
   test("outside the feed nothing is taken", async () => {
     const keys = await feedKeys({ ...feedState(), viewMode: "diff" })
     for (const press of ["j", "/", ENTER, "c"]) keys.press(press)
-    expect(keys.legacyKeys).toEqual(["j", "/", "return", "c"])
+    expect(keys.leftKeys).toEqual(["j", "/", "return", "c"])
   })
 })
 

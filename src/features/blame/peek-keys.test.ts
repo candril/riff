@@ -16,7 +16,7 @@ describe("the blame peek", () => {
     expect(keys.press(ESC).defaultPrevented).toBe(false)
     expect(keys.press("q").defaultPrevented).toBe(false)
     expect(keys.calls).toEqual(["close", "close"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("a bare y copies the sha; Ctrl-y and Shift-y are only held", async () => {
@@ -25,13 +25,13 @@ describe("the blame peek", () => {
     keys.press(CTRL_Y)
     keys.press(KITTY_SHIFT_Y)
     expect(keys.calls).toEqual(["copySha"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("a bare g goes on to the keymap's g sequences, while Shift-g and every other key are held", async () => {
     const keys = await peekKeys(peeking())
     for (const sequence of ["j", "i", KITTY_SHIFT_G, "g"]) keys.press(sequence)
-    expect(keys.legacyKeys).toEqual(["g"])
+    expect(keys.leftKeys).toEqual(["g"])
     expect(keys.calls).toEqual([])
   })
 
@@ -40,7 +40,7 @@ describe("the blame peek", () => {
     keys.setChord("g")
     keys.press("q")
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual(["q"])
+    expect(keys.leftKeys).toEqual(["q"])
   })
 
   test("takes the key a pending mark chord gives way to, and drops that chord", async () => {
@@ -56,19 +56,19 @@ describe("the blame peek", () => {
     keys.setVim({ pendingTextObject: { scope: "i" } })
     keys.press("q")
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual(["q"])
+    expect(keys.leftKeys).toEqual(["q"])
   })
 
   test("lets Ctrl-r through to the chat's reach", async () => {
     const keys = await peekKeys(peeking())
     keys.press(CTRL_R)
-    expect(keys.legacyKeys).toEqual(["r"])
+    expect(keys.leftKeys).toEqual(["r"])
   })
 
   test("left behind outside the diff, it holds nothing", async () => {
     const keys = await peekKeys({ ...peeking(), viewMode: "feed" })
     keys.press("q")
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual(["q"])
+    expect(keys.leftKeys).toEqual(["q"])
   })
 })

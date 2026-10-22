@@ -1,5 +1,5 @@
 import type { RiffKeymap } from "./keymap"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { switchView } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { registerFilePickerKeys } from "../features/file-picker"
@@ -9,7 +9,7 @@ import { jumpToOccurrence, registerOccurrencePickerKeys } from "../features/occu
 import * as fileNavigation from "../features/file-navigation"
 
 /** The four query pickers' layers, wired to the jumps they end in. */
-export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext): void {
+export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): void {
   const { getState, setState, render } = ctx
   const jumpContext = () => ({
     getState: ctx.getState,

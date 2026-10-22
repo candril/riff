@@ -86,7 +86,7 @@ describe("a chord stroke in a keymap sequence", () => {
   }
 
   test("ends on the second key whatever ctrl or meta it holds", async () => {
-    const { press, runs, legacyKeys } = await bracketF()
+    const { press, runs, leftKeys } = await bracketF()
     press("]")
     press("f")
     press("]")
@@ -94,15 +94,15 @@ describe("a chord stroke in a keymap sequence", () => {
     press("]")
     press("\x1bf")
     expect(runs).toEqual(["]f", "]f", "]f"])
-    expect(legacyKeys).toEqual([])
+    expect(leftKeys).toEqual([])
   })
 
   test("ends on no key asked first, which goes to the chain as the chord's second key", async () => {
-    const { press, runs, legacyKeys, brokenKeys, chordPending } = await bracketF(undefined, (key) => key.ctrl)
+    const { press, runs, leftKeys, brokenKeys, chordPending } = await bracketF(undefined, (key) => key.ctrl)
     press("]")
     press("\x06")
     expect(runs).toEqual([])
-    expect(legacyKeys).toEqual(["f"])
+    expect(leftKeys).toEqual(["f"])
     expect(brokenKeys).toEqual(["f"])
     expect(chordPending()).toBe(false)
   })
@@ -115,24 +115,24 @@ describe("a chord stroke in a keymap sequence", () => {
   })
 
   test("matches the suffix exactly, shift included, and leaves a key that misses unprevented", async () => {
-    const { press, runs, legacyKeys } = await bracketF()
+    const { press, runs, leftKeys } = await bracketF()
     press("]")
     const shiftedR = press("\x1b[114;2u")
     press("]")
     press("F")
     expect(runs).toEqual([])
-    expect(legacyKeys).toEqual(["r", "f"])
+    expect(leftKeys).toEqual(["r", "f"])
     expect(shiftedR.defaultPrevented).toBe(false)
   })
 
   test("leaves no sequence pending when its command declines the key", async () => {
-    const { press, runs, riffKeymap, legacyKeys } = await bracketF(() => false)
+    const { press, runs, riffKeymap, leftKeys } = await bracketF(() => false)
     press("]")
     expect(riffKeymap.chordPending()).toBe(true)
     const declined = press("f")
     expect(runs).toEqual(["]f"])
     expect(riffKeymap.chordPending()).toBe(false)
     expect(declined.defaultPrevented).toBe(false)
-    expect(legacyKeys).toEqual(["f"])
+    expect(leftKeys).toEqual(["f"])
   })
 })

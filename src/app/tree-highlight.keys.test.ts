@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -32,7 +32,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     mounted.setVimState(next)
   }
   const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
-  const known: Partial<GlobalKeyContext> = {
+  const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     getVimState: () => vimState,
@@ -60,16 +60,16 @@ function keysOn(mounted: NonNullable<typeof app>) {
       source: "test",
       mode: "local",
       prInfo: null,
-    } as unknown as GlobalKeyContext["fileNavContext"],
+    } as unknown as AppKeyContext["fileNavContext"],
   }
   const ctx = new Proxy(known, {
     get(target, name) {
-      if (name in target) return target[name as keyof GlobalKeyContext]
+      if (name in target) return target[name as keyof AppKeyContext]
       return () => {
         throw new Error(`picking or stepping a file reached ctx.${String(name)}`)
       }
     },
-  }) as GlobalKeyContext
+  }) as AppKeyContext
   mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
 }
 

@@ -21,7 +21,7 @@ describe("the line peek", () => {
       const keys = await peekKeys(peeking())
       expect(keys.press(sequence).defaultPrevented).toBe(false)
       expect(keys.state().showLinePeek).toBe(false)
-      expect(keys.legacyKeys).toEqual([])
+      expect(keys.leftKeys).toEqual([])
     }
   })
 
@@ -43,7 +43,7 @@ describe("the line peek", () => {
       keys.press(sequence)
       expect(keys.state().peekScroll).toEqual(scroll)
     }
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("Ctrl-d and Ctrl-u scroll half the height; Ctrl-j is only held", async () => {
@@ -54,13 +54,13 @@ describe("the line peek", () => {
     expect(keys.state().peekScroll).toEqual({ row: 15, col: 0 })
     keys.press(CTRL_U)
     expect(keys.state().peekScroll).toEqual({ row: 0, col: 0 })
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("a bare g goes on to the keymap's g sequences, while Shift-g and every other key are held", async () => {
     const keys = await peekKeys(peeking())
     for (const sequence of ["i", "y", KITTY_SHIFT_G, "g"]) keys.press(sequence)
-    expect(keys.legacyKeys).toEqual(["g"])
+    expect(keys.leftKeys).toEqual(["g"])
     expect(keys.state().showLinePeek).toBe(true)
   })
 
@@ -69,7 +69,7 @@ describe("the line peek", () => {
     keys.setChord("g")
     keys.press("l")
     expect(keys.state().peekScroll).toEqual({ row: 0, col: 0 })
-    expect(keys.legacyKeys).toEqual(["l"])
+    expect(keys.leftKeys).toEqual(["l"])
   })
 
   test("stands aside while a text object is pending in the diff", async () => {
@@ -77,12 +77,12 @@ describe("the line peek", () => {
     keys.setVim({ pendingTextObject: { scope: "a" } })
     keys.press("q")
     expect(keys.state().showLinePeek).toBe(true)
-    expect(keys.legacyKeys).toEqual(["q"])
+    expect(keys.leftKeys).toEqual(["q"])
   })
 
   test("lets Ctrl-r through to the chat's reach", async () => {
     const keys = await peekKeys(peeking())
     keys.press(CTRL_R)
-    expect(keys.legacyKeys).toEqual(["r"])
+    expect(keys.leftKeys).toEqual(["r"])
   })
 })

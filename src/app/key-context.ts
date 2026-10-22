@@ -35,7 +35,7 @@ import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 
-export interface GlobalKeyContext {
+export interface AppKeyContext {
   // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void

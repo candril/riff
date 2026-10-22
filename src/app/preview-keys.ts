@@ -1,5 +1,5 @@
 import type { RiffKeymap } from "./keymap"
-import type { GlobalKeyContext } from "./global-keys"
+import type { AppKeyContext } from "./key-context"
 import { reviewCandidates } from "../utils/publishable"
 import { registerReviewPreviewKeys } from "../features/review-preview"
 import { registerSyncPreviewKeys } from "../features/sync-preview"
@@ -7,7 +7,7 @@ import * as commentsFeature from "../features/comments"
 import * as prOperations from "../features/pr-operations"
 
 /** The sync preview's and Submit Review's layers, wired to the PR operations they end in. */
-export function registerPreviewKeys(riffKeymap: RiffKeymap, ctx: GlobalKeyContext): void {
+export function registerPreviewKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): void {
   const { getState, setState, render } = ctx
   // Later registration wins, and the chain these layers replaced asked the
   // sync preview before Submit Review.

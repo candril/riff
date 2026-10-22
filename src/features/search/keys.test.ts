@@ -14,7 +14,7 @@ describe("the search prompt", () => {
     expect(keys.press(ENTER).defaultPrevented).toBe(true)
     expect(keys.press(ENTER, "enter").defaultPrevented).toBe(true)
     expect(keys.calls).toEqual(["cancelSearch", "confirmSearch", "confirmSearch"])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("every other key is held from the chain and left to the field", async () => {
@@ -22,7 +22,7 @@ describe("the search prompt", () => {
     keys.setSearchActive(true)
     for (const sequence of ["q", "g", "i", CTRL_W, CTRL_R]) expect(keys.press(sequence).defaultPrevented).toBe(false)
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("drops a pending mark chord the key gives way to, as the chain did first", async () => {
@@ -38,6 +38,6 @@ describe("the search prompt", () => {
     keys.press("q")
     keys.press(ESC)
     expect(keys.calls).toEqual([])
-    expect(keys.legacyKeys).toEqual(["q", "escape"])
+    expect(keys.leftKeys).toEqual(["q", "escape"])
   })
 })

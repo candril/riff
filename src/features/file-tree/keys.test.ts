@@ -26,7 +26,7 @@ test("with the tree focused, j goes to the tree and not to the chain", async () 
   const keys = await treeKeys()
   keys.press("j")
   expect(keys.handled).toEqual(["j"])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("with focus elsewhere, or the file panel hidden, the key reaches the chain", async () => {
@@ -34,7 +34,7 @@ test("with focus elsewhere, or the file panel hidden, the key reaches the chain"
     const keys = await treeKeys(patch)
     keys.press("j")
     expect(keys.handled).toEqual([])
-    expect(keys.legacyKeys).toEqual(["j"])
+    expect(keys.leftKeys).toEqual(["j"])
   }
 })
 
@@ -42,7 +42,7 @@ test("while the chain holds a chord, the key goes to the chain", async () => {
   const keys = await treeKeys(TREE, { chordPending: true })
   keys.press("j")
   expect(keys.handled).toEqual([])
-  expect(keys.legacyKeys).toEqual(["j"])
+  expect(keys.leftKeys).toEqual(["j"])
 })
 
 test("under a capture registered after it, the layer stands aside", async () => {
@@ -50,7 +50,7 @@ test("under a capture registered after it, the layer stands aside", async () => 
   keys.riffKeymap.capture(() => true)
   keys.press("j")
   expect(keys.handled).toEqual([])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 test("a key the tree declines reaches the chain unprevented", async () => {
@@ -58,14 +58,14 @@ test("a key the tree declines reaches the chain unprevented", async () => {
   const key = keys.press("j")
   expect(keys.handled).toEqual(["j"])
   expect(key.defaultPrevented).toBe(false)
-  expect(keys.legacyKeys).toEqual(["j"])
+  expect(keys.leftKeys).toEqual(["j"])
 })
 
 test("the keypad's slash, named kpdivide, goes to the tree", async () => {
   const keys = await treeKeys()
   keys.press("\x1b[57410u")
   expect(keys.handled).toEqual(["kpdivide"])
-  expect(keys.legacyKeys).toEqual([])
+  expect(keys.leftKeys).toEqual([])
 })
 
 describe("treeLeftover", () => {
