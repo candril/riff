@@ -7,11 +7,11 @@ import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
 import { FEED_CHROME_ROWS } from "../components/feed-window"
 import { createInitialState, type AppState } from "../state"
-import { emptyFeed } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
+import { createFeedState, type ActivityFeedState } from "../features/feed/state"
 
 const disposers: (() => void)[] = []
 afterEach(() => {
@@ -30,9 +30,10 @@ const comment = (i: number): FeedEvent => ({
  * Only what the `s` path uses; anything else it calls throws, so a new
  * dependency shows up here rather than as a silent stub.
  */
-async function keysFor(state: AppState, height: number) {
+async function keysFor(state: AppState, feed: ActivityFeedState, height: number) {
   const lists: { surface: string; ids: string[] }[] = []
   const known: Partial<AppKeyContext> = {
+    activityFeed: feed,
     getState: () => state,
     setState: (update) => (state = update(state)),
     getVimState: () => createCursorState(),
@@ -63,10 +64,12 @@ test("s in the feed labels the rows the scrolled window shows, at the renderer's
   const state: AppState = {
     ...createInitialState([], [], "test", ""),
     viewMode: "feed",
-    feed: { ...emptyFeed(), events, highlightIndex: 39 },
   }
+  const feed = createFeedState()
+  feed.setEvents(events)
+  feed.highlight(39)
   const height = 10 + FEED_CHROME_ROWS
-  const { offer, lists } = await keysFor(state, height)
+  const { offer, lists } = await keysFor(state, feed, height)
 
   offer(
     new KeyEvent({ name: "s", ctrl: false, meta: false, shift: false, option: false, sequence: "s", number: false, raw: "s", eventType: "press", source: "raw" }),

@@ -30,6 +30,7 @@ import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMarksState } from "../features/marks/state"
+import { createFeedState } from "../features/feed/state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
@@ -65,6 +66,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const actionMenu = createActionMenuState()
   const linePeek = createLinePeekState()
   const blamePeek = createBlamePeekState()
+  const activityFeed = createFeedState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -119,6 +121,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     blamePeek,
     blameColumns: createBlameColumnsState(),
     marks: createMarksState(),
+    activityFeed,
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
   } as unknown as FramePassContext
@@ -129,6 +132,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const overlays = () =>
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
+    activityFeed,
     /**
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
      * `commentsPicker`, `occurrencePicker`, `marksPicker`, `commitPicker`,
@@ -335,7 +339,6 @@ function findById(root: Renderable, id: string): Renderable | undefined {
 test("the feed view mounts the feed island's host with its rows, and hides it on leaving", async () => {
   let feed: ReturnType<typeof createFeedIsland> | null = null
   const app = await harness((renderer) => ({ feed: (feed = createFeedIsland(renderer)) }))
-  const initial = createInitialState([], [], "test", "")
   const events: FeedEvent[] = [
     { id: "r1", type: "review", at: new Date().toISOString(), actor: "carol", title: "approved" },
     { id: "k1", type: "check", at: new Date().toISOString(), title: "build", trailing: "✓ passed" },
@@ -346,7 +349,8 @@ test("the feed view mounts the feed island's host with its rows, and hides it on
     return setup!.captureCharFrame()
   }
 
-  app.show({ viewMode: "feed", feed: { ...initial.feed, events } })
+  app.activityFeed.setEvents(events)
+  app.show({ viewMode: "feed" })
   const host = findById(setup!.renderer.root, "feed-view")
   expect(host).toBe(feed!.host)
   const screen = await frame()

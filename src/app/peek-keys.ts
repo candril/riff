@@ -24,6 +24,7 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, cho
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
+    activityFeed: ctx.activityFeed,
     chordPending: () => chord.chordPending(),
   }
   const unregisterLinePeek = registerLinePeekKeys(riffKeymap, {

@@ -57,6 +57,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     getState: render.getState,
     setState: render.setState,
     help: mounted.help,
+    activityFeed: mounted.activityFeed,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,

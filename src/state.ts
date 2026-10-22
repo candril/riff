@@ -8,9 +8,6 @@ import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { VisitWatermark } from "./utils/visit"
-import type { FeedEvent } from "./utils/feed"
-import { visibleFeed } from "./utils/feed"
-import { emptyFeed, type FeedRow, type FeedState, type CommitFileSummary } from "./features/feed/types"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
@@ -18,6 +15,7 @@ import type { OccurrencePickerState } from "./features/occurrence-picker/state"
 import type { MarksPickerState } from "./features/marks/picker-state"
 import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
+import type { ActivityFeedState } from "./features/feed/state"
 
 /**
  * UI mode for the app
@@ -160,95 +158,6 @@ export interface PRInfoPanelState {
   commentInputError: string | null
 }
 
-/** What the feed is showing right now, after its filters (spec 070). */
-export function visibleFeedEvents(state: AppState): FeedEvent[] {
-  return visibleFeed(state.feed.events, {
-    types: state.feed.types,
-    filter: state.feed.filter,
-    unseenIds: state.feed.unseenOnly
-      ? new Set(unseenIn(state, state.comments).map((comment) => comment.id))
-      : undefined,
-  })
-}
-
-export function visibleFeedRows(state: AppState): FeedRow[] {
-  const rows: FeedRow[] = []
-  for (const event of visibleFeedEvents(state)) {
-    rows.push({ kind: "event", event })
-    const target = event.target
-    if (target?.kind !== "commit" || !state.feed.expandedIds.has(event.id)) continue
-    const files = state.feed.commitFiles.get(target.sha) ?? []
-    files.forEach((file, index) => {
-      rows.push({ kind: "file", event, sha: target.sha, file, last: index === files.length - 1 })
-    })
-  }
-  return rows
-}
-
-/** Move the feed's highlight, clamped to what is on screen. */
-export function moveFeedHighlight(state: AppState, delta: number): AppState {
-  const max = Math.max(0, visibleFeedRows(state).length - 1)
-  const highlightIndex = Math.max(0, Math.min(max, state.feed.highlightIndex + delta))
-  return highlightIndex === state.feed.highlightIndex
-    ? state
-    : { ...state, feed: { ...state.feed, highlightIndex } }
-}
-
-/**
- * Toggle one event type on or off. A row of types with none selected means
- * all of them, which is what `0` returns to.
- */
-export function toggleFeedType(state: AppState, type: string): AppState {
-  const types = new Set(state.feed.types)
-  if (types.has(type)) types.delete(type)
-  else types.add(type)
-  return { ...state, feed: { ...state.feed, types, highlightIndex: 0 } }
-}
-
-/** Everything again: every type, seen or not, no text (spec 070). */
-export function showAllFeedTypes(state: AppState): AppState {
-  return {
-    ...state,
-    feed: {
-      ...state.feed,
-      types: new Set<string>(),
-      unseenOnly: false,
-      filter: "",
-      filterInput: false,
-      highlightIndex: 0,
-    },
-  }
-}
-
-export function toggleFeedUnseen(state: AppState): AppState {
-  return {
-    ...state,
-    feed: { ...state.feed, unseenOnly: !state.feed.unseenOnly, highlightIndex: 0 },
-  }
-}
-
-/** Open or close a row's detail — a commit's files (spec 070). */
-export function toggleFeedRowExpanded(state: AppState, id: string): AppState {
-  const expandedIds = new Set(state.feed.expandedIds)
-  if (expandedIds.has(id)) expandedIds.delete(id)
-  else expandedIds.add(id)
-  return { ...state, feed: { ...state.feed, expandedIds } }
-}
-
-export function setFeedEvents(state: AppState, events: readonly FeedEvent[]): AppState {
-  return { ...state, feed: { ...state.feed, events, loading: false } }
-}
-
-export function setFeedCommitFiles(
-  state: AppState,
-  sha: string,
-  files: CommitFileSummary[]
-): AppState {
-  const commitFiles = new Map(state.feed.commitFiles)
-  commitFiles.set(sha, files)
-  return { ...state, feed: { ...state.feed, commitFiles } }
-}
-
 /**
  * Application state
  */
@@ -355,10 +264,6 @@ export interface AppState {
   
   // PR info panel state
   prInfoPanel: PRInfoPanelState
-
-  // Activity feed state — the feed keeps its own row and filters across
-  // view switches and refreshes (specs 064, 070).
-  feed: FeedState
 
   // When this PR was last open and what had been read by then (spec 069).
   // Null in local mode and on a first visit: there is nothing to compare
@@ -477,7 +382,6 @@ export function createInitialState(
     },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
-    feed: emptyFeed(),
     visit: null,
     seenCommentIds: new Set<string>(),
     visitRebased: false,
@@ -665,8 +569,8 @@ export function filterTarget(state: AppState): FilterTarget {
 }
 
 /**
- * The surfaces whose filter the functions below set. The feed's is not
- * among them: src/app/view-filter.ts routes it apart.
+ * The surfaces whose filter AppState holds, which the functions below take.
+ * The feed's is in its factory; src/app/view-filter.ts routes there.
  */
 export type StateFilterTarget = "tree" | "state" | "comments"
 
@@ -764,6 +668,7 @@ export interface PromptPickers {
   marksPicker: Pick<MarksPickerState, "open">
   commitPicker: Pick<CommitPickerState, "open">
   actionMenu: Pick<ActionMenuState, "open">
+  activityFeed: Pick<ActivityFeedState, "filterInput">
 }
 
 /**
@@ -780,7 +685,7 @@ export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
     pickers.occurrencePicker.open() ||
     pickers.commitPicker.open() ||
     state.treeFilterInput ||
-    state.feed.filterInput ||
+    pickers.activityFeed.filterInput() ||
     state.prInfoPanel.filterInput ||
     state.inlineCommentOverlay.filterInput
   )

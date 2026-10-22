@@ -54,6 +54,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
         marksPicker: deps.marksPicker,
         commitPicker: deps.commitPicker,
         actionMenu: deps.actionMenu,
+        activityFeed: deps.activityFeed,
         occurrencePicker: deps.occurrencePicker,
         vim,
         searchActive: deps.searchActive(),

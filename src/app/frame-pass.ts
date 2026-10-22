@@ -31,6 +31,7 @@ import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { GlobalMarksState } from "../features/marks/state"
+import type { ActivityFeedState } from "../features/feed/state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
@@ -72,6 +73,7 @@ export interface FramePassContext {
   blamePeek: BlamePeekState
   blameColumns: Pick<BlameColumnsState, "columns">
   marks: Pick<GlobalMarksState, "marks">
+  activityFeed: Pick<ActivityFeedState, "snapshot">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
@@ -119,8 +121,9 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const linePeek = ctx.linePeek.open() ? ctx.linePeek.snapshot() : null
     const blamePeek = ctx.blamePeek.peek()
     const marks = ctx.marks.marks()
+    const feed = ctx.activityFeed.snapshot()
     const focused = diffCursorShown(state, {
-      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }),
+      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, feed }),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
@@ -178,6 +181,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       occurrencePicker,
       marksPicker,
       marks,
+      feed,
       commitPicker,
       actionMenu,
       linePeek,

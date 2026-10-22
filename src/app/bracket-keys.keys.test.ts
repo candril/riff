@@ -8,7 +8,6 @@ import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import { emptyFeed } from "../features/feed/types"
 import { createComment } from "../types"
 import type { PrCommit } from "../providers/github/types"
 
@@ -221,15 +220,15 @@ describe("a key that breaks off a sequence", () => {
 
 test("in the feed, ]r steps to the next thread and leaves the feed's type filter alone", async () => {
   const { mounted, type, state, cursorFile } = await bracketApp()
+  mounted.activityFeed.setEvents(FEED_EVENTS)
   mounted.show({
     appMode: "pr",
     viewMode: "feed",
     comments: [createComment("b.ts", 2, "open")],
-    feed: { ...emptyFeed(), events: FEED_EVENTS },
   })
   await mounted.frame()
   type("]", "r")
-  expect(state().feed.types.size).toBe(0)
+  expect(mounted.activityFeed.types().size).toBe(0)
   expect(cursorFile()).toBe("b.ts")
 })
 

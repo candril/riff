@@ -14,6 +14,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { emptyFeed } from "../features/feed/types"
 
 const NOW = Date.parse("2026-10-17T12:00:00Z")
 
@@ -73,6 +74,7 @@ function frame(
     occurrencePicker,
     marksPicker,
     marks: [],
+    feed: emptyFeed(),
     commitPicker,
     actionMenu,
     linePeek,

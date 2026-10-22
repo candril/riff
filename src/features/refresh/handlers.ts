@@ -42,6 +42,7 @@ import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
 import type { GlobalMarksState } from "../marks/state"
+import type { ActivityFeedState } from "../feed/state"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "../action-menu/state"
 import type { LinePeekState } from "../line-peek/state"
@@ -81,6 +82,8 @@ export interface RefreshContext {
   refreshSearchMatches: () => void
   /** Re-read the activity feed's timeline (spec 070). */
   reloadFeed: () => void
+  /** Not reset by a reload: only its stream is dropped, by a PR refresh. */
+  feed: Pick<ActivityFeedState, "forgetStream">
   // The head riff is showing. Reading it before the reload is what makes a
   // force-push detectable; writing it back keeps context expansion pointed
   // at a commit that still exists.
@@ -176,8 +179,6 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           seenCommentIds: new Set<string>(),
           visitRebased: forcePushed,
         }
-        // The feed's events describe the data that was just replaced; its
-        // filters and row are the reader's and survive (spec 070).
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
       followReloadedMarks(ctx, headSha || undefined)
@@ -202,13 +203,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         })
       )
 
-      // The stream is rebuilt from the new data — from the timeline again
-      // when the feed is what the reader is looking at.
-      ctx.setState((s) => ({
-        ...s,
-        feed: { ...s.feed, events: [], commitFiles: new Map() },
-      }))
-      if (ctx.getState().viewMode === "feed") ctx.reloadFeed()
+      rebuildFeedStream(ctx)
 
       // Swap in a fresh PR info panel — it caches prInfo/files/comments
       // internally and won't pick up the new data otherwise.
@@ -282,6 +277,17 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 }
 
 /**
+ * After a PR refresh: the feed's events describe the data that was just
+ * replaced, so the stream is rebuilt from the new data, from the timeline
+ * again when the feed is what the reader is looking at. Its row and filters
+ * are the reader's and stay (spec 070).
+ */
+export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" | "reloadFeed">): void {
+  ctx.feed.forgetStream()
+  if (ctx.getState().viewMode === "feed") ctx.reloadFeed()
+}
+
+/**
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review and the file,
  * comments, occurrence, marks and commit pickers, the command palette, the
@@ -289,7 +295,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
  * in factories that createInitialState never reaches, so they are closed here,
  * as the rebuild closes every overlay still kept in AppState. The kept comment
  * drafts and the jumplist live in factories too, and are emptied here; the
- * global marks are not, since a mark is followed to its line's new place.
+ * global marks are not, since a mark is followed to its line's new place, and
+ * nor is the activity feed, whose row, filters, opened commits and unseen-only
+ * are the reader's (a PR refresh drops only its stream).
  */
 export function adoptReloadedState(
   ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList">,

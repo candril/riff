@@ -15,6 +15,7 @@ import { createFrameIslands, followFrame, frameIslandHosts } from "./overlays"
 import { createThreadPanelIsland } from "./thread-panel"
 import { createFeedIsland } from "./feed"
 import { createFilePickerState } from "../features/file-picker/state"
+import { emptyFeed } from "../features/feed/types"
 
 let setup: TestRendererSetup | null = null
 
@@ -82,6 +83,7 @@ async function mount(width: number, height: number) {
     occurrencePicker: null,
     marksPicker: null,
     marks: [],
+    feed: emptyFeed(),
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
@@ -208,6 +210,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       occurrencePicker: null,
       marksPicker: null,
       marks: [],
+      feed: emptyFeed(),
       commitPicker: null,
       actionMenu: null,
       linePeek: null,

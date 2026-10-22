@@ -1,5 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, filterTarget, openInlineCommentOverlay, switchView, type AppState } from "../state"
+import { createFeedState } from "../features/feed/state"
 import type { DiffFile } from "../utils/diff-parser"
 import * as viewFilter from "./view-filter"
 
@@ -17,13 +18,15 @@ function prState(): AppState {
 
 function filtering(initial: AppState) {
   let state = initial
+  const feed = createFeedState()
   const ctx: viewFilter.ViewFilterContext = {
     getState: () => state,
     setState: (update) => {
       state = update(state)
     },
+    feed,
   }
-  return { ctx, state: () => state }
+  return { ctx, feed, state: () => state }
 }
 
 describe("what Ctrl-f narrows", () => {
@@ -51,18 +54,20 @@ describe("what Ctrl-f narrows", () => {
     expect(state().prInfoPanel).toMatchObject({ filter: "", filterInput: false })
   })
 
-  test("the feed's rows, in the feed", () => {
+  test("the feed's rows, in the feed, in its own state and not in AppState", () => {
     const initial = switchView(prState(), "feed")
-    const { ctx, state } = filtering({ ...initial, feed: { ...initial.feed, highlightIndex: 3 } })
+    const { ctx, feed, state } = filtering(initial)
 
     expect(filterTarget(state())).toBe("feed")
+    feed.highlight(3)
     viewFilter.startFilter(ctx)
     viewFilter.setFilter(ctx, "carol")
-    expect(state().feed).toMatchObject({ filter: "carol", filterInput: true, highlightIndex: 0 })
+    expect(feed.snapshot()).toMatchObject({ filter: "carol", filterInput: true, highlightIndex: 0 })
+    expect(state()).toBe(initial)
     viewFilter.commitFilter(ctx)
-    expect(state().feed).toMatchObject({ filter: "carol", filterInput: false })
+    expect(feed.snapshot()).toMatchObject({ filter: "carol", filterInput: false })
     viewFilter.clearFilter(ctx)
-    expect(state().feed).toMatchObject({ filter: "", filterInput: false })
+    expect(feed.snapshot()).toMatchObject({ filter: "", filterInput: false })
   })
 
   test("the comments panel, while it holds the keyboard", () => {
@@ -97,7 +102,7 @@ describe("stateFilterTarget", () => {
     expect(viewFilter.stateFilterTarget(prState())).toBe("state")
   })
 
-  test("refuses the feed, whose filter is set apart", () => {
+  test("refuses the feed, whose filter AppState does not hold", () => {
     expect(() => viewFilter.stateFilterTarget(switchView(prState(), "feed"))).toThrow()
   })
 })

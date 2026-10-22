@@ -13,6 +13,7 @@ import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
 import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
 import type { MarksPickerSnapshot } from "../features/marks/picker-state"
 import type { Mark } from "../features/marks/types"
+import type { FeedState } from "../features/feed/types"
 import type { CommitPickerSnapshot } from "../features/commit-picker/state"
 import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
@@ -61,6 +62,8 @@ export interface Frame {
   marksPicker: MarksPickerSnapshot | null
   /** The global marks, read off their factory, for the marks picker's rows. */
   marks: readonly Mark[]
+  /** The activity feed's row, filters and stream, read off its factory. */
+  feed: FeedState
   /** The commit picker's state, read off its factory, or null while it is closed. */
   commitPicker: CommitPickerSnapshot | null
   /** The command palette's state, read off its factory, or null while it is closed. */
@@ -79,6 +82,9 @@ export interface Frame {
 
 /** The pickers read off their factories, each null while it is closed. */
 export type PickerSnapshots = Pick<Frame, "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu">
+
+/** What decides which prompt is typing: the pickers, and the feed, whose filter prompt is one of them. */
+export type PromptSnapshots = PickerSnapshots & Pick<Frame, "feed">
 
 // The last frame each followed accessor's followers finished drawing.
 const drawn = new WeakMap<Accessor<Frame | null>, Frame | null>()

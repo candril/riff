@@ -15,7 +15,9 @@ import { createBlamePeekState } from "../blame/peek-state"
 import { createBlameColumnsState } from "../blame/column-state"
 import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import { createJumpListState } from "../jumplist/state"
-import { adoptReloadedState } from "./handlers"
+import { createFeedState } from "../feed/state"
+import type { FeedEvent } from "../../utils/feed"
+import { adoptReloadedState, rebuildFeedStream } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
   test("closes the help, which createInitialState no longer resets", () => {
@@ -468,5 +470,38 @@ describe("a refresh's rebuilt state", () => {
 
     expect(state.description).toBe("reloaded")
     expect(commentDrafts.drafts().size).toBe(0)
+  })
+})
+
+describe("a PR refresh's feed", () => {
+  const events: FeedEvent[] = [
+    { id: "c1", type: "comment", at: "2026-03-01T11:55:00Z", title: "Rename this" },
+    { id: "commit-abc", type: "commit", at: "2026-02-28T10:00:00Z", title: "fix: hunks", target: { kind: "commit", sha: "abc" } },
+  ]
+
+  function refreshed(viewMode: AppState["viewMode"]) {
+    const state: AppState = { ...createInitialState([], [], "gh:o/r#1", ""), appMode: "pr", viewMode }
+    const feed = createFeedState()
+    feed.setEvents(events)
+    feed.setCommitFiles("abc", [{ filename: "a.ts", additions: 1, deletions: 0 }])
+    feed.toggleExpanded("commit-abc")
+    feed.toggleType("commit")
+    feed.highlight(1)
+    let reloads = 0
+    rebuildFeedStream({ getState: () => state, feed, reloadFeed: () => void reloads++ })
+    return { feed, reloads }
+  }
+
+  test("drops the events and the commit files, and keeps the reader's row and filters", () => {
+    const { feed } = refreshed("diff")
+    expect(feed.events()).toEqual([])
+    expect(feed.commitFiles().size).toBe(0)
+    expect(feed.snapshot()).toMatchObject({ highlightIndex: 1, types: new Set(["commit"]), expandedIds: new Set(["commit-abc"]) })
+  })
+
+  test("re-reads the timeline only while the feed is on screen", () => {
+    expect(refreshed("diff").reloads).toBe(0)
+    expect(refreshed("state").reloads).toBe(0)
+    expect(refreshed("feed").reloads).toBe(1)
   })
 })

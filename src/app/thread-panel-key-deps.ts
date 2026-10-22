@@ -28,6 +28,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
+    activityFeed: ctx.activityFeed,
     commentDrafts: ctx.commentDrafts,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),

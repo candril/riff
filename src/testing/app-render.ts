@@ -13,6 +13,7 @@ import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createMarksState } from "../features/marks/state"
+import { createFeedState } from "../features/feed/state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
@@ -136,6 +137,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const commentDrafts = createCommentDraftsState()
   const jumpList = createJumpListState()
   const marks = createMarksState()
+  const activityFeed = createFeedState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -149,7 +151,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render(), mentions }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
-        writePrompt({ getState: () => state, setState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+        writePrompt({ getState: () => state, setState, feed: activityFeed, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },
@@ -186,6 +188,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     blamePeek,
     blameColumns,
     marks,
+    activityFeed,
     mentions,
     commentDrafts,
     getCommandKeys: () => commandKeys,
@@ -257,6 +260,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     commentDrafts,
     /** The jumplist, which the keys walk and the jump recording pushes to as app.ts's do. */
     jumpList,
+    /** The activity feed's state, which the frame pass and the keys read as app.ts's do. */
+    activityFeed,
     fileTreePanel,
     render,
     agent,

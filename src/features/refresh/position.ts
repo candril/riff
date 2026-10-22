@@ -32,7 +32,6 @@ export type Landing = "exact" | "nearby" | "file" | "top"
 export interface RefreshPosition {
   viewMode: AppState["viewMode"]
   previousView: AppState["previousView"]
-  feed: AppState["feed"]
   /** By name, not by index: the files array renumbers on every reload. */
   selectedFilename: string | null
   treeHighlightPath: string | null
@@ -69,7 +68,6 @@ export function capturePosition(
   return {
     viewMode: state.viewMode,
     previousView: state.previousView,
-    feed: state.feed,
     selectedFilename:
       state.selectedFileIndex === null
         ? null
@@ -133,7 +131,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     ...state,
     viewMode: position.viewMode,
     previousView: position.previousView,
-    feed: position.feed,
     selectedFileIndex,
     focusedPanel: position.focusedPanel,
     chatOpen: position.chatOpen,

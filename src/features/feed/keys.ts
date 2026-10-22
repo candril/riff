@@ -20,21 +20,18 @@
 import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
+import type { AppState } from "../../state"
 import * as viewFilter from "../../app/view-filter"
-import {
-  moveFeedHighlight,
-  showAllFeedTypes,
-  toggleFeedType,
-  toggleFeedUnseen,
-  visibleFeedRows,
-  type AppState,
-} from "../../state"
+import type { ActivityFeedState } from "./state"
+import type { FeedState } from "./types"
+import { visibleFeedRows } from "./rows"
 import { FEED_TYPES, type FeedEvent } from "../../utils/feed"
 
 export interface FeedKeyDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  feed: ActivityFeedState
   /** Open what a row is about (spec 070). */
   onOpenEvent: (event: FeedEvent) => void
   /** Open the diff scoped to a commit, at one of its files. */
@@ -47,16 +44,16 @@ type Key = Pick<KeyEvent, "name" | "sequence" | "shift" | "ctrl" | "meta">
 
 const isSlash = (key: Key) => key.name === "/" || key.sequence === "/"
 
-const narrowed = (feed: AppState["feed"]) => feed.types.size > 0 || feed.unseenOnly || feed.filter !== ""
+const narrowed = (feed: Pick<FeedState, "types" | "unseenOnly" | "filter">) => feed.types.size > 0 || feed.unseenOnly || feed.filter !== ""
 
 /**
  * Whether the feed takes `key`. Names are compared exactly, so shift, super
  * and hyper are ignored, and a capitalised name such as kitty's Shift-g
  * ("G") matches nothing and goes to the layers behind.
  */
-export function feedTakes(state: AppState, key: Key, chordPending: boolean): boolean {
+export function feedTakes(state: AppState, feed: FeedState, key: Key, chordPending: boolean): boolean {
   if (state.viewMode !== "feed") return false
-  if (state.feed.filterInput) return true
+  if (feed.filterInput) return true
   // Ctrl and meta keys belong to the global handler — Ctrl-p, Ctrl-f, the
   // jumplist — and the second half of a chord is the chord's: `gr` must
   // refresh, not toggle reviews.
@@ -75,25 +72,24 @@ export function feedTakes(state: AppState, key: Key, chordPending: boolean): boo
       return false
     case "escape":
       // With nothing narrowed Esc is the global Esc (a toast, say).
-      return narrowed(state.feed)
+      return narrowed(feed)
   }
   if (isSlash(key) && !key.shift) return true
   return FEED_TYPES.some((entry) => entry.key === key.name)
 }
 
 export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () => void {
-  const feedState = () => deps.getState().feed
-  const update = (updater: (s: AppState) => AppState) => {
-    deps.setState(updater)
+  const feed = deps.feed
+  const update = (run: () => void) => {
+    run()
     deps.render()
   }
 
-  const takes = (key: KeyEvent) => feedTakes(deps.getState(), key, deps.chordPending())
+  const takes = (key: KeyEvent) => feedTakes(deps.getState(), feed.snapshot(), key, deps.chordPending())
 
   const startFilter = (key: KeyEvent) => {
     key.preventDefault()
-    viewFilter.startFilter(deps)
-    deps.render()
+    update(() => viewFilter.startFilter(deps))
   }
 
   // No preventDefault in the rest: the filter prompt's field types every
@@ -101,7 +97,7 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
   // reaches here outside the prompt, since a binding takes every other key
   // the capture holds.
   const captured = riffKeymap.capture(takes, (key) => {
-    if (!feedState().filterInput && isSlash(key)) startFilter(key)
+    if (!feed.filterInput() && isSlash(key)) startFilter(key)
   })
 
   const command = (name: string, title: string, run: (event: KeyEvent) => void) => ({
@@ -121,16 +117,10 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
     bindings.map((binding) => ({ ...binding, preventDefault: false }))
 
   const unregisterFilter = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && feedState().filterInput,
+    enabled: () => captured.holds() && feed.filterInput(),
     commands: [
-      command("filterClose", "Drop the filter", prevented(() => {
-        viewFilter.clearFilter(deps)
-        deps.render()
-      })),
-      command("filterCommit", "Keep the filter", prevented(() => {
-        viewFilter.commitFilter(deps)
-        deps.render()
-      })),
+      command("filterClose", "Drop the filter", prevented(() => update(() => viewFilter.clearFilter(deps)))),
+      command("filterCommit", "Keep the filter", prevented(() => update(() => viewFilter.commitFilter(deps)))),
     ],
     bindings: unprevented([
       ...anyModifiers("escape", "feed.filterClose"),
@@ -140,28 +130,29 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
   })
 
   const open = () => {
-    const state = deps.getState()
-    const highlighted = visibleFeedRows(state)[state.feed.highlightIndex]
+    const highlighted = visibleFeedRows(feed.snapshot(), deps.getState())[feed.highlightIndex()]
     if (highlighted?.kind === "file") deps.onOpenCommitFile(highlighted.sha, highlighted.file.filename)
     else if (highlighted) deps.onOpenEvent(highlighted.event)
   }
+
+  const move = (delta: number) => feed.move(delta, visibleFeedRows(feed.snapshot(), deps.getState()).length)
 
   // Ctrl and meta never reach these: the capture leaves them to the
   // layers behind.
   const plain = (key: string, cmd: string) => without(["ctrl", "meta"], anyModifiers(key, cmd))
 
   const unregisterMain = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && !feedState().filterInput,
+    enabled: () => captured.holds() && !feed.filterInput(),
     commands: [
-      command("down", "Next row", () => update((s) => moveFeedHighlight(s, 1))),
-      command("up", "Previous row", () => update((s) => moveFeedHighlight(s, -1))),
-      command("unseen", "Only what is unseen", () => update(toggleFeedUnseen)),
+      command("down", "Next row", () => update(() => move(1))),
+      command("up", "Previous row", () => update(() => move(-1))),
+      command("unseen", "Only what is unseen", () => update(feed.toggleUnseen)),
       command("open", "Open the row", open),
       // Only while something is narrowed, where the capture holds it.
-      command("showAll", "Show every row", () => update(showAllFeedTypes)),
+      command("showAll", "Show every row", () => update(feed.showAll)),
       command("filter", "Filter the rows", startFilter),
       ...FEED_TYPES.map(({ key, type, label }) =>
-        command(`type.${key}`, `Toggle ${label}`, () => update((s) => toggleFeedType(s, type))),
+        command(`type.${key}`, `Toggle ${label}`, () => update(() => feed.toggleType(type))),
       ),
     ],
     bindings: unprevented([

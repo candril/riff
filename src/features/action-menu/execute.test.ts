@@ -12,6 +12,7 @@ import { createMarksPickerState } from "../marks/picker-state"
 import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "./state"
 import { createLinePeekState } from "../line-peek/state"
+import { createFeedState } from "../feed/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -52,6 +53,7 @@ describe("Show Only Open Threads", () => {
         commitPicker: createCommitPickerState(),
         actionMenu: createActionMenuState(),
         linePeek: createLinePeekState(),
+        feed: createFeedState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -101,6 +103,7 @@ describe("Show Only Unviewed Files", () => {
         commitPicker: createCommitPickerState(),
         actionMenu: createActionMenuState(),
         linePeek: createLinePeekState(),
+        feed: createFeedState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -132,6 +135,7 @@ describe("Peek Line", () => {
         commitPicker: createCommitPickerState(),
         actionMenu: createActionMenuState(),
         linePeek,
+        feed: createFeedState(),
         handlers: {} as ActionHandlers,
         commandKeys: new Map(),
         runCommand: () => false,

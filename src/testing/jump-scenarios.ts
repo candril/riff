@@ -221,6 +221,7 @@ export async function jumpScenario({
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
+    activityFeed: mounted.activityFeed,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane,

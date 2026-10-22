@@ -32,6 +32,7 @@ export function globalLayerKeyDeps(
     jumpApply: jumpApplyContext(ctx),
     goToBottom: () => folds.handleGoToBottom(ctx.foldsContext),
     openBranchPr: (view) => ctx.openBranchPr(view),
+    feed: ctx.activityFeed,
     loadFeed: () => void feed.loadFeed(ctx.feedLoadContext),
     updateFileTreePanel: () => ctx.updateFileTreePanel(),
     startListFlash: (surface, ids, reserved) => ctx.flashHandler.startList(surface, ids, reserved),

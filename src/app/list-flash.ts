@@ -1,5 +1,6 @@
 import type { AppState } from "../state"
-import { getInlineCommentOverlayComments, visibleFeedRows } from "../state"
+import { getInlineCommentOverlayComments } from "../state"
+import { visibleFeedRows } from "../features/feed/rows"
 import type { FlashSurface } from "../vim-diff/flash-state"
 import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
@@ -24,7 +25,7 @@ export function flashSurface(state: AppState): FlashSurface | null {
 
 export function flashTargets(
   state: AppState,
-  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer">,
+  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed">,
 ): string[] {
   switch (flashSurface(state)) {
     case "tree": {
@@ -36,8 +37,10 @@ export function flashTargets(
     }
     case "state":
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
-    case "feed":
-      return feedRowsInView(visibleFeedRows(state), state.feed, ctx.renderer.height).map(String)
+    case "feed": {
+      const feed = ctx.activityFeed.snapshot()
+      return feedRowsInView(visibleFeedRows(feed, state), feed, ctx.renderer.height).map(String)
+    }
     case "comments":
       return visibleOverlayCommentIds(
         getInlineCommentOverlayComments(state),

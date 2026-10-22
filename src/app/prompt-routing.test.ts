@@ -2,6 +2,7 @@ import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
 import { createSearchState } from "../vim-diff/search-state"
 import { openPromptModel } from "./open-prompt"
+import { emptyFeed } from "../features/feed/types"
 import { ownerOf, promptIslandsOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
 import type { PromptSession } from "./prompt-session"
 import { createFilePickerState } from "../features/file-picker/state"
@@ -49,13 +50,13 @@ describe("routing the open prompt", () => {
   test("every prompt open-prompt can open has an island, and every island a prompt", () => {
     const states: Partial<AppState>[] = [
       { inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } },
-      { feed: { ...initial.feed, filterInput: true } },
     ]
     const searching = (active: boolean) => ({ ...createSearchState(), active })
-    const closed = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null }
+    const closed = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null, feed: emptyFeed() }
     const occurrence = createOccurrencePickerState().snapshot()
     const opened = [
       ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false), closed)),
+      openPromptModel(initial, searching(false), { ...closed, feed: { ...emptyFeed(), filterInput: true } }),
       openPromptModel(initial, searching(false), { ...closed, actionMenu: createActionMenuState().snapshot() }),
       openPromptModel(initial, searching(false), { ...closed, filePicker: createFilePickerState().snapshot() }),
       openPromptModel(initial, searching(false), { ...closed, commitPicker: { ...createCommitPickerState().snapshot(), queryInput: true } }),

@@ -8,13 +8,14 @@ import { chatColumnWidth } from "../features/chat/width"
 import { statusBarFrameModel } from "./chrome-frame-models"
 import { chatColumnFrameModel } from "./panel-frame-models"
 import { openPromptModel, promptOpenIn } from "./open-prompt"
-import type { Frame, PickerSnapshots } from "./frame"
+import type { Frame, PromptSnapshots } from "./frame"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { emptyFeed } from "../features/feed/types"
 
 const initial = createInitialState([], [], "local", "local changes")
 
@@ -51,6 +52,7 @@ function frame(
     occurrencePicker: null,
     marksPicker: null,
     marks: [],
+    feed: emptyFeed(),
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
@@ -107,8 +109,8 @@ describe("chatColumnFrameModel", () => {
 
 describe("promptOpenIn", () => {
   const commitPicker = (queryInput: boolean) => ({ ...createCommitPickerState().snapshot(), queryInput })
-  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null }
-  const branches: [string, AppState, Partial<SearchState>, boolean, Partial<PickerSnapshots>?][] = [
+  const closed: PromptSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null, feed: emptyFeed() }
+  const branches: [string, AppState, Partial<SearchState>, boolean, Partial<PromptSnapshots>?][] = [
     ["the action menu", state(), {}, true, { actionMenu: createActionMenuState().snapshot() }],
     ["the file picker", state(), {}, true, { filePicker: createFilePickerState().snapshot() }],
     ["the comments picker", state(), {}, true, { commentsPicker: createCommentsPickerState().snapshot() }],
@@ -117,7 +119,7 @@ describe("promptOpenIn", () => {
     ["the commit picker's query", state(), {}, true, { commitPicker: commitPicker(true) }],
     ["the commit picker's list", state(), {}, false, { commitPicker: commitPicker(false) }],
     ["the comments filter", state({ inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } }), {}, true],
-    ["the feed filter", state({ feed: { ...initial.feed, filterInput: true } }), {}, true],
+    ["the feed filter", state(), {}, true, { feed: { ...emptyFeed(), filterInput: true } }],
     ["a search", state(), { active: true }, true],
     ["a confirmed search", state(), { pattern: "foo" }, false],
     ["nothing", state(), {}, false],

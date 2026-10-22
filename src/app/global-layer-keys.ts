@@ -21,6 +21,7 @@ import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
+import type { ActivityFeedState } from "../features/feed/state"
 
 export interface GlobalLayerKeyDeps {
   getState: () => AppState
@@ -43,6 +44,8 @@ export interface GlobalLayerKeyDeps {
   /** The tree's `G`; the diff's is its motion handler's. */
   goToBottom: () => void
   openBranchPr: (view: "state" | "feed") => void
+  /** The feed's timeline is fetched the first time it is asked for. */
+  feed: Pick<ActivityFeedState, "events" | "loading">
   loadFeed: () => void
   updateFileTreePanel: () => void
   startListFlash: (surface: FlashSurface, ids: string[], reserved: string) => void

@@ -249,7 +249,7 @@ function switchSurface(deps: GlobalLayerKeyDeps, key: KeyEvent, state: AppState)
   deps.render()
   // The feed's timeline is fetched the first time it is asked for: a
   // PR nobody opens the feed on costs nothing (spec 070).
-  if (switched.viewMode === "feed" && switched.feed.events.length === 0 && !switched.feed.loading) {
+  if (switched.viewMode === "feed" && deps.feed.events().length === 0 && !deps.feed.loading()) {
     deps.loadFeed()
   }
 }

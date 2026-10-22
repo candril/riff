@@ -67,6 +67,7 @@ export function keysOn(
     marks: mounted.marks,
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
+    activityFeed: mounted.activityFeed,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     blameColumns: mounted.blameColumns,

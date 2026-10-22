@@ -46,6 +46,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     getState: render.getState,
     setState: render.setState,
     help: mounted.help,
+    activityFeed: mounted.activityFeed,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,

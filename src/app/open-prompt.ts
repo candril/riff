@@ -7,7 +7,7 @@ import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
-import type { PickerSnapshots } from "./frame"
+import type { PromptSnapshots } from "./frame"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
 export interface PromptModel {
@@ -23,7 +23,7 @@ export interface PromptModel {
 export function openPromptModel(
   state: AppState,
   searchState: SearchState,
-  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }: PickerSnapshots
+  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, feed }: PromptSnapshots
 ): PromptModel | null {
   if (actionMenu) {
     return {
@@ -61,8 +61,8 @@ export function openPromptModel(
   if (state.inlineCommentOverlay.filterInput) {
     return { key: "comments-filter", initialValue: state.inlineCommentOverlay.filter, placeholder: "filter comments…" }
   }
-  if (state.feed.filterInput) {
-    return { key: "feed-filter", initialValue: state.feed.filter, placeholder: "filter the feed…" }
+  if (feed.filterInput) {
+    return { key: "feed-filter", initialValue: feed.filter, placeholder: "filter the feed…" }
   }
 
   if (searchState.active) {
@@ -77,7 +77,7 @@ export function openPromptModel(
 }
 
 /** Whether a prompt is typing right now, so a frame can tell from state alone. */
-export function promptOpenIn(state: AppState, searchState: SearchState, pickers: PickerSnapshots): boolean {
+export function promptOpenIn(state: AppState, searchState: SearchState, pickers: PromptSnapshots): boolean {
   return openPromptModel(state, searchState, pickers) !== null
 }
 

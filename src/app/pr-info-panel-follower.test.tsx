@@ -12,6 +12,7 @@ import { FRAME_ISLANDS } from "./frame-models"
 import { followFrame } from "./overlays"
 import { createFrame, type Frame } from "./frame"
 import { createPrInfoPanelFollower } from "./pr-info-panel-follower"
+import { emptyFeed } from "../features/feed/types"
 
 // The PR info panel as the app hands it each published frame: a real panel,
 // a real frame, and followFrame between them. Every other island is a stub.
@@ -55,6 +56,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     occurrencePicker: null,
     marksPicker: null,
     marks: [],
+    feed: emptyFeed(),
     commitPicker: null,
     actionMenu: null,
     linePeek: null,

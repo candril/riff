@@ -7,6 +7,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createFeedState } from "../features/feed/state"
 
 const diff = (patch: Partial<AppState> = {}): AppState => ({
   ...createInitialState([], [], "test", ""),
@@ -22,6 +23,7 @@ const pickers = {
   marksPicker: createMarksPickerState(),
   commitPicker: createCommitPickerState(),
   actionMenu: createActionMenuState(),
+  activityFeed: createFeedState(),
 }
 
 describe("textObjectTakes", () => {

@@ -60,7 +60,8 @@ test("Ctrl-t draws the thread panel and q takes it away; a and d draw the feed a
   expect(drawn).not.toContain("say hello to the reader")
   expect(drawn).not.toMatch(/all files\s+1 comment/)
 
-  app.show({ appMode: "pr", feed: { ...app.ctx.getState().feed, events: [EVENT] } })
+  app.activityFeed.setEvents([EVENT])
+  app.show({ appMode: "pr" })
   await app.setup.mockInput.typeText("a")
   expect(app.ctx.getState().viewMode).toBe("feed")
   drawn = await app.frame()

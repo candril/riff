@@ -10,6 +10,7 @@ import type { Comment } from "../types"
 import type { FeedEvent } from "../utils/feed"
 import { feedFrameModel, prInfoPanelFrameModel, threadPanelFrameInput } from "./panel-frame-models"
 import type { Frame } from "./frame"
+import { emptyFeed } from "../features/feed/types"
 
 const NOW = Date.parse("2026-01-10T12:00:00Z")
 
@@ -34,8 +35,7 @@ const EVENTS: FeedEvent[] = [
 ]
 
 function base(patch: Partial<AppState> = {}): AppState {
-  const state = { ...createInitialState([], [], "local", "local changes"), comments: COMMENTS, ...patch }
-  return { ...state, feed: { ...state.feed, events: EVENTS } }
+  return { ...createInitialState([], [], "local", "local changes"), comments: COMMENTS, ...patch }
 }
 
 const panelOpen = (state: AppState) => openInlineCommentOverlay(state, "src/a.ts", 1, "RIGHT", "view")
@@ -49,7 +49,8 @@ function frame(
     now = NOW,
     mentions = { pool: [], searching: null },
     commentDrafts = new Map(),
-  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"] } = {}
+    feed = { ...emptyFeed(), events: EVENTS },
+  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"]; feed?: Frame["feed"] } = {}
 ): Frame {
   return {
     state,
@@ -71,6 +72,7 @@ function frame(
     occurrencePicker: null,
     marksPicker: null,
     marks: [],
+    feed,
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
@@ -136,7 +138,7 @@ describe("feedFrameModel", () => {
     expect(at(NOW).rows).not.toEqual(at(NOW + 48 * 3600_000).rows)
     const many = Array.from({ length: 60 }, (_, i) => ({ ...EVENTS[0]!, id: `c${i}` }))
     const tall = (height: number) =>
-      feedFrameModel(frame({ ...base({ viewMode: "feed" }), feed: { ...base().feed, events: many } }, { height }))!.rows.length
+      feedFrameModel(frame(base({ viewMode: "feed" }), { height, feed: { ...emptyFeed(), events: many } }))!.rows.length
     expect(tall(20)).toBeLessThan(tall(50))
   })
 

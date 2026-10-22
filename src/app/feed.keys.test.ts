@@ -3,7 +3,6 @@ import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { bgAt } from "../testing/frame"
 import { FEED_EVENTS } from "../testing/feed-keys"
-import { emptyFeed } from "../features/feed/types"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -37,7 +36,8 @@ async function feedApp() {
       mounted.render()
     },
   })
-  mounted.show({ appMode: "pr", viewMode: "feed", focusedPanel: "diff", feed: { ...emptyFeed(), events: FEED_EVENTS } })
+  mounted.activityFeed.setEvents(FEED_EVENTS)
+  mounted.show({ appMode: "pr", viewMode: "feed", focusedPanel: "diff" })
   await mounted.frame()
   return { mounted, selected }
 }
@@ -81,6 +81,6 @@ test("the command palette open over the feed takes its keys: down moves the pale
 
   mounted.setup.mockInput.pressKey("ARROW_DOWN")
   expect(mounted.actionMenu.selectedIndex()).toBe(1)
-  expect(mounted.ctx.getState().feed.highlightIndex).toBe(0)
+  expect(mounted.activityFeed.highlightIndex()).toBe(0)
   await mounted.frame()
 })

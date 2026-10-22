@@ -9,14 +9,16 @@ import { createOccurrencePickerState, type OccurrencePickerState } from "../feat
 import { createMarksPickerState, type MarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState, type CommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState, type ActionMenuState } from "../features/action-menu/state"
-import type { PickerSnapshots } from "./frame"
+import type { PromptSnapshots } from "./frame"
+import { createFeedState } from "../features/feed/state"
+import { emptyFeed } from "../features/feed/types"
 
 const initial = createInitialState([], [], "test", "")
 
 function promptFor(
   patch: Partial<AppState>,
   search: Partial<SearchState> = {},
-  pickers: Partial<PickerSnapshots> = {}
+  pickers: Partial<PromptSnapshots> = {}
 ) {
   return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search }, {
     filePicker: null,
@@ -25,6 +27,7 @@ function promptFor(
     marksPicker: null,
     commitPicker: null,
     actionMenu: null,
+    feed: emptyFeed(),
     ...pickers,
   })
 }
@@ -82,12 +85,13 @@ describe("which prompt is typing", () => {
   })
 
   test("the comments filter comes before the feed's", () => {
-    const prompt = promptFor({
-      inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true, filter: "bug" },
-      feed: { ...initial.feed, filterInput: true },
-    })
+    const prompt = promptFor(
+      { inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true, filter: "bug" } },
+      {},
+      { feed: { ...emptyFeed(), filterInput: true } }
+    )
     expect(prompt).toEqual({ key: "comments-filter", initialValue: "bug", placeholder: "filter comments…" })
-    expect(promptFor({ feed: { ...initial.feed, filterInput: true, filter: "ana" } })).toEqual({
+    expect(promptFor({}, {}, { feed: { ...emptyFeed(), filterInput: true, filter: "ana" } })).toEqual({
       key: "feed-filter",
       initialValue: "ana",
       placeholder: "filter the feed…",
@@ -109,6 +113,7 @@ describe("which prompt is typing", () => {
 describe("where what is typed goes", () => {
   function writer(patch: Partial<AppState> = {}) {
     let state: AppState = { ...initial, ...patch }
+    const feed = createFeedState()
     let renders = 0
     const searched: string[] = []
     const pickers = {
@@ -124,12 +129,13 @@ describe("where what is typed goes", () => {
       {
         getState: () => state,
         setState: (updater) => (state = updater(state)),
+        feed,
         ...pickers,
         updateSearchPattern: (value) => void searched.push(value),
       },
       () => renders++
     )
-    return { write, state: () => state, pickers, renders: () => renders, searched }
+    return { write, state: () => state, feed, pickers, renders: () => renders, searched }
   }
 
   type Pickers = {
@@ -170,9 +176,10 @@ describe("where what is typed goes", () => {
     expect(comments.state().inlineCommentOverlay.filter).toBe("bug")
     expect(comments.renders()).toBe(1)
 
-    const feed = writer({ viewMode: "feed", feed: { ...initial.feed, filterInput: true } })
+    const feed = writer({ viewMode: "feed" })
+    feed.feed.startFilter()
     feed.write("feed-filter", "ana")
-    expect(feed.state().feed.filter).toBe("ana")
+    expect(feed.feed.filter()).toBe("ana")
     expect(feed.renders()).toBe(1)
   })
 

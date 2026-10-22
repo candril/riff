@@ -7,6 +7,7 @@ import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
+import { createFeedState } from "../features/feed/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
@@ -79,6 +80,7 @@ export async function threadPanelKeys(initial: AppState) {
     marksPicker: createMarksPickerState(),
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
+    activityFeed: createFeedState(),
     commentDrafts,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)

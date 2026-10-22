@@ -3,9 +3,8 @@ import {
   getInlineCommentOverlayComments,
   getInlineCommentOverlayHiddenThreadCount,
   unseenIn,
-  visibleFeedEvents,
-  visibleFeedRows,
 } from "../state"
+import { visibleFeedEvents, visibleFeedRows } from "../features/feed/rows"
 import { collectMentionCandidates } from "../utils/mentions"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
 import { draftIn } from "../features/inline-comment-overlay/drafts-state"
@@ -54,15 +53,15 @@ export function threadPanelFrameInput({ state, flashState, width, now, mentions,
  * The activity feed for `frame`, or null while another view is up, so it does
  * no work for a screen it is not on. An error takes the screen from it.
  */
-export function feedFrameModel({ state, flashState, height, now }: Frame): FeedModel | null {
+export function feedFrameModel({ state, feed, flashState, height, now }: Frame): FeedModel | null {
   if (state.error || state.viewMode !== "feed") return null
   return feedModel({
-    events: visibleFeedEvents(state),
-    rows: visibleFeedRows(state),
-    feed: state.feed,
+    events: visibleFeedEvents(feed, state),
+    rows: visibleFeedRows(feed, state),
+    feed,
     unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
     flashLabels: flashLabelsOn(flashState, "feed"),
-    loading: state.feed.loading,
+    loading: feed.loading,
     now,
     height,
   })

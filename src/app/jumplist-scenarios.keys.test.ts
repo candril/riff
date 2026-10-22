@@ -247,7 +247,9 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
     const a = await scenario()
     a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
     const event = { id: "e1", type: "comment" as const, at: "2026-01-02T00:00:00Z", title: "note t3", target: { kind: "comment" as const, commentId: "t3" } }
-    a.mounted.show({ viewMode: "feed", appMode: "pr", feed: { ...a.state().feed, events: [event], highlightIndex: 0 } })
+    a.mounted.activityFeed.setEvents([event])
+    a.mounted.activityFeed.highlight(0)
+    a.mounted.show({ viewMode: "feed", appMode: "pr" })
     await recordsAndReturns(a, () => a.press(KEY.enter))
     expect(a.where().text).toContain("gamma.ts needle 25")
   })
@@ -530,7 +532,9 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
       a.mounted.show({ selectedFileIndex: 0, files: a.state().files, prInfo: info })
       a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
       const event = { id: "e1", type: "comment" as const, at: "2026-01-02T00:00:00Z", title: "note t3", target: { kind: "comment" as const, commentId: "t3" } }
-      a.mounted.show({ viewMode: "feed", appMode: "pr", feed: { ...a.state().feed, events: [event], highlightIndex: 0 } })
+      a.mounted.activityFeed.setEvents([event])
+    a.mounted.activityFeed.highlight(0)
+    a.mounted.show({ viewMode: "feed", appMode: "pr" })
       a.press(KEY.enter)
       expect(a.where().text).toContain("gamma.ts needle 25")
       // Into the overview without a key, so the entry before is the feed's.

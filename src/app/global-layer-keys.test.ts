@@ -10,6 +10,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createJumpListState } from "../features/jumplist/state"
+import { createFeedState } from "../features/feed/state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -48,6 +49,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     jumpApply: null as never,
     goToBottom: () => void calls.push("goToBottom"),
     openBranchPr: (view) => void calls.push(`openBranchPr:${view}`),
+    feed: createFeedState(),
     loadFeed: () => void calls.push("loadFeed"),
     updateFileTreePanel: () => {},
     startListFlash: (surface) => void calls.push(`flash:${surface}`),

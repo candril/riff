@@ -261,6 +261,14 @@ Global marks are the eighteenth (`createMarksState` in
 `src/features/marks/state.ts`); the frame carries the list for the signs
 and the marks picker, and unlike drafts and the jumplist a reload keeps
 them.
+The activity feed is the nineteenth (`createFeedState` in
+`src/features/feed/state.ts`); the frame carries its snapshot for the feed
+view and its filter prompt, a reload keeps its row, filters, opened
+commits and unseen-only, and a PR refresh drops only its stream, the
+events and the commits' files, to fetch them again. Its filter prompt
+is reached through `src/app/view-filter.ts`, which routes `Ctrl-f`, `/`
+and the prompt's typing to the factory in the feed and to AppState
+elsewhere.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

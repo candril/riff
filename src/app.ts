@@ -63,6 +63,7 @@ import { createCommentsPickerState } from "./features/comments-picker/state"
 import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
 import { createMarksState } from "./features/marks/state"
+import { createFeedState } from "./features/feed/state"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -258,7 +259,7 @@ export async function createApp(options: AppOptions = {}) {
       })
     })
     panel.setOnFilterChange((value) => {
-      viewFilter.setFilter({ getState: () => state, setState: (fn) => { state = fn(state) } }, value)
+      viewFilter.setFilter({ getState: () => state, setState: (fn) => { state = fn(state) }, feed: activityFeed }, value)
       render()
     })
     panel.setOnSectionsChange((open) => {
@@ -357,7 +358,7 @@ export async function createApp(options: AppOptions = {}) {
   // (spec 065); the views that have no cursor of their own park it. The
   // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }) && !(state.chatOpen && state.focusedPanel === "chat")) {
+    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, activityFeed }) && !(state.chatOpen && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -497,6 +498,7 @@ export async function createApp(options: AppOptions = {}) {
   const jumpList = createJumpListState()
   const globalMarks = createMarksState()
   globalMarks.reset(initialMarks)
+  const activityFeed = createFeedState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -654,7 +656,7 @@ export async function createApp(options: AppOptions = {}) {
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
         writePrompt(
-          { getState: () => state, setState: setAppState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          { getState: () => state, setState: setAppState, feed: activityFeed, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
           () => renderFrame()
         )
       ),
@@ -698,6 +700,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     marks: globalMarks,
+    activityFeed,
     mentions,
     commentDrafts,
     getCommandKeys: () => paletteKeys,
@@ -976,7 +979,7 @@ export async function createApp(options: AppOptions = {}) {
         prInfoPanel?.flashJump(id)
         state = { ...state, reactionTarget: prInfoPanel?.getReactionTarget() ?? null }
       } else if (surface === "feed") {
-        state = { ...state, feed: { ...state.feed, highlightIndex: Number(id) } }
+        activityFeed.highlight(Number(id))
       } else if (surface === "comments") {
         state = highlightInlineComment(state, id)
       }
@@ -1044,6 +1047,7 @@ export async function createApp(options: AppOptions = {}) {
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     marks: globalMarks,
+    feed: activityFeed,
     help,
     confirm,
     syncPreview,
@@ -1431,6 +1435,7 @@ export async function createApp(options: AppOptions = {}) {
         )
         closeFeatureOverlays()
         globalMarks.reset(followed)
+        activityFeed.reset()
         // The new PR gets no panel here, so no rebuild forgets the lookups for it.
         baseLookups.state.forget()
 
@@ -1536,6 +1541,7 @@ export async function createApp(options: AppOptions = {}) {
       commitPicker,
       actionMenu,
       linePeek,
+      feed: activityFeed,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1750,7 +1756,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const feedLoadContext: feedFeature.FeedLoadContext = {
     getState: () => state,
-    setState: (fn) => { state = fn(state) },
+    feed: activityFeed,
     render,
   }
 
@@ -1808,6 +1814,7 @@ export async function createApp(options: AppOptions = {}) {
         viewMode: view,
       }
       globalMarks.reset(followed)
+      activityFeed.reset()
       closeFeatureOverlays()
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
@@ -1901,6 +1908,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     mentions,
     commentDrafts,
+    activityFeed,
     jumpList,
     composerSettled: proposals.composerSettled,
   })
@@ -1915,6 +1923,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker,
     commitPicker,
     actionMenu,
+    activityFeed,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getPane: marksContext.getPane,

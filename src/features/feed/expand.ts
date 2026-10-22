@@ -4,11 +4,12 @@
  */
 
 import type { AppState } from "../../state"
-import { toggleFeedRowExpanded, visibleFeedRows } from "../../state"
+import type { ActivityFeedState } from "./state"
+import { visibleFeedRows } from "./rows"
 
 export interface FeedExpandDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  feed: ActivityFeedState
   render: () => void
   /** Fetch the files of a commit row that was just expanded. */
   onExpandCommit: (sha: string) => void
@@ -19,19 +20,18 @@ export interface FeedExpandDeps {
  * resolved by the `z` chords' keymap layer, which owns `z`.
  */
 export function toggleExpandedRow(deps: FeedExpandDeps): boolean {
-  const state = deps.getState()
-  const rows = visibleFeedRows(state)
-  const highlighted = rows[state.feed.highlightIndex]
+  const rows = visibleFeedRows(deps.feed.snapshot(), deps.getState())
+  const highlighted = rows[deps.feed.highlightIndex()]
   if (!highlighted) return false
 
   // On a file, `za` folds the commit it belongs to — and the highlight goes
   // back onto that commit rather than onto whatever slides into its place.
   const event = highlighted.event
-  const wasExpanded = state.feed.expandedIds.has(event.id)
-  deps.setState((s) => toggleFeedRowExpanded(s, event.id))
+  const wasExpanded = deps.feed.expandedIds().has(event.id)
+  deps.feed.toggleExpanded(event.id)
   if (highlighted.kind === "file") {
     const parent = rows.findIndex((row) => row.kind === "event" && row.event.id === event.id)
-    if (parent !== -1) deps.setState((s) => ({ ...s, feed: { ...s.feed, highlightIndex: parent } }))
+    if (parent !== -1) deps.feed.highlight(parent)
   }
   // The files are fetched when the row is opened, not on arrival: a feed of
   // forty commits would otherwise be forty requests nobody asked for.

@@ -80,6 +80,7 @@ export interface ExecuteContext {
   commitPicker: Pick<CommitPickerState, "show">
   actionMenu: Pick<ActionMenuState, "showSubmenu">
   linePeek: Pick<LinePeekState, "toggle">
+  feed: viewFilter.ViewFilterContext["feed"]
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -151,7 +152,7 @@ export async function executeAction(
       break
 
     case "filter-view":
-      viewFilter.startFilter({ getState: () => state, setState })
+      viewFilter.startFilter({ getState: () => state, setState, feed: ctx.feed })
       render()
       break
 

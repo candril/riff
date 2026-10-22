@@ -1,7 +1,8 @@
 import { registerFeedKeys, type FeedKeyDeps } from "../features/feed/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
 import { createInitialState, type AppState } from "../state"
-import { emptyFeed, type CommitFileSummary } from "../features/feed/types"
+import { emptyFeed, type CommitFileSummary, type FeedState } from "../features/feed/types"
+import { createFeedState, type ActivityFeedState } from "../features/feed/state"
 import type { FeedEvent } from "../utils/feed"
 import { keymapHarness } from "./keymap-keys"
 
@@ -17,35 +18,52 @@ export const COMMIT_FILES: CommitFileSummary[] = [
   { filename: "src/diff.test.ts", additions: 40, deletions: 0 },
 ]
 
+/** riff in a pull request, on the feed. */
+export function feedApp(): AppState {
+  return { ...createInitialState([], [], "test", ""), appMode: "pr", viewMode: "feed" }
+}
+
 /**
- * riff on the feed with a few events, the commit opened into its two files:
- * rows are c1, r1, the commit, its two files and the check.
+ * The feed with a few events, the commit opened into its two files: rows
+ * are c1, r1, the commit, its two files and the check.
  */
-export function feedState(patch: Partial<AppState["feed"]> = {}): AppState {
+export function feedOf(patch: Partial<FeedState> = {}): FeedState {
   return {
-    ...createInitialState([], [], "test", ""),
-    appMode: "pr",
-    viewMode: "feed",
-    feed: {
-      ...emptyFeed(),
-      events: FEED_EVENTS,
-      expandedIds: new Set(["commit-abc"]),
-      commitFiles: new Map([["abc", COMMIT_FILES]]),
-      ...patch,
-    },
+    ...emptyFeed(),
+    events: FEED_EVENTS,
+    expandedIds: new Set(["commit-abc"]),
+    commitFiles: new Map([["abc", COMMIT_FILES]]),
+    ...patch,
   }
+}
+
+/** `feed` brought to `snapshot` through its own actions, as the keys and the loads would. */
+export function seedFeed(feed: ActivityFeedState, snapshot: Partial<FeedState>): ActivityFeedState {
+  feed.reset()
+  if (snapshot.events) feed.setEvents(snapshot.events)
+  for (const [sha, files] of snapshot.commitFiles ?? []) feed.setCommitFiles(sha, files)
+  for (const id of snapshot.expandedIds ?? []) feed.toggleExpanded(id)
+  for (const type of snapshot.types ?? []) feed.toggleType(type)
+  if (snapshot.unseenOnly) feed.toggleUnseen()
+  if (snapshot.filter) feed.setFilter(snapshot.filter)
+  if (snapshot.filterInput) feed.startFilter()
+  if (snapshot.loading) feed.startLoading()
+  if (snapshot.highlightIndex) feed.highlight(snapshot.highlightIndex)
+  return feed
 }
 
 /**
  * The feed's layers on a real keymap in front of a recording leftover,
- * every hand-off to the app in `calls`. `chord` simulates a pending chord
- * for the layer under test only: composeKeys' chordPending does not count
- * it. The dispatch entry settles it the way the mark layer does outside
- * the diff, where every key gives way. Call it inside a test.
+ * every hand-off to the app in `calls`, the feed seeded with feedOf(`patch`).
+ * `chord` simulates a pending chord for the layer under test only:
+ * composeKeys' chordPending does not count it. The dispatch entry settles it
+ * the way the mark layer does outside the diff, where every key gives way.
+ * Call it inside a test.
  */
-export async function feedKeys(initial: AppState) {
+export async function feedKeys(patch: Partial<FeedState> = {}, initial: AppState = feedApp()) {
   let state = initial
   let chord: string | null = null
+  const feed = seedFeed(createFeedState(), feedOf(patch))
   const harness = await keymapHarness({
     settle: (key) => {
       if (pendingMarkChordGivesWay(chord, key, false)) chord = null
@@ -58,6 +76,7 @@ export async function feedKeys(initial: AppState) {
       state = update(state)
     },
     render() {},
+    feed,
     onOpenEvent: (event) => void calls.push(`openEvent ${event.id}`),
     onOpenCommitFile: (sha, filename) => void calls.push(`openCommitFile ${sha} ${filename}`),
     chordPending: () => chord !== null,
@@ -68,8 +87,10 @@ export async function feedKeys(initial: AppState) {
     calls,
     unregister,
     state: () => state,
-    set: (next: AppState) => {
-      state = next
+    feed,
+    /** The feed seeded afresh with feedOf(`patch`). */
+    set: (next: Partial<FeedState>) => {
+      seedFeed(feed, feedOf(next))
     },
     chord: () => chord,
     setChord: (next: string | null) => {

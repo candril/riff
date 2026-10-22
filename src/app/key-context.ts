@@ -158,6 +158,8 @@ export interface AppKeyContext {
   mentions: MentionsState
   /** The comment composer's kept drafts, the same instance the frame pass reads. */
   commentDrafts: CommentDraftsState
+  /** The activity feed's state, the same instance the frame pass reads. */
+  activityFeed: feed.ActivityFeedState
   /** The jumplist Ctrl-o and Ctrl-i walk, the same instance the jump recording pushes to. */
   jumpList: JumpListState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */

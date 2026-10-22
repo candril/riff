@@ -14,7 +14,6 @@ import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
 import { createInitialState, openInlineCommentOverlay } from "../state"
-import { emptyFeed } from "../features/feed/types"
 import { createSearchState } from "../vim-diff/search-state"
 import { createComment } from "../types"
 import type { FoldsContext } from "../features/folds"
@@ -277,14 +276,14 @@ test("zl and zh scroll a column, zL and zH half a window, zs and ze to the curso
 
 test("in the feed, za opens the highlighted row", async () => {
   const { mounted, type, state } = await zApp()
+  mounted.activityFeed.setEvents(FEED_EVENTS)
   mounted.show({
     appMode: "pr",
     viewMode: "feed",
-    feed: { ...emptyFeed(), events: FEED_EVENTS },
   })
   await mounted.frame()
   type("z", "a")
-  expect(state().feed.expandedIds.size).toBe(1)
+  expect(mounted.activityFeed.expandedIds().size).toBe(1)
   expect(state().collapsedFiles.size).toBe(0)
 })
 

@@ -8,7 +8,7 @@
  */
 
 import type { AppState } from "../../state"
-import { setFeedEvents, setFeedCommitFiles } from "../../state"
+import type { ActivityFeedState } from "./state"
 import { fetchPrTimeline } from "../../providers/github/lookups"
 import { fetchCommitDiff } from "../../providers/github/diff"
 import { buildFeed } from "../../utils/feed"
@@ -16,7 +16,7 @@ import { parseDiff } from "../../utils/diff-parser"
 
 export interface FeedLoadContext {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  feed: Pick<ActivityFeedState, "startLoading" | "setEvents" | "setCommitFiles">
   render: () => void
 }
 
@@ -24,23 +24,21 @@ export async function loadFeed(ctx: FeedLoadContext): Promise<void> {
   const state = ctx.getState()
   if (state.appMode !== "pr" || !state.prInfo) return
 
-  ctx.setState((s) => ({ ...s, feed: { ...s.feed, loading: true } }))
+  ctx.feed.startLoading()
   ctx.render()
 
   const { owner, repo, number } = state.prInfo
   const timeline = await fetchPrTimeline(owner, repo, number)
 
-  ctx.setState((s) =>
-    setFeedEvents(
-      s,
-      buildFeed({
-        timeline,
-        comments: s.comments,
-        checks: s.prInfo?.checks ?? [],
-        commits: s.commits,
-        prInfo: s.prInfo,
-      })
-    )
+  const current = ctx.getState()
+  ctx.feed.setEvents(
+    buildFeed({
+      timeline,
+      comments: current.comments,
+      checks: current.prInfo?.checks ?? [],
+      commits: current.commits,
+      prInfo: current.prInfo,
+    })
   )
   ctx.render()
 }
@@ -61,6 +59,6 @@ export async function loadCommitFiles(ctx: FeedLoadContext, sha: string): Promis
     additions: file.additions,
     deletions: file.deletions,
   }))
-  ctx.setState((s) => setFeedCommitFiles(s, sha, files))
+  ctx.feed.setCommitFiles(sha, files)
   ctx.render()
 }

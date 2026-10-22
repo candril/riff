@@ -3,8 +3,6 @@ import {
   createInitialState,
   switchView,
   selectFile,
-  toggleFeedType,
-  showAllFeedTypes,
   toggleSplitView,
   type AppState,
 } from "./state"
@@ -70,16 +68,6 @@ describe("moving between the three surfaces", () => {
   })
 })
 
-describe("the feed's filters", () => {
-  test("a letter toggles its type, and `a` puts everything back", () => {
-    const narrowed = toggleFeedType(switchView(prState(), "feed"), "commit")
-    expect(narrowed.feed.types).toEqual(new Set(["commit"]))
-    expect(toggleFeedType(narrowed, "commit").feed.types.size).toBe(0)
-
-    const all = showAllFeedTypes({ ...narrowed, feed: { ...narrowed.feed, filter: "x", filterInput: true } })
-    expect(all.feed).toMatchObject({ types: new Set(), unseenOnly: false, filter: "" })
-  })
-})
 
 describe("side by side", () => {
   test("is asked for with a toggle, and starts unified", () => {

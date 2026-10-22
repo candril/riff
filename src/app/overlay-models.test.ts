@@ -24,6 +24,7 @@ import { createReviewPreviewState } from "../features/review-preview/state"
 import { createLinePeekState } from "../features/line-peek/state"
 import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 import type { Frame } from "./frame"
+import { emptyFeed } from "../features/feed/types"
 
 const NOW = Date.parse("2026-10-21T12:00:00Z")
 const DAY = 24 * 60 * 60_000
@@ -53,6 +54,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     occurrencePicker: null,
     marksPicker: null,
     marks: [],
+    feed: emptyFeed(),
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
