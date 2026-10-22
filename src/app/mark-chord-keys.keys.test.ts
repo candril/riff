@@ -1,14 +1,11 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import type { AppKeyContext } from "./key-context"
-import { interactionSettled } from "./jump-settled"
+import { createJumpRecording } from "./jump-recording"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { BLAME_PEEK } from "../testing/peek-keys"
-import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
-import * as jumplist from "../features/jumplist"
 import * as folds from "../features/folds"
-import type { Jump } from "../features/jumplist"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}
 index 1111111..2222222 100644
@@ -38,7 +35,7 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, with the marks wired to the app's own state. */
-async function markApp(more: Partial<AppKeyContext> = {}) {
+async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false } = {}) {
   app = await mountApp(DIFF, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff", showFilePanel: true, treeHighlightIndex: 0 })
   const mounted = app
@@ -62,6 +59,16 @@ async function markApp(more: Partial<AppKeyContext> = {}) {
     mode: "local",
     prInfo: null,
   } as unknown as AppKeyContext["fileNavContext"]
+  // Through app.ts's own recording, around riff's listener.
+  const recording = createJumpRecording({
+    getState: render.getState,
+    setState: render.setState,
+    getVimState: vim,
+    getLineMapping: render.getLineMapping,
+    searchActive: () => false,
+    flashActive: () => false,
+    chordPending: () => keys.chordPending(),
+  })
   keys = keysOn(mounted, {
     rebuildLineMapping,
     fileTreePanel: mounted.fileTreePanel,
@@ -82,7 +89,7 @@ async function markApp(more: Partial<AppKeyContext> = {}) {
       getHead: () => undefined,
     },
     ...more,
-  })
+  }, recordJumps ? (key, dispatch) => recording.around(key, dispatch) : undefined)
   render.updateFileTreePanel()
   await mounted.frame()
   const press = (sequence: string) =>
@@ -327,34 +334,14 @@ describe("where no mark chord opens", () => {
 })
 
 test("the jump recorder records 'a as one jump, from where ' was pressed", async () => {
-  const { mounted, type, state, toCode, moveTo, vim, keys } = await markApp()
+  const { type, state, toCode, moveTo, vim } = await markApp({}, { recordJumps: true })
   const marked = toCode()
   type("m", "a")
   moveTo(0)
-  const recorder = createJumpRecorder()
-  const pushed: Jump[] = []
-  const moment = (): Moment => ({
-    place: jumplist.capture(state(), vim()),
-    file: jumplist.cursorFile(mounted.ctx.getLineMapping(), vim().line),
-    settled: interactionSettled({
-      state: state(),
-      vim: vim(),
-      searchActive: false,
-      flashActive: false,
-      chordPending: keys.chordPending(),
-    }),
-  })
-  // Around riff's own listener, as app.ts wraps the dispatch in the recorder.
-  let before = moment()
-  const input = mounted.setup.renderer.keyInput
-  input.prependListener("keypress", () => void (before = moment()))
-  input.on("keypress", (key: KeyEvent) => {
-    const jump = recorder.around(key, before, () => {}, moment)
-    if (jump) pushed.push(jump)
-  })
+  const pushed = () => state().jumpList.entries.map((jump) => jump.cursorLine)
   type("'")
-  expect(pushed).toEqual([])
+  expect(pushed()).toEqual([])
   type("a")
   expect(vim().line).toBe(marked)
-  expect(pushed.map((jump) => jump.cursorLine)).toEqual([0])
+  expect(pushed()).toEqual([0])
 })

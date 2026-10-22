@@ -117,8 +117,7 @@ import { startMentionPrefetch } from "./features/mentions"
 import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
 import * as jumplist from "./features/jumplist"
-import { createJumpRecorder, type Moment } from "./features/jumplist/recorder"
-import { interactionSettled } from "./app/jump-settled"
+import { createJumpRecording } from "./app/jump-recording"
 import { createLeave, leaveOnDestroy } from "./app/leave"
 import * as prOperations from "./features/pr-operations"
 import * as threadMotion from "./features/thread-motion"
@@ -1800,38 +1799,18 @@ export async function createApp(options: AppOptions = {}) {
     composerSettled: proposals.composerSettled,
   })
 
-  /**
-   * Every navigation records where it came from (spec 089).
-   *
-   * One place rather than a call in front of each navigation: the picker,
-   * the tree, flash, thread motion and everything written after this are in
-   * the jumplist without opting in, and none of them can forget.
-   *
-   * What is judged is an interaction, not a key. A search moves the cursor
-   * while it is typed, a picker or flash takes letters that would otherwise
-   * be steps, and a chord is two keys; judged key by key, each would leave
-   * a half-finished place or none. The place before the first key is what
-   * gets recorded, once nothing is waiting for more keys.
-   */
-  const jumpRecorder = createJumpRecorder()
-
-  function moment(): Moment {
-    return {
-      place: jumplist.capture(state, vimState),
-      file: jumplist.cursorFile(lineMapping, vimState.line),
-      settled: interactionSettled({
-        state,
-        vim: vimState,
-        searchActive: searchState.active,
-        flashActive: flashState.active,
-        chordPending: dispatchKeypress.chordPending(),
-      }),
-    }
-  }
+  const jumpRecording = createJumpRecording({
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    getVimState: () => vimState,
+    getLineMapping: () => lineMapping,
+    searchActive: () => searchState.active,
+    flashActive: () => flashState.active,
+    chordPending: () => dispatchKeypress.chordPending(),
+  })
 
   function handleKeypress(key: KeyEvent) {
-    const jump = jumpRecorder.around(key, moment(), () => dispatchKeypress(key), moment)
-    if (jump) state = jumplist.push(state, jump)
+    jumpRecording.around(key, () => dispatchKeypress(key))
   }
 
   renderer.keyInput.on("keypress", handleKeypress)

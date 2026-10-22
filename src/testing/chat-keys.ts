@@ -1,4 +1,5 @@
 import { expect } from "bun:test"
+import type { KeyEvent } from "@opentui/core"
 import type { AppKeyContext } from "../app/key-context"
 import { createAppKeys } from "../app/keys"
 import type { mountApp } from "./app-render"
@@ -14,7 +15,11 @@ type Mounted = Awaited<ReturnType<typeof mountApp>>
  * focus walk. Anything else it calls throws, so a key that leaks past the
  * chat into the diff shows up here.
  */
-export function keysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
+export function keysOn(
+  mounted: Mounted,
+  more: Partial<AppKeyContext> = {},
+  around: (key: KeyEvent, dispatch: () => void) => void = (_key, dispatch) => dispatch(),
+) {
   const { ctx: render } = mounted
   let vimState = render.getVimState()
   const quits: number[] = []
@@ -73,7 +78,8 @@ export function keysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
     },
   }) as AppKeyContext
   const keys = createAppKeys(mounted.setup.renderer, ctx)
-  mounted.setup.renderer.keyInput.on("keypress", keys)
+  // `around` stands where app.ts's jump recording does, so a test can record through it.
+  mounted.setup.renderer.keyInput.on("keypress", (key: KeyEvent) => around(key, () => keys(key)))
   // Where a search or a flash jump would land the cursor, without walking there.
   const jumpTo = (line: number) => setVimState({ ...vimState, line })
   const setVim = (patch: Partial<typeof vimState>) => setVimState({ ...vimState, ...patch })

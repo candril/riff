@@ -48,7 +48,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   let state: AppState = createInitialState(files, buildFileTree(files), "test", "")
   let vimState = createCursorState()
   let searchState = createSearchState()
-  const flashState = createFlashState()
+  let flashState = createFlashState()
   let mapping = buildLineMapping(state)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
@@ -192,6 +192,9 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     },
     setSearchState(next: typeof searchState) {
       searchState = next
+    },
+    setFlashState(next: typeof flashState) {
+      flashState = next
     },
     /** Where what is typed into the search line goes; nowhere until a test wires a handler. */
     onSearchPattern(update: (value: string) => void) {
