@@ -54,6 +54,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         render: mounted.render,
         filePicker: mounted.filePicker,
         commentsPicker: mounted.commentsPicker,
+        occurrencePicker: mounted.occurrencePicker,
         handlers,
         commandKeys: new Map(),
         runCommand: (name) => {

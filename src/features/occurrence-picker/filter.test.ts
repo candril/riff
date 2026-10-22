@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { OccurrenceRow } from "./corpus"
-import { findOccurrences } from "./filter"
+import { findOccurrences, getOccurrenceResults } from "./filter"
+import { parseDiff } from "../../utils/diff-parser"
 
 function row(filename: string, lineNum: number, text: string): OccurrenceRow {
   return { fileIndex: 0, filename, kind: "addition", lineNum, side: "RIGHT", text }
@@ -99,5 +100,29 @@ describe("narrowing spans", () => {
 
   test("a `!term` marks nothing", () => {
     expect(findOccurrences(rows, "parsehunk", "!raw").hits[0]!.narrowSpans).toEqual([])
+  })
+})
+
+describe("getOccurrenceResults", () => {
+  const files = parseDiff(`diff --git a/a.ts b/a.ts
+index 1111111..2222222 100644
+--- a/a.ts
++++ b/a.ts
+@@ -1,2 +1,2 @@
+-const hunk = parseHunk(line)
++const hunk = parseHunk(raw)
+ nothing here
+`)
+
+  test("searches the files' rows with the query and the filter", () => {
+    expect(getOccurrenceResults(files, "parsehunk", "").total).toBe(2)
+    expect(getOccurrenceResults(files, "parsehunk", "raw").total).toBe(1)
+  })
+
+  test("hands back the same results while the files, the query and the filter stay the same", () => {
+    const first = getOccurrenceResults(files, "hunk", "")
+    expect(getOccurrenceResults(files, "hunk", "")).toBe(first)
+    expect(getOccurrenceResults(files, "hunk", "raw")).not.toBe(first)
+    expect(getOccurrenceResults([...files], "hunk", "raw").total).toBe(1)
   })
 })

@@ -3,7 +3,6 @@ import { parseKeypress } from "@opentui/core"
 import {
   createInitialState,
   openActionMenu,
-  openOccurrencePicker,
   type AppState,
 } from "../state"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
@@ -14,7 +13,7 @@ import { keymapHarness } from "../testing/keymap-keys"
 import { createFilePickerState, registerFilePickerKeys, type FilePickerState } from "../features/file-picker"
 import { createCommentsPickerState, registerCommentsPickerKeys, type CommentsPickerState } from "../features/comments-picker"
 import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mark } from "../features/marks"
-import { registerOccurrencePickerKeys } from "../features/occurrence-picker"
+import { createOccurrencePickerState, registerOccurrencePickerKeys, type OccurrencePickerState } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { createConfirmState } from "../features/confirm/state"
 import { registerModalKeys } from "./keys"
@@ -55,10 +54,15 @@ const NO_MATCH = "zzz"
 interface Factories {
   filePicker: FilePickerState
   commentsPicker: CommentsPickerState
+  occurrencePicker: OccurrencePickerState
 }
 
 function createFactories(): Factories {
-  return { filePicker: createFilePickerState(), commentsPicker: createCommentsPickerState() }
+  return {
+    filePicker: createFilePickerState(),
+    commentsPicker: createCommentsPickerState(),
+    occurrencePicker: createOccurrencePickerState(),
+  }
 }
 
 interface PickerCase {
@@ -120,10 +124,16 @@ const PICKERS: PickerCase[] = [
   },
   {
     name: "occurrence picker",
-    open: (s) => openOccurrencePicker(s, "hit"),
-    openEmpty: (s) => openOccurrencePicker(s, NO_MATCH),
-    isOpen: (s) => s.occurrencePicker.open,
-    index: (s) => s.occurrencePicker.selectedIndex,
+    open: (s, { occurrencePicker }) => {
+      occurrencePicker.show("hit")
+      return s
+    },
+    openEmpty: (s, { occurrencePicker }) => {
+      occurrencePicker.show(NO_MATCH)
+      return s
+    },
+    isOpen: (_s, { occurrencePicker }) => occurrencePicker.open(),
+    index: (_s, { occurrencePicker }) => occurrencePicker.selectedIndex(),
     wraps: true,
     picked: "hit b.ts",
     emptyEnterCloses: false,
@@ -143,7 +153,9 @@ async function setup(initial: AppState, factories = createFactories()) {
     render: () => void calls.push("render"),
   }
   registerOccurrencePickerKeys(harness.riffKeymap, {
-    ...base,
+    getFiles: () => state.files,
+    occurrencePicker: factories.occurrencePicker,
+    render: base.render,
     onSelectHit: (hit) => void calls.push(`hit ${hit.row.filename}`),
   })
   registerMarksPickerKeys(harness.riffKeymap, {
@@ -253,15 +265,19 @@ for (const picker of PICKERS) {
 }
 
 test("ctrl+g in the occurrence picker switches the prompt to the filter and back, and a bare g is typing", async () => {
-  const { state, calls, leftKeys, press } = await setup(openOccurrencePicker(closed(), "hit"))
+  const { factories, calls, leftKeys, press } = await setupOpen((s, { occurrencePicker }) => {
+    occurrencePicker.show("hit")
+    return s
+  })
+  const { occurrencePicker } = factories
 
   expect(press(CTRL_G).defaultPrevented).toBe(true)
-  expect(state().occurrencePicker.narrowing).toBe(true)
+  expect(occurrencePicker.narrowing()).toBe(true)
   expect(press("g").defaultPrevented).toBe(false)
-  expect(state().occurrencePicker.narrowing).toBe(true)
+  expect(occurrencePicker.narrowing()).toBe(true)
   press(CTRL_G)
 
-  expect(state().occurrencePicker.narrowing).toBe(false)
+  expect(occurrencePicker.narrowing()).toBe(false)
   expect(calls).toEqual(["render", "render"])
   expect(leftKeys).toEqual([])
 })
@@ -340,10 +356,10 @@ test("with the file and comments pickers both open escape closes the file picker
 })
 
 test("with the marks and occurrence pickers both open escape closes the marks picker", async () => {
-  const { state, press } = await setupApp(openMarksPicker(openOccurrencePicker(closed(), "hit")))
+  const { state, factories, press } = await setupApp(openMarksPicker(closed()), shown("occurrencePicker"))
 
   press(ESC)
 
   expect(state().marksPicker.open).toBe(false)
-  expect(state().occurrencePicker.open).toBe(true)
+  expect(factories.occurrencePicker.open()).toBe(true)
 })

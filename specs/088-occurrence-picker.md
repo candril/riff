@@ -90,6 +90,21 @@ had in mind for 088.
 
 ## Technical Notes
 
+### State
+
+The picker's state lives in a factory of its own rather than in `AppState`
+([ADR-003](../docs/decisions/ADR-003-feature-state-factories.md)):
+`createOccurrencePickerState()` in `src/features/occurrence-picker/state.ts`.
+Its accessors are `open`, `query`, `filter`, `narrowing` (spec 099) and
+`selectedIndex`; `show(seed)` opens it on the seed with no filter, the
+search in the prompt and the first row selected, `close` resets every
+field, `setQuery` and `setFilter` put the selection back on the first row,
+`toggleNarrowing` switches the prompt between the query and the filter,
+and `move` wraps at both ends. `getOccurrenceResults(files, query, filter)`
+takes the query and the filter from the factory. A reload closes
+the picker in `adoptReloadedState` and in `closeFeatureOverlays` in
+`src/app.ts`.
+
 ### Corpus
 
 Build the rows once when the picker opens, not on every keystroke. Parse
@@ -140,15 +155,14 @@ A fourth picker next to files, comments and commits. Copy the comments
 picker's layout rather than extracting a shared shell in the same change;
 extracting it is worth its own change once this one works.
 
-- `src/features/occurrence-picker/` — `index.ts` (open/close, jump),
+- `src/features/occurrence-picker/` — `index.ts` (seed, jump),
   `corpus.ts` (rows from `DiffFile[]`), `filter.ts` (query → grouped
   entries), `keys.ts` (the keymap layer, as `comments-picker/keys.ts`).
 - `src/components/OccurrencePicker.ts` — the overlay, modelled on
   `CommentsPicker.ts`.
-- `state.ts` — `occurrencePicker: { open, query, selectedIndex }` with
-  open/close/set-query/move-selection reducers; add it to the
-  "a modal is open" checks next to `commentsPicker` (`state.ts` ~1015,
-  `render.ts` ~705).
+- `src/features/occurrence-picker/state.ts` — the picker's state factory
+  (see State); `promptOpen` and the "a modal is open" checks read its
+  `open` next to the comments picker's.
 - `app/render.ts` — a prompt entry in the prompt-config chain next to
   `comments-picker`, and the overlay.
 - `app/picker-keys.ts` — register the picker's layer; its capture takes

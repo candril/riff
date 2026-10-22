@@ -27,7 +27,7 @@ export {
   type OccurrenceResults,
 } from "./filter"
 export { buildOccurrenceRows, type OccurrenceRow } from "./corpus"
-export { openOccurrencePicker, closeOccurrencePicker } from "../../state"
+export { createOccurrencePickerState, type OccurrencePickerState, type OccurrencePickerSnapshot } from "./state"
 
 export interface OccurrenceJumpContext {
   getState: () => AppState

@@ -7,7 +7,7 @@ import type { PickerSnapshots } from "./frame"
 import { X, Y } from "../testing/marks"
 
 const NOW = new Date("2026-10-17T12:00:00Z")
-const CLOSED: PickerSnapshots = { filePicker: null, commentsPicker: null }
+const CLOSED: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null }
 
 function state(): AppState {
   return {

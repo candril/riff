@@ -47,6 +47,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     reviewPreview: null,
     filePicker: null,
     commentsPicker: null,
+    occurrencePicker: null,
     commandKeys: new Map(),
     ...rest,
   }

@@ -3,12 +3,14 @@ import { createInitialState, type AppState } from "../state"
 import { interactionSettled, type InteractionInputs } from "./jump-settled"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 const idle: InteractionInputs = {
   state: initial,
   filePicker: createFilePickerState(),
   commentsPicker: createCommentsPickerState(),
+  occurrencePicker: createOccurrencePickerState(),
   vim: { pendingFindChar: null, pendingTextObject: null },
   searchActive: false,
   flashActive: false,
@@ -32,10 +34,12 @@ describe("an interaction is settled", () => {
 
   const filePickerOpen = createFilePickerState()
   filePickerOpen.show()
+  const occurrencePickerOpen = createOccurrencePickerState()
+  occurrencePickerOpen.show()
   const open: [string, Partial<InteractionInputs>][] = [
     ["a picker", { filePicker: filePickerOpen }],
     ["the marks picker", { state: { ...initial, marksPicker: { ...initial.marksPicker, open: true } } }],
-    ["the occurrence picker", { state: { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true } } }],
+    ["the occurrence picker", { occurrencePicker: occurrencePickerOpen }],
     ["a filter prompt", { state: { ...initial, treeFilterInput: true } }],
     ["a search prompt", { searchActive: true }],
     ["flash", { flashActive: true }],

@@ -224,6 +224,9 @@ factory.
 The comments picker is the sixth (`createCommentsPickerState` in
 `src/features/comments-picker/state.ts`); the prompt reads its query off
 the factory too.
+The occurrence picker is the seventh (`createOccurrencePickerState` in
+`src/features/occurrence-picker/state.ts`); the prompt reads its query or,
+while narrowing, its filter off the factory.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

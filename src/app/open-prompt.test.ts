@@ -5,6 +5,7 @@ import { openPromptModel, writePrompt } from "./open-prompt"
 import type { PromptKey } from "./prompt-routing"
 import { createFilePickerState, type FilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState, type CommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState, type OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { PickerSnapshots } from "./frame"
 
 const initial = createInitialState([], [], "test", "")
@@ -17,6 +18,7 @@ function promptFor(
   return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search }, {
     filePicker: null,
     commentsPicker: null,
+    occurrencePicker: null,
     ...pickers,
   })
 }
@@ -50,13 +52,13 @@ describe("which prompt is typing", () => {
   })
 
   test("the occurrence picker types into its filter while narrowing, and into its search otherwise", () => {
-    const occurrence = { ...initial.occurrencePicker, open: true, query: "foo", filter: "src" }
-    expect(promptFor({ occurrencePicker: { ...occurrence, narrowing: true } })).toEqual({
+    const occurrence = { query: "foo", filter: "src", selectedIndex: 0 }
+    expect(promptFor({}, {}, { occurrencePicker: { ...occurrence, narrowing: true } })).toEqual({
       key: "occurrence-picker:narrow",
       initialValue: "src",
       placeholder: "Narrow by path or text, !term to drop…",
     })
-    expect(promptFor({ occurrencePicker: { ...occurrence, narrowing: false } })).toEqual({
+    expect(promptFor({}, {}, { occurrencePicker: { ...occurrence, narrowing: false } })).toEqual({
       key: "occurrence-picker:search",
       initialValue: "foo",
       placeholder: "Search the diff…",
@@ -99,10 +101,15 @@ describe("which prompt is typing", () => {
 
 describe("where what is typed goes", () => {
   function writer(patch: Partial<AppState> = {}) {
-    let state: AppState = { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true }, ...patch }
+    let state: AppState = { ...initial, ...patch }
     let renders = 0
     const searched: string[] = []
-    const pickers = { filePicker: createFilePickerState(), commentsPicker: createCommentsPickerState() }
+    const pickers = {
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+    }
+    pickers.occurrencePicker.show()
     const write = writePrompt(
       {
         setState: (updater) => (state = updater(state)),
@@ -114,15 +121,15 @@ describe("where what is typed goes", () => {
     return { write, state: () => state, pickers, renders: () => renders, searched }
   }
 
-  type Pickers = { filePicker: FilePickerState; commentsPicker: CommentsPickerState }
+  type Pickers = { filePicker: FilePickerState; commentsPicker: CommentsPickerState; occurrencePicker: OccurrencePickerState }
   const fields: [PromptKey, (s: AppState, pickers: Pickers) => string][] = [
     ["action-menu:", (s) => s.actionMenu.query],
     ["action-menu:react", (s) => s.actionMenu.query],
     ["file-picker", (_s, { filePicker }) => filePicker.query()],
     ["comments-picker", (_s, { commentsPicker }) => commentsPicker.query()],
     ["marks-picker", (s) => s.marksPicker.query],
-    ["occurrence-picker:narrow", (s) => s.occurrencePicker.filter],
-    ["occurrence-picker:search", (s) => s.occurrencePicker.query],
+    ["occurrence-picker:narrow", (_s, { occurrencePicker }) => occurrencePicker.filter()],
+    ["occurrence-picker:search", (_s, { occurrencePicker }) => occurrencePicker.query()],
     ["commit-picker", (s) => s.commitPicker.query],
   ]
 

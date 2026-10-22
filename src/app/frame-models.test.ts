@@ -10,6 +10,7 @@ import { overlayModels } from "./overlay-models"
 import type { Frame } from "./frame"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 
 const NOW = Date.parse("2026-10-17T12:00:00Z")
 
@@ -29,12 +30,14 @@ function frame(
     now = NOW,
     filePicker = null,
     commentsPicker = null,
+    occurrencePicker = null,
   }: {
     search?: Partial<SearchState>
     flash?: Partial<FlashState>
     now?: number
     filePicker?: Frame["filePicker"]
     commentsPicker?: Frame["commentsPicker"]
+    occurrencePicker?: Frame["occurrencePicker"]
   } = {}
 ): Frame {
   return {
@@ -54,6 +57,7 @@ function frame(
     reviewPreview: null,
     filePicker,
     commentsPicker,
+    occurrencePicker,
     commandKeys: new Map(),
   }
 }
@@ -125,6 +129,7 @@ describe("frameModels", () => {
   test("shows each picker and the palette exactly while it is open, with the prompt of those that type", () => {
     expect(shown(frameModels(frame(state(), { filePicker: createFilePickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "filePicker", "header"])
     expect(shown(frameModels(frame(state(), { commentsPicker: createCommentsPickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "commentsPicker", "header"])
+    expect(shown(frameModels(frame(state(), { occurrencePicker: createOccurrencePickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "occurrencePicker", "header"])
     expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
     expect(shown(frameModels(frame(palette)))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])

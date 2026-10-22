@@ -7,6 +7,7 @@ import { buildFileTree } from "../../utils/file-tree"
 import type { Comment } from "../../types"
 import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
+import { createOccurrencePickerState } from "../occurrence-picker/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -42,6 +43,7 @@ describe("Show Only Open Threads", () => {
         render: () => {},
         filePicker: createFilePickerState(),
         commentsPicker: createCommentsPickerState(),
+        occurrencePicker: createOccurrencePickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -86,6 +88,7 @@ describe("Show Only Unviewed Files", () => {
         render: () => {},
         filePicker: createFilePickerState(),
         commentsPicker: createCommentsPickerState(),
+        occurrencePicker: createOccurrencePickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,

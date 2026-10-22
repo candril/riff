@@ -3,6 +3,7 @@ import { textObjectTakes } from "./text-object-keys"
 import { createInitialState, type AppState } from "../state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 
 const diff = (patch: Partial<AppState> = {}): AppState => ({
   ...createInitialState([], [], "test", ""),
@@ -11,7 +12,11 @@ const diff = (patch: Partial<AppState> = {}): AppState => ({
 })
 const pending = { pendingTextObject: { scope: "i" as const } }
 const key = (name: string, ctrl = false) => ({ name, ctrl })
-const pickers = { filePicker: createFilePickerState(), commentsPicker: createCommentsPickerState() }
+const pickers = {
+  filePicker: createFilePickerState(),
+  commentsPicker: createCommentsPickerState(),
+  occurrencePicker: createOccurrencePickerState(),
+}
 
 describe("textObjectTakes", () => {
   test("takes any object key while one is pending in the diff", () => {

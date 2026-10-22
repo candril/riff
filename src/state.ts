@@ -21,6 +21,7 @@ import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
+import type { OccurrencePickerState } from "./features/occurrence-picker/state"
 
 /**
  * UI mode for the app
@@ -52,16 +53,6 @@ export interface FileContentCache {
 export interface ToastState {
   message: string | null
   type: "success" | "error" | "info"
-}
-
-export interface OccurrencePickerState {
-  open: boolean
-  query: string
-  /** Narrows the query's hits by path and text (spec 099). */
-  filter: string
-  /** The prompt edits `filter` rather than `query`. */
-  narrowing: boolean
-  selectedIndex: number
 }
 
 /**
@@ -445,8 +436,6 @@ export interface AppState {
   
   // Toast notification
   toast: ToastState
-
-  occurrencePicker: OccurrencePickerState
   
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
@@ -612,13 +601,6 @@ export function createInitialState(
     toast: {
       message: null,
       type: "info",
-    },
-    occurrencePicker: {
-      open: false,
-      query: "",
-      filter: "",
-      narrowing: false,
-      selectedIndex: 0,
     },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
@@ -929,6 +911,7 @@ export function filesWithUnseenComments(state: AppState): Set<string> {
 export interface PromptPickers {
   filePicker: Pick<FilePickerState, "open">
   commentsPicker: Pick<CommentsPickerState, "open">
+  occurrencePicker: Pick<OccurrencePickerState, "open">
 }
 
 /**
@@ -942,7 +925,7 @@ export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
     pickers.filePicker.open() ||
     pickers.commentsPicker.open() ||
     state.marksPicker.open ||
-    state.occurrencePicker.open ||
+    pickers.occurrencePicker.open() ||
     state.commitPicker.open ||
     state.treeFilterInput ||
     state.feed.filterInput ||
@@ -1792,60 +1775,6 @@ export function mergeMentionableUsers(state: AppState, logins: string[]): AppSta
 export function setMentionSearchQuery(state: AppState, query: string | null): AppState {
   if (state.mentionSearchQuery === query) return state
   return { ...state, mentionSearchQuery: query }
-}
-
-// ============================================================================
-// Occurrence Picker State (spec 088)
-// ============================================================================
-
-export function openOccurrencePicker(state: AppState, query = ""): AppState {
-  return {
-    ...state,
-    occurrencePicker: { open: true, query, filter: "", narrowing: false, selectedIndex: 0 },
-  }
-}
-
-export function closeOccurrencePicker(state: AppState): AppState {
-  return {
-    ...state,
-    occurrencePicker: { open: false, query: "", filter: "", narrowing: false, selectedIndex: 0 },
-  }
-}
-
-export function setOccurrencePickerQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    occurrencePicker: { ...state.occurrencePicker, query, selectedIndex: 0 },
-  }
-}
-
-export function setOccurrencePickerFilter(state: AppState, filter: string): AppState {
-  return {
-    ...state,
-    occurrencePicker: { ...state.occurrencePicker, filter, selectedIndex: 0 },
-  }
-}
-
-export function toggleOccurrencePickerNarrowing(state: AppState): AppState {
-  return {
-    ...state,
-    occurrencePicker: { ...state.occurrencePicker, narrowing: !state.occurrencePicker.narrowing },
-  }
-}
-
-/** Wraps around at both ends, like the other pickers. */
-export function moveOccurrencePickerSelection(
-  state: AppState,
-  delta: number,
-  maxIndex: number
-): AppState {
-  let newIndex = state.occurrencePicker.selectedIndex + delta
-  if (newIndex < 0) newIndex = maxIndex
-  else if (newIndex > maxIndex) newIndex = 0
-  return {
-    ...state,
-    occurrencePicker: { ...state.occurrencePicker, selectedIndex: newIndex },
-  }
 }
 
 // ============================================================================

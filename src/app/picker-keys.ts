@@ -26,8 +26,8 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
   // outranks comments, comments outrank marks and marks occurrences, so
   // they register in the reverse order.
   registerOccurrencePickerKeys(riffKeymap, {
-    getState,
-    setState,
+    getFiles: () => ctx.getState().files,
+    occurrencePicker: ctx.occurrencePicker,
     render,
     onSelectHit: (hit) => jumpToOccurrence(hit, jumpContext()),
   })

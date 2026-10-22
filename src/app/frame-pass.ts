@@ -28,6 +28,7 @@ import type { SyncPreviewState } from "../features/sync-preview/state"
 import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
+import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -54,6 +55,7 @@ export interface FramePassContext {
   reviewPreview: ReviewPreviewState
   filePicker: FilePickerState
   commentsPicker: CommentsPickerState
+  occurrencePicker: OccurrencePickerState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -90,14 +92,16 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const reviewPreview = ctx.reviewPreview.open() ? ctx.reviewPreview.snapshot() : null
     const filePicker = ctx.filePicker.open() ? ctx.filePicker.snapshot() : null
     const commentsPicker = ctx.commentsPicker.open() ? ctx.commentsPicker.snapshot() : null
+    const occurrencePicker = ctx.occurrencePicker.open() ? ctx.occurrencePicker.snapshot() : null
     const focused = diffCursorShown(state, {
-      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker }),
+      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker }),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
       reviewPreview: reviewPreview !== null,
       filePicker: filePicker !== null,
       commentsPicker: commentsPicker !== null,
+      occurrencePicker: occurrencePicker !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -129,6 +133,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       reviewPreview,
       filePicker,
       commentsPicker,
+      occurrencePicker,
       commandKeys: ctx.getCommandKeys(),
     }
 

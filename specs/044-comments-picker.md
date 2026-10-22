@@ -84,7 +84,8 @@ The picker's state lives in a factory of its own rather than in `AppState`
 Its accessors are `open`, `query` and `selectedIndex`; `show` and `close`
 reset the query and the selection, `setQuery` puts the selection back on
 the first row, and `move` wraps at both ends, as the file picker's factory
-does. A reload closes it in `adoptReloadedState`.
+does. A reload closes it in `adoptReloadedState` and in
+`closeFeatureOverlays` in `src/app.ts`.
 
 ### Feature module — `src/features/comments-picker/`
 

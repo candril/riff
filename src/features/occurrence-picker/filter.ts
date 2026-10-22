@@ -2,7 +2,6 @@
  * Query → grouped hits for the occurrence picker (spec 088).
  */
 
-import type { AppState } from "../../state"
 import type { DiffFile } from "../../utils/diff-parser"
 import { compileSearchPattern } from "../../vim-diff/search-engine"
 import { buildOccurrenceRows, type OccurrenceRow } from "./corpus"
@@ -136,9 +135,7 @@ let lastResults: {
   results: OccurrenceResults
 } | null = null
 
-export function getOccurrenceResults(state: AppState): OccurrenceResults {
-  const { files } = state
-  const { query, filter } = state.occurrencePicker
+export function getOccurrenceResults(files: readonly DiffFile[], query: string, filter: string): OccurrenceResults {
   if (lastResults?.files === files && lastResults.query === query && lastResults.filter === filter) {
     return lastResults.results
   }

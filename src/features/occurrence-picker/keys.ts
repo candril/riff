@@ -5,41 +5,39 @@
 
 import type { RiffKeymap } from "../../app/keymap"
 import { registerQueryPickerKeys } from "../../app/query-picker-keys"
-import type { AppState } from "../../state"
-import {
-  closeOccurrencePicker,
-  moveOccurrencePickerSelection,
-  toggleOccurrencePickerNarrowing,
-} from "../../state"
+import type { DiffFile } from "../../utils/diff-parser"
 import { getOccurrenceResults, type OccurrenceHit } from "./filter"
+import type { OccurrencePickerState } from "./state"
 
 export interface OccurrencePickerKeyDeps {
-  getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  getFiles: () => readonly DiffFile[]
+  /** The occurrence picker's state, the same instance the frame pass reads. */
+  occurrencePicker: OccurrencePickerState
   render: () => void
   onSelectHit: (hit: OccurrenceHit) => void
 }
 
 export function registerOccurrencePickerKeys(riffKeymap: RiffKeymap, deps: OccurrencePickerKeyDeps): () => void {
+  const { occurrencePicker } = deps
+  const results = () => getOccurrenceResults(deps.getFiles(), occurrencePicker.query(), occurrencePicker.filter())
   return registerQueryPickerKeys(riffKeymap, {
     name: "occurrencePicker",
     category: "Occurrence picker",
-    active: () => deps.getState().occurrencePicker.open,
+    active: () => occurrencePicker.open(),
     close: () => {
-      deps.setState(closeOccurrencePicker)
+      occurrencePicker.close()
       deps.render()
     },
     pick: () => {
-      const state = deps.getState()
-      const hit = getOccurrenceResults(state).hits[state.occurrencePicker.selectedIndex]
+      const hit = results().hits[occurrencePicker.selectedIndex()]
       if (!hit) return
-      deps.setState(closeOccurrencePicker)
+      occurrencePicker.close()
       deps.onSelectHit(hit)
     },
     move: (delta) => {
       // Read at run time, so the bound is the list on screen.
-      const maxIndex = Math.max(0, getOccurrenceResults(deps.getState()).hits.length - 1)
-      deps.setState((s) => moveOccurrencePickerSelection(s, delta, maxIndex))
+      const maxIndex = Math.max(0, results().hits.length - 1)
+      occurrencePicker.move(delta, maxIndex)
       deps.render()
     },
     extra: [
@@ -48,7 +46,7 @@ export function registerOccurrencePickerKeys(riffKeymap: RiffKeymap, deps: Occur
         name: "narrow",
         title: "Switch the prompt between the search and the filter",
         run: () => {
-          deps.setState(toggleOccurrencePickerNarrowing)
+          occurrencePicker.toggleNarrowing()
           deps.render()
         },
       },

@@ -4,6 +4,7 @@ import type { Comment } from "../types"
 import { keymapHarness } from "./keymap-keys"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -69,6 +70,7 @@ export async function threadPanelKeys(initial: AppState) {
     searchActive: () => false,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
+    occurrencePicker: createOccurrencePickerState(),
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {

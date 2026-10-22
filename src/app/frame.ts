@@ -10,6 +10,7 @@ import type { ConfirmDialogModel } from "../components/confirm-dialog-model"
 import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
 import type { FilePickerSnapshot } from "../features/file-picker/state"
 import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
+import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -48,12 +49,14 @@ export interface Frame {
   filePicker: FilePickerSnapshot | null
   /** The comments picker's state, read off its factory, or null while it is closed. */
   commentsPicker: CommentsPickerSnapshot | null
+  /** The occurrence picker's state, read off its factory, or null while it is closed. */
+  occurrencePicker: OccurrencePickerSnapshot | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }
 
 /** The pickers read off their factories, each null while it is closed. */
-export type PickerSnapshots = Pick<Frame, "filePicker" | "commentsPicker">
+export type PickerSnapshots = Pick<Frame, "filePicker" | "commentsPicker" | "occurrencePicker">
 
 // The last frame each followed accessor's followers finished drawing.
 const drawn = new WeakMap<Accessor<Frame | null>, Frame | null>()

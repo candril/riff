@@ -24,6 +24,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     searchActive: () => ctx.getSearchState().active,
     filePicker: ctx.filePicker,
     commentsPicker: ctx.commentsPicker,
+    occurrencePicker: ctx.occurrencePicker,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
     handleEditExternal: () =>

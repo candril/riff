@@ -61,6 +61,7 @@ function frame(
     reviewPreview: null,
     filePicker: null,
     commentsPicker: null,
+    occurrencePicker: null,
     commandKeys: new Map(),
   }
 }

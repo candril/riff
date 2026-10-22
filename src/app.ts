@@ -62,6 +62,7 @@ import { createSyncPreviewState } from "./features/sync-preview/state"
 import { createReviewPreviewState } from "./features/review-preview/state"
 import { createFilePickerState } from "./features/file-picker/state"
 import { createCommentsPickerState } from "./features/comments-picker/state"
+import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -385,7 +386,7 @@ export async function createApp(options: AppOptions = {}) {
   // (spec 065); the views that have no cursor of their own park it. The
   // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker }) && !(state.chatOpen && state.focusedPanel === "chat")) {
+    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker }) && !(state.chatOpen && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -513,6 +514,7 @@ export async function createApp(options: AppOptions = {}) {
   const reviewPreview = createReviewPreviewState()
   const filePicker = createFilePickerState()
   const commentsPicker = createCommentsPickerState()
+  const occurrencePicker = createOccurrencePickerState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -521,6 +523,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview.close()
     filePicker.close()
     commentsPicker.close()
+    occurrencePicker.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -656,7 +659,7 @@ export async function createApp(options: AppOptions = {}) {
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
         writePrompt(
-          { setState: setAppState, filePicker, commentsPicker, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          { setState: setAppState, filePicker, commentsPicker, occurrencePicker, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
           () => renderFrame()
         )
       ),
@@ -692,6 +695,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     filePicker,
     commentsPicker,
+    occurrencePicker,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1041,6 +1045,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     filePicker,
     commentsPicker,
+    occurrencePicker,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1510,6 +1515,7 @@ export async function createApp(options: AppOptions = {}) {
       render,
       filePicker,
       commentsPicker,
+      occurrencePicker,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1864,6 +1870,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     filePicker,
     commentsPicker,
+    occurrencePicker,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys
@@ -1873,6 +1880,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     filePicker,
     commentsPicker,
+    occurrencePicker,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getPane: marksContext.getPane,

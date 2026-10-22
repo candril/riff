@@ -14,7 +14,7 @@ import {
 import { exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
 import { flashSurface, reservedKeysFor } from "./list-flash"
 import type { GlobalLayerKeyDeps } from "./global-layer-keys"
-import * as occurrencePicker from "../features/occurrence-picker"
+import { seedQuery } from "../features/occurrence-picker"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 
@@ -267,10 +267,10 @@ function occurrencesOrFlash(deps: GlobalLayerKeyDeps, key: KeyEvent, state: AppS
       const vim = deps.getVimState()
       const seed =
         state.viewMode === "diff" && state.focusedPanel === "diff"
-          ? occurrencePicker.seedQuery(vim, deps.getLineMapping())
+          ? seedQuery(vim, deps.getLineMapping())
           : ""
       if (isVisualMode(vim)) deps.setVimState(exitVisualMode(vim))
-      deps.setState((s) => occurrencePicker.openOccurrencePicker(s, seed))
+      deps.occurrencePicker.show(seed)
       deps.render()
     }
     return

@@ -105,6 +105,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     searchActive: () => ctx.getSearchState().active,
     filePicker: ctx.filePicker,
     commentsPicker: ctx.commentsPicker,
+    occurrencePicker: ctx.occurrencePicker,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })
@@ -122,6 +123,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     getSearchState: ctx.getSearchState,
     filePicker: ctx.filePicker,
     commentsPicker: ctx.commentsPicker,
+    occurrencePicker: ctx.occurrencePicker,
     chat: ctx.chat,
   })
   registerHelpKeys(riffKeymap, {

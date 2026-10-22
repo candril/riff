@@ -8,6 +8,7 @@ import type { VimCursorState } from "../vim-diff/types"
 import { keymapHarness } from "./keymap-keys"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
+import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 
 export const BLAME_PEEK: BlamePeekState = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
 
@@ -39,6 +40,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     searchActive: () => false,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
+    occurrencePicker: createOccurrencePickerState(),
     chordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {

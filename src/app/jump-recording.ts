@@ -50,6 +50,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
         state,
         filePicker: deps.filePicker,
         commentsPicker: deps.commentsPicker,
+        occurrencePicker: deps.occurrencePicker,
         vim,
         searchActive: deps.searchActive(),
         flashActive: deps.flashActive(),

@@ -79,6 +79,7 @@ async function mount(width: number, height: number) {
     reviewPreview: null,
     filePicker: filePicker ? createFilePickerState().snapshot() : null,
     commentsPicker: null,
+    occurrencePicker: null,
     commandKeys: new Map(),
   })
   return { islands, panels, statusBar, shown, publish, pass, stop, initial }
@@ -196,6 +197,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       reviewPreview: null,
       filePicker: null,
       commentsPicker: null,
+      occurrencePicker: null,
       commandKeys: new Map(),
     })
     expect(updates).toEqual([...FRAME_ISLANDS])

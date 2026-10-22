@@ -1,7 +1,5 @@
 import {
   setActionMenuQuery,
-  setOccurrencePickerQuery,
-  setOccurrencePickerFilter,
   setCommitPickerQuery,
   setViewFilter,
 } from "../state"
@@ -10,6 +8,7 @@ import type { SearchState } from "../vim-diff/search-state"
 import { setMarksPickerQuery } from "../features/marks"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
+import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { PickerSnapshots } from "./frame"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
@@ -26,7 +25,7 @@ export interface PromptModel {
 export function openPromptModel(
   state: AppState,
   searchState: SearchState,
-  { filePicker, commentsPicker }: PickerSnapshots
+  { filePicker, commentsPicker, occurrencePicker }: PickerSnapshots
 ): PromptModel | null {
   if (state.actionMenu.open) {
     return {
@@ -44,16 +43,16 @@ export function openPromptModel(
   if (state.marksPicker.open) {
     return { key: "marks-picker", initialValue: state.marksPicker.query, placeholder: "Type to search…" }
   }
-  if (state.occurrencePicker.open) {
-    return state.occurrencePicker.narrowing
+  if (occurrencePicker) {
+    return occurrencePicker.narrowing
       ? {
           key: "occurrence-picker:narrow",
-          initialValue: state.occurrencePicker.filter,
+          initialValue: occurrencePicker.filter,
           placeholder: "Narrow by path or text, !term to drop…",
         }
       : {
           key: "occurrence-picker:search",
-          initialValue: state.occurrencePicker.query,
+          initialValue: occurrencePicker.query,
           placeholder: "Search the diff…",
         }
   }
@@ -88,6 +87,7 @@ export type PromptWriteContext = {
   setState: (updater: (s: AppState) => AppState) => void
   filePicker: Pick<FilePickerState, "setQuery">
   commentsPicker: Pick<CommentsPickerState, "setQuery">
+  occurrencePicker: Pick<OccurrencePickerState, "setQuery" | "setFilter">
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
 }
@@ -112,7 +112,9 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
       case "marks-picker":
         return typeInto(setMarksPickerQuery, value)
       case "occurrence-picker":
-        return typeInto(key === "occurrence-picker:narrow" ? setOccurrencePickerFilter : setOccurrencePickerQuery, value)
+        if (key === "occurrence-picker:narrow") ctx.occurrencePicker.setFilter(value)
+        else ctx.occurrencePicker.setQuery(value)
+        return render()
       case "commit-picker":
         return typeInto(setCommitPickerQuery, value)
       case "comments-filter":

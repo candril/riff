@@ -140,7 +140,7 @@ test("with a text object pending, s goes to the text object, not to flash", asyn
   await mounted.setup.mockInput.typeText("vis")
   expect(keys.vimState().pendingTextObject).toBeNull()
   expect(flashes).toEqual([])
-  expect(state().occurrencePicker.open).toBe(false)
+  expect(mounted.occurrencePicker.open()).toBe(false)
 })
 
 test("Ctrl-b hides and shows the tree, and showing it focuses it", async () => {
@@ -191,7 +191,7 @@ test("a bare s in the tree starts flash on its rows, and Ctrl-s opens the occurr
 
   mounted.show({ focusedPanel: "diff" })
   ctrl(mounted, "s")
-  expect(state().occurrencePicker.open).toBe(true)
+  expect(mounted.occurrencePicker.open()).toBe(true)
 })
 
 test("Ctrl-t opens the thread panel on the cursor's file", async () => {
