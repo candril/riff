@@ -10,6 +10,7 @@ import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers } from "../../app/key-variants"
 import { composerOpen } from "../../app/diff-focus"
 import type { ComposerHandle } from "../../app/island-composer"
+import { registerAtPickerLayer, type InputPicker } from "../../app/at-picker-keys"
 import type { Comment } from "../../types"
 import type { InlineComposerHandlersContext } from "./handlers"
 import {
@@ -19,7 +20,6 @@ import {
   insertSuggestion,
   mentionPicker,
   saveDraft,
-  type ComposerPicker,
 } from "./composer-actions"
 
 /** How the composer closed: the reviewer's own keys, which a proposal of the agent's is told about. */
@@ -85,37 +85,10 @@ export function registerComposerKeys(riffKeymap: RiffKeymap, deps: ComposerKeyDe
   })
   // Registered after the composer, the emoji picker last: it was asked
   // before the mention picker, so with both up it takes the keys.
-  const unregisterMention = registerPickerLayer("mention", mentionPicker(deps))
-  const unregisterEmoji = registerPickerLayer("emoji", emojiPicker(deps))
-
-  // Both pickers answer the same keys (spec 082): two pickers that behave
-  // differently would be two things to remember.
-  function registerPickerLayer(name: string, picker: ComposerPicker) {
-    const move = (delta: 1 | -1) => () => {
-      if (picker.matches() > 0) picker.move(delta)
-    }
-    return riffKeymap.keymap.registerLayer({
-      enabled: () => captured.holds() && picker.open(),
-      commands: [
-        command(`${name}.close`, "Close the picker, keeping the draft", () => picker.close()),
-        command(`${name}.up`, "Select the previous match", move(-1)),
-        command(`${name}.down`, "Select the next match", move(1)),
-        // Only with something to accept: with no match the key is the
-        // composer's, so Enter saves and Tab types.
-        { ...command(`${name}.accept`, "Accept the match", () => picker.accept()), enabled: () => picker.matches() > 0 },
-      ],
-      bindings: [
-        ...anyModifiers("escape", `composer.${name}.close`),
-        ...anyModifiers("up", `composer.${name}.up`),
-        ...anyModifiers("ctrl+p", `composer.${name}.up`),
-        ...anyModifiers("down", `composer.${name}.down`),
-        ...anyModifiers("ctrl+n", `composer.${name}.down`),
-        ...anyModifiers("tab", `composer.${name}.accept`),
-        ...anyModifiers("return", `composer.${name}.accept`),
-        ...anyModifiers("enter", `composer.${name}.accept`),
-      ],
-    })
-  }
+  const pickerLayer = (name: string, picker: InputPicker) =>
+    registerAtPickerLayer(riffKeymap, { prefix: `composer.${name}`, category: "Comments", holds: captured.holds, picker })
+  const unregisterMention = pickerLayer("mention", mentionPicker(deps))
+  const unregisterEmoji = pickerLayer("emoji", emojiPicker(deps))
 
   return () => {
     captured()

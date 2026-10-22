@@ -48,7 +48,7 @@ Type `:ro`, see the rocket, press Tab.
 
 ## Technical Notes
 
-`detectEmojiTrigger` mirrors `detectMentionTrigger`, runs in the same
+`detectEmojiTrigger` mirrors `detectAtTrigger`, runs in the same
 composer activity callback, and needs nothing fetched — the list is
 compiled in, so there is no loading state and no offline case.
 

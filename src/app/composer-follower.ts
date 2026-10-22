@@ -1,4 +1,4 @@
-import { collectMentionCandidates, detectMentionTrigger } from "../utils/mentions"
+import { collectMentionCandidates, detectAtTrigger, MENTION_QUERY_CHARS } from "../utils/mentions"
 import { detectEmojiTrigger } from "../utils/emoji"
 import { setEmojiPicker, setMentionPicker, type AppState } from "../state"
 import { requestMentionSearch } from "../features/mentions"
@@ -24,7 +24,7 @@ export function createComposerFollower(
     // mention picker is feature-gated to PR mode (no candidates
     // in local diff review) — `setMentionPicker` short-circuits
     // when there's nothing to set.
-    const trigger = detectMentionTrigger(text, cursorOffset)
+    const trigger = detectAtTrigger(text, cursorOffset, MENTION_QUERY_CHARS)
     setState((s) => setMentionPicker(s, trigger))
     // And `:shortcode`, which needs nothing fetched (spec 082).
     setState((s) => setEmojiPicker(s, detectEmojiTrigger(text, cursorOffset)))

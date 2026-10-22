@@ -18,6 +18,7 @@ import { filterEmoji } from "../../utils/emoji"
 import { collectMentionCandidates } from "../../utils/mentions"
 import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
 import type { ComposerHandle } from "../../app/island-composer"
+import type { InputPicker } from "../../app/at-picker-keys"
 import { submitInlineDraft, submitInlineEditDraft } from "./handlers"
 import type { ComposerKeyDeps } from "./composer-keys"
 
@@ -98,16 +99,7 @@ export function saveDraft(deps: ComposerKeyDeps, publish: boolean): void {
   })
 }
 
-/** One of the composer's two pickers, as its keys see it. */
-export interface ComposerPicker {
-  open(): boolean
-  matches(): number
-  close(): void
-  move(delta: 1 | -1): void
-  accept(): void
-}
-
-export function emojiPicker(deps: ComposerKeyDeps): ComposerPicker {
+export function emojiPicker(deps: ComposerKeyDeps): InputPicker {
   const picker = () => deps.getState().inlineCommentOverlay.emojiPicker
   const matches = () => filterEmoji(picker()?.query ?? "")
   return {
@@ -136,7 +128,7 @@ export function emojiPicker(deps: ComposerKeyDeps): ComposerPicker {
   }
 }
 
-export function mentionPicker(deps: ComposerKeyDeps): ComposerPicker {
+export function mentionPicker(deps: ComposerKeyDeps): InputPicker {
   const picker = () => deps.getState().inlineCommentOverlay.mentionPicker
   const matches = () => getFilteredMentionCandidates(collectMentionCandidates(deps.getState()), picker()?.query ?? "")
   return {
@@ -163,7 +155,7 @@ export function mentionPicker(deps: ComposerKeyDeps): ComposerPicker {
 
 /**
  * The textarea's onContentChange fires after `replaceRange` and re-runs
- * `detectMentionTrigger`; with the trailing space the regex no longer
+ * `detectAtTrigger`; with the trailing space the regex no longer
  * matches, so the picker stays closed.
  */
 function acceptMention(deps: ComposerKeyDeps, atOffset: number, username: string): void {

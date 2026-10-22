@@ -13,10 +13,8 @@
 import type { AppState } from "../../state"
 import { mergeMentionableUsers, setMentionSearchQuery } from "../../state"
 import { searchMentionableUsers } from "../../providers/github/mentions"
-import {
-  getFilteredMentionCandidates,
-  MENTION_VISIBLE_LIMIT,
-} from "../../components/thread-panel-picker"
+import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
+import { MENTION_VISIBLE_LIMIT } from "../../components/at-picker"
 import { getActiveMentionRepo } from "./prefetch"
 
 // Long enough that a fragment is worth a round-trip, short enough to still

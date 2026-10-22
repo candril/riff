@@ -19,7 +19,7 @@ import { loadConfig } from "../config"
 
 // Team handles contain a slash (`org/team`), so the trigger has to survive
 // one — otherwise typing past it silently dismisses the picker.
-const MENTION_TRIGGER_RE = /(?:^|\s)@([A-Za-z0-9\-/]*)$/
+export const MENTION_QUERY_CHARS = /[A-Za-z0-9\-/]/
 
 /**
  * Config extras, read once. `collectMentionCandidates` runs on every render,
@@ -61,20 +61,22 @@ export function collectMentionCandidates(state: AppState): string[] {
 
 /**
  * Detect whether the text immediately preceding `cursorOffset` is an
- * active `@mention` trigger — i.e. an `@` that either starts the input
- * or follows whitespace, with only word characters typed since.
+ * active `@` trigger — i.e. an `@` that either starts the input or
+ * follows whitespace, with only `queryChars` (one character's class)
+ * typed since.
  *
  * Returns the query (text after `@`) and the absolute offset of the
  * `@` itself, so the caller can replace `@<query>` with the chosen
- * username on accept. Returns null when no trigger is active.
+ * candidate on accept. Returns null when no trigger is active.
  */
-export function detectMentionTrigger(
+export function detectAtTrigger(
   text: string,
-  cursorOffset: number
+  cursorOffset: number,
+  queryChars: RegExp
 ): { query: string; atOffset: number } | null {
   if (cursorOffset < 1 || cursorOffset > text.length) return null
   const slice = text.slice(0, cursorOffset)
-  const match = slice.match(MENTION_TRIGGER_RE)
+  const match = slice.match(new RegExp(`(?:^|\\s)@((?:${queryChars.source})*)$`))
   if (!match) return null
   const query = match[1] ?? ""
   // `@` lives just before the captured query.

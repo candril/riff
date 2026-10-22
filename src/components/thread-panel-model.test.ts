@@ -8,7 +8,7 @@ import {
   visibleOverlayCommentIds,
   type ThreadPanelInput,
 } from "./thread-panel-model"
-import { clampSelection, emptyPickerMessage } from "./thread-panel-picker"
+import { emptyPickerMessage } from "./thread-panel-picker"
 import { colors, theme } from "../theme"
 import type { Comment } from "../types"
 
@@ -311,6 +311,13 @@ describe("the thread panel's hints", () => {
 
 describe("the thread panel's pickers", () => {
   const compose = { mode: "compose" as const }
+  const mentionRows = (names: string[], selected: number) => ({
+    kind: "rows" as const,
+    title: "@mention",
+    accent: theme.blue,
+    rows: names.map((text) => ({ text })),
+    selected,
+  })
 
   test("only while composing, the emoji session winning over a mention one", () => {
     const mentionPicker = { query: "", selectedIndex: 0, atOffset: 0 }
@@ -333,7 +340,7 @@ describe("the thread panel's pickers", () => {
       mentionPicker: { query: "bo", selectedIndex: 3, atOffset: 0 },
       mentionCandidates: ["alice", "bob"],
     }).picker
-    expect(picker).toEqual({ kind: "mention", rows: ["@bob"], selected: 0 })
+    expect(picker).toEqual({ kind: "mention", picker: mentionRows(["@bob"], 0) })
   })
 
   test("draw a mention row as its author is drawn, a local @you unprefixed", () => {
@@ -342,21 +349,16 @@ describe("the thread panel's pickers", () => {
       mentionPicker: { query: "", selectedIndex: 0, atOffset: 0 },
       mentionCandidates: ["@you", "alice"],
     }).picker
-    expect(picker).toEqual({ kind: "mention", rows: ["@you", "@alice"], selected: 0 })
+    expect(picker).toEqual({ kind: "mention", picker: mentionRows(["@you", "@alice"], 0) })
   })
 
   test("say why a mention finds nobody", () => {
     const empty = (query: string, mentionSearchQuery: string | null) =>
       model({ ...compose, mentionPicker: { query, selectedIndex: 0, atOffset: 0 }, mentionSearchQuery }).picker
-    expect(empty("", null)).toEqual({ kind: "mention-empty", text: "No participants to mention" })
-    expect(empty("zed", "zed")).toEqual({ kind: "mention-empty", text: "Searching GitHub for @zed…" })
-    expect(empty("zed", "ze")).toEqual({ kind: "mention-empty", text: "No match for @zed" })
+    expect(empty("", null)).toEqual({ kind: "mention", picker: { kind: "empty", text: "No participants to mention" } })
+    expect(empty("zed", "zed")).toEqual({ kind: "mention", picker: { kind: "empty", text: "Searching GitHub for @zed…" } })
+    expect(empty("zed", "ze")).toEqual({ kind: "mention", picker: { kind: "empty", text: "No match for @zed" } })
     expect(emptyPickerMessage("zed", null)).toBe("No match for @zed")
-  })
-
-  test("clamp keeps a selection that still fits", () => {
-    expect(clampSelection(2, 5)).toBe(2)
-    expect(clampSelection(7, 5)).toBe(4)
   })
 })
 

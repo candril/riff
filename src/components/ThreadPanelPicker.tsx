@@ -1,5 +1,6 @@
-import { For, Match, Switch, type JSX } from "solid-js"
+import { For, Match, Switch } from "solid-js"
 import { theme } from "../theme"
+import { AtPickerView, PickerFooter, PickerRow } from "./AtPickerView"
 import type { ThreadPanelPicker } from "./thread-panel-model"
 
 export type Picker = NonNullable<ThreadPanelPicker>
@@ -34,49 +35,9 @@ export function ThreadPanelPickerView(props: { picker: Picker }) {
           </box>
         )}
       </Match>
-      <Match when={props.picker.kind === "mention-empty" && props.picker}>
-        {(picker: () => PickerOf<"mention-empty">) => (
-          <box flexDirection="column" marginTop={1} paddingX={1} paddingY={0} backgroundColor={theme.mantle}>
-            <text fg={theme.overlay0}>{picker().text}</text>
-          </box>
-        )}
-      </Match>
       <Match when={props.picker.kind === "mention" && props.picker}>
-        {(picker: () => PickerOf<"mention">) => (
-          <box flexDirection="column" marginTop={1} paddingX={1} paddingY={0} backgroundColor={theme.mantle}>
-            <box flexDirection="row" height={1}>
-              <text fg={theme.blue}>@mention</text>
-            </box>
-            <For each={picker().rows}>
-              {(name, i) => (
-                <PickerRow selected={i() === picker().selected} accent={theme.blue}>
-                  <text fg={theme.text}>{name}</text>
-                </PickerRow>
-              )}
-            </For>
-            <PickerFooter />
-          </box>
-        )}
+        {(picker: () => PickerOf<"mention">) => <AtPickerView picker={picker().picker} />}
       </Match>
     </Switch>
-  )
-}
-
-function PickerRow(props: { selected: boolean; accent: string; children: JSX.Element }) {
-  return (
-    <box flexDirection="row" height={1} backgroundColor={props.selected ? theme.surface0 : undefined}>
-      <text fg={props.selected ? props.accent : theme.overlay0}>{props.selected ? "▸ " : "  "}</text>
-      {props.children}
-    </box>
-  )
-}
-
-function PickerFooter() {
-  return (
-    <box flexDirection="row" height={1}>
-      <text fg={theme.overlay0}>{"↑↓ nav  "}</text>
-      <text fg={theme.overlay0}>{"Tab/⏎ accept  "}</text>
-      <text fg={theme.overlay0}>Esc dismiss</text>
-    </box>
   )
 }

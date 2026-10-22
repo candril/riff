@@ -6,6 +6,7 @@
  */
 
 import type { TextareaRenderable } from "@opentui/core"
+import { replaceTextRange } from "./textarea-range"
 
 // The composer's keys are listed in the help overlay (g?). Ctrl-g alone is
 // named here, as the way out to a roomier editor: the textarea is only as
@@ -79,18 +80,8 @@ export function createComposerSession(textarea: () => ComposerTextarea) {
       ta.cursorOffset = text.length
       ta.focus()
     },
-    /**
-     * Splices `replacement` over `[start, end)` and leaves the cursor after
-     * it. `replaceText` rather than `setText` keeps it one undo step, so
-     * Ctrl-z rolls an accepted mention back.
-     */
     replaceRange(start: number, end: number, replacement: string): void {
-      const ta = textarea()
-      const text = ta.plainText
-      const safeStart = Math.max(0, Math.min(text.length, start))
-      const safeEnd = Math.max(safeStart, Math.min(text.length, end))
-      ta.replaceText(text.slice(0, safeStart) + replacement + text.slice(safeEnd))
-      ta.cursorOffset = safeStart + replacement.length
+      replaceTextRange(textarea(), start, end, replacement)
     },
     activity(): void {
       if (!activityHandler) return
