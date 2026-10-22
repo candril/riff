@@ -1,0 +1,23 @@
+import type { GlobalKeyContext } from "./global-keys"
+import type { BlameKeysContext } from "../features/blame/keys"
+import { clearToast, showToast } from "../state"
+
+/** What `gb`, its peek and the blame column need of the app. */
+export function blameKeysContext(ctx: GlobalKeyContext): BlameKeysContext {
+  return {
+    deps: ctx.blame,
+    getState: ctx.getState,
+    setState: ctx.setState,
+    getLineMapping: ctx.getLineMapping,
+    getVimState: ctx.getVimState,
+    render: ctx.render,
+    toast(message, type) {
+      ctx.setState((s) => showToast(s, message, type))
+      ctx.render()
+      setTimeout(() => {
+        ctx.setState(clearToast)
+        ctx.render()
+      }, 2000)
+    },
+  }
+}

@@ -10,7 +10,7 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { clearTreeFilter, expandFiles, focusLeft, focusRight } from "../state"
-import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast } from "../state"
+import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -34,6 +34,7 @@ import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink } from "./open-link"
 import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
+import { blameKeysContext } from "./blame-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
@@ -52,7 +53,7 @@ import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
-import { createBlameKeys, type BlameDeps } from "../features/blame/keys"
+import { createBlameKeys, type BlameDeps, type BlameKeys } from "../features/blame/keys"
 import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
@@ -246,7 +247,14 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
   settleChord(key: KeyEvent): void
 }
 
-export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
+/**
+ * `blame` is the one `gb` shares with its peek's keymap layer, so both
+ * count requests on a single counter.
+ */
+export function createKeyHandler(
+  ctx: GlobalKeyContext,
+  blame: BlameKeys = createBlameKeys(blameKeysContext(ctx)),
+): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
   const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
 
@@ -265,24 +273,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     ctx.render()
   }
 
-  const blameContext = {
-    deps: ctx.blame,
-    getState: ctx.getState,
-    setState: ctx.setState,
-    getLineMapping: ctx.getLineMapping,
-    getVimState: ctx.getVimState,
-    render: ctx.render,
-    toast(message: string, type: "success" | "error" | "info") {
-      ctx.setState((s) => showToast(s, message, type))
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 2000)
-    },
-  }
-  const blame = createBlameKeys(blameContext)
-  const blameColumn = createBlameColumnKeys(blameContext)
+  const blameColumn = createBlameColumnKeys(blameKeysContext(ctx))
 
   // Key sequence tracking
   let pendingKey: string | null = null
@@ -504,46 +495,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
         toggleUnviewedOnly: ctx.toggleUnviewedFilesOnly,
       })
-
-    // ========== BLAME PEEK (modal: gb toggles it, Esc or q closes) ==========
-    if (ctx.getState().blamePeek && ctx.getState().viewMode === "diff" && !pendingKey && blame.handleKey(key)) {
-      return
-    }
-
-    // ========== PEEK (modal: gl toggles it, Esc or q closes) ==========
-    if (ctx.getState().showLinePeek && !pendingKey) {
-      if (key.name === "escape" || key.name === "q") {
-        ctx.setState(toggleLinePeek)
-        ctx.render()
-        return
-      }
-      // Tab swaps a drawn diagram between the version the change arrives at
-      // and the one it replaces (spec 058).
-      if (key.name === "tab") {
-        ctx.setState(togglePeekSide)
-        ctx.render()
-        return
-      }
-      // A drawing bigger than the window scrolls under the same keys the
-      // diff does; half a page on Ctrl-d / Ctrl-u.
-      const half = Math.max(1, Math.floor((process.stdout.rows ?? 40) / 2))
-      const step: Record<string, [number, number]> = {
-        j: [1, 0], down: [1, 0], k: [-1, 0], up: [-1, 0],
-        l: [0, 4], right: [0, 4], h: [0, -4], left: [0, -4],
-      }
-      const move = key.ctrl && key.name === "d" ? [half, 0]
-        : key.ctrl && key.name === "u" ? [-half, 0]
-        : !key.ctrl && step[key.name] ? step[key.name] : null
-      if (move) {
-        ctx.setState((s) => scrollPeek(s, move[0]!, move[1]!))
-        ctx.render()
-        return
-      }
-      // `g` still has to reach the chord matcher, or `gl` couldn't close it.
-      if (!(key.name === "g" && !key.ctrl && !key.shift)) {
-        return
-      }
-    }
 
     // ========== GLOBAL KEYS (work in any mode) ==========
     // When a chord is mid-sequence (e.g. user typed `g` and we're

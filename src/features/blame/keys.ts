@@ -1,4 +1,3 @@
-import type { KeyEvent } from "@opentui/core"
 import type { SplitRows } from "../../diff-rows/row-source"
 import type { BlameSource, LineBlame } from "../../providers/blame/source"
 import type { BlameCommit } from "../../providers/blame/types"
@@ -101,22 +100,8 @@ export function createBlameKeys(ctx: BlameKeysContext) {
       else open()
     },
 
-    /**
-     * The open peek's keys. Every key but `g` stops here, so nothing behind
-     * the peek moves while it is up; `g` goes on to the chord matcher for
-     * `go` and `gb`.
-     */
-    handleKey(key: Pick<KeyEvent, "name" | "ctrl" | "shift">): boolean {
-      if (key.name === "escape" || key.name === "q") {
-        close()
-        return true
-      }
-      if (key.name === "y" && !key.ctrl && !key.shift) {
-        copySha()
-        return true
-      }
-      return !(key.name === "g" && !key.ctrl && !key.shift)
-    },
+    close,
+    copySha,
 
     /** `go` with the peek up: the PR that brought the line in, or its commit. False when no peek is open. */
     openLink(): boolean {
@@ -133,3 +118,5 @@ export function createBlameKeys(ctx: BlameKeysContext) {
     },
   }
 }
+
+export type BlameKeys = ReturnType<typeof createBlameKeys>

@@ -18,7 +18,10 @@ import { composerKeyDeps } from "./composer-key-deps"
 import { threadPanelKeyDeps } from "./thread-panel-key-deps"
 import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 import { feedKeyDeps } from "./feed-key-deps"
+import { blameKeysContext } from "./blame-key-deps"
+import { registerPeekKeys } from "./peek-keys"
 import { registerPromptKeys } from "./prompt-keys"
+import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
@@ -30,18 +33,20 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
  */
 export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
-  const legacy = createKeyHandler(ctx)
+  const blame = createBlameKeys(blameKeysContext(ctx))
+  const legacy = createKeyHandler(ctx, blame)
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
-  // modes, the PR overview, the activity feed and, last of them, the
-  // search and tree filter prompts. The composer never competes with the
-  // chat, which stands aside while it is open, view mode and compose mode
-  // are never active together, and nor are the overview and the feed,
-  // which are views of their own.
+  // modes, the PR overview, the activity feed, the search and tree filter
+  // prompts and, last of them, the blame and line peeks. The composer
+  // never competes with the chat, which stands aside while it is open, view
+  // mode and compose mode are never active together, and nor are the
+  // overview and the feed, which are views of their own.
   const links = createLinksPicker(ctx)
+  registerPeekKeys(riffKeymap, ctx, legacy, blame)
   registerPromptKeys(riffKeymap, ctx, legacy)
   registerFeedKeys(riffKeymap, feedKeyDeps(ctx, legacy))
   registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, legacy))

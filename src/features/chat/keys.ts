@@ -37,6 +37,18 @@ export function chatStandsAside(state: AppState, searchActive: boolean): boolean
   return composerOpen(state) || promptOpen(state) || searchActive || state.prInfoPanel.commentInputOpen
 }
 
+/**
+ * Whether the chat's reach takes `key` from outside the chat: Ctrl-r, and
+ * Ctrl-l from the thread panel with the chat open. A modal the chain asked
+ * after the chat lets these through, since its capture would otherwise
+ * make the reach stand aside.
+ */
+export function chatReaches(key: Pick<KeyEvent, "name" | "ctrl">, state: AppState, searchActive: boolean): boolean {
+  if (!key.ctrl || chatStandsAside(state, searchActive)) return false
+  if (key.name === "r") return true
+  return key.name === "l" && state.focusedPanel === "comments" && state.chatOpen
+}
+
 export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () => void {
   const { chat } = deps
   const standsAside = () => chatStandsAside(deps.getState(), deps.getSearchState().active)

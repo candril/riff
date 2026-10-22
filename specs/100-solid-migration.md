@@ -92,8 +92,8 @@ dialog's, the command palette's, those of the file, comments, marks,
 occurrence and commit pickers, those of the sync preview and Submit
 Review, the help overlay's, the chat's, the thread panel's in view
 mode and in its composer with the mention and emoji pickers, the PR
-overview's, the activity feed's and the search and tree filter prompts'.
-A modal layer captures the keys it does
+overview's, the activity feed's, the search and tree filter prompts' and
+the blame and line peeks'. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
@@ -125,13 +125,17 @@ keys the feed acts on and leaves every other key to the chain, every
 ctrl and meta key among them and any key while the chain holds a chord,
 and while its filter prompt is up it holds every key. Its `za` stays in
 the chain. The search prompt and the tree's filter prompt register behind
-the feed (`src/app/prompt-keys.ts`), in the reverse of the order the
-chain asked them. Each holds every key while it is up, prevents only Esc
-and Enter, and in the tree filter a backspace on an empty query, and
-leaves every other key unprevented for its field to type. The chain's
-text object branch, which the chain asked between the two, stays in the
-chain; it waits in the diff, and the tree filter holds keys only while
-the tree has focus.
+the feed (`src/app/prompt-keys.ts`), and the blame peek and the line peek
+behind them (`src/app/peek-keys.ts`), each group in the reverse of the
+order the chain asked it. Each holds every key while it is up. The
+prompts prevent only Esc and Enter, and in the tree filter a backspace on
+an empty query, and leave every other key unprevented for their fields to
+type; the peeks prevent nothing, as the chain never did. The peeks leave
+the chain a bare `g`, so `go`, `gb` and `gl` complete, every key while
+the chain holds a chord, and Ctrl-r, and Ctrl-l from the thread panel,
+wherever the chat takes them. The chain's text object branch stays in the
+chain ahead of the peeks, which stand aside while one is pending in the
+diff.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).
