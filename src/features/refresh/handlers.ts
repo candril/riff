@@ -44,6 +44,7 @@ import type { MarksPickerState } from "../marks/picker-state"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "../action-menu/state"
 import type { LinePeekState } from "../line-peek/state"
+import type { BlamePeekState } from "../blame/peek-state"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import {
@@ -99,6 +100,7 @@ export interface RefreshContext {
   commitPicker: Pick<CommitPickerState, "close">
   actionMenu: Pick<ActionMenuState, "close">
   linePeek: Pick<LinePeekState, "close">
+  blamePeek: Pick<BlamePeekState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -274,11 +276,12 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review and the file,
  * comments, occurrence, marks and commit pickers, the command palette and the
- * line peek live in factories that createInitialState never reaches, so they
- * are closed here, as the rebuild closes every overlay still kept in AppState.
+ * line and blame peeks live in factories that createInitialState never
+ * reaches, so they are closed here, as the rebuild closes every overlay still
+ * kept in AppState.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -293,6 +296,7 @@ export function adoptReloadedState(
   ctx.commitPicker.close()
   ctx.actionMenu.close()
   ctx.linePeek.close()
+  ctx.blamePeek.close()
 }
 
 /**

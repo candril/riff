@@ -7,16 +7,17 @@
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import type { BlameKeys } from "./keys"
+import type { BlamePeekState } from "./peek-state"
 import { peekLeaves, type PeekKeyContext } from "../../app/peek-leaves"
 
 export interface BlamePeekKeyDeps extends PeekKeyContext {
   blame: Pick<BlameKeys, "close" | "copySha">
+  blamePeek: Pick<BlamePeekState, "peek">
 }
 
 export function registerBlamePeekKeys(riffKeymap: RiffKeymap, deps: BlamePeekKeyDeps): () => void {
   const up = () => {
-    const state = deps.getState()
-    return state.blamePeek !== null && state.viewMode === "diff"
+    return deps.blamePeek.peek() !== null && deps.getState().viewMode === "diff"
   }
   // Nothing is prevented, the keys the peek takes included.
   const captured = riffKeymap.capture((key) => up() && !peekLeaves(key, deps))

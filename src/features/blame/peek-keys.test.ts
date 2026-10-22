@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { BLAME_PEEK, peekKeys, peekState } from "../../testing/peek-keys"
+import { BLAME_TARGET, peekKeys, peekState } from "../../testing/peek-keys"
 
 const ESC = "\x1b"
 const CTRL_Y = "\x19"
@@ -8,11 +8,15 @@ const CTRL_R = "\x12"
 const KITTY_SHIFT_G = "\x1b[103;2u"
 const KITTY_SHIFT_Y = "\x1b[121;2u"
 
-const peeking = () => peekState({ blamePeek: BLAME_PEEK })
+async function peeking(patch: Parameters<typeof peekState>[0] = {}) {
+  const keys = await peekKeys(peekState(patch))
+  keys.blamePeek.show(BLAME_TARGET)
+  return keys
+}
 
 describe("the blame peek", () => {
   test("Esc and q close it, unprevented as the chain left them", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     expect(keys.press(ESC).defaultPrevented).toBe(false)
     expect(keys.press("q").defaultPrevented).toBe(false)
     expect(keys.calls).toEqual(["close", "close"])
@@ -20,7 +24,7 @@ describe("the blame peek", () => {
   })
 
   test("a bare y copies the sha; Ctrl-y and Shift-y are only held", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.press("y")
     keys.press(CTRL_Y)
     keys.press(KITTY_SHIFT_Y)
@@ -29,14 +33,14 @@ describe("the blame peek", () => {
   })
 
   test("a bare g goes on to the keymap's g sequences, while Shift-g and every other key are held", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     for (const sequence of ["j", "i", KITTY_SHIFT_G, "g"]) keys.press(sequence)
     expect(keys.leftKeys).toEqual(["g"])
     expect(keys.calls).toEqual([])
   })
 
   test("stands aside while the chain holds a chord", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.setChord("g")
     keys.press("q")
     expect(keys.calls).toEqual([])
@@ -44,7 +48,7 @@ describe("the blame peek", () => {
   })
 
   test("takes the key a pending mark chord gives way to, and drops that chord", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.setChord("m")
     keys.press(ESC)
     expect(keys.calls).toEqual(["close"])
@@ -52,7 +56,7 @@ describe("the blame peek", () => {
   })
 
   test("stands aside while a text object is pending in the diff", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.setVim({ pendingTextObject: { scope: "i" } })
     keys.press("q")
     expect(keys.calls).toEqual([])
@@ -60,13 +64,13 @@ describe("the blame peek", () => {
   })
 
   test("lets Ctrl-r through to the chat's reach", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.press(CTRL_R)
     expect(keys.leftKeys).toEqual(["r"])
   })
 
   test("left behind outside the diff, it holds nothing", async () => {
-    const keys = await peekKeys({ ...peeking(), viewMode: "feed" })
+    const keys = await peeking({ viewMode: "feed" })
     keys.press("q")
     expect(keys.calls).toEqual([])
     expect(keys.leftKeys).toEqual(["q"])

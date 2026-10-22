@@ -242,6 +242,9 @@ factory too.
 The line peek is the twelfth (`createLinePeekState` in
 `src/features/line-peek/state.ts`); the frame carries the side and scroll
 it draws.
+The blame peek is the thirteenth (`createBlamePeekState` in
+`src/features/blame/peek-state.ts`); the frame carries what it shows while
+it is open, and the pass closes it once the diff is no longer the view.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

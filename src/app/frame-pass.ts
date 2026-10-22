@@ -33,6 +33,7 @@ import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
+import type { BlamePeekState } from "../features/blame/peek-state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -64,6 +65,7 @@ export interface FramePassContext {
   commitPicker: CommitPickerState
   actionMenu: ActionMenuState
   linePeek: LinePeekState
+  blamePeek: BlamePeekState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -83,6 +85,8 @@ export function createFramePass(ctx: FramePassContext): () => void {
   const diffPass = createDiffPass(ctx)
 
   return function render() {
+    // The blame peek blames a line of the diff; kept across a switch it would come back over a line it no longer names.
+    if (ctx.getState().viewMode !== "diff") ctx.blamePeek.close()
     const state = ctx.getState()
     const vimState = ctx.getVimState()
     const mapping = ctx.getLineMapping()
@@ -105,6 +109,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const commitPicker = ctx.commitPicker.open() ? ctx.commitPicker.snapshot() : null
     const actionMenu = ctx.actionMenu.open() ? ctx.actionMenu.snapshot() : null
     const linePeek = ctx.linePeek.open() ? ctx.linePeek.snapshot() : null
+    const blamePeek = ctx.blamePeek.peek()
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }),
       help: help.open,
@@ -118,6 +123,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       commitPicker: commitPicker !== null,
       actionMenu: actionMenu !== null,
       linePeek: linePeek !== null,
+      blamePeek: blamePeek !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -154,6 +160,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       commitPicker,
       actionMenu,
       linePeek,
+      blamePeek,
       commandKeys: ctx.getCommandKeys(),
     }
 

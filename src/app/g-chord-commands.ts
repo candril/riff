@@ -9,6 +9,7 @@ import type { HelpState } from "../features/help/state"
 import type { BlameKeys } from "../features/blame/keys"
 import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { LinePeekState } from "../features/line-peek/state"
+import type { BlamePeekState } from "../features/blame/peek-state"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
@@ -33,6 +34,7 @@ export interface GChordDeps {
   /** `gb` and `go`: the one object that owns every blame request, shared with the peek's layer. */
   blame: Pick<BlameKeys, "toggle" | "openLink">
   linePeek: Pick<LinePeekState, "open" | "toggle">
+  blamePeek: Pick<BlamePeekState, "open">
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ

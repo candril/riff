@@ -9,12 +9,13 @@ import { diagramPeekModel } from "../components/diagram-peek-model"
 import { hunkPeekModel as peekOfHunk } from "../components/hunk-peek-model"
 import { linePeekModel } from "../components/line-peek-model"
 import { tablePeekModel } from "../components/table-peek-model"
+import type { PeekSide } from "../features/line-peek/state"
 
 /** What gl shows for the cursor's line, or nothing when the line is not there. */
 export function diffPeekModel(
   lineMapping: DiffLineMapping,
   cursorLine: number,
-  peekSide: "new" | "old",
+  peekSide: PeekSide,
   peekScroll: { row: number; col: number },
   width: number,
   height: number

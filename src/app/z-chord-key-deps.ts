@@ -19,5 +19,6 @@ export function zChordDeps(ctx: AppKeyContext): ZChordDeps {
     toggleFeedRow: () => feed.toggleExpandedRow(feedExpandDeps(ctx)),
     blameColumn: createBlameColumnKeys(blameKeysContext(ctx)),
     linePeek: ctx.linePeek,
+    blamePeek: ctx.blamePeek,
   }
 }

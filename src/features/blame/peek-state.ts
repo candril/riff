@@ -15,32 +15,6 @@ export type BlameOutcome = { result: LineBlame | null } | { message: string }
 
 export type BlamePeekState = ReturnType<typeof createBlamePeekState>
 
-interface WithBlamePeek {
-  blamePeek: BlamePeekSnapshot | null
-}
-
-export function openBlamePeek<S extends WithBlamePeek>(state: S, target: BlameTarget, request: number): S {
-  return { ...state, blamePeek: { target, request, status: "loading" } }
-}
-
-/**
- * An answer for a request the peek no longer shows is dropped: a slow read for
- * a peek closed and reopened on another line would otherwise name the wrong commit.
- */
-export function settleBlamePeek<S extends WithBlamePeek>(state: S, request: number, outcome: BlameOutcome): S {
-  const peek = state.blamePeek
-  if (!peek || peek.request !== request) return state
-  const settled: BlamePeekSnapshot =
-    "message" in outcome
-      ? { target: peek.target, request, status: "error", message: outcome.message }
-      : { target: peek.target, request, status: "ready", result: outcome.result }
-  return { ...state, blamePeek: settled }
-}
-
-export function closeBlamePeek<S extends WithBlamePeek>(state: S): S {
-  return state.blamePeek ? { ...state, blamePeek: null } : state
-}
-
 export function createBlamePeekState() {
   const [peek, setPeek] = createSignal<BlamePeekSnapshot | null>(null)
   // Never reset, so an answer for a peek already closed can never match a later one.

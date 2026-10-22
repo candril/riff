@@ -22,6 +22,7 @@ import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { overlayModels } from "./overlay-models"
 import { createReviewPreviewState } from "../features/review-preview/state"
 import { createLinePeekState } from "../features/line-peek/state"
+import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 import type { Frame } from "./frame"
 
 const NOW = Date.parse("2026-10-21T12:00:00Z")
@@ -54,6 +55,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
+    blamePeek: null,
     commandKeys: new Map(),
     ...rest,
   }
@@ -72,7 +74,7 @@ const blame: LineBlame = {
   },
   pr: null,
 }
-const blamePeek: AppState["blamePeek"] = {
+const blamePeek: BlamePeekSnapshot = {
   target: { path: "a.ts", side: "head", line: 1 },
   request: 1,
   status: "ready",
@@ -110,10 +112,9 @@ describe("overlayModels", () => {
     const open = overlayModels(
       frame({
         toast: { message: "Saved", type: "success" },
-        blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek })
+      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek, blamePeek })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
@@ -125,7 +126,7 @@ describe("overlayModels", () => {
     expect(open.syncPreview).toEqual(syncPreviewModel(gatherSyncItems([hunked]), { loading: false }))
     expect(open.diffPeek).toEqual(diffPeekModel(mapping, 0, "new", { row: 0, col: 0 }, 100, 30))
     expect(open.diffPeek).not.toBeNull()
-    expect(open.blamePeek).toEqual(blamePeekModel({ ...blamePeek!, now: NOW, terminalWidth: 100, terminalHeight: 30 }))
+    expect(open.blamePeek).toEqual(blamePeekModel({ ...blamePeek, now: NOW, terminalWidth: 100, terminalHeight: 30 }))
     const comments = getInlineCommentOverlayComments({ ...initial, comments: [hunked], inlineCommentOverlay: threadPanel(true) })
     expect(open.hunkPeek).toEqual(hunkPeekModel(comments, "c1", 100, 30))
     expect(open.hunkPeek).not.toBeNull()
@@ -133,7 +134,7 @@ describe("overlayModels", () => {
 
   test("gl's and gb's peeks are drawn only over the diff", () => {
     for (const viewMode of ["feed", "state"] as const) {
-      const models = overlayModels(frame({ viewMode, blamePeek }, { linePeek }))
+      const models = overlayModels(frame({ viewMode }, { linePeek, blamePeek }))
       expect(models.diffPeek).toBeNull()
       expect(models.blamePeek).toBeNull()
     }
@@ -152,7 +153,7 @@ describe("overlayModels", () => {
   })
 
   test("a blame peek's age is measured from the frame's clock", () => {
-    const at = (now: number) => JSON.stringify(overlayModels(frame({ blamePeek }, { now })).blamePeek)
+    const at = (now: number) => JSON.stringify(overlayModels(frame({}, { now, blamePeek })).blamePeek)
     expect(at(NOW)).toContain("3d ago")
     expect(at(NOW + 4 * DAY)).toContain("7d ago")
   })

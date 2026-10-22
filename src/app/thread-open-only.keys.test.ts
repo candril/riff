@@ -70,6 +70,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
+    blamePeek: mounted.blamePeek,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

@@ -66,6 +66,7 @@ function frame(
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
+    blamePeek: null,
     commandKeys: new Map(),
   }
 }

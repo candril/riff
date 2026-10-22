@@ -215,11 +215,11 @@ test("under the blame peek gb and go act and every other g chord is swallowed", 
     repoRef: async () => ({ owner: "o", repo: "r" }),
     splitRows: () => app!.ctx.split.splitRows(),
   }
-  const { type, state, keys, lineOf, line, linePeek } = await gApp({ blame })
+  const { mounted, type, keys, lineOf, line, linePeek } = await gApp({ blame })
   const at = lineOf('  return "hello"', "b.ts")
   keys.jumpTo(at)
   type("g", "b")
-  expect(await until(() => state().blamePeek?.status === "ready")).toBe(true)
+  expect(await until(() => mounted.blamePeek.peek()?.status === "ready")).toBe(true)
   type("g", "g", "g", "l")
   expect(line()).toBe(at)
   expect(linePeek.open()).toBe(false)
@@ -227,7 +227,7 @@ test("under the blame peek gb and go act and every other g chord is swallowed", 
   expect(await until(() => opened.length > 0)).toBe(true)
   expect(opened).toEqual(["https://github.com/o/r/pull/12"])
   type("g", "b")
-  expect(state().blamePeek).toBeNull()
+  expect(mounted.blamePeek.open()).toBe(false)
 })
 
 describe("a key that breaks off a g sequence", () => {

@@ -38,6 +38,7 @@ function frame(
     commitPicker = null,
     actionMenu = null,
     linePeek = null,
+    blamePeek = null,
   }: {
     search?: Partial<SearchState>
     flash?: Partial<FlashState>
@@ -49,6 +50,7 @@ function frame(
     commitPicker?: Frame["commitPicker"]
     actionMenu?: Frame["actionMenu"]
     linePeek?: Frame["linePeek"]
+    blamePeek?: Frame["blamePeek"]
   } = {}
 ): Frame {
   return {
@@ -73,6 +75,7 @@ function frame(
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
     commandKeys: new Map(),
   }
 }

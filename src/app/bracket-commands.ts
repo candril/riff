@@ -6,6 +6,7 @@
 import type { AppState } from "../state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { LinePeekState } from "../features/line-peek/state"
+import type { BlamePeekState } from "../features/blame/peek-state"
 import * as fileNavigation from "../features/file-navigation"
 import * as threadMotion from "../features/thread-motion"
 import * as marks from "../features/marks"
@@ -21,6 +22,8 @@ export interface BracketDeps {
   diffTakesMarkChord: () => boolean
   /** Whether the line peek is up, under which no bracket motion acts. */
   linePeek: Pick<LinePeekState, "open">
+  /** Whether the blame peek is up, under which no bracket motion acts. */
+  blamePeek: Pick<BlamePeekState, "open">
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ

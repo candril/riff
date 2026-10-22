@@ -8,6 +8,7 @@ export function blameKeysContext(ctx: AppKeyContext): BlameKeysContext {
     deps: ctx.blame,
     getState: ctx.getState,
     setState: ctx.setState,
+    peek: ctx.blamePeek,
     getLineMapping: ctx.getLineMapping,
     getVimState: ctx.getVimState,
     render: ctx.render,

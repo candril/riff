@@ -43,7 +43,7 @@ const COMMANDS = [...new Set(Object.values(G_SEQUENCES))]
 export function registerGChordKeys(riffKeymap: RiffKeymap, deps: GChordKeyDeps): () => void {
   const commands = gChordCommands(deps)
   const refusedUnderPeek = (event: KeyEvent) =>
-    !chordAllowedUnderPeek(`g${chordSuffix(event)}`, deps.getState(), deps.linePeek.open())
+    !chordAllowedUnderPeek(`g${chordSuffix(event)}`, deps.getState().viewMode, deps.blamePeek.open(), deps.linePeek.open())
   const offOpener = riffKeymap.keymap.registerSequencePattern({
     name: OPENER,
     display: "g",

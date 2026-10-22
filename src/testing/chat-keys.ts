@@ -67,6 +67,7 @@ export function keysOn(
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
+    blamePeek: mounted.blamePeek,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

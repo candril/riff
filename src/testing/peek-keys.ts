@@ -1,4 +1,5 @@
-import type { BlamePeekSnapshot } from "../features/blame/peek-state"
+import { createBlamePeekState } from "../features/blame/peek-state"
+import type { BlameTarget } from "../features/blame/target"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
@@ -14,7 +15,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 
-export const BLAME_PEEK: BlamePeekSnapshot = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
+export const BLAME_TARGET: BlameTarget = { path: "a.ts", side: "head", line: 1 }
 
 /** riff on the diff, local, with `patch` on top. */
 export function peekState(patch: Partial<AppState> = {}): AppState {
@@ -39,6 +40,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
   })
   const calls: string[] = []
   const linePeek = createLinePeekState()
+  const blamePeek = createBlamePeekState()
   const peek = {
     getState: () => state,
     getVimState: () => vim,
@@ -60,11 +62,13 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
   registerBlamePeekKeys(harness.riffKeymap, {
     ...peek,
     blame: { close: () => void calls.push("close"), copySha: () => void calls.push("copySha") },
+    blamePeek,
   })
   return {
     ...harness,
     calls,
     linePeek,
+    blamePeek,
     state: () => state,
     setVim: (patch: Partial<VimCursorState>) => {
       vim = { ...vim, ...patch }

@@ -3,7 +3,7 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false, blamePeek: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
@@ -15,6 +15,7 @@ const occurrencePicker: OutsideOverlays = { ...none, occurrencePicker: true }
 const marksPicker: OutsideOverlays = { ...none, marksPicker: true }
 const commitPicker: OutsideOverlays = { ...none, commitPicker: true }
 const linePeek: OutsideOverlays = { ...none, linePeek: true }
+const blamePeek: OutsideOverlays = { ...none, blamePeek: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
@@ -25,7 +26,7 @@ const inState = (change: (s: AppState) => AppState): Scene => (s) => [change(s),
 
 const hidden: [string, Scene][] = [
   ["the peek over the diff", (s) => [s, linePeek]],
-  ["the blame peek over the diff", inState((s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } }))],
+  ["the blame peek over the diff", (s) => [s, blamePeek]],
   ["the comments panel holding the keys", inState(comments({ mode: "view" }, "comments"))],
   ["a composer", inState(comments({ mode: "compose" }, "diff"))],
   ["the chat holding the keys", inState((s) => ({ ...s, chatOpen: true, focusedPanel: "chat" }))],

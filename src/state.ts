@@ -11,7 +11,6 @@ import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
-import { closeBlamePeek, type BlamePeekSnapshot } from "./features/blame/peek-state"
 import type { BlameColumnState } from "./features/blame/column-state"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -337,8 +336,6 @@ export interface AppState {
   treeFilter: string
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
-  /** `gb` — who last changed the cursor's line (spec 103). */
-  blamePeek: BlamePeekSnapshot | null
   /** Files whose blame column is on, by path (spec 103). */
   blameColumns: ReadonlyMap<string, BlameColumnState>
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
@@ -524,7 +521,6 @@ export function createInitialState(
     // visible when there's more than one file to navigate.
     treeFilter: "",
     treeFilterInput: false,
-    blamePeek: null,
     blameColumns: new Map(),
     wrapLines: false,
     splitView: false,
@@ -704,17 +700,12 @@ export function clearTreeSelectionAnchor(state: AppState): AppState {
 export function switchView(state: AppState, target: ViewMode): AppState {
   if (target !== "diff" && state.appMode !== "pr") return state
   if (state.viewMode !== target) {
-    return leftDiff({ ...state, viewMode: target, previousView: state.viewMode, focusedPanel: "diff" })
+    return { ...state, viewMode: target, previousView: state.viewMode, focusedPanel: "diff" }
   }
 
   const back = state.previousView
   if (!back || back === target) return state
-  return leftDiff({ ...state, viewMode: back, previousView: target, focusedPanel: "diff" })
-}
-
-/** The blame peek blames a line of the diff; kept across a switch it would come back over a line it no longer names. */
-function leftDiff(state: AppState): AppState {
-  return state.viewMode === "diff" ? state : closeBlamePeek(state)
+  return { ...state, viewMode: back, previousView: target, focusedPanel: "diff" }
 }
 
 /**

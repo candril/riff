@@ -15,6 +15,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
+import { createBlamePeekState } from "../features/blame/peek-state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -123,6 +124,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
   const linePeek = createLinePeekState()
+  const blamePeek = createBlamePeekState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -170,6 +172,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -227,6 +230,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     actionMenu,
     /** The line peek's state, which the frame pass and the keys read as app.ts's do. */
     linePeek,
+    /** The blame peek's state, which the frame pass and the keys read as app.ts's do. */
+    blamePeek,
     fileTreePanel,
     render,
     agent,

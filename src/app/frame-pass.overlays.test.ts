@@ -27,6 +27,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
+import { createBlamePeekState } from "../features/blame/peek-state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -59,6 +60,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
   const linePeek = createLinePeekState()
+  const blamePeek = createBlamePeekState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -110,6 +112,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,

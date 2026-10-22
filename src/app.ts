@@ -66,6 +66,7 @@ import { createMarksPickerState } from "./features/marks/picker-state"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
 import { createLinePeekState } from "./features/line-peek/state"
+import { createBlamePeekState } from "./features/blame/peek-state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -484,6 +485,7 @@ export async function createApp(options: AppOptions = {}) {
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
   const linePeek = createLinePeekState()
+  const blamePeek = createBlamePeekState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -497,6 +499,7 @@ export async function createApp(options: AppOptions = {}) {
     commitPicker.close()
     actionMenu.close()
     linePeek.close()
+    blamePeek.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -673,6 +676,7 @@ export async function createApp(options: AppOptions = {}) {
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1027,6 +1031,7 @@ export async function createApp(options: AppOptions = {}) {
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1862,6 +1867,7 @@ export async function createApp(options: AppOptions = {}) {
     commitPicker,
     actionMenu,
     linePeek,
+    blamePeek,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys

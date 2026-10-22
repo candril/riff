@@ -32,8 +32,16 @@ afterEach(async () => {
  * dispatch wired; anything else it calls throws, so a key that reaches
  * past executeAction shows up here.
  */
-function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) => void) {
+function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) => void, cursorLine = 0) {
   const { ctx: render } = mounted
+  // Plain gb is the blame peek's toggle, which reads the cursor's line and asks for its blame.
+  const blame = {
+    source: {
+      lineBlame: () => new Promise<never>(() => {}),
+      fileBlame: () => Promise.reject(new Error("gb reads one line")),
+    },
+    splitRows: () => null,
+  } as unknown as AppKeyContext["blame"]
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
@@ -48,14 +56,15 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
-    getVimState: () => createCursorState(),
+    blamePeek: mounted.blamePeek,
+    getVimState: () => ({ ...createCursorState(), line: cursorLine }),
+    getLineMapping: render.getLineMapping,
+    blame,
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
     renderer: mounted.setup.renderer,
     render: mounted.render,
     executeAction: executeAction as AppKeyContext["executeAction"],
-    // An unbound chord falls through to the diff's vim keys; swallowing it there keeps plain gb inert.
-    vimHandler: { handleKey: () => true } as unknown as AppKeyContext["vimHandler"],
     // The review preview reads who you are on every key once a PR is loaded.
     reviewPreviewOpenContext: { getCachedCurrentUser: () => null } as unknown as AppKeyContext["reviewPreviewOpenContext"],
   }
@@ -75,7 +84,8 @@ test("gB dispatches open-in-board, whichever case the terminal reports the shift
   app = await mountApp(DIFF, { width: 100, height: 30 })
   app.show()
   const dispatched: string[] = []
-  keysOn(app, (id) => { dispatched.push(id) })
+  const hello = app.ctx.getLineMapping().allLines.findIndex((line) => line.content === '  return "hello"')
+  keysOn(app, (id) => { dispatched.push(id) }, hello)
   const { mockInput, renderer } = app.setup
 
   // The mock always lowercases a shifted letter's name, so the uppercase report goes in by hand.
@@ -92,10 +102,11 @@ test("gB dispatches open-in-board, whichever case the terminal reports the shift
   await mockInput.typeText("gB")
   expect(dispatched).toEqual(["open-in-board", "open-in-board"])
 
+  // Plain gb is not gB: it opens the blame peek and dispatches nothing.
   await mockInput.typeText("gb")
   expect(dispatched).toEqual(["open-in-board", "open-in-board"])
-  // Let the render the keys queued land before dispose tears the scene down under it.
-  await app.frame()
+  expect(app.blamePeek.open()).toBe(true)
+  expect(await app.frame()).toContain("Reading blame…")
 })
 
 test("gB outside a PR leaves the browser alone and says riff board is for PRs", async () => {

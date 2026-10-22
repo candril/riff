@@ -24,6 +24,7 @@ export interface OutsideOverlays {
   actionMenu: boolean
   occurrencePicker: boolean
   linePeek: boolean
+  blamePeek: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
@@ -40,7 +41,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     outside.actionMenu ||
     outside.syncPreview ||
     outside.confirm ||
-    ((outside.linePeek || state.blamePeek !== null) && state.viewMode === "diff")
+    ((outside.linePeek || outside.blamePeek) && state.viewMode === "diff")
   )
 }
 

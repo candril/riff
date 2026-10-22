@@ -4,7 +4,7 @@ import type { AppKeyContext } from "./key-context"
 import { createJumpRecording } from "./jump-recording"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
-import { BLAME_PEEK } from "../testing/peek-keys"
+import { BLAME_TARGET } from "../testing/peek-keys"
 import * as folds from "../features/folds"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}
@@ -329,14 +329,15 @@ describe("where no mark chord opens", () => {
   })
 
   test("under the blame peek, m is the peek's", async () => {
-    const { mounted, type, state, marks, toCode, keys } = await markApp()
+    const { mounted, type, marks, toCode, keys } = await markApp()
     toCode()
-    mounted.show({ blamePeek: BLAME_PEEK })
+    mounted.blamePeek.show(BLAME_TARGET)
+    mounted.show()
     type("m")
     expect(keys.chordPending()).toBe(false)
     type("a")
     expect(marks()).toEqual([])
-    expect(state().blamePeek).not.toBeNull()
+    expect(mounted.blamePeek.open()).toBe(true)
   })
 })
 

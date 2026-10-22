@@ -7,7 +7,7 @@ import type { CopyResult } from "../../utils/clipboard"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { VimCursorState } from "../../vim-diff/types"
 import { blameLinkOf } from "./link"
-import { closeBlamePeek, openBlamePeek, settleBlamePeek, type BlameOutcome } from "./peek-state"
+import type { BlameOutcome, BlamePeekState } from "./peek-state"
 import { blameTargetOf } from "./target"
 
 /** What `gb` and its peek reach outside riff's state; every spawn is injected, so tests stub them all. */
@@ -24,6 +24,8 @@ export interface BlameKeysContext {
   deps: BlameDeps
   getState(): AppState
   setState(fn: (state: AppState) => AppState): void
+  /** The peek's state, the same instance the frame pass reads. */
+  peek: Pick<BlamePeekState, "peek" | "show" | "settle" | "close">
   getLineMapping(): DiffLineMapping
   getVimState(): VimCursorState
   render(): void
@@ -31,11 +33,8 @@ export interface BlameKeysContext {
 }
 
 export function createBlameKeys(ctx: BlameKeysContext) {
-  // Never reset, so an answer for a peek already closed can never match a later one.
-  let lastRequest = 0
-
   function settle(request: number, outcome: BlameOutcome): void {
-    ctx.setState((s) => settleBlamePeek(s, request, outcome))
+    ctx.peek.settle(request, outcome)
     ctx.render()
   }
 
@@ -51,8 +50,7 @@ export function createBlameKeys(ctx: BlameKeysContext) {
       ctx.toast("No line to blame here", "info")
       return
     }
-    const request = ++lastRequest
-    ctx.setState((s) => openBlamePeek(s, target, request))
+    const request = ctx.peek.show(target)
     ctx.render()
     deps.source.lineBlame(target.path, target.side, target.line).then(
       (result) => settle(request, { result }),
@@ -61,13 +59,13 @@ export function createBlameKeys(ctx: BlameKeysContext) {
   }
 
   function close(): void {
-    ctx.setState(closeBlamePeek)
+    ctx.peek.close()
     ctx.render()
   }
 
   /** The peek's commit, or null once it has toasted why there is none to act on. */
   function committedResult(noCommit: string): { result: LineBlame; commit: BlameCommit } | null {
-    const peek = ctx.getState().blamePeek
+    const peek = ctx.peek.peek()
     if (peek?.status === "loading") {
       ctx.toast("Blame is still loading", "info")
       return null
@@ -96,7 +94,7 @@ export function createBlameKeys(ctx: BlameKeysContext) {
   return {
     /** `gb`: opens the peek on the cursor's line, or closes it, as `gl` toggles its own. */
     toggle(): void {
-      if (ctx.getState().blamePeek) close()
+      if (ctx.peek.peek()) close()
       else open()
     },
 
@@ -105,7 +103,7 @@ export function createBlameKeys(ctx: BlameKeysContext) {
 
     /** `go` with the peek up: the PR that brought the line in, or its commit. False when no peek is open. */
     openLink(): boolean {
-      if (!ctx.getState().blamePeek) return false
+      if (!ctx.peek.peek()) return false
       const committed = committedResult("No commit to open")
       if (!committed) return true
       const { deps } = ctx

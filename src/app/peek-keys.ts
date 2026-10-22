@@ -34,7 +34,7 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, cho
     // from them wherever stdout is not a terminal.
     height: () => process.stdout.rows ?? 40,
   })
-  const unregisterBlamePeek = registerBlamePeekKeys(riffKeymap, { ...peek, blame })
+  const unregisterBlamePeek = registerBlamePeekKeys(riffKeymap, { ...peek, blame, blamePeek: ctx.blamePeek })
   return () => {
     unregisterLinePeek()
     unregisterBlamePeek()

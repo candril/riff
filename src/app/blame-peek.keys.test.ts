@@ -170,11 +170,12 @@ describe("gb", () => {
     jumpTo(lineOf('  return "hello"'))
     const before = vimState().line
     press("g", "b")
+    expect(await app!.frame()).toContain("Reading blame…")
     press("j")
     expect(vimState().line).toBe(before)
     app!.setup.mockInput.pressEscape()
     await Bun.sleep(50)
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
     expect(await app!.frame()).not.toContain("Reading blame…")
     press("j")
     expect(vimState().line).toBe(before + 1)
@@ -185,11 +186,11 @@ describe("gb", () => {
     jumpTo(lineOf('  return "hello"'))
     press("g", "b")
     press("q")
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
     press("g", "b")
-    expect(app!.ctx.getState().blamePeek).not.toBeNull()
+    expect(app!.blamePeek.open()).toBe(true)
     press("g", "b")
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
   })
 
   test("a failed read shows its message", async () => {
@@ -219,7 +220,7 @@ describe("gb", () => {
     jumpTo(app!.ctx.getLineMapping().allLines.findIndex((line) => line.type === "divider"))
     press("g", "b")
     expect(asked).toEqual([])
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
     expect(app!.ctx.getState().toast.message).toBe("No line to blame here")
   })
 
@@ -251,7 +252,7 @@ describe("gb", () => {
     expect(vimState().line).toBe(before)
     expect(state.viewMode).toBe("diff")
     expect(app!.linePeek.open()).toBe(false)
-    expect(state.blamePeek).not.toBeNull()
+    expect(app!.blamePeek.open()).toBe(true)
     expect(await app!.frame()).toContain("Reading blame…")
   })
 
@@ -262,18 +263,23 @@ describe("gb", () => {
     expect(app!.linePeek.open()).toBe(true)
     press("g", "b")
     expect(asked).toEqual([])
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
   })
 
   test("a view switch closes the peek, and it stays closed on return", async () => {
     const { jumpTo } = await mount()
     jumpTo(lineOf('  return "hello"'))
     press("g", "b")
+    expect(await app!.frame()).toContain("Reading blame…")
+    // The peek holds i and d, so the switch comes from outside the keys, each followed by a pass as the app's are.
     app!.ctx.setState((s) => switchView({ ...s, appMode: "pr" }, "state"))
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    app!.render()
+    expect(app!.blamePeek.open()).toBe(false)
     app!.ctx.setState((s) => switchView(s, "diff"))
+    app!.render()
     expect(app!.ctx.getState().viewMode).toBe("diff")
-    expect(app!.ctx.getState().blamePeek).toBeNull()
+    expect(app!.blamePeek.open()).toBe(false)
+    expect(await app!.frame()).not.toContain("Reading blame…")
   })
 
   test("while blame loads, go and y say so", async () => {

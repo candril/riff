@@ -43,7 +43,7 @@ export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordDeps): ()
       palette: false,
       run: ({ event }: { event: KeyEvent }) => {
         // A sequence a peek does not allow is swallowed, so it cannot reach the diff.
-        if (!chordAllowedUnderPeek(`z${chordSuffix(event)}`, deps.getState(), deps.linePeek.open())) return true
+        if (!chordAllowedUnderPeek(`z${chordSuffix(event)}`, deps.getState().viewMode, deps.blamePeek.open(), deps.linePeek.open())) return true
         return commands[cmd]()
       },
     })),

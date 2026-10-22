@@ -309,6 +309,7 @@ test("shift+z and a key named Z open no z sequence and reach the leftover", asyn
     getVimState: () => ({ line: 0 }),
     render: () => {},
     linePeek: { open: () => false },
+    blamePeek: { open: () => false },
   } as unknown as ZChordDeps)
   harness.press("\x1b[122;2u")
   expect(harness.riffKeymap.chordPending()).toBe(false)
