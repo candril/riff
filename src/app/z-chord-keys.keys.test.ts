@@ -373,7 +373,7 @@ describe("under a modal", () => {
     let panel: PRInfoPanelClass | null = null
     const { mounted, type, scrolls, keys, state } = await zApp({ getPrInfoPanel: () => panel })
     const info = fullPr()
-    panel = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [])
+    panel = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [], new Set(["description"]))
     try {
       mounted.setPrInfoPanel(panel)
       mounted.show({ appMode: "pr", prInfo: info, viewMode: "state" })

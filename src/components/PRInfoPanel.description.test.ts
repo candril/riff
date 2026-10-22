@@ -19,6 +19,9 @@ const BODY = [
   "Nothing else.",
 ].join("\n")
 
+// Open, so the body and its table are drawn by the constructor.
+const OPEN = new Set(["description"] as const)
+
 const { renderer } = await createTestRenderer({ width: 120, height: 40 })
 const panels: PRInfoPanelClass[] = []
 
@@ -31,19 +34,19 @@ describe("a pull request whose description holds a table", () => {
     // The panel builds its sections in its constructor and assigns
     // `container` from what that returns, so the table is rendered before
     // there is a panel to measure.
-    const panel = new PRInfoPanelClass(renderer, prInfo(BODY))
+    const panel = new PRInfoPanelClass(renderer, prInfo(BODY), [], [], OPEN)
     panels.push(panel)
     expect(panel.getContainer()).toBeDefined()
   })
 
   test("a description with no table opens the same way", () => {
-    const panel = new PRInfoPanelClass(renderer, prInfo("Just prose, no table."))
+    const panel = new PRInfoPanelClass(renderer, prInfo("Just prose, no table."), [], [], OPEN)
     panels.push(panel)
     expect(panel.getContainer()).toBeDefined()
   })
 
   test("an empty description opens too", () => {
-    const panel = new PRInfoPanelClass(renderer, prInfo(""))
+    const panel = new PRInfoPanelClass(renderer, prInfo(""), [], [], OPEN)
     panels.push(panel)
     expect(panel.getContainer()).toBeDefined()
   })

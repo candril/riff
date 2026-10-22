@@ -47,17 +47,25 @@ function nav(over: Partial<PrInfoNav> = {}): PrInfoNav {
 const open = (...sections: PRInfoPanelSection[]) => new Set<PRInfoPanelSection>(sections)
 
 describe("initialNav", () => {
-  test("starts on the description's header with the merge status, its checks line, and the description open", () => {
+  test("starts on the description's header with every section folded, the merge status's checks line ready open", () => {
     expect(initialNav()).toEqual({
       activeSection: 'description',
       cursorIndex: -1,
-      expandedSections: open('checks', 'description'),
+      expandedSections: open(),
       expandedThreads: new Set(),
       expandedContent: new Set(),
       expandedCheckIds: new Set(),
       expandedPoints: new Set(['checks']),
       filter: "",
     })
+  })
+
+  test("opens exactly the sections it is handed, in a set of its own", () => {
+    const saved = open('files', 'conversation')
+    const nav = initialNav(saved)
+    expect(nav.expandedSections).toEqual(open('files', 'conversation'))
+    saved.add('commits')
+    expect(nav.expandedSections).toEqual(open('files', 'conversation'))
   })
 })
 
@@ -144,7 +152,7 @@ describe("setFilter", () => {
   test("opens the sections it matches in, but never touches the description", () => {
     const closed = setFilter(nav({ expandedSections: open() }), "x", counts())
     expect(closed.expandedSections).toEqual(open('checks', 'conversation', 'files', 'commits'))
-    const described = setFilter(nav(), "x", counts())
+    const described = setFilter(nav({ expandedSections: open('description') }), "x", counts())
     expect(described.expandedSections.has('description')).toBe(true)
   })
 

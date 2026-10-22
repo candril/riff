@@ -8,6 +8,7 @@ import { PR_NOW, prInfo } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
+import type { PRInfoPanelSection } from "../state"
 import type { Comment } from "../types"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -20,6 +21,9 @@ index 1111111..2222222 100644
 +  return "hello"
  }
 `
+
+// The sections a reader who had opened these two before comes back to.
+const OPENED_BEFORE: ReadonlySet<PRInfoPanelSection> = new Set(["checks", "description"])
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 let panel: PRInfoPanelClass | null = null
@@ -43,7 +47,7 @@ async function overviewApp() {
   app = await mountApp(DIFF, { width: 120, height: 40 })
   const mounted = app
   const info = fullPr()
-  const shown = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [])
+  const shown = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [], OPENED_BEFORE)
   panel = shown
   mounted.setPrInfoPanel(shown)
   const flashes: string[] = []
@@ -150,7 +154,7 @@ describe("the merge status's conversations line", () => {
   async function onConversations() {
     const { renderer } = await createTestRenderer({ width: 120, height: 40 })
     const info = prInfo("", { mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", checks: [] })
-    const shown = new PRInfoPanelClass(renderer, info, [], [THREAD])
+    const shown = new PRInfoPanelClass(renderer, info, [], [THREAD], OPENED_BEFORE)
     const spawned = spyOn(Bun, "spawn").mockImplementation(((cmd: string[]) => ({
       cmd,
       stdin: { write() {}, end: async () => {} },

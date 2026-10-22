@@ -34,23 +34,26 @@ glance, with everything else one keystroke away.
 - The metadata block is one row: **Author** and **Branch**. Status, Changes
   and Reviews go, because the header already carries them; the repeated title
   goes.
-- Sections are collapsed on arrival except **Merge status**
-  ([108](./108-merge-status.md)) and **Description**, which are open. Each
-  collapsed header carries its count and a one-glance summary right after
-  it, two cells on; Merge status carries its verdict there, folded or not,
-  and folded it names what blocks:
+- Every section is folded on arrival, **Merge status**
+  ([108](./108-merge-status.md)) and **Description** included, so the
+  overview is one screen of headers. Each header carries its count and a
+  one-glance summary right after it, two cells on; Merge status carries its
+  verdict there, folded or not, and folded it names what blocks:
 
 ```
-  ▼  Merge status  ✗ blocked
-      ✗ Checks         40/42 · lint, e2e failing  ▼
-      …
-  ▼  Description (2)
-      …
+  ▶  Merge status  ✗ blocked · lint, e2e failing
+  ▶  Description (2)
   ▶  Previews (6)  4 live · 2 on demand  ·  from deploy-bot[bot]
   ▶  Conversation (2)  1 unresolved
   ▶  Files (12)  +487 -53
   ▶  Commits (5)  last 17m
 ```
+
+- The sections the reader opens are theirs for the review: kept in
+  `.riff/<review>/info-panel.json` and open again the next time riff opens
+  the same review, while another review starts folded. A section a
+  `Ctrl-f` filter opened is not counted; the filter narrows for the
+  moment, and the reader did not choose to keep it open.
 
 - The summaries are coloured by meaning, from the theme alone, and
   sparingly: the merge verdict green, yellow or red; `+N` green and `-N`
@@ -79,3 +82,7 @@ Section headers are built from a config list (`sectionConfigs`) with a
 `count` and a `summary` of coloured spans; the summaries themselves are
 pure functions in `src/components/pr-info-summaries.ts`, and
 `sectionHeaderRow` cuts each header to the panel's width.
+
+The open sections are read and written by `src/storage/info-sections.ts`.
+`initializeAppState` loads them beside the state rather than into it, and
+the panel reports the reader's own folds through `setOnSectionsChange`.

@@ -191,7 +191,8 @@ There is no repo-local config file — configuration is only
 │       └── <uuid>.md
 ├── gh-owner-repo-123/
 │   ├── viewed.json            # viewed state + the commit it was viewed at
-│   └── visit.json             # when you last looked, and what you had read
+│   ├── visit.json             # when you last looked, and what you had read
+│   └── info-panel.json        # the info panel sections the reader opened
 ├── mentionable-users.json     # cached @mention roster (24h TTL)
 └── session.json               # current review session
 ```
@@ -251,7 +252,8 @@ src/
 │   ├── comments-md.ts    # the comment file format: frontmatter and body, no I/O
 │   ├── comments.ts       # the comment store: one Markdown file per comment
 │   ├── session.ts        # the checkout's session.json
-│   └── caches.ts         # per-review viewed, visit, marks and panel filters; the mentionable-user cache
+│   ├── caches.ts         # per-review viewed, visit, marks and panel filters; the mentionable-user cache
+│   └── info-sections.ts  # per-review open sections of the PR info panel
 ├── actions/
 │   ├── registry.ts       # Ctrl-p palette actions (add new actions here!)
 │   └── types.ts          # Action types

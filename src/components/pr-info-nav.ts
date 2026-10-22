@@ -22,16 +22,15 @@ export interface PrInfoNav {
 /** How many rows a section has as it is drawn now; the panel answers it. */
 export type SectionCounts = (section: PRInfoPanelSection) => number
 
-export function initialNav(): PrInfoNav {
+export function initialNav(openSections: ReadonlySet<PRInfoPanelSection> = new Set()): PrInfoNav {
   return {
     activeSection: 'description',
     cursorIndex: -1,
-    // Sections are collapsed on arrival but for two: the panel's job is to
-    // say what there is — headers with their counts and a summary each — and
-    // let you open the one you came for, while the two things you always want
-    // are what the PR does and whether it can merge, down to which checks
-    // (specs 062, 067, 108).
-    expandedSections: new Set(['checks', 'description']),
+    // The panel's job is to say what there is — headers with their count and
+    // summary, the merge status naming what blocks — and let the reader open
+    // the one they came for. What they opened is theirs for the review, so it
+    // is handed back here (specs 067, 108).
+    expandedSections: new Set(openSections),
     expandedThreads: new Set(),
     expandedContent: new Set(),
     expandedCheckIds: new Set(),

@@ -54,6 +54,7 @@ import { createBlameSource } from "./providers/blame/source"
 import { demoBlameSource } from "./features/blame/demo-source"
 import type { BlameDeps } from "./features/blame/keys"
 import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage/caches"
+import { loadInfoSections, saveInfoSections } from "./storage/info-sections"
 import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
@@ -163,7 +164,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -198,7 +199,7 @@ export async function createApp(options: AppOptions = {}) {
   // Persistent for PR sessions (spec 041); null in local mode.
   let prInfoPanel: PRInfoPanelClass | null =
     mode === "pr" && prInfo
-      ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments)
+      ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments, prInfoOpenSections)
       : null
 
   // Seed the reaction target from the panel's initial focus so `Ctrl+p` →
@@ -221,6 +222,9 @@ export async function createApp(options: AppOptions = {}) {
     panel.setOnFilterChange((value) => {
       state = setViewFilter(state, value)
       render()
+    })
+    panel.setOnSectionsChange((open) => {
+      void saveInfoSections(state.source, open)
     })
     refreshPreviews(panel)
     void readStack(panel)
@@ -984,13 +988,13 @@ export async function createApp(options: AppOptions = {}) {
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     help,
-    recreatePrInfoPanel: () => {
+    recreatePrInfoPanel: (openSections) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
       // from scratch it would drop them back on the collapsed description.
       const panelPosition = prInfoPanel?.capturePosition()
       prInfoPanel?.destroy()
-      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments)
+      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments, openSections)
       wirePrInfoPanel(prInfoPanel)
       if (panelPosition) prInfoPanel.restorePosition(panelPosition)
       state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
@@ -1703,7 +1707,7 @@ export async function createApp(options: AppOptions = {}) {
       // A file riff was told not to show opens folded, the way every other
       // load leaves it.
       const ignored = new Set([...next.ignoredFiles].filter((f) => next.files.some((x) => x.filename === f)))
-      const panelFilters = await loadPanelFilters(source)
+      const [panelFilters, openSections] = await Promise.all([loadPanelFilters(source), loadInfoSections(source)])
       state = {
         ...next,
         collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
@@ -1724,7 +1728,7 @@ export async function createApp(options: AppOptions = {}) {
       // build one from — and the overview is that panel. Without this the
       // view switches and there is nothing there to draw, which reads as
       // being stuck on the diff.
-      refreshContext.recreatePrInfoPanel()
+      refreshContext.recreatePrInfoPanel(openSections)
 
       createLineMapping()
       vimState = createCursorState()

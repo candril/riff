@@ -53,6 +53,12 @@ function getListItemWidth(): number {
   return Math.max(30, termWidth - reserved)
 }
 
+function sameSections(a: ReadonlySet<PRInfoPanelSection>, b: ReadonlySet<PRInfoPanelSection>): boolean {
+  if (a.size !== b.size) return false
+  for (const section of a) if (!b.has(section)) return false
+  return true
+}
+
 /** Rows kept between the cursor and the edge it is moving towards. */
 const CURSOR_SCROLL_OFF = 3
 
@@ -81,11 +87,13 @@ export class PRInfoPanelClass {
   private files: DiffFile[]
   private comments: Comment[]
   
-  private nav: PrInfoNav = Nav.initialNav()
+  private nav: PrInfoNav
   private readonly counts: Nav.SectionCounts = (section) => this.getItemCountForSection(section)
 
   private filterFocused: boolean = false
   private onFilterChange: ((value: string) => void) | null = null
+  // Where the sections the reader opens or folds are kept for the review (set by app.ts).
+  private onSectionsChange: ((open: ReadonlySet<PRInfoPanelSection>) => void) | null = null
 
   // Conversation items (computed from prInfo + comments)
   private conversationItems: ConversationItem[] = []
@@ -128,8 +136,15 @@ export class PRInfoPanelClass {
   // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
 
-  constructor(renderer: CliRenderer, prInfo: PrInfo, files: DiffFile[] = [], comments: Comment[] = []) {
+  constructor(
+    renderer: CliRenderer,
+    prInfo: PrInfo,
+    files: DiffFile[] = [],
+    comments: Comment[] = [],
+    openSections?: ReadonlySet<PRInfoPanelSection>,
+  ) {
     this.renderer = renderer
+    this.nav = Nav.initialNav(openSections)
     this.prInfo = prInfo
     this.files = files
     this.comments = comments
@@ -461,40 +476,51 @@ export class PRInfoPanelClass {
    * Toggle expand/collapse for the active section (za)
    */
   toggleSection(): void {
-    this.nav = Nav.toggleSection(this.nav)
-    this.push()
+    this.applyFolds(Nav.toggleSection(this.nav))
   }
 
   /**
    * Collapse the active section (zm)
    */
   collapseSection(): void {
-    this.nav = Nav.collapseSection(this.nav)
-    this.push()
+    this.applyFolds(Nav.collapseSection(this.nav))
   }
 
   /**
    * Expand the active section (zr)
    */
   expandSection(): void {
-    this.nav = Nav.expandSection(this.nav)
-    this.push()
+    this.applyFolds(Nav.expandSection(this.nav))
   }
 
   /**
    * Collapse all sections (zM)
    */
   collapseAllSections(): void {
-    this.nav = Nav.collapseAll(this.nav)
-    this.push()
+    this.applyFolds(Nav.collapseAll(this.nav))
   }
 
   /**
    * Expand all sections (zR)
    */
   expandAllSections(): void {
-    this.nav = Nav.expandAll(this.nav)
+    this.applyFolds(Nav.expandAll(this.nav))
+  }
+
+  /**
+   * Only the reader's own folds are reported. A filter opens sections too,
+   * but that is a narrowing for the moment, not a choice to keep them open.
+   */
+  private applyFolds(next: PrInfoNav): void {
+    const before = this.nav.expandedSections
+    this.nav = next
     this.push()
+    if (!sameSections(before, next.expandedSections)) this.onSectionsChange?.(new Set(next.expandedSections))
+  }
+
+  /** Where the sections the reader opens and folds are reported. Set once, from app.ts. */
+  setOnSectionsChange(callback: (open: ReadonlySet<PRInfoPanelSection>) => void): void {
+    this.onSectionsChange = callback
   }
 
   /**

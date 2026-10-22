@@ -20,11 +20,13 @@ import {
   updateFileStatuses,
   collapseViewedFiles,
   type AppState,
+  type PRInfoPanelSection,
 } from "../state"
 import { followLoadedMarks } from "../features/marks/load"
 import { loadOrCreateSession } from "../storage/session"
 import { loadComments } from "../storage/comments"
 import { loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage/caches"
+import { loadInfoSections } from "../storage/info-sections"
 import { createMarksState } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
@@ -71,6 +73,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
   state: AppState
   source: string
   headSha: string
+  // The info panel's to own, not app state's: the sections the reader opened in this review.
+  prInfoOpenSections: Set<PRInfoPanelSection>
 }> {
   const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
 
@@ -86,7 +90,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Nothing below depends on anything else below, and in local mode each
   // entry costs a process spawn — so ask for all of it at once.
-  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks, panelFilters] =
+  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks, panelFilters, prInfoOpenSections] =
     await Promise.all([
       isPreloadedPr || filesTarget ? null : loadLocalDiff(target),
       // A path is not a revision, so there is no branch and no commit range
@@ -98,6 +102,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       loadViewedStatuses(source),
       loadMarks(source),
       loadPanelFilters(source),
+      loadInfoSections(source),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
@@ -208,7 +213,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     state = { ...state, collapsedFiles: newCollapsed }
   }
 
-  return { state, source, headSha: headSha ?? "" }
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections }
 }
 
 /**

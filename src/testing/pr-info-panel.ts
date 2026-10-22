@@ -44,9 +44,15 @@ export interface MountPrInfoPanel {
   /** Opened and made active before `prepare` runs. */
   section?: PRInfoPanelSection
   /**
-   * Leave the merge status open, as the panel opens it. Folded otherwise, so
-   * a test of another section is not drawing a dozen gate and check lines
-   * above it; `section: "checks"` opens it all the same.
+   * The sections the panel is built with open, as a review the reader opened
+   * them in before hands them back. The description by default, so a test
+   * reads the body without opening it first.
+   */
+  openSections?: readonly PRInfoPanelSection[]
+  /**
+   * Open the merge status too. Folded otherwise, so a test of another
+   * section is not drawing a dozen gate and check lines above it;
+   * `section: "checks"` opens it all the same.
    */
   mergeStatusOpen?: boolean
   prepare?: (panel: PRInfoPanelClass) => void
@@ -98,6 +104,7 @@ export function usePrInfoPanel() {
     columns = width === 120 ? undefined : width,
     section,
     mergeStatusOpen = false,
+    openSections = mergeStatusOpen ? ["checks", "description"] : ["description"],
     prepare = () => {},
   }: MountPrInfoPanel = {}) {
     const restore = columns === undefined ? null : pinStdoutColumns(columns)
@@ -105,7 +112,7 @@ export function usePrInfoPanel() {
       let shown!: PRInfoPanelClass
       const screen = await mountRenderable(
         (renderer) => {
-          shown = new PRInfoPanelClass(renderer, info, files, comments)
+          shown = new PRInfoPanelClass(renderer, info, files, comments, new Set(openSections))
           shown.setOnOpenFailingCheck(askedForAnnotations)
           panels.push(shown)
           return shown.getContainer()
@@ -113,7 +120,6 @@ export function usePrInfoPanel() {
         { width, height }
       )
       mounted.push(screen)
-      if (!mergeStatusOpen) foldMergeStatus(shown)
       if (section) {
         shown.setActiveSection(section)
         shown.expandSection()
@@ -125,11 +131,4 @@ export function usePrInfoPanel() {
       restore?.()
     }
   }
-}
-
-function foldMergeStatus(panel: PRInfoPanelClass): void {
-  const active = panel.getActiveSection()
-  panel.setActiveSection("checks")
-  panel.collapseSection()
-  panel.setActiveSection(active)
 }
