@@ -150,10 +150,10 @@ test("gs asks for the sync preview", async () => {
 })
 
 test("gC opens the comments picker when there are comments", async () => {
-  const { mounted, type, state } = await gApp()
+  const { mounted, type } = await gApp()
   mounted.show({ comments: [createComment("a.ts", 2, "hi")] })
   type("g", SHIFT_C)
-  expect(state().commentsPicker.open).toBe(true)
+  expect(mounted.commentsPicker.open()).toBe(true)
 })
 
 describe("under the line peek", () => {

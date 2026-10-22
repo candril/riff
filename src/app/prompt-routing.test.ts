@@ -5,6 +5,7 @@ import { openPromptModel } from "./open-prompt"
 import { ownerOf, promptIslandsOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
 import type { PromptSession } from "./prompt-session"
 import { createFilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 const initial = createInitialState([], [], "test", "")
 
@@ -44,7 +45,6 @@ describe("routing the open prompt", () => {
   test("every prompt open-prompt can open has an island, and every island a prompt", () => {
     const states: Partial<AppState>[] = [
       { actionMenu: { ...initial.actionMenu, open: true } },
-      { commentsPicker: { ...initial.commentsPicker, open: true } },
       { marksPicker: { ...initial.marksPicker, open: true } },
       { occurrencePicker: { ...initial.occurrencePicker, open: true, narrowing: true } },
       { occurrencePicker: { ...initial.occurrencePicker, open: true, narrowing: false } },
@@ -53,10 +53,12 @@ describe("routing the open prompt", () => {
       { feed: { ...initial.feed, filterInput: true } },
     ]
     const searching = (active: boolean) => ({ ...createSearchState(), active })
+    const closed = { filePicker: null, commentsPicker: null }
     const opened = [
-      ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false), null)),
-      openPromptModel(initial, searching(false), createFilePickerState().snapshot()),
-      openPromptModel(initial, searching(true), null),
+      ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false), closed)),
+      openPromptModel(initial, searching(false), { ...closed, filePicker: createFilePickerState().snapshot() }),
+      openPromptModel(initial, searching(false), { ...closed, commentsPicker: createCommentsPickerState().snapshot() }),
+      openPromptModel(initial, searching(true), closed),
     ]
     const owners = new Set(opened.map((prompt) => ownerOf(prompt!.key)))
     expect([...owners].sort()).toEqual([...promptOwners].sort())

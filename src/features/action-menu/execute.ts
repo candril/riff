@@ -7,7 +7,6 @@
 
 import type { AppState } from "../../state"
 import {
-  openCommentsPicker,
   openOccurrencePicker,
   openCommitPicker,
   toggleFilePanel,
@@ -30,6 +29,7 @@ import { actionKeys } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
 import { openMarksPicker } from "../marks"
 import type { FilePickerState } from "../file-picker/state"
+import type { CommentsPickerState } from "../comments-picker/state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -75,6 +75,7 @@ export interface ExecuteContext {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   filePicker: Pick<FilePickerState, "show">
+  commentsPicker: Pick<CommentsPickerState, "show">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -97,7 +98,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, filePicker, handlers } = ctx
+  const { state, setState, render, filePicker, commentsPicker, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -111,7 +112,7 @@ export async function executeAction(
 
     case "find-comments":
       if (state.comments.length > 0) {
-        setState(openCommentsPicker)
+        commentsPicker.show()
         render()
       }
       break

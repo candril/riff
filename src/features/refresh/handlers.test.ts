@@ -5,6 +5,7 @@ import { createConfirmState } from "../confirm/state"
 import { createSyncPreviewState } from "../sync-preview/state"
 import { createReviewPreviewState } from "../review-preview/state"
 import { createFilePickerState } from "../file-picker/state"
+import { createCommentsPickerState } from "../comments-picker/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -21,6 +22,7 @@ describe("a refresh's rebuilt state", () => {
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
       filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -41,6 +43,7 @@ describe("a refresh's rebuilt state", () => {
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
       filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -62,6 +65,7 @@ describe("a refresh's rebuilt state", () => {
       syncPreview,
       reviewPreview: createReviewPreviewState(),
       filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -83,6 +87,7 @@ describe("a refresh's rebuilt state", () => {
       syncPreview: createSyncPreviewState(),
       reviewPreview,
       filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -105,6 +110,7 @@ describe("a refresh's rebuilt state", () => {
       syncPreview: createSyncPreviewState(),
       reviewPreview: createReviewPreviewState(),
       filePicker,
+      commentsPicker: createCommentsPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -112,5 +118,29 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(filePicker.open()).toBe(false)
     expect(filePicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
+  })
+
+  test("closes the comments picker, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const commentsPicker = createCommentsPickerState()
+    commentsPicker.show()
+    commentsPicker.setQuery("nit")
+    commentsPicker.move(1, 3)
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(commentsPicker.open()).toBe(false)
+    expect(commentsPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
   })
 })

@@ -2,11 +2,13 @@ import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
 import { interactionSettled, type InteractionInputs } from "./jump-settled"
 import { createFilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 const idle: InteractionInputs = {
   state: initial,
   filePicker: createFilePickerState(),
+  commentsPicker: createCommentsPickerState(),
   vim: { pendingFindChar: null, pendingTextObject: null },
   searchActive: false,
   flashActive: false,

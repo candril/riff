@@ -17,16 +17,14 @@ import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { threadPanelHoldsKeys } from "../../app/diff-focus"
 import { chatStandsAside } from "../chat/keys"
-import type { FilePickerState } from "../file-picker/state"
-import type { AppState } from "../../state"
+import type { AppState, PromptPickers } from "../../state"
 import type { Comment } from "../../types"
 import { createPanelChords } from "./view-chords"
 import * as act from "./view-actions"
 
-export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps {
+export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps, PromptPickers {
   /** Whether the diff's search prompt is up, under which the chat stands aside. */
   searchActive: () => boolean
-  filePicker: Pick<FilePickerState, "open">
 }
 
 /**
@@ -38,8 +36,8 @@ export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps {
  * Ctrl-i) walk the jumplist, and only the filter prompt and the code peek
  * keep those.
  */
-function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean, filePicker: Pick<FilePickerState, "open">): boolean {
-  const chatReaches = !chatStandsAside(state, searchActive, filePicker)
+function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean, pickers: PromptPickers): boolean {
+  const chatReaches = !chatStandsAside(state, searchActive, pickers)
   if (key.ctrl && key.name === "r") return chatReaches
   if (key.ctrl && key.name === "l") return chatReaches && state.chatOpen
   const ov = state.inlineCommentOverlay
@@ -66,7 +64,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
   const captured = riffKeymap.capture(
     (key) => {
       if (!viewing()) return false
-      if (!passesThrough(key, deps.getState(), deps.searchActive(), deps.filePicker)) return true
+      if (!passesThrough(key, deps.getState(), deps.searchActive(), deps)) return true
       // A pending `g` swallows the `s` that would go to flash; a pending
       // `z` is broken off by it, as by any key but `a`.
       if (isBareS(key)) {

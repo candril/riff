@@ -6,16 +6,14 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
-import type { AppState } from "../state"
+import type { AppState, PromptPickers } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { chatReaches } from "../features/chat/keys"
-import type { FilePickerState } from "../features/file-picker/state"
 
-export interface TextObjectKeyDeps {
+export interface TextObjectKeyDeps extends PromptPickers {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean
-  filePicker: Pick<FilePickerState, "open">
   feed: (key: KeyEvent) => void
   render: () => void
 }
@@ -31,15 +29,15 @@ export function textObjectTakes(
   state: AppState,
   vim: Pick<VimCursorState, "pendingTextObject">,
   searchActive: boolean,
-  filePicker: Pick<FilePickerState, "open">,
+  pickers: PromptPickers,
 ): boolean {
-  return vim.pendingTextObject !== null && state.focusedPanel === "diff" && !chatReaches(key, state, searchActive, filePicker)
+  return vim.pendingTextObject !== null && state.focusedPanel === "diff" && !chatReaches(key, state, searchActive, pickers)
 }
 
 export function registerTextObjectKeys(riffKeymap: RiffKeymap, deps: TextObjectKeyDeps): () => void {
   // Nothing is prevented, the keys fed to the vim handler included.
   return riffKeymap.capture(
-    (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive(), deps.filePicker),
+    (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive(), deps),
     (key) => {
       deps.feed(key)
       deps.render()

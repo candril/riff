@@ -3,6 +3,7 @@ import { KeyEvent, parseKeypress } from "@opentui/core"
 import { G_SEQUENCES, gChordCommands, type GChordDeps } from "./g-chord-commands"
 import { createInitialState, type AppState } from "../state"
 import { createComment } from "../types"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 // Every spelling a g chord accepts, and the command it runs.
 const G_SPELLINGS = {
@@ -62,12 +63,14 @@ describe("G_SEQUENCES", () => {
 function gChords(more: Partial<AppState> = {}, blameLink = false) {
   let state: AppState = { ...createInitialState([], [], "test", ""), ...more }
   const ran: string[] = []
+  const commentsPicker = createCommentsPickerState()
   const deps = {
     getState: () => state,
     setState: (updater: (s: AppState) => AppState) => {
       state = updater(state)
     },
     render: () => {},
+    commentsPicker,
     executeAction: (id: string) => void ran.push(id),
     blame: {
       toggle: () => void ran.push("blame.toggle"),
@@ -78,24 +81,24 @@ function gChords(more: Partial<AppState> = {}, blameLink = false) {
     },
   } as unknown as GChordDeps
   const key = () => new KeyEvent(parseKeypress("C")!)
-  return { commands: gChordCommands(deps), ran, state: () => state, key }
+  return { commands: gChordCommands(deps), ran, state: () => state, commentsPicker, key }
 }
 
 describe("gC", () => {
   test("with no comments does nothing and leaves the key unprevented", () => {
-    const { commands, state, key } = gChords()
+    const { commands, commentsPicker, key } = gChords()
     const pressed = key()
     expect(commands.openCommentsPicker(pressed)).toBe(true)
     expect(pressed.defaultPrevented).toBe(false)
-    expect(state().commentsPicker.open).toBe(false)
+    expect(commentsPicker.open()).toBe(false)
   })
 
   test("with comments opens the picker and prevents the key", () => {
-    const { commands, state, key } = gChords({ comments: [createComment("a.ts", 1, "hi")] })
+    const { commands, commentsPicker, key } = gChords({ comments: [createComment("a.ts", 1, "hi")] })
     const pressed = key()
     expect(commands.openCommentsPicker(pressed)).toBe(true)
     expect(pressed.defaultPrevented).toBe(true)
-    expect(state().commentsPicker.open).toBe(true)
+    expect(commentsPicker.open()).toBe(true)
   })
 })
 

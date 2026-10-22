@@ -1,17 +1,15 @@
 import type { KeyEvent } from "@opentui/core"
-import type { AppState } from "../state"
+import type { AppState, PromptPickers } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import * as jumplist from "../features/jumplist"
 import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
 import { interactionSettled } from "./jump-settled"
 import { threadPanelHoldsKeys } from "./diff-focus"
-import type { FilePickerState } from "../features/file-picker/state"
 
-export interface JumpRecordingDeps {
+export interface JumpRecordingDeps extends PromptPickers {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
-  filePicker: Pick<FilePickerState, "open">
   getVimState: () => VimCursorState
   getLineMapping: () => Pick<DiffLineMapping, "getLine">
   getPane: () => "left" | "right" | null
@@ -51,6 +49,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
       settled: interactionSettled({
         state,
         filePicker: deps.filePicker,
+        commentsPicker: deps.commentsPicker,
         vim,
         searchActive: deps.searchActive(),
         flashActive: deps.flashActive(),

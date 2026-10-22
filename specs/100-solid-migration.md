@@ -221,6 +221,9 @@ review from AppState, where the PR load puts it.
 The file picker is the fifth (`createFilePickerState` in
 `src/features/file-picker/state.ts`); the prompt reads its query off the
 factory.
+The comments picker is the sixth (`createCommentsPickerState` in
+`src/features/comments-picker/state.ts`); the prompt reads its query off
+the factory too.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

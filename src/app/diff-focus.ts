@@ -18,6 +18,7 @@ export interface OutsideOverlays {
   syncPreview: boolean
   reviewPreview: boolean
   filePicker: boolean
+  commentsPicker: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
@@ -27,7 +28,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     outside.reviewPreview ||
     outside.help ||
     outside.filePicker ||
-    state.commentsPicker.open ||
+    outside.commentsPicker ||
     state.marksPicker.open ||
     state.occurrencePicker.open ||
     state.commitPicker.open ||

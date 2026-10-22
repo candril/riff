@@ -92,6 +92,6 @@ export function filterEntries(
 }
 
 /** Convenience: build + filter in one call from `state`. */
-export function getFilteredEntries(state: AppState): CommentsPickerEntry[] {
-  return filterEntries(buildEntries(state), state.commentsPicker.query)
+export function getFilteredEntries(state: AppState, query: string): CommentsPickerEntry[] {
+  return filterEntries(buildEntries(state), query)
 }

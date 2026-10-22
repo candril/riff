@@ -8,7 +8,7 @@ import type { AppState } from "../state"
 import { toggleLinePeek } from "../state"
 import type { HelpState } from "../features/help/state"
 import type { BlameKeys } from "../features/blame/keys"
-import * as commentsPicker from "../features/comments-picker"
+import type { CommentsPickerState } from "../features/comments-picker/state"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
@@ -21,6 +21,7 @@ export interface GChordDeps {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   help: Pick<HelpState, "toggle">
+  commentsPicker: Pick<CommentsPickerState, "show">
   executeAction: (id: string) => void
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
@@ -144,7 +145,7 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
       // doesn't flash an empty modal.
       if (deps.getState().comments.length > 0) {
         key.preventDefault()
-        deps.setState(commentsPicker.openCommentsPicker)
+        deps.commentsPicker.show()
         deps.render()
       }
     }),

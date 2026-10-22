@@ -3,19 +3,19 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
 const syncPreview: OutsideOverlays = { ...none, syncPreview: true }
 const reviewPreview: OutsideOverlays = { ...none, reviewPreview: true }
 const filePicker: OutsideOverlays = { ...none, filePicker: true }
+const commentsPicker: OutsideOverlays = { ...none, commentsPicker: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
 const hidden: [string, (s: AppState) => AppState][] = [
-  ["the comments picker", (s) => ({ ...s, commentsPicker: { ...s.commentsPicker, open: true } })],
   ["the marks picker", (s) => ({ ...s, marksPicker: { ...s.marksPicker, open: true } })],
   ["the occurrence picker", (s) => ({ ...s, occurrencePicker: { ...s.occurrencePicker, open: true } })],
   ["the commit picker, its query closed", (s) => ({ ...s, commitPicker: { ...s.commitPicker, open: true, queryInput: false } })],
@@ -53,6 +53,10 @@ describe("the diff's cursor", () => {
 
   test("hides under the file picker", () => {
     expect(diffCursorShown(initial, filePicker)).toBe(false)
+  })
+
+  test("hides under the comments picker", () => {
+    expect(diffCursorShown(initial, commentsPicker)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -101,6 +105,7 @@ describe("the chat's input", () => {
     expect(chatInputFocused(chatting, syncPreview)).toBe(false)
     expect(chatInputFocused(chatting, reviewPreview)).toBe(false)
     expect(chatInputFocused(chatting, filePicker)).toBe(false)
-    for (const [, open] of hidden.slice(0, 5)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    expect(chatInputFocused(chatting, commentsPicker)).toBe(false)
+    for (const [, open] of hidden.slice(0, 4)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })

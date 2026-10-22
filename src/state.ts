@@ -20,6 +20,7 @@ import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
+import type { CommentsPickerState } from "./features/comments-picker/state"
 
 /**
  * UI mode for the app
@@ -51,16 +52,6 @@ export interface FileContentCache {
 export interface ToastState {
   message: string | null
   type: "success" | "error" | "info"
-}
-
-/**
- * Comments picker state (spec 044). PR-wide fuzzy picker over every
- * comment in the diff. Triggered by `gC`. Shape mirrors the file picker's.
- */
-export interface CommentsPickerState {
-  open: boolean
-  query: string
-  selectedIndex: number
 }
 
 export interface OccurrencePickerState {
@@ -455,8 +446,6 @@ export interface AppState {
   // Toast notification
   toast: ToastState
 
-  // Comments picker state (spec 044)
-  commentsPicker: CommentsPickerState
   occurrencePicker: OccurrencePickerState
   
   // File review status (viewed/reviewed tracking)
@@ -623,11 +612,6 @@ export function createInitialState(
     toast: {
       message: null,
       type: "info",
-    },
-    commentsPicker: {
-      open: false,
-      query: "",
-      selectedIndex: 0,
     },
     occurrencePicker: {
       open: false,
@@ -939,15 +923,24 @@ export function filesWithUnseenComments(state: AppState): Set<string> {
 }
 
 /**
+ * The pickers whose state lives in a factory of its own; one object, so each
+ * picker that moves out of AppState adds a field rather than a parameter.
+ */
+export interface PromptPickers {
+  filePicker: Pick<FilePickerState, "open">
+  commentsPicker: Pick<CommentsPickerState, "open">
+}
+
+/**
  * Whether one of the one-line prompts is up. They share a single input
  * widget, which draws its own cursor — so nothing else should be placing
  * the terminal cursor while one is open (spec 065).
  */
-export function promptOpen(state: AppState, filePicker: Pick<FilePickerState, "open">): boolean {
+export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
   return (
     state.actionMenu.open ||
-    filePicker.open() ||
-    state.commentsPicker.open ||
+    pickers.filePicker.open() ||
+    pickers.commentsPicker.open() ||
     state.marksPicker.open ||
     state.occurrencePicker.open ||
     state.commitPicker.open ||
@@ -1799,62 +1792,6 @@ export function mergeMentionableUsers(state: AppState, logins: string[]): AppSta
 export function setMentionSearchQuery(state: AppState, query: string | null): AppState {
   if (state.mentionSearchQuery === query) return state
   return { ...state, mentionSearchQuery: query }
-}
-
-// ============================================================================
-// Comments Picker State (spec 044)
-// ============================================================================
-
-export function openCommentsPicker(state: AppState): AppState {
-  return {
-    ...state,
-    commentsPicker: {
-      open: true,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-export function closeCommentsPicker(state: AppState): AppState {
-  return {
-    ...state,
-    commentsPicker: {
-      ...state.commentsPicker,
-      open: false,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-export function setCommentsPickerQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    commentsPicker: {
-      ...state.commentsPicker,
-      query,
-      selectedIndex: 0,
-    },
-  }
-}
-
-/** Wraps around at both ends, as the file picker's selection does. */
-export function moveCommentsPickerSelection(
-  state: AppState,
-  delta: number,
-  maxIndex: number
-): AppState {
-  let newIndex = state.commentsPicker.selectedIndex + delta
-  if (newIndex < 0) newIndex = maxIndex
-  else if (newIndex > maxIndex) newIndex = 0
-  return {
-    ...state,
-    commentsPicker: {
-      ...state.commentsPicker,
-      selectedIndex: newIndex,
-    },
-  }
 }
 
 // ============================================================================

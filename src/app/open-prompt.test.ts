@@ -3,16 +3,22 @@ import { createInitialState, type AppState } from "../state"
 import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { openPromptModel, writePrompt } from "./open-prompt"
 import type { PromptKey } from "./prompt-routing"
-import { createFilePickerState, type FilePickerSnapshot, type FilePickerState } from "../features/file-picker/state"
+import { createFilePickerState, type FilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState, type CommentsPickerState } from "../features/comments-picker/state"
+import type { PickerSnapshots } from "./frame"
 
 const initial = createInitialState([], [], "test", "")
 
 function promptFor(
   patch: Partial<AppState>,
   search: Partial<SearchState> = {},
-  filePicker: FilePickerSnapshot | null = null
+  pickers: Partial<PickerSnapshots> = {}
 ) {
-  return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search }, filePicker)
+  return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search }, {
+    filePicker: null,
+    commentsPicker: null,
+    ...pickers,
+  })
 }
 
 describe("which prompt is typing", () => {
@@ -20,18 +26,18 @@ describe("which prompt is typing", () => {
     const prompt = promptFor(
       { actionMenu: { ...initial.actionMenu, open: true, query: "sy" } },
       {},
-      createFilePickerState().snapshot()
+      { filePicker: createFilePickerState().snapshot() }
     )
     expect(prompt).toEqual({ key: "action-menu:", initialValue: "sy", placeholder: "Search" })
   })
 
   test("each picker types into its own query", () => {
-    expect(promptFor({}, {}, { query: "app", selectedIndex: 0 })).toEqual({
+    expect(promptFor({}, {}, { filePicker: { query: "app", selectedIndex: 0 } })).toEqual({
       key: "file-picker",
       initialValue: "app",
       placeholder: "Type to search…",
     })
-    expect(promptFor({ commentsPicker: { ...initial.commentsPicker, open: true, query: "nit" } })).toEqual({
+    expect(promptFor({}, {}, { commentsPicker: { query: "nit", selectedIndex: 0 } })).toEqual({
       key: "comments-picker",
       initialValue: "nit",
       placeholder: "Type to search…",
@@ -96,23 +102,24 @@ describe("where what is typed goes", () => {
     let state: AppState = { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true }, ...patch }
     let renders = 0
     const searched: string[] = []
-    const filePicker = createFilePickerState()
+    const pickers = { filePicker: createFilePickerState(), commentsPicker: createCommentsPickerState() }
     const write = writePrompt(
       {
         setState: (updater) => (state = updater(state)),
-        filePicker,
+        ...pickers,
         updateSearchPattern: (value) => void searched.push(value),
       },
       () => renders++
     )
-    return { write, state: () => state, filePicker, renders: () => renders, searched }
+    return { write, state: () => state, pickers, renders: () => renders, searched }
   }
 
-  const fields: [PromptKey, (s: AppState, filePicker: FilePickerState) => string][] = [
+  type Pickers = { filePicker: FilePickerState; commentsPicker: CommentsPickerState }
+  const fields: [PromptKey, (s: AppState, pickers: Pickers) => string][] = [
     ["action-menu:", (s) => s.actionMenu.query],
     ["action-menu:react", (s) => s.actionMenu.query],
-    ["file-picker", (_s, filePicker) => filePicker.query()],
-    ["comments-picker", (s) => s.commentsPicker.query],
+    ["file-picker", (_s, { filePicker }) => filePicker.query()],
+    ["comments-picker", (_s, { commentsPicker }) => commentsPicker.query()],
     ["marks-picker", (s) => s.marksPicker.query],
     ["occurrence-picker:narrow", (s) => s.occurrencePicker.filter],
     ["occurrence-picker:search", (s) => s.occurrencePicker.query],
@@ -123,7 +130,7 @@ describe("where what is typed goes", () => {
     test(`${key} writes its field and renders`, () => {
       const typed = writer()
       typed.write(key, "app")
-      expect(field(typed.state(), typed.filePicker)).toBe("app")
+      expect(field(typed.state(), typed.pickers)).toBe("app")
       expect(typed.renders()).toBe(1)
       expect(typed.searched).toEqual([])
     })

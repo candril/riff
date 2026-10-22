@@ -31,6 +31,7 @@ async function paletteApp() {
           setState: mounted.ctx.setState,
           render: mounted.render,
           filePicker: mounted.filePicker,
+          commentsPicker: mounted.commentsPicker,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

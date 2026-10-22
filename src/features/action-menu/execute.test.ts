@@ -6,6 +6,7 @@ import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import type { Comment } from "../../types"
 import { createFilePickerState } from "../file-picker/state"
+import { createCommentsPickerState } from "../comments-picker/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -40,6 +41,7 @@ describe("Show Only Open Threads", () => {
         setState: (update) => (state = update(state)),
         render: () => {},
         filePicker: createFilePickerState(),
+        commentsPicker: createCommentsPickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -83,6 +85,7 @@ describe("Show Only Unviewed Files", () => {
         setState: (update) => (state = update(state)),
         render: () => {},
         filePicker: createFilePickerState(),
+        commentsPicker: createCommentsPickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,

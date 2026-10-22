@@ -3,6 +3,7 @@ import { createInitialState, openInlineCommentOverlay, type AppState } from "../
 import type { Comment } from "../types"
 import { keymapHarness } from "./keymap-keys"
 import { createFilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -67,6 +68,7 @@ export async function threadPanelKeys(initial: AppState) {
     onReact: record("react"),
     searchActive: () => false,
     filePicker: createFilePickerState(),
+    commentsPicker: createCommentsPickerState(),
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {

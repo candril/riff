@@ -1,6 +1,5 @@
 import {
   setActionMenuQuery,
-  setCommentsPickerQuery,
   setOccurrencePickerQuery,
   setOccurrencePickerFilter,
   setCommitPickerQuery,
@@ -9,7 +8,9 @@ import {
 import type { AppState } from "../state"
 import type { SearchState } from "../vim-diff/search-state"
 import { setMarksPickerQuery } from "../features/marks"
-import type { FilePickerSnapshot, FilePickerState } from "../features/file-picker/state"
+import type { FilePickerState } from "../features/file-picker/state"
+import type { CommentsPickerState } from "../features/comments-picker/state"
+import type { PickerSnapshots } from "./frame"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
 export interface PromptModel {
@@ -25,7 +26,7 @@ export interface PromptModel {
 export function openPromptModel(
   state: AppState,
   searchState: SearchState,
-  filePicker: FilePickerSnapshot | null
+  { filePicker, commentsPicker }: PickerSnapshots
 ): PromptModel | null {
   if (state.actionMenu.open) {
     return {
@@ -37,8 +38,8 @@ export function openPromptModel(
   if (filePicker) {
     return { key: "file-picker", initialValue: filePicker.query, placeholder: "Type to search…" }
   }
-  if (state.commentsPicker.open) {
-    return { key: "comments-picker", initialValue: state.commentsPicker.query, placeholder: "Type to search…" }
+  if (commentsPicker) {
+    return { key: "comments-picker", initialValue: commentsPicker.query, placeholder: "Type to search…" }
   }
   if (state.marksPicker.open) {
     return { key: "marks-picker", initialValue: state.marksPicker.query, placeholder: "Type to search…" }
@@ -79,17 +80,14 @@ export function openPromptModel(
 }
 
 /** Whether a prompt is typing right now, so a frame can tell from state alone. */
-export function promptOpenIn(
-  state: AppState,
-  searchState: SearchState,
-  filePicker: FilePickerSnapshot | null
-): boolean {
-  return openPromptModel(state, searchState, filePicker) !== null
+export function promptOpenIn(state: AppState, searchState: SearchState, pickers: PickerSnapshots): boolean {
+  return openPromptModel(state, searchState, pickers) !== null
 }
 
 export type PromptWriteContext = {
   setState: (updater: (s: AppState) => AppState) => void
   filePicker: Pick<FilePickerState, "setQuery">
+  commentsPicker: Pick<CommentsPickerState, "setQuery">
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
 }
@@ -109,7 +107,8 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
         ctx.filePicker.setQuery(value)
         return render()
       case "comments-picker":
-        return typeInto(setCommentsPickerQuery, value)
+        ctx.commentsPicker.setQuery(value)
+        return render()
       case "marks-picker":
         return typeInto(setMarksPickerQuery, value)
       case "occurrence-picker":

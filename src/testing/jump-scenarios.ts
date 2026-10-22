@@ -216,6 +216,7 @@ export async function jumpScenario({
     getState: render.getState,
     setState: render.setState,
     filePicker: mounted.filePicker,
+    commentsPicker: mounted.commentsPicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane,

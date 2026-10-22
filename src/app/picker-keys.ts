@@ -44,7 +44,7 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
   })
   registerCommentsPickerKeys(riffKeymap, {
     getState,
-    setState,
+    commentsPicker: ctx.commentsPicker,
     render,
     onSelectComment: (comment) => jumpToComment(comment, jumpContext()),
   })

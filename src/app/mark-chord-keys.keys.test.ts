@@ -64,6 +64,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     getState: render.getState,
     setState: render.setState,
     filePicker: mounted.filePicker,
+    commentsPicker: mounted.commentsPicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane: () => null,

@@ -8,8 +8,9 @@ import { chatColumnWidth } from "../features/chat/width"
 import { statusBarFrameModel } from "./chrome-frame-models"
 import { chatColumnFrameModel } from "./panel-frame-models"
 import { openPromptModel, promptOpenIn } from "./open-prompt"
-import type { Frame } from "./frame"
-import { createFilePickerState, type FilePickerSnapshot } from "../features/file-picker/state"
+import type { Frame, PickerSnapshots } from "./frame"
+import { createFilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 const initial = createInitialState([], [], "local", "local changes")
 
@@ -42,6 +43,7 @@ function frame(
     syncPreview: null,
     reviewPreview: null,
     filePicker: null,
+    commentsPicker: null,
     commandKeys: new Map(),
   }
 }
@@ -91,11 +93,11 @@ describe("chatColumnFrameModel", () => {
 })
 
 describe("promptOpenIn", () => {
-  const filePickerOpen = createFilePickerState().snapshot()
-  const branches: [string, AppState, Partial<SearchState>, boolean, FilePickerSnapshot?][] = [
+  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null }
+  const branches: [string, AppState, Partial<SearchState>, boolean, Partial<PickerSnapshots>?][] = [
     ["the action menu", state({ actionMenu: { ...initial.actionMenu, open: true } }), {}, true],
-    ["the file picker", state(), {}, true, filePickerOpen],
-    ["the comments picker", state({ commentsPicker: { ...initial.commentsPicker, open: true } }), {}, true],
+    ["the file picker", state(), {}, true, { filePicker: createFilePickerState().snapshot() }],
+    ["the comments picker", state(), {}, true, { commentsPicker: createCommentsPickerState().snapshot() }],
     ["the marks picker", state({ marksPicker: { ...initial.marksPicker, open: true } }), {}, true],
     ["the occurrence picker", state({ occurrencePicker: { ...initial.occurrencePicker, open: true } }), {}, true],
     ["the commit picker's query", state({ commitPicker: { ...initial.commitPicker, open: true, queryInput: true } }), {}, true],
@@ -107,11 +109,12 @@ describe("promptOpenIn", () => {
     ["nothing", state(), {}, false],
   ]
 
-  for (const [name, appState, search, open, filePicker = null] of branches) {
+  for (const [name, appState, search, open, opened = {}] of branches) {
     test(`agrees with openPromptModel for ${name}`, () => {
       const searchState = { ...createSearchState(), ...search }
-      expect(promptOpenIn(appState, searchState, filePicker)).toBe(open)
-      expect(openPromptModel(appState, searchState, filePicker) !== null).toBe(open)
+      const pickers = { ...closed, ...opened }
+      expect(promptOpenIn(appState, searchState, pickers)).toBe(open)
+      expect(openPromptModel(appState, searchState, pickers) !== null).toBe(open)
     })
   }
 })

@@ -27,6 +27,7 @@ import type { ConfirmState } from "../features/confirm/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
 import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { FilePickerState } from "../features/file-picker/state"
+import type { CommentsPickerState } from "../features/comments-picker/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -52,6 +53,7 @@ export interface FramePassContext {
   syncPreview: SyncPreviewState
   reviewPreview: ReviewPreviewState
   filePicker: FilePickerState
+  commentsPicker: CommentsPickerState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -87,13 +89,15 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const syncPreview = ctx.syncPreview.open() ? { loading: ctx.syncPreview.loading() } : null
     const reviewPreview = ctx.reviewPreview.open() ? ctx.reviewPreview.snapshot() : null
     const filePicker = ctx.filePicker.open() ? ctx.filePicker.snapshot() : null
+    const commentsPicker = ctx.commentsPicker.open() ? ctx.commentsPicker.snapshot() : null
     const focused = diffCursorShown(state, {
-      prompt: promptOpenIn(state, searchState, filePicker),
+      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker }),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
       reviewPreview: reviewPreview !== null,
       filePicker: filePicker !== null,
+      commentsPicker: commentsPicker !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -124,6 +128,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       syncPreview,
       reviewPreview,
       filePicker,
+      commentsPicker,
       commandKeys: ctx.getCommandKeys(),
     }
 

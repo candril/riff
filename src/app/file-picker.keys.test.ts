@@ -91,8 +91,8 @@ test("Ctrl-f opens the picker on its factory, Ctrl-n wraps, a query narrows, Ent
   mockInput.pressKey("f", { ctrl: true })
   await mockInput.typeText("gr")
   expect(await mounted.frame()).toContain("Find Files")
-  const { help, confirm, syncPreview, reviewPreview, filePicker } = mounted
-  const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker } = mounted
+  const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker }
   adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   expect(mounted.filePicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })

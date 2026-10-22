@@ -78,20 +78,13 @@ content (the comment body) and persist via repo-local storage (spec 023).
 
 ### State
 
-Add to `AppState` in `src/state.ts`:
-
-```ts
-export interface CommentsPickerState {
-  open: boolean
-  query: string
-  selectedIndex: number
-}
-```
-
-Initialize as `{ open: false, query: "", selectedIndex: 0 }` in
-`createInitialState`. State helpers (`openCommentsPicker`,
-`closeCommentsPicker`, `setCommentsPickerQuery`,
-`moveCommentsPickerSelection`) mirror the file-picker helpers exactly.
+The picker's state lives in a factory of its own rather than in `AppState`
+([ADR-003](../docs/decisions/ADR-003-feature-state-factories.md)):
+`createCommentsPickerState()` in `src/features/comments-picker/state.ts`.
+Its accessors are `open`, `query` and `selectedIndex`; `show` and `close`
+reset the query and the selection, `setQuery` puts the selection back on
+the first row, and `move` wraps at both ends, as the file picker's factory
+does. A reload closes it in `adoptReloadedState`.
 
 ### Feature module — `src/features/comments-picker/`
 
@@ -99,6 +92,7 @@ Initialize as `{ open: false, query: "", selectedIndex: 0 }` in
 src/features/comments-picker/
 ├── index.ts        # Public exports
 ├── keys.ts         # keymap layer; its capture keeps unbound keys from the layers behind, unprevented for the prompt field
+├── state.ts        # createCommentsPickerState
 └── filter.ts       # buildEntries, filter & sort
 ```
 
@@ -125,9 +119,9 @@ returns `[body, filename, author]`. Sort: `filename` then `line` then
 The layer's pick command (`keys.ts`), on `Enter`:
 
 ```ts
-const entry = getFilteredEntries(state)[state.commentsPicker.selectedIndex]
+const entry = getFilteredEntries(deps.getState(), deps.commentsPicker.query())[deps.commentsPicker.selectedIndex()]
 if (!entry) return
-deps.setState(closeCommentsPicker)
+deps.commentsPicker.close()
 deps.onSelectComment(entry.comment)
 ```
 
@@ -186,7 +180,7 @@ Two parts:
    openCommentsPicker: taking((key) => {
      if (deps.getState().comments.length > 0) {
        key.preventDefault()
-       deps.setState(commentsPicker.openCommentsPicker)
+       deps.commentsPicker.show()
        deps.render()
      }
    }),
@@ -225,16 +219,13 @@ Add to `src/components/HelpOverlay.ts`, "Comment Threads" section:
 
 ### Render
 
-Add a render slot in `src/app/render.ts`, after the `FilePicker`
-slot:
+The frame pass reads the factory into `Frame.commentsPicker`, null while
+it is closed, and `pickerModels` (`src/app/picker-models.ts`) draws from
+that snapshot:
 
 ```ts
-state.commentsPicker.open
-  ? CommentsPicker({
-      query: state.commentsPicker.query,
-      entries: commentsPicker.getFilteredEntries(state),
-      selectedIndex: state.commentsPicker.selectedIndex,
-    })
+comments: commentsPicker
+  ? commentsPickerModel(getFilteredEntries(state, commentsPicker.query), commentsPicker.selectedIndex, height)
   : null,
 ```
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createInitialState, openCommentsPicker, openCommitPicker, type AppState } from "../state"
+import { createInitialState, openCommitPicker, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { createFlashState, type FlashState } from "../vim-diff/flash-state"
@@ -9,6 +9,7 @@ import { FRAME_ISLANDS, frameModels, shownByShell } from "./frame-models"
 import { overlayModels } from "./overlay-models"
 import type { Frame } from "./frame"
 import { createFilePickerState } from "../features/file-picker/state"
+import { createCommentsPickerState } from "../features/comments-picker/state"
 
 const NOW = Date.parse("2026-10-17T12:00:00Z")
 
@@ -27,7 +28,14 @@ function frame(
     flash = {},
     now = NOW,
     filePicker = null,
-  }: { search?: Partial<SearchState>; flash?: Partial<FlashState>; now?: number; filePicker?: Frame["filePicker"] } = {}
+    commentsPicker = null,
+  }: {
+    search?: Partial<SearchState>
+    flash?: Partial<FlashState>
+    now?: number
+    filePicker?: Frame["filePicker"]
+    commentsPicker?: Frame["commentsPicker"]
+  } = {}
 ): Frame {
   return {
     state: appState,
@@ -45,6 +53,7 @@ function frame(
     syncPreview: null,
     reviewPreview: null,
     filePicker,
+    commentsPicker,
     commandKeys: new Map(),
   }
 }
@@ -115,7 +124,7 @@ describe("frameModels", () => {
 
   test("shows each picker and the palette exactly while it is open, with the prompt of those that type", () => {
     expect(shown(frameModels(frame(state(), { filePicker: createFilePickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "filePicker", "header"])
-    expect(shown(frameModels(frame(openCommentsPicker(state()))))).toEqual(["prompt", "prInfoPanel", "statusBar", "commentsPicker", "header"])
+    expect(shown(frameModels(frame(state(), { commentsPicker: createCommentsPickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "commentsPicker", "header"])
     expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
     expect(shown(frameModels(frame(palette)))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])

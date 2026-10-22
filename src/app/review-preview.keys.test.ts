@@ -53,6 +53,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
     filePicker: mounted.filePicker,
+    commentsPicker: mounted.commentsPicker,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

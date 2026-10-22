@@ -69,15 +69,17 @@ export function feedFrameModel({ state, flashState, height, now }: Frame): FeedM
 }
 
 /** The chat column for `frame`, or null while it is closed. */
-export function chatColumnFrameModel({ state, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker }: Frame): { width: number; focused: boolean } | null {
+export function chatColumnFrameModel(frame: Frame): { width: number; focused: boolean } | null {
+  const { state, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker, commentsPicker } = frame
   if (!state.chatOpen) return null
   const outside = {
-    prompt: promptOpenIn(state, searchState, filePicker),
+    prompt: promptOpenIn(state, searchState, frame),
     help: help.open,
     confirm: confirmDialog !== null,
     syncPreview: syncPreview !== null,
     reviewPreview: reviewPreview !== null,
     filePicker: filePicker !== null,
+    commentsPicker: commentsPicker !== null,
   }
   return { width: chatColumnWidth(width), focused: chatInputFocused(state, outside) }
 }

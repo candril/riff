@@ -8,7 +8,7 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { composerOpen } from "../../app/diff-focus"
-import { focusLeft, focusRight, promptOpen, toggleChat, type AppState } from "../../state"
+import { focusLeft, focusRight, promptOpen, toggleChat, type AppState, type PromptPickers } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { SearchState } from "../../vim-diff/search-state"
 import { isVisualMode } from "../../vim-diff/cursor-state"
@@ -16,15 +16,13 @@ import { registerAtPickerLayer } from "../../app/at-picker-keys"
 import { attachOnScreen } from "./attach"
 import type { ChatAtPicker } from "./at-picker"
 import type { ChatState } from "./state"
-import type { FilePickerState } from "../file-picker/state"
 
-export interface ChatKeyDeps {
+export interface ChatKeyDeps extends PromptPickers {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   getVimState: () => VimCursorState
   getSearchState: () => SearchState
-  filePicker: Pick<FilePickerState, "open">
   chat: { state: ChatState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
 }
 
@@ -34,8 +32,8 @@ const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
  * A composer or a one-line prompt keeps its keys, Ctrl-r included: the
  * chat taking focus from under it would strand what is being typed there.
  */
-export function chatStandsAside(state: AppState, searchActive: boolean, filePicker: Pick<FilePickerState, "open">): boolean {
-  return composerOpen(state) || promptOpen(state, filePicker) || searchActive || state.prInfoPanel.commentInputOpen
+export function chatStandsAside(state: AppState, searchActive: boolean, pickers: PromptPickers): boolean {
+  return composerOpen(state) || promptOpen(state, pickers) || searchActive || state.prInfoPanel.commentInputOpen
 }
 
 /**
@@ -48,16 +46,16 @@ export function chatReaches(
   key: Pick<KeyEvent, "name" | "ctrl">,
   state: AppState,
   searchActive: boolean,
-  filePicker: Pick<FilePickerState, "open">
+  pickers: PromptPickers
 ): boolean {
-  if (!key.ctrl || chatStandsAside(state, searchActive, filePicker)) return false
+  if (!key.ctrl || chatStandsAside(state, searchActive, pickers)) return false
   if (key.name === "r") return true
   return key.name === "l" && state.focusedPanel === "comments" && state.chatOpen
 }
 
 export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () => void {
   const { chat } = deps
-  const standsAside = () => chatStandsAside(deps.getState(), deps.getSearchState().active, deps.filePicker)
+  const standsAside = () => chatStandsAside(deps.getState(), deps.getSearchState().active, deps)
   const focused = () => {
     const state = deps.getState()
     return state.chatOpen && state.focusedPanel === "chat" && !standsAside()

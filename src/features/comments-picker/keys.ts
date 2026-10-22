@@ -7,12 +7,13 @@ import type { RiffKeymap } from "../../app/keymap"
 import { registerQueryPickerKeys } from "../../app/query-picker-keys"
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
-import { closeCommentsPicker, moveCommentsPickerSelection } from "../../state"
 import { getFilteredEntries } from "./filter"
+import type { CommentsPickerState } from "./state"
 
 export interface CommentsPickerKeyDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  /** The comments picker's state, the same instance the frame pass reads. */
+  commentsPicker: CommentsPickerState
   render: () => void
   /**
    * The jump itself: file switch, cursor placement, overlay open. Wired by
@@ -25,22 +26,21 @@ export function registerCommentsPickerKeys(riffKeymap: RiffKeymap, deps: Comment
   return registerQueryPickerKeys(riffKeymap, {
     name: "commentsPicker",
     category: "Comments picker",
-    active: () => deps.getState().commentsPicker.open,
+    active: () => deps.commentsPicker.open(),
     close: () => {
-      deps.setState(closeCommentsPicker)
+      deps.commentsPicker.close()
       deps.render()
     },
     pick: () => {
-      const state = deps.getState()
-      const entry = getFilteredEntries(state)[state.commentsPicker.selectedIndex]
+      const entry = getFilteredEntries(deps.getState(), deps.commentsPicker.query())[deps.commentsPicker.selectedIndex()]
       if (!entry) return
-      deps.setState(closeCommentsPicker)
+      deps.commentsPicker.close()
       deps.onSelectComment(entry.comment)
     },
     move: (delta) => {
       // Read at run time, so the bound is the list on screen.
-      const maxIndex = Math.max(0, getFilteredEntries(deps.getState()).length - 1)
-      deps.setState((s) => moveCommentsPickerSelection(s, delta, maxIndex))
+      const maxIndex = Math.max(0, getFilteredEntries(deps.getState(), deps.commentsPicker.query()).length - 1)
+      deps.commentsPicker.move(delta, maxIndex)
       deps.render()
     },
   })

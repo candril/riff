@@ -1,8 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
-import type { AppState } from "../state"
+import type { AppState, PromptPickers } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { chatReaches } from "../features/chat/keys"
-import type { FilePickerState } from "../features/file-picker/state"
 
 const BLAME_PEEK_CHORDS = new Set(["go", "gb"])
 
@@ -21,11 +20,10 @@ export function chordAllowedUnderPeek(
 }
 
 /** What both peeks read to decide whether they hold a key, beyond whether they are up. */
-export interface PeekKeyContext {
+export interface PeekKeyContext extends PromptPickers {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean
-  filePicker: Pick<FilePickerState, "open">
   /** Whether a chord waits for its second key, which is the chord's rather than the peek's. */
   chordPending: () => boolean
 }
@@ -44,5 +42,5 @@ export function peekLeaves(key: KeyEvent, ctx: PeekKeyContext): boolean {
   if (key.name === "g" && !key.ctrl && !key.shift) return true
   if (ctx.chordPending()) return true
   if (ctx.getVimState().pendingTextObject && state.focusedPanel === "diff") return true
-  return chatReaches(key, state, ctx.searchActive(), ctx.filePicker)
+  return chatReaches(key, state, ctx.searchActive(), ctx)
 }

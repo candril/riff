@@ -119,11 +119,13 @@ into a factory of its own, `createXState()`, built on Solid signals as in
 tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/help/state.ts`, `src/features/confirm/state.ts`,
 `src/features/sync-preview/state.ts`,
-`src/features/review-preview/state.ts` and
-`src/features/file-picker/state.ts` are the examples. The frame pass reads
-each factory's accessors into the `Frame`, so islands keep following one
-frame; its actions do not render, so callers still call `render()` after
-them, and a reload that rebuilds `AppState` resets the factory itself.
+`src/features/review-preview/state.ts`,
+`src/features/file-picker/state.ts` and
+`src/features/comments-picker/state.ts` are the examples. The frame
+pass reads each factory's accessors into the `Frame`, so islands keep
+following one frame; its actions do not render, so callers still call
+`render()` after them, and a reload that rebuilds `AppState` resets the
+factory itself.
 
 **A model and a component per view.** What a view shows is a pure function
 of state in `src/components/*-model.ts` (`toastModel`, `threadPanelModel`,

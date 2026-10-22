@@ -28,12 +28,7 @@ export {
   getFilteredEntries,
   type CommentsPickerEntry,
 } from "./filter"
-
-// Re-export state operations callers may need.
-export {
-  openCommentsPicker,
-  closeCommentsPicker,
-} from "../../state"
+export { createCommentsPickerState, type CommentsPickerState, type CommentsPickerSnapshot } from "./state"
 
 export interface CommentsPickerJumpContext {
   getState: () => AppState
