@@ -34,15 +34,16 @@ glance, with everything else one keystroke away.
 - The metadata block is one row: **Author** and **Branch**. Status, Changes
   and Reviews go, because the header already carries them; the repeated title
   goes.
-- Every section is folded on arrival, **Merge status**
-  ([108](./108-merge-status.md)) and **Description** included, so the
-  overview is one screen of headers. Each header carries its count and a
+- Every section is folded on arrival except **Description**, which opens,
+  since it is what a reader came to see first; **Merge status**
+  ([108](./108-merge-status.md)) stays folded. Each header carries its count and a
   one-glance summary right after it, two cells on; Merge status carries its
   verdict there, folded or not, and folded it names what blocks:
 
 ```
   ▶  Merge status  ✗ blocked · lint, e2e failing
-  ▶  Description (2)
+  ▼  Description (2)
+      …the description…
   ▶  Previews (6)  4 live · 2 on demand  ·  from deploy-bot[bot]
   ▶  Conversation (2)  1 unresolved
   ▶  Files (12)  +487 -53
@@ -51,7 +52,9 @@ glance, with everything else one keystroke away.
 
 - The sections the reader opens are theirs for the review: kept in
   `.riff/<review>/info-panel.json` and open again the next time riff opens
-  the same review, while another review starts folded. A section a
+  the same review. A review riff has never saved folds for opens on its
+  description; a file the reader has written wins, even one that folds
+  the description. A section a
   `Ctrl-f` filter opened is not counted; the filter narrows for the
   moment, and the reader did not choose to keep it open.
 

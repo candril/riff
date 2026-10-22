@@ -15,6 +15,8 @@ export interface PrInfoNav {
   readonly expandedCheckIds: ReadonlySet<number>
   // Per session only, like the checks: which merge status lines are open (spec 108).
   readonly expandedPoints: ReadonlySet<MergePoint["id"]>
+  /** Sections a filter opened that the reader had not: open on screen, but not theirs to keep. */
+  readonly filterOpened: ReadonlySet<PRInfoPanelSection>
   /** What `Ctrl-f` narrows the panel to (spec 065). Empty means everything. */
   readonly filter: string
 }
@@ -22,19 +24,24 @@ export interface PrInfoNav {
 /** How many rows a section has as it is drawn now; the panel answers it. */
 export type SectionCounts = (section: PRInfoPanelSection) => number
 
-export function initialNav(openSections: ReadonlySet<PRInfoPanelSection> = new Set()): PrInfoNav {
+/**
+ * The description is what a reader came to see first, so it opens; every
+ * other section waits behind a header with its count and summary, the merge
+ * status naming what blocks. Once the reader has folds for the review, those
+ * are handed in instead and win, the description's included (specs 067, 108).
+ */
+export const ARRIVAL_SECTIONS: ReadonlySet<PRInfoPanelSection> = new Set(['description'])
+
+export function initialNav(openSections: ReadonlySet<PRInfoPanelSection> = ARRIVAL_SECTIONS): PrInfoNav {
   return {
     activeSection: 'description',
     cursorIndex: -1,
-    // The panel's job is to say what there is — headers with their count and
-    // summary, the merge status naming what blocks — and let the reader open
-    // the one they came for. What they opened is theirs for the review, so it
-    // is handed back here (specs 067, 108).
     expandedSections: new Set(openSections),
     expandedThreads: new Set(),
     expandedContent: new Set(),
     expandedCheckIds: new Set(),
     expandedPoints: new Set(['checks']),
+    filterOpened: new Set(),
     filter: "",
   }
 }
@@ -96,8 +103,10 @@ export function stepNav(nav: PrInfoNav, delta: 1 | -1, counts: SectionCounts): P
   return delta > 0 ? cycleSection(nav, 1) : cycleSectionToEnd(nav, -1, counts)
 }
 
-function withSections(nav: PrInfoNav, expandedSections: ReadonlySet<PRInfoPanelSection>): PrInfoNav {
-  return { ...nav, expandedSections }
+function without<T>(set: ReadonlySet<T>, item: T): Set<T> {
+  const next = new Set(set)
+  next.delete(item)
+  return next
 }
 
 function toggled<T>(set: ReadonlySet<T>, item: T): Set<T> {
@@ -106,26 +115,30 @@ function toggled<T>(set: ReadonlySet<T>, item: T): Set<T> {
   return next
 }
 
-export function toggleSection(nav: PrInfoNav): PrInfoNav {
-  return withSections(nav, toggled(nav.expandedSections, nav.activeSection))
+/** Folding or opening the active section makes it the reader's, whoever opened it. */
+function withActiveSection(nav: PrInfoNav, expandedSections: ReadonlySet<PRInfoPanelSection>): PrInfoNav {
+  return { ...nav, expandedSections, filterOpened: without(nav.filterOpened, nav.activeSection) }
 }
 
 export function collapseSection(nav: PrInfoNav): PrInfoNav {
-  const next = new Set(nav.expandedSections)
-  next.delete(nav.activeSection)
-  return withSections(nav, next)
+  return withActiveSection(nav, without(nav.expandedSections, nav.activeSection))
 }
 
 export function expandSection(nav: PrInfoNav): PrInfoNav {
-  return withSections(nav, new Set(nav.expandedSections).add(nav.activeSection))
+  return withActiveSection(nav, new Set(nav.expandedSections).add(nav.activeSection))
 }
 
 export function collapseAll(nav: PrInfoNav): PrInfoNav {
-  return withSections(nav, new Set())
+  return { ...nav, expandedSections: new Set(), filterOpened: new Set() }
 }
 
 export function expandAll(nav: PrInfoNav): PrInfoNav {
-  return withSections(nav, new Set(ALL_SECTIONS))
+  return { ...nav, expandedSections: new Set(ALL_SECTIONS), filterOpened: new Set() }
+}
+
+/** The open sections the reader chose, which are what is kept for the review. */
+export function readerSections(nav: PrInfoNav): Set<PRInfoPanelSection> {
+  return new Set([...nav.expandedSections].filter((section) => !nav.filterOpened.has(section)))
 }
 
 /**
@@ -147,15 +160,19 @@ export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
  */
 export function setFilter(nav: PrInfoNav, filter: string, counts: SectionCounts): PrInfoNav {
   if (filter === nav.filter) return nav
-  let expandedSections = nav.expandedSections
+  let { expandedSections, filterOpened } = nav
   if (filter) {
     const opened = new Set(expandedSections)
+    const byFilter = new Set(filterOpened)
     for (const section of ALL_SECTIONS) {
-      if (section !== 'description' && counts(section) > 0) opened.add(section)
+      if (section === 'description' || counts(section) === 0 || opened.has(section)) continue
+      opened.add(section)
+      byFilter.add(section)
     }
     expandedSections = opened
+    filterOpened = byFilter
   }
-  return clampCursor({ ...nav, filter, expandedSections }, counts)
+  return clampCursor({ ...nav, filter, expandedSections, filterOpened }, counts)
 }
 
 export function toggleContent(nav: PrInfoNav, itemId: string): PrInfoNav {
@@ -210,6 +227,7 @@ export function navAt(position: NavPosition, filter: string): PrInfoNav {
     expandedContent: new Set(position.expandedContent),
     expandedCheckIds: new Set(position.expandedCheckIds),
     expandedPoints: new Set(position.expandedPoints),
+    filterOpened: new Set(position.filterOpened),
     filter,
   }
 }

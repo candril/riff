@@ -31,23 +31,30 @@ async function writeInfoPanel(root: string, text: string): Promise<void> {
 }
 
 describe("the info panel file", () => {
-  test("gives back the sections saved for the review, and none for another", async () => {
+  test("gives back the sections saved for the review, and the description for one never saved", async () => {
     await inRepo(async (root) => {
       await saveInfoSections("local", new Set(["files", "checks"]))
       expect(await loadInfoSections("local")).toEqual(new Set(["checks", "files"]))
-      expect(await loadInfoSections("gh:owner/repo#1")).toEqual(new Set())
+      expect(await loadInfoSections("gh:owner/repo#1")).toEqual(new Set(["description"]))
       expect(JSON.parse(await readFile(filePath(root), "utf8"))).toEqual({ openSections: ["checks", "files"] })
     })
   })
 
-  test("opens nothing when it is missing, not JSON, or not a list", async () => {
+  test("opens the description when it is missing, not JSON, or not a list", async () => {
     await inRepo(async (root) => {
-      expect(await loadInfoSections("local")).toEqual(new Set())
+      expect(await loadInfoSections("local")).toEqual(new Set(["description"]))
       await writeInfoPanel(root, "{ not json")
-      expect(await loadInfoSections("local")).toEqual(new Set())
+      expect(await loadInfoSections("local")).toEqual(new Set(["description"]))
       await writeInfoPanel(root, '{"openSections": "files"}')
-      expect(await loadInfoSections("local")).toEqual(new Set())
+      expect(await loadInfoSections("local")).toEqual(new Set(["description"]))
       await writeInfoPanel(root, '["files"]')
+      expect(await loadInfoSections("local")).toEqual(new Set(["description"]))
+    })
+  })
+
+  test("opens nothing when the reader folded everything, the description too", async () => {
+    await inRepo(async (root) => {
+      await writeInfoPanel(root, '{"openSections": []}')
       expect(await loadInfoSections("local")).toEqual(new Set())
     })
   })

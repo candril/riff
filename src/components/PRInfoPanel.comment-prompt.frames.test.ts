@@ -81,7 +81,7 @@ describe("the PR comment prompt", () => {
   test("stays open with its text across a rebuild of the sections", async () => {
     const { panel, mounted } = await mount({ prepare: (p) => p.updateCommentInput(true, "hello", false, null) })
     panel.setActiveSection("files")
-    panel.toggleSection()
+    panel.expandSection()
     panel.setPrInfo(fullPr())
     const lines = (await mounted.frame()).split("\n")
     expect(lines.join("\n")).toContain("Add PR Comment")

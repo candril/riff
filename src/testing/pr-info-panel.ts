@@ -52,8 +52,8 @@ export interface MountPrInfoPanel {
   section?: PRInfoPanelSection
   /**
    * The sections the panel is built with open, as a review the reader opened
-   * them in before hands them back. The description by default, so a test
-   * reads the body without opening it first.
+   * them in before hands them back. Left out, the panel opens what a review
+   * seen for the first time opens: the description.
    */
   openSections?: readonly PRInfoPanelSection[]
   /**
@@ -111,7 +111,7 @@ export function usePrInfoPanel() {
     columns = width === 120 ? undefined : width,
     section,
     mergeStatusOpen = false,
-    openSections = mergeStatusOpen ? ["checks", "description"] : ["description"],
+    openSections = mergeStatusOpen ? ["checks", "description"] : undefined,
     prepare = () => {},
   }: MountPrInfoPanel = {}) {
     const restore = columns === undefined ? null : pinStdoutColumns(columns)
@@ -119,7 +119,7 @@ export function usePrInfoPanel() {
       let shown!: PRInfoPanelClass
       const screen = await mountRenderable(
         (renderer) => {
-          shown = new PRInfoPanelClass(renderer, info, files, comments, new Set(openSections))
+          shown = new PRInfoPanelClass(renderer, info, files, comments, openSections && new Set(openSections))
           shown.setOnOpenFailingCheck(askedForAnnotations)
           panels.push(shown)
           return shown.getContainer()

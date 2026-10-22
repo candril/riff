@@ -34,7 +34,7 @@ says whose move it is, this section says why.
 - **The section**: "Merge status" first in the PR info panel, in place of
   Checks, borderless like the rest of the panel
   ([106](./106-borderless-ui.md)). It is folded on arrival like every
-  section ([067](./067-info-panel.md)), its verdict naming what blocks,
+  section but Description ([067](./067-info-panel.md)), its verdict naming what blocks,
   unless the reader left it open in this review; opened, its checks line
   is open too. Its header carries no count.
 - **The verdict** right after the section's title, two cells on, like

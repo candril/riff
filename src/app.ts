@@ -990,7 +990,7 @@ export async function createApp(options: AppOptions = {}) {
     recreatePrInfoPanel: (openSections) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
-      // from scratch it would drop them back on the collapsed description.
+      // from scratch it would drop them back on the description's header.
       const panelPosition = prInfoPanel?.capturePosition()
       prInfoPanel?.destroy()
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments, openSections)

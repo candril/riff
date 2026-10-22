@@ -68,15 +68,16 @@ async function arrive(openSections?: ReadonlySet<PRInfoPanelSection>): Promise<s
 const headerOf = (lines: string[], title: string) => lines[find(lines, title)[1]]!
 
 describe("arriving on a review", () => {
-  test("with nothing opened before draws only the headers, each folded, the merge status naming what blocks", async () => {
+  test("with nothing opened before draws the description open and every other header folded, the merge status naming what blocks", async () => {
     const lines = await arrive()
     expect(headerOf(lines, "Merge status")).toBe("  ▶  Merge status  ✗ blocked · lint failing")
-    for (const title of ["Description", "Previews", "Conversation", "Files", "Commits"]) {
+    expect(headerOf(lines, "Description")).toStartWith("  ▼  Description")
+    for (const title of ["Previews", "Conversation", "Files", "Commits"]) {
       expect(headerOf(lines, title)).toStartWith(`  ▶  ${title}`)
     }
     const screenText = lines.join("\n")
-    expect(screenText).not.toContain("▼")
-    expect(screenText).not.toContain("Second line")
+    expect(screenText.match(/▼/g)).toHaveLength(1)
+    expect(screenText).toContain("Second line")
     expect(screenText).not.toContain("build")
     expect(screenText).not.toContain("src/greet.ts")
   })

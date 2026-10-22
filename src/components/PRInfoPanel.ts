@@ -75,6 +75,7 @@ export interface PRInfoPanelPosition {
   expandedContent: Set<string>
   expandedCheckIds: Set<number>
   expandedPoints: Set<MergePoint["id"]>
+  filterOpened: Set<PRInfoPanelSection>
   scrollTop: number
 }
 
@@ -222,6 +223,7 @@ export class PRInfoPanelClass {
       expandedContent: new Set(this.nav.expandedContent),
       expandedCheckIds: new Set(this.nav.expandedCheckIds),
       expandedPoints: new Set(this.nav.expandedPoints),
+      filterOpened: new Set(this.nav.filterOpened),
       // A panel rebuilt again before its first frame has not applied its
       // restored scroll yet; the box still reads 0.
       scrollTop: this.pendingScrollTop ?? this.island.scrollBox.scrollTop,
@@ -478,10 +480,6 @@ export class PRInfoPanelClass {
     this.followCursor()
   }
 
-  toggleSection(): void {
-    this.applyFolds(Nav.toggleSection(this.nav))
-  }
-
   /** Folding the section the cursor is in takes the cursor up onto its header, the one row left. */
   collapseSection(): void {
     const onRow = this.nav.cursorIndex !== -1
@@ -493,9 +491,14 @@ export class PRInfoPanelClass {
     this.applyFolds(Nav.expandSection(this.nav))
   }
 
-  /** `zM`/`zm`: the folds inside a section are left as they are, to show again when it reopens. */
+  /**
+   * `zM`/`zm`: the folds inside a section are left as they are, to show
+   * again when it reopens. The cursor goes up onto its header, as with `zc`.
+   */
   collapseAllSections(): void {
-    this.applyFolds(Nav.collapseAll(this.nav))
+    const onRow = this.nav.cursorIndex !== -1
+    this.applyFolds(Nav.withCursor(Nav.collapseAll(this.nav), -1))
+    if (onRow) this.followCursor()
   }
 
   /**
@@ -511,10 +514,11 @@ export class PRInfoPanelClass {
    * but that is a narrowing for the moment, not a choice to keep them open.
    */
   private applyFolds(next: PrInfoNav): void {
-    const before = this.nav.expandedSections
+    const before = Nav.readerSections(this.nav)
+    const after = Nav.readerSections(next)
     this.nav = next
     this.push()
-    if (!sameSections(before, next.expandedSections)) this.onSectionsChange?.(new Set(next.expandedSections))
+    if (!sameSections(before, after)) this.onSectionsChange?.(after)
   }
 
   /** Where the sections the reader opens and folds are reported. Set once, from app.ts. */

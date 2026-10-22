@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import type { PRInfoPanelSection } from "../state"
-import type { FlatConversationItem } from "./pr-info-items"
+import { ALL_SECTIONS, type FlatConversationItem } from "./pr-info-items"
 import {
   bottomTarget,
   collapseAll,
+  collapseSection,
   collapseContent,
   collapsePoint,
   cycleSection,
@@ -11,12 +12,14 @@ import {
   expandAll,
   expandContent,
   expandPoint,
+  expandSection,
   flashJumpNav,
   flashTargets,
   initialNav,
   moveCursor,
   navAt,
   reactionTargetOf,
+  readerSections,
   restoreNav,
   setFilter,
   stepNav,
@@ -47,15 +50,16 @@ function nav(over: Partial<PrInfoNav> = {}): PrInfoNav {
 const open = (...sections: PRInfoPanelSection[]) => new Set<PRInfoPanelSection>(sections)
 
 describe("initialNav", () => {
-  test("starts on the description's header with every section folded, the merge status's checks line ready open", () => {
+  test("starts on the description's header with only the description open, the merge status's checks line ready open", () => {
     expect(initialNav()).toEqual({
       activeSection: 'description',
       cursorIndex: -1,
-      expandedSections: open(),
+      expandedSections: open('description'),
       expandedThreads: new Set(),
       expandedContent: new Set(),
       expandedCheckIds: new Set(),
       expandedPoints: new Set(['checks']),
+      filterOpened: open(),
       filter: "",
     })
   })
@@ -168,6 +172,26 @@ describe("setFilter", () => {
     const from = nav({ filter: "x", expandedSections: open('files', 'checks') })
     expect(setFilter(from, "", counts()).expandedSections).toEqual(open('files', 'checks'))
   })
+
+  test("leaves out of the reader's sections only those it opened itself, cleared or not", () => {
+    const filtered = setFilter(nav({ expandedSections: open('description', 'files') }), "x", counts({ commits: 0 }))
+    expect(filtered.filterOpened).toEqual(open('checks', 'conversation'))
+    expect(readerSections(filtered)).toEqual(open('description', 'files'))
+    expect(readerSections(setFilter(filtered, "", counts()))).toEqual(open('description', 'files'))
+  })
+
+  test("hands a section it opened to the reader once they open or fold it", () => {
+    const filtered = setFilter(nav({ expandedSections: open(), activeSection: 'files' }), "x", counts())
+    expect(readerSections(expandSection(filtered))).toEqual(open('files'))
+    expect(readerSections(collapseSection(filtered))).toEqual(open())
+    expect(collapseSection(filtered).filterOpened).toEqual(open('checks', 'conversation', 'commits'))
+  })
+
+  test("is forgotten by collapseAll and expandAll, which choose every section", () => {
+    const filtered = setFilter(nav({ expandedSections: open() }), "x", counts())
+    expect(collapseAll(filtered).filterOpened).toEqual(open())
+    expect(readerSections(expandAll(filtered))).toEqual(new Set(ALL_SECTIONS))
+  })
 })
 
 describe("withFilter", () => {
@@ -200,6 +224,7 @@ describe("navAt", () => {
       expandedContent: new Set(["c"]),
       expandedCheckIds: new Set([3]),
       expandedPoints: new Set(['checks'] as const),
+      filterOpened: open('commits'),
     }
     const restored = navAt(position, "greet")
     expect(restored).toEqual({ ...position, filter: "greet" })

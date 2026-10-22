@@ -16,12 +16,12 @@ function recording(panel: PRInfoPanelClass): PRInfoPanelSection[][] {
 }
 
 describe("the sections the reader opens", () => {
-  test("toggling one reports the new set, and toggling it back reports that", async () => {
+  test("opening one reports the new set, and folding it again reports that", async () => {
     const { panel } = await mount({ openSections: ["description"] })
     const reported = recording(panel)
     panel.setActiveSection("files")
-    panel.toggleSection()
-    panel.toggleSection()
+    panel.expandSection()
+    panel.collapseSection()
     expect(reported).toEqual([["description", "files"], ["description"]])
   })
 
@@ -50,6 +50,17 @@ describe("the sections the reader opens", () => {
     expect(panel.isSectionExpandedNamed("files")).toBe(true)
     panel.setFilter("")
     expect(reported).toEqual([])
+  })
+
+  test("a fold after a filter reports only the reader's sections, not the ones the filter opened", async () => {
+    const { panel } = await mount({ openSections: [] })
+    const reported = recording(panel)
+    panel.setFilter("greet")
+    panel.setFilter("")
+    panel.setActiveSection("commits")
+    panel.expandSection()
+    panel.collapseSection()
+    expect(reported).toEqual([["commits"], []])
   })
 
   test("a position handed back to a rebuilt panel reports nothing", async () => {

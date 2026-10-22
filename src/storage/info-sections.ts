@@ -2,6 +2,7 @@ import { join } from "path"
 import { mkdir } from "fs/promises"
 import type { PRInfoPanelSection } from "../state"
 import { ALL_SECTIONS } from "../components/pr-info-items"
+import { ARRIVAL_SECTIONS } from "../components/pr-info-nav"
 import { localStorageDir, sourceToDir } from "./resolve"
 
 const INFO_PANEL_FILE = "info-panel.json"
@@ -15,20 +16,23 @@ function infoPanelPath(source: string): string {
 }
 
 /**
- * The info panel sections the reader opened in this review. Never throws:
- * a missing or mangled file, or a name riff no longer knows, leaves that
- * section folded, which is never wrong, only one key away.
+ * The info panel sections the reader opened in this review, exactly as
+ * listed, so an empty list folds the description too. Never throws: a
+ * missing file, or one too mangled to hold folds riff can trust, counts as
+ * a review seen for the first time and opens the arrival sections. A name
+ * riff no longer knows is left folded, which is never wrong, only one key
+ * away.
  */
 export async function loadInfoSections(source: string): Promise<Set<PRInfoPanelSection>> {
   try {
     const file = Bun.file(infoPanelPath(source))
-    if (!(await file.exists())) return new Set()
+    if (!(await file.exists())) return new Set(ARRIVAL_SECTIONS)
     const data: unknown = await file.json()
     const listed = typeof data === "object" && data !== null ? (data as Record<string, unknown>).openSections : undefined
-    if (!Array.isArray(listed)) return new Set()
+    if (!Array.isArray(listed)) return new Set(ARRIVAL_SECTIONS)
     return new Set(ALL_SECTIONS.filter((section) => listed.includes(section)))
   } catch {
-    return new Set()
+    return new Set(ARRIVAL_SECTIONS)
   }
 }
 

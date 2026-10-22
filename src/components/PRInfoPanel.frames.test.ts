@@ -85,7 +85,27 @@ describe("the info panel", () => {
 })
 
 describe("on arrival", () => {
-  test("draws the meta row, an empty stack row, the separator and six headers, the merge status and the description open", async () => {
+  test("at a review seen for the first time draws the meta row, the separator, the merge status folded, the description open and every other header folded", async () => {
+    const { lines } = await mount()
+    expect(lines).toEqual([
+      "",
+      META,
+      "",
+      "",
+      SEPARATOR,
+      "",
+      FOLDED_MERGE_STATUS,
+      "",
+      "  ▼  Description (2)",
+      "",
+      "    Adds the skill.",
+      "    Second line with code.",
+      "",
+      ...HEADERS,
+    ])
+  })
+
+  test("with the merge status opened draws the meta row, an empty stack row, the separator and six headers, the merge status and the description open", async () => {
     const { lines } = await mount({ mergeStatusOpen: true })
     expect(lines).toEqual([
       "",

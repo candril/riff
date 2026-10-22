@@ -11,7 +11,7 @@ afterAll(async () => {
   for (const root of roots) await rm(root, { recursive: true, force: true })
 })
 
-test("riff starts with the info panel sections the reader opened in this review, and none for another", async () => {
+test("riff starts with the info panel sections the reader opened in this review, and the description for another", async () => {
   const root = await mkdtemp(join(tmpdir(), "riff-init-info-sections-"))
   roots.push(root)
   await mkdir(join(root, ".git"), { recursive: true })
@@ -26,7 +26,7 @@ test("riff starts with the info panel sections the reader opened in this review,
     expect(local.prInfoOpenSections).toEqual(new Set(["checks", "files"]))
     const pr = await initializeAppState({ mode: "pr", target: undefined, diff: "", comments: [], prInfo: prInfo("") })
     expect(pr.source).toBe("gh:owner/repo#1259")
-    expect(pr.prInfoOpenSections).toEqual(new Set())
+    expect(pr.prInfoOpenSections).toEqual(new Set(["description"]))
   } finally {
     process.chdir(cwd)
   }
