@@ -251,7 +251,7 @@ function getStatusIcon(status: DiffFile["status"]): string {
 | `Ctrl+b` | Toggle file panel |
 | `j` / `k` | Navigate in focused panel |
 | `Enter` | Select file (in tree) / Toggle folder |
-| `h` / `l` | Collapse / Expand folder |
+| `h` / `l` | Fold an open folder or climb to the folder above / open a folder or step into it (the rule of spec 067) |
 | `Tab` | Switch focus between panels |
 
 ### File Structure

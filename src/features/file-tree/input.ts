@@ -58,6 +58,11 @@ export function handleInput(
 
   const flatItems = treeRowsOf(ctx.state)
   const panel = ctx.getPanel()
+  const moveHighlightTo = (index: number) => {
+    ctx.setState((s) => ({ ...s, treeHighlightIndex: index }))
+    ctx.updatePanel()
+    panel.ensureHighlightVisible()
+  }
 
   // `/` filters the tree by path, the same key that searches the diff.
   if (key.name === "/" || key.sequence === "/") {
@@ -134,41 +139,37 @@ export function handleInput(
       return true
     }
 
+    // The info panel's rule (spec 067): `l` opens a directory or steps into
+    // an open one, `h` folds an open one or climbs out without folding.
     case "l":
     case "right": {
-      const expandItem = flatItems[ctx.state.treeHighlightIndex]
-      if (expandItem?.node.isDirectory && !expandItem.node.expanded) {
-        ctx.setState((s) => {
-          const newTree = toggleNodeExpansion(s.fileTree, expandItem.node.path)
-          return updateFileTree(s, newTree)
-        })
+      const index = ctx.state.treeHighlightIndex
+      const item = flatItems[index]
+      if (!item?.node.isDirectory) return true
+      if (!item.node.expanded) {
+        ctx.setState((s) => updateFileTree(s, toggleNodeExpansion(s.fileTree, item.node.path)))
         ctx.render()
+      } else if ((flatItems[index + 1]?.depth ?? -1) > item.depth) {
+        moveHighlightTo(index + 1)
       }
       return true
     }
 
     case "h":
     case "left": {
-      const collapseItem = flatItems[ctx.state.treeHighlightIndex]
-      if (collapseItem?.node.isDirectory && collapseItem.node.expanded) {
-        // Collapse this directory
-        ctx.setState((s) => {
-          const newTree = toggleNodeExpansion(s.fileTree, collapseItem.node.path)
-          return updateFileTree(s, newTree)
-        })
+      const index = ctx.state.treeHighlightIndex
+      const item = flatItems[index]
+      if (!item) return true
+      if (item.node.isDirectory && item.node.expanded) {
+        ctx.setState((s) => updateFileTree(s, toggleNodeExpansion(s.fileTree, item.node.path)))
         ctx.render()
-      } else if (collapseItem && !collapseItem.node.isDirectory) {
-        // On a file - find parent directory and collapse it
-        for (let i = ctx.state.treeHighlightIndex - 1; i >= 0; i--) {
-          const item = flatItems[i]
-          if (item && item.node.isDirectory && item.depth < collapseItem.depth) {
-            ctx.setState((s) => {
-              const newTree = toggleNodeExpansion(s.fileTree, item.node.path)
-              return { ...updateFileTree(s, newTree), treeHighlightIndex: i }
-            })
-            ctx.render()
-            break
-          }
+        return true
+      }
+      for (let i = index - 1; i >= 0; i--) {
+        const above = flatItems[i]!
+        if (above.node.isDirectory && above.depth < item.depth) {
+          moveHighlightTo(i)
+          break
         }
       }
       return true
