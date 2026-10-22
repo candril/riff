@@ -52,3 +52,48 @@ describe("a folded fenced block in the mapping", () => {
     expect(folded.blockAtLine(row)?.id).toBe(block.id)
   })
 })
+
+const twoBlocks: DiffFile = {
+  filename: "two.md",
+  additions: 1,
+  deletions: 0,
+  status: "modified",
+  content: [
+    "diff --git a/two.md b/two.md",
+    "--- a/two.md",
+    "+++ b/two.md",
+    "@@ -1,7 +1,8 @@",
+    " ```mermaid",
+    "+graph",
+    " ```",
+    " between",
+    " ```ts",
+    " x()",
+    " ```",
+    " end",
+  ].join("\n"),
+}
+
+describe("the block ids of a file", () => {
+  const withTwo = (collapsedBlocks = new Set<string>()) =>
+    new DiffLineMapping([doc, twoBlocks], "all", undefined, { collapsedBlocks })
+  const everyId = withTwo().foldableBlocks.map((block) => block.id)
+
+  test("are the open blocks and the folded ones alike", () => {
+    const [first] = everyId
+    expect(withTwo(new Set([first!])).blockIdsIn().sort()).toEqual([...everyId].sort())
+    expect(withTwo(new Set(everyId)).blockIdsIn().sort()).toEqual([...everyId].sort())
+  })
+
+  test("are the named file's only", () => {
+    const folded = withTwo(new Set(everyId))
+    expect(folded.blockIdsIn("two.md")).toHaveLength(2)
+    expect(folded.blockIdsIn("doc.md")).toHaveLength(1)
+  })
+
+  test("a folded block's row does not pair with the next block's closing fence", () => {
+    const first = withTwo().foldableBlocks.find((block) => block.filename === "two.md")!
+    const open = withTwo(new Set([first.id])).foldableBlocks.filter((block) => block.filename === "two.md")
+    expect(open.map((block) => block.info)).toEqual(["ts"])
+  })
+})

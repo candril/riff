@@ -188,17 +188,15 @@ function toggleBlockAtCursor(ctx: FoldsContext): boolean {
 export function handleToggleFileBlocks(ctx: FoldsContext): void {
   const mapping = ctx.getLineMapping()
   const filename = mapping.getLine(ctx.getVimState().line)?.filename
-  const blocks = mapping.foldableBlocks.filter(
-    (block) => !filename || block.filename === filename
-  )
-  if (blocks.length === 0) return
+  const blockIds = mapping.blockIdsIn(filename)
+  if (blockIds.length === 0) return
 
   const state = ctx.getState()
-  const anyOpen = blocks.some((block) => !state.collapsedBlocks.has(block.id))
+  const anyOpen = blockIds.some((id) => !state.collapsedBlocks.has(id))
   const ids = new Set(state.collapsedBlocks)
-  for (const block of blocks) {
-    if (anyOpen) ids.add(block.id)
-    else ids.delete(block.id)
+  for (const id of blockIds) {
+    if (anyOpen) ids.add(id)
+    else ids.delete(id)
   }
 
   ctx.setState((s) => setBlockFolds(s, [...ids]))
@@ -372,7 +370,7 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
   // Diff view - collapse all files, and fold every block, so opening one
   // file back up shows its prose rather than its diagrams (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
-  const blockIds = ctx.getLineMapping().foldableBlocks.map((block) => block.id)
+  const blockIds = ctx.getLineMapping().blockIdsIn()
   ctx.setState((s) => setBlockFolds(collapseAllFiles(s), blockIds))
   ctx.rebuildLineMapping()
   if (currentFilename) {

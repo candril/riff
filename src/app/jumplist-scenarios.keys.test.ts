@@ -315,7 +315,7 @@ describe("b: a fold, an unfold, wrap and the split toggle do not record", () => 
     expect(a.state().collapsedBlocks.size).toBe(0)
     a.press("z", KEY.A)
     expect(a.state().collapsedBlocks.size).toBe(1)
-    a.press("z", "a")
+    a.press("z", KEY.A)
     expect(a.state().collapsedBlocks.size).toBe(0)
     expect(a.where().text).toContain("```mermaid")
     expect(a.list().entries).toEqual([])

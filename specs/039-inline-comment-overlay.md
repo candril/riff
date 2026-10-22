@@ -95,7 +95,8 @@ spec 010; that panel is retired.
     ones: a thread that is resolved or outdated is hidden with all its
     replies. The palette's "Show Only Open Threads" does the same.
   - It narrows what scope and `/` already left, so `j`/`k`, `Ctrl-d`/`Ctrl-u`,
-    `gg`/`G`, flash labels and the window all move among open threads only.
+    `gg`/`G`, flash labels and the window all move among open threads only,
+    and `J`/`K` and `Ctrl-n` go to the next or previous open thread in the PR.
   - While on, the header reads `open only · N hidden` after the label and any
     `/` filter text, in the filter's colour; N counts threads, not comments.
     The count on the right is what is shown. On a narrow panel the note is cut

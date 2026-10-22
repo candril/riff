@@ -48,6 +48,22 @@ index 1111111..2222222 100644
 
 const DIFF = `${["a.ts", "b.ts"].map(fileDiff).join("")}${DOC}`
 
+const TWO_BLOCKS = `diff --git a/doc.md b/doc.md
+index 1111111..2222222 100644
+--- a/doc.md
++++ b/doc.md
+@@ -1,8 +1,8 @@
+ intro
+ ~~~sh
+-echo hi
++echo hello
+ ~~~
+ between
+ ~~~js
+ log()
+ ~~~
+`
+
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 afterEach(async () => {
   await app?.dispose()
@@ -55,8 +71,8 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys, every scroll the z chords ask of the diff recorded. */
-async function zApp(more: Partial<AppKeyContext> = {}) {
-  app = await mountApp(DIFF, { width: 120, height: 30 })
+async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
+  app = await mountApp(diff, { width: 120, height: 30 })
   app.show({ focusedPanel: "diff" })
   const mounted = app
   const { ctx: render } = mounted
@@ -165,6 +181,44 @@ describe("folds", () => {
       type("z", shifted)
       expect(state().collapsedBlocks.size).toBe(1)
     }
+  })
+
+  test("a second zA unfolds the file's blocks once zA has folded them all", async () => {
+    const { mounted, type, state, lineOf, keys } = await zApp()
+    keys.jumpTo(lineOf("between", "doc.md"))
+    type("z", SHIFT_A)
+    expect(state().collapsedBlocks.size).toBe(1)
+    expect(await mounted.frame()).not.toContain("+echo hello")
+
+    type("z", SHIFT_A)
+    expect(state().collapsedBlocks.size).toBe(0)
+    const frame = await mounted.frame()
+    expect(frame).toContain("~~~sh")
+    expect(frame).toContain("echo hello")
+  })
+
+  test("zA folds the block za left open, then unfolds both", async () => {
+    const { type, state, lineOf, keys } = await zApp({}, TWO_BLOCKS)
+    keys.jumpTo(lineOf("~~~sh", "doc.md"))
+    type("z", "a")
+    expect(state().collapsedBlocks.size).toBe(1)
+
+    keys.jumpTo(lineOf("between", "doc.md"))
+    type("z", SHIFT_A)
+    expect(state().collapsedBlocks.size).toBe(2)
+    type("z", SHIFT_A)
+    expect(state().collapsedBlocks.size).toBe(0)
+  })
+
+  test("zM keeps a block za folded before it", async () => {
+    const { type, state, lineOf, keys } = await zApp({}, TWO_BLOCKS)
+    keys.jumpTo(lineOf("~~~sh", "doc.md"))
+    type("z", "a")
+    const folded = [...state().collapsedBlocks]
+
+    type("z", "\x1b[77;2u")
+    expect(state().collapsedBlocks.size).toBe(2)
+    expect([...state().collapsedBlocks]).toEqual(expect.arrayContaining(folded))
   })
 
   test("zM, zm and the shifted zm fold every file, zR, zr and the shifted zr unfold them", async () => {

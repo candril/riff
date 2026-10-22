@@ -20,6 +20,7 @@ export interface ThreadAnchor {
   side: "LEFT" | "RIGHT"
   rootCommentId: string
   resolved: boolean
+  outdated: boolean
 }
 
 export interface ThreadMotionContext {
@@ -33,14 +34,20 @@ export interface ThreadMotionContext {
   fileNavContext: FileNavigationContext
 }
 
+export interface ThreadAnchorFilter {
+  skipResolved?: boolean
+  /** Drop outdated threads too, as the thread panel's open-only does (spec 039). */
+  skipOutdated?: boolean
+  /** Only threads carrying a comment you have not seen (spec 069). */
+  unseenOnly?: boolean
+}
+
 /**
  * Get all root-comment anchors in the PR, sorted by (filename, line).
  */
 export function getThreadAnchors(
   state: AppState,
-  skipResolved: boolean,
-  /** Only threads carrying a comment you have not seen (spec 069). */
-  unseenOnly = false
+  { skipResolved = false, skipOutdated = false, unseenOnly = false }: ThreadAnchorFilter = {}
 ): ThreadAnchor[] {
   const unseen = unseenOnly
     ? new Set(unseenIn(state, state.comments).map((c) => c.inReplyTo ?? c.id))
@@ -49,7 +56,9 @@ export function getThreadAnchors(
   for (const c of state.comments) {
     if (c.inReplyTo) continue
     const resolved = c.isThreadResolved ?? false
+    const outdated = c.outdated ?? false
     if (skipResolved && resolved) continue
+    if (skipOutdated && outdated) continue
     if (unseen && !unseen.has(c.id)) continue
     anchors.push({
       filename: c.filename,
@@ -57,6 +66,7 @@ export function getThreadAnchors(
       side: c.side,
       rootCommentId: c.id,
       resolved,
+      outdated,
     })
   }
   anchors.sort((a, b) => {
@@ -125,7 +135,7 @@ export function navigateToThread(
   unseenOnly = false
 ): ThreadAnchor | null {
   const state = ctx.getState()
-  const anchors = getThreadAnchors(state, skipResolved, unseenOnly)
+  const anchors = getThreadAnchors(state, { skipResolved, unseenOnly })
   if (anchors.length === 0) return null
 
   const lineMapping = ctx.getLineMapping()
@@ -178,8 +188,10 @@ export function jumpOverlayToAdjacentThread(
   const state = ctx.getState()
   if (!state.inlineCommentOverlay.open) return
 
-  const skipResolved = false
-  const anchors = getThreadAnchors(state, skipResolved)
+  // The panel's own jump stays among the threads the panel shows; ]r and [r
+  // ignore open-only (spec 039).
+  const skipClosed = state.threadPanelOpenOnly
+  const anchors = getThreadAnchors(state, { skipResolved: skipClosed, skipOutdated: skipClosed })
   if (anchors.length === 0) return
 
   const from = {

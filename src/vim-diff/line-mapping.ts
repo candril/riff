@@ -109,6 +109,17 @@ export class DiffLineMapping implements LineSource {
   }
 
   /**
+   * The ids of a file's blocks, folded or open, or of every file's without
+   * one (spec 073). A folded block has no fences left to scan for.
+   */
+  blockIdsIn(filename?: string): string[] {
+    const inFile = (name: string | undefined) => !filename || name === filename
+    const open = this.foldableBlocks.filter((block) => inFile(block.filename)).map((block) => block.id)
+    const folded = this.lines.flatMap((line) => (line.blockFoldId && inFile(line.filename) ? [line.blockFoldId] : []))
+    return [...open, ...folded]
+  }
+
+  /**
    * The block a row falls in, fences included (spec 073).
    *
    * A folded block is one row whose closing fence is not in the mapping at

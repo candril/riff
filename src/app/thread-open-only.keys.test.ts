@@ -104,6 +104,16 @@ function keysOn(mounted: NonNullable<typeof app>) {
     } as unknown as AppKeyContext["fileNavContext"],
     commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as AppKeyContext["commentsContext"],
   }
+  known.threadMotionContext = {
+    getState: render.getState,
+    setState: render.setState,
+    getVimState: () => vimState,
+    setVimState,
+    getLineMapping: render.getLineMapping,
+    ensureCursorVisible: () => {},
+    render: mounted.render,
+    fileNavContext: known.fileNavContext!,
+  }
   const ctx = new Proxy(known, {
     get(target, name) {
       if (name in target) return target[name as keyof AppKeyContext]
@@ -200,5 +210,50 @@ describe("H in the thread panel", () => {
     await mounted.frame()
     expect(mounted.ctx.getState().threadPanelOpenOnly).toBe(false)
     expect(mounted.ctx.threadPanel.composer.value()).toBe("H")
+  })
+})
+
+describe("Ctrl-n and K in the thread panel", () => {
+  const cursorLine = () => {
+    const { ctx } = app!
+    return ctx.getLineMapping().getLine(ctx.getVimState().line)?.newLineNum
+  }
+  const ctrl = (key: string) => app!.setup.mockInput.pressKey(key, { ctrl: true })
+  // Ctrl-t opens the panel on the file's header row, ahead of every thread.
+  const onFirstThread = () => {
+    ctrl("n")
+    expect(app!.ctx.getState().inlineCommentOverlay.line).toBe(1)
+    expect(highlightedId()).toBe("o1")
+  }
+
+  test("with open-only on, pass over the resolved and the outdated thread", async () => {
+    const mounted = await panelApp(140)
+    await mounted.setup.mockInput.typeText("H")
+    onFirstThread()
+
+    ctrl("n")
+    expect(mounted.ctx.getState().inlineCommentOverlay.line).toBe(7)
+    expect(highlightedId()).toBe("o2")
+    expect(cursorLine()).toBe(7)
+    const frame = await mounted.frame()
+    expect(frame).toContain("open question two")
+    expect(frame).not.toContain("settled long ago")
+    expect(frame).not.toContain("about code since moved")
+    expect(frame).toContain("▸ @ana Jan 1 [synced]")
+
+    // Ctrl-p is the action menu's; K is the previous thread.
+    await mounted.setup.mockInput.typeText("K")
+    expect(mounted.ctx.getState().inlineCommentOverlay.line).toBe(1)
+    expect(highlightedId()).toBe("o1")
+    expect(cursorLine()).toBe(1)
+  })
+
+  test("with open-only off, Ctrl-n lands on the resolved thread next", async () => {
+    const mounted = await panelApp(140)
+    onFirstThread()
+    ctrl("n")
+    expect(mounted.ctx.getState().inlineCommentOverlay.line).toBe(3)
+    expect(highlightedId()).toBe("r1")
+    expect(cursorLine()).toBe(3)
   })
 })

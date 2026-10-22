@@ -108,6 +108,7 @@ export interface FoldableLine extends FencedLine {
   sourceContent?: string
   oldLineNum?: number
   newLineNum?: number
+  blockFoldId?: string
 }
 
 /**
@@ -127,7 +128,9 @@ export function findFoldableBlocks(lines: readonly FoldableLine[]): FoldableBloc
       open = null
       continue
     }
-    if (!isContent(line.type)) continue
+    // A folded block's row still reads as an opening fence, and would pair
+    // with the next block's closing one.
+    if (!isContent(line.type) || line.blockFoldId) continue
 
     const fence = (line.sourceContent ?? line.content).trim().match(FENCE)
     if (!fence) continue
