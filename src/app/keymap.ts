@@ -15,6 +15,12 @@ export interface RiffKeymap {
    * unregister.
    */
   capture(active: (key: KeyEvent) => boolean, rest?: (key: KeyEvent) => void): Captured
+  /**
+   * Whether any capture holds the key being offered. A layer that must
+   * answer outside every modal, and inside its own, stands aside on this
+   * under any modal that outranks it.
+   */
+  held(): boolean
 }
 
 export type Captured = (() => void) & {
@@ -97,6 +103,7 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
       return true
     },
     chordPending: () => keymap.hasPendingSequence(),
+    held: () => holding !== undefined,
     capture(active, rest) {
       const capture: Capture = { active, rest }
       // Newest first: the keymap prefers the later registered of two layers

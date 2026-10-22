@@ -244,6 +244,24 @@ test("a layer enabled by its capture's hold stands aside under a later active ca
   expect(lower.holds()).toBe(false)
 })
 
+test("held() is true only while an active capture holds the key being offered", async () => {
+  const { riffKeymap, keys } = await setup()
+  const seen: boolean[] = []
+  let active = false
+  riffKeymap.keymap.registerLayer({
+    commands: [{ name: "test.j", run: () => void seen.push(riffKeymap.held()) }],
+    bindings: [{ key: "j", cmd: "test.j" }],
+  })
+  riffKeymap.capture(() => active)
+
+  keys(press("j"))
+  active = true
+  keys(press("j"))
+
+  expect(seen).toEqual([false, true])
+  expect(riffKeymap.held()).toBe(false)
+})
+
 test("a key bound in a layer enabled with the capture runs its command, not the capture's rest", async () => {
   const { riffKeymap, legacyKeys, keys } = await setup()
   const active = () => true

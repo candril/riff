@@ -9,6 +9,7 @@ import { registerPickerKeys } from "./picker-keys"
 import { registerCommitPickerKeys } from "../features/commit-picker"
 import { registerPreviewKeys } from "./preview-keys"
 import { registerHelpKeys } from "./help-keys"
+import { registerChatKeys } from "../features/chat/keys"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 
@@ -24,7 +25,17 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
-  // Submit Review and the help overlay.
+  // Submit Review, the help overlay and, last of them, the chat.
+  registerChatKeys(riffKeymap, {
+    getState: ctx.getState,
+    setState: ctx.setState,
+    render: ctx.render,
+    getVimState: ctx.getVimState,
+    getSearchState: ctx.getSearchState,
+    chat: ctx.chat,
+    clearChainChord: () => legacy.clearChord(),
+    settleChainChord: (key) => legacy.settleChord(key),
+  })
   registerHelpKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,

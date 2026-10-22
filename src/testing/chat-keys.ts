@@ -71,10 +71,11 @@ export function keysOn(mounted: Mounted, more: Partial<GlobalKeyContext> = {}) {
       }
     },
   }) as GlobalKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
+  const keys = createAppKeys(mounted.setup.renderer, ctx)
+  mounted.setup.renderer.keyInput.on("keypress", keys)
   // Where a search or a flash jump would land the cursor, without walking there.
   const jumpTo = (line: number) => setVimState({ ...vimState, line })
-  return { quits, vimState: () => vimState, jumpTo }
+  return { quits, vimState: () => vimState, jumpTo, chordPending: () => keys.chordPending() }
 }
 
 export const ctrl = (mounted: Mounted, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })

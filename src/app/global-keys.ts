@@ -9,7 +9,7 @@
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
-import { clearTreeFilter, expandFiles, focusLeft, focusRight, promptOpen, toggleChat } from "../state"
+import { clearTreeFilter, expandFiles, focusLeft, focusRight } from "../state"
 import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -23,9 +23,6 @@ import type { CommentScope } from "../diff-rows/comment-scope"
 import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
-import { composerOpen } from "./diff-focus"
-import { handleChatKey } from "../features/chat/keys"
-import { attachOnScreen } from "../features/chat/attach"
 import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
@@ -240,9 +237,16 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 /**
  * `chordPending` is exposed because the jump recorder judges a chord as one
  * interaction: a place reached by its second key is recorded from where the
- * first key was pressed.
+ * first key was pressed. `clearChord` and `settleChord` are for the keymap
+ * layers that take keys ahead of the chain yet must still cancel its chord,
+ * as the chain's own branches did.
  */
-export type GlobalKeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
+export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
+  chordPending(): boolean
+  clearChord(): void
+  /** Drops a pending mark chord that `key` gives way to. */
+  settleChord(key: KeyEvent): void
+}
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
@@ -551,65 +555,21 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     }
   }
 
-  /**
-   * Ctrl-r, the walk into and out of the chat, and every key while the chat
-   * has focus. A composer or a one-line prompt keeps its keys, Ctrl-r
-   * included: the chat taking focus from under it would strand what is
-   * being typed there.
-   */
-  function handleChatKeys(key: KeyEvent): boolean {
-    const state = ctx.getState()
-    if (
-      composerOpen(state) ||
-      promptOpen(state) ||
-      ctx.getSearchState().active ||
-      state.prInfoPanel.commentInputOpen
-    ) {
-      return false
-    }
-    const move = (to: (s: AppState) => AppState) => {
-      ctx.setState(to)
-      ctx.render()
-      return true
-    }
-    if (key.ctrl && key.name === "r") {
-      clearPendingKey()
-      const fromDiff = state.focusedPanel === "diff" && state.viewMode === "diff"
-      move(toggleChat)
-      if (fromDiff) attachOnScreen(ctx.chat.input(), isVisualMode(ctx.getVimState()))
-      return true
-    }
-    if (state.chatOpen && state.focusedPanel === "chat") {
-      // The chat is the last panel on the right; Ctrl-l has nowhere further to go.
-      if (key.ctrl && key.name === "l") return true
-      return handleChatKey(key, {
-        state: ctx.chat.state,
-        input: ctx.chat.input,
-        focusDiff: () => move((s) => ({ ...s, focusedPanel: "diff" })),
-        walkLeft: () => move(focusLeft),
-      })
-    }
-    // The thread panel swallows the keys it does not know, so the step from it to the chat is taken here.
-    if (key.ctrl && key.name === "l" && state.focusedPanel === "comments" && state.chatOpen) {
-      return move(focusRight)
-    }
-    return false
+  return Object.assign(handleKeypress, {
+    chordPending: () => pendingKey !== null,
+    clearChord: clearPendingKey,
+    settleChord,
+  })
+
+  // A click into the tree between `m` and its letter leaves the chord
+  // pending; the next key was typed for the tree, and every handler below
+  // stands aside while a chord is pending.
+  function settleChord(key: KeyEvent) {
+    if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
   }
 
-  return Object.assign(handleKeypress, { chordPending: () => pendingKey !== null })
-
   function handleKeypress(key: KeyEvent) {
-    // A click into the tree between `m` and its letter leaves the chord
-    // pending; the next key was typed for the tree, and every handler below
-    // stands aside while a chord is pending.
-    if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== CHAT (captures all input while focused, spec 102) ==========
-    // Ahead of the panels: Ctrl-r reaches the chat from every view, and
-    // nothing typed into the chat may reach the diff, the tree or the threads.
-    if (handleChatKeys(key)) {
-      return
-    }
+    settleChord(key)
 
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
     if (
