@@ -94,10 +94,10 @@ Review, and the help overlay's. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
-only in its `/` mode. The help overlay's capture leaves a bare `g` to the
-chain's chord matcher, so `g?` closes it, and the overlay stands aside
-entirely while the chain holds a chord, and under any modal that outranks
-it.
+only in its `/` mode. Every modal layer stands aside under any modal that
+outranks it, even for keys that modal leaves unbound. The help overlay's
+capture leaves a bare `g` to the chain's chord matcher, so `g?` closes
+it, and the overlay stands aside entirely while the chain holds a chord.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).

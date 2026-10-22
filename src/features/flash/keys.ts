@@ -19,9 +19,14 @@ export interface FlashKeyDeps {
 }
 
 export function registerFlashKeys(riffKeymap: RiffKeymap, deps: FlashKeyDeps): () => void {
-  const active = () => deps.getFlashState().active
+  const captured = riffKeymap.capture(
+    () => deps.getFlashState().active,
+    (key) => {
+      if (key.sequence?.length === 1 && !key.ctrl && !key.meta) deps.flashHandler().handleChar(key.sequence)
+    },
+  )
   const unregisterLayer = riffKeymap.keymap.registerLayer({
-    enabled: active,
+    enabled: () => captured.holds(),
     commands: [
       {
         name: "flash.cancel",
@@ -48,11 +53,8 @@ export function registerFlashKeys(riffKeymap: RiffKeymap, deps: FlashKeyDeps): (
       ...anyModifiers("backspace", "flash.backspace"),
     ],
   })
-  const unregisterCapture = riffKeymap.capture(active, (key) => {
-    if (key.sequence?.length === 1 && !key.ctrl && !key.meta) deps.flashHandler().handleChar(key.sequence)
-  })
   return () => {
-    unregisterCapture()
+    captured()
     unregisterLayer()
   }
 }

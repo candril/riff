@@ -38,8 +38,6 @@ function linkForRow(submenu: ActionSubmenu, rowId: string): LinkTarget | null {
 }
 
 export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuKeyDeps): () => void {
-  const active = () => deps.getState().actionMenu.open
-
   // Read at run time, the way the palette draws them, so the row a key
   // acts on is the row on screen.
   const view = () => {
@@ -106,8 +104,11 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
     deps.onLink("copy", link)
   }
 
+  // No `rest` and no preventDefault: an unbound key is a letter of the
+  // query, and the palette's prompt field types it (spec 065).
+  const captured = riffKeymap.capture(() => deps.getState().actionMenu.open)
   const unregisterLayer = riffKeymap.keymap.registerLayer({
-    enabled: active,
+    enabled: () => captured.holds(),
     commands: [
       {
         name: "actionMenu.close",
@@ -162,11 +163,8 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
       ...anyModifiers("ctrl+y", "actionMenu.copyLink"),
     ],
   })
-  // No `rest` and no preventDefault: an unbound key is a letter of the
-  // query, and the palette's prompt field types it (spec 065).
-  const unregisterCapture = riffKeymap.capture(active)
   return () => {
-    unregisterCapture()
+    captured()
     unregisterLayer()
   }
 }

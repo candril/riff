@@ -32,7 +32,6 @@ export interface CommitPickerKeyDeps {
 
 export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPickerKeyDeps): () => void {
   const picker = () => deps.getState().commitPicker
-  const active = () => picker().open
   const update = (updater: (s: AppState) => AppState) => {
     deps.setState(updater)
     deps.render()
@@ -81,8 +80,15 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
     },
   })
 
+  // The query belongs to the prompt field, which types every key left
+  // unprevented (spec 065); outside `/` no field is open and the picker
+  // owns the keyboard, so nothing it leaves falls through to the diff.
+  const captured = riffKeymap.capture(() => picker().open, (key) => {
+    if (!picker().queryInput) key.preventDefault()
+  })
+
   const unregisterFilter = riffKeymap.keymap.registerLayer({
-    enabled: () => active() && picker().queryInput,
+    enabled: () => captured.holds() && picker().queryInput,
     commands: [
       command("filterCancel", "Drop the query", () => update((s) => endCommitPickerFilter(s, false))),
       command("filterKeep", "Keep the query", () => update((s) => endCommitPickerFilter(s, true))),
@@ -97,7 +103,7 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
   })
 
   const unregisterList = riffKeymap.keymap.registerLayer({
-    enabled: () => active() && !picker().queryInput,
+    enabled: () => captured.holds() && !picker().queryInput,
     commands: [
       command("close", "Close the picker", () => update(closeCommitPicker)),
       command("select", "Show the selected commits", select),
@@ -129,15 +135,8 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
       ...anyModifiers("shift+v", "commitPicker.range"),
     ],
   })
-
-  // The query belongs to the prompt field, which types every key left
-  // unprevented (spec 065); outside `/` no field is open and the picker
-  // owns the keyboard, so nothing it leaves falls through to the diff.
-  const unregisterCapture = riffKeymap.capture(active, (key) => {
-    if (!picker().queryInput) key.preventDefault()
-  })
   return () => {
-    unregisterCapture()
+    captured()
     unregisterList()
     unregisterFilter()
   }

@@ -44,8 +44,14 @@ export function registerQueryPickerKeys(riffKeymap: RiffKeymap, picker: QueryPic
   })
   const extra = picker.extra ?? []
 
+  // No `rest` and no preventDefault: an unbound key, a bare p or n
+  // included, is a letter of the query for the prompt field to type.
+  const captured = riffKeymap.capture(picker.active)
   const unregisterLayer = riffKeymap.keymap.registerLayer({
-    enabled: picker.active,
+    // Not `picker.active`: a modal that outranks the picker, such as the
+    // confirmation dialog, would otherwise leave it every key the modal
+    // does not bind itself.
+    enabled: () => captured.holds(),
     commands: [
       command("close", "Close the picker", picker.close),
       command("pick", "Go to the selected row", picker.pick),
@@ -66,11 +72,8 @@ export function registerQueryPickerKeys(riffKeymap: RiffKeymap, picker: QueryPic
       ...extra.flatMap((entry) => anyModifiers(entry.key, `${name}.${entry.name}`)),
     ],
   })
-  // No `rest` and no preventDefault: an unbound key, a bare p or n
-  // included, is a letter of the query for the prompt field to type.
-  const unregisterCapture = riffKeymap.capture(picker.active)
   return () => {
-    unregisterCapture()
+    captured()
     unregisterLayer()
   }
 }

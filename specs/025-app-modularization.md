@@ -216,10 +216,12 @@ export function registerOccurrencePickerKeys(riffKeymap: RiffKeymap, deps: Occur
 }
 ```
 
-`registerQueryPickerKeys` registers the layer with `enabled: active`, binds
-each key with every modifier held (`anyModifiers`), and adds a `capture`
-without a `rest` handler: a key the layer leaves is neither prevented nor
-passed to the priority chain, so the picker's prompt field types it.
+`registerQueryPickerKeys` adds a `capture` without a `rest` handler first:
+a key the layer leaves is neither prevented nor passed to the priority
+chain, so the picker's prompt field types it. It then registers the layer
+with `enabled: () => captured.holds()`, so the layer stands aside under any
+modal that outranks it, and binds each key with every modifier held
+(`anyModifiers`).
 `src/app/keys.ts` registers every feature's layer in `createAppKeys`; of
 two enabled layers binding a key, the later registered wins.
 

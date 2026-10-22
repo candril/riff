@@ -13,9 +13,9 @@ export interface ConfirmKeyDeps {
  * it is answered.
  */
 export function registerConfirmKeys(riffKeymap: RiffKeymap, deps: ConfirmKeyDeps): () => void {
-  const active = () => deps.getState().confirmDialog !== null
+  const captured = riffKeymap.capture(() => deps.getState().confirmDialog !== null)
   const unregisterLayer = riffKeymap.keymap.registerLayer({
-    enabled: active,
+    enabled: () => captured.holds(),
     commands: [
       {
         name: "confirm.yes",
@@ -38,9 +38,8 @@ export function registerConfirmKeys(riffKeymap: RiffKeymap, deps: ConfirmKeyDeps
       ...anyModifiers("escape", "confirm.no"),
     ],
   })
-  const unregisterCapture = riffKeymap.capture(active)
   return () => {
-    unregisterCapture()
+    captured()
     unregisterLayer()
   }
 }

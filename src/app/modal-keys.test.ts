@@ -5,11 +5,21 @@ import { createFlashState } from "../vim-diff/flash-state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { FlashHandler } from "../vim-diff/flash-handler"
 import { keymapHarness } from "../testing/keymap-keys"
+import { registerQueryPickerKeys } from "./query-picker-keys"
 import { registerModalKeys } from "./keys"
 
-async function setup({ flash = true, palette = false, dialog = true } = {}) {
+async function setup({ flash = true, palette = false, dialog = true, picker = false } = {}) {
   const { riffKeymap, legacyKeys, press } = await keymapHarness()
   const calls: string[] = []
+  // Registered first, as createAppKeys registers the pickers ahead of the modals.
+  registerQueryPickerKeys(riffKeymap, {
+    name: "filePicker",
+    category: "File picker",
+    active: () => picker,
+    close: () => void calls.push("picker close"),
+    pick: () => void calls.push("picker pick"),
+    move: (delta) => void calls.push(`picker move ${delta}`),
+  })
   const initial = createInitialState([], [], "local", "local changes")
   let state: AppState = {
     ...initial,
@@ -97,5 +107,39 @@ test("with the palette open down moves its selection with super held", async () 
   press(KITTY_SUPER_DOWN)
 
   expect(state().actionMenu.selectedIndex).toBe(1)
+  expect(legacyKeys).toEqual([])
+})
+
+test("with the palette and the dialog both up down and ctrl+n leave the palette's selection alone, and ctrl+n cancels the dialog", async () => {
+  const { calls, legacyKeys, press, state } = await setup({ flash: false, palette: true })
+
+  press("\x1b[B")
+  press("\x0e")
+  press("y")
+
+  expect(state().actionMenu.selectedIndex).toBe(0)
+  expect(calls).toEqual(["dialog no", "dialog yes"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("with flash and the dialog both up y and n are typed into the flash, not answered", async () => {
+  const { calls, legacyKeys, press } = await setup()
+
+  press("y")
+  press("n")
+  press("\x1b")
+
+  expect(calls).toEqual(["flash char y", "flash char n", "flash cancel"])
+  expect(legacyKeys).toEqual([])
+})
+
+test("with a picker and the dialog both up the picker's enter and up do not run", async () => {
+  const { calls, legacyKeys, press } = await setup({ flash: false, picker: true })
+
+  press("\r")
+  press("\x1b[A")
+  press("n")
+
+  expect(calls).toEqual(["dialog no"])
   expect(legacyKeys).toEqual([])
 })

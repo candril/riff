@@ -98,7 +98,7 @@ Initialize as `{ open: false, query: "", selectedIndex: 0 }` in
 ```
 src/features/comments-picker/
 ├── index.ts        # Public exports
-├── keys.ts         # keymap layer (captures all input when open)
+├── keys.ts         # keymap layer; its capture keeps unbound keys from the chain, unprevented for the prompt field
 └── filter.ts       # buildEntries, filter & sort
 ```
 

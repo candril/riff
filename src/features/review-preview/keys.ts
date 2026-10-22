@@ -33,7 +33,7 @@ export interface ReviewPreviewKeyDeps {
 }
 
 export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPreviewKeyDeps): () => void {
-  const active = () => deps.getState().reviewPreview.open
+  const captured = riffKeymap.capture(() => deps.getState().reviewPreview.open)
   const update = (updater: (s: AppState) => AppState) => {
     deps.setState(updater)
     deps.render()
@@ -61,7 +61,7 @@ export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPr
   })
 
   const unregisterModal = riffKeymap.keymap.registerLayer({
-    enabled: active,
+    enabled: () => captured.holds(),
     commands: [
       command("close", "Close Submit Review", () => update(closeReviewPreview)),
       command("submit", "Submit the review", submit),
@@ -84,7 +84,7 @@ export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPr
     update((s) => moveReviewHighlight(s, delta, maxIndex))
   }
   const unregisterComments = riffKeymap.keymap.registerLayer({
-    enabled: () => active() && deps.getState().reviewPreview.focusedSection === "comments",
+    enabled: () => captured.holds() && deps.getState().reviewPreview.focusedSection === "comments",
     commands: [
       command("comment", "Comment", () => update((s) => setReviewEvent(s, "COMMENT"))),
       command("approve", "Approve", () => update((s) => setReviewEvent(s, "APPROVE"))),
@@ -108,9 +108,8 @@ export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPr
     ],
   })
 
-  const unregisterCapture = riffKeymap.capture(active)
   return () => {
-    unregisterCapture()
+    captured()
     unregisterComments()
     unregisterModal()
   }

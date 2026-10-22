@@ -15,9 +15,9 @@ export interface SyncPreviewKeyDeps {
 }
 
 export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPreviewKeyDeps): () => void {
-  const active = () => deps.getState().syncPreview.open
+  const captured = riffKeymap.capture(() => deps.getState().syncPreview.open)
   const unregisterLayer = riffKeymap.keymap.registerLayer({
-    enabled: active,
+    enabled: () => captured.holds(),
     commands: [
       {
         name: "syncPreview.close",
@@ -47,9 +47,8 @@ export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPrevie
       ...anyModifiers("enter", "syncPreview.sync"),
     ],
   })
-  const unregisterCapture = riffKeymap.capture(active)
   return () => {
-    unregisterCapture()
+    captured()
     unregisterLayer()
   }
 }
