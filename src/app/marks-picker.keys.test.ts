@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { jumpScenario, KEY, type JumpScenario } from "../testing/jump-scenarios"
+import { reloadCtx } from "../testing/app-render"
 import { bgAt, ints } from "../testing/frame"
 import { createInitialState } from "../state"
 import { adoptReloadedState } from "../features/refresh/handlers"
@@ -106,9 +107,7 @@ test("Ctrl-k lists every mark, a query narrows them, Ctrl-n and Ctrl-p stop at t
   await mockInput.typeText("line")
   await mounted.frame()
   expect(letters(opened)).toEqual(["c"])
-  const { ctx: render, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-  adoptReloadedState(reload, (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), marks: prev.marks }))
+  adoptReloadedState(reloadCtx(mounted), (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), marks: prev.marks }))
   mounted.render()
   expect(picker()).toEqual({ open: false, query: "", selectedIndex: 0 })
   expect(await mounted.frame()).not.toContain("^x delete")

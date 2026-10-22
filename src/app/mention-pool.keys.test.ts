@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import type { CommentsContext } from "../features/comments"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { createInitialState } from "../state"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { keysOn, moveTo } from "../testing/chat-keys"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -33,9 +33,7 @@ test("the fetched @mention pool outlives a reload: `@da` still offers its login"
   mounted.render()
   await mounted.frame()
 
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-  adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
+  adoptReloadedState(reloadCtx(mounted), (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   await mounted.frame()
 

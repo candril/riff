@@ -44,6 +44,7 @@ import { createAppShell } from "../app/shell"
 import { createDiffHighlights } from "../app/diff-highlights"
 import { createSplitDiff } from "../app/split-diff"
 import { createUnifiedDiff } from "../app/unified-diff"
+import type { adoptReloadedState } from "../features/refresh/handlers"
 import { trimFrame } from "./frame"
 
 /** The host's laid-out size reaches the diff a tick after the frame that laid it out. */
@@ -283,4 +284,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       renderer.destroy()
     },
   }
+}
+
+/** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
+export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
 }

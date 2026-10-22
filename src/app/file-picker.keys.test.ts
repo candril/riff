@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from "bun:test"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { treeRowsOf } from "../components/FileTree"
 import { createInitialState } from "../state"
@@ -91,9 +91,7 @@ test("Ctrl-f opens the picker on its factory, Ctrl-n wraps, a query narrows, Ent
   mockInput.pressKey("f", { ctrl: true })
   await mockInput.typeText("gr")
   expect(await mounted.frame()).toContain("Find Files")
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-  adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
+  adoptReloadedState(reloadCtx(mounted), (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   expect(mounted.filePicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
   expect(mounted.filePicker.open()).toBe(false)

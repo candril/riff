@@ -7,7 +7,7 @@ import type { LoadedFileBlame } from "../providers/blame/source"
 import type { BlameLine } from "../providers/blame/types"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { createInitialState } from "../state"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { routeDiffViewport } from "./diff-viewport"
 
@@ -122,9 +122,7 @@ describe("zB", () => {
     expect(await app!.frame()).toContain("…")
 
     const mounted = app!
-    const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-    const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-    adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
+    adoptReloadedState(reloadCtx(mounted), (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
     mounted.render()
 
     answer(loaded(41), loaded(41))

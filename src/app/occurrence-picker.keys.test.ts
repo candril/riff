@@ -1,6 +1,6 @@
 import { test, expect, afterEach } from "bun:test"
 import type { AppKeyContext } from "./key-context"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { createInitialState } from "../state"
 import { adoptReloadedState } from "../features/refresh/handlers"
@@ -147,9 +147,7 @@ test("Ctrl-s opens the picker on its factory seeded with the word under the curs
   ctrl(mounted, "s")
   await mockInput.typeText(' "h')
   expect(pickerBox(await mounted.frame())).toContain("2 in 1 file")
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-  adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
+  adoptReloadedState(reloadCtx(mounted), (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   expect(picker()).toMatchObject({ open: false, query: "", filter: "", narrowing: false, selectedIndex: 0 })
   expect(await mounted.frame()).not.toContain("Occurrences")

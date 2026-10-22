@@ -1,6 +1,6 @@
 import { test, expect, afterEach } from "bun:test"
 import type { AppKeyContext } from "./key-context"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { createComment } from "../types"
 import { createInitialState } from "../state"
@@ -99,9 +99,7 @@ test("gC opens the picker on its factory, Ctrl-n wraps, a query narrows, Enter j
   await mockInput.typeText("gC")
   await mockInput.typeText("na")
   expect(await mounted.frame()).toContain("Find Comments")
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
-  adoptReloadedState(reload, (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), comments: prev.comments }))
+  adoptReloadedState(reloadCtx(mounted), (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), comments: prev.comments }))
   mounted.render()
   expect(mounted.commentsPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
   expect(mounted.commentsPicker.open()).toBe(false)
