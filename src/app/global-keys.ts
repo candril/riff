@@ -32,6 +32,10 @@ import { createLinksPicker } from "./links-picker"
 import { blameKeysContext } from "./blame-key-deps"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
+import { chordSuffix } from "./chord-stroke"
+import { diffTakesMarkChord } from "./mark-chord-gate"
+import { BRACKET_SEQUENCES, bracketCommands } from "./bracket-commands"
+import { bracketDeps } from "./bracket-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -193,18 +197,8 @@ export function createKeyHandler(
     if (timeout !== null) pendingTimeout = setTimeout(clearPendingKey, timeout)
   }
 
-  /** `fm` finds an m and `vi'` selects quotes: a key some motion is waiting for is not a chord. */
-  function diffTakesMarkChord(): boolean {
-    const state = ctx.getState()
-    const vim = ctx.getVimState()
-    return (
-      state.viewMode === "diff" &&
-      state.focusedPanel === "diff" &&
-      vim.mode === "normal" &&
-      vim.pendingFindChar === null &&
-      vim.pendingTextObject === null
-    )
-  }
+  const takesMarkChord = () => diffTakesMarkChord(ctx)
+  const brackets = bracketCommands(bracketDeps(ctx))
 
   const followLinkContext: followLink.FollowLinkContext = {
     setState: ctx.setState,
@@ -267,7 +261,7 @@ export function createKeyHandler(
   return Object.assign(handleKeypress, {
     chordPending: () => pendingKey !== null,
     chordPendingAfter: (key: KeyEvent) =>
-      pendingKey !== null && !marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord()),
+      pendingKey !== null && !marks.pendingMarkChordGivesWay(pendingKey, key, takesMarkChord()),
     clearChord: clearPendingKey,
     settleChord,
   })
@@ -277,7 +271,7 @@ export function createKeyHandler(
   // while a chord is pending, in the chain or in a layer ahead of it, would
   // otherwise never see it.
   function settleChord(key: KeyEvent) {
-    if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
+    if (marks.pendingMarkChordGivesWay(pendingKey, key, takesMarkChord())) clearPendingKey()
   }
 
   function handleKeypress(key: KeyEvent) {
@@ -286,7 +280,7 @@ export function createKeyHandler(
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     const chordPending = pendingKey !== null
     if (pendingKey === "m" || pendingKey === "'") {
-      const action = marks.markChordAction(pendingKey, key, diffTakesMarkChord())
+      const action = marks.markChordAction(pendingKey, key, takesMarkChord())
       clearPendingKey()
       if (action.kind === "set") marks.setMarkAtCursor(action.letter, ctx.marksContext)
       else if (action.kind === "jump") marks.jumpToMark(action.letter, ctx.marksContext)
@@ -294,65 +288,16 @@ export function createKeyHandler(
       return
     }
     if (pendingKey) {
-      const keyChar = key.name || (key.sequence?.length === 1 ? key.sequence : "")
-      const sequence = `${pendingKey}${keyChar}${key.shift ? "!" : ""}`
+      const sequence = `${pendingKey}${chordSuffix(key)}`
       clearPendingKey()
 
       const s = ctx.getState()
       if (!chordAllowedUnderPeek(sequence, s)) return
 
-      if (sequence === "]f") {
-        if (s.selectedFileIndex === null) {
-          // All-files view: move cursor to next file header
-          ctx.vimHandler.moveToFile("next")
-          ctx.render()
-        } else {
-          // Single-file view: navigate to next file
-          fileNavigation.navigateFileSelection(1, ctx.fileNavContext)
-        }
-        return
-      } else if (sequence === "[f") {
-        if (s.selectedFileIndex === null) {
-          // All-files view: move cursor to previous file header
-          ctx.vimHandler.moveToFile("prev")
-          ctx.render()
-        } else {
-          // Single-file view: navigate to previous file
-          fileNavigation.navigateFileSelection(-1, ctx.fileNavContext)
-        }
-        return
-      } else if (sequence === "]u") {
-        fileNavigation.navigateToUnviewedFile(1, ctx.fileNavContext)
-        return
-      } else if (sequence === "[u") {
-        fileNavigation.navigateToUnviewedFile(-1, ctx.fileNavContext)
-        return
-      } else if (sequence === "]o") {
-        fileNavigation.navigateToOutdatedFile(1, ctx.fileNavContext)
-        return
-      } else if (sequence === "[o") {
-        fileNavigation.navigateToOutdatedFile(-1, ctx.fileNavContext)
-        return
-      } else if (sequence === "]r") {
-        threadMotion.navigateToThread(1, false, ctx.threadMotionContext)
-        return
-      } else if (sequence === "[r") {
-        threadMotion.navigateToThread(-1, false, ctx.threadMotionContext)
-        return
-      } else if (sequence === "]n") {
-        // The comments that arrived since your last visit, in order (spec 069).
-        threadMotion.navigateToThread(1, false, ctx.threadMotionContext, true)
-        return
-      } else if (sequence === "[n") {
-        threadMotion.navigateToThread(-1, false, ctx.threadMotionContext, true)
-        return
-      } else if (sequence === "]R!") {
-        threadMotion.navigateToThread(1, true, ctx.threadMotionContext)
-        return
-      } else if (sequence === "[R!") {
-        threadMotion.navigateToThread(-1, true, ctx.threadMotionContext)
-        return
-      } else if (sequence === "gS!" || sequence === "gs!") {
+      const bracket = BRACKET_SEQUENCES[sequence as keyof typeof BRACKET_SEQUENCES]
+      if (bracket && brackets[bracket]()) return
+
+      if (sequence === "gS!" || sequence === "gs!") {
         reviewPreview.handleOpenReviewPreview(ctx.reviewPreviewOpenContext)
         return
       } else if (sequence === "gs") {
@@ -530,54 +475,6 @@ export function createKeyHandler(
         ctx.render()
         return
       }
-      if (sequence === "]g") {
-        // Next commit
-        if (s.commits.length > 0) {
-          if (s.viewingCommit === null) {
-            // All → first commit
-            ctx.onCommitSelected(s.commits[0]!.sha)
-          } else {
-            const idx = s.commits.findIndex(c => c.sha === s.viewingCommit)
-            if (idx >= s.commits.length - 1) {
-              // Last commit → wrap to all
-              ctx.onCommitSelected(null)
-            } else {
-              ctx.onCommitSelected(s.commits[idx + 1]!.sha)
-            }
-          }
-        }
-        return
-      } else if (sequence === "[g") {
-        // Prev commit
-        if (s.commits.length > 0) {
-          if (s.viewingCommit === null) {
-            // All → last commit
-            ctx.onCommitSelected(s.commits[s.commits.length - 1]!.sha)
-          } else {
-            const idx = s.commits.findIndex(c => c.sha === s.viewingCommit)
-            if (idx <= 0) {
-              // First commit → wrap to all
-              ctx.onCommitSelected(null)
-            } else {
-              ctx.onCommitSelected(s.commits[idx - 1]!.sha)
-            }
-          }
-        }
-        return
-      }
-      if ((sequence === "]m" || sequence === "[m") && diffTakesMarkChord()) {
-        marks.stepToMark(sequence === "]m" ? 1 : -1, ctx.marksContext)
-        return
-      }
-      if (sequence === "]c") {
-        ctx.vimHandler.moveToHunk("next")
-        ctx.render()
-        return
-      } else if (sequence === "[c") {
-        ctx.vimHandler.moveToHunk("prev")
-        ctx.render()
-        return
-      }
       // Other sequences handled by vim handler
     }
 
@@ -586,7 +483,7 @@ export function createKeyHandler(
       return
     }
 
-    const markChord = chordPending ? null : marks.markChordOpenedBy(key, diffTakesMarkChord())
+    const markChord = chordPending ? null : marks.markChordOpenedBy(key, takesMarkChord())
     if (markChord) {
       openChord(markChord)
       return
