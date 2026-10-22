@@ -1,4 +1,4 @@
-import type { CliRenderer } from "@opentui/core"
+import type { CliRenderer, KeyEvent } from "@opentui/core"
 import { createRiffKeymap, type RiffKeymap } from "./keymap"
 import { composeKeys, type KeyHandler } from "./keys-dispatch"
 import { registerAppKeys } from "./app-keys"
@@ -26,6 +26,8 @@ import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
 import { registerTreeKeys } from "../features/file-tree/keys"
 import { treeKeyDeps } from "./tree-key-deps"
+import { registerBracketKeys } from "./bracket-keys"
+import { bracketKeyDeps } from "./bracket-key-deps"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
@@ -39,7 +41,16 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
   const blame = createBlameKeys(blameKeysContext(ctx))
-  const legacy = createKeyHandler(ctx, blame)
+  const legacy = createKeyHandler(ctx, { blame, keymapChord: { start: (key) => void riffKeymap.offer(key) } })
+  // Whether the chain holds a chord, for every layer that gives way to one:
+  // the chain's own or a bracket sequence the keymap holds, which the chain
+  // asked as one of its own.
+  const chain = {
+    chordPending: () => legacy.chordPending() || riffKeymap.chordPending(),
+    chordPendingAfter: (key: KeyEvent) => legacy.chordPendingAfter(key) || riffKeymap.chordPending(),
+    settleChord: (key: KeyEvent) => legacy.settleChord(key),
+    clearChord: () => legacy.clearChord(),
+  }
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
@@ -51,31 +62,35 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and the peeks, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
-  // active together with it. The tree registers first, behind the global
-  // keys, as the chain asked it after them and after its chords. The global
-  // keys register next, behind every other layer, as the chain asked them
-  // after its modal branches, and stand aside while any capture holds the
-  // key. The composer never competes with the chat, which stands aside
+  // active together with it. The bracket sequences register first, behind
+  // every other layer, as the chain asked them after the global keys and
+  // before the tree; the layer is handed the chain's own chord rather than
+  // the composed one, which its own pending sequence is part of. The tree
+  // registers next, behind the global keys, as the chain asked it after
+  // them and after its chords. The global keys register after it, behind
+  // every modal layer, as the chain asked them after its modal branches,
+  // and stand aside while any capture holds the key. The composer never competes with the chat, which stands aside
   // while it is open, view mode and compose mode are never active
   // together, and nor are the overview and the feed, which are views of
   // their own.
   const links = createLinksPicker(ctx)
-  registerTreeKeys(riffKeymap, treeKeyDeps(ctx, legacy))
-  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, legacy))
+  registerBracketKeys(riffKeymap, bracketKeyDeps(ctx, legacy))
+  registerTreeKeys(riffKeymap, treeKeyDeps(ctx, chain))
+  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
   registerTextObjectKeys(riffKeymap, {
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     searchActive: () => ctx.getSearchState().active,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
-    settleChainChord: (key) => legacy.settleChord(key),
+    settleChainChord: (key) => chain.settleChord(key),
   })
-  registerPeekKeys(riffKeymap, ctx, legacy, blame)
-  registerPromptKeys(riffKeymap, ctx, legacy)
-  registerFeedKeys(riffKeymap, feedKeyDeps(ctx, legacy))
-  registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, legacy))
-  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links, legacy))
-  registerComposerKeys(riffKeymap, composerKeyDeps(ctx, legacy))
+  registerPeekKeys(riffKeymap, ctx, chain, blame)
+  registerPromptKeys(riffKeymap, ctx, chain)
+  registerFeedKeys(riffKeymap, feedKeyDeps(ctx, chain))
+  registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, chain))
+  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links, chain))
+  registerComposerKeys(riffKeymap, composerKeyDeps(ctx, chain))
   registerChatKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,
@@ -83,17 +98,16 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getVimState: ctx.getVimState,
     getSearchState: ctx.getSearchState,
     chat: ctx.chat,
-    clearChainChord: () => legacy.clearChord(),
-    settleChainChord: (key) => legacy.settleChord(key),
+    clearChainChord: () => chain.clearChord(),
+    settleChainChord: (key) => chain.settleChord(key),
   })
   registerHelpKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
     height: () => ctx.renderer.height,
-    // The chain's own pending key, not the composed one: help gives way to
-    // a chord the chain holds, such as the g of `g?`.
-    chainChordPending: () => legacy.chordPending(),
+    // Help gives way to a chord the chain holds, such as the g of `g?`.
+    chainChordPending: () => chain.chordPending(),
   })
   registerPreviewKeys(riffKeymap, ctx)
   registerCommitPickerKeys(riffKeymap, {

@@ -1,7 +1,11 @@
 import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 
-export type KeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
+/**
+ * `chordBroken`: the keymap held the first key of a sequence and this key
+ * broke it off, so the chain reads it as the second key of a chord.
+ */
+export type KeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & { chordPending(): boolean }
 
 /**
  * The keymap's layers first, the legacy priority chain for whatever they
@@ -10,7 +14,9 @@ export type KeyHandler = ((key: KeyEvent) => void) & { chordPending(): boolean }
  */
 export function composeKeys(riffKeymap: Pick<RiffKeymap, "offer" | "chordPending">, legacy: KeyHandler): KeyHandler {
   const handle = (key: KeyEvent) => {
-    if (!riffKeymap.offer(key)) legacy(key)
+    // Read before the offer, which clears the sequence the key breaks off.
+    const sequencePending = riffKeymap.chordPending()
+    if (!riffKeymap.offer(key)) legacy(key, sequencePending)
   }
   return Object.assign(handle, { chordPending: () => legacy.chordPending() || riffKeymap.chordPending() })
 }

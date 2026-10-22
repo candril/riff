@@ -2,9 +2,9 @@
  * Global key handling
  *
  * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
- * the key sequences first, then the split toggle and the chord openers, the
- * tree for a key that broke off a chord or a slash its layer cannot name, and
- * the diff.
+ * the `g`, `z` and mark chords first, then the split toggle and the chord
+ * openers, the tree for a key that broke off a chord or a slash its layer
+ * cannot name, and the diff.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
@@ -34,8 +34,6 @@ import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
 import { chordSuffix } from "./chord-stroke"
 import { diffTakesMarkChord } from "./mark-chord-gate"
-import { BRACKET_SEQUENCES, bracketCommands } from "./bracket-commands"
-import { bracketDeps } from "./bracket-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -141,7 +139,7 @@ export interface GlobalKeyContext {
  * layers that take keys ahead of the chain, since a chord left pending
  * under a key a layer took would swallow the next key.
  */
-export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
+export type GlobalKeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) & {
   chordPending(): boolean
   clearChord(): void
   /** Whether a chord is still pending once `key` settles it, without settling it. */
@@ -150,14 +148,22 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
   settleChord(key: KeyEvent): void
 }
 
-/**
- * `blame` is the one `gb` shares with its peek's keymap layer, so a single
- * object owns every blame request.
- */
-export function createKeyHandler(
-  ctx: GlobalKeyContext,
-  blame: BlameKeys = createBlameKeys(blameKeysContext(ctx)),
-): GlobalKeyHandler {
+export interface KeyHandlerOptions {
+  /**
+   * The one `gb` shares with its peek's keymap layer, so a single object
+   * owns every blame request.
+   */
+  blame?: BlameKeys
+  /**
+   * Hands a `]` or `[` to the keymap's bracket layer, which holds those
+   * sequences. It reaches the chain when it broke off a chord, as in `]]f`
+   * or `g]f`, and still opens one.
+   */
+  keymapChord: { start(key: KeyEvent): void }
+}
+
+export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptions): GlobalKeyHandler {
+  const { blame = createBlameKeys(blameKeysContext(ctx)), keymapChord } = options
   const openLink = createOpenLink(ctx)
   const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
@@ -198,7 +204,6 @@ export function createKeyHandler(
   }
 
   const takesMarkChord = () => diffTakesMarkChord(ctx)
-  const brackets = bracketCommands(bracketDeps(ctx))
 
   const followLinkContext: followLink.FollowLinkContext = {
     setState: ctx.setState,
@@ -274,11 +279,11 @@ export function createKeyHandler(
     if (marks.pendingMarkChordGivesWay(pendingKey, key, takesMarkChord())) clearPendingKey()
   }
 
-  function handleKeypress(key: KeyEvent) {
+  function handleKeypress(key: KeyEvent, chordBroken = false) {
     settleChord(key)
 
-    // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
-    const chordPending = pendingKey !== null
+    // ========== KEY SEQUENCES (gS, za, etc.) ==========
+    const chordPending = pendingKey !== null || chordBroken
     if (pendingKey === "m" || pendingKey === "'") {
       const action = marks.markChordAction(pendingKey, key, takesMarkChord())
       clearPendingKey()
@@ -293,9 +298,6 @@ export function createKeyHandler(
 
       const s = ctx.getState()
       if (!chordAllowedUnderPeek(sequence, s)) return
-
-      const bracket = BRACKET_SEQUENCES[sequence as keyof typeof BRACKET_SEQUENCES]
-      if (bracket && brackets[bracket]()) return
 
       if (sequence === "gS!" || sequence === "gs!") {
         reviewPreview.handleOpenReviewPreview(ctx.reviewPreviewOpenContext)
@@ -489,7 +491,12 @@ export function createKeyHandler(
       return
     }
 
-    if (key.name === "]" || key.name === "[" || (key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {
+    if (key.name === "]" || key.name === "[") {
+      keymapChord.start(key)
+      return
+    }
+
+    if ((key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {
       openChord(key.name)
       return
     }

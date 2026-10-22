@@ -151,9 +151,22 @@ one layer registered behind the global keys
 through to it; it stands aside while the chain holds a chord, and a key
 that breaks off a chord without completing a sequence still reaches the
 tree through the chain, as does a slash kitty names after its base key
-on a layout where `/` is shifted.
+on a layout where `/` is shifted. The `]`/`[` motions are one layer of
+keymap sequences registered behind the tree's
+(`src/app/bracket-keys.ts`), the lowest-ranked layer, as the chain asked
+its sequences after the global keys and before the tree. Its first stroke
+takes any modifiers and its second is a sequence pattern that matches on
+the suffix the chain spelled (`src/app/chord-stroke.ts`), so ctrl and
+meta are ignored and shift is not. It stands aside while any capture
+holds the key and while the chain holds a `g`, `z`, `m` or `'` chord. A
+key that breaks off a sequence reaches the chain as the second key of a
+chord, and a `]` or `[` that does so goes back to the keymap, so `]]f` and
+`g]f` still step a file. A lone `]` or `[` gives up after the chain's
+500 ms chord timeout (`chordTimeoutMs`), as the chain's opener did. Every
+layer that gives way to a chord the chain holds counts a pending bracket
+sequence as one.
 
-**Not built**: the rest of M6 (the key sequences, the diff dispatch, the
+**Not built**: the rest of M6 (the `g`, `z` and mark chords, the diff dispatch, the
 palette reading command entries, and state factories); the file size
 ratchet (P3).
 
