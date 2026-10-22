@@ -90,7 +90,7 @@ interface Action {
   label: string
   description: string
   command?: string            // The keymap command that runs it; its `keys` is the hint
-  shortcut?: string           // The hint for a key no keymap command runs it for
+  shortcut?: string           // The hint for a key no keymap command spells
   handler: () => void | Promise<void>
   available: () => boolean    // Should this action be shown?
   context?: "pr" | "local" | "always"
@@ -150,8 +150,8 @@ const actions: Action[] = [
 
 ### Key Hints
 
-The key beside an action comes from the keymap, so the hint and the
-binding cannot drift apart. An action names the command that runs it
+The key beside an action comes from the keymap, so a hint names a command
+some layer registers. An action names the command that runs it
 (`command`), and the palette shows that command's `keys`, a command field
 `createRiffKeymap` registers (`src/app/keymap.ts`) and
 `commandKeys` (`src/app/command-keys.ts`) reads off the keymap's command
@@ -159,16 +159,39 @@ entries once every layer has registered; the frame carries the map to the
 palette's model. The field spells the key as the reader types it (`]f`,
 `gC`, `Ctrl+f`) because the bindings cannot be spelled back: they are
 expanded over every modifier, chord second strokes are patterns, and the
-diff binds one pattern for every key.
+diff binds one pattern for every key. `src/app/spelled-keys.keys.test.ts`
+types every command's `keys` into riff's real keymap, a chord's strokes
+in one go, and fails unless that command is the one that runs; a thread
+panel hint is typed with the panel holding the keys, and `]R` and `[R`
+with the R kitty reports by an uppercase name, the only R they bind.
 
 An action keeps a `shortcut` string of its own only where no keymap
-command runs it: the diff's and the tree's keys, which their handlers
+command spells its key: the diff's and the tree's keys, which their handlers
 parse behind one catch-all binding (`c`, `v`, `V`, `y`, `Y`, `x`, Enter,
 `/`, `?`, `*`, `\`, Esc, `H` in the file panel); `/` for Filter, which each
 list binds for itself; and keys whose command does more, or other, than
-the action where the action is offered (`i`, `go`, Ctrl+h, Ctrl+l). No
-action has both. `src/actions/registry.commands.test.ts` fails when an
-action names a command no layer registers, or one without `keys`.
+the action where the action is offered (`i`, `go`). An action has both only
+where its command is the diff's catch-all, `diff.key`, which spells no key.
+`src/actions/registry.commands.test.ts` fails when an action names a
+command no layer registers, or has no key to show.
+
+### Running an Action
+
+`executeAction` (`src/features/action-menu/execute.ts`) runs an action
+through a case of its own, and an action with no case through the command
+its key runs: `runCommand` on the keymap, on the keypress the action's hint
+spells, parsed from the bytes a terminal sends for it (`zR` shifted, Ctrl+h
+as backspace, Ctrl+i as tab, `src/app/spelled-keys.ts`). So Next File runs
+`bracket.nextFile` on the `f` of `]f`, and Jump Back `global.back` on
+Ctrl+o, and each does what its key does; the jumplist judges the
+interaction as the hint's first key would open it, so Jump Back walks the
+list as Ctrl+o does. The diff's keys (`/`, `?`, `*`, `c`, `v`, `V`, `x`)
+reach `diff.key` with the diff focused, since the entries name the diff.
+Show File Path has a case: the path of the file at the cursor, or the
+tree's highlighted one, as a toast. `executeAction` reports whether
+anything ran, and a command that runs its own action back is not run a
+second time. `src/features/action-menu/execute.registry.test.ts` fails when
+any registered action is handled by neither a case nor its command.
 
 ### Fuzzy Matching
 

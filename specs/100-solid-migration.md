@@ -218,6 +218,8 @@ The sync preview is the third (`createSyncPreviewState` in
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field
 (`src/app/command-keys.ts`, [020](./020-action-menu.md)).
+An action with no case of its own in the executor runs that command
+through `runCommand`, on the keypress its hint spells.
 
 **Not built**: the rest of M6 (the rest of the state factories); the file
 size ratchet (P3).

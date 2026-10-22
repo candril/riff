@@ -357,7 +357,8 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 },
 ```
 
-2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module
+2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module.
+   An action with no case there runs its command on the key its hint spells
 
 3. If adding a keyboard shortcut, bind it in a keymap layer
    ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)) and give
