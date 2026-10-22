@@ -48,9 +48,7 @@ export interface AppKeyContext {
   getLineMapping: () => DiffLineMapping
   getCommentScope: () => CommentScope
   rebuildLineMapping: () => void
-  /** The active split pane, or null in unified. */
   getPane: () => "left" | "right" | null
-  /** Makes a pane active in split; nothing in unified. */
   setPane: (pane: "left" | "right") => void
   // Search state
   getSearchState: () => SearchState

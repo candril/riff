@@ -5,9 +5,10 @@
  * `Ctrl-O` (back) and `Ctrl-I` (forward), matching nvim muscle memory.
  *
  * A jump captures: selected file (by index *and* filename for stability),
- * viewing commit, view mode, and the cursor's line anchored as a mark is
- * (file, line, side, text). `apply` restores those, looking the anchor up
- * in the mapping as it is now, so folds and a refresh do not move it.
+ * viewing commit, view mode, split or unified, the focused panel, and the
+ * cursor's line anchored as a mark is (file, line, side, text). `apply`
+ * restores those, looking the anchor up in the mapping as it is now, so
+ * folds and a refresh do not move it.
  */
 
 import type { AppState } from "../../state"
@@ -57,6 +58,8 @@ export function capture(
     filename,
     viewingCommit: state.viewingCommit,
     viewMode: state.viewMode,
+    splitView: state.splitView,
+    focusedPanel: state.focusedPanel,
     // The mapping is the diff's even while another view shows, so off the
     // diff the cursor's line would anchor to a row that is not under it.
     anchor: state.viewMode === "diff" ? anchorAt(mapping, vim.line, pane ?? undefined) : null,
@@ -163,13 +166,14 @@ export function forward(state: AppState): { state: AppState; jump: Jump } | null
 }
 
 export interface JumpApplyContext {
+  getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
   rebuildLineMapping: () => void
-  /** Makes a pane active in split; nothing in unified. */
   setPane: (pane: Pane) => void
+  toggleSplitView: () => void
   ensureCursorVisible: () => void
   render: () => void
   onCommitSelected: (sha: string | null) => void
@@ -231,7 +235,7 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
       next = clearFileSelection(next)
     }
 
-    return next
+    return { ...next, focusedPanel: focusable(next, jump.focusedPanel) }
   })
 
   ctx.rebuildLineMapping()
@@ -251,6 +255,10 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
     pendingTextObject: null,
     pendingFindChar: null,
   })
+  // After the cursor has moved, so the pane split opens in is the
+  // destination's and its own draw already shows the destination. The
+  // mapping is the same in both layouts, so the landing above holds.
+  if (ctx.getState().splitView !== jump.splitView) ctx.toggleSplitView()
   // A context row is in both panes, and split leaves the pane alone there,
   // so the entry's own side has to be made active.
   if (landing.side) ctx.setPane(landing.side === "LEFT" ? "left" : "right")
@@ -260,6 +268,23 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   // — which is the flicker.
   ctx.render()
   ctx.ensureCursorVisible()
+}
+
+/**
+ * Ctrl-o returns to a place; it does not undo closing a panel, so focus
+ * recorded in a panel that has since closed lands in the diff.
+ */
+function focusable(state: AppState, panel: AppState["focusedPanel"]): AppState["focusedPanel"] {
+  switch (panel) {
+    case "tree":
+      return state.showFilePanel ? panel : "diff"
+    case "comments":
+      return state.inlineCommentOverlay.open ? panel : "diff"
+    case "chat":
+      return state.chatOpen ? panel : "diff"
+    case "diff":
+      return panel
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { ViewMode } from "../../state"
+import type { AppState, ViewMode } from "../../state"
 import type { LineAnchor } from "../marks/types"
 
 export interface Jump {
@@ -6,6 +6,8 @@ export interface Jump {
   filename: string | null
   viewingCommit: string | null
   viewMode: ViewMode
+  splitView: boolean
+  focusedPanel: AppState["focusedPanel"]
   /**
    * Where the cursor stood, as a mark keeps it (spec 101): folds, wrap,
    * split and a refresh renumber the mapping's lines but leave this where

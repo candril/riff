@@ -173,7 +173,7 @@ test("Esc clears a toast", async () => {
 
 test("Ctrl-o walks back through the jumplist and Tab forward again", async () => {
   const { mounted, keys } = await globalApp()
-  const at = (line: number) => ({ fileIndex: null, filename: null, viewingCommit: null, viewMode: "diff" as const, anchor: null, cursorLine: line, cursorCol: 0 })
+  const at = (line: number) => ({ fileIndex: null, filename: null, viewingCommit: null, viewMode: "diff" as const, splitView: false, focusedPanel: "diff" as const, anchor: null, cursorLine: line, cursorCol: 0 })
   keys.setVim({ ...createCursorState(), line: 3 })
   mounted.show({ jumpList: { entries: [at(1), at(5)], index: 2 } })
   ctrl(mounted, "o")

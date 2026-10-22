@@ -1,8 +1,11 @@
 import { test, expect, describe } from "bun:test"
-import { isStepMotion, isListWalk, isFindMotion, sameLocation, sameLine, capture, push, back, forward, cursorFile } from "./index"
-import { createInitialState } from "../../state"
+import { isStepMotion, isListWalk, isFindMotion, sameLocation, sameLine, capture, push, back, forward, cursorFile, apply, type Jump, type JumpApplyContext } from "./index"
+import { createInitialState, type AppState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
+import { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { buildFileTree } from "../../utils/file-tree"
 import type { DiffFile } from "../../utils/diff-parser"
+import { DOC, X, Y } from "../../testing/marks"
 
 const files: DiffFile[] = ["a.ts", "b.ts"].map((filename) => ({
   filename,
@@ -77,6 +80,14 @@ describe("sameLocation", () => {
     expect(sameLocation(here, capture(at(1, 5).state, at(1, 5).vim, noRows))).toBe(false)
     expect(sameLocation(here, capture(at(0, 9).state, at(0, 9).vim, noRows))).toBe(false)
     expect(sameLocation(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows))).toBe(false)
+  })
+})
+
+describe("capture", () => {
+  test("records split or unified and the panel that has focus", () => {
+    const { state, vim } = at(0, 5)
+    const jump = capture({ ...state, splitView: true, focusedPanel: "tree" }, vim, noRows)
+    expect(jump).toMatchObject({ splitView: true, focusedPanel: "tree" })
   })
 })
 
@@ -224,5 +235,84 @@ describe("cursorFile", () => {
     // crosses without any file-switching key.
     expect(cursorFile(mapping, 2)).toBe(cursorFile(mapping, 1))
     expect(cursorFile(mapping, 3)).not.toBe(cursorFile(mapping, 2))
+  })
+})
+
+describe("apply", () => {
+  function applying(diff: DiffFile[], patch: Partial<AppState> = {}) {
+    let state: AppState = { ...createInitialState(diff, buildFileTree(diff), "local", ""), ...patch }
+    let vim = createCursorState()
+    const build = () =>
+      new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
+        collapsedFiles: state.collapsedFiles,
+        collapsedBlocks: state.collapsedBlocks,
+      })
+    let mapping = build()
+    const calls: string[] = []
+    const ctx: JumpApplyContext = {
+      getState: () => state,
+      setState: (update) => {
+        state = update(state)
+      },
+      getVimState: () => vim,
+      setVimState: (next) => {
+        vim = next
+      },
+      getLineMapping: () => mapping,
+      rebuildLineMapping: () => {
+        mapping = build()
+      },
+      setPane: (pane) => void calls.push(`pane ${pane}`),
+      toggleSplitView: () => {
+        state = { ...state, splitView: !state.splitView }
+        calls.push("toggle split")
+      },
+      ensureCursorVisible: () => {},
+      render: () => {},
+      onCommitSelected: () => {
+        throw new Error("no commit switch here")
+      },
+    }
+    const entry = (patch: Partial<Jump> = {}): Jump => ({ ...capture(state, vim, mapping), ...patch })
+    return { ctx, calls, entry, state: () => state, vim: () => vim, mapping: () => mapping }
+  }
+
+  test("toggles split only when the entry's layout differs", () => {
+    const h = applying([X, Y])
+    apply(h.entry({ splitView: false, anchor: null }), h.ctx)
+    expect(h.calls).toEqual([])
+    apply(h.entry({ splitView: true, anchor: null }), h.ctx)
+    expect(h.calls).toEqual(["toggle split"])
+    expect(h.state().splitView).toBe(true)
+  })
+
+  test("gives focus back to the panel it was taken in while that panel is open", () => {
+    const h = applying([X, Y], { showFilePanel: true })
+    apply(h.entry({ focusedPanel: "tree" }), h.ctx)
+    expect(h.state().focusedPanel).toBe("tree")
+  })
+
+  test("focuses the diff when the panel it was taken in has closed", () => {
+    for (const focusedPanel of ["tree", "comments", "chat"] as const) {
+      const h = applying([X, Y], { showFilePanel: false, chatOpen: false })
+      apply(h.entry({ focusedPanel }), h.ctx)
+      expect(h.state().focusedPanel).toBe("diff")
+    }
+  })
+
+  test("opens the code-block fold that hides the entry's line and lands on it", () => {
+    const id = new DiffLineMapping([DOC], "all").foldableBlocks[0]!.id
+    const h = applying([DOC], { collapsedBlocks: new Set([id]) })
+    apply(h.entry({ anchor: { filename: "doc.md", line: 3, side: "RIGHT" }, cursorLine: 0 }), h.ctx)
+    expect(h.state().collapsedBlocks.has(id)).toBe(false)
+    expect(h.mapping().getLine(h.vim().line)).toMatchObject({ content: "sequenceDiagram", newLineNum: 3 })
+  })
+
+  test("makes the entry's side the active pane on a context row", () => {
+    // Row 5 of [X, Y] is a context row, old 3 and new 4: see src/testing/marks.ts.
+    const h = applying([X, Y], { splitView: true })
+    apply(h.entry({ anchor: { filename: "src/x.ts", line: 3, side: "LEFT" }, cursorLine: 5 }), h.ctx)
+    expect(h.vim().line).toBe(5)
+    expect(h.calls).toEqual(["pane left"])
   })
 })

@@ -72,6 +72,11 @@ they arrive.
 - An entry whose file left the diff is skipped, in whichever direction the
   walk goes, but kept: nvim keeps an entry for a deleted buffer, and a
   refresh can bring the file back.
+- An entry restores unified or split and the panel that had focus. A panel
+  that has closed since is not opened again — `Ctrl-o` returns to a place,
+  it does not undo closing a panel — so focus goes to the diff.
+- `Ctrl-o` and `Ctrl-i` walk the list from the thread panel too, as from the
+  file tree; the panel's filter prompt and code peek keep them.
 
 All of these are built.
 
@@ -87,13 +92,10 @@ them, and an entry taken there is the same line as that one.
 through riff's keys:
 
 - What records. A thread picked with `j`/`k` in the thread panel is judged a
-  step, so it records only when the file changes. A jump from the comments
-  picker lands in the thread panel, which holds `Ctrl-o`. `%` and `gd` are
+  step, so it records only when the file changes. `%` and `gd` are
   not riff jumps (`%` is unbound, `gd` opens an external diff).
-- What is restored. An entry restores the view mode, file selection and
-  commit, but not unified or split, nor the panel that had focus. Going
-  back to the overview is undone by the file selection that follows it in
-  `apply`.
+- What is restored. Going back to the overview is undone by the file
+  selection that follows it in `apply`.
 
 ## Out of Scope, found while building
 

@@ -38,7 +38,8 @@ do not produce jumps.
     (`Ctrl-n` / `Ctrl-p` in spec 039 — closes current overlay and opens
     the next/previous thread). Within-thread `j` / `k` (highlight move
     between comments of the same thread) does **not** push.
-- Applying a jump restores: file selection, viewing commit, view mode, and
+- Applying a jump restores: file selection, viewing commit, view mode, split
+  or unified, the focused panel (the diff once that panel has closed), and
   the cursor's line, anchored as a mark is ([101](./101-global-marks.md):
   file, line, side, line text) and looked up again in the mapping as it is
   now, so a fold or a refresh above it does not move it.
@@ -72,6 +73,8 @@ export interface Jump {
   fileIndex: number | null       // null = all-files view
   viewingCommit: string | null
   viewMode: ViewMode
+  splitView: boolean
+  focusedPanel: AppState["focusedPanel"]
   anchor: LineAnchor | null       // a spec 101 mark's place; null off the diff
   cursorLine: number              // mapping line, for an anchor-less entry
 }

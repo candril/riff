@@ -32,8 +32,9 @@ export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps {
  * with the chat open, are the chat's reach: they pass wherever the
  * chat takes them, and where it stands aside, under the panel's own filter
  * prompt for one, the panel keeps them. Ctrl-p, Ctrl-f and a bare `s` are
- * the palette's, the file picker's and flash's, and only the filter prompt
- * and the code peek keep those.
+ * the palette's, the file picker's and flash's, Ctrl-o and Tab (which is
+ * Ctrl-i) walk the jumplist, and only the filter prompt and the code peek
+ * keep those.
  */
 function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean): boolean {
   const chatReaches = !chatStandsAside(state, searchActive)
@@ -41,7 +42,8 @@ function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean): b
   if (key.ctrl && key.name === "l") return chatReaches && state.chatOpen
   const ov = state.inlineCommentOverlay
   if (ov.filterInput || ov.codePeekId !== null) return false
-  if (key.ctrl && (key.name === "p" || key.name === "f")) return true
+  if (key.ctrl && (key.name === "p" || key.name === "f" || key.name === "o")) return true
+  if (key.name === "tab" && !key.shift) return true
   return key.name === "s" && !key.ctrl && !key.shift
 }
 
@@ -228,7 +230,6 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
       // Ctrl-s is swallowed; a bare s is flash's.
       ...anyModifiers("shift+s", "threadPanel.submit"),
       ...without(["ctrl", "shift"], anyModifiers("c", "threadPanel.codePeek")),
-      // Ctrl-o is swallowed.
       ...without(["ctrl", "shift"], anyModifiers("o", "threadPanel.openInEditor")),
       ...without(["ctrl"], anyModifiers("shift+o", "threadPanel.openImages")),
     ]),

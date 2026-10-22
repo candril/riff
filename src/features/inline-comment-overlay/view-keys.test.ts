@@ -19,6 +19,7 @@ const CTRL = {
 }
 const ESC = "\x1b"
 const ENTER = "\r"
+const TAB = "\t"
 
 describe("the thread panel in view mode", () => {
   test("j, down and Ctrl-j move the highlight down and bring the diff cursor; k and up come back", async () => {
@@ -130,11 +131,10 @@ describe("the thread panel in view mode", () => {
     expect(none.state().toast?.message).toBe("No stored context for this comment")
   })
 
-  test("o opens the file in $EDITOR, O the images, and Ctrl-o is swallowed", async () => {
+  test("o opens the file in $EDITOR and O the images", async () => {
     const keys = await threadPanelKeys(panelState())
     expect(keys.press("o").defaultPrevented).toBe(true)
     keys.press("O")
-    keys.press(CTRL.o)
     expect(keys.calls).toEqual(["editor a", "images a"])
     expect(keys.leftKeys).toEqual([])
   })
@@ -273,6 +273,24 @@ describe("what the panel leaves to the chain", () => {
       expect(keys.press(sequence).defaultPrevented).toBe(false)
     }
     expect(keys.leftKeys).toEqual(["p", "f", "s", "s"])
+  })
+
+  test("Ctrl-o and Tab pass, so the jumplist is walked from the panel", async () => {
+    const keys = await threadPanelKeys(panelState())
+    for (const sequence of [CTRL.o, TAB]) {
+      expect(keys.press(sequence).defaultPrevented).toBe(false)
+    }
+    expect(keys.calls).toEqual([])
+    expect(keys.leftKeys).toEqual(["o", "tab"])
+  })
+
+  test("the filter prompt and the code peek keep Ctrl-o and Tab", async () => {
+    for (const state of [startViewFilter(panelState()), setCommentCodePeek(panelState(), "a")]) {
+      const keys = await threadPanelKeys(state)
+      keys.press(CTRL.o)
+      keys.press(TAB)
+      expect(keys.leftKeys).toEqual([])
+    }
   })
 
   test("Ctrl-r passes in view mode and under the code peek, whether the chat is open or not", async () => {

@@ -11,7 +11,6 @@ export interface JumpRecordingDeps {
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   getLineMapping: () => Pick<DiffLineMapping, "getLine">
-  /** The active split pane, or null in unified. */
   getPane: () => "left" | "right" | null
   searchActive: () => boolean
   flashActive: () => boolean

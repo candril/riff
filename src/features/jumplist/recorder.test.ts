@@ -16,6 +16,8 @@ const place = (line: number, col = 0, selected: string | null = null): Jump => (
   filename: selected,
   viewingCommit: null,
   viewMode: "diff",
+  splitView: false,
+  focusedPanel: "diff",
   anchor: null,
   cursorLine: line,
   cursorCol: col,

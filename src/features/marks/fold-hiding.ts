@@ -7,7 +7,6 @@ import type { LineAnchor } from "./types"
 export interface FoldHidingContext {
   setState: (updater: (s: AppState) => AppState) => void
   getLineMapping: () => DiffLineMapping
-  /** Builds the mapping again after a fold changed, and returns it. */
   rebuildLineMapping: () => DiffLineMapping
 }
 

@@ -6,7 +6,6 @@ import {
   SCENARIO_FILES,
   scenarioDiff,
   type JumpScenario,
-  type Place,
 } from "../testing/jump-scenarios"
 import { stubPanel } from "../testing/pr-info-panel-keys"
 import { parseDiff } from "../utils/diff-parser"
@@ -32,22 +31,19 @@ async function scenario(options?: Parameters<typeof jumpScenario>[0]) {
   return app
 }
 
-/** The place without the focus, which rule g asserts on its own. */
-const spot = ({ focus: _focus, ...rest }: Place) => rest
-
 /** `act` jumps; Ctrl-o comes back to where it started, and Ctrl-i goes there again. */
 async function recordsAndReturns(a: JumpScenario, act: () => void | Promise<void>) {
   const before = a.where()
   await act()
   await flush()
   const after = a.where()
-  expect(spot(after)).not.toEqual(spot(before))
+  expect(after).not.toEqual(before)
   a.press(KEY.ctrlO)
   await flush()
-  expect(spot(a.where())).toEqual(spot(before))
+  expect(a.where()).toEqual(before)
   a.press(KEY.tab)
   await flush()
-  expect(spot(a.where())).toEqual(spot(after))
+  expect(a.where()).toEqual(after)
 }
 
 const type = (a: JumpScenario, text: string) => a.press(...text.split(""))
@@ -158,7 +154,7 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
   })
 
   // The jump opens the thread panel on the comment and focuses it, and the panel holds Ctrl-o.
-  test.todo("the comments picker", async () => {
+  test("the comments picker", async () => {
     const a = await scenario()
     a.moveTo(a.lineOf("src/beta.ts", "line 24"))
     await recordsAndReturns(a, () => a.press("g", KEY.C, KEY.enter))
@@ -330,16 +326,23 @@ describe("f: the list holds 100 entries", () => {
 })
 
 describe("g: Ctrl-o restores the view and the focus the jump was made from", () => {
-  test.todo("split or unified", async () => {
+  test("split or unified", async () => {
     const a = await scenario()
+    // Split draws a removed line beside the one that replaced it; unified stacks them.
+    const sideBySide = (frame: string, file: string, n: number) =>
+      frame.split("\n").some((row) => row.includes(`${file} old ${n}`) && row.includes(`${file} needle ${n}`))
     a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
     a.press("\\")
     expect(a.state().splitView).toBe(true)
     a.press(KEY.G)
     a.press("\\")
     expect(a.state().splitView).toBe(false)
+    const unified = await a.mounted.frame()
+    expect(unified).toContain("src/gamma.ts old 65")
+    expect(sideBySide(unified, "src/gamma.ts", 65)).toBe(false)
     a.press(KEY.ctrlO)
     expect(a.where().view.split).toBe(true)
+    expect(sideBySide(await a.mounted.frame(), "src/alpha.ts", 25)).toBe(true)
   })
 
   test("single file or all files", async () => {
@@ -354,7 +357,7 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
     expect(a.where().view.singleFile).toBe(true)
   })
 
-  test.todo("the panel that had focus", async () => {
+  test("the panel that had focus", async () => {
     const a = await scenario()
     a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
     a.mounted.show({ focusedPanel: "tree" })
@@ -362,6 +365,32 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
     expect(a.where().focus).toBe("diff")
     a.press(KEY.ctrlO)
     expect(a.where().focus).toBe("tree")
+    // The tree binds neither Tab nor Ctrl-i, so the walk forward reaches riff's own keys from it.
+    a.press(KEY.tab)
+    expect(a.where().focus).toBe("diff")
+  })
+
+  test("the thread panel, while it is open", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/alpha.ts", "needle 5"))
+    a.press(KEY.ctrlT)
+    expect(a.where().focus).toBe("comments")
+    // Ctrl-f is the file picker's from the panel too.
+    await recordsAndReturns(a, () => a.press(KEY.ctrlF, KEY.ctrlN, KEY.enter))
+    a.press(KEY.ctrlO)
+    expect(a.state().inlineCommentOverlay.open).toBe(true)
+    expect(a.where().focus).toBe("comments")
+  })
+
+  test("not the thread panel once it has closed", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/alpha.ts", "needle 5"))
+    a.press(KEY.ctrlT)
+    const before = a.where()
+    a.press(KEY.ctrlF, KEY.ctrlN, KEY.enter)
+    a.mounted.show({ inlineCommentOverlay: { ...a.state().inlineCommentOverlay, open: false } })
+    a.press(KEY.ctrlO)
+    expect(a.where()).toEqual({ ...before, focus: "diff" })
   })
 })
 
