@@ -213,8 +213,6 @@ export interface AppState {
   // Comment state - comments stored separately from session
   session: ReviewSession | null
   comments: Comment[]
-  commentInputLine: number | null
-  commentInputText: string
 
   // Source info
   source: string
@@ -360,8 +358,6 @@ export function createInitialState(
     collapsedThreadIds: new Set(),
     session,
     comments,
-    commentInputLine: null,
-    commentInputText: "",
     source,
     description,
     branchInfo: null,
@@ -864,48 +860,12 @@ export function resetCursor(state: AppState): AppState {
 }
 
 /**
- * Open comment input for a line
- */
-export function openCommentInput(state: AppState, line: number): AppState {
-  return {
-    ...state,
-    mode: "comment-input",
-    commentInputLine: line,
-    commentInputText: "",
-  }
-}
-
-/**
- * Close comment input
- */
-export function closeCommentInput(state: AppState): AppState {
-  return {
-    ...state,
-    mode: "normal",
-    commentInputLine: null,
-    commentInputText: "",
-  }
-}
-
-/**
- * Update comment input text
- */
-export function updateCommentText(state: AppState, text: string): AppState {
-  return {
-    ...state,
-    commentInputText: text,
-  }
-}
-
-/**
  * Add a comment to state
  */
 export function addComment(state: AppState, comment: Comment): AppState {
   return {
     ...state,
     mode: "normal",
-    commentInputLine: null,
-    commentInputText: "",
     comments: [...state.comments, comment],
   }
 }

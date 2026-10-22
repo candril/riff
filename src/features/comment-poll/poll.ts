@@ -148,7 +148,6 @@ export function applyThreadStates(
  * viewing. The fetch still happens; we just hold the result for next tick.
  */
 function isComposing(state: AppState): boolean {
-  if (state.commentInputLine !== null) return true
   const overlay = state.inlineCommentOverlay
   if (overlay.open && overlay.mode !== "view") return true
   if (state.prInfoPanel.commentInputOpen) return true

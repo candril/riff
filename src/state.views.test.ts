@@ -68,7 +68,6 @@ describe("moving between the three surfaces", () => {
   })
 })
 
-
 describe("side by side", () => {
   test("is asked for with a toggle, and starts unified", () => {
     const state = prState()
