@@ -25,6 +25,7 @@ import {
   type ConversationItem,
   type FlatCheckItem,
   type FlatConversationItem,
+  type MergeRows,
 } from "./pr-info-items"
 import { panelMeta, stackLine } from "./pr-info-header"
 import { commitRowCount } from "./pr-info-list-rows"
@@ -253,7 +254,11 @@ export class PRInfoPanelClass {
   }
 
   private refreshFlatCheckItems(nav: PrInfoNav = this.nav): void {
-    this.flatCheckItems = flatCheckItems(this.mergeStatus.points, this.prInfo.checks, nav)
+    this.flatCheckItems = flatCheckItems(this.mergeStatus.points, this.mergeRows(), nav)
+  }
+
+  private mergeRows(): MergeRows {
+    return { checks: this.prInfo.checks, threads: this.mergeStatus.threads }
   }
 
   private readMergeStatus(): MergeStatus {
@@ -525,7 +530,13 @@ export class PRInfoPanelClass {
    */
   getSelectedCheck(): PrCheck | undefined {
     const item = this.selectedCheckItem()
-    return item && item.kind !== 'point' ? item.check : undefined
+    return item && item.kind !== 'point' && item.kind !== 'thread' ? item.check : undefined
+  }
+
+  /** The unresolved thread under the cursor, in the merge status's conversations line (spec 108). */
+  getSelectedMergeThread(): Comment | undefined {
+    const item = this.selectedCheckItem()
+    return item?.kind === 'thread' ? item.thread : undefined
   }
 
   private selectedCheckItem(): FlatCheckItem | undefined {
@@ -536,7 +547,7 @@ export class PRInfoPanelClass {
   /** The merge status line under the cursor, when it opens onto rows of its own. */
   private selectedExpandablePoint(): MergePoint | undefined {
     const item = this.selectedCheckItem()
-    return item?.kind === 'point' && isExpandablePoint(item.point, this.prInfo.checks) ? item.point : undefined
+    return item?.kind === 'point' && isExpandablePoint(item.point, this.mergeRows()) ? item.point : undefined
   }
 
   /**
@@ -604,19 +615,21 @@ export class PRInfoPanelClass {
   /**
    * Collapse the currently-selected check row. If the cursor is on one
    * of that check's annotation rows, collapse its parent check and move
-   * the cursor back onto the check row (spec 043).
+   * the cursor back onto the check row (spec 043). On a thread under the
+   * conversations line, fold that line (spec 108).
    */
   collapseSelectedCheck(): void {
     const item = this.selectedCheckItem()
     if (!item) return
     if (item.kind === 'point') {
-      if (isExpandablePoint(item.point, this.prInfo.checks)) this.applyPoints(Nav.collapsePoint(this.nav, item.point.id))
+      if (isExpandablePoint(item.point, this.mergeRows())) this.applyPoints(Nav.collapsePoint(this.nav, item.point.id))
       return
     }
+    if (item.kind === 'thread') return this.collapsePointAndClimb('conversations')
     const check = item.check
     // A check with nothing open under it folds the line it sits under, the
     // way `h` on a thread climbs to its review.
-    if (!this.nav.expandedCheckIds.has(check.id)) return this.collapseChecksPoint()
+    if (!this.nav.expandedCheckIds.has(check.id)) return this.collapsePointAndClimb('checks')
 
     const parentIndex = this.flatCheckItems.findIndex(
       i => i.kind === 'check' && i.check.id === check.id,
@@ -628,9 +641,9 @@ export class PRInfoPanelClass {
     }
   }
 
-  private collapseChecksPoint(): void {
-    const pointIndex = this.flatCheckItems.findIndex((i) => i.kind === 'point' && i.point.id === 'checks')
-    this.nav = Nav.collapsePoint(this.nav, 'checks')
+  private collapsePointAndClimb(id: MergePoint["id"]): void {
+    const pointIndex = this.flatCheckItems.findIndex((i) => i.kind === 'point' && i.point.id === id)
+    this.nav = Nav.collapsePoint(this.nav, id)
     if (pointIndex >= 0) this.nav = Nav.withCursor(this.nav, pointIndex)
     this.refreshFlatCheckItems()
     this.push()
@@ -843,6 +856,7 @@ export class PRInfoPanelClass {
         const item = this.flatCheckItems[this.nav.cursorIndex]
         if (!item) return null
         if (item.kind === 'point') return { title: "Merge status", text: item.point.text }
+        if (item.kind === 'thread') return { title: `@${item.thread.author ?? "you"}`, text: item.thread.body }
         const url = item.kind === 'annotation' ? item.annotation.message : item.check.detailsUrl
         return url ? { title: item.check.name, text: url } : null
       }

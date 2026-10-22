@@ -121,7 +121,8 @@ function listRows(
       return checkRows(input.flatCheckItems, {
         ...rows,
         expanded: input.nav.expandedCheckIds,
-        expandable: (point) => isExpandablePoint(point, input.prInfo.checks),
+        expandable: (point) => isExpandablePoint(point, { checks: input.prInfo.checks, threads: input.mergeStatus.threads }),
+        terminalWidth: input.terminalWidth,
       })
     case 'files':
       return fileRows(visible.files, { ...rows, listWidth: input.listWidth })

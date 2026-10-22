@@ -31,7 +31,7 @@ function input(over: Partial<PrInfoNav> = {}, labels: ReadonlyMap<string, string
     conversationItems: items,
     hiddenConversationIds: new Set(),
     flatConversationItems: flatConversationItems(items, nav.filter, nav.expandedContent),
-    flatCheckItems: flatCheckItems(status.points, info.checks, nav),
+    flatCheckItems: flatCheckItems(status.points, { checks: info.checks, threads: status.threads }, nav),
     mergeStatus: status,
     nav,
     flashLabels: labels,

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { PrCheck } from "../providers/github/types"
 import { checks } from "../testing/pr-info"
 import { theme } from "../theme"
+import type { Comment } from "../types"
 import type { MergePoint } from "./merge-status-model"
 import { checkRows } from "./pr-info-check-rows"
 import { flatCheckItems, isExpandablePoint } from "./pr-info-items"
@@ -20,21 +21,37 @@ const POINTS: MergePoint[] = [
 const rowsOf = (
   points: MergePoint[],
   list: PrCheck[],
-  { selected = -1, expanded = FAILING, labels = NO_LABELS, open = true, filter = "" }: {
+  {
+    selected = -1,
+    expanded = FAILING,
+    labels = NO_LABELS,
+    open = true,
+    filter = "",
+    threads = [],
+    openPoints = open ? ["checks"] : [],
+  }: {
     selected?: number
     expanded?: Set<number>
     labels?: ReadonlyMap<string, string>
     open?: boolean
     filter?: string
+    threads?: readonly Comment[]
+    openPoints?: MergePoint["id"][]
   } = {}
 ) =>
   checkRows(
-    flatCheckItems(points, list, {
+    flatCheckItems(points, { checks: list, threads }, {
       expandedCheckIds: expanded,
-      expandedPoints: new Set(open ? (["checks"] as const) : []),
+      expandedPoints: new Set(openPoints),
       filter,
     }),
-    { selected, labels, expanded, expandable: (point) => isExpandablePoint(point, list) }
+    {
+      selected,
+      labels,
+      expanded,
+      expandable: (point) => isExpandablePoint(point, { checks: list, threads }),
+      terminalWidth: 120,
+    }
   )
 
 /** The checks line, and the checks open under it. Row 0 is the line itself. */
@@ -171,5 +188,40 @@ describe("checkRows", () => {
   test("labels rows by their index in the section", () => {
     const list = rowsFor(checks(), { labels: new Map([["checks:0", "f"], ["checks:3", "a"], ["checks:4", "sd"], ["files:3", "x"]]) })
     expect(list.rows.map((row) => row.label)).toEqual(["f", undefined, undefined, "a", "sd", ...Array(7).fill(undefined)])
+  })
+})
+
+describe("threads under the conversations line", () => {
+  const CONVERSATIONS: MergePoint = { id: "conversations", state: "warn", text: "2 unresolved" }
+  const thread = (id: string, over: Partial<Comment> = {}): Comment => ({
+    id, filename: "src/app/greet.ts", line: 12, side: "RIGHT", body: "## Naming\n\nRename `x` to **count**", createdAt: "",
+    status: "synced", author: "bob", isThreadResolved: false, ...over,
+  })
+  const THREADS = [thread("t1"), thread("t2", { filename: "src/farewell.ts", line: undefined as unknown as number, author: undefined })]
+  const conversations = (options: Parameters<typeof rowsOf>[2] = {}) =>
+    rowsOf([CONVERSATIONS], [], { threads: THREADS, openPoints: ["conversations"], ...options })
+
+  test("draw a warning, the file and line, the author, then the body's first words, and a file-level thread reads (file)", () => {
+    expect(texts(conversations())).toEqual([
+      "⚠ Conversations  2 unresolved  ▼",
+      "  ⚠ greet.ts:12  @bob  Naming Rename x to **count**",
+      "  ⚠ farewell.ts (file)  @you  Naming Rename x to **count**",
+    ])
+    expect(texts(conversations({ threads: [thread("t3", { line: 0 })] }))[1]).toStartWith("  ⚠ greet.ts (file)  @bob")
+  })
+
+  test("colour the warning and the place yellow, the author sapphire, the body subtext1, and under the cursor blue and text", () => {
+    expect(fgs(conversations(), 1)).toEqual([theme.yellow, theme.yellow, theme.sapphire, theme.subtext1])
+    expect(fgs(conversations({ selected: 1 }), 1)).toEqual([theme.yellow, theme.yellow, theme.blue, theme.text])
+  })
+
+  test("are keyed by the root comment", () => {
+    expect(conversations().rows.map((row) => row.key)).toEqual(["point:conversations", "thread:t1", "thread:t2"])
+  })
+
+  test("fold the line ▶ while closed, and it does not fold with every thread resolved", () => {
+    expect(texts(conversations({ openPoints: [] }))).toEqual(["⚠ Conversations  2 unresolved  ▶"])
+    expect(texts(rowsOf([{ id: "conversations", state: "ok", text: "all resolved" }], [], { openPoints: ["conversations"] })))
+      .toEqual(["✓ Conversations  all resolved"])
   })
 })

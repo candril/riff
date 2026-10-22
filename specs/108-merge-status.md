@@ -1,6 +1,6 @@
 # Merge Status
 
-**Status**: In Progress
+**Status**: Done
 
 ## Description
 
@@ -81,17 +81,23 @@ says whose move it is, this section says why.
 - **Expanding a line** shows its detail: checks expand to the full list,
   indented under their line, each failing one opening onto its annotations
   ([043](./043-check-annotations.md)); conversations to each unresolved
-  thread. `l` / `Enter` open the checks line, `h` folds it, and `h` on a
-  check with nothing open under it folds the line and climbs onto it. A
-  filter opens the checks line onto the checks it matches, and keeps a line
-  whose name or text matches.
-- **Not built**: the conversations line does not expand yet, so the
-  unresolved threads and the jump to one (P2) are still only in the
-  Conversation section.
+  thread, in the order the diff reads (file, then line): `⚠ greet.ts:12
+  @bob  Rename this…`, a file-level thread `farewell.ts (file)`. Only a
+  line with something under it opens: the checks line with any check, the
+  conversations line with any unresolved thread. `l` / `Enter` open a line,
+  `h` folds it, and `h` on a check with nothing open under it, or on a
+  thread, folds the line and climbs onto it. The conversations line stays
+  folded on arrival. A filter opens a line onto the checks or threads it
+  matches (a thread on its author, body or file), and keeps a line whose
+  name or text matches or that holds a match.
+- **Jumping to a conversation**: `Enter` on a thread closes the panel and
+  opens it in the thread view, as `Enter` on a thread in the Conversation
+  section does; `o` opens it on GitHub (a local thread has nowhere to go)
+  and `y` copies its body. Resolving stays in the Conversation section:
+  `x` does nothing here.
 
 ### P2
 
-- **Jumping to a conversation** from the expanded conversations line.
 - **Telling required from optional without GitHub's answer**, should a
   repository's checks come back with no `isRequired` at all.
 
@@ -129,10 +135,17 @@ a REST compare made once after the first render, like the stacked-PR check
   gives each line state its icon and colour.
 - The section keeps the id `checks`: the nav, the restore and the row
   actions key on it. `flatCheckItems` (`src/components/pr-info-items.ts`)
-  lays out its rows, a `point` per gate and the checks under the open
-  checks line; `checkRows` (`src/components/pr-info-check-rows.ts`) draws
-  them, keyed `point:<id>`. Which lines are open is `expandedPoints` in
+  lays out its rows, a `point` per gate, the checks under the open checks
+  line and a `thread` row per unresolved thread under the open
+  conversations line; `checkRows` (`src/components/pr-info-check-rows.ts`)
+  draws them, keyed `point:<id>` and `thread:<comment id>`.
+  `isExpandablePoint(point, { checks, threads })` says which lines open.
+  Which lines are open is `expandedPoints` in
   `src/components/pr-info-nav.ts`, per session like the open checks.
+- `MergeStatus.threads` holds the unresolved root comments, sorted, and is
+  what the conversations line counts, so its count and its rows cannot
+  disagree. `getSelectedMergeThread` hands the row actions the thread
+  under the cursor; `getSelectedCheck` never returns one for a thread row.
 - `sectionConfigs` hands the header the verdict as `trailing`, which
   `PRInfoSectionHeader` (`src/components/PRInfoHeaderViews.tsx`) draws at
   the row's right end, unshrinking.

@@ -2,6 +2,7 @@ import type { PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation, PrInf
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { PRInfoPanelSection } from "../state"
+import type { Comment } from "../types"
 import type { MergePoint } from "./merge-status-model"
 import { conversationItemId, type ConversationItem, type ReviewThread, type ReviewWithThreads } from "./pr-info-conversation"
 
@@ -23,8 +24,9 @@ export type FlatConversationItem =
   | { type: 'pending-reviewer'; data: string[] }
 
 /**
- * A row of the Merge status section: a gate, or under the checks gate a check
- * and its annotations (specs 043, 108). Mirrors how the conversation section
+ * A row of the Merge status section: a gate, under the checks gate a check
+ * and its annotations, or under the conversations gate an unresolved thread
+ * (specs 043, 108). Mirrors how the conversation section
  * flattens reviews+threads for single-axis cursor nav.
  */
 export type FlatCheckItem =
@@ -32,6 +34,7 @@ export type FlatCheckItem =
   | { kind: 'check'; check: PrCheck }
   | { kind: 'annotation'; check: PrCheck; annotation: PrCheckAnnotation }
   | { kind: 'placeholder'; check: PrCheck; placeholder: 'loading' | 'empty' | 'error' }
+  | { kind: 'thread'; thread: Comment }
 
 export const ALL_SECTIONS: readonly PRInfoPanelSection[] = [
   'checks',
@@ -129,19 +132,27 @@ export const POINT_LABELS: Record<MergePoint["id"], string> = {
   blockers: "Blockers",
 }
 
-/** The one gate that opens onto rows of its own, and only once there is something under it. */
-export function isExpandablePoint(point: MergePoint, checks: PrCheck[] | undefined): boolean {
-  return point.id === 'checks' && (checks ?? []).length > 0
+/** What the merge status lines open onto. */
+export interface MergeRows {
+  checks: PrCheck[] | undefined
+  threads: readonly Comment[]
+}
+
+/** The gates that open onto rows of their own, and only once there is something under them. */
+export function isExpandablePoint(point: MergePoint, { checks, threads }: MergeRows): boolean {
+  if (point.id === 'checks') return (checks ?? []).length > 0
+  return point.id === 'conversations' && threads.length > 0
 }
 
 /**
- * One row per gate, and under the checks gate, while it is open or a filter
- * is set, each check plus any inline annotation / placeholder rows for
- * currently-expanded failing checks (specs 043, 108).
+ * One row per gate, and while a line is open or a filter is set, the rows
+ * under it: under the checks gate each check plus any inline annotation /
+ * placeholder rows for currently-expanded failing checks, under the
+ * conversations gate each unresolved thread (specs 043, 108).
  */
 export function flatCheckItems(
   points: readonly MergePoint[],
-  checks: PrCheck[] | undefined,
+  source: MergeRows,
   { expandedCheckIds, expandedPoints, filter }: {
     expandedCheckIds: ReadonlySet<number>
     expandedPoints: ReadonlySet<MergePoint["id"]>
@@ -149,18 +160,23 @@ export function flatCheckItems(
   },
 ): FlatCheckItem[] {
   const flat: FlatCheckItem[] = []
-  const visible = (checks ?? []).filter((check) =>
-    matchesFilter(filter, check.name, check.conclusion ?? undefined)
-  )
+  const under: Partial<Record<MergePoint["id"], FlatCheckItem[]>> = {
+    checks: checkRowsOf(
+      (source.checks ?? []).filter((check) => matchesFilter(filter, check.name, check.conclusion ?? undefined)),
+      expandedCheckIds,
+    ),
+    conversations: source.threads
+      .filter((thread) => matchesFilter(filter, thread.author, thread.body, thread.filename))
+      .map((thread) => ({ kind: 'thread', thread })),
+  }
   for (const point of points) {
-    // The checks gate matches on any check under it too, the way a review
-    // matches on its threads.
-    const holdsMatch = point.id === 'checks' && filter !== "" && visible.length > 0
+    const rows = isExpandablePoint(point, source) ? (under[point.id] ?? []) : []
+    // A line matches on any row under it too, the way a review matches on
+    // its threads.
+    const holdsMatch = filter !== "" && rows.length > 0
     if (!matchesFilter(filter, POINT_LABELS[point.id], point.text) && !holdsMatch) continue
     flat.push({ kind: 'point', point })
-    if (isExpandablePoint(point, checks) && (expandedPoints.has(point.id) || filter)) {
-      flat.push(...checkRowsOf(visible, expandedCheckIds))
-    }
+    if (expandedPoints.has(point.id) || filter) flat.push(...rows)
   }
   return flat
 }

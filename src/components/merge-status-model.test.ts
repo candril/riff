@@ -27,9 +27,9 @@ const failed = (name: string, isRequired?: boolean): PrCheck =>
 function review(author: string, state: PrReview["state"], submittedAt = "2026-01-01T00:00:00Z"): PrReview {
   return { id: `PRR_${author}_${submittedAt}`, author, state, submittedAt }
 }
-const thread = (resolved: boolean): Comment => ({
+const thread = (resolved: boolean | undefined, over: Partial<Comment> = {}): Comment => ({
   id: `c${nextId++}`, filename: "a.ts", line: 1, side: "RIGHT", body: "", createdAt: "", status: "synced",
-  isThreadResolved: resolved,
+  isThreadResolved: resolved, ...over,
 })
 
 const status = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as number | null } = {}) =>
@@ -50,6 +50,7 @@ describe("the merge verdict", () => {
         { id: "base", state: "ok", text: "up to date with main" },
         { id: "blockers", state: "ok", text: "none" },
       ],
+      threads: [],
     })
   })
 
@@ -174,6 +175,23 @@ describe("conversations", () => {
     expect(point(ready(), "conversations", { comments: [thread(false), thread(false)] })).toEqual([
       { state: "warn", text: "2 unresolved" },
     ])
+  })
+
+  test("the threads are the unresolved roots the line counts, in the order the diff reads", () => {
+    const later = thread(false, { filename: "b.ts", line: 3 })
+    const first = thread(false, { filename: "a.ts", line: 9 })
+    const earlier = thread(false, { filename: "b.ts", line: 1 })
+    const comments = [
+      later,
+      thread(true),
+      thread(undefined),
+      { ...thread(false), inReplyTo: first.id },
+      first,
+      earlier,
+    ]
+    const { threads, points } = status(ready(), { comments })
+    expect(threads).toEqual([first, earlier, later])
+    expect(points.find((p) => p.id === "conversations")?.text).toBe(`${threads.length} unresolved`)
   })
 })
 

@@ -1,11 +1,12 @@
 import type { PrCheck, PrCheckAnnotation } from "../providers/github/types"
 import { theme } from "../theme"
+import type { Comment } from "../types"
 import { pointStyle, type MergePoint } from "./merge-status-model"
-import { getCheckStatusDisplay } from "./pr-info-format"
+import { cleanBodyPreview, getCheckStatusDisplay, truncate } from "./pr-info-format"
 import { isFailingCheck, POINT_LABELS, type FlatCheckItem } from "./pr-info-items"
 import { row, type ListInput, type ListRow, type ListRows, type ListSegment } from "./pr-info-list-rows"
 
-// Under the checks line: two columns in from the gates' icons, under their labels.
+// Under a line: two columns in from the gates' icons, under their labels.
 const CHECK_INDENT = "  "
 
 const PLACEHOLDERS = {
@@ -14,17 +15,26 @@ const PLACEHOLDERS = {
   error: `${CHECK_INDENT}  Could not fetch annotations`,
 } as const
 
+// The columns of the terminal a merge status row cannot use: the panel's
+// indent in front of it and its margin after it.
+const ROW_MARGIN = 7
+
 const LABEL_WIDTH = Math.max(...Object.values(POINT_LABELS).map((label) => label.length))
 
 /**
- * One row per gate of the merge status, and under an open checks line each
+ * One row per gate of the merge status, under an open checks line each
  * check, then under an expanded failing one its annotations, or a row
- * saying why there are none (specs 043, 108). Nothing at all when the filter
+ * saying why there are none, and under an open conversations line each
+ * unresolved thread (specs 043, 108). Nothing at all when the filter
  * hides every row.
  */
 export function checkRows(
   items: FlatCheckItem[],
-  input: ListInput & { expanded: ReadonlySet<number>; expandable: (point: MergePoint) => boolean }
+  input: ListInput & {
+    expanded: ReadonlySet<number>
+    expandable: (point: MergePoint) => boolean
+    terminalWidth: number
+  }
 ): ListRows {
   const keys = new Map<string, number>()
   const rows = items.map((item, index): ListRow => {
@@ -36,7 +46,9 @@ export function checkRows(
         const seen = keys.get(item.point.id) ?? 0
         keys.set(item.point.id, seen + 1)
         const key = seen === 0 ? `point:${item.point.id}` : `point:${item.point.id}:${seen}`
-        const fold = input.expandable(item.point) ? (items[index + 1]?.kind === "check" ? "▼" : "▶") : null
+        const next = items[index + 1]
+        const open = next !== undefined && next.kind !== "point"
+        const fold = input.expandable(item.point) ? (open ? "▼" : "▶") : null
         return row("checks", index, key, pointSegments(item.point, { selected, labelled: seen === 0, fold }), input)
       }
       case "check":
@@ -57,6 +69,8 @@ export function checkRows(
           [{ text: PLACEHOLDERS[item.placeholder], fg: theme.overlay0 }],
           input
         )
+      case "thread":
+        return row("checks", index, `thread:${item.thread.id}`, threadSegments(item.thread, selected, input.terminalWidth), input)
     }
   })
   return { rows, note: null }
@@ -93,6 +107,23 @@ function checkSegments(check: PrCheck, selected: boolean, expanded: ReadonlySet<
     const suffix = count > 0 ? ` [${count}]` : ""
     segments.push({ text: `  ${expanded.has(check.id) ? "▼" : "▶"}${suffix}`, fg: theme.overlay0 })
   }
+  return segments
+}
+
+function threadSegments(thread: Comment, selected: boolean, terminalWidth: number): ListSegment[] {
+  const file = thread.filename.split("/").pop() || thread.filename
+  // A file-level comment comes back from GitHub with no line at all.
+  const location = thread.line > 0 ? `${file}:${thread.line}` : `${file} (file)`
+  const segments: ListSegment[] = [
+    { text: `${CHECK_INDENT}⚠ `, fg: theme.yellow },
+    { text: location, fg: theme.yellow },
+    { text: `  @${thread.author ?? "you"}`, fg: selected ? theme.blue : theme.sapphire },
+  ]
+  // A text too wide for its row squeezes the segments before it rather than
+  // being cut, so the preview is cut here to what is left of the row.
+  const used = segments.reduce((width, segment) => width + Bun.stringWidth(segment.text), 0)
+  const preview = truncate(cleanBodyPreview(thread.body), Math.max(1, terminalWidth - ROW_MARGIN - used - 2))
+  segments.push({ text: `  ${preview}`, fg: selected ? theme.text : theme.subtext1 })
   return segments
 }
 

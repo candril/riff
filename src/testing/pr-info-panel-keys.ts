@@ -26,6 +26,8 @@ export interface StubPanelOptions {
   onHeader?: boolean
   /** Whether the files section has a row under the cursor. */
   file?: boolean
+  /** A real panel in place of the recording stub, for keys whose effect is the panel's own. */
+  controller?: PRInfoPanelClass
 }
 
 /**
@@ -61,6 +63,7 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
     toggleCheckExpansion: record("toggleCheckExpansion"),
     toggleSelectedPoint: () => false,
     getSelectedCheck: () => undefined,
+    getSelectedMergeThread: () => undefined,
     getSelectedAnnotation: () => null,
     getSelectedPreview: () => ({ app: "vercel", links: [{ label: "a", url: "https://a" }, { label: "b", url: "https://b" }] }),
     getSelectedFile: () => (panel.file ? { filename: "src/greet.ts" } : undefined),
@@ -83,7 +86,9 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
   const harness = await keymapHarness()
   let state = initial
   const calls: string[] = []
-  const { panel, controller } = stubPanel(calls, options)
+  const stub = stubPanel(calls, options)
+  const panel = stub.panel
+  const controller = options.controller ?? stub.controller
   const record = (entry: string) => (...args: unknown[]) => void calls.push([entry, ...args].join(" "))
   const deps: PRInfoPanelKeyDeps = {
     getState: () => state,

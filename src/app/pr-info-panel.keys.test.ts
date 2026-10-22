@@ -1,11 +1,14 @@
-import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, setSystemTime, spyOn, test } from "bun:test"
+import { createTestRenderer } from "@opentui/core/testing"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { pinStdoutColumns } from "../testing/frame"
-import { PR_NOW } from "../testing/pr-info"
+import { PR_NOW, prInfo } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
+import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
+import type { Comment } from "../types"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -123,4 +126,79 @@ test("Ctrl-r still opens the chat from the overview, and a bare s still starts f
   expect(mounted.ctx.getState().chatOpen).toBe(true)
   expect(mounted.ctx.getState().focusedPanel).toBe("chat")
   await mounted.frame()
+})
+
+describe("the merge status's conversations line", () => {
+  const THREAD: Comment = {
+    id: "gh-41",
+    filename: "src/greet.ts",
+    line: 2,
+    side: "RIGHT",
+    body: "Rename this",
+    createdAt: PR_NOW.toISOString(),
+    status: "synced",
+    author: "bob",
+    isThreadResolved: false,
+    githubUrl: "https://github.com/o/r/pull/1#discussion_r41",
+  }
+
+  /**
+   * The overview's keys on a real panel showing one unresolved thread, the
+   * cursor on the conversations line (the third gate, with no checks), and
+   * every spawn — a browser, the clipboard — caught instead of run.
+   */
+  async function onConversations() {
+    const { renderer } = await createTestRenderer({ width: 120, height: 40 })
+    const info = prInfo("", { mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", checks: [] })
+    const shown = new PRInfoPanelClass(renderer, info, [], [THREAD])
+    const spawned = spyOn(Bun, "spawn").mockImplementation(((cmd: string[]) => ({
+      cmd,
+      stdin: { write() {}, end: async () => {} },
+      exited: Promise.resolve(0),
+    })) as unknown as typeof Bun.spawn)
+    const keys = await prInfoPanelKeys(overviewState({ prInfo: info }), { controller: shown })
+    shown.setActiveSection("checks")
+    shown.moveCursor(3)
+    return {
+      keys,
+      panel: shown,
+      spawned: () => spawned.mock.calls.map(([cmd]) => (cmd as string[]).join(" ")),
+      dispose: () => {
+        spawned.mockRestore()
+        shown.destroy()
+        renderer.destroy()
+      },
+    }
+  }
+
+  test("l opens it, j steps onto the thread, and Enter closes the panel onto that thread", async () => {
+    const { keys, panel, dispose } = await onConversations()
+    try {
+      keys.press("l")
+      keys.press("j")
+      expect(panel.getSelectedMergeThread()?.id).toBe("gh-41")
+      keys.press("\r")
+      expect(keys.calls).toEqual(["openThread gh-41"])
+      expect(keys.state().viewMode).toBe("diff")
+    } finally {
+      dispose()
+    }
+  })
+
+  test("o opens the thread on GitHub and y copies its body", async () => {
+    const { keys, spawned, dispose } = await onConversations()
+    try {
+      keys.press("l")
+      keys.press("j")
+      keys.press("o")
+      keys.press("y")
+      expect(spawned()[0]).toBe("open https://github.com/o/r/pull/1#discussion_r41")
+      expect(spawned()[1]).toMatch(/^(pbcopy|xclip)/)
+      expect(spawned()).toHaveLength(2)
+      await Bun.sleep(0)
+      expect(keys.state().toast?.message).toBe("Comment copied")
+    } finally {
+      dispose()
+    }
+  })
 })

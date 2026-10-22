@@ -8,6 +8,7 @@ import {
   flatCheckItems,
   flatConversationItemId,
   flatConversationItems,
+  isExpandablePoint,
   visibleCommits,
   visibleFiles,
   visiblePreviews,
@@ -144,6 +145,8 @@ describe("flatCheckItems", () => {
         return `${item.check.name}: ${item.annotation.message.split("\n")[0]}`
       case "placeholder":
         return `${item.check.name}: <${item.placeholder}>`
+      case "thread":
+        return `thread ${item.thread.id}`
     }
   }
   const byName = (name: string) => checks().find((check) => check.name === name)!
@@ -156,8 +159,14 @@ describe("flatCheckItems", () => {
   const OPEN = new Set(["checks"] as const)
   const items = (
     list: PrCheck[] | undefined,
-    { expanded = new Set<number>(), points = [CHECKS], open = OPEN as ReadonlySet<MergePoint["id"]>, filter = "" } = {}
-  ) => flatCheckItems(points, list, { expandedCheckIds: expanded, expandedPoints: open, filter }).map(row)
+    {
+      expanded = new Set<number>(),
+      points = [CHECKS],
+      open = OPEN as ReadonlySet<MergePoint["id"]>,
+      filter = "",
+      threads = [] as readonly Comment[],
+    } = {}
+  ) => flatCheckItems(points, { checks: list, threads }, { expandedCheckIds: expanded, expandedPoints: open, filter }).map(row)
 
   test("gives each gate a row, in the model's order, and nothing under a folded checks line", () => {
     expect(items(checks(), { points: POINTS, open: new Set() })).toEqual(["[checks]", "[reviews]", "[base]"])
@@ -218,6 +227,47 @@ describe("flatCheckItems", () => {
 
   test("lists only the checks line without checks", () => {
     expect(items(undefined, { points: [{ id: "checks", state: "ok", text: "no checks" }] })).toEqual(["[checks]"])
+  })
+
+  describe("under the conversations line", () => {
+    const thread = (id: string, over: Partial<Comment> = {}): Comment => ({
+      id, filename: "src/greet.ts", line: 4, side: "RIGHT", body: "Rename this", createdAt: "", status: "synced",
+      author: "bob", isThreadResolved: false, ...over,
+    })
+    const THREADS = [thread("t1"), thread("t2", { filename: "src/farewell.ts", body: "Typo", author: "carol" })]
+    const CONVERSATIONS: MergePoint = { id: "conversations", state: "warn", text: "2 unresolved" }
+    const points = [CHECKS, CONVERSATIONS, { id: "base", state: "ok", text: "up to date with main" } as MergePoint]
+    const both = new Set(["checks", "conversations"] as const)
+
+    test("opens only while a thread is unresolved", () => {
+      const allResolved: MergePoint = { id: "conversations", state: "ok", text: "all resolved" }
+      expect(isExpandablePoint(CONVERSATIONS, { checks: [], threads: THREADS })).toBe(true)
+      expect(isExpandablePoint(allResolved, { checks: checks(), threads: [] })).toBe(false)
+      expect(isExpandablePoint(CHECKS, { checks: [], threads: THREADS })).toBe(false)
+    })
+
+    test("lists nothing while folded, and each thread once open, before the next gate", () => {
+      expect(items([], { points, threads: THREADS })).toEqual(["[checks]", "[conversations]", "[base]"])
+      expect(items([], { points, threads: THREADS, open: both })).toEqual([
+        "[checks]", "[conversations]", "thread t1", "thread t2", "[base]",
+      ])
+    })
+
+    test("a filter on an author, a body or a filename keeps the line, opened, with only the threads that match", () => {
+      expect(items([], { points, threads: THREADS, open: new Set(), filter: "carol" })).toEqual([
+        "[conversations]", "thread t2",
+      ])
+      expect(items([], { points, threads: THREADS, open: new Set(), filter: "rename" })).toEqual([
+        "[conversations]", "thread t1",
+      ])
+      expect(items([], { points, threads: THREADS, open: new Set(), filter: "farewell" })).toEqual([
+        "[conversations]", "thread t2",
+      ])
+    })
+
+    test("a filter nothing under it matches drops the line", () => {
+      expect(items([], { points, threads: THREADS, open: both, filter: "behind" })).toEqual([])
+    })
   })
 })
 

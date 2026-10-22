@@ -37,10 +37,22 @@ export function activate(deps: Deps, key: KeyEvent): void {
   const section = panel.getActiveSection()
   switch (section) {
     case 'checks': {
-      // Enter on the checks line opens or folds the checks under it, as on
-      // a failing check; the other gate lines have nothing to open.
+      // Enter on the checks or conversations line opens or folds the rows
+      // under it, as on a failing check; the other gate lines have nothing
+      // to open.
       if (panel.toggleSelectedPoint()) {
         deps.render()
+        break
+      }
+      // An unresolved thread under the conversations line opens where Enter
+      // on it in the Conversation section would (spec 108).
+      const thread = panel.getSelectedMergeThread()
+      if (thread) {
+        if (deps.onOpenThread) {
+          deps.setState(closePRInfoPanel)
+          deps.render()
+          deps.onOpenThread(thread.id)
+        }
         break
       }
       // Enter on an annotation opens the file at that line in
@@ -138,6 +150,12 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
         if (url) Bun.spawn(["open", url])
         break
       }
+      const thread = panel.getSelectedMergeThread()
+      if (thread) {
+        // A local thread has no page on GitHub to open.
+        if (thread.githubUrl) Bun.spawn(["open", thread.githubUrl])
+        break
+      }
       const check = panel.getSelectedCheck()
       if (check?.detailsUrl) {
         Bun.spawn(["open", check.detailsUrl])
@@ -174,7 +192,6 @@ export function openFocused(deps: Deps, key: KeyEvent): void {
     case 'conversation': {
       const item = panel.getSelectedConversationItem()
       if (item && item.type !== 'pending-reviewer') {
-        // Get URL - for PR comments use direct url, for reviews use first thread's url
         const url = item.type === 'pr-comment'
           ? item.data.url
           : item.data.threads[0]?.url
@@ -221,6 +238,12 @@ export function copyFocused(deps: Deps, key: KeyEvent): void {
         copied = true
         break
       }
+      const thread = panel.getSelectedMergeThread()
+      if (thread) {
+        copyAndToast(deps, thread.body, "Comment copied")
+        copied = true
+        break
+      }
       const check = panel.getSelectedCheck()
       if (check?.detailsUrl) {
         copyAndToast(deps, check.detailsUrl, `Copied ${check.name} URL`)
@@ -247,7 +270,6 @@ export function copyFocused(deps: Deps, key: KeyEvent): void {
     case 'conversation': {
       const item = panel.getSelectedConversationItem()
       if (item && item.type !== 'pending-reviewer') {
-        // Get body - for PR comments use direct body, for reviews use body or first thread body
         const body = item.type === 'pr-comment'
           ? item.data.body
           : (item.data.body || item.data.threads[0]?.body || '')

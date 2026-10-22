@@ -1,8 +1,9 @@
 import { test, expect, describe } from "bun:test"
 import type { PrCheck, PrInfo, PrReview } from "../providers/github/types"
+import type { Comment } from "../types"
 import { fgAt, ints } from "../testing/frame"
 import { ago, prInfo } from "../testing/pr-info"
-import { find, usePrInfoPanel } from "../testing/pr-info-panel"
+import { find, PR_FILES, usePrInfoPanel } from "../testing/pr-info-panel"
 import { theme } from "../theme"
 
 // The Merge status section as the panel opens on it: the verdict at the
@@ -161,6 +162,115 @@ describe("the checks line", () => {
     panel.collapseSelectedCheck()
     expect(panel.getCursorIndex()).toBe(0)
     expect((await mounted.frame()).split("\n")[9]).toBe("    ✗ Reviews        1/2 approvals · changes requested by bob")
+  })
+})
+
+describe("the conversations line", () => {
+  const thread = (id: string, over: Partial<Comment>): Comment => ({
+    id,
+    filename: "src/greet.ts",
+    line: 12,
+    side: "RIGHT",
+    body: "",
+    createdAt: ago(30),
+    status: "synced",
+    author: "bob",
+    isThreadResolved: false,
+    ...over,
+  })
+  const open = [
+    thread("gh-1", { body: "Rename this to greeting, it is what every caller calls it" }),
+    // GitHub answers a comment on the whole file with no line.
+    thread("gh-2", { filename: "src/farewell.ts", line: undefined as unknown as number, author: "carol", body: "Needs a test" }),
+  ]
+  const THREADS = [...open, thread("gh-3", { filename: "src/a.ts", body: "Settled", isThreadResolved: true })]
+
+  /** The section on one green check, so the conversations line is its fourth row. */
+  const onConversations = (width: number, { expand = false } = {}) =>
+    mount({
+      info: ready({ checks: [check(1, "build")] }),
+      comments: THREADS,
+      width,
+      mergeStatusOpen: true,
+      prepare: (p) => {
+        p.setBehindBy(0)
+        p.setActiveSection("checks")
+        p.moveCursor(4)
+        // Inside the mount, where the terminal reads as wide as the screen.
+        if (expand) p.expandSelectedCheck()
+      },
+    })
+
+  test("stays folded on arrival, counting only the unresolved threads", async () => {
+    const { lines, spans } = await onConversations(100)
+    expect(gates(lines)[2]).toBe("    ⚠ Conversations  2 unresolved  ▶")
+    expect(lines.join("\n")).not.toContain("farewell.ts")
+    expect(fgAt(spans, ...find(lines, "▶", 9))).toEqual(ints(theme.overlay0))
+  })
+
+  test("opens with l onto each unresolved thread, in the order the diff reads, the resolved one left out", async () => {
+    const { lines } = await onConversations(100, { expand: true })
+    const at = lines.indexOf("    ⚠ Conversations  2 unresolved  ▼")
+    expect(at).toBeGreaterThan(0)
+    expect(lines.slice(at + 1, at + 4)).toEqual([
+      "      ⚠ farewell.ts (file)  @carol  Needs a test",
+      "      ⚠ greet.ts:12  @bob  Rename this to greeting, it is what every caller calls it",
+      "    ✓ Conflicts      no conflicts",
+    ])
+    expect(lines.join("\n")).not.toContain("Settled")
+  })
+
+  test("cuts a thread's row at the panel's right edge at 60 columns", async () => {
+    const { lines } = await onConversations(60, { expand: true })
+    const at = lines.indexOf("    ⚠ Conversations  2 unresolved  ▼")
+    expect(lines.slice(at + 1, at + 3)).toEqual([
+      "      ⚠ farewell.ts (file)  @carol  Needs a test",
+      "      ⚠ greet.ts:12  @bob  Rename this to greeting, it i…",
+    ])
+  })
+
+  test("h on a thread folds the line and climbs onto it, and a thread is no check", async () => {
+    const { panel, mounted } = await onConversations(100)
+    panel.expandSelectedCheck()
+    panel.moveCursor(1)
+    expect(panel.getSelectedCheck()).toBeUndefined()
+    expect(panel.getSelectedMergeThread()?.id).toBe("gh-2")
+    panel.collapseSelectedCheck()
+    expect(panel.getCursorIndex()).toBe(3)
+    expect(panel.getSelectedMergeThread()).toBeUndefined()
+    expect(gates((await mounted.frame()).split("\n"))[2]).toBe("    ⚠ Conversations  2 unresolved  ▶")
+  })
+
+  test("a rebuild with every thread resolved stops the line opening, drops its rows and keeps the cursor on a row", async () => {
+    const { panel } = await onConversations(100, { expand: true })
+    panel.moveCursor(2)
+    expect(panel.getSelectedMergeThread()?.id).toBe("gh-1")
+    const position = panel.capturePosition()
+
+    const resolved = THREADS.map((t) => ({ ...t, isThreadResolved: true }))
+    const rebuilt = await mount({
+      info: ready({ checks: [check(1, "build")] }),
+      comments: resolved,
+      files: PR_FILES,
+      width: 100,
+      mergeStatusOpen: true,
+      prepare: (p) => {
+        p.setBehindBy(0)
+        p.restorePosition(position)
+      },
+    })
+    const lines = (await rebuilt.mounted.frame()).split("\n")
+    expect(gates(lines)[2]).toBe("    ✓ Conversations  all resolved")
+    expect(lines.join("\n")).not.toContain("greet.ts:12")
+    expect(rebuilt.panel.getSelectedMergeThread()).toBeUndefined()
+    // Seven gate and check rows are left; the cursor that was on the second
+    // thread now sits on the Base line, in the same place.
+    expect(rebuilt.panel.getMaxCursorIndex()).toBe(6)
+    expect(rebuilt.panel.getCursorIndex()).toBe(5)
+    rebuilt.panel.expandSelectedCheck()
+    rebuilt.panel.moveCursor(-2)
+    rebuilt.panel.expandSelectedCheck()
+    expect(rebuilt.panel.getMaxCursorIndex()).toBe(6)
   })
 })
 

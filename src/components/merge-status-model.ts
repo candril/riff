@@ -25,6 +25,8 @@ export interface MergeStatus {
   verdict: "ready" | "warnings" | "blocked"
   verdictText: "✓ ready" | "⚠ mergeable with warnings" | "✗ blocked"
   points: MergePoint[]
+  /** What the conversations line counts, and the rows it opens onto. */
+  threads: readonly Comment[]
 }
 
 const POINT_STYLES: Record<MergePointState, { icon: string; fg: string }> = {
@@ -49,7 +51,8 @@ export function mergeStatus({
   behindBy: number | null
 }): MergeStatus {
   const checks = prInfo.checks ?? []
-  const unresolved = comments.filter((c) => !c.inReplyTo && c.isThreadResolved === false).length
+  const threads = unresolvedThreads(comments)
+  const unresolved = threads.length
   const reviews = reviewsPoint(prInfo)
   // BLOCKED is GitHub refusing the merge outright, so riff never reads it as
   // anything milder than blocked, whatever the lines below make of it.
@@ -65,11 +68,23 @@ export function mergeStatus({
     }),
   ]
 
-  if (refused || points.some((p) => p.state === "fail")) return { verdict: "blocked", verdictText: "✗ blocked", points }
-  if (points.some((p) => p.state === "warn" || p.state === "pending") || prInfo.mergeStateStatus === "UNSTABLE") {
-    return { verdict: "warnings", verdictText: "⚠ mergeable with warnings", points }
+  if (refused || points.some((p) => p.state === "fail")) {
+    return { verdict: "blocked", verdictText: "✗ blocked", points, threads }
   }
-  return { verdict: "ready", verdictText: "✓ ready", points }
+  if (points.some((p) => p.state === "warn" || p.state === "pending") || prInfo.mergeStateStatus === "UNSTABLE") {
+    return { verdict: "warnings", verdictText: "⚠ mergeable with warnings", points, threads }
+  }
+  return { verdict: "ready", verdictText: "✓ ready", points, threads }
+}
+
+/**
+ * The roots of the threads GitHub still holds open, in the order the diff
+ * reads. A local thread has no resolution of its own, so it is never counted.
+ */
+function unresolvedThreads(comments: readonly Comment[]): Comment[] {
+  return comments
+    .filter((c) => !c.inReplyTo && c.isThreadResolved === false)
+    .sort((a, b) => a.filename.localeCompare(b.filename) || (a.line ?? 0) - (b.line ?? 0))
 }
 
 function passed(check: PrCheck): boolean {
