@@ -10,7 +10,7 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { clearTreeFilter, expandFiles, focusLeft, focusRight } from "../state"
-import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
+import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -32,10 +32,9 @@ import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink, openerCommand } from "./open-link"
-import { collectFromSources, type LinkSource } from "../utils/link-targets"
-import { referenceRepo, resolvedReferences } from "../features/references"
+import { createLinksPicker } from "./links-picker"
+import { threadPanelKeyDeps } from "./thread-panel-key-deps"
 
-import * as actionMenu from "../features/action-menu"
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -250,6 +249,9 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
+  const links = createLinksPicker(ctx)
+  const { linksTitle, openLinksPicker, openReactPicker } = links
+  const threadPanel = threadPanelKeyDeps(ctx, links)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -455,53 +457,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     ctx.render()
   }
 
-  /** What the picker is called, which is the difference `gx` and `gX` make. */
-  function linksTitle(action: "open" | "copy"): string {
-    return action === "copy" ? "Copy a link" : "Links"
-  }
-
-  /**
-   * The links in a piece of text, to pick one from (spec 077).
-   *
-   * A rendered comment has no cursor to put on a link the way the diff
-   * does, so riff lists what it found. One link is not a question worth
-   * asking, and none is worth saying out loud rather than opening an empty
-   * picker.
-   */
-  function openLinksPicker(
-    sources: readonly LinkSource[],
-    title: string,
-    action: "open" | "copy" = "open",
-  ): void {
-    const links = collectFromSources(sources, {
-      repo: referenceRepo(),
-      resolved: resolvedReferences(),
-    })
-
-    if (links.length === 0) {
-      ctx.setState((s) => showToast(s, "No links here", "info"))
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 2000)
-      return
-    }
-    if (links.length === 1) {
-      openLink(action, links[0]!)
-      return
-    }
-    ctx.setState((s) =>
-      openActionSubmenu(openActionMenu(s), { kind: "links", links, action, title })
-    )
-    ctx.render()
-  }
-
-  function openReactPicker(): void {
-    ctx.setState((s) => actionMenu.openReactSubmenu(s, false))
-    ctx.render()
-  }
-
   /**
    * What the feed needs to act: where its rows lead, and the files of a
    * commit row that has just been opened (spec 070).
@@ -572,130 +527,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     settleChord(key)
 
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
-    if (
-      inlineCommentOverlay.handleInput(key, {
-        getState: ctx.getState,
-        setState: ctx.setState,
-        render: ctx.render,
-        handleReplyExternal: () =>
-          commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
-        handleEditExternal: () =>
-          commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
-        handleDelete: (comment) =>
-          commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
-        handleSubmit: (comment) =>
-          commentsFeature.handleSubmitSingleComment(ctx.commentsContext, comment),
-        handleToggleResolved: (thread) =>
-          prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread),
-        handleToggleOpenOnly: ctx.toggleOpenThreadsOnly,
-        handleJumpAdjacent: (direction) =>
-          threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
-        onToggleHelp: () => {
-          ctx.setState(toggleHelp)
-          ctx.render()
-        },
-        onReact: openReactPicker,
-        onOpenLinks: (comment, action) => {
-          // The panel's comments, the highlighted one first: the same list
-          // the overview offers, scoped to what this panel is showing.
-          const rest = getInlineCommentOverlayComments(ctx.getState()).filter(
-            (other) => other.id !== comment.id
-          )
-          openLinksPicker(
-            [comment, ...rest].map((c) => ({
-              title: `@${c.author || "you"}`,
-              text: c.localEdit ?? c.body,
-            })),
-            linksTitle(action),
-            action
-          )
-        },
-        handleStartNewComment: () => {
-          // Start a new comment for the diff cursor's current line.
-          // Silently no-op when the cursor isn't on a commentable line —
-          // the panel hint footer already advertises `n`, so the user
-          // can move the cursor and try again.
-          const lineMapping = ctx.getLineMapping()
-          const vimState = ctx.getVimState()
-          const anchor = lineMapping.getCommentAnchor(vimState.line, ctx.getCommentScope().pane)
-          if (!anchor) {
-            ctx.setState((s) =>
-              showToast(s, "Move cursor to a commentable line first", "info")
-            )
-            ctx.render()
-            setTimeout(() => {
-              ctx.setState(clearToast)
-              ctx.render()
-            }, 2500)
-            return
-          }
-          ctx.setState((s) =>
-            openInlineCommentOverlay(
-              s,
-              anchor.filename,
-              anchor.line,
-              anchor.side,
-              "compose"
-            )
-          )
-          ctx.render()
-        },
-        handleCopyLink: (comment) => {
-          void ctx.handleCopyCommentLink(comment)
-        },
-        handleOpenInEditor: (comment) => {
-          void externalTools.handleOpenFileAtLine(
-            ctx.externalToolsContext,
-            comment.filename,
-            comment.line
-          )
-        },
-        handleOpenImages: (comment) => {
-          inlineCommentOverlay.openCommentImages(ctx, comment)
-        },
-        getPanelLayout: () => ctx.threadPanelLayout(),
-        syncCursorToHighlight: () => {
-          // Mirror j/k navigation in the panel onto the diff cursor: jump
-          // to the source line of the highlighted comment so the diff
-          // scrolls along with the panel. Cross-file moves switch files
-          // first in single-file view.
-          const s = ctx.getState()
-          const ov = s.inlineCommentOverlay
-          if (!ov.open) return
-          const derived = getInlineCommentOverlayDisplayOrder(s)
-          const highlighted = derived[ov.highlightedIndex]
-          if (!highlighted) return
-
-          // Opened over the overview or the feed, the panel is talking about
-          // code that is not on screen. Moving to a comment is the moment
-          // the reader asked to see it, so the diff comes back then — not on
-          // `Ctrl-t`, which is just "show me what was said". `Ctrl-o` goes
-          // back to where the overview was.
-          if (s.viewMode !== "diff") {
-            ctx.setState((st) => ({ ...st, viewMode: "diff", previousView: st.viewMode }))
-          }
-
-          const inSingleFileView = s.selectedFileIndex !== null
-          const targetFileIndex = s.files.findIndex((f) => f.filename === highlighted.filename)
-          if (
-            inSingleFileView &&
-            targetFileIndex !== -1 &&
-            targetFileIndex !== s.selectedFileIndex
-          ) {
-            fileNavigation.handleSelectFile(targetFileIndex, ctx.fileNavContext)
-          } else {
-            fileNavigation.ensureFileExpanded(highlighted.filename, ctx.fileNavContext)
-          }
-
-          const mapping = ctx.getLineMapping()
-          const visualLine = mapping.findLineForComment(highlighted)
-          if (visualLine !== null) {
-            ctx.setVimState({ ...ctx.getVimState(), line: visualLine })
-            ctx.ensureCursorVisible()
-          }
-        },
-      })
-    ) {
+    if (inlineCommentOverlay.handleInput(key, threadPanel)) {
       return
     }
 
