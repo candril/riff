@@ -58,6 +58,7 @@ function frame(
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
+    reviewPreview: null,
     commandKeys: new Map(),
   }
 }

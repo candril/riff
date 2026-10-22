@@ -42,14 +42,14 @@ test("gs, which shares its g with gS, asks for the sync preview, never opens Sub
 
   await mockInput.typeText("gs")
 
-  expect(app.ctx.getState().reviewPreview.open).toBe(false)
+  expect(app.reviewPreview.open()).toBe(false)
   expect(app.syncPreview.open()).toBe(false)
   // Outside PR mode, as the harness is, the sync preview declines with a toast.
   expect(await app.frame()).toContain("Sync only available in PR mode")
 
   await mockInput.typeText("jk")
 
-  expect(app.ctx.getState().reviewPreview.open).toBe(false)
+  expect(app.reviewPreview.open()).toBe(false)
   expect(app.islands.reviewPreview.summaryValue()).toBe("")
   expect(await app.frame()).not.toContain("Submit Review")
 })

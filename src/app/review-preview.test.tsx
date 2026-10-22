@@ -5,7 +5,8 @@ import { createReviewPreviewIsland } from "./review-preview"
 import { reviewPreviewModel, type ValidatedComment } from "../components/review-preview-model"
 import { fgAt, findText, ints, paintOf } from "../testing/frame"
 import { theme } from "../theme"
-import type { ReviewPreviewState } from "../state"
+import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
+import type { PendingReview } from "../providers/github/types"
 
 let setup: TestRendererSetup | null = null
 
@@ -61,20 +62,8 @@ const COMMENTS: ValidatedComment[] = ["c1", "c2"].map((id, i) => ({
   valid: true,
 }))
 
-function model(overrides: Partial<ReviewPreviewState> = {}) {
-  const state: ReviewPreviewState = {
-    open: true,
-    selectedEvent: "COMMENT",
-    loading: false,
-    body: "",
-    excludedCommentIds: new Set(),
-    highlightedIndex: 0,
-    focusedSection: "comments",
-    pendingReview: null,
-    pendingReviewLoading: false,
-    ...overrides,
-  }
-  return reviewPreviewModel(COMMENTS, state, false)
+function model(overrides: Partial<ReviewPreviewSnapshot> = {}) {
+  return reviewPreviewModel(COMMENTS, { ...baseState(), ...overrides }, null, false)
 }
 
 const screenText = (screen: string[]) => screen.join("\n")
@@ -86,7 +75,7 @@ function commentsOf(count: number, extra: Partial<ValidatedComment["comment"]> =
   }))
 }
 
-const pending = (count: number): ReviewPreviewState["pendingReview"] => ({
+const pending = (count: number): PendingReview => ({
   id: 1,
   user: "octo",
   body: "",
@@ -97,35 +86,34 @@ const pending = (count: number): ReviewPreviewState["pendingReview"] => ({
 const CYCLE: (ReturnType<typeof reviewPreviewModel> | null)[] = [
   model({ excludedCommentIds: new Set(["c1", "c2"]) }),
   model({ focusedSection: "input" }),
-  reviewPreviewModel([], { ...baseState(), pendingReview: pending(1) }, false),
+  reviewPreviewModel([], baseState(), pending(1), false),
   null,
   reviewPreviewModel(
     commentsOf(3).map((c, i) => (i === 1 ? { ...c, comment: { ...c.comment, status: "pending" } } : c)),
-    { ...baseState(), selectedEvent: "APPROVE", excludedCommentIds: new Set(["k2"]), highlightedIndex: 1, pendingReview: pending(2) },
+    { ...baseState(), selectedEvent: "APPROVE", excludedCommentIds: new Set(["k2"]), highlightedIndex: 1 },
+    pending(2),
     true
   ),
-  reviewPreviewModel(commentsOf(1), { ...baseState(), selectedEvent: "REQUEST_CHANGES", pendingReviewLoading: true }, true),
+  reviewPreviewModel(commentsOf(1), { ...baseState(), selectedEvent: "REQUEST_CHANGES" }, null, true),
   model({ loading: true }),
   null,
   model({ error: "Boom" }),
-  reviewPreviewModel([...commentsOf(8), { ...commentsOf(1)[0]!, valid: false }], baseState(), false),
+  reviewPreviewModel([...commentsOf(8), { ...commentsOf(1)[0]!, valid: false }], baseState(), null, false),
   model({ highlightedIndex: 1 }),
-  reviewPreviewModel([], baseState(), false),
+  reviewPreviewModel([], baseState(), null, false),
   null,
   model(),
 ]
 
-function baseState(): ReviewPreviewState {
+function baseState(): ReviewPreviewSnapshot {
   return {
-    open: true,
     selectedEvent: "COMMENT",
     loading: false,
+    error: undefined,
     body: "",
     excludedCommentIds: new Set(),
     highlightedIndex: 0,
     focusedSection: "comments",
-    pendingReview: null,
-    pendingReviewLoading: false,
   }
 }
 

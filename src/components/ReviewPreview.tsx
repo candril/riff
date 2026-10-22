@@ -55,21 +55,10 @@ const pendingTitle = (count: number) => `! Pending review on GitHub (${count} co
 
 function Banner(props: { banner: ReviewBanner }) {
   return (
-    <Show
-      when={props.banner.kind === "pending" && props.banner}
-      fallback={
-        <box flexDirection="row" paddingX={2} paddingY={1}>
-          <text fg={theme.overlay0}>Checking for pending review...</text>
-        </box>
-      }
-    >
-      {(banner: () => Extract<ReviewBanner, { kind: "pending" }>) => (
-        <box flexDirection="column" paddingX={2} paddingY={1} backgroundColor={theme.yellow + "20"}>
-          <text fg={theme.yellow}>{pendingTitle(banner().count)}</text>
-          <text fg={theme.subtext0}>{"  Will be merged with your new comments on submit"}</text>
-        </box>
-      )}
-    </Show>
+    <box flexDirection="column" paddingX={2} paddingY={1} backgroundColor={theme.yellow + "20"}>
+      <text fg={theme.yellow}>{pendingTitle(props.banner.count)}</text>
+      <text fg={theme.subtext0}>{"  Will be merged with your new comments on submit"}</text>
+    </box>
   )
 }
 

@@ -59,6 +59,7 @@ import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
 import { createConfirmState } from "./features/confirm/state"
 import { createSyncPreviewState } from "./features/sync-preview/state"
+import { createReviewPreviewState } from "./features/review-preview/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -106,7 +107,7 @@ import * as prInfoPanelFeature from "./features/pr-info-panel"
 import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
 import { commentPollRebuild, rereadsLookups, type PanelRebuild } from "./features/pr-info-panel/rebuild"
 import * as syncPreviewFeature from "./features/sync-preview"
-import * as reviewPreview from "./features/review-preview"
+import * as reviewPreviewFeature from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
 import * as diffView from "./features/diff-view"
 import * as folds from "./features/folds"
@@ -508,11 +509,13 @@ export async function createApp(options: AppOptions = {}) {
   const help = createHelpState()
   const confirm = createConfirmState()
   const syncPreview = createSyncPreviewState()
+  const reviewPreview = createReviewPreviewState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
     confirm.close()
     syncPreview.close()
+    reviewPreview.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -572,10 +575,7 @@ export async function createApp(options: AppOptions = {}) {
   }
   const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
-      state =
-        state.reviewPreview.open && state.reviewPreview.body !== value
-          ? { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
-          : state
+      if (reviewPreview.open()) reviewPreview.setBody(value)
       // The footer's submit button follows the body.
       render()
     },
@@ -684,6 +684,7 @@ export async function createApp(options: AppOptions = {}) {
     help,
     confirm,
     syncPreview,
+    reviewPreview,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1030,6 +1031,7 @@ export async function createApp(options: AppOptions = {}) {
     help,
     confirm,
     syncPreview,
+    reviewPreview,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1049,9 +1051,8 @@ export async function createApp(options: AppOptions = {}) {
     prInfo: prInfo ?? null,
   }
 
-  const reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext = {
-    getState: () => state,
-    setState: (fn) => { state = fn(state) },
+  const reviewPreviewOpenContext: reviewPreviewFeature.ReviewPreviewOpenContext = {
+    reviewPreview,
     render,
     getCachedCurrentUser: () => cachedCurrentUser,
     setCachedCurrentUser: (user) => { cachedCurrentUser = user },
@@ -1164,6 +1165,7 @@ export async function createApp(options: AppOptions = {}) {
     source,
     prInfo: prInfo ?? null,
     syncPreview,
+    reviewPreview,
   }
 
   const threadMotionContext: threadMotion.ThreadMotionContext = {
@@ -1204,7 +1206,7 @@ export async function createApp(options: AppOptions = {}) {
     handleShowFilePath: () => externalTools.showFilePath(externalToolsContext),
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
-    handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
+    handleOpenReviewPreview: () => reviewPreviewFeature.handleOpenReviewPreview(reviewPreviewOpenContext),
     handleOpenSyncPreview: () => syncPreviewFeature.handleOpenSyncPreview(syncPreviewOpenContext),
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
@@ -1848,6 +1850,7 @@ export async function createApp(options: AppOptions = {}) {
     help,
     confirm,
     syncPreview,
+    reviewPreview,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys

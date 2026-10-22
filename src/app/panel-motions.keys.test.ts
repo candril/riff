@@ -74,6 +74,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     help: mounted.help,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
+    reviewPreview: mounted.reviewPreview,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

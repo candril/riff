@@ -7,7 +7,6 @@ import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
-import type { ReviewEvent } from "./components/review-preview-model"
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
@@ -43,34 +42,6 @@ export interface FileContentCache {
     loading: boolean
     error?: string
   }
-}
-
-/**
- * Review preview section (tab navigation)
- */
-export type ReviewPreviewSection = "input" | "comments"
-
-/**
- * Review preview state
- */
-export interface ReviewPreviewState {
-  open: boolean
-  selectedEvent: ReviewEvent
-  loading: boolean
-  error?: string
-  /** Overall review comment/body. Mirrored from the Submit Review island's
-   *  summary textarea as it is typed into. */
-  body: string
-  /** IDs of comments to exclude from submission */
-  excludedCommentIds: Set<string>
-  /** Currently highlighted comment index for selection */
-  highlightedIndex: number
-  /** Which section is focused (tab navigation) */
-  focusedSection: ReviewPreviewSection
-  /** Existing pending review from GitHub (if any) */
-  pendingReview: PendingReview | null
-  /** Whether we're currently loading the pending review */
-  pendingReviewLoading: boolean
 }
 
 /**
@@ -493,7 +464,6 @@ export interface AppState {
   actionMenu: ActionMenuState
   
   // Review preview state
-  reviewPreview: ReviewPreviewState
   
   // Toast notification
   toast: ToastState
@@ -666,17 +636,6 @@ export function createInitialState(
     collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
     actionMenu: createActionMenuState(),
-    reviewPreview: {
-      open: false,
-      selectedEvent: "COMMENT",
-      loading: false,
-      body: "",
-      excludedCommentIds: new Set(),
-      highlightedIndex: 0,
-      focusedSection: "comments",
-      pendingReview: null,
-      pendingReviewLoading: false,
-    },
     toast: {
       message: null,
       type: "info",
@@ -1763,33 +1722,11 @@ export function moveActionMenuSelection(state: AppState, delta: number, maxIndex
 }
 
 // ============================================================================
-// Review Preview State
+// Pending Review
 // ============================================================================
 
 /**
- * Open the review preview
- */
-export function openReviewPreview(state: AppState): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      open: true,
-      selectedEvent: "COMMENT",
-      loading: false,
-      error: undefined,
-      body: "",
-      excludedCommentIds: new Set(),
-      highlightedIndex: 0,
-      focusedSection: "comments",
-      // Use app-level pending review (already loaded when PR opened)
-      pendingReview: state.pendingReview,
-      pendingReviewLoading: false,
-    },
-  }
-}
-
-/**
- * Set the pending review at the app level (and sync to review preview if open)
+ * Set the pending review at the app level
  * Also adds pending review comments to the comments array with status="pending"
  */
 export function setPendingReview(
@@ -1830,157 +1767,6 @@ export function setPendingReview(
     ...state,
     pendingReview,
     comments: [...nonPendingComments, ...pendingComments],
-    reviewPreview: {
-      ...state.reviewPreview,
-      pendingReview,
-      pendingReviewLoading: false,
-    },
-  }
-}
-
-/**
- * @deprecated Use setPendingReview instead
- */
-export function setReviewPreviewPendingReview(
-  state: AppState,
-  pendingReview: PendingReview | null
-): AppState {
-  return setPendingReview(state, pendingReview)
-}
-
-/**
- * Close the review preview
- */
-export function closeReviewPreview(state: AppState): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      open: false,
-      loading: false,
-      error: undefined,
-    },
-  }
-}
-
-/**
- * Cycle through review events (Comment -> Approve -> Request Changes -> Comment)
- * @param direction 1 for next, -1 for previous (default: 1)
- */
-export function cycleReviewEvent(state: AppState, direction: number = 1): AppState {
-  const events: ReviewEvent[] = ["COMMENT", "APPROVE", "REQUEST_CHANGES"]
-  const currentIndex = events.indexOf(state.reviewPreview.selectedEvent)
-  const nextIndex = (currentIndex + direction + events.length) % events.length
-  
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      selectedEvent: events[nextIndex]!,
-    },
-  }
-}
-
-/**
- * Set review preview loading state
- */
-export function setReviewPreviewLoading(state: AppState, loading: boolean): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      loading,
-    },
-  }
-}
-
-/**
- * Set review preview error
- */
-export function setReviewPreviewError(state: AppState, error: string | undefined): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      error,
-      loading: false,
-    },
-  }
-}
-
-/**
- * Toggle a comment's inclusion in the review
- */
-export function toggleReviewComment(state: AppState, commentId: string): AppState {
-  const newExcluded = new Set(state.reviewPreview.excludedCommentIds)
-  if (newExcluded.has(commentId)) {
-    newExcluded.delete(commentId)
-  } else {
-    newExcluded.add(commentId)
-  }
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      excludedCommentIds: newExcluded,
-    },
-  }
-}
-
-/**
- * Move review preview highlight
- */
-export function moveReviewHighlight(state: AppState, delta: number, maxIndex: number): AppState {
-  const newIndex = Math.max(0, Math.min(maxIndex, state.reviewPreview.highlightedIndex + delta))
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      highlightedIndex: newIndex,
-    },
-  }
-}
-
-/**
- * Toggle between input and comments section (Tab)
- */
-export function toggleReviewSection(state: AppState): AppState {
-  const newSection: ReviewPreviewSection = 
-    state.reviewPreview.focusedSection === "input" ? "comments" : "input"
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      focusedSection: newSection,
-    },
-  }
-}
-
-/**
- * Set review event type directly
- */
-export function setReviewEvent(state: AppState, event: "COMMENT" | "APPROVE" | "REQUEST_CHANGES"): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      selectedEvent: event,
-    },
-  }
-}
-
-/**
- * Update review body text. The textarea owns the live cursor — this
- * mutator is only used to mirror the textarea's content into state and
- * to flush the latest value at submit time.
- */
-export function setReviewBody(state: AppState, body: string): AppState {
-  return {
-    ...state,
-    reviewPreview: {
-      ...state.reviewPreview,
-      body,
-    },
   }
 }
 

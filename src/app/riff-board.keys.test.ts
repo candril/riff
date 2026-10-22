@@ -40,6 +40,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     help: mounted.help,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
+    reviewPreview: mounted.reviewPreview,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

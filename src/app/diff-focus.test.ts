@@ -3,11 +3,12 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
 const syncPreview: OutsideOverlays = { ...none, syncPreview: true }
+const reviewPreview: OutsideOverlays = { ...none, reviewPreview: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
@@ -18,7 +19,6 @@ const hidden: [string, (s: AppState) => AppState][] = [
   ["the marks picker", (s) => ({ ...s, marksPicker: { ...s.marksPicker, open: true } })],
   ["the occurrence picker", (s) => ({ ...s, occurrencePicker: { ...s.occurrencePicker, open: true } })],
   ["the commit picker, its query closed", (s) => ({ ...s, commitPicker: { ...s.commitPicker, open: true, queryInput: false } })],
-  ["the review preview", (s) => ({ ...s, reviewPreview: { ...s.reviewPreview, open: true } })],
   ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
   ["the blame peek over the diff", (s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } })],
   ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
@@ -45,6 +45,10 @@ describe("the diff's cursor", () => {
 
   test("hides under the sync preview", () => {
     expect(diffCursorShown(initial, syncPreview)).toBe(false)
+  })
+
+  test("hides under Submit Review", () => {
+    expect(diffCursorShown(initial, reviewPreview)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -91,6 +95,7 @@ describe("the chat's input", () => {
     expect(chatInputFocused(chatting, help)).toBe(false)
     expect(chatInputFocused(chatting, confirmation)).toBe(false)
     expect(chatInputFocused(chatting, syncPreview)).toBe(false)
-    for (const [, open] of hidden.slice(0, 7)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    expect(chatInputFocused(chatting, reviewPreview)).toBe(false)
+    for (const [, open] of hidden.slice(0, 6)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })

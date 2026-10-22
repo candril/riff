@@ -142,9 +142,9 @@ test("g? opens the help, and g? under the help closes it", async () => {
 })
 
 test("gs asks for the sync preview", async () => {
-  const { mounted, type, state } = await gApp()
+  const { mounted, type } = await gApp()
   type("g", "s")
-  expect(state().reviewPreview.open).toBe(false)
+  expect(mounted.reviewPreview.open()).toBe(false)
   // Outside PR mode, as the harness is, the sync preview declines with a toast.
   expect(await mounted.frame()).toContain("Sync only available in PR mode")
 })

@@ -7,6 +7,7 @@ import { chatAtCandidates } from "../features/chat/at-candidates"
 import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
+import { createReviewPreviewState } from "../features/review-preview/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -71,9 +72,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const split = createSplitDiff({ ...diffDeps, onShownChanged: () => render() })
   const unified = createUnifiedDiff(diffDeps)
 
+  const reviewPreview = createReviewPreviewState()
   const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
-      if (state.reviewPreview.open) state = { ...state, reviewPreview: { ...state.reviewPreview, body: value } }
+      if (reviewPreview.open()) reviewPreview.setBody(value)
       render()
     },
   })
@@ -146,6 +148,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     help,
     confirm,
     syncPreview,
+    reviewPreview,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -187,6 +190,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     confirm,
     /** The sync preview's state, which the frame pass and the keys read as app.ts's do. */
     syncPreview,
+    /** Submit Review's state, which the frame pass and the keys read as app.ts's do. */
+    reviewPreview,
     fileTreePanel,
     render,
     agent,

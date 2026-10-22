@@ -215,6 +215,9 @@ in `src/features/confirm/state.ts`); the frame carries only its question,
 and its answers stay in the factory, where the keys read them.
 The sync preview is the third (`createSyncPreviewState` in
 `src/features/sync-preview/state.ts`).
+Submit Review is the fourth (`createReviewPreviewState` in
+`src/features/review-preview/state.ts`); the model reads the pending
+review from AppState, where the PR load puts it.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

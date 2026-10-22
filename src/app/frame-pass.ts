@@ -25,6 +25,7 @@ import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
+import type { ReviewPreviewState } from "../features/review-preview/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -48,6 +49,7 @@ export interface FramePassContext {
   help: HelpState
   confirm: ConfirmState
   syncPreview: SyncPreviewState
+  reviewPreview: ReviewPreviewState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -81,11 +83,13 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const asked = ctx.confirm.dialog()
     const confirmDialog = asked ? confirmDialogModel(asked) : null
     const syncPreview = ctx.syncPreview.open() ? { loading: ctx.syncPreview.loading() } : null
+    const reviewPreview = ctx.reviewPreview.open() ? ctx.reviewPreview.snapshot() : null
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
+      reviewPreview: reviewPreview !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -114,6 +118,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       help,
       confirmDialog,
       syncPreview,
+      reviewPreview,
       commandKeys: ctx.getCommandKeys(),
     }
 

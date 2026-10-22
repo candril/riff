@@ -13,9 +13,6 @@ import {
   showToast,
   clearToast,
   setThreadResolved,
-  closeReviewPreview,
-  setReviewPreviewLoading,
-  setReviewPreviewError,
 } from "../../state"
 import { gatherSyncItems } from "../../components"
 import type { ValidatedComment } from "../../components/review-preview-model"
@@ -33,6 +30,7 @@ import { getCurrentUser } from "../../providers/github/exec"
 import { getPrHeadSha } from "../../providers/github/content"
 import { validateCommentsForSubmit } from "../comments"
 import type { SyncPreviewState } from "../sync-preview/state"
+import type { ReviewPreviewState } from "../review-preview/state"
 
 export interface PrOperationsContext {
   // State access
@@ -45,6 +43,7 @@ export interface PrOperationsContext {
   // PR info
   prInfo: PrInfo | null
   syncPreview: Pick<SyncPreviewState, "close" | "startSync">
+  reviewPreview: Pick<ReviewPreviewState, "selectedEvent" | "body" | "excludedCommentIds" | "startSubmit" | "fail" | "close">
 }
 
 /** What a sync sends its items through; a test hands in its own, so no gh runs. */
@@ -247,6 +246,10 @@ export async function handleToggleThreadResolved(
  */
 export async function handleConfirmReview(ctx: PrOperationsContext): Promise<void> {
   const state = ctx.getState()
+  // Read once, so the awaits below send and report what was submitted.
+  const reviewEvent = ctx.reviewPreview.selectedEvent()
+  const body = ctx.reviewPreview.body()
+  const excludedCommentIds = ctx.reviewPreview.excludedCommentIds()
 
   // Check we're in PR mode
   if (state.appMode !== "pr" || !ctx.prInfo) {
@@ -257,15 +260,14 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   // ones stay home, and a thread resolved locally is done, not review
   // material (spec 049).
   const allLocalComments = publishableLocalComments(state.comments).filter(
-    (c) => !c.inReplyTo && !state.reviewPreview.excludedCommentIds.has(c.id)
+    (c) => !c.inReplyTo && !excludedCommentIds.has(c.id)
   )
 
   // Only submit comments that are valid (file exists in diff)
   const validatedComments = validateCommentsForSubmit(allLocalComments, state.files)
   const localComments = validatedComments.filter((vc) => vc.valid).map((vc) => vc.comment)
 
-  const reviewEvent = state.reviewPreview.selectedEvent
-  const hasBody = state.reviewPreview.body.trim().length > 0
+  const hasBody = body.trim().length > 0
   const hasPendingComments = (state.pendingReview?.comments.length ?? 0) > 0
 
   // For APPROVE, we don't need comments or body
@@ -276,7 +278,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       invalidCount > 0
         ? `No valid comments to submit (${invalidCount} skipped - not in diff)`
         : "Add a comment or summary to submit"
-    ctx.setState((s) => setReviewPreviewError(s, msg))
+    ctx.reviewPreview.fail(msg)
     ctx.render()
     return
   }
@@ -285,7 +287,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   if (!prInfo) return
 
   // Set loading state
-  ctx.setState((s) => setReviewPreviewLoading(s, true))
+  ctx.reviewPreview.startSubmit()
   ctx.render()
 
   // Get the PR head SHA
@@ -294,24 +296,22 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   try {
     headSha = await getPrHeadSha(prNumber, owner, repo)
   } catch (err) {
-    ctx.setState((s) =>
-      setReviewPreviewError(s, err instanceof Error ? err.message : "Failed to get PR info")
-    )
+    ctx.reviewPreview.fail(err instanceof Error ? err.message : "Failed to get PR info")
     ctx.render()
     return
   }
 
   // Submit as a review batch with selected event and optional body
   // If there's a pending review, merge our comments into it
-  const pendingReviewId = state.reviewPreview.pendingReview?.id
+  const pendingReviewId = state.pendingReview?.id
   const result = await submitReview(
     owner,
     repo,
     prNumber,
     localComments,
     headSha,
-    state.reviewPreview.selectedEvent,
-    state.reviewPreview.body || undefined,
+    reviewEvent,
+    body || undefined,
     pendingReviewId
   )
 
@@ -375,12 +375,12 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     }))
 
     // Close the review preview and show success toast
-    const pendingReviewCommentCount = state.reviewPreview.pendingReview?.comments.length ?? 0
-    ctx.setState(closeReviewPreview)
+    const pendingReviewCommentCount = state.pendingReview?.comments.length ?? 0
+    ctx.reviewPreview.close()
     const eventLabel =
-      state.reviewPreview.selectedEvent === "APPROVE"
+      reviewEvent === "APPROVE"
         ? "Review approved"
-        : state.reviewPreview.selectedEvent === "REQUEST_CHANGES"
+        : reviewEvent === "REQUEST_CHANGES"
           ? "Changes requested"
           : "Review submitted"
     const totalComments = localComments.length + pendingReviewCommentCount
@@ -415,7 +415,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       ctx.render()
     }, 3000)
   } else {
-    ctx.setState((s) => setReviewPreviewError(s, result.error ?? "Failed to submit review"))
+    ctx.reviewPreview.fail(result.error ?? "Failed to submit review")
     ctx.render()
   }
 }

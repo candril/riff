@@ -1,10 +1,10 @@
 import { test, expect, describe } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { createInitialState, openReviewPreview, type AppState } from "../../state"
 import type { Comment } from "../../types"
-import type { ValidatedComment } from "../../components/review-preview-model"
+import type { ReviewEvent, ValidatedComment } from "../../components/review-preview-model"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerReviewPreviewKeys } from "./keys"
+import { createReviewPreviewState } from "./state"
 
 const SEQUENCES: Record<string, string> = {
   return: "\r",
@@ -27,7 +27,7 @@ const SEQUENCES: Record<string, string> = {
 const comment = (id: string): ValidatedComment => ({ comment: { id } as Comment, valid: true })
 
 interface Setup {
-  reviewPreview?: Partial<AppState["reviewPreview"]>
+  reviewPreview?: { selectedEvent?: ReviewEvent; loading?: boolean; focusedSection?: "input" }
   comments?: ValidatedComment[]
   summary?: string
   isOwnPr?: boolean
@@ -35,21 +35,21 @@ interface Setup {
 }
 
 async function harness(setup: Setup = {}) {
-  const base = createInitialState([], [], "local", "local changes")
-  const opened = setup.open === false ? base : openReviewPreview(base)
-  let state: AppState = { ...opened, reviewPreview: { ...opened.reviewPreview, ...setup.reviewPreview } }
+  const reviewPreview = createReviewPreviewState()
+  if (setup.open !== false) reviewPreview.show()
+  const { selectedEvent, loading, focusedSection } = setup.reviewPreview ?? {}
+  if (selectedEvent) reviewPreview.setEvent(selectedEvent)
+  if (loading) reviewPreview.startSubmit()
+  if (focusedSection) reviewPreview.toggleSection()
   const confirms: string[] = []
   const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerReviewPreviewKeys(riffKeymap, {
-    getState: () => state,
-    setState: (fn) => {
-      state = fn(state)
-    },
+    reviewPreview,
     render: () => {},
     getValidatedComments: () => setup.comments ?? [comment("c1"), comment("c2"), { ...comment("c3"), valid: false }],
     isOwnPr: () => setup.isOwnPr ?? false,
     onConfirmReview: () => {
-      confirms.push(state.reviewPreview.body)
+      confirms.push(reviewPreview.body())
     },
     readSummary: () => setup.summary ?? "",
   })
@@ -59,7 +59,7 @@ async function harness(setup: Setup = {}) {
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
     return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
-  return { press, confirms, state: () => state }
+  return { press, confirms, reviewPreview }
 }
 
 const inInput = { focusedSection: "input" } as const
@@ -110,11 +110,11 @@ describe("Submit Review's keys", () => {
     expect(h.confirms).toEqual([])
   })
 
-  test("Enter that cannot submit still puts the summary in state", async () => {
+  test("Enter that cannot submit still puts the summary in Submit Review's state", async () => {
     const h = await harness({ comments: [], summary: "  ", reviewPreview: inInput })
     h.press("return")
     expect(h.confirms).toEqual([])
-    expect(h.state().reviewPreview.body).toBe("  ")
+    expect(h.reviewPreview.body()).toBe("  ")
   })
 
   test("approving one's own PR does not submit", async () => {
@@ -126,43 +126,43 @@ describe("Submit Review's keys", () => {
   test("Esc closes it, whatever is held", async () => {
     const h = await harness({ reviewPreview: inInput })
     expect(h.press("shift+escape")).toEqual({ kept: true, prevented: true })
-    expect(h.state().reviewPreview.open).toBe(false)
+    expect(h.reviewPreview.open()).toBe(false)
   })
 
   test("Tab switches between the comments and the summary, whatever is held", async () => {
     const h = await harness()
     expect(h.press("tab")).toEqual({ kept: true, prevented: true })
-    expect(h.state().reviewPreview.focusedSection).toBe("input")
+    expect(h.reviewPreview.focusedSection()).toBe("input")
     h.press("ctrl+tab")
-    expect(h.state().reviewPreview.focusedSection).toBe("comments")
+    expect(h.reviewPreview.focusedSection()).toBe("comments")
   })
 
   test("in the comments, 1, 2 and 3 pick the review type", async () => {
     const h = await harness()
     expect(h.press("2")).toEqual({ kept: true, prevented: true })
-    expect(h.state().reviewPreview.selectedEvent).toBe("APPROVE")
+    expect(h.reviewPreview.selectedEvent()).toBe("APPROVE")
     h.press("3")
-    expect(h.state().reviewPreview.selectedEvent).toBe("REQUEST_CHANGES")
+    expect(h.reviewPreview.selectedEvent()).toBe("REQUEST_CHANGES")
     h.press("1")
-    expect(h.state().reviewPreview.selectedEvent).toBe("COMMENT")
+    expect(h.reviewPreview.selectedEvent()).toBe("COMMENT")
   })
 
   test("in the comments, j, k and the arrows move over the valid comments, and space leaves one out", async () => {
     const h = await harness()
     h.press("j")
     h.press("down")
-    expect(h.state().reviewPreview.highlightedIndex).toBe(1)
+    expect(h.reviewPreview.highlightedIndex()).toBe(1)
     h.press("k")
     h.press("up")
-    expect(h.state().reviewPreview.highlightedIndex).toBe(0)
+    expect(h.reviewPreview.highlightedIndex()).toBe(0)
     expect(h.press("space")).toEqual({ kept: true, prevented: true })
-    expect([...h.state().reviewPreview.excludedCommentIds]).toEqual(["c1"])
+    expect([...h.reviewPreview.excludedCommentIds()]).toEqual(["c1"])
   })
 
   test("in the comments, every other key is kept from the chain and left unprevented", async () => {
     const h = await harness()
     for (const name of ["x", "q", "4"]) expect(h.press(name)).toEqual({ kept: true, prevented: false })
-    expect(h.state().reviewPreview.open).toBe(true)
+    expect(h.reviewPreview.open()).toBe(true)
   })
 
   test("in the summary, the comments' keys are letters, kept from the chain and left for the textarea", async () => {
@@ -170,7 +170,7 @@ describe("Submit Review's keys", () => {
     for (const name of ["j", "k", "2", "space", "x", "down"]) {
       expect(h.press(name)).toEqual({ kept: true, prevented: false })
     }
-    expect(h.state().reviewPreview).toMatchObject({ highlightedIndex: 0, selectedEvent: "COMMENT" })
-    expect(h.state().reviewPreview.excludedCommentIds.size).toBe(0)
+    expect(h.reviewPreview.snapshot()).toMatchObject({ highlightedIndex: 0, selectedEvent: "COMMENT" })
+    expect(h.reviewPreview.excludedCommentIds().size).toBe(0)
   })
 })

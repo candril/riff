@@ -3,7 +3,8 @@ import { createInitialState, type AppState } from "../../state"
 import type { Comment } from "../../types"
 import { prInfo } from "../../testing/pr-info"
 import { createSyncPreviewState } from "../sync-preview/state"
-import { handleExecuteSync, type PrOperationsContext, type SyncCalls } from "./handlers"
+import { createReviewPreviewState } from "../review-preview/state"
+import { handleConfirmReview, handleExecuteSync, type PrOperationsContext, type SyncCalls } from "./handlers"
 
 const edited: Comment = {
   id: "c1",
@@ -21,6 +22,7 @@ function harness(comments: Comment[]) {
   let state: AppState = { ...createInitialState([], [], "test", ""), appMode: "pr", comments }
   const syncPreview = createSyncPreviewState()
   syncPreview.show()
+  const reviewPreview = createReviewPreviewState()
   const seen: string[] = []
   const ctx: PrOperationsContext = {
     getState: () => state,
@@ -31,6 +33,7 @@ function harness(comments: Comment[]) {
     source: "test",
     prInfo: prInfo(""),
     syncPreview,
+    reviewPreview,
   }
   const fail = () => {
     throw new Error("only an edit syncs here")
@@ -47,7 +50,7 @@ function harness(comments: Comment[]) {
       seen.push(`save ${comment.id}`)
     },
   }
-  return { ctx, calls, syncPreview, seen, state: () => state }
+  return { ctx, calls, syncPreview, reviewPreview, seen, state: () => state }
 }
 
 describe("handleExecuteSync", () => {
@@ -66,5 +69,18 @@ describe("handleExecuteSync", () => {
     expect(h.seen).toEqual([])
     expect(h.syncPreview.open()).toBe(false)
     expect(h.state().toast.message).toBeNull()
+  })
+})
+
+describe("handleConfirmReview", () => {
+  test("with nothing to submit keeps Submit Review open and says what is missing, before any gh call", async () => {
+    const h = harness([])
+    h.reviewPreview.show()
+    await handleConfirmReview(h.ctx)
+    expect([h.reviewPreview.open(), h.reviewPreview.loading(), h.reviewPreview.error()]).toEqual([
+      true,
+      false,
+      "Add a comment or summary to submit",
+    ])
   })
 })

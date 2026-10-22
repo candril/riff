@@ -7,6 +7,7 @@ import type { FlashState } from "../vim-diff/flash-state"
 import type { ColumnStatus } from "./column-status"
 import type { SelectionStatus } from "./selection-status"
 import type { ConfirmDialogModel } from "../components/confirm-dialog-model"
+import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -39,6 +40,8 @@ export interface Frame {
   confirmDialog: ConfirmDialogModel | null
   /** The sync preview's state, read off its factory, or null while it is closed. */
   syncPreview: { loading: boolean } | null
+  /** Submit Review's state, read off its factory, or null while it is closed. */
+  reviewPreview: ReviewPreviewSnapshot | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

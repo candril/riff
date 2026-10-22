@@ -49,6 +49,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
+    reviewPreview: null,
     commandKeys: new Map(),
   }
 }

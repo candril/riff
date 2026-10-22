@@ -16,13 +16,14 @@ export interface OutsideOverlays {
   help: boolean
   confirm: boolean
   syncPreview: boolean
+  reviewPreview: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
 export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean {
   return (
     outside.prompt ||
-    state.reviewPreview.open ||
+    outside.reviewPreview ||
     outside.help ||
     state.filePicker.open ||
     state.commentsPicker.open ||

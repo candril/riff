@@ -47,8 +47,7 @@ export function keysOn(
     render: mounted.render,
     quit: () => void quits.push(1),
     reviewPreviewOpenContext: {
-      getState: render.getState,
-      setState: render.setState,
+      reviewPreview: mounted.reviewPreview,
       render: mounted.render,
       getCachedCurrentUser: () => null,
       setCachedCurrentUser() {},
@@ -60,6 +59,7 @@ export function keysOn(
     help: mounted.help,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
+    reviewPreview: mounted.reviewPreview,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

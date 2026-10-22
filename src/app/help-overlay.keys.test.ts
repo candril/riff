@@ -56,10 +56,10 @@ test("Submit Review opened over the help by gS types the keys the help would tak
 
   await mockInput.typeText("g?")
   await mockInput.typeText("gS")
-  expect(app.ctx.getState().reviewPreview.open).toBe(true)
+  expect(app.reviewPreview.open()).toBe(true)
   mockInput.pressTab()
   await app.frame()
-  expect(app.ctx.getState().reviewPreview.focusedSection).toBe("input")
+  expect(app.reviewPreview.focusedSection()).toBe("input")
   await mockInput.typeText("jq")
 
   expect(app.islands.reviewPreview.summaryValue()).toBe("jq")

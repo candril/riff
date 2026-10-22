@@ -20,6 +20,7 @@ import type { ChatAtPicker } from "../features/chat/at-picker"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
+import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -100,7 +101,7 @@ export interface AppKeyContext {
   /** Loading the feed's own data (spec 070). */
   feedLoadContext: feed.FeedLoadContext
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
-  /** Read from the textarea, not `state.reviewPreview.body`: that mirror
+  /** Read from the textarea, not the factory's `body`: that mirror
    *  is updated asynchronously and can lag the last keystroke. */
   readReviewSummary: () => string
   /** The comment composer's textarea, which the overlay's keys read and fill. */
@@ -119,6 +120,8 @@ export interface AppKeyContext {
   confirm: ConfirmState
   /** The sync preview's state, the same instance the frame pass reads. */
   syncPreview: SyncPreviewState
+  /** Submit Review's state, the same instance the frame pass reads. */
+  reviewPreview: ReviewPreviewState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

@@ -4,7 +4,8 @@ import { reviewPreviewModel, type ValidatedComment } from "./review-preview-mode
 import { createReviewPreviewIsland } from "../app/review-preview"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { theme } from "../theme"
-import type { ReviewPreviewState } from "../state"
+import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
+import type { PendingReview } from "../providers/github/types"
 import type { Comment } from "../types"
 
 /*
@@ -30,22 +31,24 @@ function comment(id: string, line: number, body: string, extra: Partial<Comment>
   return { comment: c, valid: true }
 }
 
-function reviewState(overrides: Partial<ReviewPreviewState> = {}): ReviewPreviewState {
+/** Submit Review's state with the PR's pending review, which the model takes beside it. */
+type ReviewFixture = ReviewPreviewSnapshot & { pendingReview: PendingReview | null }
+
+function reviewState(overrides: Partial<ReviewFixture> = {}): ReviewFixture {
   return {
-    open: true,
     selectedEvent: "COMMENT",
     loading: false,
+    error: undefined,
     body: "",
     excludedCommentIds: new Set(),
     highlightedIndex: 0,
     focusedSection: "comments",
     pendingReview: null,
-    pendingReviewLoading: false,
     ...overrides,
   }
 }
 
-function pendingReview(count: number): ReviewPreviewState["pendingReview"] {
+function pendingReview(count: number): PendingReview {
   return {
     id: 1,
     user: "octo",
@@ -81,14 +84,14 @@ afterAll(async () => {
 })
 
 /** Each state on a screen of its own, as the island draws it when its frame follower first opens it. */
-async function show(comments: ValidatedComment[], state: ReviewPreviewState, isOwnPr = false) {
+async function show(comments: ValidatedComment[], state: ReviewFixture, isOwnPr = false) {
   dispose()
   await mounted?.dispose()
   mounted = await mountRenderable(
     (renderer) => {
       const island = createReviewPreviewIsland(renderer, { onSummaryChange() {} })
       dispose = island.dispose
-      island.update(reviewPreviewModel(comments, state, isOwnPr))
+      island.update(reviewPreviewModel(comments, state, state.pendingReview, isOwnPr))
       return island.host
     },
     { width: 100, height: 40 }
@@ -337,39 +340,8 @@ describe("approving your own PR, with a pending review of two comments", () => {
   })
 })
 
-describe("requesting changes on your own PR while the pending review loads", () => {
-  beforeAll(() =>
-    show([comment("c1", 3, "a")], reviewState({ selectedEvent: "REQUEST_CHANGES", pendingReviewLoading: true }), true)
-  )
-
-  test("says it is checking for a pending review, and why it cannot submit", () => {
-    expect(lines).toEqual([
-      ...blank(9),
-      HEADER,
-      "",
-      "",
-      at([TEXT, "Checking for pending review..."]),
-      "",
-      "",
-      CHIPS,
-      "",
-      "",
-      at([TEXT, "Summary"]),
-      "",
-      ...PLACEHOLDER,
-      "",
-      "",
-      "",
-      at([TEXT, "Comments (1/1) - j/k, space"]),
-      "",
-      at([TEXT + 1, "✓ greet.ts:3 a"]),
-      "",
-      "",
-      footer("Cannot request changes on your own PR"),
-    ])
-    expect(fg("Checking for pending review...")).toEqual(ints(theme.overlay0))
-    expect(bg("Checking for pending review...")).toEqual(ints(theme.mantle))
-  })
+describe("requesting changes on your own PR", () => {
+  beforeAll(() => show([comment("c1", 3, "a")], reviewState({ selectedEvent: "REQUEST_CHANGES" }), true))
 
   test("puts the Request Changes chip on peach", () => {
     expect(bgAt(spans, 46, rowOf("3: Request Changes"))).toEqual(ints(theme.peach))

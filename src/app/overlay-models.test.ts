@@ -20,12 +20,14 @@ import { gatherSyncItems } from "../components/sync-items"
 import { blamePeekModel } from "../components/blame-peek-model"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { overlayModels } from "./overlay-models"
+import { createReviewPreviewState } from "../features/review-preview/state"
 import type { Frame } from "./frame"
 
 const NOW = Date.parse("2026-10-21T12:00:00Z")
 const DAY = 24 * 60 * 60_000
 const mapping = new DiffLineMapping([diffFile("a.ts", ["@@ -1 +1 @@", "+const a = 1"])], "all")
 const initial = createInitialState([], [], "test", "")
+const review = createReviewPreviewState().snapshot()
 
 function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">> = {}): Frame {
   return {
@@ -42,6 +44,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
+    reviewPreview: null,
     commandKeys: new Map(),
     ...rest,
   }
@@ -98,19 +101,18 @@ describe("overlayModels", () => {
     const open = overlayModels(
       frame({
         toast: { message: "Saved", type: "success" },
-        reviewPreview: { ...initial.reviewPreview, open: true },
         showLinePeek: true,
         blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false } })
+      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
     expect(open.confirmDialog).toEqual(confirmDialogModel(dialog))
     expect(open.helpOverlay).toEqual(helpOverlayModel(version, 2, 30))
     expect(open.reviewPreview).toEqual(
-      reviewPreviewModel(validateCommentsForSubmit(reviewCandidates([hunked]), state.files), { ...initial.reviewPreview, open: true }, false)
+      reviewPreviewModel(validateCommentsForSubmit(reviewCandidates([hunked]), state.files), review, null, false)
     )
     expect(open.syncPreview).toEqual(syncPreviewModel(gatherSyncItems([hunked]), { loading: false }))
     expect(open.diffPeek).toEqual(diffPeekModel(mapping, 0, "new", { row: 0, col: 0 }, 100, 30))
@@ -134,10 +136,11 @@ describe("overlayModels", () => {
   })
 
   test("Submit Review on the user's own PR follows who riff knows the user to be", () => {
-    const own = { reviewPreview: { ...initial.reviewPreview, open: true, selectedEvent: "APPROVE" as const }, prInfo: prInfo("") }
-    expect(overlayModels(frame(own, { cachedCurrentUser: "someone" })).reviewPreview?.status.text).toBe("Cannot approve your own PR")
-    expect(overlayModels(frame(own, { cachedCurrentUser: "else" })).reviewPreview?.status.text).not.toBe("Cannot approve your own PR")
-    expect(overlayModels(frame(own)).reviewPreview?.status.text).not.toBe("Cannot approve your own PR")
+    const own = { prInfo: prInfo("") }
+    const approving = { reviewPreview: { ...review, selectedEvent: "APPROVE" as const } }
+    expect(overlayModels(frame(own, { ...approving, cachedCurrentUser: "someone" })).reviewPreview?.status.text).toBe("Cannot approve your own PR")
+    expect(overlayModels(frame(own, { ...approving, cachedCurrentUser: "else" })).reviewPreview?.status.text).not.toBe("Cannot approve your own PR")
+    expect(overlayModels(frame(own, approving)).reviewPreview?.status.text).not.toBe("Cannot approve your own PR")
   })
 
   test("a blame peek's age is measured from the frame's clock", () => {

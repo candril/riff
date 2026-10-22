@@ -1,5 +1,6 @@
 import type { Comment } from "../types"
-import type { ReviewPreviewState } from "../state"
+import type { PendingReview } from "../providers/github/types"
+import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
 
 export type ReviewEvent = "COMMENT" | "APPROVE" | "REQUEST_CHANGES"
 
@@ -15,7 +16,7 @@ export interface ReviewEventChip {
   selected: boolean
 }
 
-export type ReviewBanner = { kind: "loading" } | { kind: "pending"; count: number }
+export type ReviewBanner = { kind: "pending"; count: number }
 
 export type ReviewCheckboxTone = "pending" | "included" | "excluded"
 
@@ -56,7 +57,7 @@ const MAX_LISTED = 6
 const PREVIEW_LENGTH = 40
 
 export function canSubmit(
-  state: ReviewPreviewState,
+  state: ReviewPreviewSnapshot,
   includedCount: number,
   isOwnPr: boolean
 ): boolean {
@@ -67,26 +68,24 @@ export function canSubmit(
   return true
 }
 
-function banner(state: ReviewPreviewState): ReviewBanner | null {
-  if (state.pendingReviewLoading) return { kind: "loading" }
-  if (state.pendingReview) return { kind: "pending", count: state.pendingReview.comments.length }
-  return null
+function banner(pendingReview: PendingReview | null): ReviewBanner | null {
+  return pendingReview ? { kind: "pending", count: pendingReview.comments.length } : null
 }
 
-function hint(state: ReviewPreviewState, submitAllowed: boolean, isOwnPr: boolean): string {
+function hint(state: ReviewPreviewSnapshot, submitAllowed: boolean, isOwnPr: boolean): string {
   if (isOwnPr && state.selectedEvent === "APPROVE") return "Cannot approve your own PR"
   if (isOwnPr && state.selectedEvent === "REQUEST_CHANGES") return "Cannot request changes on your own PR"
   return submitAllowed ? "" : "Add a comment or summary"
 }
 
-function status(state: ReviewPreviewState, hintText: string): ReviewPreviewModel["status"] {
+function status(state: ReviewPreviewSnapshot, hintText: string): ReviewPreviewModel["status"] {
   if (state.loading) return { text: "Submitting...", tone: "submitting" }
   if (state.error) return { text: state.error, tone: "error" }
   if (hintText) return { text: hintText, tone: "hint" }
   return { text: "Tab: switch · Enter: submit", tone: "idle" }
 }
 
-function commentRow(vc: ValidatedComment, state: ReviewPreviewState, highlighted: boolean): ReviewCommentRow {
+function commentRow(vc: ValidatedComment, state: ReviewPreviewSnapshot, highlighted: boolean): ReviewCommentRow {
   const { comment } = vc
   // A pending comment is already on GitHub and goes in with the review either way.
   const tone: ReviewCheckboxTone =
@@ -105,7 +104,8 @@ function commentRow(vc: ValidatedComment, state: ReviewPreviewState, highlighted
 
 export function reviewPreviewModel(
   comments: ValidatedComment[],
-  state: ReviewPreviewState,
+  state: ReviewPreviewSnapshot,
+  pendingReview: PendingReview | null,
   isOwnPr: boolean
 ): ReviewPreviewModel {
   const valid = comments.filter((c) => c.valid)
@@ -118,7 +118,7 @@ export function reviewPreviewModel(
       label: `${i + 1}: ${EVENT_LABELS[event]}`,
       selected: event === state.selectedEvent,
     })),
-    banner: banner(state),
+    banner: banner(pendingReview),
     summaryFocused: state.focusedSection === "input",
     commentsFocused,
     comments: valid

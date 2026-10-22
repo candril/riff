@@ -4,15 +4,12 @@
  * Handles opening the review preview modal, including caching the current user.
  */
 
-import type { AppState } from "../../state"
 import type { AppMode } from "../../types"
-import { openReviewPreview } from "../../state"
 import { getCurrentUser } from "../../providers/github/exec"
+import type { ReviewPreviewState } from "./state"
 
 export interface ReviewPreviewOpenContext {
-  // State access
-  getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  reviewPreview: Pick<ReviewPreviewState, "show">
   // Render
   render: () => void
   // Cached user (read/write)
@@ -35,6 +32,6 @@ export async function handleOpenReviewPreview(ctx: ReviewPreviewOpenContext): Pr
       ctx.setCachedCurrentUser("")
     }
   }
-  ctx.setState(openReviewPreview)
+  ctx.reviewPreview.show()
   ctx.render()
 }

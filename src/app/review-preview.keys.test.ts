@@ -5,6 +5,7 @@ import { mountApp } from "../testing/app-render"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
+import type { Comment } from "../types"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -34,7 +35,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
   const { ctx: render } = mounted
   const prOperationsContext = {
     getState: () => {
-      confirms.push(render.getState().reviewPreview.body)
+      confirms.push(mounted.reviewPreview.body())
       return render.getState()
     },
     setState: render.setState,
@@ -42,6 +43,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     source: "test",
     prInfo: null,
     syncPreview: mounted.syncPreview,
+    reviewPreview: mounted.reviewPreview,
   }
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
@@ -49,14 +51,14 @@ function keysOn(mounted: NonNullable<typeof app>) {
     help: mounted.help,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
+    reviewPreview: mounted.reviewPreview,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
     renderer: mounted.setup.renderer,
     render: mounted.render,
     reviewPreviewOpenContext: {
-      getState: render.getState,
-      setState: render.setState,
+      reviewPreview: mounted.reviewPreview,
       render: mounted.render,
       getCachedCurrentUser: () => null,
       setCachedCurrentUser() {},
@@ -85,7 +87,7 @@ test("what is typed into the summary is the body Enter confirms, and the opening
   const { mockInput } = app.setup
 
   await mockInput.typeText("gS")
-  expect(app.ctx.getState().reviewPreview.open).toBe(true)
+  expect(app.reviewPreview.open()).toBe(true)
   mockInput.pressTab()
   expect(await app.frame()).toContain("Summary (editing)")
 
@@ -93,7 +95,54 @@ test("what is typed into the summary is the body Enter confirms, and the opening
   expect(await app.frame()).toContain("Ship it")
   mockInput.pressEnter()
 
-  expect(app.ctx.getState().reviewPreview.body).toBe("Ship it")
+  expect(app.reviewPreview.body()).toBe("Ship it")
   expect(confirms).toEqual(["Ship it"])
   expect(app.islands.reviewPreview.summaryValue()).toBe("Ship it")
+})
+
+const local = (id: string, line: number, body: string): Comment => ({
+  id,
+  filename: "src/greet.ts",
+  line,
+  side: "RIGHT",
+  body,
+  createdAt: "2026-01-10T10:00:00Z",
+  status: "local",
+})
+
+test("gS opens Submit Review, its keys pick the type, leave a comment out and move to the summary, and Esc closes it", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  app.show({ comments: [local("c1", 2, "Louder"), local("c2", 3, "Brace")] })
+  keysOn(app)
+  const { mockInput } = app.setup
+
+  await mockInput.typeText("gS")
+  expect(app.reviewPreview.open()).toBe(true)
+  let screen = await app.frame()
+  expect(screen).toContain("Submit Review")
+  expect(screen).toContain("Comments (2/2)")
+  expect(screen).toContain("✓ greet.ts:2 Louder")
+
+  await mockInput.typeText("2")
+  expect(app.reviewPreview.selectedEvent()).toBe("APPROVE")
+
+  await mockInput.typeText("j")
+  expect(app.reviewPreview.highlightedIndex()).toBe(1)
+  await mockInput.typeText(" ")
+  expect([...app.reviewPreview.excludedCommentIds()]).toEqual(["c2"])
+  screen = await app.frame()
+  expect(screen).toContain("Comments (1/2)")
+  expect(screen).toContain("○ greet.ts:3 Brace")
+
+  mockInput.pressTab()
+  expect(app.reviewPreview.focusedSection()).toBe("input")
+  expect(await app.frame()).toContain("Summary (editing)")
+  await mockInput.typeText("Nice")
+  expect(app.reviewPreview.body()).toBe("Nice")
+  expect(app.reviewPreview.selectedEvent()).toBe("APPROVE")
+
+  mockInput.pressEscape()
+  await Bun.sleep(50)
+  expect(app.reviewPreview.open()).toBe(false)
+  expect(await app.frame()).not.toContain("Submit Review")
 })

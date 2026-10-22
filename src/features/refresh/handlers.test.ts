@@ -3,6 +3,7 @@ import { createInitialState, type AppState } from "../../state"
 import { createHelpState } from "../help/state"
 import { createConfirmState } from "../confirm/state"
 import { createSyncPreviewState } from "../sync-preview/state"
+import { createReviewPreviewState } from "../review-preview/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -17,6 +18,7 @@ describe("a refresh's rebuilt state", () => {
       help,
       confirm: createConfirmState(),
       syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -35,6 +37,7 @@ describe("a refresh's rebuilt state", () => {
       help: createHelpState(),
       confirm,
       syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -54,11 +57,32 @@ describe("a refresh's rebuilt state", () => {
       help: createHelpState(),
       confirm: createConfirmState(),
       syncPreview,
+      reviewPreview: createReviewPreviewState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
 
     expect(state.description).toBe("reloaded")
     expect([syncPreview.open(), syncPreview.loading()]).toEqual([false, false])
+  })
+
+  test("closes Submit Review, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const reviewPreview = createReviewPreviewState()
+    reviewPreview.show()
+    reviewPreview.startSubmit()
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect([reviewPreview.open(), reviewPreview.loading()]).toEqual([false, false])
   })
 })
