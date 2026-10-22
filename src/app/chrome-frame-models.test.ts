@@ -52,6 +52,7 @@ function frame(
     marksPicker: null,
     commitPicker: null,
     actionMenu: null,
+    linePeek: null,
     commandKeys: new Map(),
   }
 }

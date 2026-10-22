@@ -38,7 +38,7 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketDeps): 
       palette: false,
       run: () => {
         // A sequence a peek does not allow is swallowed, so it cannot reach the diff.
-        if (!chordAllowedUnderPeek(sequence, deps.getState())) return true
+        if (!chordAllowedUnderPeek(sequence, deps.getState(), deps.linePeek.open())) return true
         return commands[cmd]()
       },
     })),

@@ -65,6 +65,7 @@ import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
+import { createLinePeekState } from "./features/line-peek/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -482,6 +483,7 @@ export async function createApp(options: AppOptions = {}) {
   const marksPicker = createMarksPickerState()
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
+  const linePeek = createLinePeekState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -494,6 +496,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker.close()
     commitPicker.close()
     actionMenu.close()
+    linePeek.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -669,6 +672,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker,
     commitPicker,
     actionMenu,
+    linePeek,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1022,6 +1026,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker,
     commitPicker,
     actionMenu,
+    linePeek,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1497,6 +1502,7 @@ export async function createApp(options: AppOptions = {}) {
       marksPicker,
       commitPicker,
       actionMenu,
+      linePeek,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1855,6 +1861,7 @@ export async function createApp(options: AppOptions = {}) {
     marksPicker,
     commitPicker,
     actionMenu,
+    linePeek,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys

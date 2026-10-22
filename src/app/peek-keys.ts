@@ -28,7 +28,7 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, cho
   }
   const unregisterLinePeek = registerLinePeekKeys(riffKeymap, {
     ...peek,
-    setState: ctx.setState,
+    linePeek: ctx.linePeek,
     render: ctx.render,
     // The terminal's rows rather than the renderer's height, which parts
     // from them wherever stdout is not a terminal.

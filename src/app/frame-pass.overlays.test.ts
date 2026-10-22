@@ -26,6 +26,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createLinePeekState } from "../features/line-peek/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -57,6 +58,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const marksPicker = createMarksPickerState()
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
+  const linePeek = createLinePeekState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -107,6 +109,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     marksPicker,
     commitPicker,
     actionMenu,
+    linePeek,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
@@ -117,9 +120,9 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   return {
     /**
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
-     * `commentsPicker`, `occurrencePicker`, `marksPicker`, `commitPicker` and
-     * `actionMenu` open or close those overlays through their factories; the
-     * rest patches the state.
+     * `commentsPicker`, `occurrencePicker`, `marksPicker`, `commitPicker`,
+     * `actionMenu` and `linePeek` open or close those overlays through their
+     * factories; the rest patches the state.
      */
     show({
       help: helpOpen,
@@ -132,6 +135,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       marksPicker: marksPickerOpen,
       commitPicker: commitPickerOpen,
       actionMenu: actionMenuOpen,
+      linePeek: linePeekOpen,
       ...patch
     }: Partial<AppState> & {
       help?: boolean
@@ -144,6 +148,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       marksPicker?: boolean
       commitPicker?: boolean
       actionMenu?: boolean
+      linePeek?: boolean
     }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
@@ -166,6 +171,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       if (commitPickerOpen === false) commitPicker.close()
       if (actionMenuOpen === true) actionMenu.show()
       if (actionMenuOpen === false) actionMenu.close()
+      if (linePeekOpen === true && !linePeek.open()) linePeek.toggle()
+      if (linePeekOpen === false) linePeek.close()
       render()
       return overlays()
     },
@@ -203,7 +210,7 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
   expect(
     app.show({
       help: true,
-      showLinePeek: true,
+      linePeek: true,
       viewMode: "diff",
       comments: [hunked],
       inlineCommentOverlay: overlay("c1"),
@@ -215,7 +222,7 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
     "diffPeek",
     "confirmDialog",
   ])
-  expect(app.show({ showLinePeek: false, comments: [hunked] })).toEqual([
+  expect(app.show({ linePeek: false, comments: [hunked] })).toEqual([
     "helpOverlay",
     "hunkPeek",
     "confirmDialog",

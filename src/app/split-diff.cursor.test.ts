@@ -65,7 +65,7 @@ async function mount() {
   // As the frame pass hands split its focus: the draw, then the diff's focus.
   const draw = () => {
     diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState() })
-    diff.island.update({ focused: diffCursorShown(state, { prompt: false, help: help.open(), confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false }) })
+    diff.island.update({ focused: diffCursorShown(state, { prompt: false, help: help.open(), confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false }) })
   }
   const handler = new VimMotionHandler({
     getMapping: () => diff.source(),

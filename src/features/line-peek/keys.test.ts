@@ -13,24 +13,28 @@ const RIGHT = "\x1b[C"
 const LEFT = "\x1b[D"
 const KITTY_SHIFT_G = "\x1b[103;2u"
 
-const peeking = () => peekState({ showLinePeek: true })
+async function peeking(options: { height?: number } = {}) {
+  const keys = await peekKeys(peekState(), options)
+  keys.linePeek.toggle()
+  return keys
+}
 
 describe("the line peek", () => {
   test("Esc and q close it, unprevented as the chain left them", async () => {
     for (const sequence of [ESC, "q"]) {
-      const keys = await peekKeys(peeking())
+      const keys = await peeking()
       expect(keys.press(sequence).defaultPrevented).toBe(false)
-      expect(keys.state().showLinePeek).toBe(false)
+      expect(keys.linePeek.open()).toBe(false)
       expect(keys.leftKeys).toEqual([])
     }
   })
 
   test("Tab swaps the side drawn", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.press(TAB)
-    expect(keys.state().peekSide).toBe("old")
+    expect(keys.linePeek.side()).toBe("old")
     keys.press(TAB)
-    expect(keys.state().peekSide).toBe("new")
+    expect(keys.linePeek.side()).toBe("new")
   })
 
   test("each step scrolls the drawing", async () => {
@@ -38,50 +42,50 @@ describe("the line peek", () => {
       ["j", { row: 1, col: 0 }], [DOWN, { row: 2, col: 0 }], ["k", { row: 1, col: 0 }], [UP, { row: 0, col: 0 }],
       ["l", { row: 0, col: 4 }], [RIGHT, { row: 0, col: 8 }], ["h", { row: 0, col: 4 }], [LEFT, { row: 0, col: 0 }],
     ]
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     for (const [sequence, scroll] of steps) {
       keys.press(sequence)
-      expect(keys.state().peekScroll).toEqual(scroll)
+      expect(keys.linePeek.scroll()).toEqual(scroll)
     }
     expect(keys.leftKeys).toEqual([])
   })
 
   test("Ctrl-d and Ctrl-u scroll half the height; Ctrl-j is only held", async () => {
-    const keys = await peekKeys(peeking(), { height: 30 })
+    const keys = await peeking({ height: 30 })
     keys.press(CTRL_D)
-    expect(keys.state().peekScroll).toEqual({ row: 15, col: 0 })
+    expect(keys.linePeek.scroll()).toEqual({ row: 15, col: 0 })
     keys.press(CTRL_J)
-    expect(keys.state().peekScroll).toEqual({ row: 15, col: 0 })
+    expect(keys.linePeek.scroll()).toEqual({ row: 15, col: 0 })
     keys.press(CTRL_U)
-    expect(keys.state().peekScroll).toEqual({ row: 0, col: 0 })
+    expect(keys.linePeek.scroll()).toEqual({ row: 0, col: 0 })
     expect(keys.leftKeys).toEqual([])
   })
 
   test("a bare g goes on to the keymap's g sequences, while Shift-g and every other key are held", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     for (const sequence of ["i", "y", KITTY_SHIFT_G, "g"]) keys.press(sequence)
     expect(keys.leftKeys).toEqual(["g"])
-    expect(keys.state().showLinePeek).toBe(true)
+    expect(keys.linePeek.open()).toBe(true)
   })
 
   test("stands aside while the chain holds a chord", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.setChord("g")
     keys.press("l")
-    expect(keys.state().peekScroll).toEqual({ row: 0, col: 0 })
+    expect(keys.linePeek.scroll()).toEqual({ row: 0, col: 0 })
     expect(keys.leftKeys).toEqual(["l"])
   })
 
   test("stands aside while a text object is pending in the diff", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.setVim({ pendingTextObject: { scope: "a" } })
     keys.press("q")
-    expect(keys.state().showLinePeek).toBe(true)
+    expect(keys.linePeek.open()).toBe(true)
     expect(keys.leftKeys).toEqual(["q"])
   })
 
   test("lets Ctrl-r through to the chat's reach", async () => {
-    const keys = await peekKeys(peeking())
+    const keys = await peeking()
     keys.press(CTRL_R)
     expect(keys.leftKeys).toEqual(["r"])
   })

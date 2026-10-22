@@ -5,10 +5,10 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { toggleLinePeek } from "../state"
 import type { HelpState } from "../features/help/state"
 import type { BlameKeys } from "../features/blame/keys"
 import type { CommentsPickerState } from "../features/comments-picker/state"
+import type { LinePeekState } from "../features/line-peek/state"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
@@ -32,6 +32,7 @@ export interface GChordDeps {
   followLinkContext: followLink.FollowLinkContext
   /** `gb` and `go`: the one object that owns every blame request, shared with the peek's layer. */
   blame: Pick<BlameKeys, "toggle" | "openLink">
+  linePeek: Pick<LinePeekState, "open" | "toggle">
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ
@@ -165,7 +166,7 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     toggleLinePeek: taking(() => {
       // The whole line, wrapped, for when scrolling through it sideways
       // is more work than reading it is worth.
-      deps.setState(toggleLinePeek)
+      deps.linePeek.toggle()
       deps.render()
     }),
     refresh: taking(() => void deps.refreshContext.handleRefresh()),

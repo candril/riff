@@ -82,7 +82,7 @@ test("Ctrl-r cancels a chord the chain holds", async () => {
   expect(chordPending()).toBe(false)
   ctrl(app, "r")
   app.setup.mockInput.pressKey("l")
-  expect(app.ctx.getState().showLinePeek).toBe(false)
+  expect(app.linePeek.open()).toBe(false)
   await app.frame()
 })
 

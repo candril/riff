@@ -147,8 +147,8 @@ test("Ctrl-s opens the picker on its factory seeded with the word under the curs
   ctrl(mounted, "s")
   await mockInput.typeText(' "h')
   expect(pickerBox(await mounted.frame())).toContain("2 in 1 file")
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek } = mounted
+  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek }
   adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   expect(picker()).toMatchObject({ open: false, query: "", filter: "", narrowing: false, selectedIndex: 0 })

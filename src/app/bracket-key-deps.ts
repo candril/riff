@@ -16,5 +16,6 @@ export function bracketDeps(ctx: AppKeyContext): BracketDeps {
     marksContext: ctx.marksContext,
     onCommitSelected: (sha) => ctx.onCommitSelected(sha),
     diffTakesMarkChord: () => diffTakesMarkChord(ctx),
+    linePeek: ctx.linePeek,
   }
 }

@@ -14,6 +14,7 @@ import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
 import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "./state"
+import { createLinePeekState } from "../line-peek/state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -67,6 +68,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
     marksPicker: createMarksPickerState(),
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
+    linePeek: createLinePeekState(),
     handlers,
     commandKeys,
     runCommand: (name, keys) => {

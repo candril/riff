@@ -109,7 +109,7 @@ async function gApp(more: Partial<AppKeyContext> = {}) {
   const cursorFile = () => render.getLineMapping().getLine(vim().line)?.filename
   const state = () => render.getState()
   const line = () => vim().line
-  return { mounted, keys, type, scrolls, lineOf, cursorFile, state, line }
+  return { mounted, keys, type, scrolls, lineOf, cursorFile, state, line, linePeek: mounted.linePeek }
 }
 
 describe("the ends", () => {
@@ -158,25 +158,25 @@ test("gC opens the comments picker when there are comments", async () => {
 
 describe("under the line peek", () => {
   test("gl closes it and gg is swallowed", async () => {
-    const { type, state, keys, lineOf, line } = await gApp()
+    const { type, keys, lineOf, line, linePeek } = await gApp()
     const at = lineOf('  return "hello"', "b.ts")
     keys.jumpTo(at)
     type("g", "l")
-    expect(state().showLinePeek).toBe(true)
+    expect(linePeek.open()).toBe(true)
     type("g", "g")
     expect(line()).toBe(at)
-    expect(state().showLinePeek).toBe(true)
+    expect(linePeek.open()).toBe(true)
     type("g", "l")
-    expect(state().showLinePeek).toBe(false)
+    expect(linePeek.open()).toBe(false)
   })
 
   test("g then j is swallowed, as the chain swallowed every chord the peek does not allow", async () => {
-    const { type, state, keys, lineOf, line } = await gApp()
+    const { type, keys, lineOf, line, linePeek } = await gApp()
     const at = lineOf('  return "hello"')
     keys.jumpTo(at)
     type("g", "l", "g", "j")
     expect(line()).toBe(at)
-    expect(state().showLinePeek).toBe(true)
+    expect(linePeek.open()).toBe(true)
     expect(keys.chordPending()).toBe(false)
   })
 
@@ -187,12 +187,12 @@ describe("under the line peek", () => {
   })
 
   test("g then F12 still toggles the debug console, as the app layer ignores chords", async () => {
-    const { mounted, type, state, keys } = await gApp()
+    const { mounted, type, keys, linePeek } = await gApp()
     type("g", "l")
     const toggle = spyOn(mounted.setup.renderer.console, "toggle").mockImplementation(() => {})
     type("g", F12)
     expect(toggle).toHaveBeenCalledTimes(1)
-    expect(state().showLinePeek).toBe(true)
+    expect(linePeek.open()).toBe(true)
     expect(keys.chordPending()).toBe(false)
   })
 })
@@ -215,14 +215,14 @@ test("under the blame peek gb and go act and every other g chord is swallowed", 
     repoRef: async () => ({ owner: "o", repo: "r" }),
     splitRows: () => app!.ctx.split.splitRows(),
   }
-  const { type, state, keys, lineOf, line } = await gApp({ blame })
+  const { type, state, keys, lineOf, line, linePeek } = await gApp({ blame })
   const at = lineOf('  return "hello"', "b.ts")
   keys.jumpTo(at)
   type("g", "b")
   expect(await until(() => state().blamePeek?.status === "ready")).toBe(true)
   type("g", "g", "g", "l")
   expect(line()).toBe(at)
-  expect(state().showLinePeek).toBe(false)
+  expect(linePeek.open()).toBe(false)
   type("g", "o")
   expect(await until(() => opened.length > 0)).toBe(true)
   expect(opened).toEqual(["https://github.com/o/r/pull/12"])
@@ -336,7 +336,7 @@ test("G with the tree focused goes to the tree's last row, a key named G too", a
 
 describe("panels with g chords of their own", () => {
   test("the thread panel keeps its g", async () => {
-    const { mounted, type, keys, state } = await gApp({
+    const { mounted, type, keys, state, linePeek } = await gApp({
       threadPanelLayout: () => app!.ctx.threadPanel.layout(),
     })
     mounted.show({ comments: [createComment("a.ts", 2, "open")] })
@@ -346,7 +346,7 @@ describe("panels with g chords of their own", () => {
     expect(keys.chordPending()).toBe(false)
     // The panel swallows a g chord it has no use for, so gl opens no peek.
     type("l")
-    expect(state().showLinePeek).toBe(false)
+    expect(linePeek.open()).toBe(false)
     expect(state().inlineCommentOverlay.open).toBe(true)
   })
 

@@ -26,6 +26,7 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
     refreshContext: ctx.refreshContext,
     followLinkContext: followLinkContext(ctx),
     blame,
+    linePeek: ctx.linePeek,
   }
 }
 

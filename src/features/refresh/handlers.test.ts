@@ -10,6 +10,7 @@ import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
 import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "../action-menu/state"
+import { createLinePeekState } from "../line-peek/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -31,6 +32,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -56,6 +58,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -82,6 +85,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -108,6 +112,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -135,6 +140,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -163,6 +169,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -192,6 +199,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -220,6 +228,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker,
       commitPicker: createCommitPickerState(),
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -253,6 +262,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker,
       actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -283,6 +293,7 @@ describe("a refresh's rebuilt state", () => {
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
       actionMenu,
+      linePeek: createLinePeekState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -290,5 +301,31 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(actionMenu.open()).toBe(false)
     expect(actionMenu.snapshot()).toEqual({ query: "", selectedIndex: 0, submenu: null })
+  })
+
+  test("closes the line peek, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const linePeek = createLinePeekState()
+    linePeek.toggle()
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
+      linePeek,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(linePeek.open()).toBe(false)
   })
 })

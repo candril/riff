@@ -21,6 +21,7 @@ import { blamePeekModel } from "../components/blame-peek-model"
 import { diffPeekModel, hunkPeekModel } from "./peeks"
 import { overlayModels } from "./overlay-models"
 import { createReviewPreviewState } from "../features/review-preview/state"
+import { createLinePeekState } from "../features/line-peek/state"
 import type { Frame } from "./frame"
 
 const NOW = Date.parse("2026-10-21T12:00:00Z")
@@ -28,6 +29,7 @@ const DAY = 24 * 60 * 60_000
 const mapping = new DiffLineMapping([diffFile("a.ts", ["@@ -1 +1 @@", "+const a = 1"])], "all")
 const initial = createInitialState([], [], "test", "")
 const review = createReviewPreviewState().snapshot()
+const linePeek = createLinePeekState().snapshot()
 
 function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">> = {}): Frame {
   return {
@@ -51,6 +53,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     marksPicker: null,
     commitPicker: null,
     actionMenu: null,
+    linePeek: null,
     commandKeys: new Map(),
     ...rest,
   }
@@ -107,11 +110,10 @@ describe("overlayModels", () => {
     const open = overlayModels(
       frame({
         toast: { message: "Saved", type: "success" },
-        showLinePeek: true,
         blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review })
+      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
@@ -131,7 +133,7 @@ describe("overlayModels", () => {
 
   test("gl's and gb's peeks are drawn only over the diff", () => {
     for (const viewMode of ["feed", "state"] as const) {
-      const models = overlayModels(frame({ viewMode, showLinePeek: true, blamePeek }))
+      const models = overlayModels(frame({ viewMode, blamePeek }, { linePeek }))
       expect(models.diffPeek).toBeNull()
       expect(models.blamePeek).toBeNull()
     }

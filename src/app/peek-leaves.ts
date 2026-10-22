@@ -12,10 +12,11 @@ const BLAME_PEEK_CHORDS = new Set(["go", "gb"])
  */
 export function chordAllowedUnderPeek(
   sequence: string,
-  state: Pick<AppState, "blamePeek" | "showLinePeek" | "viewMode">,
+  state: Pick<AppState, "blamePeek" | "viewMode">,
+  linePeekOpen: boolean,
 ): boolean {
   if (state.blamePeek && state.viewMode === "diff") return BLAME_PEEK_CHORDS.has(sequence)
-  if (state.showLinePeek) return sequence === "gl"
+  if (linePeekOpen) return sequence === "gl"
   return true
 }
 

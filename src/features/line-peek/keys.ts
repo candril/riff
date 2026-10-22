@@ -8,11 +8,11 @@
 
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
-import { scrollPeek, toggleLinePeek, togglePeekSide, type AppState } from "../../state"
 import { peekLeaves, type PeekKeyContext } from "../../app/peek-leaves"
+import type { LinePeekState } from "./state"
 
 export interface LinePeekKeyDeps extends PeekKeyContext {
-  setState: (updater: (s: AppState) => AppState) => void
+  linePeek: Pick<LinePeekState, "open" | "toggle" | "swapSide" | "scrollBy">
   render: () => void
   /** The terminal's rows, half of which Ctrl-d and Ctrl-u scroll. */
   height: () => number
@@ -25,9 +25,9 @@ const STEPS: [string, number, number][] = [
 
 export function registerLinePeekKeys(riffKeymap: RiffKeymap, deps: LinePeekKeyDeps): () => void {
   // Nothing is prevented, the keys the peek takes included.
-  const captured = riffKeymap.capture((key) => deps.getState().showLinePeek && !peekLeaves(key, deps))
-  const update = (updater: (s: AppState) => AppState) => {
-    deps.setState(updater)
+  const captured = riffKeymap.capture((key) => deps.linePeek.open() && !peekLeaves(key, deps))
+  const update = (change: () => void) => {
+    change()
     deps.render()
   }
   const half = () => Math.max(1, Math.floor(deps.height() / 2))
@@ -41,12 +41,12 @@ export function registerLinePeekKeys(riffKeymap: RiffKeymap, deps: LinePeekKeyDe
   const unregisterLayer = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),
     commands: [
-      command("close", "Close the peek", () => update(toggleLinePeek)),
-      command("side", "Swap the side drawn", () => update(togglePeekSide)),
-      command("halfDown", "Scroll down half a window", () => update((s) => scrollPeek(s, half(), 0))),
-      command("halfUp", "Scroll up half a window", () => update((s) => scrollPeek(s, -half(), 0))),
+      command("close", "Close the peek", () => update(deps.linePeek.toggle)),
+      command("side", "Swap the side drawn", () => update(deps.linePeek.swapSide)),
+      command("halfDown", "Scroll down half a window", () => update(() => deps.linePeek.scrollBy(half(), 0))),
+      command("halfUp", "Scroll up half a window", () => update(() => deps.linePeek.scrollBy(-half(), 0))),
       ...STEPS.map(([key, rows, cols]) =>
-        command(`scroll.${key}`, "Scroll the peek", () => update((s) => scrollPeek(s, rows, cols))),
+        command(`scroll.${key}`, "Scroll the peek", () => update(() => deps.linePeek.scrollBy(rows, cols))),
       ),
     ],
     bindings: [

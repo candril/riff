@@ -106,8 +106,8 @@ test("Ctrl-k lists every mark, a query narrows them, Ctrl-n and Ctrl-p stop at t
   await mockInput.typeText("line")
   await mounted.frame()
   expect(letters(opened)).toEqual(["c"])
-  const { ctx: render, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }
+  const { ctx: render, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek } = mounted
+  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek }
   adoptReloadedState(reload, (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), marks: prev.marks }))
   mounted.render()
   expect(picker()).toEqual({ open: false, query: "", selectedIndex: 0 })

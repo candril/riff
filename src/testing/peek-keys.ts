@@ -3,6 +3,7 @@ import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
 import { createInitialState, type AppState } from "../state"
+import { createLinePeekState } from "../features/line-peek/state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { keymapHarness } from "./keymap-keys"
@@ -37,6 +38,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     },
   })
   const calls: string[] = []
+  const linePeek = createLinePeekState()
   const peek = {
     getState: () => state,
     getVimState: () => vim,
@@ -51,9 +53,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
   }
   registerLinePeekKeys(harness.riffKeymap, {
     ...peek,
-    setState: (update) => {
-      state = update(state)
-    },
+    linePeek,
     render() {},
     height: () => options.height ?? 40,
   })
@@ -64,6 +64,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
   return {
     ...harness,
     calls,
+    linePeek,
     state: () => state,
     setVim: (patch: Partial<VimCursorState>) => {
       vim = { ...vim, ...patch }

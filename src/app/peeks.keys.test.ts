@@ -35,11 +35,11 @@ test("gl opens the line peek over the diff and gl closes it again", async () => 
   expect(before).not.toContain("line 2")
 
   await mounted.setup.mockInput.typeText("gl")
-  expect(mounted.ctx.getState().showLinePeek).toBe(true)
+  expect(mounted.linePeek.open()).toBe(true)
   expect(await mounted.frame()).toContain("line 2")
 
   await mounted.setup.mockInput.typeText("gl")
-  expect(mounted.ctx.getState().showLinePeek).toBe(false)
+  expect(mounted.linePeek.open()).toBe(false)
   expect(await mounted.frame()).toBe(before)
 })
 
@@ -55,9 +55,35 @@ test("with the line peek up, j scrolls the peek and Esc closes it, the cursor st
   const { mounted, vimState } = await peekApp()
   const before = vimState().line
   await mounted.setup.mockInput.typeText("glj")
-  expect(mounted.ctx.getState().peekScroll).toEqual({ row: 1, col: 0 })
+  expect(mounted.linePeek.scroll()).toEqual({ row: 1, col: 0 })
   mounted.setup.mockInput.pressEscape()
   await Bun.sleep(50)
-  expect(mounted.ctx.getState().showLinePeek).toBe(false)
+  expect(mounted.linePeek.open()).toBe(false)
   expect(vimState().line).toBe(before)
+})
+
+test("the line peek's state lives in its factory: gl opens it, j scrolls it, Tab swaps its side and Esc closes it", async () => {
+  const { mounted, jumpTo } = await peekApp()
+  jumpTo(mounted.ctx.getLineMapping().allLines.findIndex((line) => line.content === '  return "hello"'))
+  const before = await mounted.frame()
+  expect(before).not.toContain("line 2")
+
+  await mounted.setup.mockInput.typeText("gl")
+  expect(mounted.linePeek.open()).toBe(true)
+  expect(mounted.linePeek.snapshot()).toEqual({ side: "new", scroll: { row: 0, col: 0 } })
+  expect(await mounted.frame()).toContain("line 2")
+
+  await mounted.setup.mockInput.typeText("j")
+  expect(mounted.linePeek.scroll()).toEqual({ row: 1, col: 0 })
+  expect(await mounted.frame()).toContain("line 2")
+
+  mounted.setup.mockInput.pressTab()
+  await Bun.sleep(50)
+  expect(mounted.linePeek.snapshot()).toEqual({ side: "old", scroll: { row: 0, col: 0 } })
+  expect(await mounted.frame()).toContain("line 2")
+
+  mounted.setup.mockInput.pressEscape()
+  await Bun.sleep(50)
+  expect(mounted.linePeek.open()).toBe(false)
+  expect(await mounted.frame()).toBe(before)
 })

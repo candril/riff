@@ -11,6 +11,7 @@ import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
 import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "./state"
+import { createLinePeekState } from "../line-peek/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -50,6 +51,7 @@ describe("Show Only Open Threads", () => {
         marksPicker: createMarksPickerState(),
         commitPicker: createCommitPickerState(),
         actionMenu: createActionMenuState(),
+        linePeek: createLinePeekState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -98,6 +100,7 @@ describe("Show Only Unviewed Files", () => {
         marksPicker: createMarksPickerState(),
         commitPicker: createCommitPickerState(),
         actionMenu: createActionMenuState(),
+        linePeek: createLinePeekState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -108,5 +111,36 @@ describe("Show Only Unviewed Files", () => {
     await run()
     expect(state.treeUnviewedOnly).toBe(false)
     expect(saves).toBe(2)
+  })
+})
+
+describe("Peek Line", () => {
+  test("opens the line peek's factory as gl does, and closes it the second time", async () => {
+    const linePeek = createLinePeekState()
+    let renders = 0
+    const run = () =>
+      executeAction("peek-line", {
+        state: createInitialState([], [], "local", "local changes"),
+        setState: () => {
+          throw new Error("the line peek no longer lives in AppState")
+        },
+        render: () => void renders++,
+        filePicker: createFilePickerState(),
+        commentsPicker: createCommentsPickerState(),
+        occurrencePicker: createOccurrencePickerState(),
+        marksPicker: createMarksPickerState(),
+        commitPicker: createCommitPickerState(),
+        actionMenu: createActionMenuState(),
+        linePeek,
+        handlers: {} as ActionHandlers,
+        commandKeys: new Map(),
+        runCommand: () => false,
+      })
+
+    expect(await run()).toBe(true)
+    expect(linePeek.open()).toBe(true)
+    await run()
+    expect(linePeek.open()).toBe(false)
+    expect(renders).toBe(2)
   })
 })

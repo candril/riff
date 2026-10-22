@@ -78,11 +78,11 @@ test("with a text object pending, Ctrl-r still opens the chat", async () => {
 test("with the line peek up, a pending text object takes its key past the peek", async () => {
   const { mounted, vimState, setVim } = await diffApp()
   await mounted.setup.mockInput.typeText("glv")
-  expect(mounted.ctx.getState().showLinePeek).toBe(true)
+  expect(mounted.linePeek.open()).toBe(true)
   expect(vimState().mode).toBe("normal")
   setVim({ mode: "visual", selectionAnchor: vimState().line, pendingTextObject: { scope: "i" } })
   await mounted.setup.mockInput.typeText("f")
   expect(vimState().pendingTextObject).toBeNull()
   expect(vimState().mode).toBe("visual-line")
-  expect(mounted.ctx.getState().showLinePeek).toBe(true)
+  expect(mounted.linePeek.open()).toBe(true)
 })

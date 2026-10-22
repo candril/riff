@@ -23,6 +23,7 @@ export interface OutsideOverlays {
   commitPicker: boolean
   actionMenu: boolean
   occurrencePicker: boolean
+  linePeek: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
@@ -39,7 +40,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     outside.actionMenu ||
     outside.syncPreview ||
     outside.confirm ||
-    ((state.showLinePeek || state.blamePeek !== null) && state.viewMode === "diff")
+    ((outside.linePeek || state.blamePeek !== null) && state.viewMode === "diff")
   )
 }
 

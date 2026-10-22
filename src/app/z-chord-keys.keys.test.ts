@@ -308,6 +308,7 @@ test("shift+z and a key named Z open no z sequence and reach the leftover", asyn
     cursorView: { scrollCursorTo: (_line: number, where: string) => void ran.push(where) },
     getVimState: () => ({ line: 0 }),
     render: () => {},
+    linePeek: { open: () => false },
   } as unknown as ZChordDeps)
   harness.press("\x1b[122;2u")
   expect(harness.riffKeymap.chordPending()).toBe(false)
@@ -332,7 +333,8 @@ describe("under a modal", () => {
 
   test("the line peek holds z", async () => {
     const { mounted, type, scrolls, keys } = await zApp()
-    mounted.show({ showLinePeek: true })
+    mounted.linePeek.toggle()
+    mounted.show()
     type("z")
     expect(keys.chordPending()).toBe(false)
     type("z")
@@ -394,10 +396,11 @@ describe("under a modal", () => {
   test("a z sequence a peek does not allow is swallowed", async () => {
     const { mounted, type, scrolls, keys } = await zApp()
     type("z")
-    mounted.show({ showLinePeek: true })
+    mounted.linePeek.toggle()
+    mounted.show()
     type("z")
     expect(scrolls).toEqual([])
     expect(keys.chordPending()).toBe(false)
-    expect(mounted.ctx.getState().showLinePeek).toBe(true)
+    expect(mounted.linePeek.open()).toBe(true)
   })
 })

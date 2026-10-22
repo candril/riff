@@ -11,7 +11,6 @@ import {
   toggleFilePanelExpanded,
   switchView,
   startViewFilter,
-  toggleLinePeek,
   toggleWrapLines,
   clearFileSelection,
   showToast,
@@ -29,6 +28,7 @@ import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "./state"
+import type { LinePeekState } from "../line-peek/state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -79,6 +79,7 @@ export interface ExecuteContext {
   marksPicker: Pick<MarksPickerState, "show">
   commitPicker: Pick<CommitPickerState, "show">
   actionMenu: Pick<ActionMenuState, "showSubmenu">
+  linePeek: Pick<LinePeekState, "toggle">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -101,7 +102,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, handlers } = ctx
+  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -330,7 +331,7 @@ export async function executeAction(
       break
 
     case "peek-line":
-      setState(toggleLinePeek)
+      linePeek.toggle()
       render()
       break
 

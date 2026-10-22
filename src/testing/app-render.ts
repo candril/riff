@@ -14,6 +14,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createLinePeekState } from "../features/line-peek/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -121,6 +122,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const marksPicker = createMarksPickerState()
   const commitPicker = createCommitPickerState()
   const actionMenu = createActionMenuState()
+  const linePeek = createLinePeekState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -167,6 +169,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     marksPicker,
     commitPicker,
     actionMenu,
+    linePeek,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -222,6 +225,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     commitPicker,
     /** The command palette's state, which the frame pass and the keys read as app.ts's do. */
     actionMenu,
+    /** The line peek's state, which the frame pass and the keys read as app.ts's do. */
+    linePeek,
     fileTreePanel,
     render,
     agent,

@@ -239,6 +239,9 @@ factory too.
 The command palette is the eleventh (`createActionMenuState` in
 `src/features/action-menu/state.ts`); the prompt reads its query off the
 factory too.
+The line peek is the twelfth (`createLinePeekState` in
+`src/features/line-peek/state.ts`); the frame carries the side and scroll
+it draws.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

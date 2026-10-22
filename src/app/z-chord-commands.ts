@@ -6,6 +6,7 @@
 import type { AppState } from "../state"
 import { toggleWrapLines } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
+import type { LinePeekState } from "../features/line-peek/state"
 import type { DiffViewport } from "./diff-viewport"
 import * as folds from "../features/folds"
 
@@ -25,6 +26,8 @@ export interface ZChordDeps {
   toggleFeedRow: () => void
   /** `zB`: the blame column for the file under the cursor (spec 103). */
   blameColumn: { toggle(): void }
+  /** Whether the line peek is up, under which no `z` chord acts. */
+  linePeek: Pick<LinePeekState, "open">
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ

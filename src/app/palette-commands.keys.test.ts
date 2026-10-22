@@ -36,6 +36,7 @@ async function paletteApp() {
           marksPicker: mounted.marksPicker,
           commitPicker: mounted.commitPicker,
           actionMenu: mounted.actionMenu,
+          linePeek: mounted.linePeek,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

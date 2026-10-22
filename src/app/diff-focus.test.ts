@@ -3,7 +3,7 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
@@ -14,16 +14,21 @@ const commentsPicker: OutsideOverlays = { ...none, commentsPicker: true }
 const occurrencePicker: OutsideOverlays = { ...none, occurrencePicker: true }
 const marksPicker: OutsideOverlays = { ...none, marksPicker: true }
 const commitPicker: OutsideOverlays = { ...none, commitPicker: true }
+const linePeek: OutsideOverlays = { ...none, linePeek: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
-const hidden: [string, (s: AppState) => AppState][] = [
-  ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
-  ["the blame peek over the diff", (s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } })],
-  ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
-  ["a composer", comments({ mode: "compose" }, "diff")],
-  ["the chat holding the keys", (s) => ({ ...s, chatOpen: true, focusedPanel: "chat" })],
+/** What is open, given the state it starts from: AppState's part and the factories'. */
+type Scene = (s: AppState) => [AppState, OutsideOverlays]
+const inState = (change: (s: AppState) => AppState): Scene => (s) => [change(s), none]
+
+const hidden: [string, Scene][] = [
+  ["the peek over the diff", (s) => [s, linePeek]],
+  ["the blame peek over the diff", inState((s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } }))],
+  ["the comments panel holding the keys", inState(comments({ mode: "view" }, "comments"))],
+  ["a composer", inState(comments({ mode: "compose" }, "diff"))],
+  ["the chat holding the keys", inState((s) => ({ ...s, chatOpen: true, focusedPanel: "chat" }))],
 ]
 
 describe("the diff's cursor", () => {
@@ -73,19 +78,19 @@ describe("the diff's cursor", () => {
 
   for (const [name, open] of hidden) {
     test(`hides under ${name}`, () => {
-      expect(diffCursorShown(open(initial), none)).toBe(false)
+      expect(diffCursorShown(...open(initial))).toBe(false)
     })
   }
 
-  const shown: [string, (s: AppState) => AppState][] = [
-    ["a toast", (s) => ({ ...s, toast: { ...s.toast, message: "Copied" } })],
-    ["the file tree's focus", (s) => ({ ...s, focusedPanel: "tree" })],
-    ["the comments panel open beside a diff that keeps the keys", comments({ mode: "view" }, "diff")],
-    ["a peek left open behind the overview", (s) => ({ ...s, showLinePeek: true, viewMode: "state" })],
+  const shown: [string, Scene][] = [
+    ["a toast", inState((s) => ({ ...s, toast: { ...s.toast, message: "Copied" } }))],
+    ["the file tree's focus", inState((s) => ({ ...s, focusedPanel: "tree" }))],
+    ["the comments panel open beside a diff that keeps the keys", inState(comments({ mode: "view" }, "diff"))],
+    ["a peek left open behind the overview", (s) => [{ ...s, viewMode: "state" }, linePeek]],
   ]
   for (const [name, change] of shown) {
     test(`stays with ${name}`, () => {
-      expect(diffCursorShown(change(initial), none)).toBe(true)
+      expect(diffCursorShown(...change(initial))).toBe(true)
     })
   }
 })
@@ -121,6 +126,6 @@ describe("the chat's input", () => {
     expect(chatInputFocused(chatting, occurrencePicker)).toBe(false)
     expect(chatInputFocused(chatting, marksPicker)).toBe(false)
     expect(chatInputFocused(chatting, commitPicker)).toBe(false)
-    for (const [, open] of hidden.slice(0, 2)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    for (const [, open] of hidden.slice(0, 2)) expect(chatInputFocused(...open(chatting))).toBe(false)
   })
 })

@@ -32,6 +32,7 @@ import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
+import type { LinePeekState } from "../features/line-peek/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -62,6 +63,7 @@ export interface FramePassContext {
   marksPicker: MarksPickerState
   commitPicker: CommitPickerState
   actionMenu: ActionMenuState
+  linePeek: LinePeekState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -102,6 +104,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const marksPicker = ctx.marksPicker.open() ? ctx.marksPicker.snapshot() : null
     const commitPicker = ctx.commitPicker.open() ? ctx.commitPicker.snapshot() : null
     const actionMenu = ctx.actionMenu.open() ? ctx.actionMenu.snapshot() : null
+    const linePeek = ctx.linePeek.open() ? ctx.linePeek.snapshot() : null
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }),
       help: help.open,
@@ -114,6 +117,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       marksPicker: marksPicker !== null,
       commitPicker: commitPicker !== null,
       actionMenu: actionMenu !== null,
+      linePeek: linePeek !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -149,6 +153,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       marksPicker,
       commitPicker,
       actionMenu,
+      linePeek,
       commandKeys: ctx.getCommandKeys(),
     }
 

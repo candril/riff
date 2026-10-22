@@ -337,17 +337,10 @@ export interface AppState {
   treeFilter: string
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
-  /** `gl` — the cursor's line in full, wrapped, over the diff. */
-  showLinePeek: boolean
   /** `gb` — who last changed the cursor's line (spec 103). */
   blamePeek: BlamePeekState | null
   /** Files whose blame column is on, by path (spec 103). */
   blameColumns: ReadonlyMap<string, BlameColumnState>
-  /** Which version of a changed block the peek is drawing (spec 058). */
-  peekSide: "new" | "old"
-  /** Where a peek too big for the window is scrolled to, in rows and
-   *  columns of the drawing. The view clamps it to what there is. */
-  peekScroll: { row: number; col: number }
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
   /** `\` — asks for the diff side by side; drawn only where the diff pane is wide enough. */
@@ -531,11 +524,8 @@ export function createInitialState(
     // visible when there's more than one file to navigate.
     treeFilter: "",
     treeFilterInput: false,
-    showLinePeek: false,
     blamePeek: null,
     blameColumns: new Map(),
-    peekSide: "new",
-    peekScroll: { row: 0, col: 0 },
     wrapLines: false,
     splitView: false,
     alignMarkdownTables: true,
@@ -950,46 +940,6 @@ export function setBlockFolds(state: AppState, ids: readonly string[]): AppState
 
 export function expandAllBlocks(state: AppState): AppState {
   return state.collapsedBlocks.size === 0 ? state : { ...state, collapsedBlocks: new Set<string>() }
-}
-
-/**
- * Toggle the full-line overlay
- */
-export function toggleLinePeek(state: AppState): AppState {
-  return {
-    ...state,
-    showLinePeek: !state.showLinePeek,
-    // Every peek opens on the version the change arrives at, at its top.
-    peekSide: "new",
-    peekScroll: { row: 0, col: 0 },
-  }
-}
-
-/**
- * Scroll a peek that does not fit. Unbounded here — the view knows the
- * drawing's size and clamps — but not by so much that a held key runs off.
- */
-export function scrollPeek(state: AppState, rows: number, cols: number): AppState {
-  const cap = 100_000
-  return {
-    ...state,
-    peekScroll: {
-      row: Math.max(0, Math.min(cap, state.peekScroll.row + rows)),
-      col: Math.max(0, Math.min(cap, state.peekScroll.col + cols)),
-    },
-  }
-}
-
-/**
- * Swap the peek between the version the change arrives at and the one it
- * replaces (spec 058).
- */
-export function togglePeekSide(state: AppState): AppState {
-  return {
-    ...state,
-    peekSide: state.peekSide === "new" ? "old" : "new",
-    peekScroll: { row: 0, col: 0 },
-  }
 }
 
 /**
