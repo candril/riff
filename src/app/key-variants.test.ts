@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { anyModifiers } from "./key-variants"
+import { anyModifiers, without } from "./key-variants"
 
 test("a bare key comes with every combination of ctrl, shift, meta, super and hyper", () => {
   const bindings = anyModifiers("y", "confirm.yes")
@@ -24,4 +24,14 @@ test("a key that requires a modifier keeps it and varies only the others", () =>
   expect(keys).toContain("ctrl+c")
   expect(keys).toContain("ctrl+super+c")
   expect(keys).toContain("ctrl+shift+meta+super+hyper+c")
+})
+
+test("without drops every variant that holds one of the named modifiers", () => {
+  const keys = without(["ctrl"], anyModifiers("j", "help.down")).map((b) => b.key)
+
+  expect(keys).toHaveLength(16)
+  expect(keys.some((key) => key.split("+").includes("ctrl"))).toBe(false)
+  expect(keys).toContain("j")
+  expect(keys).toContain("shift+meta+super+hyper+j")
+  expect(without(["ctrl", "meta"], anyModifiers("return", "x"))).toHaveLength(8)
 })

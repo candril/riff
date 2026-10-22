@@ -1,39 +1,69 @@
-import type { KeyEvent } from "@opentui/core"
+/**
+ * Help overlay keys: Esc or q closes, j/k and Ctrl-d/Ctrl-u scroll. The
+ * overlay is modal, so it takes every key but `g`, which has to reach the
+ * chain's chord matcher or `g?` couldn't close it.
+ */
+
+import type { RiffKeymap } from "./keymap"
+import { anyModifiers, without } from "./key-variants"
 import { scrollHelp, toggleHelp, type AppState } from "../state"
 import { helpViewport } from "../components/help-sections"
 
-export interface HelpKeyContext {
+export interface HelpKeyDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   /** The terminal's rows, which decide how far the overlay's body scrolls. */
-  height: number
+  height: () => number
+  /** The chain holding the first key of a chord, whose second key it must get. */
+  chainChordPending: () => boolean
 }
 
-/**
- * Keys while the help overlay is open: it is modal, so it takes every key
- * but `g`, which has to reach the chord matcher or `g?` couldn't close it.
- * Returns whether the key was taken.
- */
-export function handleHelpKey(key: Pick<KeyEvent, "name" | "ctrl" | "shift">, ctx: HelpKeyContext): boolean {
-  if (key.name === "escape" || key.name === "q") {
-    ctx.setState(toggleHelp)
-    ctx.render()
-    return true
+export function registerHelpKeys(riffKeymap: RiffKeymap, deps: HelpKeyDeps): () => void {
+  const up = () => deps.getState().showHelp && !deps.chainChordPending()
+  const captured = riffKeymap.capture((key) => up() && !(key.name === "g" && !key.ctrl && !key.shift))
+  const scroll = (delta: (half: number) => number) => () => {
+    const { rows, maxScroll } = helpViewport(deps.height())
+    const half = Math.max(1, Math.floor(rows / 2))
+    deps.setState((s) => scrollHelp(s, delta(half), maxScroll))
+    deps.render()
   }
-  const { rows, maxScroll } = helpViewport(ctx.height)
-  const half = Math.max(1, Math.floor(rows / 2))
-  const delta =
-    key.ctrl && key.name === "d" ? half
-    : key.ctrl && key.name === "u" ? -half
-    : key.ctrl ? 0
-    : key.name === "j" || key.name === "down" ? 1
-    : key.name === "k" || key.name === "up" ? -1
-    : 0
-  if (delta !== 0) {
-    ctx.setState((s) => scrollHelp(s, delta, maxScroll))
-    ctx.render()
-    return true
+  const command = (name: string, title: string, run: () => void) => ({
+    name: `help.${name}`,
+    title,
+    category: "Help",
+    palette: false,
+    run,
+  })
+
+  const unregisterLayer = riffKeymap.keymap.registerLayer({
+    // Not `up` alone: a picker or Submit Review opened over the help by a
+    // g-chord types the keys it leaves unbound, j and q among them.
+    enabled: () => captured.holds(),
+    commands: [
+      command("close", "Close the help", () => {
+        deps.setState(toggleHelp)
+        deps.render()
+      }),
+      command("down", "Scroll the help down a row", scroll(() => 1)),
+      command("up", "Scroll the help up a row", scroll(() => -1)),
+      command("halfDown", "Scroll the help down half a window", scroll((half) => half)),
+      command("halfUp", "Scroll the help up half a window", scroll((half) => -half)),
+    ],
+    bindings: [
+      ...anyModifiers("escape", "help.close"),
+      ...anyModifiers("q", "help.close"),
+      ...anyModifiers("ctrl+d", "help.halfDown"),
+      ...anyModifiers("ctrl+u", "help.halfUp"),
+      // Under ctrl only d and u scroll; the capture swallows Ctrl-j and Ctrl-k.
+      ...without(["ctrl"], anyModifiers("j", "help.down")),
+      ...without(["ctrl"], anyModifiers("down", "help.down")),
+      ...without(["ctrl"], anyModifiers("k", "help.up")),
+      ...without(["ctrl"], anyModifiers("up", "help.up")),
+    ],
+  })
+  return () => {
+    captured()
+    unregisterLayer()
   }
-  return !(key.name === "g" && !key.ctrl && !key.shift)
 }

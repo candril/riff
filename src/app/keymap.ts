@@ -9,15 +9,26 @@ export interface RiffKeymap {
   offer(key: KeyEvent): boolean
   chordPending(): boolean
   /**
-   * While `active`, every key no binding takes is kept from the chain and
-   * handed to `rest`, for a modal that owns the keyboard. Of two active
-   * captures the later registered one wins. Returns the unregister.
+   * While `active(key)`, that key, when no binding takes it, is kept from
+   * the chain and handed to `rest`, for a modal that owns the keyboard. Of
+   * two active captures the later registered one wins. Returns the
+   * unregister.
    */
-  capture(active: () => boolean, rest?: (key: KeyEvent) => void): () => void
+  capture(active: (key: KeyEvent) => boolean, rest?: (key: KeyEvent) => void): Captured
+}
+
+export type Captured = (() => void) & {
+  /**
+   * Whether this capture is the one holding the key being offered: active
+   * for it, with no later registered capture active ahead of it. A layer
+   * enabled by this alone stands aside under every modal that outranks it,
+   * even for keys that modal leaves unbound.
+   */
+  holds(): boolean
 }
 
 interface Capture {
-  active: () => boolean
+  active: (key: KeyEvent) => boolean
   rest?: (key: KeyEvent) => void
 }
 
@@ -68,15 +79,18 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
     handled = ctx.handled
   })
   const captures: Capture[] = []
+  let holding: Capture | undefined
 
   return {
     keymap,
     offer(key) {
       // Read before the key runs: a key that closes the modal (Esc in flash,
       // y on the dialog) arrived while it was up, and the chain must not see it.
-      const capturing = captures.find((c) => c.active())
+      const capturing = captures.find((c) => c.active(key))
       handled = false
+      holding = capturing
       feed?.(key)
+      holding = undefined
       if (handled) return true
       if (!capturing) return false
       capturing.rest?.(key)
@@ -88,10 +102,11 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
       // Newest first: the keymap prefers the later registered of two layers
       // binding a key, and a modal's capture must rank as its layer does.
       captures.unshift(capture)
-      return () => {
+      const unregister = () => {
         const at = captures.indexOf(capture)
         if (at >= 0) captures.splice(at, 1)
       }
+      return Object.assign(unregister, { holds: () => holding === capture })
     },
   }
 }

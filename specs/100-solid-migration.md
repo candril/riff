@@ -89,11 +89,15 @@ of the priority chain in `global-keys.ts`
 ([ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)); it
 holds F12, the debug console, the flash jump's keys, the confirmation
 dialog's, the command palette's, those of the file, comments, marks,
-occurrence and commit pickers, and those of the sync preview and Submit
-Review. A modal layer captures the keys it does not bind, so none of them
-reaches the chain while it is up; the palette's, the pickers' and Submit
-Review's captures leave them unprevented for their prompt fields and the
-summary to type, and the commit picker's does so only in its `/` mode.
+occurrence and commit pickers, those of the sync preview and Submit
+Review, and the help overlay's. A modal layer captures the keys it does
+not bind, so none of them reaches the chain while it is up; the palette's,
+the pickers' and Submit Review's captures leave them unprevented for their
+prompt fields and the summary to type, and the commit picker's does so
+only in its `/` mode. The help overlay's capture leaves a bare `g` to the
+chain's chord matcher, so `g?` closes it, and the overlay stands aside
+entirely while the chain holds a chord, and under any modal that outranks
+it.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).

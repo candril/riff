@@ -1,4 +1,5 @@
 const MODIFIERS = ["ctrl", "shift", "meta", "super", "hyper"] as const
+type Modifier = (typeof MODIFIERS)[number]
 
 /**
  * `key` with every combination of the modifiers it does not already name,
@@ -16,4 +17,9 @@ export function anyModifiers(key: string, cmd: string): { key: string; cmd: stri
     const held = free.filter((_, bit) => mask & (1 << bit))
     return { key: [...parts, ...held, name].join("+"), cmd }
   })
+}
+
+/** The bindings that hold none of `modifiers`, to carve a key back out of anyModifiers. */
+export function without(modifiers: Modifier[], bindings: { key: string; cmd: string }[]): { key: string; cmd: string }[] {
+  return bindings.filter(({ key }) => !key.split("+").some((part) => modifiers.includes(part as Modifier)))
 }

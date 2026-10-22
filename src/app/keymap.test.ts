@@ -210,6 +210,40 @@ test("while a capture is inactive a key reaches the chain exactly once and its r
   expect(legacyKeys).toEqual(["j"])
 })
 
+test("a capture that turns down one key lets that key reach the chain and keeps the others", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const rest: string[] = []
+  riffKeymap.capture((key) => key.name !== "g", (key) => void rest.push(key.name))
+
+  keys(press("j"))
+  keys(press("g"))
+  keys(press("k"))
+
+  expect(rest).toEqual(["j", "k"])
+  expect(legacyKeys).toEqual(["g"])
+})
+
+test("a layer enabled by its capture's hold stands aside under a later active capture, even for a key that one leaves unbound", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const runs: string[] = []
+  let upper = false
+  const lower = riffKeymap.capture(() => true)
+  riffKeymap.keymap.registerLayer({
+    enabled: () => lower.holds(),
+    commands: [{ name: "test.j", run: () => void runs.push("j") }],
+    bindings: [{ key: "j", cmd: "test.j" }],
+  })
+  riffKeymap.capture(() => upper)
+
+  keys(press("j"))
+  upper = true
+  keys(press("j"))
+
+  expect(runs).toEqual(["j"])
+  expect(legacyKeys).toEqual([])
+  expect(lower.holds()).toBe(false)
+})
+
 test("a key bound in a layer enabled with the capture runs its command, not the capture's rest", async () => {
   const { riffKeymap, legacyKeys, keys } = await setup()
   const active = () => true

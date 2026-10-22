@@ -23,7 +23,6 @@ import type { CommentScope } from "../diff-rows/comment-scope"
 import { blockAnchor } from "../features/comments/block-anchor"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
-import { handleHelpKey } from "./help-keys"
 import { composerOpen } from "./diff-focus"
 import { handleChatKey } from "../features/chat/keys"
 import { attachOnScreen } from "../features/chat/attach"
@@ -604,17 +603,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
-    // Ahead of the panels, which are modal in their own right: the keymap
-    // is drawn over them, so `q` has to close it rather than close them.
-    if (
-      ctx.getState().showHelp &&
-      !pendingKey &&
-      handleHelpKey(key, { getState: ctx.getState, setState: ctx.setState, render: ctx.render, height: ctx.renderer.height })
-    ) {
-      return
-    }
 
     // ========== CHAT (captures all input while focused, spec 102) ==========
     // Ahead of the panels: Ctrl-r reaches the chat from every view, and

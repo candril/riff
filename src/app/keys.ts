@@ -8,6 +8,7 @@ import { registerActionMenuKeys, type ActionMenuKeyDeps } from "../features/acti
 import { registerPickerKeys } from "./picker-keys"
 import { registerCommitPickerKeys } from "../features/commit-picker"
 import { registerPreviewKeys } from "./preview-keys"
+import { registerHelpKeys } from "./help-keys"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 
@@ -18,11 +19,21 @@ import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
  */
 export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
+  const legacy = createKeyHandler(ctx)
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
-  // then the four query pickers, the commit picker, the sync preview and
-  // Submit Review.
+  // then the four query pickers, the commit picker, the sync preview,
+  // Submit Review and the help overlay.
+  registerHelpKeys(riffKeymap, {
+    getState: ctx.getState,
+    setState: ctx.setState,
+    render: ctx.render,
+    height: () => ctx.renderer.height,
+    // The chain's own pending key, not the composed one: help gives way to
+    // a chord the chain holds, such as the g of `g?`.
+    chainChordPending: () => legacy.chordPending(),
+  })
   registerPreviewKeys(riffKeymap, ctx)
   registerCommitPickerKeys(riffKeymap, {
     getState: ctx.getState,
@@ -42,7 +53,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,
   })
-  return composeKeys(riffKeymap, createKeyHandler(ctx))
+  return composeKeys(riffKeymap, legacy)
 }
 
 export function registerModalKeys(

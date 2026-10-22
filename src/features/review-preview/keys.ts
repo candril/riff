@@ -7,7 +7,7 @@
  */
 
 import type { RiffKeymap } from "../../app/keymap"
-import { anyModifiers } from "../../app/key-variants"
+import { anyModifiers, without } from "../../app/key-variants"
 import type { AppState } from "../../state"
 import { canSubmit, type ValidatedComment } from "../../components/review-preview-model"
 import {
@@ -73,7 +73,7 @@ export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPr
       // keeps open, pick a type, confirm on the home row; Ctrl-J
       // (`linefeed`) is the summary's newline, which the textarea binds.
       ...anyModifiers("ctrl+s", "reviewPreview.submit"),
-      ...withoutCtrlOrMeta(anyModifiers("return", "reviewPreview.submit")),
+      ...without(["ctrl", "meta"], anyModifiers("return", "reviewPreview.submit")),
       ...anyModifiers("tab", "reviewPreview.section"),
     ],
   })
@@ -114,8 +114,4 @@ export function registerReviewPreviewKeys(riffKeymap: RiffKeymap, deps: ReviewPr
     unregisterComments()
     unregisterModal()
   }
-}
-
-function withoutCtrlOrMeta(bindings: { key: string; cmd: string }[]) {
-  return bindings.filter(({ key }) => !key.split("+").some((part) => part === "ctrl" || part === "meta"))
 }

@@ -1,4 +1,5 @@
 import { test, expect, describe } from "bun:test"
+import { parseKeypress } from "@opentui/core"
 import { createInitialState, openReviewPreview, type AppState } from "../../state"
 import type { Comment } from "../../types"
 import type { ValidatedComment } from "../../components/review-preview-model"
@@ -17,6 +18,8 @@ const SEQUENCES: Record<string, string> = {
   "shift+return": "\x1b[13;2u",
   "ctrl+return": "\x1b[13;5u",
   "meta+return": "\x1b[13;3u",
+  "super+return": "\x1b[13;9u",
+  "hyper+return": "\x1b[13;17u",
   "shift+escape": "\x1b[27;2u",
   "ctrl+tab": "\x1b[9;5u",
 }
@@ -76,6 +79,15 @@ describe("Submit Review's keys", () => {
     const typing = await harness({ summary: "Ship it", reviewPreview: inInput })
     expect(typing.press("shift+return")).toEqual({ kept: true, prevented: true })
     expect(typing.confirms).toEqual(["Ship it"])
+  })
+
+  test("Enter submits with super or hyper held", async () => {
+    expect(parseKeypress(SEQUENCES["super+return"]!, { useKittyKeyboard: true })).toMatchObject({ name: "return", super: true })
+    expect(parseKeypress(SEQUENCES["hyper+return"]!, { useKittyKeyboard: true })).toMatchObject({ name: "return", hyper: true })
+    const h = await harness({ summary: "Ship it", reviewPreview: inInput })
+    expect(h.press("super+return")).toEqual({ kept: true, prevented: true })
+    expect(h.press("hyper+return")).toEqual({ kept: true, prevented: true })
+    expect(h.confirms).toEqual(["Ship it", "Ship it"])
   })
 
   test("Ctrl-s submits too", async () => {
