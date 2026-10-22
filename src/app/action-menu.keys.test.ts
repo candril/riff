@@ -83,3 +83,20 @@ test("escape closes the palette and the next j moves the diff's cursor", async (
   mockInput.pressKey("j")
   expect(keys.vimState().line).toBe(line + 1)
 })
+
+test("the palette shows each action's key from the keymap command that runs it", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  app.show()
+  keysOn(app)
+  const { mockInput } = app.setup
+  const rowWith = (frame: string, label: string) => frame.split("\n").find((line) => line.includes(label)) ?? ""
+
+  mockInput.pressKey("p", { ctrl: true })
+  await mockInput.typeText("next file")
+  expect(rowWith(await app.frame(), "Next File")).toMatch(/Next File\s+\]f/)
+
+  mockInput.pressKey("u", { ctrl: true })
+  await mockInput.typeText("line wrap")
+  expect(app.ctx.getState().actionMenu.query).toBe("line wrap")
+  expect(rowWith(await app.frame(), "Toggle Line Wrap")).toMatch(/Toggle Line Wrap\s+zw/)
+})

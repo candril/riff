@@ -663,6 +663,8 @@ export async function createApp(options: AppOptions = {}) {
     shell
   )
 
+  // The keys are built further down, and a pass may run before them.
+  let paletteKeys: ReadonlyMap<string, string> = new Map()
   const renderFrame = createFramePass({
     getState: () => state,
     setState: setAppState,
@@ -681,6 +683,7 @@ export async function createApp(options: AppOptions = {}) {
     help,
     confirm,
     syncPreview,
+    getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
   })
@@ -1843,6 +1846,7 @@ export async function createApp(options: AppOptions = {}) {
     syncPreview,
     composerSettled: proposals.composerSettled,
   })
+  paletteKeys = dispatchKeypress.commandKeys
 
   const jumpRecording = createJumpRecording({
     getState: () => state,

@@ -107,6 +107,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const help = createHelpState()
   const confirm = createConfirmState()
   const syncPreview = createSyncPreviewState()
+  // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
+  let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
     state = updater(state)
   }
@@ -144,6 +146,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     help,
     confirm,
     syncPreview,
+    getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({
@@ -199,6 +202,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     /** The PR overview the view slot shows in viewMode "state"; the test builds it and destroys it. */
     setPrInfoPanel(panel: PRInfoPanelClass | null) {
       prInfoPanel = panel
+    },
+    /** The palette's hints, which keysOn reads off the keys it builds. */
+    setCommandKeys(next: ReadonlyMap<string, string>) {
+      commandKeys = next
     },
     setSearchState(next: typeof searchState) {
       searchState = next

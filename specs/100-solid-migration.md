@@ -215,8 +215,12 @@ and its answers stay in the factory, where the keys read them.
 The sync preview is the third (`createSyncPreviewState` in
 `src/features/sync-preview/state.ts`).
 
-**Not built**: the rest of M6 (the palette reading
-command entries and the rest of the state factories); the file size ratchet (P3).
+The command palette reads the keymap's command entries: an action names
+the command that runs it, and its hint is that command's `keys` field
+(`src/app/command-keys.ts`, [020](./020-action-menu.md)).
+
+**Not built**: the rest of M6 (the rest of the state factories); the file
+size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

@@ -48,9 +48,10 @@ export function registerGlobalKeys(riffKeymap: RiffKeymap, deps: GlobalLayerKeyD
   )
   return riffKeymap.keymap.registerLayer({
     enabled: () => !riffKeymap.held(),
-    commands: Object.entries(commands).map(([cmd, { title, run }]) => ({
+    commands: Object.entries(commands).map(([cmd, { title, keys, run }]) => ({
       name: `global.${cmd}`,
       title,
+      keys,
       category: "Global",
       palette: false,
       run: ({ event }: { event: KeyEvent }) => {

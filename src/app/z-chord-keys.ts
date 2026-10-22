@@ -11,7 +11,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 import { chordStrokeToken, chordSuffix } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
-import { Z_SEQUENCES, zChordCommands, type ZChordDeps, type ZCommand } from "./z-chord-commands"
+import { Z_PALETTE_KEYS, Z_SEQUENCES, zChordCommands, type ZChordDeps, type ZCommand } from "./z-chord-commands"
 
 /**
  * The opener: a key named `z`, unshifted, with any other modifier. A
@@ -38,6 +38,7 @@ export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordDeps): ()
     commands: COMMANDS.map((cmd) => ({
       name: `zchord.${cmd}`,
       title: spellingsOf(cmd).join(" "),
+      keys: Z_PALETTE_KEYS[cmd],
       category: "View",
       palette: false,
       run: ({ event }: { event: KeyEvent }) => {

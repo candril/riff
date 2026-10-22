@@ -19,7 +19,15 @@ export interface Action {
   label: string | ((state: AppState, vimState?: VimCursorState) => string)
   /** Short description */
   description: string
-  /** Keyboard shortcut hint (display only) */
+  /** The keymap command that runs this action; the palette shows that command's `keys`. */
+  command?: string
+  /**
+   * The palette's hint for a key no keymap command runs this action for:
+   * the diff's and the tree's keys, which their handlers parse behind one
+   * catch-all binding, `/`, which each list binds for itself, and keys
+   * whose command does more, or other, than this action where the action
+   * is offered. Never together with `command`.
+   */
   shortcut?: string
   /** Category for grouping */
   category?: ActionCategory

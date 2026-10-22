@@ -95,6 +95,7 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
   registerDefaultKeys(keymap)
   registerEnabledFields(keymap)
   registerMetadataFields(keymap)
+  registerPaletteKeys(keymap)
 
   // The keymap's own verdict rather than defaultPrevented: a binding may
   // opt out of preventDefault and still have taken the key.
@@ -146,4 +147,19 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
       return Object.assign(unregister, { holds: () => holding === capture })
     },
   }
+}
+
+/**
+ * `keys`: a command's key as the palette spells it ("]f", "gC", "Ctrl+f").
+ * The bindings cannot be spelled back: they are expanded over every
+ * modifier, their second strokes are chord patterns, and the diff binds a
+ * single pattern for every key.
+ */
+function registerPaletteKeys(keymap: Keymap<Renderable, KeyEvent>): void {
+  keymap.registerCommandFields({
+    keys(value, ctx) {
+      if (typeof value !== "string" || !value.trim()) throw new Error('Keymap command field "keys" must be a non-empty string')
+      ctx.attr("keys", value)
+    },
+  })
 }

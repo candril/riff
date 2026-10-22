@@ -15,6 +15,11 @@ export function chordSuffix(key: Stroke): string {
   return `${name}${key.shift ? "!" : ""}`
 }
 
+/** A chord, or its second stroke, as it is typed: `]R!` is `]R`. */
+export function spelledChord(chord: string): string {
+  return chord.replace(/!$/, "")
+}
+
 /**
  * The keymap token naming the second stroke that is `suffix`. Token names
  * are folded to lower case, so neither the shift nor the case of the
@@ -55,7 +60,7 @@ export function registerChordStrokes(
   const offs = suffixes.map((suffix) =>
     keymap.registerSequencePattern({
       name: chordStrokeToken(suffix),
-      display: suffix.replace(/!$/, ""),
+      display: spelledChord(suffix),
       max: 1,
       match: (event: KeyEvent) =>
         chordSuffix(event) === suffix && !askedFirst(event) ? { value: suffix } : undefined,

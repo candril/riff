@@ -39,6 +39,8 @@ export interface Frame {
   confirmDialog: ConfirmDialogModel | null
   /** The sync preview's state, read off its factory, or null while it is closed. */
   syncPreview: { loading: boolean; error: string | null } | null
+  /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
+  commandKeys: ReadonlyMap<string, string>
 }
 
 // The last frame each followed accessor's followers finished drawing.

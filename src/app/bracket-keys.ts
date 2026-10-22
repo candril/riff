@@ -10,7 +10,7 @@
 
 import type { RiffKeymap } from "./keymap"
 import { anyModifiers } from "./key-variants"
-import { chordStrokeToken } from "./chord-stroke"
+import { chordStrokeToken, spelledChord } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
 import { BRACKET_SEQUENCES, bracketCommands, type BracketDeps } from "./bracket-commands"
 
@@ -30,6 +30,7 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketDeps): 
     commands: SEQUENCES.map(({ sequence, cmd }) => ({
       name: `bracket.${cmd}`,
       title: sequence,
+      keys: spelledChord(sequence),
       category: "Motion",
       palette: false,
       run: () => {

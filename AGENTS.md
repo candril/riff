@@ -351,7 +351,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
   id: "my-action",
   label: "My Action",
   description: "What this action does",
-  shortcut: "ga",  // Optional keyboard shortcut
+  command: "gchord.myAction",  // The keymap command that runs it; the palette shows its `keys`
   category: "navigation" | "github" | "view" | "general" | "external",
   available: (state) => true,  // When action is available
 },
@@ -360,7 +360,10 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module
 
 3. If adding a keyboard shortcut, bind it in a keymap layer
-   ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md))
+   ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)) and give
+   its command `keys`, the spelling the palette shows. A key no command runs
+   the action for (the diff's vim keys) goes in the action's own `shortcut`
+   instead ([spec 020](specs/020-action-menu.md))
 
 ### Current Actions
 

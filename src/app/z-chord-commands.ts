@@ -59,6 +59,16 @@ export const Z_SEQUENCES = {
 
 export type ZCommand = (typeof Z_SEQUENCES)[keyof typeof Z_SEQUENCES]
 
+/** The one spelling the palette shows for a command several chords run: `zR` rather than `zr`. */
+export const Z_PALETTE_KEYS: Partial<Record<ZCommand, string>> = {
+  toggleFold: "za",
+  openFold: "zo",
+  closeFold: "zc",
+  expandAllFolds: "zR",
+  collapseAllFolds: "zM",
+  toggleWrap: "zw",
+}
+
 /** Every command takes its key: no `z` chord leaves one to the layers behind. */
 export function zChordCommands(deps: ZChordDeps): Record<ZCommand, () => boolean> {
   /**

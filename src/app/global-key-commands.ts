@@ -24,8 +24,15 @@ export type Outcome = false | void
 
 export type Body = (key: KeyEvent, state: AppState) => Outcome
 
+/** `keys`: how the palette spells the key, for the commands an action names. */
+export interface GlobalKeyCommand {
+  title: string
+  keys?: string
+  run: Body
+}
+
 /** What each global key does, keyed by command name. */
-export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { title: string; run: Body }> {
+export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, GlobalKeyCommand> {
   const show = (update: (s: AppState) => AppState) => {
     deps.setState(update)
     deps.render()
@@ -33,6 +40,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
   return {
     back: {
       title: "Back in the jumplist",
+      keys: "Ctrl+o",
       run: (key) => {
         if (!key.ctrl) return false
         // Ctrl-O: back in jumplist (spec 038).
@@ -55,6 +63,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     filePicker: {
       title: "Jump to a file",
+      keys: "Ctrl+f",
       run: (key, state) => {
         // Ctrl-f is the quick jump to a file, from every view. Narrowing
         // what is on screen is `/`, wherever there is a list to narrow.
@@ -65,6 +74,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     marksPicker: {
       title: "List the marks",
+      keys: "Ctrl+k",
       run: (key) => {
         // From every view, and with no mark set too: the empty list says how to set one.
         if (!key.ctrl) return false
@@ -74,6 +84,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     commitsOrBottom: {
       title: "Pick a commit, or the tree's last row",
+      keys: "Ctrl+g",
       run: (key, state) => {
         // Ctrl-g is the commit picker — `g` is riff's letter for commits
         // (`]g`, `[g`), and the picker was two keystrokes and a search away
@@ -95,7 +106,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
         return false
       },
     },
-    quit: { title: "Quit", run: () => deps.quit() },
+    quit: { title: "Quit", keys: "q", run: () => deps.quit() },
     addComment: {
       title: "Comment on the line in $EDITOR",
       run: (key) => {
@@ -119,6 +130,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     occurrencesOrFlash: {
       title: "Grep the change set, or flash the list",
+      keys: "Ctrl+s",
       run: (key, state) => occurrencesOrFlash(deps, key, state),
     },
     threads: {
@@ -133,6 +145,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     toggleTree: {
       title: "Show or hide the file tree",
+      keys: "Ctrl+b",
       run: (key) => {
         if (!key.ctrl) return false
         deps.setState((s) => {
@@ -150,6 +163,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     expandTreeOrEdit: {
       title: "Widen the file tree, or edit the thread in $EDITOR",
+      keys: "Ctrl+e",
       run: (key, state) => {
         if (key.ctrl && state.showFilePanel) {
           show(toggleFilePanelExpanded)
@@ -165,6 +179,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
     },
     forward: {
       title: "Forward in the jumplist",
+      keys: "Ctrl+i",
       run: () => {
         // Tab and Ctrl-I are indistinguishable in terminal input; both
         // mean forward-jump in the jumplist (spec 038). The previous

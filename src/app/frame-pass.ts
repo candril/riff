@@ -48,6 +48,8 @@ export interface FramePassContext {
   help: HelpState
   confirm: ConfirmState
   syncPreview: SyncPreviewState
+  /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
+  getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
   updateFileTreePanel: () => void
   /** Hands the pass's snapshot to every view that derives its own model from it. */
@@ -114,6 +116,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       help,
       confirmDialog,
       syncPreview,
+      commandKeys: ctx.getCommandKeys(),
     }
 
     // The composer and the prompts focus their fields as publish's first

@@ -42,6 +42,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
+    commandKeys: new Map(),
     ...rest,
   }
 }

@@ -125,9 +125,16 @@ function paletteWindow(groupOf: readonly (number | null)[], selectedIndex: numbe
 /**
  * `selectedIndex` counts the selectable rows only: the actions in visual
  * order, or a submenu's rows. `height`: the terminal's, which caps how many
- * rows are in view.
+ * rows are in view. `commandKeys`: each keymap command's `keys`, which an
+ * action that names its command shows as its hint; without them such an
+ * action shows none.
  */
-export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number, height: number): ActionMenuModel {
+export function actionMenuModel(
+  mode: ActionMenuMode,
+  selectedIndex: number,
+  height: number,
+  commandKeys: ReadonlyMap<string, string> = new Map(),
+): ActionMenuModel {
   if (mode.kind === "submenu") {
     const { start, end } = paletteWindow(mode.rows.map(() => null), selectedIndex, height)
     return {
@@ -170,7 +177,7 @@ export function actionMenuModel(mode: ActionMenuMode, selectedIndex: number, hei
         id: action.id,
         label: action.label,
         labelFg: selected ? theme.text : theme.subtext1,
-        shortcut: action.shortcut ?? null,
+        shortcut: action.command ? (commandKeys.get(action.command) ?? null) : (action.shortcut ?? null),
         selected,
       })
     }

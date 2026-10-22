@@ -42,7 +42,7 @@ export function frameModels(frame: Frame) {
     occurrencePicker: pickers.occurrence,
     commitPicker: pickers.commit,
     actionMenu: state.actionMenu.open
-      ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex, height)
+      ? actionMenuModel(paletteMode(state, vimState), state.actionMenu.selectedIndex, height, frame.commandKeys)
       : null,
     header: {
       ...headerModel({

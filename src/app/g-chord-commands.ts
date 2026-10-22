@@ -75,6 +75,30 @@ export const G_SEQUENCES = {
 export type GCommand = (typeof G_SEQUENCES)[keyof typeof G_SEQUENCES]
 
 /**
+ * The one spelling the palette shows for a command several chords run:
+ * `gS` rather than `gs!`, which a terminal reports for the same keys.
+ */
+export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
+  openReviewPreview: "gS",
+  openSyncPreview: "gs",
+  openPrInfo: "gi",
+  copyPrUrl: "gy",
+  openInBoard: "gB",
+  copyPermalink: "gY",
+  followLink: "gf",
+  followUrl: "gx",
+  openInEditor: "ge",
+  openInTmuxWindow: "gE",
+  checkoutAndEdit: "gc",
+  openCommentsPicker: "gC",
+  diffInEditor: "gd",
+  diffInTmuxWindow: "gD",
+  editOrCreatePr: "gP",
+  toggleLinePeek: "gl",
+  refresh: "gr",
+}
+
+/**
  * Every command takes its key, whether or not it acts: no `g` chord leaves
  * one to the layers behind. `gC` reads the key for its preventDefault.
  */

@@ -11,7 +11,7 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 import { chordStrokeToken, chordSuffix } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
-import { G_SEQUENCES, gChordCommands, type GChordDeps, type GCommand } from "./g-chord-commands"
+import { G_PALETTE_KEYS, G_SEQUENCES, gChordCommands, type GChordDeps, type GCommand } from "./g-chord-commands"
 
 export interface GChordKeyDeps extends GChordDeps {
   /** A key the chat reaches, which ends no sequence and opens the chat at the re-offer. */
@@ -67,6 +67,7 @@ export function registerGChordKeys(riffKeymap: RiffKeymap, deps: GChordKeyDeps):
       ...COMMANDS.map((cmd) => ({
         name: `gchord.${cmd}`,
         title: spellingsOf(cmd).join(" "),
+        keys: G_PALETTE_KEYS[cmd],
         category: "Go",
         palette: false,
         run: ({ event }: { event: KeyEvent }) => {

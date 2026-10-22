@@ -84,12 +84,13 @@ export function keysOn(
     },
   }) as AppKeyContext
   const keys = createAppKeys(mounted.setup.renderer, ctx)
+  mounted.setCommandKeys(keys.commandKeys)
   // `around` stands where app.ts's jump recording does, so a test can record through it.
   mounted.setup.renderer.keyInput.on("keypress", (key: KeyEvent) => around(key, () => keys(key)))
   // Where a search or a flash jump would land the cursor, without walking there.
   const jumpTo = (line: number) => setVimState({ ...vimState, line })
   const setVim = (patch: Partial<typeof vimState>) => setVimState({ ...vimState, ...patch })
-  return { quits, vimState: () => vimState, jumpTo, setVim, chordPending: () => keys.chordPending() }
+  return { quits, vimState: () => vimState, jumpTo, setVim, chordPending: () => keys.chordPending(), commandKeys: keys.commandKeys }
 }
 
 export const ctrl = (mounted: Mounted, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })

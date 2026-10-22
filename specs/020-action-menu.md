@@ -89,7 +89,8 @@ interface Action {
   id: string
   label: string
   description: string
-  shortcut?: string           // Display only, not functional
+  command?: string            // The keymap command that runs it; its `keys` is the hint
+  shortcut?: string           // The hint for a key no keymap command runs it for
   handler: () => void | Promise<void>
   available: () => boolean    // Should this action be shown?
   context?: "pr" | "local" | "always"
@@ -100,7 +101,7 @@ const actions: Action[] = [
     id: "submit-review",
     label: "Submit Review",
     description: "Submit all local comments as a review",
-    shortcut: "gS",
+    command: "gchord.openReviewPreview",
     handler: () => openReviewSubmitFlow(),
     available: () => state.appMode === "pr" && hasLocalComments(),
   },
@@ -108,7 +109,7 @@ const actions: Action[] = [
     id: "submit-comment",
     label: "Submit Comment", 
     description: "Post current comment immediately",
-    shortcut: "S",
+    command: "threadPanel.submit",
     handler: () => submitCurrentComment(),
     available: () => state.appMode === "pr" && isOnLocalComment(),
   },
@@ -116,7 +117,7 @@ const actions: Action[] = [
     id: "create-pr",
     label: "Create PR",
     description: "Create a new pull request",
-    shortcut: "gP",
+    command: "gchord.editOrCreatePr",
     handler: () => openCreatePrFlow(),
     available: () => state.appMode === "local",
   },
@@ -124,7 +125,7 @@ const actions: Action[] = [
     id: "refresh",
     label: "Refresh",
     description: "Reload PR data from GitHub",
-    shortcut: "gr",
+    command: "gchord.refresh",
     handler: () => refreshPrData(),
     available: () => state.appMode === "pr",
   },
@@ -132,7 +133,7 @@ const actions: Action[] = [
     id: "toggle-panel",
     label: "Toggle File Panel",
     description: "Show/hide the file tree",
-    shortcut: "Ctrl+b",
+    command: "global.toggleTree",
     handler: () => toggleFilePanel(),
     available: () => true,
   },
@@ -140,12 +141,34 @@ const actions: Action[] = [
     id: "quit",
     label: "Quit",
     description: "Exit riff",
-    shortcut: "q",
+    command: "global.quit",
     handler: () => quit(),
     available: () => true,
   },
 ]
 ```
+
+### Key Hints
+
+The key beside an action comes from the keymap, so the hint and the
+binding cannot drift apart. An action names the command that runs it
+(`command`), and the palette shows that command's `keys`, a command field
+`createRiffKeymap` registers (`src/app/keymap.ts`) and
+`commandKeys` (`src/app/command-keys.ts`) reads off the keymap's command
+entries once every layer has registered; the frame carries the map to the
+palette's model. The field spells the key as the reader types it (`]f`,
+`gC`, `Ctrl+f`) because the bindings cannot be spelled back: they are
+expanded over every modifier, chord second strokes are patterns, and the
+diff binds one pattern for every key.
+
+An action keeps a `shortcut` string of its own only where no keymap
+command runs it: the diff's and the tree's keys, which their handlers
+parse behind one catch-all binding (`c`, `v`, `V`, `y`, `Y`, `x`, Enter,
+`/`, `?`, `*`, `\`, Esc, `H` in the file panel); `/` for Filter, which each
+list binds for itself; and keys whose command does more, or other, than
+the action where the action is offered (`i`, `go`, Ctrl+h, Ctrl+l). No
+action has both. `src/actions/registry.commands.test.ts` fails when an
+action names a command no layer registers, or one without `keys`.
 
 ### Fuzzy Matching
 

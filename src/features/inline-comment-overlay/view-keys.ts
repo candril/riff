@@ -92,19 +92,26 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
     },
   )
 
-  const command = (name: string, title: string, run: (event: KeyEvent) => void) => ({
+  // `keys`: how the palette spells the key, for a command an action names.
+  const command = (name: string, title: string, run: (event: KeyEvent) => void, keys?: string) => ({
     name: `threadPanel.${name}`,
     title,
+    keys,
     category: "Comments",
     palette: false as const,
     run: ({ event }: { event: KeyEvent }) => run(event),
   })
   // For a key the panel always checked after its chords: a pending `za` or
   // `g` takes it first.
-  const afterChords = (name: string, title: string, run: (event: KeyEvent) => void) =>
-    command(name, title, (event) => {
-      if (!chords.consume(event)) run(event)
-    })
+  const afterChords = (name: string, title: string, run: (event: KeyEvent) => void, keys?: string) =>
+    command(
+      name,
+      title,
+      (event) => {
+        if (!chords.consume(event)) run(event)
+      },
+      keys,
+    )
   /** With the highlighted comment, if there is one. */
   const onHighlighted = (run: (comment: Comment, event: KeyEvent) => void) => (event: KeyEvent) => {
     const highlighted = act.highlightedComment(deps.getState())
@@ -150,7 +157,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
       command("focusDiff", "Back to the diff", () => act.focusDiff(deps)),
       command("expand", "Widen or narrow the panel", () => act.toggleExpanded(deps)),
       command("filter", "Filter the comments", prevented(() => act.startFilter(deps))),
-      command("copyLink", "Copy a link to the comment", () => act.copyLink(deps)),
+      command("copyLink", "Copy a link to the comment", () => act.copyLink(deps), "y (comments panel)"),
       command("toggle", "Close the panel", () => act.closePanel(deps)),
       command("halfDown", "Down half a page", () => act.halfPage(deps, 1)),
       command("halfUp", "Up half a page", () => act.halfPage(deps, -1)),
@@ -162,10 +169,10 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
         if (!chords.consumeZ(event)) chords.armZ()
       }),
       afterChords("armG", "Start a g chord", () => chords.armG()),
-      afterChords("openOnly", "Show open threads only", () => act.toggleOpenOnly(deps)),
+      afterChords("openOnly", "Show open threads only", () => act.toggleOpenOnly(deps), "H (comments panel)"),
       afterChords("end", "Last comment", () => act.jumpToEnd(deps)),
       afterChords("thread", "Open or fold the thread", () => act.toggleHighlightedThread(deps)),
-      afterChords("react", "React to the comment", prevented(() => act.react(deps))),
+      afterChords("react", "React to the comment", prevented(() => act.react(deps)), "+"),
       afterChords("down", "Next comment", () => act.moveHighlight(deps, 1)),
       afterChords("up", "Previous comment", () => act.moveHighlight(deps, -1)),
       afterChords("nextThread", "Next thread", () => act.jumpAdjacent(deps, 1)),
@@ -178,9 +185,9 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
         act.editInline(deps, comment)
       })),
       afterChords("editInEditor", "Edit in $EDITOR", () => act.editInEditor(deps)),
-      afterChords("delete", "Delete the comment", () => act.deleteHighlighted(deps)),
+      afterChords("delete", "Delete the comment", () => act.deleteHighlighted(deps), "d"),
       afterChords("resolve", "Resolve or reopen the thread", () => act.toggleResolved(deps)),
-      afterChords("submit", "Post the comment", () => act.submit(deps)),
+      afterChords("submit", "Post the comment", () => act.submit(deps), "S"),
       afterChords("codePeek", "Show the code the comment was written against", onHighlighted((comment, event) => {
         event.preventDefault()
         act.openCodePeek(deps, comment)
