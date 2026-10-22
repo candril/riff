@@ -329,11 +329,10 @@ async function getJjFileContent(filename: string, target?: string): Promise<stri
   return result
 }
 
-/**
- * Get file content using git
- */
-async function getGitFileContent(filename: string, target?: string): Promise<string> {
-  if (!target) {
+/** The new side of a git review: the working tree whenever the diff runs to it. */
+export async function getGitFileContent(filename: string, target?: string): Promise<string> {
+  const head = target ? gitSidesOf(target).head : null
+  if (head === null) {
     // Try working directory first (includes uncommitted changes)
     const file = Bun.file(filename)
     if (await file.exists()) {
@@ -343,7 +342,7 @@ async function getGitFileContent(filename: string, target?: string): Promise<str
     return await $`git show HEAD:${filename}`.text()
   }
 
-  return await $`git show ${gitSidesOf(target).head}:${filename}`.text()
+  return await $`git show ${head}:${filename}`.text()
 }
 
 // A two-dot or single-revision base already names a revision and passes through as is. A three-dot
@@ -354,6 +353,11 @@ export async function resolveGitBase(base: GitBase): Promise<string> {
   const [from, to] = base.mergeBaseOf
   const mergeBase = (await $`git merge-base ${from} ${to}`.text()).trim()
   return mergeBase || from
+}
+
+export async function getGitOldFileContent(filename: string, target?: string): Promise<string> {
+  const base = target ? await resolveGitBase(gitSidesOf(target).base) : "HEAD"
+  return await $`git show ${base}:${filename}`.text()
 }
 
 /**
@@ -377,12 +381,7 @@ export async function getOldFileContent(
       return await $`jj file show ${filename} -r ${revision}`.text()
     }
 
-    // For git, the "old" version is HEAD (or base of comparison)
-    if (!target) {
-      return await $`git show HEAD:${filename}`.text()
-    }
-
-    return await $`git show ${await resolveGitBase(gitSidesOf(target).base)}:${filename}`.text()
+    return await getGitOldFileContent(filename, target)
   } catch {
     return null
   }

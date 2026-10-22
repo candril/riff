@@ -26,7 +26,8 @@ export function jjSide(side: BlameSide, target?: string): SideRevision {
 export function gitSide(side: BlameSide, target?: string): SideRevision {
   if (!target) return side === "head" ? { tool: "git", rev: null, live: true } : { tool: "git", rev: { rev: "HEAD" }, live: false }
   const sides = gitSidesOf(target)
-  return { tool: "git", rev: side === "head" ? { rev: sides.head } : sides.base, live: false }
+  if (side === "base") return { tool: "git", rev: sides.base, live: false }
+  return sides.head === null ? { tool: "git", rev: null, live: true } : { tool: "git", rev: { rev: sides.head }, live: false }
 }
 
 /** The PR's head commit, or where it last met its base, as baseVersionRef resolves it. */

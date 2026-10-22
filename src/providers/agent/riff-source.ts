@@ -42,12 +42,13 @@ async function githubTree(owner: string, repo: string, sha: string) {
 async function vcsTree(target?: string): Promise<string[] | null> {
   const vcs = await detectVcs()
   if (vcs === "none") return null
+  const gitHead = target ? gitSidesOf(target).head : null
   const listing =
     vcs === "jj"
       ? $`jj file list -r ${target ?? "@"}`
-      : target
-        ? $`git ls-tree -r --name-only ${gitSidesOf(target).head}`
-        : $`git ls-files`
+      : gitHead === null
+        ? $`git ls-files`
+        : $`git ls-tree -r --name-only ${gitHead}`
   return (await listing.quiet().text()).split("\n").filter(Boolean)
 }
 

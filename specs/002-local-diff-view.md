@@ -28,6 +28,7 @@ Display a diff of local changes (uncommitted or between commits/branches) with s
 - **Branch diff**: `riff branch:main` compares current to main
 - **Commit range**: `riff HEAD~3..HEAD` shows recent commits
 - **Single commit**: `riff HEAD~1` shows last commit
+  - The new side of `riff <rev>` is the working tree, as `git diff <rev>` gives it, so a dirty tree shows in the review.
 - **Support JJ revset**: Allow jj revsets as input `@-` or `..trunk()`
 - **Another workspace**: `riff name@` reviews a jj workspace's working copy the way plain `riff` reviews yours, as the topic since trunk. Its comments are filed in that workspace's `.riff/`, where `riff comments` run there finds them
 

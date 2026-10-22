@@ -22,7 +22,8 @@ describe("the revisions a git review's diff runs between", () => {
     expect(gitSidesOf("..b")).toEqual({ head: "b", base: { rev: "HEAD" } })
   })
 
-  test("a single revision runs from its parent to itself", () => {
-    expect(gitSidesOf("abc123")).toEqual({ head: "abc123", base: { rev: "abc123^" } })
+  test("a single revision runs from itself to the working tree, as `git diff <rev>` does", () => {
+    expect(gitSidesOf("abc123")).toEqual({ head: null, base: { rev: "abc123" } })
+    expect(gitSidesOf("HEAD~3")).toEqual({ head: null, base: { rev: "HEAD~3" } })
   })
 })

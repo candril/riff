@@ -22,9 +22,9 @@ test.each<[string, string | undefined, GitBase | null, GitBase]>([
   ["branch:main", "branch:main", { rev: "HEAD" }, { mergeBaseOf: ["main", "HEAD"] }],
   ["a...b", "a...b", { rev: "b" }, { mergeBaseOf: ["a", "b"] }],
   ["a..b", "a..b", { rev: "b" }, { rev: "a" }],
-  ["a single revision", "abc", { rev: "abc" }, { rev: "abc^" }],
+  ["a single revision", "abc", null, { rev: "abc" }],
 ])("git, %s", (_, target, head, base) => {
-  expect(gitSide("head", target)).toEqual({ tool: "git", rev: head, live: target === undefined })
+  expect(gitSide("head", target)).toEqual({ tool: "git", rev: head, live: head === null })
   expect(gitSide("base", target)).toEqual({ tool: "git", rev: base, live: false })
 })
 

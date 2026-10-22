@@ -75,7 +75,8 @@ existing file readers (`getFileContent`, `getOldFileContent`,
 | jj, no target or a working copy (`name@`) | that working copy | `trunk()` |
 | jj, a revision | the revision | its parent (`rev-`) |
 | git, no target | the working tree | `HEAD` |
-| git, a target | `gitSidesOf(target).head` | `gitSidesOf(target).base`, through `resolveGitBase` |
+| git, a single revision | the working tree | the revision |
+| git, a range or `branch:` | `gitSidesOf(target).head` | `gitSidesOf(target).base`, through `resolveGitBase` |
 | PR | the loaded head sha, or `getPrHeadSha` while none is loaded | where head and base last met (`baseVersionRef`) |
 
 ### Caching
