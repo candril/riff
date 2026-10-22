@@ -98,7 +98,7 @@ Initialize as `{ open: false, query: "", selectedIndex: 0 }` in
 ```
 src/features/comments-picker/
 ├── index.ts        # Public exports
-├── keys.ts         # keymap layer; its capture keeps unbound keys from the chain, unprevented for the prompt field
+├── keys.ts         # keymap layer; its capture keeps unbound keys from the layers behind, unprevented for the prompt field
 └── filter.ts       # buildEntries, filter & sort
 ```
 
@@ -177,7 +177,7 @@ Two parts:
      onSelectComment: (comment) => jumpToComment(comment, jumpContext()),
    })
    ```
-   Its capture keeps every key from the priority chain while the picker
+   Its capture keeps every key from the layers behind while the picker
    is open, and leaves the keys it does not bind to the prompt field.
 2. A `gC` chord (capital `C`, paired with the existing `gc`
    = checkout & edit) among the `g` chords of
@@ -196,8 +196,8 @@ Two parts:
    in how they report shift+c.
 
 `jumpToComment(c, ctx)` lives in a small helper colocated with the
-comments-picker feature so global-keys.ts doesn't grow another inline
-function.
+comments-picker feature so the `g` chords' commands
+(`src/app/g-chord-commands.ts`) don't grow another inline function.
 
 ### Action registry
 

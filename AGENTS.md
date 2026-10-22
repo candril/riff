@@ -214,10 +214,10 @@ src/
 │   ├── frame-pass.ts     # Each pass: draws the diff, publishes the frame islands follow
 │   ├── keymap.ts         # The keymap riff feeds every key first (ADR-002)
 │   ├── keys.ts           # Builds the keymap with every layer, the tree's leftover behind them
-│   ├── app-keys.ts       # The keymap's global layer
+│   ├── app-keys.ts       # The keymap's app layer: F12, which no pending chord swallows
 │   ├── confirm-keys.ts   # The confirmation dialog's layer, which captures every key
 │   ├── key-context.ts    # The context every keymap layer's deps are built from
-│   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, the lowest layer
+│   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, beside the z and g layers
 │   ├── bracket-key-deps.ts  # What those motions need of the app
 │   ├── bracket-commands.ts  # One command per ]/[ motion, and adjacentCommit
 │   ├── z-chord-keys.ts   # The z chords as keymap sequences, beside the bracket layer
@@ -227,11 +227,12 @@ src/
 │   ├── g-chord-commands.ts  # One command per g chord
 │   ├── g-chord-key-deps.ts  # What the g chords need of the app
 │   ├── follow-link-deps.ts  # Where gf, gF, gx and gX take the link under the cursor
-│   ├── chord-stroke.ts   # A chord's second key as the chain spells it, and its sequence patterns
+│   ├── chord-stroke.ts   # A chord's second key as a suffix, and its sequence patterns
 │   ├── sequence-expiry.ts  # The chord timeout a lone ], [, z or g gives up after
 │   ├── mark-chord-keys.ts  # The mark chords as keymap sequences, behind the other sequence layers
 │   ├── mark-chord-key-deps.ts  # What the mark chords need of the app
 │   ├── mark-chord-gate.ts  # Whether the diff reads m, ' and ]m as mark keys
+│   ├── diff-key-deps.ts  # What the diff layer, the lowest, needs of the app
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters
 ├── types.ts              # Type definitions

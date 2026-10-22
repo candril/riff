@@ -128,7 +128,8 @@ Call sites (by file):
 - `src/features/file-tree/*` — on Enter
 - `src/features/file-navigation.ts` — `navigateFileSelection`,
   `navigateToUnviewedFile`, `navigateToOutdatedFile`, `handleSelectFile`
-- `src/app/global-keys.ts` — `]g` / `[g` commit switch; `gg` / `G`
+- `src/app/bracket-commands.ts` — `]g` / `[g` commit switch;
+  `src/app/g-chord-commands.ts` — `gg`; `src/app/global-key-commands.ts` — `G`
 - `src/features/search/*` — on match jump and `n` / `N`
 - `src/features/pr-info-panel/*` — `onJumpToFile` / `onJumpToLocation`
 - `src/features/thread-preview/*` — when opening thread from diff
@@ -141,8 +142,9 @@ duplicating the capture-then-push dance.
 
 ### Key wiring
 
-In `src/app/global-keys.ts`, register in the global-keys switch (around
-line 332):
+`Ctrl-o` and `Tab` are the global keys' `back` and `forward` commands
+(`src/app/global-key-commands.ts`). The original sketch, from the retired
+global-keys switch:
 
 ```ts
 case "o":

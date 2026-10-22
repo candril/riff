@@ -103,12 +103,14 @@ keys that modal leaves unbound. The help overlay's capture leaves a bare
 `g` to the keymap's `g` sequences, so `g?` closes it, and the overlay
 stands aside entirely while a chord is pending. The chat's capture
 leaves the keys it does not bind unprevented for its input to type, and
-the chat registers behind every layer but the composer's, as its branch
-sat first in the chain, so Ctrl-r and the step in from the thread panel
-stand aside under every modal. The composer's capture leaves the keys it
-does not bind unprevented for its textarea to type; it registers behind
-the chat, whose branch the chain asked before the thread panel's, and the
-chat stands aside while it is open. The thread panel's view mode registers
+the chat registers behind the help overlay, the previews, the pickers
+and the modals, and ahead of every other layer, F12's app layer among
+them, with which it shares no key, as its branch sat first in the chain,
+so Ctrl-r and the step in from the thread panel stand aside under every
+modal. The composer's capture leaves the keys it does not bind
+unprevented for its textarea to type; it registers behind the chat,
+whose branch the chain asked before the thread panel's, and the chat
+stands aside while it is open. The thread panel's view mode registers
 behind the composer, as the two are never active together; its capture
 leaves Ctrl-p, Ctrl-f and a bare `s` to the chain outside its filter
 prompt and code peek, for the palette, the file picker and flash, and
@@ -155,23 +157,26 @@ tree through its leftover, as does a slash kitty names after its base key
 on a layout where `/` is shifted. The `]`/`[` motions, the `z` chords
 and the `g` chords are three layers of keymap sequences registered behind
 the tree's (`src/app/bracket-keys.ts`, `src/app/z-chord-keys.ts`,
-`src/app/g-chord-keys.ts`), as the chain asked its sequences after the global keys and before the tree; their openers
-differ, so none outranks another. The brackets' first stroke takes any
-modifiers; the `z` and `g` openers are sequence patterns taking a key
-named `z` or `g` without shift, whatever else is held, as the chain
-opened on them, since a binding on `z` would also take a key named `Z`.
+`src/app/g-chord-keys.ts`), as the chain asked its sequences after the
+global keys and before the tree; their openers differ, so none outranks
+another. The brackets' first stroke takes any modifiers; the `z` and `g`
+openers are sequence patterns taking a key named `z` or `g` without
+shift, whatever else is held, as the chain opened on them, since a
+binding on `z` would also take a key named `Z`.
 Each second stroke is a sequence pattern that matches on the suffix the
 chain spelled (`src/app/chord-stroke.ts`), so ctrl and meta are ignored
 and shift is not, and a capital is told from its lower-case letter, so
-both spellings of a shifted chord stay; a key the chat reaches ends no
-sequence, so Ctrl-r after `]` opens the chat rather than reading as `]r`.
+both spellings of a shifted chord stay; a key the chat reaches completes
+no sequence; it breaks off the pending one and acts at the re-offer, so
+Ctrl-r after `]` opens the chat rather than reading as `]r`.
 The patterns are registered once for every layer. Each layer stands
 aside while any capture holds the key. A key that breaks off a keymap
 sequence is offered to the layers again, with the chord still counting
-as pending, before it reaches the leftover as the second key of a chord, as
-the chain asked the chat ahead of its sequences and its global keys
-declined under a chord. A `]`, `[`, `z` or `g` that breaks off a sequence opens its own,
-so `]]f`, `g]f`, `gzz` and `zgg` still act, behind the help overlay too.
+as pending, before it reaches the leftover as the second key of a chord,
+as the chain asked the chat ahead of its sequences and its global keys
+declined under a chord. A `]`, `[`, `z` or `g` that breaks off a
+sequence opens its own, so `]]f`, `g]f`, `gzz` and `zgg` still act,
+behind the help overlay too.
 Under a peek the `g` layer swallows every second key the peek refuses, as
 the chain did. A lone `]`, `[`, `z` or `g` gives up after the chain's
 500 ms chord timeout (`chordTimeoutMs`), as the chain's opener did,
@@ -202,7 +207,7 @@ priority chain is gone: the tree's leftover (`treeLeftover` in
 that broke off a chord and a slash kitty names after its base key.
 
 **Not built**: the rest of M6 (the palette reading
-command entries, and the state factories); the file size ratchet (P3).
+command entries and the state factories); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

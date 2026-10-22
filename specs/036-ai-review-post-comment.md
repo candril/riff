@@ -404,7 +404,7 @@ src/
 ├── providers/github.ts                  # submitSingleComment range ext.
 ├── state.ts                             # draftNotification + draftReview
 ├── app/render.ts                        # render both overlays
-├── app/global-keys.ts                   # gd/gD chords + dialog keys
+├── app/g-chord-commands.ts              # gd/gD chords, now the editor diff (075)
 └── app.ts                               # wire handlers + start poller
 specs/
 └── 036-ai-review-post-comment.md

@@ -303,7 +303,13 @@ export async function fetchConversation(
 Reactions are fetched lazily on overlay open (and memoized per session);
 conversation is fetched when `gC` is first pressed and on explicit refresh.
 
-### Key wiring (`src/app/global-keys.ts`)
+### Key wiring
+
+The plan below was written against the retired priority chain. The
+panel's keys are now keymap layers
+(`src/features/inline-comment-overlay/view-keys.ts` and
+`composer-keys.ts`), and its chords live in `src/app/g-chord-commands.ts`
+and `src/app/bracket-commands.ts`.
 
 - Remove the `Tab`-to-toggle-view-mode branch (already slated by spec 038).
 - `Enter` on a diff line with comments → open `InlineCommentOverlay` in

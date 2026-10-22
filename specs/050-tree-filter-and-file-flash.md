@@ -77,10 +77,10 @@ flash's existing labelling for the jump. Neither adds a keymap to learn —
   every one of them has to see the same list the panel draws — otherwise the
   highlight index addresses a different node than the one on screen. The
   filter is a fifth parameter there, passed by all of them.
-- The prompt is dispatched **before** the global single-key handlers in
-  `global-keys.ts`, alongside flash and search. Without that, typing a path
-  would toggle the PR view on `i` and quit riff on `q` — the panel handler
-  runs near the end of the chain.
+- The prompt's layer registers **ahead of** the global keys
+  (`src/app/prompt-keys.ts`), as flash and search do. Without that, typing a
+  path would toggle the PR view on `i` and quit riff on `q` — the tree's own
+  layer registers behind the global keys.
 - `filterTree` returns new nodes for the directories it keeps and shares the
   file nodes; nothing mutates the tree in state.
 - The header row swaps its occupant — label out, prefix + input in — rather

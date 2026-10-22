@@ -79,7 +79,7 @@ src/
 ├── providers/github.ts       # createPullRequest(), editPullRequest(), loadPrSession()
 ├── providers/local.ts        # getBranchInfo() for header display
 ├── app.ts                    # handleCreatePr, handleEditPr handlers
-├── app/global-keys.ts        # gP keybinding (context-aware: local vs PR mode)
+├── app/g-chord-commands.ts   # gP keybinding (context-aware: local vs PR mode)
 ├── features/action-menu/
 │   └── execute.ts            # Action handler dispatch
 ├── actions/registry.ts       # Action definitions (create-pr, edit-pr)

@@ -103,22 +103,13 @@ function buildEditorArgs(
 
 ### Key Binding
 
-```typescript
-// src/app/global-keys.ts, the `g` chord
+`ge` is one of the `g` chords' commands (`src/app/g-chord-commands.ts`),
+keyed by its spelling in `G_SEQUENCES`:
 
-// ge - Open in editor
-if (pendingKey === "g" && key.name === "e") {
-  const currentFile = state.files[state.currentFileIndex]
-  if (currentFile) {
-    const filePath = resolveFilePath(currentFile)
-    const line = getCurrentDiffLine(state)
-    
-    await openInEditor({ filePath, line }, renderer)
-    
-    // Optionally refresh diff after editing
-    // await refreshDiff(state)
-  }
-}
+```typescript
+ge: "openInEditor",
+// ...
+openInEditor: taking(() => externalTools.handleOpenFileInEditor(deps.externalToolsContext)),
 ```
 
 ### Resolving File Path

@@ -232,7 +232,10 @@ flexGrow: 1, height: "100%", flexDirection: "column"
 And drop the "Esc to close" header element. Everything else (sections,
 cursor, keybindings, rebuild logic) is untouched.
 
-### Key routing (`src/app/global-keys.ts`)
+### Key routing
+
+The routing below was written against the retired priority chain; the PR
+overview's keys are now a keymap layer (`src/features/pr-info-panel/keys.ts`).
 
 Today: `handleInput` is dispatched *based on* `state.prInfoPanel.open`.
 After this spec: dispatch based on `state.viewMode === "pr"`.
@@ -307,8 +310,9 @@ No new files. Changes limited to:
   `createInitialState`, `selectFile`, `toggleViewMode`.
 - `src/app/render.ts` — inline mount, drop overlay branch.
 - `src/app.ts` — eager panel creation for PR mode, drop lazy path.
-- `src/app/global-keys.ts` — route PR input by `viewMode`, reshape `i`
-  key, Tab three-way.
+- `src/app/global-keys.ts` (retired; the overview's keys are now
+  `src/features/pr-info-panel/keys.ts`) — route PR input by `viewMode`,
+  reshape `i` key, Tab three-way.
 - `src/features/pr-info-panel/input.ts` — drop `Esc`/`q` close.
 - `src/features/pr-info-panel/handlers.ts` — deleted
   (`handleOpenPRInfoPanel` no longer needed) or reduced to a no-op

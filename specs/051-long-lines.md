@@ -144,6 +144,7 @@ src/app/split-columns.ts            # each split pane's column window
 src/app/column-status.ts            # column readout
 src/components/StatusBar.tsx        # draws the readout
 src/components/line-peek-model.ts   # gl overlay (Peek.tsx draws it)
-src/app/global-keys.ts              # z-chords, gl
+src/app/z-chord-commands.ts         # z-chords
+src/app/g-chord-commands.ts         # gl
 src/config/                         # [diff] wrap
 ```

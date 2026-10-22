@@ -151,10 +151,11 @@ extracting it is worth its own change once this one works.
   `render.ts` ~705).
 - `app/render.ts` — a prompt entry in the prompt-config chain next to
   `comments-picker`, and the overlay.
-- `app/picker-keys.ts` — register the picker's layer, which takes every
-  key while it is open; `app/global-keys.ts` — a `case "s"` branch for
-  `key.ctrl` in the global switch. The existing `case "s"` is flash and
-  already requires `!key.ctrl`.
+- `app/picker-keys.ts` — register the picker's layer; its capture takes
+  the keys the layer leaves while the picker is open, and the layer stands
+  aside under a modal that outranks it. `app/global-key-commands.ts` —
+  Ctrl-s in the global keys' `occurrencesOrFlash`, where a bare `s` is
+  flash.
 - `src/index.ts` help text and `HelpOverlay.ts`. The CLI help still lists
   `Ctrl+g` as "Show the current file's path"; it is the commit picker. Fix
   that line while there.

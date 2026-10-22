@@ -1,6 +1,6 @@
 # App Modularization
 
-**Status**: Done — the feature modules exist; the per-feature state slices do not, and `src/app.ts` and `src/app/global-keys.ts` have grown back past the target
+**Status**: Done — the feature modules exist; the per-feature state slices do not, and `src/app.ts` has grown back past the target
 
 ## Description
 
@@ -217,8 +217,8 @@ export function registerOccurrencePickerKeys(riffKeymap: RiffKeymap, deps: Occur
 ```
 
 `registerQueryPickerKeys` adds a `capture` without a `rest` handler first:
-a key the layer leaves is neither prevented nor passed to the priority
-chain, so the picker's prompt field types it. It then registers the layer
+a key the layer leaves is neither prevented nor passed to the layers
+behind, so the picker's prompt field types it. It then registers the layer
 with `enabled: () => captured.holds()`, so the layer stands aside under any
 modal that outranks it, and binds each key with every modifier held
 (`anyModifiers`).
@@ -539,7 +539,10 @@ export async function handleSubmitComment(ctx: FeatureContext, comment: Comment)
 
 ### App Orchestrator
 
-After extraction, `app.ts` wires features together:
+After extraction, `app.ts` wires features together. The input dispatch in
+this sketch is historical: the keys are now keymap layers registered from
+`src/app/keys.ts`, the tree's in `src/features/file-tree/keys.ts`
+([ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
 ```typescript
 // src/app.ts (~200 lines)
@@ -656,7 +659,7 @@ Each phase is a separate jj change that can be tested independently.
 3. Wire into app.ts, test menu functionality
 4. Remove old code from app.ts
 
-**Why start here**: Action menu is self-contained, captures all input when open, has no dependencies on other features, and establishes the pattern for all other extractions.
+**Why start here**: Action menu is self-contained, holds every key while open (its capture leaves unbound keys unprevented for its prompt field), has no dependencies on other features, and establishes the pattern for all other extractions.
 
 #### Phase 2: File Picker (~30 min)
 1. Create `src/features/file-picker/` with:
