@@ -79,7 +79,21 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
     },
     (key) => {
       deps.settleChainChord(key)
-      if (inMainView()) chords.consume(key)
+      if (!inMainView()) return
+      // The panel matched `/` and `+` by spelling as well as by name: under
+      // kitty Shift-= arrives named "=", and the keypad's keys have names
+      // of their own. These run where their bindings sit, `/` ahead of the
+      // chords and `+` after them.
+      if (key.sequence === "/" && !key.ctrl) {
+        key.preventDefault()
+        act.startFilter(deps)
+        return
+      }
+      if (chords.consume(key)) return
+      if (key.sequence === "+") {
+        key.preventDefault()
+        act.react(deps)
+      }
     },
   )
 

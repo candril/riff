@@ -147,6 +147,44 @@ describe("the thread panel in view mode", () => {
     expect(keys.overlay().filterInput).toBe(true)
   })
 
+  // Under kitty's alternate-key reporting Shift-=, Ctrl-Shift-= and
+  // Alt-Shift-= arrive named "=" and spelled "+", and the keypad's keys
+  // have names of their own.
+  test("+ by its spelling alone reacts, whatever is held, and is prevented", async () => {
+    const keys = await threadPanelKeys(panelState())
+    for (const sequence of ["\x1b[61:43;2u", "\x1b[61:43;6u", "\x1b[61:43;4u", "\x1b[57413u"]) {
+      expect(keys.press(sequence).defaultPrevented).toBe(true)
+    }
+    expect(keys.calls).toEqual(["react", "react", "react", "react"])
+    expect(keys.legacyKeys).toEqual([])
+  })
+
+  test("a pending g takes a + spelled so, and a pending z gives it its own meaning", async () => {
+    const keys = await threadPanelKeys(panelState())
+    keys.press("g")
+    expect(keys.press("\x1b[61:43;6u").defaultPrevented).toBe(false)
+    expect(keys.calls).toEqual([])
+    keys.press("z")
+    keys.press("\x1b[61:43;2u")
+    expect(keys.calls).toEqual(["react"])
+  })
+
+  test("the keypad's / starts the filter, not under ctrl, and leaves a pending g pending", async () => {
+    const keys = await threadPanelKeys(panelState())
+    keys.press("\x1b[57410;5u")
+    expect(keys.overlay().filterInput).toBe(false)
+    keys.press("g")
+    expect(keys.press("\x1b[57410u").defaultPrevented).toBe(true)
+    expect(keys.overlay().filterInput).toBe(true)
+
+    const pending = await threadPanelKeys(panelState(2))
+    pending.press("g")
+    pending.press("\x1b[57410;2u")
+    pending.set(panelState(2))
+    pending.press("g")
+    expect(pending.overlay().highlightedIndex).toBe(0)
+  })
+
   test("g? toggles the help, gx opens the comments' links and gX copies one", async () => {
     const keys = await threadPanelKeys(panelState())
     keys.press("g")
