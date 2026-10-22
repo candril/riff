@@ -114,7 +114,7 @@ export interface RefreshContext {
   blameColumns: Pick<BlameColumnsState, "clear">
   commentDrafts: Pick<CommentDraftsState, "clear">
   jumpList: Pick<JumpListState, "clear">
-  pendingReview: Pick<PendingReviewState, "clear" | "set">
+  pendingReview: Pick<PendingReviewState, "clear" | "set" | "generation">
   toast: Pick<ToastState, "show" | "clear">
   // App config (captured from options at init time)
   mode: AppMode
@@ -300,10 +300,10 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * factories too, and are emptied here, the pending review because a PR
  * refresh fetches the reloaded PR's draft again afterwards, the toast because
  * a refresh shows its outcome only once the rebuild has landed; the global
- * marks are not, since a mark is followed to its line's new place, and nor is the activity
- * feed, whose row, filters, opened commits and unseen-only are the reader's
- * (a PR refresh drops only its stream), nor the visit, which the caller
- * begins anew on a PR refresh and drops on a local reload.
+ * marks are not, since a mark is followed to its line's new place, and nor is
+ * the activity feed, whose row, filters, opened commits and unseen-only are
+ * the reader's (a PR refresh drops only its stream), nor the visit, which the
+ * caller begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
   ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast">,

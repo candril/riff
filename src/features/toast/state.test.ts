@@ -25,4 +25,17 @@ describe("createToastState", () => {
     toast.clear()
     expect(toast.current()).toBeNull()
   })
+
+  test("an empty message takes down the toast shown before it", () => {
+    const toast = createToastState()
+    toast.show("hi")
+    toast.show("")
+    expect(toast.current()).toBeNull()
+  })
+
+  test("an empty message shows no toast", () => {
+    const toast = createToastState()
+    toast.show("", "error")
+    expect(toast.current()).toBeNull()
+  })
 })

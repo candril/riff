@@ -28,4 +28,14 @@ describe("createPendingReviewState", () => {
     pending.clear()
     expect(pending.review()).toBeNull()
   })
+
+  test("set and clear each move the generation on", () => {
+    const pending = createPendingReviewState()
+    const start = pending.generation()
+    pending.set(draft)
+    const afterSet = pending.generation()
+    expect(afterSet).not.toBe(start)
+    pending.clear()
+    expect(pending.generation()).not.toBe(afterSet)
+  })
 })

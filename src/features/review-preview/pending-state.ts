@@ -14,14 +14,19 @@ export type PendingReviewState = ReturnType<typeof createPendingReviewState>
 
 export function createPendingReviewState() {
   const [review, setReview] = createSignal<PendingReview | null>(null)
+  // Not a signal: nothing draws it, it only tells a fetch whether it is stale.
+  let generation = 0
 
   return {
     /** Null outside a PR, and when the reader has no draft review on it. */
     review,
+    generation: () => generation,
     set(next: PendingReview | null) {
+      generation++
       setReview(next)
     },
     clear() {
+      generation++
       setReview(null)
     },
   }

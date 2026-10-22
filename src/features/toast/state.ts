@@ -18,7 +18,8 @@ export function createToastState() {
     /** Null when no toast shows. */
     current: toast,
     show(message: string, type: ToastType = "info") {
-      setToast({ message, type })
+      // Callers pass through messages that can be empty, and an empty toast is no toast.
+      setToast(message ? { message, type } : null)
     },
     clear() {
       setToast(null)

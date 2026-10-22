@@ -65,3 +65,17 @@ test("a reload takes down the toast shown before it", async () => {
   expect(mounted.toast.current()).toBeNull()
   expect(await mounted.frame()).not.toContain(DECLINED)
 })
+
+test("an empty message draws no toast and takes down the one shown before it", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  app.show()
+  const untoasted = await app.frame()
+
+  app.toast.show("Copied", "success")
+  app.render()
+  expect(await app.frame()).toContain("Copied")
+
+  app.toast.show("", "error")
+  app.render()
+  expect(await app.frame()).toBe(untoasted)
+})

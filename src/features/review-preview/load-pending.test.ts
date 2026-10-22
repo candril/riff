@@ -58,6 +58,40 @@ describe("loadPendingReview", () => {
     })
   }
 
+  test("writes nothing when a submit dropped the draft while it fetched", async () => {
+    const fetched = deferred<PendingReview | null>()
+    const h = harness(() => fetched.promise)
+    const loading = loadPendingReview(h.ctx, pr)
+    h.pendingReview.clear()
+    fetched.resolve(draft)
+    await loading
+    expect(h.pendingReview.review()).toBeNull()
+    expect(pendingIn(h.state())).toEqual([])
+    expect(h.renders()).toBe(0)
+  })
+
+  test("a load that lands after a newer one leaves the newer draft in place", async () => {
+    const draftB: PendingReview = {
+      id: 8,
+      user: "octo",
+      body: "",
+      comments: [{ id: 2, body: "Draft two", path: "a.ts", line: 3, side: "RIGHT" }],
+    }
+    const first = deferred<PendingReview | null>()
+    const second = deferred<PendingReview | null>()
+    const fetches = [first, second]
+    const h = harness(() => fetches.shift()!.promise)
+    const loadingA = loadPendingReview(h.ctx, pr)
+    h.pendingReview.clear()
+    const loadingB = loadPendingReview(h.ctx, pr)
+    second.resolve(draftB)
+    await loadingB
+    first.resolve(draft)
+    await loadingA
+    expect(h.pendingReview.review()).toBe(draftB)
+    expect(pendingIn(h.state())).toEqual(["pending-2 Draft two"])
+  })
+
   test("a failed fetch changes nothing and says nothing", async () => {
     const h = harness(async () => {
       throw new Error("gh is down")
