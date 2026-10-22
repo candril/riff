@@ -136,6 +136,10 @@ export class PRInfoPanelClass {
   // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
 
+  // Headers and list rows are cut to the terminal's width when they are
+  // pushed, so a resize has to push them again or they keep the old cut.
+  private readonly onResize = () => this.push()
+
   constructor(
     renderer: CliRenderer,
     prInfo: PrInfo,
@@ -166,6 +170,7 @@ export class PRInfoPanelClass {
     })
     this.pushMeta()
     this.push()
+    renderer.on("resize", this.onResize)
   }
 
   /**
@@ -989,6 +994,7 @@ export class PRInfoPanelClass {
    * Destroy the panel
    */
   destroy(): void {
+    this.renderer.off("resize", this.onResize)
     this.island.dispose()
   }
 }
