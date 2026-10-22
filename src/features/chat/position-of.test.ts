@@ -64,6 +64,19 @@ describe("chatPositionOf", () => {
     expect(positionAt("e", "right")).toMatchObject({ side: "new", line: 5, label: "s.ts:5" })
   })
 
+  test("a unified context row carries its old line, which a split pane or an added row does not", () => {
+    expect(positionAt("e")).toMatchObject({ side: "new", line: 5, oldLine: 6 })
+    expect(positionAt("B")!.oldLine).toBeUndefined()
+    expect(positionAt("e", "right")!.oldLine).toBeUndefined()
+    expect(positionAt("e", "left")!.oldLine).toBeUndefined()
+  })
+
+  test("a unified selection carries no old line", () => {
+    const position = positionOf(smallMapping, cursor(at(smallMapping, "e"), at(smallMapping, "d")))!
+    expect(position.selection).toBeDefined()
+    expect(position.oldLine).toBeUndefined()
+  })
+
   test("expanded context is a position like any other, outside every hunk", () => {
     const mapping = mappingOf({ expandedDividers: new Set([middleDivider]) })
     const position = positionAt("middle two", undefined, mapping, [doc, code])!

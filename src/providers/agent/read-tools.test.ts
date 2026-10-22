@@ -254,6 +254,12 @@ test("a local review has no conversation, and an empty one says so", async () =>
   )
 })
 
+test("a conversation still loading says so, rather than that it is empty", async () => {
+  expect((await tools({ conversation: () => "loading" }).readConversation()).text).toBe(
+    "The PR's conversation has not loaded yet; ask again in a moment.",
+  )
+})
+
 test("a long conversation pages by offset", async () => {
   const long = { ...conversation[1]!, body: Array.from({ length: PAGE_LINES }, (_, i) => `l${i}`).join("\n") }
   const t = tools({ conversation: () => [long] })

@@ -132,7 +132,7 @@ export function createRiffSource(deps: RiffSourceDeps): ReviewSource {
     conversation() {
       const state = deps.state()
       if (state.appMode !== "pr") return null
-      return state.prInfo ? conversationOf(state.prInfo) : []
+      return state.prInfo ? conversationOf(state.prInfo) : "loading"
     },
     async fileText(path, side) {
       const pr = prOf()

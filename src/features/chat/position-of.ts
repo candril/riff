@@ -60,10 +60,12 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
   const { excerpt, cursorIndex } = excerptAround(mapping, at, path)
   const selection = selectionOnSide(side)
   const hunkHeader = hunkHeaderOf(file, side, anchor.line)
+  const oldLine = !rows && !selecting ? contextOldLine(mapping.getLine(at)) : undefined
   return {
     path,
     side,
     line: anchor.line,
+    ...(oldLine !== undefined ? { oldLine } : {}),
     ...(hunkHeader ? { hunkHeader } : {}),
     excerpt,
     cursorIndex,
@@ -71,6 +73,8 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
     ...(selection ? { selection } : {}),
   }
 }
+
+const contextOldLine = (line: DiffLine | undefined) => (line?.type === "context" ? line.oldLineNum : undefined)
 
 function labelOf(path: string, side: Side, { start, end }: { start: number; end: number }): string {
   const place = start === end ? String(start) : `${start}-${end}`

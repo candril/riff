@@ -13,9 +13,10 @@ const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1)
 
 /**
  * What `@` attaches in this review (spec 102), in the order a reviewer
- * reaches for it. `@pr` stops a question in a local review, and the
- * references read only the change's own files, so nothing offered here
- * can be refused on send.
+ * reaches for it. The paths are the change's own files and `@pr` is
+ * offered only with the PR loaded, so neither is refused on send.
+ * `@selection` and `@file` are always offered, and a question refuses
+ * them with nothing selected or no file under the cursor.
  */
 export function chatAtCandidates(state: AppState): AtCandidate[] {
   const named = (name: string): AtCandidate => ({ text: `@${name}`, keys: [name] })

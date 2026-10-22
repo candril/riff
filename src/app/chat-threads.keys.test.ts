@@ -84,3 +84,32 @@ test("a question on a line with no thread carries none", async () => {
   expect(label).toContain("src/sum.ts:4")
   expect(label).not.toContain("thread")
 })
+
+const GROWN = `diff --git a/src/sum.ts b/src/sum.ts
+index 1111111..2222222 100644
+--- a/src/sum.ts
++++ b/src/sum.ts
+@@ -1,3 +1,5 @@
+ export function sum() {
++  const b = 2
++  const c = 3
+   return 1
+ }
+`
+
+test("a question on a unified context row carries the old side's thread its gutter shows", async () => {
+  app = await mountApp(GROWN, { width: 140, height: 24 })
+  app.show({
+    comments: [
+      review({ id: "old-top", line: 1, side: "LEFT", body: "Rename sum." }),
+      review({ id: "old-end", line: 3, side: "LEFT", body: "Brace on its own line?" }),
+    ],
+  })
+  const { vimState } = keysOn(app)
+  moveTo(app, vimState, "}")
+
+  const { received, label } = await ask("still?")
+  expect(received).toContain("[Thread old-end on src/sum.ts:3 (old) (open)]")
+  expect(received).not.toContain("Rename sum.")
+  expect(label).toContain("1 thread")
+})

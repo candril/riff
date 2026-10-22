@@ -90,7 +90,10 @@ function installedClaudeVersion(): Promise<ClaudeVersionNote | null> {
   return checkClaudeVersion({ executable: claudeExecutable(), pinned: pinnedClaudeVersion, run: claudeVersionOutput })
 }
 
-/** A question's `@` tokens and the threads at its position, read against the review as it stands when the question is sent. */
+/**
+ * A question's `@` tokens and the threads at its position, read against the review as it stands
+ * when the question is sent.
+ */
 export function reviewReferences(getState: () => AppState) {
   return (text: string, position: Position | null): Expanded => {
     const state = getState()

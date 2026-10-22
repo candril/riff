@@ -79,6 +79,9 @@ test("the posture names the tool for the PR's conversation", () => {
 
 test("the posture says what the attached threads are and what 'this thread' means", () => {
   const context = buildContext(pr, files(1), 0)
-  expect(context).toContain("A question may carry [Thread …] blocks")
-  expect(context).toContain('"This thread" and "this comment"\n  mean those; a thread on a whole file reads as `path (file)`.')
+  // Sentences, not the wrap: a reflow of the prompt is no change to it.
+  const prose = context.replace(/\s+/g, " ")
+  expect(prose).toContain("A question may carry [Thread …] blocks")
+  expect(prose).toContain('"This thread" and "this comment" mean those;')
+  expect(prose).toContain("a thread on a whole file reads as `path (file)`.")
 })

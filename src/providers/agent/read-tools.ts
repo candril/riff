@@ -159,6 +159,9 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
         if (entries === null) {
           return "A local review has no PR conversation."
         }
+        if (entries === "loading") {
+          return "The PR's conversation has not loaded yet; ask again in a moment."
+        }
         if (entries.length === 0) {
           return "The PR's conversation has no comments."
         }

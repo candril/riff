@@ -10,6 +10,8 @@ const onWholeFile = (comment: Comment) => !(comment.line > 0)
  * The threads a question asked at `position` is about: those on its line or
  * selection, on its side, or every thread of the file from the file's header.
  * A thread on the whole file belongs to no line, so only the header takes it.
+ * A unified context row also takes the old side's threads on its old line,
+ * whose dot its gutter draws.
  */
 export function threadsAt(position: Position, comments: readonly Comment[]): Thread[] {
   const ofFile = groupIntoThreads([...comments]).filter((t) => t.comments[0]!.filename === position.path)
@@ -19,10 +21,13 @@ export function threadsAt(position: Position, comments: readonly Comment[]): Thr
   const githubSide = (side ?? "new") === "old" ? "LEFT" : "RIGHT"
   const [from, to] = selection ? [selection.start, selection.end] : [line, line]
   if (from === undefined || to === undefined) return []
+  const oldLine = selection ? undefined : position.oldLine
+  const covers = (root: Comment, start: number, end: number) => (root.startLine ?? root.line) <= end && root.line >= start
   return ofFile.filter((thread) => {
     const root = thread.comments[0]!
-    if (onWholeFile(root) || root.side !== githubSide) return false
-    return (root.startLine ?? root.line) <= to && root.line >= from
+    if (onWholeFile(root)) return false
+    if (root.side === githubSide) return covers(root, from, to)
+    return oldLine !== undefined && root.side === "LEFT" && covers(root, oldLine, oldLine)
   })
 }
 

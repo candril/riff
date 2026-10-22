@@ -187,6 +187,12 @@ test("the PR's conversation holds its comments and the bodies of submitted revie
   ])
 })
 
+test("a PR whose info has not loaded yet says its conversation is loading, not empty", () => {
+  const state = { ...prState, prInfo: null }
+  const source = createRiffSource({ state: () => state, target: undefined, headSha: () => null, readers: stubbed({}) })
+  expect(source.conversation()).toBe("loading")
+})
+
 test("a local review has no conversation", () => {
   expect(localSource({}).conversation()).toBeNull()
 })

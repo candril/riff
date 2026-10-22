@@ -29,6 +29,7 @@ export interface ReviewSource {
   fileText(path: string, side: Side): Promise<FileText>
   tree(): Promise<readonly string[]>
   comments(): readonly Comment[]
-  // Null in a local review, which has no PR.
-  conversation(): readonly ConversationEntry[] | null
+  // Null in a local review, which has no PR; "loading" in a PR whose info has
+  // not arrived yet, which is not the same as a conversation with no comments.
+  conversation(): readonly ConversationEntry[] | "loading" | null
 }

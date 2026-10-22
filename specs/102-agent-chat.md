@@ -76,8 +76,10 @@ like any comment the reviewer typed.
   that position.
 - **The threads on the reviewer's position go with every question**,
   automatically, as `[Thread …]` blocks: those on the cursor line or the
-  selection, on its side, or every thread of the file from its header. They
-  are capped at 400 lines in all, with a footer naming `read_thread` for the
+  selection, on its side, or every thread of the file from its header. In
+  unified a context line also takes the old side's threads on its old line,
+  as its gutter draws their dot; split's right pane does not, since the
+  left pane draws them. They are capped at 400 lines in all, with a footer naming `read_thread` for the
   rest. The chat shows `N threads` among the labels. "This thread" and
   "this comment" mean those.
 - **`@` attaches more on purpose**: `@selection` (or `@s`: every selected

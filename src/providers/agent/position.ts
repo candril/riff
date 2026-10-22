@@ -12,6 +12,10 @@ export interface Position {
   // Absent on a file header: the reviewer is on the file, not on a line of it.
   side?: "old" | "new"
   line?: number
+  // Unified only, on a context row: the row's old-side line, where the
+  // gutter also draws the old side's threads. Split draws those in the
+  // left pane, so a right-pane position never carries it.
+  oldLine?: number
   hunkHeader?: string
   excerpt: ExcerptLine[]
   cursorIndex?: number

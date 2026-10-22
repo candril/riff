@@ -27,8 +27,8 @@ afterEach(async () => {
   app = null
 })
 
-async function chatWithPicker() {
-  app = await mountApp(DIFF, { width: 140, height: 30 })
+async function chatWithPicker(size = { width: 140, height: 30 }) {
+  app = await mountApp(DIFF, size)
   app.show()
   keysOn(app)
   openChat(app)
@@ -108,11 +108,53 @@ test("Ctrl-n with the picker open moves the selection rather than asking to star
   expect(picker.session()).toMatchObject({ selectedIndex: 0 })
 })
 
-test("a picker key declines a pending start over", async () => {
-  const { app } = await chatWithPicker()
-  ctrl(app, "n")
-  expect(app.chat.clearPrompt()).not.toBeNull()
+test("a picker key declines a start over asked while the picker is up", async () => {
+  const { app, picker } = await chatWithPicker()
   await app.setup.mockInput.typeText("@")
+  // Asked from outside the chat's keys, so only the picker's own layer sees the next press.
+  app.chat.newConversation()
+  expect(app.chat.clearPrompt()).not.toBeNull()
   app.setup.mockInput.pressArrow("down")
+  expect(picker.session()).toMatchObject({ selectedIndex: 1 })
   expect(app.chat.clearPrompt()).toBeNull()
+})
+
+test("closing the chat closes its picker and keeps the draft", async () => {
+  const { app, input, picker } = await chatWithPicker()
+  await app.setup.mockInput.typeText("why @")
+  expect(await app.frame()).toContain("▸ @selection")
+  ctrl(app, "r")
+  expect(app.ctx.getState().chatOpen).toBe(false)
+  expect(picker.open()).toBe(false)
+  expect(input.plainText).toBe("why @")
+  const frame = await app.frame()
+  expect(frame).not.toContain("@attach")
+  expect(frame).not.toContain("@selection")
+})
+
+test("focus leaving the open chat closes its picker, which would take no keys", async () => {
+  const { app, input, picker } = await chatWithPicker()
+  await app.setup.mockInput.typeText("@")
+  expect(await app.frame()).toContain("▸ @selection")
+  app.show({ focusedPanel: "diff" })
+  expect(app.ctx.getState().chatOpen).toBe(true)
+  expect(picker.open()).toBe(false)
+  expect(input.plainText).toBe("@")
+  const frame = await app.frame()
+  expect(frame).not.toContain("@attach")
+  expect(frame).not.toContain("@selection")
+  expect(frame).not.toContain("@src/sum.ts")
+})
+
+test("the picker covers the chat hint across the input's width", async () => {
+  const { app } = await chatWithPicker({ width: 140, height: 24 })
+  await app.setup.mockInput.typeText("@")
+  const lines = (await app.frame()).split("\n")
+  const left = app.chatColumn.host.x
+  for (const row of ["▸ @selection", "@file"]) {
+    const line = lines.find((l) => l.slice(left).includes(row))!
+    expect(line).toBeDefined()
+    // Between the column's edge and the picker's row there is no hint text.
+    expect(line.slice(left, line.indexOf(row, left)).trim()).toBe("")
+  }
 })

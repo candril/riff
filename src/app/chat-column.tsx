@@ -74,6 +74,9 @@ export function createChatColumnIsland(
         setFocused(next.focused)
       }
       island.host.visible = next !== null
+      // The picker closes with the composer it belongs to, as the comment
+      // composer's does; one left floating would take no keys.
+      if (!next?.focused) atPicker.close()
       wantsFocus = next?.focused === true
       settleFocus()
     },

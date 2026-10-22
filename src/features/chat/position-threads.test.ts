@@ -25,6 +25,27 @@ test("a line takes the threads on its side only", () => {
   expect(ids(at({ side: "old", line: 10 }), comments)).toEqual(["old"])
 })
 
+test("a unified context row also takes the old side's threads on its old line", () => {
+  const comments = [
+    comment({ id: "new", line: 12 }),
+    comment({ id: "old", side: "LEFT", line: 10 }),
+    comment({ id: "old-range", side: "LEFT", startLine: 8, line: 11 }),
+    comment({ id: "old-elsewhere", side: "LEFT", line: 12 }),
+    comment({ id: "old-file", side: "LEFT", line: 0 }),
+  ]
+  expect(ids(at({ side: "new", line: 12, oldLine: 10 }), comments)).toEqual(["old", "old-range", "new"])
+})
+
+test("without an old line, as in split's right pane, the old side's threads stay out", () => {
+  const comments = [comment({ id: "old", side: "LEFT", line: 10 })]
+  expect(ids(at({ side: "new", line: 12 }), comments)).toEqual([])
+})
+
+test("a selection keeps to its side, old line or not", () => {
+  const comments = [comment({ id: "old", side: "LEFT", line: 10 })]
+  expect(ids(at({ side: "new", line: 12, oldLine: 10, selection: { start: 9, end: 12 } }), comments)).toEqual([])
+})
+
 test("a selection takes every thread whose range overlaps it", () => {
   const comments = [
     comment({ id: "before", line: 4 }),

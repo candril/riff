@@ -74,7 +74,7 @@ export function ChatPane(props: {
         {/* Floats above the input, as the comment composer's picker does, rather than pushing it down the column. */}
         <Show when={props.atPicker.view()}>
           {(picker: () => AtPicker) => (
-            <box position="absolute" bottom="100%" left={1} right={1} zIndex={60}>
+            <box position="absolute" bottom="100%" left={0} right={0} zIndex={60}>
               <AtPickerView picker={picker()} />
             </box>
           )}
