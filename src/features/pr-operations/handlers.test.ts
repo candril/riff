@@ -1,11 +1,18 @@
 import { describe, expect, test } from "bun:test"
-import { createInitialState, type AppState } from "../../state"
+import { createInitialState, withPendingComments, type AppState } from "../../state"
 import type { Comment } from "../../types"
+import type { PendingReview } from "../../providers/github/types"
 import { prInfo } from "../../testing/pr-info"
 import { createSyncPreviewState } from "../sync-preview/state"
 import { createReviewPreviewState } from "../review-preview/state"
 import { createPendingReviewState } from "../review-preview/pending-state"
-import { handleConfirmReview, handleExecuteSync, type PrOperationsContext, type SyncCalls } from "./handlers"
+import {
+  handleConfirmReview,
+  handleExecuteSync,
+  type PrOperationsContext,
+  type ReviewCalls,
+  type SyncCalls,
+} from "./handlers"
 
 const edited: Comment = {
   id: "c1",
@@ -24,7 +31,18 @@ function harness(comments: Comment[]) {
   const syncPreview = createSyncPreviewState()
   syncPreview.show()
   const reviewPreview = createReviewPreviewState()
+  const pendingReview = createPendingReviewState()
   const seen: string[] = []
+  const fail = () => {
+    throw new Error("only an edit syncs here")
+  }
+  const reviewCalls: ReviewCalls = {
+    getPrHeadSha: fail,
+    submitReview: fail,
+    getCurrentUser: fail,
+    getPrComments: fail,
+    saveComment: fail,
+  }
   const ctx: PrOperationsContext = {
     getState: () => state,
     setState: (fn) => {
@@ -35,10 +53,8 @@ function harness(comments: Comment[]) {
     prInfo: prInfo(""),
     syncPreview,
     reviewPreview,
-    pendingReview: createPendingReviewState(),
-  }
-  const fail = () => {
-    throw new Error("only an edit syncs here")
+    pendingReview,
+    reviewCalls,
   }
   const calls: SyncCalls = {
     updateComment: async (_owner, _repo, id, body) => {
@@ -52,7 +68,7 @@ function harness(comments: Comment[]) {
       seen.push(`save ${comment.id}`)
     },
   }
-  return { ctx, calls, syncPreview, reviewPreview, seen, state: () => state }
+  return { ctx, calls, reviewCalls, syncPreview, reviewPreview, pendingReview, seen, state: () => state }
 }
 
 describe("handleExecuteSync", () => {
@@ -84,5 +100,49 @@ describe("handleConfirmReview", () => {
       false,
       "Add a comment or summary to submit",
     ])
+  })
+})
+
+describe("handleConfirmReview with GitHub's pending review", () => {
+  const draft: PendingReview = {
+    id: 7,
+    user: "octo",
+    body: "",
+    comments: [
+      { id: 1, body: "Draft one", path: "a.ts", line: 1, side: "RIGHT" },
+      { id: 2, body: "Draft two", path: "a.ts", line: 2, side: "RIGHT" },
+    ],
+  }
+  const pendingIds = (state: AppState) => state.comments.filter((c) => c.status === "pending").map((c) => c.id)
+
+  function withDraft(submitted: { success: boolean; error?: string }) {
+    const h = harness([])
+    h.ctx.setState((s) => withPendingComments(s, draft))
+    h.pendingReview.set(draft)
+    h.reviewPreview.show()
+    const sent: (number | undefined)[] = []
+    h.reviewCalls.getPrHeadSha = async () => "head"
+    h.reviewCalls.getCurrentUser = async () => "octo"
+    h.reviewCalls.submitReview = async (_owner, _repo, _number, _comments, _sha, _event, _body, pendingReviewId) => {
+      sent.push(pendingReviewId)
+      return submitted
+    }
+    return { ...h, sent }
+  }
+
+  test("a submit forgets the draft and its comments, and the toast counts them once", async () => {
+    const h = withDraft({ success: true })
+    await handleConfirmReview(h.ctx)
+    expect(h.sent).toEqual([7])
+    expect(h.pendingReview.review()).toBeNull()
+    expect(pendingIds(h.state())).toEqual([])
+    expect(h.state().toast.message).toBe("Review submitted (2 comments) (merged with pending)")
+  })
+
+  test("a failed submit keeps the draft and its comments", async () => {
+    const h = withDraft({ success: false, error: "nope" })
+    await handleConfirmReview(h.ctx)
+    expect(h.pendingReview.review()).toBe(draft)
+    expect(pendingIds(h.state())).toEqual(["pending-1", "pending-2"])
   })
 })

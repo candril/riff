@@ -3,7 +3,7 @@ import { treeRowsOf } from "../../components/FileTree"
 import type { AppState } from "../../state"
 import type { Comment, FileReviewStatus } from "../../types"
 import { createVisitWatermark } from "../../utils/visit"
-import type { PrCommit } from "../../providers/github/types"
+import type { PendingReview, PrCommit } from "../../providers/github/types"
 import { prInfo } from "../../testing/pr-info"
 import { deferred, refreshHarness, THREE_TOP_LEVEL_FILES } from "../../testing/refresh-harness"
 import { handleRefresh } from "./handlers"
@@ -163,5 +163,64 @@ describe("a refresh's visit", () => {
     expect(state().appMode).toBe("local")
     expect(visit.watermark()).toBeNull()
     expect(calls.saveVisit).toEqual([])
+  })
+})
+
+describe("a refresh's pending review", () => {
+  const draft: PendingReview = {
+    id: 7,
+    user: "octo",
+    body: "",
+    comments: [{ id: 1, body: "Draft one", path: "a.ts", line: 2, side: "RIGHT" }],
+  }
+  const pendingIn = (state: AppState) => state.comments.filter((c) => c.status === "pending").map((c) => c.id)
+
+  test("a PR refresh fetches the reloaded PR's draft again", async () => {
+    const asked: string[] = []
+    const { ctx, state, pendingReview } = refreshHarness({
+      sources: {
+        getPendingReview: async (owner, repo, number) => {
+          asked.push(`${owner}/${repo}#${number}`)
+          return draft
+        },
+      },
+    })
+    pendingReview.set({ ...draft, id: 6, comments: [] })
+
+    await landed(handleRefresh(ctx), state)
+    await Bun.sleep(0)
+
+    expect(asked).toEqual(["owner/repo#1259"])
+    expect(pendingReview.review()).toBe(draft)
+    expect(pendingIn(state())).toEqual(["pending-1"])
+  })
+
+  test("a draft that lands after riff moved to another PR stays out of it", async () => {
+    const fetched = deferred<PendingReview | null>()
+    const { ctx, state, pendingReview } = refreshHarness({
+      sources: { getPendingReview: () => fetched.promise },
+    })
+
+    await landed(handleRefresh(ctx), state)
+    // Another PR opened, then a local review, while the draft was on its way.
+    ctx.setState((s) => ({ ...s, prInfo: prInfo("", { number: 1300 }) }))
+    ctx.setState((s) => ({ ...s, appMode: "local", prInfo: null }))
+    fetched.resolve(draft)
+    await Bun.sleep(0)
+
+    expect(pendingReview.review()).toBeNull()
+    expect(pendingIn(state())).toEqual([])
+  })
+
+  test("a local reload fetches no draft", async () => {
+    const { ctx, state } = refreshHarness({
+      appMode: "local",
+      sources: {
+        getPendingReview: () => {
+          throw new Error("a local reload asked GitHub for a draft")
+        },
+      },
+    })
+    await landed(handleRefresh(ctx), state)
   })
 })

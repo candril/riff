@@ -1135,8 +1135,8 @@ export function getFileContent(state: AppState, filename: string): {
 // ============================================================================
 
 /**
- * The pending review's comments as comments of the review, in place of the
- * ones the last pending review brought; null leaves none.
+ * The draft's comments replace the previous draft's wholesale, because GitHub
+ * hands back the whole draft each time.
  */
 export function withPendingComments(
   state: AppState,

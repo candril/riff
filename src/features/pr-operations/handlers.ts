@@ -13,6 +13,7 @@ import {
   showToast,
   clearToast,
   setThreadResolved,
+  withPendingComments,
 } from "../../state"
 import { gatherSyncItems } from "../../components"
 import type { ValidatedComment } from "../../components/review-preview-model"
@@ -45,7 +46,9 @@ export interface PrOperationsContext {
   prInfo: PrInfo | null
   syncPreview: Pick<SyncPreviewState, "close" | "startSync">
   reviewPreview: Pick<ReviewPreviewState, "selectedEvent" | "body" | "excludedCommentIds" | "startSubmit" | "fail" | "close">
-  pendingReview: Pick<PendingReviewState, "review">
+  pendingReview: Pick<PendingReviewState, "review" | "clear">
+  /** In the context, not an argument: Submit Review's keys hand over only the context. */
+  reviewCalls: ReviewCalls
 }
 
 /** What a sync sends its items through; a test hands in its own, so no gh runs. */
@@ -58,6 +61,17 @@ export interface SyncCalls {
 }
 
 const githubSyncCalls: SyncCalls = { updateComment, submitReply, submitSingleComment, getPrHeadSha, saveComment }
+
+/** What a review submit sends through; a test hands in its own, so no gh runs. */
+export interface ReviewCalls {
+  getPrHeadSha: typeof getPrHeadSha
+  submitReview: typeof submitReview
+  getCurrentUser: typeof getCurrentUser
+  getPrComments: typeof getPrComments
+  saveComment: typeof saveComment
+}
+
+export const githubReviewCalls: ReviewCalls = { getPrHeadSha, submitReview, getCurrentUser, getPrComments, saveComment }
 
 /** `calls` is an argument so a test can drive the sync without spawning gh. */
 export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCalls = githubSyncCalls): Promise<void> {
@@ -248,6 +262,7 @@ export async function handleToggleThreadResolved(
  */
 export async function handleConfirmReview(ctx: PrOperationsContext): Promise<void> {
   const state = ctx.getState()
+  const calls = ctx.reviewCalls
   // Read once, so the awaits below send and report what was submitted.
   const reviewEvent = ctx.reviewPreview.selectedEvent()
   const body = ctx.reviewPreview.body()
@@ -297,7 +312,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   const { owner, repo, number: prNumber } = prInfo
   let headSha: string
   try {
-    headSha = await getPrHeadSha(prNumber, owner, repo)
+    headSha = await calls.getPrHeadSha(prNumber, owner, repo)
   } catch (err) {
     ctx.reviewPreview.fail(err instanceof Error ? err.message : "Failed to get PR info")
     ctx.render()
@@ -307,7 +322,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   // Submit as a review batch with selected event and optional body
   // If there's a pending review, merge our comments into it
   const pendingReviewId = pendingReview?.id
-  const result = await submitReview(
+  const result = await calls.submitReview(
     owner,
     repo,
     prNumber,
@@ -323,7 +338,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     // Get the current user to set as author on synced comments
     let currentUser: string | undefined
     try {
-      currentUser = await getCurrentUser()
+      currentUser = await calls.getCurrentUser()
     } catch {
       // Leave undefined if we can't get the user
     }
@@ -336,7 +351,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
 
     if (localComments.length > 0) {
       try {
-        const remoteComments = await getPrComments(owner, repo, prNumber)
+        const remoteComments = await calls.getPrComments(owner, repo, prNumber)
         // Match each local comment to a remote comment by (path, line, body)
         // Build a pool of unmatched remote comments to avoid double-matching
         const unmatchedRemote = new Set(remoteComments.map((_, i) => i))
@@ -377,6 +392,12 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       }),
     }))
 
+    // The draft is submitted now, so its id cannot take another submit. Its
+    // comments come back synced with the comment poll or the next refresh,
+    // and kept as pending copies they would show twice.
+    ctx.pendingReview.clear()
+    ctx.setState((s) => withPendingComments(s, null))
+
     // Close the review preview and show success toast
     const pendingReviewCommentCount = pendingReview?.comments.length ?? 0
     ctx.reviewPreview.close()
@@ -399,7 +420,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     // Persist to storage (with githubId if matched)
     for (const comment of localComments) {
       const remoteIds = remoteIdMap.get(comment.id)
-      await saveComment(
+      await calls.saveComment(
         {
           ...comment,
           status: "synced",

@@ -5,6 +5,7 @@
  */
 
 import { loadPrSession } from "../../providers/github/session"
+import { getPendingReview } from "../../providers/github/review"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments } from "../../storage/comments"
 import { loadViewedStatuses, saveVisit } from "../../storage/caches"
@@ -18,6 +19,7 @@ export interface RefreshSources {
   loadComments: typeof loadComments
   loadViewedStatuses: typeof loadViewedStatuses
   saveVisit: typeof saveVisit
+  getPendingReview: typeof getPendingReview
 }
 
 export const liveRefreshSources: RefreshSources = {
@@ -29,4 +31,5 @@ export const liveRefreshSources: RefreshSources = {
   loadComments,
   loadViewedStatuses,
   saveVisit,
+  getPendingReview,
 }

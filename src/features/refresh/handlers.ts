@@ -47,6 +47,7 @@ import type { BlameColumnsState } from "../blame/column-state"
 import type { CommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import type { JumpListState } from "../jumplist/state"
 import type { PendingReviewState } from "../review-preview/pending-state"
+import { loadPendingReview } from "../review-preview/load-pending"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import type { RefreshSources } from "./sources"
@@ -114,7 +115,7 @@ export interface RefreshContext {
   blameColumns: Pick<BlameColumnsState, "clear">
   commentDrafts: Pick<CommentDraftsState, "clear">
   jumpList: Pick<JumpListState, "clear">
-  pendingReview: Pick<PendingReviewState, "clear">
+  pendingReview: Pick<PendingReviewState, "clear" | "set">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -202,6 +203,13 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       // Swap in a fresh PR info panel — it caches prInfo/files/comments
       // internally and won't pick up the new data otherwise.
       ctx.recreatePrInfoPanel()
+
+      // Not awaited: the draft only adds to what is already on screen, and
+      // `gr` should take no longer for it.
+      void loadPendingReview(
+        { ...ctx, fetch: ctx.sources.getPendingReview },
+        { owner, repo, number: prNumber }
+      )
     } else {
       // Local mode - reload diff, commits, and branch info
       const [newDiff, newDescription, newBranchInfo, newCommits, newComments] = await Promise.all([
@@ -290,9 +298,10 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * line and blame peeks, and the blame columns, which a reload turns off, live
  * in factories that createInitialState never reaches, so they are closed here,
  * as the rebuild closes every overlay still kept in AppState. The kept comment
- * drafts, the jumplist and GitHub's pending review, which nothing loads again,
- * live in factories too, and are emptied here; the global marks are not,
- * since a mark is followed to its line's new place, and nor is the activity
+ * drafts, the jumplist and GitHub's pending review live in factories too, and
+ * are emptied here, the pending review because a PR refresh fetches the
+ * reloaded PR's draft again afterwards; the global marks are not, since a
+ * mark is followed to its line's new place, and nor is the activity
  * feed, whose row, filters, opened commits and unseen-only are the reader's
  * (a PR refresh drops only its stream), nor the visit, which the caller
  * begins anew on a PR refresh and drops on a local reload.

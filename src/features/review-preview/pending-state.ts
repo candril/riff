@@ -1,9 +1,10 @@
 /**
  * GitHub's pending review: the draft the reader left on the PR's page, which
  * Submit Review merges its comments into. It is GitHub's state, not Submit
- * Review's own: it outlives the modal and is only ever loaded at startup. The
- * feature owns it rather than AppState, which sheds one slice per feature
- * this way (spec 100, M6; ADR-003).
+ * Review's own: it outlives the modal, is fetched on every load of a PR and
+ * forgotten once a review is submitted. The feature owns it rather than
+ * AppState, which sheds one slice per feature this way (spec 100, M6;
+ * ADR-003).
  */
 
 import { createSignal } from "solid-js"

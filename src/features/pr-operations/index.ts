@@ -11,5 +11,7 @@ export {
   handleExecuteSync,
   handleToggleThreadResolved,
   handleConfirmReview,
+  githubReviewCalls,
   type PrOperationsContext,
+  type ReviewCalls,
 } from "./handlers"

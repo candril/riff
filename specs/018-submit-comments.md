@@ -29,7 +29,9 @@ Submit local comments to GitHub PRs. Two modes:
 
 ### P2 - Enhanced
 
-- **Pending review mode**: Comments added while in review mode are `pending` until batch submitted
+- **Pending review mode**: Comments added while in review mode are `pending` until batch submitted.
+  riff fetches the reader's draft on every load of a PR (startup, `gr`, opening the branch's PR)
+  and forgets it once a review is submitted
 - **Cancel review**: Discard pending review without submitting
 - **Partial submit**: Select which comments to include in review
 

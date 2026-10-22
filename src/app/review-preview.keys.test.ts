@@ -4,6 +4,9 @@ import { createAppKeys } from "./keys"
 import { mountApp, reloadCtx } from "../testing/app-render"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import type { PendingReview } from "../providers/github/types"
+import type { PrOperationsContext, ReviewCalls } from "../features/pr-operations"
+import { withPendingComments } from "../state"
+import { prInfo } from "../testing/pr-info"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -29,13 +32,16 @@ afterEach(async () => {
 /**
  * riff's key handler on the app's render pass, wired for the Submit Review
  * path only; anything else it calls throws, so a new dependency shows up
- * here. The PR operations have no PR to submit to, so confirming never
- * leaves the process.
+ * here. The PR operations have no PR to submit to unless a test hands one in
+ * with its own calls, so confirming never leaves the process.
  */
-function keysOn(mounted: NonNullable<typeof app>) {
+function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperationsContext> = {}) {
   const confirms: string[] = []
   const { ctx: render } = mounted
-  const prOperationsContext = {
+  const unreachable = () => {
+    throw new Error("the review submit reached gh")
+  }
+  const prOperationsContext: PrOperationsContext = {
     getState: () => {
       confirms.push(mounted.reviewPreview.body())
       return render.getState()
@@ -47,6 +53,14 @@ function keysOn(mounted: NonNullable<typeof app>) {
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
     pendingReview: mounted.pendingReview,
+    reviewCalls: {
+      getPrHeadSha: unreachable,
+      submitReview: unreachable,
+      getCurrentUser: unreachable,
+      getPrComments: unreachable,
+      saveComment: unreachable,
+    },
+    ...prOperations,
   }
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
@@ -189,4 +203,41 @@ test("Submit Review warns of GitHub's pending review, and a reload drops it", as
   expect(screen).toContain("Submit Review")
   expect(screen).not.toContain("Pending review on GitHub")
   expect(screen).not.toContain("Will be merged")
+})
+
+test("a submit forgets GitHub's pending review: Submit Review opens again without its banner or its comments", async () => {
+  app = await mountApp(DIFF, { width: 100, height: 30 })
+  const pr = prInfo("")
+  app.ctx.setState((s) => withPendingComments({ ...s, appMode: "pr", prInfo: pr }, pendingReview))
+  app.pendingReview.set(pendingReview)
+  app.render()
+  const sent: (number | undefined)[] = []
+  const reviewCalls: ReviewCalls = {
+    getPrHeadSha: async () => "head",
+    submitReview: async (_owner, _repo, _number, _comments, _sha, _event, _body, pendingReviewId) => {
+      sent.push(pendingReviewId)
+      return { success: true }
+    },
+    getCurrentUser: async () => "octo",
+    getPrComments: async () => [],
+    saveComment: async () => {},
+  }
+  keysOn(app, { prInfo: pr, reviewCalls })
+  const { mockInput } = app.setup
+
+  await mockInput.typeText("gS")
+  let screen = await app.frame()
+  expect(screen).toContain("Pending review on GitHub")
+  expect(screen).toContain("Draft one")
+  mockInput.pressEnter()
+  for (let i = 0; i < 50 && app.reviewPreview.open(); i++) await Bun.sleep(10)
+  expect(sent).toEqual([7])
+  expect(app.reviewPreview.open()).toBe(false)
+
+  await mockInput.typeText("gS")
+  screen = await app.frame()
+  expect(screen).toContain("Submit Review")
+  expect(screen).not.toContain("Pending review on GitHub")
+  expect(screen).not.toContain("Will be merged")
+  expect(screen).not.toContain("Draft one")
 })

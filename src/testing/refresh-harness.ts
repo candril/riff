@@ -91,6 +91,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const feed = createFeedState()
   const visit = createVisitState()
   const help = createHelpState()
+  const pendingReview = createPendingReviewState()
 
   const sources: RefreshSources = {
     loadPrSession: async () => ({
@@ -106,6 +107,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getLocalCommits: async () => [],
     loadComments: async () => comments,
     loadViewedStatuses: async () => [],
+    getPendingReview: async () => null,
     ...options.sources,
     saveVisit: async (savedTo, watermark) => {
       calls.saveVisit.push({ source: savedTo, watermark })
@@ -142,7 +144,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     confirm: createConfirmState(),
     syncPreview: createSyncPreviewState(),
     reviewPreview: createReviewPreviewState(),
-    pendingReview: createPendingReviewState(),
+    pendingReview,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
@@ -159,5 +161,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     prInfo: pr,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview }
 }

@@ -22,7 +22,6 @@ import {
   expandDivider,
   setExpandingDivider,
   expandFiles,
-  withPendingComments,
   setViewingCommit,
   showToast,
   clearToast,
@@ -65,6 +64,7 @@ import { createMarksState } from "./features/marks/state"
 import { createFeedState } from "./features/feed/state"
 import { createVisitState } from "./features/visit/state"
 import { createPendingReviewState } from "./features/review-preview/pending-state"
+import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -486,6 +486,13 @@ export async function createApp(options: AppOptions = {}) {
   const syncPreview = createSyncPreviewState()
   const reviewPreview = createReviewPreviewState()
   const pendingReview = createPendingReviewState()
+  const pendingReviewLoad: LoadPendingReviewContext = {
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    render,
+    pendingReview,
+    fetch: getPendingReview,
+  }
   const filePicker = createFilePickerState()
   const commentsPicker = createCommentsPickerState()
   const occurrencePicker = createOccurrencePickerState()
@@ -523,7 +530,7 @@ export async function createApp(options: AppOptions = {}) {
     commentDrafts.clear()
     // An entry's anchor names lines in the old diff.
     jumpList.clear()
-    // Nothing loads the new review's draft, and this one's id would submit into the wrong PR.
+    // This draft's id must not submit into another PR; a PR with a draft fetches its own.
     pendingReview.clear()
   }
   const chat = createReviewChat({
@@ -1209,6 +1216,7 @@ export async function createApp(options: AppOptions = {}) {
     syncPreview,
     reviewPreview,
     pendingReview,
+    reviewCalls: prOperations.githubReviewCalls,
   }
 
   const threadMotionContext: threadMotion.ThreadMotionContext = {
@@ -1843,6 +1851,7 @@ export async function createApp(options: AppOptions = {}) {
       vimState = createCursorState()
       updateFileTreePanel()
       render()
+      void loadPendingReview(pendingReviewLoad, { owner, repo, number: branchPr.number })
     } catch (err) {
       state = showToast(
         state,
@@ -1979,17 +1988,8 @@ export async function createApp(options: AppOptions = {}) {
     }
   }
 
-  // Load pending review asynchronously for PR mode
   if (mode === "pr" && prInfo) {
-    getPendingReview(prInfo.owner, prInfo.repo, prInfo.number)
-      .then((review) => {
-        pendingReview.set(review)
-        state = withPendingComments(state, review)
-        render()
-      })
-      .catch(() => {
-        // Silently ignore
-      })
+    void loadPendingReview(pendingReviewLoad, prInfo)
   }
 
   // Fetch the repo's @mention pool in the background (spec 046). Silent and
