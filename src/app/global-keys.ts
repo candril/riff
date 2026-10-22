@@ -2,15 +2,14 @@
  * Global key handling
  *
  * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules.
- * Features are checked in priority order: modal overlays first, then global
- * shortcuts, then panel-specific handlers.
+ * Key sequences are checked first, then the tree's keys, then the diff's.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
-import { clearTreeFilter, expandFiles, focusLeft, focusRight } from "../state"
-import { openActionMenu, toggleHelp, toggleLinePeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, clearToast } from "../state"
+import { expandFiles } from "../state"
+import { toggleHelp, toggleLinePeek, toggleWrapLines, setViewFilter, commitViewFilter, clearViewFilter, closeInlineCommentOverlay, setViewingCommit } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -18,7 +17,6 @@ import type { FlashState } from "../vim-diff/flash-state"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
 import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
-import { exitVisualMode, isVisualMode } from "../vim-diff/cursor-state"
 import type { CommentScope } from "../diff-rows/comment-scope"
 import type { DiffViewport } from "./diff-viewport"
 import { togglesSplit } from "./split-toggle-key"
@@ -32,12 +30,9 @@ import { createOpenLink } from "./open-link"
 import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
 import { blameKeysContext } from "./blame-key-deps"
-import { flashSurface, flashTargets, reservedKeysFor } from "./list-flash"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
-import { jumpApplyContext } from "./jump-apply"
 
 import * as commentsPicker from "../features/comments-picker"
-import * as occurrencePicker from "../features/occurrence-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
@@ -51,7 +46,6 @@ import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
 import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
-import * as jumplist from "../features/jumplist"
 import * as marks from "../features/marks"
 import { createBlameKeys, type BlameDeps, type BlameKeys } from "../features/blame/keys"
 import { createBlameColumnKeys } from "../features/blame/column-keys"
@@ -198,7 +192,6 @@ export function createKeyHandler(
   const openLink = createOpenLink(ctx)
   const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
-  const jumpApplyCtx = jumpApplyContext(ctx)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -341,257 +334,6 @@ export function createKeyHandler(
           fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
         toggleUnviewedOnly: ctx.toggleUnviewedFilesOnly,
       })
-
-    // ========== GLOBAL KEYS (work in any mode) ==========
-    // When a chord is mid-sequence (e.g. user typed `g` and we're
-    // waiting for the second key), single-key handlers must NOT fire on
-    // the second key — they'd steal it from the chord matcher below.
-    // This is what previously broke `gC` (Shift+C → "add-pr-comment"),
-    // `gi` (bare `i` → toggleViewMode), etc.
-    const state = ctx.getState()
-    if (!pendingKey) switch (key.name) {
-      case "o":
-        if (key.ctrl) {
-          // Ctrl-O: back in jumplist (spec 038).
-          const result = jumplist.back(ctx.getState(), ctx.getVimState())
-          if (result) {
-            ctx.setState(() => result.state)
-            jumplist.apply(result.jump, jumpApplyCtx)
-          }
-          return
-        }
-        break
-
-      case "p":
-        if (key.ctrl) {
-          // The prompt takes focus in this same keypress; without this the
-          // key that opened it is typed into it.
-          key.preventDefault()
-          ctx.setState(openActionMenu)
-          ctx.render()
-          return
-        }
-        break
-
-      case "f":
-        // Ctrl-f is the quick jump to a file, from every view. Narrowing
-        // what is on screen is `/`, wherever there is a list to narrow.
-        if (key.ctrl && state.files.length > 0) {
-          key.preventDefault()
-          ctx.setState(openFilePicker)
-          ctx.render()
-          return
-        }
-        break
-
-      case "k":
-        // From every view, and with no mark set too: the empty list says how to set one.
-        if (key.ctrl) {
-          key.preventDefault()
-          ctx.setState(marks.openMarksPicker)
-          ctx.render()
-          return
-        }
-        break
-
-      case "g":
-      case "G":
-        // Ctrl-g is the commit picker — `g` is riff's letter for commits
-        // (`]g`, `[g`), and the picker was two keystrokes and a search away
-        // in the palette. The file-path toast it used to show is still there
-        // as Show File Path.
-        if (key.ctrl && key.name === "g") {
-          if (state.commits.length > 0) {
-            key.preventDefault()
-            ctx.setState(openCommitPicker)
-            ctx.render()
-          }
-          return
-        }
-        // The diff's own G is its motion handler's; the tree's is here. A
-        // terminal reports it as a shifted `g` or as `G`.
-        if ((key.name === "G" || key.shift) && state.focusedPanel === "tree") {
-          folds.handleGoToBottom(ctx.foldsContext)
-          return
-        }
-        break
-
-      case "q":
-        ctx.quit()
-        return
-
-      case "c":
-        // C (shift+c): Add an inline comment via $EDITOR. Falls back
-        // silently if the cursor isn't on a commentable line. PR-level
-        // conversation comments are command-palette only.
-        if (key.shift) {
-          void commentsFeature.handleAddComment(ctx.commentsContext)
-          return
-        }
-        break
-
-      case "escape":
-        // Clear toast if visible
-        if (state.toast.message) {
-          ctx.setState(clearToast)
-          ctx.render()
-          return
-        }
-        break
-
-      case "i":
-      case "a":
-      case "d": {
-        // The three surfaces are one key apart, from any of them, and the
-        // key of the view you are in takes you back where you came from
-        // (spec 064). Ctrl-I arrives as `tab` and means jumplist-forward,
-        // and inside a selection `i`/`a` open a text object (spec 055), so
-        // both are left to their owners.
-        if (key.ctrl || key.shift) break
-        if (state.focusedPanel === "diff" && isVisualMode(ctx.getVimState())) break
-
-        const target = key.name === "i" ? "state" : key.name === "a" ? "feed" : "diff"
-        const switched = switchView(state, target)
-        if (switched === state) {
-          // The overview and the feed are the pull request's, and a local
-          // review on a branch that has one is a keypress away from being
-          // able to show them. riff already named it in the header; asking
-          // for it is what fetches it (spec 095).
-          if (target !== "diff" && state.appMode === "local" && state.branchPr) {
-            ctx.openBranchPr(target)
-            return
-          }
-          break
-        }
-        ctx.setState(() => switched)
-        ctx.render()
-        // The feed's timeline is fetched the first time it is asked for: a
-        // PR nobody opens the feed on costs nothing (spec 070).
-        if (switched.viewMode === "feed" && switched.feed.events.length === 0 && !switched.feed.loading) {
-          void feed.loadFeed(ctx.feedLoadContext)
-        }
-        return
-      }
-
-      case "s":
-        // Ctrl-s greps the change set (spec 088). The composer keeps its own
-        // Ctrl-s: its input handles the key before this switch sees it.
-        if (key.ctrl) {
-          if (state.files.length > 0) {
-            key.preventDefault()
-            const vim = ctx.getVimState()
-            const seed =
-              state.viewMode === "diff" && state.focusedPanel === "diff"
-                ? occurrencePicker.seedQuery(vim, ctx.getLineMapping())
-                : ""
-            if (isVisualMode(vim)) ctx.setVimState(exitVisualMode(vim))
-            ctx.setState((s) => occurrencePicker.openOccurrencePicker(s, seed))
-            ctx.render()
-          }
-          return
-        }
-        // `s` labels the rows of whatever list has focus and the next key
-        // jumps (spec 066). The diff keeps its own flavour — type first,
-        // then pick — and is handled where the diff's keys are.
-        if (!key.ctrl && !key.shift && !isVisualMode(ctx.getVimState())) {
-          const surface = flashSurface(state)
-          if (surface) {
-            key.preventDefault()
-            ctx.flashHandler.startList(surface, flashTargets(state, ctx), reservedKeysFor(surface))
-            ctx.render()
-            return
-          }
-        }
-        break
-
-      case "t":
-        // Ctrl-t opens the comments panel on what the diff cursor is
-        // pointing at, from every view. Closing it is the panel's own
-        // binding, so this only ever opens.
-        if (key.ctrl && !key.shift) {
-          if (!openCommentsOverlay("view")) openCommentsPanelForCursor()
-          return
-        }
-        break
-
-      case "b":
-        if (key.ctrl) {
-          ctx.setState((s) => {
-            const toggled = toggleFilePanel(s)
-            if (toggled.showFilePanel) return { ...toggled, focusedPanel: "tree" }
-            // A hidden tree must not keep focus: keys would keep going to a
-            // panel nobody can see, and typing into the void reaches `q`.
-            return s.focusedPanel === "tree" ? { ...toggled, focusedPanel: "diff" } : toggled
-          })
-          ctx.render()
-          setTimeout(() => {
-            ctx.render()
-          }, 0)
-          return
-        }
-        break
-
-      case "e":
-        if (key.ctrl && state.showFilePanel) {
-          ctx.setState(toggleFilePanelExpanded)
-          ctx.render()
-          return
-        }
-        // E (shift+e): Edit the comment thread on the current line via
-        // $EDITOR. Same flow as `C` — handleAddComment shows the thread
-        // for editing and includes a reply box. No-op when the cursor
-        // isn't on a commented/commentable line.
-        if (key.shift) {
-          void commentsFeature.handleAddComment(ctx.commentsContext)
-          return
-        }
-        break
-
-      case "tab": {
-        // Tab and Ctrl-I are indistinguishable in terminal input; both
-        // mean forward-jump in the jumplist (spec 038). The previous
-        // view-toggle binding moved to bare `i`.
-        const result = jumplist.forward(ctx.getState())
-        if (result) {
-          ctx.setState(() => result.state)
-          jumplist.apply(result.jump, jumpApplyCtx)
-        }
-        return
-      }
-
-      case "backspace":
-        // Ctrl-h moves focus one panel left: comments → diff → tree.
-        // Terminals deliver bare Ctrl-h as backspace, so this key is both
-        // things at once — and walking back to the tree has to come first,
-        // or returning to look at what the filter left would drop it.
-        if (state.mode === "normal" && focusLeft(state) !== state) {
-          ctx.setState(focusLeft)
-          ctx.render()
-          return
-        }
-        // Nowhere left to move: a tree filter is the next thing backspace
-        // takes down — it is the state most easily forgotten about, and it
-        // silently hides files from everything that reads the tree.
-        if (state.treeFilter && !state.treeFilterInput) {
-          ctx.setState(clearTreeFilter)
-          ctx.updateFileTreePanel()
-          ctx.render()
-          return
-        }
-        break
-
-      case "l":
-        if (key.ctrl) {
-          // Ctrl-l moves focus one panel right: tree → diff → comments → chat.
-          ctx.setState(focusRight)
-          ctx.render()
-          setTimeout(() => {
-            ctx.render()
-          }, 0)
-          return
-        }
-        break
-    }
 
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     const chordPending = pendingKey !== null

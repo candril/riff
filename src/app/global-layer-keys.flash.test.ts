@@ -1,11 +1,21 @@
-import { test, expect } from "bun:test"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import { test, expect, afterEach } from "bun:test"
+import { KeyEvent } from "@opentui/core"
+import { createTestRenderer } from "@opentui/core/testing"
+import type { GlobalKeyContext } from "./global-keys"
+import { createRiffKeymap } from "./keymap"
+import { registerGlobalKeys } from "./global-layer-keys"
+import { globalLayerKeyDeps } from "./global-layer-key-deps"
 import { FEED_CHROME_ROWS } from "../components/feed-window"
 import { createFeedState, createInitialState, type AppState } from "../state"
 import type { FeedEvent } from "../utils/feed"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
+
+const disposers: (() => void)[] = []
+afterEach(() => {
+  while (disposers.length) disposers.pop()!()
+})
 
 const comment = (i: number): FeedEvent => ({
   id: `c${i}`,
@@ -19,7 +29,7 @@ const comment = (i: number): FeedEvent => ({
  * Only what the `s` path uses; anything else it calls throws, so a new
  * dependency shows up here rather than as a silent stub.
  */
-function keysFor(state: AppState, height: number) {
+async function keysFor(state: AppState, height: number) {
   const lists: { surface: string; ids: string[] }[] = []
   const known: Partial<GlobalKeyContext> = {
     getState: () => state,
@@ -34,16 +44,20 @@ function keysFor(state: AppState, height: number) {
   const ctx = new Proxy(known, {
     get(target, name) {
       if (name in target) return target[name as keyof GlobalKeyContext]
-      // The handler copies some of ctx into its own contexts when it is built; only a call counts.
+      // The deps copy some of ctx into their own contexts when they are built; only a call counts.
       return () => {
         throw new Error(`the s path called ctx.${String(name)}`)
       }
     },
   }) as GlobalKeyContext
-  return { handle: createKeyHandler(ctx), lists }
+  const { renderer } = await createTestRenderer({ width: 20, height: 4 })
+  disposers.push(() => renderer.destroy())
+  const riffKeymap = createRiffKeymap(renderer)
+  registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, { chordPendingAfter: () => false, settleChord() {} }))
+  return { offer: (key: KeyEvent) => riffKeymap.offer(key), lists }
 }
 
-test("s in the feed labels the rows the scrolled window shows, at the renderer's height", () => {
+test("s in the feed labels the rows the scrolled window shows, at the renderer's height", async () => {
   const events = Array.from({ length: 40 }, (_, i) => comment(i))
   const state: AppState = {
     ...createInitialState([], [], "test", ""),
@@ -51,9 +65,11 @@ test("s in the feed labels the rows the scrolled window shows, at the renderer's
     feed: { ...createFeedState(), events, highlightIndex: 39 },
   }
   const height = 10 + FEED_CHROME_ROWS
-  const { handle, lists } = keysFor(state, height)
+  const { offer, lists } = await keysFor(state, height)
 
-  handle({ name: "s", sequence: "s", ctrl: false, shift: false, meta: false, preventDefault() {} } as never)
+  offer(
+    new KeyEvent({ name: "s", ctrl: false, meta: false, shift: false, option: false, sequence: "s", number: false, raw: "s", eventType: "press", source: "raw" }),
+  )
 
   expect(lists).toHaveLength(1)
   expect(lists[0]!.surface).toBe("feed")

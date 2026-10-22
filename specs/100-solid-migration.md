@@ -93,53 +93,63 @@ occurrence and commit pickers, those of the sync preview and Submit
 Review, the help overlay's, the chat's, the thread panel's in view mode
 and in its composer with the mention and emoji pickers, the PR overview's,
 the activity feed's, the search and tree filter prompts', the blame and
-line peeks' and the pending text object's. A modal layer captures the keys
-it does not bind, so none of them reaches the chain while it is up; the
-palette's, the pickers' and Submit Review's captures leave them
-unprevented for their prompt fields and the summary to type, and the
-commit picker's does so only in its `/` mode. Every modal layer stands
-aside under any modal that outranks it, even for keys that modal leaves
-unbound. The help overlay's capture leaves a bare `g` to the chain's chord
-matcher, so `g?` closes it, and the overlay stands aside entirely while
-the chain holds a chord. The chat's capture leaves the keys it does not
-bind unprevented for its input to type, and the chat registers behind
-every layer but the composer's, as its branch sat first in the chain, so
-Ctrl-r and the step in from the thread panel stand aside under every
-modal. The composer's capture leaves the keys it does not bind unprevented
-for its textarea to type; it registers behind the chat, whose branch the
-chain asked before the thread panel's, and the chat stands aside while it
-is open. The thread panel's view mode registers behind the composer, as
-the two are never active together; its capture leaves Ctrl-p, Ctrl-f and a
-bare `s` to the chain outside its filter prompt and code peek, for the
-palette, the file picker and flash, and Ctrl-r, and Ctrl-l while the chat
-is open, wherever the chat takes them, as the chat's branch came first.
-Its `za` and `g` chords stay its own rather than keymap sequences. The PR
-overview registers behind the thread panel, whose branch the chain asked
-first; its capture holds every key while its filter or comment prompt is
-up, none while the tree has focus, and otherwise leaves the chain every
-ctrl key, `q`, `Esc`, `Tab`, `i`, `a` and `s`, and any `d` off a file row
-whatever its modifiers; while a `z` or `g` chord of its own is pending it
-holds those keys too. Its `z` and `g` chords stay its own too. The
-activity feed registers behind the PR overview, as the two are different
-views; its capture holds only the keys the feed acts on and leaves every
-other key to the chain, every ctrl and meta key among them and any key
-while the chain holds a chord, and while its filter prompt is up it holds
-every key. Its `za` stays in the chain. The search prompt and the tree's
-filter prompt register behind the feed (`src/app/prompt-keys.ts`), and the
-blame peek and the line peek behind them (`src/app/peek-keys.ts`), each
-group in the reverse of the order the chain asked it. Each holds every key
-while it is up. The prompts prevent only Esc and Enter, and in the tree
-filter a backspace on an empty query, and leave every other key
-unprevented for their fields to type; the peeks prevent nothing, as the
-chain never did. The peeks leave the chain a bare `g`, so `go`, `gb` and
-`gl` complete, every key while the chain holds a chord, and Ctrl-r, and
-Ctrl-l from the thread panel, wherever the chat takes them. A text object
-pending in the diff is a keymap capture registered behind the peeks
-(`src/app/text-object-keys.ts`): it hands every key but the chat's reach
-to the vim handler and prevents nothing, and the peeks stand aside for it.
+line peeks', the pending text object's and the global keys. A modal layer
+captures the keys it does not bind, so none of them reaches the chain
+while it is up; the palette's, the pickers' and Submit Review's captures
+leave them unprevented for their prompt fields and the summary to type,
+and the commit picker's does so only in its `/` mode. Every modal layer
+stands aside under any modal that outranks it, even for keys that modal
+leaves unbound. The help overlay's capture leaves a bare `g` to the
+chain's chord matcher, so `g?` closes it, and the overlay stands aside
+entirely while the chain holds a chord. The chat's capture leaves the keys
+it does not bind unprevented for its input to type, and the chat registers
+behind every layer but the composer's, as its branch sat first in the
+chain, so Ctrl-r and the step in from the thread panel stand aside under
+every modal. The composer's capture leaves the keys it does not bind
+unprevented for its textarea to type; it registers behind the chat, whose
+branch the chain asked before the thread panel's, and the chat stands
+aside while it is open. The thread panel's view mode registers behind the
+composer, as the two are never active together; its capture leaves Ctrl-p,
+Ctrl-f and a bare `s` to the chain outside its filter prompt and code
+peek, for the palette, the file picker and flash, and Ctrl-r, and Ctrl-l
+while the chat is open, wherever the chat takes them, as the chat's branch
+came first. Its `za` and `g` chords stay its own rather than keymap
+sequences. The PR overview registers behind the thread panel, whose branch
+the chain asked first; its capture holds every key while its filter or
+comment prompt is up, none while the tree has focus, and otherwise leaves
+the chain every ctrl key, `q`, `Esc`, `Tab`, `i`, `a` and `s`, and any `d`
+off a file row whatever its modifiers; while a `z` or `g` chord of its own
+is pending it holds those keys too. Its `z` and `g` chords stay its own
+too. The activity feed registers behind the PR overview, as the two are
+different views; its capture holds only the keys the feed acts on and
+leaves every other key to the chain, every ctrl and meta key among them
+and any key while the chain holds a chord, and while its filter prompt is
+up it holds every key. Its `za` stays in the chain. The search prompt and
+the tree's filter prompt register behind the feed
+(`src/app/prompt-keys.ts`), and the blame peek and the line peek behind
+them (`src/app/peek-keys.ts`), each group in the reverse of the order the
+chain asked it. Each holds every key while it is up. The prompts prevent
+only Esc and Enter, and in the tree filter a backspace on an empty query,
+and leave every other key unprevented for their fields to type; the peeks
+prevent nothing, as the chain never did. The peeks leave the chain a bare
+`g`, so `go`, `gb` and `gl` complete, every key while the chain holds a
+chord, and Ctrl-r, and Ctrl-l from the thread panel, wherever the chat
+takes them. A text object pending in the diff is a keymap capture
+registered behind the peeks (`src/app/text-object-keys.ts`): it hands
+every key but the chat's reach to the vim handler and prevents nothing,
+and the peeks stand aside for it. The global keys, which work in any mode,
+are one layer registered behind every other
+(`src/app/global-layer-keys.ts`), as the chain asked them last but for its
+chords; it is no capture, and stands aside while any capture holds the
+key. Each command declines a key its case in the chain let through,
+leaving it unprevented for the chain, and declines every key while the
+chain holds a chord. Its bindings take any modifiers, and the keymap's
+folding of names to lower case lets the binding on `g` take the tree's
+`G`.
 
-**Not built**: the rest of M6 (state factories and the remaining keymap
-layers); the file size ratchet (P3).
+**Not built**: the rest of M6 (the key sequences, the tree and diff
+dispatch, the palette reading command entries, and state factories); the
+file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:
