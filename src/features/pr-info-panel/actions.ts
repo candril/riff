@@ -175,14 +175,23 @@ export function openCommentInput(deps: Deps): void {
  * 067). False anywhere else, where the view router takes it.
  */
 export function jumpToFileOnRow(deps: Deps): boolean {
-  const panel = deps.getPanel()
-  if (!panel || panel.getActiveSection() !== 'files') return false
-  const file = panel.getSelectedFile()
-  if (!file || !deps.onJumpToFile) return false
+  const filename = fileOnRow(deps)
+  if (filename === null || !deps.onJumpToFile) return false
   deps.setState(closePRInfoPanel)
   deps.render()
-  deps.onJumpToFile(file.filename)
+  deps.onJumpToFile(filename)
   return true
+}
+
+/** Whether a bare `d` acts here, asked before the key is taken. */
+export function jumpsToFileOnRow(deps: Deps): boolean {
+  return fileOnRow(deps) !== null && deps.onJumpToFile !== undefined
+}
+
+function fileOnRow(deps: Deps): string | null {
+  const panel = deps.getPanel()
+  if (!panel || panel.getActiveSection() !== 'files') return null
+  return panel.getSelectedFile()?.filename ?? null
 }
 
 export function scrollTop(deps: Deps): void {

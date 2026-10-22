@@ -12,8 +12,10 @@ import { registerHelpKeys } from "./help-keys"
 import { registerChatKeys } from "../features/chat/keys"
 import { registerComposerKeys } from "../features/inline-comment-overlay/composer-keys"
 import { registerThreadPanelKeys } from "../features/inline-comment-overlay/view-keys"
+import { registerPrInfoPanelKeys } from "../features/pr-info-panel/keys"
 import { composerKeyDeps } from "./composer-key-deps"
 import { threadPanelKeyDeps } from "./thread-panel-key-deps"
+import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
@@ -30,11 +32,13 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
-  // Submit Review, the help overlay, the chat and, last of them, the
-  // thread panel in its two modes. The composer never competes with the
-  // chat, which stands aside while it is open, and view mode and compose
-  // mode are never active together.
-  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, createLinksPicker(ctx), legacy))
+  // Submit Review, the help overlay, the chat, the thread panel in its two
+  // modes and, last of them, the PR overview. The composer never competes
+  // with the chat, which stands aside while it is open, and view mode and
+  // compose mode are never active together.
+  const links = createLinksPicker(ctx)
+  registerPrInfoPanelKeys(riffKeymap, prInfoPanelKeyDeps(ctx, links, legacy))
+  registerThreadPanelKeys(riffKeymap, threadPanelKeyDeps(ctx, links, legacy))
   registerComposerKeys(riffKeymap, composerKeyDeps(ctx, legacy))
   registerChatKeys(riffKeymap, {
     getState: ctx.getState,

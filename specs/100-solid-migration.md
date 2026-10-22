@@ -90,8 +90,9 @@ of the priority chain in `global-keys.ts`
 holds F12, the debug console, the flash jump's keys, the confirmation
 dialog's, the command palette's, those of the file, comments, marks,
 occurrence and commit pickers, those of the sync preview and Submit
-Review, the help overlay's, the chat's, and the thread panel's in view
-mode and in its composer with the mention and emoji pickers. A modal layer captures the keys it does
+Review, the help overlay's, the chat's, the thread panel's in view
+mode and in its composer with the mention and emoji pickers, and the PR
+overview's. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
@@ -111,7 +112,11 @@ capture leaves Ctrl-p, Ctrl-f and a bare `s` to the chain outside its
 filter prompt and code peek, for the palette, the file picker and flash,
 and Ctrl-r, and Ctrl-l while the chat is open, wherever the chat takes
 them, as the chat's branch came first. Its `za` and `g` chords stay its
-own rather than keymap sequences.
+own rather than keymap sequences. The PR overview registers behind the
+thread panel, whose branch the chain asked first; its capture holds every
+key while its filter or comment prompt is up, none while the tree has
+focus, and otherwise leaves the chain every ctrl key, `q`, `Esc`, `Tab`,
+`i`, `a` and `s`, and `d` off a file row. Its `z` and `g` chords stay its own too.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).

@@ -51,7 +51,7 @@ shares the resolver and the limit.
   `diffTargetAt`, so the board and the PR diff link agree on what is under
   the cursor.
 - The chord is matched as `gB!` or `gb!` in `src/app/global-keys.ts`, and
-  in the overview's own `g` chords in `src/features/pr-info-panel/input.ts`,
+  in the overview's own `g` chords in `src/features/pr-info-panel/chords.ts`,
   as terminals differ in how they report shift+b. Both run the
   `open-in-board` action; `src/app.ts` hands it the location.
 - `src/actions/registry.ts`: the menu row; `src/config/`: `[board] url`.

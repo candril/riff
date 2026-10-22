@@ -3,12 +3,11 @@ import { KeyEvent } from "@opentui/core"
 import type { GlobalKeyContext } from "./global-keys"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
-import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { openPrInBoard } from "../features/riff-board"
-import { handleInput as prInfoPanelInput, type PRInfoPanelInputContext } from "../features/pr-info-panel/input"
+import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
 import { prInfo } from "../testing/pr-info"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -113,14 +112,6 @@ test("gB outside a PR leaves the browser alone and says riff board is for PRs", 
   expect(opened).toEqual([])
 })
 
-/** A key as a terminal reports it; the mock renderer cannot send an uppercase name with shift. */
-function key(name: string, shift = false): KeyEvent {
-  return new KeyEvent({
-    name, sequence: shift ? name.toUpperCase() : name, raw: name, shift,
-    ctrl: false, meta: false, option: false, number: false, eventType: "press", source: "raw",
-  })
-}
-
 test("gB in the feed dispatches the same open-in-board as everywhere else", async () => {
   app = await mountApp(DIFF, { width: 100, height: 30 })
   app.show({ appMode: "pr", prInfo: prInfo(""), viewMode: "feed" })
@@ -132,22 +123,17 @@ test("gB in the feed dispatches the same open-in-board as everywhere else", asyn
   await app.frame()
 })
 
-test("gB in the overview dispatches open-in-board, whichever case shift+b arrives in, and plain gb does nothing", () => {
-  const dispatched: string[] = []
-  let state: AppState = { ...createInitialState([], [], "test", ""), viewMode: "state" }
-  const ctx: PRInfoPanelInputContext = {
-    get state() { return state },
-    setState: (fn) => { state = fn(state) },
-    render() {},
-    getPanel: () => null,
-    executeAction: (id) => { dispatched.push(id) },
-  }
-  const type = (...keys: KeyEvent[]) => { for (const k of keys) prInfoPanelInput(k, ctx) }
+test("gB in the overview dispatches open-in-board, whichever case shift+b arrives in, and plain gb does nothing", async () => {
+  const keys = await prInfoPanelKeys(overviewState())
 
-  type(key("g"), key("B", true))
-  expect(dispatched).toEqual(["open-in-board"])
-  type(key("g"), key("b", true))
-  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
-  type(key("g"), key("b"))
-  expect(dispatched).toEqual(["open-in-board", "open-in-board"])
+  // The parser always lowercases a shifted letter's name, so the uppercase report goes in by hand.
+  keys.press("g")
+  keys.press("B", "B")
+  expect(keys.calls).toEqual(["action open-in-board"])
+  keys.press("g")
+  keys.press("B")
+  expect(keys.calls).toEqual(["action open-in-board", "action open-in-board"])
+  keys.press("g")
+  keys.press("b")
+  expect(keys.calls).toEqual(["action open-in-board", "action open-in-board"])
 })

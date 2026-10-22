@@ -18,6 +18,7 @@ import { createStatusBarIsland } from "../app/status-bar"
 import { createFeedIsland } from "../app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
 import { createPrInfoPanelFollower } from "../app/pr-info-panel-follower"
+import type { PRInfoPanelClass } from "../components/PRInfoPanel"
 import { createComposerFollower } from "../app/composer-follower"
 import { createPromptFollower } from "../app/prompt-follower"
 import { writePrompt } from "../app/open-prompt"
@@ -49,6 +50,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   let mapping = buildLineMapping(state)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
+  // None unless a test mounts one, as app.ts has none outside a PR.
+  let prInfoPanel: PRInfoPanelClass | null = null
   let render = () => {}
   let updateSearchPattern = (_value: string) => {}
   const highlights = createDiffHighlights(parses, () => render(), async () => null)
@@ -110,8 +113,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
         writePrompt({ setState, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
-      // The harness mounts no PR info panel.
-      prInfoPanel: createPrInfoPanelFollower(() => null),
+      prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },
     shell
   )
@@ -125,7 +127,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     getSearchState: () => searchState,
     getFlashState: () => flashState,
     getCachedCurrentUser: () => null,
-    getPrInfoPanel: () => null,
+    getPrInfoPanel: () => prInfoPanel,
     renderer,
     shell,
     feed: chrome.feed,
@@ -177,6 +179,10 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     },
     setVimState(next: typeof vimState) {
       vimState = next
+    },
+    /** The PR overview the view slot shows in viewMode "state"; the test builds it and destroys it. */
+    setPrInfoPanel(panel: PRInfoPanelClass | null) {
+      prInfoPanel = panel
     },
     setSearchState(next: typeof searchState) {
       searchState = next

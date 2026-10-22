@@ -33,7 +33,6 @@ import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink, openerCommand } from "./open-link"
 import { createLinksPicker } from "./links-picker"
-import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
@@ -247,9 +246,7 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
-  const links = createLinksPicker(ctx)
-  const { linksTitle, openLinksPicker } = links
-  const prInfoPanelDeps = prInfoPanelKeyDeps(ctx, links)
+  const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -523,14 +520,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
-
-    // ========== PR INFO PANEL (captures input while viewing PR overview) ==========
-    // Runs after all modal overlays so they get first crack at keys like 1/2/3.
-    if (
-      prInfoPanelFeature.handleInput(key, { ...prInfoPanelDeps, state: ctx.getState() })
-    ) {
-      return
-    }
 
     // ========== FEED (owns its keys while it is the view, specs 065, 070) ==========
     if (feed.handleInput(key, feedContext())) {
