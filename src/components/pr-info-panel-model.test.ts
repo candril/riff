@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { PRInfoPanelSection } from "../state"
 import { checks, commits, conversationComments, previews, prInfo, reviews, reviewThreadComments } from "../testing/pr-info"
 import type { DiffFile } from "../utils/diff-parser"
+import { mergeStatus } from "./merge-status-model"
 import { conversationItems, flatCheckItems, flatConversationItems } from "./pr-info-items"
 import { initialNav, type PrInfoNav } from "./pr-info-nav"
 import { panelSections, type PanelInput, type PanelSection } from "./pr-info-panel-model"
@@ -11,7 +12,7 @@ const FILES: DiffFile[] = [
   { filename: "src/farewell.ts", additions: 5, deletions: 0, status: "added", content: "" },
 ]
 
-const ALL = new Set<PRInfoPanelSection>(["description", "previews", "checks", "conversation", "files", "commits"])
+const ALL = new Set<PRInfoPanelSection>(["checks", "description", "previews", "conversation", "files", "commits"])
 
 function input(over: Partial<PrInfoNav> = {}, labels: ReadonlyMap<string, string> = new Map()): PanelInput {
   const nav: PrInfoNav = { ...initialNav(), expandedSections: ALL, ...over }
@@ -22,6 +23,7 @@ function input(over: Partial<PrInfoNav> = {}, labels: ReadonlyMap<string, string
     commits: commits(3),
   })
   const items = conversationItems(info, reviewThreadComments(), new Set())
+  const status = mergeStatus({ prInfo: info, comments: reviewThreadComments(), behindBy: null })
   return {
     prInfo: info,
     files: FILES,
@@ -29,7 +31,8 @@ function input(over: Partial<PrInfoNav> = {}, labels: ReadonlyMap<string, string
     conversationItems: items,
     hiddenConversationIds: new Set(),
     flatConversationItems: flatConversationItems(items, nav.filter, nav.expandedContent),
-    flatCheckItems: flatCheckItems(info.checks, nav.expandedCheckIds, nav.filter),
+    flatCheckItems: flatCheckItems(status.points, info.checks, nav),
+    mergeStatus: status,
     nav,
     flashLabels: labels,
     terminalWidth: 120,

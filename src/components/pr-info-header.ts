@@ -12,6 +12,8 @@ export interface SectionHeaderRow {
   fg: string
   /** What a collapsed section says at a glance, drawn after the text. */
   preview: string | null
+  /** Drawn at the row's right end, folded or not. */
+  trailing: { text: string; fg: string } | null
   highlighted: boolean
 }
 
@@ -23,9 +25,12 @@ export function sectionHeaderRow(
   return {
     key: config.id,
     label,
-    text: `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`,
+    text: config.count === null
+      ? `${indicator}  ${config.title}`
+      : `${indicator}  ${config.title} (${config.count}${config.countSuffix ?? ""})`,
     fg: active ? theme.blue : theme.overlay0,
     preview: config.preview && !expanded ? config.preview : null,
+    trailing: config.trailing ?? null,
     highlighted,
   }
 }

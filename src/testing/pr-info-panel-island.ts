@@ -66,6 +66,7 @@ const header = (key: PRInfoPanelSection, over: Partial<SectionHeaderRow> = {}): 
   text: `▼  ${key}`,
   fg: theme.blue,
   preview: null,
+  trailing: null,
   highlighted: false,
   ...over,
 })

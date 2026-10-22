@@ -38,12 +38,32 @@ describe("sectionHeaderRow", () => {
       text: "▶  Checks (6)",
       fg: theme.overlay0,
       preview: "✗ 4 failed",
+      trailing: null,
       highlighted: false,
     })
     const row = sectionHeaderRow(checks, { active: true, expanded: false, highlighted: true, label: "a" })
     expect(row.fg).toBe(theme.blue)
     expect(row.label).toBe("a")
     expect(row.highlighted).toBe(true)
+  })
+})
+
+describe("a header without a count", () => {
+  const status: SectionConfig = {
+    id: "checks",
+    title: "Merge status",
+    count: null,
+    preview: "",
+    hasItems: true,
+    trailing: { text: "✗ blocked", fg: theme.red },
+  }
+
+  test("is the title alone, carrying its verdict folded or not", () => {
+    for (const expanded of [false, true]) {
+      const row = sectionHeaderRow(status, { ...plain, expanded })
+      expect(row.text).toBe(`${expanded ? "▼" : "▶"}  Merge status`)
+      expect(row.trailing).toEqual({ text: "✗ blocked", fg: theme.red })
+    }
   })
 })
 

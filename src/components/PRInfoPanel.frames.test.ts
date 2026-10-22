@@ -13,10 +13,28 @@ const BOX_DRAWING = /[─-╿]/
 const META = "  @someone  a-branch → master   ✓ @alice @erin"
 // A glyph rule in surface1, seventy cells whatever the panel's width.
 const SEPARATOR = "  " + "─".repeat(70)
+// The fixture's threads carry no resolution, which the merge status reads as
+// not GitHub's to count and the conversation's summary as open.
+const MERGE_STATUS = [
+  "  ▼  Merge status                                                                                            ✗ blocked",
+  "",
+  "    ✗ Checks         1/6 · test, e2e +2 failing  ▼",
+  "      ✓ build",
+  "      ○ lint (in_progress)",
+  "      ✗ test (failure)  ▶ [2]",
+  "      ✗ e2e (failure)  ▶",
+  "      ✗ deploy (timed_out)  ▶",
+  "      ! audit (action_required)  ▶",
+  "    ✗ Reviews        2 approvals · changes requested by bob",
+  "    ✓ Conversations  all resolved",
+  "    ○ Conflicts      checking",
+  "    ○ Base           comparing with master",
+  "    ✓ Blockers       none",
+]
+const FOLDED_MERGE_STATUS =
+  "  ▶  Merge status                                                                                            ✗ blocked"
 const HEADERS = [
   "  ▶  Previews (0)",
-  "",
-  "  ▶  Checks (6)  ✗ 4 failed",
   "",
   "  ▶  Conversation (7)  2 unresolved",
   "",
@@ -67,14 +85,16 @@ describe("the info panel", () => {
 })
 
 describe("on arrival", () => {
-  test("draws the meta row, an empty stack row, the separator and six headers, the description open", async () => {
-    const { lines } = await mount()
+  test("draws the meta row, an empty stack row, the separator and six headers, the merge status and the description open", async () => {
+    const { lines } = await mount({ mergeStatusOpen: true })
     expect(lines).toEqual([
       "",
       META,
       "",
       "",
       SEPARATOR,
+      "",
+      ...MERGE_STATUS,
       "",
       "  ▼  Description (2)",
       "",
@@ -101,19 +121,20 @@ describe("on arrival", () => {
   })
 
   test("marks the active header blue on surface0, the others overlay0 with their previews in subtext0", async () => {
-    const { lines, spans } = await mount()
+    const { lines, spans } = await mount({ mergeStatusOpen: true })
+    const [, description] = find(lines, "▼  Description")
     expect(fgAt(spans, ...find(lines, "▼  Description"))).toEqual(ints(theme.blue))
     expect(bgAt(spans, ...find(lines, "▼  Description"))).toEqual(ints(theme.surface0))
-    expect(bgAt(spans, 110, 6)).toEqual(ints(theme.surface0))
-    expect(bgAt(spans, 2, 8)).toEqual(ints(theme.base))
+    expect(bgAt(spans, 110, description)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 2, description + 2)).toEqual(ints(theme.base))
 
-    for (const title of ["Previews", "Checks", "Conversation", "Files", "Commits"]) {
+    for (const title of ["Merge status", "Previews", "Conversation (", "Files", "Commits"]) {
       const [x, y] = find(lines, title)
       expect(fgAt(spans, x - 3, y)).toEqual(ints(theme.overlay0))
       expect(fgAt(spans, x, y)).toEqual(ints(theme.overlay0))
       expect(bgAt(spans, x, y)).toEqual(ints(theme.base))
     }
-    expect(fgAt(spans, ...find(lines, "✗ 4 failed"))).toEqual(ints(theme.subtext0))
+    expect(fgAt(spans, ...find(lines, "✗ blocked"))).toEqual(ints(theme.red))
     expect(fgAt(spans, ...find(lines, "2 unresolved"))).toEqual(ints(theme.subtext0))
     expect(fgAt(spans, ...find(lines, "+98 -0"))).toEqual(ints(theme.subtext0))
     expect(fgAt(spans, ...find(lines, "last 1h"))).toEqual(ints(theme.subtext0))
@@ -134,7 +155,7 @@ describe("on arrival", () => {
   })
 
   test("says an empty PR's sections are empty", async () => {
-    const { lines } = await mount({ info: prInfo("") })
+    const { lines } = await mount({ info: prInfo(""), mergeStatusOpen: true })
     expect(lines).toEqual([
       "",
       "  @someone  a-branch → master",
@@ -142,13 +163,20 @@ describe("on arrival", () => {
       "",
       SEPARATOR,
       "",
+      "  ▼  Merge status                                                                            ⚠ mergeable with warnings",
+      "",
+      "    ✓ Checks         no checks",
+      "    ✓ Reviews        0 approvals",
+      "    ✓ Conversations  all resolved",
+      "    ○ Conflicts      checking",
+      "    ○ Base           comparing with master",
+      "    ✓ Blockers       none",
+      "",
       "  ▼  Description (0)",
       "",
       "    No description provided",
       "",
       "  ▶  Previews (0)",
-      "",
-      "  ▶  Checks (0)  ○ no checks",
       "",
       // The review threads have no review to sit under, so each is one.
       "  ▶  Conversation (3)  2 unresolved",
@@ -191,7 +219,7 @@ describe("the stack row", () => {
 describe("fresh PR data", () => {
   test("redraws a changed body and its count", async () => {
     const { lines } = await mount({ prepare: (p) => p.setPrInfo({ ...fullPr(), body: "A new body" }) })
-    expect(lines.slice(6, 11)).toEqual(["  ▼  Description (1)", "", "    A new body", "", "  ▶  Previews (0)"])
+    expect(lines.slice(8, 13)).toEqual(["  ▼  Description (1)", "", "    A new body", "", "  ▶  Previews (0)"])
   })
 
   test("draws a changed title nowhere: the header line above the panel carries it", async () => {
@@ -218,14 +246,14 @@ describe("the filter", () => {
       "",
       SEPARATOR,
       "",
+      FOLDED_MERGE_STATUS,
+      "",
       "  ▼  Description (2)",
       "",
       "    Adds the skill.",
       "    Second line with code.",
       "",
       "  ▶  Previews (0)",
-      "",
-      "  ▶  Checks (6)  ✗ 4 failed",
       "",
       // The count is every conversation item; Files counts what matches.
       "  ▼  Conversation (7)",
@@ -266,15 +294,17 @@ describe("flash labels", () => {
         p.setFlashLabels(new Map([["checks", "a"], ["files:1", "sd"]]))
       },
     })
-    expect(lines[13]).toBe("  a ▶  Checks (6)  ✗ 4 failed")
+    expect(lines[6]).toBe(
+      "  a ▶  Merge status                                                                                          ✗ blocked"
+    )
     expect(lines.slice(17, 21)).toEqual([
       "  ▼  Files (2)",
       "",
       "    src/greet.ts       +3    -1",
       "    sd src/farewell.ts    +5    -0",
     ])
-    expect(fgAt(spans, 2, 13)).toEqual(ints(colors.flashLabel))
-    expect(fgAt(spans, 4, 13)).toEqual(ints(theme.overlay0))
+    expect(fgAt(spans, 2, 6)).toEqual(ints(colors.flashLabel))
+    expect(fgAt(spans, 4, 6)).toEqual(ints(theme.overlay0))
     expect(fgAt(spans, 4, 20)).toEqual(ints(colors.flashLabel))
     expect(fgAt(spans, 5, 20)).toEqual(ints(colors.flashLabel))
     expect(fgAt(spans, 7, 20)).toEqual(ints(theme.subtext1))

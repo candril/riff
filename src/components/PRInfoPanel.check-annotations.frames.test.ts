@@ -66,23 +66,23 @@ describe("a failing check opened", () => {
     target.annotationsStatus = "loading"
     panel.checksChanged()
     const loading = (await mounted.frame()).split("\n")
-    expect(loading.slice(14, 18)).toEqual([
-      "    ✓ build",
-      "    ✗ test (failure)  ▼",
-      "      Loading annotations…",
-      "    ✗ lint (failure)  ▶",
+    expect(loading.slice(9, 13)).toEqual([
+      "      ✓ build",
+      "      ✗ test (failure)  ▼",
+      "        Loading annotations…",
+      "      ✗ lint (failure)  ▶",
     ])
 
     target.annotations = [{ path: "src/greet.ts", startLine: 3, endLine: 3, level: "failure", message: "Boom" }]
     target.annotationsStatus = "loaded"
     panel.checksChanged()
     const loaded = (await mounted.frame()).split("\n")
-    expect(loaded.slice(14, 19)).toEqual([
-      "    ✓ build",
-      "    ✗ test (failure)  ▼ [1]",
-      "      • src/greet.ts:3",
-      "          Boom",
-      "    ✗ lint (failure)  ▶",
+    expect(loaded.slice(9, 14)).toEqual([
+      "      ✓ build",
+      "      ✗ test (failure)  ▼ [1]",
+      "        • src/greet.ts:3",
+      "            Boom",
+      "      ✗ lint (failure)  ▶",
     ])
     expect(fgAt(mounted.setup.captureSpans(), ...find(loaded, "• src/greet.ts"))).toEqual(ints(theme.red))
   })
@@ -101,7 +101,7 @@ describe("a fetch that settles across a panel rebuild", () => {
     const shared = info()
     const asked = mock((_check: PrCheck) => {})
     const a = await mount({ section: "checks", info: shared, prepare: (p) => p.setOnOpenFailingCheck(asked) })
-    a.panel.moveCursor(2)
+    a.panel.moveCursor(3)
     a.panel.toggleCheckExpansion(2)
     const target = asked.mock.calls[0]![0]
     target.annotationsStatus = "loading"
@@ -116,22 +116,22 @@ describe("a fetch that settles across a panel rebuild", () => {
   test("draws the annotations on the new panel once it is told, and j walks onto them", async () => {
     const { shared, position, target } = await openOnA()
     const b = await rebuild(shared, position)
-    expect(b.lines.slice(14, 18)).toEqual([
-      "    ✓ build",
-      "    ✗ test (failure)  ▼",
-      "      Loading annotations…",
-      "    ✗ lint (failure)  ▶",
+    expect(b.lines.slice(9, 13)).toEqual([
+      "      ✓ build",
+      "      ✗ test (failure)  ▼",
+      "        Loading annotations…",
+      "      ✗ lint (failure)  ▶",
     ])
 
     annotate(target)
     b.panel.checksChanged()
     const lines = (await b.mounted.frame()).split("\n")
-    expect(lines.slice(14, 19)).toEqual([
-      "    ✓ build",
-      "    ✗ test (failure)  ▼ [1]",
-      "      • src/greet.ts:3",
-      "          Boom",
-      "    ✗ lint (failure)  ▶",
+    expect(lines.slice(9, 14)).toEqual([
+      "      ✓ build",
+      "      ✗ test (failure)  ▼ [1]",
+      "        • src/greet.ts:3",
+      "            Boom",
+      "      ✗ lint (failure)  ▶",
     ])
     expect(b.panel.moveCursor(1)).toBe(true)
     expect(b.panel.getSelectedAnnotation()?.annotation.message).toBe("Boom")
@@ -141,12 +141,12 @@ describe("a fetch that settles across a panel rebuild", () => {
     const { shared, position, target } = await openOnA()
     annotate(target)
     const b = await rebuild(shared, position)
-    expect(b.lines.slice(14, 19)).toEqual([
-      "    ✓ build",
-      "    ✗ test (failure)  ▼ [1]",
-      "      • src/greet.ts:3",
-      "          Boom",
-      "    ✗ lint (failure)  ▶",
+    expect(b.lines.slice(9, 14)).toEqual([
+      "      ✓ build",
+      "      ✗ test (failure)  ▼ [1]",
+      "        • src/greet.ts:3",
+      "            Boom",
+      "      ✗ lint (failure)  ▶",
     ])
   })
 })

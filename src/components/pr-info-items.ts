@@ -2,6 +2,7 @@ import type { PrCommit, PrConversationComment, PrCheck, PrCheckAnnotation, PrInf
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
 import type { PRInfoPanelSection } from "../state"
+import type { MergePoint } from "./merge-status-model"
 import { conversationItemId, type ConversationItem, type ReviewThread, type ReviewWithThreads } from "./pr-info-conversation"
 
 export {
@@ -22,18 +23,20 @@ export type FlatConversationItem =
   | { type: 'pending-reviewer'; data: string[] }
 
 /**
- * Flattened check item (spec 043). Mirrors how the conversation section
+ * A row of the Merge status section: a gate, or under the checks gate a check
+ * and its annotations (specs 043, 108). Mirrors how the conversation section
  * flattens reviews+threads for single-axis cursor nav.
  */
 export type FlatCheckItem =
+  | { kind: 'point'; point: MergePoint }
   | { kind: 'check'; check: PrCheck }
   | { kind: 'annotation'; check: PrCheck; annotation: PrCheckAnnotation }
   | { kind: 'placeholder'; check: PrCheck; placeholder: 'loading' | 'empty' | 'error' }
 
 export const ALL_SECTIONS: readonly PRInfoPanelSection[] = [
+  'checks',
   'description',
   'previews',
-  'checks',
   'conversation',
   'files',
   'commits',
@@ -117,19 +120,53 @@ export function isFailingCheck(check: PrCheck): boolean {
   )
 }
 
+export const POINT_LABELS: Record<MergePoint["id"], string> = {
+  checks: "Checks",
+  reviews: "Reviews",
+  conversations: "Conversations",
+  conflicts: "Conflicts",
+  base: "Base",
+  blockers: "Blockers",
+}
+
+/** The one gate that opens onto rows of its own, and only once there is something under it. */
+export function isExpandablePoint(point: MergePoint, checks: PrCheck[] | undefined): boolean {
+  return point.id === 'checks' && (checks ?? []).length > 0
+}
+
 /**
- * Checks plus any inline annotation / placeholder rows for currently-expanded
- * failing checks (spec 043).
+ * One row per gate, and under the checks gate, while it is open or a filter
+ * is set, each check plus any inline annotation / placeholder rows for
+ * currently-expanded failing checks (specs 043, 108).
  */
 export function flatCheckItems(
+  points: readonly MergePoint[],
   checks: PrCheck[] | undefined,
-  expandedCheckIds: ReadonlySet<number>,
-  filter: string,
+  { expandedCheckIds, expandedPoints, filter }: {
+    expandedCheckIds: ReadonlySet<number>
+    expandedPoints: ReadonlySet<MergePoint["id"]>
+    filter: string
+  },
 ): FlatCheckItem[] {
   const flat: FlatCheckItem[] = []
   const visible = (checks ?? []).filter((check) =>
     matchesFilter(filter, check.name, check.conclusion ?? undefined)
   )
+  for (const point of points) {
+    // The checks gate matches on any check under it too, the way a review
+    // matches on its threads.
+    const holdsMatch = point.id === 'checks' && filter !== "" && visible.length > 0
+    if (!matchesFilter(filter, POINT_LABELS[point.id], point.text) && !holdsMatch) continue
+    flat.push({ kind: 'point', point })
+    if (isExpandablePoint(point, checks) && (expandedPoints.has(point.id) || filter)) {
+      flat.push(...checkRowsOf(visible, expandedCheckIds))
+    }
+  }
+  return flat
+}
+
+function checkRowsOf(visible: PrCheck[], expandedCheckIds: ReadonlySet<number>): FlatCheckItem[] {
+  const flat: FlatCheckItem[] = []
   for (const check of visible) {
     flat.push({ kind: 'check', check })
     if (!expandedCheckIds.has(check.id)) continue

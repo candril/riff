@@ -12,12 +12,14 @@ import type { StackInfo } from "../utils/stack"
 import type { Comment, ReactionTarget } from "../types"
 import type { PRInfoPanelSection } from "../state"
 import { tableRenderer } from "./markdown-tables-in-markdown"
+import { mergeStatus, type MergePoint, type MergeStatus } from "./merge-status-model"
 import {
   ALL_SECTIONS,
   conversationItems,
   flatCheckItems,
   flatConversationItemId,
   flatConversationItems,
+  isExpandablePoint,
   isFailingCheck,
   visibleRows,
   type ConversationItem,
@@ -64,6 +66,7 @@ export interface PRInfoPanelPosition {
   expandedThreads: Set<string>
   expandedContent: Set<string>
   expandedCheckIds: Set<number>
+  expandedPoints: Set<MergePoint["id"]>
   scrollTop: number
 }
 
@@ -98,6 +101,10 @@ export class PRInfoPanelClass {
 
   // Commits the base has that the head lacks (spec 108); null until known.
   private behindBy: number | null = null
+
+  // Whether the PR can merge, gate by gate (spec 108), from prInfo, the
+  // comments and behindBy; recomputed whenever one of them changes.
+  private mergeStatus: MergeStatus
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -128,6 +135,7 @@ export class PRInfoPanelClass {
     
     // Build conversation items
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
+    this.mergeStatus = this.readMergeStatus()
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
 
@@ -191,6 +199,7 @@ export class PRInfoPanelClass {
       expandedThreads: new Set(this.nav.expandedThreads),
       expandedContent: new Set(this.nav.expandedContent),
       expandedCheckIds: new Set(this.nav.expandedCheckIds),
+      expandedPoints: new Set(this.nav.expandedPoints),
       // A panel rebuilt again before its first frame has not applied its
       // restored scroll yet; the box still reads 0.
       scrollTop: this.pendingScrollTop ?? this.island.scrollBox.scrollTop,
@@ -244,7 +253,11 @@ export class PRInfoPanelClass {
   }
 
   private refreshFlatCheckItems(nav: PrInfoNav = this.nav): void {
-    this.flatCheckItems = flatCheckItems(this.prInfo.checks, nav.expandedCheckIds, nav.filter)
+    this.flatCheckItems = flatCheckItems(this.mergeStatus.points, this.prInfo.checks, nav)
+  }
+
+  private readMergeStatus(): MergeStatus {
+    return mergeStatus({ prInfo: this.prInfo, comments: this.comments, behindBy: this.behindBy })
   }
 
   /**
@@ -286,7 +299,7 @@ export class PRInfoPanelClass {
     for (let i = 0; i < half && this.step(delta); i++) {}
   }
 
-  /** `gg`: the description's header, with the lines above it in view. */
+  /** `gg`: the first section's header, with the lines above it in view. */
   jumpToTop(): void {
     this.flashJump(ALL_SECTIONS[0]!)
     this.island.scrollBox.scrollTo(0)
@@ -511,8 +524,38 @@ export class PRInfoPanelClass {
    * Get selected check
    */
   getSelectedCheck(): PrCheck | undefined {
+    const item = this.selectedCheckItem()
+    return item && item.kind !== 'point' ? item.check : undefined
+  }
+
+  private selectedCheckItem(): FlatCheckItem | undefined {
     if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return undefined
-    return this.flatCheckItems[this.nav.cursorIndex]?.check
+    return this.flatCheckItems[this.nav.cursorIndex]
+  }
+
+  /** The merge status line under the cursor, when it opens onto rows of its own. */
+  private selectedExpandablePoint(): MergePoint | undefined {
+    const item = this.selectedCheckItem()
+    return item?.kind === 'point' && isExpandablePoint(item.point, this.prInfo.checks) ? item.point : undefined
+  }
+
+  /**
+   * Open or fold the merge status line under the cursor. False when the
+   * cursor is on no line that opens, so the key can mean what it means on a
+   * check (spec 108).
+   */
+  toggleSelectedPoint(): boolean {
+    const point = this.selectedExpandablePoint()
+    if (!point) return false
+    this.applyPoints(Nav.togglePoint(this.nav, point.id))
+    return true
+  }
+
+  private applyPoints(next: PrInfoNav): void {
+    if (next === this.nav) return
+    this.nav = next
+    this.refreshFlatCheckItems()
+    this.push()
   }
 
   /**
@@ -550,6 +593,8 @@ export class PRInfoPanelClass {
    * checks section, mirroring conversation (spec 043).
    */
   expandSelectedCheck(): void {
+    const point = this.selectedExpandablePoint()
+    if (point) return this.applyPoints(Nav.expandPoint(this.nav, point.id))
     const check = this.getSelectedCheckRow()
     if (!check || !isFailingCheck(check)) return
     if (this.nav.expandedCheckIds.has(check.id)) return
@@ -562,11 +607,16 @@ export class PRInfoPanelClass {
    * the cursor back onto the check row (spec 043).
    */
   collapseSelectedCheck(): void {
-    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return
-    const item = this.flatCheckItems[this.nav.cursorIndex]
+    const item = this.selectedCheckItem()
     if (!item) return
+    if (item.kind === 'point') {
+      if (isExpandablePoint(item.point, this.prInfo.checks)) this.applyPoints(Nav.collapsePoint(this.nav, item.point.id))
+      return
+    }
     const check = item.check
-    if (!this.nav.expandedCheckIds.has(check.id)) return
+    // A check with nothing open under it folds the line it sits under, the
+    // way `h` on a thread climbs to its review.
+    if (!this.nav.expandedCheckIds.has(check.id)) return this.collapseChecksPoint()
 
     const parentIndex = this.flatCheckItems.findIndex(
       i => i.kind === 'check' && i.check.id === check.id,
@@ -576,6 +626,14 @@ export class PRInfoPanelClass {
       this.nav = Nav.withCursor(this.nav, parentIndex)
       this.push()
     }
+  }
+
+  private collapseChecksPoint(): void {
+    const pointIndex = this.flatCheckItems.findIndex((i) => i.kind === 'point' && i.point.id === 'checks')
+    this.nav = Nav.collapsePoint(this.nav, 'checks')
+    if (pointIndex >= 0) this.nav = Nav.withCursor(this.nav, pointIndex)
+    this.refreshFlatCheckItems()
+    this.push()
   }
 
   /**
@@ -682,6 +740,7 @@ export class PRInfoPanelClass {
     if (prInfo.body !== this.prInfo.body && this.nav.activeSection === 'description') this.clampDescriptionOnResize = true
     this.prInfo = prInfo
     this.conversationItems = conversationItems(this.prInfo, this.comments, this.hiddenConversationIds)
+    this.mergeStatus = this.readMergeStatus()
     this.refreshFlatItems()
     this.refreshFlatCheckItems()
     this.nav = Nav.clampCursor(this.nav, this.counts)
@@ -703,6 +762,9 @@ export class PRInfoPanelClass {
   setBehindBy(behindBy: number | null): void {
     if (behindBy === this.behindBy) return
     this.behindBy = behindBy
+    this.mergeStatus = this.readMergeStatus()
+    this.refreshFlatCheckItems()
+    this.nav = Nav.clampCursor(this.nav, this.counts)
     this.push()
   }
 
@@ -780,6 +842,7 @@ export class PRInfoPanelClass {
       case 'checks': {
         const item = this.flatCheckItems[this.nav.cursorIndex]
         if (!item) return null
+        if (item.kind === 'point') return { title: "Merge status", text: item.point.text }
         const url = item.kind === 'annotation' ? item.annotation.message : item.check.detailsUrl
         return url ? { title: item.check.name, text: url } : null
       }
@@ -844,6 +907,7 @@ export class PRInfoPanelClass {
         hiddenConversationIds: this.hiddenConversationIds,
         flatConversationItems: this.flatConversationItems,
         flatCheckItems: this.flatCheckItems,
+        mergeStatus: this.mergeStatus,
         nav: this.nav,
         flashLabels: this.flashLabels,
         terminalWidth: getTerminalWidth(),

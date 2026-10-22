@@ -1,5 +1,6 @@
 import type { PRInfoPanelSection } from "../state"
 import type { ReactionTarget } from "../types"
+import type { MergePoint } from "./merge-status-model"
 import { ALL_SECTIONS, type FlatConversationItem } from "./pr-info-items"
 
 /** Where the reader is in the PR info panel, and what they have opened. */
@@ -12,6 +13,8 @@ export interface PrInfoNav {
   readonly expandedContent: ReadonlySet<string>
   // Per session only: never written to the session file (spec 043).
   readonly expandedCheckIds: ReadonlySet<number>
+  // Per session only, like the checks: which merge status lines are open (spec 108).
+  readonly expandedPoints: ReadonlySet<MergePoint["id"]>
   /** What `Ctrl-f` narrows the panel to (spec 065). Empty means everything. */
   readonly filter: string
 }
@@ -23,14 +26,16 @@ export function initialNav(): PrInfoNav {
   return {
     activeSection: 'description',
     cursorIndex: -1,
-    // Sections are collapsed on arrival but for the description: the panel's
-    // job is to say what there is — headers with their counts and a summary
-    // each — and let you open the one you came for, while the one thing you
-    // always want is what the PR says it does (specs 062, 067).
-    expandedSections: new Set(['description']),
+    // Sections are collapsed on arrival but for two: the panel's job is to
+    // say what there is — headers with their counts and a summary each — and
+    // let you open the one you came for, while the two things you always want
+    // are what the PR does and whether it can merge, down to which checks
+    // (specs 062, 067, 108).
+    expandedSections: new Set(['checks', 'description']),
     expandedThreads: new Set(),
     expandedContent: new Set(),
     expandedCheckIds: new Set(),
+    expandedPoints: new Set(['checks']),
     filter: "",
   }
 }
@@ -174,6 +179,22 @@ export function toggleCheck(nav: PrInfoNav, checkId: number): PrInfoNav {
   return { ...nav, expandedCheckIds: toggled(nav.expandedCheckIds, checkId) }
 }
 
+export function togglePoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
+  return { ...nav, expandedPoints: toggled(nav.expandedPoints, id) }
+}
+
+export function expandPoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
+  if (nav.expandedPoints.has(id)) return nav
+  return { ...nav, expandedPoints: new Set(nav.expandedPoints).add(id) }
+}
+
+export function collapsePoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
+  if (!nav.expandedPoints.has(id)) return nav
+  const expandedPoints = new Set(nav.expandedPoints)
+  expandedPoints.delete(id)
+  return { ...nav, expandedPoints }
+}
+
 /** Everything about a nav a refresh carries over to the next panel; the filter lives in app state. */
 export type NavPosition = Omit<PrInfoNav, "filter">
 
@@ -189,6 +210,7 @@ export function navAt(position: NavPosition, filter: string): PrInfoNav {
     expandedThreads: new Set(position.expandedThreads),
     expandedContent: new Set(position.expandedContent),
     expandedCheckIds: new Set(position.expandedCheckIds),
+    expandedPoints: new Set(position.expandedPoints),
     filter,
   }
 }

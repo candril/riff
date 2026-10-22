@@ -1,19 +1,22 @@
-import type { PrCheck, PrCommit, PrInfo } from "../providers/github/types"
+import type { PrCommit, PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewRow, PreviewSet } from "../utils/previews"
-import { theme } from "../theme"
+import { pointStyle, type MergeStatus } from "./merge-status-model"
 import { formatTimeAgo } from "./pr-info-format"
 import { visibleRows, type ConversationItem } from "./pr-info-items"
 
 export interface SectionConfig {
   id: PRInfoPanelSection
   title: string
-  count: number
+  /** Null for a section whose header carries no count. */
+  count: number | null
   /** Appended inside the header's brackets, e.g. `(2 · 1 hidden)`. */
   countSuffix?: string
   preview: string
   hasItems: boolean
+  /** Drawn at the header's right end, folded or not: the merge verdict (spec 108). */
+  trailing?: { text: string; fg: string }
 }
 
 export interface SectionConfigsInput {
@@ -22,28 +25,9 @@ export interface SectionConfigsInput {
   previews: PreviewSet | null
   conversationItems: ConversationItem[]
   hiddenConversationIds: ReadonlySet<string>
+  mergeStatus: MergeStatus
   filter: string
   now?: number
-}
-
-/**
- * Get aggregated checks status for collapsed preview
- */
-export function checksAggregateStatus(checks: PrCheck[]): { icon: string; color: string; text: string } {
-  if (checks.length === 0) {
-    return { icon: "○", color: theme.overlay0, text: "no checks" }
-  }
-
-  const pending = checks.filter(c => c.status !== "completed")
-  const failed = checks.filter(c => c.status === "completed" && c.conclusion !== "success" && c.conclusion !== "neutral" && c.conclusion !== "skipped")
-
-  if (failed.length > 0) {
-    return { icon: "✗", color: theme.red, text: `${failed.length} failed` }
-  } else if (pending.length > 0) {
-    return { icon: "○", color: theme.yellow, text: `${pending.length} pending` }
-  } else {
-    return { icon: "✓", color: theme.green, text: "all passed" }
-  }
 }
 
 /**
@@ -79,14 +63,23 @@ export function lastCommitSummary(commits: PrCommit[], now: number = Date.now())
   return last ? `last ${formatTimeAgo(last.date, now)}` : ""
 }
 
+const VERDICT_STATES = { ready: "ok", warnings: "warn", blocked: "fail" } as const
+
 export function sectionConfigs(input: SectionConfigsInput): SectionConfig[] {
   const { prInfo, conversationItems, hiddenConversationIds, filter } = input
   const { commits, files, previews } = visibleRows(input, filter)
   const bodyLines = (prInfo.body || "").split("\n").filter(l => l.trim()).length
-  const checkCount = prInfo.checks?.length ?? 0
-  const checksStatus = checksAggregateStatus(prInfo.checks ?? [])
+  const { verdict, verdictText } = input.mergeStatus
 
   return [
+    {
+      id: 'checks',
+      title: 'Merge status',
+      count: null,
+      preview: "",
+      hasItems: true,
+      trailing: { text: verdictText, fg: pointStyle(VERDICT_STATES[verdict]).fg },
+    },
     {
       id: 'description',
       title: 'Description',
@@ -100,13 +93,6 @@ export function sectionConfigs(input: SectionConfigsInput): SectionConfig[] {
       count: previews.length,
       preview: previewsSummary(input.previews, previews),
       hasItems: previews.length > 0,
-    },
-    {
-      id: 'checks',
-      title: 'Checks',
-      count: checkCount,
-      preview: `${checksStatus.icon} ${checksStatus.text}`,
-      hasItems: checkCount > 0,
     },
     {
       id: 'conversation',

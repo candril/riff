@@ -37,6 +37,12 @@ export function activate(deps: Deps, key: KeyEvent): void {
   const section = panel.getActiveSection()
   switch (section) {
     case 'checks': {
+      // Enter on the checks line opens or folds the checks under it, as on
+      // a failing check; the other gate lines have nothing to open.
+      if (panel.toggleSelectedPoint()) {
+        deps.render()
+        break
+      }
       // Enter on an annotation opens the file at that line in
       // $EDITOR (spec 043). We deliberately don't route through
       // the diff view — error sites are often in code the PR

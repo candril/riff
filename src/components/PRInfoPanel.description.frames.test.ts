@@ -18,7 +18,7 @@ const REACTIONS: ReactionSummary[] = [
 const SCREENSHOT = '<img width="1035" height="270" alt="Login screen" src="https://github.com/user-attachments/assets/c0d9674a" />'
 const FOUR_LINES = "one\n\ntwo\n\nthree\nfour"
 // Where the description's first line is drawn.
-const FIRST = 8
+const FIRST = 10
 
 /** j `times` times, a frame after each, as a reader pressing it would get. */
 async function press(panel: PRInfoPanelClass, frame: () => Promise<string>, times: number, delta: 1 | -1 = 1) {
@@ -33,7 +33,7 @@ async function press(panel: PRInfoPanelClass, frame: () => Promise<string>, time
 describe("the description", () => {
   test("says there is none for an empty body", async () => {
     const { lines, spans } = await mount({ info: prInfo(""), comments: [] })
-    expect(lines.slice(6, 10)).toEqual(["  ▼  Description (0)", "", "    No description provided", ""])
+    expect(lines.slice(FIRST - 2, FIRST + 2)).toEqual(["  ▼  Description (0)", "", "    No description provided", ""])
     expect(fgAt(spans, ...find(lines, "No description provided"))).toEqual(ints(theme.overlay0))
   })
 
@@ -48,7 +48,7 @@ describe("the description", () => {
   test("draws the prose, then the pictures it carried by name in sapphire, then its reactions as padded pills", async () => {
     const body = `Adds the **skill**.\n\n${SCREENSHOT}\n\nSecond line.\n\n![chart](https://example.com/chart.png)`
     const { lines, spans } = await mount({ info: prInfo(body, { bodyReactions: REACTIONS }), comments: [] })
-    expect(lines.slice(6, 15)).toEqual([
+    expect(lines.slice(FIRST - 2, FIRST + 7)).toEqual([
       "  ▼  Description (4)",
       "",
       "    Adds the skill.",
@@ -71,7 +71,7 @@ describe("the description", () => {
 
   test("draws a body that was only a picture as the picture's name alone", async () => {
     const { lines } = await mount({ info: prInfo(SCREENSHOT), comments: [] })
-    expect(lines.slice(6, 10)).toEqual(["  ▼  Description (1)", "", "    ▣ Login screen", ""])
+    expect(lines.slice(FIRST - 2, FIRST + 2)).toEqual(["  ▼  Description (1)", "", "    ▣ Login screen", ""])
   })
 })
 

@@ -59,6 +59,7 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
     expandSelectedCheck: record("expandSelectedCheck"),
     collapseSelectedCheck: record("collapseSelectedCheck"),
     toggleCheckExpansion: record("toggleCheckExpansion"),
+    toggleSelectedPoint: () => false,
     getSelectedCheck: () => undefined,
     getSelectedAnnotation: () => null,
     getSelectedPreview: () => ({ app: "vercel", links: [{ label: "a", url: "https://a" }, { label: "b", url: "https://b" }] }),

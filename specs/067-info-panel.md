@@ -34,15 +34,18 @@ glance, with everything else one keystroke away.
 - The metadata block is one row: **Author** and **Branch**. Status, Changes
   and Reviews go, because the header already carries them; the repeated title
   goes.
-- Sections are collapsed on arrival except **Description**, which is open.
-  (Already shipped.) Each collapsed header carries its count and a one-glance
-  summary:
+- Sections are collapsed on arrival except **Merge status**
+  ([108](./108-merge-status.md)) and **Description**, which are open. Each
+  collapsed header carries its count and a one-glance summary; Merge status
+  carries its verdict instead, folded or not:
 
 ```
+  ▼ Merge status                        ✗ blocked
+      ✗ Checks         40/42 · lint, e2e failing  ▼
+      …
   ▼ Description
       …
   ▶ Previews (6)          4 live · 2 on demand
-  ▶ Checks (42)           ✓ all passed
   ▶ Conversation (2)      1 unresolved
   ▶ Files (12)            +487 −53
   ▶ Commits (5)           last 17:14

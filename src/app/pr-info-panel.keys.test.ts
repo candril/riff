@@ -66,19 +66,44 @@ test("za folds the description the cursor starts on", async () => {
   expect(frame).not.toContain("Second line with code.")
 })
 
-test("j walks through the description's two lines down to the checks, k back up to the previews, and za unfolds where it lands", async () => {
+test("j walks through the description's two lines down to the previews, past them to the conversation, k back up, and za unfolds where it lands", async () => {
   const { mounted } = await overviewApp()
-  expect(await mounted.frame()).toContain("▶  Checks (6)")
+  expect(await mounted.frame()).toContain("▶  Conversation (7)")
 
   for (let i = 0; i < 4; i++) mounted.setup.mockInput.pressKey("j")
   mounted.setup.mockInput.pressKey("z")
   mounted.setup.mockInput.pressKey("a")
-  expect(await mounted.frame()).toContain("▼  Checks (6)")
+  expect(await mounted.frame()).toContain("▼  Conversation (7)")
 
   mounted.setup.mockInput.pressKey("k")
   mounted.setup.mockInput.pressKey("z")
   mounted.setup.mockInput.pressKey("a")
   expect(await mounted.frame()).toContain("▼  Previews (0)")
+})
+
+test("the overview opens on the merge status with its verdict, and h, l and Enter on its checks line fold and open the checks", async () => {
+  const { mounted } = await overviewApp()
+  const arrival = await mounted.frame()
+  expect(arrival).toMatch(/▼  Merge status +✗ blocked/)
+  expect(arrival).toContain("✗ Checks         1/6 · test, e2e +2 failing  ▼")
+  expect(arrival).toContain("      ✓ build")
+
+  // Up from the description's header is the merge status's last gate; the
+  // checks line is the first of its twelve rows.
+  for (let i = 0; i < 12; i++) mounted.setup.mockInput.pressKey("k")
+  mounted.setup.mockInput.pressKey("h")
+  const folded = await mounted.frame()
+  expect(folded).toContain("✗ Checks         1/6 · test, e2e +2 failing  ▶")
+  expect(folded).not.toContain("✓ build")
+
+  mounted.setup.mockInput.pressKey("l")
+  expect(await mounted.frame()).toContain("      ✓ build")
+
+  mounted.setup.mockInput.pressEnter()
+  expect(await mounted.frame()).not.toContain("✓ build")
+  mounted.setup.mockInput.pressKey("j")
+  mounted.setup.mockInput.pressEnter()
+  expect(await mounted.frame()).toContain("✗ Checks         1/6 · test, e2e +2 failing  ▶")
 })
 
 test("/ opens the overview's filter prompt", async () => {

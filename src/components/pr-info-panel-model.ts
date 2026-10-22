@@ -2,12 +2,14 @@ import type { PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewSet } from "../utils/previews"
+import type { MergeStatus } from "./merge-status-model"
 import { checkRows } from "./pr-info-check-rows"
 import { fileDiffContext } from "./pr-info-conversation-parts"
 import { conversationRows, type ConversationRows } from "./pr-info-conversation-rows"
 import { descriptionModel, type DescriptionModel } from "./pr-info-description"
 import { sectionHeaderRow, type SectionHeaderRow } from "./pr-info-header"
 import {
+  isExpandablePoint,
   visibleRows,
   type ConversationItem,
   type FlatCheckItem,
@@ -50,6 +52,7 @@ export interface PanelInput {
   hiddenConversationIds: ReadonlySet<string>
   flatConversationItems: FlatConversationItem[]
   flatCheckItems: FlatCheckItem[]
+  mergeStatus: MergeStatus
   nav: PrInfoNav
   flashLabels: ReadonlyMap<string, string>
   terminalWidth: number
@@ -65,6 +68,7 @@ export function panelSections(input: PanelInput): PanelSection[] {
     previews: input.previews,
     conversationItems: input.conversationItems,
     hiddenConversationIds: input.hiddenConversationIds,
+    mergeStatus: input.mergeStatus,
     filter: nav.filter,
   }).map((config) => {
     const active = config.id === nav.activeSection
@@ -117,7 +121,7 @@ function listRows(
       return checkRows(input.flatCheckItems, {
         ...rows,
         expanded: input.nav.expandedCheckIds,
-        hasChecks: (input.prInfo.checks ?? []).length > 0,
+        expandable: (point) => isExpandablePoint(point, input.prInfo.checks),
       })
     case 'files':
       return fileRows(visible.files, { ...rows, listWidth: input.listWidth })

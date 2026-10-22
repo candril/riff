@@ -46,14 +46,17 @@ most well-configured pipelines across CI providers.
   `gh api repos/{o}/{r}/check-runs/{id}/annotations --paginate`.
   Lazy — no fetch happens until the user expands a check.
 - **Inline expansion** in the checks rows built by
-  `src/components/pr-info-check-rows.ts` and drawn by `PRInfoListView`. A failed
-  check gets a disclosure indicator and expands to show annotations
-  below it. Cursor navigation walks flattened rows (check +
-  visible annotations), same pattern as `buildConversationContent`.
+  `src/components/pr-info-check-rows.ts` and drawn by `PRInfoListView`. The
+  checks sit under the checks line of the Merge status section
+  ([108](./108-merge-status.md)), which opens onto them. A failed check
+  gets a disclosure indicator and expands to show annotations below it.
+  Cursor navigation walks flattened rows (gate lines, checks and visible
+  annotations), same pattern as `buildConversationContent`.
 - **Jump to file** on Enter over an annotation, using the existing
   `onJumpToLocation(path, line)` callback that conversation comments
   already use.
-- **Keys** (checks section only) — mirror the conversation section's
+- **Keys** (Merge status section only; on its checks line `l` / `Enter`
+  open it and `h` folds it, spec 108) — mirror the conversation section's
   expand/collapse vocabulary so there's one set of muscle-memory keys
   for "drill into a row with children":
 

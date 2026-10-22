@@ -26,8 +26,9 @@ all. The end state is three views, one key apart, each keeping its place:
             └─────────────┘
 ```
 
-- **State** (`i`) — what is true now: description, previews, checks,
-  conversation, files, commits. Sections collapsed but for the description.
+- **State** (`i`) — what is true now: merge status, description, previews,
+  conversation, files, commits. Sections collapsed but for the merge status
+  and the description.
 - **Feed** (`a`) — what happened, newest first, filterable by type.
 - **Diff** (`d`) — unchanged, plus commit scoping from the feed.
 

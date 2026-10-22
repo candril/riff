@@ -31,17 +31,22 @@ says whose move it is, this section says why.
 
 - **The section**: "Merge status" first in the PR info panel, in place of
   Checks, borderless like the rest of the panel
-  ([106](./106-borderless-ui.md)).
+  ([106](./106-borderless-ui.md)). It is open on arrival, its checks line
+  too, beside the description: what the PR does and whether it can merge
+  are the two things always wanted. Its header carries no count.
 - **The verdict** at the section header's right end:
   - `✗ blocked` when any line fails, or GitHub's merge state is `BLOCKED`
     (it refuses the merge, whatever the lines say);
   - else `⚠ mergeable with warnings` when any line warns or is pending, or
     GitHub's merge state is `UNSTABLE`;
   - else `✓ ready`.
-  An information line never changes the verdict.
-- **Collapsed, one line per gate**, its icon from its state (`✓` ok, `⚠`
-  warning, `✗` failing, `○` pending, `ℹ` information), with detail only
-  where something is not fine:
+  An information line never changes the verdict. The verdict takes the
+  colour of the line state it matches (green, yellow, red), folded or not,
+  and a narrow panel cuts the title before it.
+- **One line per gate**: the icon, the gate's name padded to the longest,
+  then its text. The icon comes from its state (`✓` ok, `⚠` warning, `✗`
+  failing, `○` pending, `ℹ` information), with detail only where
+  something is not fine:
   - **Checks**: a check passes on success, neutral or skipped; the total
     is every check.
     - `9/9 passed`, or `no checks`.
@@ -73,9 +78,16 @@ says whose move it is, this section says why.
     running required check, failing review or open thread explains it; a
     pending `GitHub is still computing the merge state`; and the
     information `auto-merge armed (squash)`. With none of them, `none`.
-- **Expanding a line** shows its detail: checks expand to the full list
-  with durations and annotations ([043](./043-check-annotations.md)),
-  conversations to each unresolved thread.
+- **Expanding a line** shows its detail: checks expand to the full list,
+  indented under their line, each failing one opening onto its annotations
+  ([043](./043-check-annotations.md)); conversations to each unresolved
+  thread. `l` / `Enter` open the checks line, `h` folds it, and `h` on a
+  check with nothing open under it folds the line and climbs onto it. A
+  filter opens the checks line onto the checks it matches, and keeps a line
+  whose name or text matches.
+- **Not built**: the conversations line does not expand yet, so the
+  unresolved threads and the jump to one (P2) are still only in the
+  Conversation section.
 
 ### P2
 
@@ -115,6 +127,19 @@ a REST compare made once after the first render, like the stacked-PR check
 - `src/components/merge-status-model.ts`: `mergeStatus({ prInfo, comments,
   behindBy })` turns a PR into the verdict and its lines; `pointStyle`
   gives each line state its icon and colour.
+- The section keeps the id `checks`: the nav, the restore and the row
+  actions key on it. `flatCheckItems` (`src/components/pr-info-items.ts`)
+  lays out its rows, a `point` per gate and the checks under the open
+  checks line; `checkRows` (`src/components/pr-info-check-rows.ts`) draws
+  them, keyed `point:<id>`. Which lines are open is `expandedPoints` in
+  `src/components/pr-info-nav.ts`, per session like the open checks.
+- `sectionConfigs` hands the header the verdict as `trailing`, which
+  `PRInfoSectionHeader` (`src/components/PRInfoHeaderViews.tsx`) draws at
+  the row's right end, unshrinking.
+- `PRInfoPanelClass` recomputes the model when the PR, the comments or the
+  behind count change; `setBehindBy` takes the count from
+  `fetchBehindBy` (`src/providers/github/lookups.ts`), which `app.ts`
+  calls once per panel after the first render.
 - `src/components/pr-info-header.ts`: `latestReviewStates`, the latest
   review per author, shared with the panel's approvers line.
 - `PrInfo.mergeable`, `PrInfo.requiredApprovals` and `PrCheck.isRequired`

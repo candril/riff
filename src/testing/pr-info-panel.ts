@@ -43,6 +43,12 @@ export interface MountPrInfoPanel {
   columns?: number
   /** Opened and made active before `prepare` runs. */
   section?: PRInfoPanelSection
+  /**
+   * Leave the merge status open, as the panel opens it. Folded otherwise, so
+   * a test of another section is not drawing a dozen gate and check lines
+   * above it; `section: "checks"` opens it all the same.
+   */
+  mergeStatusOpen?: boolean
   prepare?: (panel: PRInfoPanelClass) => void
 }
 
@@ -91,6 +97,7 @@ export function usePrInfoPanel() {
     width = 120,
     columns = width === 120 ? undefined : width,
     section,
+    mergeStatusOpen = false,
     prepare = () => {},
   }: MountPrInfoPanel = {}) {
     const restore = columns === undefined ? null : pinStdoutColumns(columns)
@@ -106,6 +113,7 @@ export function usePrInfoPanel() {
         { width, height }
       )
       mounted.push(screen)
+      if (!mergeStatusOpen) foldMergeStatus(shown)
       if (section) {
         shown.setActiveSection(section)
         shown.expandSection()
@@ -117,4 +125,11 @@ export function usePrInfoPanel() {
       restore?.()
     }
   }
+}
+
+function foldMergeStatus(panel: PRInfoPanelClass): void {
+  const active = panel.getActiveSection()
+  panel.setActiveSection("checks")
+  panel.collapseSection()
+  panel.setActiveSection(active)
 }

@@ -1,14 +1,16 @@
 import { describe, expect, test } from "bun:test"
-import type { PrCheck, PrInfo } from "../providers/github/types"
+import type { PrInfo } from "../providers/github/types"
 import { checks, commits, conversationComments, prInfo, previews, PR_NOW, reviews, reviewThreadComments } from "../testing/pr-info"
 import type { DiffFile } from "../utils/diff-parser"
+import { theme } from "../theme"
+import { mergeStatus } from "./merge-status-model"
 import { conversationItems } from "./pr-info-items"
 import {
-  checksAggregateStatus,
   lastCommitSummary,
   previewsSummary,
   sectionConfigs,
   unresolvedSummary,
+  type SectionConfig,
   type SectionConfigsInput,
 } from "./pr-info-sections"
 
@@ -37,29 +39,32 @@ function input(over: Partial<SectionConfigsInput> = {}): SectionConfigsInput {
     previews: previews(),
     conversationItems: conversationItems(info, reviewThreadComments(), hidden),
     hiddenConversationIds: hidden,
+    mergeStatus: mergeStatus({ prInfo: info, comments: reviewThreadComments(), behindBy: null }),
     filter: "",
     now: NOW,
     ...over,
   }
 }
 
-const header = (config: { title: string; count: number; countSuffix?: string; preview: string; hasItems: boolean }) =>
-  `${config.title} (${config.count}${config.countSuffix ?? ""}) ${config.preview}${config.hasItems ? "" : " [no items]"}`
+const header = (config: SectionConfig) =>
+  config.count === null
+    ? `${config.title} → ${config.trailing?.text}`
+    : `${config.title} (${config.count}${config.countSuffix ?? ""}) ${config.preview}${config.hasItems ? "" : " [no items]"}`
 
 describe("sectionConfigs", () => {
   test("names, counts and sums up all six sections of the full PR", () => {
     expect(sectionConfigs(input()).map(header)).toEqual([
+      "Merge status → ✗ blocked",
       "Description (2) 2 lines [no items]",
       "Previews (2) 1 live · 1 on demand  ·  from deploy-bot[bot]",
-      "Checks (6) ✗ 4 failed",
       "Conversation (7) 2 unresolved",
       "Files (2) +98 -0",
       "Commits (23) last 1h",
     ])
     expect(sectionConfigs(input()).map((config) => config.id)).toEqual([
+      "checks",
       "description",
       "previews",
-      "checks",
       "conversation",
       "files",
       "commits",
@@ -74,19 +79,19 @@ describe("sectionConfigs", () => {
 
   test("calls a description without text empty", () => {
     const configs = sectionConfigs(input({ prInfo: fullPr({ body: "  \n\n" }) }))
-    expect(header(configs[0]!)).toBe("Description (0) empty [no items]")
+    expect(header(configs[1]!)).toBe("Description (0) empty [no items]")
   })
 
   test("leaves the previews summary empty without previews", () => {
-    expect(header(sectionConfigs(input({ previews: null }))[1]!)).toBe("Previews (0)  [no items]")
+    expect(header(sectionConfigs(input({ previews: null }))[2]!)).toBe("Previews (0)  [no items]")
   })
 
   test("counts what the filter leaves", () => {
     const configs = sectionConfigs(input({ filter: "farewell" }))
     expect(configs.map(header)).toEqual([
+      "Merge status → ✗ blocked",
       "Description (2) 2 lines [no items]",
       "Previews (0) from deploy-bot[bot] [no items]",
-      "Checks (6) ✗ 4 failed",
       "Conversation (7) 2 unresolved",
       "Files (1) +98 -0",
       "Commits (0)  [no items]",
@@ -95,36 +100,17 @@ describe("sectionConfigs", () => {
   })
 })
 
-describe("checksAggregateStatus", () => {
-  const check = (over: Partial<PrCheck>): PrCheck => ({
-    id: 1,
-    name: "build",
-    status: "completed",
-    conclusion: "success",
-    detailsUrl: null,
-    startedAt: null,
-    completedAt: null,
-    ...over,
-  })
+describe("the merge status header", () => {
+  const verdictOf = (status: ReturnType<typeof mergeStatus>) => sectionConfigs(input({ mergeStatus: status }))[0]!.trailing
 
-  test("says no checks without any", () => {
-    expect(checksAggregateStatus([]).text).toBe("no checks")
-  })
-
-  test("counts failures before anything pending", () => {
-    expect(checksAggregateStatus(checks())).toMatchObject({ icon: "✗", text: "4 failed" })
-  })
-
-  test("counts what is pending when nothing failed", () => {
-    expect(
-      checksAggregateStatus([check({}), check({ status: "queued", conclusion: null }), check({ status: "in_progress", conclusion: null })])
-    ).toMatchObject({ icon: "○", text: "2 pending" })
-  })
-
-  test("calls success, neutral and skipped all passed", () => {
-    expect(
-      checksAggregateStatus([check({}), check({ conclusion: "neutral" }), check({ conclusion: "skipped" })])
-    ).toMatchObject({ icon: "✓", text: "all passed" })
+  test("carries the verdict in its line state's colour, and no count or preview", () => {
+    const pr = prInfo("", { baseRef: "main", mergeable: "MERGEABLE", mergeStateStatus: "CLEAN", checks: [] })
+    expect(verdictOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 0 }))).toEqual({ text: "✓ ready", fg: theme.green })
+    expect(verdictOf(mergeStatus({ prInfo: pr, comments: [], behindBy: 2 })))
+      .toEqual({ text: "⚠ mergeable with warnings", fg: theme.yellow })
+    expect(verdictOf(mergeStatus({ prInfo: { ...pr, isDraft: true }, comments: [], behindBy: 0 })))
+      .toEqual({ text: "✗ blocked", fg: theme.red })
+    expect(sectionConfigs(input())[0]).toMatchObject({ title: "Merge status", count: null, preview: "" })
   })
 })
 

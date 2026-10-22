@@ -15,6 +15,7 @@ import {
   type ConversationItem,
   type FlatCheckItem,
 } from "./pr-info-items"
+import type { MergePoint } from "./merge-status-model"
 
 const NONE: ReadonlySet<string> = new Set()
 
@@ -135,6 +136,8 @@ describe("flatConversationItems", () => {
 describe("flatCheckItems", () => {
   const row = (item: FlatCheckItem) => {
     switch (item.kind) {
+      case "point":
+        return `[${item.point.id}]`
       case "check":
         return item.check.name
       case "annotation":
@@ -144,14 +147,35 @@ describe("flatCheckItems", () => {
     }
   }
   const byName = (name: string) => checks().find((check) => check.name === name)!
+  const CHECKS: MergePoint = { id: "checks", state: "fail", text: "1/6 · test, e2e +2 failing" }
+  const POINTS: MergePoint[] = [
+    CHECKS,
+    { id: "reviews", state: "ok", text: "2/2 approvals" },
+    { id: "base", state: "warn", text: "3 commits behind main" },
+  ]
+  const OPEN = new Set(["checks"] as const)
+  const items = (
+    list: PrCheck[] | undefined,
+    { expanded = new Set<number>(), points = [CHECKS], open = OPEN as ReadonlySet<MergePoint["id"]>, filter = "" } = {}
+  ) => flatCheckItems(points, list, { expandedCheckIds: expanded, expandedPoints: open, filter }).map(row)
+
+  test("gives each gate a row, in the model's order, and nothing under a folded checks line", () => {
+    expect(items(checks(), { points: POINTS, open: new Set() })).toEqual(["[checks]", "[reviews]", "[base]"])
+  })
+
+  test("lists the checks under the open checks line, before the next gate", () => {
+    expect(items(checks(), { points: POINTS })).toEqual([
+      "[checks]", "build", "lint", "test", "e2e", "deploy", "audit", "[reviews]", "[base]",
+    ])
+  })
 
   test("gives a collapsed failing check one row", () => {
-    expect(flatCheckItems([byName("test")], new Set(), "").map(row)).toEqual(["test"])
+    expect(items([byName("test")])).toEqual(["[checks]", "test"])
   })
 
   test("follows an expanded failing check with its annotations, or a placeholder for where they are", () => {
-    const all = checks()
-    expect(flatCheckItems(all, new Set([3, 4, 5, 6]), "").map(row)).toEqual([
+    expect(items(checks(), { expanded: new Set([3, 4, 5, 6]) })).toEqual([
+      "[checks]",
       "build",
       "lint",
       "test",
@@ -167,7 +191,8 @@ describe("flatCheckItems", () => {
   })
 
   test("adds nothing under an expanded check that has not failed", () => {
-    expect(flatCheckItems(checks(), new Set([1, 2]), "").map(row)).toEqual([
+    expect(items(checks(), { expanded: new Set([1, 2]) })).toEqual([
+      "[checks]",
       "build",
       "lint",
       "test",
@@ -179,15 +204,20 @@ describe("flatCheckItems", () => {
 
   test("adds nothing under an expanded failing check whose annotations were never asked for", () => {
     const idle: PrCheck = { ...byName("test"), annotations: undefined, annotationsStatus: undefined }
-    expect(flatCheckItems([idle], new Set([3]), "").map(row)).toEqual(["test"])
+    expect(items([idle], { expanded: new Set([3]) })).toEqual(["[checks]", "test"])
   })
 
-  test("a filter on the name keeps only the checks that match", () => {
-    expect(flatCheckItems(checks(), new Set(), "e2e").map(row)).toEqual(["e2e"])
+  test("a filter on a check's name keeps the checks line, opened, with only the checks that match", () => {
+    expect(items(checks(), { points: POINTS, open: new Set(), filter: "e2e" })).toEqual(["[checks]", "e2e"])
   })
 
-  test("lists nothing without checks", () => {
-    expect(flatCheckItems(undefined, new Set(), "")).toEqual([])
+  test("a filter keeps a gate whose label or text matches", () => {
+    expect(items(checks(), { points: POINTS, filter: "behind" })).toEqual(["[base]"])
+    expect(items(checks(), { points: POINTS, filter: "review" })).toEqual(["[reviews]"])
+  })
+
+  test("lists only the checks line without checks", () => {
+    expect(items(undefined, { points: [{ id: "checks", state: "ok", text: "no checks" }] })).toEqual(["[checks]"])
   })
 })
 

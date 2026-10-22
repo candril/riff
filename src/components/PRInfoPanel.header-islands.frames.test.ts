@@ -43,14 +43,14 @@ describe("the header and meta rows, pushed to again", () => {
           width,
           info: { ...fullPr(), reviews: approved() },
           prepare: (p) => {
-            p.setActiveSection("checks")
+            p.setActiveSection("conversation")
             p.setStack(STACK)
           },
         })
 
         expect(lines[1]).toStartWith("  @someone  a-branch → master   ✓ @alice @erin @frank-from-platform @grace-")
         expect(lines[2]).toBe("  stacked on #1200 Base work · base moved on by 3 commits")
-        expect(lines).toContain("  ▶  Checks (6)  ✗ 4 failed")
+        expect(lines[6]).toBe(`  ▶  Merge status${" ".repeat(width - 28)}✗ blocked`)
         expect(lines).toEqual(fresh.lines)
         expect(spans).toEqual(fresh.spans)
       } finally {
@@ -76,13 +76,14 @@ describe("the header and meta rows, pushed to again", () => {
       const fresh = await mount({
         width,
         prepare: (p) => {
-          p.setActiveSection("checks")
+          p.setActiveSection("conversation")
           p.setHiddenConversation(new Set(["502"]))
           p.setFlashLabels(labels)
         },
       })
 
       expect(lines).toContain("  ab ▶  Conversation (6 · 1 hidden")
+      expect(lines[6]).toBe("  c ▶  Merge status      ✗ blocked")
       expect(lines).toEqual(fresh.lines)
       expect(spans).toEqual(fresh.spans)
     } finally {

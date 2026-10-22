@@ -104,6 +104,7 @@ export function toggleFold(deps: Deps): void {
   if (section === 'conversation') {
     panel.toggleSelectedThread()
   } else if (section === 'checks') {
+    if (panel.toggleSelectedPoint()) return
     const check = panel.getSelectedCheck()
     if (check) panel.toggleCheckExpansion(check.id)
   } else {

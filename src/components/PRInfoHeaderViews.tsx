@@ -4,13 +4,15 @@ import type { PanelMeta, SectionHeaderRow, StackLine } from "./pr-info-header"
 
 /**
  * One section header of the PR info panel: label, indicator, title and
- * count, then the collapsed preview. Like the meta row, it is one text cut
- * at the edge rather than a row of texts sharing out the shrink.
+ * count, then the collapsed preview, and the verdict at the right end. Like
+ * the meta row, the left part is one text cut at the edge rather than a row
+ * of texts sharing out the shrink; the verdict never shrinks, so a narrow
+ * panel cuts the title before it loses the answer.
  */
 export function PRInfoSectionHeader(props: { row: SectionHeaderRow }) {
   return (
     <box flexDirection="row" height={1} backgroundColor={props.row.highlighted ? theme.surface0 : undefined}>
-      <text wrapMode="none">
+      <text wrapMode="none" flexShrink={1} minWidth={0}>
         <Show when={props.row.label}>
           {(label: () => string) => <span style={{ fg: colors.flashLabel }}>{`${label()} `}</span>}
         </Show>
@@ -19,6 +21,16 @@ export function PRInfoSectionHeader(props: { row: SectionHeaderRow }) {
           {(preview: () => string) => <span style={{ fg: theme.subtext0 }}>{`  ${preview()}`}</span>}
         </Show>
       </text>
+      <Show when={props.row.trailing}>
+        {(trailing: () => { text: string; fg: string }) => (
+          <>
+            <box flexGrow={1} minWidth={1} />
+            <text wrapMode="none" flexShrink={0} fg={trailing().fg}>
+              {trailing().text}
+            </text>
+          </>
+        )}
+      </Show>
     </box>
   )
 }

@@ -24,21 +24,21 @@ describe("previews", () => {
         p.moveCursor(1)
       },
     })
-    expect(lines.slice(11, 16)).toEqual([
+    expect(lines.slice(13, 18)).toEqual([
       "  ▼  Previews (3)",
       "",
       "    web                  preview  storybook  #812",
       "    admin                on demand",
       "    storefront-checkout  preview",
     ])
-    expect(bgAt(spans, 4, 13)).toEqual(ints(theme.surface0))
-    expect(bgAt(spans, 115, 13)).toEqual(ints(theme.surface0))
-    expect(fgAt(spans, 4, 13)).toEqual(ints(theme.text))
+    expect(bgAt(spans, 4, 15)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 115, 15)).toEqual(ints(theme.surface0))
+    expect(fgAt(spans, 4, 15)).toEqual(ints(theme.text))
     expect(fgAt(spans, ...find(lines, "preview  storybook"))).toEqual(ints(theme.blue))
     expect(fgAt(spans, ...find(lines, "#812"))).toEqual(ints(theme.overlay0))
     expect(fgAt(spans, ...find(lines, "on demand"))).toEqual(ints(theme.overlay0))
-    expect(bgAt(spans, 4, 14)).toEqual(ints(theme.base))
-    expect(fgAt(spans, 4, 15)).toEqual(ints(theme.subtext1))
+    expect(bgAt(spans, 4, 16)).toEqual(ints(theme.base))
+    expect(fgAt(spans, 4, 17)).toEqual(ints(theme.subtext1))
   })
 })
 
@@ -52,7 +52,7 @@ describe("a cursor move in checks", () => {
       section: "checks",
       prepare: (p) => {
         p.toggleCheckExpansion(3)
-        p.moveCursor(3)
+        p.moveCursor(4)
       },
     })
     const [, y] = find(lines, "✗ test")
@@ -63,14 +63,18 @@ describe("a cursor move in checks", () => {
     panel.moveCursor(1)
     const moved = (await mounted.frame()).split("\n")
     const after = mounted.setup.captureSpans()
-    expect(moved.slice(y, y + 3)).toEqual(["    ✗ test (failure)  ▼ [2]", "      • src/greet.ts:12:5", "          Expected 2, got 3"])
+    expect(moved.slice(y, y + 3)).toEqual([
+      "      ✗ test (failure)  ▼ [2]",
+      "        • src/greet.ts:12:5",
+      "            Expected 2, got 3",
+    ])
     expect(bgAt(after, 4, y)).toEqual(ints(theme.base))
-    expect(fgAt(after, 6, y)).toEqual(ints(theme.subtext1))
+    expect(fgAt(after, 8, y)).toEqual(ints(theme.subtext1))
     for (const row of [y + 1, y + 2]) {
       expect(bgAt(after, 4, row)).toEqual(ints(theme.surface0))
       expect(bgAt(after, 115, row)).toEqual(ints(theme.surface0))
     }
-    expect(fgAt(after, 8, y + 1)).toEqual(ints(theme.text))
+    expect(fgAt(after, 10, y + 1)).toEqual(ints(theme.text))
     const rows = islandRows(root, "pr-info-checks")
     expect(rows).toHaveLength(before.length)
     rows.forEach((row, i) => expect(row).toBe(before[i]!))
@@ -156,30 +160,30 @@ describe("flash labels in checks", () => {
       section: "checks",
       prepare: (p) => {
         p.toggleCheckExpansion(3)
-        p.setFlashLabels(new Map([["checks:2", "a"], ["checks:3", "sd"]]))
+        p.setFlashLabels(new Map([["checks:3", "a"], ["checks:4", "sd"]]))
       },
     })
     const [, y] = find(lines, "✗ test")
     expect(lines.slice(y, y + 5)).toEqual([
-      "    a ✗ test (failure)  ▼ [2]",
-      "    sd   • src/greet.ts:12:5",
-      "          Expected 2, got 3",
-      "      • src/farewell.ts",
-      "          Unused export",
+      "    a   ✗ test (failure)  ▼ [2]",
+      "    sd     • src/greet.ts:12:5",
+      "            Expected 2, got 3",
+      "        • src/farewell.ts",
+      "            Unused export",
     ])
     expect(fgAt(spans, 4, y)).toEqual(ints(colors.flashLabel))
-    expect(fgAt(spans, 6, y)).toEqual(ints(theme.red))
+    expect(fgAt(spans, 8, y)).toEqual(ints(theme.red))
     expect(fgAt(spans, 4, y + 1)).toEqual(ints(colors.flashLabel))
     expect(fgAt(spans, ...find(lines, "• src/greet.ts"))).toEqual(ints(theme.red))
 
     panel.setFlashLabels(new Map())
     const cleared = (await mounted.frame()).split("\n")
     expect(cleared.slice(y, y + 3)).toEqual([
-      "    ✗ test (failure)  ▼ [2]",
-      "      • src/greet.ts:12:5",
-      "          Expected 2, got 3",
+      "      ✗ test (failure)  ▼ [2]",
+      "        • src/greet.ts:12:5",
+      "            Expected 2, got 3",
     ])
-    expect(fgAt(mounted.setup.captureSpans(), 4, y)).toEqual(ints(theme.red))
+    expect(fgAt(mounted.setup.captureSpans(), 6, y)).toEqual(ints(theme.red))
   })
 })
 

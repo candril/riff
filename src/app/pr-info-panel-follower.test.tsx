@@ -66,12 +66,12 @@ describe("the PR info panel following the frame", () => {
 
     publish({}, LABELS)
     const labelled = (await mounted.frame()).split("\n")
-    expect(labelled).toContain("  a ▶  Checks (6)  ✗ 4 failed")
+    expect(labelled).toContainEqual(expect.stringMatching(/^  a ▶  Merge status +✗ blocked$/))
     expect(labelled).toContain("    sd src/farewell.ts    +5    -0")
 
     publish({}, { ...LABELS, surface: "comments" })
     const cleared = (await mounted.frame()).split("\n")
-    expect(cleared).toContain("  ▶  Checks (6)  ✗ 4 failed")
+    expect(cleared).toContainEqual(expect.stringMatching(/^  ▶  Merge status +✗ blocked$/))
     expect(cleared).toContain("    src/farewell.ts    +5    -0")
   })
 
@@ -137,7 +137,7 @@ describe("the PR info panel following the frame", () => {
     const swapped = await second.mounted.frame()
     expect(swapped).toContain("Add PR Comment")
     expect(swapped).toContain("hello")
-    expect(swapped).toContain("  a ▶  Checks (6)  ✗ 4 failed")
+    expect(swapped).toMatch(/\n  a ▶  Merge status +✗ blocked\n/)
     expect(await first.mounted.frame()).toBe(before)
   })
 

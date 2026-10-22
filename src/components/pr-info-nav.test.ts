@@ -5,10 +5,12 @@ import {
   bottomTarget,
   collapseAll,
   collapseContent,
+  collapsePoint,
   cycleSection,
   cycleSectionToEnd,
   expandAll,
   expandContent,
+  expandPoint,
   flashJumpNav,
   flashTargets,
   initialNav,
@@ -20,6 +22,7 @@ import {
   stepNav,
   toggleCheck,
   toggleContent,
+  togglePoint,
   withCursor,
   withFilter,
   type PrInfoNav,
@@ -44,14 +47,15 @@ function nav(over: Partial<PrInfoNav> = {}): PrInfoNav {
 const open = (...sections: PRInfoPanelSection[]) => new Set<PRInfoPanelSection>(sections)
 
 describe("initialNav", () => {
-  test("starts on the description's header with only the description open", () => {
+  test("starts on the description's header with the merge status, its checks line, and the description open", () => {
     expect(initialNav()).toEqual({
       activeSection: 'description',
       cursorIndex: -1,
-      expandedSections: open('description'),
+      expandedSections: open('checks', 'description'),
       expandedThreads: new Set(),
       expandedContent: new Set(),
       expandedCheckIds: new Set(),
+      expandedPoints: new Set(['checks']),
       filter: "",
     })
   })
@@ -79,7 +83,7 @@ describe("moveCursor", () => {
 describe("stepNav", () => {
   test("goes from the last row down onto the next section's header", () => {
     const from = nav({ activeSection: 'checks', cursorIndex: 1, expandedSections: open('checks') })
-    expect(stepNav(from, 1, counts())).toMatchObject({ activeSection: 'conversation', cursorIndex: -1 })
+    expect(stepNav(from, 1, counts())).toMatchObject({ activeSection: 'description', cursorIndex: -1 })
   })
 
   test("moves within an open section", () => {
@@ -88,19 +92,19 @@ describe("stepNav", () => {
   })
 
   test("goes from a header up onto the open section above's last row", () => {
-    const from = nav({ activeSection: 'conversation', expandedSections: open('checks', 'conversation') })
-    expect(stepNav(from, -1, counts())).toMatchObject({ activeSection: 'checks', cursorIndex: 1 })
+    const from = nav({ activeSection: 'conversation', expandedSections: open('previews', 'conversation') })
+    expect(stepNav(from, -1, counts({ previews: 2 }))).toMatchObject({ activeSection: 'previews', cursorIndex: 1 })
   })
 
   test("goes up onto the header of a folded or empty section", () => {
     const belowFolded = nav({ activeSection: 'conversation', expandedSections: open() })
-    expect(stepNav(belowFolded, -1, counts())).toMatchObject({ activeSection: 'checks', cursorIndex: -1 })
-    const belowEmpty = nav({ activeSection: 'checks', expandedSections: open('previews') })
+    expect(stepNav(belowFolded, -1, counts({ previews: 2 }))).toMatchObject({ activeSection: 'previews', cursorIndex: -1 })
+    const belowEmpty = nav({ activeSection: 'conversation', expandedSections: open('previews') })
     expect(stepNav(belowEmpty, -1, counts())).toMatchObject({ activeSection: 'previews', cursorIndex: -1 })
   })
 
   test("does not wrap at either end of the panel", () => {
-    expect(stepNav(nav(), -1, counts())).toBeNull()
+    expect(stepNav(nav({ activeSection: 'checks' }), -1, counts())).toBeNull()
     const last = nav({ activeSection: 'commits', cursorIndex: 1, expandedSections: open('commits') })
     expect(stepNav(last, 1, counts())).toBeNull()
   })
@@ -108,26 +112,26 @@ describe("stepNav", () => {
 
 describe("cycleSection", () => {
   test("wraps both ways onto a header", () => {
-    expect(cycleSection(nav(), -1)).toMatchObject({ activeSection: 'commits', cursorIndex: -1 })
+    expect(cycleSection(nav({ activeSection: 'checks' }), -1)).toMatchObject({ activeSection: 'commits', cursorIndex: -1 })
     expect(cycleSection(nav({ activeSection: 'commits', cursorIndex: 1 }), 1))
-      .toMatchObject({ activeSection: 'description', cursorIndex: -1 })
+      .toMatchObject({ activeSection: 'checks', cursorIndex: -1 })
   })
 })
 
 describe("cycleSectionToEnd", () => {
   test("lands on the last row of an open section with rows", () => {
-    const from = nav({ activeSection: 'conversation', expandedSections: open('checks') })
-    expect(cycleSectionToEnd(from, -1, counts())).toMatchObject({ activeSection: 'checks', cursorIndex: 1 })
+    const from = nav({ activeSection: 'conversation', expandedSections: open('previews') })
+    expect(cycleSectionToEnd(from, -1, counts({ previews: 2 }))).toMatchObject({ activeSection: 'previews', cursorIndex: 1 })
   })
 
   test("lands on the header of an open empty section", () => {
-    const from = nav({ activeSection: 'checks', expandedSections: open('previews') })
+    const from = nav({ activeSection: 'conversation', expandedSections: open('previews') })
     expect(cycleSectionToEnd(from, -1, counts())).toMatchObject({ activeSection: 'previews', cursorIndex: -1 })
   })
 
   test("lands on the header of a folded section", () => {
     const from = nav({ activeSection: 'conversation', expandedSections: open() })
-    expect(cycleSectionToEnd(from, -1, counts())).toMatchObject({ activeSection: 'checks', cursorIndex: -1 })
+    expect(cycleSectionToEnd(from, -1, counts({ previews: 2 }))).toMatchObject({ activeSection: 'previews', cursorIndex: -1 })
   })
 })
 
@@ -187,6 +191,7 @@ describe("navAt", () => {
       expandedThreads: new Set(["t"]),
       expandedContent: new Set(["c"]),
       expandedCheckIds: new Set([3]),
+      expandedPoints: new Set(['checks'] as const),
     }
     const restored = navAt(position, "greet")
     expect(restored).toEqual({ ...position, filter: "greet" })
@@ -208,7 +213,7 @@ describe("restoreNav", () => {
 describe("flashTargets", () => {
   test("labels every header and the rows of open sections but the description", () => {
     expect(flashTargets(nav({ expandedSections: open('description', 'checks') }), counts())).toEqual([
-      'description', 'previews', 'checks', 'checks:0', 'checks:1', 'conversation', 'files', 'commits',
+      'checks', 'checks:0', 'checks:1', 'description', 'previews', 'conversation', 'files', 'commits',
     ])
   })
 })
@@ -234,6 +239,17 @@ describe("bottomTarget", () => {
 })
 
 describe("toggles", () => {
+  test("the point toggles add and remove, and expand/collapse hand back the same nav when there is nothing to do", () => {
+    const folded = nav({ expandedPoints: new Set() })
+    const opened = togglePoint(folded, 'checks')
+    expect(opened.expandedPoints).toEqual(new Set(['checks']))
+    expect(togglePoint(opened, 'checks').expandedPoints).toEqual(new Set())
+    expect(expandPoint(opened, 'checks')).toBe(opened)
+    expect(collapsePoint(folded, 'checks')).toBe(folded)
+    expect(expandPoint(folded, 'checks').expandedPoints).toEqual(new Set(['checks']))
+    expect(collapsePoint(opened, 'checks').expandedPoints).toEqual(new Set())
+  })
+
   test("toggleCheck adds and removes a check", () => {
     const opened = toggleCheck(nav(), 7)
     expect(opened.expandedCheckIds).toEqual(new Set([7]))
