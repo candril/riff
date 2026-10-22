@@ -30,7 +30,6 @@ const at = (file: string | null, line: number, col = 0, settled = true): Moment 
   settled,
   stepsMoveTheDiff: false,
 })
-/** The same moment with the thread panel holding the keys. */
 const inPanel = (m: Moment): Moment => ({ ...m, stepsMoveTheDiff: true })
 const open = (m: Moment): Moment => ({ ...m, settled: false })
 
@@ -239,6 +238,28 @@ describe("a row anchored to the line above it", () => {
 
   test("a jump that stays on the very same line is not", () => {
     expect(drive(anchored(10), [[key("G"), anchored(10)]])).toEqual([])
+  })
+})
+
+describe("a z command", () => {
+  // A fold or the wrap toggle renumbers the mapping under an anchor that stays put.
+  const anchored = (cursorLine: number): Moment => ({
+    ...at("a.ts", cursorLine),
+    place: { ...place(cursorLine), anchor: { filename: "a.ts", line: 9, side: "RIGHT" } },
+  })
+
+  test("that only moves the cursor's line under the same anchor records nothing", () => {
+    expect(drive(anchored(10), [[key("z"), open(anchored(10))], [key("M", { shift: true }), anchored(4)]])).toEqual([])
+    expect(drive(anchored(4), [[key("z"), open(anchored(4))], [key("w"), anchored(12)]])).toEqual([])
+  })
+
+  test("that breaks off into a jump to another row records where the z was pressed", () => {
+    const pushed = drive(anchored(10), [
+      [key("z"), open(anchored(10))],
+      [key("g"), open(anchored(10))],
+      [key("g"), at("a.ts", 0)],
+    ])
+    expect(pushed).toEqual([anchored(10).place])
   })
 })
 

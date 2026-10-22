@@ -20,9 +20,7 @@ export interface MarksContext {
   setVimState: (s: VimCursorState) => void
   /** The unified mapping: the cursor's line is one of its rows in split too. */
   getLineMapping: () => DiffLineMapping
-  /** The active split pane, or null in unified. */
   getPane: () => Pane | null
-  /** Makes a pane active in split; nothing in unified. */
   setPane: (pane: Pane) => void
   ensureCursorVisible: () => void
   render: () => void

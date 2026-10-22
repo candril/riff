@@ -327,6 +327,24 @@ describe("apply", () => {
     expect(h.state().reactionTarget).toBeNull()
   })
 
+  test("from the PR overview to a feed entry in another file, the feed key's way back is the overview", () => {
+    const h = applying([X, Y], { appMode: "pr" })
+    const feedEntry = h.entry({ viewMode: "feed", fileIndex: 1, filename: "src/y.ts", anchor: null })
+    h.ctx.setState((s) => ({ ...s, viewMode: "state", previousView: "diff", selectedFileIndex: 0 }))
+    apply(feedEntry, h.ctx)
+    expect(h.state().viewMode).toBe("feed")
+    expect(h.state().previousView).toBe("state")
+  })
+
+  test("from the PR overview to an overview entry in another file, the way back stays what it was", () => {
+    const h = applying([X, Y], { appMode: "pr" })
+    const overview = h.entry({ viewMode: "state", fileIndex: 1, filename: "src/y.ts", anchor: null })
+    h.ctx.setState((s) => ({ ...s, viewMode: "state", previousView: "feed", selectedFileIndex: 0 }))
+    apply(overview, h.ctx)
+    expect(h.state().viewMode).toBe("state")
+    expect(h.state().previousView).toBe("feed")
+  })
+
   test("makes the entry's side the active pane on a context row", () => {
     // Row 5 of [X, Y] is a context row, old 3 and new 4: see src/testing/marks.ts.
     const h = applying([X, Y], { splitView: true })

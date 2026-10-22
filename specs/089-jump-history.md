@@ -50,6 +50,7 @@ they arrive.
   cursor is what decides — in that view there is no selected file to ask.
 - `Ctrl-o` and `Ctrl-i` are not jumps either — walking the list does not
   extend it, even when it lands in another file.
+- The `z` commands (folds, wrap, scroll) are not jumps, as in nvim.
 - Nothing typed into a composer, a filter, a picker's input or any other
   text field records anything.
 - A jump restores the column it left, not just the line.
@@ -96,14 +97,16 @@ them, and an entry taken there is the same line as that one.
 `src/app/jumplist-scenarios.keys.test.ts` drives each of these through
 riff's keys. Some of nvim's jumps are not riff's, and it says so where they
 would be: `%` is unbound, `gd` opens an external diff, a URL under `gf` or
-`gx` and every link the links picker lists open the browser, and the chat
-reads the diff's place but has no key that goes to one.
+`gx` and every link the links picker lists open the browser, and the chat's
+keys never move the diff: an agent's proposal reveals its line as it opens,
+without a key, which is navigation that no key caused (below).
 
 ## Out of Scope, found while building
 
 - Navigation that no key caused. The recording hangs off the keypress, so a
   jump made by a mouse click or by something finishing asynchronously is not
-  in the list. Neither exists in riff today.
+  in the list. An agent's proposal revealing its line (spec 102) is the one
+  such case in riff today.
 
 ## Technical Notes
 

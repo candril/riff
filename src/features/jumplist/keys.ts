@@ -1,4 +1,4 @@
-type Key = { name?: string; ctrl?: boolean; sequence?: string }
+type Key = { name?: string; ctrl?: boolean; shift?: boolean; sequence?: string }
 
 /** Cursor moves that are not jumps: stepping and scrolling inside a file. */
 const STEP_KEYS = new Set([
@@ -35,4 +35,9 @@ export function isFindMotion(key: Key): boolean {
   const name = key.name ?? ""
   if (["f", "F", "t", "T", ";", ","].includes(name)) return true
   return key.sequence === ";" || key.sequence === ","
+}
+
+/** vim's `z` commands fold and scroll; none of them is a jump. */
+export function isZOpener(key: Key): boolean {
+  return key.name === "z" && !key.ctrl && !key.shift
 }

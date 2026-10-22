@@ -230,15 +230,19 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
     }
 
     // The view comes back last: selecting a file or clearing the selection
-    // leaves the overview for the diff, which would undo it. Coming back to
-    // the diff is judged on the view the apply started in, since that
-    // selection has already flipped viewMode without leaving the overview's
-    // reaction target behind the way enterDiffView does. The cursor below is
-    // read against this view and the mapping rebuilt for it.
+    // leaves the overview for the diff, which would undo it. Both directions
+    // are judged on the view the apply started in, since that selection has
+    // already flipped viewMode: into the diff it would keep the overview's
+    // reaction target that enterDiffView drops, and out of it the view key's
+    // one slot of history would name the diff rather than where the reader
+    // was. The cursor below is read against this view and the mapping
+    // rebuilt for it.
     if (jump.viewMode === "diff") {
       if (s.viewMode !== "diff") next = enterDiffView(next)
-    } else if (next.viewMode !== jump.viewMode) {
-      next = switchView(next, jump.viewMode)
+    } else if (s.viewMode !== jump.viewMode) {
+      next = switchView({ ...next, viewMode: s.viewMode }, jump.viewMode)
+    } else {
+      next = { ...next, viewMode: s.viewMode, previousView: s.previousView }
     }
 
     return { ...next, focusedPanel: focusable(next, jump.focusedPanel) }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test"
 import {
   jumpScenario,
   KEY,
@@ -8,6 +8,10 @@ import {
   type JumpScenario,
 } from "../testing/jump-scenarios"
 import { stubPanel } from "../testing/pr-info-panel-keys"
+import { pinStdoutColumns } from "../testing/frame"
+import { PR_NOW } from "../testing/pr-info"
+import { fullPr } from "../testing/pr-info-panel"
+import { PRInfoPanelClass } from "../components/PRInfoPanel"
 import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 
@@ -248,7 +252,8 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
     expect(a.where().text).toContain("gamma.ts needle 25")
   })
 
-  // The chat has no key that moves the diff: it reads the place, it does not go to one.
+  // The chat's keys never move the diff. An agent's proposal reveals its line without a key,
+  // which spec 089 leaves out as navigation that no key caused.
   // `%` is unbound, and `gd` opens an external diff: neither is a riff jump.
 })
 
@@ -259,6 +264,98 @@ describe("b: plain motions do not record", () => {
     a.press("j", "j", "k", "w", "w", "b", KEY.ctrlD, KEY.ctrlU, KEY.ctrlE, KEY.ctrlY)
     expect(a.where().file).toBe("src/beta.ts")
     expect(a.list().entries).toEqual([])
+  })
+})
+
+describe("b: a fold, an unfold, wrap and the split toggle do not record", () => {
+  const notes = [
+    "diff --git a/docs/notes.md b/docs/notes.md",
+    "new file mode 100644",
+    "index 0000000..3333333",
+    "--- /dev/null",
+    "+++ b/docs/notes.md",
+    "@@ -0,0 +1,6 @@",
+    "+# Notes",
+    "+```mermaid",
+    "+sequenceDiagram",
+    "+  A->>B: hi",
+    "+```",
+    "+prose after",
+    "",
+  ].join("\n")
+  const header = (a: JumpScenario, file: string) =>
+    a.mounted.ctx.getLineMapping().allLines.findIndex((row) => row.filename === file && row.type === "file-header")
+
+  test("zM then zR with the cursor on a file's header", async () => {
+    const a = await scenario()
+    a.moveTo(header(a, "src/gamma.ts"))
+    a.press("z", KEY.M)
+    expect(a.state().collapsedFiles.size).toBeGreaterThan(0)
+    expect(a.list().entries).toEqual([])
+    a.press("z", KEY.R)
+    expect(a.state().collapsedFiles.size).toBe(0)
+    expect(a.where().file).toBe("src/gamma.ts")
+    expect(a.list().entries).toEqual([])
+  })
+
+  test("zm, zr, zc and zo on a file's header", async () => {
+    const a = await scenario()
+    a.moveTo(header(a, "src/gamma.ts"))
+    a.press("z", "m", "z", "r", "z", "c", "z", "o")
+    expect(a.list().entries).toEqual([])
+  })
+
+  // The fence is the row that stays either way; from a row the fold hides, the cursor lands on another row.
+  test("za and zA on a block's fence", async () => {
+    const a = await scenario({ diff: SCENARIO_DIFF + notes })
+    a.moveTo(a.lineOf("docs/notes.md", "```mermaid"))
+    a.press("z", "a")
+    expect(a.state().collapsedBlocks.size).toBe(1)
+    a.press("z", "a")
+    expect(a.state().collapsedBlocks.size).toBe(0)
+    a.press("z", KEY.A)
+    expect(a.state().collapsedBlocks.size).toBe(1)
+    a.press("z", "a")
+    expect(a.state().collapsedBlocks.size).toBe(0)
+    expect(a.where().text).toContain("```mermaid")
+    expect(a.list().entries).toEqual([])
+  })
+
+  for (const width of [160, 40]) {
+    test(`zw at width ${width}`, async () => {
+      const a = await scenario({ width })
+      a.moveTo(a.lineOf("src/gamma.ts", "line 24"))
+      a.press("z", "w")
+      a.press("z", "w")
+      expect(a.list().entries).toEqual([])
+    })
+  }
+
+  test("the scroll commands zz, zt, zb, zh, zl, zH, zL, zs and ze", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/gamma.ts", "line 24"))
+    a.press("z", "z", "z", "t", "z", "b", "z", "l", "z", "h", "z", KEY.L, "z", KEY.H, "z", "s", "z", "e")
+    expect(a.list().entries).toEqual([])
+  })
+
+  test("the split toggle, Ctrl-t and Ctrl-b", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/alpha.ts", "needle 5"))
+    a.press("\\")
+    expect(a.state().splitView).toBe(true)
+    a.press("\\")
+    a.press(KEY.ctrlT)
+    expect(a.state().inlineCommentOverlay.open).toBe(true)
+    a.press(KEY.ctrlT)
+    a.press(KEY.ctrlB, KEY.ctrlB)
+    expect(a.list().entries).toEqual([])
+  })
+
+  test("but zg then g, the z breaking off into gg, is a jump to the top", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/beta.ts", "line 24"))
+    await recordsAndReturns(a, () => a.press("z", "g", "g"))
+    expect(a.where().line).toBe(0)
   })
 })
 
@@ -419,6 +516,38 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
     a.press(KEY.ctrlO)
     expect(a.state().inlineCommentOverlay.open).toBe(true)
     expect(a.where().focus).toBe("comments")
+  })
+
+  test("the feed, with the feed key going back to the overview Ctrl-o left", async () => {
+    setSystemTime(PR_NOW)
+    const restoreColumns = pinStdoutColumns(160)
+    let panel: PRInfoPanelClass | null = null
+    try {
+      const a = await scenario({ more: { getPrInfoPanel: () => panel } })
+      const info = fullPr()
+      panel = new PRInfoPanelClass(a.mounted.setup.renderer, info, a.state().files, [])
+      a.mounted.setPrInfoPanel(panel)
+      a.mounted.show({ selectedFileIndex: 0, files: a.state().files, prInfo: info })
+      a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
+      const event = { id: "e1", type: "comment" as const, at: "2026-01-02T00:00:00Z", title: "note t3", target: { kind: "comment" as const, commentId: "t3" } }
+      a.mounted.show({ viewMode: "feed", appMode: "pr", feed: { ...a.state().feed, events: [event], highlightIndex: 0 } })
+      a.press(KEY.enter)
+      expect(a.where().text).toContain("gamma.ts needle 25")
+      // Into the overview without a key, so the entry before is the feed's.
+      a.mounted.show({ viewMode: "state", previousView: "diff", focusedPanel: "diff", inlineCommentOverlay: { ...a.state().inlineCommentOverlay, open: false } })
+      a.press(KEY.ctrlO)
+      expect(a.where().view.mode).toBe("feed")
+      expect(await a.mounted.frame()).toContain("1 event · all types")
+      a.press("a")
+      expect(a.where().view.mode).toBe("state")
+      const overview = await a.mounted.frame()
+      expect(overview).toContain("Merge status")
+      expect(overview).not.toContain("1 event · all types")
+    } finally {
+      panel?.destroy()
+      restoreColumns()
+      setSystemTime()
+    }
   })
 
   test("not the thread panel once it has closed", async () => {

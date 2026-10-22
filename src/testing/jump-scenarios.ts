@@ -77,11 +77,17 @@ export const KEY = {
   ctrlS: "\x13",
   ctrlT: "\x14",
   ctrlN: "\x0e",
+  ctrlB: "\x02",
   enter: "\r",
   escape: "\x1b",
   G: "\x1b[71;2u",
   N: "\x1b[110;2u",
   C: "\x1b[67;2u",
+  A: "\x1b[65;2u",
+  H: "\x1b[72;2u",
+  L: "\x1b[76;2u",
+  M: "\x1b[77;2u",
+  R: "\x1b[82;2u",
 } as const
 
 export interface Place {

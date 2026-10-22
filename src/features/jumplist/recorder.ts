@@ -1,4 +1,4 @@
-import { isFindMotion, isListWalk, isStepMotion } from "./keys"
+import { isFindMotion, isListWalk, isStepMotion, isZOpener } from "./keys"
 import { sameLocation } from "./place"
 import type { Jump } from "./types"
 
@@ -19,7 +19,7 @@ export interface Moment {
   stepsMoveTheDiff: boolean
 }
 
-type Kind = "jump" | "step" | "walk"
+type Kind = "jump" | "step" | "walk" | "z"
 
 export interface JumpRecorder {
   /** Runs one key, and returns the place to push once the interaction it belongs to is over. */
@@ -28,6 +28,7 @@ export interface JumpRecorder {
 
 function kindOf(key: Key, before: Moment): Kind {
   if (isListWalk(key)) return "walk"
+  if (isZOpener(key)) return "z"
   if (isStepMotion(key) || isFindMotion(key)) return before.stepsMoveTheDiff ? "jump" : "step"
   return "jump"
 }
@@ -39,6 +40,17 @@ function kindOf(key: Key, before: Moment): Kind {
  */
 function moved(from: Jump, to: Jump): boolean {
   return !sameLocation(from, to) || from.cursorLine !== to.cursorLine
+}
+
+/*
+ * A fold, an unfold or the wrap toggle renumbers the mapping under an
+ * anchor that stays put, so a `z` interaction is judged by the anchor
+ * alone: the line would call every fold a jump, which nvim never does. A
+ * `z` that breaks off into another key, as `zg` then `g` does into `gg`,
+ * still lands on another row and records.
+ */
+function changedRow(from: Jump, to: Jump): boolean {
+  return !sameLocation(from, to)
 }
 
 /*
@@ -68,6 +80,7 @@ export function createJumpRecorder(): JumpRecorder {
       origin = null
       if (kind === "walk") return null
       if (kind === "step") return now.file !== null && now.file !== from.file ? from.place : null
+      if (kind === "z") return changedRow(from.place, now.place) ? from.place : null
       return moved(from.place, now.place) ? from.place : null
     },
   }
