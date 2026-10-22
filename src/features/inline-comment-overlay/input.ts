@@ -1,17 +1,10 @@
 /**
- * Thread panel input handling (spec 039).
- *
- * Single capture point for every comment action while the overlay is
- * open. Two distinct modes:
- *
- *  - **view**: `j/k` highlight, `Ctrl-d`/`Ctrl-u` half a page, `gg`/`G`
- *    the ends, `r/R` reply, `e/E` edit, `d` delete,
- *    `x` resolve, `H` open threads only, `S` submit, `Ctrl-n`/`Ctrl-p` adjacent thread,
- *    `Ctrl-p` falls through (palette). `Esc` closes.
- *  - **compose / edit**: char input flows into `state.inlineCommentOverlay.input`.
- *    `Enter` / `Ctrl-s` flush the draft (delegating to handlers);
- *    `Ctrl-p` (and `Ctrl-Enter`) flush it and push it to GitHub;
- *    `Ctrl-j` inserts a newline; `Esc` cancels back to view mode.
+ * Thread panel input handling in view mode (spec 039): `j/k` highlight,
+ * `Ctrl-d`/`Ctrl-u` half a page, `gg`/`G` the ends, `r/R` reply, `e/E`
+ * edit, `d` delete, `x` resolve, `H` open threads only, `S` submit,
+ * `Ctrl-n` the next thread; `Ctrl-p` falls through to the palette and
+ * `Esc` closes. The composer's keys, in compose and edit mode, are bound
+ * in `composer-keys.ts`.
  *
  * Heavy lifting (delete / submit / resolve / adjacent jump / `$EDITOR`
  * reply / `$EDITOR` edit) is delegated through the context so this
@@ -32,39 +25,19 @@ import {
   getInlineCommentOverlayDisplayOrder,
   startInlineCompose,
   startInlineEdit,
-  cancelInlineComposer,
-  setInlineCommentInput,
-  setMentionPicker,
-  moveMentionPickerSelection,
-  setEmojiPicker,
-  moveEmojiPickerSelection,
   toggleInlineCommentOverlayExpand,
   setCommentCodePeek,
-  rememberCommentDraft,
   showToast,
   clearToast,
 } from "../../state"
 import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
-import { filterEmoji } from "../../utils/emoji"
 import { groupIntoThreads } from "../../utils/threads"
-import { collectMentionCandidates } from "../../utils/mentions"
-import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
-import {
-  submitInlineDraft,
-  submitInlineEditDraft,
-  type InlineComposerHandlersContext,
-} from "./handlers"
-import type { ComposerHandle } from "../../app/island-composer"
 
-/** How the composer closed: the reviewer's own keys, which a proposal of the agent's is told about. */
-export type ComposerOutcome = "saved" | "published" | "dropped"
-
-export interface InlineCommentOverlayInputContext extends InlineComposerHandlersContext {
-  /** The composer's textarea, whose live text is the source of truth over `ov.input`. */
-  composer: ComposerHandle
-  /** Called once state holds the outcome: a saved comment is in `state.comments`, a dropped draft remembered. */
-  composerSettled?: (outcome: ComposerOutcome) => void
+export interface InlineCommentOverlayInputContext {
+  getState: () => AppState
+  setState: (updater: (s: AppState) => AppState) => void
+  render: () => void
   /** $EDITOR reply (Shift-r). Reuses the existing add-comment flow. */
   handleReplyExternal: () => void
   /** $EDITOR edit (Shift-e). Reuses the existing add-comment flow,
@@ -82,9 +55,6 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   /** Ctrl-n / Ctrl-p — jump to next/previous thread, repositioning the
    *  overlay. */
   handleJumpAdjacent: (direction: 1 | -1) => void
-  /** The lines the comment being written replaces, as they read now, or
-   *  null when riff cannot find them (spec 076). */
-  getCommentedLines: () => string[] | null
   /** `n` from the panel — start a new comment anchored at the diff
    *  cursor's current line. The overlay layer doesn't know about line
    *  mapping or vim state, so this is wired up at the app level. */
@@ -109,11 +79,6 @@ export interface InlineCommentOverlayInputContext extends InlineComposerHandlers
   onToggleHelp: () => void
   /** `+` — react on the highlighted comment (spec 042). */
   onReact: () => void
-  /** Ctrl-g from the composer — hand the in-progress draft off to
-   *  $EDITOR, suspending the TUI, and resolve with the edited text
-   *  (or null if the editor errored). Wired at the app level because it
-   *  needs renderer suspend/resume. */
-  openDraftInEditor: (current: string) => Promise<string | null>
 }
 
 // `za` chord state, scoped to the panel input handler. Cleared after the
@@ -143,22 +108,6 @@ function findThreadRootId(comments: Comment[], commentId: string): string | null
   return parent ? findThreadRootId(comments, parent.id) : c.id
 }
 
-/** Put text in at the cursor, leaving the rest of the draft alone. */
-function insertAtComposerCursor(composer: ComposerHandle, text: string): void {
-  const at = composer.cursorOffset()
-  composer.replaceRange(at, at, text)
-}
-
-/**
- * GitHub applies what is inside a ```suggestion fence to the lines the
- * comment is anchored to. A blank block would delete them, which is a
- * legitimate suggestion — but never the one riff should write for you, so
- * the lines go in as they are and you edit them.
- */
-function suggestionBlock(lines: readonly string[]): string {
-  return ["```suggestion", ...lines, "```", ""].join("\n")
-}
-
 /**
  * `g`-chords, kept here rather than in the global handler: the panel is
  * modal, so a key that reaches it never reaches the chord matcher.
@@ -186,11 +135,6 @@ export function handleInput(
   // threadComments: unfiltered, used for thread-level lookups like resolve.
   const threadComments = getInlineCommentOverlayComments(state)
   const displayOrder = getInlineCommentOverlayDisplayOrder(state)
-
-  // Compose/edit always captures (the textarea owns input).
-  if (ov.mode === "compose" || ov.mode === "edit") {
-    return handleComposerInput(key, ctx)
-  }
 
   // View mode: only act when the panel is the focused surface.
   // Otherwise the user is driving the diff/tree and the panel is
@@ -549,268 +493,3 @@ export function handleInput(
   // Everything else is swallowed while the overlay is open (modal).
   return true
 }
-
-function handleComposerInput(
-  key: KeyEvent,
-  ctx: InlineCommentOverlayInputContext
-): boolean {
-  const state = ctx.getState()
-  const ov = state.inlineCommentOverlay
-
-  // @mention picker — intercept navigation/commit keys while the picker
-  // is open. Done before generic Esc/Ctrl-s handling so the picker can
-  // own those keys. Typing characters falls through to the textarea so
-  // the query expands naturally; the textarea's onContentChange then
-  // updates the picker via render-time activity dispatch.
-  if (ov.emojiPicker) {
-    const handled = handleEmojiPickerInput(key, ctx, ov.emojiPicker)
-    if (handled) return true
-  }
-
-  if (ov.mentionPicker) {
-    const handled = handleMentionPickerInput(key, ctx, ov.mentionPicker)
-    if (handled) return true
-  }
-
-  // Ctrl-g — hand the draft off to $EDITOR (like shell Ctrl-x Ctrl-e).
-  // The textarea's live value is the source of truth (the user may have
-  // typed since compose/edit started), and the edited result flows back
-  // into the same textarea so Ctrl-s still submits it.
-  if (key.ctrl && key.name === "g") {
-    key.preventDefault()
-    const current = ctx.composer.value()
-    void (async () => {
-      const edited = await ctx.openDraftInEditor(current)
-      if (edited !== null) {
-        ctx.composer.setValue(edited)
-        ctx.setState((s) => setInlineCommentInput(s, edited))
-      }
-      ctx.render()
-    })()
-    return true
-  }
-
-  // Ctrl-y — a GitHub suggestion block, prefilled with the lines this
-  // comment replaces, so the edit is made in place rather than described
-  // (spec 076). On a comment written against a block that is the whole
-  // block; on one line, that line.
-  if (key.ctrl && key.name === "y") {
-    key.preventDefault()
-    const lines = ctx.getCommentedLines()
-    if (lines === null) {
-      ctx.setState((s) => showToast(s, "Nothing to suggest — riff cannot read those lines", "info"))
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 2500)
-      return true
-    }
-    insertAtComposerCursor(ctx.composer, suggestionBlock(lines))
-    ctx.setState((s) => setInlineCommentInput(s, ctx.composer.value()))
-    ctx.render()
-    return true
-  }
-
-  // Esc — cancel back to view mode, keeping what was typed as a draft on
-  // this line (spec 061). The textarea's live value is the source of truth:
-  // state mirrors keystrokes, but reading the composer cannot be stale.
-  // We `preventDefault` so the focused textarea doesn't also process it.
-  if (key.name === "escape") {
-    key.preventDefault()
-    const draft = ctx.composer.value()
-    ctx.setState((s) => cancelInlineComposer(rememberCommentDraft(s, draft)))
-    ctx.composerSettled?.("dropped")
-    ctx.render()
-    // A proposal of the agent's dropped untouched is forgotten, not kept.
-    const kept = draft.trim() !== "" && [...ctx.getState().commentDrafts.values()].includes(draft)
-    if (kept) {
-      ctx.setState((s) => showToast(s, "Draft kept for this line", "info"))
-      ctx.render()
-      setTimeout(() => {
-        ctx.setState(clearToast)
-        ctx.render()
-      }, 2000)
-    }
-    return true
-  }
-
-  // Enter / Ctrl-s save the draft locally; Ctrl-p ("post") saves and
-  // pushes it to GitHub in one keystroke. Ctrl-J stays the newline.
-  // Enter can afford to be the save key here because saving is local —
-  // publishing is the deliberate chord, not the bare one.
-  //
-  // Ctrl-Enter is bound to publish as well, but only terminals sending
-  // the kitty `CSI 13;5u` form deliver it; tmux drops the modifier
-  // unless `extended-keys on`, and it then arrives indistinguishable
-  // from a bare Enter and silently degrades to save-only. Ctrl-p is a
-  // plain control byte, so it survives every terminal and multiplexer —
-  // that's the one the help overlay names.
-  //
-  // Ctrl-p doesn't collide with the command palette: the palette is
-  // unreachable from compose mode, which swallows everything it doesn't
-  // handle, and the textarea binds no Ctrl-p of its own.
-  //
-  // preventDefault keeps the textarea from turning Enter into a newline.
-  // The live textarea value goes into state first so the submit handlers
-  // (which still read `ov.input`) see what the user actually typed.
-  // Publishing needs a PR on the other end; in local mode the chord just saves.
-  const publish =
-    ctx.getState().appMode === "pr" &&
-    ((key.ctrl && key.name === "p") || (key.ctrl && key.name === "return"))
-  const saveChord = publish || (key.ctrl && key.name === "s") || key.name === "return"
-  if (saveChord) {
-    key.preventDefault()
-    const value = ctx.composer.value()
-    ctx.setState((s) => setInlineCommentInput(s, value))
-    const saving = ov.mode === "edit" ? submitInlineEditDraft(ctx) : submitInlineDraft(ctx)
-    // The handlers change state before their first await, so the outcome is already there.
-    ctx.composerSettled?.(publish ? "published" : "saved")
-    void saving.then((saved) => {
-      if (publish && saved) ctx.handleSubmit(saved)
-    })
-    return true
-  }
-
-  // All other keys flow to the focused TextareaRenderable via OpenTUI's
-  // internal renderable dispatch — that's where typing, paste, Ctrl-w,
-  // arrow keys, undo/redo, mouse selection, etc. are handled. We return
-  // `true` to short-circuit our own outer handler chain (so global keys
-  // don't fire) but skip `preventDefault` so the textarea still sees
-  // the event.
-  return true
-}
-
-/**
- * Handle keys while the @mention picker is open. Returns `true` if the
- * picker consumed the key, leaving the outer composer handler to skip
- * its own logic. Typing characters returns `false` so they flow to the
- * textarea (extending the query, which the activity callback then
- * re-runs through `detectMentionTrigger`).
- */
-/**
- * The emoji picker's keys, which are the mention picker's keys (spec 082):
- * two pickers that behave differently would be two things to remember.
- */
-function handleEmojiPickerInput(
-  key: KeyEvent,
-  ctx: InlineCommentOverlayInputContext,
-  picker: NonNullable<AppState["inlineCommentOverlay"]["emojiPicker"]>
-): boolean {
-  const matches = filterEmoji(picker.query)
-
-  if (key.name === "escape") {
-    key.preventDefault()
-    ctx.setState((s) => setEmojiPicker(s, null))
-    ctx.render()
-    return true
-  }
-
-  if (key.name === "up" || (key.ctrl && key.name === "p")) {
-    key.preventDefault()
-    if (matches.length > 0) {
-      ctx.setState((s) => moveEmojiPickerSelection(s, -1, matches.length))
-      ctx.render()
-    }
-    return true
-  }
-
-  if (key.name === "down" || (key.ctrl && key.name === "n")) {
-    key.preventDefault()
-    if (matches.length > 0) {
-      ctx.setState((s) => moveEmojiPickerSelection(s, 1, matches.length))
-      ctx.render()
-    }
-    return true
-  }
-
-  // Tab or Enter accepts — but only with something to accept, or Enter
-  // would stop being a newline the moment a colon is typed.
-  if ((key.name === "tab" || key.name === "return" || key.name === "enter") && matches.length > 0) {
-    key.preventDefault()
-    const chosen = matches[Math.min(picker.selectedIndex, matches.length - 1)]
-    if (!chosen) return true
-    // The emoji itself rather than its shortcode: GitHub renders both, and
-    // only one of them is legible in riff's own panel.
-    ctx.composer.replaceRange(picker.colonOffset, ctx.composer.cursorOffset(), `${chosen.char} `)
-    ctx.setState((s) => setEmojiPicker(s, null))
-    ctx.render()
-    return true
-  }
-
-  return false
-}
-
-function handleMentionPickerInput(
-  key: KeyEvent,
-  ctx: InlineCommentOverlayInputContext,
-  picker: NonNullable<AppState["inlineCommentOverlay"]["mentionPicker"]>
-): boolean {
-  const state = ctx.getState()
-  const candidates = collectMentionCandidates(state)
-  const filtered = getFilteredMentionCandidates(candidates, picker.query)
-
-  // Esc — dismiss the picker but leave the composer (and the typed
-  // `@<query>`) intact. preventDefault so the textarea doesn't also
-  // see Esc and the surrounding handler doesn't cancel compose.
-  if (key.name === "escape") {
-    key.preventDefault()
-    ctx.setState((s) => setMentionPicker(s, null))
-    ctx.render()
-    return true
-  }
-
-  if (key.name === "up" || (key.ctrl && key.name === "p")) {
-    key.preventDefault()
-    if (filtered.length > 0) {
-      ctx.setState((s) => moveMentionPickerSelection(s, -1, filtered.length))
-      ctx.render()
-    }
-    return true
-  }
-
-  if (key.name === "down" || (key.ctrl && key.name === "n")) {
-    key.preventDefault()
-    if (filtered.length > 0) {
-      ctx.setState((s) => moveMentionPickerSelection(s, 1, filtered.length))
-      ctx.render()
-    }
-    return true
-  }
-
-  // Tab or Enter — accept the highlighted candidate. Only commit when
-  // the picker has at least one match; otherwise fall through so Enter
-  // inserts a newline and Tab inserts a tab in the textarea.
-  if ((key.name === "tab" || key.name === "return" || key.name === "enter") && filtered.length > 0) {
-    key.preventDefault()
-    const idx = Math.min(picker.selectedIndex, filtered.length - 1)
-    const username = filtered[idx]
-    if (!username) return true
-    acceptMention(ctx, picker.atOffset, username)
-    return true
-  }
-
-  return false
-}
-
-/**
- * Replace the active `@<query>` with `@<username> ` in the textarea
- * and close the picker. The textarea's onContentChange fires after
- * `replaceRange`, which re-runs `detectMentionTrigger`; with
- * the trailing space the regex no longer matches, so the picker stays
- * closed.
- */
-function acceptMention(
-  ctx: InlineCommentOverlayInputContext,
-  atOffset: number,
-  username: string
-): void {
-  const cursor = ctx.composer.cursorOffset()
-  ctx.composer.replaceRange(atOffset, cursor, `@${username} `)
-  // Defensive: clear the picker explicitly even though the activity
-  // callback will also clear it. Avoids a one-frame flash if the event
-  // ordering ever changes.
-  ctx.setState((s) => setMentionPicker(s, null))
-  ctx.render()
-}
-

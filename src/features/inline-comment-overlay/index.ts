@@ -6,11 +6,7 @@
  * the diff. Replaces the old read-only ThreadPreview modal.
  */
 
-export {
-  handleInput,
-  type InlineCommentOverlayInputContext,
-  type ComposerOutcome,
-} from "./input"
+export { handleInput, type InlineCommentOverlayInputContext } from "./input"
 
 export {
   submitInlineDraft,

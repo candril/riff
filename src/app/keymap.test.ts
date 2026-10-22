@@ -313,3 +313,30 @@ test("an unregistered capture lets keys through again", async () => {
   expect(rest).toEqual(["j"])
   expect(legacyKeys).toEqual(["k"])
 })
+
+test("a disabled command leaves its key to a lower layer's binding, and with none there to the capture's rest unprevented", async () => {
+  const { riffKeymap, legacyKeys, keys } = await setup()
+  const runs: string[] = []
+  const rest: string[] = []
+  riffKeymap.capture(() => true, (key) => void rest.push(key.name))
+  riffKeymap.keymap.registerLayer({
+    commands: [{ name: "test.lower", run: () => void runs.push("lower") }],
+    bindings: [{ key: "x", cmd: "test.lower" }],
+  })
+  riffKeymap.keymap.registerLayer({
+    commands: [{ name: "test.upper", enabled: () => false, run: () => void runs.push("upper") }],
+    bindings: [
+      { key: "x", cmd: "test.upper" },
+      { key: "y", cmd: "test.upper" },
+    ],
+  })
+
+  keys(press("x"))
+  const y = press("y")
+  keys(y)
+
+  expect(runs).toEqual(["lower"])
+  expect(rest).toEqual(["y"])
+  expect(y.defaultPrevented).toBe(false)
+  expect(legacyKeys).toEqual([])
+})

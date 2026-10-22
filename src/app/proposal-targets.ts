@@ -1,5 +1,5 @@
 import { anchorPlace, type ProposalAnchor } from "../features/chat/proposal-anchor"
-import type { ComposerOutcome } from "../features/inline-comment-overlay"
+import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 import {
   expandThreadFor,
   highlightInlineComment,

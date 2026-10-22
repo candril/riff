@@ -60,7 +60,7 @@ import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
 import { groupIntoThreads } from "../utils/threads"
-import { openTextInEditor } from "../utils/editor/spawn"
+import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 
 export interface GlobalKeyContext {
   // State access
@@ -135,7 +135,7 @@ export interface GlobalKeyContext {
   /** The chat column's conversation and its input (spec 102). */
   chat: { state: ChatState; input: () => TextareaRenderable | null }
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
-  composerSettled?: (outcome: inlineCommentOverlay.ComposerOutcome) => void
+  composerSettled?: (outcome: ComposerOutcome) => void
 }
 
 /**
@@ -574,13 +574,9 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
     if (
       inlineCommentOverlay.handleInput(key, {
-        composer: ctx.composer,
         getState: ctx.getState,
         setState: ctx.setState,
         render: ctx.render,
-        source: ctx.commentsContext.source,
-        getCachedCurrentUser: ctx.commentsContext.getCachedCurrentUser,
-        composerSettled: ctx.composerSettled,
         handleReplyExternal: () =>
           commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
         handleEditExternal: () =>
@@ -613,24 +609,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
             linksTitle(action),
             action
           )
-        },
-        getCommentedLines: () => {
-          // What the comment replaces, read off the diff rows themselves —
-          // the file's own text, not the padded display form (spec 076).
-          const ov = ctx.getState().inlineCommentOverlay
-          const mapping = ctx.getLineMapping()
-          const wanted = ov.side === "LEFT" ? "oldLineNum" : "newLineNum"
-          const from = ov.startLine ?? ov.line
-          const found: string[] = []
-          for (let row = 0; row < mapping.lineCount; row++) {
-            const line = mapping.getLine(row)
-            if (!line || line.filename !== ov.filename) continue
-            const number = line[wanted]
-            if (number === undefined || number < from || number > ov.line) continue
-            if (line.type === (ov.side === "LEFT" ? "addition" : "deletion")) continue
-            found.push(line.sourceContent ?? line.content)
-          }
-          return found.length > 0 ? found : null
         },
         handleStartNewComment: () => {
           // Start a new comment for the diff cursor's current line.
@@ -674,22 +652,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
         },
         handleOpenImages: (comment) => {
           inlineCommentOverlay.openCommentImages(ctx, comment)
-        },
-        openDraftInEditor: async (current) => {
-          const s = ctx.getState()
-          const username =
-            (s.appMode === "pr" && ctx.commentsContext.getCachedCurrentUser()) || "@you"
-          const context = inlineCommentOverlay.buildComposerEditorContext(
-            s,
-            ctx.getLineMapping(),
-            username
-          )
-          ctx.externalToolsContext.suspendRenderer()
-          try {
-            return await openTextInEditor(current, context)
-          } finally {
-            ctx.externalToolsContext.resumeRenderer()
-          }
         },
         getPanelLayout: () => ctx.threadPanelLayout(),
         syncCursorToHighlight: () => {

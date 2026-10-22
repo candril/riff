@@ -90,7 +90,8 @@ of the priority chain in `global-keys.ts`
 holds F12, the debug console, the flash jump's keys, the confirmation
 dialog's, the command palette's, those of the file, comments, marks,
 occurrence and commit pickers, those of the sync preview and Submit
-Review, the help overlay's, and the chat's. A modal layer captures the keys it does
+Review, the help overlay's, the chat's, and those of the thread panel's
+composer with its mention and emoji pickers. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
@@ -99,9 +100,12 @@ outranks it, even for keys that modal leaves unbound. The help overlay's
 capture leaves a bare `g` to the chain's chord matcher, so `g?` closes
 it, and the overlay stands aside entirely while the chain holds a chord.
 The chat's capture leaves the keys it does not bind unprevented for its
-input to type, and the chat registers behind every other layer, as its
+input to type, and the chat registers behind every layer but the composer's, as its
 branch sat first in the chain, so Ctrl-r and the step in from the thread
-panel stand aside under every modal.
+panel stand aside under every modal. The composer's capture leaves the
+keys it does not bind unprevented for its textarea to type; it registers
+behind the chat, whose branch the chain asked before the thread panel's,
+and the chat stands aside while it is open.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).
