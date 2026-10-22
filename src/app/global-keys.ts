@@ -31,7 +31,8 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
-import { createOpenLink, openerCommand } from "./open-link"
+import { createOpenLink } from "./open-link"
+import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
 
 import * as commentsPicker from "../features/comments-picker"
@@ -240,6 +241,8 @@ function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
 export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
   chordPending(): boolean
   clearChord(): void
+  /** Whether a chord is still pending once `key` settles it, without settling it. */
+  chordPendingAfter(key: KeyEvent): boolean
   /** Drops a pending mark chord that `key` gives way to. */
   settleChord(key: KeyEvent): void
 }
@@ -452,61 +455,10 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     ctx.render()
   }
 
-  /**
-   * What the feed needs to act: where its rows lead, and the files of a
-   * commit row that has just been opened (spec 070).
-   */
-  function feedContext(): feed.FeedInputContext {
-    return {
-      state: ctx.getState(),
-      setState: ctx.setState,
-      render: ctx.render,
-      chordPending: pendingKey !== null,
-      onOpenEvent: (event) => {
-        const target = event.target
-        if (!target) return
-        switch (target.kind) {
-          case "commit":
-            // The diff, scoped to that commit — `]g`/`[g` already know how.
-            ctx.setState((s) => switchView(s, "diff"))
-            ctx.onCommitSelected(target.sha)
-            return
-          case "comment": {
-            const comment = ctx.getState().comments.find((c) => c.id === target.commentId)
-            if (!comment) return
-            ctx.setState((s) => switchView(s, "diff"))
-            commentsPicker.jumpToComment(comment, {
-              getState: ctx.getState,
-              setState: ctx.setState,
-              getVimState: ctx.getVimState,
-              setVimState: ctx.setVimState,
-              getLineMapping: ctx.getLineMapping,
-              ensureCursorVisible: ctx.ensureCursorVisible,
-              render: ctx.render,
-              fileNavContext: ctx.fileNavContext,
-            })
-            return
-          }
-          case "check":
-          case "url": {
-            const url = target.kind === "check" ? target.url : target.url
-            if (url) Bun.spawn([openerCommand(), url], { stdout: "ignore", stderr: "ignore" })
-            return
-          }
-        }
-      },
-      onOpenCommitFile: (sha, filename) => {
-        ctx.setState((s) => switchView(s, "diff"))
-        ctx.onCommitSelected(sha, filename)
-      },
-      onExpandCommit: (sha) => {
-        void feed.loadCommitFiles(ctx.feedLoadContext, sha)
-      },
-    }
-  }
-
   return Object.assign(handleKeypress, {
     chordPending: () => pendingKey !== null,
+    chordPendingAfter: (key: KeyEvent) =>
+      pendingKey !== null && !marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord()),
     clearChord: clearPendingKey,
     settleChord,
   })
@@ -520,11 +472,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
-
-    // ========== FEED (owns its keys while it is the view, specs 065, 070) ==========
-    if (feed.handleInput(key, feedContext())) {
-      return
-    }
 
     // ========== SEARCH INPUT (captures input when search prompt is active) ==========
     if (search.handleInput(key, { searchState: ctx.getSearchState(), searchHandler: ctx.searchHandler })) {
@@ -1039,7 +986,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
       } else if (sequence === "za") {
         // In the feed, `za` opens a commit row into the files it touched.
         if (s.viewMode === "feed") {
-          feed.toggleExpandedRow(feedContext())
+          feed.toggleExpandedRow(feedExpandDeps(ctx))
           return
         }
         folds.handleToggleFoldAtCursor(ctx.foldsContext)

@@ -91,8 +91,8 @@ holds F12, the debug console, the flash jump's keys, the confirmation
 dialog's, the command palette's, those of the file, comments, marks,
 occurrence and commit pickers, those of the sync preview and Submit
 Review, the help overlay's, the chat's, the thread panel's in view
-mode and in its composer with the mention and emoji pickers, and the PR
-overview's. A modal layer captures the keys it does
+mode and in its composer with the mention and emoji pickers, the PR
+overview's and the activity feed's. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
@@ -116,7 +116,14 @@ own rather than keymap sequences. The PR overview registers behind the
 thread panel, whose branch the chain asked first; its capture holds every
 key while its filter or comment prompt is up, none while the tree has
 focus, and otherwise leaves the chain every ctrl key, `q`, `Esc`, `Tab`,
-`i`, `a` and `s`, and `d` off a file row. Its `z` and `g` chords stay its own too.
+`i`, `a` and `s`, and any `d` off a file row whatever its modifiers; while
+a `z` or `g` chord of its own is pending it holds those keys too. Its `z`
+and `g` chords stay its own too. The activity feed registers behind the
+PR overview, as the two are different views; its capture holds only the
+keys the feed acts on and leaves every other key to the chain, every
+ctrl and meta key among them and any key while the chain holds a chord,
+and while its filter prompt is up it holds every key. Its `za` stays in
+the chain.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).
