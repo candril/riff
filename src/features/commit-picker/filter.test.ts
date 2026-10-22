@@ -1,15 +1,7 @@
 import { test, expect, describe } from "bun:test"
-import { markedCommits, getFilteredCommits, handleInput } from "./input"
-import {
-  createInitialState,
-  openCommitPicker,
-  setViewingCommit,
-  toggleCommitMark,
-  toggleCommitRange,
-  type AppState,
-} from "../../state"
+import { markedCommits, getFilteredCommits } from "./filter"
+import { createInitialState, openCommitPicker, setViewingCommit, toggleCommitMark, type AppState } from "../../state"
 import type { PrCommit } from "../../providers/github/types"
-import type { KeyEvent } from "@opentui/core"
 
 // Newest first, as both providers report them.
 const commits: PrCommit[] = [
@@ -28,17 +20,6 @@ function onRow(state: AppState, row: number): AppState {
   return { ...state, commitPicker: { ...state.commitPicker, selectedIndex: row + 1 } }
 }
 
-function press(state: AppState, key: Partial<KeyEvent>): AppState {
-  let next = state
-  handleInput({ name: "", sequence: "", preventDefault: () => {}, ...key } as unknown as KeyEvent, {
-    state,
-    setState: (fn) => { next = fn(next) },
-    render: () => {},
-    onCommitSelected: () => {},
-  })
-  return next
-}
-
 describe("marking commits", () => {
   test("space marks one, and marks it back off", () => {
     const marked = toggleCommitMark(onRow(openCommitPicker(base()), 1), "bbb2222")
@@ -50,42 +31,6 @@ describe("marking commits", () => {
     const state = toggleCommitMark(toggleCommitMark(openCommitPicker(base()), "ccc3333"), "aaa1111")
 
     expect(markedCommits(state)).toEqual(["aaa1111", "ccc3333"])
-  })
-
-  test("V marks the row it starts on, and j drags the run along", () => {
-    const started = toggleCommitRange(onRow(openCommitPicker(base()), 0), "aaa1111")
-    expect(markedCommits(started)).toEqual(["aaa1111"])
-
-    const moved = press(press(started, { name: "j" }), { name: "j" })
-    expect(markedCommits(moved)).toEqual(["aaa1111", "bbb2222", "ccc3333"])
-  })
-
-  test("V again keeps the run and lets the cursor leave it", () => {
-    const run = press(toggleCommitRange(onRow(openCommitPicker(base()), 0), "aaa1111"), { name: "j" })
-    const stopped = press(run, { name: "v", shift: true })
-    const wandered = press(press(stopped, { name: "j" }), { name: "j" })
-
-    expect(markedCommits(wandered)).toEqual(["aaa1111", "bbb2222"])
-  })
-
-  test("a run keeps what was marked before it started", () => {
-    const one = toggleCommitMark(openCommitPicker(base()), "ddd4444")
-    const run = press(toggleCommitRange(onRow(one, 0), "aaa1111"), { name: "j" })
-
-    expect(markedCommits(run)).toEqual(["aaa1111", "bbb2222", "ddd4444"])
-  })
-})
-
-describe("the picker's modes", () => {
-  test("letters are the list's until `/` asks for them", () => {
-    const state = openCommitPicker(base())
-    expect(state.commitPicker.queryInput).toBe(false)
-
-    const filtering = press(state, { name: "/", sequence: "/" })
-    expect(filtering.commitPicker.queryInput).toBe(true)
-
-    const done = press(filtering, { name: "return" })
-    expect(done.commitPicker.queryInput).toBe(false)
   })
 
   test("reopening shows what is already in scope", () => {

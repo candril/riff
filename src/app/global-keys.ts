@@ -43,7 +43,6 @@ import { referenceRepo, resolvedReferences } from "../features/references"
 import * as actionMenu from "../features/action-menu"
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
-import * as commitPicker from "../features/commit-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
@@ -606,20 +605,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== COMMIT PICKER (captures all input when open) ==========
-    if (
-      commitPicker.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onCommitSelected: (sha, filename, scope) => {
-          ctx.onCommitSelected(sha, filename, scope)
-        },
-      })
-    ) {
-      return
-    }
 
     // ========== SYNC PREVIEW (captures all input when open) ==========
     if (

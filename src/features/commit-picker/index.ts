@@ -9,12 +9,8 @@
  * - Works in both PR and local mode
  */
 
-export {
-  handleInput,
-  getFilteredCommits,
-  markedCommits,
-  type CommitPickerInputContext,
-} from "./input"
+export { getFilteredCommits, markedCommits } from "./filter"
+export { registerCommitPickerKeys, type CommitPickerKeyDeps } from "./keys"
 
 // Re-export state operations
 export { openCommitPicker, closeCommitPicker } from "../../state"
