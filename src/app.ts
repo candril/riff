@@ -1031,6 +1031,7 @@ export async function createApp(options: AppOptions = {}) {
   // ===== FEATURE CONTEXTS =====
 
   const refreshContext: refresh.RefreshContext = {
+    sources: refresh.liveRefreshSources,
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,

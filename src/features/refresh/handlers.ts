@@ -21,10 +21,7 @@ import {
   updateFileStatuses,
   collapseViewedFiles,
 } from "../../state"
-import { loadPrSession, PR_COMMITS_FETCH_LIMIT } from "../../providers/github/session"
-import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
-import { loadComments } from "../../storage/comments"
-import { loadViewedStatuses, saveVisit } from "../../storage/caches"
+import { PR_COMMITS_FETCH_LIMIT } from "../../providers/github/session"
 import { mergeGitHubViewedStates } from "../../utils/viewed-status"
 import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
@@ -54,6 +51,7 @@ import type { CommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import type { JumpListState } from "../jumplist/state"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
+import type { RefreshSources } from "./sources"
 import {
   capturePosition,
   refreshMessage,
@@ -66,6 +64,7 @@ import {
 } from "./position"
 
 export interface RefreshContext {
+  sources: RefreshSources
   // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
@@ -147,7 +146,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         comments: newComments,
         viewedStatuses,
         headSha,
-      } = await loadPrSession(prNumber, owner, repo)
+      } = await ctx.sources.loadPrSession(prNumber, owner, repo)
 
       forcePushed = wasForcePushed(previousHeadSha, newPrInfo.commits ?? [], PR_COMMITS_FETCH_LIMIT)
       ctx.setHeadSha(headSha)
@@ -173,7 +172,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
-      void saveVisit(state.source, beginVisitAfterRefresh(ctx, state.comments, headSha, forcePushed))
+      void ctx.sources.saveVisit(state.source, beginVisitAfterRefresh(ctx, state.comments, headSha, forcePushed))
       followReloadedMarks(ctx, headSha || undefined)
 
       // Collapse resolved threads
@@ -181,7 +180,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.setState((s) => collapseResolvedThreads(s, threads))
 
       // Load file statuses
-      const localViewedStatuses = await loadViewedStatuses(state.source)
+      const localViewedStatuses = await ctx.sources.loadViewedStatuses(state.source)
       ctx.setState((s) =>
         keepTreeHighlight(s, (loading) => {
           const local = loadFileStatuses(loading, localViewedStatuses)
@@ -204,11 +203,11 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
     } else {
       // Local mode - reload diff, commits, and branch info
       const [newDiff, newDescription, newBranchInfo, newCommits, newComments] = await Promise.all([
-        getLocalDiff(ctx.target),
-        getDiffDescription(ctx.target),
-        getBranchInfo(ctx.target),
-        getLocalCommits(ctx.target),
-        loadComments(state.source),
+        ctx.sources.getLocalDiff(ctx.target),
+        ctx.sources.getDiffDescription(ctx.target),
+        ctx.sources.getBranchInfo(ctx.target),
+        ctx.sources.getLocalCommits(ctx.target),
+        ctx.sources.loadComments(state.source),
       ])
 
       const newFiles = sortFiles(parseDiff(newDiff))
@@ -236,7 +235,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       // them would drop every file's review status.
       const threads = groupIntoThreads(ctx.getState().comments)
       ctx.setState((s) => collapseResolvedThreads(s, threads))
-      const localViewedStatuses = await loadViewedStatuses(state.source)
+      const localViewedStatuses = await ctx.sources.loadViewedStatuses(state.source)
       ctx.setState((s) =>
         keepTreeHighlight(s, (loading) => collapseViewedFiles(loadFileStatuses(loading, localViewedStatuses)))
       )
