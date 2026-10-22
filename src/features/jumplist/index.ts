@@ -13,11 +13,11 @@ import type { AppState } from "../../state"
 import { selectFile, clearFileSelection, switchView, enterDiffView } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { Jump } from "./types"
-import { sameLocation } from "./place"
+import { sameLine } from "./place"
 
 export type { Jump, JumpListState } from "./types"
 export { createJumpListState } from "./types"
-export { sameLocation } from "./place"
+export { sameLine, sameLocation } from "./place"
 export { isStepMotion, isListWalk, isFindMotion } from "./keys"
 
 const MAX_ENTRIES = 100
@@ -48,24 +48,20 @@ export function capture(state: AppState, vim: VimCursorState): Jump {
 }
 
 /**
- * Push a jump entry. Truncates forward history (standard jumplist
- * semantics), evicts FIFO at the cap, and coalesces consecutive duplicates.
+ * Push a jump entry, as nvim does with its default `jumpoptions`: the
+ * entries ahead of the index stay, since going back to look at something is
+ * no reason to lose where you had been. A line appears once — the older
+ * entry for it goes — so walking back never visits the same line twice.
+ * Every jump puts the index back at the newest entry.
  */
 export function push(state: AppState, jump: Jump): AppState {
-  const list = state.jumpList
-  const tip = list.index >= 0 ? list.entries[list.index] : undefined
-  if (tip && sameLocation(tip, jump)) return state
-
-  const truncated = list.entries.slice(0, list.index + 1)
-  truncated.push(jump)
-  const trimmed =
-    truncated.length > MAX_ENTRIES
-      ? truncated.slice(truncated.length - MAX_ENTRIES)
-      : truncated
+  const kept = state.jumpList.entries.filter((entry) => !sameLine(entry, jump))
+  kept.push(jump)
+  const capped = kept.length > MAX_ENTRIES ? kept.slice(kept.length - MAX_ENTRIES) : kept
 
   return {
     ...state,
-    jumpList: { entries: trimmed, index: trimmed.length - 1 },
+    jumpList: { entries: capped, index: capped.length - 1 },
   }
 }
 
@@ -83,31 +79,17 @@ export function back(state: AppState, vim: VimCursorState): { state: AppState; j
   const list = state.jumpList
   if (list.index < 0 || list.entries.length === 0) return null
 
-  // Standard nvim behaviour: the *first* Ctrl-O from the tip jumps to the
-  // tip entry itself (you haven't moved yet, so the tip is the previous
-  // location). We approximate by pushing current position once when the
-  // user is at the tail and the tip differs from now.
-  let workingState = state
-  let workingList = list
-  if (list.index === list.entries.length - 1) {
-    const here = capture(state, vim)
-    const tip = list.entries[list.index]!
-    if (!sameLocation(here, tip)) {
-      // Push current as a new tip so back-jump lands on the old tip.
-      workingState = push(state, here)
-      workingList = workingState.jumpList
-    }
-  }
+  // From the newest end, where you are is not in the list yet: nvim records
+  // it first, so `Ctrl-i` has somewhere to come back to. Standing on the
+  // newest entry already, the push only refreshes it.
+  const working = list.index === list.entries.length - 1 ? push(state, capture(state, vim)) : state
+  const workingList = working.jumpList
 
   if (workingList.index <= 0) return null
   const newIndex = workingList.index - 1
-  const target = workingList.entries[newIndex]!
   return {
-    state: {
-      ...workingState,
-      jumpList: { ...workingList, index: newIndex },
-    },
-    jump: target,
+    state: { ...working, jumpList: { ...workingList, index: newIndex } },
+    jump: workingList.entries[newIndex]!,
   }
 }
 

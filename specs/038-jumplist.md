@@ -41,8 +41,9 @@ do not produce jumps.
 - Applying a jump restores: file selection, viewing commit, view mode, and
   vim cursor line.
 - Jumplist is capped at 100 entries; oldest entries evicted FIFO.
-- Pushing after having moved back truncates any forward history (standard
-  jumplist semantics).
+- Pushing after having moved back keeps the entries ahead and appends at the
+  end, and a line appears once, as nvim's default `jumpoptions` have it
+  ([089](./089-jump-history.md) P2).
 - `Ctrl-i` is rebound from the current `Tab` view-toggle. View toggle moves to
   a new chord (proposed: `gv`) so nvim users get the expected `Ctrl-i` behavior.
   Because `Tab` and `Ctrl-i` are indistinguishable in terminal input, both keys
@@ -102,8 +103,8 @@ Initialize as `{ entries: [], index: -1 }`.
 New `src/features/jumplist/` with:
 
 - `capture(state, vim, lineMapping): Jump` — snapshot current location.
-- `push(state, jump): AppState` — append, evict past cap, truncate forward
-  history, advance index.
+- `push(state, jump): AppState` — drop the entry for the same line, append,
+  evict past cap, put the index at the end.
 - `back(state): { state, jump } | null`
 - `forward(state): { state, jump } | null`
 - `apply(jump, ctx)` — calls existing helpers:
@@ -183,6 +184,6 @@ in the chord block that calls `toggleViewMode`.
 
 ### Testing
 
-Unit tests for `push` / `back` / `forward` semantics (truncation, cap, empty,
-tip edges, coalesce). Integration-ish test for `apply` with a fake ctx
+Unit tests for `push` / `back` / `forward` semantics (no truncation, one
+entry per line, cap, empty, tip edges). Integration-ish test for `apply` with a fake ctx
 asserting it calls the right helpers.

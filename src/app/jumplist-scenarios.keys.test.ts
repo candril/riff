@@ -246,7 +246,7 @@ describe("c: Ctrl-o from the newest place records it", () => {
 })
 
 describe("d: a jump made after going back appends, and keeps what was ahead", () => {
-  test.todo("Ctrl-o then walks back through every entry", async () => {
+  test("Ctrl-o then walks back through every entry", async () => {
     const a = await scenario()
     const first = a.lineOf("src/alpha.ts", "line 3")
     a.moveTo(first)
@@ -277,7 +277,7 @@ describe("d: a jump made after going back appends, and keeps what was ahead", ()
 })
 
 describe("e: a line appears in the list once", () => {
-  test.todo("a new jump from a line already in the list drops the older entry, whatever its column", async () => {
+  test("a new jump from a line already in the list drops the older entry, whatever its column", async () => {
     const a = await scenario()
     const start = a.lineOf("src/alpha.ts", "line 24")
     const middle = a.lineOf("src/beta.ts", "line 24")

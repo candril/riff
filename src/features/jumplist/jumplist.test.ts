@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { isStepMotion, isListWalk, isFindMotion, sameLocation, capture, push, cursorFile } from "./index"
+import { isStepMotion, isListWalk, isFindMotion, sameLocation, sameLine, capture, push, back, forward, cursorFile } from "./index"
 import { createInitialState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { DiffFile } from "../../utils/diff-parser"
@@ -89,6 +89,65 @@ describe("push", () => {
     const once = push(state, capture(state, vim))
     const twice = push(once, capture(once, vim))
     expect(twice.jumpList.entries.length).toBe(1)
+  })
+})
+
+describe("sameLine", () => {
+  test("the column does not make another line; the file or the line does", () => {
+    const here = capture(at(0, 5).state, at(0, 5).vim)
+    expect(sameLine(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim))).toBe(true)
+    expect(sameLine(here, capture(at(1, 5).state, at(1, 5).vim))).toBe(false)
+    expect(sameLine(here, capture(at(0, 6).state, at(0, 6).vim))).toBe(false)
+    expect(sameLine(here, { ...here, viewMode: "state" })).toBe(false)
+  })
+})
+
+describe("the list, as nvim keeps it", () => {
+  const { state: start } = at(null, 0)
+  const jump = (line: number, col = 0) => capture(start, { ...createCursorState(), line, col })
+  const pushAll = (lines: number[]) => lines.reduce((s, line) => push(s, jump(line)), start)
+  const lines = (s: typeof start) => s.jumpList.entries.map((entry) => entry.cursorLine)
+
+  test("a jump after going back appends, and keeps the entries ahead of the index", () => {
+    const three = pushAll([1, 2, 3])
+    const walked = { ...three, jumpList: { ...three.jumpList, index: 0 } }
+    const pushed = push(walked, jump(9))
+    expect(lines(pushed)).toEqual([1, 2, 3, 9])
+    expect(pushed.jumpList.index).toBe(3)
+  })
+
+  test("a line already in the list moves to the end, with the column it has now", () => {
+    const pushed = push(pushAll([1, 2, 3]), jump(1, 7))
+    expect(lines(pushed)).toEqual([2, 3, 1])
+    expect(pushed.jumpList.entries[2]!.cursorCol).toBe(7)
+  })
+
+  test("holds 100 entries, and the oldest go first", () => {
+    const full = pushAll(Array.from({ length: 105 }, (_, i) => i))
+    expect(lines(full)).toHaveLength(100)
+    expect(lines(full)[0]).toBe(5)
+    expect(full.jumpList.index).toBe(99)
+  })
+
+  test("back from the newest end records where you are, so forward comes back to it", () => {
+    const list = pushAll([1, 2])
+    const backed = back(list, { ...createCursorState(), line: 8 })!
+    expect(backed.jump.cursorLine).toBe(2)
+    expect(lines(backed.state)).toEqual([1, 2, 8])
+    const forwarded = forward(backed.state)!
+    expect(forwarded.jump.cursorLine).toBe(8)
+    expect(forward(forwarded.state)).toBeNull()
+  })
+
+  test("back from a line already in the list records it once", () => {
+    const backed = back(pushAll([1, 2]), { ...createCursorState(), line: 1 })!
+    expect(lines(backed.state)).toEqual([2, 1])
+    expect(backed.jump.cursorLine).toBe(2)
+  })
+
+  test("at the oldest entry, back does nothing", () => {
+    const backed = back(pushAll([1]), { ...createCursorState(), line: 1 })
+    expect(backed).toBeNull()
   })
 })
 

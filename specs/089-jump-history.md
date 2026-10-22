@@ -1,6 +1,6 @@
 # Jump History
 
-**Status**: Done
+**Status**: In Progress
 
 ## Description
 
@@ -51,11 +51,41 @@ arrive.
   text field records anything.
 - A jump restores the column it left, not just the line.
 
-### P2
+### P2 — nvim's list rules (default `jumpoptions`)
 
-- Pushing after walking back truncates the forward history, the list caps at
-  100, and consecutive duplicates coalesce — as they do today.
+- A jump made after walking back appends at the end; the entries after the
+  one you walked back to stay. This is nvim's default, not
+  `jumpoptions=stack`.
+- A line appears once: a new entry for a line already in the list removes
+  the older one.
+- The list holds 100 entries, and the oldest go first.
+- `Ctrl-o` from the newest place records where you are first, so `Ctrl-i`
+  comes back to it.
 - At either end the key does nothing, quietly.
+
+All of these are built.
+
+One deliberate difference from nvim: a line is the same line when its file,
+commit, view (diff or overview) and line match, the column aside. nvim
+compares the buffer and the line; riff's views are not buffers, and a line
+of the overview is not a line of the diff.
+
+**Not built** — the rest of nvim's rules, each a `test.todo` in
+`src/app/jumplist-scenarios.keys.test.ts`, the harness that drives them
+through riff's keys:
+
+- What records. A thread picked with `j`/`k` in the thread panel is judged a
+  step, so it records only when the file changes. A jump from the comments
+  picker lands in the thread panel, which holds `Ctrl-o`. `%` and `gd` are
+  not riff jumps (`%` is unbound, `gd` opens an external diff).
+- What is restored. An entry restores the view mode, file selection and
+  commit, but not unified or split, nor the panel that had focus. Going
+  back to the overview is undone by the file selection that follows it in
+  `apply`.
+- Side and anchoring. An entry stores a mapping line, so a fold or a refresh
+  above it moves it; it should be anchored like a mark (file, line, side,
+  line text).
+- An entry whose file left the diff is applied anyway instead of skipped.
 
 ## Out of Scope, found while building
 
@@ -65,8 +95,9 @@ arrive.
 
 ## Technical Notes
 
-The recording sits around `handleKeypress`, in the recorder of
-`features/jumplist/recorder.ts`. Before and after each key it takes a
+The recording sits around `handleKeypress`, in `app/jump-recording.ts`,
+which runs the recorder of `features/jumplist/recorder.ts`; the scenario
+harness (`testing/jump-scenarios.ts`) records through the same module. Before and after each key it takes a
 moment: the place, the file under the cursor, and whether the interaction
 has settled (`app/jump-settled.ts`) — no prompt or picker, composer, search,
 flash, half-typed chord (`g`, `z`, `[`, `]`, read from the global key
