@@ -9,7 +9,7 @@ import { getCurrentRepo } from "./providers/github/exec"
 import { loadComments } from "./storage/comments"
 import { loadOrCreateSession } from "./storage/session"
 import { loadViewedStatuses } from "./storage/caches"
-import { fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
+import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
 import { getPendingReview } from "./providers/github/review"
 import { editPullRequest, createPullRequest, submitPrComment } from "./providers/github/mutations"
 import { loadPrSession } from "./providers/github/session"
@@ -223,6 +223,7 @@ export async function createApp(options: AppOptions = {}) {
     })
     refreshPreviews(panel)
     void readStack(panel)
+    void readBehindBy(panel)
   }
 
   /**
@@ -243,6 +244,20 @@ export async function createApp(options: AppOptions = {}) {
       state = showToast(state, `Stacked on #${stack.basePr.number}, which was rewritten since you branched — rebase`, "info")
       setTimeout(() => { state = clearToast(state); render() }, 5000)
     }
+    render()
+  }
+
+  /**
+   * How far the head is behind its base, for the merge status's base line
+   * (spec 108). One REST compare after the first render, never on the poll.
+   */
+  async function readBehindBy(panel: PRInfoPanelClass): Promise<void> {
+    if (!state.prInfo) return
+    const { owner, repo, baseRef } = state.prInfo
+    const behindBy = await fetchBehindBy(owner, repo, baseRef, currentHeadSha)
+    if (prInfoPanel !== panel) return
+    state = { ...state, behindBy }
+    panel.setBehindBy(behindBy)
     render()
   }
 

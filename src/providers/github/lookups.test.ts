@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { annotationsOf } from "./lookups"
+import { annotationsOf, behindByOf } from "./lookups"
 
 const raw = (over: Record<string, unknown>) => ({
   path: "src/a.ts",
@@ -64,5 +64,18 @@ describe("annotationsOf", () => {
       startLine: 0,
       endLine: 0,
     })
+  })
+})
+
+describe("behindByOf", () => {
+  test("reads the compare's behind count", () => {
+    expect(behindByOf({ behind_by: 3, ahead_by: 1 })).toBe(3)
+    expect(behindByOf({ behind_by: 0 })).toBe(0)
+  })
+
+  test("anything else is not known", () => {
+    for (const compare of [null, undefined, {}, { behind_by: "3" }, { behind_by: -1 }, { message: "Not Found" }]) {
+      expect(behindByOf(compare)).toBeNull()
+    }
   })
 })

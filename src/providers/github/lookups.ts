@@ -60,6 +60,16 @@ export function annotationsOf(raw: unknown[]): PrCheckAnnotation[] {
   return mapped
 }
 
+// Best effort: what cannot be read is shown as not known, never as a failure
+// to open the PR.
+const quiet = async <T,>(cmd: () => Promise<T>, fallback: T): Promise<T> => {
+  try {
+    return await cmd()
+  } catch {
+    return fallback
+  }
+}
+
 /**
  * Whether this PR's base is another open PR's branch, and how that base has
  * moved since this PR branched (spec 072). Three REST calls, only the first
@@ -71,16 +81,6 @@ export async function fetchStackInfo(
   baseRef: string,
   headSha: string
 ): Promise<StackInfo | null> {
-  // Best effort throughout: a stack that cannot be read is shown as no
-  // stack, never as a failure to open the PR.
-  const quiet = async <T,>(cmd: () => Promise<T>, fallback: T): Promise<T> => {
-    try {
-      return await cmd()
-    } catch {
-      return fallback
-    }
-  }
-
   // Interpolated, not spelled inline: `&` in a template literal is the
   // shell's, and would background the call.
   const byHead = `repos/${owner}/${repo}/pulls?head=${owner}:${baseRef}&state=open`
@@ -106,6 +106,27 @@ export async function fetchStackInfo(
     { behindBy: compare.behind_by ?? 0, mergeBase: compare.merge_base_commit.sha },
     commits.map((commit: any) => ({ sha: String(commit.sha ?? "") }))
   )
+}
+
+/**
+ * How many commits the base has that the PR's head lacks (spec 108). One REST
+ * compare, after the first render: the bundle query has no field for it.
+ */
+export async function fetchBehindBy(
+  owner: string,
+  repo: string,
+  baseRef: string,
+  headSha: string
+): Promise<number | null> {
+  return quiet(
+    async () => behindByOf(await $`gh api repos/${owner}/${repo}/compare/${baseRef}...${headSha}`.quiet().json()),
+    null
+  )
+}
+
+export function behindByOf(compare: unknown): number | null {
+  const behind = (compare as { behind_by?: unknown } | null)?.behind_by
+  return typeof behind === "number" && Number.isInteger(behind) && behind >= 0 ? behind : null
 }
 
 /**

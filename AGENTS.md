@@ -332,8 +332,8 @@ thread fetch 2, `getPrThreadStates` 1, `fetchPrMetaReactions` 2,
 checks, mergeability and required approvals (spec 108) at no extra cost.
 Note that `gh pr view --json …` is GraphQL, not REST. The activity feed's
 timeline (spec 070) is REST and paginated, and only fetched when the feed is
-opened or refreshed; so is the stacked-PR check (spec 072), after the first
-render.
+opened or refreshed; so are the stacked-PR check (spec 072) and the merge
+status's behind count (spec 108), once each after the first render.
 
 ## Actions
 

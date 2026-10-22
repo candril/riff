@@ -95,6 +95,9 @@ export class PRInfoPanelClass {
 
   // What this PR is stacked on (spec 072); undefined until it is known.
   private stack: StackInfo | null | undefined = undefined
+
+  // Commits the base has that the head lacks (spec 108); null until known.
+  private behindBy: number | null = null
   
   // Flattened items cache (includes expanded review threads as separate items)
   private flatConversationItems: FlatConversationItem[] = []
@@ -694,6 +697,13 @@ export class PRInfoPanelClass {
   setStack(stack: StackInfo | null): void {
     this.stack = stack
     this.pushMeta()
+  }
+
+  /** How far the head is behind its base, once the compare has answered. */
+  setBehindBy(behindBy: number | null): void {
+    if (behindBy === this.behindBy) return
+    this.behindBy = behindBy
+    this.push()
   }
 
   /** The links riff was given for this PR, and where they came from. */

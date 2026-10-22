@@ -545,6 +545,9 @@ export interface AppState {
   // The PR this one is stacked on, if any, and how that base has moved
   // since this one branched (spec 072). Read after the first render.
   stack: StackInfo | null
+  // How many commits the base has that the head lacks (spec 108). Read
+  // after the first render, like the stack.
+  behindBy: number | null
   
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
@@ -741,6 +744,7 @@ export function createInitialState(
     visitRebased: false,
     filesChangedSinceVisit: new Set<string>(),
     stack: null,
+    behindBy: null,
     prInfoPanel: {
       filter: "",
       filterInput: false,
