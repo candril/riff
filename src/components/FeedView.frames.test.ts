@@ -3,7 +3,7 @@ import { feedModel } from "./feed-model"
 import { createFeedIsland } from "../app/feed"
 import { bgAt, fgAt, ints, mountRenderable } from "../testing/frame"
 import { colors, theme } from "../theme"
-import { createFeedState, type CommitFileSummary, type FeedRow, type FeedState } from "../state"
+import { emptyFeed, type CommitFileSummary, type FeedRow, type FeedState } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 
 /*
@@ -51,7 +51,7 @@ function rowsOf(events: FeedEvent[], feed: FeedState): FeedRow[] {
 }
 
 async function show({ events, feed: over = {}, unseen = [], flash = [], loading = false, height = 30, width = 100, typed }: Show) {
-  const feed: FeedState = { ...createFeedState(), events, ...over }
+  const feed: FeedState = { ...emptyFeed(), events, ...over }
   mounted = await mountRenderable(
     (renderer) => {
       const island = createFeedIsland(renderer)

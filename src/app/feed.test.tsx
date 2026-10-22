@@ -4,7 +4,7 @@ import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testin
 import { createFeedIsland } from "./feed"
 import { feedModel, type FeedModel } from "../components/feed-model"
 import { findText, paintOf } from "../testing/frame"
-import { createFeedState, type CommitFileSummary, type FeedRow, type FeedState } from "../state"
+import { emptyFeed, type CommitFileSummary, type FeedRow, type FeedState } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 
 const NOW = Date.parse("2026-03-01T12:00:00Z")
@@ -37,7 +37,7 @@ const FILES: CommitFileSummary[] = [
 ]
 
 function model(events: FeedEvent[], over: Partial<FeedState> = {}, extra: { unseen?: string[]; flash?: [number, string][]; loading?: boolean } = {}): FeedModel {
-  const feed: FeedState = { ...createFeedState(), events, ...over }
+  const feed: FeedState = { ...emptyFeed(), events, ...over }
   const rows = events.flatMap((event): FeedRow[] => {
     const target = event.target
     if (target?.kind !== "commit" || !feed.expandedIds.has(event.id)) return [{ kind: "event", event }]

@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { feedModel, fitLeft, fitRight, leadWidthFor, timeAgo, type FeedEventRow, type FeedModelInput } from "./feed-model"
-import { createFeedState, type CommitFileSummary, type FeedRow, type FeedState } from "../state"
+import { emptyFeed, type CommitFileSummary, type FeedRow, type FeedState } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 
 const NOW = Date.parse("2026-03-01T12:00:00Z")
@@ -14,7 +14,7 @@ const commit = (sha: string, minutes = 0): FeedEvent =>
   event(`commit-${sha}`, minutes, { type: "commit", lead: sha, target: { kind: "commit", sha } })
 
 function model(events: FeedEvent[], over: Partial<FeedState> = {}, input: Partial<FeedModelInput> = {}) {
-  const feed: FeedState = { ...createFeedState(), events, ...over }
+  const feed: FeedState = { ...emptyFeed(), events, ...over }
   const rows = events.flatMap((e): FeedRow[] => {
     const target = e.target
     if (target?.kind !== "commit" || !feed.expandedIds.has(e.id)) return [{ kind: "event", event: e }]

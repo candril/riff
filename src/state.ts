@@ -10,6 +10,7 @@ import type { IgnoreMatcher } from "./utils/ignore"
 import type { VisitWatermark } from "./utils/visit"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
+import { emptyFeed, type FeedRow, type FeedState, type CommitFileSummary } from "./features/feed/types"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
@@ -159,48 +160,6 @@ export interface PRInfoPanelState {
   commentInputError: string | null
 }
 
-/**
- * The feed's own position: which row is highlighted, which event types are
- * shown, and the text it is narrowed by. Kept in app state rather than in
- * the view so it survives a rebuild of the view (specs 064, 070).
- */
-export interface FeedState {
-  highlightIndex: number
-  /** Empty means every type — the `[0] all` the header advertises. */
-  types: ReadonlySet<string>
-  filter: string
-  filterInput: boolean
-  /** Ids of the rows expanded into their detail (a commit's files). */
-  expandedIds: ReadonlySet<string>
-  /** Narrowed to what arrived since the last visit (specs 069, 070). */
-  unseenOnly: boolean
-  /** The stream itself, newest first. Empty until the timeline lands. */
-  events: readonly FeedEvent[]
-  loading: boolean
-  /** Files of an expanded commit row, fetched when it is opened. */
-  commitFiles: ReadonlyMap<string, CommitFileSummary[]>
-}
-
-export interface CommitFileSummary {
-  filename: string
-  additions: number
-  deletions: number
-}
-
-export function createFeedState(): FeedState {
-  return {
-    highlightIndex: 0,
-    types: new Set<string>(),
-    filter: "",
-    filterInput: false,
-    expandedIds: new Set<string>(),
-    unseenOnly: false,
-    events: [],
-    loading: false,
-    commitFiles: new Map(),
-  }
-}
-
 /** What the feed is showing right now, after its filters (spec 070). */
 export function visibleFeedEvents(state: AppState): FeedEvent[] {
   return visibleFeed(state.feed.events, {
@@ -211,15 +170,6 @@ export function visibleFeedEvents(state: AppState): FeedEvent[] {
       : undefined,
   })
 }
-
-/**
- * A row of the feed as drawn and navigated: an event, or one file of a
- * commit that has been opened. The highlight indexes these, so `j` walks
- * into a commit's files and `Enter` on one lands in that file (spec 070).
- */
-export type FeedRow =
-  | { kind: "event"; event: FeedEvent }
-  | { kind: "file"; event: FeedEvent; sha: string; file: CommitFileSummary; last: boolean }
 
 export function visibleFeedRows(state: AppState): FeedRow[] {
   const rows: FeedRow[] = []
@@ -527,7 +477,7 @@ export function createInitialState(
     },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
-    feed: createFeedState(),
+    feed: emptyFeed(),
     visit: null,
     seenCommentIds: new Set<string>(),
     visitRebased: false,

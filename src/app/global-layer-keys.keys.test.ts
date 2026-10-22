@@ -2,7 +2,8 @@ import { afterEach, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn, openChat } from "../testing/chat-keys"
-import { createFeedState, openInlineCommentOverlay, showToast } from "../state"
+import { openInlineCommentOverlay, showToast } from "../state"
+import { emptyFeed } from "../features/feed/types"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { Comment } from "../types"
 
@@ -112,7 +113,7 @@ test("Shift-c hands the line to $EDITOR's comment flow", async () => {
 
 test("i, a and d switch between the overview, the feed and the diff", async () => {
   const { mounted, state } = await globalApp()
-  mounted.show({ appMode: "pr", feed: { ...createFeedState(), events: [{ id: "e", type: "comment", at: "2026-01-01T00:00:00Z", title: "hi" }] } })
+  mounted.show({ appMode: "pr", feed: { ...emptyFeed(), events: [{ id: "e", type: "comment", at: "2026-01-01T00:00:00Z", title: "hi" }] } })
   mounted.setup.mockInput.pressKey("a")
   expect(state().viewMode).toBe("feed")
   mounted.setup.mockInput.pressKey("d")

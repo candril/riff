@@ -1,6 +1,6 @@
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { FEED_TYPES, type FeedEvent } from "../utils/feed"
-import type { FeedRow, FeedState } from "../state"
+import type { FeedRow, FeedState } from "../features/feed/types"
 import { feedWindow } from "./feed-window"
 
 /** Colours by name; the view maps them onto the theme. */

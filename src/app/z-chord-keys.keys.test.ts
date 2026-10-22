@@ -13,7 +13,8 @@ import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import { createFeedState, createInitialState, openInlineCommentOverlay } from "../state"
+import { createInitialState, openInlineCommentOverlay } from "../state"
+import { emptyFeed } from "../features/feed/types"
 import { createSearchState } from "../vim-diff/search-state"
 import { createComment } from "../types"
 import type { FoldsContext } from "../features/folds"
@@ -279,7 +280,7 @@ test("in the feed, za opens the highlighted row", async () => {
   mounted.show({
     appMode: "pr",
     viewMode: "feed",
-    feed: { ...createFeedState(), events: FEED_EVENTS },
+    feed: { ...emptyFeed(), events: FEED_EVENTS },
   })
   await mounted.frame()
   type("z", "a")

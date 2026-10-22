@@ -8,7 +8,7 @@ import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import { createFeedState } from "../state"
+import { emptyFeed } from "../features/feed/types"
 import { createComment } from "../types"
 import type { PrCommit } from "../providers/github/types"
 
@@ -225,7 +225,7 @@ test("in the feed, ]r steps to the next thread and leaves the feed's type filter
     appMode: "pr",
     viewMode: "feed",
     comments: [createComment("b.ts", 2, "open")],
-    feed: { ...createFeedState(), events: FEED_EVENTS },
+    feed: { ...emptyFeed(), events: FEED_EVENTS },
   })
   await mounted.frame()
   type("]", "r")

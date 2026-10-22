@@ -1,4 +1,4 @@
-import type { FeedRow, FeedState } from "../state"
+import type { FeedRow, FeedState } from "../features/feed/types"
 import { pickerWindow } from "./picker-window"
 
 /**

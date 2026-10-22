@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { FEED_CHROME_ROWS, feedRowsInView, feedWindow } from "./feed-window"
-import { createFeedState, type FeedRow, type FeedState } from "../state"
+import { emptyFeed, type FeedRow, type FeedState } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 
 const comment = (id: string): FeedEvent => ({
@@ -19,7 +19,7 @@ const commit = (sha: string): FeedEvent => ({
 })
 
 const rowsOf = (events: FeedEvent[]): FeedRow[] => events.map((event) => ({ kind: "event", event }))
-const feedOf = (over: Partial<FeedState> = {}): FeedState => ({ ...createFeedState(), ...over })
+const feedOf = (over: Partial<FeedState> = {}): FeedState => ({ ...emptyFeed(), ...over })
 const comments = (n: number) => Array.from({ length: n }, (_, i) => comment(`c${i}`))
 
 // Ten lines of room.

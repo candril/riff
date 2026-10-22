@@ -3,7 +3,7 @@ import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { bgAt } from "../testing/frame"
 import { FEED_EVENTS } from "../testing/feed-keys"
-import { createFeedState } from "../state"
+import { emptyFeed } from "../features/feed/types"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -37,7 +37,7 @@ async function feedApp() {
       mounted.render()
     },
   })
-  mounted.show({ appMode: "pr", viewMode: "feed", focusedPanel: "diff", feed: { ...createFeedState(), events: FEED_EVENTS } })
+  mounted.show({ appMode: "pr", viewMode: "feed", focusedPanel: "diff", feed: { ...emptyFeed(), events: FEED_EVENTS } })
   await mounted.frame()
   return { mounted, selected }
 }

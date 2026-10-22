@@ -1,6 +1,7 @@
 import { registerFeedKeys, type FeedKeyDeps } from "../features/feed/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
-import { createFeedState, createInitialState, type AppState, type CommitFileSummary } from "../state"
+import { createInitialState, type AppState } from "../state"
+import { emptyFeed, type CommitFileSummary } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 import { keymapHarness } from "./keymap-keys"
 
@@ -26,7 +27,7 @@ export function feedState(patch: Partial<AppState["feed"]> = {}): AppState {
     appMode: "pr",
     viewMode: "feed",
     feed: {
-      ...createFeedState(),
+      ...emptyFeed(),
       events: FEED_EVENTS,
       expandedIds: new Set(["commit-abc"]),
       commitFiles: new Map([["abc", COMMIT_FILES]]),

@@ -6,7 +6,8 @@ import { createRiffKeymap } from "./keymap"
 import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
 import { FEED_CHROME_ROWS } from "../components/feed-window"
-import { createFeedState, createInitialState, type AppState } from "../state"
+import { createInitialState, type AppState } from "../state"
+import { emptyFeed } from "../features/feed/types"
 import type { FeedEvent } from "../utils/feed"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
@@ -62,7 +63,7 @@ test("s in the feed labels the rows the scrolled window shows, at the renderer's
   const state: AppState = {
     ...createInitialState([], [], "test", ""),
     viewMode: "feed",
-    feed: { ...createFeedState(), events, highlightIndex: 39 },
+    feed: { ...emptyFeed(), events, highlightIndex: 39 },
   }
   const height = 10 + FEED_CHROME_ROWS
   const { offer, lists } = await keysFor(state, height)
