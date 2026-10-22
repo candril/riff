@@ -18,6 +18,7 @@ import { FRAME_ISLANDS } from "./frame-models"
 import type { FeedEvent } from "../utils/feed"
 import { createHelpState } from "../features/help/state"
 import { createConfirmState, type ConfirmDialogState } from "../features/confirm/state"
+import { createSyncPreviewState } from "../features/sync-preview/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -41,6 +42,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   let state = createInitialState([], [], "test", "")
   const help = createHelpState()
   const confirm = createConfirmState()
+  const syncPreview = createSyncPreviewState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -81,6 +83,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
     ...realParts,
+    // After the islands, one of which shares the factory's name.
+    syncPreview,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
@@ -90,19 +94,22 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
     /**
-     * `help` and `confirmDialog` open or close those overlays through their
-     * factories; the rest patches the state.
+     * `help`, `confirmDialog` and `syncPreview` open or close those overlays
+     * through their factories; the rest patches the state.
      */
     show({
       help: helpOpen,
       confirmDialog,
+      syncPreview: syncPreviewOpen,
       ...patch
-    }: Partial<AppState> & { help?: boolean; confirmDialog?: ConfirmDialogState | null }) {
+    }: Partial<AppState> & { help?: boolean; confirmDialog?: ConfirmDialogState | null; syncPreview?: boolean }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
       if (helpOpen === false) help.close()
       if (confirmDialog) confirm.show(confirmDialog)
       if (confirmDialog === null) confirm.close()
+      if (syncPreviewOpen === true) syncPreview.show()
+      if (syncPreviewOpen === false) syncPreview.close()
       render()
       return overlays()
     },
@@ -208,7 +215,7 @@ test("the command palette is mounted only while it is open, under the pickers", 
 test("the sync preview is mounted only while it is open, above the palette and the toast and under the pickers", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
-  const sync = (open: boolean) => ({ syncPreview: { ...initial.syncPreview, open } })
+  const sync = (open: boolean) => ({ syncPreview: open })
   expect(app.show(sync(true))).toEqual(["syncPreview"])
   expect(
     app.show({
@@ -233,7 +240,7 @@ test("the review preview is mounted only while it is open, between the toast and
     app.show({
       toast: { message: "Saved", type: "info" },
       actionMenu: { ...initial.actionMenu, open: true },
-      syncPreview: { ...initial.syncPreview, open: true },
+      syncPreview: true,
       filePicker: { ...initial.filePicker, open: true },
     })
   ).toEqual(["actionMenu", "toast", "reviewPreview", "syncPreview", "filePicker"])
@@ -244,7 +251,7 @@ test("the review preview is mounted only while it is open, between the toast and
       ...review(false),
       toast: initial.toast,
       actionMenu: initial.actionMenu,
-      syncPreview: initial.syncPreview,
+      syncPreview: false,
       filePicker: initial.filePicker,
     })
   ).toEqual([])

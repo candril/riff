@@ -96,6 +96,7 @@ async function gApp(more: Partial<AppKeyContext> = {}) {
     // The toast clears itself 3 s later, long after the app is disposed.
     setState: (update) => live && render.setState(update),
     render: () => live && mounted.render(),
+    syncPreview: mounted.syncPreview,
   }
   keys = keysOn(mounted, { cursorView, foldsContext, rebuildLineMapping, syncPreviewOpenContext, ...more })
   await mounted.frame()

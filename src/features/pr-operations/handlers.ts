@@ -32,6 +32,7 @@ import { getPrComments, toggleThreadResolution } from "../../providers/github/th
 import { getCurrentUser } from "../../providers/github/exec"
 import { getPrHeadSha } from "../../providers/github/content"
 import { validateCommentsForSubmit } from "../comments"
+import type { SyncPreviewState } from "../sync-preview/state"
 
 export interface PrOperationsContext {
   // State access
@@ -43,12 +44,24 @@ export interface PrOperationsContext {
   source: string
   // PR info
   prInfo: PrInfo | null
+  syncPreview: Pick<SyncPreviewState, "close" | "startSync">
 }
+
+/** What a sync sends its items through; a test hands in its own, so no gh runs. */
+export interface SyncCalls {
+  updateComment: typeof updateComment
+  submitReply: typeof submitReply
+  submitSingleComment: typeof submitSingleComment
+  getPrHeadSha: typeof getPrHeadSha
+  saveComment: typeof saveComment
+}
+
+const githubSyncCalls: SyncCalls = { updateComment, submitReply, submitSingleComment, getPrHeadSha, saveComment }
 
 /**
  * Execute the sync operation - push local edits and replies to GitHub
  */
-export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void> {
+export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCalls = githubSyncCalls): Promise<void> {
   const state = ctx.getState()
   if (!ctx.prInfo) return
 
@@ -56,19 +69,12 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
   const syncItems = gatherSyncItems(state.comments)
 
   if (syncItems.length === 0) {
-    ctx.setState((s) => ({
-      ...s,
-      syncPreview: { ...s.syncPreview, open: false },
-    }))
+    ctx.syncPreview.close()
     ctx.render()
     return
   }
 
-  // Set loading state
-  ctx.setState((s) => ({
-    ...s,
-    syncPreview: { ...s.syncPreview, loading: true, error: null },
-  }))
+  ctx.syncPreview.startSync()
   ctx.render()
 
   let successCount = 0
@@ -78,7 +84,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
   for (const item of syncItems) {
     try {
       if (item.type === "edit" && item.newBody && item.comment.githubId) {
-        const result = await updateComment(owner, repo, item.comment.githubId, item.newBody)
+        const result = await calls.updateComment(owner, repo, item.comment.githubId, item.newBody)
         if (result.success) {
           // Update comment: clear localEdit, set body to new value
           const updatedComment: Comment = {
@@ -91,7 +97,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, ctx.source)
           successCount++
         } else {
           lastError = result.error || "Failed to update comment"
@@ -100,7 +106,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
       }
 
       if (item.type === "reply" && item.parent?.githubId) {
-        const result = await submitReply(owner, repo, prNumber, item.comment, item.parent.githubId)
+        const result = await calls.submitReply(owner, repo, prNumber, item.comment, item.parent.githubId)
         if (result.success) {
           // Update comment: set status to synced, add GitHub IDs
           const updatedComment: Comment = {
@@ -114,7 +120,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, ctx.source)
           successCount++
         } else {
           lastError = result.error || "Failed to submit reply"
@@ -124,8 +130,8 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
 
       if (item.type === "new") {
         // Need head SHA for new comments
-        const headSha = await getPrHeadSha(prNumber, owner, repo)
-        const result = await submitSingleComment(owner, repo, prNumber, item.comment, headSha, commentRange(item.comment))
+        const headSha = await calls.getPrHeadSha(prNumber, owner, repo)
+        const result = await calls.submitSingleComment(owner, repo, prNumber, item.comment, headSha, commentRange(item.comment))
         if (result.success) {
           // Update comment: set status to synced, add GitHub IDs
           const updatedComment: Comment = {
@@ -139,7 +145,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, ctx.source)
           successCount++
         } else {
           lastError = result.error || "Failed to submit comment"
@@ -152,11 +158,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext): Promise<void>
     }
   }
 
-  // Close sync preview
-  ctx.setState((s) => ({
-    ...s,
-    syncPreview: { ...s.syncPreview, open: false, loading: false },
-  }))
+  ctx.syncPreview.close()
 
   // Show result toast
   if (failedCount === 0) {

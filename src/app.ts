@@ -58,6 +58,7 @@ import { loadInfoSections, saveInfoSections } from "./storage/info-sections"
 import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
 import { createConfirmState } from "./features/confirm/state"
+import { createSyncPreviewState } from "./features/sync-preview/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -104,7 +105,7 @@ import * as filePicker from "./features/file-picker"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
 import { commentPollRebuild, rereadsLookups, type PanelRebuild } from "./features/pr-info-panel/rebuild"
-import * as syncPreview from "./features/sync-preview"
+import * as syncPreviewFeature from "./features/sync-preview"
 import * as reviewPreview from "./features/review-preview"
 import * as fileTreeFeature from "./features/file-tree"
 import * as diffView from "./features/diff-view"
@@ -505,10 +506,12 @@ export async function createApp(options: AppOptions = {}) {
   const threadPanel = createThreadPanelIsland(renderer)
   const help = createHelpState()
   const confirm = createConfirmState()
+  const syncPreview = createSyncPreviewState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
     confirm.close()
+    syncPreview.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -677,6 +680,7 @@ export async function createApp(options: AppOptions = {}) {
     parses,
     help,
     confirm,
+    syncPreview,
     updateFileTreePanel,
     publishFrame: frame.publish,
   })
@@ -1021,6 +1025,7 @@ export async function createApp(options: AppOptions = {}) {
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     help,
     confirm,
+    syncPreview,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1049,10 +1054,11 @@ export async function createApp(options: AppOptions = {}) {
     mode,
   }
 
-  const syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext = {
+  const syncPreviewOpenContext: syncPreviewFeature.SyncPreviewOpenContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,
+    syncPreview,
   }
 
   const prInfoPanelOpenContext: prInfoPanelFeature.PRInfoPanelOpenContext = {
@@ -1153,6 +1159,7 @@ export async function createApp(options: AppOptions = {}) {
     render,
     source,
     prInfo: prInfo ?? null,
+    syncPreview,
   }
 
   const threadMotionContext: threadMotion.ThreadMotionContext = {
@@ -1193,7 +1200,7 @@ export async function createApp(options: AppOptions = {}) {
     quit,
     handleRefresh: () => refresh.handleRefresh(refreshContext),
     handleOpenReviewPreview: () => reviewPreview.handleOpenReviewPreview(reviewPreviewOpenContext),
-    handleOpenSyncPreview: () => syncPreview.handleOpenSyncPreview(syncPreviewOpenContext),
+    handleOpenSyncPreview: () => syncPreviewFeature.handleOpenSyncPreview(syncPreviewOpenContext),
     handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(commentsContext),
     handleDeleteComment: () => commentsFeature.handleDeleteComment(commentsContext),
     handleClearLocalComments: () => commentsFeature.handleClearLocalComments(commentsContext),
@@ -1833,6 +1840,7 @@ export async function createApp(options: AppOptions = {}) {
     chat: { state: chat, input: chatColumn.input, atPicker: chatColumn.atPicker },
     help,
     confirm,
+    syncPreview,
     composerSettled: proposals.composerSettled,
   })
 

@@ -5,17 +5,16 @@
 
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers } from "../../app/key-variants"
-import type { AppState } from "../../state"
+import type { SyncPreviewState } from "./state"
 
 export interface SyncPreviewKeyDeps {
-  getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  syncPreview: Pick<SyncPreviewState, "open" | "loading" | "close">
   render: () => void
   onExecuteSync: () => void
 }
 
 export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPreviewKeyDeps): () => void {
-  const captured = riffKeymap.capture(() => deps.getState().syncPreview.open)
+  const captured = riffKeymap.capture(() => deps.syncPreview.open())
   const unregisterLayer = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),
     commands: [
@@ -25,7 +24,7 @@ export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPrevie
         category: "Sync preview",
         palette: false,
         run: () => {
-          deps.setState((s) => ({ ...s, syncPreview: { ...s.syncPreview, open: false } }))
+          deps.syncPreview.close()
           deps.render()
         },
       },
@@ -35,7 +34,7 @@ export function registerSyncPreviewKeys(riffKeymap: RiffKeymap, deps: SyncPrevie
         category: "Sync preview",
         palette: false,
         run: () => {
-          if (!deps.getState().syncPreview.loading) deps.onExecuteSync()
+          if (!deps.syncPreview.loading()) deps.onExecuteSync()
         },
       },
     ],

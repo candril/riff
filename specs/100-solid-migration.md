@@ -212,6 +212,8 @@ pass reads its accessors into the published frame, so the islands still
 follow one frame. The confirm dialog is the second (`createConfirmState`
 in `src/features/confirm/state.ts`); the frame carries only its question,
 and its answers stay in the factory, where the keys read them.
+The sync preview is the third (`createSyncPreviewState` in
+`src/features/sync-preview/state.ts`).
 
 **Not built**: the rest of M6 (the palette reading
 command entries and the rest of the state factories); the file size ratchet (P3).

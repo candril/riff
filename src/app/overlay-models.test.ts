@@ -41,6 +41,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     diff: { columnInfo: null, selectionInfo: null },
     help: { open: false, scroll: 0 },
     confirmDialog: null,
+    syncPreview: null,
     ...rest,
   }
 }
@@ -97,12 +98,11 @@ describe("overlayModels", () => {
       frame({
         toast: { message: "Saved", type: "success" },
         reviewPreview: { ...initial.reviewPreview, open: true },
-        syncPreview: { ...initial.syncPreview, open: true },
         showLinePeek: true,
         blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog })
+      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false, error: null } })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
@@ -111,7 +111,7 @@ describe("overlayModels", () => {
     expect(open.reviewPreview).toEqual(
       reviewPreviewModel(validateCommentsForSubmit(reviewCandidates([hunked]), state.files), { ...initial.reviewPreview, open: true }, false)
     )
-    expect(open.syncPreview).toEqual(syncPreviewModel(gatherSyncItems([hunked]), initial.syncPreview))
+    expect(open.syncPreview).toEqual(syncPreviewModel(gatherSyncItems([hunked]), { loading: false, error: null }))
     expect(open.diffPeek).toEqual(diffPeekModel(mapping, 0, "new", { row: 0, col: 0 }, 100, 30))
     expect(open.diffPeek).not.toBeNull()
     expect(open.blamePeek).toEqual(blamePeekModel({ ...blamePeek!, now: NOW, terminalWidth: 100, terminalHeight: 30 }))

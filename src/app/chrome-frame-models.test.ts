@@ -38,6 +38,7 @@ function frame(
     diff,
     help: { open: help, scroll: 0 },
     confirmDialog: null,
+    syncPreview: null,
   }
 }
 

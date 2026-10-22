@@ -35,6 +35,7 @@ import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
 import type { HelpState } from "../help/state"
 import type { ConfirmState } from "../confirm/state"
+import type { SyncPreviewState } from "../sync-preview/state"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import {
@@ -81,6 +82,7 @@ export interface RefreshContext {
   saveMarks: (marks: readonly Mark[]) => void
   help: Pick<HelpState, "close">
   confirm: Pick<ConfirmState, "close">
+  syncPreview: Pick<SyncPreviewState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -254,17 +256,18 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
 /**
  * Swap in the state a reload rebuilt from createInitialState. The help
- * overlay and the confirm dialog live in factories that createInitialState
- * never reaches, so they are closed here, as the rebuild closes every
- * overlay still kept in AppState.
+ * overlay, the confirm dialog and the sync preview live in factories that
+ * createInitialState never reaches, so they are closed here, as the rebuild
+ * closes every overlay still kept in AppState.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
   ctx.help.close()
   ctx.confirm.close()
+  ctx.syncPreview.close()
 }
 
 /**

@@ -6,6 +6,7 @@ import { createChatState } from "../features/chat/state"
 import { chatAtCandidates } from "../features/chat/at-candidates"
 import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
+import { createSyncPreviewState } from "../features/sync-preview/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -105,6 +106,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const frame = createFrame()
   const help = createHelpState()
   const confirm = createConfirmState()
+  const syncPreview = createSyncPreviewState()
   const setState = (updater: (s: AppState) => AppState) => {
     state = updater(state)
   }
@@ -141,6 +143,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     parses,
     help,
     confirm,
+    syncPreview,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({
@@ -179,6 +182,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     help,
     /** The confirm dialog's state, which the frame pass and the keys read as app.ts's do. */
     confirm,
+    /** The sync preview's state, which the frame pass and the keys read as app.ts's do. */
+    syncPreview,
     fileTreePanel,
     render,
     agent,

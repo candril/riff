@@ -41,12 +41,14 @@ function keysOn(mounted: NonNullable<typeof app>) {
     render: mounted.render,
     source: "test",
     prInfo: null,
+    syncPreview: mounted.syncPreview,
   }
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
     help: mounted.help,
     confirm: mounted.confirm,
+    syncPreview: mounted.syncPreview,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

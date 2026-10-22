@@ -3,7 +3,6 @@ import { version } from "../version"
 import { getInlineCommentOverlayComments } from "../state"
 import * as commentsFeature from "../features/comments"
 import { toastModel } from "../components/notification-model"
-import { confirmDialogModel } from "../components/confirm-dialog-model"
 import { gatherSyncItems } from "../components/sync-items"
 import { syncPreviewModel } from "../components/sync-preview-model"
 import { reviewPreviewModel } from "../components/review-preview-model"
@@ -13,11 +12,11 @@ import { diffPeekModel, hunkPeekModel } from "./peeks"
 import type { Frame } from "./frame"
 
 /** What each overlay draws for `frame`, or null while it is not shown. */
-export function overlayModels({ state, vimState, mapping, cachedCurrentUser, width, height, now, help, confirmDialog }: Frame) {
+export function overlayModels({ state, vimState, mapping, cachedCurrentUser, width, height, now, help, confirmDialog, syncPreview }: Frame) {
   const codePeekId = state.inlineCommentOverlay.open ? state.inlineCommentOverlay.codePeekId : null
   return {
     toast: state.toast.message ? toastModel(state.toast.message, state.toast.type) : null,
-    confirmDialog: confirmDialog ? confirmDialogModel(confirmDialog) : null,
+    confirmDialog,
     reviewPreview: state.reviewPreview.open
       ? reviewPreviewModel(
           commentsFeature.validateCommentsForSubmit(reviewCandidates(state.comments), state.files),
@@ -25,7 +24,7 @@ export function overlayModels({ state, vimState, mapping, cachedCurrentUser, wid
           state.prInfo !== null && cachedCurrentUser === state.prInfo.author
         )
       : null,
-    syncPreview: state.syncPreview.open ? syncPreviewModel(gatherSyncItems(state.comments), state.syncPreview) : null,
+    syncPreview: syncPreview ? syncPreviewModel(gatherSyncItems(state.comments), syncPreview) : null,
     helpOverlay: help.open ? helpOverlayModel(version, help.scroll, height) : null,
     diffPeek:
       state.showLinePeek && state.viewMode === "diff"

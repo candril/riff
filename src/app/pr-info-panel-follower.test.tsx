@@ -48,6 +48,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     diff: { columnInfo: null, selectionInfo: null },
     help: { open: false, scroll: 0 },
     confirmDialog: null,
+    syncPreview: null,
   }
 }
 

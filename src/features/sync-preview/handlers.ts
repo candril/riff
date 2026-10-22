@@ -1,24 +1,15 @@
-/**
- * Sync Preview open handler
- *
- * Handles opening the sync preview modal.
- */
-
 import type { AppState } from "../../state"
 import { showToast, clearToast } from "../../state"
+import type { SyncPreviewState } from "./state"
 
 export interface SyncPreviewOpenContext {
-  // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
-  // Render
   render: () => void
+  syncPreview: Pick<SyncPreviewState, "show">
 }
 
-/**
- * Open the sync preview (gs)
- * Only available in PR mode
- */
+/** Opens the sync preview (gs); a local review has no PR to sync to. */
 export function handleOpenSyncPreview(ctx: SyncPreviewOpenContext): void {
   const state = ctx.getState()
   if (state.appMode !== "pr") {
@@ -31,14 +22,6 @@ export function handleOpenSyncPreview(ctx: SyncPreviewOpenContext): void {
     return
   }
 
-  ctx.setState((s) => ({
-    ...s,
-    syncPreview: {
-      ...s.syncPreview,
-      open: true,
-      loading: false,
-      error: null,
-    },
-  }))
+  ctx.syncPreview.show()
   ctx.render()
 }

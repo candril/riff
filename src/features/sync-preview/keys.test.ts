@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, type AppState } from "../../state"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerSyncPreviewKeys } from "./keys"
+import { createSyncPreviewState } from "./state"
 
 const SEQUENCES: Record<string, string> = {
   return: "\r",
@@ -10,16 +10,14 @@ const SEQUENCES: Record<string, string> = {
   "ctrl+escape": "\x1b[27;5u",
 }
 
-async function harness(syncPreview: Partial<AppState["syncPreview"]> = { open: true }) {
-  const base = createInitialState([], [], "local", "local changes")
-  let state: AppState = { ...base, syncPreview: { ...base.syncPreview, ...syncPreview } }
+async function harness({ open = true, loading = false } = {}) {
+  const syncPreview = createSyncPreviewState()
+  if (open) syncPreview.show()
+  if (loading) syncPreview.startSync()
   let syncs = 0
   const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerSyncPreviewKeys(riffKeymap, {
-    getState: () => state,
-    setState: (fn) => {
-      state = fn(state)
-    },
+    syncPreview,
     render: () => {},
     onExecuteSync: () => {
       syncs++
@@ -31,7 +29,7 @@ async function harness(syncPreview: Partial<AppState["syncPreview"]> = { open: t
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
     return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
-  return { press, state: () => state, syncs: () => syncs }
+  return { press, open: syncPreview.open, syncs: () => syncs }
 }
 
 describe("the sync preview's keys", () => {
@@ -58,13 +56,13 @@ describe("the sync preview's keys", () => {
   test("Esc closes it, whatever is held", async () => {
     const h = await harness()
     expect(h.press("ctrl+escape")).toEqual({ kept: true, prevented: true })
-    expect(h.state().syncPreview.open).toBe(false)
+    expect(h.open()).toBe(false)
   })
 
   test("every other key is kept from the chain and left unprevented", async () => {
     const h = await harness()
     for (const name of ["j", "q", "s"]) expect(h.press(name)).toEqual({ kept: true, prevented: false })
-    expect(h.state().syncPreview.open).toBe(true)
+    expect(h.open()).toBe(true)
     expect(h.syncs()).toBe(0)
   })
 })

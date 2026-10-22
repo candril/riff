@@ -6,6 +6,7 @@ import type { SearchState } from "../vim-diff/search-state"
 import type { FlashState } from "../vim-diff/flash-state"
 import type { ColumnStatus } from "./column-status"
 import type { SelectionStatus } from "./selection-status"
+import type { ConfirmDialogModel } from "../components/confirm-dialog-model"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -35,7 +36,9 @@ export interface Frame {
   /** The help overlay's state, read off its factory as the frame was published. */
   help: { open: boolean; scroll: number }
   /** The confirm dialog's question, read off its factory; its answers stay there, where the keys reach them. */
-  confirmDialog: { title: string; message: string; details?: string } | null
+  confirmDialog: ConfirmDialogModel | null
+  /** The sync preview's state, read off its factory, or null while it is closed. */
+  syncPreview: { loading: boolean; error: string | null } | null
 }
 
 // The last frame each followed accessor's followers finished drawing.

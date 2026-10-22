@@ -58,6 +58,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     setState: render.setState,
     help: mounted.help,
     confirm: mounted.confirm,
+    syncPreview: mounted.syncPreview,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

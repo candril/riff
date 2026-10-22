@@ -15,6 +15,7 @@ export interface OutsideOverlays {
   prompt: boolean
   help: boolean
   confirm: boolean
+  syncPreview: boolean
 }
 
 /** An overlay drawn over every panel is up, and it takes the keys from whichever has focus. */
@@ -28,7 +29,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     state.marksPicker.open ||
     state.occurrencePicker.open ||
     state.commitPicker.open ||
-    state.syncPreview.open ||
+    outside.syncPreview ||
     outside.confirm ||
     ((state.showLinePeek || state.blamePeek !== null) && state.viewMode === "diff")
   )

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { createInitialState, type AppState } from "../../state"
 import { createHelpState } from "../help/state"
 import { createConfirmState } from "../confirm/state"
+import { createSyncPreviewState } from "../sync-preview/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -15,6 +16,7 @@ describe("a refresh's rebuilt state", () => {
       setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
       help,
       confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -32,11 +34,31 @@ describe("a refresh's rebuilt state", () => {
       setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
       help: createHelpState(),
       confirm,
+      syncPreview: createSyncPreviewState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
 
     expect(state.description).toBe("reloaded")
     expect(confirm.dialog()).toBeNull()
+  })
+
+  test("closes the sync preview, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const syncPreview = createSyncPreviewState()
+    syncPreview.show()
+    syncPreview.startSync()
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect([syncPreview.open(), syncPreview.loading()]).toEqual([false, false])
   })
 })

@@ -9,3 +9,4 @@
 
 export { registerSyncPreviewKeys, type SyncPreviewKeyDeps } from "./keys"
 export { handleOpenSyncPreview, type SyncPreviewOpenContext } from "./handlers"
+export { createSyncPreviewState, type SyncPreviewState } from "./state"

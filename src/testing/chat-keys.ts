@@ -59,6 +59,7 @@ export function keysOn(
     chat: { state: mounted.chat, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     help: mounted.help,
     confirm: mounted.confirm,
+    syncPreview: mounted.syncPreview,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

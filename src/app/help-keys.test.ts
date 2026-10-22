@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { createInitialState, type AppState } from "../state"
 import { createHelpState } from "../features/help/state"
+import { createSyncPreviewState } from "../features/sync-preview/state"
 import { helpViewport } from "../components/help-sections"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import { registerSyncPreviewKeys } from "../features/sync-preview/keys"
@@ -28,25 +28,19 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
   const { riffKeymap, leftKeys, press } = await keymapHarness()
   const helpState = createHelpState()
   helpState.toggle()
-  const initial = createInitialState([], [], "", "")
-  let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
+  const syncPreviewState = createSyncPreviewState()
+  if (syncPreview) syncPreviewState.show()
   let renders = 0
   let height = rows
-  const deps = {
-    getState: () => state,
-    setState: (update: (s: AppState) => AppState) => {
-      state = update(state)
-    },
-    render: () => {
-      renders++
-    },
+  const render = () => {
+    renders++
   }
-  registerHelpKeys(riffKeymap, { help: helpState, render: deps.render, height: () => height, chordPending: () => chordPending })
-  registerSyncPreviewKeys(riffKeymap, { ...deps, onExecuteSync: () => {} })
+  registerHelpKeys(riffKeymap, { help: helpState, render, height: () => height, chordPending: () => chordPending })
+  registerSyncPreviewKeys(riffKeymap, { syncPreview: syncPreviewState, render, onExecuteSync: () => {} })
   return {
     press,
     leftKeys,
-    state: () => state,
+    syncPreviewOpen: syncPreviewState.open,
     open: helpState.open,
     scroll: helpState.scroll,
     toggle: helpState.toggle,
@@ -162,7 +156,7 @@ test("super+j and hyper+j scroll the help, and Ctrl-j does not", async () => {
 test("with the help and the sync preview both up, escape closes the sync preview, not the help", async () => {
   const help = await openHelp(40, { syncPreview: true })
   help.press(ESC)
-  expect(help.state().syncPreview.open).toBe(false)
+  expect(help.syncPreviewOpen()).toBe(false)
   expect(help.open()).toBe(true)
   expect(help.leftKeys).toEqual([])
 })
@@ -173,7 +167,7 @@ test("under the sync preview the help scrolls and closes on none of its keys", a
   help.press(CTRL_D)
   help.press("q")
   expect([help.open(), help.scroll()]).toEqual([true, 0])
-  expect(help.state().syncPreview.open).toBe(true)
+  expect(help.syncPreviewOpen()).toBe(true)
   expect(help.leftKeys).toEqual([])
 })
 

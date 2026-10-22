@@ -117,8 +117,8 @@ export function createToastIsland(renderer: CliRenderer) {
 **Feature state factories.** A feature's state moves out of `AppState`
 into a factory of its own, `createXState()`, built on Solid signals as in
 tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
-`src/features/help/state.ts` and `src/features/confirm/state.ts` are the
-examples. The frame pass reads each
+`src/features/help/state.ts`, `src/features/confirm/state.ts` and
+`src/features/sync-preview/state.ts` are the examples. The frame pass reads each
 factory's accessors into the `Frame`, so islands keep following one
 frame; its actions do not render, so callers still call `render()` after
 them, and a reload that rebuilds `AppState` resets the factory itself.

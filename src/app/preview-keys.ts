@@ -27,8 +27,7 @@ export function registerPreviewKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext):
     readSummary: () => ctx.readReviewSummary(),
   })
   registerSyncPreviewKeys(riffKeymap, {
-    getState,
-    setState,
+    syncPreview: ctx.syncPreview,
     render,
     onExecuteSync: () => prOperations.handleExecuteSync(ctx.prOperationsContext),
   })

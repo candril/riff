@@ -24,6 +24,7 @@ import type { Frame } from "./frame"
 import { confirmDialogModel } from "../components/confirm-dialog-model"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
+import type { SyncPreviewState } from "../features/sync-preview/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -46,6 +47,7 @@ export interface FramePassContext {
   parses: FileParses
   help: HelpState
   confirm: ConfirmState
+  syncPreview: SyncPreviewState
   // Helper
   updateFileTreePanel: () => void
   /** Hands the pass's snapshot to every view that derives its own model from it. */
@@ -76,10 +78,14 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const help = { open: ctx.help.open(), scroll: ctx.help.scroll() }
     const asked = ctx.confirm.dialog()
     const confirmDialog = asked ? confirmDialogModel(asked) : null
+    const syncPreview = ctx.syncPreview.open()
+      ? { loading: ctx.syncPreview.loading(), error: ctx.syncPreview.error() }
+      : null
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState),
       help: help.open,
       confirm: confirmDialog !== null,
+      syncPreview: syncPreview !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -107,6 +113,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       diff: diffPass.readout(splitOn, state.viewMode, vimState),
       help,
       confirmDialog,
+      syncPreview,
     }
 
     // The composer and the prompts focus their fields as publish's first
