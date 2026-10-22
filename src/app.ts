@@ -78,6 +78,7 @@ import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
 import { createThreadPanelIsland } from "./app/thread-panel"
 import { createChatColumnIsland } from "./app/chat-column"
+import { chatAtCandidates } from "./features/chat/at-candidates"
 import { createReviewChat, diffCursorPosition } from "./app/review-chat"
 import { createProposals } from "./app/proposals"
 import { createFeedIsland } from "./app/feed"
@@ -514,7 +515,7 @@ export async function createApp(options: AppOptions = {}) {
     note: chat.note,
   })
   chat.onSessionClosed(proposals.endConversation)
-  const chatColumn = createChatColumnIsland(renderer, chat)
+  const chatColumn = createChatColumnIsland(renderer, chat, () => chatAtCandidates(state))
   const blame: BlameDeps = {
     source: options.demo
       ? demoBlameSource()
@@ -1790,7 +1791,7 @@ export async function createApp(options: AppOptions = {}) {
     threadMotionContext,
     marksContext,
     blame,
-    chat: { state: chat, input: chatColumn.input },
+    chat: { state: chat, input: chatColumn.input, atPicker: chatColumn.atPicker },
     help,
     composerSettled: proposals.composerSettled,
   })

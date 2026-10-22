@@ -47,7 +47,7 @@ export function keysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
     },
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,
-    chat: { state: mounted.chat, input: mounted.chatColumn.input },
+    chat: { state: mounted.chat, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     help: mounted.help,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},

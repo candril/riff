@@ -1,5 +1,8 @@
 import type { TextareaRenderable } from "@opentui/core"
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js"
+import { AtPickerView } from "../../components/AtPickerView"
+import type { AtPicker } from "../../components/at-picker"
+import type { ChatAtPicker } from "./at-picker"
 import { EntryView } from "./EntryView"
 import { chatColors } from "./markdown-style"
 import type { ChatState } from "./state"
@@ -29,6 +32,7 @@ function useNow(running: () => boolean) {
 
 export function ChatPane(props: {
   state: ChatState
+  atPicker: ChatAtPicker
   // Shade, not a frame, says the chat has the keys.
   focused: boolean
   onInput: (input: TextareaRenderable) => void
@@ -38,6 +42,7 @@ export function ChatPane(props: {
   const now = useNow(() => props.state.status() === "answering")
   const status = () => statusLineText(props.state.activity(), props.state.clearPrompt(), now())
   const shade = () => (props.focused ? chatColors.inputFocused : chatColors.inputIdle)
+  const followAt = () => props.atPicker.follow(input.plainText, input.cursorOffset)
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -66,6 +71,14 @@ export function ChatPane(props: {
         paddingX={1}
         paddingY={1}
       >
+        {/* Floats above the input, as the comment composer's picker does, rather than pushing it down the column. */}
+        <Show when={props.atPicker.view()}>
+          {(picker: () => AtPicker) => (
+            <box position="absolute" bottom="100%" left={1} right={1} zIndex={60}>
+              <AtPickerView picker={picker()} />
+            </box>
+          )}
+        </Show>
         <textarea
           ref={(r: TextareaRenderable) => {
             input = r
@@ -73,7 +86,11 @@ export function ChatPane(props: {
           }}
           id="chat-input"
           height={inputHeight()}
-          onContentChange={() => setInputHeight(linesIn(input.plainText))}
+          onContentChange={() => {
+            setInputHeight(linesIn(input.plainText))
+            followAt()
+          }}
+          onCursorChange={followAt}
           placeholder={PLACEHOLDER}
           backgroundColor={shade()}
           focusedBackgroundColor={shade()}

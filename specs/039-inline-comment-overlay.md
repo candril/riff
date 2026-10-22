@@ -46,7 +46,10 @@ spec 010; that panel is retired.
 - **A Solid island handed a model**: `src/app/thread-panel.tsx` mounts
   `ThreadPanelView`, drawn from `thread-panel-model.ts`, with the mention
   and emoji pickers as `ThreadPanelPicker`; the keys stay in
-  `src/features/inline-comment-overlay`.
+  `src/features/inline-comment-overlay`. The mention picker's model, view,
+  keys and insertion (`components/at-picker.ts`, `AtPickerView.tsx`,
+  `app/at-picker-keys.ts`, `app/textarea-range.ts`) are shared with the
+  chat input's `@` references ([102](./102-agent-chat.md)).
 
 ## Out of Scope
 

@@ -3,6 +3,7 @@ import { createFileTreeIsland } from "../app/file-tree"
 import { createThreadPanelIsland } from "../app/thread-panel"
 import { createChatColumnIsland } from "../app/chat-column"
 import { createChatState } from "../features/chat/state"
+import { chatAtCandidates } from "../features/chat/at-candidates"
 import { createHelpState } from "../features/help/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
@@ -90,7 +91,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const chrome = {
     statusBar: createStatusBarIsland(renderer),
     threadPanel: createThreadPanelIsland(renderer),
-    chatColumn: createChatColumnIsland(renderer, chat),
+    chatColumn: createChatColumnIsland(renderer, chat, () => chatAtCandidates(state)),
     feed: createFeedIsland(renderer),
   }
   const shell = createAppShell(renderer, {

@@ -4,6 +4,7 @@ import { createChatColumnIsland } from "./chat-column"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createChatState } from "../features/chat/state"
 import { CHAT_HINT } from "../features/chat/ChatPane"
+import type { AtCandidate } from "../features/chat/at-candidates"
 import { theme } from "../theme"
 import { bgAt, ints, trimFrame } from "../testing/frame"
 
@@ -15,11 +16,11 @@ afterEach(async () => {
   teardown = []
 })
 
-async function mountColumn(width: number, focused = true) {
+async function mountColumn(width: number, focused = true, atCandidates: AtCandidate[] = []) {
   const setup = await createTestRenderer({ width, height: HEIGHT })
   const fake = fakeAgent()
   const state = createChatState(fake.agent)
-  const island = createChatColumnIsland(setup.renderer, state)
+  const island = createChatColumnIsland(setup.renderer, state, () => atCandidates)
   teardown.push(async () => {
     await setup.waitForVisualIdle().catch(() => {})
     island.dispose()
@@ -152,4 +153,48 @@ test("a drifted claude's note is there when the column opens, before anything is
   state.note(drift, "info")
   island.update({ width: 50, focused: true })
   expect(flat(await draw(setup))).toContain(drift)
+})
+
+describe("an @ in the input floats the picker of what it can attach just above it", () => {
+  const CANDIDATES: AtCandidate[] = [
+    { text: "@selection", keys: ["selection"] },
+    { text: "@file", keys: ["file"] },
+    { text: "@src/greet.ts", detail: "M  +1 -1", keys: ["greet.ts", "src/greet.ts"] },
+    { text: "@src/sum.ts", detail: "A  +3 -0", keys: ["sum.ts", "src/sum.ts"] },
+  ]
+  const inputRow = HEIGHT - 2
+
+  test("titled @attach, a row per candidate with its status and line counts, the first selected, and the keys under them", async () => {
+    const { setup, island } = await mountColumn(50, true, CANDIDATES)
+    await draw(setup)
+    await setup.mockInput.typeText("@")
+    const frame = await draw(setup)
+    const rows = frame.split("\n")
+    expect(rows[inputRow]).toContain("@")
+    const footer = rows.findIndex((row) => row.includes("↑↓ nav  Tab/⏎ accept  Esc dismiss"))
+    // The input box's top padding sits between the picker and the typed line.
+    expect(footer).toBe(inputRow - 2)
+    const picker = rows.slice(footer - 5, footer).map((row) => row.trim())
+    expect(picker[0]).toBe("@attach")
+    expect(picker[1]).toEndWith("▸ @selection")
+    expect(picker[2]).toEndWith("@file")
+    expect(picker[3]).toMatch(/@src\/greet\.ts +M {2}\+1 -1$/)
+    expect(picker[4]).toMatch(/@src\/sum\.ts +A {2}\+3 -0$/)
+    const spans = setup.captureSpans()
+    const selected = footer - 4
+    expect(bgAt(spans, 4, selected)).toEqual(ints(theme.surface0))
+    expect(bgAt(spans, 4, selected + 1)).toEqual(ints(theme.mantle))
+    expect(frame).not.toMatch(/[│─┌┐└┘╭╮╰╯]/)
+    expect(island.atPicker.session()).toEqual({ query: "", atOffset: 0, selectedIndex: 0 })
+  })
+
+  test("a query nothing matches says so, in the same place", async () => {
+    const { setup } = await mountColumn(50, true, CANDIDATES)
+    await draw(setup)
+    await setup.mockInput.typeText("@xyz")
+    const frame = await draw(setup)
+    const rows = frame.split("\n")
+    expect(rows[inputRow - 2]).toContain("No match for @xyz")
+    expect(frame).not.toContain("@attach")
+  })
 })

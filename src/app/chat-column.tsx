@@ -3,6 +3,8 @@ import { createSignal, Show } from "solid-js"
 import { ChatPane } from "../features/chat/ChatPane"
 import { chatColors } from "../features/chat/markdown-style"
 import type { ChatState } from "../features/chat/state"
+import type { AtCandidate } from "../features/chat/at-candidates"
+import { createChatAtPicker } from "../features/chat/at-picker"
 import { mountSolid } from "./solid-island"
 
 export interface ChatColumnInput {
@@ -16,9 +18,14 @@ export interface ChatColumnInput {
  * is handed it once and redraws from its signals; closing hides the host and
  * keeps the input, with whatever was half typed in it.
  */
-export function createChatColumnIsland(renderer: CliRenderer, chat: ChatState) {
+export function createChatColumnIsland(
+  renderer: CliRenderer,
+  chat: ChatState,
+  atCandidates: () => readonly AtCandidate[] = () => [],
+) {
   const [focused, setFocused] = createSignal<boolean | null>(null)
   let input: TextareaRenderable | null = null
+  const atPicker = createChatAtPicker(atCandidates, () => input)
 
   // The pane mounts after the update that first opens it has returned, as an
   // update runs inside the frame's effects, so the input takes the focus it
@@ -35,6 +42,7 @@ export function createChatColumnIsland(renderer: CliRenderer, chat: ChatState) {
       <Show when={focused() !== null}>
         <ChatPane
           state={chat}
+          atPicker={atPicker}
           focused={focused() === true}
           onInput={(textarea) => {
             input = textarea
@@ -71,6 +79,7 @@ export function createChatColumnIsland(renderer: CliRenderer, chat: ChatState) {
     },
     /** Null until the first update draws the pane. */
     input: () => input,
+    atPicker,
     dispose() {
       island.dispose()
     },

@@ -12,7 +12,9 @@ import { focusLeft, focusRight, promptOpen, toggleChat, type AppState } from "..
 import type { VimCursorState } from "../../vim-diff/types"
 import type { SearchState } from "../../vim-diff/search-state"
 import { isVisualMode } from "../../vim-diff/cursor-state"
+import { registerAtPickerLayer } from "../../app/at-picker-keys"
 import { attachOnScreen } from "./attach"
+import type { ChatAtPicker } from "./at-picker"
 import type { ChatState } from "./state"
 
 export interface ChatKeyDeps {
@@ -21,7 +23,7 @@ export interface ChatKeyDeps {
   render: () => void
   getVimState: () => VimCursorState
   getSearchState: () => SearchState
-  chat: { state: ChatState; input: () => TextareaRenderable | null }
+  chat: { state: ChatState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
 }
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
@@ -81,14 +83,25 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     commands: [
       command("send", "Ask the agent", () => {
         // A question that did not go keeps its text, so a mistyped @path is fixed rather than retyped.
-        if (chat.state.send(inputText())) chat.input()?.clear()
+        if (chat.state.send(inputText())) {
+          chat.input()?.clear()
+          chat.atPicker.close()
+        }
       }),
       command("newLine", "Break the line", () => chat.input()?.newLine()),
       command("escape", "Stop the answer, or back to the diff", () => {
         if (chat.state.status() === "answering") chat.state.interrupt()
         else move((s) => ({ ...s, focusedPanel: "diff" }))
       }),
-      command("newConversation", "Start a new conversation", () => chat.state.newConversation(), false),
+      command(
+        "newConversation",
+        "Start a new conversation",
+        () => {
+          chat.state.newConversation()
+          chat.atPicker.close()
+        },
+        false,
+      ),
       // The chat is the last panel on the right, so Ctrl-l has nowhere to go;
       // a no-op is no answer to "start over?" either.
       command("right", "Stay in the chat", () => {}, false),
@@ -112,6 +125,15 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     enabled: () => captured.holds() && inputText() === "",
     commands: [command("walkLeft", "Walk left out of the chat", () => move(focusLeft))],
     bindings: anyModifiers("backspace", "chat.walkLeft"),
+  })
+  // After the chat's own layers, so while the picker is up Esc closes it
+  // rather than stopping an answer, and Ctrl-n moves rather than starting over.
+  const unregisterAtPicker = registerAtPickerLayer(riffKeymap, {
+    prefix: "chat.at",
+    category: "Chat",
+    holds: captured.holds,
+    picker: chat.atPicker,
+    onKey: () => chat.state.cancelNewConversation(),
   })
   // The keys that reach the chat from elsewhere, and Ctrl-r back out of it,
   // but never from under a modal that outranks the chat, which keeps the
@@ -142,6 +164,7 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     captured()
     unregisterFocused()
     unregisterEmpty()
+    unregisterAtPicker()
     unregisterReach()
   }
 }

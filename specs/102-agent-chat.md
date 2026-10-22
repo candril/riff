@@ -85,6 +85,17 @@ like any comment the reviewer typed.
   cannot flood the context. A repeated token attaches once; trailing
   punctuation is not part of a token; `@Inject` or `@handle`, which do not
   look like a path, stay text.
+- **`@` suggests what it can attach**: typing `@` at the start of the
+  input or after a space opens the comment composer's `@mention` picker
+  ([039](./039-inline-comment-overlay.md)), titled `@attach`, floating
+  just above the input. It lists `@selection`, `@file`, `@pr` (only for a PR, as it stops
+  a local question), then every file of the change in diff order with its
+  status and `+/-` counts; a path outside the change is never offered.
+  Further characters up to the next space fuzzy-filter it, a file ranked by
+  its basename first. `Tab`/`Enter` insert the token and a space, `↑`/`↓`
+  and `Ctrl-p`/`Ctrl-n` move, and `Esc` closes it and keeps what was typed,
+  without stopping an answer or leaving the chat. With nothing matched,
+  `Enter` sends and `Tab` types, as without the picker.
 - **A reference that names nothing stops the question**: `@selection`
   with no selection, `@file` with no file under the cursor, `@pr` in a
   local review, or a path that is no changed file. The chat says why, and
