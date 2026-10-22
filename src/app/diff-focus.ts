@@ -24,7 +24,7 @@ export function overlayOpen(state: AppState, promptOpen: boolean): boolean {
 
 /**
  * Whether the diff's cursor is live: false while something else takes the
- * keys ahead of it (see global-keys.ts). Unified draws its block as the
+ * keys ahead of it (see keys.ts). Unified draws its block as the
  * terminal's own cursor, which no overlay drawn over the diff can cover,
  * so a cursor that is not live is not shown at all. A composer, a prompt
  * or the chat's input needs the terminal cursor for itself besides (spec 065).

@@ -54,7 +54,7 @@ export function registerDiffKeys(riffKeymap: RiffKeymap, deps: DiffKeyDeps): () 
         },
       },
     ],
-    // handleInput prevents what it must itself, and a declined key must stay unprevented for the chain.
+    // handleInput prevents what it must itself, and a declined key must stay unprevented for the leftover.
     bindings: [{ key: `{${ANY_KEY}}`, cmd: "diff.key", preventDefault: false }],
   })
   return () => {

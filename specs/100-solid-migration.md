@@ -84,8 +84,8 @@ for editing and creating a PR (`pr-template.ts`); editor spawning
 (`diff-viewer.ts`). The templates are pure, so their round trips are
 tested without spawning anything.
 
-The `@opentui/keymap` keymap is wired and offered every key first, ahead
-of the priority chain in `global-keys.ts`
+The `@opentui/keymap` keymap is wired and offered every key, and what its
+layers leave goes to the file tree's leftover
 ([ADR-002](../docs/decisions/ADR-002-keys-through-the-keymap.md)); it
 holds F12, the debug console, the flash jump's keys, the confirmation
 dialog's, the command palette's, those of the file, comments, marks,
@@ -144,14 +144,14 @@ are one layer registered behind every layer but the tree's
 branches and before its sequences, the tree and the diff; it is no
 capture, and stands aside while any capture holds the key. Each command
 declines a key its case in the chain let through, leaving it unprevented
-for the chain, and declines every key while a chord is pending. Its
+for the layers behind, and declines every key while a chord is pending. Its
 bindings take any modifiers, and the keymap's folding of names to lower
 case lets the binding on `g` take the tree's `G`. The file tree's keys are
 one layer registered behind the global keys
 (`src/features/file-tree/keys.ts`), so a key the global keys decline falls
 through to it; it stands aside while a chord is pending, and a key
 that breaks off a chord without completing a sequence still reaches the
-tree through the chain, as does a slash kitty names after its base key
+tree through its leftover, as does a slash kitty names after its base key
 on a layout where `/` is shifted. The `]`/`[` motions, the `z` chords
 and the `g` chords are three layers of keymap sequences registered behind
 the tree's (`src/app/bracket-keys.ts`, `src/app/z-chord-keys.ts`,
@@ -168,7 +168,7 @@ sequence, so Ctrl-r after `]` opens the chat rather than reading as `]r`.
 The patterns are registered once for every layer. Each layer stands
 aside while any capture holds the key. A key that breaks off a keymap
 sequence is offered to the layers again, with the chord still counting
-as pending, before it reaches the chain as the second key of a chord, as
+as pending, before it reaches the leftover as the second key of a chord, as
 the chain asked the chat ahead of its sequences and its global keys
 declined under a chord. A `]`, `[`, `z` or `g` that breaks off a sequence opens its own,
 so `]]f`, `g]f`, `gzz` and `zgg` still act, behind the help overlay too.
@@ -196,9 +196,10 @@ diff last: the vim handler parses any key, so the layer binds a pattern
 that matches every key rather than a list of names, and a key every
 layer above declines falls through to it. Only the toggle gives way to a
 chord; a key that breaks off one reaches the diff at the re-offer. Every
-layer that gives way to a chord reads the keymap's pending sequence, and
-the chain holds no chord of its own: it only hands the tree a key that
-broke off a chord, or a slash kitty names after its base key.
+layer that gives way to a chord reads the keymap's pending sequence. The
+priority chain is gone: the tree's leftover (`treeLeftover` in
+`src/features/file-tree/keys.ts`) takes the two cases it had left, a key
+that broke off a chord and a slash kitty names after its base key.
 
 **Not built**: the rest of M6 (the palette reading
 command entries, and the state factories); the file size ratchet (P3).

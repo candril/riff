@@ -1,12 +1,9 @@
 /**
- * Global key handling
- *
- * What the keymap's layers leave (ADR-002) reaches the tree here, and only
- * a key that broke off a chord or a slash the tree's layer cannot name.
- * Every chord is a keymap sequence, and the diff is a layer of its own.
+ * The app as every keymap layer sees it: each layer's deps are built from
+ * this context (ADR-002).
  */
 
-import type { KeyEvent, TextareaRenderable } from "@opentui/core"
+import type { TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
@@ -22,19 +19,17 @@ import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
-import { treeInputContext } from "./tree-key-deps"
 
-import * as prInfoPanelFeature from "../features/pr-info-panel"
-import * as syncPreview from "../features/sync-preview"
-import * as reviewPreview from "../features/review-preview"
-import * as feed from "../features/feed"
-import * as fileTreeFeature from "../features/file-tree"
-import * as folds from "../features/folds"
-import * as fileNavigation from "../features/file-navigation"
-import * as commentsFeature from "../features/comments"
-import * as externalTools from "../features/external-tools"
-import * as prOperations from "../features/pr-operations"
-import * as threadMotion from "../features/thread-motion"
+import type * as prInfoPanelFeature from "../features/pr-info-panel"
+import type * as syncPreview from "../features/sync-preview"
+import type * as reviewPreview from "../features/review-preview"
+import type * as feed from "../features/feed"
+import type * as folds from "../features/folds"
+import type * as fileNavigation from "../features/file-navigation"
+import type * as commentsFeature from "../features/comments"
+import type * as externalTools from "../features/external-tools"
+import type * as prOperations from "../features/pr-operations"
+import type * as threadMotion from "../features/thread-motion"
 import type * as marks from "../features/marks"
 import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
@@ -114,18 +109,4 @@ export interface GlobalKeyContext {
   chat: { state: ChatState; input: () => TextareaRenderable | null }
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
-}
-
-/** `chordBroken`: the key broke off a sequence the keymap held, while the tree's layer stood aside for it. */
-export type GlobalKeyHandler = (key: KeyEvent, chordBroken?: boolean) => void
-
-export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
-  return (key, chordBroken = false) => {
-    // A key that breaks off a chord without completing a sequence still goes
-    // to the tree, whose layer stood aside for it while the chord was pending.
-    // So does a slash the layer has no binding for: where `/` is a shifted key,
-    // kitty names a modified slash after its base key ("7") and only its
-    // sequence says "/", which the tree's filter opener matches.
-    if (chordBroken || key.sequence === "/") fileTreeFeature.handleInput(key, treeInputContext(ctx))
-  }
 }

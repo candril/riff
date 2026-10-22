@@ -24,7 +24,7 @@ import { registerTextObjectKeys } from "./text-object-keys"
 import { registerPromptKeys } from "./prompt-keys"
 import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
-import { registerTreeKeys } from "../features/file-tree/keys"
+import { registerTreeKeys, treeLeftover } from "../features/file-tree/keys"
 import { treeKeyDeps } from "./tree-key-deps"
 import { registerBracketKeys } from "./bracket-keys"
 import { bracketDeps } from "./bracket-key-deps"
@@ -42,25 +42,25 @@ import { markChordKeyDeps } from "./mark-chord-key-deps"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
-import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import type { GlobalKeyContext } from "./global-keys"
 import { registerDiffKeys } from "../features/diff-view/keys"
 import { diffKeyDeps } from "./diff-key-deps"
 
 /**
- * Every keymap layer in front of the priority chain (ADR-002), built once
- * here so the app and the keys tests dispatch through the same layers.
+ * Every keymap layer, and the tree's leftover behind them (ADR-002), built
+ * once here so the app and the keys tests dispatch through the same layers.
  * The renderer comes apart from ctx, whose `renderer` is only its height.
  */
 export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): KeyHandler {
   const riffKeymap = createRiffKeymap(renderer)
   const blame = createBlameKeys(blameKeysContext(ctx))
-  const legacy = createKeyHandler(ctx)
   // Whether a chord waits for its second key, for every layer that gives
   // way to one: a mark, bracket, `z` or `g` sequence the keymap holds,
   // which the chain asked as one of its own.
   const chain = { chordPending: () => riffKeymap.chordPending() }
-  // Each group registers ahead of the one the chain asked before it, since
-  // later registration wins: flash, the dialog and the palette came first,
+  // Each group registers ahead of the one the priority chain these layers
+  // replaced asked before it, since later registration wins: flash, the
+  // dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
   // modes, the PR overview, the activity feed, the search and tree filter
@@ -94,7 +94,8 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   registerBracketKeys(riffKeymap, bracketDeps(ctx))
   registerZChordKeys(riffKeymap, zChordDeps(ctx))
   registerGChordKeys(riffKeymap, gChordKeyDeps(ctx, blame, askedFirst))
-  registerTreeKeys(riffKeymap, treeKeyDeps(ctx, chain))
+  const tree = treeKeyDeps(ctx, chain)
+  registerTreeKeys(riffKeymap, tree)
   registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
   registerTextObjectKeys(riffKeymap, {
     getState: ctx.getState,
@@ -144,7 +145,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,
   })
-  return composeKeys(riffKeymap, legacy, markChords.settle)
+  return composeKeys(riffKeymap, treeLeftover(tree), markChords.settle)
 }
 
 export function registerModalKeys(

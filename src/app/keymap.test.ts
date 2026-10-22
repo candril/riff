@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { createRiffKeymap } from "./keymap"
-import { composeKeys, type LegacyKeys } from "./keys-dispatch"
+import { composeKeys, type LeftoverKeys } from "./keys-dispatch"
 import { registerAppKeys } from "./app-keys"
 
 const disposers: (() => void)[] = []
@@ -15,8 +15,8 @@ async function setup() {
   disposers.push(() => rendered.renderer.destroy())
   const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
-  const legacy: LegacyKeys = (key: KeyEvent) => void legacyKeys.push(key.name)
-  const keys = composeKeys(riffKeymap, legacy)
+  const leftover: LeftoverKeys = (key: KeyEvent) => void legacyKeys.push(key.name)
+  const keys = composeKeys(riffKeymap, leftover)
   return { ...rendered, riffKeymap, legacyKeys, keys }
 }
 

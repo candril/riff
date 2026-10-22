@@ -146,11 +146,11 @@ Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
 `@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
 from `src/app/keys.ts`; the `]`/`[`, `z`, `g` and mark chords are keymap
-sequences among them. Only a key no layer takes reaches the priority
-chain in `src/app/global-keys.ts`, which toggles the split view and
-hands the rest to the diff's `input.ts`, or to the tree's for a key that
-broke off a chord or a slash kitty names after its base key where `/` is
-shifted ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
+sequences among them, and the diff's keys and the split toggle are the
+layer behind every other. A key no layer takes goes to the tree's
+leftover in `src/features/file-tree/keys.ts`, which hands the tree a key
+that broke off a chord or a slash kitty names after its base key where
+`/` is shifted ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
 ### GitHub: `gh` CLI
 
@@ -213,10 +213,10 @@ src/
 │   ├── unified-*, split-*  # The diff views' islands, cursor, columns and the split toggle
 │   ├── frame-pass.ts     # Each pass: draws the diff, publishes the frame islands follow
 │   ├── keymap.ts         # The keymap riff feeds every key first (ADR-002)
-│   ├── keys.ts           # Builds the keymap with every layer in front of the chain
+│   ├── keys.ts           # Builds the keymap with every layer, the tree's leftover behind them
 │   ├── app-keys.ts       # The keymap's global layer
 │   ├── confirm-keys.ts   # The confirmation dialog's layer, which captures every key
-│   ├── global-keys.ts    # The priority chain for keys no keymap layer takes
+│   ├── global-keys.ts    # The context every keymap layer's deps are built from
 │   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, the lowest layer
 │   ├── bracket-key-deps.ts  # What those motions need of the app
 │   ├── bracket-commands.ts  # One command per ]/[ motion, and adjacentCommit
@@ -345,9 +345,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 
 2. Add the handler in `src/features/action-menu/execute.ts` or the relevant feature module
 
-3. If adding a keyboard shortcut, bind it in a keymap layer; the priority
-   chain in `src/app/global-keys.ts` only takes a key no layer takes, so a
-   branch still there outranks nothing in the keymap
+3. If adding a keyboard shortcut, bind it in a keymap layer
    ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md))
 
 ### Current Actions

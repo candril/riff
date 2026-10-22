@@ -1,7 +1,7 @@
-import { expect, test } from "bun:test"
-import type { KeyEvent } from "@opentui/core"
+import { describe, expect, test } from "bun:test"
+import { KeyEvent } from "@opentui/core"
 import { keymapHarness } from "../../testing/keymap-keys"
-import { registerTreeKeys } from "./keys"
+import { registerTreeKeys, treeLeftover } from "./keys"
 import { createInitialState, type AppState } from "../../state"
 
 const TREE: Partial<AppState> = { showFilePanel: true, focusedPanel: "tree" }
@@ -66,4 +66,38 @@ test("the keypad's slash, named kpdivide, goes to the tree", async () => {
   keys.press("\x1b[57410u")
   expect(keys.handled).toEqual(["kpdivide"])
   expect(keys.legacyKeys).toEqual([])
+})
+
+describe("treeLeftover", () => {
+  function leftover() {
+    const handed: string[] = []
+    const keys = treeLeftover({
+      handle: (key: KeyEvent) => {
+        handed.push(key.name)
+        return true
+      },
+    })
+    return { keys, handed }
+  }
+  const key = (name: string, sequence: string, shift = false) =>
+    new KeyEvent({ name, sequence, ctrl: false, meta: false, shift, option: false, number: false, raw: sequence, eventType: "press", source: "raw" })
+
+  test("hands on a key that broke off a chord", () => {
+    const { keys, handed } = leftover()
+    keys(key("j", "j"), true)
+    expect(handed).toEqual(["j"])
+  })
+
+  test("hands on a slash kitty names after its base key", () => {
+    const { keys, handed } = leftover()
+    keys(key("7", "/", true), false)
+    expect(handed).toEqual(["7"])
+  })
+
+  test("keeps any other key with no chord broken off", () => {
+    const { keys, handed } = leftover()
+    keys(key("j", "j"), false)
+    keys(key("7", "7"))
+    expect(handed).toEqual([])
+  })
 })
