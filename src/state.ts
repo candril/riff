@@ -7,8 +7,8 @@ import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import type { IgnoreMatcher } from "./utils/ignore"
-import type { JumpListState } from "./features/jumplist/types"
-import { createJumpListState } from "./features/jumplist/types"
+import type { JumpList } from "./features/jumplist/types"
+import { emptyJumpList } from "./features/jumplist/types"
 import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import type { FeedEvent } from "./utils/feed"
@@ -461,7 +461,7 @@ export interface AppState {
 
   // App-level jumplist (spec 038). Records "big" navigation events so
   // Ctrl-O/Ctrl-I can retrace them. See features/jumplist/.
-  jumpList: JumpListState
+  jumpList: JumpList
 
   // Global marks (spec 101): the letters `m` sets and `'` returns to.
   marks: MarksState
@@ -584,7 +584,7 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     reactionTarget: null,
-    jumpList: createJumpListState(),
+    jumpList: emptyJumpList(),
     marks: createMarksState(),
   }
 }

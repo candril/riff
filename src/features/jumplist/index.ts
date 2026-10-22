@@ -19,14 +19,13 @@ import { anchorAt } from "../marks/capture"
 import { resolveMark } from "../marks/resolve"
 import { openFoldHiding } from "../marks/fold-hiding"
 import type { Jump } from "./types"
-import { sameAnchor, sameLine } from "./place"
+import { sameAnchor } from "./place"
+import { pushJump, stepBack, stepForward } from "./walk"
 
-export type { Jump, JumpListState } from "./types"
-export { createJumpListState } from "./types"
+export type { Jump, JumpList } from "./types"
+export { emptyJumpList } from "./types"
 export { sameLine, sameLocation } from "./place"
 export { isStepMotion, isListWalk, isFindMotion } from "./keys"
-
-const MAX_ENTRIES = 100
 
 type Pane = "left" | "right"
 
@@ -68,24 +67,9 @@ export function capture(
   }
 }
 
-/**
- * Push a jump entry, as nvim does with its default `jumpoptions`: the
- * entries ahead of the index stay, since going back to look at something is
- * no reason to lose where you had been. A line appears once — the older
- * entry for it goes — so walking back never visits the same line twice.
- * Every jump puts the index one past the newest entry, where nvim's is
- * after a jump: the place you are now is not in the list until `Ctrl-o`
- * leaves it.
- */
+/** Push a jump entry; see `pushJump`. */
 export function push(state: AppState, jump: Jump): AppState {
-  const kept = state.jumpList.entries.filter((entry) => !sameLine(entry, jump))
-  kept.push(jump)
-  const capped = kept.length > MAX_ENTRIES ? kept.slice(kept.length - MAX_ENTRIES) : kept
-
-  return {
-    ...state,
-    jumpList: { entries: capped, index: capped.length },
-  }
+  return { ...state, jumpList: pushJump(state.jumpList, jump) }
 }
 
 /**
@@ -102,27 +86,6 @@ export function pushCurrent(
   return push(state, capture(state, vim, mapping, pane))
 }
 
-/**
- * An entry whose file left the diff has nowhere to land, so the walk goes
- * past it — but it stays, as nvim keeps an entry for a deleted buffer: a
- * refresh can bring the file back. An entry in another commit is judged
- * by that commit's files once it is switched to, not by these.
- */
-function reachable(state: AppState, jump: Jump): boolean {
-  if (jump.viewingCommit !== state.viewingCommit) return true
-  const file = jump.anchor?.filename ?? jump.filename
-  return file === null || state.files.some((f) => f.filename === file)
-}
-
-/** The next entry from `from` in `direction` that can be landed on. */
-function nextReachable(state: AppState, from: number, direction: 1 | -1): number | null {
-  const { entries } = state.jumpList
-  for (let i = from + direction; i >= 0 && i < entries.length; i += direction) {
-    if (reachable(state, entries[i]!)) return i
-  }
-  return null
-}
-
 /** Move back; returns new jumplist state + the jump to apply, or null. */
 export function back(
   state: AppState,
@@ -130,39 +93,14 @@ export function back(
   mapping: Pick<DiffLineMapping, "getLine">,
   pane?: Pane | null,
 ): { state: AppState; jump: Jump } | null {
-  const list = state.jumpList
-  if (list.entries.length === 0) return null
-
-  // Past the newest entry, where you are is not in the list yet: nvim
-  // records it first, so `Ctrl-i` has somewhere to come back to. On an
-  // entry, `Ctrl-i` brought you there and the place is already in the list,
-  // however far plain motions have moved the cursor since.
-  const pastEnd = list.index >= list.entries.length
-  const working = pastEnd ? push(state, capture(state, vim, mapping, pane)) : state
-  const workingList = working.jumpList
-  const from = pastEnd ? workingList.entries.length - 1 : workingList.index
-
-  const newIndex = nextReachable(working, from, -1)
-  if (newIndex === null) return null
-  return {
-    state: { ...working, jumpList: { ...workingList, index: newIndex } },
-    jump: workingList.entries[newIndex]!,
-  }
+  const step = stepBack(state.jumpList, state, () => capture(state, vim, mapping, pane))
+  return step && { state: { ...state, jumpList: step.list }, jump: step.jump }
 }
 
 /** Move forward; returns new jumplist state + the jump to apply, or null. */
 export function forward(state: AppState): { state: AppState; jump: Jump } | null {
-  const list = state.jumpList
-  const newIndex = nextReachable(state, list.index, 1)
-  if (newIndex === null) return null
-  const target = list.entries[newIndex]!
-  return {
-    state: {
-      ...state,
-      jumpList: { ...list, index: newIndex },
-    },
-    jump: target,
-  }
+  const step = stepForward(state.jumpList, state)
+  return step && { state: { ...state, jumpList: step.list }, jump: step.jump }
 }
 
 export interface JumpApplyContext {

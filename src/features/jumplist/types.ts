@@ -20,12 +20,12 @@ export interface Jump {
   cursorCol?: number
 }
 
-export interface JumpListState {
+export interface JumpList {
   entries: Jump[]
   /** `entries.length` after a jump: one past the newest entry, on none of them. */
   index: number
 }
 
-export function createJumpListState(): JumpListState {
+export function emptyJumpList(): JumpList {
   return { entries: [], index: 0 }
 }
