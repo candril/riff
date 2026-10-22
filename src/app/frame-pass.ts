@@ -34,6 +34,7 @@ import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
 import type { BlamePeekState } from "../features/blame/peek-state"
+import type { BlameColumnsState } from "../features/blame/column-state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -66,6 +67,7 @@ export interface FramePassContext {
   actionMenu: ActionMenuState
   linePeek: LinePeekState
   blamePeek: BlamePeekState
+  blameColumns: Pick<BlameColumnsState, "columns">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -130,7 +132,17 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const { slot, withTree } = viewSlotOf(state, { overview: prInfoPanel !== null })
     // Mounted once the frame is published.
     const view = viewOf(slot)
-    diffPass.draw({ state, vimState, mapping, searchState, flashState, focused, diffShown: slot === "diff", splitOn })
+    diffPass.draw({
+      state,
+      vimState,
+      mapping,
+      searchState,
+      flashState,
+      blameColumns: ctx.blameColumns.columns(),
+      focused,
+      diffShown: slot === "diff",
+      splitOn,
+    })
 
     if (state.visit) {
       const conversationOpen = state.viewMode === "state" && !!prInfoPanel?.isSectionExpandedNamed("conversation")

@@ -44,7 +44,7 @@ async function mount() {
   split = diff
   setup.renderer.root.add(diff.island.host)
   diff.syncDrawn(true, 50)
-  const draw = () => diff.draw({ mapping, state, vimState, searchState, flashState })
+  const draw = () => diff.draw({ mapping, state, vimState, searchState, flashState, blameColumns: new Map() })
   draw()
   await setup.renderOnce()
   // The host's laid-out size reaches the island a tick after the frame that laid it out.

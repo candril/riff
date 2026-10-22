@@ -170,7 +170,7 @@ describe("single-file mode", () => {
     setup.renderer.root.add(diff.island.host)
     diff.syncDrawn(true, 30)
     const draw = () =>
-      diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState() })
+      diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState(), blameColumns: new Map() })
     const addition = () => mapping.allLines.findIndex((line) => line.type === "addition")
     const deletion = () => mapping.allLines.findIndex((line) => line.type === "deletion")
     draw()

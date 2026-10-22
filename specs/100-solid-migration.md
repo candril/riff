@@ -245,6 +245,9 @@ it draws.
 The blame peek is the thirteenth (`createBlamePeekState` in
 `src/features/blame/peek-state.ts`); the frame carries what it shows while
 it is open, and the pass closes it once the diff is no longer the view.
+The blame columns are the fourteenth (`createBlameColumnsState` in
+`src/features/blame/column-state.ts`); the diff views read their map off
+the factory, and a reload clears it.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

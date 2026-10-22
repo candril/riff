@@ -48,6 +48,7 @@ async function mount() {
       vimState,
       searchState,
       flashState,
+      blameColumns: new Map(),
       emptyMessage: "No changes to display",
       focused: true,
     })

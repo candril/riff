@@ -12,6 +12,7 @@ import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "../action-menu/state"
 import { createLinePeekState } from "../line-peek/state"
 import { createBlamePeekState } from "../blame/peek-state"
+import { createBlameColumnsState } from "../blame/column-state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -35,6 +36,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -62,6 +64,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -90,6 +93,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -118,6 +122,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -147,6 +152,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -177,6 +183,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -208,6 +215,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -238,6 +246,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -273,6 +282,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -305,6 +315,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu,
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -333,6 +344,7 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek,
       blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -360,11 +372,42 @@ describe("a refresh's rebuilt state", () => {
       actionMenu: createActionMenuState(),
       linePeek: createLinePeekState(),
       blamePeek,
+      blameColumns: createBlameColumnsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
 
     expect(state.description).toBe("reloaded")
     expect(blamePeek.open()).toBe(false)
+  })
+
+  test("turns off the blame columns, which createInitialState no longer reaches", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const blameColumns = createBlameColumnsState()
+    blameColumns.toggle("a.ts")
+    blameColumns.settle("a.ts", { head: [undefined, { kind: "uncommitted" }], base: null })
+    expect(blameColumns.columns().get("a.ts")?.status).toBe("ready")
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
+      blamePeek: createBlamePeekState(),
+      blameColumns,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(blameColumns.columns().size).toBe(0)
   })
 })

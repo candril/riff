@@ -67,6 +67,7 @@ import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
 import { createLinePeekState } from "./features/line-peek/state"
 import { createBlamePeekState } from "./features/blame/peek-state"
+import { createBlameColumnsState } from "./features/blame/column-state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -486,6 +487,7 @@ export async function createApp(options: AppOptions = {}) {
   const actionMenu = createActionMenuState()
   const linePeek = createLinePeekState()
   const blamePeek = createBlamePeekState()
+  const blameColumns = createBlameColumnsState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -500,6 +502,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenu.close()
     linePeek.close()
     blamePeek.close()
+    blameColumns.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -677,6 +680,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenu,
     linePeek,
     blamePeek,
+    blameColumns,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1032,6 +1036,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenu,
     linePeek,
     blamePeek,
+    blameColumns,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1868,6 +1873,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenu,
     linePeek,
     blamePeek,
+    blameColumns,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys

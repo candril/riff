@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core"
+import type { BlameColumns } from "../split-view/blame-cells"
 import type { AppState } from "../state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -27,6 +28,7 @@ export interface UnifiedDrawInput {
   vimState: VimCursorState
   searchState: SearchState
   flashState: FlashState
+  blameColumns: BlameColumns
   emptyMessage: string
   /** False while an overlay, a composer or a prompt takes the keys ahead of the diff: its cursor is then not shown. */
   focused: boolean
@@ -66,7 +68,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
    * so a toggle back from split has nothing to rebuild.
    */
   function draw(input: UnifiedDrawInput): void {
-    const { mapping, state, vimState, searchState, flashState } = input
+    const { mapping, state, vimState, searchState, flashState, blameColumns } = input
     const file = state.selectedFileIndex
     // A column kept from another file means nothing in this one. Null in all-files mode, so a switch
     // between the modes resets too; a fold keeps the file, and so the column, as split keeps its windows.
@@ -82,7 +84,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
       highlightVersion: deps.highlights.version(),
       comments: state.comments,
       marks: state.marks.marks,
-      blameColumns: state.blameColumns,
+      blameColumns,
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,
       cursor: { line: vimState.line, col: vimState.col },

@@ -29,6 +29,7 @@ import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
 import type { BlamePeekState } from "../features/blame/peek-state"
+import type { BlameColumnsState } from "../features/blame/column-state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -146,6 +147,8 @@ export interface AppKeyContext {
   linePeek: LinePeekState
   /** The blame peek's state, the same instance the frame pass reads. */
   blamePeek: BlamePeekState
+  /** The zB blame columns, the same instance the diff passes read. */
+  blameColumns: BlameColumnsState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

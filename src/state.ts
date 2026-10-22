@@ -11,7 +11,6 @@ import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
-import type { BlameColumnState } from "./features/blame/column-state"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
@@ -336,8 +335,6 @@ export interface AppState {
   treeFilter: string
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
-  /** Files whose blame column is on, by path (spec 103). */
-  blameColumns: ReadonlyMap<string, BlameColumnState>
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */
   wrapLines: boolean
   /** `\` — asks for the diff side by side; drawn only where the diff pane is wide enough. */
@@ -521,7 +518,6 @@ export function createInitialState(
     // visible when there's more than one file to navigate.
     treeFilter: "",
     treeFilterInput: false,
-    blameColumns: new Map(),
     wrapLines: false,
     splitView: false,
     alignMarkdownTables: true,

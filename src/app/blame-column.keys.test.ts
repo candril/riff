@@ -5,6 +5,8 @@ import type { BlameDeps } from "../features/blame/keys"
 import type { BlameSide } from "../providers/blame/sides"
 import type { LoadedFileBlame } from "../providers/blame/source"
 import type { BlameLine } from "../providers/blame/types"
+import { adoptReloadedState } from "../features/refresh/handlers"
+import { createInitialState } from "../state"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { routeDiffViewport } from "./diff-viewport"
@@ -98,7 +100,7 @@ describe("zB", () => {
       ["src/greet.ts", "head"],
       ["src/greet.ts", "base"],
     ])
-    expect(app!.ctx.getState().blameColumns.get("src/greet.ts")).toEqual({ status: "loading" })
+    expect(app!.blameColumns.columns().get("src/greet.ts")).toEqual({ status: "loading" })
     expect(await app!.frame()).toContain("…")
 
     answer(loaded(41), loaded(41))
@@ -108,8 +110,28 @@ describe("zB", () => {
     expect(frame).not.toContain("…")
 
     zB()
-    expect(app!.ctx.getState().blameColumns.size).toBe(0)
+    expect(app!.blameColumns.columns().size).toBe(0)
     frame = await app!.frame()
+    expect(frame).not.toContain("a1b2c3d4")
+  })
+
+  test("a reload while blame loads turns the column off, and the late answer leaves it off", async () => {
+    const { answer, jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    zB()
+    expect(await app!.frame()).toContain("…")
+
+    const mounted = app!
+    const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
+    const reload = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
+    adoptReloadedState(reload, (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
+    mounted.render()
+
+    answer(loaded(41), loaded(41))
+    await flush()
+    expect(app!.blameColumns.columns().size).toBe(0)
+    const frame = await app!.frame()
+    expect(frame).not.toContain("…")
     expect(frame).not.toContain("a1b2c3d4")
   })
 
@@ -120,7 +142,7 @@ describe("zB", () => {
     expect(shiftB.name).toBe("B")
     press("z")
     app!.setup.renderer.keyInput.emit("keypress", shiftB)
-    expect(app!.ctx.getState().blameColumns.get("src/greet.ts")).toEqual({ status: "loading" })
+    expect(app!.blameColumns.columns().get("src/greet.ts")).toEqual({ status: "loading" })
   })
 
   // The global layer binds b to the tree with any modifier, and must
@@ -132,7 +154,7 @@ describe("zB", () => {
     app!.show({ focusedPanel: "tree", showFilePanel: true, treeHighlightIndex: 0 })
     zB()
     const state = app!.ctx.getState()
-    expect(state.blameColumns.get("src/greet.ts")).toEqual({ status: "loading" })
+    expect(app!.blameColumns.columns().get("src/greet.ts")).toEqual({ status: "loading" })
     expect([state.showFilePanel, state.focusedPanel]).toEqual([true, "tree"])
   })
 
@@ -144,7 +166,7 @@ describe("zB", () => {
     app!.setup.mockInput.pressKey("b", { shift: true })
     expect(chordPending()).toBe(false)
     expect(asked).toEqual([])
-    expect(app!.ctx.getState().blameColumns.size).toBe(0)
+    expect(app!.blameColumns.columns().size).toBe(0)
   })
 
   test("a failed read toasts why and leaves no column", async () => {
@@ -153,7 +175,7 @@ describe("zB", () => {
     zB()
     fail("jj: no such revision")
     await flush()
-    expect(app!.ctx.getState().blameColumns.size).toBe(0)
+    expect(app!.blameColumns.columns().size).toBe(0)
     expect(app!.ctx.getState().toast).toMatchObject({ message: "Blame failed: jj: no such revision", type: "error" })
     expect(await app!.frame()).not.toContain("…")
   })
@@ -164,7 +186,7 @@ describe("zB", () => {
     zB()
     answer(null, null)
     await flush()
-    expect(app!.ctx.getState().blameColumns.size).toBe(0)
+    expect(app!.blameColumns.columns().size).toBe(0)
     expect(app!.ctx.getState().toast).toMatchObject({ message: "No blame for src/greet.ts", type: "info" })
   })
 

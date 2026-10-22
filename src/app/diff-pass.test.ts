@@ -44,6 +44,7 @@ describe("drawing the diff views for one pass", () => {
     mapping: new DiffLineMapping([], "all"),
     searchState: createSearchState(),
     flashState: createFlashState(),
+    blameColumns: new Map(),
     focused: true,
     diffShown: true,
     splitOn: false,

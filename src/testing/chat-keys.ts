@@ -68,6 +68,7 @@ export function keysOn(
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    blameColumns: mounted.blameColumns,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

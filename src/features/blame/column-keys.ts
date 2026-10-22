@@ -3,13 +3,13 @@ import type { FileBlame } from "../../providers/blame/types"
 import type { AppState } from "../../state"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { VimCursorState } from "../../vim-diff/types"
-import { dropBlameColumn, settleBlameColumn, toggleBlameColumn } from "./column-state"
+import type { BlameColumnsState } from "./column-state"
 import type { BlameDeps } from "./keys"
 
 export interface BlameColumnKeysContext {
   deps: Pick<BlameDeps, "source">
   getState(): AppState
-  setState(fn: (state: AppState) => AppState): void
+  columns: BlameColumnsState
   getLineMapping(): DiffLineMapping
   getVimState(): VimCursorState
   render(): void
@@ -31,7 +31,7 @@ export function createBlameColumnKeys(ctx: BlameColumnKeysContext) {
     const read = (side: BlameSide, wanted: boolean, at: string): Promise<FileBlame | null> =>
       wanted ? ctx.deps.source.fileBlame(at, side).then((loaded) => loaded?.blame ?? null) : Promise.resolve(null)
     // A column turned off while it loaded has nothing left to fill or to explain.
-    const stillLoading = () => ctx.getState().blameColumns.get(path)?.status === "loading"
+    const stillLoading = () => ctx.columns.loading(path)
     Promise.all([
       read("head", file.status !== "deleted", path),
       // A rename's base holds the file under its old name.
@@ -40,10 +40,10 @@ export function createBlameColumnKeys(ctx: BlameColumnKeysContext) {
       ([head, base]) => {
         if (!stillLoading()) return
         if (head || base) {
-          ctx.setState((s) => settleBlameColumn(s, path, { head, base }))
+          ctx.columns.settle(path, { head, base })
         } else {
           ctx.toast(`No blame for ${path}`, "info")
-          ctx.setState((s) => dropBlameColumn(s, path))
+          ctx.columns.drop(path)
         }
         ctx.render()
       },
@@ -51,7 +51,7 @@ export function createBlameColumnKeys(ctx: BlameColumnKeysContext) {
         if (!stillLoading()) return
         const message = error instanceof Error ? error.message : String(error)
         ctx.toast(`Blame failed: ${message}`, "error")
-        ctx.setState((s) => settleBlameColumn(s, path, { message }))
+        ctx.columns.settle(path, { message })
         ctx.render()
       },
     )
@@ -65,10 +65,9 @@ export function createBlameColumnKeys(ctx: BlameColumnKeysContext) {
         ctx.toast("No file to blame here", "info")
         return
       }
-      const toggled = toggleBlameColumn(ctx.getState(), file.filename)
-      ctx.setState(() => toggled.state)
+      const on = ctx.columns.toggle(file.filename)
       ctx.render()
-      if (toggled.on) load(file)
+      if (on) load(file)
     },
   }
 }

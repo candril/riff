@@ -28,6 +28,7 @@ import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
+import { createBlameColumnsState } from "../features/blame/column-state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -113,6 +114,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     actionMenu,
     linePeek,
     blamePeek,
+    blameColumns: createBlameColumnsState(),
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
