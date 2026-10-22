@@ -18,11 +18,11 @@ afterEach(async () => {
   mounted = null
 })
 
-async function show(items: SyncItem[], { loading = false, error = null as string | null } = {}, height = 30) {
+async function show(items: SyncItem[], { loading = false } = {}, height = 30) {
   mounted = await mountRenderable(
     (renderer) => {
       const island = createSyncPreviewIsland(renderer)
-      island.update(syncPreviewModel(items, { loading, error }))
+      island.update(syncPreviewModel(items, { loading }))
       return island.host
     },
     { width: 100, height }
@@ -171,14 +171,6 @@ describe("the sync preview", () => {
     expect(bgAt(spans, 70, 33)).toEqual(ints(theme.overlay0))
     expect(bgAt(spans, 87, 33)).toEqual(ints(theme.overlay0))
     expect(fgAt(spans, 72, 33)).toEqual(ints(theme.surface0))
-  })
-
-  test("a failed sync shows its error in red beside a live button", async () => {
-    const { lines, spans } = await show(ALL, { error: "Boom" }, 40)
-    expect(lines[33]).toBe("            Boom                                                        Sync 3 changes")
-    expect(fgAt(spans, 12, 33)).toEqual(ints(theme.red))
-    expect(bgAt(spans, 70, 33)).toEqual(ints(theme.blue))
-    expect(fgAt(spans, 72, 33)).toEqual(ints(theme.base))
   })
 
   test("cuts a long body to 59 characters and an ellipsis, and shows only a body's first line", async () => {

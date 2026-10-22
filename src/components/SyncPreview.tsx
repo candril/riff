@@ -40,9 +40,6 @@ function Status(props: { status: SyncStatus }) {
       <Match when={props.status.kind === "loading"}>
         <text fg={theme.yellow}>Syncing...</text>
       </Match>
-      <Match when={props.status.kind === "error" && props.status}>
-        {(status: () => Extract<SyncStatus, { kind: "error" }>) => <text fg={theme.red}>{status().message}</text>}
-      </Match>
     </Switch>
   )
 }

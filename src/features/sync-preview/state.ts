@@ -10,17 +10,14 @@ export type SyncPreviewState = ReturnType<typeof createSyncPreviewState>
 export function createSyncPreviewState() {
   const [open, setOpen] = createSignal(false)
   const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal<string | null>(null)
 
   return {
     open,
     loading,
-    error,
     show() {
       batch(() => {
         setOpen(true)
         setLoading(false)
-        setError(null)
       })
     },
     close() {
@@ -30,10 +27,7 @@ export function createSyncPreviewState() {
       })
     },
     startSync() {
-      batch(() => {
-        setLoading(true)
-        setError(null)
-      })
+      setLoading(true)
     },
   }
 }

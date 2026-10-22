@@ -42,7 +42,7 @@ const ITEMS: SyncItem[] = [
   },
 ]
 
-const model = (loading = false) => syncPreviewModel(ITEMS, { loading, error: null })
+const model = (loading = false) => syncPreviewModel(ITEMS, { loading })
 
 test("the preview is centred on the screen, clears on null, and an identical update keeps its text", async () => {
   setup = await createTestRenderer({ width: 80, height: 24 })

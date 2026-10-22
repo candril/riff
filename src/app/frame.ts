@@ -38,7 +38,7 @@ export interface Frame {
   /** The confirm dialog's question, read off its factory; its answers stay there, where the keys reach them. */
   confirmDialog: ConfirmDialogModel | null
   /** The sync preview's state, read off its factory, or null while it is closed. */
-  syncPreview: { loading: boolean; error: string | null } | null
+  syncPreview: { loading: boolean } | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

@@ -20,7 +20,7 @@ export interface SyncSection {
   cards: SyncCard[]
 }
 
-export type SyncStatus = { kind: "none" } | { kind: "loading" } | { kind: "error"; message: string }
+export type SyncStatus = { kind: "none" } | { kind: "loading" }
 
 export interface SyncPreviewModel {
   /** New comments, edits and replies, each left out when it has nothing in it. */
@@ -71,16 +71,7 @@ function section(title: string, items: SyncItem[], card: (item: SyncItem) => Syn
   return items.length > 0 ? [{ title: `${title} (${items.length})`, cards: items.map(card) }] : []
 }
 
-function status(loading: boolean, error: string | null): SyncStatus {
-  if (loading) return { kind: "loading" }
-  if (error) return { kind: "error", message: error }
-  return { kind: "none" }
-}
-
-export function syncPreviewModel(
-  items: SyncItem[],
-  { loading, error }: { loading: boolean; error: string | null }
-): SyncPreviewModel {
+export function syncPreviewModel(items: SyncItem[], { loading }: { loading: boolean }): SyncPreviewModel {
   const total = items.length
   return {
     sections: [
@@ -89,7 +80,7 @@ export function syncPreviewModel(
       ...section("Replies", items.filter((i) => i.type === "reply"), replyCard),
     ],
     footer: {
-      status: status(loading, error),
+      status: loading ? { kind: "loading" } : { kind: "none" },
       button: total > 0 ? `Sync ${total} change${total !== 1 ? "s" : ""}` : null,
     },
   }

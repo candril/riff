@@ -58,9 +58,7 @@ export interface SyncCalls {
 
 const githubSyncCalls: SyncCalls = { updateComment, submitReply, submitSingleComment, getPrHeadSha, saveComment }
 
-/**
- * Execute the sync operation - push local edits and replies to GitHub
- */
+/** `calls` is an argument so a test can drive the sync without spawning gh. */
 export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCalls = githubSyncCalls): Promise<void> {
   const state = ctx.getState()
   if (!ctx.prInfo) return

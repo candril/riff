@@ -80,9 +80,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const help = { open: ctx.help.open(), scroll: ctx.help.scroll() }
     const asked = ctx.confirm.dialog()
     const confirmDialog = asked ? confirmDialogModel(asked) : null
-    const syncPreview = ctx.syncPreview.open()
-      ? { loading: ctx.syncPreview.loading(), error: ctx.syncPreview.error() }
-      : null
+    const syncPreview = ctx.syncPreview.open() ? { loading: ctx.syncPreview.loading() } : null
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState),
       help: help.open,

@@ -4,19 +4,18 @@ import { createSyncPreviewState } from "./state"
 const read = (syncPreview: ReturnType<typeof createSyncPreviewState>) => ({
   open: syncPreview.open(),
   loading: syncPreview.loading(),
-  error: syncPreview.error(),
 })
 
 describe("the sync preview's state", () => {
   test("show opens it idle, startSync marks it loading, and close takes it down", () => {
     const syncPreview = createSyncPreviewState()
-    expect(read(syncPreview)).toEqual({ open: false, loading: false, error: null })
+    expect(read(syncPreview)).toEqual({ open: false, loading: false })
     syncPreview.show()
-    expect(read(syncPreview)).toEqual({ open: true, loading: false, error: null })
+    expect(read(syncPreview)).toEqual({ open: true, loading: false })
     syncPreview.startSync()
-    expect(read(syncPreview)).toEqual({ open: true, loading: true, error: null })
+    expect(read(syncPreview)).toEqual({ open: true, loading: true })
     syncPreview.close()
-    expect(read(syncPreview)).toEqual({ open: false, loading: false, error: null })
+    expect(read(syncPreview)).toEqual({ open: false, loading: false })
   })
 
   test("show clears a sync that was still loading when the preview closed", () => {
@@ -24,6 +23,6 @@ describe("the sync preview's state", () => {
     syncPreview.show()
     syncPreview.startSync()
     syncPreview.show()
-    expect(read(syncPreview)).toEqual({ open: true, loading: false, error: null })
+    expect(read(syncPreview)).toEqual({ open: true, loading: false })
   })
 })

@@ -16,7 +16,7 @@ function comment(id: string, extra: Partial<Comment> = {}): Comment {
   }
 }
 
-const IDLE = { loading: false, error: null }
+const IDLE = { loading: false }
 const kinds = (items: SyncItem[]) => items.map((i) => `${i.type}:${i.comment.id}`)
 
 describe("gatherSyncItems", () => {
@@ -115,9 +115,8 @@ describe("syncPreviewModel", () => {
     expect(syncPreviewModel([NEW, EDIT, REPLY], IDLE).footer.button).toBe("Sync 3 changes")
   })
 
-  test("the footer says it is syncing over any error, and shows an error otherwise", () => {
-    expect(syncPreviewModel([NEW], { loading: true, error: "Boom" }).footer.status).toEqual({ kind: "loading" })
-    expect(syncPreviewModel([NEW], { loading: false, error: "Boom" }).footer.status).toEqual({ kind: "error", message: "Boom" })
-    expect(syncPreviewModel([NEW], { loading: false, error: "" }).footer.status).toEqual({ kind: "none" })
+  test("the footer says it is syncing while it is", () => {
+    expect(syncPreviewModel([NEW], { loading: true }).footer.status).toEqual({ kind: "loading" })
+    expect(syncPreviewModel([NEW], IDLE).footer.status).toEqual({ kind: "none" })
   })
 })
