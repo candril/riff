@@ -42,12 +42,15 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
   // modes, the PR overview, the activity feed, the search and tree filter
-  // prompts, the blame and line peeks and, last of them, a pending text
-  // object. Every modal capture thus outranks the text object, as the
-  // chain's order had it. The composer
-  // never competes with the chat, which stands aside while it is open, view
-  // mode and compose mode are never active together, and nor are the
-  // overview and the feed, which are views of their own.
+  // prompts and the blame and line peeks. A pending text object registers
+  // behind them all although the chain asked it before the tree filter
+  // prompt and the peeks, and the order makes no difference: the prompt
+  // needs the tree focused and the text object the diff, and the peeks
+  // stand aside for a pending text object through peekLeaves, so none of
+  // them is ever active together with it. The composer never competes with
+  // the chat, which stands aside while it is open, view mode and compose
+  // mode are never active together, and nor are the overview and the feed,
+  // which are views of their own.
   const links = createLinksPicker(ctx)
   registerTextObjectKeys(riffKeymap, {
     getState: ctx.getState,

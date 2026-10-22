@@ -37,7 +37,7 @@ async function diffApp(diff = DIFF) {
   return { mounted, ...keys }
 }
 
-test("vif selects the file's lines and stays in visual mode, the file picker staying shut", async () => {
+test("vif selects the file's lines whichever dispatcher feeds it, the file picker staying shut", async () => {
   const { mounted, vimState } = await diffApp()
   await mounted.setup.mockInput.typeText("vif")
   expect(vimState().pendingTextObject).toBeNull()
@@ -46,7 +46,7 @@ test("vif selects the file's lines and stays in visual mode, the file picker sta
   expect(mounted.ctx.getState().filePicker.open).toBe(false)
 })
 
-test("vi{ reaches the vim handler, which clears the pending object and opens nothing", async () => {
+test("vi{ clears the pending object and opens nothing, whichever dispatcher feeds it", async () => {
   const { mounted, vimState } = await diffApp()
   const before = mounted.ctx.getState()
   await mounted.setup.mockInput.typeText("vi{")
@@ -54,7 +54,7 @@ test("vi{ reaches the vim handler, which clears the pending object and opens not
   expect(mounted.ctx.getState()).toEqual(before)
 })
 
-test("vi[ selects inside the brackets rather than opening one of ['s chords", async () => {
+test("vi[ selects inside the brackets, the capture keeping [ from opening its chords", async () => {
   const { mounted, vimState, jumpTo, setVim, chordPending } = await diffApp(BRACKETED)
   const content = "export const list = [1, 2]"
   jumpTo(mounted.ctx.getLineMapping().allLines.findIndex((line) => line.content === content))
