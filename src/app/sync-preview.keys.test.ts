@@ -30,6 +30,7 @@ function syncPreviewOn(mounted: NonNullable<typeof app>): SyncPreviewOpenContext
     getState: mounted.ctx.getState,
     setState: (update) => live && mounted.ctx.setState(update),
     render: () => live && mounted.render(),
+    toast: mounted.toast,
     syncPreview: mounted.syncPreview,
   }
 }

@@ -15,13 +15,13 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { PrInfo } from "../../providers/github/types"
 import type { Comment } from "../../types"
-import { showToast, clearToast } from "../../state"
 import { treeRowsOf } from "../../components"
 import { copyToClipboard } from "../../utils/clipboard"
 import { getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
 import { buildPermalinkUrl, buildPrDiffUrl, lineAnchor, type RepoRef } from "./url"
 import { repoRefForPr, resolveLocalRepoRef, fileDiffersAtRef } from "./repo-ref"
 import { linkForComment, linkForFocusedTarget } from "./comment-link"
+import type { ToastState } from "../toast/state"
 
 export interface PermalinkContext {
   getState: () => AppState
@@ -31,6 +31,7 @@ export interface PermalinkContext {
   /** The lines the cursor or the selection covers, and in split view the pane they are read from. */
   getCommentScope: () => CommentScope
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   mode: "local" | "pr"
   prInfo: PrInfo | null
   /** SHA of the PR head riff loaded the diff at. Empty in local mode. */
@@ -326,10 +327,10 @@ function toast(
   kind: "info" | "error" | "success",
   ms = 2000,
 ): void {
-  ctx.setState((s) => showToast(s, message, kind))
+  ctx.toast.show(message, kind)
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, ms)
 }

@@ -88,6 +88,7 @@ async function bracketApp(more: Partial<AppKeyContext> = {}) {
         },
       },
       render: mounted.render,
+      toast: mounted.toast,
     } as unknown as AppKeyContext["marksContext"],
     onCommitSelected: (sha) => void selected.push(sha),
     ...more,
@@ -255,10 +256,10 @@ test("vi] with the text object pending reaches the vim handler, not the bracket 
 
 describe("]m", () => {
   test("steps through marks in the diff", async () => {
-    const { type, marksReached, state } = await bracketApp()
+    const { mounted, type, marksReached } = await bracketApp()
     type("]", "m")
     expect(marksReached.length).toBeGreaterThan(0)
-    expect(state().toast.message).toBe("No marks set")
+    expect(mounted.toast.current()?.message).toBe("No marks set")
   })
 
   test("outside the diff does nothing to marks", async () => {

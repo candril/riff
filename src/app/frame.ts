@@ -9,6 +9,7 @@ import type { SelectionStatus } from "./selection-status"
 import type { ConfirmDialogModel } from "../components/confirm-dialog-model"
 import type { ReviewPreviewSnapshot } from "../features/review-preview/state"
 import type { PendingReview } from "../providers/github/types"
+import type { ToastType } from "../components/notification-model"
 import type { FilePickerSnapshot } from "../features/file-picker/state"
 import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
 import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
@@ -56,6 +57,8 @@ export interface Frame {
   reviewPreview: ReviewPreviewSnapshot | null
   /** GitHub's pending review, read off its factory, for Submit Review's banner; null when there is none. */
   pendingReview: PendingReview | null
+  /** The toast, read off its factory, or null while none shows. */
+  toast: { message: string; type: ToastType } | null
   /** The file picker's state, read off its factory, or null while it is closed. */
   filePicker: FilePickerSnapshot | null
   /** The comments picker's state, read off its factory, or null while it is closed. */

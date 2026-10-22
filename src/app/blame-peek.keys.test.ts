@@ -136,7 +136,7 @@ describe("gb", () => {
     press("y")
     await flush()
     expect(copied).toEqual([SHA])
-    expect(app!.ctx.getState().toast.message).toBe("Copied a1b2c3d4")
+    expect(app!.toast.current()?.message).toBe("Copied a1b2c3d4")
     press("g", "o")
     await flush()
     expect(opened).toEqual([PR.url])
@@ -162,7 +162,7 @@ describe("gb", () => {
     press("g", "o")
     await flush()
     expect(opened).toEqual([])
-    expect(app!.ctx.getState().toast.message).toBe("No GitHub remote to open the commit on")
+    expect(app!.toast.current()?.message).toBe("No GitHub remote to open the commit on")
   })
 
   test("while the peek is up j stays put; Esc closes it and j moves again", async () => {
@@ -212,7 +212,7 @@ describe("gb", () => {
     press("y")
     await flush()
     expect(copied).toEqual([])
-    expect(app!.ctx.getState().toast.message).toBe("Not committed yet")
+    expect(app!.toast.current()?.message).toBe("Not committed yet")
   })
 
   test("on a divider there is no line to blame", async () => {
@@ -221,7 +221,7 @@ describe("gb", () => {
     press("g", "b")
     expect(asked).toEqual([])
     expect(app!.blamePeek.open()).toBe(false)
-    expect(app!.ctx.getState().toast.message).toBe("No line to blame here")
+    expect(app!.toast.current()?.message).toBe("No line to blame here")
   })
 
   test("with no blame peek, go opens nothing in a local review", async () => {
@@ -287,11 +287,11 @@ describe("gb", () => {
     jumpTo(lineOf('  return "hello"'))
     press("g", "b")
     press("y")
-    expect(app!.ctx.getState().toast.message).toBe("Blame is still loading")
-    app!.ctx.setState((s) => ({ ...s, toast: { ...s.toast, message: null } }))
+    expect(app!.toast.current()?.message).toBe("Blame is still loading")
+    app!.toast.clear()
     press("g", "o")
     await flush()
-    expect(app!.ctx.getState().toast.message).toBe("Blame is still loading")
+    expect(app!.toast.current()?.message).toBe("Blame is still loading")
     expect(opened).toEqual([])
     expect(copied).toEqual([])
   })
@@ -303,9 +303,9 @@ describe("gb", () => {
     fail("boom")
     await flush()
     press("y")
-    expect(app!.ctx.getState().toast.message).toBe("No commit to copy")
+    expect(app!.toast.current()?.message).toBe("No commit to copy")
     press("g", "o")
-    expect(app!.ctx.getState().toast.message).toBe("No commit to open")
+    expect(app!.toast.current()?.message).toBe("No commit to open")
   })
 
   test("go on a line not yet committed says so", async () => {
@@ -317,6 +317,6 @@ describe("gb", () => {
     press("g", "o")
     await flush()
     expect(opened).toEqual([])
-    expect(app!.ctx.getState().toast.message).toBe("Not committed yet")
+    expect(app!.toast.current()?.message).toBe("Not committed yet")
   })
 })

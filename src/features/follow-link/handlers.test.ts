@@ -48,6 +48,7 @@ beforeEach(() => {
 
   ctx = {
     setState: () => {},
+    toast: { show: () => {}, clear: () => {} },
     getVimState: () => cursor,
     getLineMapping: () => mapping,
     render: () => {},

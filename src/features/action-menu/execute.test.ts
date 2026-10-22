@@ -6,6 +6,7 @@ import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import type { Comment } from "../../types"
 import { createFilePickerState } from "../file-picker/state"
+import { createToastState } from "../toast/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
@@ -46,6 +47,7 @@ describe("Show Only Open Threads", () => {
         state,
         setState: (update) => (state = update(state)),
         render: () => {},
+        toast: createToastState(),
         filePicker: createFilePickerState(),
         commentsPicker: createCommentsPickerState(),
         occurrencePicker: createOccurrencePickerState(),
@@ -96,6 +98,7 @@ describe("Show Only Unviewed Files", () => {
         state,
         setState: (update) => (state = update(state)),
         render: () => {},
+        toast: createToastState(),
         filePicker: createFilePickerState(),
         commentsPicker: createCommentsPickerState(),
         occurrencePicker: createOccurrencePickerState(),
@@ -128,6 +131,7 @@ describe("Peek Line", () => {
           throw new Error("the line peek no longer lives in AppState")
         },
         render: () => void renders++,
+        toast: createToastState(),
         filePicker: createFilePickerState(),
         commentsPicker: createCommentsPickerState(),
         occurrencePicker: createOccurrencePickerState(),

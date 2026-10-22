@@ -33,6 +33,7 @@ import { createMarksState } from "../features/marks/state"
 import { createFeedState } from "../features/feed/state"
 import { createVisitState } from "../features/visit/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
+import { createToastState } from "../features/toast/state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
@@ -69,6 +70,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const linePeek = createLinePeekState()
   const blamePeek = createBlamePeekState()
   const activityFeed = createFeedState()
+  const toast = createToastState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -114,6 +116,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     syncPreview,
     reviewPreview,
     pendingReview: createPendingReviewState(),
+    toast,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -141,7 +144,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
      * `commentsPicker`, `occurrencePicker`, `marksPicker`, `commitPicker`,
      * `actionMenu` and `linePeek` open or close those overlays through their
-     * factories; the rest patches the state.
+     * factories, and `toast` shows its message or, null, clears it; the rest
+     * patches the state.
      */
     show({
       help: helpOpen,
@@ -155,6 +159,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commitPicker: commitPickerOpen,
       actionMenu: actionMenuOpen,
       linePeek: linePeekOpen,
+      toast: toastMessage,
       ...patch
     }: Partial<AppState> & {
       help?: boolean
@@ -168,8 +173,11 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commitPicker?: boolean
       actionMenu?: boolean
       linePeek?: boolean
+      toast?: string | null
     }) {
       state = { ...state, ...patch }
+      if (toastMessage) toast.show(toastMessage)
+      if (toastMessage === null) toast.clear()
       if (helpOpen === true && !help.open()) help.toggle()
       if (helpOpen === false) help.close()
       if (confirmDialog) confirm.show(confirmDialog)
@@ -288,18 +296,17 @@ test("the command palette is mounted only while it is open, under the pickers", 
 
 test("the sync preview is mounted only while it is open, above the palette and the toast and under the pickers", async () => {
   const app = await harness()
-  const initial = createInitialState([], [], "test", "")
   const sync = (open: boolean) => ({ syncPreview: open })
   expect(app.show(sync(true))).toEqual(["syncPreview"])
   expect(
     app.show({
-      toast: { message: "Saved", type: "info" },
+      toast: "Saved",
       filePicker: true,
       actionMenu: true,
     })
   ).toEqual(["actionMenu", "toast", "syncPreview", "filePicker"])
   expect(app.show(sync(false))).toEqual(["actionMenu", "toast", "filePicker"])
-  expect(app.show({ ...sync(true), toast: initial.toast, filePicker: false, actionMenu: false })).toEqual([
+  expect(app.show({ ...sync(true), toast: null, filePicker: false, actionMenu: false })).toEqual([
     "syncPreview",
   ])
   expect(app.show(sync(false))).toEqual([])
@@ -307,12 +314,11 @@ test("the sync preview is mounted only while it is open, above the palette and t
 
 test("the review preview is mounted only while it is open, between the toast and the sync preview and under the pickers", async () => {
   const app = await harness()
-  const initial = createInitialState([], [], "test", "")
   const review = (open: boolean) => ({ reviewPreview: open })
   expect(app.show(review(true))).toEqual(["reviewPreview"])
   expect(
     app.show({
-      toast: { message: "Saved", type: "info" },
+      toast: "Saved",
       actionMenu: true,
       syncPreview: true,
       filePicker: true,
@@ -323,7 +329,7 @@ test("the review preview is mounted only while it is open, between the toast and
   expect(
     app.show({
       ...review(false),
-      toast: initial.toast,
+      toast: null,
       actionMenu: false,
       syncPreview: false,
       filePicker: false,

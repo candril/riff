@@ -10,7 +10,6 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { PrInfo } from "../../providers/github/types"
-import { showToast, clearToast } from "../../state"
 import { treeRowsOf } from "../../components"
 import { openFileInEditor } from "../../utils/editor/spawn"
 import { openInTmuxWindow, openInTmuxPane, insideTmux } from "../../utils/editor/tmux"
@@ -21,6 +20,7 @@ import type { FileContentResult } from "../../providers/github/types"
 import { getPrFileContent, getPrBaseFileContent } from "../../providers/github/content"
 import { findLocalRepoPath, checkoutPR } from "../../utils/repo-path"
 import { loadConfig } from "../../config"
+import type { ToastState } from "../toast/state"
 
 export interface ExternalToolsContext {
   // State access
@@ -32,6 +32,7 @@ export interface ExternalToolsContext {
   getLineMapping: () => DiffLineMapping
   // Render
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   // Renderer control
   suspendRenderer: () => void
   resumeRenderer: () => void
@@ -89,10 +90,10 @@ export function currentFilePath(ctx: CursorContext): string | null {
 }
 
 /** The path of the file under the cursor, toasted, as nvim's Ctrl-g shows it. */
-export function showFilePath(ctx: CursorContext & Pick<ExternalToolsContext, "setState" | "render">): void {
+export function showFilePath(ctx: CursorContext & Pick<ExternalToolsContext, "toast" | "render">): void {
   const path = currentFilePath(ctx)
   if (!path) return
-  ctx.setState((s) => showToast(s, path, "info"))
+  ctx.toast.show(path, "info")
   ctx.render()
 }
 
@@ -227,12 +228,12 @@ export async function handleOpenFileInEditor(ctx: ExternalToolsContext): Promise
   }
 
   if (await canOpenInPlace(ctx, filename)) {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     await openInPlace(ctx, filename, lineNumber)
     return
   }
 
-  ctx.setState((s) => showToast(s, `Opening ${filename}...`, "info"))
+  ctx.toast.show(`Opening ${filename}...`, "info")
   ctx.render()
 
   try {
@@ -242,7 +243,7 @@ export async function handleOpenFileInEditor(ctx: ExternalToolsContext): Promise
       return
     }
 
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.suspendRenderer()
     await openFileInEditor(filename, fetched.content, lineNumber)
     ctx.resumeRenderer()
@@ -260,10 +261,10 @@ function toast(
   variant: "info" | "error" | "success",
   ms = 3000,
 ): void {
-  ctx.setState((s) => showToast(s, message, variant))
+  ctx.toast.show(message, variant)
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, ms)
 }
@@ -290,7 +291,7 @@ export async function handleDiffFileInEditor(
     return
   }
 
-  ctx.setState((s) => showToast(s, `Diffing ${filename}…`, "info"))
+  ctx.toast.show(`Diffing ${filename}…`, "info")
   ctx.render()
 
   const versions = await fileVersions(ctx, filename)
@@ -321,7 +322,7 @@ export async function handleDiffFileInEditor(
     return
   }
 
-  ctx.setState(clearToast)
+  ctx.toast.clear()
   ctx.suspendRenderer()
   try {
     const proc = Bun.spawn(argv, { stdin: "inherit", stdout: "inherit", stderr: "inherit" })
@@ -430,13 +431,13 @@ export async function handleOpenExternalDiff(
   const [filename] = getCurrentFile(ctx)
 
   if (!filename) {
-    ctx.setState((s) => showToast(s, "No file selected", "info"))
+    ctx.toast.show("No file selected", "info")
     ctx.render()
     return
   }
 
   const viewerNames = { difftastic: "difftastic", delta: "delta", nvim: "nvim diff" }
-  ctx.setState((s) => showToast(s, `Opening ${filename} in ${viewerNames[viewer]}...`, "info"))
+  ctx.toast.show(`Opening ${filename} in ${viewerNames[viewer]}...`, "info")
   ctx.render()
 
   try {
@@ -472,7 +473,7 @@ export async function handleOpenExternalDiff(
     newContent = newContent ?? ""
 
     // Suspend the TUI and open diff viewer
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.suspendRenderer()
 
     await openExternalDiffViewer(oldContent, newContent, filename, viewer)
@@ -483,7 +484,7 @@ export async function handleOpenExternalDiff(
   } catch (err) {
     ctx.resumeRenderer()
     const msg = err instanceof Error ? err.message : "Unknown error"
-    ctx.setState((s) => showToast(s, `Error: ${msg}`, "error"))
+    ctx.toast.show(`Error: ${msg}`, "error")
     ctx.render()
   }
 }
@@ -501,7 +502,7 @@ export async function handleOpenExternalDiff(
 export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<void> {
   // Only works in PR mode
   if (ctx.mode !== "pr" || !ctx.prInfo) {
-    ctx.setState((s) => showToast(s, "Checkout only available in PR mode", "info"))
+    ctx.toast.show("Checkout only available in PR mode", "info")
     ctx.render()
     return
   }
@@ -509,7 +510,7 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
   const [filename, lineNumber] = getCurrentFile(ctx)
 
   if (!filename) {
-    ctx.setState((s) => showToast(s, "No file selected", "info"))
+    ctx.toast.show("No file selected", "info")
     ctx.render()
     return
   }
@@ -520,12 +521,12 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
   const localPath = findLocalRepoPath(repoName, config)
 
   if (!localPath) {
-    ctx.setState((s) => showToast(s, `No local path configured for ${repoName}`, "error"))
+    ctx.toast.show(`No local path configured for ${repoName}`, "error")
     ctx.render()
     return
   }
 
-  ctx.setState((s) => showToast(s, `Checking out PR #${ctx.prInfo!.number}...`, "info"))
+  ctx.toast.show(`Checking out PR #${ctx.prInfo!.number}...`, "info")
   ctx.render()
 
   try {
@@ -533,7 +534,7 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
     const checkoutResult = await checkoutPR(ctx.prInfo.number, repoName, localPath)
 
     if (!checkoutResult.success) {
-      ctx.setState((s) => showToast(s, checkoutResult.message, "error"))
+      ctx.toast.show(checkoutResult.message, "error")
       ctx.render()
       return
     }
@@ -542,7 +543,7 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
     const fullPath = join(localPath, filename)
 
     // Clear toast and suspend TUI
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.suspendRenderer()
 
     // Open the actual file (not a temp copy) in the editor
@@ -564,7 +565,7 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
   } catch (err) {
     ctx.resumeRenderer()
     const msg = err instanceof Error ? err.message : "Unknown error"
-    ctx.setState((s) => showToast(s, `Error: ${msg}`, "error"))
+    ctx.toast.show(`Error: ${msg}`, "error")
     ctx.render()
   }
 }

@@ -60,6 +60,7 @@ export function keysOn(
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
+    toast: mounted.toast,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,

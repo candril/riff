@@ -10,16 +10,16 @@ import type { AppState } from "../../state"
 import {
   applyReactionToggle,
   getReactionsForTarget,
-  showToast,
-  clearToast,
 } from "../../state"
 import type { ReactionContent, ReactionTarget } from "../../types"
 import { addReaction, removeReaction } from "../../providers/github/reactions"
+import type { ToastState } from "../toast/state"
 
 export interface ReactionsContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
 }
 
 /**
@@ -80,16 +80,11 @@ function rollback(
   reactionId: number | undefined,
   error: string | undefined,
 ): void {
-  ctx.setState(s =>
-    showToast(
-      applyReactionToggle(s, target, content, wasReacted, reactionId),
-      `Reaction failed: ${error ?? "unknown error"}`,
-      "error",
-    ),
-  )
+  ctx.setState(s => applyReactionToggle(s, target, content, wasReacted, reactionId))
+  ctx.toast.show(`Reaction failed: ${error ?? "unknown error"}`, "error")
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 3000)
 }

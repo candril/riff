@@ -3,8 +3,10 @@
  * builds the board's URL for the current PR and hands it to the browser.
  */
 
-import { showToast, clearToast, type AppState } from "../../state"
+import { type AppState } from "../../state"
 import type { DiffTarget } from "../permalink"
+import type { ToastType } from "../../components/notification-model"
+import type { ToastState } from "../toast/state"
 
 export interface BoardPr {
   owner: string
@@ -56,6 +58,7 @@ export interface RiffBoardContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   openUrl: (url: string) => boolean
   boardUrl: string
   location: () => BoardLocation | null
@@ -69,20 +72,20 @@ export function openPrInBoard(ctx: RiffBoardContext): void {
   const { appMode, prInfo } = ctx.getState()
   if (appMode !== "pr" || !prInfo) {
     // The board is keyed by PR, so a local or range review has no page there.
-    flash(ctx, (s) => showToast(s, "riff board opens GitHub PRs only", "info"))
+    flash(ctx, "riff board opens GitHub PRs only", "info")
     return
   }
   const url = boardPrUrl(ctx.boardUrl, prInfo, ctx.location())
   if (!ctx.openUrl(url)) {
-    flash(ctx, (s) => showToast(s, `Could not open riff board: ${url}`, "error"))
+    flash(ctx, `Could not open riff board: ${url}`, "error")
   }
 }
 
-function flash(ctx: RiffBoardContext, show: (s: AppState) => AppState): void {
-  ctx.setState(show)
+function flash(ctx: RiffBoardContext, message: string, type: ToastType): void {
+  ctx.toast.show(message, type)
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 2000)
 }

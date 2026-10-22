@@ -128,7 +128,7 @@ describe("the thread panel in view mode", () => {
     const none = await threadPanelKeys(panelState(2))
     none.press("c")
     expect(none.overlay().codePeekId).toBeNull()
-    expect(none.state().toast?.message).toBe("No stored context for this comment")
+    expect(none.toast.current()?.message).toBe("No stored context for this comment")
   })
 
   test("o opens the file in $EDITOR and O the images", async () => {

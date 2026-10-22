@@ -1,9 +1,9 @@
 import type { AppState } from "../state"
-import { clearToast, showToast } from "../state"
 import { createOpenLink } from "./open-link"
 import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 import { reactSubmenu, type ActionMenuState } from "../features/action-menu"
+import type { ToastState } from "../features/toast/state"
 
 export interface LinksPicker {
   /** What the picker is called, which is the difference `gx` and `gX` make. */
@@ -17,6 +17,7 @@ export function createLinksPicker(ctx: {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   actionMenu: Pick<ActionMenuState, "showSubmenu">
 }): LinksPicker {
   const openLink = createOpenLink(ctx)
@@ -44,10 +45,10 @@ export function createLinksPicker(ctx: {
     })
 
     if (links.length === 0) {
-      ctx.setState((s) => showToast(s, "No links here", "info"))
+      ctx.toast.show("No links here", "info")
       ctx.render()
       setTimeout(() => {
-        ctx.setState(clearToast)
+        ctx.toast.clear()
         ctx.render()
       }, 2000)
       return

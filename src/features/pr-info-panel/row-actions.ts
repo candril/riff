@@ -4,7 +4,7 @@
  */
 
 import type { KeyEvent } from "@opentui/core"
-import { closePRInfoPanel, showToast, clearToast } from "../../state"
+import { closePRInfoPanel } from "../../state"
 import { copyToClipboard } from "../../utils/clipboard"
 import type { PRInfoPanelDeps } from "./actions"
 
@@ -17,14 +17,11 @@ type Deps = PRInfoPanelDeps
  */
 function copyAndToast(deps: Deps, text: string, message: string): void {
   void copyToClipboard(text).then((copied) => {
-    deps.setState((s) =>
-      copied.ok
-        ? showToast(s, message, "success")
-        : showToast(s, `Copy failed: ${copied.error}`, "error"),
-    )
+    if (copied.ok) deps.toast.show(message, "success")
+    else deps.toast.show(`Copy failed: ${copied.error}`, "error")
     deps.render()
     setTimeout(() => {
-      deps.setState(clearToast)
+      deps.toast.clear()
       deps.render()
     }, 2000)
   })

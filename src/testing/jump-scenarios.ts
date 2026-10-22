@@ -259,6 +259,7 @@ export async function jumpScenario({
       threadPanelLayout: () => null,
       marksContext: {
         ...threadMotionContext,
+        toast: mounted.toast,
         getPane,
         setPane,
         marks: mounted.marks,

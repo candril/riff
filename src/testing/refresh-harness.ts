@@ -19,6 +19,7 @@ import { createConfirmState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
+import { createToastState } from "../features/toast/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -92,6 +93,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const visit = createVisitState()
   const help = createHelpState()
   const pendingReview = createPendingReviewState()
+  const toast = createToastState()
 
   const sources: RefreshSources = {
     loadPrSession: async () => ({
@@ -145,6 +147,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     syncPreview: createSyncPreviewState(),
     reviewPreview: createReviewPreviewState(),
     pendingReview,
+    toast,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
@@ -161,5 +164,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     prInfo: pr,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast }
 }

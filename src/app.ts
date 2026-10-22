@@ -23,8 +23,6 @@ import {
   setExpandingDivider,
   expandFiles,
   setViewingCommit,
-  showToast,
-  clearToast,
   createInitialState,
   promptOpen,
   type AppState,
@@ -64,6 +62,7 @@ import { createMarksState } from "./features/marks/state"
 import { createFeedState } from "./features/feed/state"
 import { createVisitState } from "./features/visit/state"
 import { createPendingReviewState } from "./features/review-preview/pending-state"
+import { createToastState } from "./features/toast/state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -201,6 +200,7 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== MUTABLE STATE =====
   let state: AppState = initialState
+  const toast = createToastState()
   let vimState: VimCursorState = createCursorState()
   /** The mode the status bar was last drawn for. */
   let lastCursorMode = vimState.mode
@@ -238,8 +238,8 @@ export async function createApp(options: AppOptions = {}) {
     fetchBehindBy,
     panel: () => prInfoPanel,
     onRewritten: (stack) => {
-      state = showToast(state, `Stacked on #${stack.basePr.number}, which was rewritten since you branched — rebase`, "info")
-      setTimeout(() => { state = clearToast(state); render() }, 5000)
+      toast.show(`Stacked on #${stack.basePr.number}, which was rewritten since you branched — rebase`, "info")
+      setTimeout(() => { toast.clear(); render() }, 5000)
     },
     render: () => render(),
   })
@@ -704,6 +704,7 @@ export async function createApp(options: AppOptions = {}) {
     syncPreview,
     reviewPreview,
     pendingReview,
+    toast,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1046,6 +1047,7 @@ export async function createApp(options: AppOptions = {}) {
     sources: refresh.liveRefreshSources,
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     render,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -1111,6 +1113,7 @@ export async function createApp(options: AppOptions = {}) {
   const syncPreviewOpenContext: syncPreviewFeature.SyncPreviewOpenContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     render,
     syncPreview,
   }
@@ -1138,6 +1141,7 @@ export async function createApp(options: AppOptions = {}) {
   const fileNavContext: fileNavigation.FileNavigationContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
     getLineMapping: () => lineMapping,
@@ -1155,6 +1159,7 @@ export async function createApp(options: AppOptions = {}) {
   const commentsContext: commentsFeature.CommentsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
     getLineMapping: () => lineMapping,
@@ -1173,6 +1178,7 @@ export async function createApp(options: AppOptions = {}) {
   const externalToolsContext: externalTools.ExternalToolsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     render,
@@ -1186,6 +1192,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const yankContext: yank.YankContext = {
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     setVimState: (s) => {
       vimState = s
@@ -1198,6 +1205,7 @@ export async function createApp(options: AppOptions = {}) {
   const permalinkContext: permalink.PermalinkContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getCommentScope: split.commentScope,
@@ -1210,6 +1218,7 @@ export async function createApp(options: AppOptions = {}) {
   const prOperationsContext: prOperations.PrOperationsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     render,
     source,
     prInfo: prInfo ?? null,
@@ -1233,6 +1242,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const marksContext: marks.MarksContext = {
     ...threadMotionContext,
+    toast,
     getPane: () => split.commentScope().pane ?? null,
     setPane: (pane) => { if (split.shown()) split.source().setSide(pane) },
     marks: globalMarks,
@@ -1269,6 +1279,7 @@ export async function createApp(options: AppOptions = {}) {
       openPrInBoard({
         getState: () => state,
         setState: (fn) => { state = fn(state) },
+        toast,
         render,
         openUrl,
         boardUrl: loadConfig().board.url,
@@ -1314,7 +1325,7 @@ export async function createApp(options: AppOptions = {}) {
       if (!prInfo) return
 
       // Show loading toast while fetching diff
-      state = showToast(state, "Fetching PR diff...", "info")
+      toast.show("Fetching PR diff...", "info")
       render()
 
       let suspended = false
@@ -1329,7 +1340,7 @@ export async function createApp(options: AppOptions = {}) {
         })
 
         // Clear toast and suspend TUI
-        state = clearToast(state)
+        toast.clear()
         renderer.suspend()
         suspended = true
 
@@ -1351,17 +1362,17 @@ export async function createApp(options: AppOptions = {}) {
 
         // Check if anything changed
         if (result.title === prInfo.title && result.body === prInfo.body) {
-          state = showToast(state, "No changes made", "info")
+          toast.show("No changes made", "info")
           render()
           setTimeout(() => {
-            state = clearToast(state)
+            toast.clear()
             render()
           }, 2000)
           return
         }
 
         // Update on GitHub
-        state = showToast(state, "Updating PR...", "info")
+        toast.show("Updating PR...", "info")
         render()
 
         await editPullRequest(prInfo.number, result.title, result.body, prInfo.owner, prInfo.repo)
@@ -1372,19 +1383,19 @@ export async function createApp(options: AppOptions = {}) {
           prInfo: state.prInfo ? { ...state.prInfo, title: result.title, body: result.body } : null,
         }
 
-        state = showToast(state, "PR updated", "success")
+        toast.show("PR updated", "success")
         render()
         setTimeout(() => {
-          state = clearToast(state)
+          toast.clear()
           render()
         }, 2000)
       } catch (err) {
         if (suspended) renderer.resume()
         const msg = err instanceof Error ? err.message : "Unknown error"
-        state = showToast(state, `Error: ${msg}`, "error")
+        toast.show(`Error: ${msg}`, "error")
         render()
         setTimeout(() => {
-          state = clearToast(state)
+          toast.clear()
           render()
         }, 3000)
       }
@@ -1424,12 +1435,12 @@ export async function createApp(options: AppOptions = {}) {
         }
 
         // Create PR on GitHub
-        state = showToast(state, "Creating PR...", "info")
+        toast.show("Creating PR...", "info")
         render()
 
         const { prNumber, url } = await createPullRequest(result.title, result.body, result.draft)
 
-        state = showToast(state, `PR #${prNumber} created! Loading...`, "success")
+        toast.show(`PR #${prNumber} created! Loading...`, "success")
         render()
 
         // Switch to PR mode: load the PR session and reinitialize state
@@ -1454,6 +1465,7 @@ export async function createApp(options: AppOptions = {}) {
           prSession.prInfo,
           state.ignoreMatcher
         )
+        toast.clear()
         closeFeatureOverlays()
         globalMarks.reset(followed)
         activityFeed.reset()
@@ -1483,19 +1495,19 @@ export async function createApp(options: AppOptions = {}) {
         currentHeadSha = prSession.headSha
         lineMapping = buildLineMapping(state)
 
-        state = showToast(state, `PR #${prNumber} created: ${url}`, "success")
+        toast.show(`PR #${prNumber} created: ${url}`, "success")
         render()
         setTimeout(() => {
-          state = clearToast(state)
+          toast.clear()
           render()
         }, 4000)
       } catch (err) {
         if (suspended) renderer.resume()
         const msg = err instanceof Error ? err.message : "Unknown error"
-        state = showToast(state, `Error: ${msg}`, "error")
+        toast.show(`Error: ${msg}`, "error")
         render()
         setTimeout(() => {
-          state = clearToast(state)
+          toast.clear()
           render()
         }, 3000)
       }
@@ -1518,33 +1530,33 @@ export async function createApp(options: AppOptions = {}) {
           return
         }
 
-        state = showToast(state, "Posting comment...", "info")
+        toast.show("Posting comment...", "info")
         render()
 
         const result = await submitPrComment(prInfo.owner, prInfo.repo, prInfo.number, body)
 
         if (result.success) {
-          state = showToast(state, "Comment posted", "success")
+          toast.show("Comment posted", "success")
           render()
           setTimeout(() => {
-            state = clearToast(state)
+            toast.clear()
             render()
           }, 2000)
         } else {
-          state = showToast(state, `Error: ${result.error}`, "error")
+          toast.show(`Error: ${result.error}`, "error")
           render()
           setTimeout(() => {
-            state = clearToast(state)
+            toast.clear()
             render()
           }, 3000)
         }
       } catch (err) {
         if (suspended) renderer.resume()
         const msg = err instanceof Error ? err.message : "Unknown error"
-        state = showToast(state, `Error: ${msg}`, "error")
+        toast.show(`Error: ${msg}`, "error")
         render()
         setTimeout(() => {
-          state = clearToast(state)
+          toast.clear()
           render()
         }, 3000)
       }
@@ -1555,6 +1567,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenuFeature.executeAction(actionId, {
       state,
       setState: (fn) => { state = fn(state) },
+      toast,
       render,
       filePicker,
       commentsPicker,
@@ -1580,6 +1593,7 @@ export async function createApp(options: AppOptions = {}) {
       {
         getState: () => state,
         setState: (fn) => { state = fn(state) },
+        toast,
         // A reaction on the body, a conversation comment or a review lives
         // in `prInfo`, which the panel keeps its own copy of — hand the new
         // one over before drawing, or the pill never appears (spec 042).
@@ -1713,9 +1727,9 @@ export async function createApp(options: AppOptions = {}) {
       state = { ...state, fileTree: buildFileTree(state.files) }
       vimState = createCursorState()
       createLineMapping()
-      state = showToast(state, "Viewing all commits", "info")
+      toast.show("Viewing all commits", "info")
       render()
-      setTimeout(() => { state = clearToast(state); render() }, 1500)
+      setTimeout(() => { toast.clear(); render() }, 1500)
       return
     }
 
@@ -1723,7 +1737,7 @@ export async function createApp(options: AppOptions = {}) {
     const cacheKey = commitScopeKey(sha, shas)
 
     if (!state.commitDiffCache.has(cacheKey)) {
-      state = showToast(state, shas.length > 1 ? "Loading commits..." : "Loading commit...", "info")
+      toast.show(shas.length > 1 ? "Loading commits..." : "Loading commit...", "info")
       render()
 
       try {
@@ -1732,9 +1746,9 @@ export async function createApp(options: AppOptions = {}) {
         newCache.set(cacheKey, { files, fileTree: buildFileTree(files) })
         state = { ...state, commitDiffCache: newCache }
       } catch (err) {
-        state = showToast(state, `Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
+        toast.show(`Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
         render()
-        setTimeout(() => { state = clearToast(state); render() }, 3000)
+        setTimeout(() => { toast.clear(); render() }, 3000)
         return
       }
     }
@@ -1760,20 +1774,19 @@ export async function createApp(options: AppOptions = {}) {
     const run = contiguousRun(shas)
     if (run) {
       const oldestIdx = state.commits.findIndex(c => c.sha === run.oldest) + 1
-      state = showToast(
-        state,
+      toast.show(
         `Commits ${commitIdx}\u2013${oldestIdx} of ${state.commits.length}`,
         "info"
       )
     } else if (shas.length > 1) {
-      state = showToast(state, `${shas.length} commits of ${state.commits.length}`, "info")
+      toast.show(`${shas.length} commits of ${state.commits.length}`, "info")
     } else {
       const msg = commit ? `${commit.sha}: ${commit.message}` : sha
       const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg
-      state = showToast(state, `Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
+      toast.show(`Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
     }
     render()
-    setTimeout(() => { state = clearToast(state); render() }, 1500)
+    setTimeout(() => { toast.clear(); render() }, 1500)
   }
 
   const feedLoadContext: feedFeature.FeedLoadContext = {
@@ -1796,7 +1809,7 @@ export async function createApp(options: AppOptions = {}) {
     if (loadingBranchPr) return
     loadingBranchPr = true
 
-    state = showToast(state, `Opening #${branchPr.number}…`, "info")
+    toast.show(`Opening #${branchPr.number}…`, "info")
     render()
 
     try {
@@ -1835,6 +1848,7 @@ export async function createApp(options: AppOptions = {}) {
         treeUnviewedOnly: panelFilters.unviewedFilesOnly,
         viewMode: view,
       }
+      toast.clear()
       globalMarks.reset(followed)
       activityFeed.reset()
       visit.reset()
@@ -1853,8 +1867,7 @@ export async function createApp(options: AppOptions = {}) {
       render()
       void loadPendingReview(pendingReviewLoad, { owner, repo, number: branchPr.number })
     } catch (err) {
-      state = showToast(
-        state,
+      toast.show(
         `Could not open #${branchPr.number}: ${err instanceof Error ? err.message : "unknown error"}`,
         "error",
       )
@@ -1869,6 +1882,7 @@ export async function createApp(options: AppOptions = {}) {
   const dispatchKeypress = createAppKeys(renderer, {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    toast,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
     getLineMapping: () => lineMapping,
@@ -1976,9 +1990,9 @@ export async function createApp(options: AppOptions = {}) {
   const watermark = visit.watermark()
   if (watermark && state.appMode === "pr") {
     if (visit.rebased()) {
-      state = showToast(state, "Rebased since your last visit — going by times instead", "info")
+      toast.show("Rebased since your last visit — going by times instead", "info")
       render()
-      setTimeout(() => { state = clearToast(state); render() }, 4000)
+      setTimeout(() => { toast.clear(); render() }, 4000)
     } else {
       void filesChangedBetween(watermark.lastSeenHeadSha, currentHeadSha).then((changed) => {
         if (changed.size === 0) return

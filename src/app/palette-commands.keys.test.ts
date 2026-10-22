@@ -30,6 +30,7 @@ async function paletteApp() {
           state: mounted.ctx.getState(),
           setState: mounted.ctx.setState,
           render: mounted.render,
+          toast: mounted.toast,
           filePicker: mounted.filePicker,
           commentsPicker: mounted.commentsPicker,
           occurrencePicker: mounted.occurrencePicker,

@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test"
 import { createInitialState, type AppState } from "../../state"
+import { createToastState } from "../toast/state"
 import { boardLocation, boardPrUrl, openPrInBoard, type BoardLocation } from "./index"
 
 const PR = { owner: "owner", repo: "repo", number: 42 }
@@ -7,10 +8,12 @@ const PR = { owner: "owner", repo: "repo", number: 42 }
 function harness(state: AppState, opened: boolean, location: () => BoardLocation | null = () => null) {
   let current = state
   const urls: string[] = []
+  const toast = createToastState()
   openPrInBoard({
     getState: () => current,
     setState: (fn) => { current = fn(current) },
     render() {},
+    toast,
     openUrl(url) {
       urls.push(url)
       return opened
@@ -18,7 +21,7 @@ function harness(state: AppState, opened: boolean, location: () => BoardLocation
     boardUrl: "http://localhost:4477",
     location,
   })
-  return { urls, toast: current.toast }
+  return { urls, toast: toast.current() }
 }
 
 const local = createInitialState([], [], "test", "")
@@ -56,7 +59,7 @@ test("in local mode nothing opens and a notice says why", () => {
 test("in PR mode before the PR has loaded nothing opens and the notice shows", () => {
   const { urls, toast } = harness(pr(null), true, unreachable)
   expect(urls).toEqual([])
-  expect(toast.message).toBe("riff board opens GitHub PRs only")
+  expect(toast?.message).toBe("riff board opens GitHub PRs only")
 })
 
 test("a URL the browser could not take shows an error", () => {

@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test"
 import { keymapHarness } from "../testing/keymap-keys"
 import { registerGlobalKeys, type GlobalLayerKeyDeps } from "./global-layer-keys"
-import { createInitialState, showToast, type AppState } from "../state"
+import { createInitialState, type AppState } from "../state"
+import { createToastState } from "../features/toast/state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { DiffFile } from "../utils/diff-parser"
 import { createFilePickerState } from "../features/file-picker/state"
@@ -28,10 +29,12 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
   const harness = await keymapHarness()
   const filePicker = createFilePickerState()
   const actionMenu = createActionMenuState()
+  const toast = createToastState()
   const deps: GlobalLayerKeyDeps = {
     getState: () => state,
     setState: (update) => (state = update(state)),
     render: () => {},
+    toast,
     filePicker,
     occurrencePicker: createOccurrencePickerState(),
     marksPicker: createMarksPickerState(),
@@ -59,7 +62,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     chord: { chordPending: () => chordPending },
   }
   registerGlobalKeys(harness.riffKeymap, deps)
-  return { ...harness, state: () => state, filePicker, actionMenu, calls }
+  return { ...harness, state: () => state, filePicker, actionMenu, toast, calls }
 }
 
 test("Ctrl-f opens the file picker and prevents the key, so the picker's field does not type it", async () => {
@@ -152,8 +155,9 @@ test("Esc with no toast is declined and unprevented; with one it clears it", asy
   expect(declined.defaultPrevented).toBe(false)
   expect(keys.leftKeys).toEqual(["escape"])
 
-  const toasted = await globalKeys({ toast: showToast(createInitialState([], [], "test", ""), "saved").toast })
+  const toasted = await globalKeys()
+  toasted.toast.show("saved")
   toasted.press("\x1b")
-  expect(toasted.state().toast.message).toBeFalsy()
+  expect(toasted.toast.current()).toBeNull()
   expect(toasted.leftKeys).toEqual([])
 })

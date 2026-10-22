@@ -108,7 +108,9 @@ export function createToastIsland(renderer: CliRenderer) {
   )
   return {
     host: island.host,
-    update: (next: ToastModel | null) => setState("model", reconcile(next)),
+    update(next: ToastModel | null) {
+      setState("model", reconcile(next))
+    },
     dispose: island.dispose,
   }
 }
@@ -135,8 +137,9 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/jumplist/state.ts`,
 `src/features/marks/state.ts`,
 `src/features/feed/state.ts`,
-`src/features/visit/state.ts` and
-`src/features/review-preview/pending-state.ts` are the examples. The frame
+`src/features/visit/state.ts`,
+`src/features/review-preview/pending-state.ts` and
+`src/features/toast/state.ts` are the examples. The frame
 pass reads each factory's accessors into the `Frame` (all but the
 jumplist's, which nothing draws), so islands keep
 following one frame; its actions do not render, so callers still call

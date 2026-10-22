@@ -84,7 +84,6 @@ describe("the diff's cursor", () => {
   }
 
   const shown: [string, Scene][] = [
-    ["a toast", inState((s) => ({ ...s, toast: { ...s.toast, message: "Copied" } }))],
     ["the file tree's focus", inState((s) => ({ ...s, focusedPanel: "tree" }))],
     ["the comments panel open beside a diff that keeps the keys", inState(comments({ mode: "view" }, "diff"))],
     ["a peek left open behind the overview", (s) => [{ ...s, viewMode: "state" }, linePeek]],

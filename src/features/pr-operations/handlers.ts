@@ -10,8 +10,6 @@ import type { Comment } from "../../types"
 import type { SubmitResult } from "../../providers/github/mutations"
 import type { PrInfo } from "../../providers/github/types"
 import {
-  showToast,
-  clearToast,
   setThreadResolved,
   withPendingComments,
 } from "../../state"
@@ -33,6 +31,7 @@ import { validateCommentsForSubmit } from "../comments"
 import type { SyncPreviewState } from "../sync-preview/state"
 import type { ReviewPreviewState } from "../review-preview/state"
 import type { PendingReviewState } from "../review-preview/pending-state"
+import type { ToastState } from "../toast/state"
 
 export interface PrOperationsContext {
   // State access
@@ -40,6 +39,7 @@ export interface PrOperationsContext {
   setState: (updater: (s: AppState) => AppState) => void
   // Render
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   // Source for storage
   source: string
   // PR info
@@ -175,18 +175,18 @@ export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCal
 
   // Show result toast
   if (failedCount === 0) {
-    ctx.setState((s) => showToast(s, `Synced ${successCount} change${successCount !== 1 ? "s" : ""}`, "success"))
+    ctx.toast.show(`Synced ${successCount} change${successCount !== 1 ? "s" : ""}`, "success")
   } else if (successCount > 0) {
-    ctx.setState((s) => showToast(s, `Synced ${successCount}, failed ${failedCount}: ${lastError}`, "error"))
+    ctx.toast.show(`Synced ${successCount}, failed ${failedCount}: ${lastError}`, "error")
   } else {
-    ctx.setState((s) => showToast(s, `Sync failed: ${lastError}`, "error"))
+    ctx.toast.show(`Sync failed: ${lastError}`, "error")
   }
 
   ctx.render()
 
   // Auto-clear toast
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 4000)
 }
@@ -237,21 +237,21 @@ export async function handleToggleThreadResolved(
 
     // Show toast
     const toastMsg = finalResolved ? "Thread resolved" : "Thread reopened"
-    ctx.setState((s) => showToast(s, toastMsg, "success"))
+    ctx.toast.show(toastMsg, "success")
     ctx.render()
 
     // Auto-clear toast after 3 seconds
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 3000)
   } else {
-    ctx.setState((s) => showToast(s, result.error ?? "Failed to update thread", "error"))
+    ctx.toast.show(result.error ?? "Failed to update thread", "error")
     ctx.render()
 
     // Auto-clear error toast after 5 seconds
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 5000)
   }
@@ -409,12 +409,9 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
           : "Review submitted"
     const totalComments = localComments.length + pendingReviewCommentCount
     const mergedNote = pendingReviewCommentCount > 0 ? " (merged with pending)" : ""
-    ctx.setState((s) =>
-      showToast(
-        s,
-        `${eventLabel} (${totalComments} comment${totalComments !== 1 ? "s" : ""})${mergedNote}`,
-        "success"
-      )
+    ctx.toast.show(
+      `${eventLabel} (${totalComments} comment${totalComments !== 1 ? "s" : ""})${mergedNote}`,
+      "success"
     )
 
     // Persist to storage (with githubId if matched)
@@ -435,7 +432,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
 
     // Auto-clear toast after 3 seconds
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 3000)
   } else {

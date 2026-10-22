@@ -20,11 +20,13 @@ import {
   openPRCommentInput,
   setReactionTarget,
 } from "../../state"
+import type { ToastState } from "../toast/state"
 
 export interface PRInfoPanelDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   // The PR info panel class instance (for cursor movement and scrolling)
   getPanel: () => PRInfoPanelClass | null
   // Callback to jump to file (for files section Enter)

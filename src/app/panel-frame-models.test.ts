@@ -69,6 +69,7 @@ function frame(
     syncPreview: null,
     reviewPreview: null,
     pendingReview: null,
+    toast: null,
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

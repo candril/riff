@@ -22,11 +22,13 @@ import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { ActivityFeedState } from "../features/feed/state"
+import type { ToastState } from "../features/toast/state"
 
 export interface GlobalLayerKeyDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "current" | "clear">
   filePicker: Pick<FilePickerState, "show">
   occurrencePicker: Pick<OccurrencePickerState, "show">
   marksPicker: Pick<MarksPickerState, "show">

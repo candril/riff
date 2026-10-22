@@ -17,6 +17,7 @@ export function globalLayerKeyDeps(
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
+    toast: ctx.toast,
     filePicker: ctx.filePicker,
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,

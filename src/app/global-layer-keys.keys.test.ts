@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn, openChat } from "../testing/chat-keys"
-import { openInlineCommentOverlay, showToast } from "../state"
+import { openInlineCommentOverlay } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { Comment } from "../types"
 
@@ -167,12 +167,13 @@ test("Ctrl-l moves focus right and backspace back left", async () => {
 })
 
 test("Esc clears a toast", async () => {
-  const { mounted, state } = await globalApp()
-  mounted.show({ toast: showToast(state(), "saved").toast })
+  const { mounted } = await globalApp()
+  mounted.toast.show("saved")
+  mounted.show()
   mounted.setup.mockInput.pressEscape()
   // A lone Esc is only told apart from the start of a sequence once the parser's wait is over.
   await Bun.sleep(50)
-  expect(state().toast.message).toBeFalsy()
+  expect(mounted.toast.current()).toBeNull()
 })
 
 test("Ctrl-o walks back through the jumplist and Tab forward again", async () => {

@@ -12,9 +12,10 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { getCharSelection } from "../../vim-diff/cursor-state"
 import { wordAt } from "../../vim-diff/search-engine"
-import { showToast, switchView, toggleBlockFold } from "../../state"
+import { switchView, toggleBlockFold } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 import type { OccurrenceHit } from "./filter"
+import type { ToastState } from "../toast/state"
 
 export { registerOccurrencePickerKeys, type OccurrencePickerKeyDeps } from "./keys"
 export {
@@ -37,6 +38,7 @@ export interface OccurrenceJumpContext {
   getLineMapping: () => DiffLineMapping
   ensureCursorVisible: () => void
   render: () => void
+  toast: Pick<ToastState, "show">
   fileNavContext: FileNavigationContext
 }
 
@@ -69,7 +71,7 @@ export function jumpToOccurrence(hit: OccurrenceHit, ctx: OccurrenceJumpContext)
   const state = ctx.getState()
   const fileIndex = state.files.findIndex((f) => f.filename === row.filename)
   if (fileIndex === -1) {
-    ctx.setState((s) => showToast(s, `${row.filename} is no longer in the diff`, "error"))
+    ctx.toast.show(`${row.filename} is no longer in the diff`, "error")
     ctx.render()
     return
   }
@@ -88,7 +90,7 @@ export function jumpToOccurrence(hit: OccurrenceHit, ctx: OccurrenceJumpContext)
 
   const line = findRow(hit, ctx) ?? findRowUnderFold(hit, ctx)
   if (line === null) {
-    ctx.setState((s) => showToast(s, `${row.filename}:${row.lineNum} is not on screen`, "error"))
+    ctx.toast.show(`${row.filename}:${row.lineNum} is not on screen`, "error")
     ctx.render()
     return
   }

@@ -13,6 +13,7 @@ export function followLinkContext(ctx: AppKeyContext): FollowLinkContext {
     getVimState: ctx.getVimState,
     getLineMapping: ctx.getLineMapping,
     render: ctx.render,
+    toast: ctx.toast,
     jumpToFile: (candidates, line) => {
       const state = ctx.getState()
       const filename = candidates.find((candidate) => state.files.some((file) => file.filename === candidate))

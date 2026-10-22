@@ -122,6 +122,7 @@ test("gB outside a PR leaves the browser alone and says riff board is for PRs", 
       setState: mounted.ctx.setState,
       // The toast clears two seconds on, long after this app is gone; drawing it then would land in another test.
       render: () => { if (!mounted.setup.renderer.isDestroyed) mounted.render() },
+      toast: mounted.toast,
       openUrl: (url) => { opened.push(url); return true },
       boardUrl: "http://localhost:4477",
       location: () => {

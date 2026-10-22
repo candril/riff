@@ -14,11 +14,10 @@ import {
   openInlineCommentOverlay,
   expandThreadFor,
   highlightInlineComment,
-  showToast,
-  clearToast,
   switchView,
 } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
+import type { ToastState } from "../toast/state"
 
 export { registerCommentsPickerKeys, type CommentsPickerKeyDeps } from "./keys"
 
@@ -38,6 +37,7 @@ export interface CommentsPickerJumpContext {
   getLineMapping: () => DiffLineMapping
   ensureCursorVisible: () => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   fileNavContext: FileNavigationContext
 }
 
@@ -55,10 +55,10 @@ export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext):
   const targetFileIndex = state.files.findIndex((f) => f.filename === comment.filename)
 
   if (targetFileIndex === -1) {
-    ctx.setState((s) => showToast(s, `${comment.filename} no longer in diff`, "error"))
+    ctx.toast.show(`${comment.filename} no longer in diff`, "error")
     ctx.render()
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 2000)
     return

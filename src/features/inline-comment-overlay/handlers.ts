@@ -11,9 +11,7 @@ import type { Comment } from "../../types"
 import {
   addComment,
   cancelInlineComposer,
-  clearToast,
   highlightInlineComment,
-  showToast,
 } from "../../state"
 import { createComment } from "../../types"
 import { saveComment } from "../../storage/comments"
@@ -23,11 +21,13 @@ import { extractCommentImages } from "../../utils/comment-images"
 import { openUrl } from "../../utils/open-url"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { draftOn, type CommentDraftsState } from "./drafts-state"
+import type { ToastState } from "../toast/state"
 
 export interface InlineComposerHandlersContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   source: string
   /** Current GitHub user, falls back to "@you" when unknown. */
   getCachedCurrentUser: () => string | null
@@ -150,7 +150,7 @@ export async function submitInlineEditDraft(
   ctx.commentDrafts.forget(draftOn(ov))
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, updated.id))
-  ctx.setState((s) => showToast(s, "Comment updated", "success"))
+  ctx.toast.show("Comment updated", "success")
   ctx.render()
   await saveComment(updated, ctx.source)
   return updated
@@ -185,17 +185,17 @@ export function openCommentImages(
   )
 }
 
-type ToastContext = Pick<InlineComposerHandlersContext, "setState" | "render">
+type ToastContext = Pick<InlineComposerHandlersContext, "toast" | "render">
 
 function toast(
   ctx: ToastContext,
   message: string,
   kind: "info" | "error" | "success"
 ): void {
-  ctx.setState((s) => showToast(s, message, kind))
+  ctx.toast.show(message, kind)
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 2500)
 }

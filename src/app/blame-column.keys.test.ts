@@ -174,7 +174,7 @@ describe("zB", () => {
     fail("jj: no such revision")
     await flush()
     expect(app!.blameColumns.columns().size).toBe(0)
-    expect(app!.ctx.getState().toast).toMatchObject({ message: "Blame failed: jj: no such revision", type: "error" })
+    expect(app!.toast.current()).toMatchObject({ message: "Blame failed: jj: no such revision", type: "error" })
     expect(await app!.frame()).not.toContain("…")
   })
 
@@ -185,7 +185,7 @@ describe("zB", () => {
     answer(null, null)
     await flush()
     expect(app!.blameColumns.columns().size).toBe(0)
-    expect(app!.ctx.getState().toast).toMatchObject({ message: "No blame for src/greet.ts", type: "info" })
+    expect(app!.toast.current()).toMatchObject({ message: "No blame for src/greet.ts", type: "info" })
   })
 
   test("the terminal cursor moves BLAME_CELLS right, and l and h still step it a cell at a time", async () => {

@@ -35,7 +35,7 @@ test("Esc closes the composer and keeps the draft on its line", async () => {
   expect(overlay(app).mode).toBe("view")
   expect(settled).toEqual(["dropped"])
   expect([...app.commentDrafts.drafts().values()]).toEqual(["almost"])
-  expect(app.ctx.getState().toast.message).toBe("Draft kept for this line")
+  expect(app.toast.current()?.message).toBe("Draft kept for this line")
 })
 
 test("Esc on an empty composer keeps no draft and says nothing", async () => {
@@ -44,7 +44,7 @@ test("Esc on an empty composer keeps no draft and says nothing", async () => {
 
   expect(overlay(app).mode).toBe("view")
   expect(settled).toEqual(["dropped"])
-  expect(app.ctx.getState().toast.message).toBeNull()
+  expect(app.toast.current()).toBeNull()
 })
 
 test("Esc with a modifier held still closes the composer", async () => {
@@ -132,7 +132,7 @@ test("Ctrl-y says so when riff cannot read the commented lines", async () => {
   send(app, "\x19")
 
   expect(textarea.plainText).toBe("")
-  expect(app.ctx.getState().toast.message).toBe("Nothing to suggest — riff cannot read those lines")
+  expect(app.toast.current()?.message).toBe("Nothing to suggest — riff cannot read those lines")
 })
 
 test("Ctrl-g hands the live draft to $EDITOR and takes back what it returns", async () => {

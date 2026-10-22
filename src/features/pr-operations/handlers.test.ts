@@ -6,6 +6,7 @@ import { prInfo } from "../../testing/pr-info"
 import { createSyncPreviewState } from "../sync-preview/state"
 import { createReviewPreviewState } from "../review-preview/state"
 import { createPendingReviewState } from "../review-preview/pending-state"
+import { createToastState } from "../toast/state"
 import {
   handleConfirmReview,
   handleExecuteSync,
@@ -43,6 +44,7 @@ function harness(comments: Comment[]) {
     getPrComments: fail,
     saveComment: fail,
   }
+  const toast = createToastState()
   const ctx: PrOperationsContext = {
     getState: () => state,
     setState: (fn) => {
@@ -54,6 +56,7 @@ function harness(comments: Comment[]) {
     syncPreview,
     reviewPreview,
     pendingReview,
+    toast,
     reviewCalls,
   }
   const calls: SyncCalls = {
@@ -68,7 +71,7 @@ function harness(comments: Comment[]) {
       seen.push(`save ${comment.id}`)
     },
   }
-  return { ctx, calls, reviewCalls, syncPreview, reviewPreview, pendingReview, seen, state: () => state }
+  return { ctx, calls, reviewCalls, syncPreview, reviewPreview, pendingReview, toast, seen, state: () => state }
 }
 
 describe("handleExecuteSync", () => {
@@ -78,7 +81,7 @@ describe("handleExecuteSync", () => {
     expect(h.seen).toEqual(["update 42 while loading: Looks fine, ship it", "save c1"])
     expect([h.syncPreview.open(), h.syncPreview.loading()]).toEqual([false, false])
     expect(h.state().comments[0]).toMatchObject({ body: "Looks fine, ship it", localEdit: undefined })
-    expect(h.state().toast.message).toBe("Synced 1 change")
+    expect(h.toast.current()?.message).toBe("Synced 1 change")
   })
 
   test("closes the preview at once with nothing to sync", async () => {
@@ -86,7 +89,7 @@ describe("handleExecuteSync", () => {
     await handleExecuteSync(h.ctx, h.calls)
     expect(h.seen).toEqual([])
     expect(h.syncPreview.open()).toBe(false)
-    expect(h.state().toast.message).toBeNull()
+    expect(h.toast.current()).toBeNull()
   })
 })
 
@@ -136,7 +139,7 @@ describe("handleConfirmReview with GitHub's pending review", () => {
     expect(h.sent).toEqual([7])
     expect(h.pendingReview.review()).toBeNull()
     expect(pendingIds(h.state())).toEqual([])
-    expect(h.state().toast.message).toBe("Review submitted (2 comments) (merged with pending)")
+    expect(h.toast.current()?.message).toBe("Review submitted (2 comments) (merged with pending)")
   })
 
   test("a failed submit keeps the draft and its comments", async () => {

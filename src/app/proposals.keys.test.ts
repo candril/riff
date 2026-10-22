@@ -86,7 +86,7 @@ test("Esc drops the agent's comment, and the line keeps no draft of it", async (
   expect(await outcome).toBe(DROPPED)
   expect(app.ctx.getState().comments).toEqual([])
   expect(app.commentDrafts.drafts().size).toBe(0)
-  expect(app.ctx.getState().toast.message).toBeNull()
+  expect(app.toast.current()).toBeNull()
 })
 
 test("the agent's new wording opens the reviewer's comment in edit mode, and Enter saves it", async () => {

@@ -2,11 +2,9 @@ import type { AppKeyContext } from "./key-context"
 import type { LinksPicker } from "./links-picker"
 import type { ThreadPanelKeyDeps } from "../features/inline-comment-overlay/view-keys"
 import {
-  clearToast,
   getInlineCommentOverlayComments,
   getInlineCommentOverlayDisplayOrder,
   openInlineCommentOverlay,
-  showToast,
 } from "../state"
 import { openCommentImages } from "../features/inline-comment-overlay/handlers"
 import * as commentsFeature from "../features/comments"
@@ -21,6 +19,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
+    toast: ctx.toast,
     searchActive: () => ctx.getSearchState().active,
     filePicker: ctx.filePicker,
     commentsPicker: ctx.commentsPicker,
@@ -71,12 +70,10 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
       const vimState = ctx.getVimState()
       const anchor = lineMapping.getCommentAnchor(vimState.line, ctx.getCommentScope().pane)
       if (!anchor) {
-        ctx.setState((s) =>
-          showToast(s, "Move cursor to a commentable line first", "info")
-        )
+        ctx.toast.show("Move cursor to a commentable line first", "info")
         ctx.render()
         setTimeout(() => {
-          ctx.setState(clearToast)
+          ctx.toast.clear()
           ctx.render()
         }, 2500)
         return

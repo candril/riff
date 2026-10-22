@@ -12,7 +12,6 @@
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import { showToast, clearToast } from "../../state"
 import {
   getSelectionRange,
   getCharSelection,
@@ -21,6 +20,7 @@ import {
   type CharSelection,
 } from "../../vim-diff/cursor-state"
 import { copyToClipboard } from "../../utils/clipboard"
+import type { ToastState } from "../toast/state"
 
 export interface YankContext {
   setState: (updater: (s: AppState) => AppState) => void
@@ -28,6 +28,7 @@ export interface YankContext {
   setVimState: (state: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
 }
 
 /** Rows that carry no code — copying them would paste UI furniture. */
@@ -116,10 +117,10 @@ function toast(
   kind: "info" | "error" | "success",
   ms = 1500,
 ): void {
-  ctx.setState((s) => showToast(s, message, kind))
+  ctx.toast.show(message, kind)
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, ms)
 }

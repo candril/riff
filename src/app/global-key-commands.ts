@@ -1,6 +1,5 @@
 import type { KeyEvent } from "@opentui/core"
 import {
-  clearToast,
   clearTreeFilter,
   focusLeft,
   focusRight,
@@ -118,9 +117,10 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
     },
     escape: {
       title: "Clear the toast",
-      run: (_key, state) => {
-        if (!state.toast.message) return false
-        show(clearToast)
+      run: () => {
+        if (!deps.toast.current()?.message) return false
+        deps.toast.clear()
+        deps.render()
       },
     },
     surface: {

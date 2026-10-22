@@ -10,6 +10,7 @@ import { createCommitPickerState } from "../features/commit-picker/state"
 import { createFeedState } from "../features/feed/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createToastState } from "../features/toast/state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -51,12 +52,14 @@ export async function threadPanelKeys(initial: AppState) {
   const calls: string[] = []
   const record = (entry: string) => () => void calls.push(entry)
   const commentDrafts = createCommentDraftsState()
+  const toast = createToastState()
   const deps: ThreadPanelKeyDeps = {
     getState: () => state,
     setState: (update) => {
       state = update(state)
     },
     render() {},
+    toast,
     handleReplyExternal: record("replyInEditor"),
     handleEditExternal: record("editInEditor"),
     handleDelete: (c) => void calls.push(`delete ${c.id}`),
@@ -89,6 +92,7 @@ export async function threadPanelKeys(initial: AppState) {
     calls,
     unregister,
     commentDrafts,
+    toast,
     state: () => state,
     overlay: () => state.inlineCommentOverlay,
     set: (patch: Partial<AppState>) => {

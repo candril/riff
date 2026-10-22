@@ -61,6 +61,7 @@ async function typedOn(command: string) {
       getVimState: render.getVimState,
       getLineMapping: render.getLineMapping,
       render: () => {},
+      toast: { show: () => {}, clear: () => {} },
       suspendRenderer: () => {
         throw new Error("a hint reached an external program")
       },

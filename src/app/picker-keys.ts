@@ -20,6 +20,7 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
     ensureCursorVisible: ctx.ensureCursorVisible,
     render: ctx.render,
     fileNavContext: ctx.fileNavContext,
+    toast: ctx.toast,
   })
 
   // Later registration wins, for layers and captures alike. The file picker

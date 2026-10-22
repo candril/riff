@@ -40,14 +40,6 @@ export interface FileContentCache {
 }
 
 /**
- * Toast notification state
- */
-export interface ToastState {
-  message: string | null
-  type: "success" | "error" | "info"
-}
-
-/**
  * Inline comment overlay state (spec 039).
  *
  * Single surface for every comment action — read, reply, edit, delete,
@@ -245,9 +237,6 @@ export interface AppState {
   // forty-line mermaid fence is one thing, and folds like one.
   collapsedBlocks: ReadonlySet<string>
   
-  // Toast notification
-  toast: ToastState
-  
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
   viewedStats: ViewedStats
@@ -349,10 +338,6 @@ export function createInitialState(
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
-    toast: {
-      message: null,
-      type: "info",
-    },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
     prInfoPanel: {
@@ -1172,40 +1157,6 @@ export function withPendingComments(
   return {
     ...state,
     comments: [...nonPendingComments, ...pendingComments],
-  }
-}
-
-// ============================================================================
-// Toast State
-// ============================================================================
-
-/**
- * Show a toast notification
- */
-export function showToast(
-  state: AppState, 
-  message: string, 
-  type: "success" | "error" | "info" = "info"
-): AppState {
-  return {
-    ...state,
-    toast: {
-      message,
-      type,
-    },
-  }
-}
-
-/**
- * Clear the toast notification
- */
-export function clearToast(state: AppState): AppState {
-  return {
-    ...state,
-    toast: {
-      message: null,
-      type: "info",
-    },
   }
 }
 

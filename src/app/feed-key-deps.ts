@@ -41,6 +41,7 @@ export function feedKeyDeps(
             ensureCursorVisible: ctx.ensureCursorVisible,
             render: ctx.render,
             fileNavContext: ctx.fileNavContext,
+            toast: ctx.toast,
           })
           return
         }

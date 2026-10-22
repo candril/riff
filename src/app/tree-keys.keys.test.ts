@@ -3,7 +3,6 @@ import { KeyEvent, parseKeypress } from "@opentui/core"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
 import { treeRowsOf } from "../components"
-import { showToast } from "../state"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}
 index 1111111..2222222 100644
@@ -118,11 +117,12 @@ test("Shift-h toggles unviewed files only", async () => {
 
 test("with a toast up, the first Escape clears it in the tree and the next leaves the tree", async () => {
   const { mounted, state } = await treeApp()
-  mounted.show({ toast: showToast(state(), "saved").toast })
+  mounted.toast.show("saved")
+  mounted.show()
   // A lone Esc is only told apart from the start of a sequence once the parser's wait is over.
   mounted.setup.mockInput.pressEscape()
   await Bun.sleep(50)
-  expect(state().toast.message).toBeFalsy()
+  expect(mounted.toast.current()).toBeNull()
   expect(state().focusedPanel).toBe("tree")
   mounted.setup.mockInput.pressEscape()
   await Bun.sleep(50)

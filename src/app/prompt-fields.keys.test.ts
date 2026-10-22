@@ -52,6 +52,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         state: render.getState(),
         setState: render.setState,
         render: mounted.render,
+        toast: mounted.toast,
         filePicker: mounted.filePicker,
         commentsPicker: mounted.commentsPicker,
         occurrencePicker: mounted.occurrencePicker,

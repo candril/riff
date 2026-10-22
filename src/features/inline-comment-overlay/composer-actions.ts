@@ -5,13 +5,11 @@
 
 import {
   cancelInlineComposer,
-  clearToast,
   moveEmojiPickerSelection,
   moveMentionPickerSelection,
   setEmojiPicker,
   setInlineCommentInput,
   setMentionPicker,
-  showToast,
 } from "../../state"
 import { filterEmoji } from "../../utils/emoji"
 import { collectMentionCandidates } from "../../utils/mentions"
@@ -48,10 +46,10 @@ export function editDraftInEditor(deps: ComposerKeyDeps): void {
 export function insertSuggestion(deps: ComposerKeyDeps): void {
   const lines = deps.getCommentedLines()
   if (lines === null) {
-    deps.setState((s) => showToast(s, "Nothing to suggest — riff cannot read those lines", "info"))
+    deps.toast.show("Nothing to suggest — riff cannot read those lines", "info")
     deps.render()
     setTimeout(() => {
-      deps.setState(clearToast)
+      deps.toast.clear()
       deps.render()
     }, 2500)
     return
@@ -75,10 +73,10 @@ export function cancelComposer(deps: ComposerKeyDeps): void {
   // A proposal of the agent's dropped untouched is forgotten, not kept.
   const kept = draft.trim() !== "" && deps.commentDrafts.holds(draft)
   if (kept) {
-    deps.setState((s) => showToast(s, "Draft kept for this line", "info"))
+    deps.toast.show("Draft kept for this line", "info")
     deps.render()
     setTimeout(() => {
-      deps.setState(clearToast)
+      deps.toast.clear()
       deps.render()
     }, 2000)
   }

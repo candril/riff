@@ -53,6 +53,7 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
     pendingReview: mounted.pendingReview,
+    toast: mounted.toast,
     reviewCalls: {
       getPrHeadSha: unreachable,
       submitReview: unreachable,

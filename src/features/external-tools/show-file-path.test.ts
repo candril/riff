@@ -3,6 +3,7 @@ import { createInitialState, type AppState } from "../../state"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { DiffFile } from "../../utils/diff-parser"
+import { createToastState } from "../toast/state"
 import { showFilePath } from "./handlers"
 
 const file: DiffFile = {
@@ -19,32 +20,31 @@ const file: DiffFile = {
 }
 
 function showOn(files: DiffFile[]) {
-  let state: AppState = { ...createInitialState(files, [], "local", ""), focusedPanel: "diff" }
+  const state: AppState = { ...createInitialState(files, [], "local", ""), focusedPanel: "diff" }
   let renders = 0
   const mapping = new DiffLineMapping(files, "all")
+  const toast = createToastState()
   showFilePath({
     getState: () => state,
-    setState: (fn) => {
-      state = fn(state)
-    },
+    toast,
     getVimState: () => ({ ...createCursorState(), line: files.length ? 1 : 0 }),
     getLineMapping: () => mapping,
     render: () => {
       renders++
     },
   })
-  return { toast: state.toast, renders }
+  return { toast: toast.current(), renders }
 }
 
 test("the file under the cursor has its path toasted", () => {
   const { toast, renders } = showOn([file])
-  expect(toast.message).toBe("src/greet.ts")
-  expect(toast.type).toBe("info")
+  expect(toast?.message).toBe("src/greet.ts")
+  expect(toast?.type).toBe("info")
   expect(renders).toBe(1)
 })
 
 test("with no file under the cursor nothing is toasted or drawn", () => {
   const { toast, renders } = showOn([])
-  expect(toast.message).toBeNull()
+  expect(toast).toBeNull()
   expect(renders).toBe(0)
 })

@@ -9,6 +9,7 @@ import type { FileNavigationContext } from "../file-navigation"
 import { X, Y, DOC } from "../../testing/marks"
 import { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 import { createMarksState } from "./state"
+import { createToastState } from "../toast/state"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -42,6 +43,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
   let mapping = build()
   const panes: Pane[] = []
   const saved: (readonly Mark[])[] = []
+  const toast = createToastState()
 
   const fileNavContext: FileNavigationContext = {
     getState: () => state,
@@ -53,6 +55,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     getCursorView: () => { throw new Error("not drawn") },
     ensureCursorVisible: () => {},
     render: () => {},
+    toast,
     mode: "local",
     prInfo: null,
     source: "local",
@@ -69,6 +72,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     setPane: (pane) => { panes.push(pane) },
     ensureCursorVisible: () => {},
     render: () => {},
+    toast,
     fileNavContext,
     marks,
     save: (placed) => { saved.push(placed) },
@@ -84,7 +88,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     vim: () => vim,
     mapping: () => mapping,
     moveTo: (line: number) => { vim = { ...vim, line } },
-    toast: () => state.toast.message,
+    toast: () => toast.current()?.message ?? null,
   }
 }
 

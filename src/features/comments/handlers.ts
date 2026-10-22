@@ -15,8 +15,6 @@ import type { PrInfo } from "../../providers/github/types"
 import {
   addComment,
   deleteComment,
-  showToast,
-  clearToast,
 } from "../../state"
 import type { ConfirmState } from "../confirm/state"
 import { createComment } from "../../types"
@@ -35,6 +33,7 @@ import {
 import { commentRange } from "../../providers/github/review"
 import { getCurrentUser } from "../../providers/github/exec"
 import { getPrHeadSha } from "../../providers/github/content"
+import type { ToastState } from "../toast/state"
 
 export interface CommentsContext {
   // State access
@@ -49,6 +48,7 @@ export interface CommentsContext {
   getCommentScope: () => CommentScope
   // Render
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   // Renderer control
   suspendRenderer: () => void
   resumeRenderer: () => void
@@ -279,7 +279,7 @@ export async function handleSubmitSingleComment(
   }
 
   if (isLocallyResolved(toSubmit, state.comments)) {
-    ctx.setState((s) => showToast(s, "Thread is resolved locally — reopen it with x to post", "info"))
+    ctx.toast.show("Thread is resolved locally — reopen it with x to post", "info")
     ctx.render()
     return
   }
@@ -304,10 +304,10 @@ export async function handleSubmitSingleComment(
     try {
       headSha = await getPrHeadSha(prNumber, owner, repo)
     } catch (err) {
-      ctx.setState((s) => showToast(s, "Failed to get PR info", "error"))
+      ctx.toast.show("Failed to get PR info", "error")
       ctx.render()
       setTimeout(() => {
-        ctx.setState(clearToast)
+        ctx.toast.clear()
         ctx.render()
       }, 5000)
       return
@@ -367,7 +367,7 @@ export async function handleSubmitSingleComment(
       ...s,
       comments: s.comments.map((c) => (c.id === toSubmit.id ? updatedComment : c)),
     }))
-    ctx.setState((s) => showToast(s, toastMessage, "success"))
+    ctx.toast.show(toastMessage, "success")
 
     // Persist to storage
     await saveComment(updatedComment, ctx.source)
@@ -376,7 +376,7 @@ export async function handleSubmitSingleComment(
 
     // Auto-clear toast after 3 seconds
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 3000)
   } else {
@@ -385,12 +385,12 @@ export async function handleSubmitSingleComment(
     if (errorMessage.includes("pending review") || errorMessage.includes("user_id can only have one")) {
       errorMessage = "You have a pending review. Use gS to submit as review instead."
     }
-    ctx.setState((s) => showToast(s, errorMessage, "error"))
+    ctx.toast.show(errorMessage, "error")
     ctx.render()
 
     // Auto-clear error toast after 5 seconds
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 5000)
   }
@@ -415,10 +415,10 @@ export async function handleDeleteComment(
   if (toDelete.status === "synced") {
     // Must be in PR mode with valid prInfo and have a GitHub ID
     if (ctx.mode !== "pr" || !ctx.prInfo || !toDelete.githubId) {
-      ctx.setState((s) => showToast(s, "Cannot delete: missing GitHub info", "error"))
+      ctx.toast.show("Cannot delete: missing GitHub info", "error")
       ctx.render()
       setTimeout(() => {
-        ctx.setState(clearToast)
+        ctx.toast.clear()
         ctx.render()
       }, 3000)
       return
@@ -453,7 +453,7 @@ export async function handleDeleteComment(
 async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): Promise<void> {
   if (!ctx.prInfo || !toDelete.githubId) {
     ctx.confirm.close()
-    ctx.setState((s) => showToast(s, "Cannot delete: missing GitHub info", "error"))
+    ctx.toast.show("Cannot delete: missing GitHub info", "error")
     ctx.render()
     return
   }
@@ -462,17 +462,17 @@ async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): P
 
   // Close dialog and show loading toast
   ctx.confirm.close()
-  ctx.setState((s) => showToast(s, "Deleting comment...", "info"))
+  ctx.toast.show("Deleting comment...", "info")
   ctx.render()
 
   // Delete on GitHub
   const result = await deleteGitHubComment(owner, repo, toDelete.githubId)
 
   if (!result.success) {
-    ctx.setState((s) => showToast(s, result.error ?? "Failed to delete comment", "error"))
+    ctx.toast.show(result.error ?? "Failed to delete comment", "error")
     ctx.render()
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 5000)
     return
@@ -493,12 +493,12 @@ async function performDelete(ctx: CommentsContext, toDelete: Comment): Promise<v
   await deleteCommentFile(toDelete.id, ctx.source)
 
   // Show success toast
-  ctx.setState((s) => showToast(s, "Comment deleted", "success"))
+  ctx.toast.show("Comment deleted", "success")
   ctx.render()
 
   // Auto-clear toast after 3 seconds
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 3000)
 }
@@ -513,7 +513,7 @@ export async function handleClearLocalComments(ctx: CommentsContext): Promise<vo
   const state = ctx.getState()
   const count = state.comments.filter((c) => c.status === "local").length
   if (count === 0) {
-    ctx.setState((s) => showToast(s, "No local comments to clear", "info"))
+    ctx.toast.show("No local comments to clear", "info")
     ctx.render()
     return
   }
@@ -529,7 +529,7 @@ export async function handleClearLocalComments(ctx: CommentsContext): Promise<vo
           ...s2,
           comments: s2.comments.filter((c) => c.status !== "local"),
         }))
-        ctx.setState((s2) => showToast(s2, `Removed ${removed} local comment${removed === 1 ? "" : "s"}`, "success"))
+        ctx.toast.show(`Removed ${removed} local comment${removed === 1 ? "" : "s"}`, "success")
         ctx.render()
       })()
     },

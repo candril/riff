@@ -50,6 +50,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     syncPreview: null,
     reviewPreview: null,
     pendingReview: null,
+    toast: null,
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
@@ -114,14 +115,20 @@ describe("overlayModels", () => {
     })
   })
 
+  test("the frame's toast drives the toast model, and none hides it", () => {
+    expect(overlayModels(frame({}, { toast: { message: "Copy failed", type: "error" } })).toast).toEqual(
+      toastModel("Copy failed", "error")
+    )
+    expect(overlayModels(frame({}, { toast: null })).toast).toBeNull()
+  })
+
   test("an open overlay's model is the one its builder makes", () => {
     const dialog = { title: "Clear?", message: "Gone." }
     const open = overlayModels(
       frame({
-        toast: { message: "Saved", type: "success" },
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek, blamePeek })
+      }, { toast: { message: "Saved", type: "success" }, help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek, blamePeek })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))

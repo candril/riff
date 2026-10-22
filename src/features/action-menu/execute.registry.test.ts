@@ -9,6 +9,7 @@ import { mountApp } from "../../testing/app-render"
 import { keysOn } from "../../testing/chat-keys"
 import { spelledStrokes } from "../../app/spelled-keys"
 import { createFilePickerState } from "../file-picker/state"
+import { createToastState } from "../toast/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
@@ -63,6 +64,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
       state = update(state)
     },
     render: () => {},
+    toast: createToastState(),
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),

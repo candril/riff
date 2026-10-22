@@ -277,6 +277,10 @@ The pending GitHub review is the twenty-first (`createPendingReviewState`
 in `src/features/review-preview/pending-state.ts`); the frame carries it
 for Submit Review's banner, a reload or a switch drops it and the new
 PR session fetches its own draft, and a submit drops it.
+The toast is the twenty-second (`createToastState` in
+`src/features/toast/state.ts`); the frame carries its message and type,
+and a reload or a switch to another PR clears it, as the initial state
+did.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

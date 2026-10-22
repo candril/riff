@@ -19,19 +19,19 @@ import {
   startInlineEdit,
   toggleInlineCommentOverlayExpand,
   setCommentCodePeek,
-  showToast,
-  clearToast,
 } from "../../state"
 import { stateFilterTarget } from "../../app/view-filter"
 import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
 import { groupIntoThreads } from "../../utils/threads"
 import type { CommentDraftsState } from "./drafts-state"
+import type { ToastState } from "../toast/state"
 
 export interface ThreadPanelViewDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   /** $EDITOR reply (Shift-r). Reuses the existing add-comment flow. */
   handleReplyExternal: () => void
   /** $EDITOR edit (Shift-e). Reuses the existing add-comment flow,
@@ -260,8 +260,12 @@ export function submit(deps: Deps): void {
  */
 export function openCodePeek(deps: Deps, highlighted: Comment): void {
   if (!commentHunk(getInlineCommentOverlayComments(deps.getState()), highlighted.id)) {
-    update(deps, (s) => showToast(s, "No stored context for this comment", "info"))
-    setTimeout(() => update(deps, clearToast), 2000)
+    deps.toast.show("No stored context for this comment", "info")
+    deps.render()
+    setTimeout(() => {
+      deps.toast.clear()
+      deps.render()
+    }, 2000)
     return
   }
   update(deps, (s) => setCommentCodePeek(s, highlighted.id))

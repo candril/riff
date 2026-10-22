@@ -12,8 +12,6 @@ import {
   switchView,
   toggleWrapLines,
   clearFileSelection,
-  showToast,
-  clearToast,
   toggleShowHiddenFiles,
   getReactionsForTarget,
 } from "../../state"
@@ -29,6 +27,7 @@ import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "./state"
 import type { LinePeekState } from "../line-peek/state"
 import * as viewFilter from "../../app/view-filter"
+import type { ToastState } from "../toast/state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -73,6 +72,7 @@ export interface ExecuteContext {
   readonly state: AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   filePicker: Pick<FilePickerState, "show">
   commentsPicker: Pick<CommentsPickerState, "show">
   occurrencePicker: Pick<OccurrencePickerState, "show">
@@ -248,14 +248,11 @@ export async function executeAction(
     case "copy-pr-url":
       if (state.prInfo) {
         const copied = await copyToClipboard(state.prInfo.url)
-        setState((s) =>
-          copied.ok
-            ? showToast(s, "PR URL copied to clipboard", "success")
-            : showToast(s, `Copy failed: ${copied.error}`, "error")
-        )
+        if (copied.ok) ctx.toast.show("PR URL copied to clipboard", "success")
+        else ctx.toast.show(`Copy failed: ${copied.error}`, "error")
         render()
         setTimeout(() => {
-          setState(clearToast)
+          ctx.toast.clear()
           render()
         }, 2000)
       }
@@ -280,10 +277,10 @@ export async function executeAction(
     case "expand-context": {
       const expanded = await handlers.handleExpandDivider()
       if (!expanded) {
-        setState((s) => showToast(s, "Put the cursor on a \"… lines\" divider first", "info"))
+        ctx.toast.show("Put the cursor on a \"… lines\" divider first", "info")
         render()
         setTimeout(() => {
-          setState(clearToast)
+          ctx.toast.clear()
           render()
         }, 2500)
       }

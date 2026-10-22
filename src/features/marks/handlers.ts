@@ -1,5 +1,4 @@
 import type { AppState } from "../../state"
-import { showToast, clearToast } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
@@ -11,6 +10,7 @@ import { markSitsAt } from "./toggle"
 import { openFoldHiding } from "./fold-hiding"
 import type { GlobalMarksState } from "./state"
 import type { Mark } from "./types"
+import type { ToastState } from "../toast/state"
 
 type Pane = "left" | "right"
 
@@ -25,6 +25,7 @@ export interface MarksContext {
   setPane: (pane: Pane) => void
   ensureCursorVisible: () => void
   render: () => void
+  toast: Pick<ToastState, "current" | "show" | "clear">
   fileNavContext: FileNavigationContext
   marks: Pick<GlobalMarksState, "marks" | "snapshot" | "set" | "remove" | "visit">
   save: (marks: readonly Mark[]) => void
@@ -136,11 +137,11 @@ function findMark(mark: Mark, fileIndex: number, ctx: MarksContext): ResolvedMar
 }
 
 function toast(ctx: MarksContext, message: string): void {
-  ctx.setState((s) => showToast(s, message, "info"))
+  ctx.toast.show(message, "info")
   ctx.render()
   setTimeout(() => {
-    if (ctx.getState().toast.message !== message) return
-    ctx.setState(clearToast)
+    if (ctx.toast.current()?.message !== message) return
+    ctx.toast.clear()
     ctx.render()
   }, 2500)
 }

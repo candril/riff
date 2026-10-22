@@ -1,5 +1,4 @@
-import type { AppState } from "../state"
-import { clearToast, showToast } from "../state"
+import type { ToastState } from "../features/toast/state"
 import { copyToClipboard } from "../utils/clipboard"
 
 export type OpenLink = (action: "open" | "copy", link: { label: string; url: string }) => void
@@ -16,8 +15,8 @@ export function openerCommand(): string {
  * does (spec 068).
  */
 export function createOpenLink(deps: {
-  setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
 }): OpenLink {
   return (action, link) => {
     if (action === "open") {
@@ -25,16 +24,13 @@ export function createOpenLink(deps: {
       return
     }
     void copyToClipboard(link.url).then((copied) => {
-      deps.setState((s) =>
-        showToast(
-          s,
-          copied.ok ? `Copied ${link.label}` : `Copy failed: ${copied.error}`,
-          copied.ok ? "success" : "error"
-        )
+      deps.toast.show(
+        copied.ok ? `Copied ${link.label}` : `Copy failed: ${copied.error}`,
+        copied.ok ? "success" : "error"
       )
       deps.render()
       setTimeout(() => {
-        deps.setState(clearToast)
+        deps.toast.clear()
         deps.render()
       }, 2000)
     })

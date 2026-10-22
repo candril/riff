@@ -1,11 +1,12 @@
 import type { AppState } from "../../state"
-import { showToast, clearToast } from "../../state"
 import type { SyncPreviewState } from "./state"
+import type { ToastState } from "../toast/state"
 
 export interface SyncPreviewOpenContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   syncPreview: Pick<SyncPreviewState, "show">
 }
 
@@ -13,10 +14,10 @@ export interface SyncPreviewOpenContext {
 export function handleOpenSyncPreview(ctx: SyncPreviewOpenContext): void {
   const state = ctx.getState()
   if (state.appMode !== "pr") {
-    ctx.setState((s) => showToast(s, "Sync only available in PR mode", "error"))
+    ctx.toast.show("Sync only available in PR mode", "error")
     ctx.render()
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 3000)
     return

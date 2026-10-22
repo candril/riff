@@ -13,6 +13,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
+    toast: ctx.toast,
     getPanel: ctx.getPrInfoPanel,
     onJumpToFile: (filename) => {
       // Jump to file by filename.
@@ -40,6 +41,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
         ensureCursorVisible: ctx.ensureCursorVisible,
         render: ctx.render,
         fileNavContext: ctx.fileNavContext,
+        toast: ctx.toast,
       })
     },
     onOpenFileAtLine: (filename, line) => {

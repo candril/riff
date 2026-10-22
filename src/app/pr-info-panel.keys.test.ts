@@ -200,7 +200,7 @@ describe("the merge status's conversations line", () => {
       expect(spawned()[1]).toMatch(/^(pbcopy|xclip)/)
       expect(spawned()).toHaveLength(2)
       await Bun.sleep(0)
-      expect(keys.state().toast?.message).toBe("Comment copied")
+      expect(keys.toast.current()?.message).toBe("Comment copied")
     } finally {
       dispose()
     }

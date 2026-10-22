@@ -52,6 +52,7 @@ import type * as marks from "../features/marks"
 import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
+import type { ToastState } from "../features/toast/state"
 
 export interface AppKeyContext {
   // State access
@@ -82,6 +83,7 @@ export interface AppKeyContext {
   flashHandler: FlashHandler
   // Helpers
   render: () => void
+  toast: Pick<ToastState, "current" | "show" | "clear">
   quit: () => void
   ensureCursorVisible: () => void
   /** `\`: side by side where it fits, unified otherwise. */

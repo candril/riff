@@ -92,6 +92,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
       setPane: () => {},
       ensureCursorVisible: () => {},
       render: mounted.render,
+      toast: mounted.toast,
       fileNavContext,
       marks: mounted.marks,
       save: () => {},

@@ -17,13 +17,12 @@ import {
   collapseFile,
   toggleFileFold,
   getSelectedFile,
-  showToast,
-  clearToast,
 } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { createViewedStatus, getHeadCommit } from "../../utils/viewed-status"
 import { saveFileViewedStatus } from "../../storage/caches"
 import { markFileViewedOnGitHub } from "../../providers/github/viewed"
+import type { ToastState } from "../toast/state"
 
 export interface FileNavigationContext {
   // State access
@@ -40,6 +39,7 @@ export interface FileNavigationContext {
   // Helpers
   ensureCursorVisible: () => void
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   // Mode and PR info
   mode: "local" | "pr"
   prInfo: PrInfo | null
@@ -330,10 +330,10 @@ export function navigateToUnviewedFile(direction: 1 | -1, ctx: FileNavigationCon
   }
 
   // No unviewed files found
-  ctx.setState((s) => showToast(s, "All files reviewed!", "success"))
+  ctx.toast.show("All files reviewed!", "success")
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 2000)
 }
@@ -400,10 +400,10 @@ export function navigateToOutdatedFile(direction: 1 | -1, ctx: FileNavigationCon
     }
   }
 
-  ctx.setState((s) => showToast(s, "No outdated files", "info"))
+  ctx.toast.show("No outdated files", "info")
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 2000)
 }

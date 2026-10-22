@@ -13,8 +13,6 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { SearchState } from "../../vim-diff/search-state"
 import type { IgnoreMatcher } from "../../utils/ignore"
 import {
-  showToast,
-  clearToast,
   createInitialState,
   loadFileStatuses,
   updateFileStatuses,
@@ -61,6 +59,7 @@ import {
   wasForcePushed,
   type RefreshPosition,
 } from "./position"
+import type { ToastState } from "../toast/state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -116,6 +115,7 @@ export interface RefreshContext {
   commentDrafts: Pick<CommentDraftsState, "clear">
   jumpList: Pick<JumpListState, "clear">
   pendingReview: Pick<PendingReviewState, "clear" | "set">
+  toast: Pick<ToastState, "show" | "clear">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -133,7 +133,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
   const position = capturePosition(state, ctx.getVimState(), ctx.getMapping(), ctx.getSearchState())
 
   // Show loading toast
-  ctx.setState((s) => showToast(s, "Refreshing...", "info"))
+  ctx.toast.show("Refreshing...", "info")
   ctx.render()
 
   try {
@@ -255,7 +255,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
     const landed = restoreCursor(ctx, position)
     const { message, type } = refreshMessage(landed, position.anchor, forcePushed)
-    ctx.setState((s) => showToast(s, message, type))
+    ctx.toast.show(message, type)
 
     ctx.render()
     // After the render: the view has to hold the new rows before the cursor
@@ -264,17 +264,15 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
     // Auto-clear toast
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 2000)
   } catch (err) {
-    ctx.setState((s) =>
-      showToast(s, `Refresh failed: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
-    )
+    ctx.toast.show(`Refresh failed: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
     ctx.render()
 
     setTimeout(() => {
-      ctx.setState(clearToast)
+      ctx.toast.clear()
       ctx.render()
     }, 4000)
   }
@@ -298,16 +296,17 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * line and blame peeks, and the blame columns, which a reload turns off, live
  * in factories that createInitialState never reaches, so they are closed here,
  * as the rebuild closes every overlay still kept in AppState. The kept comment
- * drafts, the jumplist and GitHub's pending review live in factories too, and
- * are emptied here, the pending review because a PR refresh fetches the
- * reloaded PR's draft again afterwards; the global marks are not, since a
- * mark is followed to its line's new place, and nor is the activity
+ * drafts, the jumplist, GitHub's pending review and the toast live in
+ * factories too, and are emptied here, the pending review because a PR
+ * refresh fetches the reloaded PR's draft again afterwards, the toast because
+ * a refresh shows its outcome only once the rebuild has landed; the global
+ * marks are not, since a mark is followed to its line's new place, and nor is the activity
  * feed, whose row, filters, opened commits and unseen-only are the reader's
  * (a PR refresh drops only its stream), nor the visit, which the caller
  * begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -330,6 +329,7 @@ export function adoptReloadedState(
   // An entry's anchor names lines in the old diff.
   ctx.jumpList.clear()
   ctx.pendingReview.clear()
+  ctx.toast.clear()
 }
 
 /**

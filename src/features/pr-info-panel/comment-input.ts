@@ -4,8 +4,6 @@
  */
 
 import {
-  showToast,
-  clearToast,
   closePRCommentInput,
   setPRCommentInputText,
   setPRCommentInputLoading,
@@ -35,13 +33,11 @@ export function submitComment(deps: Deps): void {
     prInfoPanel.commentInputText.trim()
   ).then(result => {
     if (result.success) {
-      deps.setState(s => {
-        const closed = closePRCommentInput(s)
-        return showToast(closed, "Comment posted", "success")
-      })
+      deps.setState(closePRCommentInput)
+      deps.toast.show("Comment posted", "success")
       deps.render()
       setTimeout(() => {
-        deps.setState(clearToast)
+        deps.toast.clear()
         deps.render()
       }, 2000)
     } else {

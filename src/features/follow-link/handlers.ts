@@ -10,14 +10,15 @@
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import { showToast, clearToast } from "../../state"
 import { linkAt, resolveCandidates } from "../../utils/links"
+import type { ToastState } from "../toast/state"
 
 export interface FollowLinkContext {
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   getLineMapping: () => DiffLineMapping
   render: () => void
+  toast: Pick<ToastState, "show" | "clear">
   /** Jump to the first candidate the diff is showing. False when it shows
    *  none of them. */
   jumpToFile: (candidates: string[], line?: number) => boolean
@@ -68,10 +69,10 @@ export function handleFollowLink(
 }
 
 function toast(ctx: FollowLinkContext, message: string): void {
-  ctx.setState((s) => showToast(s, message, "info"))
+  ctx.toast.show(message, "info")
   ctx.render()
   setTimeout(() => {
-    ctx.setState(clearToast)
+    ctx.toast.clear()
     ctx.render()
   }, 2000)
 }
