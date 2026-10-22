@@ -76,3 +76,9 @@ test("the length reminder comes last, and only riff's P1 tools are named", () =>
 test("the posture names the tool for the PR's conversation", () => {
   expect(buildContext(pr, files(1), 0)).toContain("read_conversation for the PR's conversation")
 })
+
+test("the posture says what the attached threads are and what 'this thread' means", () => {
+  const context = buildContext(pr, files(1), 0)
+  expect(context).toContain("A question may carry [Thread …] blocks")
+  expect(context).toContain('"This thread" and "this comment"\n  mean those; a thread on a whole file reads as `path (file)`.')
+})

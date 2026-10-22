@@ -21,6 +21,7 @@ import { demoAgent } from "../features/chat/demo-agent"
 import { createChatState, type ChatState } from "../features/chat/state"
 import { chatPositionOf } from "../features/chat/position-of"
 import { expandReferences, type Expanded } from "../features/chat/references"
+import { threadAttachment, threadsAt } from "../features/chat/position-threads"
 import type { Position } from "../providers/agent/position"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { VimCursorState } from "../vim-diff/types"
@@ -89,16 +90,23 @@ function installedClaudeVersion(): Promise<ClaudeVersionNote | null> {
   return checkClaudeVersion({ executable: claudeExecutable(), pinned: pinnedClaudeVersion, run: claudeVersionOutput })
 }
 
-/** A question's `@` tokens, read against the review as it stands when the question is sent. */
+/** A question's `@` tokens and the threads at its position, read against the review as it stands when the question is sent. */
 export function reviewReferences(getState: () => AppState) {
   return (text: string, position: Position | null): Expanded => {
     const state = getState()
     const pr = state.prInfo
-    return expandReferences(text, {
+    const expanded = expandReferences(text, {
       files: state.files,
       position,
       pr: pr && { number: pr.number, title: pr.title, description: pr.body, files: agentFilesOf(state) },
     })
+    const threads = position && "attachments" in expanded && threadAttachment(threadsAt(position, state.comments))
+    if (!threads) return expanded
+    // First, as they belong to the position the agent reads just before them.
+    return {
+      attachments: [threads.attachment, ...expanded.attachments],
+      labels: [threads.label, ...expanded.labels],
+    }
   }
 }
 
