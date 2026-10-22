@@ -1,7 +1,4 @@
-import {
-  setActionMenuQuery,
-  setViewFilter,
-} from "../state"
+import { setViewFilter } from "../state"
 import type { AppState } from "../state"
 import type { SearchState } from "../vim-diff/search-state"
 import type { FilePickerState } from "../features/file-picker/state"
@@ -9,6 +6,7 @@ import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
+import type { ActionMenuState } from "../features/action-menu/state"
 import type { PickerSnapshots } from "./frame"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
@@ -25,12 +23,12 @@ export interface PromptModel {
 export function openPromptModel(
   state: AppState,
   searchState: SearchState,
-  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }: PickerSnapshots
+  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }: PickerSnapshots
 ): PromptModel | null {
-  if (state.actionMenu.open) {
+  if (actionMenu) {
     return {
-      key: `action-menu:${state.actionMenu.submenu?.kind ?? ""}`,
-      initialValue: state.actionMenu.query,
+      key: `action-menu:${actionMenu.submenu?.kind ?? ""}`,
+      initialValue: actionMenu.query,
       placeholder: "Search",
     }
   }
@@ -90,6 +88,7 @@ export type PromptWriteContext = {
   occurrencePicker: Pick<OccurrencePickerState, "setQuery" | "setFilter">
   marksPicker: Pick<MarksPickerState, "setQuery">
   commitPicker: Pick<CommitPickerState, "setQuery">
+  actionMenu: Pick<ActionMenuState, "setQuery">
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
 }
@@ -104,7 +103,8 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
   return (key, value) => {
     switch (ownerOf(key)) {
       case "action-menu":
-        return typeInto(setActionMenuQuery, value)
+        ctx.actionMenu.setQuery(value)
+        return render()
       case "file-picker":
         ctx.filePicker.setQuery(value)
         return render()

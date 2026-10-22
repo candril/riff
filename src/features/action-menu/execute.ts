@@ -17,19 +17,18 @@ import {
   showToast,
   clearToast,
   toggleShowHiddenFiles,
-  openActionMenu,
-  openActionSubmenu,
   getReactionsForTarget,
 } from "../../state"
 import { REACTION_META } from "../../types"
 import { actions } from "../../actions/registry"
-import { actionKeys } from "../../actions/types"
+import { actionKeys, type ActionSubmenu } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
 import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
 import type { CommitPickerState } from "../commit-picker/state"
+import type { ActionMenuState } from "./state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -79,6 +78,7 @@ export interface ExecuteContext {
   occurrencePicker: Pick<OccurrencePickerState, "show">
   marksPicker: Pick<MarksPickerState, "show">
   commitPicker: Pick<CommitPickerState, "show">
+  actionMenu: Pick<ActionMenuState, "showSubmenu">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -101,7 +101,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, handlers } = ctx
+  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -359,8 +359,9 @@ export async function executeAction(
     case "react": {
       // Open the react submenu rather than executing — the palette stays
       // open and the selected row's Enter handler fires the toggle.
-      if (!state.reactionTarget) break
-      setState((s) => openReactSubmenu(s, true))
+      const submenu = reactSubmenu(state, true)
+      if (!submenu) break
+      actionMenu.showSubmenu(submenu)
       render()
       break
     }
@@ -392,19 +393,14 @@ function runThroughCommand(actionId: string, ctx: ExecuteContext): boolean {
 }
 
 /**
- * The reaction picker on whatever `reactionTarget` points at, or the state
- * unchanged when nothing reactable has focus. `+` opens it without the
- * palette, so the palette is opened underneath it here.
+ * The reaction picker on whatever `reactionTarget` points at, or null when
+ * nothing reactable has focus. `+` opens it without the palette, and
+ * showSubmenu opens the palette underneath it then.
  */
-export function openReactSubmenu(state: AppState, fromPalette: boolean): AppState {
+export function reactSubmenu(state: AppState, fromPalette: boolean): ActionSubmenu | null {
   const target = state.reactionTarget
-  if (state.appMode !== "pr" || !target) return state
-  return openActionSubmenu(fromPalette ? state : openActionMenu(state), {
-    kind: "react",
-    target,
-    title: reactSubmenuTitle(state),
-    fromPalette,
-  })
+  if (state.appMode !== "pr" || !target) return null
+  return { kind: "react", target, title: reactSubmenuTitle(state), fromPalette }
 }
 
 /**

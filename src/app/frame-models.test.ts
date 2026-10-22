@@ -13,6 +13,7 @@ import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
+import { createActionMenuState } from "../features/action-menu/state"
 
 const NOW = Date.parse("2026-10-17T12:00:00Z")
 
@@ -35,6 +36,7 @@ function frame(
     occurrencePicker = null,
     marksPicker = null,
     commitPicker = null,
+    actionMenu = null,
   }: {
     search?: Partial<SearchState>
     flash?: Partial<FlashState>
@@ -44,6 +46,7 @@ function frame(
     occurrencePicker?: Frame["occurrencePicker"]
     marksPicker?: Frame["marksPicker"]
     commitPicker?: Frame["commitPicker"]
+    actionMenu?: Frame["actionMenu"]
   } = {}
 ): Frame {
   return {
@@ -66,6 +69,7 @@ function frame(
     occurrencePicker,
     marksPicker,
     commitPicker,
+    actionMenu,
     commandKeys: new Map(),
   }
 }
@@ -140,8 +144,7 @@ describe("frameModels", () => {
     expect(shown(frameModels(frame(state(), { occurrencePicker: createOccurrencePickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "occurrencePicker", "header"])
     expect(shown(frameModels(frame(state(), { marksPicker: createMarksPickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "marksPicker", "header"])
     expect(shown(frameModels(frame(state(), { commitPicker: createCommitPickerState().snapshot() })))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
-    const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
-    expect(shown(frameModels(frame(palette)))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])
+    expect(shown(frameModels(frame(state(), { actionMenu: createActionMenuState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])
   })
 
   test("dates the commit picker's commits against the frame's clock", () => {

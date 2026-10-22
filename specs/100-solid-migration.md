@@ -236,6 +236,9 @@ The base lookups are the ninth (`createBaseLookupsState` in
 The commit picker is the tenth (`createCommitPickerState` in
 `src/features/commit-picker/state.ts`); the prompt reads its query off the
 factory too.
+The command palette is the eleventh (`createActionMenuState` in
+`src/features/action-menu/state.ts`); the prompt reads its query off the
+factory too.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

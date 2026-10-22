@@ -22,7 +22,6 @@ import {
   expandDivider,
   setExpandingDivider,
   expandFiles,
-  openActionMenu,
   setPendingReview,
   setViewingCommit,
   showToast,
@@ -65,6 +64,7 @@ import { createCommentsPickerState } from "./features/comments-picker/state"
 import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
 import { createCommitPickerState } from "./features/commit-picker/state"
+import { createActionMenuState } from "./features/action-menu/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -106,7 +106,7 @@ import { routeDiffViewport } from "./app/diff-viewport"
 import { createAppKeys } from "./app/keys"
 
 // Feature modules
-import * as actionMenu from "./features/action-menu"
+import * as actionMenuFeature from "./features/action-menu"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
 import { commentPollRebuild, rereadsLookups, type PanelRebuild } from "./features/pr-info-panel/rebuild"
@@ -350,7 +350,7 @@ export async function createApp(options: AppOptions = {}) {
   // (spec 065); the views that have no cursor of their own park it. The
   // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }) && !(state.chatOpen && state.focusedPanel === "chat")) {
+    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }) && !(state.chatOpen && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -481,6 +481,7 @@ export async function createApp(options: AppOptions = {}) {
   const occurrencePicker = createOccurrencePickerState()
   const marksPicker = createMarksPickerState()
   const commitPicker = createCommitPickerState()
+  const actionMenu = createActionMenuState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -492,6 +493,7 @@ export async function createApp(options: AppOptions = {}) {
     occurrencePicker.close()
     marksPicker.close()
     commitPicker.close()
+    actionMenu.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -627,7 +629,7 @@ export async function createApp(options: AppOptions = {}) {
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
         writePrompt(
-          { setState: setAppState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          { setState: setAppState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
           () => renderFrame()
         )
       ),
@@ -666,6 +668,7 @@ export async function createApp(options: AppOptions = {}) {
     occurrencePicker,
     marksPicker,
     commitPicker,
+    actionMenu,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1018,6 +1021,7 @@ export async function createApp(options: AppOptions = {}) {
     occurrencePicker,
     marksPicker,
     commitPicker,
+    actionMenu,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1186,7 +1190,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== ACTION EXECUTION =====
-  const actionHandlers: actionMenu.ActionHandlers = {
+  const actionHandlers: actionMenuFeature.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
     handleShowFilePath: () => externalTools.showFilePath(externalToolsContext),
@@ -1483,7 +1487,7 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function executeAction(actionId: string) {
-    actionMenu.executeAction(actionId, {
+    actionMenuFeature.executeAction(actionId, {
       state,
       setState: (fn) => { state = fn(state) },
       render,
@@ -1492,6 +1496,7 @@ export async function createApp(options: AppOptions = {}) {
       occurrencePicker,
       marksPicker,
       commitPicker,
+      actionMenu,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1849,6 +1854,7 @@ export async function createApp(options: AppOptions = {}) {
     occurrencePicker,
     marksPicker,
     commitPicker,
+    actionMenu,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys
@@ -1861,6 +1867,7 @@ export async function createApp(options: AppOptions = {}) {
     occurrencePicker,
     marksPicker,
     commitPicker,
+    actionMenu,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getPane: marksContext.getPane,

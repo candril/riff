@@ -108,6 +108,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
+    actionMenu: ctx.actionMenu,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })
@@ -128,6 +129,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
+    actionMenu: ctx.actionMenu,
     chat: ctx.chat,
   })
   registerHelpKeys(riffKeymap, {
@@ -147,7 +149,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
   registerPickerKeys(riffKeymap, ctx)
   registerModalKeys(riffKeymap, {
     getState: ctx.getState,
-    setState: ctx.setState,
+    actionMenu: ctx.actionMenu,
     render: ctx.render,
     getVimState: ctx.getVimState,
     executeAction: ctx.executeAction,

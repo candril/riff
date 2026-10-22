@@ -6,7 +6,6 @@ import { groupIntoThreads, isThreadCollapsed } from "./utils/threads"
 import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
-import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from "./actions"
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
@@ -22,6 +21,7 @@ import type { CommentsPickerState } from "./features/comments-picker/state"
 import type { OccurrencePickerState } from "./features/occurrence-picker/state"
 import type { MarksPickerState } from "./features/marks/picker-state"
 import type { CommitPickerState } from "./features/commit-picker/state"
+import type { ActionMenuState } from "./features/action-menu/state"
 
 /**
  * UI mode for the app
@@ -412,9 +412,6 @@ export interface AppState {
   // forty-line mermaid fence is one thing, and folds like one.
   collapsedBlocks: ReadonlySet<string>
   
-  // Action menu state
-  actionMenu: ActionMenuState
-  
   // Toast notification
   toast: ToastState
   
@@ -567,7 +564,6 @@ export function createInitialState(
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
-    actionMenu: createActionMenuState(),
     toast: {
       message: null,
       type: "info",
@@ -872,6 +868,7 @@ export interface PromptPickers {
   occurrencePicker: Pick<OccurrencePickerState, "open">
   marksPicker: Pick<MarksPickerState, "open">
   commitPicker: Pick<CommitPickerState, "open">
+  actionMenu: Pick<ActionMenuState, "open">
 }
 
 /**
@@ -881,7 +878,7 @@ export interface PromptPickers {
  */
 export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
   return (
-    state.actionMenu.open ||
+    pickers.actionMenu.open() ||
     pickers.filePicker.open() ||
     pickers.commentsPicker.open() ||
     pickers.marksPicker.open() ||
@@ -1535,105 +1532,6 @@ export function getFileContent(state: AppState, filename: string): {
   error?: string 
 } | null {
   return state.fileContentCache[filename] ?? null
-}
-
-// ============================================================================
-// Action Menu State
-// ============================================================================
-
-/**
- * Open the action menu
- */
-export function openActionMenu(state: AppState): AppState {
-  return {
-    ...state,
-    actionMenu: {
-      open: true,
-      query: "",
-      selectedIndex: 0,
-      submenu: null,
-    },
-  }
-}
-
-/**
- * Close the action menu
- */
-export function closeActionMenu(state: AppState): AppState {
-  return {
-    ...state,
-    actionMenu: {
-      ...state.actionMenu,
-      open: false,
-      query: "",
-      selectedIndex: 0,
-      submenu: null,
-    },
-  }
-}
-
-/**
- * Swap the palette into a submenu. Resets query + selection so fuzzy
- * matching and up/down start fresh inside the new context (spec 042).
- */
-export function openActionSubmenu(state: AppState, submenu: ActionSubmenu): AppState {
-  return {
-    ...state,
-    actionMenu: {
-      ...state.actionMenu,
-      submenu,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-/**
- * Back out of a submenu to the main action list. Query/selection reset
- * so the user doesn't see a filter they didn't type.
- */
-export function closeActionSubmenu(state: AppState): AppState {
-  if (state.actionMenu.submenu === null) return state
-  return {
-    ...state,
-    actionMenu: {
-      ...state.actionMenu,
-      submenu: null,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-/**
- * Update action menu query
- */
-export function setActionMenuQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    actionMenu: {
-      ...state.actionMenu,
-      query,
-      selectedIndex: 0, // Reset selection when query changes
-    },
-  }
-}
-
-/**
- * Move action menu selection (wraps around)
- */
-export function moveActionMenuSelection(state: AppState, delta: number, maxIndex: number): AppState {
-  let newIndex = state.actionMenu.selectedIndex + delta
-  // Wrap around
-  if (newIndex < 0) newIndex = maxIndex
-  else if (newIndex > maxIndex) newIndex = 0
-  return {
-    ...state,
-    actionMenu: {
-      ...state.actionMenu,
-      selectedIndex: newIndex,
-    },
-  }
 }
 
 // ============================================================================

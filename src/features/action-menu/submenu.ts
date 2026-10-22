@@ -4,8 +4,8 @@
  * When the palette is in a submenu, its frame model (the actionMenu entry
  * of frameModels, which the action-menu island in app/pickers.tsx draws)
  * and its keys (keys.ts) both need the same filtered-and-ordered row list. This
- * module is the single place that turns `state.actionMenu.submenu` +
- * `state.actionMenu.query` into rows.
+ * module is the single place that turns the palette's submenu and query, read
+ * off its factory (state.ts), into rows.
  */
 
 import type { AppState } from "../../state"
@@ -13,14 +13,14 @@ import { getReactionsForTarget } from "../../state"
 import type { SubmenuRow } from "../../components"
 import { REACTION_CONTENT, REACTION_META, type ReactionContent } from "../../types"
 import { fuzzyFilter } from "../../utils/fuzzy"
+import type { ActionSubmenu } from "../../actions/types"
+import type { ActionMenuSnapshot } from "./state"
 
 /**
  * Build the 8 reaction rows for the React… submenu, reflecting the
  * current (optimistically-updated) reaction state for the target.
  */
-function buildReactionRows(state: AppState): SubmenuRow[] {
-  const submenu = state.actionMenu.submenu
-  if (submenu?.kind !== "react") return []
+function buildReactionRows(state: AppState, submenu: Extract<ActionSubmenu, { kind: "react" }>): SubmenuRow[] {
   const summaries = getReactionsForTarget(state, submenu.target)
   const byContent = new Map<ReactionContent, { count: number; viewerHasReacted: boolean }>()
   for (const s of summaries) byContent.set(s.content, s)
@@ -47,14 +47,16 @@ function buildReactionRows(state: AppState): SubmenuRow[] {
  * Return the current submenu's rows, filtered by the palette query.
  * Returns [] when the palette isn't in submenu mode.
  */
-export function getSubmenuRows(state: AppState): SubmenuRow[] {
-  const submenu = state.actionMenu.submenu
+export function getSubmenuRows(
+  state: AppState,
+  { submenu, query }: Pick<ActionMenuSnapshot, "submenu" | "query">
+): SubmenuRow[] {
   if (!submenu) return []
 
   let rows: SubmenuRow[]
   switch (submenu.kind) {
     case "react":
-      rows = buildReactionRows(state)
+      rows = buildReactionRows(state, submenu)
       break
     case "links":
       rows = submenu.links.map((link, index) => ({
@@ -66,9 +68,8 @@ export function getSubmenuRows(state: AppState): SubmenuRow[] {
       break
   }
 
-  const q = state.actionMenu.query
-  if (!q) return rows
-  return fuzzyFilter(q, rows, row => [row.label, row.trailing ?? "", row.id])
+  if (!query) return rows
+  return fuzzyFilter(query, rows, row => [row.label, row.trailing ?? "", row.id])
 }
 
 /**

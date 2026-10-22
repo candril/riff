@@ -19,6 +19,7 @@ import type { FilePickerState } from "../features/file-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
+import type { ActionMenuState } from "../features/action-menu/state"
 
 export interface GlobalLayerKeyDeps {
   getState: () => AppState
@@ -28,6 +29,7 @@ export interface GlobalLayerKeyDeps {
   occurrencePicker: Pick<OccurrencePickerState, "show">
   marksPicker: Pick<MarksPickerState, "show">
   commitPicker: Pick<CommitPickerState, "show">
+  actionMenu: Pick<ActionMenuState, "show">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping

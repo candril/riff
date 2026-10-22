@@ -35,6 +35,7 @@ async function paletteApp() {
           occurrencePicker: mounted.occurrencePicker,
           marksPicker: mounted.marksPicker,
           commitPicker: mounted.commitPicker,
+          actionMenu: mounted.actionMenu,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),
@@ -52,7 +53,7 @@ async function choose(opened: JumpScenario, query: string) {
   mockInput.pressKey("p", { ctrl: true })
   await mockInput.typeText(query)
   mockInput.pressEnter()
-  expect(opened.state().actionMenu.open).toBe(false)
+  expect(opened.mounted.actionMenu.open()).toBe(false)
   return opened.mounted.frame()
 }
 

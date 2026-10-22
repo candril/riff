@@ -93,7 +93,7 @@ test("Ctrl-r from the focused panel opens the chat, and with the chat open Ctrl-
 test("Ctrl-p opens the palette over the panel", async () => {
   const { mounted } = await panelApp()
   ctrl(mounted, "p")
-  expect(mounted.ctx.getState().actionMenu.open).toBe(true)
+  expect(mounted.actionMenu.open()).toBe(true)
   expect(mounted.ctx.getState().inlineCommentOverlay.open).toBe(true)
 })
 

@@ -3,7 +3,7 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }

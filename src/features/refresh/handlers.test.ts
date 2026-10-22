@@ -9,6 +9,7 @@ import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
 import { createCommitPickerState } from "../commit-picker/state"
+import { createActionMenuState } from "../action-menu/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -29,6 +30,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -53,6 +55,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -78,6 +81,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -103,6 +107,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -129,6 +134,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -156,6 +162,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -184,6 +191,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker,
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -211,6 +219,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker,
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -243,6 +252,7 @@ describe("a refresh's rebuilt state", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker,
+      actionMenu: createActionMenuState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -252,5 +262,33 @@ describe("a refresh's rebuilt state", () => {
     expect(commitPicker.query()).toBe("")
     expect(commitPicker.queryInput()).toBe(false)
     expect(commitPicker.rangeAnchor()).toBeNull()
+  })
+
+  test("closes the command palette, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const actionMenu = createActionMenuState()
+    actionMenu.showSubmenu({ kind: "links", links: [], action: "open", title: "Links" })
+    actionMenu.setQuery("doc")
+    actionMenu.move(1, 3)
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
+      actionMenu,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(actionMenu.open()).toBe(false)
+    expect(actionMenu.snapshot()).toEqual({ query: "", selectedIndex: 0, submenu: null })
   })
 })

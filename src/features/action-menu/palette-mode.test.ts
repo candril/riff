@@ -1,25 +1,33 @@
 import { describe, expect, test } from "bun:test"
 import { paletteMode } from "./palette-mode"
 import { getAvailableActions } from "../../actions"
-import { createInitialState, openActionMenu, openActionSubmenu, setActionMenuQuery } from "../../state"
+import { createInitialState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { ActionSubmenu } from "../../actions/types"
+import { createActionMenuState } from "./state"
 
 const vim = createCursorState()
-const open = () => openActionMenu(createInitialState([], [], "local", "local changes"))
+const state = createInitialState([], [], "local", "local changes")
 const links = [{ label: "#1", url: "https://example.com/1" }]
 const target = { kind: "issue", prNumber: 1 } as const
 
+function palette(setup: (actionMenu: ReturnType<typeof createActionMenuState>) => void = () => {}) {
+  const actionMenu = createActionMenuState()
+  actionMenu.show()
+  setup(actionMenu)
+  return actionMenu.snapshot()
+}
+
 function hintOf(submenu: ActionSubmenu) {
-  const mode = paletteMode(openActionSubmenu(open(), submenu), vim)
+  const mode = paletteMode(state, vim, palette((actionMenu) => actionMenu.showSubmenu(submenu)))
   return mode.kind === "submenu" ? mode.hint : "not a submenu"
 }
 
 describe("paletteMode", () => {
   test("lists every available action until something is typed, then the ones matching it", () => {
-    const all = getAvailableActions(open(), vim)
-    expect(paletteMode(open(), vim)).toEqual({ kind: "actions", actions: all })
-    const narrowed = paletteMode(setActionMenuQuery(open(), "quit"), vim)
+    const all = getAvailableActions(state, vim)
+    expect(paletteMode(state, vim, palette())).toEqual({ kind: "actions", actions: all })
+    const narrowed = paletteMode(state, vim, palette((actionMenu) => actionMenu.setQuery("quit")))
     expect(narrowed.kind === "actions" && narrowed.actions.length).toBeLessThan(all.length)
   })
 

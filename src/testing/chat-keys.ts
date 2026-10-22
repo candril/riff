@@ -65,6 +65,7 @@ export function keysOn(
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
+    actionMenu: mounted.actionMenu,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

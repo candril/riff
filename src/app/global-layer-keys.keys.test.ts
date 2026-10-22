@@ -70,9 +70,10 @@ async function globalApp(more: Partial<AppKeyContext> = {}) {
 test("Ctrl-p, Ctrl-f, Ctrl-k and Ctrl-g open the palette and the file, marks and commit pickers", async () => {
   const { mounted, state } = await globalApp()
   ctrl(mounted, "p")
-  expect(state().actionMenu.open).toBe(true)
+  expect(mounted.actionMenu.open()).toBe(true)
 
-  mounted.show({ actionMenu: { ...state().actionMenu, open: false } })
+  mounted.actionMenu.close()
+  mounted.show()
   ctrl(mounted, "f")
   expect(mounted.filePicker.open()).toBe(true)
 
@@ -92,9 +93,10 @@ test("Ctrl-p, Ctrl-f, Ctrl-k and Ctrl-g open the palette and the file, marks and
 test("Ctrl-Shift-p still opens the palette, and q and Shift-q quit", async () => {
   const { mounted, keys, state } = await globalApp()
   mounted.setup.mockInput.pressKey("p", { ctrl: true, shift: true })
-  expect(state().actionMenu.open).toBe(true)
+  expect(mounted.actionMenu.open()).toBe(true)
 
-  mounted.show({ actionMenu: { ...state().actionMenu, open: false } })
+  mounted.actionMenu.close()
+  mounted.show()
   mounted.setup.mockInput.pressKey("q")
   mounted.setup.mockInput.pressKey("q", { shift: true })
   expect(keys.quits).toHaveLength(2)
@@ -219,7 +221,7 @@ test("with the thread panel in view mode, Ctrl-p still opens the palette", async
     focusedPanel: "comments",
   })
   ctrl(mounted, "p")
-  expect(state().actionMenu.open).toBe(true)
+  expect(mounted.actionMenu.open()).toBe(true)
 })
 
 test("in the chat, Ctrl-l is the chat's own key and focus stays there", async () => {

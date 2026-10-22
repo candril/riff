@@ -7,9 +7,7 @@
  * - Action execution
  */
 
-export { executeAction, openReactSubmenu, type ActionHandlers, type ExecuteContext } from "./execute"
+export { executeAction, reactSubmenu, type ActionHandlers, type ExecuteContext } from "./execute"
 export { getSubmenuRows, reactionContentFromRowId } from "./submenu"
 export { paletteMode } from "./palette-mode"
-
-// Re-export state operations that callers might need
-export { openActionMenu, closeActionMenu } from "../../state"
+export { createActionMenuState, type ActionMenuState, type ActionMenuSnapshot } from "./state"

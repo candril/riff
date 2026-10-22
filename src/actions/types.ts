@@ -97,29 +97,3 @@ export type ActionSubmenu =
 export function submenuOpenedFromPalette(submenu: ActionSubmenu): boolean {
   return submenu.kind === "react" && submenu.fromPalette
 }
-
-/**
- * Action menu state
- */
-export interface ActionMenuState {
-  /** Whether the menu is open */
-  open: boolean
-  /** Current search query */
-  query: string
-  /** Currently selected index */
-  selectedIndex: number
-  /** Active submenu overlay (null = normal action list) */
-  submenu: ActionSubmenu | null
-}
-
-/**
- * Create initial action menu state
- */
-export function createActionMenuState(): ActionMenuState {
-  return {
-    open: false,
-    query: "",
-    selectedIndex: 0,
-    submenu: null,
-  }
-}

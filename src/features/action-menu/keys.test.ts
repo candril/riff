@@ -1,12 +1,13 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
 import { keymapHarness } from "../../testing/keymap-keys"
-import { createInitialState, openActionMenu, openActionSubmenu, type AppState } from "../../state"
+import { createInitialState, type AppState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { getVisualActionOrder } from "../../components/action-menu-model"
 import type { ActionSubmenu } from "../../actions/types"
 import { paletteMode } from "./palette-mode"
 import { registerActionMenuKeys } from "./keys"
+import { createActionMenuState, type ActionMenuState } from "./state"
 
 const vim = createCursorState()
 const links = [
@@ -14,91 +15,98 @@ const links = [
   { label: "#2", url: "https://example.com/2" },
 ]
 const target = { kind: "issue", prNumber: 1 } as const
-const closed = () => createInitialState([], [], "local", "local changes")
-const open = () => openActionMenu(closed())
-const inSubmenu = (submenu: ActionSubmenu) => openActionSubmenu(open(), submenu)
+const local = createInitialState([], [], "local", "local changes")
+type Palette = (actionMenu: ActionMenuState) => void
+const closed: Palette = () => {}
+const open: Palette = (actionMenu) => actionMenu.show()
+const inSubmenu = (submenu: ActionSubmenu): Palette => (actionMenu) => actionMenu.showSubmenu(submenu)
+const onRow = (palette: Palette, row: number): Palette => (actionMenu) => {
+  palette(actionMenu)
+  actionMenu.move(row, Number.MAX_SAFE_INTEGER)
+}
 
-async function setup(initial: AppState) {
+function opened(palette: Palette) {
+  const actionMenu = createActionMenuState()
+  palette(actionMenu)
+  return actionMenu
+}
+
+async function setup(palette: Palette, state: AppState = local) {
   const { riffKeymap, leftKeys, press } = await keymapHarness()
-  let state = initial
+  const actionMenu = opened(palette)
   const calls: string[] = []
   registerActionMenuKeys(riffKeymap, {
     getState: () => state,
-    setState: (update) => {
-      state = update(state)
-      calls.push(state.actionMenu.open ? "setState open" : "setState closed")
-    },
-    render: () => {},
+    actionMenu,
+    render: () => void calls.push(actionMenu.open() ? "render open" : "render closed"),
     getVimState: () => vim,
     executeAction: (id) => void calls.push(`execute ${id}`),
     onToggleReaction: (_, rowId) => void calls.push(`reaction ${rowId}`),
     onLink: (action, link) => void calls.push(`link ${action} ${link.url}`),
   })
-  return { state: () => state, calls, leftKeys, press }
+  return { palette: actionMenu, calls, leftKeys, press }
 }
 
-const visualActions = (state: AppState) => {
-  const mode = paletteMode(state, vim)
+const visualActions = (state: AppState, palette: Palette = open) => {
+  const mode = paletteMode(state, vim, opened(palette).snapshot())
   return mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
 }
 
 test("escape on the action list closes the palette", async () => {
-  const { state, leftKeys, press } = await setup(open())
+  const { palette, leftKeys, press } = await setup(open)
 
   expect(press("\x1b").defaultPrevented).toBe(true)
 
-  expect(state().actionMenu.open).toBe(false)
+  expect(palette.open()).toBe(false)
   expect(leftKeys).toEqual([])
 })
 
 test("escape in a submenu the palette opened backs out to the action list", async () => {
-  const { state, press } = await setup(inSubmenu({ kind: "react", target, title: "React", fromPalette: true }))
+  const { palette, press } = await setup(inSubmenu({ kind: "react", target, title: "React", fromPalette: true }))
 
   press("\x1b")
 
-  expect(state().actionMenu.open).toBe(true)
-  expect(state().actionMenu.submenu).toBeNull()
+  expect(palette.open()).toBe(true)
+  expect(palette.submenu()).toBeNull()
 })
 
 test("escape in a submenu opened without the palette closes it", async () => {
-  const { state, press } = await setup(inSubmenu({ kind: "react", target, title: "React", fromPalette: false }))
+  const { palette, press } = await setup(inSubmenu({ kind: "react", target, title: "React", fromPalette: false }))
 
   press("\x1b")
 
-  expect(state().actionMenu.open).toBe(false)
+  expect(palette.open()).toBe(false)
 })
 
 test("enter closes the palette, then runs the selected action", async () => {
-  const initial = { ...open(), actionMenu: { ...open().actionMenu, selectedIndex: 1 } }
-  const selected = visualActions(initial)[1]!
-  const { state, calls, leftKeys, press } = await setup(initial)
+  const selected = visualActions(local)[1]!
+  const { palette, calls, leftKeys, press } = await setup(onRow(open, 1))
 
   expect(press("\r").defaultPrevented).toBe(true)
 
-  expect(calls).toEqual(["setState closed", `execute ${selected.id}`])
-  expect(state().actionMenu.open).toBe(false)
+  expect(calls).toEqual(["render closed", `execute ${selected.id}`])
+  expect(palette.open()).toBe(false)
   expect(leftKeys).toEqual([])
 })
 
 test("enter on React… runs it with the palette still open, for its submenu", async () => {
-  const pr: AppState = { ...open(), appMode: "pr", reactionTarget: target }
+  const pr: AppState = { ...local, appMode: "pr", reactionTarget: target }
   const at = visualActions(pr).findIndex((action) => action.id === "react")
   expect(at).toBeGreaterThanOrEqual(0)
-  const { state, calls, press } = await setup({ ...pr, actionMenu: { ...pr.actionMenu, selectedIndex: at } })
+  const { palette, calls, press } = await setup(onRow(open, at), pr)
 
   press("\r")
 
   expect(calls).toEqual(["execute react"])
-  expect(state().actionMenu.open).toBe(true)
+  expect(palette.open()).toBe(true)
 })
 
 test("enter on a link row closes the palette and does what the picker was opened for", async () => {
-  const initial = inSubmenu({ kind: "links", links, action: "open", title: "Links" })
-  const { calls, press } = await setup({ ...initial, actionMenu: { ...initial.actionMenu, selectedIndex: 1 } })
+  const { calls, press } = await setup(onRow(inSubmenu({ kind: "links", links, action: "open", title: "Links" }), 1))
 
   press("\r")
 
-  expect(calls).toEqual(["setState closed", "link open https://example.com/2"])
+  expect(calls).toEqual(["render closed", "link open https://example.com/2"])
 })
 
 test("enter on a reaction row closes the palette and toggles the reaction", async () => {
@@ -106,12 +114,14 @@ test("enter on a reaction row closes the palette and toggles the reaction", asyn
 
   press("\r")
 
-  expect(calls).toEqual(["setState closed", "reaction react:+1"])
+  expect(calls).toEqual(["render closed", "reaction react:+1"])
 })
 
 test("enter with no row to act on is still prevented and does nothing", async () => {
-  const initial = inSubmenu({ kind: "links", links, action: "open", title: "Links" })
-  const { calls, leftKeys, press } = await setup({ ...initial, actionMenu: { ...initial.actionMenu, query: "zzzz" } })
+  const { calls, leftKeys, press } = await setup((actionMenu) => {
+    actionMenu.showSubmenu({ kind: "links", links, action: "open", title: "Links" })
+    actionMenu.setQuery("zzzz")
+  })
 
   expect(press("\r").defaultPrevented).toBe(true)
 
@@ -120,8 +130,8 @@ test("enter with no row to act on is still prevented and does nothing", async ()
 })
 
 test("up, down, ctrl+p and ctrl+n move the selection and wrap round at both ends", async () => {
-  const { state, leftKeys, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
-  const selected = () => state().actionMenu.selectedIndex
+  const { palette, leftKeys, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
+  const selected = () => palette.selectedIndex()
 
   expect(press("\x1b[B").defaultPrevented).toBe(true)
   expect(selected()).toBe(1)
@@ -141,13 +151,13 @@ test("up, down, ctrl+p and ctrl+n move the selection and wrap round at both ends
 })
 
 test("ctrl+shift+p and ctrl+shift+n move the selection as ctrl+p and ctrl+n do", async () => {
-  const { state, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
+  const { palette, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
   expect(parseKeypress("\x1b[112;6u", { useKittyKeyboard: true })).toMatchObject({ name: "p", ctrl: true, shift: true })
 
   press("\x1b[110;6u")
-  expect(state().actionMenu.selectedIndex).toBe(1)
+  expect(palette.selectedIndex()).toBe(1)
   press("\x1b[112;6u")
-  expect(state().actionMenu.selectedIndex).toBe(0)
+  expect(palette.selectedIndex()).toBe(0)
 })
 
 test("ctrl+y on a link row copies it, whatever the picker was opened for", async () => {
@@ -155,29 +165,29 @@ test("ctrl+y on a link row copies it, whatever the picker was opened for", async
 
   expect(press("\x19").defaultPrevented).toBe(true)
 
-  expect(calls).toEqual(["setState closed", "link copy https://example.com/1"])
+  expect(calls).toEqual(["render closed", "link copy https://example.com/1"])
   expect(leftKeys).toEqual([])
 })
 
 test("ctrl+y with no link to copy is neither prevented nor seen by the chain", async () => {
-  const { state, calls, leftKeys, press } = await setup(open())
+  const { palette, calls, leftKeys, press } = await setup(open)
 
   expect(press("\x19").defaultPrevented).toBe(false)
 
   expect(calls).toEqual([])
-  expect(state().actionMenu.open).toBe(true)
+  expect(palette.open()).toBe(true)
   expect(leftKeys).toEqual([])
 })
 
 test("bare p, n, y, P and a letter are left for the prompt field: not prevented, not seen by the chain", async () => {
-  const { state, calls, leftKeys, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
+  const { palette, calls, leftKeys, press } = await setup(inSubmenu({ kind: "links", links, action: "open", title: "Links" }))
 
   for (const sequence of ["p", "n", "y", "P", "a"]) {
     expect(press(sequence).defaultPrevented).toBe(false)
   }
 
   expect(calls).toEqual([])
-  expect(state().actionMenu.selectedIndex).toBe(0)
+  expect(palette.selectedIndex()).toBe(0)
   expect(leftKeys).toEqual([])
 })
 
@@ -191,29 +201,29 @@ test("escape and enter act with shift, ctrl or meta held", async () => {
   expect(parse("\x1b\r")).toMatchObject({ name: "return", meta: true })
 
   for (const sequence of ["\x1b[27;2u", "\x1b[27;5u", "\x1b\x1b"]) {
-    const { state, leftKeys, press } = await setup(open())
+    const { palette, leftKeys, press } = await setup(open)
     press(sequence)
-    expect(state().actionMenu.open).toBe(false)
+    expect(palette.open()).toBe(false)
     expect(leftKeys).toEqual([])
   }
   for (const sequence of ["\x1b[13;2u", "\x1b[13;5u", "\x1b\r"]) {
-    const { calls, leftKeys, press } = await setup(open())
+    const { calls, leftKeys, press } = await setup(open)
     press(sequence)
-    expect(calls).toEqual(["setState closed", `execute ${visualActions(open())[0]!.id}`])
+    expect(calls).toEqual(["render closed", `execute ${visualActions(local)[0]!.id}`])
     expect(leftKeys).toEqual([])
   }
 })
 
 test("a key named enter runs the selected action as return does", async () => {
-  const { calls, press } = await setup(open())
+  const { calls, press } = await setup(open)
 
   press("\r", "enter")
 
-  expect(calls).toEqual(["setState closed", `execute ${visualActions(open())[0]!.id}`])
+  expect(calls).toEqual(["render closed", `execute ${visualActions(local)[0]!.id}`])
 })
 
 test("with the palette closed its keys reach the chain and nothing runs", async () => {
-  const { calls, leftKeys, press } = await setup(closed())
+  const { calls, leftKeys, press } = await setup(closed)
 
   for (const sequence of ["\x1b", "\r", "\x1b[A", "\x1b[B", "\x10", "\x0e", "\x19", "p", "n", "y", "a"]) press(sequence)
 

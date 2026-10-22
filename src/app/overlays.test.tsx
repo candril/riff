@@ -82,6 +82,7 @@ async function mount(width: number, height: number) {
     occurrencePicker: null,
     marksPicker: null,
     commitPicker: null,
+    actionMenu: null,
     commandKeys: new Map(),
   })
   return { islands, panels, statusBar, shown, publish, pass, stop, initial }
@@ -202,6 +203,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       occurrencePicker: null,
       marksPicker: null,
       commitPicker: null,
+      actionMenu: null,
       commandKeys: new Map(),
     })
     expect(updates).toEqual([...FRAME_ISLANDS])

@@ -8,6 +8,7 @@ import { createCommentsPickerState, type CommentsPickerState } from "../features
 import { createOccurrencePickerState, type OccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState, type MarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState, type CommitPickerState } from "../features/commit-picker/state"
+import { createActionMenuState, type ActionMenuState } from "../features/action-menu/state"
 import type { PickerSnapshots } from "./frame"
 
 const initial = createInitialState([], [], "test", "")
@@ -23,6 +24,7 @@ function promptFor(
     occurrencePicker: null,
     marksPicker: null,
     commitPicker: null,
+    actionMenu: null,
     ...pickers,
   })
 }
@@ -30,9 +32,9 @@ function promptFor(
 describe("which prompt is typing", () => {
   test("the action menu wins over an open picker", () => {
     const prompt = promptFor(
-      { actionMenu: { ...initial.actionMenu, open: true, query: "sy" } },
       {},
-      { filePicker: createFilePickerState().snapshot() }
+      {},
+      { actionMenu: { ...createActionMenuState().snapshot(), query: "sy" }, filePicker: createFilePickerState().snapshot() }
     )
     expect(prompt).toEqual({ key: "action-menu:", initialValue: "sy", placeholder: "Search" })
   })
@@ -115,6 +117,7 @@ describe("where what is typed goes", () => {
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
       commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
     }
     pickers.occurrencePicker.show()
     const write = writePrompt(
@@ -134,10 +137,11 @@ describe("where what is typed goes", () => {
     occurrencePicker: OccurrencePickerState
     marksPicker: MarksPickerState
     commitPicker: CommitPickerState
+    actionMenu: ActionMenuState
   }
   const fields: [PromptKey, (s: AppState, pickers: Pickers) => string][] = [
-    ["action-menu:", (s) => s.actionMenu.query],
-    ["action-menu:react", (s) => s.actionMenu.query],
+    ["action-menu:", (_s, { actionMenu }) => actionMenu.query()],
+    ["action-menu:react", (_s, { actionMenu }) => actionMenu.query()],
     ["file-picker", (_s, { filePicker }) => filePicker.query()],
     ["comments-picker", (_s, { commentsPicker }) => commentsPicker.query()],
     ["marks-picker", (_s, { marksPicker }) => marksPicker.query()],

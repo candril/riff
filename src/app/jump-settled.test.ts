@@ -6,6 +6,7 @@ import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
+import { createActionMenuState } from "../features/action-menu/state"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 const idle: InteractionInputs = {
@@ -15,6 +16,7 @@ const idle: InteractionInputs = {
   occurrencePicker: createOccurrencePickerState(),
   marksPicker: createMarksPickerState(),
   commitPicker: createCommitPickerState(),
+  actionMenu: createActionMenuState(),
   vim: { pendingFindChar: null, pendingTextObject: null },
   searchActive: false,
   flashActive: false,

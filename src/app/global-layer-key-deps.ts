@@ -21,6 +21,7 @@ export function globalLayerKeyDeps(
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
+    actionMenu: ctx.actionMenu,
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,

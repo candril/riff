@@ -46,6 +46,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
+    actionMenu: mounted.actionMenu,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

@@ -65,6 +65,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
+    actionMenu: mounted.actionMenu,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

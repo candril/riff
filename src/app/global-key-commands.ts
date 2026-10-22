@@ -4,7 +4,6 @@ import {
   clearTreeFilter,
   focusLeft,
   focusRight,
-  openActionMenu,
   switchView,
   toggleFilePanel,
   toggleFilePanelExpanded,
@@ -55,7 +54,8 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         // The prompt takes focus in this same keypress; without this the
         // key that opened it is typed into it.
         key.preventDefault()
-        show(openActionMenu)
+        deps.actionMenu.show()
+        deps.render()
       },
     },
     filePicker: {

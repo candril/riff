@@ -60,7 +60,7 @@ test("z then Ctrl-p opens no palette", async () => {
   app.setup.mockInput.pressKey("z")
   ctrl(app, "p")
 
-  expect(app.ctx.getState().actionMenu.open).toBe(false)
+  expect(app.actionMenu.open()).toBe(false)
   expect(keys.chordPending()).toBe(false)
 })
 

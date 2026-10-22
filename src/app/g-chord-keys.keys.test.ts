@@ -247,10 +247,10 @@ describe("a key that breaks off a g sequence", () => {
   })
 
   test("q does not quit and Ctrl-p opens no palette", async () => {
-    const { type, state, keys } = await gApp()
+    const { mounted, type, keys } = await gApp()
     type("g", "q", "g", CTRL_P)
     expect(keys.quits).toEqual([])
-    expect(state().actionMenu.open).toBe(false)
+    expect(mounted.actionMenu.open()).toBe(false)
   })
 
   test("\\ does not toggle the split view", async () => {

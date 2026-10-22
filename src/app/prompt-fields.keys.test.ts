@@ -57,6 +57,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         occurrencePicker: mounted.occurrencePicker,
         marksPicker: mounted.marksPicker,
         commitPicker: mounted.commitPicker,
+        actionMenu: mounted.actionMenu,
         handlers,
         commandKeys: new Map(),
         runCommand: (name) => {
@@ -74,11 +75,11 @@ test("the palette's Enter opens the file picker on a fresh field of its own, and
 
   mockInput.pressKey("p", { ctrl: true })
   await mockInput.typeText("find files")
-  expect(app.ctx.getState().actionMenu.query).toBe("find files")
+  expect(app.actionMenu.query()).toBe("find files")
   expect(await app.frame()).toContain("find files")
 
   mockInput.pressEnter()
-  expect(app.ctx.getState().actionMenu.open).toBe(false)
+  expect(app.actionMenu.open()).toBe(false)
   expect(app.filePicker.open()).toBe(true)
   await mockInput.typeText("greet")
   expect(app.filePicker.query()).toBe("greet")

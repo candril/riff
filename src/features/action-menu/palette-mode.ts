@@ -5,14 +5,18 @@ import { submenuOpenedFromPalette } from "../../actions/types"
 import { fuzzyFilter } from "../../utils/fuzzy"
 import type { ActionMenuMode } from "../../components/action-menu-model"
 import { getSubmenuRows } from "./submenu"
+import type { ActionMenuSnapshot } from "./state"
 
 /**
  * What the palette lists: the available actions matching the query, or the
  * open submenu's rows in their place. Drawing and key handling both read it,
  * so the row Enter acts on is the row on screen.
  */
-export function paletteMode(state: AppState, vimState: VimCursorState): ActionMenuMode {
-  const submenu = state.actionMenu.submenu
+export function paletteMode(
+  state: AppState,
+  vimState: VimCursorState,
+  { submenu, query }: Pick<ActionMenuSnapshot, "submenu" | "query">
+): ActionMenuMode {
   if (submenu) {
     return {
       kind: "submenu",
@@ -28,11 +32,10 @@ export function paletteMode(state: AppState, vimState: VimCursorState): ActionMe
           : submenuOpenedFromPalette(submenu)
             ? undefined
             : "esc",
-      rows: getSubmenuRows(state),
+      rows: getSubmenuRows(state, { submenu, query }),
     }
   }
   const available = getAvailableActions(state, vimState)
-  const query = state.actionMenu.query
   return {
     kind: "actions",
     actions: query ? fuzzyFilter(query, available, (a) => [a.label, a.id, a.description]) : available,

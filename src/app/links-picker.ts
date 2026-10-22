@@ -1,9 +1,9 @@
 import type { AppState } from "../state"
-import { clearToast, openActionMenu, openActionSubmenu, showToast } from "../state"
+import { clearToast, showToast } from "../state"
 import { createOpenLink } from "./open-link"
 import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
-import * as actionMenu from "../features/action-menu"
+import { reactSubmenu, type ActionMenuState } from "../features/action-menu"
 
 export interface LinksPicker {
   /** What the picker is called, which is the difference `gx` and `gX` make. */
@@ -14,8 +14,10 @@ export interface LinksPicker {
 
 /** The pickers the panels open over themselves: the links in what they show, and the reactions. */
 export function createLinksPicker(ctx: {
+  getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  actionMenu: Pick<ActionMenuState, "showSubmenu">
 }): LinksPicker {
   const openLink = createOpenLink(ctx)
 
@@ -54,14 +56,13 @@ export function createLinksPicker(ctx: {
       openLink(action, links[0]!)
       return
     }
-    ctx.setState((s) =>
-      openActionSubmenu(openActionMenu(s), { kind: "links", links, action, title })
-    )
+    ctx.actionMenu.showSubmenu({ kind: "links", links, action, title })
     ctx.render()
   }
 
   function openReactPicker(): void {
-    ctx.setState((s) => actionMenu.openReactSubmenu(s, false))
+    const submenu = reactSubmenu(ctx.getState(), false)
+    if (submenu) ctx.actionMenu.showSubmenu(submenu)
     ctx.render()
   }
 

@@ -20,8 +20,8 @@ afterEach(async () => {
 
 test("the command palette offers no Claude handoff: the chat column took its place", async () => {
   app = await mountApp(DIFF, { width: 120, height: 60 })
-  const initial = app.ctx.getState().actionMenu
-  app.show({ actionMenu: { ...initial, open: true } })
+  app.actionMenu.show()
+  app.show()
   const frame = await app.frame()
   expect(frame).toContain("Commands")
   // The Claude group sorted first, so its absence leaves GitHub at the head of the list.

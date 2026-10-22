@@ -44,6 +44,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
+    actionMenu: mounted.actionMenu,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

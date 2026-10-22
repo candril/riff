@@ -11,7 +11,6 @@
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers } from "../../app/key-variants"
 import type { AppState } from "../../state"
-import { closeActionMenu, closeActionSubmenu, moveActionMenuSelection } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { ReactionTarget } from "../../types"
 import { getVisualActionOrder } from "../../components/action-menu-model"
@@ -19,10 +18,11 @@ import { submenuOpenedFromPalette, type ActionSubmenu } from "../../actions/type
 import type { LinkTarget } from "../../utils/link-targets"
 import { reactionContentFromRowId } from "./submenu"
 import { paletteMode } from "./palette-mode"
+import type { ActionMenuState } from "./state"
 
 export interface ActionMenuKeyDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  actionMenu: ActionMenuState
   render: () => void
   getVimState: () => VimCursorState
   executeAction: (actionId: string) => void
@@ -40,15 +40,16 @@ function linkForRow(submenu: ActionSubmenu, rowId: string): LinkTarget | null {
 export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuKeyDeps): () => void {
   // Read at run time, the way the palette draws them, so the row a key
   // acts on is the row on screen.
+  const { actionMenu } = deps
   const view = () => {
-    const state = deps.getState()
-    const mode = paletteMode(state, deps.getVimState())
+    const palette = actionMenu.snapshot()
+    const mode = paletteMode(deps.getState(), deps.getVimState(), palette)
     const submenuRows = mode.kind === "submenu" ? mode.rows : []
     const visualActions = mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
-    const rowCount = state.actionMenu.submenu ? submenuRows.length : visualActions.length
+    const rowCount = palette.submenu ? submenuRows.length : visualActions.length
     return {
-      submenu: state.actionMenu.submenu,
-      selectedIndex: state.actionMenu.selectedIndex,
+      submenu: palette.submenu,
+      selectedIndex: palette.selectedIndex,
       submenuRows,
       visualActions,
       maxIndex: Math.max(0, rowCount - 1),
@@ -56,13 +57,13 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
   }
 
   const close = () => {
-    deps.setState(closeActionMenu)
+    actionMenu.close()
     deps.render()
   }
 
   const move = (delta: number) => {
     const { maxIndex } = view()
-    deps.setState((s) => moveActionMenuSelection(s, delta, maxIndex))
+    actionMenu.move(delta, maxIndex)
     deps.render()
   }
 
@@ -106,7 +107,7 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
 
   // No `rest` and no preventDefault: an unbound key is a letter of the
   // query, and the palette's prompt field types it (spec 065).
-  const captured = riffKeymap.capture(() => deps.getState().actionMenu.open)
+  const captured = riffKeymap.capture(() => actionMenu.open())
   const unregisterLayer = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),
     commands: [
@@ -117,7 +118,8 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
         palette: false,
         run: () => {
           const { submenu } = view()
-          deps.setState(submenu && submenuOpenedFromPalette(submenu) ? closeActionSubmenu : closeActionMenu)
+          if (submenu && submenuOpenedFromPalette(submenu)) actionMenu.closeSubmenu()
+          else actionMenu.close()
           deps.render()
         },
       },

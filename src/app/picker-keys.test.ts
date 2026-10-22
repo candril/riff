@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
 import {
   createInitialState,
-  openActionMenu,
   type AppState,
 } from "../state"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
@@ -16,6 +15,7 @@ import { createMarksPickerState, registerMarksPickerKeys, type MarksPickerState,
 import { createOccurrencePickerState, registerOccurrencePickerKeys, type OccurrencePickerState } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { createConfirmState } from "../features/confirm/state"
+import { createActionMenuState } from "../features/action-menu/state"
 import { registerModalKeys } from "./keys"
 import type { AppKeyContext } from "./key-context"
 
@@ -315,7 +315,7 @@ test("with every picker closed their keys reach the leftover", async () => {
 })
 
 /** registerPickerKeys and registerModalKeys in createAppKeys' order, on a context only Esc needs. */
-async function setupApp(initial: AppState, factories = createFactories()) {
+async function setupApp(initial: AppState, factories = createFactories(), actionMenu = createActionMenuState()) {
   const harness = await keymapHarness()
   let state = initial
   const ctx = {
@@ -329,6 +329,7 @@ async function setupApp(initial: AppState, factories = createFactories()) {
   registerPickerKeys(harness.riffKeymap, ctx as AppKeyContext)
   registerModalKeys(harness.riffKeymap, {
     ...ctx,
+    actionMenu,
     getVimState: () => createCursorState(),
     executeAction: () => {},
     onToggleReaction: () => {},
@@ -347,11 +348,13 @@ function shown(...pickers: (keyof Factories)[]): Factories {
 }
 
 test("with the palette open over a picker escape closes the palette", async () => {
-  const { state, factories, leftKeys, press } = await setupApp(openActionMenu(closed()), shown("filePicker"))
+  const actionMenu = createActionMenuState()
+  actionMenu.show()
+  const { factories, leftKeys, press } = await setupApp(closed(), shown("filePicker"), actionMenu)
 
   press(ESC)
 
-  expect(state().actionMenu.open).toBe(false)
+  expect(actionMenu.open()).toBe(false)
   expect(factories.filePicker.open()).toBe(true)
   expect(leftKeys).toEqual([])
 })

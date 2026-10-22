@@ -27,6 +27,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
     commitPicker: ctx.commitPicker,
+    actionMenu: ctx.actionMenu,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
     handleEditExternal: () =>

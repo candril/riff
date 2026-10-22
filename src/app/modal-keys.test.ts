@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { createInitialState, type AppState } from "../state"
+import { createInitialState } from "../state"
 import { createConfirmState } from "../features/confirm/state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createCursorState } from "../vim-diff/cursor-state"
@@ -8,6 +8,7 @@ import type { FlashHandler } from "../vim-diff/flash-handler"
 import { keymapHarness } from "../testing/keymap-keys"
 import { registerQueryPickerKeys } from "./query-picker-keys"
 import { registerModalKeys } from "./keys"
+import { createActionMenuState } from "../features/action-menu/state"
 
 async function setup({ flash = true, palette = false, dialog = true, picker = false } = {}) {
   const { riffKeymap, leftKeys, press } = await keymapHarness()
@@ -21,11 +22,9 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
     pick: () => void calls.push("picker pick"),
     move: (delta) => void calls.push(`picker move ${delta}`),
   })
-  const initial = createInitialState([], [], "local", "local changes")
-  let state: AppState = {
-    ...initial,
-    actionMenu: { ...initial.actionMenu, open: palette },
-  }
+  const state = createInitialState([], [], "local", "local changes")
+  const actionMenu = createActionMenuState()
+  if (palette) actionMenu.show()
   const confirm = createConfirmState()
   if (dialog) {
     confirm.show({
@@ -43,9 +42,7 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
   } as unknown as FlashHandler
   registerModalKeys(riffKeymap, {
     getState: () => state,
-    setState: (update) => {
-      state = update(state)
-    },
+    actionMenu,
     render: () => {},
     getVimState: () => createCursorState(),
     executeAction: (id) => void calls.push(`palette ${id}`),
@@ -55,7 +52,7 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
     flashHandler: () => handler,
     confirm,
   })
-  return { calls, leftKeys, press, state: () => state }
+  return { calls, leftKeys, press, actionMenu }
 }
 
 test("with flash and the dialog both up escape cancels the flash, not the dialog", async () => {
@@ -77,13 +74,13 @@ test("with flash and the dialog both up a printable key is typed into the flash,
 })
 
 test("with the palette and the dialog both up y answers the dialog and escape cancels it, leaving the palette open", async () => {
-  const { calls, leftKeys, press, state } = await setup({ flash: false, palette: true })
+  const { calls, leftKeys, press, actionMenu } = await setup({ flash: false, palette: true })
 
   press("y")
   press("\x1b")
 
   expect(calls).toEqual(["dialog yes", "dialog no"])
-  expect(state().actionMenu.open).toBe(true)
+  expect(actionMenu.open()).toBe(true)
   expect(leftKeys).toEqual([])
 })
 
@@ -105,22 +102,22 @@ test("with the dialog up y answers it with super or hyper held", async () => {
 
 test("with the palette open down moves its selection with super held", async () => {
   expect(parseKeypress(KITTY_SUPER_DOWN, { useKittyKeyboard: true })).toMatchObject({ name: "down", super: true })
-  const { leftKeys, press, state } = await setup({ flash: false, palette: true, dialog: false })
+  const { leftKeys, press, actionMenu } = await setup({ flash: false, palette: true, dialog: false })
 
   press(KITTY_SUPER_DOWN)
 
-  expect(state().actionMenu.selectedIndex).toBe(1)
+  expect(actionMenu.selectedIndex()).toBe(1)
   expect(leftKeys).toEqual([])
 })
 
 test("with the palette and the dialog both up down and ctrl+n leave the palette's selection alone, and ctrl+n cancels the dialog", async () => {
-  const { calls, leftKeys, press, state } = await setup({ flash: false, palette: true })
+  const { calls, leftKeys, press, actionMenu } = await setup({ flash: false, palette: true })
 
   press("\x1b[B")
   press("\x0e")
   press("y")
 
-  expect(state().actionMenu.selectedIndex).toBe(0)
+  expect(actionMenu.selectedIndex()).toBe(0)
   expect(calls).toEqual(["dialog no", "dialog yes"])
   expect(leftKeys).toEqual([])
 })

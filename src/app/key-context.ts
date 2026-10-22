@@ -26,6 +26,7 @@ import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
+import type { ActionMenuState } from "../features/action-menu/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -137,6 +138,8 @@ export interface AppKeyContext {
   marksPicker: MarksPickerState
   /** The commit picker's state, the same instance the frame pass reads. */
   commitPicker: CommitPickerState
+  /** The command palette's state, the same instance the frame pass reads. */
+  actionMenu: ActionMenuState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

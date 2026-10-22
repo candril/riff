@@ -99,8 +99,8 @@ test("gC opens the picker on its factory, Ctrl-n wraps, a query narrows, Enter j
   await mockInput.typeText("gC")
   await mockInput.typeText("na")
   expect(await mounted.frame()).toContain("Find Comments")
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker } = mounted
-  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu } = mounted
+  const reload = { getState: render.getState, setState: render.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }
   adoptReloadedState(reload, (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), comments: prev.comments }))
   mounted.render()
   expect(mounted.commentsPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })

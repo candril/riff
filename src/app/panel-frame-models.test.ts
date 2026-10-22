@@ -64,6 +64,7 @@ function frame(
     occurrencePicker: null,
     marksPicker: null,
     commitPicker: null,
+    actionMenu: null,
     commandKeys: new Map(),
   }
 }

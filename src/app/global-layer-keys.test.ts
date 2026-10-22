@@ -8,6 +8,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
+import { createActionMenuState } from "../features/action-menu/state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -24,6 +25,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
   const calls: string[] = []
   const harness = await keymapHarness()
   const filePicker = createFilePickerState()
+  const actionMenu = createActionMenuState()
   const deps: GlobalLayerKeyDeps = {
     getState: () => state,
     setState: (update) => (state = update(state)),
@@ -32,6 +34,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     occurrencePicker: createOccurrencePickerState(),
     marksPicker: createMarksPickerState(),
     commitPicker: createCommitPickerState(),
+    actionMenu,
     getVimState: () => createCursorState(),
     setVimState: () => {},
     getLineMapping: () => {
@@ -52,7 +55,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     chord: { chordPending: () => chordPending },
   }
   registerGlobalKeys(harness.riffKeymap, deps)
-  return { ...harness, state: () => state, filePicker, calls }
+  return { ...harness, state: () => state, filePicker, actionMenu, calls }
 }
 
 test("Ctrl-f opens the file picker and prevents the key, so the picker's field does not type it", async () => {
@@ -74,11 +77,11 @@ test("Ctrl-f with no files is declined, unprevented, and reaches the leftover", 
 test("Ctrl-p and Ctrl-Shift-p both open the palette, as the chain matched the name alone", async () => {
   const plain = await globalKeys()
   plain.press(CTRL_P)
-  expect(plain.state().actionMenu.open).toBe(true)
+  expect(plain.actionMenu.open()).toBe(true)
 
   const shifted = await globalKeys()
   shifted.press(CTRL_SHIFT_P)
-  expect(shifted.state().actionMenu.open).toBe(true)
+  expect(shifted.actionMenu.open()).toBe(true)
   expect(shifted.leftKeys).toEqual([])
 })
 
@@ -120,7 +123,7 @@ test("while a chord is pending every global key is declined, so the chord can co
   keys.press("q")
   keys.press(CTRL_P)
   expect(keys.calls).toEqual([])
-  expect(keys.state().actionMenu.open).toBe(false)
+  expect(keys.actionMenu.open()).toBe(false)
   expect(keys.leftKeys).toEqual(["q", "p"])
 })
 
@@ -136,7 +139,7 @@ test("a capture that leaves the key lets the layer take it", async () => {
   const keys = await globalKeys()
   keys.riffKeymap.capture((key) => key.name !== "p" || !key.ctrl)
   keys.press(CTRL_P)
-  expect(keys.state().actionMenu.open).toBe(true)
+  expect(keys.actionMenu.open()).toBe(true)
 })
 
 test("Esc with no toast is declined and unprevented; with one it clears it", async () => {

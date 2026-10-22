@@ -77,10 +77,10 @@ test("Enter on a commit row leaves the feed for the diff scoped to that commit",
 test("the command palette open over the feed takes its keys: down moves the palette, not the feed", async () => {
   const { mounted } = await feedApp()
   ctrl(mounted, "p")
-  expect(mounted.ctx.getState().actionMenu.open).toBe(true)
+  expect(mounted.actionMenu.open()).toBe(true)
 
   mounted.setup.mockInput.pressKey("ARROW_DOWN")
-  expect(mounted.ctx.getState().actionMenu.selectedIndex).toBe(1)
+  expect(mounted.actionMenu.selectedIndex()).toBe(1)
   expect(mounted.ctx.getState().feed.highlightIndex).toBe(0)
   await mounted.frame()
 })

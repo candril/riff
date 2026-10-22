@@ -21,6 +21,7 @@ export interface OutsideOverlays {
   commentsPicker: boolean
   marksPicker: boolean
   commitPicker: boolean
+  actionMenu: boolean
   occurrencePicker: boolean
 }
 
@@ -35,6 +36,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     outside.marksPicker ||
     outside.occurrencePicker ||
     outside.commitPicker ||
+    outside.actionMenu ||
     outside.syncPreview ||
     outside.confirm ||
     ((state.showLinePeek || state.blamePeek !== null) && state.viewMode === "diff")
