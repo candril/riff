@@ -7,7 +7,6 @@
 
 import type { AppState } from "../../state"
 import {
-  openCommitPicker,
   toggleFilePanel,
   toggleFilePanelExpanded,
   switchView,
@@ -30,6 +29,7 @@ import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
+import type { CommitPickerState } from "../commit-picker/state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -78,6 +78,7 @@ export interface ExecuteContext {
   commentsPicker: Pick<CommentsPickerState, "show">
   occurrencePicker: Pick<OccurrencePickerState, "show">
   marksPicker: Pick<MarksPickerState, "show">
+  commitPicker: Pick<CommitPickerState, "show">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -100,7 +101,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, handlers } = ctx
+  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -133,7 +134,7 @@ export async function executeAction(
 
     case "select-commit":
       if (state.commits.length > 0) {
-        setState(openCommitPicker)
+        commitPicker.show(state.viewingCommitScope, state.commits)
         render()
       }
       break

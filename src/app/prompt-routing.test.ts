@@ -8,6 +8,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 const initial = createInitialState([], [], "test", "")
 
@@ -47,16 +48,16 @@ describe("routing the open prompt", () => {
   test("every prompt open-prompt can open has an island, and every island a prompt", () => {
     const states: Partial<AppState>[] = [
       { actionMenu: { ...initial.actionMenu, open: true } },
-      { commitPicker: { ...initial.commitPicker, open: true, queryInput: true } },
       { inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } },
       { feed: { ...initial.feed, filterInput: true } },
     ]
     const searching = (active: boolean) => ({ ...createSearchState(), active })
-    const closed = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null }
+    const closed = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null }
     const occurrence = createOccurrencePickerState().snapshot()
     const opened = [
       ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false), closed)),
       openPromptModel(initial, searching(false), { ...closed, filePicker: createFilePickerState().snapshot() }),
+      openPromptModel(initial, searching(false), { ...closed, commitPicker: { ...createCommitPickerState().snapshot(), queryInput: true } }),
       openPromptModel(initial, searching(false), { ...closed, commentsPicker: createCommentsPickerState().snapshot() }),
       openPromptModel(initial, searching(false), { ...closed, marksPicker: createMarksPickerState().snapshot() }),
       openPromptModel(initial, searching(false), { ...closed, occurrencePicker: { ...occurrence, narrowing: true } }),

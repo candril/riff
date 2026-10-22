@@ -219,6 +219,7 @@ export async function jumpScenario({
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
+    commitPicker: mounted.commitPicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane,

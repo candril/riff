@@ -7,6 +7,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -30,6 +31,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     filePicker,
     occurrencePicker: createOccurrencePickerState(),
     marksPicker: createMarksPickerState(),
+    commitPicker: createCommitPickerState(),
     getVimState: () => createCursorState(),
     setVimState: () => {},
     getLineMapping: () => {

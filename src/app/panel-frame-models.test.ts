@@ -63,6 +63,7 @@ function frame(
     commentsPicker: null,
     occurrencePicker: null,
     marksPicker: null,
+    commitPicker: null,
     commandKeys: new Map(),
   }
 }

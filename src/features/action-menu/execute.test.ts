@@ -9,6 +9,7 @@ import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
+import { createCommitPickerState } from "../commit-picker/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -46,6 +47,7 @@ describe("Show Only Open Threads", () => {
         commentsPicker: createCommentsPickerState(),
         occurrencePicker: createOccurrencePickerState(),
         marksPicker: createMarksPickerState(),
+        commitPicker: createCommitPickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -92,6 +94,7 @@ describe("Show Only Unviewed Files", () => {
         commentsPicker: createCommentsPickerState(),
         occurrencePicker: createOccurrencePickerState(),
         marksPicker: createMarksPickerState(),
+        commitPicker: createCommitPickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,

@@ -8,13 +8,13 @@ import { getFilteredFiles } from "../features/file-picker"
 import { getFilteredEntries } from "../features/comments-picker"
 import { marksPickerEntries } from "../features/marks"
 import { getOccurrenceResults } from "../features/occurrence-picker"
-import * as commitPicker from "../features/commit-picker"
+import { getFilteredCommits } from "../features/commit-picker"
 import type { PickerSnapshots } from "./frame"
 
 /** What each picker island draws on a terminal `width` by `height`, or null while it is closed. */
 export function pickerModels(
   state: AppState,
-  { filePicker, commentsPicker, occurrencePicker, marksPicker }: PickerSnapshots,
+  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }: PickerSnapshots,
   width: number,
   height: number,
   now: Date
@@ -43,16 +43,16 @@ export function pickerModels(
           height
         )
       : null,
-    commit: state.commitPicker.open
+    commit: commitPicker
       ? commitPickerModel(
           {
-            commits: commitPicker.getFilteredCommits(state),
-            selectedIndex: state.commitPicker.selectedIndex,
+            commits: getFilteredCommits(state.commits, commitPicker.query),
+            selectedIndex: commitPicker.selectedIndex,
             viewingCommit: state.viewingCommit,
-            marked: state.commitPicker.marked,
-            filtering: state.commitPicker.queryInput,
-            query: state.commitPicker.query,
-            extending: state.commitPicker.rangeAnchor !== null,
+            marked: commitPicker.marked,
+            filtering: commitPicker.queryInput,
+            query: commitPicker.query,
+            extending: commitPicker.rangeAnchor !== null,
           },
           width,
           height,

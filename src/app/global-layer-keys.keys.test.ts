@@ -86,7 +86,7 @@ test("Ctrl-p, Ctrl-f, Ctrl-k and Ctrl-g open the palette and the file, marks and
     commits: [{ sha: "abc1234", message: "greet louder", author: "ana", date: "2026-01-01T00:00:00Z" }],
   })
   ctrl(mounted, "g")
-  expect(state().commitPicker.open).toBe(true)
+  expect(mounted.commitPicker.open()).toBe(true)
 })
 
 test("Ctrl-Shift-p still opens the palette, and q and Shift-q quit", async () => {

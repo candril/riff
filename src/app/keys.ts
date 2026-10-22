@@ -107,6 +107,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     commentsPicker: ctx.commentsPicker,
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
+    commitPicker: ctx.commitPicker,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })
@@ -126,6 +127,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     commentsPicker: ctx.commentsPicker,
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
+    commitPicker: ctx.commitPicker,
     chat: ctx.chat,
   })
   registerHelpKeys(riffKeymap, {
@@ -138,7 +140,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
   registerPreviewKeys(riffKeymap, ctx)
   registerCommitPickerKeys(riffKeymap, {
     getState: ctx.getState,
-    setState: ctx.setState,
+    commitPicker: ctx.commitPicker,
     render: ctx.render,
     onCommitSelected: (sha, filename, scope) => ctx.onCommitSelected(sha, filename, scope),
   })

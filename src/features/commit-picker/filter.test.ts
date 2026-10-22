@@ -1,6 +1,5 @@
 import { test, expect, describe } from "bun:test"
 import { markedCommits, getFilteredCommits } from "./filter"
-import { createInitialState, openCommitPicker, setViewingCommit, toggleCommitMark, type AppState } from "../../state"
 import type { PrCommit } from "../../providers/github/types"
 
 // Newest first, as both providers report them.
@@ -11,47 +10,22 @@ const commits: PrCommit[] = [
   { sha: "ddd4444", message: "something else", author: "you", date: "2026-09-11T07:00:00Z" },
 ]
 
-function base(): AppState {
-  return { ...createInitialState([], [], "local", "local changes"), commits }
-}
-
-/** Row 0 is "all commits", so a commit's row is its index + 1. */
-function onRow(state: AppState, row: number): AppState {
-  return { ...state, commitPicker: { ...state.commitPicker, selectedIndex: row + 1 } }
-}
-
 describe("marking commits", () => {
-  test("space marks one, and marks it back off", () => {
-    const marked = toggleCommitMark(onRow(openCommitPicker(base()), 1), "bbb2222")
-    expect(markedCommits(marked)).toEqual(["bbb2222"])
-    expect(markedCommits(toggleCommitMark(marked, "bbb2222"))).toEqual([])
-  })
-
   test("marks come back newest first, whatever order they were picked in", () => {
-    const state = toggleCommitMark(toggleCommitMark(openCommitPicker(base()), "ccc3333"), "aaa1111")
-
-    expect(markedCommits(state)).toEqual(["aaa1111", "ccc3333"])
+    expect(markedCommits(commits, new Set(["ccc3333", "aaa1111"]))).toEqual(["aaa1111", "ccc3333"])
   })
 
-  test("reopening shows what is already in scope", () => {
-    const scoped = setViewingCommit(
-      { ...base(), commitDiffCache: new Map([["bbb2222+ccc3333", { files: [], fileTree: [] }]]) },
-      "bbb2222",
-      ["bbb2222", "ccc3333"],
-    )
-
-    const reopened = openCommitPicker(scoped)
-
-    expect(markedCommits(reopened)).toEqual(["bbb2222", "ccc3333"])
-    // And the cursor starts on the first of them rather than at the top.
-    expect(reopened.commitPicker.selectedIndex).toBe(2)
+  test("a mark on a commit no longer listed is left out", () => {
+    expect(markedCommits(commits, new Set(["bbb2222", "eee5555"]))).toEqual(["bbb2222"])
   })
 })
 
 describe("what the filter narrows", () => {
   test("the query still matches message, sha and author", () => {
-    const state = { ...openCommitPicker(base()), commitPicker: { ...openCommitPicker(base()).commitPicker, query: "middle" } }
+    expect(getFilteredCommits(commits, "middle").map((row) => row.commit.sha)).toEqual(["bbb2222"])
+  })
 
-    expect(getFilteredCommits(state).map((row) => row.commit.sha)).toEqual(["bbb2222"])
+  test("no query lists every commit, each with its index", () => {
+    expect(getFilteredCommits(commits, "").map((row) => row.index)).toEqual([0, 1, 2, 3])
   })
 })

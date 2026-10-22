@@ -24,6 +24,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -53,6 +54,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const commentsPicker = createCommentsPickerState()
   const occurrencePicker = createOccurrencePickerState()
   const marksPicker = createMarksPickerState()
+  const commitPicker = createCommitPickerState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -101,6 +103,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     commentsPicker,
     occurrencePicker,
     marksPicker,
+    commitPicker,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
@@ -111,8 +114,9 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   return {
     /**
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
-     * `commentsPicker`, `occurrencePicker` and `marksPicker` open or close
-     * those overlays through their factories; the rest patches the state.
+     * `commentsPicker`, `occurrencePicker`, `marksPicker` and `commitPicker`
+     * open or close those overlays through their factories; the rest patches
+     * the state.
      */
     show({
       help: helpOpen,
@@ -123,6 +127,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commentsPicker: commentsPickerOpen,
       occurrencePicker: occurrencePickerOpen,
       marksPicker: marksPickerOpen,
+      commitPicker: commitPickerOpen,
       ...patch
     }: Partial<AppState> & {
       help?: boolean
@@ -133,6 +138,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commentsPicker?: boolean
       occurrencePicker?: boolean
       marksPicker?: boolean
+      commitPicker?: boolean
     }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
@@ -151,6 +157,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       if (occurrencePickerOpen === false) occurrencePicker.close()
       if (marksPickerOpen === true) marksPicker.show()
       if (marksPickerOpen === false) marksPicker.close()
+      if (commitPickerOpen === true) commitPicker.show(null, state.commits)
+      if (commitPickerOpen === false) commitPicker.close()
       render()
       return overlays()
     },
@@ -210,13 +218,6 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
 
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
   const app = await harness()
-  const initial = createInitialState([], [], "test", "")
-  const open = <K extends "commitPicker">(
-    key: K,
-    isOpen: boolean
-  ) => ({
-    [key]: { ...initial[key], open: isOpen },
-  })
   expect(app.show({ filePicker: true, help: true, confirmDialog: dialog })).toEqual([
     "filePicker",
     "helpOverlay",
@@ -231,7 +232,7 @@ test("each picker is mounted only while it is open, under help and the confirm d
   expect(app.show({ marksPicker: false, occurrencePicker: true })).toEqual([
     "occurrencePicker",
   ])
-  expect(app.show({ occurrencePicker: false, ...open("commitPicker", true), help: true })).toEqual([
+  expect(app.show({ occurrencePicker: false, commitPicker: true, help: true })).toEqual([
     "commitPicker",
     "helpOverlay",
   ])
@@ -241,7 +242,7 @@ test("each picker is mounted only while it is open, under help and the confirm d
     "commitPicker",
     "helpOverlay",
   ])
-  expect(app.show({ filePicker: false, occurrencePicker: false, ...open("commitPicker", false), help: false })).toEqual([])
+  expect(app.show({ filePicker: false, occurrencePicker: false, commitPicker: false, help: false })).toEqual([])
 })
 
 test("the command palette is mounted only while it is open, under the pickers", async () => {

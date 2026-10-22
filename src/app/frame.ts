@@ -12,6 +12,7 @@ import type { FilePickerSnapshot } from "../features/file-picker/state"
 import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
 import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
 import type { MarksPickerSnapshot } from "../features/marks/picker-state"
+import type { CommitPickerSnapshot } from "../features/commit-picker/state"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -54,12 +55,14 @@ export interface Frame {
   occurrencePicker: OccurrencePickerSnapshot | null
   /** The marks picker's state, read off its factory, or null while it is closed. */
   marksPicker: MarksPickerSnapshot | null
+  /** The commit picker's state, read off its factory, or null while it is closed. */
+  commitPicker: CommitPickerSnapshot | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }
 
 /** The pickers read off their factories, each null while it is closed. */
-export type PickerSnapshots = Pick<Frame, "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker">
+export type PickerSnapshots = Pick<Frame, "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker">
 
 // The last frame each followed accessor's followers finished drawing.
 const drawn = new WeakMap<Accessor<Frame | null>, Frame | null>()

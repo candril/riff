@@ -1,9 +1,10 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, openCommitPicker, toggleCommitMark, toggleCommitRange, type AppState } from "../../state"
+import { createInitialState, type AppState } from "../../state"
 import type { PrCommit } from "../../providers/github/types"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerCommitPickerKeys } from "./keys"
 import { markedCommits } from "./filter"
+import { createCommitPickerState, type CommitPickerState } from "./state"
 
 // Newest first, as both providers report them.
 const commits: PrCommit[] = [
@@ -29,19 +30,20 @@ const SEQUENCES: Record<string, string> = {
 }
 
 /** Row 0 is "all commits", so a commit's row is its index + 1. */
-function onRow(state: AppState, row: number): AppState {
-  return { ...state, commitPicker: { ...state.commitPicker, selectedIndex: row + 1 } }
+function onRow(commitPicker: CommitPickerState, row: number) {
+  commitPicker.move(row + 1 - commitPicker.selectedIndex(), commits.length)
 }
 
-async function harness(setup: (s: AppState) => AppState = (s) => s) {
-  let state: AppState = setup(openCommitPicker({ ...createInitialState([], [], "local", "local changes"), commits }))
+async function harness(setup: (commitPicker: CommitPickerState) => void = () => {}) {
+  const state: AppState = { ...createInitialState([], [], "local", "local changes"), commits }
+  const commitPicker = createCommitPickerState()
+  commitPicker.show(null, commits)
+  setup(commitPicker)
   const selected: { sha: string | null; scope?: readonly string[] | null }[] = []
   const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerCommitPickerKeys(riffKeymap, {
     getState: () => state,
-    setState: (fn) => {
-      state = fn(state)
-    },
+    commitPicker,
     render: () => {},
     onCommitSelected: (sha, _filename, scope) => {
       selected.push({ sha, scope })
@@ -54,12 +56,12 @@ async function harness(setup: (s: AppState) => AppState = (s) => s) {
     const key = pressSequence(SEQUENCES[name] ?? name, rename)
     return { kept: leftKeys.length === before, prevented: key.defaultPrevented }
   }
-  return { press, selected, state: () => state }
+  return { press, selected, picker: commitPicker, marked: () => markedCommits(commits, commitPicker.marked()) }
 }
 
 describe("the commit picker's list", () => {
   test("its keys do nothing while it is closed", async () => {
-    const h = await harness((s) => ({ ...s, commitPicker: { ...s.commitPicker, open: false } }))
+    const h = await harness((picker) => picker.close())
     expect(h.press("j")).toEqual({ kept: false, prevented: false })
     expect(h.press("return")).toEqual({ kept: false, prevented: false })
   })
@@ -69,92 +71,103 @@ describe("the commit picker's list", () => {
     h.press("j")
     h.press("down")
     h.press("ctrl+n")
-    expect(h.state().commitPicker.selectedIndex).toBe(3)
+    expect(h.picker.selectedIndex()).toBe(3)
     h.press("k")
     h.press("ctrl+p")
-    expect(h.state().commitPicker.selectedIndex).toBe(1)
+    expect(h.picker.selectedIndex()).toBe(1)
     h.press("up")
-    expect(h.state().commitPicker.selectedIndex).toBe(0)
+    expect(h.picker.selectedIndex()).toBe(0)
   })
 
   test("a modifier held does not change what a key does, as in the chain", async () => {
     const h = await harness()
     expect(h.press("ctrl+j")).toEqual({ kept: true, prevented: true })
-    expect(h.state().commitPicker.selectedIndex).toBe(1)
+    expect(h.picker.selectedIndex()).toBe(1)
     h.press("shift+escape")
-    expect(h.state().commitPicker.open).toBe(false)
+    expect(h.picker.open()).toBe(false)
   })
 
   test("Enter on the first row shows all commits", async () => {
     const h = await harness()
     expect(h.press("return")).toEqual({ kept: true, prevented: true })
     expect(h.selected).toEqual([{ sha: null, scope: undefined }])
-    expect(h.state().commitPicker.open).toBe(false)
+    expect(h.picker.open()).toBe(false)
   })
 
   test("Enter on a commit scopes the diff to it, and so does a key named enter", async () => {
-    const h = await harness((s) => onRow(s, 1))
+    const h = await harness((picker) => onRow(picker, 1))
     h.press("return", "enter")
     expect(h.selected).toEqual([{ sha: "bbb2222", scope: ["bbb2222"] }])
   })
 
   test("Enter with commits marked scopes the diff to those, newest first", async () => {
-    const h = await harness((s) => onRow(toggleCommitMark(toggleCommitMark(s, "ddd4444"), "bbb2222"), 0))
+    const h = await harness((picker) => {
+      picker.toggleMark("ddd4444")
+      picker.toggleMark("bbb2222")
+      onRow(picker, 0)
+    })
     h.press("return")
     expect(h.selected).toEqual([{ sha: "bbb2222", scope: ["bbb2222", "ddd4444"] }])
   })
 
   test("Enter with no commit under the cursor does nothing, and still takes the key", async () => {
-    const h = await harness((s) => ({ ...onRow(s, 0), commitPicker: { ...onRow(s, 0).commitPicker, query: "nothing matches this" } }))
+    const h = await harness((picker) => picker.setQuery("nothing matches this"))
     expect(h.press("return")).toEqual({ kept: true, prevented: true })
     expect(h.selected).toEqual([])
-    expect(h.state().commitPicker.open).toBe(true)
+    expect(h.picker.open()).toBe(true)
   })
 
   test("space marks the commit under the cursor", async () => {
-    const h = await harness((s) => onRow(s, 2))
+    const h = await harness((picker) => onRow(picker, 2))
     expect(h.press("space")).toEqual({ kept: true, prevented: true })
-    expect(markedCommits(h.state())).toEqual(["ccc3333"])
+    expect(h.marked()).toEqual(["ccc3333"])
   })
 
   test("V anchors a run on the commit under the cursor, and j drags it along", async () => {
-    const h = await harness((s) => onRow(s, 0))
+    const h = await harness((picker) => onRow(picker, 0))
     expect(h.press("V")).toEqual({ kept: true, prevented: true })
-    expect(markedCommits(h.state())).toEqual(["aaa1111"])
+    expect(h.marked()).toEqual(["aaa1111"])
     h.press("j")
     h.press("j")
-    expect(markedCommits(h.state())).toEqual(["aaa1111", "bbb2222", "ccc3333"])
+    expect(h.marked()).toEqual(["aaa1111", "bbb2222", "ccc3333"])
   })
 
   test("V again keeps the run and lets the cursor leave it", async () => {
-    const h = await harness((s) => toggleCommitRange(onRow(s, 0), "aaa1111"))
+    const h = await harness((picker) => {
+      onRow(picker, 0)
+      picker.toggleRange("aaa1111")
+    })
     h.press("j")
     h.press("V")
     h.press("j")
     h.press("j")
-    expect(markedCommits(h.state())).toEqual(["aaa1111", "bbb2222"])
+    expect(h.marked()).toEqual(["aaa1111", "bbb2222"])
   })
 
   test("a run keeps what was marked before it started", async () => {
-    const h = await harness((s) => toggleCommitRange(onRow(toggleCommitMark(s, "ddd4444"), 0), "aaa1111"))
+    const h = await harness((picker) => {
+      picker.toggleMark("ddd4444")
+      onRow(picker, 0)
+      picker.toggleRange("aaa1111")
+    })
     h.press("j")
-    expect(markedCommits(h.state())).toEqual(["aaa1111", "bbb2222", "ddd4444"])
+    expect(h.marked()).toEqual(["aaa1111", "bbb2222", "ddd4444"])
   })
 
   test("every other key is kept from the chain and prevented, since no field is open to type it", async () => {
-    const h = await harness((s) => onRow(s, 0))
+    const h = await harness((picker) => onRow(picker, 0))
     for (const name of ["x", "v", "p", "n", "q", "ctrl+v"]) {
       expect(h.press(name)).toEqual({ kept: true, prevented: true })
     }
-    expect(markedCommits(h.state())).toEqual([])
-    expect(h.state().commitPicker.selectedIndex).toBe(1)
-    expect(h.state().commitPicker.open).toBe(true)
+    expect(h.marked()).toEqual([])
+    expect(h.picker.selectedIndex()).toBe(1)
+    expect(h.picker.open()).toBe(true)
   })
 
   test("Esc closes it", async () => {
     const h = await harness()
     h.press("escape")
-    expect(h.state().commitPicker.open).toBe(false)
+    expect(h.picker.open()).toBe(false)
     expect(h.selected).toEqual([])
   })
 })
@@ -163,35 +176,35 @@ describe("the commit picker's `/` mode", () => {
   test("`/` opens it, and Enter keeps the query", async () => {
     const h = await harness()
     expect(h.press("/")).toEqual({ kept: true, prevented: true })
-    expect(h.state().commitPicker.queryInput).toBe(true)
+    expect(h.picker.queryInput()).toBe(true)
     expect(h.press("return")).toEqual({ kept: true, prevented: true })
-    expect(h.state().commitPicker.queryInput).toBe(false)
-    expect(h.state().commitPicker.open).toBe(true)
+    expect(h.picker.queryInput()).toBe(false)
+    expect(h.picker.open()).toBe(true)
   })
 
   test("Esc ends it without closing the picker", async () => {
     const h = await harness()
     h.press("/")
     expect(h.press("escape")).toEqual({ kept: true, prevented: true })
-    expect(h.state().commitPicker.queryInput).toBe(false)
-    expect(h.state().commitPicker.open).toBe(true)
+    expect(h.picker.queryInput()).toBe(false)
+    expect(h.picker.open()).toBe(true)
   })
 
   test("a key named enter ends it too", async () => {
     const h = await harness()
     h.press("/")
     h.press("return", "enter")
-    expect(h.state().commitPicker.queryInput).toBe(false)
+    expect(h.picker.queryInput()).toBe(false)
   })
 
   test("the list's keys are letters of the query, kept from the chain and left for the prompt field", async () => {
-    const h = await harness((s) => onRow(s, 0))
+    const h = await harness((picker) => onRow(picker, 0))
     h.press("/")
     for (const name of ["j", "k", "space", "/", "V", "ctrl+n"]) {
       expect(h.press(name)).toEqual({ kept: true, prevented: false })
     }
-    expect(h.state().commitPicker.selectedIndex).toBe(1)
-    expect(markedCommits(h.state())).toEqual([])
-    expect(h.state().commitPicker.queryInput).toBe(true)
+    expect(h.picker.selectedIndex()).toBe(1)
+    expect(h.marked()).toEqual([])
+    expect(h.picker.queryInput()).toBe(true)
   })
 })

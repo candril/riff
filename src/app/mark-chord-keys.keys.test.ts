@@ -67,6 +67,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
+    commitPicker: mounted.commitPicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane: () => null,

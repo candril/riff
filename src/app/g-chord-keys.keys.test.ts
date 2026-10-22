@@ -317,10 +317,10 @@ test("a lone g gives up after the chord timeout, so the next g opens a sequence 
 })
 
 test("Ctrl-g still opens the commit picker", async () => {
-  const { mounted, type, state, keys } = await gApp()
+  const { mounted, type, keys } = await gApp()
   mounted.show({ commits: [{ sha: "abc1234", message: "greet louder", author: "ana", date: "2026-01-01T00:00:00Z" }] })
   type(CTRL_G)
-  expect(state().commitPicker.open).toBe(true)
+  expect(mounted.commitPicker.open()).toBe(true)
   expect(keys.chordPending()).toBe(false)
 })
 

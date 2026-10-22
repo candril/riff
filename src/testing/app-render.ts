@@ -12,6 +12,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -117,6 +118,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const commentsPicker = createCommentsPickerState()
   const occurrencePicker = createOccurrencePickerState()
   const marksPicker = createMarksPickerState()
+  const commitPicker = createCommitPickerState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -130,7 +132,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render() }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
-        writePrompt({ setState, filePicker, commentsPicker, occurrencePicker, marksPicker, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+        writePrompt({ setState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },
@@ -161,6 +163,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     commentsPicker,
     occurrencePicker,
     marksPicker,
+    commitPicker,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -212,6 +215,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     occurrencePicker,
     /** The marks picker's state, which the frame pass and the keys read as app.ts's do. */
     marksPicker,
+    /** The commit picker's state, which the frame pass and the keys read as app.ts's do. */
+    commitPicker,
     fileTreePanel,
     render,
     agent,

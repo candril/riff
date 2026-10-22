@@ -13,6 +13,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 const initial = createInitialState([], [], "local", "local changes")
 
@@ -48,6 +49,7 @@ function frame(
     commentsPicker: null,
     occurrencePicker: null,
     marksPicker: null,
+    commitPicker: null,
     commandKeys: new Map(),
   }
 }
@@ -97,15 +99,16 @@ describe("chatColumnFrameModel", () => {
 })
 
 describe("promptOpenIn", () => {
-  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null }
+  const commitPicker = (queryInput: boolean) => ({ ...createCommitPickerState().snapshot(), queryInput })
+  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null }
   const branches: [string, AppState, Partial<SearchState>, boolean, Partial<PickerSnapshots>?][] = [
     ["the action menu", state({ actionMenu: { ...initial.actionMenu, open: true } }), {}, true],
     ["the file picker", state(), {}, true, { filePicker: createFilePickerState().snapshot() }],
     ["the comments picker", state(), {}, true, { commentsPicker: createCommentsPickerState().snapshot() }],
     ["the marks picker", state(), {}, true, { marksPicker: createMarksPickerState().snapshot() }],
     ["the occurrence picker", state(), {}, true, { occurrencePicker: createOccurrencePickerState().snapshot() }],
-    ["the commit picker's query", state({ commitPicker: { ...initial.commitPicker, open: true, queryInput: true } }), {}, true],
-    ["the commit picker's list", state({ commitPicker: { ...initial.commitPicker, open: true, queryInput: false } }), {}, false],
+    ["the commit picker's query", state(), {}, true, { commitPicker: commitPicker(true) }],
+    ["the commit picker's list", state(), {}, false, { commitPicker: commitPicker(false) }],
     ["the comments filter", state({ inlineCommentOverlay: { ...initial.inlineCommentOverlay, filterInput: true } }), {}, true],
     ["the feed filter", state({ feed: { ...initial.feed, filterInput: true } }), {}, true],
     ["a search", state(), { active: true }, true],

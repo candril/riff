@@ -1,6 +1,5 @@
 import {
   setActionMenuQuery,
-  setCommitPickerQuery,
   setViewFilter,
 } from "../state"
 import type { AppState } from "../state"
@@ -9,6 +8,7 @@ import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
+import type { CommitPickerState } from "../features/commit-picker/state"
 import type { PickerSnapshots } from "./frame"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
@@ -25,7 +25,7 @@ export interface PromptModel {
 export function openPromptModel(
   state: AppState,
   searchState: SearchState,
-  { filePicker, commentsPicker, occurrencePicker, marksPicker }: PickerSnapshots
+  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }: PickerSnapshots
 ): PromptModel | null {
   if (state.actionMenu.open) {
     return {
@@ -56,8 +56,8 @@ export function openPromptModel(
           placeholder: "Search the diff…",
         }
   }
-  if (state.commitPicker.open && state.commitPicker.queryInput) {
-    return { key: "commit-picker", initialValue: state.commitPicker.query, placeholder: "Type to search commits…" }
+  if (commitPicker?.queryInput) {
+    return { key: "commit-picker", initialValue: commitPicker.query, placeholder: "Type to search commits…" }
   }
 
   if (state.inlineCommentOverlay.filterInput) {
@@ -89,6 +89,7 @@ export type PromptWriteContext = {
   commentsPicker: Pick<CommentsPickerState, "setQuery">
   occurrencePicker: Pick<OccurrencePickerState, "setQuery" | "setFilter">
   marksPicker: Pick<MarksPickerState, "setQuery">
+  commitPicker: Pick<CommitPickerState, "setQuery">
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
 }
@@ -118,7 +119,8 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
         else ctx.occurrencePicker.setQuery(value)
         return render()
       case "commit-picker":
-        return typeInto(setCommitPickerQuery, value)
+        ctx.commitPicker.setQuery(value)
+        return render()
       case "comments-filter":
       case "feed-filter":
         return typeInto(setViewFilter, value)

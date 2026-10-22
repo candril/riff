@@ -5,7 +5,6 @@ import {
   focusLeft,
   focusRight,
   openActionMenu,
-  openCommitPicker,
   switchView,
   toggleFilePanel,
   toggleFilePanelExpanded,
@@ -93,7 +92,8 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         if (key.ctrl && key.name === "g") {
           if (state.commits.length > 0) {
             key.preventDefault()
-            show(openCommitPicker)
+            deps.commitPicker.show(state.viewingCommitScope, state.commits)
+            deps.render()
           }
           return
         }

@@ -34,6 +34,7 @@ async function paletteApp() {
           commentsPicker: mounted.commentsPicker,
           occurrencePicker: mounted.occurrencePicker,
           marksPicker: mounted.marksPicker,
+          commitPicker: mounted.commitPicker,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

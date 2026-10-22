@@ -7,6 +7,7 @@ import { createFilePickerState, type FilePickerState } from "../features/file-pi
 import { createCommentsPickerState, type CommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState, type OccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState, type MarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState, type CommitPickerState } from "../features/commit-picker/state"
 import type { PickerSnapshots } from "./frame"
 
 const initial = createInitialState([], [], "test", "")
@@ -21,6 +22,7 @@ function promptFor(
     commentsPicker: null,
     occurrencePicker: null,
     marksPicker: null,
+    commitPicker: null,
     ...pickers,
   })
 }
@@ -68,8 +70,9 @@ describe("which prompt is typing", () => {
   })
 
   test("the commit picker types only while its query input is up", () => {
-    expect(promptFor({ commitPicker: { ...initial.commitPicker, open: true, queryInput: false } })).toBeNull()
-    expect(promptFor({ commitPicker: { ...initial.commitPicker, open: true, queryInput: true, query: "fix" } })).toEqual({
+    const commitPicker = createCommitPickerState().snapshot()
+    expect(promptFor({}, {}, { commitPicker: { ...commitPicker, queryInput: false } })).toBeNull()
+    expect(promptFor({}, {}, { commitPicker: { ...commitPicker, queryInput: true, query: "fix" } })).toEqual({
       key: "commit-picker",
       initialValue: "fix",
       placeholder: "Type to search commits…",
@@ -111,6 +114,7 @@ describe("where what is typed goes", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
     pickers.occurrencePicker.show()
     const write = writePrompt(
@@ -129,6 +133,7 @@ describe("where what is typed goes", () => {
     commentsPicker: CommentsPickerState
     occurrencePicker: OccurrencePickerState
     marksPicker: MarksPickerState
+    commitPicker: CommitPickerState
   }
   const fields: [PromptKey, (s: AppState, pickers: Pickers) => string][] = [
     ["action-menu:", (s) => s.actionMenu.query],
@@ -138,7 +143,7 @@ describe("where what is typed goes", () => {
     ["marks-picker", (_s, { marksPicker }) => marksPicker.query()],
     ["occurrence-picker:narrow", (_s, { occurrencePicker }) => occurrencePicker.filter()],
     ["occurrence-picker:search", (_s, { occurrencePicker }) => occurrencePicker.query()],
-    ["commit-picker", (s) => s.commitPicker.query],
+    ["commit-picker", (_s, { commitPicker }) => commitPicker.query()],
   ]
 
   for (const [key, field] of fields) {

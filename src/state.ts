@@ -21,6 +21,7 @@ import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
 import type { OccurrencePickerState } from "./features/occurrence-picker/state"
 import type { MarksPickerState } from "./features/marks/picker-state"
+import type { CommitPickerState } from "./features/commit-picker/state"
 
 /**
  * UI mode for the app
@@ -304,25 +305,6 @@ export function setFeedCommitFiles(
 }
 
 /**
- * Commit picker state
- */
-export interface CommitPickerState {
-  /** Whether the commit picker is open */
-  open: boolean
-  /** Current search query */
-  query: string
-  /** Whether `/` is open and taking what is typed (spec 078). */
-  queryInput: boolean
-  /** Currently selected index (0 = "All commits" option) */
-  selectedIndex: number
-  /** The commits marked for the next scope, by sha. */
-  marked: ReadonlySet<string>
-  /** Where `V` started extending, and what was marked before it did. */
-  rangeAnchor: string | null
-  markedBeforeRange: ReadonlySet<string>
-}
-
-/**
  * Application state
  */
 export interface AppState {
@@ -482,9 +464,6 @@ export interface AppState {
   treeKeptFile: string | null
   ignoreMatcher: IgnoreMatcher | null  // The matcher instance (null = no patterns)
   
-  // Commit picker state
-  commitPicker: CommitPickerState
-  
   // Commit filtering - view changes from a specific commit
   /** The PR the branch already has, in local mode (spec 079). */
   branchPr: BranchPr | null
@@ -636,15 +615,6 @@ export function createInitialState(
     treeUnviewedOnly: false,
     treeKeptFile: null,
     ignoreMatcher,
-    commitPicker: {
-      open: false,
-      query: "",
-      queryInput: false,
-      selectedIndex: 0,
-      marked: new Set(),
-      rangeAnchor: null,
-      markedBeforeRange: new Set(),
-    },
     branchPr: null,
     viewingCommit: null,
     viewingCommitScope: null,
@@ -901,6 +871,7 @@ export interface PromptPickers {
   commentsPicker: Pick<CommentsPickerState, "open">
   occurrencePicker: Pick<OccurrencePickerState, "open">
   marksPicker: Pick<MarksPickerState, "open">
+  commitPicker: Pick<CommitPickerState, "open">
 }
 
 /**
@@ -915,7 +886,7 @@ export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
     pickers.commentsPicker.open() ||
     pickers.marksPicker.open() ||
     pickers.occurrencePicker.open() ||
-    state.commitPicker.open ||
+    pickers.commitPicker.open() ||
     state.treeFilterInput ||
     state.feed.filterInput ||
     state.prInfoPanel.filterInput ||
@@ -2759,141 +2730,6 @@ export function toggleShowHiddenFiles(state: AppState): AppState {
   return {
     ...state,
     showHiddenFiles: !state.showHiddenFiles,
-  }
-}
-
-// ============================================================================
-// Commit Picker State
-// ============================================================================
-
-/**
- * Open the commit picker
- */
-/**
- * Open the picker on what is already in scope: the marks the last visit
- * made are still there, so reopening shows the selection rather than asking
- * for it again (spec 078).
- */
-export function openCommitPicker(state: AppState): AppState {
-  const marked = new Set(state.viewingCommitScope ?? [])
-  const first = state.commits.findIndex((commit) => marked.has(commit.sha))
-  return {
-    ...state,
-    commitPicker: {
-      open: true,
-      query: "",
-      queryInput: false,
-      // Row 0 is "all commits", so a commit's row is its index + 1.
-      selectedIndex: first === -1 ? 0 : first + 1,
-      marked,
-      rangeAnchor: null,
-      markedBeforeRange: marked,
-    },
-  }
-}
-
-/** `Space` — this commit is in the scope, or is not. */
-export function toggleCommitMark(state: AppState, sha: string): AppState {
-  const marked = new Set(state.commitPicker.marked)
-  if (marked.has(sha)) marked.delete(sha)
-  else marked.add(sha)
-  return { ...state, commitPicker: { ...state.commitPicker, marked } }
-}
-
-/**
- * `V` — start extending a run from here, or stop extending and keep what is
- * marked, so `j`/`k` move without changing it.
- */
-export function toggleCommitRange(state: AppState, sha: string): AppState {
-  const picker = state.commitPicker
-  if (picker.rangeAnchor !== null) {
-    return { ...state, commitPicker: { ...picker, rangeAnchor: null, markedBeforeRange: picker.marked } }
-  }
-  const marked = new Set(picker.marked)
-  marked.add(sha)
-  return {
-    ...state,
-    commitPicker: {
-      ...picker,
-      rangeAnchor: sha,
-      markedBeforeRange: picker.marked,
-      marked,
-    },
-  }
-}
-
-/** Everything between the anchor and the cursor, plus what was marked before. */
-export function markCommitRange(state: AppState, shas: readonly string[]): AppState {
-  const marked = new Set(state.commitPicker.markedBeforeRange)
-  for (const sha of shas) marked.add(sha)
-  return { ...state, commitPicker: { ...state.commitPicker, marked } }
-}
-
-/** `/` opens the filter; Esc or Enter closes it and leaves what it found. */
-export function startCommitPickerFilter(state: AppState): AppState {
-  return { ...state, commitPicker: { ...state.commitPicker, queryInput: true } }
-}
-
-export function endCommitPickerFilter(state: AppState, keep: boolean): AppState {
-  return {
-    ...state,
-    commitPicker: {
-      ...state.commitPicker,
-      queryInput: false,
-      query: keep ? state.commitPicker.query : "",
-    },
-  }
-}
-
-/**
- * Close the commit picker
- */
-export function closeCommitPicker(state: AppState): AppState {
-  return {
-    ...state,
-    commitPicker: {
-      ...state.commitPicker,
-      open: false,
-      query: "",
-      queryInput: false,
-      rangeAnchor: null,
-    },
-  }
-}
-
-/**
- * Update commit picker query
- */
-export function setCommitPickerQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    commitPicker: {
-      ...state.commitPicker,
-      query,
-      // Narrowing moves every row; a run being extended from a row that may
-      // no longer be there is a run nobody can see. The marks stay.
-      rangeAnchor: null,
-      markedBeforeRange: state.commitPicker.marked,
-      // On the first match rather than on "all commits": narrowing is how
-      // you go and find a commit, not how you leave.
-      selectedIndex: 1,
-    },
-  }
-}
-
-/**
- * Move commit picker selection (wraps around)
- */
-export function moveCommitPickerSelection(state: AppState, delta: number, maxIndex: number): AppState {
-  let newIndex = state.commitPicker.selectedIndex + delta
-  if (newIndex < 0) newIndex = maxIndex
-  else if (newIndex > maxIndex) newIndex = 0
-  return {
-    ...state,
-    commitPicker: {
-      ...state.commitPicker,
-      selectedIndex: newIndex,
-    },
   }
 }
 

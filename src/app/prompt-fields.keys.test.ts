@@ -56,6 +56,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         commentsPicker: mounted.commentsPicker,
         occurrencePicker: mounted.occurrencePicker,
         marksPicker: mounted.marksPicker,
+        commitPicker: mounted.commitPicker,
         handlers,
         commandKeys: new Map(),
         runCommand: (name) => {

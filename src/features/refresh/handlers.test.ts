@@ -8,6 +8,7 @@ import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
 import { createMarksPickerState } from "../marks/picker-state"
+import { createCommitPickerState } from "../commit-picker/state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -27,6 +28,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -50,6 +52,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -74,6 +77,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -98,6 +102,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -123,6 +128,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -149,6 +155,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker,
       occurrencePicker: createOccurrencePickerState(),
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -176,6 +183,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker,
       marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -202,6 +210,7 @@ describe("a refresh's rebuilt state", () => {
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
       marksPicker,
+      commitPicker: createCommitPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -209,5 +218,39 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(marksPicker.open()).toBe(false)
     expect(marksPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
+  })
+
+  test("closes the commit picker, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const commits = [
+      { sha: "aaa1111", message: "the last thing", author: "you", date: "2026-09-11T10:00:00Z" },
+      { sha: "bbb2222", message: "where it started", author: "you", date: "2026-09-11T09:00:00Z" },
+    ]
+    const commitPicker = createCommitPickerState()
+    commitPicker.show(["bbb2222"], commits)
+    commitPicker.startFilter()
+    commitPicker.setQuery("last")
+    commitPicker.toggleRange("aaa1111")
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(commitPicker.open()).toBe(false)
+    expect(commitPicker.query()).toBe("")
+    expect(commitPicker.queryInput()).toBe(false)
+    expect(commitPicker.rangeAnchor()).toBeNull()
   })
 })

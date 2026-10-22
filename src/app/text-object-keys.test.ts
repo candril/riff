@@ -5,6 +5,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 const diff = (patch: Partial<AppState> = {}): AppState => ({
   ...createInitialState([], [], "test", ""),
@@ -18,6 +19,7 @@ const pickers = {
   commentsPicker: createCommentsPickerState(),
   occurrencePicker: createOccurrencePickerState(),
   marksPicker: createMarksPickerState(),
+  commitPicker: createCommitPickerState(),
 }
 
 describe("textObjectTakes", () => {

@@ -10,6 +10,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 export const BLAME_PEEK: BlamePeekState = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
 
@@ -43,6 +44,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
     marksPicker: createMarksPickerState(),
+    commitPicker: createCommitPickerState(),
     chordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {

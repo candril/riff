@@ -11,6 +11,4 @@
 
 export { getFilteredCommits, markedCommits } from "./filter"
 export { registerCommitPickerKeys, type CommitPickerKeyDeps } from "./keys"
-
-// Re-export state operations
-export { openCommitPicker, closeCommitPicker } from "../../state"
+export { createCommitPickerState, type CommitPickerState, type CommitPickerSnapshot } from "./state"

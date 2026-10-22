@@ -3,7 +3,7 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
@@ -13,12 +13,12 @@ const filePicker: OutsideOverlays = { ...none, filePicker: true }
 const commentsPicker: OutsideOverlays = { ...none, commentsPicker: true }
 const occurrencePicker: OutsideOverlays = { ...none, occurrencePicker: true }
 const marksPicker: OutsideOverlays = { ...none, marksPicker: true }
+const commitPicker: OutsideOverlays = { ...none, commitPicker: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
 const hidden: [string, (s: AppState) => AppState][] = [
-  ["the commit picker, its query closed", (s) => ({ ...s, commitPicker: { ...s.commitPicker, open: true, queryInput: false } })],
   ["the peek over the diff", (s) => ({ ...s, showLinePeek: true })],
   ["the blame peek over the diff", (s) => ({ ...s, blamePeek: { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" } })],
   ["the comments panel holding the keys", comments({ mode: "view" }, "comments")],
@@ -65,6 +65,10 @@ describe("the diff's cursor", () => {
 
   test("hides under the marks picker", () => {
     expect(diffCursorShown(initial, marksPicker)).toBe(false)
+  })
+
+  test("hides under the commit picker, its query closed", () => {
+    expect(diffCursorShown(initial, commitPicker)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -116,6 +120,7 @@ describe("the chat's input", () => {
     expect(chatInputFocused(chatting, commentsPicker)).toBe(false)
     expect(chatInputFocused(chatting, occurrencePicker)).toBe(false)
     expect(chatInputFocused(chatting, marksPicker)).toBe(false)
-    for (const [, open] of hidden.slice(0, 3)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    expect(chatInputFocused(chatting, commitPicker)).toBe(false)
+    for (const [, open] of hidden.slice(0, 2)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })

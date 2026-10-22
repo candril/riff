@@ -7,21 +7,14 @@
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers } from "../../app/key-variants"
 import type { AppState } from "../../state"
+import type { PrCommit } from "../../providers/github/types"
 import type { FilteredCommit } from "../../components/CommitPicker"
-import {
-  closeCommitPicker,
-  endCommitPickerFilter,
-  markCommitRange,
-  moveCommitPickerSelection,
-  startCommitPickerFilter,
-  toggleCommitMark,
-  toggleCommitRange,
-} from "../../state"
 import { getFilteredCommits, markedCommits } from "./filter"
+import type { CommitPickerState } from "./state"
 
 export interface CommitPickerKeyDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  commitPicker: CommitPickerState
   render: () => void
   /**
    * sha is null for "all commits", otherwise the newest commit in scope;
@@ -31,29 +24,27 @@ export interface CommitPickerKeyDeps {
 }
 
 export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPickerKeyDeps): () => void {
-  const picker = () => deps.getState().commitPicker
-  const update = (updater: (s: AppState) => AppState) => {
-    deps.setState(updater)
+  const { commitPicker } = deps
+  const update = (action: () => void) => {
+    action()
     deps.render()
   }
+  const filtered = () => getFilteredCommits(deps.getState().commits, commitPicker.query())
   // Row 0 is "All commits", so the commit under the cursor is one row up the filtered list.
-  const highlighted = () => {
-    const state = deps.getState()
-    return getFilteredCommits(state)[state.commitPicker.selectedIndex - 1]
-  }
+  const highlighted = () => filtered()[commitPicker.selectedIndex() - 1]
 
   /** Move, and drag the run along when `V` is extending one. */
   const move = (delta: number) => {
-    const maxIndex = getFilteredCommits(deps.getState()).length
-    update((s) => {
-      const moved = moveCommitPickerSelection(s, delta, maxIndex)
-      return moved.commitPicker.rangeAnchor ? markCommitRange(moved, rangeShas(moved, getFilteredCommits(moved))) : moved
-    })
+    const rows = filtered()
+    commitPicker.move(delta, rows.length)
+    const anchor = commitPicker.rangeAnchor()
+    if (anchor) commitPicker.markRange(rangeShas(deps.getState().commits, rows, anchor, commitPicker.selectedIndex()))
+    deps.render()
   }
 
   const select = () => {
-    if (picker().selectedIndex === 0) {
-      deps.setState(closeCommitPicker)
+    if (commitPicker.selectedIndex() === 0) {
+      commitPicker.close()
       deps.onCommitSelected(null)
       deps.render()
       return
@@ -61,9 +52,9 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
     const row = highlighted()
     if (!row) return
     // What is marked, or the row under the cursor when nothing is.
-    const marked = markedCommits(deps.getState())
+    const marked = markedCommits(deps.getState().commits, commitPicker.marked())
     const scope = marked.length > 0 ? marked : [row.commit.sha]
-    deps.setState(closeCommitPicker)
+    commitPicker.close()
     deps.onCommitSelected(scope[0]!, undefined, scope)
     deps.render()
   }
@@ -84,15 +75,15 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
   // The query belongs to the prompt field, which types every key left
   // unprevented (spec 065); outside `/` no field is open and the picker
   // owns the keyboard, so nothing it leaves falls through to the diff.
-  const captured = riffKeymap.capture(() => picker().open, (key) => {
-    if (!picker().queryInput) key.preventDefault()
+  const captured = riffKeymap.capture(() => commitPicker.open(), (key) => {
+    if (!commitPicker.queryInput()) key.preventDefault()
   })
 
   const unregisterFilter = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && picker().queryInput,
+    enabled: () => captured.holds() && commitPicker.queryInput(),
     commands: [
-      command("filterCancel", "Drop the query", () => update((s) => endCommitPickerFilter(s, false))),
-      command("filterKeep", "Keep the query", () => update((s) => endCommitPickerFilter(s, true))),
+      command("filterCancel", "Drop the query", () => update(() => commitPicker.endFilter(false))),
+      command("filterKeep", "Keep the query", () => update(() => commitPicker.endFilter(true))),
     ],
     bindings: [
       ...anyModifiers("escape", "commitPicker.filterCancel"),
@@ -104,21 +95,21 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
   })
 
   const unregisterList = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && !picker().queryInput,
+    enabled: () => captured.holds() && !commitPicker.queryInput(),
     commands: [
-      command("close", "Close the picker", () => update(closeCommitPicker)),
+      command("close", "Close the picker", () => update(commitPicker.close)),
       command("select", "Show the selected commits", select),
       command("up", "Select the previous commit", () => move(-1)),
       command("down", "Select the next commit", () => move(1)),
       command("mark", "Mark the selected commit", () => {
         const row = highlighted()
-        if (row) update((s) => toggleCommitMark(s, row.commit.sha))
+        if (row) update(() => commitPicker.toggleMark(row.commit.sha))
       }),
-      command("filter", "Search the commits", () => update(startCommitPickerFilter)),
+      command("filter", "Search the commits", () => update(commitPicker.startFilter)),
       // `V` extends a run from here; `V` again keeps it and lets j/k move without changing it.
       command("range", "Mark a run of commits", () => {
         const row = highlighted()
-        if (row) update((s) => toggleCommitRange(s, row.commit.sha))
+        if (row) update(() => commitPicker.toggleRange(row.commit.sha))
       }),
     ],
     bindings: [
@@ -144,15 +135,17 @@ export function registerCommitPickerKeys(riffKeymap: RiffKeymap, deps: CommitPic
 }
 
 /** The rows between the anchor `V` set and the cursor, inclusive. */
-function rangeShas(state: AppState, filtered: FilteredCommit[]): string[] {
-  const anchor = state.commitPicker.rangeAnchor
-  if (!anchor) return []
-
+function rangeShas(
+  commits: readonly PrCommit[],
+  filtered: readonly FilteredCommit[],
+  anchor: string,
+  selectedIndex: number
+): string[] {
   const anchorRow = filtered.find((row) => row.commit.sha === anchor)
-  const cursorRow = filtered[state.commitPicker.selectedIndex - 1]
+  const cursorRow = filtered[selectedIndex - 1]
   if (!anchorRow || !cursorRow) return []
 
   const from = Math.min(anchorRow.index, cursorRow.index)
   const to = Math.max(anchorRow.index, cursorRow.index)
-  return state.commits.slice(from, to + 1).map((commit) => commit.sha)
+  return commits.slice(from, to + 1).map((commit) => commit.sha)
 }

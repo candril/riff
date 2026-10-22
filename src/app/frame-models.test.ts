@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createInitialState, openCommitPicker, type AppState } from "../state"
+import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { createFlashState, type FlashState } from "../vim-diff/flash-state"
@@ -12,6 +12,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createCommitPickerState } from "../features/commit-picker/state"
 
 const NOW = Date.parse("2026-10-17T12:00:00Z")
 
@@ -33,6 +34,7 @@ function frame(
     commentsPicker = null,
     occurrencePicker = null,
     marksPicker = null,
+    commitPicker = null,
   }: {
     search?: Partial<SearchState>
     flash?: Partial<FlashState>
@@ -41,6 +43,7 @@ function frame(
     commentsPicker?: Frame["commentsPicker"]
     occurrencePicker?: Frame["occurrencePicker"]
     marksPicker?: Frame["marksPicker"]
+    commitPicker?: Frame["commitPicker"]
   } = {}
 ): Frame {
   return {
@@ -62,6 +65,7 @@ function frame(
     commentsPicker,
     occurrencePicker,
     marksPicker,
+    commitPicker,
     commandKeys: new Map(),
   }
 }
@@ -135,13 +139,13 @@ describe("frameModels", () => {
     expect(shown(frameModels(frame(state(), { commentsPicker: createCommentsPickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "commentsPicker", "header"])
     expect(shown(frameModels(frame(state(), { occurrencePicker: createOccurrencePickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "occurrencePicker", "header"])
     expect(shown(frameModels(frame(state(), { marksPicker: createMarksPickerState().snapshot() })))).toEqual(["prompt", "prInfoPanel", "statusBar", "marksPicker", "header"])
-    expect(shown(frameModels(frame(openCommitPicker(state()))))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
+    expect(shown(frameModels(frame(state(), { commitPicker: createCommitPickerState().snapshot() })))).toEqual(["prInfoPanel", "statusBar", "commitPicker", "header"])
     const palette = state({ actionMenu: { ...state().actionMenu, open: true } })
     expect(shown(frameModels(frame(palette)))).toEqual(["prompt", "prInfoPanel", "statusBar", "actionMenu", "header"])
   })
 
   test("dates the commit picker's commits against the frame's clock", () => {
-    const at = (now: number) => frameModels(frame(openCommitPicker(state()), { now })).commitPicker!.rows[1]
+    const at = (now: number) => frameModels(frame(state(), { commitPicker: createCommitPickerState().snapshot(), now })).commitPicker!.rows[1]
     expect(at(NOW)).toMatchObject({ sha: "a1b2c3d", time: "5m ago" })
     expect(at(NOW + 60 * 60_000)).toMatchObject({ time: "1h ago" })
   })

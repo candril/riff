@@ -20,6 +20,7 @@ export function globalLayerKeyDeps(
     filePicker: ctx.filePicker,
     occurrencePicker: ctx.occurrencePicker,
     marksPicker: ctx.marksPicker,
+    commitPicker: ctx.commitPicker,
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,
