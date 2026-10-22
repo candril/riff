@@ -89,7 +89,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
   registerDiffKeys(riffKeymap, diffKeyDeps(ctx, chord))
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   const links = createLinksPicker(ctx)
-  const askedFirst = (key: KeyEvent) => chatReaches(key, ctx.getState(), ctx.getSearchState().active)
+  const askedFirst = (key: KeyEvent) => chatReaches(key, ctx.getState(), ctx.getSearchState().active, ctx.filePicker)
   registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES, G_SEQUENCES), askedFirst)
   expireSequenceOpeners(riffKeymap, ["]", "[", "z", "g"])
   const markChords = registerMarkChordKeys(riffKeymap, markChordKeyDeps(ctx, askedFirst))
@@ -103,6 +103,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     searchActive: () => ctx.getSearchState().active,
+    filePicker: ctx.filePicker,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })
@@ -118,6 +119,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     render: ctx.render,
     getVimState: ctx.getVimState,
     getSearchState: ctx.getSearchState,
+    filePicker: ctx.filePicker,
     chat: ctx.chat,
   })
   registerHelpKeys(riffKeymap, {

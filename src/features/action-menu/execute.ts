@@ -7,7 +7,6 @@
 
 import type { AppState } from "../../state"
 import {
-  openFilePicker,
   openCommentsPicker,
   openOccurrencePicker,
   openCommitPicker,
@@ -30,6 +29,7 @@ import { actions } from "../../actions/registry"
 import { actionKeys } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
 import { openMarksPicker } from "../marks"
+import type { FilePickerState } from "../file-picker/state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -74,6 +74,7 @@ export interface ExecuteContext {
   readonly state: AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  filePicker: Pick<FilePickerState, "show">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -96,7 +97,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, handlers } = ctx
+  const { state, setState, render, filePicker, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -104,7 +105,7 @@ export async function executeAction(
       break
 
     case "find-files":
-      setState(openFilePicker)
+      filePicker.show()
       render()
       break
 

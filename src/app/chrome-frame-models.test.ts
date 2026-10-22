@@ -9,6 +9,7 @@ import { statusBarFrameModel } from "./chrome-frame-models"
 import { chatColumnFrameModel } from "./panel-frame-models"
 import { openPromptModel, promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
+import { createFilePickerState, type FilePickerSnapshot } from "../features/file-picker/state"
 
 const initial = createInitialState([], [], "local", "local changes")
 
@@ -40,6 +41,7 @@ function frame(
     confirmDialog: null,
     syncPreview: null,
     reviewPreview: null,
+    filePicker: null,
     commandKeys: new Map(),
   }
 }
@@ -89,9 +91,10 @@ describe("chatColumnFrameModel", () => {
 })
 
 describe("promptOpenIn", () => {
-  const branches: [string, AppState, Partial<SearchState>, boolean][] = [
+  const filePickerOpen = createFilePickerState().snapshot()
+  const branches: [string, AppState, Partial<SearchState>, boolean, FilePickerSnapshot?][] = [
     ["the action menu", state({ actionMenu: { ...initial.actionMenu, open: true } }), {}, true],
-    ["the file picker", state({ filePicker: { ...initial.filePicker, open: true } }), {}, true],
+    ["the file picker", state(), {}, true, filePickerOpen],
     ["the comments picker", state({ commentsPicker: { ...initial.commentsPicker, open: true } }), {}, true],
     ["the marks picker", state({ marksPicker: { ...initial.marksPicker, open: true } }), {}, true],
     ["the occurrence picker", state({ occurrencePicker: { ...initial.occurrencePicker, open: true } }), {}, true],
@@ -104,11 +107,11 @@ describe("promptOpenIn", () => {
     ["nothing", state(), {}, false],
   ]
 
-  for (const [name, appState, search, open] of branches) {
+  for (const [name, appState, search, open, filePicker = null] of branches) {
     test(`agrees with openPromptModel for ${name}`, () => {
       const searchState = { ...createSearchState(), ...search }
-      expect(promptOpenIn(appState, searchState)).toBe(open)
-      expect(openPromptModel(appState, searchState) !== null).toBe(open)
+      expect(promptOpenIn(appState, searchState, filePicker)).toBe(open)
+      expect(openPromptModel(appState, searchState, filePicker) !== null).toBe(open)
     })
   }
 })

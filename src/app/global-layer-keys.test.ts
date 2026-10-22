@@ -4,6 +4,7 @@ import { registerGlobalKeys, type GlobalLayerKeyDeps } from "./global-layer-keys
 import { createInitialState, showToast, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { DiffFile } from "../utils/diff-parser"
+import { createFilePickerState } from "../features/file-picker/state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -19,10 +20,12 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
   let state: AppState = { ...createInitialState([], [], "test", ""), ...patch }
   const calls: string[] = []
   const harness = await keymapHarness()
+  const filePicker = createFilePickerState()
   const deps: GlobalLayerKeyDeps = {
     getState: () => state,
     setState: (update) => (state = update(state)),
     render: () => {},
+    filePicker,
     getVimState: () => createCursorState(),
     setVimState: () => {},
     getLineMapping: () => {
@@ -43,13 +46,13 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     chord: { chordPending: () => chordPending },
   }
   registerGlobalKeys(harness.riffKeymap, deps)
-  return { ...harness, state: () => state, calls }
+  return { ...harness, state: () => state, filePicker, calls }
 }
 
 test("Ctrl-f opens the file picker and prevents the key, so the picker's field does not type it", async () => {
   const keys = await globalKeys({ files: [FILE] })
   const key = keys.press(CTRL_F)
-  expect(keys.state().filePicker.open).toBe(true)
+  expect(keys.filePicker.open()).toBe(true)
   expect(key.defaultPrevented).toBe(true)
   expect(keys.leftKeys).toEqual([])
 })
@@ -57,7 +60,7 @@ test("Ctrl-f opens the file picker and prevents the key, so the picker's field d
 test("Ctrl-f with no files is declined, unprevented, and reaches the leftover", async () => {
   const keys = await globalKeys()
   const key = keys.press(CTRL_F)
-  expect(keys.state().filePicker.open).toBe(false)
+  expect(keys.filePicker.open()).toBe(false)
   expect(key.defaultPrevented).toBe(false)
   expect(keys.leftKeys).toEqual(["f"])
 })

@@ -15,11 +15,13 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { FlashSurface } from "../vim-diff/flash-state"
 import type { JumpApplyContext } from "../features/jumplist"
 import { globalKeyCommands } from "./global-key-commands"
+import type { FilePickerState } from "../features/file-picker/state"
 
 export interface GlobalLayerKeyDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  filePicker: Pick<FilePickerState, "show">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping

@@ -19,6 +19,7 @@ import type { BehindBy } from "./components/merge-status-model"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
+import type { FilePickerState } from "./features/file-picker/state"
 
 /**
  * UI mode for the app
@@ -53,20 +54,8 @@ export interface ToastState {
 }
 
 /**
- * File picker state
- */
-export interface FilePickerState {
-  /** Whether the file picker is open */
-  open: boolean
-  /** Current search query */
-  query: string
-  /** Currently selected index */
-  selectedIndex: number
-}
-
-/**
  * Comments picker state (spec 044). PR-wide fuzzy picker over every
- * comment in the diff. Triggered by `gC`. Shape mirrors FilePickerState.
+ * comment in the diff. Triggered by `gC`. Shape mirrors the file picker's.
  */
 export interface CommentsPickerState {
   open: boolean
@@ -463,13 +452,8 @@ export interface AppState {
   // Action menu state
   actionMenu: ActionMenuState
   
-  // Review preview state
-  
   // Toast notification
   toast: ToastState
-  
-  // File picker state
-  filePicker: FilePickerState
 
   // Comments picker state (spec 044)
   commentsPicker: CommentsPickerState
@@ -639,11 +623,6 @@ export function createInitialState(
     toast: {
       message: null,
       type: "info",
-    },
-    filePicker: {
-      open: false,
-      query: "",
-      selectedIndex: 0,
     },
     commentsPicker: {
       open: false,
@@ -964,10 +943,10 @@ export function filesWithUnseenComments(state: AppState): Set<string> {
  * widget, which draws its own cursor — so nothing else should be placing
  * the terminal cursor while one is open (spec 065).
  */
-export function promptOpen(state: AppState): boolean {
+export function promptOpen(state: AppState, filePicker: Pick<FilePickerState, "open">): boolean {
   return (
     state.actionMenu.open ||
-    state.filePicker.open ||
+    filePicker.open() ||
     state.commentsPicker.open ||
     state.marksPicker.open ||
     state.occurrencePicker.open ||
@@ -1725,10 +1704,6 @@ export function moveActionMenuSelection(state: AppState, delta: number, maxIndex
 // Pending Review
 // ============================================================================
 
-/**
- * Set the pending review at the app level
- * Also adds pending review comments to the comments array with status="pending"
- */
 export function setPendingReview(
   state: AppState,
   pendingReview: PendingReview | null
@@ -1827,70 +1802,6 @@ export function setMentionSearchQuery(state: AppState, query: string | null): Ap
 }
 
 // ============================================================================
-// File Picker State
-// ============================================================================
-
-/**
- * Open the file picker
- */
-export function openFilePicker(state: AppState): AppState {
-  return {
-    ...state,
-    filePicker: {
-      open: true,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-/**
- * Close the file picker
- */
-export function closeFilePicker(state: AppState): AppState {
-  return {
-    ...state,
-    filePicker: {
-      ...state.filePicker,
-      open: false,
-      query: "",
-      selectedIndex: 0,
-    },
-  }
-}
-
-/**
- * Update file picker query
- */
-export function setFilePickerQuery(state: AppState, query: string): AppState {
-  return {
-    ...state,
-    filePicker: {
-      ...state.filePicker,
-      query,
-      selectedIndex: 0, // Reset selection when query changes
-    },
-  }
-}
-
-/**
- * Move file picker selection (wraps around)
- */
-export function moveFilePickerSelection(state: AppState, delta: number, maxIndex: number): AppState {
-  let newIndex = state.filePicker.selectedIndex + delta
-  // Wrap around
-  if (newIndex < 0) newIndex = maxIndex
-  else if (newIndex > maxIndex) newIndex = 0
-  return {
-    ...state,
-    filePicker: {
-      ...state.filePicker,
-      selectedIndex: newIndex,
-    },
-  }
-}
-
-// ============================================================================
 // Comments Picker State (spec 044)
 // ============================================================================
 
@@ -1928,7 +1839,7 @@ export function setCommentsPickerQuery(state: AppState, query: string): AppState
   }
 }
 
-/** Wraps around at both ends, mirroring moveFilePickerSelection. */
+/** Wraps around at both ends, as the file picker's selection does. */
 export function moveCommentsPickerSelection(
   state: AppState,
   delta: number,

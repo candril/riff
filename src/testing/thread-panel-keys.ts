@@ -2,6 +2,7 @@ import { registerThreadPanelKeys, type ThreadPanelKeyDeps } from "../features/in
 import { createInitialState, openInlineCommentOverlay, type AppState } from "../state"
 import type { Comment } from "../types"
 import { keymapHarness } from "./keymap-keys"
+import { createFilePickerState } from "../features/file-picker/state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -65,6 +66,7 @@ export async function threadPanelKeys(initial: AppState) {
     onToggleHelp: record("help"),
     onReact: record("react"),
     searchActive: () => false,
+    filePicker: createFilePickerState(),
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {

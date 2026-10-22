@@ -8,6 +8,7 @@ import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
+import { createFilePickerState } from "../features/file-picker/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -109,6 +110,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const help = createHelpState()
   const confirm = createConfirmState()
   const syncPreview = createSyncPreviewState()
+  const filePicker = createFilePickerState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -122,7 +124,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render() }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
-        writePrompt({ setState, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+        writePrompt({ setState, filePicker, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },
@@ -149,6 +151,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     confirm,
     syncPreview,
     reviewPreview,
+    filePicker,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -192,6 +195,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     syncPreview,
     /** Submit Review's state, which the frame pass and the keys read as app.ts's do. */
     reviewPreview,
+    /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
+    filePicker,
     fileTreePanel,
     render,
     agent,

@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import { createMockKeys, type TestRendererSetup } from "@opentui/core/testing"
 import { mountApp } from "../../testing/app-render"
 import { ctrl, keysOn, openChat } from "../../testing/chat-keys"
-import { openFilePicker, openInlineCommentOverlay } from "../../state"
+import { openInlineCommentOverlay } from "../../state"
 import { NEW_CONVERSATION_PROMPT } from "./state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -66,7 +66,8 @@ test("Ctrl-r under the help leaves the chat shut and the help up", async () => {
 test("Ctrl-r with a picker open leaves the chat shut", async () => {
   const app = await mounted()
   keysOn(app)
-  app.show(openFilePicker(app.ctx.getState()))
+  app.filePicker.show()
+  app.show()
   ctrl(app, "r")
   expect(app.ctx.getState().chatOpen).toBe(false)
   await app.frame()

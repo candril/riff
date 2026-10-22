@@ -10,6 +10,4 @@
 
 export { getFilteredFiles } from "./filter"
 export { registerFilePickerKeys, type FilePickerKeyDeps } from "./keys"
-
-// Re-export state operations that callers might need
-export { openFilePicker, closeFilePicker } from "../../state"
+export { createFilePickerState, type FilePickerState, type FilePickerSnapshot } from "./state"

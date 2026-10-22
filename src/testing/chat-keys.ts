@@ -60,6 +60,7 @@ export function keysOn(
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
+    filePicker: mounted.filePicker,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

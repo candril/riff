@@ -30,6 +30,7 @@ async function paletteApp() {
           state: mounted.ctx.getState(),
           setState: mounted.ctx.setState,
           render: mounted.render,
+          filePicker: mounted.filePicker,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

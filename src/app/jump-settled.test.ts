@@ -1,10 +1,12 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
 import { interactionSettled, type InteractionInputs } from "./jump-settled"
+import { createFilePickerState } from "../features/file-picker/state"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 const idle: InteractionInputs = {
   state: initial,
+  filePicker: createFilePickerState(),
   vim: { pendingFindChar: null, pendingTextObject: null },
   searchActive: false,
   flashActive: false,
@@ -26,8 +28,10 @@ describe("an interaction is settled", () => {
     expect(interactionSettled({ ...idle, state })).toBe(true)
   })
 
+  const filePickerOpen = createFilePickerState()
+  filePickerOpen.show()
   const open: [string, Partial<InteractionInputs>][] = [
-    ["a picker", { state: { ...initial, filePicker: { ...initial.filePicker, open: true } } }],
+    ["a picker", { filePicker: filePickerOpen }],
     ["the marks picker", { state: { ...initial, marksPicker: { ...initial.marksPicker, open: true } } }],
     ["the occurrence picker", { state: { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true } } }],
     ["a filter prompt", { state: { ...initial, treeFilterInput: true } }],

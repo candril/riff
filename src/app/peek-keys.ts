@@ -18,6 +18,7 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, cho
     getState: ctx.getState,
     getVimState: ctx.getVimState,
     searchActive: () => ctx.getSearchState().active,
+    filePicker: ctx.filePicker,
     chordPending: () => chord.chordPending(),
   }
   const unregisterLinePeek = registerLinePeekKeys(riffKeymap, {

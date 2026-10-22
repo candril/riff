@@ -63,6 +63,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
   const recording = createJumpRecording({
     getState: render.getState,
     setState: render.setState,
+    filePicker: mounted.filePicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane: () => null,

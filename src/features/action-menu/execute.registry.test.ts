@@ -8,6 +8,7 @@ import { buildFileTree } from "../../utils/file-tree"
 import { mountApp } from "../../testing/app-render"
 import { keysOn } from "../../testing/chat-keys"
 import { spelledStrokes } from "../../app/spelled-keys"
+import { createFilePickerState } from "../file-picker/state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -55,6 +56,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
       state = update(state)
     },
     render: () => {},
+    filePicker: createFilePickerState(),
     handlers,
     commandKeys,
     runCommand: (name, keys) => {

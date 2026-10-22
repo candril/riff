@@ -52,6 +52,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         state: render.getState(),
         setState: render.setState,
         render: mounted.render,
+        filePicker: mounted.filePicker,
         handlers,
         commandKeys: new Map(),
         runCommand: (name) => {
@@ -74,9 +75,9 @@ test("the palette's Enter opens the file picker on a fresh field of its own, and
 
   mockInput.pressEnter()
   expect(app.ctx.getState().actionMenu.open).toBe(false)
-  expect(app.ctx.getState().filePicker.open).toBe(true)
+  expect(app.filePicker.open()).toBe(true)
   await mockInput.typeText("greet")
-  expect(app.ctx.getState().filePicker.query).toBe("greet")
+  expect(app.filePicker.query()).toBe("greet")
   const picker = (await app.frame()).split("\n")
   const fieldRow = picker.find((line) => line.includes("greet") && !line.includes("src/"))
   expect(fieldRow).toBeDefined()
@@ -86,7 +87,7 @@ test("the palette's Enter opens the file picker on a fresh field of its own, and
   mockInput.pressEscape()
   // A lone Esc is only told apart from the start of a sequence once the parser's wait is over.
   await Bun.sleep(50)
-  expect(app.ctx.getState().filePicker.open).toBe(false)
+  expect(app.filePicker.open()).toBe(false)
   await mockInput.typeText("/")
   expect(app.ctx.getSearchState().active).toBe(true)
   const search = (await app.frame()).split("\n")
@@ -123,7 +124,7 @@ test("Ctrl-f's field types the query, and Enter swaps the one file on screen for
 
   mockInput.pressKey("f", { ctrl: true })
   await mockInput.typeText("farew")
-  expect(mounted.ctx.getState().filePicker.query).toBe("farew")
+  expect(mounted.filePicker.query()).toBe("farew")
   const picker = (await mounted.frame()).split("\n")
   expect(picker.join("\n")).toContain("Find Files")
   expect(picker.find((line) => line.includes("farew") && !line.includes("src/"))).toBeDefined()
@@ -131,7 +132,7 @@ test("Ctrl-f's field types the query, and Enter swaps the one file on screen for
   mockInput.pressEnter()
 
   const after = await mounted.frame()
-  expect(mounted.ctx.getState().filePicker.open).toBe(false)
+  expect(mounted.filePicker.open()).toBe(false)
   expect(after).not.toContain("Find Files")
   expect(after.split("\n")[0]).toContain("src/farewell.ts")
   expect(after).toContain(`return "goodbye"`)

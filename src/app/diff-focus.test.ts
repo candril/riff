@@ -3,18 +3,18 @@ import { createInitialState, type AppState } from "../state"
 import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
-const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false }
+const none: OutsideOverlays = { prompt: false, help: false, confirm: false, syncPreview: false, reviewPreview: false, filePicker: false }
 const prompt: OutsideOverlays = { ...none, prompt: true }
 const help: OutsideOverlays = { ...none, help: true }
 const confirmation: OutsideOverlays = { ...none, confirm: true }
 const syncPreview: OutsideOverlays = { ...none, syncPreview: true }
 const reviewPreview: OutsideOverlays = { ...none, reviewPreview: true }
+const filePicker: OutsideOverlays = { ...none, filePicker: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
 const hidden: [string, (s: AppState) => AppState][] = [
-  ["the file picker", (s) => ({ ...s, filePicker: { ...s.filePicker, open: true } })],
   ["the comments picker", (s) => ({ ...s, commentsPicker: { ...s.commentsPicker, open: true } })],
   ["the marks picker", (s) => ({ ...s, marksPicker: { ...s.marksPicker, open: true } })],
   ["the occurrence picker", (s) => ({ ...s, occurrencePicker: { ...s.occurrencePicker, open: true } })],
@@ -49,6 +49,10 @@ describe("the diff's cursor", () => {
 
   test("hides under Submit Review", () => {
     expect(diffCursorShown(initial, reviewPreview)).toBe(false)
+  })
+
+  test("hides under the file picker", () => {
+    expect(diffCursorShown(initial, filePicker)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -96,6 +100,7 @@ describe("the chat's input", () => {
     expect(chatInputFocused(chatting, confirmation)).toBe(false)
     expect(chatInputFocused(chatting, syncPreview)).toBe(false)
     expect(chatInputFocused(chatting, reviewPreview)).toBe(false)
-    for (const [, open] of hidden.slice(0, 6)) expect(chatInputFocused(open(chatting), none)).toBe(false)
+    expect(chatInputFocused(chatting, filePicker)).toBe(false)
+    for (const [, open] of hidden.slice(0, 5)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })

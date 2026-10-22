@@ -3,24 +3,30 @@ import { createInitialState, type AppState } from "../state"
 import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { openPromptModel, writePrompt } from "./open-prompt"
 import type { PromptKey } from "./prompt-routing"
+import { createFilePickerState, type FilePickerSnapshot, type FilePickerState } from "../features/file-picker/state"
 
 const initial = createInitialState([], [], "test", "")
 
-function promptFor(patch: Partial<AppState>, search: Partial<SearchState> = {}) {
-  return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search })
+function promptFor(
+  patch: Partial<AppState>,
+  search: Partial<SearchState> = {},
+  filePicker: FilePickerSnapshot | null = null
+) {
+  return openPromptModel({ ...initial, ...patch }, { ...createSearchState(), ...search }, filePicker)
 }
 
 describe("which prompt is typing", () => {
   test("the action menu wins over an open picker", () => {
-    const prompt = promptFor({
-      actionMenu: { ...initial.actionMenu, open: true, query: "sy" },
-      filePicker: { ...initial.filePicker, open: true },
-    })
+    const prompt = promptFor(
+      { actionMenu: { ...initial.actionMenu, open: true, query: "sy" } },
+      {},
+      createFilePickerState().snapshot()
+    )
     expect(prompt).toEqual({ key: "action-menu:", initialValue: "sy", placeholder: "Search" })
   })
 
   test("each picker types into its own query", () => {
-    expect(promptFor({ filePicker: { ...initial.filePicker, open: true, query: "app" } })).toEqual({
+    expect(promptFor({}, {}, { query: "app", selectedIndex: 0 })).toEqual({
       key: "file-picker",
       initialValue: "app",
       placeholder: "Type to search…",
@@ -90,17 +96,22 @@ describe("where what is typed goes", () => {
     let state: AppState = { ...initial, occurrencePicker: { ...initial.occurrencePicker, open: true }, ...patch }
     let renders = 0
     const searched: string[] = []
+    const filePicker = createFilePickerState()
     const write = writePrompt(
-      { setState: (updater) => (state = updater(state)), updateSearchPattern: (value) => void searched.push(value) },
+      {
+        setState: (updater) => (state = updater(state)),
+        filePicker,
+        updateSearchPattern: (value) => void searched.push(value),
+      },
       () => renders++
     )
-    return { write, state: () => state, renders: () => renders, searched }
+    return { write, state: () => state, filePicker, renders: () => renders, searched }
   }
 
-  const fields: [PromptKey, (s: AppState) => string][] = [
+  const fields: [PromptKey, (s: AppState, filePicker: FilePickerState) => string][] = [
     ["action-menu:", (s) => s.actionMenu.query],
     ["action-menu:react", (s) => s.actionMenu.query],
-    ["file-picker", (s) => s.filePicker.query],
+    ["file-picker", (_s, filePicker) => filePicker.query()],
     ["comments-picker", (s) => s.commentsPicker.query],
     ["marks-picker", (s) => s.marksPicker.query],
     ["occurrence-picker:narrow", (s) => s.occurrencePicker.filter],
@@ -112,7 +123,7 @@ describe("where what is typed goes", () => {
     test(`${key} writes its field and renders`, () => {
       const typed = writer()
       typed.write(key, "app")
-      expect(field(typed.state())).toBe("app")
+      expect(field(typed.state(), typed.filePicker)).toBe("app")
       expect(typed.renders()).toBe(1)
       expect(typed.searched).toEqual([])
     })

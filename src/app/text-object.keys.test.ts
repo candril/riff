@@ -43,7 +43,7 @@ test("vif selects the file's lines whichever dispatcher feeds it, the file picke
   expect(vimState().pendingTextObject).toBeNull()
   expect(vimState().mode).toBe("visual-line")
   expect(vimState().selectionAnchor).toBeLessThan(vimState().line)
-  expect(mounted.ctx.getState().filePicker.open).toBe(false)
+  expect(mounted.filePicker.open()).toBe(false)
 })
 
 test("vi{ clears the pending object and opens nothing, whichever dispatcher feeds it", async () => {

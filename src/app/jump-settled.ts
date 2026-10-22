@@ -1,9 +1,11 @@
 import { promptOpen, type AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { composerOpen } from "./diff-focus"
+import type { FilePickerState } from "../features/file-picker/state"
 
 export interface InteractionInputs {
   state: AppState
+  filePicker: Pick<FilePickerState, "open">
   vim: Pick<VimCursorState, "pendingFindChar" | "pendingTextObject">
   searchActive: boolean
   flashActive: boolean
@@ -17,7 +19,7 @@ export interface InteractionInputs {
  */
 export function interactionSettled(inputs: InteractionInputs): boolean {
   return !(
-    promptOpen(inputs.state) ||
+    promptOpen(inputs.state, inputs.filePicker) ||
     composerOpen(inputs.state) ||
     inputs.searchActive ||
     inputs.flashActive ||

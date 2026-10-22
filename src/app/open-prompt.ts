@@ -1,6 +1,5 @@
 import {
   setActionMenuQuery,
-  setFilePickerQuery,
   setCommentsPickerQuery,
   setOccurrencePickerQuery,
   setOccurrencePickerFilter,
@@ -10,6 +9,7 @@ import {
 import type { AppState } from "../state"
 import type { SearchState } from "../vim-diff/search-state"
 import { setMarksPickerQuery } from "../features/marks"
+import type { FilePickerSnapshot, FilePickerState } from "../features/file-picker/state"
 import { ownerOf, type PromptKey } from "./prompt-routing"
 
 export interface PromptModel {
@@ -22,7 +22,11 @@ export interface PromptModel {
  * Which prompt is typing right now. One field types at a time, so at most
  * one of these can be open (spec 065).
  */
-export function openPromptModel(state: AppState, searchState: SearchState): PromptModel | null {
+export function openPromptModel(
+  state: AppState,
+  searchState: SearchState,
+  filePicker: FilePickerSnapshot | null
+): PromptModel | null {
   if (state.actionMenu.open) {
     return {
       key: `action-menu:${state.actionMenu.submenu?.kind ?? ""}`,
@@ -30,8 +34,8 @@ export function openPromptModel(state: AppState, searchState: SearchState): Prom
       placeholder: "Search",
     }
   }
-  if (state.filePicker.open) {
-    return { key: "file-picker", initialValue: state.filePicker.query, placeholder: "Type to search…" }
+  if (filePicker) {
+    return { key: "file-picker", initialValue: filePicker.query, placeholder: "Type to search…" }
   }
   if (state.commentsPicker.open) {
     return { key: "comments-picker", initialValue: state.commentsPicker.query, placeholder: "Type to search…" }
@@ -75,12 +79,17 @@ export function openPromptModel(state: AppState, searchState: SearchState): Prom
 }
 
 /** Whether a prompt is typing right now, so a frame can tell from state alone. */
-export function promptOpenIn(state: AppState, searchState: SearchState): boolean {
-  return openPromptModel(state, searchState) !== null
+export function promptOpenIn(
+  state: AppState,
+  searchState: SearchState,
+  filePicker: FilePickerSnapshot | null
+): boolean {
+  return openPromptModel(state, searchState, filePicker) !== null
 }
 
 export type PromptWriteContext = {
   setState: (updater: (s: AppState) => AppState) => void
+  filePicker: Pick<FilePickerState, "setQuery">
   /** Incremental search reacting to what the prompt field reports (spec 065). */
   updateSearchPattern: (value: string) => void
 }
@@ -97,7 +106,8 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
       case "action-menu":
         return typeInto(setActionMenuQuery, value)
       case "file-picker":
-        return typeInto(setFilePickerQuery, value)
+        ctx.filePicker.setQuery(value)
+        return render()
       case "comments-picker":
         return typeInto(setCommentsPickerQuery, value)
       case "marks-picker":

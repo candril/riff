@@ -6,10 +6,12 @@ import * as jumplist from "../features/jumplist"
 import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
 import { interactionSettled } from "./jump-settled"
 import { threadPanelHoldsKeys } from "./diff-focus"
+import type { FilePickerState } from "../features/file-picker/state"
 
 export interface JumpRecordingDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  filePicker: Pick<FilePickerState, "open">
   getVimState: () => VimCursorState
   getLineMapping: () => Pick<DiffLineMapping, "getLine">
   getPane: () => "left" | "right" | null
@@ -48,6 +50,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
       file: jumplist.cursorFile(mapping, vim.line),
       settled: interactionSettled({
         state,
+        filePicker: deps.filePicker,
         vim,
         searchActive: deps.searchActive(),
         flashActive: deps.flashActive(),

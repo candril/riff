@@ -5,20 +5,17 @@
 import type { RiffKeymap } from "../../app/keymap"
 import { registerQueryPickerKeys } from "../../app/query-picker-keys"
 import type { AppState } from "../../state"
-import {
-  closeFilePicker,
-  keepTreeFile,
-  moveFilePickerSelection,
-  selectFile,
-  updateFileTree,
-} from "../../state"
+import { keepTreeFile, selectFile, updateFileTree } from "../../state"
 import { treeRowsOf } from "../../components/FileTree"
 import { expandToFile } from "../../utils/file-tree"
 import { getFilteredFiles } from "./filter"
+import type { FilePickerState } from "./state"
 
 export interface FilePickerKeyDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  /** The file picker's state, the same instance the frame pass reads. */
+  filePicker: FilePickerState
   render: () => void
   /** After a pick in the single-file view, to reset the cursor and rebuild the mapping. */
   onFileSelected: () => void
@@ -29,10 +26,11 @@ export interface FilePickerKeyDeps {
 export function registerFilePickerKeys(riffKeymap: RiffKeymap, deps: FilePickerKeyDeps): () => void {
   const pick = () => {
     const state = deps.getState()
-    const selectedFile = getFilteredFiles(state)[state.filePicker.selectedIndex]
+    const selectedFile = getFilteredFiles(state, deps.filePicker.query())[deps.filePicker.selectedIndex()]
     if (!selectedFile) return
+    deps.filePicker.close()
     deps.setState((s) => {
-      let newState = closeFilePicker(s)
+      let newState = s
 
       const filename = s.files[selectedFile.index]?.filename
       if (filename) {
@@ -62,16 +60,16 @@ export function registerFilePickerKeys(riffKeymap: RiffKeymap, deps: FilePickerK
   return registerQueryPickerKeys(riffKeymap, {
     name: "filePicker",
     category: "File picker",
-    active: () => deps.getState().filePicker.open,
+    active: () => deps.filePicker.open(),
     close: () => {
-      deps.setState(closeFilePicker)
+      deps.filePicker.close()
       deps.render()
     },
     pick,
     move: (delta) => {
       // Read at run time, so the bound is the list on screen.
-      const maxIndex = getFilteredFiles(deps.getState()).length - 1
-      deps.setState((s) => moveFilePickerSelection(s, delta, maxIndex))
+      const maxIndex = getFilteredFiles(deps.getState(), deps.filePicker.query()).length - 1
+      deps.filePicker.move(delta, maxIndex)
       deps.render()
     },
   })

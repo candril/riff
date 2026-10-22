@@ -91,12 +91,14 @@ test("Ctrl-r gives the chat's input the keys and the cursor, a picker takes them
   expect((await app.frame()).replace(/\s+/g, " ")).toContain("Ask about this review.")
   expect(cursorInChat()).toBe(true)
 
-  app.show({ filePicker: { ...app.ctx.getState().filePicker, open: true } })
+  app.filePicker.show()
+  app.show()
   expect(input.focused).toBe(false)
   expect(renderer.currentFocusedRenderable).toBe(app.islands.filePicker.field())
   expect(await app.frame()).toContain("Find Files")
 
-  app.show({ filePicker: { ...app.ctx.getState().filePicker, open: false } })
+  app.filePicker.close()
+  app.show()
   expect(renderer.currentFocusedRenderable).toBe(input)
   expect(await app.frame()).not.toContain("Find Files")
   expect(cursorInChat()).toBe(true)

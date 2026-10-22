@@ -5,6 +5,7 @@ import { createInitialState, toggleThreadPanelOpenOnly, toggleTreeUnviewedOnly, 
 import { parseDiff } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import type { Comment } from "../../types"
+import { createFilePickerState } from "../file-picker/state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -38,6 +39,7 @@ describe("Show Only Open Threads", () => {
         state,
         setState: (update) => (state = update(state)),
         render: () => {},
+        filePicker: createFilePickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -80,6 +82,7 @@ describe("Show Only Unviewed Files", () => {
         state,
         setState: (update) => (state = update(state)),
         render: () => {},
+        filePicker: createFilePickerState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,

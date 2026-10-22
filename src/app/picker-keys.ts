@@ -51,6 +51,7 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
   registerFilePickerKeys(riffKeymap, {
     getState,
     setState,
+    filePicker: ctx.filePicker,
     render,
     onFileSelected: () => {
       ctx.setVimState(createCursorState())

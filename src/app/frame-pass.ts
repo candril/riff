@@ -26,6 +26,7 @@ import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
 import type { ReviewPreviewState } from "../features/review-preview/state"
+import type { FilePickerState } from "../features/file-picker/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -50,6 +51,7 @@ export interface FramePassContext {
   confirm: ConfirmState
   syncPreview: SyncPreviewState
   reviewPreview: ReviewPreviewState
+  filePicker: FilePickerState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -84,12 +86,14 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const confirmDialog = asked ? confirmDialogModel(asked) : null
     const syncPreview = ctx.syncPreview.open() ? { loading: ctx.syncPreview.loading() } : null
     const reviewPreview = ctx.reviewPreview.open() ? ctx.reviewPreview.snapshot() : null
+    const filePicker = ctx.filePicker.open() ? ctx.filePicker.snapshot() : null
     const focused = diffCursorShown(state, {
-      prompt: promptOpenIn(state, searchState),
+      prompt: promptOpenIn(state, searchState, filePicker),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
       reviewPreview: reviewPreview !== null,
+      filePicker: filePicker !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -119,6 +123,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       confirmDialog,
       syncPreview,
       reviewPreview,
+      filePicker,
       commandKeys: ctx.getCommandKeys(),
     }
 

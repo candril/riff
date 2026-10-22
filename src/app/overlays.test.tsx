@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import { batch } from "solid-js"
 import { BoxRenderable, TextRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
-import { createInitialState, openFilePicker, type AppState } from "../state"
+import { createInitialState, type AppState } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createSearchState, type SearchState } from "../vim-diff/search-state"
 import { createFlashState, type FlashState } from "../vim-diff/flash-state"
@@ -14,6 +14,7 @@ import { FRAME_ISLANDS, SELF_SHOWN, type FrameIslandId } from "./frame-models"
 import { createFrameIslands, followFrame, frameIslandHosts } from "./overlays"
 import { createThreadPanelIsland } from "./thread-panel"
 import { createFeedIsland } from "./feed"
+import { createFilePickerState } from "../features/file-picker/state"
 
 let setup: TestRendererSetup | null = null
 
@@ -59,7 +60,7 @@ async function mount(width: number, height: number) {
   })
   const initial = createInitialState([X, Y], [], "test", "")
   const pass = (
-    { help = false, ...state }: Partial<AppState> & { help?: boolean },
+    { help = false, filePicker = false, ...state }: Partial<AppState> & { help?: boolean; filePicker?: boolean },
     { search = {}, flash = {} }: { search?: Partial<SearchState>; flash?: Partial<FlashState> } = {}
   ): Frame => ({
     state: { ...initial, ...state },
@@ -76,6 +77,7 @@ async function mount(width: number, height: number) {
     confirmDialog: null,
     syncPreview: null,
     reviewPreview: null,
+    filePicker: filePicker ? createFilePickerState().snapshot() : null,
     commandKeys: new Map(),
   })
   return { islands, panels, statusBar, shown, publish, pass, stop, initial }
@@ -102,9 +104,9 @@ test("a published frame shows its overlays before publish returns, and the next 
 })
 
 test("one frame draws a picker, the search and flash lines in the status bar's stead, and the header", async () => {
-  const { islands, statusBar, shown, publish, pass, stop, initial } = await mount(100, 24)
+  const { islands, statusBar, shown, publish, pass, stop } = await mount(100, 24)
 
-  publish(pass(openFilePicker(initial), { search: { pattern: "needle" }, flash: { active: true } }))
+  publish(pass({ filePicker: true }, { search: { pattern: "needle" }, flash: { active: true } }))
   expect(islands.filePicker.host.visible).toBe(true)
   expect(islands.searchPrompt.host.visible).toBe(true)
   expect(islands.flashPrompt.host.visible).toBe(true)
@@ -137,7 +139,7 @@ test("one frame draws a picker, the search and flash lines in the status bar's s
 test("the shell shows every follower but the ones that show themselves", async () => {
   const { islands, panels, shown, publish, pass, stop, initial } = await mount(110, 40)
 
-  publish(pass({ ...openFilePicker(initial), viewMode: "feed", inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true } }))
+  publish(pass({ filePicker: true, viewMode: "feed", inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true } }))
   expect(panels.threadPanel.host.visible).toBe(true)
   const ids = new Set(shown.map(([id]) => id))
   for (const id of SELF_SHOWN) expect(ids.has(id)).toBe(false)
@@ -191,6 +193,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       confirmDialog: null,
       syncPreview: null,
       reviewPreview: null,
+      filePicker: null,
       commandKeys: new Map(),
     })
     expect(updates).toEqual([...FRAME_ISLANDS])

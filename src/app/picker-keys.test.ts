@@ -4,10 +4,8 @@ import {
   createInitialState,
   openActionMenu,
   openCommentsPicker,
-  openFilePicker,
   openOccurrencePicker,
   setCommentsPickerQuery,
-  setFilePickerQuery,
   type AppState,
 } from "../state"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
@@ -15,7 +13,7 @@ import { buildFileTree } from "../utils/file-tree"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { Comment } from "../types"
 import { keymapHarness } from "../testing/keymap-keys"
-import { registerFilePickerKeys } from "../features/file-picker"
+import { createFilePickerState, registerFilePickerKeys, type FilePickerState } from "../features/file-picker"
 import { registerCommentsPickerKeys } from "../features/comments-picker"
 import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mark } from "../features/marks"
 import { registerOccurrencePickerKeys } from "../features/occurrence-picker"
@@ -55,12 +53,13 @@ function closed(): AppState {
 
 const NO_MATCH = "zzz"
 
+/** The file picker's state lives in its factory; the other pickers' in AppState. */
 interface PickerCase {
   name: string
-  open: (s: AppState) => AppState
-  openEmpty: (s: AppState) => AppState
-  isOpen: (s: AppState) => boolean
-  index: (s: AppState) => number
+  open: (s: AppState, filePicker: FilePickerState) => AppState
+  openEmpty: (s: AppState, filePicker: FilePickerState) => AppState
+  isOpen: (s: AppState, filePicker: FilePickerState) => boolean
+  index: (s: AppState, filePicker: FilePickerState) => number
   wraps: boolean
   /** What picking the second row records. */
   picked: string
@@ -70,10 +69,17 @@ interface PickerCase {
 const PICKERS: PickerCase[] = [
   {
     name: "file picker",
-    open: openFilePicker,
-    openEmpty: (s) => setFilePickerQuery(openFilePicker(s), NO_MATCH),
-    isOpen: (s) => s.filePicker.open,
-    index: (s) => s.filePicker.selectedIndex,
+    open: (s, filePicker) => {
+      filePicker.show()
+      return s
+    },
+    openEmpty: (s, filePicker) => {
+      filePicker.show()
+      filePicker.setQuery(NO_MATCH)
+      return s
+    },
+    isOpen: (_s, filePicker) => filePicker.open(),
+    index: (_s, filePicker) => filePicker.selectedIndex(),
     wraps: true,
     picked: "reveal 1",
     emptyEnterCloses: false,
@@ -111,7 +117,7 @@ const PICKERS: PickerCase[] = [
 ]
 
 /** The four layers on recording deps, in registerPickerKeys' order. */
-async function setup(initial: AppState) {
+async function setup(initial: AppState, filePicker = createFilePickerState()) {
   const harness = await keymapHarness()
   let state = initial
   const calls: string[] = []
@@ -137,10 +143,16 @@ async function setup(initial: AppState) {
   })
   registerFilePickerKeys(harness.riffKeymap, {
     ...base,
+    filePicker,
     onFileSelected: () => void calls.push("file selected"),
     revealFile: (index) => void calls.push(`reveal ${index}`),
   })
-  return { ...harness, calls, state: () => state }
+  return { ...harness, calls, state: () => state, filePicker }
+}
+
+async function setupOpen(open: PickerCase["open"]) {
+  const filePicker = createFilePickerState()
+  return setup(open(closed(), filePicker), filePicker)
 }
 
 const ESC = "\x1b"
@@ -169,30 +181,30 @@ for (const picker of PICKERS) {
   describe(`the ${picker.name}`, () => {
     test("escape closes it, with shift or alt held too", async () => {
       for (const sequence of [ESC, SHIFT_ESC, ALT_ESC]) {
-        const { state, leftKeys, press } = await setup(picker.open(closed()))
+        const { state, filePicker, leftKeys, press } = await setupOpen(picker.open)
         expect(press(sequence).defaultPrevented).toBe(true)
-        expect(picker.isOpen(state())).toBe(false)
+        expect(picker.isOpen(state(), filePicker)).toBe(false)
         expect(leftKeys).toEqual([])
       }
     })
 
     test("return and a key named enter both pick the selected row", async () => {
       for (const rename of [undefined, "enter"]) {
-        const { state, calls, leftKeys, press } = await setup(picker.open(closed()))
+        const { state, filePicker, calls, leftKeys, press } = await setupOpen(picker.open)
         press(DOWN)
         calls.length = 0
         expect(press("\r", rename).defaultPrevented).toBe(true)
         expect(calls).toContain(picker.picked)
-        expect(picker.isOpen(state())).toBe(false)
+        expect(picker.isOpen(state(), filePicker)).toBe(false)
         expect(leftKeys).toEqual([])
       }
     })
 
     test("the arrows, ctrl+p and ctrl+n move the selection within the list", async () => {
-      const { state, leftKeys, press } = await setup(picker.open(closed()))
+      const { state, filePicker, leftKeys, press } = await setupOpen(picker.open)
       const at = (sequence: string) => {
         expect(press(sequence).defaultPrevented).toBe(true)
-        return picker.index(state())
+        return picker.index(state(), filePicker)
       }
       expect(at(DOWN)).toBe(1)
       expect(at(CTRL_N)).toBe(2)
@@ -204,21 +216,21 @@ for (const picker of PICKERS) {
     })
 
     test("a bare p, n or any other key is left for the field and kept from the leftover", async () => {
-      const { state, calls, leftKeys, press } = await setup(picker.open(closed()))
+      const { state, filePicker, calls, leftKeys, press } = await setupOpen(picker.open)
       for (const sequence of ["p", "n", "x", "g", "j", BACKSPACE]) {
         expect(press(sequence).defaultPrevented).toBe(false)
       }
-      expect(picker.isOpen(state())).toBe(true)
-      expect(picker.index(state())).toBe(0)
+      expect(picker.isOpen(state(), filePicker)).toBe(true)
+      expect(picker.index(state(), filePicker)).toBe(0)
       expect(calls).toEqual([])
       expect(leftKeys).toEqual([])
     })
 
     test("enter on an empty list is prevented and picks nothing", async () => {
-      const { state, calls, leftKeys, press } = await setup(picker.openEmpty(closed()))
+      const { state, filePicker, calls, leftKeys, press } = await setupOpen(picker.openEmpty)
       expect(press("\r").defaultPrevented).toBe(true)
       expect(calls).toEqual(picker.emptyEnterCloses ? ["render"] : [])
-      expect(picker.isOpen(state())).toBe(!picker.emptyEnterCloses)
+      expect(picker.isOpen(state(), filePicker)).toBe(!picker.emptyEnterCloses)
       expect(leftKeys).toEqual([])
     })
   })
@@ -239,12 +251,15 @@ test("ctrl+g in the occurrence picker switches the prompt to the filter and back
 })
 
 test("ctrl+x and ctrl+g are left for the field in the pickers that do not bind them", async () => {
-  const { state, calls, leftKeys, press } = await setup(openCommentsPicker(openFilePicker(closed())))
+  const { filePicker, calls, leftKeys, press } = await setupOpen((s, filePicker) => {
+    filePicker.show()
+    return openCommentsPicker(s)
+  })
 
   expect(press(CTRL_X).defaultPrevented).toBe(false)
   expect(press(CTRL_G).defaultPrevented).toBe(false)
 
-  expect(state().filePicker.open).toBe(true)
+  expect(filePicker.open()).toBe(true)
   expect(calls).toEqual([])
   expect(leftKeys).toEqual([])
 })
@@ -257,7 +272,7 @@ test("with every picker closed their keys reach the leftover", async () => {
 })
 
 /** registerPickerKeys and registerModalKeys in createAppKeys' order, on a context only Esc needs. */
-async function setupApp(initial: AppState) {
+async function setupApp(initial: AppState, filePicker = createFilePickerState()) {
   const harness = await keymapHarness()
   let state = initial
   const ctx = {
@@ -266,6 +281,7 @@ async function setupApp(initial: AppState) {
       state = update(state)
     },
     render: () => {},
+    filePicker,
   }
   registerPickerKeys(harness.riffKeymap, ctx as AppKeyContext)
   registerModalKeys(harness.riffKeymap, {
@@ -278,25 +294,31 @@ async function setupApp(initial: AppState) {
     flashHandler: () => ({}) as never,
     confirm: createConfirmState(),
   })
-  return { ...harness, state: () => state }
+  return { ...harness, state: () => state, filePicker }
+}
+
+function shownFilePicker(): FilePickerState {
+  const filePicker = createFilePickerState()
+  filePicker.show()
+  return filePicker
 }
 
 test("with the palette open over a picker escape closes the palette", async () => {
-  const { state, leftKeys, press } = await setupApp(openActionMenu(openFilePicker(closed())))
+  const { state, filePicker, leftKeys, press } = await setupApp(openActionMenu(closed()), shownFilePicker())
 
   press(ESC)
 
   expect(state().actionMenu.open).toBe(false)
-  expect(state().filePicker.open).toBe(true)
+  expect(filePicker.open()).toBe(true)
   expect(leftKeys).toEqual([])
 })
 
 test("with the file and comments pickers both open escape closes the file picker", async () => {
-  const { state, press } = await setupApp(openCommentsPicker(openFilePicker(closed())))
+  const { state, filePicker, press } = await setupApp(openCommentsPicker(closed()), shownFilePicker())
 
   press(ESC)
 
-  expect(state().filePicker.open).toBe(false)
+  expect(filePicker.open()).toBe(false)
   expect(state().commentsPicker.open).toBe(true)
 })
 

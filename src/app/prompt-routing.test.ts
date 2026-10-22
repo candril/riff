@@ -4,6 +4,7 @@ import { createSearchState } from "../vim-diff/search-state"
 import { openPromptModel } from "./open-prompt"
 import { ownerOf, promptIslandsOf, promptOwners, routePrompt, type PromptIsland, type PromptKey, type PromptOwner } from "./prompt-routing"
 import type { PromptSession } from "./prompt-session"
+import { createFilePickerState } from "../features/file-picker/state"
 
 const initial = createInitialState([], [], "test", "")
 
@@ -43,7 +44,6 @@ describe("routing the open prompt", () => {
   test("every prompt open-prompt can open has an island, and every island a prompt", () => {
     const states: Partial<AppState>[] = [
       { actionMenu: { ...initial.actionMenu, open: true } },
-      { filePicker: { ...initial.filePicker, open: true } },
       { commentsPicker: { ...initial.commentsPicker, open: true } },
       { marksPicker: { ...initial.marksPicker, open: true } },
       { occurrencePicker: { ...initial.occurrencePicker, open: true, narrowing: true } },
@@ -54,8 +54,9 @@ describe("routing the open prompt", () => {
     ]
     const searching = (active: boolean) => ({ ...createSearchState(), active })
     const opened = [
-      ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false))),
-      openPromptModel(initial, searching(true)),
+      ...states.map((patch) => openPromptModel({ ...initial, ...patch }, searching(false), null)),
+      openPromptModel(initial, searching(false), createFilePickerState().snapshot()),
+      openPromptModel(initial, searching(true), null),
     ]
     const owners = new Set(opened.map((prompt) => ownerOf(prompt!.key)))
     expect([...owners].sort()).toEqual([...promptOwners].sort())

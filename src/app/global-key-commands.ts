@@ -6,7 +6,6 @@ import {
   focusRight,
   openActionMenu,
   openCommitPicker,
-  openFilePicker,
   switchView,
   toggleFilePanel,
   toggleFilePanelExpanded,
@@ -69,7 +68,8 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         // what is on screen is `/`, wherever there is a list to narrow.
         if (!key.ctrl || state.files.length === 0) return false
         key.preventDefault()
-        show(openFilePicker)
+        deps.filePicker.show()
+        deps.render()
       },
     },
     marksPicker: {

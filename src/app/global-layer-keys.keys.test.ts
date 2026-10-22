@@ -74,9 +74,10 @@ test("Ctrl-p, Ctrl-f, Ctrl-k and Ctrl-g open the palette and the file, marks and
 
   mounted.show({ actionMenu: { ...state().actionMenu, open: false } })
   ctrl(mounted, "f")
-  expect(state().filePicker.open).toBe(true)
+  expect(mounted.filePicker.open()).toBe(true)
 
-  mounted.show({ filePicker: { ...state().filePicker, open: false } })
+  mounted.filePicker.close()
+  mounted.show()
   ctrl(mounted, "k")
   expect(state().marksPicker.open).toBe(true)
 

@@ -9,11 +9,13 @@ import type { RiffKeymap } from "./keymap"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import { chatReaches } from "../features/chat/keys"
+import type { FilePickerState } from "../features/file-picker/state"
 
 export interface TextObjectKeyDeps {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean
+  filePicker: Pick<FilePickerState, "open">
   feed: (key: KeyEvent) => void
   render: () => void
 }
@@ -29,14 +31,15 @@ export function textObjectTakes(
   state: AppState,
   vim: Pick<VimCursorState, "pendingTextObject">,
   searchActive: boolean,
+  filePicker: Pick<FilePickerState, "open">,
 ): boolean {
-  return vim.pendingTextObject !== null && state.focusedPanel === "diff" && !chatReaches(key, state, searchActive)
+  return vim.pendingTextObject !== null && state.focusedPanel === "diff" && !chatReaches(key, state, searchActive, filePicker)
 }
 
 export function registerTextObjectKeys(riffKeymap: RiffKeymap, deps: TextObjectKeyDeps): () => void {
   // Nothing is prevented, the keys fed to the vim handler included.
   return riffKeymap.capture(
-    (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive()),
+    (key) => textObjectTakes(key, deps.getState(), deps.getVimState(), deps.searchActive(), deps.filePicker),
     (key) => {
       deps.feed(key)
       deps.render()

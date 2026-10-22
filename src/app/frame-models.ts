@@ -23,10 +23,10 @@ import type { Frame } from "./frame"
  */
 export function frameModels(frame: Frame) {
   const { state, vimState, searchState, flashState, width, height, now } = frame
-  const pickers = pickerModels(state, width, height, new Date(now))
+  const pickers = pickerModels(state, frame.filePicker, width, height, new Date(now))
   return {
     composer: composerModel(state),
-    prompt: openPromptModel(state, searchState),
+    prompt: openPromptModel(state, searchState, frame.filePicker),
     feed: feedFrameModel(frame),
     threadPanel: threadPanelFrameInput(frame),
     prInfoPanel: prInfoPanelFrameModel(frame),

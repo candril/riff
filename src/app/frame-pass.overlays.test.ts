@@ -20,6 +20,7 @@ import { createHelpState } from "../features/help/state"
 import { createConfirmState, type ConfirmDialogState } from "../features/confirm/state"
 import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
+import { createFilePickerState } from "../features/file-picker/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -45,6 +46,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const confirm = createConfirmState()
   const syncPreview = createSyncPreviewState()
   const reviewPreview = createReviewPreviewState()
+  const filePicker = createFilePickerState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -89,6 +91,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     // After the islands, two of which share the factories' names.
     syncPreview,
     reviewPreview,
+    filePicker,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
@@ -98,20 +101,23 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
     /**
-     * `help`, `confirmDialog`, `syncPreview` and `reviewPreview` open or
-     * close those overlays through their factories; the rest patches the state.
+     * `help`, `confirmDialog`, `syncPreview`, `reviewPreview` and
+     * `filePicker` open or close those overlays through their factories; the
+     * rest patches the state.
      */
     show({
       help: helpOpen,
       confirmDialog,
       syncPreview: syncPreviewOpen,
       reviewPreview: reviewPreviewOpen,
+      filePicker: filePickerOpen,
       ...patch
     }: Partial<AppState> & {
       help?: boolean
       confirmDialog?: ConfirmDialogState | null
       syncPreview?: boolean
       reviewPreview?: boolean
+      filePicker?: boolean
     }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
@@ -122,6 +128,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       if (syncPreviewOpen === false) syncPreview.close()
       if (reviewPreviewOpen === true) reviewPreview.show()
       if (reviewPreviewOpen === false) reviewPreview.close()
+      if (filePickerOpen === true) filePicker.show()
+      if (filePickerOpen === false) filePicker.close()
       render()
       return overlays()
     },
@@ -182,18 +190,18 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
-  const open = <K extends "filePicker" | "commentsPicker" | "marksPicker" | "occurrencePicker" | "commitPicker">(
+  const open = <K extends "commentsPicker" | "marksPicker" | "occurrencePicker" | "commitPicker">(
     key: K,
     isOpen: boolean
   ) => ({
     [key]: { ...initial[key], open: isOpen },
   })
-  expect(app.show({ ...open("filePicker", true), help: true, confirmDialog: dialog })).toEqual([
+  expect(app.show({ filePicker: true, help: true, confirmDialog: dialog })).toEqual([
     "filePicker",
     "helpOverlay",
     "confirmDialog",
   ])
-  expect(app.show({ ...open("filePicker", false), ...open("commentsPicker", true), help: false, confirmDialog: null })).toEqual([
+  expect(app.show({ filePicker: false, ...open("commentsPicker", true), help: false, confirmDialog: null })).toEqual([
     "commentsPicker",
   ])
   expect(app.show({ ...open("commentsPicker", false), ...open("marksPicker", true) })).toEqual([
@@ -206,22 +214,22 @@ test("each picker is mounted only while it is open, under help and the confirm d
     "commitPicker",
     "helpOverlay",
   ])
-  expect(app.show({ ...open("filePicker", true), ...open("occurrencePicker", true) })).toEqual([
+  expect(app.show({ filePicker: true, ...open("occurrencePicker", true) })).toEqual([
     "filePicker",
     "occurrencePicker",
     "commitPicker",
     "helpOverlay",
   ])
-  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), help: false })).toEqual([])
+  expect(app.show({ filePicker: false, ...open("occurrencePicker", false), ...open("commitPicker", false), help: false })).toEqual([])
 })
 
 test("the command palette is mounted only while it is open, under the pickers", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
   expect(app.show({ actionMenu: { ...initial.actionMenu, open: true } })).toEqual(["actionMenu"])
-  expect(app.show({ filePicker: { ...initial.filePicker, open: true } })).toEqual(["actionMenu", "filePicker"])
+  expect(app.show({ filePicker: true })).toEqual(["actionMenu", "filePicker"])
   expect(app.show({ actionMenu: { ...initial.actionMenu, open: false } })).toEqual(["filePicker"])
-  expect(app.show({ filePicker: { ...initial.filePicker, open: false } })).toEqual([])
+  expect(app.show({ filePicker: false })).toEqual([])
 })
 
 test("the sync preview is mounted only while it is open, above the palette and the toast and under the pickers", async () => {
@@ -232,12 +240,12 @@ test("the sync preview is mounted only while it is open, above the palette and t
   expect(
     app.show({
       toast: { message: "Saved", type: "info" },
-      filePicker: { ...initial.filePicker, open: true },
+      filePicker: true,
       actionMenu: { ...initial.actionMenu, open: true },
     })
   ).toEqual(["actionMenu", "toast", "syncPreview", "filePicker"])
   expect(app.show(sync(false))).toEqual(["actionMenu", "toast", "filePicker"])
-  expect(app.show({ ...sync(true), toast: initial.toast, filePicker: initial.filePicker, actionMenu: initial.actionMenu })).toEqual([
+  expect(app.show({ ...sync(true), toast: initial.toast, filePicker: false, actionMenu: initial.actionMenu })).toEqual([
     "syncPreview",
   ])
   expect(app.show(sync(false))).toEqual([])
@@ -253,7 +261,7 @@ test("the review preview is mounted only while it is open, between the toast and
       toast: { message: "Saved", type: "info" },
       actionMenu: { ...initial.actionMenu, open: true },
       syncPreview: true,
-      filePicker: { ...initial.filePicker, open: true },
+      filePicker: true,
     })
   ).toEqual(["actionMenu", "toast", "reviewPreview", "syncPreview", "filePicker"])
   expect(app.show(review(false))).toEqual(["actionMenu", "toast", "syncPreview", "filePicker"])
@@ -264,7 +272,7 @@ test("the review preview is mounted only while it is open, between the toast and
       toast: initial.toast,
       actionMenu: initial.actionMenu,
       syncPreview: false,
-      filePicker: initial.filePicker,
+      filePicker: false,
     })
   ).toEqual([])
 })

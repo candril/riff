@@ -59,6 +59,7 @@ function frame(
     confirmDialog: null,
     syncPreview: null,
     reviewPreview: null,
+    filePicker: null,
     commandKeys: new Map(),
   }
 }

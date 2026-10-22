@@ -6,6 +6,7 @@ import { buildFileTree } from "../../utils/file-tree"
 import type { FileReviewStatus } from "../../types"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerFilePickerKeys } from "./keys"
+import { createFilePickerState } from "./state"
 
 const diffOf = (name: string) => `diff --git a/${name} b/${name}
 --- a/${name}
@@ -16,18 +17,22 @@ const diffOf = (name: string) => `diff --git a/${name} b/${name}
 `
 const FILES = sortFiles(parseDiff(["a.ts", "b.ts", "c.ts"].map(diffOf).join("")))
 
-function pickerOn(filename: string, patch: Partial<AppState>): AppState {
+function pickerOn(filename: string, patch: Partial<AppState>) {
   const base = createInitialState(FILES, buildFileTree(FILES), "local", "local changes")
-  const selectedIndex = FILES.findIndex((file) => file.filename === filename)
-  return { ...base, focusedPanel: "tree", ...patch, filePicker: { ...base.filePicker, open: true, selectedIndex } }
+  const filePicker = createFilePickerState()
+  filePicker.show()
+  filePicker.move(FILES.findIndex((file) => file.filename === filename), FILES.length - 1)
+  const state: AppState = { ...base, focusedPanel: "tree", ...patch }
+  return { state, filePicker }
 }
 
-async function pressEnter(state: AppState): Promise<AppState> {
+async function pressEnter({ state, filePicker }: ReturnType<typeof pickerOn>): Promise<AppState> {
   const { riffKeymap, press } = await keymapHarness()
   let current = state
   registerFilePickerKeys(riffKeymap, {
     getState: () => current,
     setState: (updater) => (current = updater(current)),
+    filePicker,
     render: () => {},
     onFileSelected: () => {},
     revealFile: () => {},

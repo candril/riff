@@ -51,7 +51,7 @@ test("Ctrl-f opens the file picker and what is typed into its field narrows the 
   expect(rows).toContain("src/farewell.ts")
 
   await mockInput.typeText("fare")
-  expect(app.ctx.getState().filePicker.query).toBe("fare")
+  expect(app.filePicker.query()).toBe("fare")
   expect(app.islands.filePicker.field().value).toBe("fare")
   rows = pickerBox(await app.frame())
   expect(rows).toMatch(/Find Files\s+1\/1/)

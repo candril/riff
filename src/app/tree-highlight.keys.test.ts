@@ -39,6 +39,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
+    filePicker: mounted.filePicker,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

@@ -37,6 +37,7 @@ import type { HelpState } from "../help/state"
 import type { ConfirmState } from "../confirm/state"
 import type { SyncPreviewState } from "../sync-preview/state"
 import type { ReviewPreviewState } from "../review-preview/state"
+import type { FilePickerState } from "../file-picker/state"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import {
@@ -85,6 +86,7 @@ export interface RefreshContext {
   confirm: Pick<ConfirmState, "close">
   syncPreview: Pick<SyncPreviewState, "close">
   reviewPreview: Pick<ReviewPreviewState, "close">
+  filePicker: Pick<FilePickerState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -258,12 +260,12 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
 /**
  * Swap in the state a reload rebuilt from createInitialState. The help
- * overlay, the confirm dialog, the sync preview and Submit Review live in
- * factories that createInitialState never reaches, so they are closed here,
- * as the rebuild closes every overlay still kept in AppState.
+ * overlay, the confirm dialog, the sync preview, Submit Review and the file
+ * picker live in factories that createInitialState never reaches, so they
+ * are closed here, as the rebuild closes every overlay still kept in AppState.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -271,6 +273,7 @@ export function adoptReloadedState(
   ctx.confirm.close()
   ctx.syncPreview.close()
   ctx.reviewPreview.close()
+  ctx.filePicker.close()
 }
 
 /**
