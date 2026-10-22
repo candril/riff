@@ -8,7 +8,7 @@
  * - Submit review
  */
 
-export { handleInput, type ReviewPreviewInputContext } from "./input"
+export { registerReviewPreviewKeys, type ReviewPreviewKeyDeps } from "./keys"
 export { handleOpenReviewPreview, type ReviewPreviewOpenContext } from "./handlers"
 
 // Re-export state operations that callers might need

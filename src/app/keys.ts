@@ -7,6 +7,7 @@ import { registerFlashKeys, type FlashKeyDeps } from "../features/flash/keys"
 import { registerActionMenuKeys, type ActionMenuKeyDeps } from "../features/action-menu/keys"
 import { registerPickerKeys } from "./picker-keys"
 import { registerCommitPickerKeys } from "../features/commit-picker"
+import { registerPreviewKeys } from "./preview-keys"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
 
@@ -20,7 +21,9 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
-  // then the four query pickers, then the commit picker.
+  // then the four query pickers, the commit picker, the sync preview and
+  // Submit Review.
+  registerPreviewKeys(riffKeymap, ctx)
   registerCommitPickerKeys(riffKeymap, {
     getState: ctx.getState,
     setState: ctx.setState,

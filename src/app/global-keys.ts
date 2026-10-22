@@ -9,7 +9,6 @@
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
-import { reviewCandidates } from "../utils/publishable"
 import { clearTreeFilter, expandFiles, focusLeft, focusRight, promptOpen, toggleChat } from "../state"
 import { expandThreadFor, getInlineCommentOverlayComments, visibleFeedRows, openActionMenu, openActionSubmenu, toggleHelp, toggleLinePeek, togglePeekSide, scrollPeek, toggleWrapLines, openFilePicker, openCommitPicker, setViewFilter, commitViewFilter, clearViewFilter, openInlineCommentOverlay, closeInlineCommentOverlay, toggleFilePanel, toggleFilePanelExpanded, switchView, setViewingCommit, showToast, clearToast, getInlineCommentOverlayDisplayOrder } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
@@ -605,40 +604,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // pending; the next key was typed for the tree, and every handler below
     // stands aside while a chord is pending.
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
-
-    // ========== SYNC PREVIEW (captures all input when open) ==========
-    if (
-      syncPreview.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        onExecuteSync: () => prOperations.handleExecuteSync(ctx.prOperationsContext),
-      })
-    ) {
-      return
-    }
-
-    // ========== REVIEW PREVIEW (captures all input when open) ==========
-    const currentState = ctx.getState()
-    if (
-      reviewPreview.handleInput(key, {
-        state: currentState,
-        setState: ctx.setState,
-        render: ctx.render,
-        getValidatedComments: () =>
-          commentsFeature.validateCommentsForSubmit(
-            reviewCandidates(currentState.comments),
-            currentState.files
-          ),
-        isOwnPr:
-          currentState.prInfo !== null &&
-          ctx.reviewPreviewOpenContext.getCachedCurrentUser() === currentState.prInfo.author,
-        onConfirmReview: () => prOperations.handleConfirmReview(ctx.prOperationsContext),
-        readSummary: ctx.readReviewSummary,
-      })
-    ) {
-      return
-    }
 
     // ========== HELP OVERLAY (modal: g? toggles it, Esc or q closes) ==========
     // Ahead of the panels, which are modal in their own right: the keymap

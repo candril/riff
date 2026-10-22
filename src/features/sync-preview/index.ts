@@ -7,5 +7,5 @@
  * - Escape to close
  */
 
-export { handleInput, type SyncPreviewInputContext } from "./input"
+export { registerSyncPreviewKeys, type SyncPreviewKeyDeps } from "./keys"
 export { handleOpenSyncPreview, type SyncPreviewOpenContext } from "./handlers"

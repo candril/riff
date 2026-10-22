@@ -581,9 +581,8 @@ export async function createApp(options: AppOptions = {}) {
   
   // Input dispatch - features in priority order
   renderer.keyInput.on("keypress", (key: KeyEvent) => {
-    // Modal overlays (capture all input)
-    // actionMenu: its keymap layer (registerActionMenuKeys) takes its keys before this listener
-    if (reviewPreview.handleInput(key, ctx)) return
+    // Modal overlays (capture all input): actionMenu, reviewPreview and the
+    // other modals take their keys in keymap layers before this listener
     
     // Global keys
     if (handleGlobalKeys(key, ctx)) return
