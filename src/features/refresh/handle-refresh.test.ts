@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { treeRowsOf } from "../../components/FileTree"
 import type { AppState } from "../../state"
-import type { FileReviewStatus } from "../../types"
-import { deferred, refreshHarness } from "../../testing/refresh-harness"
+import type { Comment, FileReviewStatus } from "../../types"
+import { createVisitWatermark } from "../../utils/visit"
+import type { PrCommit } from "../../providers/github/types"
+import { prInfo } from "../../testing/pr-info"
+import { deferred, refreshHarness, THREE_TOP_LEVEL_FILES } from "../../testing/refresh-harness"
 import { handleRefresh } from "./handlers"
 
 const highlighted = (state: AppState) => treeRowsOf(state)[state.treeHighlightIndex]?.node.path
@@ -10,7 +13,7 @@ const highlighted = (state: AppState) => treeRowsOf(state)[state.treeHighlightIn
 /** A refresh swallows its own errors into a toast, which would pass a test for the wrong reason. */
 async function landed(refreshing: Promise<void>, state: () => AppState) {
   await refreshing
-  expect(state().toast).toMatchObject({ type: "success" })
+  expect(state().toast?.type).toBeOneOf(["success", "info"])
 }
 
 describe("a refresh's tree highlight", () => {
@@ -64,4 +67,101 @@ describe("a refresh's overlays", () => {
       expect(help.open()).toBe(false)
     })
   }
+})
+
+describe("a refresh's visit", () => {
+  // Young enough that markVisit keeps them: the next visit could still take them for new.
+  const young = (id: string): Comment => ({
+    id,
+    filename: "a.ts",
+    line: 1,
+    side: "RIGHT",
+    body: id,
+    createdAt: "2999-01-01T00:00:00Z",
+    status: "synced",
+  })
+
+  function session(comments: Comment[], commits?: PrCommit[]) {
+    return {
+      prInfo: prInfo("", { commits }),
+      diff: THREE_TOP_LEVEL_FILES,
+      comments,
+      viewedStatuses: new Map(),
+      headSha: "head-2",
+    }
+  }
+
+  test("a PR refresh writes what was seen into the new watermark, takes it and the rebased flag, and starts seeing afresh", async () => {
+    const comments = [young("seen"), young("unseen")]
+    const rewritten = [{ sha: "abc1234", message: "rewritten", author: "you", date: "2026-09-11T10:00:00Z" }]
+    const { ctx, state, visit, calls } = refreshHarness({
+      comments,
+      sources: { loadPrSession: async () => session(comments, rewritten) },
+    })
+    visit.begin(createVisitWatermark("head-1"), false)
+    visit.markSeen(["seen"])
+    visit.setChangedFiles(new Set(["a.ts"]))
+
+    await landed(handleRefresh(ctx), state)
+
+    expect(calls.saveVisit).toHaveLength(1)
+    const saved = calls.saveVisit[0]!
+    expect(saved.source).toBe(state().source)
+    expect(saved.watermark).toMatchObject({ lastSeenHeadSha: "head-2", seenCommentIds: ["seen"] })
+    expect(visit.watermark()).toBe(saved.watermark)
+    expect(visit.rebased()).toBe(true)
+    expect(visit.seen().size).toBe(0)
+    expect(visit.changedFiles().size).toBe(0)
+  })
+
+  test("a PR refresh marks as seen what was on screen when it began, not what is seen while it loads", async () => {
+    const comments = [young("early"), young("late")]
+    const reached = deferred<void>()
+    const loaded = deferred<ReturnType<typeof session>>()
+    const { ctx, state, visit, calls } = refreshHarness({
+      comments,
+      sources: {
+        loadPrSession: () => {
+          reached.resolve()
+          return loaded.promise
+        },
+      },
+    })
+    visit.begin(createVisitWatermark("head-1"), false)
+    visit.markSeen(["early"])
+
+    const refreshing = handleRefresh(ctx)
+    await reached.promise
+    visit.markSeen(["late"])
+    loaded.resolve(session(comments))
+    await landed(refreshing, state)
+
+    expect(calls.saveVisit.map((call) => call.watermark.seenCommentIds)).toEqual([["early"]])
+  })
+
+  test("a PR refresh whose new diff fails to parse still saves the watermark", async () => {
+    const comments = [young("early")]
+    const { ctx, state, visit, calls } = refreshHarness({
+      comments,
+      sources: { loadPrSession: async () => ({ ...session(comments), diff: null as unknown as string }) },
+    })
+    visit.begin(createVisitWatermark("head-1"), false)
+    visit.markSeen(["early"])
+
+    await handleRefresh(ctx)
+
+    expect(state().toast).toMatchObject({ type: "error" })
+    expect(calls.saveVisit.map((call) => call.watermark.seenCommentIds)).toEqual([["early"]])
+  })
+
+  test("a PR review without its PR info reloads as local, and drops its visit", async () => {
+    const { ctx, state, visit, calls } = refreshHarness({ state: (s) => ({ ...s, prInfo: null }) })
+    visit.begin(createVisitWatermark("head-1"), false)
+
+    await landed(handleRefresh(ctx), state)
+
+    expect(state().appMode).toBe("local")
+    expect(visit.watermark()).toBeNull()
+    expect(calls.saveVisit).toEqual([])
+  })
 })

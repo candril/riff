@@ -27,7 +27,7 @@ import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
-import { markVisit, type VisitWatermark } from "../../utils/visit"
+import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
 import type { HelpState } from "../help/state"
@@ -41,7 +41,6 @@ import type { MarksPickerState } from "../marks/picker-state"
 import type { GlobalMarksState } from "../marks/state"
 import type { ActivityFeedState } from "../feed/state"
 import type { VisitState } from "../visit/state"
-import type { Comment } from "../../types"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "../action-menu/state"
 import type { LinePeekState } from "../line-peek/state"
@@ -85,8 +84,8 @@ export interface RefreshContext {
   reloadFeed: () => void
   /** Not reset by a reload: only its stream is dropped, by a PR refresh. */
   feed: Pick<ActivityFeedState, "forgetStream">
-  /** Not reset by a reload: a PR refresh begins a new visit, and local mode has none. */
-  visit: Pick<VisitState, "seen" | "begin">
+  /** Not reset by createInitialState: a PR refresh begins a new visit, and a local reload drops it. */
+  visit: Pick<VisitState, "seen" | "begin" | "reset">
   // The head riff is showing. Reading it before the reload is what makes a
   // force-push detectable; writing it back keeps context expansion pointed
   // at a commit that still exists.
@@ -127,6 +126,9 @@ export interface RefreshContext {
  */
 export async function handleRefresh(ctx: RefreshContext): Promise<void> {
   const state = ctx.getState()
+  // A refresh is a look (spec 069): what was on screen when it began goes
+  // into the watermark, not what the reader sees while gh is awaited.
+  const seenAtStart = ctx.visit.seen()
   const position = capturePosition(state, ctx.getVimState(), ctx.getMapping(), ctx.getSearchState())
 
   // Show loading toast
@@ -150,6 +152,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       forcePushed = wasForcePushed(previousHeadSha, newPrInfo.commits ?? [], PR_COMMITS_FETCH_LIMIT)
       ctx.setHeadSha(headSha)
+      // Saved before the new diff is parsed, so a diff that fails to parse
+      // still records the look.
+      const watermark = markVisit(state.comments, headSha, seenAtStart)
+      void ctx.sources.saveVisit(state.source, watermark)
 
       // Parse diff into files
       const newFiles = sortFiles(parseDiff(newDiff))
@@ -172,7 +178,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
-      void ctx.sources.saveVisit(state.source, beginVisitAfterRefresh(ctx, state.comments, headSha, forcePushed))
+      ctx.visit.begin(watermark, forcePushed)
       followReloadedMarks(ctx, headSha || undefined)
 
       // Collapse resolved threads
@@ -228,6 +234,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
         return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
       })
+      // A local review has no visit, and a PR review loaded without its PR
+      // info reloads down this path too: its watermark has nothing left to
+      // compare against.
+      ctx.visit.reset()
       // No head: in a local review the text alone follows worktree edits.
       followReloadedMarks(ctx, undefined)
 
@@ -280,22 +290,6 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
 }
 
 /**
- * After a PR refresh, which is a look (spec 069): what was on screen up to
- * now has been seen, so it goes into the watermark, and only what the reload
- * brings is new. Returns the watermark, for the caller to save.
- */
-export function beginVisitAfterRefresh(
-  ctx: Pick<RefreshContext, "visit">,
-  comments: readonly Comment[],
-  headSha: string,
-  rebased: boolean
-): VisitWatermark {
-  const watermark = markVisit(comments, headSha, ctx.visit.seen())
-  ctx.visit.begin(watermark, rebased)
-  return watermark
-}
-
-/**
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review and the file,
  * comments, occurrence, marks and commit pickers, the command palette, the
@@ -306,7 +300,7 @@ export function beginVisitAfterRefresh(
  * global marks are not, since a mark is followed to its line's new place, and
  * nor is the activity feed, whose row, filters, opened commits and unseen-only
  * are the reader's (a PR refresh drops only its stream), nor the visit, which
- * a PR refresh begins anew.
+ * the caller begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
   ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList">,

@@ -17,10 +17,7 @@ import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state
 import { createJumpListState } from "../jumplist/state"
 import { createFeedState } from "../feed/state"
 import type { FeedEvent } from "../../utils/feed"
-import { adoptReloadedState, beginVisitAfterRefresh, rebuildFeedStream } from "./handlers"
-import { createVisitState } from "../visit/state"
-import { createVisitWatermark } from "../../utils/visit"
-import type { Comment } from "../../types"
+import { adoptReloadedState, rebuildFeedStream } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
   test("closes the help, which createInitialState no longer resets", () => {
@@ -506,32 +503,5 @@ describe("a PR refresh's feed", () => {
     expect(refreshed("diff").reloads).toBe(0)
     expect(refreshed("state").reloads).toBe(0)
     expect(refreshed("feed").reloads).toBe(1)
-  })
-})
-
-describe("a PR refresh's visit", () => {
-  const young = (id: string): Comment => ({
-    id,
-    filename: "a.ts",
-    line: 1,
-    side: "RIGHT",
-    body: id,
-    createdAt: "2999-01-01T00:00:00Z",
-    status: "synced",
-  })
-
-  test("writes what was seen into the new watermark, takes it and the rebased flag, and starts seeing afresh", () => {
-    const visit = createVisitState()
-    visit.begin(createVisitWatermark("old"), false)
-    visit.markSeen(["seen"])
-    visit.setChangedFiles(new Set(["a.ts"]))
-
-    const watermark = beginVisitAfterRefresh({ visit }, [young("seen"), young("unseen")], "new", true)
-
-    expect(watermark).toMatchObject({ lastSeenHeadSha: "new", seenCommentIds: ["seen"] })
-    expect(visit.watermark()).toBe(watermark)
-    expect(visit.rebased()).toBe(true)
-    expect(visit.seen().size).toBe(0)
-    expect(visit.changedFiles().size).toBe(0)
   })
 })
