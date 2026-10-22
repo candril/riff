@@ -29,19 +29,17 @@ export interface ChatKeyDeps {
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
 
+/**
+ * A composer or a one-line prompt keeps its keys, Ctrl-r included: the
+ * chat taking focus from under it would strand what is being typed there.
+ */
+export function chatStandsAside(state: AppState, searchActive: boolean): boolean {
+  return composerOpen(state) || promptOpen(state) || searchActive || state.prInfoPanel.commentInputOpen
+}
+
 export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () => void {
   const { chat } = deps
-  // A composer or a one-line prompt keeps its keys, Ctrl-r included: the
-  // chat taking focus from under it would strand what is being typed there.
-  const standsAside = () => {
-    const state = deps.getState()
-    return (
-      composerOpen(state) ||
-      promptOpen(state) ||
-      deps.getSearchState().active ||
-      state.prInfoPanel.commentInputOpen
-    )
-  }
+  const standsAside = () => chatStandsAside(deps.getState(), deps.getSearchState().active)
   const focused = () => {
     const state = deps.getState()
     return state.chatOpen && state.focusedPanel === "chat" && !standsAside()

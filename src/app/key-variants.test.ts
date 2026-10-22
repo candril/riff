@@ -35,3 +35,14 @@ test("without drops every variant that holds one of the named modifiers", () => 
   expect(keys).toContain("shift+meta+super+hyper+j")
   expect(without(["ctrl", "meta"], anyModifiers("return", "x"))).toHaveLength(8)
 })
+
+test("the plus key is a name, alone or after a modifier, and not a separator", () => {
+  const keys = anyModifiers("+", "react").map((b) => b.key)
+
+  expect(keys).toHaveLength(32)
+  expect(keys).toContain("+")
+  expect(keys).toContain("ctrl++")
+  expect(keys).toContain("ctrl+shift+meta+super+hyper++")
+  expect(anyModifiers("ctrl++", "react").map((b) => b.key)).toHaveLength(16)
+  expect(without(["ctrl"], anyModifiers("+", "react"))).toHaveLength(16)
+})

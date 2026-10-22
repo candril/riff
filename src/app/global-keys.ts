@@ -33,14 +33,12 @@ import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink, openerCommand } from "./open-link"
 import { createLinksPicker } from "./links-picker"
-import { threadPanelKeyDeps } from "./thread-panel-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
-import * as inlineCommentOverlay from "../features/inline-comment-overlay"
 import * as search from "../features/search"
 import * as feed from "../features/feed"
 import * as fileTreeFeature from "../features/file-tree"
@@ -249,9 +247,7 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
-  const links = createLinksPicker(ctx)
-  const { linksTitle, openLinksPicker, openReactPicker } = links
-  const threadPanel = threadPanelKeyDeps(ctx, links)
+  const { linksTitle, openLinksPicker, openReactPicker } = createLinksPicker(ctx)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -525,11 +521,6 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
 
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
-
-    // ========== INLINE COMMENT OVERLAY (captures all input when open) ==========
-    if (inlineCommentOverlay.handleInput(key, threadPanel)) {
-      return
-    }
 
     // ========== PR INFO PANEL (captures input while viewing PR overview) ==========
     // Runs after all modal overlays so they get first crack at keys like 1/2/3.

@@ -6,9 +6,6 @@
  * the diff. Replaces the old read-only ThreadPreview modal.
  */
 
-export { handleInput } from "./input"
-export type { ThreadPanelViewDeps } from "./view-actions"
-
 export {
   submitInlineDraft,
   submitInlineEditDraft,

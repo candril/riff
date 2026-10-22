@@ -14,7 +14,8 @@ import type { Hint, ThreadCommentModel, ThreadModel, ThreadPanelHeader, ThreadPa
  * they are handed in and only ever hidden, never unmounted: a node Solid
  * removes is destroyed on the next tick, and they would go with it.
  *
- * Keystrokes live in `src/features/inline-comment-overlay/input.ts`.
+ * Keystrokes live in `src/features/inline-comment-overlay/view-keys.ts` and
+ * `composer-keys.ts`.
  */
 export function ThreadPanelView(props: {
   model: ThreadPanelModel

@@ -10,8 +10,10 @@ type Modifier = (typeof MODIFIERS)[number]
  * them as meta, which is also what the terminal parser sets for them.
  */
 export function anyModifiers(key: string, cmd: string): { key: string; cmd: string }[] {
-  const parts = key.split("+")
-  const name = parts.pop()!
+  // The last "+" before the name separates it, so "+" and "ctrl++" name the plus key.
+  const at = key.length > 1 ? key.lastIndexOf("+", key.length - 2) : -1
+  const name = key.slice(at + 1)
+  const parts = at < 0 ? [] : key.slice(0, at).split("+")
   const free = MODIFIERS.filter((modifier) => !parts.includes(modifier))
   return Array.from({ length: 1 << free.length }, (_, mask) => {
     const held = free.filter((_, bit) => mask & (1 << bit))
