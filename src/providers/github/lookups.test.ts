@@ -93,12 +93,15 @@ describe("fetchBehindBy", () => {
     const gh = join(dir, "gh")
     await writeFile(gh, `#!/bin/sh\ntouch "${marker}"\n`)
     await chmod(gh, 0o755)
-    $.env({ ...process.env, PATH: `${dir}:${process.env.PATH}` })
+    // Bun's $ cannot report the env it holds, so the one restored is a copy
+    // taken before the override rather than whatever process.env is by then.
+    const env = { ...process.env }
+    $.env({ ...env, PATH: `${dir}:${env.PATH}` })
     try {
       expect(await fetchBehindBy("o", "r", "main", "")).toBe("failed")
       expect(existsSync(marker)).toBe(false)
     } finally {
-      $.env(process.env)
+      $.env(env)
       await rm(dir, { recursive: true, force: true })
     }
   })

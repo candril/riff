@@ -49,6 +49,7 @@ export async function threadPanelKeys(initial: AppState) {
   let state = initial
   const calls: string[] = []
   const record = (entry: string) => () => void calls.push(entry)
+  const commentDrafts = createCommentDraftsState()
   const deps: ThreadPanelKeyDeps = {
     getState: () => state,
     setState: (update) => {
@@ -78,13 +79,14 @@ export async function threadPanelKeys(initial: AppState) {
     marksPicker: createMarksPickerState(),
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
-    commentDrafts: createCommentDraftsState(),
+    commentDrafts,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {
     ...harness,
     calls,
     unregister,
+    commentDrafts,
     state: () => state,
     overlay: () => state.inlineCommentOverlay,
     set: (patch: Partial<AppState>) => {

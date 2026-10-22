@@ -1,10 +1,11 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import type { CommentsContext } from "../features/comments"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { createInitialState } from "../state"
 import { mountApp, reloadCtx } from "../testing/app-render"
 import { keysOn, moveTo } from "../testing/chat-keys"
 import { composerTextareaIn } from "../testing/composer"
+import { PANEL_COMMENTS, panelState, threadPanelKeys } from "../testing/thread-panel-keys"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -85,4 +86,49 @@ test("a reload drops the kept drafts: the line's composer opens empty", async ()
   const dismissed = await dismiss()
   expect(dismissed).toContain("n new")
   expect(dismissed).not.toContain("n draft")
+})
+
+describe("the thread panel picks a kept draft back up", () => {
+  test("e on a comment opens the rewrite kept for it, not its body", async () => {
+    const keys = await threadPanelKeys(panelState(0))
+    keys.commentDrafts.remember({ editingId: "a" }, "a better way to say it")
+    keys.press("e")
+    expect(keys.overlay().mode).toBe("edit")
+    expect(keys.overlay().editingId).toBe("a")
+    expect(keys.overlay().input).toBe("a better way to say it")
+  })
+
+  test("e on another comment opens that comment's own text, not the rewrite kept for the first", async () => {
+    const keys = await threadPanelKeys(panelState(2))
+    keys.commentDrafts.remember({ editingId: "a" }, "a better way to say it")
+    keys.press("e")
+    expect(keys.overlay().editingId).toBe("b")
+    expect(keys.overlay().input).toBe("about line 3")
+
+    const edited = await threadPanelKeys(panelState(2, {
+      comments: PANEL_COMMENTS.map((c) => c.id === "b" ? { ...c, localEdit: "b, reworded" } : c),
+    }))
+    edited.commentDrafts.remember({ editingId: "a" }, "a better way to say it")
+    edited.press("e")
+    expect(edited.overlay().input).toBe("b, reworded")
+  })
+
+  // The panel was opened on src/greet.ts, line 0, right side; the highlighted
+  // comment differs in all three, so a reply keyed off the panel's own anchor
+  // would pick up the decoy instead.
+  test("r on a comment picks up the draft kept on that comment's file, line and side, not the panel's", async () => {
+    const keys = await threadPanelKeys(panelState(2, {
+      comments: PANEL_COMMENTS.map((c) => c.id === "b" ? { ...c, filename: "src/part.ts", side: "LEFT" as const } : c),
+    }))
+    const panel = keys.overlay()
+    expect({ filename: panel.filename, line: panel.line, side: panel.side }).toEqual({ filename: "src/greet.ts", line: 0, side: "RIGHT" })
+    keys.commentDrafts.remember({ filename: panel.filename, line: panel.line, side: panel.side }, "the panel's own line")
+    keys.commentDrafts.remember({ filename: "src/part.ts", line: 3, side: "LEFT" }, "a reply in progress")
+    keys.press("r")
+    expect(keys.overlay().mode).toBe("compose")
+    expect(keys.overlay().replyToThread).toBe(true)
+    const { filename, line, side } = keys.overlay()
+    expect({ filename, line, side }).toEqual({ filename: "src/part.ts", line: 3, side: "LEFT" })
+    expect(keys.overlay().input).toBe("a reply in progress")
+  })
 })

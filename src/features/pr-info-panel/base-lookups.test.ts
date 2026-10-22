@@ -163,7 +163,8 @@ describe("the base lookups", () => {
     expect(h.state.stackHeard()).toBe(false)
   })
 
-  test("announces a rewritten base once, and again after forgetting", async () => {
+  // Every answer readStack takes follows a forget(), so each one is news.
+  test("announces every rewritten base it takes, and none a newer ask overtook", async () => {
     const h = harness()
     h.rebuild(true)
     h.rebuild(true)
@@ -171,14 +172,14 @@ describe("the base lookups", () => {
     await settle()
     expect(h.rewritten).toEqual([stackOn(1, "rewritten")])
 
-    h.answerStack(0, stackOn(1, "rewritten"))
+    h.answerStack(0, stackOn(2, "rewritten"))
     await settle()
     h.rebuild(false)
-    expect(h.rewritten).toHaveLength(1)
+    expect(h.rewritten).toEqual([stackOn(1, "rewritten")])
 
     h.rebuild(true)
-    h.answerStack(2, stackOn(1, "rewritten"))
+    h.answerStack(2, stackOn(3, "rewritten"))
     await settle()
-    expect(h.rewritten).toHaveLength(2)
+    expect(h.rewritten).toEqual([stackOn(1, "rewritten"), stackOn(3, "rewritten")])
   })
 })

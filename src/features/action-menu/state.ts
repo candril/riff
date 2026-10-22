@@ -66,12 +66,11 @@ export function createActionMenuState() {
         setSelectedIndex(0)
       })
     },
-    /** Wraps around at both ends. */
     move(delta: number, maxIndex: number) {
       let next = selectedIndex() + delta
       if (next < 0) next = maxIndex
       else if (next > maxIndex) next = 0
-      batch(() => setSelectedIndex(next))
+      setSelectedIndex(next)
     },
   }
 }

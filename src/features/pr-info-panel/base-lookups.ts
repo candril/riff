@@ -47,12 +47,11 @@ export function createBaseLookups(deps: BaseLookupsDeps) {
     const ticket = state.askStack()
     const stack = await deps.fetchStack(asked.owner, asked.repo, asked.baseRef, asked.headSha)
     if (deps.target()?.key !== asked.key) return
-    const previous = state.stack()
     if (!state.answerStack(ticket, stack)) return
     deps.panel()?.setStack(stack)
     // A rewritten base changes what the diff means and is the thing least
     // likely guessed, so it earns a word on opening.
-    if (stack?.status === "rewritten" && previous?.status !== "rewritten") deps.onRewritten(stack)
+    if (stack?.status === "rewritten") deps.onRewritten(stack)
     deps.render()
   }
 
