@@ -218,6 +218,7 @@ export async function jumpScenario({
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
+    marksPicker: mounted.marksPicker,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane,

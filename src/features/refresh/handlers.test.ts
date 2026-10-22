@@ -7,6 +7,7 @@ import { createReviewPreviewState } from "../review-preview/state"
 import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
+import { createMarksPickerState } from "../marks/picker-state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -25,6 +26,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -47,6 +49,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -70,6 +73,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -93,6 +97,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -117,6 +122,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker,
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -142,6 +148,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker,
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -168,6 +175,7 @@ describe("a refresh's rebuilt state", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker,
+      marksPicker: createMarksPickerState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -175,5 +183,31 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(occurrencePicker.open()).toBe(false)
     expect(occurrencePicker.snapshot()).toEqual({ query: "", filter: "", narrowing: false, selectedIndex: 0 })
+  })
+
+  test("closes the marks picker, which createInitialState no longer resets", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const marksPicker = createMarksPickerState()
+    marksPicker.show()
+    marksPicker.setQuery("needle")
+    marksPicker.move(1, 3)
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(marksPicker.open()).toBe(false)
+    expect(marksPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
   })
 })

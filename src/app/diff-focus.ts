@@ -19,6 +19,7 @@ export interface OutsideOverlays {
   reviewPreview: boolean
   filePicker: boolean
   commentsPicker: boolean
+  marksPicker: boolean
   occurrencePicker: boolean
 }
 
@@ -30,7 +31,7 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
     outside.help ||
     outside.filePicker ||
     outside.commentsPicker ||
-    state.marksPicker.open ||
+    outside.marksPicker ||
     outside.occurrencePicker ||
     state.commitPicker.open ||
     outside.syncPreview ||

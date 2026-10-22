@@ -33,6 +33,7 @@ async function paletteApp() {
           filePicker: mounted.filePicker,
           commentsPicker: mounted.commentsPicker,
           occurrencePicker: mounted.occurrencePicker,
+          marksPicker: mounted.marksPicker,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

@@ -14,7 +14,7 @@ import type { PickerSnapshots } from "./frame"
 /** What each picker island draws on a terminal `width` by `height`, or null while it is closed. */
 export function pickerModels(
   state: AppState,
-  { filePicker, commentsPicker, occurrencePicker }: PickerSnapshots,
+  { filePicker, commentsPicker, occurrencePicker, marksPicker }: PickerSnapshots,
   width: number,
   height: number,
   now: Date
@@ -26,8 +26,13 @@ export function pickerModels(
     comments: commentsPicker
       ? commentsPickerModel(getFilteredEntries(state, commentsPicker.query), commentsPicker.selectedIndex, height)
       : null,
-    marks: state.marksPicker.open
-      ? marksPickerModel(marksPickerEntries(state), state.marksPicker.selectedIndex, state.marks.marks.length > 0, height)
+    marks: marksPicker
+      ? marksPickerModel(
+          marksPickerEntries(state.marks, state.files, marksPicker.query),
+          marksPicker.selectedIndex,
+          state.marks.marks.length > 0,
+          height
+        )
       : null,
     occurrence: occurrencePicker
       ? occurrencePickerModel(

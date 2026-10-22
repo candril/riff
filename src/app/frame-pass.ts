@@ -29,6 +29,7 @@ import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
+import type { MarksPickerState } from "../features/marks/picker-state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -56,6 +57,7 @@ export interface FramePassContext {
   filePicker: FilePickerState
   commentsPicker: CommentsPickerState
   occurrencePicker: OccurrencePickerState
+  marksPicker: MarksPickerState
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -93,8 +95,9 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const filePicker = ctx.filePicker.open() ? ctx.filePicker.snapshot() : null
     const commentsPicker = ctx.commentsPicker.open() ? ctx.commentsPicker.snapshot() : null
     const occurrencePicker = ctx.occurrencePicker.open() ? ctx.occurrencePicker.snapshot() : null
+    const marksPicker = ctx.marksPicker.open() ? ctx.marksPicker.snapshot() : null
     const focused = diffCursorShown(state, {
-      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker }),
+      prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker }),
       help: help.open,
       confirm: confirmDialog !== null,
       syncPreview: syncPreview !== null,
@@ -102,6 +105,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       filePicker: filePicker !== null,
       commentsPicker: commentsPicker !== null,
       occurrencePicker: occurrencePicker !== null,
+      marksPicker: marksPicker !== null,
     })
 
     const prInfoPanel = ctx.getPrInfoPanel()
@@ -134,6 +138,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       filePicker,
       commentsPicker,
       occurrencePicker,
+      marksPicker,
       commandKeys: ctx.getCommandKeys(),
     }
 

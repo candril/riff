@@ -12,7 +12,7 @@ import type { Comment } from "../types"
 import { keymapHarness } from "../testing/keymap-keys"
 import { createFilePickerState, registerFilePickerKeys, type FilePickerState } from "../features/file-picker"
 import { createCommentsPickerState, registerCommentsPickerKeys, type CommentsPickerState } from "../features/comments-picker"
-import { openMarksPicker, registerMarksPickerKeys, setMarksPickerQuery, type Mark } from "../features/marks"
+import { createMarksPickerState, registerMarksPickerKeys, type MarksPickerState, type Mark } from "../features/marks"
 import { createOccurrencePickerState, registerOccurrencePickerKeys, type OccurrencePickerState } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { createConfirmState } from "../features/confirm/state"
@@ -55,6 +55,7 @@ interface Factories {
   filePicker: FilePickerState
   commentsPicker: CommentsPickerState
   occurrencePicker: OccurrencePickerState
+  marksPicker: MarksPickerState
 }
 
 function createFactories(): Factories {
@@ -62,6 +63,7 @@ function createFactories(): Factories {
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
+    marksPicker: createMarksPickerState(),
   }
 }
 
@@ -114,10 +116,17 @@ const PICKERS: PickerCase[] = [
   },
   {
     name: "marks picker",
-    open: openMarksPicker,
-    openEmpty: (s) => setMarksPickerQuery(openMarksPicker(s), NO_MATCH),
-    isOpen: (s) => s.marksPicker.open,
-    index: (s) => s.marksPicker.selectedIndex,
+    open: (s, { marksPicker }) => {
+      marksPicker.show()
+      return s
+    },
+    openEmpty: (s, { marksPicker }) => {
+      marksPicker.show()
+      marksPicker.setQuery(NO_MATCH)
+      return s
+    },
+    isOpen: (_s, { marksPicker }) => marksPicker.open(),
+    index: (_s, { marksPicker }) => marksPicker.selectedIndex(),
     wraps: false,
     picked: "jump b",
     emptyEnterCloses: true,
@@ -160,6 +169,7 @@ async function setup(initial: AppState, factories = createFactories()) {
   })
   registerMarksPickerKeys(harness.riffKeymap, {
     ...base,
+    marksPicker: factories.marksPicker,
     onJump: (letter) => void calls.push(`jump ${letter}`),
     save: () => void calls.push("save"),
   })
@@ -356,10 +366,10 @@ test("with the file and comments pickers both open escape closes the file picker
 })
 
 test("with the marks and occurrence pickers both open escape closes the marks picker", async () => {
-  const { state, factories, press } = await setupApp(openMarksPicker(closed()), shown("occurrencePicker"))
+  const { factories, press } = await setupApp(closed(), shown("marksPicker", "occurrencePicker"))
 
   press(ESC)
 
-  expect(state().marksPicker.open).toBe(false)
+  expect(factories.marksPicker.open()).toBe(false)
   expect(factories.occurrencePicker.open()).toBe(true)
 })

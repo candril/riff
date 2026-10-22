@@ -17,6 +17,7 @@ import type { JumpApplyContext } from "../features/jumplist"
 import { globalKeyCommands } from "./global-key-commands"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
+import type { MarksPickerState } from "../features/marks/picker-state"
 
 export interface GlobalLayerKeyDeps {
   getState: () => AppState
@@ -24,6 +25,7 @@ export interface GlobalLayerKeyDeps {
   render: () => void
   filePicker: Pick<FilePickerState, "show">
   occurrencePicker: Pick<OccurrencePickerState, "show">
+  marksPicker: Pick<MarksPickerState, "show">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping

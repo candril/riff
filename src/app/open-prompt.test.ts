@@ -6,6 +6,7 @@ import type { PromptKey } from "./prompt-routing"
 import { createFilePickerState, type FilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState, type CommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState, type OccurrencePickerState } from "../features/occurrence-picker/state"
+import { createMarksPickerState, type MarksPickerState } from "../features/marks/picker-state"
 import type { PickerSnapshots } from "./frame"
 
 const initial = createInitialState([], [], "test", "")
@@ -19,6 +20,7 @@ function promptFor(
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
+    marksPicker: null,
     ...pickers,
   })
 }
@@ -44,7 +46,7 @@ describe("which prompt is typing", () => {
       initialValue: "nit",
       placeholder: "Type to search…",
     })
-    expect(promptFor({ marksPicker: { ...initial.marksPicker, open: true, query: "a" } })).toEqual({
+    expect(promptFor({}, {}, { marksPicker: { query: "a", selectedIndex: 0 } })).toEqual({
       key: "marks-picker",
       initialValue: "a",
       placeholder: "Type to search…",
@@ -108,6 +110,7 @@ describe("where what is typed goes", () => {
       filePicker: createFilePickerState(),
       commentsPicker: createCommentsPickerState(),
       occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
     }
     pickers.occurrencePicker.show()
     const write = writePrompt(
@@ -121,13 +124,18 @@ describe("where what is typed goes", () => {
     return { write, state: () => state, pickers, renders: () => renders, searched }
   }
 
-  type Pickers = { filePicker: FilePickerState; commentsPicker: CommentsPickerState; occurrencePicker: OccurrencePickerState }
+  type Pickers = {
+    filePicker: FilePickerState
+    commentsPicker: CommentsPickerState
+    occurrencePicker: OccurrencePickerState
+    marksPicker: MarksPickerState
+  }
   const fields: [PromptKey, (s: AppState, pickers: Pickers) => string][] = [
     ["action-menu:", (s) => s.actionMenu.query],
     ["action-menu:react", (s) => s.actionMenu.query],
     ["file-picker", (_s, { filePicker }) => filePicker.query()],
     ["comments-picker", (_s, { commentsPicker }) => commentsPicker.query()],
-    ["marks-picker", (s) => s.marksPicker.query],
+    ["marks-picker", (_s, { marksPicker }) => marksPicker.query()],
     ["occurrence-picker:narrow", (_s, { occurrencePicker }) => occurrencePicker.filter()],
     ["occurrence-picker:search", (_s, { occurrencePicker }) => occurrencePicker.query()],
     ["commit-picker", (s) => s.commitPicker.query],

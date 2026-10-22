@@ -62,6 +62,7 @@ function frame(
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
+    marksPicker: null,
     commandKeys: new Map(),
   }
 }

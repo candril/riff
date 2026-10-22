@@ -3,7 +3,7 @@ import { createInitialState, type AppState } from "../../state"
 import type { DiffFile } from "../../utils/diff-parser"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerMarksPickerKeys } from "./picker-keys"
-import { openMarksPicker, setMarksPickerQuery, moveMarksPickerSelection } from "./picker-state"
+import { createMarksPickerState, type MarksPickerState } from "./picker-state"
 import type { Mark } from "./types"
 
 const file = (filename: string): DiffFile => ({ filename, additions: 1, deletions: 0, status: "modified", content: "" })
@@ -12,16 +12,20 @@ const mark = (letter: string, filename: string): Mark => ({ letter, filename, li
 const CTRL = { n: "\x0e", p: "\x10", x: "\x18" } as const
 const NAMED: Record<string, string> = { return: "\r", escape: "\x1b", up: "\x1b[A", down: "\x1b[B" }
 
-async function harness(setup: (s: AppState) => AppState = openMarksPicker) {
+const open = (marksPicker: MarksPickerState) => marksPicker.show()
+
+async function harness(setup: (marksPicker: MarksPickerState) => void = open) {
   const base = createInitialState([file("src/alpha.ts"), file("src/beta.ts"), file("docs/gamma.md")], [], "", "")
-  let state: AppState = setup({
+  const marksPicker = createMarksPickerState()
+  setup(marksPicker)
+  let state: AppState = {
     ...base,
     marks: {
       marks: [mark("a", "src/alpha.ts"), mark("b", "src/beta.ts"), mark("c", "docs/gamma.md")],
       current: "b",
       previous: "a",
     },
-  })
+  }
   const jumps: string[] = []
   const saved: (readonly Mark[])[] = []
   const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
@@ -30,6 +34,7 @@ async function harness(setup: (s: AppState) => AppState = openMarksPicker) {
     setState: (fn) => {
       state = fn(state)
     },
+    marksPicker,
     render: () => {},
     onJump: (letter) => {
       jumps.push(letter)
@@ -48,29 +53,32 @@ async function harness(setup: (s: AppState) => AppState = openMarksPicker) {
     return leftKeys.length === before
   }
 
-  return { press, jumps, saved, state: () => state, prevented: () => prevented }
+  return { press, jumps, saved, state: () => state, marksPicker, prevented: () => prevented }
 }
 
 const letters = (s: AppState) => s.marks.marks.map((m) => m.letter)
 
 describe("the marks picker's keys", () => {
   test("do nothing while it is closed", async () => {
-    const h = await harness((s) => s)
+    const h = await harness(() => {})
     expect(h.press("return")).toBe(false)
     expect(h.jumps).toEqual([])
   })
 
   test("Enter jumps to the filtered entry and closes", async () => {
-    const h = await harness((s) => setMarksPickerQuery(openMarksPicker(s), "gamma"))
+    const h = await harness((marksPicker) => {
+      marksPicker.show()
+      marksPicker.setQuery("gamma")
+    })
     expect(h.press("return")).toBe(true)
     expect(h.jumps).toEqual(["c"])
-    expect(h.state().marksPicker.open).toBe(false)
+    expect(h.marksPicker.open()).toBe(false)
   })
 
   test("Esc closes without jumping", async () => {
     const h = await harness()
     h.press("escape")
-    expect(h.state().marksPicker.open).toBe(false)
+    expect(h.marksPicker.open()).toBe(false)
     expect(h.jumps).toEqual([])
   })
 
@@ -78,27 +86,33 @@ describe("the marks picker's keys", () => {
     const h = await harness()
     h.press("n", true)
     h.press("down")
-    expect(h.state().marksPicker.selectedIndex).toBe(2)
+    expect(h.marksPicker.selectedIndex()).toBe(2)
     h.press("p", true)
     h.press("up")
-    expect(h.state().marksPicker.selectedIndex).toBe(0)
+    expect(h.marksPicker.selectedIndex()).toBe(0)
   })
 
   test("Ctrl-x deletes the selected mark of the filtered list and stays open", async () => {
-    const h = await harness((s) => setMarksPickerQuery(openMarksPicker(s), "src"))
+    const h = await harness((marksPicker) => {
+      marksPicker.show()
+      marksPicker.setQuery("src")
+    })
     h.press("down")
     expect(h.press("x", true)).toBe(true)
     expect(letters(h.state())).toEqual(["a", "c"])
     expect(h.saved).toEqual([h.state().marks.marks])
-    expect(h.state().marksPicker.open).toBe(true)
+    expect(h.marksPicker.open()).toBe(true)
     expect(h.state().marks).toMatchObject({ current: null, previous: "a" })
   })
 
   test("deleting the last entry moves the selection up to the new last one", async () => {
-    const h = await harness((s) => moveMarksPickerSelection(openMarksPicker(s), 2, 2))
+    const h = await harness((marksPicker) => {
+      marksPicker.show()
+      marksPicker.move(2, 2)
+    })
     h.press("x", true)
     expect(letters(h.state())).toEqual(["a", "b"])
-    expect(h.state().marksPicker.selectedIndex).toBe(1)
+    expect(h.marksPicker.selectedIndex()).toBe(1)
   })
 
   test("a bare x or j is typing, not a command", async () => {
@@ -106,7 +120,7 @@ describe("the marks picker's keys", () => {
     expect(h.press("x")).toBe(true)
     expect(h.press("j")).toBe(true)
     expect(letters(h.state())).toEqual(["a", "b", "c"])
-    expect(h.state().marksPicker.selectedIndex).toBe(0)
+    expect(h.marksPicker.selectedIndex()).toBe(0)
     expect(h.saved).toEqual([])
     expect(h.prevented()).toBe(0)
   })

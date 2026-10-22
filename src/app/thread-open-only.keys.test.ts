@@ -66,6 +66,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
+    marksPicker: mounted.marksPicker,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

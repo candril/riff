@@ -125,3 +125,12 @@ mark state [012](./012-vim-navigation.md) left without a key becomes this.
   is built before M6 finishes, they go into the diff's key handling like
   the other sequences, and move with it. The list's keys are a keymap
   layer in `src/features/marks/picker-keys.ts`.
+- The list's state lives in a factory of its own rather than in `AppState`
+  ([ADR-003](../docs/decisions/ADR-003-feature-state-factories.md)):
+  `createMarksPickerState()` in `src/features/marks/picker-state.ts`. Its
+  accessors are `open`, `query` and `selectedIndex`; `show` and `close`
+  reset the query and the selection, `setQuery` puts the selection back on
+  the first row, `move` stops at both ends rather than wrapping as the
+  other pickers do, and `clampSelection` keeps it on a row after `Ctrl-x`.
+  A reload closes it in `adoptReloadedState` and in `closeFeatureOverlays`
+  in `src/app.ts`.

@@ -11,6 +11,7 @@ import { spelledStrokes } from "../../app/spelled-keys"
 import { createFilePickerState } from "../file-picker/state"
 import { createCommentsPickerState } from "../comments-picker/state"
 import { createOccurrencePickerState } from "../occurrence-picker/state"
+import { createMarksPickerState } from "../marks/picker-state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -61,6 +62,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
+    marksPicker: createMarksPickerState(),
     handlers,
     commandKeys,
     runCommand: (name, keys) => {

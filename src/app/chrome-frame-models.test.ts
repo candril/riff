@@ -12,6 +12,7 @@ import type { Frame, PickerSnapshots } from "./frame"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
+import { createMarksPickerState } from "../features/marks/picker-state"
 
 const initial = createInitialState([], [], "local", "local changes")
 
@@ -46,6 +47,7 @@ function frame(
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
+    marksPicker: null,
     commandKeys: new Map(),
   }
 }
@@ -95,12 +97,12 @@ describe("chatColumnFrameModel", () => {
 })
 
 describe("promptOpenIn", () => {
-  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null }
+  const closed: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null }
   const branches: [string, AppState, Partial<SearchState>, boolean, Partial<PickerSnapshots>?][] = [
     ["the action menu", state({ actionMenu: { ...initial.actionMenu, open: true } }), {}, true],
     ["the file picker", state(), {}, true, { filePicker: createFilePickerState().snapshot() }],
     ["the comments picker", state(), {}, true, { commentsPicker: createCommentsPickerState().snapshot() }],
-    ["the marks picker", state({ marksPicker: { ...initial.marksPicker, open: true } }), {}, true],
+    ["the marks picker", state(), {}, true, { marksPicker: createMarksPickerState().snapshot() }],
     ["the occurrence picker", state(), {}, true, { occurrencePicker: createOccurrencePickerState().snapshot() }],
     ["the commit picker's query", state({ commitPicker: { ...initial.commitPicker, open: true, queryInput: true } }), {}, true],
     ["the commit picker's list", state({ commitPicker: { ...initial.commitPicker, open: true, queryInput: false } }), {}, false],

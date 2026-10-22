@@ -10,7 +10,7 @@ import { type ActionMenuState, type ActionSubmenu, createActionMenuState } from 
 import type { IgnoreMatcher } from "./utils/ignore"
 import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
-import { createMarksState, type MarksState, type MarksPickerState } from "./features/marks/types"
+import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import { closeBlamePeek, type BlamePeekState } from "./features/blame/peek-state"
 import type { BlameColumnState } from "./features/blame/column-state"
@@ -22,6 +22,7 @@ import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
 import type { OccurrencePickerState } from "./features/occurrence-picker/state"
+import type { MarksPickerState } from "./features/marks/picker-state"
 
 /**
  * UI mode for the app
@@ -525,7 +526,6 @@ export interface AppState {
 
   // Global marks (spec 101): the letters `m` sets and `'` returns to.
   marks: MarksState
-  marksPicker: MarksPickerState
 }
 
 /**
@@ -667,7 +667,6 @@ export function createInitialState(
     reactionTarget: null,
     jumpList: createJumpListState(),
     marks: createMarksState(),
-    marksPicker: { open: false, query: "", selectedIndex: 0 },
   }
 }
 
@@ -912,6 +911,7 @@ export interface PromptPickers {
   filePicker: Pick<FilePickerState, "open">
   commentsPicker: Pick<CommentsPickerState, "open">
   occurrencePicker: Pick<OccurrencePickerState, "open">
+  marksPicker: Pick<MarksPickerState, "open">
 }
 
 /**
@@ -924,7 +924,7 @@ export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
     state.actionMenu.open ||
     pickers.filePicker.open() ||
     pickers.commentsPicker.open() ||
-    state.marksPicker.open ||
+    pickers.marksPicker.open() ||
     pickers.occurrencePicker.open() ||
     state.commitPicker.open ||
     state.treeFilterInput ||

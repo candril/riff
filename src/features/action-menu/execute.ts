@@ -26,10 +26,10 @@ import { REACTION_META } from "../../types"
 import { actions } from "../../actions/registry"
 import { actionKeys } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
-import { openMarksPicker } from "../marks"
 import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
+import type { MarksPickerState } from "../marks/picker-state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -77,6 +77,7 @@ export interface ExecuteContext {
   filePicker: Pick<FilePickerState, "show">
   commentsPicker: Pick<CommentsPickerState, "show">
   occurrencePicker: Pick<OccurrencePickerState, "show">
+  marksPicker: Pick<MarksPickerState, "show">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -99,7 +100,7 @@ export async function executeAction(
   actionId: string,
   ctx: ExecuteContext
 ): Promise<boolean> {
-  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, handlers } = ctx
+  const { state, setState, render, filePicker, commentsPicker, occurrencePicker, marksPicker, handlers } = ctx
 
   switch (actionId) {
     case "quit":
@@ -119,7 +120,7 @@ export async function executeAction(
       break
 
     case "find-marks":
-      setState(openMarksPicker)
+      marksPicker.show()
       render()
       break
 

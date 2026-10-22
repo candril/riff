@@ -9,7 +9,7 @@
  * commits, a rename) can move it along.
  */
 
-export type { Mark, LineAnchor, MarksState, MarksPickerState } from "./types"
+export type { Mark, LineAnchor, MarksState } from "./types"
 export { createMarksState } from "./types"
 export {
   isMarkLetter,
@@ -26,6 +26,6 @@ export { openFoldHiding, type FoldHidingContext } from "./fold-hiding"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
-export { markEntries, markLineText, markEntryLocation, filterMarkEntries, type MarkEntry } from "./list"
-export { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection, marksPickerEntries } from "./picker-state"
+export { markEntries, markLineText, markEntryLocation, filterMarkEntries, marksPickerEntries, type MarkEntry } from "./list"
+export { createMarksPickerState, type MarksPickerState, type MarksPickerSnapshot } from "./picker-state"
 export { registerMarksPickerKeys, type MarksPickerKeyDeps } from "./picker-keys"

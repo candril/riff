@@ -185,7 +185,9 @@ export type { ActionMenuState } from "./state"
 
 ### Feature Input Handler
 
-Each feature registers its own keys as a keymap layer:
+Each feature registers its own keys as a keymap layer. The state calls in
+this sample are the historical plan: the picker's state now lives in
+`createOccurrencePickerState()` (ADR-003).
 
 ```typescript
 // src/features/occurrence-picker/keys.ts: one keymap layer per feature (ADR-002)

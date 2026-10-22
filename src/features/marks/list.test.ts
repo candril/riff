@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import type { DiffFile } from "../../utils/diff-parser"
-import { markEntries, markLineText, filterMarkEntries } from "./list"
+import { markEntries, markLineText, filterMarkEntries, marksPickerEntries } from "./list"
 import { setMark } from "./store"
 import { createMarksState, type Mark } from "./types"
 
@@ -80,5 +80,10 @@ describe("the mark list", () => {
     expect(filterMarkEntries(entries, "b").map((e) => e.mark.letter)).toEqual(["b"])
     expect(filterMarkEntries(entries, "readme").map((e) => e.mark.letter)).toEqual(["A"])
     expect(filterMarkEntries(entries, "halt").map((e) => e.mark.letter)).toEqual(["a"])
+  })
+
+  test("is what the picker lists for its query", () => {
+    expect(marksPickerEntries(marks, [file], "")).toEqual(entries)
+    expect(marksPickerEntries(marks, [file], "halt").map((e) => e.mark.letter)).toEqual(["a"])
   })
 })

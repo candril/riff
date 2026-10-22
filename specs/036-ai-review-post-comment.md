@@ -353,6 +353,9 @@ Two new entries in `src/actions/registry.ts`:
 
 ### Posting flow
 
+`showConfirmDialog` and `closeConfirmDialog` are the historical plan: the
+dialog's state now lives in `createConfirmState()` (ADR-003).
+
 ```ts
 async function handleReviewDraftedComment(ctx: AiReviewContext) {
   const draft = loadDraftComment(ctx)   // validates schema + state

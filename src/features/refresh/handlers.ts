@@ -40,6 +40,7 @@ import type { ReviewPreviewState } from "../review-preview/state"
 import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
+import type { MarksPickerState } from "../marks/picker-state"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
 import { followReloadedMarks } from "./marks"
 import {
@@ -91,6 +92,7 @@ export interface RefreshContext {
   filePicker: Pick<FilePickerState, "close">
   commentsPicker: Pick<CommentsPickerState, "close">
   occurrencePicker: Pick<OccurrencePickerState, "close">
+  marksPicker: Pick<MarksPickerState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -265,12 +267,12 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 /**
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review and the file,
- * comments and occurrence pickers live in factories that createInitialState
- * never reaches, so they are closed here, as the rebuild closes every overlay
- * still kept in AppState.
+ * comments, occurrence and marks pickers live in factories that
+ * createInitialState never reaches, so they are closed here, as the rebuild
+ * closes every overlay still kept in AppState.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -281,6 +283,7 @@ export function adoptReloadedState(
   ctx.filePicker.close()
   ctx.commentsPicker.close()
   ctx.occurrencePicker.close()
+  ctx.marksPicker.close()
 }
 
 /**

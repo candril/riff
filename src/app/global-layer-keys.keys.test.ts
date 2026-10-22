@@ -79,10 +79,10 @@ test("Ctrl-p, Ctrl-f, Ctrl-k and Ctrl-g open the palette and the file, marks and
   mounted.filePicker.close()
   mounted.show()
   ctrl(mounted, "k")
-  expect(state().marksPicker.open).toBe(true)
+  expect(mounted.marksPicker.open()).toBe(true)
 
+  mounted.marksPicker.close()
   mounted.show({
-    marksPicker: { ...state().marksPicker, open: false },
     commits: [{ sha: "abc1234", message: "greet louder", author: "ana", date: "2026-01-01T00:00:00Z" }],
   })
   ctrl(mounted, "g")

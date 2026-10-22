@@ -16,7 +16,6 @@ import { flashSurface, reservedKeysFor } from "./list-flash"
 import type { GlobalLayerKeyDeps } from "./global-layer-keys"
 import { seedQuery } from "../features/occurrence-picker"
 import * as jumplist from "../features/jumplist"
-import * as marks from "../features/marks"
 
 /** A key the command declines, which goes on unprevented to the layers behind. */
 export type Outcome = false | void
@@ -79,7 +78,8 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         // From every view, and with no mark set too: the empty list says how to set one.
         if (!key.ctrl) return false
         key.preventDefault()
-        show(marks.openMarksPicker)
+        deps.marksPicker.show()
+        deps.render()
       },
     },
     commitsOrBottom: {

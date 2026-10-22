@@ -23,6 +23,7 @@ import { createReviewPreviewState } from "../features/review-preview/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
+import { createMarksPickerState } from "../features/marks/picker-state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -51,6 +52,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const filePicker = createFilePickerState()
   const commentsPicker = createCommentsPickerState()
   const occurrencePicker = createOccurrencePickerState()
+  const marksPicker = createMarksPickerState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -98,6 +100,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     filePicker,
     commentsPicker,
     occurrencePicker,
+    marksPicker,
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,
@@ -108,8 +111,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   return {
     /**
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
-     * `commentsPicker` and `occurrencePicker` open or close those overlays
-     * through their factories; the rest patches the state.
+     * `commentsPicker`, `occurrencePicker` and `marksPicker` open or close
+     * those overlays through their factories; the rest patches the state.
      */
     show({
       help: helpOpen,
@@ -119,6 +122,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       filePicker: filePickerOpen,
       commentsPicker: commentsPickerOpen,
       occurrencePicker: occurrencePickerOpen,
+      marksPicker: marksPickerOpen,
       ...patch
     }: Partial<AppState> & {
       help?: boolean
@@ -128,6 +132,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       filePicker?: boolean
       commentsPicker?: boolean
       occurrencePicker?: boolean
+      marksPicker?: boolean
     }) {
       state = { ...state, ...patch }
       if (helpOpen === true && !help.open()) help.toggle()
@@ -144,6 +149,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       if (commentsPickerOpen === false) commentsPicker.close()
       if (occurrencePickerOpen === true) occurrencePicker.show()
       if (occurrencePickerOpen === false) occurrencePicker.close()
+      if (marksPickerOpen === true) marksPicker.show()
+      if (marksPickerOpen === false) marksPicker.close()
       render()
       return overlays()
     },
@@ -204,7 +211,7 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {
   const app = await harness()
   const initial = createInitialState([], [], "test", "")
-  const open = <K extends "marksPicker" | "commitPicker">(
+  const open = <K extends "commitPicker">(
     key: K,
     isOpen: boolean
   ) => ({
@@ -218,10 +225,10 @@ test("each picker is mounted only while it is open, under help and the confirm d
   expect(app.show({ filePicker: false, commentsPicker: true, help: false, confirmDialog: null })).toEqual([
     "commentsPicker",
   ])
-  expect(app.show({ commentsPicker: false, ...open("marksPicker", true) })).toEqual([
+  expect(app.show({ commentsPicker: false, marksPicker: true })).toEqual([
     "marksPicker",
   ])
-  expect(app.show({ ...open("marksPicker", false), occurrencePicker: true })).toEqual([
+  expect(app.show({ marksPicker: false, occurrencePicker: true })).toEqual([
     "occurrencePicker",
   ])
   expect(app.show({ occurrencePicker: false, ...open("commitPicker", true), help: true })).toEqual([

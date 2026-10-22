@@ -24,6 +24,7 @@ import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
+import type { MarksPickerState } from "../features/marks/picker-state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -131,6 +132,8 @@ export interface AppKeyContext {
   commentsPicker: CommentsPickerState
   /** The occurrence picker's state, the same instance the frame pass reads. */
   occurrencePicker: OccurrencePickerState
+  /** The marks picker's state, the same instance the frame pass reads. */
+  marksPicker: MarksPickerState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

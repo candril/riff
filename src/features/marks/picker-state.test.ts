@@ -1,25 +1,45 @@
-import { test, expect, describe } from "bun:test"
-import { createInitialState, type AppState } from "../../state"
-import { openMarksPicker, closeMarksPicker, setMarksPickerQuery, moveMarksPickerSelection } from "./picker-state"
+import { describe, expect, test } from "bun:test"
+import { createMarksPickerState } from "./picker-state"
 
-const initial: AppState = createInitialState([], [], "", "")
-
-describe("the marks picker", () => {
+describe("the marks picker's state", () => {
   test("opens empty and closes cleared", () => {
-    const typed = setMarksPickerQuery(openMarksPicker(initial), "foo")
-    expect(typed.marksPicker).toEqual({ open: true, query: "foo", selectedIndex: 0 })
-    expect(closeMarksPicker(typed).marksPicker).toEqual({ open: false, query: "", selectedIndex: 0 })
+    const marksPicker = createMarksPickerState()
+    marksPicker.show()
+    marksPicker.setQuery("foo")
+    expect(marksPicker.open()).toBe(true)
+    expect(marksPicker.snapshot()).toEqual({ query: "foo", selectedIndex: 0 })
+    marksPicker.close()
+    expect(marksPicker.open()).toBe(false)
+    expect(marksPicker.snapshot()).toEqual({ query: "", selectedIndex: 0 })
   })
 
   test("a new query goes back to the first entry", () => {
-    const moved = moveMarksPickerSelection(openMarksPicker(initial), 2, 5)
-    expect(moved.marksPicker.selectedIndex).toBe(2)
-    expect(setMarksPickerQuery(moved, "x").marksPicker.selectedIndex).toBe(0)
+    const marksPicker = createMarksPickerState()
+    marksPicker.show()
+    marksPicker.move(2, 5)
+    expect(marksPicker.selectedIndex()).toBe(2)
+    marksPicker.setQuery("x")
+    expect(marksPicker.selectedIndex()).toBe(0)
   })
 
   test("the selection stops at both ends", () => {
-    const open = openMarksPicker(initial)
-    expect(moveMarksPickerSelection(open, -1, 3).marksPicker.selectedIndex).toBe(0)
-    expect(moveMarksPickerSelection(open, 9, 3).marksPicker.selectedIndex).toBe(3)
+    const marksPicker = createMarksPickerState()
+    marksPicker.show()
+    marksPicker.move(-1, 3)
+    expect(marksPicker.selectedIndex()).toBe(0)
+    marksPicker.move(9, 3)
+    expect(marksPicker.selectedIndex()).toBe(3)
+  })
+
+  test("clampSelection pulls the selection back onto the last row, and never below the first", () => {
+    const marksPicker = createMarksPickerState()
+    marksPicker.show()
+    marksPicker.move(3, 3)
+    marksPicker.clampSelection(2)
+    expect(marksPicker.selectedIndex()).toBe(2)
+    marksPicker.clampSelection(5)
+    expect(marksPicker.selectedIndex()).toBe(2)
+    marksPicker.clampSelection(-1)
+    expect(marksPicker.selectedIndex()).toBe(0)
   })
 })

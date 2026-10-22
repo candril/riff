@@ -6,6 +6,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import type { DiffFile } from "../utils/diff-parser"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
+import { createMarksPickerState } from "../features/marks/picker-state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -28,6 +29,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     render: () => {},
     filePicker,
     occurrencePicker: createOccurrencePickerState(),
+    marksPicker: createMarksPickerState(),
     getVimState: () => createCursorState(),
     setVimState: () => {},
     getLineMapping: () => {

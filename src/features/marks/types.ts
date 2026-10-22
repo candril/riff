@@ -30,9 +30,3 @@ export interface MarksState {
 export function createMarksState(): MarksState {
   return { marks: [], current: null, previous: null }
 }
-
-export interface MarksPickerState {
-  open: boolean
-  query: string
-  selectedIndex: number
-}

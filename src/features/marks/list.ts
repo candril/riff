@@ -31,3 +31,7 @@ export function markEntryLocation(entry: MarkEntry): string {
 export function filterMarkEntries(entries: MarkEntry[], query: string): MarkEntry[] {
   return fuzzyFilter(query, entries, (e) => `${e.mark.letter} ${markEntryLocation(e)} ${e.text}`)
 }
+
+export function marksPickerEntries(marks: MarksState, files: readonly DiffFile[], query: string): MarkEntry[] {
+  return filterMarkEntries(markEntries(marks, files), query)
+}
