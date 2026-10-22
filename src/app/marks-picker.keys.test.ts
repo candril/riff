@@ -86,7 +86,7 @@ test("Ctrl-k lists every mark, a query narrows them, Ctrl-n and Ctrl-p stop at t
   expect(letters(opened)).toEqual(["a"])
   expect(selectedLetter(opened)).toBe("a")
   expect(frame).toContain("1/1")
-  expect(mounted.ctx.getState().marks.marks.map((mark) => mark.letter)).toEqual(["a", "c"])
+  expect(mounted.marks.marks().map((mark) => mark.letter)).toEqual(["a", "c"])
 
   press(KEY.enter)
   frame = await mounted.frame()
@@ -107,7 +107,7 @@ test("Ctrl-k lists every mark, a query narrows them, Ctrl-n and Ctrl-p stop at t
   await mockInput.typeText("line")
   await mounted.frame()
   expect(letters(opened)).toEqual(["c"])
-  adoptReloadedState(reloadCtx(mounted), (prev) => ({ ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), marks: prev.marks }))
+  adoptReloadedState(reloadCtx(mounted), (prev) => createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"))
   mounted.render()
   expect(picker()).toEqual({ open: false, query: "", selectedIndex: 0 })
   expect(await mounted.frame()).not.toContain("^x delete")

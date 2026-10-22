@@ -63,6 +63,7 @@ import { createFilePickerState } from "./features/file-picker/state"
 import { createCommentsPickerState } from "./features/comments-picker/state"
 import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
+import { createMarksState } from "./features/marks/state"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
 import { createLinePeekState } from "./features/line-peek/state"
@@ -180,7 +181,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -494,6 +495,8 @@ export async function createApp(options: AppOptions = {}) {
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
   const jumpList = createJumpListState()
+  const globalMarks = createMarksState()
+  globalMarks.reset(initialMarks)
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -694,6 +697,7 @@ export async function createApp(options: AppOptions = {}) {
     linePeek,
     blamePeek,
     blameColumns,
+    marks: globalMarks,
     mentions,
     commentDrafts,
     getCommandKeys: () => paletteKeys,
@@ -1039,6 +1043,7 @@ export async function createApp(options: AppOptions = {}) {
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
+    marks: globalMarks,
     help,
     confirm,
     syncPreview,
@@ -1205,6 +1210,7 @@ export async function createApp(options: AppOptions = {}) {
     ...threadMotionContext,
     getPane: () => split.commentScope().pane ?? null,
     setPane: (pane) => { if (split.shown()) split.source().setSide(pane) },
+    marks: globalMarks,
     save: (saved) => { void saveMarks(state.source, saved) },
     getHead: markHead,
   }
@@ -1408,6 +1414,8 @@ export async function createApp(options: AppOptions = {}) {
         const newFiles = sortFiles(parseDiff(prSession.diff))
         const newFileTree = buildFileTree(newFiles)
         const newSource = `gh:${prSession.prInfo.owner}/${prSession.prInfo.repo}#${prNumber}`
+        // Marks belong to the review: the PR's own, or the next `m` would save over them.
+        const followed = await followLoadedMarks(newSource, await loadMarks(newSource), newFiles, prSession.headSha || undefined)
 
         state = createInitialState(
           newFiles,
@@ -1422,6 +1430,7 @@ export async function createApp(options: AppOptions = {}) {
           state.ignoreMatcher
         )
         closeFeatureOverlays()
+        globalMarks.reset(followed)
         // The new PR gets no panel here, so no rebuild forgets the lookups for it.
         baseLookups.state.forget()
 
@@ -1433,12 +1442,9 @@ export async function createApp(options: AppOptions = {}) {
           }
           state = { ...state, collapsedFiles: newCollapsed }
         }
-        // Marks belong to the review: the PR's own, or the next `m` would save over them.
-        const followed = await followLoadedMarks(newSource, await loadMarks(newSource), state.allFiles, prSession.headSha || undefined)
         const panelFilters = await loadPanelFilters(newSource)
         state = {
           ...state,
-          marks: { ...state.marks, marks: followed },
           threadPanelOpenOnly: panelFilters.openThreadsOnly,
           treeUnviewedOnly: panelFilters.unviewedFilesOnly,
           treeKeptFile: null,
@@ -1789,6 +1795,7 @@ export async function createApp(options: AppOptions = {}) {
       // load leaves it.
       const ignored = new Set([...next.ignoredFiles].filter((f) => next.files.some((x) => x.filename === f)))
       const [panelFilters, openSections] = await Promise.all([loadPanelFilters(source), loadInfoSections(source)])
+      const followed = await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined)
       state = {
         ...next,
         collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
@@ -1799,8 +1806,8 @@ export async function createApp(options: AppOptions = {}) {
         threadPanelOpenOnly: panelFilters.openThreadsOnly,
         treeUnviewedOnly: panelFilters.unviewedFilesOnly,
         viewMode: view,
-        marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
+      globalMarks.reset(followed)
       closeFeatureOverlays()
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
@@ -1886,6 +1893,7 @@ export async function createApp(options: AppOptions = {}) {
     commentsPicker,
     occurrencePicker,
     marksPicker,
+    marks: globalMarks,
     commitPicker,
     actionMenu,
     linePeek,

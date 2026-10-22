@@ -257,6 +257,10 @@ The kept comment drafts are the sixteenth (`createCommentDraftsState` in
 the map for the panel's `n draft` hint, and a reload clears it.
 The jumplist is the seventeenth (`createJumpListState` in
 `src/features/jumplist/state.ts`); nothing draws it, and a reload clears it.
+Global marks are the eighteenth (`createMarksState` in
+`src/features/marks/state.ts`); the frame carries the list for the signs
+and the marks picker, and unlike drafts and the jumplist a reload keeps
+them.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

@@ -1,10 +1,11 @@
 import type { AppState } from "../../state"
 import { followMarks } from "../marks/follow"
+import type { GlobalMarksState } from "../marks/state"
 import type { Mark } from "../marks/types"
 
 export interface FollowMarksContext {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  marks: Pick<GlobalMarksState, "marks" | "replace">
   saveMarks: (marks: readonly Mark[]) => void
 }
 
@@ -15,9 +16,8 @@ export interface FollowMarksContext {
  * one moved, so an unchanged reload writes nothing.
  */
 export function followReloadedMarks(ctx: FollowMarksContext, head: string | undefined): void {
-  const state = ctx.getState()
-  const { marks, moved } = followMarks(state.marks.marks, state.allFiles, head)
+  const { marks, moved } = followMarks(ctx.marks.marks(), ctx.getState().allFiles, head)
   if (!moved) return
-  ctx.setState((s) => ({ ...s, marks: { ...s.marks, marks } }))
+  ctx.marks.replace(marks)
   ctx.saveMarks(marks)
 }

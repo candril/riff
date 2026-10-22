@@ -129,6 +129,7 @@ async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
       setPane: () => {},
       ensureCursorVisible: () => {},
       render: mounted.render,
+      marks: mounted.marks,
       save: () => {},
       getHead: () => undefined,
     } as unknown as AppKeyContext["marksContext"],
@@ -345,10 +346,10 @@ describe("a key that breaks off a sequence", () => {
 })
 
 test("mz sets mark z, the mark chord keeping the key", async () => {
-  const { type, state, scrolls, keys, lineOf } = await zApp()
+  const { mounted, type, scrolls, keys, lineOf } = await zApp()
   keys.jumpTo(lineOf('  return "hello"'))
   type("m", "z")
-  expect(state().marks.marks.map((mark) => mark.letter)).toEqual(["z"])
+  expect(mounted.marks.marks().map((mark) => mark.letter)).toEqual(["z"])
   expect(scrolls).toEqual([])
   expect(keys.chordPending()).toBe(false)
 })

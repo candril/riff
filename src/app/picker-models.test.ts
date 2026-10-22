@@ -4,11 +4,12 @@ import { createInitialState, type AppState } from "../state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createCommitPickerState } from "../features/commit-picker/state"
-import type { PickerSnapshots } from "./frame"
+import type { Frame, PickerSnapshots } from "./frame"
+import { createMarksPickerState } from "../features/marks/picker-state"
 import { X, Y } from "../testing/marks"
 
 const NOW = new Date("2026-10-17T12:00:00Z")
-const CLOSED: PickerSnapshots = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null }
+const CLOSED: PickerSnapshots & Pick<Frame, "marks"> = { filePicker: null, commentsPicker: null, occurrencePicker: null, marksPicker: null, commitPicker: null, actionMenu: null, marks: [] }
 
 function state(): AppState {
   return {
@@ -29,6 +30,18 @@ describe("pickerModels", () => {
     expect(models.comments).toBeNull()
     expect(models.commit).toBeNull()
     expect(pickerModels(state(), { ...CLOSED, commentsPicker: createCommentsPickerState().snapshot() }, 100, 40, NOW).comments).not.toBeNull()
+  })
+
+  test("lists the frame's marks in the marks picker, and tells no marks from none matching", () => {
+    const marksPicker = createMarksPickerState().snapshot()
+    const marks = [
+      { letter: "b", filename: "src/y.ts", line: 2, side: "RIGHT" as const },
+      { letter: "a", filename: "src/x.ts", line: null, side: "RIGHT" as const },
+    ]
+    const listed = pickerModels(state(), { ...CLOSED, marksPicker, marks }, 100, 40, NOW).marks!
+    expect(listed.rows.map((row) => row.location)).toEqual(["src/x.ts", "src/y.ts:2"])
+    expect(pickerModels(state(), { ...CLOSED, marksPicker: { ...marksPicker, query: "zzz" }, marks }, 100, 40, NOW).marks!.empty).toBe("No matching marks")
+    expect(pickerModels(state(), { ...CLOSED, marksPicker }, 100, 40, NOW).marks!.empty).toBe("No marks — m{letter} sets one")
   })
 
   test("dates the commits against now and wraps the commit keys to the width", () => {

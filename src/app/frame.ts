@@ -12,6 +12,7 @@ import type { FilePickerSnapshot } from "../features/file-picker/state"
 import type { CommentsPickerSnapshot } from "../features/comments-picker/state"
 import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/state"
 import type { MarksPickerSnapshot } from "../features/marks/picker-state"
+import type { Mark } from "../features/marks/types"
 import type { CommitPickerSnapshot } from "../features/commit-picker/state"
 import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
@@ -58,6 +59,8 @@ export interface Frame {
   occurrencePicker: OccurrencePickerSnapshot | null
   /** The marks picker's state, read off its factory, or null while it is closed. */
   marksPicker: MarksPickerSnapshot | null
+  /** The global marks, read off their factory, for the marks picker's rows. */
+  marks: readonly Mark[]
   /** The commit picker's state, read off its factory, or null while it is closed. */
   commitPicker: CommitPickerSnapshot | null
   /** The command palette's state, read off its factory, or null while it is closed. */

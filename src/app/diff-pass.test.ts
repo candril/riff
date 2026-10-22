@@ -45,6 +45,7 @@ describe("drawing the diff views for one pass", () => {
     searchState: createSearchState(),
     flashState: createFlashState(),
     blameColumns: new Map(),
+    marks: [],
     focused: true,
     diffShown: true,
     splitOn: false,

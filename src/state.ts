@@ -7,7 +7,6 @@ import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import type { IgnoreMatcher } from "./utils/ignore"
-import { emptyMarks, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -456,9 +455,6 @@ export interface AppState {
   // overlay's highlighted comment) and clear it when they're dismissed.
   // Null means the React action is not available in this context.
   reactionTarget: ReactionTarget | null
-
-  // Global marks (spec 101): the letters `m` sets and `'` returns to.
-  marks: MarksState
 }
 
 /**
@@ -578,7 +574,6 @@ export function createInitialState(
     allFileTree: fileTree,
     commitDiffCache: new Map(),
     reactionTarget: null,
-    marks: emptyMarks(),
   }
 }
 

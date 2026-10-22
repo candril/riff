@@ -259,6 +259,7 @@ export async function jumpScenario({
         ...threadMotionContext,
         getPane,
         setPane,
+        marks: mounted.marks,
         save: () => {},
         getHead: () => undefined,
       },

@@ -142,6 +142,8 @@ export interface AppKeyContext {
   occurrencePicker: OccurrencePickerState
   /** The marks picker's state, the same instance the frame pass reads. */
   marksPicker: MarksPickerState
+  /** The global marks, the same instance the frame pass reads and marksContext writes. */
+  marks: marks.GlobalMarksState
   /** The commit picker's state, the same instance the frame pass reads. */
   commitPicker: CommitPickerState
   /** The command palette's state, the same instance the frame pass reads. */

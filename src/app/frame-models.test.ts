@@ -72,6 +72,7 @@ function frame(
     commentsPicker,
     occurrencePicker,
     marksPicker,
+    marks: [],
     commitPicker,
     actionMenu,
     linePeek,

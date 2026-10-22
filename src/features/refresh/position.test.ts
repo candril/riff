@@ -11,7 +11,6 @@ import {
   capturePosition,
   captureAnchor,
   keepTreeHighlight,
-  rebuildAfterRefresh,
   refreshMessage,
   relocate,
   reseatTreeHighlight,
@@ -215,26 +214,6 @@ describe("restoring the view", () => {
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
     const after = restorePosition(stateWith(files), position)
     expect([after.chatOpen, after.focusedPanel]).toEqual([true, "chat"])
-  })
-
-  test("the marks and the two last visited survive a reload", () => {
-    const marks = {
-      marks: [{ letter: "a", filename: "b.ts", line: 2, side: "RIGHT" as const }],
-      current: "a",
-      previous: "b",
-    }
-    const live = { ...stateWith(files), marks }
-    const position = capturePosition(live, cursorAt(0), mappingOf(files), createSearchState())
-    expect(rebuildAfterRefresh(live, stateWith(files), position).marks).toEqual(marks)
-  })
-
-  test("a mark set while the reload is awaited is kept", () => {
-    const before = stateWith(files)
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
-    const marks = { marks: [{ letter: "a", filename: "b.ts", line: 2, side: "RIGHT" as const }], current: null, previous: null }
-
-    const rebuilt = rebuildAfterRefresh({ ...before, marks }, stateWith(files), position)
-    expect(rebuilt.marks).toEqual(marks)
   })
 
   test("a PR that was being read as a diff does not snap back to the overview", () => {

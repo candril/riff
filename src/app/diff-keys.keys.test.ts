@@ -104,6 +104,7 @@ async function diffApp() {
       ensureCursorVisible: () => {},
       render: mounted.render,
       fileNavContext,
+      marks: mounted.marks,
       save: () => {},
       getHead: () => undefined,
     },

@@ -33,8 +33,8 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
   })
   registerMarksPickerKeys(riffKeymap, {
     getState,
-    setState,
     marksPicker: ctx.marksPicker,
+    marks: ctx.marks,
     render,
     onJump: (letter) => {
       // A mark is a place in the diff, so going to one leaves the overview or the feed.

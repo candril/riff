@@ -11,7 +11,7 @@ import type { Comment } from "../types"
 import { keymapHarness } from "../testing/keymap-keys"
 import { createFilePickerState, registerFilePickerKeys, type FilePickerState } from "../features/file-picker"
 import { createCommentsPickerState, registerCommentsPickerKeys, type CommentsPickerState } from "../features/comments-picker"
-import { createMarksPickerState, registerMarksPickerKeys, type MarksPickerState, type Mark } from "../features/marks"
+import { createMarksPickerState, createMarksState, registerMarksPickerKeys, type GlobalMarksState, type MarksPickerState, type Mark } from "../features/marks"
 import { createOccurrencePickerState, registerOccurrencePickerKeys, type OccurrencePickerState } from "../features/occurrence-picker"
 import { registerPickerKeys } from "./picker-keys"
 import { createConfirmState } from "../features/confirm/state"
@@ -44,8 +44,13 @@ function closed(): AppState {
   return {
     ...base,
     comments: NAMES.map((name, at) => comment(`c${at}`, name)),
-    marks: { marks: NAMES.map((name) => mark(name[0]!, name)), current: null, previous: null },
   }
+}
+
+function marked(): GlobalMarksState {
+  const marks = createMarksState()
+  marks.reset(NAMES.map((name) => mark(name[0]!, name)))
+  return marks
 }
 
 const NO_MATCH = "zzz"
@@ -170,6 +175,7 @@ async function setup(initial: AppState, factories = createFactories()) {
   registerMarksPickerKeys(harness.riffKeymap, {
     ...base,
     marksPicker: factories.marksPicker,
+    marks: marked(),
     onJump: (letter) => void calls.push(`jump ${letter}`),
     save: () => void calls.push("save"),
   })
@@ -324,6 +330,7 @@ async function setupApp(initial: AppState, factories = createFactories(), action
       state = update(state)
     },
     render: () => {},
+    marks: marked(),
     ...factories,
   }
   registerPickerKeys(harness.riffKeymap, ctx as AppKeyContext)

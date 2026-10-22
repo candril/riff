@@ -70,6 +70,7 @@ function frame(
     commentsPicker: null,
     occurrencePicker: null,
     marksPicker: null,
+    marks: [],
     commitPicker: null,
     actionMenu: null,
     linePeek: null,

@@ -9,12 +9,12 @@ import { getFilteredEntries } from "../features/comments-picker"
 import { marksPickerEntries } from "../features/marks"
 import { getOccurrenceResults } from "../features/occurrence-picker"
 import { getFilteredCommits } from "../features/commit-picker"
-import type { PickerSnapshots } from "./frame"
+import type { Frame, PickerSnapshots } from "./frame"
 
 /** What each picker island draws on a terminal `width` by `height`, or null while it is closed. */
 export function pickerModels(
   state: AppState,
-  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker }: PickerSnapshots,
+  { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, marks }: PickerSnapshots & Pick<Frame, "marks">,
   width: number,
   height: number,
   now: Date
@@ -28,9 +28,9 @@ export function pickerModels(
       : null,
     marks: marksPicker
       ? marksPickerModel(
-          marksPickerEntries(state.marks, state.files, marksPicker.query),
+          marksPickerEntries({ marks }, state.files, marksPicker.query),
           marksPicker.selectedIndex,
-          state.marks.marks.length > 0,
+          marks.length > 0,
           height
         )
       : null,

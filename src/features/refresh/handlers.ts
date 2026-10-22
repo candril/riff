@@ -41,6 +41,7 @@ import type { FilePickerState } from "../file-picker/state"
 import type { CommentsPickerState } from "../comments-picker/state"
 import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
+import type { GlobalMarksState } from "../marks/state"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "../action-menu/state"
 import type { LinePeekState } from "../line-peek/state"
@@ -53,7 +54,7 @@ import { followReloadedMarks } from "./marks"
 import {
   capturePosition,
   refreshMessage,
-  rebuildAfterRefresh,
+  restorePosition,
   relocate,
   keepTreeHighlight,
   restoreSearch,
@@ -92,6 +93,8 @@ export interface RefreshContext {
   // local review just opened onto its PR, starts from `openSections`.
   recreatePrInfoPanel: RecreatePrInfoPanel
   saveMarks: (marks: readonly Mark[]) => void
+  /** Not reset by a reload: followReloadedMarks moves each mark to where its line went. */
+  marks: Pick<GlobalMarksState, "marks" | "replace">
   help: Pick<HelpState, "close">
   confirm: Pick<ConfirmState, "close">
   syncPreview: Pick<SyncPreviewState, "close">
@@ -175,7 +178,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         }
         // The feed's events describe the data that was just replaced; its
         // filters and row are the reader's and survive (spec 070).
-        return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withCommits, position))
+        return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
       followReloadedMarks(ctx, headSha || undefined)
 
@@ -236,7 +239,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           commits: newCommits,
         }
 
-        return collapseIgnoredFiles(rebuildAfterRefresh(prevState, withBranchAndCommits, position))
+        return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
       })
       // No head: in a local review the text alone follows worktree edits.
       followReloadedMarks(ctx, undefined)
@@ -285,7 +288,8 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
  * line and blame peeks, and the blame columns, which a reload turns off, live
  * in factories that createInitialState never reaches, so they are closed here,
  * as the rebuild closes every overlay still kept in AppState. The kept comment
- * drafts and the jumplist live in factories too, and are emptied here.
+ * drafts and the jumplist live in factories too, and are emptied here; the
+ * global marks are not, since a mark is followed to its line's new place.
  */
 export function adoptReloadedState(
   ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList">,

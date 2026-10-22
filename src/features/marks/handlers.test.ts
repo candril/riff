@@ -8,6 +8,7 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { FileNavigationContext } from "../file-navigation"
 import { X, Y, DOC } from "../../testing/marks"
 import { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
+import { createMarksState } from "./state"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -29,8 +30,9 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     selectedFileIndex: setup.selected ?? null,
     collapsedFiles: new Set(setup.collapsedFiles ?? []),
     collapsedBlocks: new Set(setup.collapsedBlocks ?? []),
-    marks: { ...state.marks, marks: setup.marks ?? [] },
   }
+  const marks = createMarksState()
+  marks.reset(setup.marks ?? [])
   let vim: VimCursorState = { ...createCursorState(), line: setup.line ?? 0 }
   const build = () =>
     new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
@@ -68,7 +70,8 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     ensureCursorVisible: () => {},
     render: () => {},
     fileNavContext,
-    save: (marks) => { saved.push(marks) },
+    marks,
+    save: (placed) => { saved.push(placed) },
     getHead: () => setup.head,
   }
 
@@ -76,6 +79,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     ctx,
     panes,
     saved,
+    marks,
     state: () => state,
     vim: () => vim,
     mapping: () => mapping,
@@ -104,7 +108,7 @@ describe("m{letter}", () => {
     setMarkAtCursor("a", h.ctx)
 
     const set = { letter: "a", filename: "src/x.ts", ...place }
-    expect(h.state().marks.marks).toEqual([set])
+    expect(h.marks.marks()).toEqual([set])
     expect(h.saved).toEqual([[set]])
     expect(h.toast()).toBe("Mark a set")
   })
@@ -121,12 +125,12 @@ describe("m{letter}", () => {
     const h = harness([X, Y], { line: 9 })
     setMarkAtCursor("a", h.ctx)
     setMarkAtCursor("a", h.ctx)
-    expect(h.state().marks.marks).toEqual([])
+    expect(h.marks.marks()).toEqual([])
     expect(h.saved.at(-1)).toEqual([])
     expect(h.toast()).toBe("Mark a removed")
 
     setMarkAtCursor("a", h.ctx)
-    expect(h.state().marks.marks).toEqual([{ ...mark("a", "src/x.ts", 10), text: "n10" }])
+    expect(h.marks.marks()).toEqual([{ ...mark("a", "src/x.ts", 10), text: "n10" }])
     expect(h.toast()).toBe("Mark a set")
   })
 
@@ -135,10 +139,10 @@ describe("m{letter}", () => {
     setMarkAtCursor("a", h.ctx)
     jumpToMark("b", h.ctx)
     jumpToMark("a", h.ctx)
-    expect(h.state().marks).toMatchObject({ current: "a", previous: "b" })
+    expect(h.marks.snapshot()).toMatchObject({ current: "a", previous: "b" })
 
     setMarkAtCursor("a", h.ctx)
-    expect(h.state().marks).toMatchObject({ current: null, previous: "b" })
+    expect(h.marks.snapshot()).toMatchObject({ current: null, previous: "b" })
     jumpToMark("b", h.ctx)
     expect(flipMark(h.ctx)).toBe(false)
     expect(h.toast()).toBe("No earlier mark to go back to")
@@ -149,7 +153,7 @@ describe("m{letter}", () => {
     const h = harness([X, Y], { line: 9, marks: [b] })
     setMarkAtCursor("a", h.ctx)
     setMarkAtCursor("a", h.ctx)
-    expect(h.state().marks.marks).toEqual([b])
+    expect(h.marks.marks()).toEqual([b])
     expect(h.saved.at(-1)).toEqual([b])
   })
 
@@ -166,7 +170,7 @@ describe("m{letter}", () => {
   test("with no file under the cursor, says so and sets nothing", () => {
     const h = harness([X, Y], { line: 999 })
     setMarkAtCursor("a", h.ctx)
-    expect(h.state().marks.marks).toEqual([])
+    expect(h.marks.marks()).toEqual([])
     expect(h.saved).toEqual([])
     expect(h.toast()).toBe("Mark a needs a file under the cursor")
   })
@@ -178,7 +182,7 @@ describe("'{letter}", () => {
     expect(jumpToMark("a", h.ctx)).toBe(true)
     expect(h.vim()).toMatchObject({ line: 9, col: 0, desiredCol: null })
     expect(h.panes).toEqual(["right"])
-    expect(h.state().marks.current).toBe("a")
+    expect(h.marks.current()).toBe("a")
     expect(h.toast()).toBeNull()
   })
 
@@ -206,7 +210,7 @@ describe("'{letter}", () => {
     const h = harness([X, Y], { line: 4, marks: [mark("a", "src/gone.ts", 3)] })
     expect(jumpToMark("a", h.ctx)).toBe(false)
     expect(h.vim().line).toBe(4)
-    expect(h.state().marks.current).toBeNull()
+    expect(h.marks.current()).toBeNull()
     expect(h.toast()).toBe("Mark a: src/gone.ts is not in this diff")
   })
 
@@ -283,12 +287,12 @@ describe("''", () => {
     h.moveTo(2)
 
     expect(stepToMark(1, h.ctx)).toBe(false)
-    expect(h.state().marks).toMatchObject({ current: "b", previous: "a" })
+    expect(h.marks.snapshot()).toMatchObject({ current: "b", previous: "a" })
     expect(h.toast()).toBe("Mark b: src/y.ts is not in this diff")
 
     expect(flipMark(h.ctx)).toBe(true)
     expect(h.vim().line).toBe(9)
-    expect(h.state().marks).toMatchObject({ current: "a", previous: "b" })
+    expect(h.marks.snapshot()).toMatchObject({ current: "a", previous: "b" })
     expect(h.toast()).toBe("Mark b: src/y.ts is not in this diff")
   })
 })
@@ -301,12 +305,12 @@ describe("]m and [m", () => {
     const forward = harness([X, Y], { line: 1, marks })
     expect(stepToMark(1, forward.ctx)).toBe(true)
     expect(forward.vim().line).toBe(9)
-    expect(forward.state().marks.current).toBe("a")
+    expect(forward.marks.current()).toBe("a")
 
     const back = harness([X, Y], { line: 1, marks })
     expect(stepToMark(-1, back.ctx)).toBe(true)
     expect(back.vim().line).toBe(15)
-    expect(back.state().marks.current).toBe("Z")
+    expect(back.marks.current()).toBe("Z")
   })
 
   test("]m wraps from the last mark to the first", () => {

@@ -156,17 +156,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
 }
 
 /**
- * The reloaded state with the reader's view put back. Marks are lines, not
- * rows, so the cursor's relocating does not apply to them (followReloadedMarks
- * moves them by their text); they come from the state as it is now rather
- * than from the position, because `m` can set one while the reload is
- * awaited.
- */
-export function rebuildAfterRefresh(live: AppState, reloaded: AppState, position: RefreshPosition): AppState {
-  return { ...restorePosition(reloaded, position), marks: live.marks }
-}
-
-/**
  * The pattern survives a refresh; its matches do not — they are visual line
  * indices into a mapping that no longer exists. Rebuilding the mapping
  * recomputes them (`SearchHandler.refreshMatches`).

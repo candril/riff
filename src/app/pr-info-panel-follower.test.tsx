@@ -54,6 +54,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     commentsPicker: null,
     occurrencePicker: null,
     marksPicker: null,
+    marks: [],
     commitPicker: null,
     actionMenu: null,
     linePeek: null,

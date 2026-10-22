@@ -6,9 +6,10 @@ import type { FileNavigationContext } from "../file-navigation"
 import { handleSelectFile, ensureFileExpanded } from "../file-navigation"
 import { markAt } from "./capture"
 import { resolveMark, markLandingMessage, type ResolvedMark } from "./resolve"
-import { setMark, deleteMark, visitMark, flipTarget, stepMark } from "./store"
+import { flipTarget, stepMark } from "./store"
 import { markSitsAt } from "./toggle"
 import { openFoldHiding } from "./fold-hiding"
+import type { GlobalMarksState } from "./state"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -25,6 +26,7 @@ export interface MarksContext {
   ensureCursorVisible: () => void
   render: () => void
   fileNavContext: FileNavigationContext
+  marks: Pick<GlobalMarksState, "marks" | "snapshot" | "set" | "remove" | "visit">
   save: (marks: readonly Mark[]) => void
   /** The PR head the cursor's line numbers belong to; undefined in local mode. */
   getHead: () => string | undefined
@@ -38,25 +40,25 @@ export function setMarkAtCursor(letter: string, ctx: MarksContext): void {
     toast(ctx, `Mark ${letter} needs a file under the cursor`)
     return
   }
-  const existing = ctx.getState().marks.marks.find((m) => m.letter === letter)
+  const existing = ctx.marks.marks().find((m) => m.letter === letter)
   if (existing && markSitsAt(mapping, existing, cursorLine, placed, ctx.getPane() !== null)) {
-    ctx.setState((s) => ({ ...s, marks: deleteMark(s.marks, letter) }))
-    ctx.save(ctx.getState().marks.marks)
+    ctx.marks.remove(letter)
+    ctx.save(ctx.marks.marks())
     toast(ctx, `Mark ${letter} removed`)
     return
   }
   const head = ctx.getHead()
   // Left out rather than undefined, so marks.json carries no empty key.
   const mark: Mark = head === undefined ? placed : { ...placed, head }
-  ctx.setState((s) => ({ ...s, marks: setMark(s.marks, mark) }))
-  ctx.save(ctx.getState().marks.marks)
+  ctx.marks.set(mark)
+  ctx.save(ctx.marks.marks())
   toast(ctx, `Mark ${letter} set`)
 }
 
 /** `'{letter}`. False when there was nowhere to go and the cursor stayed. */
 export function jumpToMark(letter: string, ctx: MarksContext): boolean {
   const state = ctx.getState()
-  const mark = state.marks.marks.find((m) => m.letter === letter)
+  const mark = ctx.marks.marks().find((m) => m.letter === letter)
   if (!mark) {
     toast(ctx, `Mark ${letter} is not set`)
     return false
@@ -91,7 +93,7 @@ export function jumpToMark(letter: string, ctx: MarksContext): boolean {
   ctx.ensureCursorVisible()
   ctx.render()
 
-  ctx.setState((s) => ({ ...s, marks: visitMark(s.marks, letter) }))
+  ctx.marks.visit(letter)
   const message = markLandingMessage(mark, resolved.landing)
   if (message) toast(ctx, message)
   return true
@@ -99,7 +101,7 @@ export function jumpToMark(letter: string, ctx: MarksContext): boolean {
 
 /** `''`: back to the mark visited before the current one. */
 export function flipMark(ctx: MarksContext): boolean {
-  const target = flipTarget(ctx.getState().marks)
+  const target = flipTarget(ctx.marks.snapshot())
   if (target === null) {
     toast(ctx, "No earlier mark to go back to")
     return false
@@ -112,13 +114,13 @@ export function flipMark(ctx: MarksContext): boolean {
  * the next step moves past it instead of trying it again.
  */
 export function stepToMark(direction: 1 | -1, ctx: MarksContext): boolean {
-  const letter = stepMark(ctx.getState().marks, direction)
+  const letter = stepMark(ctx.marks.snapshot(), direction)
   if (letter === null) {
     toast(ctx, "No marks set")
     return false
   }
   if (jumpToMark(letter, ctx)) return true
-  ctx.setState((s) => ({ ...s, marks: visitMark(s.marks, letter) }))
+  ctx.marks.visit(letter)
   return false
 }
 

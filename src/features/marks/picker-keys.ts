@@ -8,13 +8,13 @@ import { registerQueryPickerKeys } from "../../app/query-picker-keys"
 import type { AppState } from "../../state"
 import { marksPickerEntries } from "./list"
 import type { MarksPickerState } from "./picker-state"
-import { deleteMark } from "./store"
+import type { GlobalMarksState } from "./state"
 import type { Mark } from "./types"
 
 export interface MarksPickerKeyDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
   marksPicker: MarksPickerState
+  marks: Pick<GlobalMarksState, "marks" | "remove">
   render: () => void
   /** The jump itself, wired by the app, so this module stays clear of the line mapping and the cursor. */
   onJump: (letter: string) => void
@@ -24,8 +24,7 @@ export interface MarksPickerKeyDeps {
 export function registerMarksPickerKeys(riffKeymap: RiffKeymap, deps: MarksPickerKeyDeps): () => void {
   // Read at run time, so the row a key acts on is the row on screen.
   const selected = () => {
-    const { marks, files } = deps.getState()
-    const entries = marksPickerEntries(marks, files, deps.marksPicker.query())
+    const entries = marksPickerEntries({ marks: deps.marks.marks() }, deps.getState().files, deps.marksPicker.query())
     return { entries, entry: entries[deps.marksPicker.selectedIndex()] }
   }
 
@@ -64,9 +63,8 @@ export function registerMarksPickerKeys(riffKeymap: RiffKeymap, deps: MarksPicke
 
 /** The filter keeps or drops each mark on its own, so the rows left are the same rows less this one. */
 function deleteEntry(letter: string, lastIndex: number, deps: MarksPickerKeyDeps): void {
-  const marks = deleteMark(deps.getState().marks, letter)
-  deps.setState((s) => ({ ...s, marks: deleteMark(s.marks, letter) }))
+  deps.marks.remove(letter)
   deps.marksPicker.clampSelection(lastIndex)
-  deps.save(marks.marks)
+  deps.save(deps.marks.marks())
   deps.render()
 }

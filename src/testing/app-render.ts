@@ -12,6 +12,7 @@ import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
 import { createMarksPickerState } from "../features/marks/picker-state"
+import { createMarksState } from "../features/marks/state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
@@ -134,6 +135,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
   const jumpList = createJumpListState()
+  const marks = createMarksState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -183,6 +185,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     linePeek,
     blamePeek,
     blameColumns,
+    marks,
     mentions,
     commentDrafts,
     getCommandKeys: () => commandKeys,
@@ -236,6 +239,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     occurrencePicker,
     /** The marks picker's state, which the frame pass and the keys read as app.ts's do. */
     marksPicker,
+    /** The global marks, which the frame pass and the keys read as app.ts's do. */
+    marks,
     /** The commit picker's state, which the frame pass and the keys read as app.ts's do. */
     commitPicker,
     /** The command palette's state, which the frame pass and the keys read as app.ts's do. */

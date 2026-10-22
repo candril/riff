@@ -79,11 +79,14 @@ async function bracketApp(more: Partial<AppKeyContext> = {}) {
       fileNavContext,
     },
     marksContext: {
-      getState: () => {
-        marksReached.push(1)
-        return render.getState()
-      },
+      getState: render.getState,
       setState: render.setState,
+      marks: {
+        snapshot: () => {
+          marksReached.push(1)
+          return mounted.marks.snapshot()
+        },
+      },
       render: mounted.render,
     } as unknown as AppKeyContext["marksContext"],
     onCommitSelected: (sha) => void selected.push(sha),

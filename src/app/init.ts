@@ -23,11 +23,11 @@ import {
   type PRInfoPanelSection,
 } from "../state"
 import { followLoadedMarks } from "../features/marks/load"
+import type { Mark } from "../features/marks/types"
 import { loadOrCreateSession } from "../storage/session"
 import { loadComments } from "../storage/comments"
 import { loadViewedStatuses, loadVisit, loadMarks, loadPanelFilters } from "../storage/caches"
 import { loadInfoSections } from "../storage/info-sections"
-import { emptyMarks } from "../features/marks"
 import { mergeGitHubViewedStates } from "../utils/viewed-status"
 import { type Comment, type AppMode } from "../types"
 import type { ViewerViewedState } from "../providers/github/viewed"
@@ -75,6 +75,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
   headSha: string
   // The info panel's to own, not app state's: the sections the reader opened in this review.
   prInfoOpenSections: Set<PRInfoPanelSection>
+  /** The review's saved marks, followed to where their lines are now; the marks factory's to own. */
+  marks: readonly Mark[]
 }> {
   const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
 
@@ -152,8 +154,9 @@ export async function initializeAppState(options: InitOptions): Promise<{
     alignMarkdownTables: config.diff.alignMarkdownTables,
     threadPanelOpenOnly: panelFilters.openThreadsOnly,
     treeUnviewedOnly: panelFilters.unviewedFilesOnly,
-    marks: { ...emptyMarks(), marks: await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined) },
   }
+
+  const marks = await followLoadedMarks(source, loadedMarks, files, mode === "pr" ? headSha || undefined : undefined)
 
   // Commits for the diff range: PR mode gets them with the rest of the PR,
   // local mode enumerated them above.
@@ -213,7 +216,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
     state = { ...state, collapsedFiles: newCollapsed }
   }
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections }
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks }
 }
 
 /**

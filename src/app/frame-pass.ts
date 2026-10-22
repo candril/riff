@@ -30,6 +30,7 @@ import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
+import type { GlobalMarksState } from "../features/marks/state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
@@ -70,6 +71,7 @@ export interface FramePassContext {
   linePeek: LinePeekState
   blamePeek: BlamePeekState
   blameColumns: Pick<BlameColumnsState, "columns">
+  marks: Pick<GlobalMarksState, "marks">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
@@ -116,6 +118,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const actionMenu = ctx.actionMenu.open() ? ctx.actionMenu.snapshot() : null
     const linePeek = ctx.linePeek.open() ? ctx.linePeek.snapshot() : null
     const blamePeek = ctx.blamePeek.peek()
+    const marks = ctx.marks.marks()
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu }),
       help: help.open,
@@ -143,6 +146,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       searchState,
       flashState,
       blameColumns: ctx.blameColumns.columns(),
+      marks,
       focused,
       diffShown: slot === "diff",
       splitOn,
@@ -173,6 +177,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       commentsPicker,
       occurrencePicker,
       marksPicker,
+      marks,
       commitPicker,
       actionMenu,
       linePeek,

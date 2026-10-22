@@ -51,7 +51,7 @@ test("the wheel drags the app's cursor onto the line handed over, and its reveal
   setup.renderer.root.add(diff.island.host)
   diff.syncDrawn(true, 20)
   const draw = () =>
-    diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState(), blameColumns: new Map() })
+    diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState(), blameColumns: new Map(), marks: [] })
   draw()
   diff.source().setSide("right")
   await setup.renderOnce()

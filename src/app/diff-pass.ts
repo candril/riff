@@ -1,4 +1,5 @@
 import type { BlameColumns } from "../split-view/blame-cells"
+import type { Mark } from "../features/marks/types"
 import type { AppState } from "../state"
 import type { FileParses, FileVersions } from "../vim-diff/file-parses"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -25,6 +26,7 @@ export interface DiffPassInput {
   searchState: SearchState
   flashState: FlashState
   blameColumns: BlameColumns
+  marks: readonly Mark[]
   /** False while something else takes the keys ahead of the diff, so its cursor is not shown. */
   focused: boolean
   /** Whether the diff is the view this pass shows, rather than an error, the overview, the feed or the empty text. */
@@ -47,7 +49,7 @@ export function parsesOf(fileContentCache: AppState["fileContentCache"]): Map<st
 /** Both diff views drawn for one pass, and the status bar's readout of them. */
 export function createDiffPass({ parses, unified, split }: DiffPassDeps) {
   return {
-    draw({ state, vimState, mapping, searchState, flashState, blameColumns, focused, diffShown, splitOn }: DiffPassInput): void {
+    draw({ state, vimState, mapping, searchState, flashState, blameColumns, marks, focused, diffShown, splitOn }: DiffPassInput): void {
       if (diffShown) {
         parses.set(parsesOf(state.fileContentCache))
         // Fed while split is drawn too, so toggling back has nothing to rebuild.
@@ -58,10 +60,11 @@ export function createDiffPass({ parses, unified, split }: DiffPassDeps) {
           searchState,
           flashState,
           blameColumns,
+          marks,
           emptyMessage: state.treeFilter ? `No files match /${state.treeFilter}` : "No changes to display",
           focused,
         })
-        if (splitOn) split.draw({ mapping, state, vimState, searchState, flashState, blameColumns })
+        if (splitOn) split.draw({ mapping, state, vimState, searchState, flashState, blameColumns, marks })
       }
       // Every pass, whichever view it shows, so a view that stops being drawn knows it.
       unified.syncDrawn(diffShown && !splitOn)

@@ -92,6 +92,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
       ensureCursorVisible: () => {},
       render: mounted.render,
       fileNavContext,
+      marks: mounted.marks,
       save: () => {},
       getHead: () => undefined,
     },
@@ -103,7 +104,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     mounted.setup.renderer.keyInput.emit("keypress", new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!))
   const type = (...sequences: string[]) => sequences.forEach(press)
   const state = () => render.getState()
-  const marks = () => state().marks.marks.map((mark) => mark.letter)
+  const marks = () => mounted.marks.marks().map((mark) => mark.letter)
   /** The cursor on the line of `file` that reads `text`, where a mark has a file to sit in. */
   const lineOf = (file: string, text: string) =>
     render.getLineMapping().allLines.findIndex((row) => row.filename === file && row.content.includes(text))
@@ -132,13 +133,13 @@ test("a pending m gives way once the diff loses the keys: the next key moves the
 
 describe("setting and jumping", () => {
   test("ma sets mark a at the cursor", async () => {
-    const { type, state, marks, toCode, keys } = await markApp()
+    const { mounted, type, marks, toCode, keys } = await markApp()
     toCode()
     type("m")
     expect(keys.chordPending()).toBe(true)
     type("a")
     expect(marks()).toEqual(["a"])
-    expect(state().marks.marks[0]).toMatchObject({ filename: "a.ts", side: "RIGHT", line: 2 })
+    expect(mounted.marks.marks()[0]).toMatchObject({ filename: "a.ts", side: "RIGHT", line: 2 })
     expect(keys.chordPending()).toBe(false)
   })
 

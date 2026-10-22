@@ -1,9 +1,10 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, type AppState } from "../../state"
+import { createInitialState } from "../../state"
 import type { DiffFile } from "../../utils/diff-parser"
 import { keymapHarness } from "../../testing/keymap-keys"
 import { registerMarksPickerKeys } from "./picker-keys"
 import { createMarksPickerState, type MarksPickerState } from "./picker-state"
+import { createMarksState, type GlobalMarksState } from "./state"
 import type { Mark } from "./types"
 
 const file = (filename: string): DiffFile => ({ filename, additions: 1, deletions: 0, status: "modified", content: "" })
@@ -15,26 +16,20 @@ const NAMED: Record<string, string> = { return: "\r", escape: "\x1b", up: "\x1b[
 const open = (marksPicker: MarksPickerState) => marksPicker.show()
 
 async function harness(setup: (marksPicker: MarksPickerState) => void = open) {
-  const base = createInitialState([file("src/alpha.ts"), file("src/beta.ts"), file("docs/gamma.md")], [], "", "")
+  const state = createInitialState([file("src/alpha.ts"), file("src/beta.ts"), file("docs/gamma.md")], [], "", "")
   const marksPicker = createMarksPickerState()
   setup(marksPicker)
-  let state: AppState = {
-    ...base,
-    marks: {
-      marks: [mark("a", "src/alpha.ts"), mark("b", "src/beta.ts"), mark("c", "docs/gamma.md")],
-      current: "b",
-      previous: "a",
-    },
-  }
+  const marks = createMarksState()
+  marks.reset([mark("a", "src/alpha.ts"), mark("b", "src/beta.ts"), mark("c", "docs/gamma.md")])
+  marks.visit("a")
+  marks.visit("b")
   const jumps: string[] = []
   const saved: (readonly Mark[])[] = []
   const { riffKeymap, leftKeys, press: pressSequence } = await keymapHarness()
   registerMarksPickerKeys(riffKeymap, {
     getState: () => state,
-    setState: (fn) => {
-      state = fn(state)
-    },
     marksPicker,
+    marks,
     render: () => {},
     onJump: (letter) => {
       jumps.push(letter)
@@ -53,10 +48,10 @@ async function harness(setup: (marksPicker: MarksPickerState) => void = open) {
     return leftKeys.length === before
   }
 
-  return { press, jumps, saved, state: () => state, marksPicker, prevented: () => prevented }
+  return { press, jumps, saved, marks, marksPicker, prevented: () => prevented }
 }
 
-const letters = (s: AppState) => s.marks.marks.map((m) => m.letter)
+const letters = (marks: GlobalMarksState) => marks.marks().map((m) => m.letter)
 
 describe("the marks picker's keys", () => {
   test("do nothing while it is closed", async () => {
@@ -99,10 +94,10 @@ describe("the marks picker's keys", () => {
     })
     h.press("down")
     expect(h.press("x", true)).toBe(true)
-    expect(letters(h.state())).toEqual(["a", "c"])
-    expect(h.saved).toEqual([h.state().marks.marks])
+    expect(letters(h.marks)).toEqual(["a", "c"])
+    expect(h.saved).toEqual([h.marks.marks()])
     expect(h.marksPicker.open()).toBe(true)
-    expect(h.state().marks).toMatchObject({ current: null, previous: "a" })
+    expect(h.marks.snapshot()).toMatchObject({ current: null, previous: "a" })
   })
 
   test("deleting the last entry moves the selection up to the new last one", async () => {
@@ -111,7 +106,7 @@ describe("the marks picker's keys", () => {
       marksPicker.move(2, 2)
     })
     h.press("x", true)
-    expect(letters(h.state())).toEqual(["a", "b"])
+    expect(letters(h.marks)).toEqual(["a", "b"])
     expect(h.marksPicker.selectedIndex()).toBe(1)
   })
 
@@ -119,7 +114,7 @@ describe("the marks picker's keys", () => {
     const h = await harness()
     expect(h.press("x")).toBe(true)
     expect(h.press("j")).toBe(true)
-    expect(letters(h.state())).toEqual(["a", "b", "c"])
+    expect(letters(h.marks)).toEqual(["a", "b", "c"])
     expect(h.marksPicker.selectedIndex()).toBe(0)
     expect(h.saved).toEqual([])
     expect(h.prevented()).toBe(0)

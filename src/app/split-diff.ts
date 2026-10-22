@@ -3,6 +3,7 @@ import { commentScope, type CommentScope } from "../diff-rows/comment-scope"
 import { sideOf } from "../diff-rows/line-spans"
 import { RowLineSource, rowOfLine, type SplitRows } from "../diff-rows/row-source"
 import type { BlameColumns } from "../split-view/blame-cells"
+import type { Mark } from "../features/marks/types"
 import type { AppState } from "../state"
 import type { FlashRegion } from "../vim-diff/flash-handler"
 import type { FlashState } from "../vim-diff/flash-state"
@@ -36,6 +37,7 @@ export interface SplitDrawInput {
   searchState: SearchState
   flashState: FlashState
   blameColumns: BlameColumns
+  marks: readonly Mark[]
 }
 
 const COLOURABLE = new Set(["context", "addition", "deletion", "no-newline"])
@@ -104,7 +106,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
    * dims unified's diff, so it dims split's too.
    */
   function draw(input: SplitDrawInput): void {
-    const { mapping, state, vimState, searchState, flashState, blameColumns } = input
+    const { mapping, state, vimState, searchState, flashState, blameColumns, marks } = input
     syncPane()
     // An offset kept from another file means nothing in this one. Null in all-files mode, so a switch
     // between the modes resets too; a fold keeps the file, and so the windows, as unified keeps its scrollLeft.
@@ -119,7 +121,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       lineSpans: deps.highlights.lineSpans,
       highlightVersion: deps.highlights.version(),
       comments: state.comments,
-      marks: state.marks.marks,
+      marks,
       blameColumns,
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,

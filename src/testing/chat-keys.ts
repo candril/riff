@@ -64,6 +64,7 @@ export function keysOn(
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
     marksPicker: mounted.marksPicker,
+    marks: mounted.marks,
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,

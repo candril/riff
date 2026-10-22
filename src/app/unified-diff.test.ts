@@ -79,6 +79,7 @@ async function mount(options: MountOptions) {
       searchState: createSearchState(),
       flashState: createFlashState(),
       blameColumns: new Map(),
+      marks: [],
       emptyMessage: "No changes to display",
       focused: true,
     })

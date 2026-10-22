@@ -9,7 +9,7 @@ export interface MarkEntry {
   text: string
 }
 
-export function markEntries(marks: MarksState, files: readonly DiffFile[]): MarkEntry[] {
+export function markEntries(marks: Pick<MarksState, "marks">, files: readonly DiffFile[]): MarkEntry[] {
   const byName = new Map(files.map((f) => [f.filename, f]))
   return marksInOrder(marks).map((mark) => ({ mark, text: markLineText(byName.get(mark.filename), mark) }))
 }
@@ -32,6 +32,6 @@ export function filterMarkEntries(entries: MarkEntry[], query: string): MarkEntr
   return fuzzyFilter(query, entries, (e) => `${e.mark.letter} ${markEntryLocation(e)} ${e.text}`)
 }
 
-export function marksPickerEntries(marks: MarksState, files: readonly DiffFile[], query: string): MarkEntry[] {
+export function marksPickerEntries(marks: Pick<MarksState, "marks">, files: readonly DiffFile[], query: string): MarkEntry[] {
   return filterMarkEntries(markEntries(marks, files), query)
 }

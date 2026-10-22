@@ -29,6 +29,7 @@ import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
+import { createMarksState } from "../features/marks/state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
@@ -117,6 +118,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     linePeek,
     blamePeek,
     blameColumns: createBlameColumnsState(),
+    marks: createMarksState(),
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
   } as unknown as FramePassContext

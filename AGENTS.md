@@ -131,9 +131,11 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/blame/peek-state.ts`,
 `src/features/blame/column-state.ts`,
 `src/features/mentions/state.ts`,
-`src/features/inline-comment-overlay/drafts-state.ts` and
-`src/features/jumplist/state.ts` are the examples. The frame
-pass reads each factory's accessors into the `Frame`, so islands keep
+`src/features/inline-comment-overlay/drafts-state.ts`,
+`src/features/jumplist/state.ts` and
+`src/features/marks/state.ts` are the examples. The frame
+pass reads each factory's accessors into the `Frame` (all but the
+jumplist's, which nothing draws), so islands keep
 following one frame; its actions do not render, so callers still call
 `render()` after them, and a reload that rebuilds `AppState` resets the
 factory itself where the state belongs to the diff.
