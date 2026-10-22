@@ -5,6 +5,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import * as jumplist from "../features/jumplist"
 import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
 import { interactionSettled } from "./jump-settled"
+import { threadPanelHoldsKeys } from "./diff-focus"
 
 export interface JumpRecordingDeps {
   getState: () => AppState
@@ -51,6 +52,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
         flashActive: deps.flashActive(),
         chordPending: deps.chordPending(),
       }),
+      stepsMoveTheDiff: threadPanelHoldsKeys(state),
     }
   }
 

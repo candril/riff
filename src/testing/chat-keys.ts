@@ -32,10 +32,14 @@ export function keysOn(
     setState: render.setState,
     getVimState: () => vimState,
     setVimState,
+    // app.ts's handleToggleSplitView, whose redrawDiff this spells out.
     toggleSplitView: () => {
       mounted.show(toggleSplitView(render.getState()))
       if (render.getState().splitView) render.split.enter()
       mounted.render()
+      ctx.ensureCursorVisible()
+      if (render.split.shown()) render.split.refreshCursor()
+      else render.unified.refreshCursor()
     },
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

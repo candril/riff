@@ -40,7 +40,10 @@ they arrive.
   `Ctrl-d`, `Ctrl-u`, `Ctrl-e`, `Ctrl-y`, `h`, `l`, `w`, `b`, `e`, `0`, `^`,
   `$` and the like move the cursor without moving the reader, and so do the
   finds within a line, `f`, `F`, `t`, `T`, `;` and `,`. This is vim's own
-  line between a motion and a jump.
+  line between a motion and a jump. While the thread panel holds the keys
+  they are jumps: its `j`, `k` and the moves to the adjacent thread take
+  the diff's cursor to another thread. A `j` between replies of one thread
+  leaves the diff where it was and records nothing.
 - *Inside a file* is the whole of that exemption. The all-files view changes
   file by stepping off the end of one, with no file-switching key involved,
   and walking back the way you came has to include that. The file under the
@@ -71,10 +74,13 @@ they arrive.
   row has no file, it keeps the row.
 - An entry whose file left the diff is skipped, in whichever direction the
   walk goes, but kept: nvim keeps an entry for a deleted buffer, and a
-  refresh can bring the file back.
+  refresh can bring the file back. An entry from another commit is never
+  skipped: its file is judged by that commit's files once it is switched to.
 - An entry restores unified or split and the panel that had focus. A panel
   that has closed since is not opened again — `Ctrl-o` returns to a place,
-  it does not undo closing a panel — so focus goes to the diff.
+  it does not undo closing a panel — so focus goes to the diff. An entry
+  taken in the PR overview or the feed comes back to that view, whatever
+  file it lands on.
 - `Ctrl-o` and `Ctrl-i` walk the list from the thread panel too, as from the
   file tree; the panel's filter prompt and code peek keep them.
 
@@ -87,15 +93,11 @@ line of the overview is not a line of the diff. A file header and a divider
 have no line of their own, so as with a mark the line above stands in for
 them, and an entry taken there is the same line as that one.
 
-**Not built** — the rest of nvim's rules, each a `test.todo` in
-`src/app/jumplist-scenarios.keys.test.ts`, the harness that drives them
-through riff's keys:
-
-- What records. A thread picked with `j`/`k` in the thread panel is judged a
-  step, so it records only when the file changes. `%` and `gd` are
-  not riff jumps (`%` is unbound, `gd` opens an external diff).
-- What is restored. Going back to the overview is undone by the file
-  selection that follows it in `apply`.
+`src/app/jumplist-scenarios.keys.test.ts` drives each of these through
+riff's keys. Some of nvim's jumps are not riff's, and it says so where they
+would be: `%` is unbound, `gd` opens an external diff, a URL under `gf` or
+`gx` and every link the links picker lists open the browser, and the chat
+reads the diff's place but has no key that goes to one.
 
 ## Out of Scope, found while building
 

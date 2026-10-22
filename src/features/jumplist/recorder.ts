@@ -8,12 +8,15 @@ type Key = { name?: string; ctrl?: boolean; shift?: boolean; sequence?: string }
  * Where the reader is between two keys. `file` is the file under the cursor,
  * which in the all-files view is not the selected one. `settled` is false
  * while an interaction is still taking keys: a prompt, a picker, flash, a
- * chord or a find waiting for its character.
+ * chord or a find waiting for its character. `stepsMoveTheDiff` is true
+ * while the thread panel holds the keys: its `j` and `k` take the diff's
+ * cursor to another thread, which is a jump wherever it lands.
  */
 export interface Moment {
   place: Jump
   file: string | null
   settled: boolean
+  stepsMoveTheDiff: boolean
 }
 
 type Kind = "jump" | "step" | "walk"
@@ -23,10 +26,19 @@ export interface JumpRecorder {
   around(key: Key, before: Moment, dispatch: () => void, after: () => Moment): Jump | null
 }
 
-function kindOf(key: Key): Kind {
+function kindOf(key: Key, before: Moment): Kind {
   if (isListWalk(key)) return "walk"
-  if (isStepMotion(key) || isFindMotion(key)) return "step"
+  if (isStepMotion(key) || isFindMotion(key)) return before.stepsMoveTheDiff ? "jump" : "step"
   return "jump"
+}
+
+/*
+ * A divider or the spacing below a file anchors to the numbered row above
+ * it, so by the anchor alone a jump onto one from that row would go
+ * nowhere; the line tells them apart.
+ */
+function moved(from: Jump, to: Jump): boolean {
+  return !sameLocation(from, to) || from.cursorLine !== to.cursorLine
 }
 
 /*
@@ -46,7 +58,7 @@ export function createJumpRecorder(): JumpRecorder {
     around(key, before, dispatch, after) {
       if (before.settled || origin === null) {
         origin = before
-        kind = kindOf(key)
+        kind = kindOf(key, before)
       }
       dispatch()
       const now = after()
@@ -56,7 +68,7 @@ export function createJumpRecorder(): JumpRecorder {
       origin = null
       if (kind === "walk") return null
       if (kind === "step") return now.file !== null && now.file !== from.file ? from.place : null
-      return sameLocation(from.place, now.place) ? null : from.place
+      return moved(from.place, now.place) ? from.place : null
     },
   }
 }

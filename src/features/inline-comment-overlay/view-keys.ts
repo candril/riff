@@ -15,7 +15,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
-import { composerOpen } from "../../app/diff-focus"
+import { threadPanelHoldsKeys } from "../../app/diff-focus"
 import { chatStandsAside } from "../chat/keys"
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
@@ -53,10 +53,7 @@ type Bindings = { key: string; cmd: string }[]
 
 export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPanelKeyDeps): () => void {
   const chords = createPanelChords(deps)
-  const viewing = () => {
-    const state = deps.getState()
-    return state.inlineCommentOverlay.open && state.focusedPanel === "comments" && !composerOpen(state)
-  }
+  const viewing = () => threadPanelHoldsKeys(deps.getState())
   const inMainView = () => {
     const ov = deps.getState().inlineCommentOverlay
     return !ov.filterInput && ov.codePeekId === null

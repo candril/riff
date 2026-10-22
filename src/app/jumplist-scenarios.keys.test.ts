@@ -192,8 +192,7 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
     await recordsAndReturns(a, () => a.press(KEY.enter))
   })
 
-  // j in the panel moves the diff, but the recorder judges j a step, and a step records only when the file changes.
-  test.todo("a thread picked in the thread panel moves the diff", async () => {
+  test("a thread picked in the thread panel moves the diff", async () => {
     const a = await scenario()
     a.moveTo(a.lineOf("src/alpha.ts", "needle 5"))
     a.press(KEY.ctrlT)
@@ -202,8 +201,7 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
     await recordsAndReturns(a, () => a.press("j"))
   })
 
-  // apply restores the overview first, then clearFileSelection leaves it for the diff again.
-  test.todo("a file opened from the PR overview", async () => {
+  test("a file opened from the PR overview", async () => {
     const { controller } = stubPanel([], { section: "files" })
     const panel = { ...controller, getSelectedFile: () => ({ filename: "src/gamma.ts" }) } as typeof controller
     const a = await scenario({ more: { getPrInfoPanel: () => panel } })
@@ -211,6 +209,47 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
     a.mounted.show({ viewMode: "state", appMode: "pr" })
     await recordsAndReturns(a, () => a.press("d"))
   })
+
+  test("]m to a mark further down", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/gamma.ts", "line 43"))
+    a.press("m", "a")
+    a.moveTo(a.lineOf("src/alpha.ts", "line 3"))
+    await recordsAndReturns(a, () => a.press("]", "m"))
+    expect(a.where().text).toContain("gamma.ts line 43")
+  })
+
+  test("gf on a path:line the diff shows", async () => {
+    const notes = [
+      "diff --git a/docs/notes.md b/docs/notes.md",
+      "new file mode 100644",
+      "index 0000000..3333333",
+      "--- /dev/null",
+      "+++ b/docs/notes.md",
+      "@@ -0,0 +1,1 @@",
+      "+see src/gamma.ts:25 for the needle",
+      "",
+    ].join("\n")
+    const a = await scenario({ diff: SCENARIO_DIFF + notes })
+    const line = a.lineOf("docs/notes.md", "see src/gamma.ts:25")
+    a.moveTo(line, a.mounted.ctx.getLineMapping().getLine(line)!.content.indexOf("src/gamma.ts"))
+    await recordsAndReturns(a, () => a.press("g", "f"))
+    expect(a.where().text).toContain("gamma.ts needle 25")
+  })
+
+  // A URL under gf or gx, and every link the links picker lists, opens the browser: not a riff jump.
+
+  test("Enter on a comment in the activity feed", async () => {
+    const a = await scenario()
+    a.moveTo(a.lineOf("src/alpha.ts", "line 24"))
+    const event = { id: "e1", type: "comment" as const, at: "2026-01-02T00:00:00Z", title: "note t3", target: { kind: "comment" as const, commentId: "t3" } }
+    a.mounted.show({ viewMode: "feed", appMode: "pr", feed: { ...a.state().feed, events: [event], highlightIndex: 0 } })
+    await recordsAndReturns(a, () => a.press(KEY.enter))
+    expect(a.where().text).toContain("gamma.ts needle 25")
+  })
+
+  // The chat has no key that moves the diff: it reads the place, it does not go to one.
+  // `%` is unbound, and `gd` opens an external diff: neither is a riff jump.
 })
 
 describe("b: plain motions do not record", () => {

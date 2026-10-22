@@ -308,6 +308,25 @@ describe("apply", () => {
     expect(h.mapping().getLine(h.vim().line)).toMatchObject({ content: "sequenceDiagram", newLineNum: 3 })
   })
 
+  test("comes back to the PR overview taken with no file selected, from a file in the diff", () => {
+    const h = applying([X, Y], { appMode: "pr" })
+    const overview = h.entry({ viewMode: "state", anchor: null })
+    h.ctx.setState((s) => ({ ...s, selectedFileIndex: 1 }))
+    apply(overview, h.ctx)
+    expect(h.state().viewMode).toBe("state")
+    expect(h.state().selectedFileIndex).toBeNull()
+  })
+
+  test("leaves the PR overview for a diff entry in another file without its reaction target", () => {
+    const h = applying([X, Y], { appMode: "pr" })
+    const diffEntry = h.entry({ viewMode: "diff", fileIndex: 1, filename: "src/y.ts", anchor: null })
+    h.ctx.setState((s) => ({ ...s, viewMode: "state", selectedFileIndex: null, reactionTarget: { kind: "issue", prNumber: 1 } }))
+    apply(diffEntry, h.ctx)
+    expect(h.state().viewMode).toBe("diff")
+    expect(h.state().selectedFileIndex).toBe(1)
+    expect(h.state().reactionTarget).toBeNull()
+  })
+
   test("makes the entry's side the active pane on a context row", () => {
     // Row 5 of [X, Y] is a context row, old 3 and new 4: see src/testing/marks.ts.
     const h = applying([X, Y], { splitView: true })

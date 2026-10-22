@@ -28,7 +28,10 @@ const at = (file: string | null, line: number, col = 0, settled = true): Moment 
   place: place(line, col),
   file,
   settled,
+  stepsMoveTheDiff: false,
 })
+/** The same moment with the thread panel holding the keys. */
+const inPanel = (m: Moment): Moment => ({ ...m, stepsMoveTheDiff: true })
 const open = (m: Moment): Moment => ({ ...m, settled: false })
 
 const key = (name: string, extra: Omit<Key, "name"> = {}): Key => ({ name, ...extra })
@@ -123,7 +126,7 @@ describe("flash", () => {
     test(`label ${label} on the tree lands in another file`, () => {
       const pushed = drive(origin, [
         [key("s"), open(origin)],
-        [key(label, { sequence: label }), { place: place(0, 0, "c.ts"), file: "c.ts", settled: true }],
+        [key(label, { sequence: label }), { place: place(0, 0, "c.ts"), file: "c.ts", settled: true, stepsMoveTheDiff: false }],
       ])
       expect(pushed).toEqual([origin.place])
     })
@@ -207,6 +210,38 @@ describe("what is not a jump", () => {
   })
 })
 
+describe("the thread panel", () => {
+  test("its j and k take the diff to another thread, which is a jump; the diff's own j is a step", () => {
+    expect(drive(inPanel(origin), [[key("j"), inPanel(at("a.ts", 40))]])).toEqual([origin.place])
+    expect(drive(inPanel(origin), [[key("k"), inPanel(at("a.ts", 1))]])).toEqual([origin.place])
+    expect(drive(origin, [[key("j"), at("a.ts", 40)]])).toEqual([])
+  })
+
+  test("a j between replies of one thread leaves the diff where it was, and records nothing", () => {
+    expect(drive(inPanel(origin), [[key("j"), inPanel(origin)]])).toEqual([])
+  })
+
+  test("Ctrl-o and Tab from it still only walk", () => {
+    expect(drive(inPanel(origin), [[ctrl("o"), inPanel(at("b.ts", 5))], [key("tab"), inPanel(origin)]])).toEqual([])
+  })
+})
+
+describe("a row anchored to the line above it", () => {
+  // A divider or the spacing below a file anchors to the numbered row above it.
+  const anchored = (cursorLine: number): Moment => ({
+    ...at("a.ts", cursorLine),
+    place: { ...place(cursorLine), anchor: { filename: "a.ts", line: 9, side: "RIGHT" } },
+  })
+
+  test("G onto the spacing below the last line is a jump", () => {
+    expect(drive(anchored(10), [[key("G"), anchored(11)]])).toEqual([anchored(10).place])
+  })
+
+  test("a jump that stays on the very same line is not", () => {
+    expect(drive(anchored(10), [[key("G"), anchored(10)]])).toEqual([])
+  })
+})
+
 describe("walking the list", () => {
   test("Ctrl-o into another file and Ctrl-i back push nothing", () => {
     expect(drive(origin, [[ctrl("o"), at("b.ts", 5)], [key("tab"), origin], [ctrl("i"), at("c.ts", 1)]])).toEqual([])
@@ -250,7 +285,7 @@ describe("walking the list", () => {
 describe("split", () => {
   test("places in lines converted from split rows record the same way", () => {
     const source = new RowLineSource(new DiffLineMapping([doc], "all"), "split", "right")
-    const row = (r: number): Moment => ({ place: place(lineOfRow(r, source)), file: doc.filename, settled: true })
+    const row = (r: number): Moment => ({ place: place(lineOfRow(r, source)), file: doc.filename, settled: true, stepsMoveTheDiff: false })
     expect(drive(row(2), [[key("G"), row(8)]])).toEqual([row(2).place])
     expect(drive(row(2), [[key("j"), row(5)]])).toEqual([])
   })

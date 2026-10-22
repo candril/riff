@@ -214,12 +214,6 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   ctx.setState((s) => {
     let next = s
 
-    // The view the jump was taken in comes back first: the file selection
-    // and cursor below are read against it.
-    if (next.viewMode !== jump.viewMode) {
-      next = jump.viewMode === "diff" ? enterDiffView(next) : switchView(next, jump.viewMode)
-    }
-
     // File selection — resolve by filename if the index is stale.
     let targetIndex: number | null = null
     if (jump.filename) {
@@ -233,6 +227,18 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
       next = selectFile(next, targetIndex)
     } else if (targetIndex === null && next.selectedFileIndex !== null && jump.fileIndex === null) {
       next = clearFileSelection(next)
+    }
+
+    // The view comes back last: selecting a file or clearing the selection
+    // leaves the overview for the diff, which would undo it. Coming back to
+    // the diff is judged on the view the apply started in, since that
+    // selection has already flipped viewMode without leaving the overview's
+    // reaction target behind the way enterDiffView does. The cursor below is
+    // read against this view and the mapping rebuilt for it.
+    if (jump.viewMode === "diff") {
+      if (s.viewMode !== "diff") next = enterDiffView(next)
+    } else if (next.viewMode !== jump.viewMode) {
+      next = switchView(next, jump.viewMode)
     }
 
     return { ...next, focusedPanel: focusable(next, jump.focusedPanel) }

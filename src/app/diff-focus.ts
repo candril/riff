@@ -5,6 +5,11 @@ export function composerOpen(state: AppState): boolean {
   return comments.open && (comments.mode === "compose" || comments.mode === "edit")
 }
 
+/** The thread panel is open, focused and not composing: its keys move the diff's cursor from thread to thread. */
+export function threadPanelHoldsKeys(state: AppState): boolean {
+  return state.inlineCommentOverlay.open && state.focusedPanel === "comments" && !composerOpen(state)
+}
+
 /** Overlays whose state no longer lives in AppState; each feature factory adds its own. */
 export interface OutsideOverlays {
   prompt: boolean

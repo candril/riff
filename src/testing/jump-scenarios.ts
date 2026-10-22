@@ -104,10 +104,11 @@ export interface Place {
 export async function jumpScenario({
   width = 160,
   height = 30,
+  diff = SCENARIO_DIFF,
   more = {},
-}: { width?: number; height?: number; more?: Partial<AppKeyContext> } = {}) {
-  const mounted = await mountApp(SCENARIO_DIFF, { width, height })
-  const allFiles = parseDiff(SCENARIO_DIFF)
+}: { width?: number; height?: number; diff?: string; more?: Partial<AppKeyContext> } = {}) {
+  const mounted = await mountApp(diff, { width, height })
+  const allFiles = parseDiff(diff)
   const onlyBeta = allFiles.filter((file) => file.filename === "src/beta.ts")
   mounted.show({
     focusedPanel: "diff",
