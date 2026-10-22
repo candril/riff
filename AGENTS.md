@@ -219,6 +219,8 @@ src/
 │   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, the lowest layer
 │   ├── bracket-key-deps.ts  # What those motions need of the app
 │   ├── bracket-commands.ts  # One command per ]/[ motion, and adjacentCommit
+│   ├── z-chord-commands.ts  # One command per z chord
+│   ├── z-chord-key-deps.ts  # What the z chords need of the app
 │   ├── chord-stroke.ts   # A chord's second key as the chain spells it, and its sequence patterns
 │   ├── mark-chord-gate.ts  # Whether the diff reads m, ' and ]m as mark keys
 │   └── init.ts           # Loading a session into state

@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import { keymapHarness } from "../testing/keymap-keys"
 import { anyModifiers } from "./key-variants"
-import { chordStrokeToken, chordSuffix, registerChordStrokes } from "./chord-stroke"
+import { chordStrokeToken, chordSuffix, registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
+import { BRACKET_SEQUENCES } from "./bracket-commands"
+import { Z_SEQUENCES } from "./z-chord-commands"
 
 const key = (sequence: string) => new KeyEvent(parseKeypress(sequence, { useKittyKeyboard: true })!)
 
@@ -26,9 +28,37 @@ describe("chordSuffix", () => {
   })
 })
 
-test("a shifted suffix gets a token of its own, as token names fold to lower case", () => {
-  expect(chordStrokeToken("r")).toBe("chord-r")
-  expect(chordStrokeToken("R!")).toBe("chord-shift-r")
+describe("chordStrokeToken", () => {
+  test("gives a shifted suffix a token of its own, as token names fold to lower case", () => {
+    expect(chordStrokeToken("r")).toBe("chord-r")
+    expect(chordStrokeToken("r!")).toBe("chord-shift-r")
+  })
+
+  test("tells a shifted capital from a shifted lower-case letter", () => {
+    for (const letter of ["a", "s", "r"]) {
+      expect(chordStrokeToken(`${letter.toUpperCase()}!`)).not.toBe(chordStrokeToken(`${letter}!`))
+    }
+    expect(chordStrokeToken("R!")).toBe("chord-shift-upper-r")
+  })
+
+  test("leaves a key without case alone", () => {
+    expect(chordStrokeToken("?!")).toBe("chord-shift-?")
+  })
+})
+
+describe("sequenceSuffixes", () => {
+  const suffixes = sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES)
+
+  test("names a suffix the layers share once", () => {
+    expect(suffixes.filter((suffix) => suffix === "c")).toEqual(["c"])
+    expect(suffixes).toContain("A!")
+    expect(suffixes).toContain("a!")
+  })
+
+  test("names no token twice", () => {
+    const tokens = suffixes.map(chordStrokeToken)
+    expect(new Set(tokens).size).toBe(tokens.length)
+  })
 })
 
 describe("a chord stroke in a keymap sequence", () => {

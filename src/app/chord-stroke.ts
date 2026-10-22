@@ -16,13 +16,25 @@ export function chordSuffix(key: Stroke): string {
 
 /**
  * The keymap token naming the second stroke that is `suffix`. Token names
- * are folded to lower case, so the shift is spelled out rather than left to
- * the case of the letter.
+ * are folded to lower case, so neither the shift nor the case of the
+ * letter is left to the case of the name: terminals differ in whether
+ * shift+a reports "a" or "A", the chain spelled the two `a!` and `A!`, and
+ * each needs a pattern of its own.
  */
 export function chordStrokeToken(suffix: string): string {
   const shifted = suffix.endsWith("!")
   const name = shifted ? suffix.slice(0, -1) : suffix
-  return `chord-${shifted ? "shift-" : ""}${name.toLowerCase()}`
+  const upper = name !== name.toLowerCase()
+  return `chord-${shifted ? "shift-" : ""}${upper ? "upper-" : ""}${name.toLowerCase()}`
+}
+
+/**
+ * The second strokes of every sequence in `layers`, each once: a suffix
+ * two layers share is one sequence pattern, as the keymap refuses a
+ * pattern name registered twice.
+ */
+export function sequenceSuffixes(...layers: readonly Readonly<Record<string, string>>[]): string[] {
+  return [...new Set(layers.flatMap((sequences) => Object.keys(sequences).map((sequence) => sequence.slice(1))))]
 }
 
 /**

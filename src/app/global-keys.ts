@@ -11,7 +11,7 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { expandFiles } from "../state"
-import { toggleHelp, toggleLinePeek, toggleWrapLines } from "../state"
+import { toggleHelp, toggleLinePeek } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -27,13 +27,14 @@ import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
 import { createOpenLink } from "./open-link"
-import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
 import { blameKeysContext } from "./blame-key-deps"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
 import { chordSuffix } from "./chord-stroke"
 import { diffTakesMarkChord } from "./mark-chord-gate"
+import { Z_SEQUENCES, zChordCommands } from "./z-chord-commands"
+import { zChordDeps } from "./z-chord-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -51,7 +52,6 @@ import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 import * as marks from "../features/marks"
 import { createBlameKeys, type BlameDeps, type BlameKeys } from "../features/blame/keys"
-import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "./peek-leaves"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
@@ -168,23 +168,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
   const { linksTitle, openLinksPicker } = createLinksPicker(ctx)
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
 
-  /**
-   * Scroll the diff sideways and bring the cursor with it. Leaving the
-   * cursor behind would hide it the moment it left the window, which is
-   * how vim behaves too.
-   */
-  function scrollColumns(delta: number): void {
-    ctx.cursorView.scrollColumnsBy(delta)
-    const vimState = ctx.getVimState()
-    const col = ctx.cursorView.clampColumnToWindow(vimState.line, vimState.col)
-    if (col !== vimState.col) {
-      ctx.setVimState({ ...vimState, col, desiredCol: null })
-    }
-    ctx.render()
-  }
-
-  const blameColumn = createBlameColumnKeys(blameKeysContext(ctx))
-
   // Key sequence tracking
   let pendingKey: string | null = null
   let pendingTimeout: ReturnType<typeof setTimeout> | null = null
@@ -204,6 +187,7 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
   }
 
   const takesMarkChord = () => diffTakesMarkChord(ctx)
+  const zChords = zChordCommands(zChordDeps(ctx))
 
   const followLinkContext: followLink.FollowLinkContext = {
     setState: ctx.setState,
@@ -298,6 +282,9 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
 
       const s = ctx.getState()
       if (!chordAllowedUnderPeek(sequence, s)) return
+
+      const zChord = Z_SEQUENCES[sequence as keyof typeof Z_SEQUENCES]
+      if (zChord && zChords[zChord]()) return
 
       if (sequence === "gS!" || sequence === "gs!") {
         reviewPreview.handleOpenReviewPreview(ctx.reviewPreviewOpenContext)
@@ -403,74 +390,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
         return
       } else if (sequence === "gG!" || sequence === "G!") {
         folds.handleGoToBottom(ctx.foldsContext)
-        return
-      } else if (sequence === "za") {
-        // In the feed, `za` opens a commit row into the files it touched.
-        if (s.viewMode === "feed") {
-          feed.toggleExpandedRow(feedExpandDeps(ctx))
-          return
-        }
-        folds.handleToggleFoldAtCursor(ctx.foldsContext)
-        return
-      } else if (sequence === "zA!" || sequence === "za!") {
-        // Every fenced block in this file at once (spec 073).
-        folds.handleToggleFileBlocks(ctx.foldsContext)
-        return
-      } else if (sequence === "zR!" || sequence === "zr!") {
-        folds.handleExpandAllFolds(ctx.foldsContext)
-        return
-      } else if (sequence === "zM!" || sequence === "zm!") {
-        folds.handleCollapseAllFolds(ctx.foldsContext)
-        return
-      } else if (sequence === "zr") {
-        folds.handleExpandAllFolds(ctx.foldsContext)
-        return
-      } else if (sequence === "zm") {
-        folds.handleCollapseAllFolds(ctx.foldsContext)
-        return
-      } else if (sequence === "zw") {
-        // The mapping is rebuilt because markdown table padding is applied
-        // there and is dropped while wrapping. Drawing the new mapping
-        // brings the cursor back into view.
-        ctx.setState(toggleWrapLines)
-        ctx.rebuildLineMapping()
-        ctx.render()
-        return
-      } else if (sequence === "zB!" || sequence === "zb!") {
-        // Both spellings are accepted because terminals differ in whether
-        // shift+letter reports the key name as lower- or uppercase.
-        if (s.viewMode === "diff") blameColumn.toggle()
-        return
-      } else if (sequence === "zl" || sequence === "zh") {
-        scrollColumns(sequence === "zl" ? 1 : -1)
-        return
-      } else if (sequence === "zL!" || sequence === "zl!" || sequence === "zH!" || sequence === "zh!") {
-        // Both spellings are accepted because terminals differ in whether
-        // shift+letter reports the key name as lower- or uppercase.
-        const forward = sequence === "zL!" || sequence === "zl!"
-        scrollColumns(ctx.cursorView.halfColumnWindow(ctx.getVimState().line) * (forward ? 1 : -1))
-        return
-      } else if (sequence === "zs" || sequence === "ze") {
-        const vimState = ctx.getVimState()
-        ctx.cursorView.scrollColumnToEdge(
-          vimState.line,
-          vimState.col,
-          sequence === "zs" ? "start" : "end"
-        )
-        ctx.render()
-        return
-      } else if (sequence === "zz" || sequence === "zt" || sequence === "zb") {
-        ctx.cursorView.scrollCursorTo(
-          ctx.getVimState().line,
-          sequence === "zz" ? "center" : sequence === "zt" ? "top" : "bottom"
-        )
-        ctx.render()
-        return
-      } else if (sequence === "zo") {
-        folds.handleOpenFoldAtCursor(ctx.foldsContext)
-        return
-      } else if (sequence === "zc") {
-        folds.handleCloseFoldAtCursor(ctx.foldsContext)
         return
       } else if (sequence === "g?" || sequence === "g?!") {
         ctx.setState(toggleHelp)

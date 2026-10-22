@@ -4,11 +4,12 @@
  * after the global keys and before the tree. Each second stroke is a chord
  * pattern (chord-stroke.ts), so it matches on the suffix the chain spelled,
  * whatever ctrl or meta is held, as the opener does through anyModifiers.
+ * createAppKeys registers those patterns, once for every sequence layer.
  */
 
 import type { RiffKeymap } from "./keymap"
 import { anyModifiers } from "./key-variants"
-import { chordStrokeToken, registerChordStrokes } from "./chord-stroke"
+import { chordStrokeToken } from "./chord-stroke"
 import { chordAllowedUnderPeek } from "./peek-leaves"
 import { chordTimeoutMs } from "../features/marks"
 import { BRACKET_SEQUENCES, bracketCommands, type BracketDeps } from "./bracket-commands"
@@ -27,7 +28,6 @@ const SEQUENCES = Object.entries(BRACKET_SEQUENCES).map(([sequence, cmd]) => ({
 
 export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketKeyDeps): () => void {
   const commands = bracketCommands(deps)
-  const offStrokes = registerChordStrokes(riffKeymap.keymap, [...new Set(SEQUENCES.map(({ suffix }) => suffix))])
   const offLayer = riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
     // came ahead of the chain's sequences; and while the chain holds `g`,
@@ -39,7 +39,7 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketKeyDeps
       category: "Motion",
       palette: false,
       run: () => {
-        // The chain swallowed a sequence a peek does not allow rather than let it reach the diff.
+        // A sequence a peek does not allow is swallowed, so it cannot reach the diff.
         if (!chordAllowedUnderPeek(sequence, deps.getState())) return true
         return commands[cmd]()
       },
@@ -56,7 +56,6 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketKeyDeps
   return () => {
     offExpiry()
     offLayer()
-    offStrokes()
   }
 }
 

@@ -28,6 +28,8 @@ import { registerTreeKeys } from "../features/file-tree/keys"
 import { treeKeyDeps } from "./tree-key-deps"
 import { registerBracketKeys } from "./bracket-keys"
 import { bracketKeyDeps } from "./bracket-key-deps"
+import { BRACKET_SEQUENCES } from "./bracket-commands"
+import { registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
@@ -69,11 +71,12 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // registers next, behind the global keys, as the chain asked it after
   // them and after its chords. The global keys register after it, behind
   // every modal layer, as the chain asked them after its modal branches,
-  // and stand aside while any capture holds the key. The composer never competes with the chat, which stands aside
-  // while it is open, view mode and compose mode are never active
-  // together, and nor are the overview and the feed, which are views of
-  // their own.
+  // and stand aside while any capture holds the key. The composer never
+  // competes with the chat, which stands aside while it is open, view mode
+  // and compose mode are never active together, and nor are the overview
+  // and the feed, which are views of their own.
   const links = createLinksPicker(ctx)
+  registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES))
   registerBracketKeys(riffKeymap, bracketKeyDeps(ctx, legacy))
   registerTreeKeys(riffKeymap, treeKeyDeps(ctx, chain))
   registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
