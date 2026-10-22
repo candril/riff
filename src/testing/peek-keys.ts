@@ -1,4 +1,4 @@
-import type { BlamePeekState } from "../features/blame/peek-state"
+import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 import { registerBlamePeekKeys } from "../features/blame/peek-keys"
 import { registerLinePeekKeys } from "../features/line-peek/keys"
 import { pendingMarkChordGivesWay } from "../features/marks"
@@ -14,7 +14,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 
-export const BLAME_PEEK: BlamePeekState = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
+export const BLAME_PEEK: BlamePeekSnapshot = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
 
 /** riff on the diff, local, with `patch` on top. */
 export function peekState(patch: Partial<AppState> = {}): AppState {

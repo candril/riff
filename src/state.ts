@@ -11,7 +11,7 @@ import type { JumpListState } from "./features/jumplist/types"
 import { createJumpListState } from "./features/jumplist/types"
 import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
-import { closeBlamePeek, type BlamePeekState } from "./features/blame/peek-state"
+import { closeBlamePeek, type BlamePeekSnapshot } from "./features/blame/peek-state"
 import type { BlameColumnState } from "./features/blame/column-state"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
@@ -338,7 +338,7 @@ export interface AppState {
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
   /** `gb` — who last changed the cursor's line (spec 103). */
-  blamePeek: BlamePeekState | null
+  blamePeek: BlamePeekSnapshot | null
   /** Files whose blame column is on, by path (spec 103). */
   blameColumns: ReadonlyMap<string, BlameColumnState>
   /** `zw` — soft-wrap long lines instead of scrolling sideways. */

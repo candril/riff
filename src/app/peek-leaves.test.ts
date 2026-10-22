@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { chordAllowedUnderPeek } from "./peek-leaves"
-import type { BlamePeekState } from "../features/blame/peek-state"
+import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 
-const peek: BlamePeekState = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
+const peek: BlamePeekSnapshot = { target: { path: "a.ts", side: "head", line: 1 }, request: 1, status: "loading" }
 const none = { blamePeek: null, viewMode: "diff" as const }
 
 describe("chordAllowedUnderPeek", () => {
