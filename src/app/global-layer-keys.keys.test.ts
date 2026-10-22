@@ -99,6 +99,8 @@ test("Ctrl-Shift-p still opens the palette, and q and Shift-q quit", async () =>
 
 test("Shift-c hands the line to $EDITOR's comment flow", async () => {
   const { mounted, comments } = await globalApp()
+  // From the tree, where the diff's own `c` cannot record the call too.
+  mounted.show({ focusedPanel: "tree", showFilePanel: true })
   mounted.setup.mockInput.pressKey("c", { shift: true })
   expect(comments).toHaveLength(1)
 })

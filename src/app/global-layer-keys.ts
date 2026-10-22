@@ -1,9 +1,10 @@
 /**
  * The keys that work in any mode: the palette, the pickers, the three
  * surfaces, the jumplist, the focus walk, list flash and quitting. They
- * register behind every other layer, as they sat last in the chain but for
- * its chords, and stand aside while any capture holds the key, where the
- * chain never reached them.
+ * register behind every layer but the tree's, because the chain asked them
+ * after its modal branches and before its sequences, the tree and the diff,
+ * and stand aside while any capture holds the key, where the chain never
+ * reached them.
  */
 
 import type { KeyEvent } from "@opentui/core"

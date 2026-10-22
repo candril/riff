@@ -1,15 +1,17 @@
 /**
  * Global key handling
  *
- * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules.
- * Key sequences are checked first, then the tree's keys, then the diff's.
+ * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
+ * the key sequences first, then the split toggle and the chord openers, the
+ * tree for a key that broke off a chord or a slash its layer cannot name, and
+ * the diff.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { ComposerHandle } from "./island-composer"
 import type { AppState } from "../state"
 import { expandFiles } from "../state"
-import { toggleHelp, toggleLinePeek, toggleWrapLines, setViewFilter, commitViewFilter, clearViewFilter, closeInlineCommentOverlay, setViewingCommit } from "../state"
+import { toggleHelp, toggleLinePeek, toggleWrapLines } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -24,13 +26,12 @@ import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
-import { createCursorState } from "../vim-diff/cursor-state"
-import { treeRowsOf } from "../components"
 import { createOpenLink } from "./open-link"
 import { feedExpandDeps } from "./feed-key-deps"
 import { createLinksPicker } from "./links-picker"
 import { blameKeysContext } from "./blame-key-deps"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
+import { treeInputContext } from "./tree-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -130,47 +131,11 @@ export interface GlobalKeyContext {
 }
 
 /**
- * Get the current file path based on context (like nvim's Ctrl+g).
- * Returns the full path from:
- * - File tree: highlighted file path
- * - Single file view: selected file path
- * - All files view: file at cursor position
- */
-function getCurrentFilePath(ctx: GlobalKeyContext): string | null {
-  const state = ctx.getState()
-  const lineMapping = ctx.getLineMapping()
-  const vimState = ctx.getVimState()
-
-  if (state.focusedPanel === "tree") {
-    // From file tree - use highlighted item
-    const flatItems = treeRowsOf(state)
-    const highlightedItem = flatItems[state.treeHighlightIndex]
-    if (highlightedItem) {
-      return highlightedItem.node.path
-    }
-  } else if (state.selectedFileIndex !== null) {
-    // Single file view - use selected file
-    const file = state.files[state.selectedFileIndex]
-    if (file) {
-      return file.filename
-    }
-  } else {
-    // All files view - use file at cursor
-    const currentLine = lineMapping.getLine(vimState.line)
-    if (currentLine?.filename) {
-      return currentLine.filename
-    }
-  }
-
-  return null
-}
-
-/**
  * `chordPending` is exposed because the jump recorder judges a chord as one
  * interaction: a place reached by its second key is recorded from where the
  * first key was pressed. `clearChord` and `settleChord` are for the keymap
- * layers that take keys ahead of the chain yet must still cancel its chord,
- * as the chain's own branches did.
+ * layers that take keys ahead of the chain, since a chord left pending
+ * under a key a layer took would swallow the next key.
  */
 export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
   chordPending(): boolean
@@ -308,32 +273,15 @@ export function createKeyHandler(
   })
 
   // A click into the tree between `m` and its letter leaves the chord
-  // pending; the next key was typed for the tree, and every handler below
-  // stands aside while a chord is pending.
+  // pending; the next key was typed for the tree, and whatever stands aside
+  // while a chord is pending, in the chain or in a layer ahead of it, would
+  // otherwise never see it.
   function settleChord(key: KeyEvent) {
     if (marks.pendingMarkChordGivesWay(pendingKey, key, diffTakesMarkChord())) clearPendingKey()
   }
 
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
-
-    const dispatchToTree = (): boolean =>
-      fileTreeFeature.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: () => ctx.fileTreePanel,
-        updatePanel: ctx.updateFileTreePanel,
-        onFileSelected: () => {
-          ctx.setVimState(createCursorState())
-          ctx.rebuildLineMapping()
-        },
-        revealFile: (fileIndex: number) =>
-          fileNavigation.revealFile(fileIndex, ctx.fileNavContext),
-        toggleViewedForFile: (filename: string) =>
-          fileNavigation.toggleViewedForFile(filename, ctx.fileNavContext),
-        toggleUnviewedOnly: ctx.toggleUnviewedFilesOnly,
-      })
 
     // ========== KEY SEQUENCES (]f, [f, gS, etc.) ==========
     const chordPending = pendingKey !== null
@@ -649,11 +597,14 @@ export function createKeyHandler(
       return
     }
 
-    // ========== TREE PANEL FOCUSED ==========
-    if (dispatchToTree()) {
+    // A key that breaks off a chord without completing a sequence still goes
+    // to the tree, whose layer stood aside for it while the chord was pending.
+    // So does a slash the layer has no binding for: where `/` is a shifted key,
+    // kitty names a modified slash after its base key ("7") and only its
+    // sequence says "/", which the tree's filter opener matches.
+    if ((chordPending || key.sequence === "/") && fileTreeFeature.handleInput(key, treeInputContext(ctx))) {
       return
     }
-
 
     // ========== DIFF VIEW FOCUSED ==========
     diffView.handleInput(key, {

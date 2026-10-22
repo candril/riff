@@ -24,6 +24,8 @@ import { registerTextObjectKeys } from "./text-object-keys"
 import { registerPromptKeys } from "./prompt-keys"
 import { registerGlobalKeys } from "./global-layer-keys"
 import { globalLayerKeyDeps } from "./global-layer-key-deps"
+import { registerTreeKeys } from "../features/file-tree/keys"
+import { treeKeyDeps } from "./tree-key-deps"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
@@ -49,13 +51,16 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and the peeks, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
-  // active together with it. The global keys register first, behind every
-  // layer, as the chain asked them last but for its chords, and stand aside
-  // while any capture holds the key. The composer never competes with the
-  // chat, which stands aside while it is open, view mode and compose mode
-  // are never active together, and nor are the overview and the feed,
-  // which are views of their own.
+  // active together with it. The tree registers first, behind the global
+  // keys, as the chain asked it after them and after its chords. The global
+  // keys register next, behind every other layer, as the chain asked them
+  // after its modal branches, and stand aside while any capture holds the
+  // key. The composer never competes with the chat, which stands aside
+  // while it is open, view mode and compose mode are never active
+  // together, and nor are the overview and the feed, which are views of
+  // their own.
   const links = createLinksPicker(ctx)
+  registerTreeKeys(riffKeymap, treeKeyDeps(ctx, legacy))
   registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, legacy))
   registerTextObjectKeys(riffKeymap, {
     getState: ctx.getState,

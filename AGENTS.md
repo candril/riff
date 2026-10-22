@@ -146,8 +146,10 @@ Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
 `@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
 from `src/app/keys.ts`, and only a key no layer takes reaches the priority
-chain in `src/app/global-keys.ts`, which hands it to each feature's
-`input.ts` ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
+chain in `src/app/global-keys.ts`, which resolves the key sequences and
+hands the rest to the diff's `input.ts`, or to the tree's for a key that
+broke off a chord
+([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
 ### GitHub: `gh` CLI
 

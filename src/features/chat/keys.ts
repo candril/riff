@@ -39,9 +39,9 @@ export function chatStandsAside(state: AppState, searchActive: boolean): boolean
 
 /**
  * Whether the chat's reach takes `key` from outside the chat: Ctrl-r, and
- * Ctrl-l from the thread panel with the chat open. A modal the chain asked
- * after the chat lets these through, since its capture would otherwise
- * make the reach stand aside.
+ * Ctrl-l from the thread panel with the chat open. A modal the chat outranks
+ * lets these through, since its capture would otherwise make the reach
+ * stand aside.
  */
 export function chatReaches(key: Pick<KeyEvent, "name" | "ctrl">, state: AppState, searchActive: boolean): boolean {
   if (!key.ctrl || chatStandsAside(state, searchActive)) return false
@@ -101,7 +101,7 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     bindings: [
       ...without(["shift", "meta"], anyModifiers("return", "chat.send")),
       // The parser calls the key "return", but the keymap matches an event
-      // named "enter" as a different key, and the chain took both.
+      // named "enter" as a different key, and Enter sends under either name.
       ...without(["shift", "meta"], anyModifiers("enter", "chat.send")),
       // Ctrl-j is a line feed on the wire; the kitty protocol reports it as itself.
       ...anyModifiers("linefeed", "chat.newLine"),
@@ -119,8 +119,8 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     bindings: anyModifiers("backspace", "chat.walkLeft"),
   })
   // The keys that reach the chat from elsewhere, and Ctrl-r back out of it,
-  // but never from under a modal that outranks the chat: the chain asked
-  // those first.
+  // but never from under a modal that outranks the chat, which keeps the
+  // keys it holds.
   const unregisterReach = riffKeymap.keymap.registerLayer({
     enabled: () => !standsAside() && (!riffKeymap.held() || captured.holds()),
     commands: [

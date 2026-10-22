@@ -30,9 +30,8 @@ export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps {
 }
 
 /**
- * The keys the panel leaves to the handlers that answered them before it
- * held the keyboard. Ctrl-r, and Ctrl-l with the chat open, are the chat's
- * reach, which the chain asked ahead of the panel: they pass wherever the
+ * The keys the panel leaves to riff's other handlers. Ctrl-r, and Ctrl-l
+ * with the chat open, are the chat's reach: they pass wherever the
  * chat takes them, and where it stands aside, under the panel's own filter
  * prompt for one, the panel keeps them. Ctrl-p, Ctrl-f and a bare `s` are
  * the palette's, the file picker's and flash's, and only the filter prompt
