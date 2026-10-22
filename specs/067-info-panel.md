@@ -43,7 +43,7 @@ glance, with everything else one keystroke away.
 ```
   ▶  Merge status  ✗ blocked · lint, e2e failing
   ▼  Description (2)
-      …the description…
+    …the description…
   ▶  Previews (6)  4 live · 2 on demand  ·  from deploy-bot[bot]
   ▶  Conversation (2)  1 unresolved
   ▶  Files (12)  +487 -53
@@ -65,6 +65,10 @@ glance, with everything else one keystroke away.
   and author names in `overlay1`. The section names keep their colour:
   blue when active, `overlay0` otherwise. A header is never wrapped: at
   the panel's edge it ends in `…`, its flash label kept.
+- Conversation's `N unresolved` counts the threads GitHub holds open, by
+  the rule the merge status counts with (`heldOpen` in
+  `src/utils/threads.ts`); a local thread has no resolution on GitHub and
+  is never counted.
 
 - **Previews** is a new section, built from spec 068.
 - A comment whose content has been lifted into a section is folded away in

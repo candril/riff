@@ -1,5 +1,6 @@
 import type { PrInfo, PrReview, PrConversationComment } from "../providers/github/types"
 import type { Comment, ReactionSummary } from "../types"
+import { heldOpen } from "../utils/threads"
 
 /**
  * Unified conversation item for display
@@ -40,6 +41,8 @@ export interface ReviewThread {
   createdAt: string
   url?: string
   isResolved: boolean
+  /** Whether GitHub holds it open; `isResolved` is only how it is drawn. */
+  heldOpen: boolean
   diffHunk?: string
   replies: Comment[]
   reactions?: ReactionSummary[]
@@ -75,6 +78,7 @@ export function conversationItems(
       createdAt: comment.createdAt,
       url: comment.githubUrl,
       isResolved: comment.isThreadResolved ?? false,
+      heldOpen: heldOpen(comment),
       diffHunk: comment.diffHunk,
       replies: [],
       reactions: comment.reactions,

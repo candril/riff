@@ -228,7 +228,7 @@ describe("the conversations line", () => {
     expect(fgAt(spans, ...find(lines, "▶", 9))).toEqual(ints(theme.overlay0))
   })
 
-  test("opens with l onto each unresolved thread, in the order the diff reads, the resolved one left out", async () => {
+  test("opens with l onto each unresolved thread, by file path, then line, the resolved one left out", async () => {
     const { lines } = await onConversations(100, { expand: true })
     const at = lines.indexOf("    ⚠ Conversations  2 unresolved  ▼")
     expect(at).toBeGreaterThan(0)

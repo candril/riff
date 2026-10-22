@@ -100,7 +100,7 @@ describe("the PR info panel following the frame", () => {
 
     publish({ filterInput: false, filter: "" })
     const closed = (await mounted.frame()).split("\n")
-    expect(closed[0]).toBe("")
+    expect(closed[0]).not.toContain("/greet")
     expect(closed).toContain("  ▼  Files (2)")
     expect(renderer.currentFocusedRenderable).not.toBe(focused)
   })

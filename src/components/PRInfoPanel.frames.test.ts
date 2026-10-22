@@ -13,8 +13,6 @@ const BOX_DRAWING = /[─-╿]/
 const META = "  @someone  a-branch → master   ✓ @alice @erin"
 // A glyph rule in surface1, seventy cells whatever the panel's width.
 const SEPARATOR = "  " + "─".repeat(70)
-// The fixture's threads carry no resolution, which the merge status reads as
-// not GitHub's to count and the conversation's summary as open.
 const MERGE_STATUS = [
   "  ▼  Merge status  ✗ blocked",
   "",
@@ -26,13 +24,13 @@ const MERGE_STATUS = [
   "      ✗ deploy (timed_out)  ▶",
   "      ! audit (action_required)  ▶",
   "    ✗ Reviews        2 approvals · changes requested by bob",
-  "    ✓ Conversations  all resolved",
+  "    ⚠ Conversations  2 unresolved  ▶",
   "    ○ Conflicts      checking",
   "    ○ Base           comparing with master",
   "    ✓ Blockers       none",
 ]
 const FOLDED_MERGE_STATUS =
-  "  ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested"
+  "  ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved"
 const HEADERS = [
   "  ▶  Previews (0)",
   "",
@@ -155,7 +153,7 @@ describe("on arrival", () => {
       expect(bgAt(spans, x, y)).toEqual(ints(theme.base))
     }
     expect(fgAt(spans, ...find(lines, "✗ blocked"))).toEqual(ints(theme.red))
-    expect(fgAt(spans, ...find(lines, "2 unresolved"))).toEqual(ints(theme.yellow))
+    expect(fgAt(spans, ...find(lines, "2 unresolved", find(lines, "Conversation (")[1]))).toEqual(ints(theme.yellow))
     expect(fgAt(spans, ...find(lines, "+98"))).toEqual(ints(theme.green))
     expect(fgAt(spans, ...find(lines, "-0"))).toEqual(ints(theme.red))
     expect(fgAt(spans, ...find(lines, "last 1h"))).toEqual(ints(theme.subtext0))
@@ -188,7 +186,7 @@ describe("on arrival", () => {
       "",
       "    ✓ Checks         no checks",
       "    ✓ Reviews        0 approvals",
-      "    ✓ Conversations  all resolved",
+      "    ⚠ Conversations  2 unresolved  ▶",
       "    ○ Conflicts      checking",
       "    ○ Base           comparing with master",
       "    ✓ Blockers       none",
@@ -267,7 +265,10 @@ describe("the filter", () => {
       "",
       SEPARATOR,
       "",
-      FOLDED_MERGE_STATUS,
+      "  ▼  Merge status  ✗ blocked",
+      "",
+      "    ⚠ Conversations  2 unresolved  ▼",
+      "      ⚠ greet.ts:12  @bob  Rename greet to welcome, it reads better in the call sites.",
       "",
       "  ▼  Description (2)",
       "",
@@ -315,7 +316,7 @@ describe("flash labels", () => {
         p.setFlashLabels(new Map([["checks", "a"], ["files:1", "sd"]]))
       },
     })
-    expect(lines[6]).toBe("  a ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested")
+    expect(lines[6]).toBe("  a ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved")
     expect(lines.slice(17, 21)).toEqual([
       "  ▼  Files (2)",
       "",

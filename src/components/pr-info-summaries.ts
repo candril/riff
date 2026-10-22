@@ -40,7 +40,7 @@ export function unresolvedSummary(conversationItems: ConversationItem[]): Summar
   let unresolved = 0
   for (const item of conversationItems) {
     if (item.type !== 'review') continue
-    unresolved += item.data.threads.filter((thread) => !thread.isResolved).length
+    unresolved += item.data.threads.filter((thread) => thread.heldOpen).length
   }
   return unresolved > 0 ? [{ text: `${unresolved} unresolved`, fg: theme.yellow }] : []
 }

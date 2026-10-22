@@ -143,6 +143,7 @@ export function reviewThreadComments(): Comment[] {
       author: "bob",
       body: "Rename `greet` to `welcome`, it reads better in the call sites.",
       diffHunk: "@@ -10,3 +10,4 @@ export function greet()\n const a = 1\n-const old = 2\n+const greet = 3",
+      isThreadResolved: false,
     }),
     reviewComment("t1r1", { author: "someone", body: "Done, renamed.", createdAt: ago(100), inReplyTo: "t1" }),
     reviewComment("t1r2", { author: "bob", body: "Thanks!", createdAt: ago(90), inReplyTo: "t1" }),
@@ -163,6 +164,7 @@ export function reviewThreadComments(): Comment[] {
       body: "This moved",
       createdAt: ago(122),
       outdated: true,
+      isThreadResolved: false,
     }),
   ]
 }

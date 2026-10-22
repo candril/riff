@@ -67,6 +67,11 @@ describe("unresolvedSummary", () => {
     const resolved = reviewThreadComments().map((comment) => ({ ...comment, isThreadResolved: true }))
     expect(unresolvedSummary(conversationItems(fullPr(), resolved, new Set()))).toEqual([])
   })
+
+  test("leaves out a local thread, which GitHub holds no resolution for", () => {
+    const local = { ...reviewThreadComments()[0]!, id: "local", githubId: undefined, isThreadResolved: undefined, status: "local" as const }
+    expect(unresolvedSummary(conversationItems(fullPr(), [local], new Set()))).toEqual([])
+  })
 })
 
 describe("lastCommitSummary", () => {

@@ -95,7 +95,10 @@ says whose move it is, this section says why.
     review decision is `APPROVED`: GitHub's count outranks riff's.
   - **Conversations**: `all resolved`, or `N unresolved`: a warning, but
     failing when the merge state is `BLOCKED`, since the open threads are
-    then what explains it.
+    then what explains it. A thread counts when GitHub holds it open; a
+    local thread has no resolution there and never counts. The header's
+    reading and Conversation's summary count by the same rule
+    (`heldOpen` in `src/utils/threads.ts`).
   - **Conflicts**: `no conflicts`, a failing `conflicting`, or a pending
     `checking` while GitHub has not decided.
   - **Base**: `up to date with <base>`, or `N commits behind <base>`,
@@ -125,7 +128,7 @@ says whose move it is, this section says why.
 - **Expanding a line** shows its detail: checks expand to the full list,
   indented under their line, each failing one opening onto its annotations
   ([043](./043-check-annotations.md)); conversations to each unresolved
-  thread, in the order the diff reads (file, then line): `⚠ greet.ts:12
+  thread, by file path, then line: `⚠ greet.ts:12
   @bob  Rename this…`, a file-level thread `farewell.ts (file)`. Only a
   line with something under it opens: the checks line with any check, the
   conversations line with any unresolved thread. `l` / `Enter` open a line,

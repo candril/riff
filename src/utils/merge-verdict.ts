@@ -11,6 +11,7 @@
 
 import type { PrCheck, PrInfo } from "../providers/github/types"
 import type { Comment } from "../types"
+import { heldOpen } from "./threads"
 
 export type MergeVerdict =
   | "ready"
@@ -34,7 +35,7 @@ export function mergeReading(
   if (pr.isDraft) return { verdict: "draft", text: "draft" }
   if (pr.autoMergeMethod) return { verdict: "auto-merge", text: `auto-merge (${pr.autoMergeMethod})` }
 
-  const open = comments.filter((c) => !c.inReplyTo && c.isThreadResolved === false).length
+  const open = comments.filter(heldOpen).length
   if (open > 0) {
     return { verdict: "author", text: `${open} open thread${open === 1 ? "" : "s"}` }
   }

@@ -163,7 +163,7 @@ describe("checks", () => {
   const CHECKS_LINE = "    ✗ Checks         1/6 · test, e2e +2 failing  ▼"
   const OTHER_GATES = [
     "    ✗ Reviews        2 approvals · changes requested by bob",
-    "    ✓ Conversations  all resolved",
+    "    ⚠ Conversations  2 unresolved  ▶",
     "    ○ Conflicts      checking",
     "    ○ Base           comparing with master",
     "    ✓ Blockers       none",

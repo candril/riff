@@ -10,6 +10,7 @@
 
 import type { PrCheck, PrInfo, PrMergeQueueEntry } from "../providers/github/types"
 import type { Comment } from "../types"
+import { heldOpen } from "../utils/threads"
 import { theme } from "../theme"
 import { queuePoint } from "./merge-queue"
 import { latestReviewStates } from "./pr-info-header"
@@ -110,13 +111,10 @@ function verdictOf(points: readonly MergePoint[], prInfo: PrInfo): MergeStatus["
   return "ready"
 }
 
-/**
- * The roots of the threads GitHub still holds open, in the order the diff
- * reads. A local thread has no resolution of its own, so it is never counted.
- */
+/** The roots of the threads GitHub still holds open, by file path, then line. */
 function unresolvedThreads(comments: readonly Comment[]): Comment[] {
   return comments
-    .filter((c) => !c.inReplyTo && c.isThreadResolved === false)
+    .filter(heldOpen)
     .sort((a, b) => a.filename.localeCompare(b.filename) || (a.line ?? 0) - (b.line ?? 0))
 }
 

@@ -178,7 +178,7 @@ describe("conversations", () => {
     ])
   })
 
-  test("the threads are the unresolved roots the line counts, in the order the diff reads", () => {
+  test("the threads are the unresolved roots the line counts, by file path, then line", () => {
     const later = thread(false, { filename: "b.ts", line: 3 })
     const first = thread(false, { filename: "a.ts", line: 9 })
     const earlier = thread(false, { filename: "b.ts", line: 1 })

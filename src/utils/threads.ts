@@ -14,6 +14,15 @@ export interface Thread {
 }
 
 /**
+ * Whether GitHub holds this root's thread open. A local thread has no
+ * resolution of its own on GitHub, so it never counts as unresolved, however
+ * it is drawn.
+ */
+export function heldOpen(root: Comment): boolean {
+  return !root.inReplyTo && root.isThreadResolved === false
+}
+
+/**
  * Flattened item for navigation in comments view
  */
 export interface ThreadNavItem {
