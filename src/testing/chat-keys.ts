@@ -48,6 +48,7 @@ export function keysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,
     chat: { state: mounted.chat, input: mounted.chatColumn.input },
+    help: mounted.help,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

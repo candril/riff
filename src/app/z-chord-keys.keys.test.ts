@@ -322,7 +322,8 @@ test("shift+z and a key named Z open no z sequence and reach the chain", async (
 describe("under a modal", () => {
   test("the help overlay holds z", async () => {
     const { mounted, type, scrolls, keys } = await zApp()
-    mounted.show({ showHelp: true })
+    mounted.help.toggle()
+    mounted.show()
     type("z")
     expect(keys.chordPending()).toBe(false)
     type("z")

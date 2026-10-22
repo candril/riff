@@ -5,7 +5,8 @@
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
-import { toggleHelp, toggleLinePeek } from "../state"
+import { toggleLinePeek } from "../state"
+import type { HelpState } from "../features/help/state"
 import type { BlameKeys } from "../features/blame/keys"
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -19,6 +20,7 @@ export interface GChordDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  help: Pick<HelpState, "toggle">
   executeAction: (id: string) => void
   reviewPreviewOpenContext: reviewPreview.ReviewPreviewOpenContext
   syncPreviewOpenContext: syncPreview.SyncPreviewOpenContext
@@ -143,7 +145,7 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
     goToTop: taking(() => folds.handleGoToTop(deps.foldsContext)),
     goToBottom: taking(() => folds.handleGoToBottom(deps.foldsContext)),
     toggleHelp: taking(() => {
-      deps.setState(toggleHelp)
+      deps.help.toggle()
       deps.render()
     }),
   }

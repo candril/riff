@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseKeypress } from "@opentui/core"
-import { createInitialState, toggleHelp, type AppState } from "../state"
+import { createInitialState, type AppState } from "../state"
+import { createHelpState } from "../features/help/state"
 import { helpViewport } from "../components/help-sections"
 import { helpOverlayModel } from "../components/help-overlay-model"
 import { registerSyncPreviewKeys } from "../features/sync-preview/keys"
@@ -25,7 +26,9 @@ const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: 
 async function openHelp(rows: number, { syncPreview = false } = {}) {
   let chordPending = false
   const { riffKeymap, leftKeys, press } = await keymapHarness()
-  const initial = toggleHelp(createInitialState([], [], "", ""))
+  const helpState = createHelpState()
+  helpState.toggle()
+  const initial = createInitialState([], [], "", "")
   let state: AppState = { ...initial, syncPreview: { ...initial.syncPreview, open: syncPreview } }
   let renders = 0
   let height = rows
@@ -38,12 +41,15 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
       renders++
     },
   }
-  registerHelpKeys(riffKeymap, { ...deps, height: () => height, chordPending: () => chordPending })
+  registerHelpKeys(riffKeymap, { help: helpState, render: deps.render, height: () => height, chordPending: () => chordPending })
   registerSyncPreviewKeys(riffKeymap, { ...deps, onExecuteSync: () => {} })
   return {
     press,
     leftKeys,
     state: () => state,
+    open: helpState.open,
+    scroll: helpState.scroll,
+    toggle: helpState.toggle,
     renders: () => renders,
     resize: (rows: number) => void (height = rows),
     holdChord: () => void (chordPending = true),
@@ -53,15 +59,15 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
 test("j and k scroll the help a row at a time, and k stops at the top", async () => {
   const help = await openHelp(40)
   help.press("j")
-  expect(help.state().helpScroll).toBe(1)
+  expect(help.scroll()).toBe(1)
   help.press("k")
-  expect(help.state().helpScroll).toBe(0)
+  expect(help.scroll()).toBe(0)
   help.press("k")
-  expect(help.state().helpScroll).toBe(0)
+  expect(help.scroll()).toBe(0)
   help.press(DOWN)
   help.press(UP)
   help.press(DOWN)
-  expect(help.state().helpScroll).toBe(1)
+  expect(help.scroll()).toBe(1)
   expect(help.renders()).toBe(6)
   expect(help.leftKeys).toEqual([])
 })
@@ -70,15 +76,15 @@ test("Ctrl-d jumps half the window and stops at the end; Ctrl-u comes back", asy
   const { rows, maxScroll } = helpViewport(40)
   const help = await openHelp(40)
   help.press(CTRL_D)
-  expect(help.state().helpScroll).toBe(Math.min(maxScroll, Math.floor(rows / 2)))
+  expect(help.scroll()).toBe(Math.min(maxScroll, Math.floor(rows / 2)))
   for (let i = 0; i < 5; i++) help.press(CTRL_D)
-  expect(help.state().helpScroll).toBe(maxScroll)
+  expect(help.scroll()).toBe(maxScroll)
   for (let i = 0; i < 40; i++) help.press("j")
-  expect(help.state().helpScroll).toBe(maxScroll)
+  expect(help.scroll()).toBe(maxScroll)
   help.press("k")
-  expect(help.state().helpScroll).toBe(maxScroll - 1)
+  expect(help.scroll()).toBe(maxScroll - 1)
   for (let i = 0; i < 5; i++) help.press(CTRL_U)
-  expect(help.state().helpScroll).toBe(0)
+  expect(help.scroll()).toBe(0)
   expect(help.leftKeys).toEqual([])
 })
 
@@ -86,7 +92,7 @@ test("where every key fits, scrolling keys leave the help where it is", async ()
   const help = await openHelp(70)
   help.press("j")
   help.press(CTRL_D)
-  expect(help.state().helpScroll).toBe(0)
+  expect(help.scroll()).toBe(0)
 })
 
 test("Esc closes the help, and opening it again starts at the top", async () => {
@@ -94,8 +100,9 @@ test("Esc closes the help, and opening it again starts at the top", async () => 
   help.press("j")
   help.press("j")
   help.press(ESC)
-  expect(help.state().showHelp).toBe(false)
-  expect(toggleHelp(help.state()).helpScroll).toBe(0)
+  expect(help.open()).toBe(false)
+  help.toggle()
+  expect([help.open(), help.scroll()]).toEqual([true, 0])
   expect(help.renders()).toBe(3)
   expect(help.leftKeys).toEqual([])
 })
@@ -103,7 +110,7 @@ test("Esc closes the help, and opening it again starts at the top", async () => 
 test("q closes the help too", async () => {
   const help = await openHelp(40)
   help.press("q")
-  expect(help.state().showHelp).toBe(false)
+  expect(help.open()).toBe(false)
   expect(help.renders()).toBe(1)
   expect(help.leftKeys).toEqual([])
 })
@@ -113,7 +120,7 @@ test("every other key is swallowed and changes nothing", async () => {
   help.press("x")
   help.press(CTRL_X)
   help.press(CTRL_B)
-  expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
+  expect([help.open(), help.scroll()]).toEqual([true, 0])
   expect(help.renders()).toBe(0)
   expect(help.leftKeys).toEqual([])
 })
@@ -128,7 +135,7 @@ test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; 
   help.press(CTRL_G)
   help.press("G")
   expect(help.leftKeys).toEqual(["g", "g"])
-  expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
+  expect([help.open(), help.scroll()]).toEqual([true, 0])
 })
 
 test("while the chain holds a chord the help stands aside, so q and ? reach the chain", async () => {
@@ -137,7 +144,7 @@ test("while the chain holds a chord the help stands aside, so q and ? reach the 
   help.press("q")
   help.press("?")
   expect(help.leftKeys).toEqual(["q", "?"])
-  expect(help.state().showHelp).toBe(true)
+  expect(help.open()).toBe(true)
 })
 
 test("super+j and hyper+j scroll the help, and Ctrl-j does not", async () => {
@@ -148,7 +155,7 @@ test("super+j and hyper+j scroll the help, and Ctrl-j does not", async () => {
   help.press(SUPER_J)
   help.press(HYPER_J)
   help.press(CTRL_J)
-  expect(help.state().helpScroll).toBe(2)
+  expect(help.scroll()).toBe(2)
   expect(help.leftKeys).toEqual([])
 })
 
@@ -156,7 +163,7 @@ test("with the help and the sync preview both up, escape closes the sync preview
   const help = await openHelp(40, { syncPreview: true })
   help.press(ESC)
   expect(help.state().syncPreview.open).toBe(false)
-  expect(help.state().showHelp).toBe(true)
+  expect(help.open()).toBe(true)
   expect(help.leftKeys).toEqual([])
 })
 
@@ -165,7 +172,7 @@ test("under the sync preview the help scrolls and closes on none of its keys", a
   help.press("j")
   help.press(CTRL_D)
   help.press("q")
-  expect(help.state()).toMatchObject({ showHelp: true, helpScroll: 0 })
+  expect([help.open(), help.scroll()]).toEqual([true, 0])
   expect(help.state().syncPreview.open).toBe(true)
   expect(help.leftKeys).toEqual([])
 })
@@ -177,8 +184,8 @@ test("after the terminal grows, the first k moves the help up from where it is d
   expect(helpViewport(tall).maxScroll).toBeLessThan(helpViewport(short).maxScroll)
   const help = await openHelp(short)
   for (let i = 0; i < 80; i++) help.press("j")
-  const before = helpOverlayModel(undefined, help.state().helpScroll, tall).scroll
+  const before = helpOverlayModel(undefined, help.scroll(), tall).scroll
   help.resize(tall)
   help.press("k")
-  expect(helpOverlayModel(undefined, help.state().helpScroll, tall).scroll).toBe(before - 1)
+  expect(helpOverlayModel(undefined, help.scroll(), tall).scroll).toBe(before - 1)
 })

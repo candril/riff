@@ -37,6 +37,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
+    help: mounted.help,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

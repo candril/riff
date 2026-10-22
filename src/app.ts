@@ -55,6 +55,7 @@ import { demoBlameSource } from "./features/blame/demo-source"
 import type { BlameDeps } from "./features/blame/keys"
 import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage/caches"
 import { followLoadedMarks } from "./features/marks/load"
+import { createHelpState } from "./features/help/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -457,6 +458,7 @@ export async function createApp(options: AppOptions = {}) {
 
   const statusBar = createStatusBarIsland(renderer)
   const threadPanel = createThreadPanelIsland(renderer)
+  const help = createHelpState()
   const chat = createReviewChat({
     demo: options.demo === true,
     getState: () => state,
@@ -622,6 +624,7 @@ export async function createApp(options: AppOptions = {}) {
     split,
     unified,
     parses,
+    help,
     updateFileTreePanel,
     publishFrame: frame.publish,
   })
@@ -964,6 +967,7 @@ export async function createApp(options: AppOptions = {}) {
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
+    help,
     recreatePrInfoPanel: () => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1326,6 +1330,8 @@ export async function createApp(options: AppOptions = {}) {
           prSession.prInfo,
           state.ignoreMatcher
         )
+        // createInitialState never reaches the help's own state, which this reload resets with the rest.
+        help.close()
 
         // Auto-collapse ignored files
         if (state.ignoredFiles.size > 0) {
@@ -1694,6 +1700,8 @@ export async function createApp(options: AppOptions = {}) {
         viewMode: view,
         marks: { ...next.marks, marks: await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined) },
       }
+      // createInitialState never reaches the help's own state, which this reload resets with the rest.
+      help.close()
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
       // A local review has no PR info panel — there was no pull request to
@@ -1768,6 +1776,7 @@ export async function createApp(options: AppOptions = {}) {
     marksContext,
     blame,
     chat: { state: chat, input: chatColumn.input },
+    help,
     composerSettled: proposals.composerSettled,
   })
 

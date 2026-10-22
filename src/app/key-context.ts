@@ -16,6 +16,7 @@ import type { FlashHandler } from "../vim-diff/flash-handler"
 import type { CommentScope } from "../diff-rows/comment-scope"
 import type { DiffViewport } from "./diff-viewport"
 import type { ChatState } from "../features/chat/state"
+import type { HelpState } from "../features/help/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -107,6 +108,8 @@ export interface AppKeyContext {
   blame: BlameDeps
   /** The chat column's conversation and its input (spec 102). */
   chat: { state: ChatState; input: () => TextareaRenderable | null }
+  /** The help overlay's state, the same instance the frame pass reads. */
+  help: HelpState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

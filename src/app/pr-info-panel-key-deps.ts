@@ -1,7 +1,6 @@
 import type { AppKeyContext } from "./key-context"
 import type { LinksPicker } from "./links-picker"
 import type { PRInfoPanelKeyDeps } from "../features/pr-info-panel/keys"
-import { toggleHelp } from "../state"
 import { groupIntoThreads } from "../utils/threads"
 import * as commentsPicker from "../features/comments-picker"
 import * as externalTools from "../features/external-tools"
@@ -66,7 +65,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
       links.openLinksPicker(sources, links.linksTitle(action), action)
     },
     onToggleHelp: () => {
-      ctx.setState(toggleHelp)
+      ctx.help.toggle()
       ctx.render()
     },
     onReact: () => links.openReactPicker(),

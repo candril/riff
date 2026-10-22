@@ -46,6 +46,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     height: 40,
     now: PR_NOW.getTime(),
     diff: { columnInfo: null, selectionInfo: null },
+    help: { open: false, scroll: 0 },
   }
 }
 

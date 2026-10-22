@@ -424,9 +424,6 @@ export interface AppState {
   treeFilter: string
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
-  showHelp: boolean
-  /** How many rows the help overlay's body is scrolled down. */
-  helpScroll: number
   /** `gl` — the cursor's line in full, wrapped, over the diff. */
   showLinePeek: boolean
   /** `gb` — who last changed the cursor's line (spec 103). */
@@ -664,8 +661,6 @@ export function createInitialState(
     // visible when there's more than one file to navigate.
     treeFilter: "",
     treeFilterInput: false,
-    showHelp: false,
-    helpScroll: 0,
     showLinePeek: false,
     blamePeek: null,
     blameColumns: new Map(),
@@ -1089,28 +1084,6 @@ export function commitTreeFilter(state: AppState): AppState {
 /** Drop the filter entirely. */
 export function clearTreeFilter(state: AppState): AppState {
   return { ...state, treeFilter: "", treeFilterInput: false, treeHighlightIndex: 0 }
-}
-
-/**
- * Toggle the keymap overlay
- */
-export function toggleHelp(state: AppState): AppState {
-  return {
-    ...state,
-    showHelp: !state.showHelp,
-    helpScroll: 0,
-  }
-}
-
-/**
- * Scroll the help overlay's body. Clamped here rather than in the view, as
- * scrollPeek is not: the key handler knows the terminal's height, so a held
- * `j` stops at the last row and `k` answers on its first press, even after a
- * resize left helpScroll past what the taller window can scroll.
- */
-export function scrollHelp(state: AppState, delta: number, maxScroll: number): AppState {
-  const drawn = Math.min(state.helpScroll, maxScroll)
-  return { ...state, helpScroll: Math.max(0, Math.min(maxScroll, drawn + delta)) }
 }
 
 /**

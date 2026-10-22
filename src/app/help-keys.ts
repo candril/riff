@@ -6,12 +6,11 @@
 
 import type { RiffKeymap } from "./keymap"
 import { anyModifiers, without } from "./key-variants"
-import { scrollHelp, toggleHelp, type AppState } from "../state"
+import type { HelpState } from "../features/help/state"
 import { helpViewport } from "../components/help-sections"
 
 export interface HelpKeyDeps {
-  getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  help: HelpState
   render: () => void
   /** The terminal's rows, which decide how far the overlay's body scrolls. */
   height: () => number
@@ -20,12 +19,12 @@ export interface HelpKeyDeps {
 }
 
 export function registerHelpKeys(riffKeymap: RiffKeymap, deps: HelpKeyDeps): () => void {
-  const up = () => deps.getState().showHelp && !deps.chordPending()
+  const up = () => deps.help.open() && !deps.chordPending()
   const captured = riffKeymap.capture((key) => up() && !(key.name === "g" && !key.ctrl && !key.shift))
   const scroll = (delta: (half: number) => number) => () => {
     const { rows, maxScroll } = helpViewport(deps.height())
     const half = Math.max(1, Math.floor(rows / 2))
-    deps.setState((s) => scrollHelp(s, delta(half), maxScroll))
+    deps.help.scrollBy(delta(half), maxScroll)
     deps.render()
   }
   const command = (name: string, title: string, run: () => void) => ({
@@ -42,7 +41,7 @@ export function registerHelpKeys(riffKeymap: RiffKeymap, deps: HelpKeyDeps): () 
     enabled: () => captured.holds(),
     commands: [
       command("close", "Close the help", () => {
-        deps.setState(toggleHelp)
+        deps.help.toggle()
         deps.render()
       }),
       command("down", "Scroll the help down a row", scroll(() => 1)),

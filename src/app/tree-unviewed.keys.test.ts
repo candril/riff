@@ -56,6 +56,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
   const known: Partial<AppKeyContext> = {
     getState: render.getState,
     setState: render.setState,
+    help: mounted.help,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

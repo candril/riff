@@ -39,6 +39,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     height: 30,
     now: NOW,
     diff: { columnInfo: null, selectionInfo: null },
+    help: { open: false, scroll: 0 },
     ...rest,
   }
 }
@@ -95,15 +96,13 @@ describe("overlayModels", () => {
       frame({
         toast: { message: "Saved", type: "success" },
         confirmDialog: dialog,
-        showHelp: true,
-        helpScroll: 2,
         reviewPreview: { ...initial.reviewPreview, open: true },
         syncPreview: { ...initial.syncPreview, open: true },
         showLinePeek: true,
         blamePeek,
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      })
+      }, { help: { open: true, scroll: 2 } })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))

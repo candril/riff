@@ -16,6 +16,7 @@ import { createFrame } from "./frame"
 import { followFrame } from "./overlays"
 import { FRAME_ISLANDS } from "./frame-models"
 import type { FeedEvent } from "../utils/feed"
+import { createHelpState } from "../features/help/state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -37,6 +38,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const renderer = setup.renderer
   const island = (id: string) => ({ host: keepAlive(new BoxRenderable(renderer, { id })), update() {}, prompt() {}, compose() {}, dispose() {} })
   let state = createInitialState([], [], "test", "")
+  const help = createHelpState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -71,6 +73,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     shell,
     updateFileTreePanel() {},
     publishFrame: frame.publish,
+    help,
     ...islands,
     split: { shown: () => false, syncDrawn() {}, island: { columnStatus: () => null } },
     unified: { syncDrawn() {}, viewportHeight: () => 0, columnStatus: () => null },
@@ -83,8 +86,11 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const overlays = () =>
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
-    show(patch: Partial<AppState>) {
+    /** `help` opens or closes the help through its factory; the rest patches the state. */
+    show({ help: helpOpen, ...patch }: Partial<AppState> & { help?: boolean }) {
       state = { ...state, ...patch }
+      if (helpOpen === true && !help.open()) help.toggle()
+      if (helpOpen === false) help.close()
       render()
       return overlays()
     },
@@ -96,9 +102,9 @@ const dialog = { title: "Clear?", message: "Gone.", onConfirm() {}, onCancel() {
 test("help and the confirm dialog are mounted only while shown, the dialog above help", async () => {
   const app = await harness()
   expect(app.show({})).toEqual([])
-  expect(app.show({ showHelp: true, confirmDialog: dialog })).toEqual(["helpOverlay", "confirmDialog"])
-  expect(app.show({ showHelp: false })).toEqual(["confirmDialog"])
-  expect(app.show({ confirmDialog: null, showHelp: true })).toEqual(["helpOverlay"])
+  expect(app.show({ help: true, confirmDialog: dialog })).toEqual(["helpOverlay", "confirmDialog"])
+  expect(app.show({ help: false })).toEqual(["confirmDialog"])
+  expect(app.show({ confirmDialog: null, help: true })).toEqual(["helpOverlay"])
 })
 
 const hunked: Comment = {
@@ -121,7 +127,7 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
   })
   expect(
     app.show({
-      showHelp: true,
+      help: true,
       showLinePeek: true,
       viewMode: "diff",
       comments: [hunked],
@@ -151,12 +157,12 @@ test("each picker is mounted only while it is open, under help and the confirm d
   ) => ({
     [key]: { ...initial[key], open: isOpen },
   })
-  expect(app.show({ ...open("filePicker", true), showHelp: true, confirmDialog: dialog })).toEqual([
+  expect(app.show({ ...open("filePicker", true), help: true, confirmDialog: dialog })).toEqual([
     "filePicker",
     "helpOverlay",
     "confirmDialog",
   ])
-  expect(app.show({ ...open("filePicker", false), ...open("commentsPicker", true), showHelp: false, confirmDialog: null })).toEqual([
+  expect(app.show({ ...open("filePicker", false), ...open("commentsPicker", true), help: false, confirmDialog: null })).toEqual([
     "commentsPicker",
   ])
   expect(app.show({ ...open("commentsPicker", false), ...open("marksPicker", true) })).toEqual([
@@ -165,7 +171,7 @@ test("each picker is mounted only while it is open, under help and the confirm d
   expect(app.show({ ...open("marksPicker", false), ...open("occurrencePicker", true) })).toEqual([
     "occurrencePicker",
   ])
-  expect(app.show({ ...open("occurrencePicker", false), ...open("commitPicker", true), showHelp: true })).toEqual([
+  expect(app.show({ ...open("occurrencePicker", false), ...open("commitPicker", true), help: true })).toEqual([
     "commitPicker",
     "helpOverlay",
   ])
@@ -175,7 +181,7 @@ test("each picker is mounted only while it is open, under help and the confirm d
     "commitPicker",
     "helpOverlay",
   ])
-  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), showHelp: false })).toEqual([])
+  expect(app.show({ ...open("filePicker", false), ...open("occurrencePicker", false), ...open("commitPicker", false), help: false })).toEqual([])
 })
 
 test("the command palette is mounted only while it is open, under the pickers", async () => {

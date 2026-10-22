@@ -10,7 +10,10 @@ import type { SelectionStatus } from "./selection-status"
 /**
  * What one render pass reads, published as a whole so views can derive
  * their own models from it. It bridges riff's plain-value state to Solid
- * until that state has accessors of its own (spec 100, M6).
+ * until that state has accessors of its own (spec 100, M6), and it carries
+ * a snapshot of the state that already lives in feature factories too, so
+ * every island keeps following one frame until each reads its factory
+ * itself (ADR-003).
  */
 export interface Frame {
   state: AppState
@@ -29,6 +32,8 @@ export interface Frame {
    * rows a selection spans; no function of the state alone can compute it.
    */
   diff: { columnInfo: ColumnStatus; selectionInfo: SelectionStatus }
+  /** The help overlay's state, read off its factory as the frame was published. */
+  help: { open: boolean; scroll: number }
 }
 
 // The last frame each followed accessor's followers finished drawing.

@@ -15,6 +15,7 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
     getState: ctx.getState,
     setState: ctx.setState,
     render: ctx.render,
+    help: ctx.help,
     executeAction: ctx.executeAction,
     reviewPreviewOpenContext: ctx.reviewPreviewOpenContext,
     syncPreviewOpenContext: ctx.syncPreviewOpenContext,

@@ -56,9 +56,10 @@ test("Ctrl-r opens and closes the chat with shift or super held as well", async 
 test("Ctrl-r under the help leaves the chat shut and the help up", async () => {
   const app = await mounted()
   keysOn(app)
-  app.show({ showHelp: true })
+  app.help.toggle()
+  app.show()
   ctrl(app, "r")
-  expect([app.ctx.getState().chatOpen, app.ctx.getState().showHelp]).toEqual([false, true])
+  expect([app.ctx.getState().chatOpen, app.help.open()]).toEqual([false, true])
   await app.frame()
 })
 

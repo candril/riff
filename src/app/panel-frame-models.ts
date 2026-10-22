@@ -69,9 +69,10 @@ export function feedFrameModel({ state, flashState, height, now }: Frame): FeedM
 }
 
 /** The chat column for `frame`, or null while it is closed. */
-export function chatColumnFrameModel({ state, searchState, width }: Frame): { width: number; focused: boolean } | null {
+export function chatColumnFrameModel({ state, searchState, width, help }: Frame): { width: number; focused: boolean } | null {
   if (!state.chatOpen) return null
-  return { width: chatColumnWidth(width), focused: chatInputFocused(state, promptOpenIn(state, searchState)) }
+  const outside = { prompt: promptOpenIn(state, searchState), help: help.open }
+  return { width: chatColumnWidth(width), focused: chatInputFocused(state, outside) }
 }
 
 export interface PrInfoPanelFrameModel {

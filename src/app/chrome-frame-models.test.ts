@@ -18,10 +18,11 @@ function state(patch: Partial<AppState> = {}): AppState {
 
 function frame(
   appState: AppState,
-  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120 }: {
+  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120, help = false }: {
     search?: Partial<SearchState>
     diff?: Frame["diff"]
     width?: number
+    help?: boolean
   } = {}
 ): Frame {
   return {
@@ -35,6 +36,7 @@ function frame(
     height: 40,
     now: 0,
     diff,
+    help: { open: help, scroll: 0 },
   }
 }
 
@@ -78,7 +80,7 @@ describe("chatColumnFrameModel", () => {
     expect(chatColumnFrameModel(frame(chatting(), { search: { active: true } }))?.focused).toBe(false)
     const composing = chatting({ inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true, mode: "compose" } })
     expect(chatColumnFrameModel(frame(composing))?.focused).toBe(false)
-    expect(chatColumnFrameModel(frame(chatting({ showHelp: true })))?.focused).toBe(false)
+    expect(chatColumnFrameModel(frame(chatting(), { help: true }))?.focused).toBe(false)
   })
 })
 

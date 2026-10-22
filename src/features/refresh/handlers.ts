@@ -33,6 +33,7 @@ import { groupIntoThreads } from "../../utils/threads"
 import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
+import type { HelpState } from "../help/state"
 import { followReloadedMarks } from "./marks"
 import {
   capturePosition,
@@ -74,6 +75,7 @@ export interface RefreshContext {
   // in its constructor, so a refresh has to swap the instance).
   recreatePrInfoPanel: () => void
   saveMarks: (marks: readonly Mark[]) => void
+  help: Pick<HelpState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -117,8 +119,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       const newFileTree = buildFileTree(newFiles)
 
       // Re-initialize state with new data
-      ctx.setState(() => {
-        const prevState = ctx.getState()
+      adoptReloadedState(ctx, (prevState) => {
         const newState = createInitialState(
           newFiles,
           newFileTree,
@@ -191,8 +192,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       const newFiles = sortFiles(parseDiff(newDiff))
       const newFileTree = buildFileTree(newFiles)
 
-      ctx.setState(() => {
-        const prevState = ctx.getState()
+      adoptReloadedState(ctx, (prevState) => {
         // The store holds the repo's notes; this diff is about some of them
         // (spec 085).
         const inView = commentsInView(newComments, newFiles, prevState.fileMode)
@@ -245,6 +245,19 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.render()
     }, 4000)
   }
+}
+
+/**
+ * Swap in the state a reload rebuilt from createInitialState. The help's
+ * state lives in a factory that createInitialState never reaches, so it is
+ * closed here, as the rebuild closes every overlay still kept in AppState.
+ */
+export function adoptReloadedState(
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help">,
+  rebuild: (prevState: AppState) => AppState
+): void {
+  ctx.setState(() => rebuild(ctx.getState()))
+  ctx.help.close()
 }
 
 /**

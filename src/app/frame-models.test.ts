@@ -34,6 +34,7 @@ function frame(
     height: 40,
     now,
     diff: { columnInfo: null, selectionInfo: null },
+    help: { open: false, scroll: 0 },
   }
 }
 

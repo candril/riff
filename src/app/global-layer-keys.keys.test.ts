@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn, openChat } from "../testing/chat-keys"
-import { createFeedState, openInlineCommentOverlay, showToast, toggleHelp } from "../state"
+import { createFeedState, openInlineCommentOverlay, showToast } from "../state"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { Comment } from "../types"
 
@@ -200,10 +200,11 @@ test("Ctrl-t opens the thread panel on the cursor's file", async () => {
 })
 
 test("with the help overlay up, q closes the help and does not quit", async () => {
-  const { mounted, keys, state } = await globalApp()
-  mounted.show(toggleHelp(state()))
+  const { mounted, keys } = await globalApp()
+  mounted.help.toggle()
+  mounted.show()
   mounted.setup.mockInput.pressKey("q")
-  expect(state().showHelp).toBe(false)
+  expect(mounted.help.open()).toBe(false)
   expect(keys.quits).toEqual([])
 })
 

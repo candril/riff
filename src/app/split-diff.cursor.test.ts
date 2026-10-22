@@ -13,6 +13,7 @@ import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { VimMotionHandler } from "../vim-diff/motion-handler"
 import { createSearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
+import { createHelpState } from "../features/help/state"
 import { createDiffHighlights } from "./diff-highlights"
 import { diffCursorShown } from "./diff-focus"
 import { toLineState, toRowState } from "./split-cursor"
@@ -44,7 +45,8 @@ const RIGHT_X = paneWidths(WIDTH).left
 async function mount() {
   setup = await createTestRenderer({ width: WIDTH, height: 12 })
   const files = [uneven]
-  let state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", splitView: true }
+  const state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", splitView: true }
+  const help = createHelpState()
   const mapping = new DiffLineMapping(files, "all")
   let vimState: VimCursorState = createCursorState()
   const diff = createSplitDiff({
@@ -63,7 +65,7 @@ async function mount() {
   // As the frame pass hands split its focus: the draw, then the diff's focus.
   const draw = () => {
     diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState() })
-    diff.island.update({ focused: diffCursorShown(state, false) })
+    diff.island.update({ focused: diffCursorShown(state, { prompt: false, help: help.open() }) })
   }
   const handler = new VimMotionHandler({
     getMapping: () => diff.source(),
@@ -95,8 +97,8 @@ async function mount() {
       diff.refreshCursor()
       draw()
     },
-    open: (change: (s: AppState) => AppState) => {
-      state = change(state)
+    toggleHelp: () => {
+      help.toggle()
       draw()
     },
     cursor: () => vimState,
@@ -104,18 +106,18 @@ async function mount() {
 }
 
 test("the help open over split hands the island an unfocused view, so no block is drawn on the cursor's half", async () => {
-  const { diff, line, codeX, moveTo, open, spans } = await mount()
+  const { diff, line, codeX, moveTo, toggleHelp, spans } = await mount()
   moveTo(line("kept"), 2)
   const row = diff.cursorRow()
   const blockX = codeX + 2
   expect(bgAt(await spans(), blockX, row)).toEqual(ints(theme.rosewater))
 
-  open((s) => ({ ...s, showHelp: true }))
+  toggleHelp()
   const covered = await spans()
   for (let x = 0; x < WIDTH; x++) expect(bgAt(covered, x, row)).not.toEqual(ints(theme.rosewater))
   expect(bgAt(covered, blockX, row)).toEqual(ints(CURSOR_ADDITION_BG))
 
-  open((s) => ({ ...s, showHelp: false }))
+  toggleHelp()
   expect(bgAt(await spans(), blockX, row)).toEqual(ints(theme.rosewater))
 })
 

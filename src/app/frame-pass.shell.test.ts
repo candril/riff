@@ -49,8 +49,10 @@ test("two passes leave every piece of the layout the same instance", async () =>
     status: app.statusBar.host.parent,
     tree: app.fileTreePanel.host.parent,
   }
-  app.show({ showHelp: true })
-  app.show({ showHelp: false })
+  app.help.toggle()
+  app.show()
+  app.help.toggle()
+  app.show()
   expect(renderer.root.getChildren()).toEqual(first.root)
   expect(renderer.root.getChildren()[0]).toBe(app.ctx.shell.root)
   expect(viewSlotChild(app.ctx.shell.root)).toBe(first.view!)

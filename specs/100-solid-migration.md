@@ -206,8 +206,13 @@ priority chain is gone: the tree's leftover (`treeLeftover` in
 `src/features/file-tree/keys.ts`) takes the two cases it had left, a key
 that broke off a chord and a slash kitty names after its base key.
 
+The help overlay's state is the first feature state factory
+(`createHelpState` in `src/features/help/state.ts`, ADR-003): the frame
+pass reads its accessors into the published frame, so the islands still
+follow one frame.
+
 **Not built**: the rest of M6 (the palette reading
-command entries and the state factories); the file size ratchet (P3).
+command entries and the rest of the state factories); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:

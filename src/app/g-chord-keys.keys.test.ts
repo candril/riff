@@ -132,11 +132,11 @@ describe("the ends", () => {
 })
 
 test("g? opens the help, and g? under the help closes it", async () => {
-  const { type, state } = await gApp()
+  const { type, mounted } = await gApp()
   type("g", "?")
-  expect(state().showHelp).toBe(true)
+  expect(mounted.help.open()).toBe(true)
   type("g", "?")
-  expect(state().showHelp).toBe(false)
+  expect(mounted.help.open()).toBe(false)
 })
 
 test("gs asks for the sync preview", async () => {
@@ -283,19 +283,21 @@ describe("a key that breaks off a g sequence", () => {
 // the key that breaks off g opens its own sequence behind the overlay.
 describe("under the help", () => {
   test("g]f steps a file", async () => {
-    const { mounted, type, cursorFile, state } = await gApp()
-    mounted.show({ showHelp: true })
+    const { mounted, type, cursorFile } = await gApp()
+    mounted.help.toggle()
+    mounted.show()
     type("g", "]", "f")
     expect(cursorFile()).toBe("b.ts")
-    expect(state().showHelp).toBe(true)
+    expect(mounted.help.open()).toBe(true)
   })
 
   test("gzz scrolls the diff", async () => {
-    const { mounted, type, scrolls, state } = await gApp()
-    mounted.show({ showHelp: true })
+    const { mounted, type, scrolls } = await gApp()
+    mounted.help.toggle()
+    mounted.show()
     type("g", "z", "z")
     expect(scrolls).toEqual(["center"])
-    expect(state().showHelp).toBe(true)
+    expect(mounted.help.open()).toBe(true)
   })
 })
 

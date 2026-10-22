@@ -113,8 +113,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): KeyHan
     chat: ctx.chat,
   })
   registerHelpKeys(riffKeymap, {
-    getState: ctx.getState,
-    setState: ctx.setState,
+    help: ctx.help,
     render: ctx.render,
     height: () => ctx.renderer.height,
     // Help gives way to a pending chord, such as the g of `g?`.

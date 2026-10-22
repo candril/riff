@@ -3,6 +3,7 @@ import { createFileTreeIsland } from "../app/file-tree"
 import { createThreadPanelIsland } from "../app/thread-panel"
 import { createChatColumnIsland } from "../app/chat-column"
 import { createChatState } from "../features/chat/state"
+import { createHelpState } from "../features/help/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -100,6 +101,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     statusBar: chrome.statusBar.host,
   })
   const frame = createFrame()
+  const help = createHelpState()
   const setState = (updater: (s: AppState) => AppState) => {
     state = updater(state)
   }
@@ -134,6 +136,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     split,
     unified,
     parses,
+    help,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({
@@ -168,6 +171,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     chatColumn: chrome.chatColumn,
     /** The one conversation with riff's agent, which outlives the column's opening and closing. */
     chat,
+    /** The help overlay's state, which the frame pass reads as app.ts's does. */
+    help,
     fileTreePanel,
     render,
     agent,

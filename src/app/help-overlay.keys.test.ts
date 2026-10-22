@@ -37,13 +37,13 @@ test("g? opens the help through its capture, j scrolls it, and g? or q closes it
   expect(scrolled).not.toBe(opened)
 
   await mockInput.typeText("g?")
-  expect(app.ctx.getState().showHelp).toBe(false)
+  expect(app.help.open()).toBe(false)
   expect(await app.frame()).not.toContain("Keyboard Shortcuts")
 
   await mockInput.typeText("g?")
   expect(await app.frame()).toContain("Keyboard Shortcuts")
   await mockInput.typeText("q")
-  expect(app.ctx.getState().showHelp).toBe(false)
+  expect(app.help.open()).toBe(false)
   expect(await app.frame()).not.toContain("Keyboard Shortcuts")
   expect(quits).toEqual([])
 })
@@ -63,5 +63,5 @@ test("Submit Review opened over the help by gS types the keys the help would tak
   await mockInput.typeText("jq")
 
   expect(app.islands.reviewPreview.summaryValue()).toBe("jq")
-  expect(app.ctx.getState()).toMatchObject({ showHelp: true, helpScroll: 0 })
+  expect([app.help.open(), app.help.scroll()]).toEqual([true, 0])
 })

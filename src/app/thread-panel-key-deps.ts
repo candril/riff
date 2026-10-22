@@ -7,7 +7,6 @@ import {
   getInlineCommentOverlayDisplayOrder,
   openInlineCommentOverlay,
   showToast,
-  toggleHelp,
 } from "../state"
 import { openCommentImages } from "../features/inline-comment-overlay/handlers"
 import * as commentsFeature from "../features/comments"
@@ -37,7 +36,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     handleJumpAdjacent: (direction) =>
       threadMotion.jumpOverlayToAdjacentThread(direction, ctx.threadMotionContext),
     onToggleHelp: () => {
-      ctx.setState(toggleHelp)
+      ctx.help.toggle()
       ctx.render()
     },
     onReact: () => links.openReactPicker(),

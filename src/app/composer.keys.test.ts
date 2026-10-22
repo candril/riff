@@ -25,7 +25,7 @@ test("q, j, i, g and ? type into the composer, and nothing else happens", async 
   expect(keys.quits).toEqual([])
   expect(keys.vimState()).toBe(before)
   expect(keys.chordPending()).toBe(false)
-  expect(app.ctx.getState().showHelp).toBe(false)
+  expect(app.help.open()).toBe(false)
 })
 
 test("Esc closes the composer and keeps the draft on its line", async () => {

@@ -21,6 +21,7 @@ import { diffCursorShown } from "./diff-focus"
 import { promptOpenIn } from "./open-prompt"
 import type { AppShell } from "./shell"
 import type { Frame } from "./frame"
+import type { HelpState } from "../features/help/state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -41,6 +42,7 @@ export interface FramePassContext {
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
   parses: FileParses
+  help: HelpState
   // Helper
   updateFileTreePanel: () => void
   /** Hands the pass's snapshot to every view that derives its own model from it. */
@@ -68,7 +70,8 @@ export function createFramePass(ctx: FramePassContext): () => void {
     ctx.updateFileTreePanel()
     // After the panel update, which sets the width the diff pane is measured against.
     const splitOn = isSplitOn(state, ctx.split)
-    const focused = diffCursorShown(state, promptOpenIn(state, searchState))
+    const help = { open: ctx.help.open(), scroll: ctx.help.scroll() }
+    const focused = diffCursorShown(state, { prompt: promptOpenIn(state, searchState), help: help.open })
 
     const prInfoPanel = ctx.getPrInfoPanel()
     const { slot, withTree } = viewSlotOf(state, { overview: prInfoPanel !== null })
@@ -93,6 +96,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       height: ctx.renderer.height,
       now,
       diff: diffPass.readout(splitOn, state.viewMode, vimState),
+      help,
     }
 
     // The composer and the prompts focus their fields as publish's first

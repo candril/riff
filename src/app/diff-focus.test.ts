@@ -1,14 +1,16 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, type AppState } from "../state"
-import { chatInputFocused, composerOpen, diffCursorShown } from "./diff-focus"
+import { chatInputFocused, composerOpen, diffCursorShown, type OutsideOverlays } from "./diff-focus"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
+const none: OutsideOverlays = { prompt: false, help: false }
+const prompt: OutsideOverlays = { ...none, prompt: true }
+const help: OutsideOverlays = { ...none, help: true }
 
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
 const hidden: [string, (s: AppState) => AppState][] = [
-  ["the help", (s) => ({ ...s, showHelp: true })],
   ["the file picker", (s) => ({ ...s, filePicker: { ...s.filePicker, open: true } })],
   ["the comments picker", (s) => ({ ...s, commentsPicker: { ...s.commentsPicker, open: true } })],
   ["the marks picker", (s) => ({ ...s, marksPicker: { ...s.marksPicker, open: true } })],
@@ -26,16 +28,20 @@ const hidden: [string, (s: AppState) => AppState][] = [
 
 describe("the diff's cursor", () => {
   test("shows with nothing open", () => {
-    expect(diffCursorShown(initial, false)).toBe(true)
+    expect(diffCursorShown(initial, none)).toBe(true)
   })
 
   test("hides while a prompt is open", () => {
-    expect(diffCursorShown(initial, true)).toBe(false)
+    expect(diffCursorShown(initial, prompt)).toBe(false)
+  })
+
+  test("hides under the help", () => {
+    expect(diffCursorShown(initial, help)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
     test(`hides under ${name}`, () => {
-      expect(diffCursorShown(open(initial), false)).toBe(false)
+      expect(diffCursorShown(open(initial), none)).toBe(false)
     })
   }
 
@@ -47,7 +53,7 @@ describe("the diff's cursor", () => {
   ]
   for (const [name, change] of shown) {
     test(`stays with ${name}`, () => {
-      expect(diffCursorShown(change(initial), false)).toBe(true)
+      expect(diffCursorShown(change(initial), none)).toBe(true)
     })
   }
 })
@@ -68,12 +74,13 @@ describe("the chat's input", () => {
   const chatting: AppState = { ...initial, chatOpen: true, focusedPanel: "chat" }
 
   test("has the keys while the chat is focused and nothing is drawn over it", () => {
-    expect(chatInputFocused(chatting, false)).toBe(true)
-    expect(chatInputFocused({ ...chatting, focusedPanel: "diff" }, false)).toBe(false)
+    expect(chatInputFocused(chatting, none)).toBe(true)
+    expect(chatInputFocused({ ...chatting, focusedPanel: "diff" }, none)).toBe(false)
   })
 
   test("gives them up to a prompt or an overlay drawn over it", () => {
-    expect(chatInputFocused(chatting, true)).toBe(false)
-    for (const [, open] of hidden.slice(0, 10)) expect(chatInputFocused(open(chatting), false)).toBe(false)
+    expect(chatInputFocused(chatting, prompt)).toBe(false)
+    expect(chatInputFocused(chatting, help)).toBe(false)
+    for (const [, open] of hidden.slice(0, 9)) expect(chatInputFocused(open(chatting), none)).toBe(false)
   })
 })
