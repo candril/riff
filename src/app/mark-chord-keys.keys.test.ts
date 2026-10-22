@@ -102,7 +102,6 @@ async function markApp(more: Partial<GlobalKeyContext> = {}) {
   return { mounted, keys, type, state, marks, toCode, lineOf, moveTo, vim }
 }
 
-
 test("a pending m gives way once the diff loses the keys: the next key moves the tree, and no mark is set", async () => {
   const { mounted, type, state, marks, toCode, keys } = await markApp()
   toCode()

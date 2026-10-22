@@ -43,6 +43,8 @@ import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
 import { createKeyHandler, type GlobalKeyContext } from "./global-keys"
+import { registerDiffKeys } from "../features/diff-view/keys"
+import { diffKeyDeps } from "./diff-key-deps"
 
 /**
  * Every keymap layer in front of the priority chain (ADR-002), built once
@@ -57,7 +59,6 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // way to one: a mark, bracket, `z` or `g` sequence the keymap holds,
   // which the chain asked as one of its own.
   const chain = { chordPending: () => riffKeymap.chordPending() }
-  registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   // Each group registers ahead of the one the chain asked before it, since
   // later registration wins: flash, the dialog and the palette came first,
   // then the four query pickers, the commit picker, the sync preview,
@@ -68,19 +69,23 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and the peeks, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
-  // active together with it. The mark chords register first, behind every
-  // other layer, as the chain asked them after everything else that is now
-  // a layer; the bracket, `z` and `g` sequences next, as the chain asked
-  // them after the global keys and before the tree. Their openers differ,
-  // so their order among them makes no difference, and none reads the
-  // pending chord: a pending sequence holds the next key itself. The tree
-  // registers next, behind the global keys, as the chain asked
-  // it after them and after its chords. The global keys register after it,
-  // behind every modal layer, as the chain asked them after its modal
-  // branches, and stand aside while any capture holds the key. The composer
-  // never competes with the chat, which stands aside while it is open, view
-  // mode and compose mode are never active together, and nor are the
-  // overview and the feed, which are views of their own.
+  // active together with it. The global keys register behind every modal
+  // layer, as the chain asked them after its modal branches, and stand
+  // aside while any capture holds the key; the tree behind them, as the
+  // chain asked it after them and after its chords; the bracket, `z` and
+  // `g` sequences behind the tree, as the chain asked them after the global
+  // keys and before the tree. Their openers differ, so their order among
+  // them makes no difference, and none reads the pending chord: a pending
+  // sequence holds the next key itself. The mark chords register behind
+  // those, as the chain asked them after everything else that is now a
+  // layer but the diff. The diff registers behind every layer, the mark
+  // chords included, as the chain asked it last: a key every layer above
+  // declines falls through to it. The composer never competes with the
+  // chat, which stands aside while it is open, view mode and compose mode
+  // are never active together, and nor are the overview and the feed,
+  // which are views of their own.
+  registerDiffKeys(riffKeymap, diffKeyDeps(ctx, chain))
+  registerAppKeys(riffKeymap.keymap, { toggleConsole: () => renderer.console.toggle() })
   const links = createLinksPicker(ctx)
   const askedFirst = (key: KeyEvent) => chatReaches(key, ctx.getState(), ctx.getSearchState().active)
   registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES, G_SEQUENCES), askedFirst)

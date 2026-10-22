@@ -1,9 +1,9 @@
 /**
  * Global key handling
  *
- * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
- * the split toggle, the tree for a key that broke off a chord or a slash its
- * layer cannot name, and the diff. Every chord is a keymap sequence.
+ * What the keymap's layers leave (ADR-002) reaches the tree here, and only
+ * a key that broke off a chord or a slash the tree's layer cannot name.
+ * Every chord is a keymap sequence, and the diff is a layer of its own.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
@@ -18,12 +18,10 @@ import type { SearchHandler } from "../vim-diff/search-handler"
 import type { FlashHandler } from "../vim-diff/flash-handler"
 import type { CommentScope } from "../diff-rows/comment-scope"
 import type { DiffViewport } from "./diff-viewport"
-import { togglesSplit } from "./split-toggle-key"
 import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
-import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
 
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -31,7 +29,6 @@ import * as syncPreview from "../features/sync-preview"
 import * as reviewPreview from "../features/review-preview"
 import * as feed from "../features/feed"
 import * as fileTreeFeature from "../features/file-tree"
-import * as diffView from "../features/diff-view"
 import * as folds from "../features/folds"
 import * as fileNavigation from "../features/file-navigation"
 import * as commentsFeature from "../features/comments"
@@ -119,50 +116,16 @@ export interface GlobalKeyContext {
   composerSettled?: (outcome: ComposerOutcome) => void
 }
 
-/** `chordBroken`: the key broke off a sequence the keymap held, so it is a chord's second key. */
+/** `chordBroken`: the key broke off a sequence the keymap held, while the tree's layer stood aside for it. */
 export type GlobalKeyHandler = (key: KeyEvent, chordBroken?: boolean) => void
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
-  const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
-
-  return handleKeypress
-
-  function handleKeypress(key: KeyEvent, chordBroken = false) {
-    if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordBroken)) {
-      ctx.toggleSplitView()
-      return
-    }
-
+  return (key, chordBroken = false) => {
     // A key that breaks off a chord without completing a sequence still goes
     // to the tree, whose layer stood aside for it while the chord was pending.
     // So does a slash the layer has no binding for: where `/` is a shifted key,
     // kitty names a modified slash after its base key ("7") and only its
     // sequence says "/", which the tree's filter opener matches.
-    if ((chordBroken || key.sequence === "/") && fileTreeFeature.handleInput(key, treeInputContext(ctx))) {
-      return
-    }
-
-    // ========== DIFF VIEW FOCUSED ==========
-    diffView.handleInput(key, {
-      state: ctx.getState(),
-      getVimState: ctx.getVimState,
-      setVimState: ctx.setVimState,
-      vimHandler: ctx.vimHandler,
-      cursorView: ctx.cursorView,
-      searchState: ctx.getSearchState(),
-      searchHandler: ctx.searchHandler,
-      flashHandler: ctx.flashHandler,
-      getCurrentComment: () => commentsFeature.getCurrentComment(ctx.commentsContext),
-      handleAddComment: () => commentsFeature.handleAddComment(ctx.commentsContext),
-      handleYank: ctx.handleYank,
-      handleExpandDivider: ctx.handleExpandDivider,
-      showAllFiles: () => ctx.executeAction("show-all-files"),
-      showAllCommits: () => ctx.onCommitSelected(null),
-      handleToggleViewed: (advanceToNext: boolean) =>
-        fileNavigation.handleToggleViewed(advanceToNext, ctx.fileNavContext),
-      handleSubmitSingleComment: () => commentsFeature.handleSubmitSingleComment(ctx.commentsContext),
-      handleOpenInlineOverlay: openCommentsOverlay,
-      handleOpenPanelView: openCommentsPanelForCursor,
-    })
+    if (chordBroken || key.sequence === "/") fileTreeFeature.handleInput(key, treeInputContext(ctx))
   }
 }

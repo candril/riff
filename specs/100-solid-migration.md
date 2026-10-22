@@ -101,7 +101,7 @@ summary to type, and the commit picker's does so only in its `/` mode.
 Every modal layer stands aside under any modal that outranks it, even for
 keys that modal leaves unbound. The help overlay's capture leaves a bare
 `g` to the keymap's `g` sequences, so `g?` closes it, and the overlay
-stands aside entirely while the chain holds a chord. The chat's capture
+stands aside entirely while a chord is pending. The chat's capture
 leaves the keys it does not bind unprevented for its input to type, and
 the chat registers behind every layer but the composer's, as its branch
 sat first in the chain, so Ctrl-r and the step in from the thread panel
@@ -124,7 +124,7 @@ and `d` too, but no ctrl key. Its `z` and `g` chords stay its own too.
 The activity feed registers behind the PR overview, as the two are
 different views; its capture holds only the keys the feed acts on and
 leaves every other key to the chain, every ctrl and meta key among them
-and any key while the chain holds a chord, and while its filter prompt
+and any key while a chord is pending, and while its filter prompt
 is up it holds every key. Its `za` is the `z` layer's. The search prompt
 and the tree's filter prompt register behind the feed
 (`src/app/prompt-keys.ts`), and the blame peek and the line peek behind
@@ -133,8 +133,8 @@ chain asked it. Each holds every key while it is up. The prompts prevent
 only Esc and Enter, and in the tree filter a backspace on an empty query,
 and leave every other key unprevented for their fields to type; the peeks
 prevent nothing, as the chain never did. The peeks leave the chain a bare
-`g`, so `go`, `gb` and `gl` complete, every key while the chain holds a
-chord, and Ctrl-r, and Ctrl-l from the thread panel, wherever the chat
+`g`, so `go`, `gb` and `gl` complete, every key while a chord is
+pending, and Ctrl-r, and Ctrl-l from the thread panel, wherever the chat
 takes them. A text object pending in the diff is a keymap capture
 registered behind the peeks (`src/app/text-object-keys.ts`): it hands
 every key but the chat's reach to the vim handler and prevents nothing,
@@ -144,19 +144,18 @@ are one layer registered behind every layer but the tree's
 branches and before its sequences, the tree and the diff; it is no
 capture, and stands aside while any capture holds the key. Each command
 declines a key its case in the chain let through, leaving it unprevented
-for the chain, and declines every key while the chain holds a chord. Its
+for the chain, and declines every key while a chord is pending. Its
 bindings take any modifiers, and the keymap's folding of names to lower
 case lets the binding on `g` take the tree's `G`. The file tree's keys are
 one layer registered behind the global keys
 (`src/features/file-tree/keys.ts`), so a key the global keys decline falls
-through to it; it stands aside while the chain holds a chord, and a key
+through to it; it stands aside while a chord is pending, and a key
 that breaks off a chord without completing a sequence still reaches the
 tree through the chain, as does a slash kitty names after its base key
 on a layout where `/` is shifted. The `]`/`[` motions, the `z` chords
 and the `g` chords are three layers of keymap sequences registered behind
 the tree's (`src/app/bracket-keys.ts`, `src/app/z-chord-keys.ts`,
-`src/app/g-chord-keys.ts`), the lowest-ranked layers, as the chain asked
-its sequences after the global keys and before the tree; their openers
+`src/app/g-chord-keys.ts`), as the chain asked its sequences after the global keys and before the tree; their openers
 differ, so none outranks another. The brackets' first stroke takes any
 modifiers; the `z` and `g` openers are sequence patterns taking a key
 named `z` or `g` without shift, whatever else is held, as the chain
@@ -164,14 +163,14 @@ opened on them, since a binding on `z` would also take a key named `Z`.
 Each second stroke is a sequence pattern that matches on the suffix the
 chain spelled (`src/app/chord-stroke.ts`), so ctrl and meta are ignored
 and shift is not, and a capital is told from its lower-case letter, so
-both spellings of a shifted chord stay; a key the chat
-reaches ends no sequence, so Ctrl-r after `]` opens the chat rather than
-reading as `]r`. The patterns are registered once for every layer. Each
-layer stands aside while any capture holds the key. A key that breaks off a keymap sequence is
-offered to the layers again, with the chord still counting as pending,
-before it reaches the chain as the second key of a chord, as the chain
-asked the chat ahead of its sequences and its global keys declined under
-a chord. A `]`, `[`, `z` or `g` that breaks off a sequence opens its own,
+both spellings of a shifted chord stay; a key the chat reaches ends no
+sequence, so Ctrl-r after `]` opens the chat rather than reading as `]r`.
+The patterns are registered once for every layer. Each layer stands
+aside while any capture holds the key. A key that breaks off a keymap
+sequence is offered to the layers again, with the chord still counting
+as pending, before it reaches the chain as the second key of a chord, as
+the chain asked the chat ahead of its sequences and its global keys
+declined under a chord. A `]`, `[`, `z` or `g` that breaks off a sequence opens its own,
 so `]]f`, `g]f`, `gzz` and `zgg` still act, behind the help overlay too.
 Under a peek the `g` layer swallows every second key the peek refuses, as
 the chain did. A lone `]`, `[`, `z` or `g` gives up after the chain's
@@ -190,12 +189,18 @@ acts at the re-offer. A mark chord waits as long as it takes, so its
 openers are not among the ones that expire. A pending mark chord whose
 diff has lost the keys, say to a click into the tree, gives way at the
 dispatch entry, before any layer sees the key, so the key reaches the
-tree as one with no chord pending. Every layer that gives way to a chord
-reads the keymap's pending sequence, and the chain holds no chord of its
-own: it toggles the split view and hands the rest to the tree or the
-diff.
+tree as one with no chord pending. The diff's keys and the split toggle
+are one layer of a catch-all sequence pattern, registered behind every
+other layer (`src/features/diff-view/keys.ts`), as the chain asked the
+diff last: the vim handler parses any key, so the layer binds a pattern
+that matches every key rather than a list of names, and a key every
+layer above declines falls through to it. Only the toggle gives way to a
+chord; a key that breaks off one reaches the diff at the re-offer. Every
+layer that gives way to a chord reads the keymap's pending sequence, and
+the chain holds no chord of its own: it only hands the tree a key that
+broke off a chord, or a slash kitty names after its base key.
 
-**Not built**: the rest of M6 (the diff dispatch, the palette reading
+**Not built**: the rest of M6 (the palette reading
 command entries, and the state factories); the file size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback

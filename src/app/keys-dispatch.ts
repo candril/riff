@@ -3,7 +3,8 @@ import type { RiffKeymap } from "./keymap"
 
 /**
  * `chordBroken`: the keymap held the first key of a sequence and this key
- * broke it off, so the chain reads it as the second key of a chord.
+ * broke it off, so the chain hands it to the tree, whose layer stood aside
+ * for the chord.
  */
 export type LegacyKeys = (key: KeyEvent, chordBroken?: boolean) => void
 
