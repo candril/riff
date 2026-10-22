@@ -37,6 +37,9 @@ export interface PrInfo {
    *  protection is only readable to admins, so for everyone else this comes
    *  from rulesets alone. */
   requiredApprovals?: number | null
+  /** Where the PR stands in its base branch's merge queue; null or absent
+   *  when the base has none. */
+  mergeQueue?: PrMergeQueue | null
   // Extended info (loaded separately)
   commits?: PrCommit[]
   reviews?: PrReview[]
@@ -44,6 +47,22 @@ export interface PrInfo {
   conversationComments?: PrConversationComment[]
   checks?: PrCheck[]
   bodyReactions?: ReactionSummary[]
+}
+
+export interface PrMergeQueue {
+  entry: PrMergeQueueEntry | null
+  /** Only while the PR is out of the queue and its latest queue event is a removal. */
+  removal: { reason: string; at: string } | null
+}
+
+export interface PrMergeQueueEntry {
+  /** 1-based: the head of a live queue reads 1. */
+  position: number
+  total: number | null
+  state: "QUEUED" | "AWAITING_CHECKS" | "MERGEABLE" | "UNMERGEABLE" | "LOCKED"
+  etaSeconds: number | null
+  enqueuedAt: string | null
+  enqueuer: string | null
 }
 
 /** How a PR's head sits against its base, as GitHub reports it. */

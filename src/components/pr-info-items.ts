@@ -129,6 +129,7 @@ export const POINT_LABELS: Record<MergePoint["id"], string> = {
   conversations: "Conversations",
   conflicts: "Conflicts",
   base: "Base",
+  queue: "Queue",
   blockers: "Blockers",
 }
 

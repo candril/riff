@@ -4,7 +4,7 @@ import type { DiffFile } from "../utils/diff-parser"
 import type { PreviewSet } from "../utils/previews"
 import type { SummarySpan } from "./fit-spans"
 import type { MergeStatus } from "./merge-status-model"
-import { mergeHeaderSummary, verdictSpan } from "./merge-status-summary"
+import { mergeHeaderSummary, openMergeSummary } from "./merge-status-summary"
 import { visibleRows, type ConversationItem } from "./pr-info-items"
 import {
   descriptionSummary,
@@ -50,7 +50,7 @@ export function sectionConfigs(input: SectionConfigsInput): SectionConfig[] {
       title: 'Merge status',
       count: null,
       summary: mergeHeaderSummary(input.mergeStatus, prInfo.checks ?? []),
-      openSummary: [verdictSpan(input.mergeStatus)],
+      openSummary: openMergeSummary(input.mergeStatus),
       hasItems: true,
     },
     {

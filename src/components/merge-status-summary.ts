@@ -1,12 +1,30 @@
 import type { PrCheck } from "../providers/github/types"
 import { theme } from "../theme"
 import type { SummarySpan } from "./fit-spans"
+import { formatEta, positionText } from "./merge-queue"
 import { failingChecks, pointStyle, type MergePoint, type MergeStatus } from "./merge-status-model"
 
 const VERDICT_STATES = { ready: "ok", warnings: "warn", blocked: "fail" } as const
 
-export function verdictSpan(status: MergeStatus): SummarySpan {
+function verdictSpan(status: MergeStatus): SummarySpan {
   return { text: status.verdictText, fg: pointStyle(VERDICT_STATES[status.verdict]).fg }
+}
+
+/**
+ * While the PR sits in the merge queue the queue owns the merge, so the
+ * header says where it stands there and nothing else: `⧗ queued #3 of 7 · ~12m`.
+ */
+function queuedSpan(status: MergeStatus): SummarySpan | null {
+  const queue = status.queue
+  if (!queue || queue.state === "UNMERGEABLE") return null
+  const eta = queue.etaSeconds === null ? "" : ` · ${formatEta(queue.etaSeconds)}`
+  const { fg } = pointStyle(queue.state === "MERGEABLE" ? "merging" : "queued")
+  return { text: `⧗ queued ${positionText(queue)}${eta}`, fg }
+}
+
+/** What an open Merge status header says: the verdict, or the queue's word while it holds the PR. */
+export function openMergeSummary(status: MergeStatus): SummarySpan[] {
+  return [queuedSpan(status) ?? verdictSpan(status)]
 }
 
 /**
@@ -16,6 +34,8 @@ export function verdictSpan(status: MergeStatus): SummarySpan {
  * section.
  */
 export function mergeHeaderSummary(status: MergeStatus, checks: readonly PrCheck[]): SummarySpan[] {
+  const queued = queuedSpan(status)
+  if (queued) return [queued]
   const verdict = verdictSpan(status)
   if (status.verdict === "ready") return [verdict]
   const reasons = status.points.flatMap((point) => reasonsFor(point, checks))
@@ -42,6 +62,9 @@ function reasonsFor(point: MergePoint, checks: readonly PrCheck[]): SummarySpan[
       return holds ? [{ text: "conflicts", fg }] : []
     case "base":
       return holds ? [{ text: point.text.slice(point.text.indexOf("behind ")), fg }] : []
+    case "queue":
+      if (point.state !== "fail") return []
+      return [{ text: point.text.startsWith("removed") ? "removed from queue" : "unmergeable in queue", fg }]
     case "blockers": {
       const reason = BLOCKER_REASONS[point.text]
       return reason && (holds || point.state === "pending") ? [{ text: reason, fg }] : []

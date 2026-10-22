@@ -206,3 +206,75 @@ describe("reading a PR out of the GraphQL bundle", () => {
     expect(approvals(null)).toBeNull()
   })
 })
+
+describe("reading the merge queue", () => {
+  const timeline = (...nodes: unknown[]) => ({ timelineItems: { nodes } })
+  const removal = { __typename: "RemovedFromMergeQueueEvent", reason: "Merge conflicts", createdAt: "2026-01-02T00:00:00Z" }
+  const queue = (over: Record<string, unknown> = {}) =>
+    pr({ isMergeQueueEnabled: true, isInMergeQueue: false, mergeQueue: { entries: { totalCount: 4 } }, mergeQueueEntry: null, ...over })
+
+  test("is null when the base has no queue, or the PR is no longer open", () => {
+    expect(prInfoOf(pr(), "o", "r").mergeQueue).toBeNull()
+    expect(prInfoOf(pr({ isMergeQueueEnabled: false, mergeQueue: null }), "o", "r").mergeQueue).toBeNull()
+    expect(prInfoOf(queue({ state: "MERGED", ...timeline(removal) }), "o", "r").mergeQueue).toBeNull()
+  })
+
+  test("reads a queued entry, with the queue's length as its total", () => {
+    const info = prInfoOf(
+      queue({
+        isInMergeQueue: true,
+        mergeQueueEntry: {
+          position: 2,
+          state: "AWAITING_CHECKS",
+          estimatedTimeToMerge: 600,
+          enqueuedAt: "2026-01-02T00:00:00Z",
+          enqueuer: { login: "alice" },
+        },
+        ...timeline({ __typename: "AddedToMergeQueueEvent" }),
+      }),
+      "o",
+      "r",
+    )
+    expect(info.mergeQueue).toEqual({
+      entry: {
+        position: 2,
+        total: 4,
+        state: "AWAITING_CHECKS",
+        etaSeconds: 600,
+        enqueuedAt: "2026-01-02T00:00:00Z",
+        enqueuer: "alice",
+      },
+      removal: null,
+    })
+  })
+
+  test("leaves the total, eta and enqueuer null when GitHub does not say", () => {
+    const info = prInfoOf(
+      queue({
+        isInMergeQueue: true,
+        mergeQueue: null,
+        mergeQueueEntry: { position: 1, state: "QUEUED", estimatedTimeToMerge: null, enqueuedAt: null, enqueuer: null },
+      }),
+      "o",
+      "r",
+    )
+    expect(info.mergeQueue?.entry).toEqual({
+      position: 1, total: null, state: "QUEUED", etaSeconds: null, enqueuedAt: null, enqueuer: null,
+    })
+  })
+
+  test("reads a removal while it is the latest queue event and the PR is out of the queue", () => {
+    expect(prInfoOf(queue(timeline(removal)), "o", "r").mergeQueue).toEqual({
+      entry: null,
+      removal: { reason: "Merge conflicts", at: "2026-01-02T00:00:00Z" },
+    })
+  })
+
+  test("added but not yet entered is neither queued nor removed", () => {
+    expect(prInfoOf(queue(timeline({ __typename: "AddedToMergeQueueEvent" })), "o", "r").mergeQueue).toEqual({
+      entry: null,
+      removal: null,
+    })
+    expect(prInfoOf(queue(), "o", "r").mergeQueue).toEqual({ entry: null, removal: null })
+  })
+})

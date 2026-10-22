@@ -12,7 +12,7 @@ import {
   type GraphQLThreadInfo,
 } from "./threads"
 import { fetchRemainingViewedStatuses, type ViewerViewedState } from "./viewed"
-import type { PrCheck, PrCommit, PrConversationComment, PrInfo, PrReview } from "./types"
+import type { PrCheck, PrCommit, PrConversationComment, PrInfo, PrMergeQueue, PrReview } from "./types"
 import type { Comment, ReviewSession } from "../../types"
 
 /**
@@ -36,6 +36,12 @@ const PR_BUNDLE_QUERY = `
         additions deletions changedFiles createdAt updatedAt
         headRefName baseRefName headRefOid
         mergeable mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
+        isMergeQueueEnabled isInMergeQueue
+        mergeQueue { entries { totalCount } }
+        mergeQueueEntry { position state estimatedTimeToMerge enqueuedAt enqueuer { login } }
+        timelineItems(last: 1, itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+          nodes { __typename ... on RemovedFromMergeQueueEvent { reason createdAt } }
+        }
         baseRef {
           branchProtectionRule { requiredApprovingReviewCount }
           rules(first: 20) { nodes { parameters {
@@ -234,12 +240,40 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
     autoMergeMethod: pr.autoMergeRequest?.mergeMethod?.toLowerCase() ?? null,
     mergeable: pr.mergeable ?? null,
     requiredApprovals: requiredApprovalsOf(pr.baseRef),
+    mergeQueue: mergeQueueOf(pr),
     commits,
     reviews,
     requestedReviewers,
     conversationComments,
     checks,
     bodyReactions: parseReactionGroups(pr.reactionGroups),
+  }
+}
+
+/**
+ * A closed or merged PR has nothing left to do with the queue, though its
+ * base may still have one and its last queue event may still be a removal.
+ */
+function mergeQueueOf(pr: any): PrMergeQueue | null {
+  if (pr.isMergeQueueEnabled !== true || pr.state !== "OPEN") return null
+  const entry = pr.mergeQueueEntry
+  const latest = pr.timelineItems?.nodes?.at(-1)
+  const inQueue = pr.isInMergeQueue === true || entry != null
+  return {
+    entry: entry
+      ? {
+          position: entry.position,
+          total: pr.mergeQueue?.entries?.totalCount ?? null,
+          state: entry.state,
+          etaSeconds: entry.estimatedTimeToMerge ?? null,
+          enqueuedAt: entry.enqueuedAt ?? null,
+          enqueuer: entry.enqueuer?.login ?? null,
+        }
+      : null,
+    removal:
+      !inQueue && latest?.__typename === "RemovedFromMergeQueueEvent"
+        ? { reason: latest.reason ?? "", at: latest.createdAt }
+        : null,
   }
 }
 

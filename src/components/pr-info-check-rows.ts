@@ -82,10 +82,12 @@ function pointSegments(
 ): ListSegment[] {
   const { icon, fg } = pointStyle(point.state)
   const label = labelled ? POINT_LABELS[point.id] : ""
+  // An idle line is there to be passed over: nothing about it asks for a move.
+  const idle = point.state === "idle"
   const segments: ListSegment[] = [
     { text: `${icon} `, fg },
-    { text: `${label.padEnd(LABEL_WIDTH)}  `, fg: theme.subtext0 },
-    { text: point.text, fg: selected ? theme.text : theme.subtext1 },
+    { text: `${label.padEnd(LABEL_WIDTH)}  `, fg: idle ? fg : theme.subtext0 },
+    { text: point.text, fg: idle ? fg : selected ? theme.text : theme.subtext1 },
   ]
   if (fold) segments.push({ text: `  ${fold}`, fg: theme.overlay0 })
   return segments

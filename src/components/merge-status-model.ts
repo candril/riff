@@ -8,15 +8,16 @@
  * answer, and the verdict is only the worst of them.
  */
 
-import type { PrCheck, PrInfo } from "../providers/github/types"
+import type { PrCheck, PrInfo, PrMergeQueueEntry } from "../providers/github/types"
 import type { Comment } from "../types"
 import { theme } from "../theme"
+import { queuePoint } from "./merge-queue"
 import { latestReviewStates } from "./pr-info-header"
 
-type MergePointState = "ok" | "warn" | "fail" | "pending" | "info"
+type MergePointState = "ok" | "warn" | "fail" | "pending" | "info" | "idle" | "queued" | "merging"
 
 export interface MergePoint {
-  id: "checks" | "reviews" | "conversations" | "conflicts" | "base" | "blockers"
+  id: "checks" | "reviews" | "conversations" | "conflicts" | "base" | "queue" | "blockers"
   state: MergePointState
   text: string
 }
@@ -27,6 +28,8 @@ export interface MergeStatus {
   points: MergePoint[]
   /** What the conversations line counts, and the rows it opens onto. */
   threads: readonly Comment[]
+  /** The PR's place in the merge queue while it holds one, for the header. */
+  queue: Pick<PrMergeQueueEntry, "position" | "total" | "etaSeconds" | "state"> | null
 }
 
 const POINT_STYLES: Record<MergePointState, { icon: string; fg: string }> = {
@@ -35,6 +38,9 @@ const POINT_STYLES: Record<MergePointState, { icon: string; fg: string }> = {
   fail: { icon: "✗", fg: theme.red },
   pending: { icon: "○", fg: theme.overlay0 },
   info: { icon: "ℹ", fg: theme.blue },
+  idle: { icon: " ", fg: theme.overlay0 },
+  queued: { icon: "⧗", fg: theme.blue },
+  merging: { icon: "⧗", fg: theme.green },
 }
 
 export function pointStyle(state: MergePointState): { icon: string; fg: string } {
@@ -45,36 +51,57 @@ export function mergeStatus({
   prInfo,
   comments,
   behindBy,
+  now = Date.now(),
 }: {
   prInfo: PrInfo
   comments: readonly Comment[]
   behindBy: number | null
+  now?: number
 }): MergeStatus {
   const checks = prInfo.checks ?? []
   const threads = unresolvedThreads(comments)
   const unresolved = threads.length
   const reviews = reviewsPoint(prInfo)
-  // BLOCKED is GitHub refusing the merge outright, so riff never reads it as
-  // anything milder than blocked, whatever the lines below make of it.
   const refused = prInfo.mergeStateStatus === "BLOCKED"
-  const points = [
+  const gatePoints = [
     checksPoint(checks),
     reviews,
     conversationsPoint(unresolved, { refused }),
     conflictsPoint(prInfo),
     basePoint(prInfo, behindBy),
-    ...blockerPoints(prInfo, {
-      specificReason: requiredChecksHold(checks) || reviews.state === "fail" || unresolved > 0,
-    }),
   ]
+  const blockers = blockerPoints(prInfo, {
+    specificReason: requiredChecksHold(checks) || reviews.state === "fail" || unresolved > 0,
+  })
+  const gatesVerdict = verdictOf([...gatePoints, ...blockers], prInfo)
+  // The queue line reads the gates' verdict (`merging adds it` only once
+  // nothing else holds the merge), so it can only ever make it worse.
+  const queue = queuePoint(prInfo.mergeQueue, { ready: gatesVerdict === "ready", now })
+  const verdict = queue?.state === "fail" ? "blocked" : gatesVerdict
+  const entry = prInfo.mergeQueue?.entry ?? null
+  return {
+    verdict,
+    verdictText: VERDICT_TEXTS[verdict],
+    points: [...gatePoints, ...(queue ? [queue] : []), ...blockers],
+    threads,
+    queue: entry && { position: entry.position, total: entry.total, etaSeconds: entry.etaSeconds, state: entry.state },
+  }
+}
 
-  if (refused || points.some((p) => p.state === "fail")) {
-    return { verdict: "blocked", verdictText: "✗ blocked", points, threads }
-  }
+const VERDICT_TEXTS = {
+  ready: "✓ ready",
+  warnings: "⚠ mergeable with warnings",
+  blocked: "✗ blocked",
+} as const satisfies Record<MergeStatus["verdict"], MergeStatus["verdictText"]>
+
+function verdictOf(points: readonly MergePoint[], prInfo: PrInfo): MergeStatus["verdict"] {
+  // BLOCKED is GitHub refusing the merge outright, so riff never reads it as
+  // anything milder than blocked, whatever the lines make of it.
+  if (prInfo.mergeStateStatus === "BLOCKED" || points.some((p) => p.state === "fail")) return "blocked"
   if (points.some((p) => p.state === "warn" || p.state === "pending") || prInfo.mergeStateStatus === "UNSTABLE") {
-    return { verdict: "warnings", verdictText: "⚠ mergeable with warnings", points, threads }
+    return "warnings"
   }
-  return { verdict: "ready", verdictText: "✓ ready", points, threads }
+  return "ready"
 }
 
 /**

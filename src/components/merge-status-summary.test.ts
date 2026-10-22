@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import type { PrCheck, PrInfo, PrReview } from "../providers/github/types"
+import type { PrCheck, PrInfo, PrMergeQueue, PrReview } from "../providers/github/types"
 import type { Comment } from "../types"
 import { prInfo } from "../testing/pr-info"
 import { theme } from "../theme"
 import { mergeStatus } from "./merge-status-model"
-import { mergeHeaderSummary } from "./merge-status-summary"
+import { mergeHeaderSummary, openMergeSummary } from "./merge-status-summary"
 
 const review = (author: string, state: PrReview["state"]): PrReview => ({
   id: `PRR_${author}`,
@@ -111,5 +111,41 @@ describe("mergeHeaderSummary", () => {
 
   test("leaves an info line out: armed auto-merge is no reason", () => {
     expect(summary(ready({ autoMergeMethod: "SQUASH" }))).toEqual([{ text: "✓ ready", fg: theme.green }])
+  })
+})
+
+describe("the merge status header with a merge queue", () => {
+  const queued = (over: Partial<NonNullable<PrMergeQueue["entry"]>> = {}): PrMergeQueue => ({
+    entry: { position: 3, total: 7, state: "AWAITING_CHECKS", etaSeconds: 720, enqueuedAt: null, enqueuer: null, ...over },
+    removal: null,
+  })
+  const statusOf = (pr: PrInfo) => mergeStatus({ prInfo: pr, comments: [], behindBy: 0 })
+
+  test("while queued, folded or open, is the queue's position alone in the queue line's colour", () => {
+    const pr = ready({ mergeQueue: queued(), isDraft: true })
+    const span = { text: "⧗ queued #3 of 7 · ~12m", fg: theme.blue }
+    expect(summary(pr)).toEqual([span])
+    expect(openMergeSummary(statusOf(pr))).toEqual([span])
+  })
+
+  test("goes green once the entry is mergeable, and leaves out what GitHub did not say", () => {
+    expect(summary(ready({ mergeQueue: queued({ state: "MERGEABLE", total: null, etaSeconds: null }) }))).toEqual([
+      { text: "⧗ queued #3", fg: theme.green },
+    ])
+  })
+
+  test("names a removal or an unmergeable entry as what blocks", () => {
+    const removed = ready({ mergeQueue: { entry: null, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } } })
+    const spans = summary(removed)
+    expect(plain(removed)).toBe("✗ blocked · removed from queue")
+    expect(spans.at(-1)?.fg).toBe(theme.red)
+    expect(openMergeSummary(statusOf(removed))).toEqual([{ text: "✗ blocked", fg: theme.red }])
+    expect(plain(ready({ mergeQueue: queued({ state: "UNMERGEABLE" }) }))).toBe("✗ blocked · unmergeable in queue")
+  })
+
+  test("not queued adds nothing", () => {
+    const idle: PrMergeQueue = { entry: null, removal: null }
+    expect(summary(ready({ mergeQueue: idle }))).toEqual([{ text: "✓ ready", fg: theme.green }])
+    expect(plain(ready({ mergeQueue: idle, isDraft: true }))).toBe("✗ blocked · draft")
   })
 })

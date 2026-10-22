@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test"
 import { mergeStatus, type MergePoint } from "./merge-status-model"
-import type { PrCheck, PrInfo, PrReview } from "../providers/github/types"
+import type { PrCheck, PrInfo, PrMergeQueue, PrReview } from "../providers/github/types"
 import type { Comment } from "../types"
 import { prInfo } from "../testing/pr-info"
 
@@ -51,6 +51,7 @@ describe("the merge verdict", () => {
         { id: "blockers", state: "ok", text: "none" },
       ],
       threads: [],
+      queue: null,
     })
   })
 
@@ -260,5 +261,53 @@ describe("other blockers", () => {
   test("several blockers come in order", () => {
     expect(point(ready({ isDraft: true, mergeStateStatus: "UNKNOWN", autoMergeMethod: "merge" }), "blockers").map((p) => p.text))
       .toEqual(["draft", "GitHub is still computing the merge state", "auto-merge armed (merge)"])
+  })
+})
+
+describe("the queue line", () => {
+  const NOW = Date.parse("2026-03-01T12:00:00Z")
+  const IDLE: PrMergeQueue = { entry: null, removal: null }
+  const QUEUED: PrMergeQueue = {
+    entry: { position: 3, total: 7, state: "AWAITING_CHECKS", etaSeconds: 720, enqueuedAt: null, enqueuer: null },
+    removal: null,
+  }
+  const REMOVED: PrMergeQueue = { entry: null, removal: { reason: "Merge conflicts", at: "2026-03-01T11:00:00Z" } }
+  const withQueue = (mergeQueue: PrMergeQueue | null, over: Partial<PrInfo> = {}) =>
+    mergeStatus({ prInfo: ready({ mergeQueue, ...over }), comments: [], behindBy: 0, now: NOW })
+
+  test("is not there when the base has no queue", () => {
+    const result = withQueue(null)
+    expect(result.points.map((p) => p.id)).not.toContain("queue")
+    expect(result.queue).toBeNull()
+  })
+
+  test("sits after the base and before the blockers", () => {
+    expect(withQueue(IDLE).points.map((p) => p.id)).toEqual([
+      "checks", "reviews", "conversations", "conflicts", "base", "queue", "blockers",
+    ])
+  })
+
+  test("a removal turns a ready PR blocked", () => {
+    const result = withQueue(REMOVED)
+    expect(result.verdict).toBe("blocked")
+    expect(result.verdictText).toBe("✗ blocked")
+    expect(result.points.find((p) => p.id === "queue")).toEqual({ id: "queue", state: "fail", text: "removed · merge conflicts" })
+  })
+
+  test("queued and idle leave the verdict as the gates make it", () => {
+    expect(withQueue(IDLE).verdict).toBe("ready")
+    expect(withQueue(QUEUED).verdict).toBe("ready")
+    expect(withQueue(IDLE, { mergeStateStatus: "UNSTABLE" }).verdict).toBe("warnings")
+    expect(withQueue(QUEUED, { isDraft: true }).verdict).toBe("blocked")
+  })
+
+  test("the idle line knows whether the rest is ready", () => {
+    expect(withQueue(IDLE).points.find((p) => p.id === "queue")?.text).toBe("not queued · merging adds it")
+    expect(withQueue(IDLE, { isDraft: true }).points.find((p) => p.id === "queue")?.text).toBe("not queued")
+  })
+
+  test("hands the header the entry it reads", () => {
+    expect(withQueue(QUEUED).queue).toEqual({ position: 3, total: 7, etaSeconds: 720, state: "AWAITING_CHECKS" })
+    expect(withQueue(IDLE).queue).toBeNull()
   })
 })

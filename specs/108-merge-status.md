@@ -24,6 +24,8 @@ says whose move it is, this section says why.
   protection fallback (`blocked by branch protection`).
 - **Merging from riff.**
 - **Changing the header's one-word verdict.**
+- **Adding a PR to the merge queue or removing it** (P2, a confirmed
+  palette action later).
 
 ## Capabilities
 
@@ -45,6 +47,10 @@ says whose move it is, this section says why.
   An information line never changes the verdict. The verdict takes the
   colour of the line state it matches (green, yellow, red), and shows
   folded or not.
+  While the PR is in the merge queue, the queue owns the merge: folded or
+  open, the header is the queue's place alone, in the Queue line's colour,
+  with no reasons after it: `⧗ queued #3 of 7 · ~12m` (` of N` and
+  ` · ~Nm` only when GitHub says them).
 - **A folded section names what blocks.** Open, the header is the verdict
   alone; folded and not ready, the verdict is followed by ` · ` and the
   reasons joined by ` · `, in the order of the lines, each in its line's
@@ -61,6 +67,8 @@ says whose move it is, this section says why.
   - Blockers: `draft`, `branch protection`, and `computing` while GitHub
     is still computing the merge state. An information line (auto-merge)
     never appears.
+  - A failing Queue line: `removed from queue` or `unmergeable in queue`.
+    A PR not queued adds nothing.
   Long lists stay in the section; the cap of two names keeps them out of
   the header. The header is never wrapped: at the panel's edge it ends in
   `…`.
@@ -94,6 +102,18 @@ says whose move it is, this section says why.
     failing when GitHub's merge state is `BEHIND` (the branch must be up
     to date) and a warning otherwise. Before the count arrives: `behind
     <base>` when `BEHIND`, else a pending `comparing with <base>`.
+  - **Queue**, only when the base branch has a merge queue, between Base
+    and the blockers:
+    - Not queued: `not queued · merging adds it` when the rest of the
+      verdict is ready, else `not queued`; dimmed, with no icon.
+    - Queued: `#3 of 7 · awaiting checks · ~12m · added by alice 20m
+      ago`, with `⧗` in blue (queued, awaiting checks, locked) or green
+      (mergeable). The ETA rounds up to minutes (`~1h 5m` past the hour);
+      any part GitHub does not give is left out.
+    - Unmergeable: failing, `unmergeable`.
+    - Removed, while the latest queue event is a removal: failing,
+      `removed · <reason>`, GitHub's reason lowercased.
+    Only a failing Queue line changes the verdict.
   - **Other blockers**, in this order: `draft`; `blocked by branch
     protection` when the merge state is `BLOCKED` and no failing or
     running required check, failing review or open thread explains it; a
@@ -135,6 +155,10 @@ says whose move it is, this section says why.
 | Conflicts | `mergeable`, and `mergeStateStatus` `DIRTY` |
 | Base, behind | `mergeStateStatus` `BEHIND`; the commit count from a compare after the first render |
 | Draft, blocked, auto-merge | `isDraft`, `mergeStateStatus`, `autoMergeRequest` |
+| Whether the base has a queue | `isMergeQueueEnabled` |
+| Queue length | `mergeQueue.entries.totalCount` |
+| Place in the queue | `mergeQueueEntry.position` (1-based), `state`, `estimatedTimeToMerge`, `enqueuedAt`, `enqueuer.login` |
+| Removed from the queue | `RemovedFromMergeQueueEvent.reason` through `timelineItems(last: 1)` over the add and remove events |
 
 `branchProtectionRule` comes back null, without an error, to a token that
 cannot administer the repository. For most readers the required count
@@ -145,7 +169,8 @@ repository protected only by classic branch protection.
 
 Everything but the behind count rides in the PR bundle query that riff
 already runs on open and refresh: its measured cost is 54 points with and
-without the new fields, and no new query runs per poll. The behind count is
+without the new fields, the merge queue's included, and no new query runs
+per poll. The behind count is
 a REST compare made once after the first render, like the stacked-PR check
 ([072](./072-stacked-prs.md)), not on the poll.
 
@@ -179,6 +204,10 @@ a REST compare made once after the first render, like the stacked-PR check
   behind count change; `setBehindBy` takes the count from
   `fetchBehindBy` (`src/providers/github/lookups.ts`), which `app.ts`
   calls once per panel after the first render.
+- `src/components/merge-queue.ts`: `queuePoint(queue, { ready, now })`
+  builds the Queue line from `PrInfo.mergeQueue`, which `prInfoOf` reads
+  only for an open PR; `mergeStatus` hands it the verdict of the other
+  lines and sets `MergeStatus.queue` for the header's queued span.
 - `src/components/pr-info-header.ts`: `latestReviewStates`, the latest
   review per author, shared with the panel's approvers line.
 - `PrInfo.mergeable`, `PrInfo.requiredApprovals` and `PrCheck.isRequired`
