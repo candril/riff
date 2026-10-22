@@ -9,7 +9,7 @@
  * commits, a rename) can move it along.
  */
 
-export type { Mark, MarksState, MarksPickerState } from "./types"
+export type { Mark, LineAnchor, MarksState, MarksPickerState } from "./types"
 export { createMarksState } from "./types"
 export {
   isMarkLetter,
@@ -20,8 +20,9 @@ export {
   marksInOrder,
   stepMark,
 } from "./store"
-export { markAt } from "./capture"
+export { markAt, anchorAt } from "./capture"
 export { followMarks } from "./follow"
+export { openFoldHiding, type FoldHidingContext } from "./fold-hiding"
 export { resolveMark, markLandingMessage, type MarkLanding, type ResolvedMark } from "./resolve"
 export { markLetterOf, isMarkQuote, markChordOpenedBy, markChordAction, pendingMarkChordGivesWay, chordTimeoutMs, type MarkChord, type MarkChordAction } from "./keys"
 export { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"

@@ -17,6 +17,9 @@ export interface Mark {
   head?: string
 }
 
+/** Where a mark stands without its letter; a jumplist entry is anchored the same way. */
+export type LineAnchor = Pick<Mark, "filename" | "line" | "side" | "text">
+
 export interface MarksState {
   marks: readonly Mark[]
   /** The last two marks visited, for `''`. Memory only: a session starts with neither. */

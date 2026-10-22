@@ -16,6 +16,7 @@ const place = (line: number, col = 0, selected: string | null = null): Jump => (
   filename: selected,
   viewingCommit: null,
   viewMode: "diff",
+  anchor: null,
   cursorLine: line,
   cursorCol: col,
 })
@@ -229,7 +230,7 @@ describe("walking the list", () => {
 
     record(key("G"), top, bottom)
 
-    const walkedBack = back(state, vimAt(bottom))!
+    const walkedBack = back(state, vimAt(bottom), { getLine: () => undefined })!
     state = walkedBack.state
     expect(walkedBack.jump).toEqual(top.place)
     record(ctrl("o"), bottom, top)
@@ -240,7 +241,7 @@ describe("walking the list", () => {
     record(key("tab"), top, bottom)
 
     expect(state.jumpList.entries.map((e) => e.cursorLine)).toEqual([0, 99])
-    expect(back(state, vimAt(bottom))!.jump).toEqual(top.place)
+    expect(back(state, vimAt(bottom), { getLine: () => undefined })!.jump).toEqual(top.place)
   })
 })
 

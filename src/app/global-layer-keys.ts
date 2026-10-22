@@ -23,6 +23,7 @@ export interface GlobalLayerKeyDeps {
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
+  getPane: () => "left" | "right" | null
   quit: () => void
   /** `C` and `E`: the comment, or the thread, on the cursor's line in $EDITOR. */
   addComment: () => void

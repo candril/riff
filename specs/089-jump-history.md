@@ -14,10 +14,10 @@ That is the defect. Not a missing call site — the design that needs one.
 
 A jump is recorded by watching where the reader was and where they ended up,
 once, around every interaction — the keys from the one that starts it to the
-moment nothing is waiting for more. Every navigation there is, and every navigation
-written after this, is in the list without asking: the picker, the tree,
-flash, thread motion, links, the feed, spec 088's occurrences when they
-arrive.
+moment nothing is waiting for more. Every navigation there is, and every
+navigation written after this, is in the list without asking: the picker,
+the tree, flash, thread motion, links, the feed, spec 088's occurrences when
+they arrive.
 
 ## Out of Scope
 
@@ -62,13 +62,22 @@ arrive.
 - `Ctrl-o` from the newest place records where you are first, so `Ctrl-i`
   comes back to it.
 - At either end the key does nothing, quietly.
+- An entry is anchored like a mark ([101](./101-global-marks.md): file,
+  line, side, line text), so folds, wrap, the split toggle and a refresh,
+  which all renumber the rows, leave it on its line. Off the diff, where a
+  row has no file, it keeps the row.
+- An entry whose file left the diff is skipped, in whichever direction the
+  walk goes, but kept: nvim keeps an entry for a deleted buffer, and a
+  refresh can bring the file back.
 
 All of these are built.
 
 One deliberate difference from nvim: a line is the same line when its file,
-commit, view (diff or overview) and line match, the column aside. nvim
-compares the buffer and the line; riff's views are not buffers, and a line
-of the overview is not a line of the diff.
+commit, view (diff or overview), line and side match, the column aside.
+nvim compares the buffer and the line; riff's views are not buffers, and a
+line of the overview is not a line of the diff. A file header and a divider
+have no line of their own, so as with a mark the line above stands in for
+them, and an entry taken there is the same line as that one.
 
 **Not built** — the rest of nvim's rules, each a `test.todo` in
 `src/app/jumplist-scenarios.keys.test.ts`, the harness that drives them
@@ -82,10 +91,6 @@ through riff's keys:
   commit, but not unified or split, nor the panel that had focus. Going
   back to the overview is undone by the file selection that follows it in
   `apply`.
-- Side and anchoring. An entry stores a mapping line, so a fold or a refresh
-  above it moves it; it should be anchored like a mark (file, line, side,
-  line text).
-- An entry whose file left the diff is applied anyway instead of skipped.
 
 ## Out of Scope, found while building
 
@@ -97,11 +102,12 @@ through riff's keys:
 
 The recording sits around `handleKeypress`, in `app/jump-recording.ts`,
 which runs the recorder of `features/jumplist/recorder.ts`; the scenario
-harness (`testing/jump-scenarios.ts`) records through the same module. Before and after each key it takes a
-moment: the place, the file under the cursor, and whether the interaction
-has settled (`app/jump-settled.ts`) — no prompt or picker, composer, search,
-flash, half-typed chord (`g`, `z`, `[`, `]`, read from the global key
-handler's `chordPending`), pending `f`/`t` character or pending text object.
+harness (`testing/jump-scenarios.ts`) records through the same module.
+Before and after each key it takes a moment: the place, the file under the
+cursor, and whether the interaction has settled (`app/jump-settled.ts`) —
+no prompt or picker, composer, search, flash, half-typed chord (`g`, `z`,
+`[`, `]`, read from the global key handler's `chordPending`), pending
+`f`/`t` character or pending text object.
 
 A key that arrives while the last moment was settled starts an interaction
 and decides its kind: a walk of the list (`Ctrl-o`, `Ctrl-i`, `tab`), a step
@@ -118,8 +124,12 @@ surfaces still push in `jumpToRow`: a jump there moves a highlight, not the
 place a jump captures. When it does move the place too, the recorder pushes
 the same origin and the two coalesce.
 
-A jump stores a mapping line, so folding, a refresh or a search that
-expands a collapsed file can leave an entry pointing at a different line.
+A jump keeps the mapping line it was taken on next to its anchor. While
+that line still stands for the anchor, `apply` lands on it, so an entry
+taken on a divider comes back to the divider; once a fold or a refresh has
+moved it, `resolveMark` finds the anchor again, and a code-block fold that
+hides it is opened as a mark's would be. An entry whose file the mapping
+does not show, and one taken off the diff, fall back to the mapping line.
 
 `apply` rebuilt the cursor with `createCursorState()`, which is why a jump
 landed in column one. The column travels with the jump.

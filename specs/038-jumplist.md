@@ -39,7 +39,9 @@ do not produce jumps.
     the next/previous thread). Within-thread `j` / `k` (highlight move
     between comments of the same thread) does **not** push.
 - Applying a jump restores: file selection, viewing commit, view mode, and
-  vim cursor line.
+  the cursor's line, anchored as a mark is ([101](./101-global-marks.md):
+  file, line, side, line text) and looked up again in the mapping as it is
+  now, so a fold or a refresh above it does not move it.
 - Jumplist is capped at 100 entries; oldest entries evicted FIFO.
 - Pushing after having moved back keeps the entries ahead and appends at the
   end, and a line appears once, as nvim's default `jumpoptions` have it
@@ -70,12 +72,8 @@ export interface Jump {
   fileIndex: number | null       // null = all-files view
   viewingCommit: string | null
   viewMode: ViewMode
-  cursorLine: number              // vim cursor line at time of jump
-  anchor?: {                      // for re-resolving after rebuild/refresh
-    filename: string
-    line: number
-    side: "LEFT" | "RIGHT"
-  }
+  anchor: LineAnchor | null       // a spec 101 mark's place; null off the diff
+  cursorLine: number              // mapping line, for an anchor-less entry
 }
 
 export interface JumpListState {
@@ -84,9 +82,9 @@ export interface JumpListState {
 }
 ```
 
-`anchor` is captured via the existing `DiffLineMapping.getCommentAnchor`-style
-lookup so that a back-jump survives commit switches and refreshes that
-invalidate raw line numbers.
+`anchor` is captured with the marks' `anchorAt` and resolved with
+`resolveMark`, so a back-jump survives folds, wrap, the split toggle and
+refreshes that renumber the mapping's lines.
 
 ### State integration
 
@@ -102,10 +100,10 @@ Initialize as `{ entries: [], index: -1 }`.
 
 New `src/features/jumplist/` with:
 
-- `capture(state, vim, lineMapping): Jump` — snapshot current location.
+- `capture(state, vim, lineMapping, pane): Jump` — snapshot current location.
 - `push(state, jump): AppState` — drop the entry for the same line, append,
   evict past cap, put the index at the end.
-- `back(state): { state, jump } | null`
+- `back(state, vim, lineMapping, pane): { state, jump } | null`
 - `forward(state): { state, jump } | null`
 - `apply(jump, ctx)` — calls existing helpers:
   - `fileNavigation.handleSelectFile` for file changes
@@ -119,7 +117,7 @@ Wrap each navigation site. Pattern:
 
 ```ts
 // before the navigation mutates state
-ctx.setState(s => jumplist.push(s, jumplist.capture(s, vim, lineMapping)))
+ctx.setState(s => jumplist.push(s, jumplist.capture(s, vim, lineMapping, pane)))
 // ... existing navigation ...
 ```
 
@@ -177,8 +175,9 @@ in the chord block that calls `toggleViewMode`.
 - At list head / tip: swallow silently.
 - Consecutive duplicate locations: skip the push (coalesce).
 - Files list changes (refresh/resync): entries with stale `fileIndex` are
-  resolved via `anchor.filename` lookup when applied; drop the entry if the
-  file no longer exists.
+  resolved via `anchor.filename` lookup when applied. `Ctrl-o` and `Ctrl-i`
+  walk past an entry whose file left the diff but keep it, as nvim keeps an
+  entry for a deleted buffer: a refresh can bring the file back.
 - `Tab` currently toggles view mode — migration note: mention the rebinding
   in the help overlay (`g?`).
 

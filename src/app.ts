@@ -911,7 +911,7 @@ export async function createApp(options: AppOptions = {}) {
     },
     getVisibleRegion: () => (split.shown() ? split.visibleRegion() : unified.visibleRegion()),
     jumpToRow: (surface, id) => {
-      state = jumplist.pushCurrent(state, vimState)
+      state = jumplist.pushCurrent(state, vimState, lineMapping, split.commentScope().pane)
       if (surface === "tree") {
         state = { ...state, treeHighlightIndex: Number(id), focusedPanel: "tree" }
         updateFileTreePanel()
@@ -1755,6 +1755,8 @@ export async function createApp(options: AppOptions = {}) {
     getLineMapping: () => lineMapping,
     getCommentScope: split.commentScope,
     rebuildLineMapping: createLineMapping,
+    getPane: marksContext.getPane,
+    setPane: marksContext.setPane,
     getSearchState: () => searchState,
     getFlashState: () => flashState,
     renderer,
@@ -1804,6 +1806,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
+    getPane: marksContext.getPane,
     searchActive: () => searchState.active,
     flashActive: () => flashState.active,
     chordPending: () => dispatchKeypress.chordPending(),

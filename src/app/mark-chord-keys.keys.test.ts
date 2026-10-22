@@ -65,6 +65,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     setState: render.setState,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
+    getPane: () => null,
     searchActive: () => false,
     flashActive: () => false,
     chordPending: () => keys.chordPending(),

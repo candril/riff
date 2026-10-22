@@ -200,11 +200,17 @@ export async function jumpScenario({
     setVimState(createCursorState())
     rebuildLineMapping()
   }
+  // app.ts's marks context, which its keys and its recording share.
+  const getPane = () => render.split.commentScope().pane ?? null
+  const setPane = (pane: "left" | "right") => {
+    if (render.split.shown()) render.split.source().setSide(pane)
+  }
   const recording = createJumpRecording({
     getState: render.getState,
     setState: render.setState,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
+    getPane,
     searchActive: () => render.getSearchState().active,
     flashActive: () => render.getFlashState().active,
     chordPending: () => keys.chordPending(),
@@ -217,6 +223,8 @@ export async function jumpScenario({
       fileNavContext,
       threadMotionContext,
       rebuildLineMapping,
+      getPane,
+      setPane,
       fileTreePanel: mounted.fileTreePanel,
       updateFileTreePanel: render.updateFileTreePanel,
       getCommentScope: () => render.split.commentScope(),
@@ -236,8 +244,8 @@ export async function jumpScenario({
       threadPanelLayout: () => null,
       marksContext: {
         ...threadMotionContext,
-        getPane: () => null,
-        setPane: () => {},
+        getPane,
+        setPane,
         save: () => {},
         getHead: () => undefined,
       },

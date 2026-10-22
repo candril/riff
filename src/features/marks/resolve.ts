@@ -1,6 +1,6 @@
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { rowText } from "./row-text"
-import type { Mark } from "./types"
+import type { LineAnchor, Mark } from "./types"
 
 export type MarkLanding = "exact" | "nearby" | "file"
 
@@ -18,7 +18,7 @@ export interface ResolvedMark {
  * Not refresh's `relocate`: it takes a row's side from its type, so a LEFT
  * mark on a context line could never match exactly.
  */
-export function resolveMark(mapping: DiffLineMapping, mark: Mark): ResolvedMark | null {
+export function resolveMark(mapping: DiffLineMapping, mark: LineAnchor): ResolvedMark | null {
   const side = mark.side
   let firstRow = -1
   let nearest = -1

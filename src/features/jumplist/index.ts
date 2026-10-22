@@ -5,15 +5,20 @@
  * `Ctrl-O` (back) and `Ctrl-I` (forward), matching nvim muscle memory.
  *
  * A jump captures: selected file (by index *and* filename for stability),
- * viewing commit, view mode, and the vim cursor line. `apply` restores
- * those — by filename when files have been re-parsed (commit switch, refresh).
+ * viewing commit, view mode, and the cursor's line anchored as a mark is
+ * (file, line, side, text). `apply` restores those, looking the anchor up
+ * in the mapping as it is now, so folds and a refresh do not move it.
  */
 
 import type { AppState } from "../../state"
 import { selectFile, clearFileSelection, switchView, enterDiffView } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
+import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { anchorAt } from "../marks/capture"
+import { resolveMark } from "../marks/resolve"
+import { openFoldHiding } from "../marks/fold-hiding"
 import type { Jump } from "./types"
-import { sameLine } from "./place"
+import { sameAnchor, sameLine } from "./place"
 
 export type { Jump, JumpListState } from "./types"
 export { createJumpListState } from "./types"
@@ -21,6 +26,8 @@ export { sameLine, sameLocation } from "./place"
 export { isStepMotion, isListWalk, isFindMotion } from "./keys"
 
 const MAX_ENTRIES = 100
+
+type Pane = "left" | "right"
 
 /**
  * The file the cursor is standing in, which in the all-files view is not the
@@ -31,8 +38,16 @@ export function cursorFile(mapping: { getLine(i: number): { filename?: string } 
   return mapping.getLine(line)?.filename ?? null
 }
 
-/** Snapshot the current location into a Jump. */
-export function capture(state: AppState, vim: VimCursorState): Jump {
+/**
+ * Snapshot the current location into a Jump. `pane` is the active split
+ * pane, which decides the side of a line both panes show.
+ */
+export function capture(
+  state: AppState,
+  vim: VimCursorState,
+  mapping: Pick<DiffLineMapping, "getLine">,
+  pane?: Pane | null,
+): Jump {
   const filename =
     state.selectedFileIndex !== null
       ? state.files[state.selectedFileIndex]?.filename ?? null
@@ -42,6 +57,9 @@ export function capture(state: AppState, vim: VimCursorState): Jump {
     filename,
     viewingCommit: state.viewingCommit,
     viewMode: state.viewMode,
+    // The mapping is the diff's even while another view shows, so off the
+    // diff the cursor's line would anchor to a row that is not under it.
+    anchor: state.viewMode === "diff" ? anchorAt(mapping, vim.line, pane ?? undefined) : null,
     cursorLine: vim.line,
     cursorCol: vim.col,
   }
@@ -70,23 +88,54 @@ export function push(state: AppState, jump: Jump): AppState {
  * BEFORE a navigation mutates state — the entry is the location you'll
  * jump back to.
  */
-export function pushCurrent(state: AppState, vim: VimCursorState): AppState {
-  return push(state, capture(state, vim))
+export function pushCurrent(
+  state: AppState,
+  vim: VimCursorState,
+  mapping: Pick<DiffLineMapping, "getLine">,
+  pane?: Pane | null,
+): AppState {
+  return push(state, capture(state, vim, mapping, pane))
+}
+
+/**
+ * An entry whose file left the diff has nowhere to land, so the walk goes
+ * past it — but it stays, as nvim keeps an entry for a deleted buffer: a
+ * refresh can bring the file back. An entry in another commit is judged
+ * by that commit's files once it is switched to, not by these.
+ */
+function reachable(state: AppState, jump: Jump): boolean {
+  if (jump.viewingCommit !== state.viewingCommit) return true
+  const file = jump.anchor?.filename ?? jump.filename
+  return file === null || state.files.some((f) => f.filename === file)
+}
+
+/** The next entry from `from` in `direction` that can be landed on. */
+function nextReachable(state: AppState, from: number, direction: 1 | -1): number | null {
+  const { entries } = state.jumpList
+  for (let i = from + direction; i >= 0 && i < entries.length; i += direction) {
+    if (reachable(state, entries[i]!)) return i
+  }
+  return null
 }
 
 /** Move back; returns new jumplist state + the jump to apply, or null. */
-export function back(state: AppState, vim: VimCursorState): { state: AppState; jump: Jump } | null {
+export function back(
+  state: AppState,
+  vim: VimCursorState,
+  mapping: Pick<DiffLineMapping, "getLine">,
+  pane?: Pane | null,
+): { state: AppState; jump: Jump } | null {
   const list = state.jumpList
   if (list.index < 0 || list.entries.length === 0) return null
 
   // From the newest end, where you are is not in the list yet: nvim records
   // it first, so `Ctrl-i` has somewhere to come back to. Standing on the
   // newest entry already, the push only refreshes it.
-  const working = list.index === list.entries.length - 1 ? push(state, capture(state, vim)) : state
+  const working = list.index === list.entries.length - 1 ? push(state, capture(state, vim, mapping, pane)) : state
   const workingList = working.jumpList
 
-  if (workingList.index <= 0) return null
-  const newIndex = workingList.index - 1
+  const newIndex = nextReachable(working, workingList.index, -1)
+  if (newIndex === null) return null
   return {
     state: { ...working, jumpList: { ...workingList, index: newIndex } },
     jump: workingList.entries[newIndex]!,
@@ -96,8 +145,9 @@ export function back(state: AppState, vim: VimCursorState): { state: AppState; j
 /** Move forward; returns new jumplist state + the jump to apply, or null. */
 export function forward(state: AppState): { state: AppState; jump: Jump } | null {
   const list = state.jumpList
-  if (list.index < 0 || list.index >= list.entries.length - 1) return null
-  const newIndex = list.index + 1
+  if (list.index < 0) return null
+  const newIndex = nextReachable(state, list.index, 1)
+  if (newIndex === null) return null
   const target = list.entries[newIndex]!
   return {
     state: {
@@ -112,7 +162,10 @@ export interface JumpApplyContext {
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
+  getLineMapping: () => DiffLineMapping
   rebuildLineMapping: () => void
+  /** Makes a pane active in split; nothing in unified. */
+  setPane: (pane: Pane) => void
   ensureCursorVisible: () => void
   render: () => void
   onCommitSelected: (sha: string | null) => void
@@ -178,13 +231,14 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   })
 
   ctx.rebuildLineMapping()
+  const landing = landingOf(jump, ctx)
 
   // The cursor moves; it is not rebuilt. A fresh one would throw away the
   // last search and vim's own jump state along with the position, so going
   // back would quietly cost you `n`.
   ctx.setVimState({
     ...ctx.getVimState(),
-    line: Math.max(0, jump.cursorLine),
+    line: landing.line,
     col: Math.max(0, jump.cursorCol ?? 0),
     mode: "normal",
     selectionAnchor: null,
@@ -193,10 +247,40 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
     pendingTextObject: null,
     pendingFindChar: null,
   })
+  // A context row is in both panes, and split leaves the pane alone there,
+  // so the entry's own side has to be made active.
+  if (landing.side) ctx.setPane(landing.side === "LEFT" ? "left" : "right")
 
   // One paint. Rendering, settling the scroll and rendering again showed the
   // destination at the scroll position of where you came from, then moved it
   // — which is the flicker.
   ctx.render()
   ctx.ensureCursorVisible()
+}
+
+/**
+ * The anchor looked up in the mapping as it is now. A row with no line of
+ * its own (a divider, the spacing below a file) is anchored to the nearest
+ * numbered row above, so while the mapping line it was taken on still
+ * stands for the anchor, that line is where you were. Without an anchor,
+ * or in a mapping that does not show its file, the line is all there is.
+ */
+function landingOf(jump: Jump, ctx: JumpApplyContext): { line: number; side: "LEFT" | "RIGHT" | null } {
+  const anchor = jump.anchor
+  if (!anchor) return { line: Math.max(0, jump.cursorLine), side: null }
+  const mapping = ctx.getLineMapping()
+  const there = anchorAt(mapping, jump.cursorLine, anchor.side === "LEFT" ? "left" : "right")
+  if (there && sameAnchor(there, anchor)) return { line: jump.cursorLine, side: anchor.side }
+
+  const found = resolveMark(mapping, anchor)
+  if (!found) return { line: Math.max(0, jump.cursorLine), side: null }
+  const resolved = openFoldHiding(anchor, found, {
+    setState: ctx.setState,
+    getLineMapping: ctx.getLineMapping,
+    rebuildLineMapping: () => {
+      ctx.rebuildLineMapping()
+      return ctx.getLineMapping()
+    },
+  })
+  return { line: resolved.line, side: resolved.side }
 }

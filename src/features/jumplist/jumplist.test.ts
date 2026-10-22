@@ -12,6 +12,9 @@ const files: DiffFile[] = ["a.ts", "b.ts"].map((filename) => ({
   content: "",
 }))
 
+/** A mapping with no rows: no entry is anchored, so the list compares mapping lines. */
+const noRows = { getLine: () => undefined }
+
 const at = (fileIndex: number | null, line: number, col = 0) => {
   const state = { ...createInitialState(files, [], "local", ""), selectedFileIndex: fileIndex }
   return { state, vim: { ...createCursorState(), line, col } }
@@ -69,42 +72,50 @@ describe("isFindMotion", () => {
 
 describe("sameLocation", () => {
   test("a different file, line or column is a different place", () => {
-    const here = capture(at(0, 5).state, at(0, 5).vim)
-    expect(sameLocation(here, capture(at(0, 5).state, at(0, 5).vim))).toBe(true)
-    expect(sameLocation(here, capture(at(1, 5).state, at(1, 5).vim))).toBe(false)
-    expect(sameLocation(here, capture(at(0, 9).state, at(0, 9).vim))).toBe(false)
-    expect(sameLocation(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim))).toBe(false)
+    const here = capture(at(0, 5).state, at(0, 5).vim, noRows)
+    expect(sameLocation(here, capture(at(0, 5).state, at(0, 5).vim, noRows))).toBe(true)
+    expect(sameLocation(here, capture(at(1, 5).state, at(1, 5).vim, noRows))).toBe(false)
+    expect(sameLocation(here, capture(at(0, 9).state, at(0, 9).vim, noRows))).toBe(false)
+    expect(sameLocation(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows))).toBe(false)
   })
 })
 
 describe("push", () => {
   test("the column travels with the jump", () => {
     const { state, vim } = at(0, 5, 12)
-    const pushed = push(state, capture(state, vim))
+    const pushed = push(state, capture(state, vim, noRows))
     expect(pushed.jumpList.entries[0]).toMatchObject({ cursorLine: 5, cursorCol: 12 })
   })
 
   test("the same place twice is one entry", () => {
     const { state, vim } = at(0, 5)
-    const once = push(state, capture(state, vim))
-    const twice = push(once, capture(once, vim))
+    const once = push(state, capture(state, vim, noRows))
+    const twice = push(once, capture(once, vim, noRows))
     expect(twice.jumpList.entries.length).toBe(1)
   })
 })
 
 describe("sameLine", () => {
   test("the column does not make another line; the file or the line does", () => {
-    const here = capture(at(0, 5).state, at(0, 5).vim)
-    expect(sameLine(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim))).toBe(true)
-    expect(sameLine(here, capture(at(1, 5).state, at(1, 5).vim))).toBe(false)
-    expect(sameLine(here, capture(at(0, 6).state, at(0, 6).vim))).toBe(false)
+    const here = capture(at(0, 5).state, at(0, 5).vim, noRows)
+    expect(sameLine(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows))).toBe(true)
+    expect(sameLine(here, capture(at(1, 5).state, at(1, 5).vim, noRows))).toBe(false)
+    expect(sameLine(here, capture(at(0, 6).state, at(0, 6).vim, noRows))).toBe(false)
     expect(sameLine(here, { ...here, viewMode: "state" })).toBe(false)
+  })
+
+  test("anchored, it is the file's line and side, wherever the mapping put it", () => {
+    const anchor = { filename: "a.ts", line: 12, side: "RIGHT" as const }
+    const here = { ...capture(at(0, 5).state, at(0, 5).vim, noRows), anchor }
+    expect(sameLine(here, { ...here, cursorLine: 40, fileIndex: null, filename: null })).toBe(true)
+    expect(sameLine(here, { ...here, anchor: { ...anchor, side: "LEFT" } })).toBe(false)
+    expect(sameLine(here, { ...here, anchor: { ...anchor, line: 13 } })).toBe(false)
   })
 })
 
 describe("the list, as nvim keeps it", () => {
   const { state: start } = at(null, 0)
-  const jump = (line: number, col = 0) => capture(start, { ...createCursorState(), line, col })
+  const jump = (line: number, col = 0) => capture(start, { ...createCursorState(), line, col }, noRows)
   const pushAll = (lines: number[]) => lines.reduce((s, line) => push(s, jump(line)), start)
   const lines = (s: typeof start) => s.jumpList.entries.map((entry) => entry.cursorLine)
 
@@ -131,7 +142,7 @@ describe("the list, as nvim keeps it", () => {
 
   test("back from the newest end records where you are, so forward comes back to it", () => {
     const list = pushAll([1, 2])
-    const backed = back(list, { ...createCursorState(), line: 8 })!
+    const backed = back(list, { ...createCursorState(), line: 8 }, noRows)!
     expect(backed.jump.cursorLine).toBe(2)
     expect(lines(backed.state)).toEqual([1, 2, 8])
     const forwarded = forward(backed.state)!
@@ -140,14 +151,47 @@ describe("the list, as nvim keeps it", () => {
   })
 
   test("back from a line already in the list records it once", () => {
-    const backed = back(pushAll([1, 2]), { ...createCursorState(), line: 1 })!
+    const backed = back(pushAll([1, 2]), { ...createCursorState(), line: 1 }, noRows)!
     expect(lines(backed.state)).toEqual([2, 1])
     expect(backed.jump.cursorLine).toBe(2)
   })
 
   test("at the oldest entry, back does nothing", () => {
-    const backed = back(pushAll([1]), { ...createCursorState(), line: 1 })
+    const backed = back(pushAll([1]), { ...createCursorState(), line: 1 }, noRows)
     expect(backed).toBeNull()
+  })
+})
+
+describe("an entry whose file left the diff", () => {
+  const { state: start } = at(null, 0)
+  const inFile = (filename: string, line: number) => ({
+    ...capture(start, { ...createCursorState(), line }, noRows),
+    anchor: { filename, line, side: "RIGHT" as const },
+  })
+  const listOf = (entries: ReturnType<typeof inFile>[], index: number) => ({ ...start, jumpList: { entries, index } })
+  const lines = (s: typeof start) => s.jumpList.entries.map((entry) => entry.cursorLine)
+
+  test("is walked past going back, and kept", () => {
+    const list = listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("left.ts", 3)], 2)
+    const backed = back(list, { ...createCursorState(), line: 8 }, noRows)!
+    expect(backed.jump.cursorLine).toBe(1)
+    expect(backed.state.jumpList.index).toBe(0)
+    expect(lines(backed.state)).toEqual([1, 2, 3, 8])
+  })
+
+  test("is walked past going forward", () => {
+    const forwarded = forward(listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("b.ts", 3)], 0))!
+    expect(forwarded.jump.cursorLine).toBe(3)
+    expect(forwarded.state.jumpList.index).toBe(2)
+  })
+
+  test("leaves nowhere to go when every entry ahead is one", () => {
+    expect(forward(listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("left.ts", 3)], 0))).toBeNull()
+  })
+
+  test("is judged by the commit it was taken in once that is switched to", () => {
+    const elsewhere = { ...inFile("gone.ts", 2), viewingCommit: "abc1234" }
+    expect(forward(listOf([inFile("a.ts", 1), elsewhere], 0))!.jump).toBe(elsewhere)
   })
 })
 

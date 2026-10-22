@@ -36,7 +36,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, { ti
       run: (key) => {
         if (!key.ctrl) return false
         // Ctrl-O: back in jumplist (spec 038).
-        const result = jumplist.back(deps.getState(), deps.getVimState())
+        const result = jumplist.back(deps.getState(), deps.getVimState(), deps.getLineMapping(), deps.getPane())
         if (result) {
           deps.setState(() => result.state)
           jumplist.apply(result.jump, deps.jumpApply)

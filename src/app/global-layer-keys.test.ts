@@ -28,6 +28,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     getLineMapping: () => {
       throw new Error("the line mapping was read")
     },
+    getPane: () => null,
     quit: () => void calls.push("quit"),
     addComment: () => void calls.push("addComment"),
     jumpApply: null as never,

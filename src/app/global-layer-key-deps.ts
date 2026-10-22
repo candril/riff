@@ -20,6 +20,7 @@ export function globalLayerKeyDeps(
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,
+    getPane: ctx.getPane,
     quit: () => ctx.quit(),
     addComment: () => void commentsFeature.handleAddComment(ctx.commentsContext),
     jumpApply: jumpApplyContext(ctx),

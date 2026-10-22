@@ -296,16 +296,19 @@ describe("e: a line appears in the list once", () => {
 describe("f: the list holds 100 entries", () => {
   test("the oldest go first", async () => {
     const a = await scenario()
-    const lineCount = a.mounted.ctx.getLineMapping().lineCount
-    expect(lineCount).toBeGreaterThan(105)
-    for (let line = 0; line < 105; line++) {
+    // A header or a divider is the line above it, as a mark is; only a numbered row is a line of its own.
+    const numbered = a.mounted.ctx
+      .getLineMapping()
+      .allLines.flatMap((row, line) => (row.type === "context" || row.type === "addition" || row.type === "deletion" ? [line] : []))
+    expect(numbered.length).toBeGreaterThan(105)
+    for (const line of numbered.slice(0, 105)) {
       a.moveTo(line)
       a.press(KEY.G)
     }
     const lines = a.list().entries.map((entry) => entry.cursorLine)
     expect(lines).toHaveLength(100)
-    expect(lines[0]).toBe(5)
-    expect(lines[99]).toBe(104)
+    expect(lines[0]).toBe(numbered[5])
+    expect(lines[99]).toBe(numbered[104])
   })
 })
 
@@ -354,7 +357,7 @@ describe("h: an entry comes back to its line, anchored like a mark", () => {
     return place
   }
 
-  test.todo("after a fold above it", async () => {
+  test("after a fold above it", async () => {
     const a = await scenario()
     const place = recordAt(a, "src/gamma.ts", "line 24")
     a.mounted.show({ collapsedFiles: new Set(["src/alpha.ts"]), files: a.state().files })
@@ -382,7 +385,7 @@ describe("h: an entry comes back to its line, anchored like a mark", () => {
     expect(a.where().text).toBe(place.text)
   })
 
-  test.todo("after a refresh that adds lines above it", async () => {
+  test("after a refresh that adds lines above it", async () => {
     const a = await scenario()
     const place = recordAt(a, "src/gamma.ts", "line 24")
     // The refreshed branch has a new file ahead of every other.
@@ -393,7 +396,7 @@ describe("h: an entry comes back to its line, anchored like a mark", () => {
     expect(a.where().text).toBe(place.text)
   })
 
-  test.todo("an entry whose file left the diff is skipped", async () => {
+  test("an entry whose file left the diff is skipped", async () => {
     const a = await scenario()
     const kept = recordAt(a, "src/alpha.ts", "line 24")
     recordAt(a, "src/beta.ts", "line 24")

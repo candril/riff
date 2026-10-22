@@ -1,6 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
+import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import * as jumplist from "../features/jumplist"
 import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
 import { interactionSettled } from "./jump-settled"
@@ -9,7 +10,9 @@ export interface JumpRecordingDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   getVimState: () => VimCursorState
-  getLineMapping: () => { getLine(i: number): { filename?: string } | undefined }
+  getLineMapping: () => Pick<DiffLineMapping, "getLine">
+  /** The active split pane, or null in unified. */
+  getPane: () => "left" | "right" | null
   searchActive: () => boolean
   flashActive: () => boolean
   chordPending: () => boolean
@@ -39,9 +42,10 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
   const moment = (): Moment => {
     const state = deps.getState()
     const vim = deps.getVimState()
+    const mapping = deps.getLineMapping()
     return {
-      place: jumplist.capture(state, vim),
-      file: jumplist.cursorFile(deps.getLineMapping(), vim.line),
+      place: jumplist.capture(state, vim, mapping, deps.getPane()),
+      file: jumplist.cursorFile(mapping, vim.line),
       settled: interactionSettled({
         state,
         vim,
