@@ -205,9 +205,6 @@ export interface AppState {
   // Diff view state
   cursorLine: number                // Selected line in diff view
 
-  // Comment thread state
-  collapsedThreadIds: Set<string>   // Thread IDs that are collapsed (root comment ID)
-
   // Comment state - comments stored separately from session
   session: ReviewSession | null
   comments: Comment[]
@@ -340,7 +337,6 @@ export function createInitialState(
     chatOpen: false,
     mode: "normal",
     cursorLine: 1,
-    collapsedThreadIds: new Set(),
     session,
     comments,
     source,
@@ -854,81 +850,13 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
     c.id === rootCommentId ? { ...c, isThreadResolved: resolved } : c
   )
 
-  // Auto-collapse when resolving, auto-expand when unresolving
-  const newCollapsed = new Set(state.collapsedThreadIds)
-  if (resolved) {
-    newCollapsed.add(rootCommentId)
-  } else {
-    newCollapsed.delete(rootCommentId)
-  }
-
   // With open-only on, resolving the highlighted thread takes it out of
   // the panel; the highlight stays at its index rather than pointing past
   // the end, and whatever hung off the comment it left goes with it.
   return followInlineCommentOverlayHighlight(state, {
     ...state,
     comments: newComments,
-    collapsedThreadIds: newCollapsed,
   })
-}
-
-/**
- * Toggle thread collapse state
- */
-export function toggleThreadCollapsed(state: AppState, threadId: string): AppState {
-  const newSet = new Set(state.collapsedThreadIds)
-  if (newSet.has(threadId)) {
-    newSet.delete(threadId)
-  } else {
-    newSet.add(threadId)
-  }
-  return {
-    ...state,
-    collapsedThreadIds: newSet,
-  }
-}
-
-/**
- * Collapse a thread
- */
-export function collapseThread(state: AppState, threadId: string): AppState {
-  if (state.collapsedThreadIds.has(threadId)) return state
-  const newSet = new Set(state.collapsedThreadIds)
-  newSet.add(threadId)
-  return {
-    ...state,
-    collapsedThreadIds: newSet,
-  }
-}
-
-/**
- * Expand a thread
- */
-export function expandThread(state: AppState, threadId: string): AppState {
-  if (!state.collapsedThreadIds.has(threadId)) return state
-  const newSet = new Set(state.collapsedThreadIds)
-  newSet.delete(threadId)
-  return {
-    ...state,
-    collapsedThreadIds: newSet,
-  }
-}
-
-/**
- * Initialize collapsed state for resolved threads
- */
-export function collapseResolvedThreads(state: AppState, threads: { id: string; resolved: boolean }[]): AppState {
-  const resolvedIds = threads.filter(t => t.resolved).map(t => t.id)
-  if (resolvedIds.length === 0) return state
-  
-  const newSet = new Set(state.collapsedThreadIds)
-  for (const id of resolvedIds) {
-    newSet.add(id)
-  }
-  return {
-    ...state,
-    collapsedThreadIds: newSet,
-  }
 }
 
 /**

@@ -23,21 +23,6 @@ export function heldOpen(root: Comment): boolean {
 }
 
 /**
- * Flattened item for navigation in comments view
- */
-export interface ThreadNavItem {
-  type: "file-header" | "comment"
-  filename?: string             // For file-header
-  comment?: Comment             // For comment
-  thread?: Thread               // Parent thread
-  isRoot?: boolean              // Is this the root comment of a thread?
-  isLastInThread?: boolean      // Is this the last comment in the thread?
-  indent: number                // Indentation level (0 for root, 1 for replies)
-  isCollapsed?: boolean         // Is this thread currently collapsed?
-  replyCount?: number           // Number of hidden replies (when collapsed)
-}
-
-/**
  * Whether a thread renders collapsed (header only) in the inline comment
  * overlay. `toggledThreadIds` holds the threads the user has flipped away
  * from their default fold state with `za`: resolved threads default to
@@ -118,70 +103,6 @@ function collectReplies(root: Comment, replyMap: Map<string, Comment[]>): Commen
   }
   
   return result
-}
-
-/**
- * Flatten threads into navigable items for the comments view.
- * When showFileHeaders is true, includes file separator headers.
- * When collapsedThreadIds is provided, collapsed threads only show the root comment.
- */
-export function flattenThreadsForNav(
-  threads: Thread[], 
-  showFileHeaders: boolean,
-  collapsedThreadIds?: Set<string>
-): ThreadNavItem[] {
-  const items: ThreadNavItem[] = []
-  let currentFile = ""
-  
-  for (const thread of threads) {
-    // Add file header if showing all files and file changed
-    if (showFileHeaders && thread.filename !== currentFile) {
-      currentFile = thread.filename
-      items.push({
-        type: "file-header",
-        filename: currentFile,
-        indent: 0,
-      })
-    }
-    
-    const isCollapsed = collapsedThreadIds?.has(thread.id) ?? false
-    const replyCount = thread.comments.length - 1
-    
-    if (isCollapsed) {
-      // Only show root comment when collapsed
-      const rootComment = thread.comments[0]
-      if (rootComment) {
-        items.push({
-          type: "comment",
-          comment: rootComment,
-          thread,
-          isRoot: true,
-          isLastInThread: true,
-          indent: 0,
-          isCollapsed: true,
-          replyCount,
-        })
-      }
-    } else {
-      // Show all comments when expanded
-      for (let i = 0; i < thread.comments.length; i++) {
-        const comment = thread.comments[i]!
-        const isRoot = i === 0
-        const isLastInThread = i === thread.comments.length - 1
-        items.push({
-          type: "comment",
-          comment,
-          thread,
-          isRoot,
-          isLastInThread,
-          indent: isRoot ? 0 : 1,
-          isCollapsed: false,
-        })
-      }
-    }
-  }
-  
-  return items
 }
 
 /**

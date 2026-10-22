@@ -16,7 +16,6 @@ import {
   showToast,
   clearToast,
   createInitialState,
-  collapseResolvedThreads,
   loadFileStatuses,
   updateFileStatuses,
   collapseViewedFiles,
@@ -26,7 +25,6 @@ import { mergeGitHubViewedStates } from "../../utils/viewed-status"
 import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
-import { groupIntoThreads } from "../../utils/threads"
 import { markVisit } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
@@ -181,10 +179,6 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.visit.begin(watermark, forcePushed)
       followReloadedMarks(ctx, headSha || undefined)
 
-      // Collapse resolved threads
-      const threads = groupIntoThreads(newComments)
-      ctx.setState((s) => collapseResolvedThreads(s, threads))
-
       // Load file statuses
       const localViewedStatuses = await ctx.sources.loadViewedStatuses(state.source)
       ctx.setState((s) =>
@@ -243,8 +237,6 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
       // Viewed marks live on disk, not in the diff — a reload that skipped
       // them would drop every file's review status.
-      const threads = groupIntoThreads(ctx.getState().comments)
-      ctx.setState((s) => collapseResolvedThreads(s, threads))
       const localViewedStatuses = await ctx.sources.loadViewedStatuses(state.source)
       ctx.setState((s) =>
         keepTreeHighlight(s, (loading) => collapseViewedFiles(loadFileStatuses(loading, localViewedStatuses)))

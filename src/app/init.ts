@@ -15,7 +15,6 @@ import { buildFileTree, filteredFilenames, collapseTree, expandToFile } from "..
 import { wasRebased, type VisitWatermark } from "../utils/visit"
 import {
   createInitialState,
-  collapseResolvedThreads,
   loadFileStatuses,
   updateFileStatuses,
   collapseViewedFiles,
@@ -33,7 +32,6 @@ import { type Comment, type AppMode } from "../types"
 import type { ViewerViewedState } from "../providers/github/viewed"
 import type { PrInfo } from "../providers/github/types"
 import { PR_COMMITS_FETCH_LIMIT } from "../providers/github/session"
-import { groupIntoThreads } from "../utils/threads"
 import { getTreeSitterClient } from "@opentui/core"
 import { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -167,10 +165,6 @@ export async function initializeAppState(options: InitOptions): Promise<{
   } else if (localCommits) {
     state = { ...state, commits: localCommits }
   }
-
-  // Collapse resolved threads by default
-  const threads = groupIntoThreads(comments)
-  state = collapseResolvedThreads(state, threads)
 
   // Load viewed file statuses (merge local + GitHub)
   state = loadFileStatuses(state, localViewedStatuses)
