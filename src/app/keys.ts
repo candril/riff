@@ -20,6 +20,7 @@ import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 import { feedKeyDeps } from "./feed-key-deps"
 import { blameKeysContext } from "./blame-key-deps"
 import { registerPeekKeys } from "./peek-keys"
+import { registerTextObjectKeys } from "./text-object-keys"
 import { registerPromptKeys } from "./prompt-keys"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
@@ -41,11 +42,21 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // then the four query pickers, the commit picker, the sync preview,
   // Submit Review, the help overlay, the chat, the thread panel in its two
   // modes, the PR overview, the activity feed, the search and tree filter
-  // prompts and, last of them, the blame and line peeks. The composer
+  // prompts, the blame and line peeks and, last of them, a pending text
+  // object. Every modal capture thus outranks the text object, as the
+  // chain's order had it. The composer
   // never competes with the chat, which stands aside while it is open, view
   // mode and compose mode are never active together, and nor are the
   // overview and the feed, which are views of their own.
   const links = createLinksPicker(ctx)
+  registerTextObjectKeys(riffKeymap, {
+    getState: ctx.getState,
+    getVimState: ctx.getVimState,
+    searchActive: () => ctx.getSearchState().active,
+    feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
+    render: ctx.render,
+    settleChainChord: (key) => legacy.settleChord(key),
+  })
   registerPeekKeys(riffKeymap, ctx, legacy, blame)
   registerPromptKeys(riffKeymap, ctx, legacy)
   registerFeedKeys(riffKeymap, feedKeyDeps(ctx, legacy))

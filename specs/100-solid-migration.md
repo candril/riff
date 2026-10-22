@@ -92,8 +92,8 @@ dialog's, the command palette's, those of the file, comments, marks,
 occurrence and commit pickers, those of the sync preview and Submit
 Review, the help overlay's, the chat's, the thread panel's in view
 mode and in its composer with the mention and emoji pickers, the PR
-overview's, the activity feed's, the search and tree filter prompts' and
-the blame and line peeks'. A modal layer captures the keys it does
+overview's, the activity feed's, the search and tree filter prompts',
+the blame and line peeks' and the pending text object's. A modal layer captures the keys it does
 not bind, so none of them reaches the chain while it is up; the palette's,
 the pickers' and Submit Review's captures leave them unprevented for their
 prompt fields and the summary to type, and the commit picker's does so
@@ -133,9 +133,10 @@ an empty query, and leave every other key unprevented for their fields to
 type; the peeks prevent nothing, as the chain never did. The peeks leave
 the chain a bare `g`, so `go`, `gb` and `gl` complete, every key while
 the chain holds a chord, and Ctrl-r, and Ctrl-l from the thread panel,
-wherever the chat takes them. The chain's text object branch stays in the
-chain ahead of the peeks, which stand aside while one is pending in the
-diff.
+wherever the chat takes them. A text object pending in the diff is a
+keymap capture registered behind the peeks (`src/app/text-object-keys.ts`):
+it hands every key but the chat's reach to the vim handler and prevents
+nothing, and the peeks stand aside for it.
 
 **Not built**: the rest of M6 (state factories and the remaining keymap
 layers); the file size ratchet (P3).

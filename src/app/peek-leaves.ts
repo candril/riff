@@ -35,9 +35,10 @@ export interface PeekKeyContext {
  * Whether an open peek leaves `key` to the handlers behind it. A bare `g`
  * goes on to the chain's chord matcher, or `gb`, `go` and `gl` could not
  * complete, and so does every key while a chord is pending. A pending text
- * object (`vi` waiting for its object) is answered by the chain ahead of
- * either peek, as it was when both were branches of it. The chat's reach
- * was asked ahead of them too.
+ * object (`vi` waiting for its object) is answered by the text object's
+ * capture registered behind both peeks, which stand aside for it because
+ * the chain asked the text object ahead of them. The chat's reach was
+ * asked ahead of them too.
  */
 export function peekLeaves(key: KeyEvent, ctx: PeekKeyContext): boolean {
   const state = ctx.getState()

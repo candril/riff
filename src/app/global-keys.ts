@@ -463,21 +463,6 @@ export function createKeyHandler(
   function handleKeypress(key: KeyEvent) {
     settleChord(key)
 
-    // ========== TEXT OBJECT (i/a waiting for its object key, spec 055) ==========
-    // Ahead of every single-key handler: `vif`'s `f` would otherwise open the
-    // file picker and `vi{`'s `{` would reach nobody at all.
-    if (ctx.getVimState().pendingTextObject && ctx.getState().focusedPanel === "diff") {
-      ctx.vimHandler.handleKey({
-        name: key.name,
-        sequence: key.sequence,
-        ctrl: key.ctrl,
-        shift: key.shift,
-      })
-      ctx.render()
-      return
-    }
-
-
     const dispatchToTree = (): boolean =>
       fileTreeFeature.handleInput(key, {
         state: ctx.getState(),
