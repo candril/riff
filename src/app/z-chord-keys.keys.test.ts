@@ -243,6 +243,29 @@ describe("a key that breaks off a sequence", () => {
     expect(state().splitView).toBe(true)
   })
 
+  // The bracket's timer would fire 500 ms after the ]; the z's own one,
+  // armed by the same listener, holds it 500 ms after the z.
+  test("]z holds the z for a chord timeout of its own", async () => {
+    const { type, scrolls, keys } = await zApp()
+    type("]")
+    await Bun.sleep(250)
+    type("z")
+    await Bun.sleep(400)
+    expect(keys.chordPending()).toBe(true)
+    type("z")
+    expect(scrolls).toEqual(["center"])
+    expect(keys.chordPending()).toBe(false)
+  })
+
+  test("]z gives up a chord timeout after the z", async () => {
+    const { type, keys } = await zApp()
+    type("]")
+    await Bun.sleep(250)
+    type("z")
+    await Bun.sleep(700)
+    expect(keys.chordPending()).toBe(false)
+  })
+
   test("zg then g goes to the top, the chain opening g", async () => {
     const { type, keys, lineOf } = await zApp()
     keys.jumpTo(lineOf('  return "hello"', "b.ts"))

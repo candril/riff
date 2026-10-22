@@ -9,7 +9,7 @@ import { registerPickerKeys } from "./picker-keys"
 import { registerCommitPickerKeys } from "../features/commit-picker"
 import { registerPreviewKeys } from "./preview-keys"
 import { registerHelpKeys } from "./help-keys"
-import { registerChatKeys } from "../features/chat/keys"
+import { chatReaches, registerChatKeys } from "../features/chat/keys"
 import { registerComposerKeys } from "../features/inline-comment-overlay/composer-keys"
 import { registerThreadPanelKeys } from "../features/inline-comment-overlay/view-keys"
 import { registerPrInfoPanelKeys } from "../features/pr-info-panel/keys"
@@ -81,7 +81,9 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and compose mode are never active together, and nor are the overview
   // and the feed, which are views of their own.
   const links = createLinksPicker(ctx)
-  registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES))
+  registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES), (key) =>
+    chatReaches(key, ctx.getState(), ctx.getSearchState().active),
+  )
   expireSequenceOpeners(riffKeymap, ["]", "[", "z"])
   registerBracketKeys(riffKeymap, bracketKeyDeps(ctx, legacy))
   registerZChordKeys(riffKeymap, zChordKeyDeps(ctx, legacy))

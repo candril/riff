@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { KeyEvent, parseKeypress } from "@opentui/core"
 import { BLAME_CELLS } from "../components/blame-column-model"
 import type { BlameDeps } from "../features/blame/keys"
 import type { BlameSide } from "../providers/blame/sides"
@@ -110,6 +111,40 @@ describe("zB", () => {
     expect(app!.ctx.getState().blameColumns.size).toBe(0)
     frame = await app!.frame()
     expect(frame).not.toContain("a1b2c3d4")
+  })
+
+  test("takes a shifted b the terminal names B", async () => {
+    const { jumpTo } = await mount()
+    jumpTo(lineOf('  return "hello"'))
+    const shiftB = new KeyEvent(parseKeypress("\x1b[66;2u", { useKittyKeyboard: true })!)
+    expect(shiftB.name).toBe("B")
+    press("z")
+    app!.setup.renderer.keyInput.emit("keypress", shiftB)
+    expect(app!.ctx.getState().blameColumns.get("src/greet.ts")).toEqual({ status: "loading" })
+  })
+
+  // The global layer binds b to the tree with any modifier, and must
+  // decline the shifted b of zB as the chain's global keys declined every
+  // key under a chord. The chain's zB asked only for the diff view, not
+  // for the diff's focus.
+  test("with the tree focused toggles the column and leaves the tree alone", async () => {
+    await mount()
+    app!.show({ focusedPanel: "tree", showFilePanel: true, treeHighlightIndex: 0 })
+    zB()
+    const state = app!.ctx.getState()
+    expect(state.blameColumns.get("src/greet.ts")).toEqual({ status: "loading" })
+    expect([state.showFilePanel, state.focusedPanel]).toEqual([true, "tree"])
+  })
+
+  test("outside the diff view leaves the column alone", async () => {
+    const { asked, chordPending } = await mount()
+    app!.show({ viewMode: "feed" })
+    press("z")
+    expect(chordPending()).toBe(true)
+    app!.setup.mockInput.pressKey("b", { shift: true })
+    expect(chordPending()).toBe(false)
+    expect(asked).toEqual([])
+    expect(app!.ctx.getState().blameColumns.size).toBe(0)
   })
 
   test("a failed read toasts why and leaves no column", async () => {

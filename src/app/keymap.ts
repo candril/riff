@@ -7,6 +7,14 @@ export interface RiffKeymap {
   keymap: Keymap<Renderable, KeyEvent>
   /** Feeds one keypress to the keymap; true when a binding took it or it continued a sequence. */
   offer(key: KeyEvent): boolean
+  /**
+   * Offers a key that just broke off a pending sequence once more, with the
+   * chord still counting as pending: the keymap does not dispatch a key that
+   * misses a sequence from the root, and the chain asked the chat ahead of
+   * its sequences while every later branch declined under a chord.
+   */
+  reoffer(key: KeyEvent): boolean
+  /** A sequence waits for its next key, or a key that broke one off is being offered again. */
   chordPending(): boolean
   /**
    * While `active(key)`, that key, when no binding takes it, is kept from
@@ -86,23 +94,34 @@ export function createRiffKeymap(renderer: CliRenderer): RiffKeymap {
   })
   const captures: Capture[] = []
   let holding: Capture | undefined
+  let breaking = false
+
+  const offer = (key: KeyEvent) => {
+    // Read before the key runs: a key that closes the modal (Esc in flash,
+    // y on the dialog) arrived while it was up, and the chain must not see it.
+    const capturing = captures.find((c) => c.active(key))
+    handled = false
+    holding = capturing
+    feed?.(key)
+    holding = undefined
+    if (handled) return true
+    if (!capturing) return false
+    capturing.rest?.(key)
+    return true
+  }
 
   return {
     keymap,
-    offer(key) {
-      // Read before the key runs: a key that closes the modal (Esc in flash,
-      // y on the dialog) arrived while it was up, and the chain must not see it.
-      const capturing = captures.find((c) => c.active(key))
-      handled = false
-      holding = capturing
-      feed?.(key)
-      holding = undefined
-      if (handled) return true
-      if (!capturing) return false
-      capturing.rest?.(key)
-      return true
+    offer,
+    reoffer(key) {
+      breaking = true
+      try {
+        return offer(key)
+      } finally {
+        breaking = false
+      }
     },
-    chordPending: () => keymap.hasPendingSequence(),
+    chordPending: () => keymap.hasPendingSequence() || breaking,
     held: () => holding !== undefined,
     capture(active, rest) {
       const capture: Capture = { active, rest }

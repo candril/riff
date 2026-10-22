@@ -62,10 +62,10 @@ describe("sequenceSuffixes", () => {
 })
 
 describe("a chord stroke in a keymap sequence", () => {
-  async function bracketF(run: () => boolean = () => true) {
+  async function bracketF(run: () => boolean = () => true, askedFirst?: (key: KeyEvent) => boolean) {
     const harness = await keymapHarness()
     const runs: string[] = []
-    registerChordStrokes(harness.riffKeymap.keymap, ["f", "R!"])
+    registerChordStrokes(harness.riffKeymap.keymap, ["f", "R!"], askedFirst)
     harness.riffKeymap.keymap.registerLayer({
       commands: [
         {
@@ -95,6 +95,16 @@ describe("a chord stroke in a keymap sequence", () => {
     press("\x1bf")
     expect(runs).toEqual(["]f", "]f", "]f"])
     expect(legacyKeys).toEqual([])
+  })
+
+  test("ends on no key asked first, which goes to the chain as the chord's second key", async () => {
+    const { press, runs, legacyKeys, brokenKeys, chordPending } = await bracketF(undefined, (key) => key.ctrl)
+    press("]")
+    press("\x06")
+    expect(runs).toEqual([])
+    expect(legacyKeys).toEqual(["f"])
+    expect(brokenKeys).toEqual(["f"])
+    expect(chordPending()).toBe(false)
   })
 
   test("starts on a modified opener", async () => {

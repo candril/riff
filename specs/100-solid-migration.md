@@ -162,11 +162,15 @@ the chain opened on it, since a binding on `z` would also take a key
 named `Z`. Each second stroke is a sequence pattern that matches on the
 suffix the chain spelled (`src/app/chord-stroke.ts`), so ctrl and meta are
 ignored and shift is not, and a capital is told from its lower-case
-letter, so both spellings of a shifted `z` chord stay. The patterns are
-registered once for both layers. Each layer stands aside while any
-capture holds the key and while the chain holds a `g`, `m` or `'` chord. A
-key that breaks off a sequence reaches the chain as the second key of a
-chord, and a `]`, `[` or `z` that does so goes back to the keymap, so
+letter, so both spellings of a shifted `z` chord stay; a key the chat
+reaches ends no sequence, so Ctrl-r after `]` opens the chat rather than
+reading as `]r`. The patterns are registered once for both layers. Each
+layer stands aside while any capture holds the key and while the chain
+holds a `g`, `m` or `'` chord. A key that breaks off a keymap sequence is
+offered to the layers again, with the chord still counting as pending,
+before it reaches the chain as the second key of a chord, as the chain
+asked the chat ahead of its sequences and its global keys declined under
+a chord. A `]`, `[` or `z` that breaks off a sequence opens its own, so
 `]]f`, `g]f` and `gzz` still act. A lone `]`, `[` or `z` gives up after
 the chain's 500 ms chord timeout (`chordTimeoutMs`), as the chain's opener
 did, through one `pendingSequence` listener (`src/app/sequence-expiry.ts`).

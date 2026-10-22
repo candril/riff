@@ -41,15 +41,23 @@ export function sequenceSuffixes(...layers: readonly Readonly<Record<string, str
  * One sequence pattern per suffix, so a binding written `]{chord-f}` ends
  * on the key the chain would have read as `f`. The keymap compares every
  * modifier of a plain stroke, and the chain compared only the suffix.
- * Returns the unregister.
+ * A key `askedFirst` claims ends no sequence: the chain asked the chat
+ * ahead of its chord matcher, so Ctrl-r after `]` reached the chat rather
+ * than reading as `]r`. Such a key misses the sequence and goes round the
+ * layers again (keys-dispatch.ts). Returns the unregister.
  */
-export function registerChordStrokes(keymap: Keymap<Renderable, KeyEvent>, suffixes: readonly string[]): () => void {
+export function registerChordStrokes(
+  keymap: Keymap<Renderable, KeyEvent>,
+  suffixes: readonly string[],
+  askedFirst: (key: KeyEvent) => boolean = () => false,
+): () => void {
   const offs = suffixes.map((suffix) =>
     keymap.registerSequencePattern({
       name: chordStrokeToken(suffix),
       display: suffix.replace(/!$/, ""),
       max: 1,
-      match: (event: KeyEvent) => (chordSuffix(event) === suffix ? { value: suffix } : undefined),
+      match: (event: KeyEvent) =>
+        chordSuffix(event) === suffix && !askedFirst(event) ? { value: suffix } : undefined,
     }),
   )
   return () => offs.forEach((off) => off())

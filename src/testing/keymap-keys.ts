@@ -24,7 +24,15 @@ export async function keymapHarness({ chordPending = () => false }: KeymapHarnes
   onTestFinished(() => rendered.renderer.destroy())
   const riffKeymap = createRiffKeymap(rendered.renderer)
   const legacyKeys: string[] = []
-  const legacy: KeyHandler = Object.assign((key: KeyEvent) => void legacyKeys.push(key.name), { chordPending })
+  // The keys the chain was handed as the second key of a chord the keymap held.
+  const brokenKeys: string[] = []
+  const legacy: KeyHandler = Object.assign(
+    (key: KeyEvent, chordBroken?: boolean) => {
+      legacyKeys.push(key.name)
+      if (chordBroken) brokenKeys.push(key.name)
+    },
+    { chordPending },
+  )
   const keys = composeKeys(riffKeymap, legacy)
   const press = (sequence: string, rename?: string) => {
     const parsed = parseKeypress(sequence, { useKittyKeyboard: true })!
@@ -32,5 +40,5 @@ export async function keymapHarness({ chordPending = () => false }: KeymapHarnes
     keys(key)
     return key
   }
-  return { riffKeymap, legacyKeys, press }
+  return { riffKeymap, legacyKeys, brokenKeys, press, chordPending: () => keys.chordPending() }
 }
