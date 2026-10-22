@@ -1,5 +1,5 @@
-import { setViewFilter } from "../state"
 import type { AppState } from "../state"
+import * as viewFilter from "./view-filter"
 import type { SearchState } from "../vim-diff/search-state"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { CommentsPickerState } from "../features/comments-picker/state"
@@ -81,8 +81,7 @@ export function promptOpenIn(state: AppState, searchState: SearchState, pickers:
   return openPromptModel(state, searchState, pickers) !== null
 }
 
-export type PromptWriteContext = {
-  setState: (updater: (s: AppState) => AppState) => void
+export type PromptWriteContext = viewFilter.ViewFilterContext & {
   filePicker: Pick<FilePickerState, "setQuery">
   commentsPicker: Pick<CommentsPickerState, "setQuery">
   occurrencePicker: Pick<OccurrencePickerState, "setQuery" | "setFilter">
@@ -95,11 +94,6 @@ export type PromptWriteContext = {
 
 /** Where what is typed into the prompt `key` goes. */
 export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: PromptKey, value: string) => void {
-  const typeInto = (set: (s: AppState, value: string) => AppState, value: string) => {
-    ctx.setState((s) => set(s, value))
-    render()
-  }
-
   return (key, value) => {
     switch (ownerOf(key)) {
       case "action-menu":
@@ -123,7 +117,8 @@ export function writePrompt(ctx: PromptWriteContext, render: () => void): (key: 
         return render()
       case "comments-filter":
       case "feed-filter":
-        return typeInto(setViewFilter, value)
+        viewFilter.setFilter(ctx, value)
+        return render()
       case "search":
         return ctx.updateSearchPattern(value)
     }

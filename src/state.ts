@@ -655,7 +655,7 @@ export function enterDiffView(state: AppState): AppState {
  * looking at, and the file tree for the diff — filtering "the files" is what
  * narrowing a diff means.
  */
-export type FilterTarget = "tree" | "state" | "comments" | "feed"
+export type FilterTarget = StateFilterTarget | "feed"
 
 export function filterTarget(state: AppState): FilterTarget {
   if (state.inlineCommentOverlay.open && state.focusedPanel === "comments") return "comments"
@@ -664,13 +664,17 @@ export function filterTarget(state: AppState): FilterTarget {
   return "tree"
 }
 
-/** Open the filter prompt of whatever has focus, keeping what it already has. */
-export function startViewFilter(state: AppState): AppState {
-  switch (filterTarget(state)) {
+/**
+ * The surfaces whose filter the functions below set. The feed's is not
+ * among them: src/app/view-filter.ts routes it apart.
+ */
+export type StateFilterTarget = "tree" | "state" | "comments"
+
+/** Open `target`'s filter prompt, keeping what it already has. */
+export function startViewFilter(state: AppState, target: StateFilterTarget): AppState {
+  switch (target) {
     case "comments":
       return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: true } }
-    case "feed":
-      return { ...state, feed: { ...state.feed, filterInput: true } }
     case "state":
       return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: true } }
     case "tree":
@@ -679,15 +683,13 @@ export function startViewFilter(state: AppState): AppState {
   }
 }
 
-export function setViewFilter(state: AppState, value: string): AppState {
-  switch (filterTarget(state)) {
+export function setViewFilter(state: AppState, target: StateFilterTarget, value: string): AppState {
+  switch (target) {
     case "comments":
       return {
         ...state,
         inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: value, highlightedIndex: 0 },
       }
-    case "feed":
-      return { ...state, feed: { ...state.feed, filter: value, highlightIndex: 0 } }
     case "state":
       return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: value } }
     case "tree":
@@ -696,12 +698,10 @@ export function setViewFilter(state: AppState, value: string): AppState {
 }
 
 /** Enter: keep what the filter left and hand navigation back. */
-export function commitViewFilter(state: AppState): AppState {
-  switch (filterTarget(state)) {
+export function commitViewFilter(state: AppState, target: StateFilterTarget): AppState {
+  switch (target) {
     case "comments":
       return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: false } }
-    case "feed":
-      return { ...state, feed: { ...state.feed, filterInput: false } }
     case "state":
       return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: false } }
     case "tree":
@@ -710,15 +710,13 @@ export function commitViewFilter(state: AppState): AppState {
 }
 
 /** Escape: drop the filter entirely. */
-export function clearViewFilter(state: AppState): AppState {
-  switch (filterTarget(state)) {
+export function clearViewFilter(state: AppState, target: StateFilterTarget): AppState {
+  switch (target) {
     case "comments":
       return {
         ...state,
         inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: "", filterInput: false },
       }
-    case "feed":
-      return { ...state, feed: { ...state.feed, filter: "", filterInput: false } }
     case "state":
       return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: "", filterInput: false } }
     case "tree":

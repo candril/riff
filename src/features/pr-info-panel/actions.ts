@@ -11,6 +11,7 @@ import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import type { PreviewRow } from "../../utils/previews"
 import { foldStep, type FoldOp } from "../../components/pr-info-tree"
+import { stateFilterTarget } from "../../app/view-filter"
 import {
   clearViewFilter,
   commitViewFilter,
@@ -180,17 +181,17 @@ export function scrollBottom(deps: Deps): void {
  * same thing.
  */
 export function startFilter(deps: Deps): void {
-  deps.setState(startViewFilter)
+  deps.setState((s) => startViewFilter(s, stateFilterTarget(s)))
   deps.render()
 }
 
 export function closeFilter(deps: Deps): void {
-  deps.setState(clearViewFilter)
+  deps.setState((s) => clearViewFilter(s, stateFilterTarget(s)))
   deps.render()
 }
 
 export function commitFilter(deps: Deps): void {
-  deps.setState(commitViewFilter)
+  deps.setState((s) => commitViewFilter(s, stateFilterTarget(s)))
   deps.render()
 }
 

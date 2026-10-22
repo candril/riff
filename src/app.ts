@@ -28,7 +28,6 @@ import {
   clearToast,
   createInitialState,
   promptOpen,
-  setViewFilter,
   filesWithUnseenComments,
   type AppState,
   setTreeFilter,
@@ -64,6 +63,7 @@ import { createCommentsPickerState } from "./features/comments-picker/state"
 import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
 import { createMarksState } from "./features/marks/state"
+import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
 import { createLinePeekState } from "./features/line-peek/state"
@@ -258,7 +258,7 @@ export async function createApp(options: AppOptions = {}) {
       })
     })
     panel.setOnFilterChange((value) => {
-      state = setViewFilter(state, value)
+      viewFilter.setFilter({ getState: () => state, setState: (fn) => { state = fn(state) } }, value)
       render()
     })
     panel.setOnSectionsChange((open) => {
@@ -654,7 +654,7 @@ export async function createApp(options: AppOptions = {}) {
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
         writePrompt(
-          { setState: setAppState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          { getState: () => state, setState: setAppState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
           () => renderFrame()
         )
       ),

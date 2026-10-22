@@ -149,7 +149,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render(), mentions }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
-        writePrompt({ setState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+        writePrompt({ getState: () => state, setState, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },

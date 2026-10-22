@@ -22,6 +22,7 @@ import {
   showToast,
   clearToast,
 } from "../../state"
+import { stateFilterTarget } from "../../app/view-filter"
 import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
 import { groupIntoThreads } from "../../utils/threads"
@@ -86,15 +87,15 @@ function update(deps: Deps, updater: (s: AppState) => AppState): void {
 }
 
 export function closeFilter(deps: Deps): void {
-  update(deps, clearViewFilter)
+  update(deps, (s) => clearViewFilter(s, stateFilterTarget(s)))
 }
 
 export function commitFilter(deps: Deps): void {
-  update(deps, commitViewFilter)
+  update(deps, (s) => commitViewFilter(s, stateFilterTarget(s)))
 }
 
 export function startFilter(deps: Deps): void {
-  update(deps, startViewFilter)
+  update(deps, (s) => startViewFilter(s, stateFilterTarget(s)))
 }
 
 export function closeCodePeek(deps: Deps): void {

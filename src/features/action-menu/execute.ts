@@ -10,7 +10,6 @@ import {
   toggleFilePanel,
   toggleFilePanelExpanded,
   switchView,
-  startViewFilter,
   toggleWrapLines,
   clearFileSelection,
   showToast,
@@ -29,6 +28,7 @@ import type { MarksPickerState } from "../marks/picker-state"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "./state"
 import type { LinePeekState } from "../line-peek/state"
+import * as viewFilter from "../../app/view-filter"
 
 /**
  * Handlers that the action executor needs access to.
@@ -151,7 +151,7 @@ export async function executeAction(
       break
 
     case "filter-view":
-      setState(startViewFilter)
+      viewFilter.startFilter({ getState: () => state, setState })
       render()
       break
 

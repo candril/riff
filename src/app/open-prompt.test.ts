@@ -122,6 +122,7 @@ describe("where what is typed goes", () => {
     pickers.occurrencePicker.show()
     const write = writePrompt(
       {
+        getState: () => state,
         setState: (updater) => (state = updater(state)),
         ...pickers,
         updateSearchPattern: (value) => void searched.push(value),

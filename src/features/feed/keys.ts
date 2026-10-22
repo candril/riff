@@ -20,12 +20,10 @@
 import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
+import * as viewFilter from "../../app/view-filter"
 import {
-  clearViewFilter,
-  commitViewFilter,
   moveFeedHighlight,
   showAllFeedTypes,
-  startViewFilter,
   toggleFeedType,
   toggleFeedUnseen,
   visibleFeedRows,
@@ -94,7 +92,8 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
 
   const startFilter = (key: KeyEvent) => {
     key.preventDefault()
-    update(startViewFilter)
+    viewFilter.startFilter(deps)
+    deps.render()
   }
 
   // No preventDefault in the rest: the filter prompt's field types every
@@ -124,8 +123,14 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
   const unregisterFilter = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds() && feedState().filterInput,
     commands: [
-      command("filterClose", "Drop the filter", prevented(() => update(clearViewFilter))),
-      command("filterCommit", "Keep the filter", prevented(() => update(commitViewFilter))),
+      command("filterClose", "Drop the filter", prevented(() => {
+        viewFilter.clearFilter(deps)
+        deps.render()
+      })),
+      command("filterCommit", "Keep the filter", prevented(() => {
+        viewFilter.commitFilter(deps)
+        deps.render()
+      })),
     ],
     bindings: unprevented([
       ...anyModifiers("escape", "feed.filterClose"),

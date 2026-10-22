@@ -229,7 +229,7 @@ describe("the thread panel in view mode", () => {
 
 describe("the panel's filter prompt", () => {
   test("types every key but Esc and Enter: none reaches a command, the chain or a prevent", async () => {
-    const keys = await threadPanelKeys(startViewFilter(panelState()))
+    const keys = await threadPanelKeys(startViewFilter(panelState(), "comments"))
     for (const sequence of ["j", "q", "x", "s", "S", "g", "/", CTRL.p, CTRL.f, CTRL.d]) {
       expect(keys.press(sequence).defaultPrevented).toBe(false)
     }
@@ -240,11 +240,11 @@ describe("the panel's filter prompt", () => {
   })
 
   test("Esc drops the filter and Enter keeps it", async () => {
-    const keys = await threadPanelKeys(startViewFilter(panelState()))
+    const keys = await threadPanelKeys(startViewFilter(panelState(), "comments"))
     expect(keys.press(ESC).defaultPrevented).toBe(true)
     expect(keys.overlay().filterInput).toBe(false)
 
-    const kept = await threadPanelKeys(startViewFilter(panelState()))
+    const kept = await threadPanelKeys(startViewFilter(panelState(), "comments"))
     expect(kept.press(ENTER).defaultPrevented).toBe(true)
     expect(kept.overlay().filterInput).toBe(false)
   })
@@ -285,7 +285,7 @@ describe("what the panel leaves to the chain", () => {
   })
 
   test("the filter prompt and the code peek keep Ctrl-o and Tab", async () => {
-    for (const state of [startViewFilter(panelState()), setCommentCodePeek(panelState(), "a")]) {
+    for (const state of [startViewFilter(panelState(), "comments"), setCommentCodePeek(panelState(), "a")]) {
       const keys = await threadPanelKeys(state)
       keys.press(CTRL.o)
       keys.press(TAB)
@@ -305,7 +305,7 @@ describe("what the panel leaves to the chain", () => {
   })
 
   test("under the filter prompt, where the chat stands aside, Ctrl-r and Ctrl-l stay with the panel", async () => {
-    const keys = await threadPanelKeys(startViewFilter(panelState(0, { chatOpen: true })))
+    const keys = await threadPanelKeys(startViewFilter(panelState(0, { chatOpen: true }), "comments"))
     keys.press(CTRL.r)
     keys.press(CTRL.l)
     expect(keys.leftKeys).toEqual([])
