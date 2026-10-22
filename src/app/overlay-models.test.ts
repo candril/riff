@@ -55,6 +55,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     marksPicker: null,
     marks: [],
     feed: emptyFeed(),
+    visit: null,
     commitPicker: null,
     actionMenu: null,
     linePeek: null,

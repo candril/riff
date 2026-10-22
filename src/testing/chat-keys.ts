@@ -68,6 +68,7 @@ export function keysOn(
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     activityFeed: mounted.activityFeed,
+    visit: mounted.visit,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     blameColumns: mounted.blameColumns,

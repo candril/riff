@@ -30,7 +30,7 @@ import { commentsInView } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { groupIntoThreads } from "../../utils/threads"
-import { markVisit } from "../../utils/visit"
+import { markVisit, type VisitWatermark } from "../../utils/visit"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { Mark } from "../marks/types"
 import type { HelpState } from "../help/state"
@@ -43,6 +43,8 @@ import type { OccurrencePickerState } from "../occurrence-picker/state"
 import type { MarksPickerState } from "../marks/picker-state"
 import type { GlobalMarksState } from "../marks/state"
 import type { ActivityFeedState } from "../feed/state"
+import type { VisitState } from "../visit/state"
+import type { Comment } from "../../types"
 import type { CommitPickerState } from "../commit-picker/state"
 import type { ActionMenuState } from "../action-menu/state"
 import type { LinePeekState } from "../line-peek/state"
@@ -84,6 +86,8 @@ export interface RefreshContext {
   reloadFeed: () => void
   /** Not reset by a reload: only its stream is dropped, by a PR refresh. */
   feed: Pick<ActivityFeedState, "forgetStream">
+  /** Not reset by a reload: a PR refresh begins a new visit, and local mode has none. */
+  visit: Pick<VisitState, "seen" | "begin">
   // The head riff is showing. Reading it before the reload is what makes a
   // force-push detectable; writing it back keeps context expansion pointed
   // at a commit that still exists.
@@ -148,9 +152,6 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       forcePushed = wasForcePushed(previousHeadSha, newPrInfo.commits ?? [], PR_COMMITS_FETCH_LIMIT)
       ctx.setHeadSha(headSha)
 
-      const visit = markVisit(state.comments, headSha, state.seenCommentIds)
-      void saveVisit(state.source, visit)
-
       // Parse diff into files
       const newFiles = sortFiles(parseDiff(newDiff))
       const newFileTree = buildFileTree(newFiles)
@@ -169,18 +170,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           newPrInfo,
           prevState.ignoreMatcher
         )
-        // Set commits from refreshed PR info, and re-mark the visit: a
-        // refresh is a look, so what was on screen up to now has been seen
-        // and only what the reload brings is new (spec 069).
-        const withCommits = {
-          ...newState,
-          commits: newPrInfo.commits ?? [],
-          visit,
-          seenCommentIds: new Set<string>(),
-          visitRebased: forcePushed,
-        }
+        const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
+      void saveVisit(state.source, beginVisitAfterRefresh(ctx, state.comments, headSha, forcePushed))
       followReloadedMarks(ctx, headSha || undefined)
 
       // Collapse resolved threads
@@ -288,6 +281,22 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
 }
 
 /**
+ * After a PR refresh, which is a look (spec 069): what was on screen up to
+ * now has been seen, so it goes into the watermark, and only what the reload
+ * brings is new. Returns the watermark, for the caller to save.
+ */
+export function beginVisitAfterRefresh(
+  ctx: Pick<RefreshContext, "visit">,
+  comments: readonly Comment[],
+  headSha: string,
+  rebased: boolean
+): VisitWatermark {
+  const watermark = markVisit(comments, headSha, ctx.visit.seen())
+  ctx.visit.begin(watermark, rebased)
+  return watermark
+}
+
+/**
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review and the file,
  * comments, occurrence, marks and commit pickers, the command palette, the
@@ -297,7 +306,8 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * drafts and the jumplist live in factories too, and are emptied here; the
  * global marks are not, since a mark is followed to its line's new place, and
  * nor is the activity feed, whose row, filters, opened commits and unseen-only
- * are the reader's (a PR refresh drops only its stream).
+ * are the reader's (a PR refresh drops only its stream), nor the visit, which
+ * a PR refresh begins anew.
  */
 export function adoptReloadedState(
   ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList">,

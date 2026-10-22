@@ -28,7 +28,6 @@ import {
   clearToast,
   createInitialState,
   promptOpen,
-  filesWithUnseenComments,
   type AppState,
   setTreeFilter,
   highlightInlineComment,
@@ -44,7 +43,7 @@ import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
-import { markVisit } from "./utils/visit"
+import { filesWithUnseen, markVisit } from "./utils/visit"
 import { openUrl } from "./utils/open-url"
 import { copyToClipboard } from "./utils/clipboard"
 import { getCurrentRepoRef } from "./providers/repo"
@@ -64,6 +63,7 @@ import { createOccurrencePickerState } from "./features/occurrence-picker/state"
 import { createMarksPickerState } from "./features/marks/picker-state"
 import { createMarksState } from "./features/marks/state"
 import { createFeedState } from "./features/feed/state"
+import { createVisitState } from "./features/visit/state"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -182,7 +182,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -350,7 +350,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function writeVisitWatermark(): void {
     if (state.appMode !== "pr") return
-    saveVisitSync(state.source, markVisit(state.comments, currentHeadSha, state.seenCommentIds))
+    saveVisitSync(state.source, markVisit(state.comments, currentHeadSha, visit.seen()))
   }
 
   // ===== POST-PROCESS (cursor positioning) =====
@@ -437,8 +437,8 @@ export async function createApp(options: AppOptions = {}) {
       treeFilter: state.treeFilter,
       treeFilterInput: state.treeFilterInput,
       flashLabels: flashLabelsOn(flashState, "tree"),
-      unseenFiles: filesWithUnseenComments(state),
-      changedSinceVisit: state.filesChangedSinceVisit,
+      unseenFiles: filesWithUnseen(state.comments, visit.watermark()),
+      changedSinceVisit: visit.changedFiles(),
       unviewedOnly: state.treeUnviewedOnly ? { keep: state.treeKeptFile } : null,
     })
   }
@@ -499,6 +499,8 @@ export async function createApp(options: AppOptions = {}) {
   const globalMarks = createMarksState()
   globalMarks.reset(initialMarks)
   const activityFeed = createFeedState()
+  const visit = createVisitState()
+  visit.begin(initialVisit.watermark, initialVisit.rebased)
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -701,6 +703,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     marks: globalMarks,
     activityFeed,
+    visit,
     mentions,
     commentDrafts,
     getCommandKeys: () => paletteKeys,
@@ -1048,6 +1051,7 @@ export async function createApp(options: AppOptions = {}) {
     saveMarks: (saved) => { void saveMarks(state.source, saved) },
     marks: globalMarks,
     feed: activityFeed,
+    visit,
     help,
     confirm,
     syncPreview,
@@ -1208,6 +1212,7 @@ export async function createApp(options: AppOptions = {}) {
     ensureCursorVisible,
     render,
     fileNavContext,
+    visit,
   }
 
   const marksContext: marks.MarksContext = {
@@ -1436,6 +1441,7 @@ export async function createApp(options: AppOptions = {}) {
         closeFeatureOverlays()
         globalMarks.reset(followed)
         activityFeed.reset()
+        visit.reset()
         // The new PR gets no panel here, so no rebuild forgets the lookups for it.
         baseLookups.state.forget()
 
@@ -1815,6 +1821,7 @@ export async function createApp(options: AppOptions = {}) {
       }
       globalMarks.reset(followed)
       activityFeed.reset()
+      visit.reset()
       closeFeatureOverlays()
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
@@ -1909,6 +1916,7 @@ export async function createApp(options: AppOptions = {}) {
     mentions,
     commentDrafts,
     activityFeed,
+    visit,
     jumpList,
     composerSettled: proposals.composerSettled,
   })
@@ -1948,15 +1956,16 @@ export async function createApp(options: AppOptions = {}) {
   // What moved since the last visit (spec 069): the files, from one git
   // call, and — when the branch was rewritten under the reader — a word
   // about why riff is not answering that question at all.
-  if (state.visit && state.appMode === "pr") {
-    if (state.visitRebased) {
+  const watermark = visit.watermark()
+  if (watermark && state.appMode === "pr") {
+    if (visit.rebased()) {
       state = showToast(state, "Rebased since your last visit — going by times instead", "info")
       render()
       setTimeout(() => { state = clearToast(state); render() }, 4000)
     } else {
-      void filesChangedBetween(state.visit.lastSeenHeadSha, currentHeadSha).then((changed) => {
+      void filesChangedBetween(watermark.lastSeenHeadSha, currentHeadSha).then((changed) => {
         if (changed.size === 0) return
-        state = { ...state, filesChangedSinceVisit: changed }
+        visit.setChangedFiles(changed)
         render()
       })
     }

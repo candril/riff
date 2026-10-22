@@ -5,11 +5,14 @@
 
 import type { AppState } from "../../state"
 import type { ActivityFeedState } from "./state"
+import type { VisitState } from "../visit/state"
 import { visibleFeedRows } from "./rows"
 
 export interface FeedExpandDeps {
   getState: () => AppState
   feed: ActivityFeedState
+  /** The last visit, whose unseen comments the feed's unseen-only filter keeps. */
+  visit: Pick<VisitState, "watermark">
   render: () => void
   /** Fetch the files of a commit row that was just expanded. */
   onExpandCommit: (sha: string) => void
@@ -20,7 +23,7 @@ export interface FeedExpandDeps {
  * resolved by the `z` chords' keymap layer, which owns `z`.
  */
 export function toggleExpandedRow(deps: FeedExpandDeps): boolean {
-  const rows = visibleFeedRows(deps.feed.snapshot(), deps.getState())
+  const rows = visibleFeedRows(deps.feed.snapshot(), deps.getState().comments, deps.visit.watermark())
   const highlighted = rows[deps.feed.highlightIndex()]
   if (!highlighted) return false
 

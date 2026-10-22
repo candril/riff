@@ -23,6 +23,7 @@ import { anyModifiers, without } from "../../app/key-variants"
 import type { AppState } from "../../state"
 import * as viewFilter from "../../app/view-filter"
 import type { ActivityFeedState } from "./state"
+import type { VisitState } from "../visit/state"
 import type { FeedState } from "./types"
 import { visibleFeedRows } from "./rows"
 import { FEED_TYPES, type FeedEvent } from "../../utils/feed"
@@ -32,6 +33,8 @@ export interface FeedKeyDeps {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   feed: ActivityFeedState
+  /** The last visit, whose unseen comments the feed's unseen-only filter keeps. */
+  visit: Pick<VisitState, "watermark">
   /** Open what a row is about (spec 070). */
   onOpenEvent: (event: FeedEvent) => void
   /** Open the diff scoped to a commit, at one of its files. */
@@ -129,13 +132,15 @@ export function registerFeedKeys(riffKeymap: RiffKeymap, deps: FeedKeyDeps): () 
     ]),
   })
 
+  const rows = () => visibleFeedRows(feed.snapshot(), deps.getState().comments, deps.visit.watermark())
+
   const open = () => {
-    const highlighted = visibleFeedRows(feed.snapshot(), deps.getState())[feed.highlightIndex()]
+    const highlighted = rows()[feed.highlightIndex()]
     if (highlighted?.kind === "file") deps.onOpenCommitFile(highlighted.sha, highlighted.file.filename)
     else if (highlighted) deps.onOpenEvent(highlighted.event)
   }
 
-  const move = (delta: number) => feed.move(delta, visibleFeedRows(feed.snapshot(), deps.getState()).length)
+  const move = (delta: number) => feed.move(delta, rows().length)
 
   // Ctrl and meta never reach these: the capture leaves them to the
   // layers behind.

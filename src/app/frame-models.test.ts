@@ -75,6 +75,7 @@ function frame(
     marksPicker,
     marks: [],
     feed: emptyFeed(),
+    visit: null,
     commitPicker,
     actionMenu,
     linePeek,

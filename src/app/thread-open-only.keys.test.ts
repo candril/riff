@@ -114,6 +114,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     ensureCursorVisible: () => {},
     render: mounted.render,
     fileNavContext: known.fileNavContext!,
+    visit: mounted.visit,
   }
   const ctx = new Proxy(known, {
     get(target, name) {

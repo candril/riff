@@ -14,6 +14,8 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createMarksState } from "../features/marks/state"
 import { createFeedState } from "../features/feed/state"
+import { createVisitState } from "../features/visit/state"
+import { filesWithUnseen } from "../utils/visit"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createLinePeekState } from "../features/line-peek/state"
@@ -138,6 +140,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const jumpList = createJumpListState()
   const marks = createMarksState()
   const activityFeed = createFeedState()
+  const visit = createVisitState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -189,6 +192,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     blameColumns,
     marks,
     activityFeed,
+    visit,
     mentions,
     commentDrafts,
     getCommandKeys: () => commandKeys,
@@ -205,6 +209,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
           showHiddenFiles: synced.showHiddenFiles,
           treeFilter: synced.treeFilter,
           treeFilterInput: synced.treeFilterInput,
+          unseenFiles: filesWithUnseen(synced.comments, visit.watermark()),
+          changedSinceVisit: visit.changedFiles(),
           unviewedOnly: synced.treeUnviewedOnly ? { keep: synced.treeKeptFile } : null,
         })
       )
@@ -262,6 +268,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     jumpList,
     /** The activity feed's state, which the frame pass and the keys read as app.ts's do. */
     activityFeed,
+    /** The visit watermark's state, which the frame pass and the keys read as app.ts's do. */
+    visit,
     fileTreePanel,
     render,
     agent,

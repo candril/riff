@@ -1,7 +1,6 @@
 import { TextRenderable } from "@opentui/core"
 import type { CliRenderer } from "@opentui/core"
 import { keepAlive } from "../utils/renderables"
-import { markCommentsSeen } from "../state"
 import type { FeedIsland } from "./feed"
 import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
@@ -32,6 +31,7 @@ import type { OccurrencePickerState } from "../features/occurrence-picker/state"
 import type { MarksPickerState } from "../features/marks/picker-state"
 import type { GlobalMarksState } from "../features/marks/state"
 import type { ActivityFeedState } from "../features/feed/state"
+import type { VisitState } from "../features/visit/state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
@@ -74,6 +74,7 @@ export interface FramePassContext {
   blameColumns: Pick<BlameColumnsState, "columns">
   marks: Pick<GlobalMarksState, "marks">
   activityFeed: Pick<ActivityFeedState, "snapshot">
+  visit: Pick<VisitState, "watermark" | "markSeen">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
@@ -122,6 +123,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const blamePeek = ctx.blamePeek.peek()
     const marks = ctx.marks.marks()
     const feed = ctx.activityFeed.snapshot()
+    const visit = ctx.visit.watermark()
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, feed }),
       help: help.open,
@@ -155,10 +157,9 @@ export function createFramePass(ctx: FramePassContext): () => void {
       splitOn,
     })
 
-    if (state.visit) {
+    if (visit) {
       const conversationOpen = state.viewMode === "state" && !!prInfoPanel?.isSectionExpandedNamed("conversation")
-      const seen = commentsSeenOnScreen(state, { conversationOpen })
-      ctx.setState((s) => markCommentsSeen(s, seen))
+      ctx.visit.markSeen(commentsSeenOnScreen(state, { conversationOpen }))
     }
 
     const frame: Frame = {
@@ -182,6 +183,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       marksPicker,
       marks,
       feed,
+      visit,
       commitPicker,
       actionMenu,
       linePeek,

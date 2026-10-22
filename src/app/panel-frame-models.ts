@@ -2,8 +2,8 @@ import {
   getCommentsPanelScopeFilename,
   getInlineCommentOverlayComments,
   getInlineCommentOverlayHiddenThreadCount,
-  unseenIn,
 } from "../state"
+import { unseenComments } from "../utils/visit"
 import { visibleFeedEvents, visibleFeedRows } from "../features/feed/rows"
 import { collectMentionCandidates } from "../utils/mentions"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
@@ -17,7 +17,7 @@ import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, flashState, width, now, mentions, commentDrafts }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, flashState, width, now, mentions, commentDrafts, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
   return {
@@ -40,7 +40,7 @@ export function threadPanelFrameInput({ state, flashState, width, now, mentions,
     mentionCandidates: collectMentionCandidates(state, mentions.pool),
     mentionSearchQuery: mentions.searching,
     expandedThreadIds: overlay.expandedThreadIds,
-    unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+    unseenIds: new Set(unseenComments(state.comments, visit).map((comment) => comment.id)),
     filter: overlay.filter,
     filterInput: overlay.filterInput,
     openOnly: state.threadPanelOpenOnly ? { hidden: getInlineCommentOverlayHiddenThreadCount(state) } : null,
@@ -53,13 +53,13 @@ export function threadPanelFrameInput({ state, flashState, width, now, mentions,
  * The activity feed for `frame`, or null while another view is up, so it does
  * no work for a screen it is not on. An error takes the screen from it.
  */
-export function feedFrameModel({ state, feed, flashState, height, now }: Frame): FeedModel | null {
+export function feedFrameModel({ state, feed, visit, flashState, height, now }: Frame): FeedModel | null {
   if (state.error || state.viewMode !== "feed") return null
   return feedModel({
-    events: visibleFeedEvents(feed, state),
-    rows: visibleFeedRows(feed, state),
+    events: visibleFeedEvents(feed, state.comments, visit),
+    rows: visibleFeedRows(feed, state.comments, visit),
     feed,
-    unseenIds: new Set(unseenIn(state, state.comments).map((comment) => comment.id)),
+    unseenIds: new Set(unseenComments(state.comments, visit).map((comment) => comment.id)),
     flashLabels: flashLabelsOn(flashState, "feed"),
     loading: feed.loading,
     now,

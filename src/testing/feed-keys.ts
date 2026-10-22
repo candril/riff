@@ -3,6 +3,7 @@ import { pendingMarkChordGivesWay } from "../features/marks"
 import { createInitialState, type AppState } from "../state"
 import { emptyFeed, type CommitFileSummary, type FeedState } from "../features/feed/types"
 import { createFeedState, type ActivityFeedState } from "../features/feed/state"
+import { createVisitState } from "../features/visit/state"
 import type { FeedEvent } from "../utils/feed"
 import { keymapHarness } from "./keymap-keys"
 
@@ -64,6 +65,7 @@ export async function feedKeys(patch: Partial<FeedState> = {}, initial: AppState
   let state = initial
   let chord: string | null = null
   const feed = seedFeed(createFeedState(), feedOf(patch))
+  const visit = createVisitState()
   const harness = await keymapHarness({
     settle: (key) => {
       if (pendingMarkChordGivesWay(chord, key, false)) chord = null
@@ -77,6 +79,7 @@ export async function feedKeys(patch: Partial<FeedState> = {}, initial: AppState
     },
     render() {},
     feed,
+    visit,
     onOpenEvent: (event) => void calls.push(`openEvent ${event.id}`),
     onOpenCommitFile: (sha, filename) => void calls.push(`openCommitFile ${sha} ${filename}`),
     chordPending: () => chord !== null,

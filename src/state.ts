@@ -7,8 +7,6 @@ import { markStaleFiles } from "./utils/viewed-status"
 import type { BranchPr } from "./providers/current-pr"
 import type { PrInfo, PrCommit, PendingReview } from "./providers/github/types"
 import type { IgnoreMatcher } from "./utils/ignore"
-import type { VisitWatermark } from "./utils/visit"
-import { filesWithUnseen, unseenComments } from "./utils/visit"
 import type { FilePickerState } from "./features/file-picker/state"
 import type { CommentsPickerState } from "./features/comments-picker/state"
 import type { OccurrencePickerState } from "./features/occurrence-picker/state"
@@ -263,19 +261,6 @@ export interface AppState {
   // PR info panel state
   prInfoPanel: PRInfoPanelState
 
-  // When this PR was last open and what had been read by then (spec 069).
-  // Null in local mode and on a first visit: there is nothing to compare
-  // against, so nothing is marked new.
-  visit: VisitWatermark | null
-  // Comments that have been on screen in this session. Added to as the
-  // reader goes; written into the watermark when riff leaves.
-  seenCommentIds: ReadonlySet<string>
-  // The branch was rewritten since the last visit, so "changed since you
-  // looked" cannot be answered from commits and riff says so instead.
-  visitRebased: boolean
-  // Files whose content moved between the watermark's head and this one.
-  filesChangedSinceVisit: ReadonlySet<string>
-
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
   
@@ -378,10 +363,6 @@ export function createInitialState(
     },
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
-    visit: null,
-    seenCommentIds: new Set<string>(),
-    visitRebased: false,
-    filesChangedSinceVisit: new Set<string>(),
     prInfoPanel: {
       filter: "",
       filterInput: false,
@@ -622,35 +603,6 @@ export function clearViewFilter(state: AppState, target: StateFilterTarget): App
     case "tree":
       return clearTreeFilter(state)
   }
-}
-
-/**
- * Note comments as read (spec 069). A comment counts as seen once it has
- * been on screen — the render pass says which — so opening the PR does not
- * mark everything read, which would make the feature useless on the first
- * keystroke.
- */
-export function markCommentsSeen(state: AppState, ids: readonly string[]): AppState {
-  if (ids.length === 0 || !state.visit) return state
-  let added = false
-  const seen = new Set(state.seenCommentIds)
-  for (const id of ids) {
-    if (!seen.has(id)) {
-      seen.add(id)
-      added = true
-    }
-  }
-  return added ? { ...state, seenCommentIds: seen } : state
-}
-
-/** The comments that arrived since the last visit and are still unread. */
-export function unseenIn(state: AppState, comments: readonly Comment[]): Comment[] {
-  return unseenComments(comments, state.visit)
-}
-
-/** The files carrying an unread comment, for the tree's markers. */
-export function filesWithUnseenComments(state: AppState): Set<string> {
-  return filesWithUnseen(state.comments, state.visit)
 }
 
 /**

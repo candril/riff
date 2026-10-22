@@ -14,6 +14,7 @@ import type { OccurrencePickerSnapshot } from "../features/occurrence-picker/sta
 import type { MarksPickerSnapshot } from "../features/marks/picker-state"
 import type { Mark } from "../features/marks/types"
 import type { FeedState } from "../features/feed/types"
+import type { VisitWatermark } from "../utils/visit"
 import type { CommitPickerSnapshot } from "../features/commit-picker/state"
 import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
@@ -64,6 +65,8 @@ export interface Frame {
   marks: readonly Mark[]
   /** The activity feed's row, filters and stream, read off its factory. */
   feed: FeedState
+  /** The last visit's watermark, read off its factory, for the unseen markers; null when there is none. */
+  visit: VisitWatermark | null
   /** The commit picker's state, read off its factory, or null while it is closed. */
   commitPicker: CommitPickerSnapshot | null
   /** The command palette's state, read off its factory, or null while it is closed. */

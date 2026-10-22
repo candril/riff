@@ -12,6 +12,7 @@ import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { createFeedState, type ActivityFeedState } from "../features/feed/state"
+import { createVisitState } from "../features/visit/state"
 
 const disposers: (() => void)[] = []
 afterEach(() => {
@@ -34,6 +35,7 @@ async function keysFor(state: AppState, feed: ActivityFeedState, height: number)
   const lists: { surface: string; ids: string[] }[] = []
   const known: Partial<AppKeyContext> = {
     activityFeed: feed,
+    visit: createVisitState(),
     getState: () => state,
     setState: (update) => (state = update(state)),
     getVimState: () => createCursorState(),

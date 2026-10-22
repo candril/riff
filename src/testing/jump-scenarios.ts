@@ -176,6 +176,7 @@ export async function jumpScenario({
     ensureCursorVisible: () => {},
     render: mounted.render,
     fileNavContext,
+    visit: mounted.visit,
   }
   const searchHandler = new SearchHandler({
     getMapping: render.getLineMapping,

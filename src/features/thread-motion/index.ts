@@ -7,7 +7,8 @@
  */
 
 import type { AppState } from "../../state"
-import { unseenIn } from "../../state"
+import { unseenComments, type VisitWatermark } from "../../utils/visit"
+import type { VisitState } from "../visit/state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
@@ -32,6 +33,8 @@ export interface ThreadMotionContext {
   ensureCursorVisible: () => void
   render: () => void
   fileNavContext: FileNavigationContext
+  /** The last visit, which says what `]n`/`[n` count as unseen. */
+  visit: Pick<VisitState, "watermark">
 }
 
 export interface ThreadAnchorFilter {
@@ -40,6 +43,8 @@ export interface ThreadAnchorFilter {
   skipOutdated?: boolean
   /** Only threads carrying a comment you have not seen (spec 069). */
   unseenOnly?: boolean
+  /** What unseenOnly measures against; without one nothing is unseen. */
+  watermark?: VisitWatermark | null
 }
 
 /**
@@ -47,10 +52,10 @@ export interface ThreadAnchorFilter {
  */
 export function getThreadAnchors(
   state: AppState,
-  { skipResolved = false, skipOutdated = false, unseenOnly = false }: ThreadAnchorFilter = {}
+  { skipResolved = false, skipOutdated = false, unseenOnly = false, watermark = null }: ThreadAnchorFilter = {}
 ): ThreadAnchor[] {
   const unseen = unseenOnly
-    ? new Set(unseenIn(state, state.comments).map((c) => c.inReplyTo ?? c.id))
+    ? new Set(unseenComments(state.comments, watermark).map((c) => c.inReplyTo ?? c.id))
     : null
   const anchors: ThreadAnchor[] = []
   for (const c of state.comments) {
@@ -135,7 +140,7 @@ export function navigateToThread(
   unseenOnly = false
 ): ThreadAnchor | null {
   const state = ctx.getState()
-  const anchors = getThreadAnchors(state, { skipResolved, unseenOnly })
+  const anchors = getThreadAnchors(state, { skipResolved, unseenOnly, watermark: ctx.visit.watermark() })
   if (anchors.length === 0) return null
 
   const lineMapping = ctx.getLineMapping()

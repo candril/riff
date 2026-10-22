@@ -17,6 +17,7 @@ export function feedKeyDeps(
     setState: ctx.setState,
     render: ctx.render,
     feed: ctx.activityFeed,
+    visit: ctx.visit,
     chordPending: () => chord.chordPending(),
     onOpenEvent: (event) => {
       const target = event.target
@@ -62,6 +63,7 @@ export function feedExpandDeps(ctx: AppKeyContext): feed.FeedExpandDeps {
   return {
     getState: ctx.getState,
     feed: ctx.activityFeed,
+    visit: ctx.visit,
     render: ctx.render,
     onExpandCommit: (sha) => {
       void feed.loadCommitFiles(ctx.feedLoadContext, sha)

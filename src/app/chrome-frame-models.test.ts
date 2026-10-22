@@ -53,6 +53,7 @@ function frame(
     marksPicker: null,
     marks: [],
     feed: emptyFeed(),
+    visit: null,
     commitPicker: null,
     actionMenu: null,
     linePeek: null,

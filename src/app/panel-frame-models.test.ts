@@ -50,7 +50,8 @@ function frame(
     mentions = { pool: [], searching: null },
     commentDrafts = new Map(),
     feed = { ...emptyFeed(), events: EVENTS },
-  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"]; feed?: Frame["feed"] } = {}
+    visit = null,
+  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"]; feed?: Frame["feed"]; visit?: Frame["visit"] } = {}
 ): Frame {
   return {
     state,
@@ -73,6 +74,7 @@ function frame(
     marksPicker: null,
     marks: [],
     feed,
+    visit,
     commitPicker: null,
     actionMenu: null,
     linePeek: null,
@@ -140,6 +142,21 @@ describe("feedFrameModel", () => {
     const tall = (height: number) =>
       feedFrameModel(frame(base({ viewMode: "feed" }), { height, feed: { ...emptyFeed(), events: many } }))!.rows.length
     expect(tall(20)).toBeLessThan(tall(50))
+  })
+
+  test("narrows to what is unseen against the frame's watermark, and to nothing without one", () => {
+    const events: FeedEvent[] = [
+      { id: "e-open", type: "comment", at: "2026-01-10T10:00:00Z", title: "open", target: { kind: "comment", commentId: "open" } },
+      { id: "e-resolved", type: "comment", at: "2026-01-10T10:00:00Z", title: "resolved", target: { kind: "comment", commentId: "resolved" } },
+    ]
+    const visit = { lastVisitAt: "2026-01-09T00:00:00Z", lastSeenHeadSha: "", seenCommentIds: ["resolved"] }
+    const feed = { ...emptyFeed(), events, unseenOnly: true }
+    const shown = (watermark: Frame["visit"]) =>
+      feedFrameModel(frame(base({ viewMode: "feed" }), { feed, visit: watermark }))!
+    const rows = shown(visit).rows
+    expect(rows.map((row) => row.key)).toEqual(["e-open"])
+    expect(rows[0]).toMatchObject({ state: "unseen" })
+    expect(shown(null).rows).toEqual([])
   })
 
   test("carries flash labels only while the feed is being labelled", () => {

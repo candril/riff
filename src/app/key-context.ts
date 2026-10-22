@@ -41,6 +41,7 @@ import type * as prInfoPanelFeature from "../features/pr-info-panel"
 import type * as syncPreview from "../features/sync-preview"
 import type * as reviewPreview from "../features/review-preview"
 import type * as feed from "../features/feed"
+import type { VisitState } from "../features/visit/state"
 import type * as folds from "../features/folds"
 import type * as fileNavigation from "../features/file-navigation"
 import type * as commentsFeature from "../features/comments"
@@ -160,6 +161,8 @@ export interface AppKeyContext {
   commentDrafts: CommentDraftsState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
+  /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */
+  visit: VisitState
   /** The jumplist Ctrl-o and Ctrl-i walk, the same instance the jump recording pushes to. */
   jumpList: JumpListState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */

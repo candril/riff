@@ -76,6 +76,7 @@ async function bracketApp(more: Partial<AppKeyContext> = {}) {
       ensureCursorVisible: () => {},
       render: mounted.render,
       fileNavContext,
+      visit: mounted.visit,
     },
     marksContext: {
       getState: render.getState,
@@ -179,6 +180,18 @@ test("]R, with shift, steps past a resolved thread that ]r stops on", async () =
   expect(cursorFile()).toBe("c.ts")
   type("[", "r")
   expect(cursorFile()).toBe("b.ts")
+})
+
+test("]n steps to the thread with a comment newer than the visit's watermark, past one seen before it, and goes nowhere without a watermark", async () => {
+  const { mounted, type, cursorFile } = await bracketApp()
+  const old = { ...createComment("b.ts", 2, "read last time"), createdAt: "2026-01-01T00:00:00Z" }
+  const fresh = { ...createComment("c.ts", 2, "arrived since"), createdAt: "2026-01-03T00:00:00Z" }
+  mounted.show({ comments: [old, fresh] })
+  type("]", "n")
+  expect(cursorFile()).toBe("a.ts")
+  mounted.visit.begin({ lastVisitAt: "2026-01-02T00:00:00Z", lastSeenHeadSha: "", seenCommentIds: [] }, false)
+  type("]", "n")
+  expect(cursorFile()).toBe("c.ts")
 })
 
 describe("a key that breaks off a sequence", () => {

@@ -25,7 +25,7 @@ export function flashSurface(state: AppState): FlashSurface | null {
 
 export function flashTargets(
   state: AppState,
-  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed">,
+  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed" | "visit">,
 ): string[] {
   switch (flashSurface(state)) {
     case "tree": {
@@ -39,7 +39,7 @@ export function flashTargets(
       return ctx.getPrInfoPanel()?.flashTargets() ?? []
     case "feed": {
       const feed = ctx.activityFeed.snapshot()
-      return feedRowsInView(visibleFeedRows(feed, state), feed, ctx.renderer.height).map(String)
+      return feedRowsInView(visibleFeedRows(feed, state.comments, ctx.visit.watermark()), feed, ctx.renderer.height).map(String)
     }
     case "comments":
       return visibleOverlayCommentIds(

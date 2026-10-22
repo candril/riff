@@ -12,7 +12,7 @@ import { createFileTreeIsland, type FileTreeIsland } from "./file-tree"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../providers/local"
 import { parseDiff, sortFiles } from "../utils/diff-parser"
 import { buildFileTree, filteredFilenames, collapseTree, expandToFile } from "../utils/file-tree"
-import { wasRebased } from "../utils/visit"
+import { wasRebased, type VisitWatermark } from "../utils/visit"
 import {
   createInitialState,
   collapseResolvedThreads,
@@ -77,6 +77,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
   prInfoOpenSections: Set<PRInfoPanelSection>
   /** The review's saved marks, followed to where their lines are now; the marks factory's to own. */
   marks: readonly Mark[]
+  /** When riff last had this PR open, and whether the branch was rewritten since; the visit factory's to own. */
+  visit: { watermark: VisitWatermark | null; rebased: boolean }
 }> {
   const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
 
@@ -181,15 +183,6 @@ export async function initializeAppState(options: InitOptions): Promise<{
     )
   }
 
-  // When riff last had this PR open, and what had been read by then (spec
-  // 069). A rewritten branch makes "changed since then" unanswerable from
-  // commits, so it is noted rather than guessed at.
-  state = {
-    ...state,
-    visit,
-    visitRebased: wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT),
-  }
-
   // Collapse viewed files initially
   state = collapseViewedFiles(state)
 
@@ -216,7 +209,11 @@ export async function initializeAppState(options: InitOptions): Promise<{
     state = { ...state, collapsedFiles: newCollapsed }
   }
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks }
+  // A rewritten branch makes "changed since the last visit" (spec 069)
+  // unanswerable from commits, so it is noted rather than guessed at.
+  const rebased = wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT)
+
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased } }
 }
 
 /**

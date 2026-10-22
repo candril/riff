@@ -269,6 +269,10 @@ events and the commits' files, to fetch them again. Its filter prompt
 is reached through `src/app/view-filter.ts`, which routes `Ctrl-f`, `/`
 and the prompt's typing to the factory in the feed and to AppState
 elsewhere.
+The visit watermark is the twentieth (`createVisitState` in
+`src/features/visit/state.ts`); the frame carries the watermark for the
+unseen markers, the pass marks what it draws as seen in the factory, a PR
+refresh begins a new visit and switching to another PR drops it.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

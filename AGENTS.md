@@ -133,8 +133,9 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/mentions/state.ts`,
 `src/features/inline-comment-overlay/drafts-state.ts`,
 `src/features/jumplist/state.ts`,
-`src/features/marks/state.ts` and
-`src/features/feed/state.ts` are the examples. The frame
+`src/features/marks/state.ts`,
+`src/features/feed/state.ts` and
+`src/features/visit/state.ts` are the examples. The frame
 pass reads each factory's accessors into the `Frame` (all but the
 jumplist's, which nothing draws), so islands keep
 following one frame; its actions do not render, so callers still call
