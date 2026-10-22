@@ -207,9 +207,11 @@ comments, so the rebuilt panel keeps the answers it had.
   (`src/components/PRInfoHeaderViews.tsx`) draws it as one text.
 - `PRInfoPanelClass` recomputes the model when the PR, the comments or the
   behind count change; `setBehindBy` takes the count, or `"failed"`, from
-  `fetchBehindBy` (`src/providers/github/lookups.ts`), which `app.ts`
-  calls on load and refresh. A panel rebuilt for a comment poll starts
-  from the count state already holds.
+  `fetchBehindBy` (`src/providers/github/lookups.ts`), which
+  `createBaseLookups` (`src/features/pr-info-panel/base-lookups.ts`)
+  calls on load and refresh. The count lives in `createBaseLookupsState`
+  beside it, and a panel rebuilt for a comment poll starts from it. An
+  answer a newer ask has overtaken is dropped.
 - `src/components/merge-queue.ts`: `queuePoint(queue, { ready, now })`
   builds the Queue line from `PrInfo.mergeQueue`, which `prInfoOf` reads
   only for an open PR; `mergeStatus` hands it the verdict of the other

@@ -14,8 +14,6 @@ import { createMarksState, type MarksState } from "./features/marks/types"
 import type { VisitWatermark } from "./utils/visit"
 import { closeBlamePeek, type BlamePeekState } from "./features/blame/peek-state"
 import type { BlameColumnState } from "./features/blame/column-state"
-import type { StackInfo } from "./utils/stack"
-import type { BehindBy } from "./components/merge-status-model"
 import type { FeedEvent } from "./utils/feed"
 import { visibleFeed } from "./utils/feed"
 import { filesWithUnseen, unseenComments } from "./utils/visit"
@@ -462,13 +460,6 @@ export interface AppState {
   // Files whose content moved between the watermark's head and this one.
   filesChangedSinceVisit: ReadonlySet<string>
 
-  // The PR this one is stacked on, if any, and how that base has moved
-  // since this one branched (spec 072). Read after the first render.
-  stack: StackInfo | null
-  // How many commits the base has that the head lacks (spec 108). Read on
-  // load and refresh, like the stack.
-  behindBy: BehindBy
-  
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
 
@@ -609,8 +600,6 @@ export function createInitialState(
     seenCommentIds: new Set<string>(),
     visitRebased: false,
     filesChangedSinceVisit: new Set<string>(),
-    stack: null,
-    behindBy: null,
     prInfoPanel: {
       filter: "",
       filterInput: false,

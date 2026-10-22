@@ -44,3 +44,6 @@ PR branched from.
 
 All three are REST, so they spend from the budget the GraphQL bundle does
 not touch, and they run after the first render rather than before it.
+`createBaseLookups` (`src/features/pr-info-panel/base-lookups.ts`) runs
+them and holds the answer in `createBaseLookupsState` beside it; an
+answer a newer ask has overtaken is dropped.

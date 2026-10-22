@@ -1,4 +1,9 @@
 import { test, expect, describe } from "bun:test"
+import { $ } from "bun"
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { annotationsOf, behindByOf, fetchBehindBy } from "./lookups"
 
 const raw = (over: Record<string, unknown>) => ({
@@ -82,6 +87,19 @@ describe("behindByOf", () => {
 
 describe("fetchBehindBy", () => {
   test("fails without asking GitHub while the head is not known", async () => {
-    expect(await fetchBehindBy("o", "r", "main", "")).toBe("failed")
+    // A stand-in gh first on PATH leaves a marker if anything spawns it.
+    const dir = await mkdtemp(join(tmpdir(), "riff-gh-"))
+    const marker = join(dir, "spawned")
+    const gh = join(dir, "gh")
+    await writeFile(gh, `#!/bin/sh\ntouch "${marker}"\n`)
+    await chmod(gh, 0o755)
+    $.env({ ...process.env, PATH: `${dir}:${process.env.PATH}` })
+    try {
+      expect(await fetchBehindBy("o", "r", "main", "")).toBe("failed")
+      expect(existsSync(marker)).toBe(false)
+    } finally {
+      $.env(process.env)
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
