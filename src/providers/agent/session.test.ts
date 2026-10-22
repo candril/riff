@@ -275,6 +275,7 @@ test("each question gets a fresh read budget, and a failed read reaches the even
     },
     tree: async () => [],
     comments: () => [],
+    conversation: () => null,
   }
   let calls = 0
   const { session, log, settle } = start(
@@ -320,6 +321,7 @@ test("the review's session may call propose_comment and propose_edit beside the 
     fileText: async () => ({ kind: "missing" as const }),
     tree: async () => [],
     comments: () => [],
+    conversation: () => null,
   }
   let toolset: AgentToolset | undefined
   const { session, seen, settle } = start(() => [result()], undefined, (events) => {

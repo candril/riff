@@ -1,7 +1,7 @@
 import { proposalAnchor, type ProposalAnchor } from "../features/chat/proposal-anchor"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 import type { CommentProposal, Proposer } from "../providers/agent/proposer"
-import { isUnsynced } from "../providers/agent/read-tools"
+import { isUnsynced } from "../providers/agent/thread-text"
 import { commentDraftOn, forgetCommentDraftOn, type AppState } from "../state"
 import { editTarget, newCommentTarget, type ProposalTarget } from "./proposal-targets"
 

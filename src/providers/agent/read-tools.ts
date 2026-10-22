@@ -1,7 +1,7 @@
-import type { Comment } from "../../types"
-import { groupIntoThreads, type Thread } from "../../utils/threads"
+import { groupIntoThreads } from "../../utils/threads"
 import { describeFile, fileDiffLines, hunkLines, hunksOf } from "./hunks"
-import { TREE_CUT_OFF, type ReviewSource, type Side } from "./review-source"
+import { TREE_CUT_OFF, type ConversationEntry, type ReviewSource, type Side } from "./review-source"
+import { isUnsynced, placeOf, stateOf, textOf, threadText, unsyncedOf } from "./thread-text"
 
 export const PAGE_LINES = 2000
 export const READS_PER_ANSWER = 30
@@ -23,37 +23,15 @@ function page(lines: readonly string[], offset = 0): string {
 
 const firstLine = (text: string) => text.split("\n", 1)[0] ?? ""
 
-const textOf = (comment: Comment) => comment.localEdit ?? comment.body
-
-function placeOf(comment: Comment): string {
-  const lines = comment.startLine ? `${comment.startLine}-${comment.line}` : String(comment.line)
-  return `${comment.filename}:${lines}${comment.side === "LEFT" ? " (old)" : ""}`
-}
-
-function stateOf(thread: Thread): string {
-  return `${thread.resolved ? "resolved" : "open"}${thread.outdated ? ", outdated" : ""}`
-}
-
-// What sets a comment apart from GitHub's copy of it, if anything.
-function unsyncedOf(comment: Comment): string | null {
-  const kind = comment.kind === "note" ? "note, " : ""
-  if (comment.status !== "synced") return `${kind}${comment.status}`
-  return comment.localEdit !== undefined ? `${kind}edited, not yet on GitHub` : null
-}
-
-/** The reviewer's own comments the agent may see and reword: those list_comments lists. */
-export const isUnsynced = (comment: Comment) => unsyncedOf(comment) !== null
-
-function threadText(thread: Thread): string[] {
-  const root = thread.comments[0]!
-  const lines = [`Thread ${thread.id} on ${placeOf(root)} (${stateOf(thread)})`]
-  for (const comment of thread.comments) {
-    const unsynced = unsyncedOf(comment)
-    const status = unsynced ? `, ${unsynced}` : ""
-    lines.push(`--- ${comment.author ?? "you"}, ${comment.createdAt.slice(0, 10)}${status}`)
-    lines.push(...textOf(comment).split("\n"))
-  }
-  return lines
+function conversationText(entry: ConversationEntry): string[] {
+  const state = entry.kind === "review" ? entry.state : undefined
+  const review = state ? `, review: ${state.toLowerCase().replaceAll("_", " ")}` : ""
+  const reactions = entry.reactions.map((r) => `${r.content.toLowerCase()} ${r.count}`).join(", ")
+  return [
+    `--- ${entry.author}, ${entry.at.slice(0, 10)}${review}`,
+    ...entry.body.split("\n"),
+    ...(reactions ? [`reactions: ${reactions}`] : []),
+  ]
 }
 
 export function createReadTools(source: ReviewSource, onReadFailed: (what: string) => void) {
@@ -174,6 +152,17 @@ export function createReadTools(source: ReviewSource, onReadFailed: (what: strin
           own.flatMap((c) => [`--- ${c.id} on ${placeOf(c)} (${unsyncedOf(c)})`, ...textOf(c).split("\n")]),
           offset,
         )
+      }),
+    readConversation: (offset?: number) =>
+      guarded("read conversation", () => {
+        const entries = source.conversation()
+        if (entries === null) {
+          return "A local review has no PR conversation."
+        }
+        if (entries.length === 0) {
+          return "The PR's conversation has no comments."
+        }
+        return page(entries.flatMap(conversationText), offset)
       }),
   }
 }

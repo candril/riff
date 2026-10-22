@@ -4,7 +4,7 @@ import { TWO_FILES } from "../../testing/diffs"
 import { parseDiff } from "../../utils/diff-parser"
 import { readToolDefinitions } from "./read-tool-definitions"
 import { PAGE_LINES, READS_PER_ANSWER, createReadTools } from "./read-tools"
-import { TREE_CUT_OFF, type ReviewSource } from "./review-source"
+import { TREE_CUT_OFF, type ConversationEntry, type ReviewSource } from "./review-source"
 
 const files = parseDiff(TWO_FILES)
 
@@ -34,6 +34,7 @@ function tools(
     },
     tree: async () => ["README.md", "src/greet.ts", "src/farewell.ts"],
     comments: () => [],
+    conversation: () => null,
     ...overrides,
   }
   return createReadTools(source, (what) => failures.push(what))
@@ -187,8 +188,76 @@ test("the agent sees every read tool, read-only and loaded up front", () => {
     "list_threads",
     "read_thread",
     "list_comments",
+    "read_conversation",
   ])
   const loadedReadOnly = (d: (typeof definitions)[number]) =>
     d._meta?.["anthropic/alwaysLoad"] === true && d.annotations?.readOnlyHint === true
   expect(definitions.every(loadedReadOnly)).toBe(true)
+})
+
+const fileLevel = (line: number | undefined) => [
+  comment({ id: "f1", filename: "src/farewell.ts", line: line as number, author: "bob", body: "Split this file." }),
+  comment({ id: "f2", filename: "README.md", line: line as number, side: "LEFT", body: "Drop it.", status: "local" }),
+]
+
+for (const line of [0, undefined]) {
+  test(`a comment on a whole file (line ${line}) reads as its path and (file)`, async () => {
+    const t = tools({ comments: () => fileLevel(line) })
+    expect((await t.listThreads()).text.split("\n")).toEqual([
+      "f2 README.md (file) (open) you: Drop it.",
+      "f1 src/farewell.ts (file) (open) bob: Split this file.",
+    ])
+    expect((await t.readThread("f1")).text.split("\n")[0]).toBe("Thread f1 on src/farewell.ts (file) (open)")
+    expect((await t.listComments()).text.split("\n")[0]).toBe("--- f2 on README.md (file) (local)")
+  })
+}
+
+const conversation: ConversationEntry[] = [
+  {
+    kind: "comment",
+    author: "dana",
+    at: "2026-10-01T09:00:00Z",
+    body: "Tried it on staging.\nWorks.",
+    reactions: [
+      { content: "+1", count: 2, viewerHasReacted: false },
+      { content: "rocket", count: 1, viewerHasReacted: true },
+    ],
+  },
+  {
+    kind: "review",
+    author: "bob",
+    at: "2026-10-02T11:00:00Z",
+    body: "One question about naming.",
+    state: "CHANGES_REQUESTED",
+    reactions: [],
+  },
+]
+
+test("reads the PR's conversation in the source's order, reviews with their state, reactions when any", async () => {
+  const t = tools({ conversation: () => conversation })
+  expect((await t.readConversation()).text.split("\n")).toEqual([
+    "--- dana, 2026-10-01",
+    "Tried it on staging.",
+    "Works.",
+    "reactions: +1 2, rocket 1",
+    "--- bob, 2026-10-02, review: changes requested",
+    "One question about naming.",
+  ])
+})
+
+test("a local review has no conversation, and an empty one says so", async () => {
+  expect((await tools({ conversation: () => null }).readConversation()).text).toBe(
+    "A local review has no PR conversation.",
+  )
+  expect((await tools({ conversation: () => [] }).readConversation()).text).toBe(
+    "The PR's conversation has no comments.",
+  )
+})
+
+test("a long conversation pages by offset", async () => {
+  const long = { ...conversation[1]!, body: Array.from({ length: PAGE_LINES }, (_, i) => `l${i}`).join("\n") }
+  const t = tools({ conversation: () => [long] })
+  const first = (await t.readConversation()).text
+  expect(first).toContain(`[lines 1–${PAGE_LINES} of ${PAGE_LINES + 1}; call again with offset=${PAGE_LINES} for more]`)
+  expect((await t.readConversation(PAGE_LINES)).text).toBe(`l${PAGE_LINES - 1}`)
 })

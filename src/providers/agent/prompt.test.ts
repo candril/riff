@@ -72,3 +72,7 @@ test("the length reminder comes last, and only riff's P1 tools are named", () =>
   expect(context).not.toContain("open_target")
   expect(context).not.toContain("list_drafts")
 })
+
+test("the posture names the tool for the PR's conversation", () => {
+  expect(buildContext(pr, files(1), 0)).toContain("read_conversation for the PR's conversation")
+})

@@ -83,6 +83,13 @@ export function readToolDefinitions(tools: ReadTools): AgentTool[] {
       async ({ offset }) => asContent(await tools.listComments(offset)),
       always,
     ),
+    tool(
+      "read_conversation",
+      "Read the PR's conversation: its comments and the bodies of submitted reviews, oldest first, with author, date and reactions.",
+      { offset },
+      async ({ offset }) => asContent(await tools.readConversation(offset)),
+      always,
+    ),
   ] as AgentTool[]
 }
 

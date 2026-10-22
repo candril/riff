@@ -142,3 +142,51 @@ test("files, hidden paths and comments are the state's", () => {
   expect(source.hiddenPaths()).toBe(localState.ignoredFiles)
   expect(source.comments()).toBe(localState.comments)
 })
+
+test("the PR's conversation holds its comments and the bodies of submitted reviews, oldest first", () => {
+  const pr = prInfo("", {
+    conversationComments: [
+      { id: 1, body: "Late note.", author: "dana", createdAt: "2026-10-03T00:00:00Z", updatedAt: "", url: "", isBot: false },
+      {
+        id: 2,
+        body: "First!",
+        author: "erin",
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "",
+        url: "",
+        isBot: false,
+        reactions: [{ content: "heart", count: 1, viewerHasReacted: false }],
+      },
+    ],
+    reviews: [
+      { id: "r1", author: "bob", state: "CHANGES_REQUESTED", body: "Rename it.", submittedAt: "2026-10-02T00:00:00Z" },
+      { id: "r2", author: "bob", state: "APPROVED", body: "  \n", submittedAt: "2026-10-04T00:00:00Z" },
+      { id: "r3", author: "me", state: "PENDING", body: "Draft.", submittedAt: "2026-10-04T00:00:00Z" },
+      { id: "r4", author: "carol", state: "COMMENTED", body: "Unsent?" },
+    ],
+  })
+  const state = createInitialState(files, tree, "gh:owner/repo#1259", "", null, null, [], "pr", pr)
+  const source = createRiffSource({ state: () => state, target: undefined, headSha: () => null, readers: stubbed({}) })
+  expect(source.conversation()).toEqual([
+    {
+      kind: "comment",
+      author: "erin",
+      at: "2026-10-01T00:00:00Z",
+      body: "First!",
+      reactions: [{ content: "heart", count: 1, viewerHasReacted: false }],
+    },
+    {
+      kind: "review",
+      author: "bob",
+      at: "2026-10-02T00:00:00Z",
+      body: "Rename it.",
+      state: "CHANGES_REQUESTED",
+      reactions: [],
+    },
+    { kind: "comment", author: "dana", at: "2026-10-03T00:00:00Z", body: "Late note.", reactions: [] },
+  ])
+})
+
+test("a local review has no conversation", () => {
+  expect(localSource({}).conversation()).toBeNull()
+})

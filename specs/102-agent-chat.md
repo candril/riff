@@ -112,8 +112,9 @@ like any comment the reviewer typed.
 
 ### P1 - What the agent can read
 
-- **The change**: the files, their hunks, the diff of any file, and the
-  PR's threads.
+- **The change**: the files, their hunks, the diff of any file, the PR's
+  threads, and the PR's conversation (its comments and review bodies). A
+  comment on a whole file reads as `path (file)`.
 - **Any file at the PR's head or base**, not only the changed ones: from
   the local VCS for a local diff, through `gh api …/contents?ref=<sha>`
   for a PR. Context outside the change set is how the agent answers
@@ -209,7 +210,8 @@ like any comment the reviewer typed.
   `src/providers/agent/prompt.ts` is the starting text.
 - **Tools**: `list_files`, `list_hunks`, `read_diff`, `read_file(path,
   side)`, `list_tree`, `list_threads`, `read_thread`, `list_comments`,
-  `propose_comment`, `propose_edit`; `search` with P2.
+  `read_conversation`, `propose_comment`, `propose_edit`; `search` with
+  P2.
 - **The proposal path** is `openInlineCommentOverlay(…, "compose", …)`
   with the composer's input set to the agent's text; saving goes through
   the existing `submitInlineDraft`, so an agent's draft is stored,

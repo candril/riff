@@ -1,10 +1,10 @@
 import { $ } from "bun"
 import type { AppState } from "../../state"
-import type { FileContentResult } from "../github/types"
+import type { FileContentResult, PrInfo } from "../github/types"
 import { getPrBaseFileContent, getPrFileContent } from "../github/content"
 import { gitSidesOf } from "../git-target"
 import { detectVcs, getFileContent, getOldFileContent } from "../local"
-import { TREE_CUT_OFF, type FileText, type ReviewSource } from "./review-source"
+import { TREE_CUT_OFF, type ConversationEntry, type FileText, type ReviewSource } from "./review-source"
 
 export interface RiffSourceReaders {
   prHead(owner: string, repo: string, number: number, path: string, headSha?: string): Promise<FileContentResult>
@@ -66,6 +66,35 @@ function textOf(content: string): FileText {
   return content.slice(0, 8000).includes("\0") ? { kind: "binary" } : { kind: "text", text: content }
 }
 
+// A pending review is the reviewer's own unsent draft, and a review without a body has nothing
+// to read.
+function conversationOf(pr: PrInfo): ConversationEntry[] {
+  const comments = (pr.conversationComments ?? []).map(
+    (c): ConversationEntry => ({
+      kind: "comment",
+      author: c.author,
+      at: c.createdAt,
+      body: c.body,
+      reactions: c.reactions ?? [],
+    }),
+  )
+  const reviews = (pr.reviews ?? []).flatMap((r): ConversationEntry[] =>
+    r.state !== "PENDING" && r.submittedAt && r.body?.trim()
+      ? [
+          {
+            kind: "review",
+            author: r.author,
+            at: r.submittedAt,
+            body: r.body,
+            state: r.state,
+            reactions: r.reactions ?? [],
+          },
+        ]
+      : [],
+  )
+  return [...comments, ...reviews].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+}
+
 /**
  * The agent's view of the review riff has loaded. It reads the review's whole range, never the
  * commit in scope: the agent's line numbers then match the change the prompt describes, whatever
@@ -100,6 +129,11 @@ export function createRiffSource(deps: RiffSourceDeps): ReviewSource {
     files: () => deps.state().files,
     hiddenPaths: () => deps.state().ignoredFiles,
     comments: () => deps.state().comments,
+    conversation() {
+      const state = deps.state()
+      if (state.appMode !== "pr") return null
+      return state.prInfo ? conversationOf(state.prInfo) : []
+    },
     async fileText(path, side) {
       const pr = prOf()
       if (pr) {
