@@ -28,7 +28,7 @@ describe("the blame peek", () => {
     expect(keys.legacyKeys).toEqual([])
   })
 
-  test("a bare g goes on to the chain's chord matcher, while Shift-g and every other key are held", async () => {
+  test("a bare g goes on to the keymap's g sequences, while Shift-g and every other key are held", async () => {
     const keys = await peekKeys(peeking())
     for (const sequence of ["j", "i", KITTY_SHIFT_G, "g"]) keys.press(sequence)
     expect(keys.legacyKeys).toEqual(["g"])

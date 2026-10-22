@@ -118,7 +118,7 @@ test("every other key is swallowed and changes nothing", async () => {
   expect(help.legacyKeys).toEqual([])
 })
 
-test("a bare g, or one with meta held, reaches the chain's chord matcher for g?; Ctrl-g and G do not", async () => {
+test("a bare g, or one with meta held, reaches the keymap's g sequences for g?; Ctrl-g and G do not", async () => {
   expect(parse(META_G)).toMatchObject({ name: "g", meta: true })
   expect(parse(CTRL_G)).toMatchObject({ name: "g", ctrl: true })
   expect(parse("G")).toMatchObject({ name: "g", shift: true })

@@ -1,7 +1,7 @@
 /**
  * Help overlay keys: Esc or q closes, j/k and Ctrl-d/Ctrl-u scroll. The
  * overlay is modal, so it takes every key but `g`, which has to reach the
- * chain's chord matcher or `g?` couldn't close it.
+ * keymap's g sequences or `g?` couldn't close it.
  */
 
 import type { RiffKeymap } from "./keymap"

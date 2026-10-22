@@ -2,9 +2,10 @@
  * Global key handling
  *
  * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
- * the `g` and mark chords first, then the split toggle and the chord
+ * the mark chords first, then the split toggle and the mark chords'
  * openers, the tree for a key that broke off a chord or a slash its layer
- * cannot name, and the diff.
+ * cannot name, and the diff. The `]`/`[`, `z` and `g` chords are keymap
+ * sequences.
  */
 
 import type { KeyEvent, TextareaRenderable } from "@opentui/core"
@@ -24,13 +25,9 @@ import type { ChatState } from "../features/chat/state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
-import { blameKeysContext } from "./blame-key-deps"
 import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
-import { chordSuffix } from "./chord-stroke"
 import { diffTakesMarkChord } from "./mark-chord-gate"
-import { G_SEQUENCES, gChordCommands } from "./g-chord-commands"
-import { gChordDeps } from "./g-chord-key-deps"
 
 import * as prInfoPanelFeature from "../features/pr-info-panel"
 import * as syncPreview from "../features/sync-preview"
@@ -45,8 +42,7 @@ import * as externalTools from "../features/external-tools"
 import * as prOperations from "../features/pr-operations"
 import * as threadMotion from "../features/thread-motion"
 import * as marks from "../features/marks"
-import { createBlameKeys, type BlameDeps, type BlameKeys } from "../features/blame/keys"
-import { chordAllowedUnderPeek } from "./peek-leaves"
+import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 
@@ -142,22 +138,7 @@ export type GlobalKeyHandler = ((key: KeyEvent, chordBroken?: boolean) => void) 
   settleChord(key: KeyEvent): void
 }
 
-export interface KeyHandlerOptions {
-  /**
-   * The one `gb` shares with its peek's keymap layer, so a single object
-   * owns every blame request.
-   */
-  blame?: BlameKeys
-  /**
-   * Hands a `]`, `[` or `z` to the keymap's sequence layers, which hold
-   * those sequences. It reaches the chain when it broke off a chord, as in
-   * `]]f`, `g]f` or `gzz`, and still opens one.
-   */
-  keymapChord: { start(key: KeyEvent): void }
-}
-
-export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptions): GlobalKeyHandler {
-  const { blame = createBlameKeys(blameKeysContext(ctx)), keymapChord } = options
+export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const { openCommentsOverlay, openCommentsPanelForCursor } = createCommentsOverlayOpen(ctx)
 
   // Key sequence tracking
@@ -180,8 +161,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
 
   const takesMarkChord = () => diffTakesMarkChord(ctx)
 
-  const gChords = gChordCommands(gChordDeps(ctx, blame))
-
   return Object.assign(handleKeypress, {
     chordPending: () => pendingKey !== null,
     chordPendingAfter: (key: KeyEvent) =>
@@ -201,7 +180,7 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
   function handleKeypress(key: KeyEvent, chordBroken = false) {
     settleChord(key)
 
-    // ========== KEY SEQUENCES (gS, gg, etc.) ==========
+    // ========== MARK CHORDS (ma, 'a) ==========
     const chordPending = pendingKey !== null || chordBroken
     if (pendingKey === "m" || pendingKey === "'") {
       const action = marks.markChordAction(pendingKey, key, takesMarkChord())
@@ -210,13 +189,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
       else if (action.kind === "jump") marks.jumpToMark(action.letter, ctx.marksContext)
       else if (action.kind === "flip") marks.flipMark(ctx.marksContext)
       return
-    }
-    if (pendingKey) {
-      const sequence = `${pendingKey}${chordSuffix(key)}`
-      clearPendingKey()
-      if (!chordAllowedUnderPeek(sequence, ctx.getState())) return
-      const gChord = G_SEQUENCES[sequence as keyof typeof G_SEQUENCES]
-      if (gChord && gChords[gChord](key)) return
     }
 
     if (togglesSplit(key, ctx.getState().viewMode, ctx.getVimState(), chordPending)) {
@@ -227,16 +199,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
     const markChord = chordPending ? null : marks.markChordOpenedBy(key, takesMarkChord())
     if (markChord) {
       openChord(markChord)
-      return
-    }
-
-    if (key.name === "]" || key.name === "[" || (key.name === "z" && !key.shift)) {
-      keymapChord.start(key)
-      return
-    }
-
-    if (key.name === "g" && !key.shift) {
-      openChord(key.name)
       return
     }
 

@@ -145,11 +145,12 @@ and there is no fourth level.
 Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
 `@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
-from `src/app/keys.ts`, and only a key no layer takes reaches the priority
-chain in `src/app/global-keys.ts`, which resolves the `g` and mark chords and
+from `src/app/keys.ts`; the `]`/`[`, `z` and `g` chords are keymap
+sequences among them. Only a key no layer takes reaches the priority
+chain in `src/app/global-keys.ts`, which resolves the mark chords and
 hands the rest to the diff's `input.ts`, or to the tree's for a key that
-broke off a chord
-([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
+broke off a chord or a slash kitty names after its base key where `/` is
+shifted ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
 
 ### GitHub: `gh` CLI
 
@@ -222,11 +223,12 @@ src/
 │   ├── z-chord-keys.ts   # The z chords as keymap sequences, beside the bracket layer
 │   ├── z-chord-commands.ts  # One command per z chord
 │   ├── z-chord-key-deps.ts  # What the z chords need of the app
+│   ├── g-chord-keys.ts   # The g chords as keymap sequences, beside the bracket and z layers
 │   ├── g-chord-commands.ts  # One command per g chord
 │   ├── g-chord-key-deps.ts  # What the g chords need of the app
 │   ├── follow-link-deps.ts  # Where gf, gF, gx and gX take the link under the cursor
 │   ├── chord-stroke.ts   # A chord's second key as the chain spells it, and its sequence patterns
-│   ├── sequence-expiry.ts  # The chord timeout a lone ], [ or z gives up after
+│   ├── sequence-expiry.ts  # The chord timeout a lone ], [, z or g gives up after
 │   ├── mark-chord-gate.ts  # Whether the diff reads m, ' and ]m as mark keys
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters

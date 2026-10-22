@@ -50,7 +50,7 @@ shares the resolver and the limit.
   `openPrInBoard`; the line comes from the permalink feature's
   `diffTargetAt`, so the board and the PR diff link agree on what is under
   the cursor.
-- The chord is matched as `gB!` or `gb!` in `src/app/global-keys.ts`, and
+- The chord is matched as `gB!` or `gb!` in `src/app/g-chord-commands.ts`, and
   in the overview's own `g` chords in `src/features/pr-info-panel/chords.ts`,
   as terminals differ in how they report shift+b. Both run the
   `open-in-board` action; `src/app.ts` hands it the location.

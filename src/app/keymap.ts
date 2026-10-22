@@ -14,7 +14,11 @@ export interface RiffKeymap {
    * its sequences while every later branch declined under a chord.
    */
   reoffer(key: KeyEvent): boolean
-  /** A sequence waits for its next key, or a key that broke one off is being offered again. */
+  /**
+   * A sequence waits for its next key, or a key that broke one off is being
+   * offered again. Not for a layer's `enabled`, which the keymap evaluates
+   * inside its own pending check, so the call would recurse: read it in `run`.
+   */
   chordPending(): boolean
   /**
    * While `active(key)`, that key, when no binding takes it, is kept from

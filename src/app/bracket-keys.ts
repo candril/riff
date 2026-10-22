@@ -30,8 +30,8 @@ export function registerBracketKeys(riffKeymap: RiffKeymap, deps: BracketKeyDeps
   const commands = bracketCommands(deps)
   return riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences; and while the chain holds `g`,
-    // `m` or `'`, the key is its second.
+    // came ahead of the chain's sequences; and while the chain holds `m` or
+    // `'`, the key is its second.
     enabled: () => !riffKeymap.held() && !deps.chain.chordPending(),
     commands: SEQUENCES.map(({ sequence, cmd }) => ({
       name: `bracket.${cmd}`,

@@ -33,7 +33,7 @@ export interface PeekKeyContext {
 
 /**
  * Whether an open peek leaves `key` to the handlers behind it. A bare `g`
- * goes on to the chain's chord matcher, or `gb`, `go` and `gl` could not
+ * goes on to the keymap's g sequences, or `gb`, `go` and `gl` could not
  * complete, and so does every key while a chord is pending. A pending text
  * object (`vi` waiting for its object) is answered by the text object's
  * capture registered behind both peeks, which stand aside for it because

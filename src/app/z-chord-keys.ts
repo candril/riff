@@ -1,7 +1,7 @@
 /**
- * The `z` chords as keymap sequences, registered with the bracket layer
- * behind every other one, because the chain asked its sequences after the
- * global keys and before the tree. Each second stroke is a chord pattern
+ * The `z` chords as keymap sequences, registered with the bracket and `g`
+ * layers behind every other one, because the chain asked its sequences
+ * after the global keys and before the tree. Each second stroke is a chord pattern
  * (chord-stroke.ts), so it matches on the suffix the chain spelled,
  * whatever ctrl or meta is held. createAppKeys registers those patterns,
  * once for every sequence layer, and the timeout a lone `z` gives up after
@@ -39,8 +39,8 @@ export function registerZChordKeys(riffKeymap: RiffKeymap, deps: ZChordKeyDeps):
   })
   const offLayer = riffKeymap.keymap.registerLayer({
     // Under a capture no sequence starts or continues, as every modal branch
-    // came ahead of the chain's sequences; and while the chain holds `g`,
-    // `m` or `'`, the key is its second.
+    // came ahead of the chain's sequences; and while the chain holds `m` or
+    // `'`, the key is its second.
     enabled: () => !riffKeymap.held() && !deps.chain.chordPending(),
     commands: COMMANDS.map((cmd) => ({
       name: `zchord.${cmd}`,

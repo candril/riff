@@ -180,19 +180,20 @@ Two parts:
    Its capture keeps every key from the priority chain while the picker
    is open, and leaves the keys it does not bind to the prompt field.
 2. A `gC` chord (capital `C`, paired with the existing `gc`
-   = checkout & edit) inside the chord-sequence block of
-   `src/app/global-keys.ts`:
+   = checkout & edit) among the `g` chords of
+   `src/app/g-chord-commands.ts`, which the keymap's `g` sequences run:
    ```ts
-   else if (sequence === "gC!") {
-     if (s.comments.length > 0) {
-       ctx.setState(openCommentsPicker)
-       ctx.render()
+   openCommentsPicker: taking((key) => {
+     if (deps.getState().comments.length > 0) {
+       key.preventDefault()
+       deps.setState(commentsPicker.openCommentsPicker)
+       deps.render()
      }
-     return
-   }
+   }),
    ```
-   The existing chord state already appends `!` for shifted second key
-   (see `gS!`, `gP!`, `gD!`), so we follow the same convention.
+   A chord's spelling appends `!` for a shifted second key (see `gS!`,
+   `gP!`, `gD!`), and `gC!` and `gc!` both name it, as terminals differ
+   in how they report shift+c.
 
 `jumpToComment(c, ctx)` lives in a small helper colocated with the
 comments-picker feature so global-keys.ts doesn't grow another inline
