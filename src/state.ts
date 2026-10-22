@@ -137,8 +137,6 @@ export interface PRInfoPanelState {
    *  prompt for it is open (spec 065). */
   filter: string
   filterInput: boolean
-  scrollOffset: number
-  loading: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
   cursorIndex: number  // Currently selected item within active section
   // PR-level comment input
@@ -343,8 +341,6 @@ export function createInitialState(
     prInfoPanel: {
       filter: "",
       filterInput: false,
-      scrollOffset: 0,
-      loading: false,
       activeSection: 'description',
       cursorIndex: -1,
       commentInputOpen: false,
@@ -1321,8 +1317,6 @@ export function openPRInfoPanel(state: AppState): AppState {
     prInfoPanel: {
       filter: "",
       filterInput: false,
-      scrollOffset: 0,
-      loading: false,
       activeSection: 'description',
       cursorIndex: -1,
       commentInputOpen: false,
@@ -1334,36 +1328,10 @@ export function openPRInfoPanel(state: AppState): AppState {
 }
 
 /**
- * Set PR info panel loading state
- */
-export function setPRInfoPanelLoading(state: AppState, loading: boolean): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      loading,
-    },
-  }
-}
-
-/**
  * Leave PR overview (spec 041). Returns to the diff view.
  */
 export function closePRInfoPanel(state: AppState): AppState {
   return enterDiffView(state)
-}
-
-/**
- * Scroll the PR info panel
- */
-export function scrollPRInfoPanel(state: AppState, delta: number): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      scrollOffset: Math.max(0, state.prInfoPanel.scrollOffset + delta),
-    },
-  }
 }
 
 /**
