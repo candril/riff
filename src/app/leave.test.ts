@@ -52,3 +52,29 @@ test("destroying the renderer leaves once, and quit's own leave after it runs no
   leave()
   expect(calls).toEqual(["watermark", "focus", "chat"])
 })
+
+test("a watermark write that throws still lets focus and chat run, and is rethrown after them", () => {
+  const { calls, steps } = recorder()
+  const failed = new Error("disk full")
+  const leave = createLeave({
+    ...steps,
+    writeVisitWatermark: () => {
+      calls.push("watermark")
+      throw failed
+    },
+  })
+  expect(() => leave()).toThrow(failed)
+  expect(calls).toEqual(["watermark", "focus", "chat"])
+  leave()
+  expect(calls).toEqual(["watermark", "focus", "chat"])
+})
+
+test("with two steps throwing, the first one's error is rethrown", () => {
+  const first = new Error("watermark")
+  const leave = createLeave({
+    writeVisitWatermark: () => { throw first },
+    stopFocusReporting: () => {},
+    disposeChat: () => { throw new Error("chat") },
+  })
+  expect(() => leave()).toThrow(first)
+})

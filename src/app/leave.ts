@@ -6,15 +6,26 @@ export interface LeaveSteps {
   disposeChat: () => void
 }
 
-/** riff's teardown of everything outside the renderer, run once however riff ends. */
+/**
+ * riff's teardown of everything outside the renderer, run once however riff
+ * ends. A step that throws does not skip the rest: a failed watermark write
+ * must not leave the terminal reporting focus or the chat running. The first
+ * error is rethrown once all have run, so it still surfaces.
+ */
 export function createLeave(steps: LeaveSteps): () => void {
   let left = false
   return () => {
     if (left) return
     left = true
-    steps.writeVisitWatermark()
-    steps.stopFocusReporting()
-    steps.disposeChat()
+    const failures: unknown[] = []
+    for (const step of [steps.writeVisitWatermark, steps.stopFocusReporting, steps.disposeChat]) {
+      try {
+        step()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length > 0) throw failures[0]
   }
 }
 
