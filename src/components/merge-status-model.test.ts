@@ -62,6 +62,24 @@ describe("the merge verdict", () => {
     expect(status(ready({ mergeStateStatus: "UNSTABLE" })).verdict).toBe("warnings")
   })
 
+  test("BLOCKED always blocks, and an open thread under it fails as the reason", () => {
+    const result = status(ready({ mergeStateStatus: "BLOCKED" }), { comments: [thread(false)] })
+    expect(result.verdict).toBe("blocked")
+    expect(result.points.filter((p) => p.id === "conversations" || p.id === "blockers")).toEqual([
+      { id: "conversations", state: "fail", text: "1 unresolved" },
+      { id: "blockers", state: "ok", text: "none" },
+    ])
+  })
+
+  test("BLOCKED with a required check still running blocks, and the check stays pending", () => {
+    const pr = ready({
+      mergeStateStatus: "BLOCKED",
+      checks: [check("build", { status: "in_progress", conclusion: null, isRequired: true })],
+    })
+    expect(status(pr).verdict).toBe("blocked")
+    expect(point(pr, "checks")).toEqual([{ state: "pending", text: "0/1 · 1 running" }])
+  })
+
   test("any failing gate blocks", () => {
     expect(status(ready({ mergeable: "CONFLICTING" }))).toMatchObject({ verdict: "blocked", verdictText: "✗ blocked" })
   })
@@ -121,6 +139,25 @@ describe("reviews", () => {
       { state: "fail", text: "1/2 approvals" },
     ])
     expect(point(ready({ requiredApprovals: 1 }), "reviews")).toEqual([{ state: "ok", text: "1/1 approval" }])
+  })
+
+  test("GitHub's APPROVED stands even when riff counts fewer approvals than required", () => {
+    expect(point(ready({ requiredApprovals: 2, reviewDecision: "APPROVED" }), "reviews")).toEqual([
+      { state: "ok", text: "1/2 approvals" },
+    ])
+  })
+
+  test("zero required approvals is no requirement", () => {
+    expect(point(ready({ requiredApprovals: 0 }), "reviews")).toEqual([{ state: "ok", text: "1 approval" }])
+  })
+
+  test.each([
+    [1, 1, "1/1 approval"],
+    [2, 1, "2/1 approvals"],
+    [1, 2, "1/2 approvals"],
+  ])("%p of %p reads %s", (approvals, requiredApprovals, text) => {
+    const reviews = ["alice", "bob"].slice(0, approvals).map((a) => review(a, "APPROVED"))
+    expect(point(ready({ reviews, requiredApprovals }), "reviews").map((p) => p.text)).toEqual([text])
   })
 
   test("a null decision with nothing against it is fine", () => {

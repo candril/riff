@@ -11,16 +11,16 @@ place. A "Merge status" section at the top of the panel, replacing the
 Checks section, carries a verdict at its right end and one line per gate
 GitHub applies, so nothing hides behind the first thing that blocks.
 
-The header's one-word reading (`src/utils/merge-verdict.ts`) stays: it says whose move it is, this section
-says why.
+The header's one-word reading (`src/utils/merge-verdict.ts`) stays: it
+says whose move it is, this section says why.
 
 ## Out of Scope
 
 - **Conflicting file names.** GitHub's API does not report which files
   conflict, so the conflicts line says only `conflicting`, never which
   files.
-- **Legacy commit statuses.** They stay filtered out of the checks, as
-  before; a required legacy status shows up only through the branch
+- **Legacy commit statuses.** They stay filtered out of the checks; a
+  required legacy status shows up only through the branch
   protection fallback (`blocked by branch protection`).
 - **Merging from riff.**
 - **Changing the header's one-word verdict.**
@@ -33,7 +33,8 @@ says why.
   Checks, borderless like the rest of the panel
   ([106](./106-borderless-ui.md)).
 - **The verdict** at the section header's right end:
-  - `✗ blocked` when any line fails;
+  - `✗ blocked` when any line fails, or GitHub's merge state is `BLOCKED`
+    (it refuses the merge, whatever the lines say);
   - else `⚠ mergeable with warnings` when any line warns or is pending, or
     GitHub's merge state is `UNSTABLE`;
   - else `✓ ready`.
@@ -51,12 +52,16 @@ says why.
       which checks are required, every failure fails the line.
     - Otherwise, still running: pending, `7/9 · 2 running`.
   - **Reviews**: each reviewer's latest approval or change request counts.
-    `N approvals`, or `N/M approvals` when the required count is known,
-    then ` · changes requested by a, b` and ` · waiting on x, y` for those
-    still requested. It fails on a change request, on a review decision of
-    `CHANGES_REQUESTED` or `REVIEW_REQUIRED`, or on fewer approvals than
-    required.
-  - **Conversations**: `all resolved`, or a warning `N unresolved`.
+    `N approvals`, or `N/M approvals` when a required count above zero is
+    known (zero is no requirement); the noun follows the larger count:
+    `1/1 approval`, `2/1 approvals`. Then ` · changes requested by
+    a, b` and ` · waiting on x, y` for those still requested. It fails on a
+    change request, on a review decision of `CHANGES_REQUESTED` or
+    `REVIEW_REQUIRED`, or on fewer approvals than required, unless the
+    review decision is `APPROVED`: GitHub's count outranks riff's.
+  - **Conversations**: `all resolved`, or `N unresolved`: a warning, but
+    failing when the merge state is `BLOCKED`, since the open threads are
+    then what explains it.
   - **Conflicts**: `no conflicts`, a failing `conflicting`, or a pending
     `checking` while GitHub has not decided.
   - **Base**: `up to date with <base>`, or `N commits behind <base>`,

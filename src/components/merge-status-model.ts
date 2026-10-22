@@ -51,10 +51,13 @@ export function mergeStatus({
   const checks = prInfo.checks ?? []
   const unresolved = comments.filter((c) => !c.inReplyTo && c.isThreadResolved === false).length
   const reviews = reviewsPoint(prInfo)
+  // BLOCKED is GitHub refusing the merge outright, so riff never reads it as
+  // anything milder than blocked, whatever the lines below make of it.
+  const refused = prInfo.mergeStateStatus === "BLOCKED"
   const points = [
     checksPoint(checks),
     reviews,
-    conversationsPoint(unresolved),
+    conversationsPoint(unresolved, { refused }),
     conflictsPoint(prInfo),
     basePoint(prInfo, behindBy),
     ...blockerPoints(prInfo, {
@@ -62,7 +65,7 @@ export function mergeStatus({
     }),
   ]
 
-  if (points.some((p) => p.state === "fail")) return { verdict: "blocked", verdictText: "✗ blocked", points }
+  if (refused || points.some((p) => p.state === "fail")) return { verdict: "blocked", verdictText: "✗ blocked", points }
   if (points.some((p) => p.state === "warn" || p.state === "pending") || prInfo.mergeStateStatus === "UNSTABLE") {
     return { verdict: "warnings", verdictText: "⚠ mergeable with warnings", points }
   }
@@ -114,12 +117,13 @@ function reviewsPoint(prInfo: PrInfo): MergePoint {
   const latest = [...latestReviewStates(prInfo.reviews ?? [])]
   const approvals = latest.filter(([, state]) => state === "APPROVED").length
   const changesBy = latest.filter(([, state]) => state === "CHANGES_REQUESTED").map(([author]) => author)
-  const required = prInfo.requiredApprovals ?? null
+  // A rule that asks for a PR but zero approvals asks for no approvals.
+  const required = prInfo.requiredApprovals || null
   const waitingOn = prInfo.requestedReviewers ?? []
 
   let text = required === null
     ? `${approvals} ${plural(approvals, "approval")}`
-    : `${approvals}/${required} ${plural(required, "approval")}`
+    : `${approvals}/${required} ${plural(Math.max(approvals, required), "approval")}`
   if (changesBy.length > 0) text += ` · changes requested by ${changesBy.join(", ")}`
   if (waitingOn.length > 0) text += ` · waiting on ${waitingOn.join(", ")}`
 
@@ -127,14 +131,17 @@ function reviewsPoint(prInfo: PrInfo): MergePoint {
     changesBy.length > 0 ||
     prInfo.reviewDecision === "CHANGES_REQUESTED" ||
     prInfo.reviewDecision === "REVIEW_REQUIRED" ||
-    (required !== null && approvals < required)
+    // GitHub's own APPROVED outranks riff's count, which can fall short of a
+    // ruleset's (bot reviewers, reviews past the first page).
+    (required !== null && approvals < required && prInfo.reviewDecision !== "APPROVED")
   return { id: "reviews", state: fails ? "fail" : "ok", text }
 }
 
-function conversationsPoint(unresolved: number): MergePoint {
-  return unresolved === 0
-    ? { id: "conversations", state: "ok", text: "all resolved" }
-    : { id: "conversations", state: "warn", text: `${unresolved} unresolved` }
+function conversationsPoint(unresolved: number, { refused }: { refused: boolean }): MergePoint {
+  if (unresolved === 0) return { id: "conversations", state: "ok", text: "all resolved" }
+  // Under BLOCKED an open thread is taken as GitHub's reason (resolved
+  // conversations required), so the line that explains the verdict fails.
+  return { id: "conversations", state: refused ? "fail" : "warn", text: `${unresolved} unresolved` }
 }
 
 function conflictsPoint(prInfo: PrInfo): MergePoint {
