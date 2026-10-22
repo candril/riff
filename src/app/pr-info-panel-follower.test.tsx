@@ -30,11 +30,18 @@ function follow(currentPanel: () => PRInfoPanelClass | null) {
   const stubs = Object.fromEntries(FRAME_ISLANDS.map((id) => [id, { update() {} }]))
   const islands = { ...stubs, prInfoPanel: createPrInfoPanelFollower(currentPanel) }
   stops.push(followFrame(frame, islands as unknown as Parameters<typeof followFrame>[1], { show() {} }))
-  return (panel: Partial<AppState["prInfoPanel"]> = {}, flash: Partial<FlashState> = {}) =>
-    publish(frameOf(panel, flash))
+  return (
+    panel: Partial<AppState["prInfoPanel"]> = {},
+    flash: Partial<FlashState> = {},
+    prompt: Partial<Frame["prCommentInput"]> = {}
+  ) => publish(frameOf(panel, flash, prompt))
 }
 
-function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashState>): Frame {
+function frameOf(
+  panel: Partial<AppState["prInfoPanel"]>,
+  flash: Partial<FlashState>,
+  prompt: Partial<Frame["prCommentInput"]>
+): Frame {
   const state = { ...createInitialState(PR_FILES, [], "pr", "PR"), viewMode: "state" as const }
   return {
     state: { ...state, prInfoPanel: { ...state.prInfoPanel, ...panel } },
@@ -53,6 +60,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     reviewPreview: null,
     pendingReview: null,
     toast: null,
+    prCommentInput: { open: false, text: "", loading: false, error: null, ...prompt },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
@@ -120,25 +128,25 @@ describe("the PR info panel following the frame", () => {
   test("draws the comment prompt with its text, while submitting and on an error", async () => {
     const { panel, mounted } = await mount()
     const publish = follow(() => panel)
-    const prompt = { commentInputOpen: true, commentInputText: "hello" }
+    const prompt = { open: true, text: "hello" }
 
-    publish(prompt)
+    publish({}, {}, prompt)
     const open = await mounted.frame()
     expect(open).toContain("Add PR Comment")
     expect(open).toContain("hello")
     expect(open).toContain("Enter to submit")
 
-    publish({ ...prompt, commentInputLoading: true })
+    publish({}, {}, { ...prompt, loading: true })
     const loading = await mounted.frame()
     expect(loading).toContain("Submitting...")
     expect(loading).not.toContain("Enter to submit")
 
-    publish({ ...prompt, commentInputError: "boom" })
+    publish({}, {}, { ...prompt, error: "boom" })
     const failed = await mounted.frame()
     expect(failed).toContain("boom")
     expect(failed).not.toContain("Enter to submit")
 
-    publish({ commentInputOpen: false })
+    publish({}, {}, { open: false })
     expect(await mounted.frame()).not.toContain("Add PR Comment")
   })
 
@@ -153,7 +161,7 @@ describe("the PR info panel following the frame", () => {
     expect(before).toContain("    sd src/farewell.ts")
 
     current = second.panel
-    publish({ commentInputOpen: true, commentInputText: "hello" }, LABELS)
+    publish({}, LABELS, { open: true, text: "hello" })
     const swapped = await second.mounted.frame()
     expect(swapped).toContain("Add PR Comment")
     expect(swapped).toContain("hello")
@@ -163,6 +171,6 @@ describe("the PR info panel following the frame", () => {
 
   test("does nothing while there is no panel", () => {
     const publish = follow(() => null)
-    expect(() => publish({ filterInput: true, commentInputOpen: true }, LABELS)).not.toThrow()
+    expect(() => publish({ filterInput: true }, LABELS, { open: true })).not.toThrow()
   })
 })

@@ -70,6 +70,7 @@ function frame(
     reviewPreview: null,
     pendingReview: null,
     toast: null,
+    prCommentInput: { open: false, text: "", loading: false, error: null },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
@@ -206,9 +207,8 @@ describe("prInfoPanelFrameModel", () => {
   })
 
   test("passes the comment prompt's fields through", () => {
-    const model = prInfoPanelFrameModel(
-      frame(prPanel({ commentInputOpen: true, commentInputText: "hi", commentInputLoading: true, commentInputError: "boom" }))
-    )
+    const prompt = { open: true, text: "hi", loading: true, error: "boom" }
+    const model = prInfoPanelFrameModel({ ...frame(prPanel({})), prCommentInput: prompt })
     expect(model.commentInput).toEqual({ open: true, text: "hi", loading: true, error: "boom" })
   })
 })

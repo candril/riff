@@ -34,6 +34,7 @@ import type { ActivityFeedState } from "../features/feed/state"
 import type { VisitState } from "../features/visit/state"
 import type { PendingReviewState } from "../features/review-preview/pending-state"
 import type { ToastState } from "../features/toast/state"
+import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
 import type { ActionMenuState } from "../features/action-menu/state"
 import type { LinePeekState } from "../features/line-peek/state"
@@ -67,6 +68,7 @@ export interface FramePassContext {
   reviewPreview: ReviewPreviewState
   pendingReview: Pick<PendingReviewState, "review">
   toast: Pick<ToastState, "current">
+  prCommentInput: Pick<PrCommentInputState, "current">
   filePicker: FilePickerState
   commentsPicker: CommentsPickerState
   occurrencePicker: OccurrencePickerState
@@ -183,6 +185,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       reviewPreview,
       pendingReview: ctx.pendingReview.review(),
       toast: ctx.toast.current(),
+      prCommentInput: ctx.prCommentInput.current(),
       filePicker,
       commentsPicker,
       occurrencePicker,

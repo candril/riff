@@ -59,6 +59,8 @@ export interface Frame {
   pendingReview: PendingReview | null
   /** The toast, read off its factory, or null while none shows. */
   toast: { message: string; type: ToastType } | null
+  /** The PR overview's comment prompt, read off its factory. */
+  prCommentInput: { open: boolean; text: string; loading: boolean; error: string | null }
   /** The file picker's state, read off its factory, or null while it is closed. */
   filePicker: FilePickerSnapshot | null
   /** The comments picker's state, read off its factory, or null while it is closed. */

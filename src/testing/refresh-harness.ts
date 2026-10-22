@@ -20,6 +20,7 @@ import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -94,6 +95,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const help = createHelpState()
   const pendingReview = createPendingReviewState()
   const toast = createToastState()
+  const prCommentInput = createPrCommentInputState()
 
   const sources: RefreshSources = {
     loadPrSession: async () => ({
@@ -148,6 +150,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     reviewPreview: createReviewPreviewState(),
     pendingReview,
     toast,
+    prCommentInput,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
@@ -164,5 +167,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     prInfo: pr,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, prCommentInput }
 }

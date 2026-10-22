@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
+import { failOnKeymapErrors } from "../testing/keymap-errors"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { treeRowsOf } from "../components"
@@ -82,6 +83,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     marksPicker: mounted.marksPicker,
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
+    prCommentInput: mounted.prCommentInput,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     getVimState: () => vimState,
@@ -118,7 +120,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
       }
     },
   }) as AppKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
+  mounted.setup.renderer.keyInput.on("keypress", failOnKeymapErrors(createAppKeys(mounted.setup.renderer, ctx)))
   return { vimLine: () => vimState.line }
 }
 

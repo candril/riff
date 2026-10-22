@@ -16,13 +16,13 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { threadPanelHoldsKeys } from "../../app/diff-focus"
-import { chatStandsAside } from "../chat/keys"
-import type { AppState, PromptPickers } from "../../state"
+import { chatStandsAside, type ChatAsideInputs } from "../chat/keys"
+import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import { createPanelChords } from "./view-chords"
 import * as act from "./view-actions"
 
-export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps, PromptPickers {
+export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps, ChatAsideInputs {
   /** Whether the diff's search prompt is up, under which the chat stands aside. */
   searchActive: () => boolean
 }
@@ -36,8 +36,8 @@ export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps, PromptPicke
  * Ctrl-i) walk the jumplist, and only the filter prompt and the code peek
  * keep those.
  */
-function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean, pickers: PromptPickers): boolean {
-  const chatReaches = !chatStandsAside(state, searchActive, pickers)
+function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean, inputs: ChatAsideInputs): boolean {
+  const chatReaches = !chatStandsAside(state, searchActive, inputs)
   if (key.ctrl && key.name === "r") return chatReaches
   if (key.ctrl && key.name === "l") return chatReaches && state.chatOpen
   const ov = state.inlineCommentOverlay

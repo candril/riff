@@ -3,6 +3,7 @@ import type { RowNode } from "../components/pr-info-tree"
 import { registerPrInfoPanelKeys, type PRInfoPanelKeyDeps } from "../features/pr-info-panel/keys"
 import { createInitialState, type AppState, type PRInfoPanelSection } from "../state"
 import { createToastState } from "../features/toast/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { ReactionTarget } from "../types"
 import { keymapHarness } from "./keymap-keys"
 import { prInfo } from "./pr-info"
@@ -94,6 +95,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
   const controller = options.controller ?? stub.controller
   const record = (entry: string) => (...args: unknown[]) => void calls.push([entry, ...args].join(" "))
   const toast = createToastState()
+  const commentInput = createPrCommentInputState()
   const deps: PRInfoPanelKeyDeps = {
     getState: () => state,
     setState: (update) => {
@@ -101,6 +103,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     },
     render() {},
     toast,
+    commentInput,
     getPanel: () => controller,
     onJumpToFile: record("jumpToFile"),
     onOpenFileAtLine: record("openFileAtLine"),
@@ -120,6 +123,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     panel,
     unregister,
     toast,
+    commentInput,
     state: () => state,
     set: (next: AppState) => {
       state = next

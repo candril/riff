@@ -11,6 +11,7 @@ import { createFeedState } from "../features/feed/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createToastState } from "../features/toast/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -84,6 +85,7 @@ export async function threadPanelKeys(initial: AppState) {
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
     activityFeed: createFeedState(),
+    prCommentInput: createPrCommentInputState(),
     commentDrafts,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)

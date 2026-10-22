@@ -49,6 +49,7 @@ function frame(
     reviewPreview: null,
     pendingReview: null,
     toast: null,
+    prCommentInput: { open: false, text: "", loading: false, error: null },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

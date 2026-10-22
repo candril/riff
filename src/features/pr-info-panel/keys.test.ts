@@ -48,10 +48,10 @@ describe("the PR overview", () => {
   test("c opens the comment prompt in the conversation and is swallowed elsewhere", async () => {
     const keys = await prInfoPanelKeys(overviewState(), { section: "files" })
     keys.press("c")
-    expect(keys.state().prInfoPanel.commentInputOpen).toBe(false)
+    expect(keys.commentInput.isOpen()).toBe(false)
     keys.panel.section = "conversation"
     keys.press("c")
-    expect(keys.state().prInfoPanel.commentInputOpen).toBe(true)
+    expect(keys.commentInput.isOpen()).toBe(true)
     expect(keys.leftKeys).toEqual([])
   })
 
@@ -272,28 +272,32 @@ describe("the overview's filter prompt", () => {
 })
 
 describe("the overview's comment prompt", () => {
-  const commenting = (patch = {}) => withPanelState(overviewState(patch), { commentInputOpen: true })
+  const commenting = async (patch = {}) => {
+    const keys = await prInfoPanelKeys(overviewState(patch))
+    keys.commentInput.open()
+    return keys
+  }
 
   test("types what is pressed, Ctrl-j breaks the line and backspace deletes", async () => {
-    const keys = await prInfoPanelKeys(commenting())
+    const keys = await commenting()
     for (const key of ["h", "i", "q", "s", CTRL.j, "!", "\x7f"]) keys.press(key)
-    expect(keys.state().prInfoPanel.commentInputText).toBe("hiqs\n")
+    expect(keys.commentInput.current().text).toBe("hiqs\n")
     expect(keys.leftKeys).toEqual([])
   })
 
   test("holds every key, ctrl ones too, even with the tree focused", async () => {
-    const keys = await prInfoPanelKeys(commenting({ focusedPanel: "tree" }))
+    const keys = await commenting({ focusedPanel: "tree" })
     for (const key of ["j", CTRL.r, CTRL.p, TAB]) keys.press(key)
     expect(keys.leftKeys).toEqual([])
-    expect(keys.state().prInfoPanel.commentInputText).toBe("j\t")
+    expect(keys.commentInput.current().text).toBe("j\t")
   })
 
   test("Esc closes it, and Enter with nothing typed leaves it open", async () => {
-    const keys = await prInfoPanelKeys(commenting())
+    const keys = await commenting()
     keys.press(ENTER)
-    expect(keys.state().prInfoPanel.commentInputOpen).toBe(true)
+    expect(keys.commentInput.isOpen()).toBe(true)
     keys.press(ESC)
-    expect(keys.state().prInfoPanel.commentInputOpen).toBe(false)
+    expect(keys.commentInput.isOpen()).toBe(false)
   })
 })
 

@@ -60,6 +60,7 @@ import {
   type RefreshPosition,
 } from "./position"
 import type { ToastState } from "../toast/state"
+import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -116,6 +117,7 @@ export interface RefreshContext {
   jumpList: Pick<JumpListState, "clear">
   pendingReview: Pick<PendingReviewState, "clear" | "set" | "generation">
   toast: Pick<ToastState, "show" | "clear">
+  prCommentInput: Pick<PrCommentInputState, "close">
   // App config (captured from options at init time)
   mode: AppMode
   target: string | undefined
@@ -291,7 +293,8 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
 
 /**
  * Swap in the state a reload rebuilt from createInitialState. The help
- * overlay, the confirm dialog, the sync preview, Submit Review and the file,
+ * overlay, the confirm dialog, the sync preview, Submit Review, the PR
+ * overview's comment prompt and the file,
  * comments, occurrence, marks and commit pickers, the command palette, the
  * line and blame peeks, and the blame columns, which a reload turns off, live
  * in factories that createInitialState never reaches, so they are closed here,
@@ -306,7 +309,7 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * caller begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -322,6 +325,7 @@ export function adoptReloadedState(
   ctx.actionMenu.close()
   ctx.linePeek.close()
   ctx.blamePeek.close()
+  ctx.prCommentInput.close()
   ctx.blameColumns.clear()
   // A draft is keyed by file, line and side, and the reloaded diff can put
   // other code on that line: kept, it would come back on the wrong one.

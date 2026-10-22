@@ -15,6 +15,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createFeedState } from "../features/feed/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 
 export const BLAME_TARGET: BlameTarget = { path: "a.ts", side: "head", line: 1 }
 
@@ -53,6 +54,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
     activityFeed: createFeedState(),
+    prCommentInput: createPrCommentInputState(),
     chordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {

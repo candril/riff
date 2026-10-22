@@ -3,6 +3,7 @@ import { KeyEvent } from "@opentui/core"
 import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
+import { failOnKeymapErrors } from "../testing/keymap-errors"
 import { createCursorState } from "../vim-diff/cursor-state"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -58,6 +59,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    prCommentInput: mounted.prCommentInput,
     getVimState: () => ({ ...createCursorState(), line: cursorLine }),
     getLineMapping: render.getLineMapping,
     blame,
@@ -78,7 +80,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
       }
     },
   }) as AppKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
+  mounted.setup.renderer.keyInput.on("keypress", failOnKeymapErrors(createAppKeys(mounted.setup.renderer, ctx)))
 }
 
 test("gB dispatches open-in-board, whichever case the terminal reports the shifted b in", async () => {

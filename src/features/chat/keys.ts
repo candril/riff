@@ -16,8 +16,14 @@ import { registerAtPickerLayer } from "../../app/at-picker-keys"
 import { attachOnScreen } from "./attach"
 import type { ChatAtPicker } from "./at-picker"
 import type { ChatState } from "./state"
+import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 
-export interface ChatKeyDeps extends PromptPickers {
+/** The prompts the chat stands aside for that AppState does not hold. */
+export interface ChatAsideInputs extends PromptPickers {
+  prCommentInput: Pick<PrCommentInputState, "isOpen">
+}
+
+export interface ChatKeyDeps extends ChatAsideInputs {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
@@ -32,8 +38,8 @@ const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
  * A composer or a one-line prompt keeps its keys, Ctrl-r included: the
  * chat taking focus from under it would strand what is being typed there.
  */
-export function chatStandsAside(state: AppState, searchActive: boolean, pickers: PromptPickers): boolean {
-  return composerOpen(state) || promptOpen(state, pickers) || searchActive || state.prInfoPanel.commentInputOpen
+export function chatStandsAside(state: AppState, searchActive: boolean, inputs: ChatAsideInputs): boolean {
+  return composerOpen(state) || promptOpen(state, inputs) || searchActive || inputs.prCommentInput.isOpen()
 }
 
 /**
@@ -46,9 +52,9 @@ export function chatReaches(
   key: Pick<KeyEvent, "name" | "ctrl">,
   state: AppState,
   searchActive: boolean,
-  pickers: PromptPickers
+  inputs: ChatAsideInputs
 ): boolean {
-  if (!key.ctrl || chatStandsAside(state, searchActive, pickers)) return false
+  if (!key.ctrl || chatStandsAside(state, searchActive, inputs)) return false
   if (key.name === "r") return true
   return key.name === "l" && state.focusedPanel === "comments" && state.chatOpen
 }

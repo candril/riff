@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp } from "../testing/app-render"
+import { failOnKeymapErrors } from "../testing/keymap-errors"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import type { FileReviewStatus } from "../types"
@@ -48,6 +49,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    prCommentInput: mounted.prCommentInput,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -83,7 +85,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
       }
     },
   }) as AppKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
+  mounted.setup.renderer.keyInput.on("keypress", failOnKeymapErrors(createAppKeys(mounted.setup.renderer, ctx)))
 }
 
 /** The tree's rows under its header, which names the selected file too and so cannot say where the tree is. */

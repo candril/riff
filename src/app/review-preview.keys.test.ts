@@ -2,6 +2,7 @@ import { test, expect, afterEach } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { createAppKeys } from "./keys"
 import { mountApp, reloadCtx } from "../testing/app-render"
+import { failOnKeymapErrors } from "../testing/keymap-errors"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import type { PendingReview } from "../providers/github/types"
 import type { PrOperationsContext, ReviewCalls } from "../features/pr-operations"
@@ -79,6 +80,7 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
     actionMenu: mounted.actionMenu,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    prCommentInput: mounted.prCommentInput,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
@@ -103,7 +105,7 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
       }
     },
   }) as AppKeyContext
-  mounted.setup.renderer.keyInput.on("keypress", createAppKeys(mounted.setup.renderer, ctx))
+  mounted.setup.renderer.keyInput.on("keypress", failOnKeymapErrors(createAppKeys(mounted.setup.renderer, ctx)))
   return confirms
 }
 

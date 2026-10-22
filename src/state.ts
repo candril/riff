@@ -139,11 +139,6 @@ export interface PRInfoPanelState {
   filterInput: boolean
   activeSection: PRInfoPanelSection  // Currently focused section
   cursorIndex: number  // Currently selected item within active section
-  // PR-level comment input
-  commentInputOpen: boolean
-  commentInputText: string
-  commentInputLoading: boolean
-  commentInputError: string | null
 }
 
 /**
@@ -343,10 +338,6 @@ export function createInitialState(
       filterInput: false,
       activeSection: 'description',
       cursorIndex: -1,
-      commentInputOpen: false,
-      commentInputText: "",
-      commentInputLoading: false,
-      commentInputError: null,
     },
     inlineCommentOverlay: {
       filter: "",
@@ -1319,10 +1310,6 @@ export function openPRInfoPanel(state: AppState): AppState {
       filterInput: false,
       activeSection: 'description',
       cursorIndex: -1,
-      commentInputOpen: false,
-      commentInputText: "",
-      commentInputLoading: false,
-      commentInputError: null,
     },
   }
 }
@@ -1379,77 +1366,6 @@ export function setPRInfoPanelSection(state: AppState, section: PRInfoPanelSecti
       ...state.prInfoPanel,
       activeSection: section,
       cursorIndex: 0,
-    },
-  }
-}
-
-/**
- * Open PR-level comment input in PR info panel
- */
-export function openPRCommentInput(state: AppState): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      commentInputOpen: true,
-      commentInputText: "",
-      commentInputLoading: false,
-      commentInputError: null,
-    },
-  }
-}
-
-/**
- * Close PR-level comment input
- */
-export function closePRCommentInput(state: AppState): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      commentInputOpen: false,
-      commentInputText: "",
-      commentInputLoading: false,
-      commentInputError: null,
-    },
-  }
-}
-
-/**
- * Update PR-level comment input text
- */
-export function setPRCommentInputText(state: AppState, text: string): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      commentInputText: text,
-    },
-  }
-}
-
-/**
- * Set PR comment input loading state
- */
-export function setPRCommentInputLoading(state: AppState, loading: boolean): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      commentInputLoading: loading,
-    },
-  }
-}
-
-/**
- * Set PR comment input error
- */
-export function setPRCommentInputError(state: AppState, error: string | null): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      commentInputError: error,
     },
   }
 }

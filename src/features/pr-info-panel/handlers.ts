@@ -9,11 +9,13 @@
 
 import type { AppState } from "../../state"
 import { openPRInfoPanel } from "../../state"
+import type { PrCommentInputState } from "./comment-input-state"
 
 export interface PRInfoPanelOpenContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  commentInput: Pick<PrCommentInputState, "close">
 }
 
 /**
@@ -24,5 +26,7 @@ export async function handleOpenPRInfoPanel(ctx: PRInfoPanelOpenContext): Promis
   if (state.appMode !== "pr" || !state.prInfo) return
 
   ctx.setState(openPRInfoPanel)
+  // Entering the overview starts it afresh, and a prompt left open belongs to the visit before.
+  ctx.commentInput.close()
   ctx.render()
 }

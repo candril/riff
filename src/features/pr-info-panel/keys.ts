@@ -49,7 +49,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
     if (state.viewMode !== "state") return false
     // The filter prompt and the comment prompt own every key, ctrl included;
     // the comment prompt even with the tree focused.
-    if (state.prInfoPanel.filterInput || state.prInfoPanel.commentInputOpen) return true
+    if (state.prInfoPanel.filterInput || deps.commentInput.isOpen()) return true
     if (state.focusedPanel === "tree") return false
     // Ctrl-O (jumplist back), Ctrl-P (palette) and the chat's Ctrl-r reach
     // past the panel, and leave its chords pending.
@@ -63,7 +63,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
   const swallow = (key: KeyEvent) => {
     const panel = panelState()
     if (panel.filterInput) return
-    if (panel.commentInputOpen) {
+    if (deps.commentInput.isOpen()) {
       // Typed into state, not into a focused field, so nothing to prevent.
       if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
         comment.typeIntoComment(deps, key.sequence)
@@ -124,7 +124,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
   })
 
   const unregisterComment = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && panelState().commentInputOpen && !panelState().filterInput,
+    enabled: () => captured.holds() && deps.commentInput.isOpen() && !panelState().filterInput,
     commands: [
       command("commentClose", "Drop the comment", () => comment.closeCommentInput(deps)),
       command("commentSubmit", "Post the comment", () => comment.submitComment(deps)),
@@ -142,7 +142,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
   const unregisterMain = riffKeymap.keymap.registerLayer({
     enabled: () => {
       const panel = panelState()
-      return captured.holds() && !panel.filterInput && !panel.commentInputOpen && !chords.pending()
+      return captured.holds() && !panel.filterInput && !deps.commentInput.isOpen() && !chords.pending()
     },
     commands: [
       command("react", "React to the focused item", prevented(() => act.react(deps))),

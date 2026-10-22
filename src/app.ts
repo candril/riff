@@ -62,6 +62,7 @@ import { createMarksState } from "./features/marks/state"
 import { createFeedState } from "./features/feed/state"
 import { createVisitState } from "./features/visit/state"
 import { createPendingReviewState } from "./features/review-preview/pending-state"
+import { createPrCommentInputState } from "./features/pr-info-panel/comment-input-state"
 import { createToastState } from "./features/toast/state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
@@ -486,6 +487,7 @@ export async function createApp(options: AppOptions = {}) {
   const syncPreview = createSyncPreviewState()
   const reviewPreview = createReviewPreviewState()
   const pendingReview = createPendingReviewState()
+  const prCommentInput = createPrCommentInputState()
   const pendingReviewLoad: LoadPendingReviewContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -532,6 +534,8 @@ export async function createApp(options: AppOptions = {}) {
     jumpList.clear()
     // This draft's id must not submit into another PR; a PR with a draft fetches its own.
     pendingReview.clear()
+    // Half a comment on one PR must not post to the PR that replaced it.
+    prCommentInput.close()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -705,6 +709,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     pendingReview,
     toast,
+    prCommentInput,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1072,6 +1077,7 @@ export async function createApp(options: AppOptions = {}) {
     syncPreview,
     reviewPreview,
     pendingReview,
+    prCommentInput,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1122,6 +1128,7 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     render,
+    commentInput: prCommentInput,
   }
 
   const foldsContext: folds.FoldsContext = {
@@ -1946,6 +1953,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     mentions,
     commentDrafts,
+    prCommentInput,
     activityFeed,
     visit,
     jumpList,
@@ -2066,6 +2074,7 @@ export async function createApp(options: AppOptions = {}) {
       startReferencePrefetch(referenceContext)
     },
     recreatePrInfoPanel: commentPollRebuild(refreshContext.recreatePrInfoPanel),
+    prCommentInputOpen: prCommentInput.isOpen,
     mode,
     prInfo: prInfo ?? null,
     headSha: currentHeadSha,

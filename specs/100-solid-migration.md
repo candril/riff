@@ -282,6 +282,11 @@ The toast is the twenty-second (`createToastState` in
 `src/features/toast/state.ts`); the frame carries its message and type,
 and a reload or a switch to another PR clears it, as the initial state
 did.
+The PR overview's comment prompt is the twenty-third
+(`createPrCommentInputState` in
+`src/features/pr-info-panel/comment-input-state.ts`); the frame carries
+what it shows, and a reload, a switch to another PR or entering the
+overview closes it, as the initial state did.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

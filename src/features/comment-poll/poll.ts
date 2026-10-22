@@ -53,6 +53,7 @@ export interface CommentPollContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
+  prCommentInputOpen: () => boolean
   /** Seconds between ticks; 0 disables the timer. */
   intervalSeconds?: number
   /**
@@ -147,10 +148,10 @@ export function applyThreadStates(
  * highlighted row, so we defer applying updates until they're back to
  * viewing. The fetch still happens; we just hold the result for next tick.
  */
-function isComposing(state: AppState): boolean {
+function isComposing(state: AppState, prCommentInputOpen: boolean): boolean {
   const overlay = state.inlineCommentOverlay
   if (overlay.open && overlay.mode !== "view") return true
-  if (state.prInfoPanel.commentInputOpen) return true
+  if (prCommentInputOpen) return true
   return false
 }
 
@@ -203,7 +204,7 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
 
     // Don't clobber an open composer; retry on a later tick by leaving
     // lastSig untouched so the change is still considered "new".
-    if (isComposing(ctx.getState())) return
+    if (isComposing(ctx.getState(), ctx.prCommentInputOpen())) return
 
     if (changed) {
       lastSig = sig
@@ -225,7 +226,7 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
     const { owner, repo, number } = ctx.prInfo!
     const states = await getPrThreadStates(owner, repo, number)
     if (states.length === 0) return
-    if (isComposing(ctx.getState())) return
+    if (isComposing(ctx.getState(), ctx.prCommentInputOpen())) return
 
     ctx.setState((s) => {
       const comments = applyThreadStates(s.comments, states)

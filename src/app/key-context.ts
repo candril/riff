@@ -53,6 +53,7 @@ import type { BlameDeps } from "../features/blame/keys"
 import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 import type { ToastState } from "../features/toast/state"
+import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 
 export interface AppKeyContext {
   // State access
@@ -161,6 +162,8 @@ export interface AppKeyContext {
   mentions: MentionsState
   /** The comment composer's kept drafts, the same instance the frame pass reads. */
   commentDrafts: CommentDraftsState
+  /** The PR overview's comment prompt, the same instance the frame pass reads. */
+  prCommentInput: PrCommentInputState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

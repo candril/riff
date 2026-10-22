@@ -8,6 +8,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createFeedState } from "../features/feed/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 
 const diff = (patch: Partial<AppState> = {}): AppState => ({
   ...createInitialState([], [], "test", ""),
@@ -24,6 +25,7 @@ const pickers = {
   commitPicker: createCommitPickerState(),
   actionMenu: createActionMenuState(),
   activityFeed: createFeedState(),
+  prCommentInput: createPrCommentInputState(),
 }
 
 describe("textObjectTakes", () => {

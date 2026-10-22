@@ -17,31 +17,27 @@ import {
   commitViewFilter,
   startViewFilter,
   closePRInfoPanel,
-  openPRCommentInput,
   setReactionTarget,
 } from "../../state"
 import type { ToastState } from "../toast/state"
+import type { PrCommentInputState } from "./comment-input-state"
 
 export interface PRInfoPanelDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  // The PR info panel class instance (for cursor movement and scrolling)
+  commentInput: PrCommentInputState
   getPanel: () => PRInfoPanelClass | null
-  // Callback to jump to file (for files section Enter)
   onJumpToFile?: (filename: string) => void
   // Callback to open a specific file at a specific line in $EDITOR,
   // bypassing the diff view (spec 043). Used for check annotations —
   // the file may not even be in the PR diff.
   onOpenFileAtLine?: (filename: string, line: number) => void
-  // Callback to activate a commit (for commits section Enter)
   onActivateCommit?: (sha: string) => void
   /** Act on the preview row the cursor is on — open it, or copy it. When
    *  the row has several links, riff asks which (spec 068). */
   onPreviewRow?: (action: "open" | "copy", row: PreviewRow) => void
-  // Toggle resolved state of a review thread by root comment id.
-  // Used by `x` in the Conversation section.
   onToggleThreadResolved?: (rootCommentId: string) => void
   // Open the inline comment overlay (the thread view) on a review thread,
   // identified by its root comment id. Enter in the Conversation section
@@ -68,14 +64,11 @@ export function moveDown(deps: Deps): void {
   const panel = deps.getPanel()
   if (!panel) return
   if (panel.isSectionExpanded()) {
-    // Try to move within section (header -> items -> next section)
     const moved = panel.moveCursor(1)
     if (!moved) {
-      // At end of items, go to next section header
       panel.cycleSection(1)
     }
   } else {
-    // Section collapsed, go to next section
     panel.cycleSection(1)
   }
 }
@@ -85,14 +78,11 @@ export function moveUp(deps: Deps): void {
   const panel = deps.getPanel()
   if (!panel) return
   if (panel.isSectionExpanded()) {
-    // Try to move within section (items -> header -> prev section)
     const moved = panel.moveCursor(-1)
     if (!moved) {
-      // At header, go to previous section (at its last item or header)
       panel.cycleSectionToEnd(-1)
     }
   } else {
-    // Section collapsed, go to previous section
     panel.cycleSectionToEnd(-1)
   }
 }
@@ -140,7 +130,7 @@ export function toggleResolved(deps: Deps): void {
 export function openCommentInput(deps: Deps): void {
   const panel = deps.getPanel()
   if (panel && panel.getActiveSection() === 'conversation' && deps.getState().prInfo) {
-    deps.setState(openPRCommentInput)
+    deps.commentInput.open()
     deps.render()
   }
 }
