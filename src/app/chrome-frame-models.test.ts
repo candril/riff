@@ -55,6 +55,7 @@ function frame(
     linePeek: null,
     blamePeek: null,
     mentions: { pool: [], searching: null },
+    commentDrafts: new Map(),
     commandKeys: new Map(),
   }
 }

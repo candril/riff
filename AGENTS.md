@@ -129,8 +129,9 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/action-menu/state.ts`,
 `src/features/line-peek/state.ts`,
 `src/features/blame/peek-state.ts`,
-`src/features/blame/column-state.ts` and
-`src/features/mentions/state.ts` are the examples. The frame
+`src/features/blame/column-state.ts`,
+`src/features/mentions/state.ts` and
+`src/features/inline-comment-overlay/drafts-state.ts` are the examples. The frame
 pass reads each factory's accessors into the `Frame`, so islands keep
 following one frame; its actions do not render, so callers still call
 `render()` after them, and a reload that rebuilds `AppState` resets the

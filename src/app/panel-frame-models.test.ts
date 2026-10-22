@@ -48,7 +48,8 @@ function frame(
     height = 40,
     now = NOW,
     mentions = { pool: [], searching: null },
-  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"] } = {}
+    commentDrafts = new Map(),
+  }: { flash?: Partial<FlashState>; width?: number; height?: number; now?: number; mentions?: Frame["mentions"]; commentDrafts?: Frame["commentDrafts"] } = {}
 ): Frame {
   return {
     state,
@@ -74,6 +75,7 @@ function frame(
     linePeek: null,
     blamePeek: null,
     mentions,
+    commentDrafts,
     commandKeys: new Map(),
   }
 }
@@ -97,6 +99,12 @@ describe("threadPanelFrameInput", () => {
     const input = threadPanelFrameInput(frame(panelOpen(base()), { mentions: { pool: ["dana"], searching: "da" } }))!
     expect(input.mentionCandidates.at(-1)).toBe("dana")
     expect(input.mentionSearchQuery).toBe("da")
+  })
+
+  test("offers the draft kept on the panel's line, and none kept elsewhere", () => {
+    const kept = (drafts: [string, string][]) => threadPanelFrameInput(frame(panelOpen(base()), { commentDrafts: new Map(drafts) }))!.draft
+    expect(kept([["src/a.ts:1:RIGHT", "half a thought"]])).toBe("half a thought")
+    expect(kept([["src/a.ts:2:RIGHT", "half a thought"]])).toBe("")
   })
 
   test("counts the threads open-only hides while it is on, and is null for it while it is off", () => {

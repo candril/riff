@@ -13,6 +13,7 @@ import { createActionMenuState } from "../action-menu/state"
 import { createLinePeekState } from "../line-peek/state"
 import { createBlamePeekState } from "../blame/peek-state"
 import { createBlameColumnsState } from "../blame/column-state"
+import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import { adoptReloadedState } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
@@ -37,6 +38,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -65,6 +67,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -94,6 +97,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -123,6 +127,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -153,6 +158,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -184,6 +190,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -216,6 +223,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -247,6 +255,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -283,6 +292,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -316,6 +326,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -345,6 +356,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek,
       blamePeek: createBlamePeekState(),
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -373,6 +385,7 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek,
       blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -403,11 +416,42 @@ describe("a refresh's rebuilt state", () => {
       linePeek: createLinePeekState(),
       blamePeek: createBlamePeekState(),
       blameColumns,
+      commentDrafts: createCommentDraftsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
 
     expect(state.description).toBe("reloaded")
     expect(blameColumns.columns().size).toBe(0)
+  })
+
+  test("drops the kept comment drafts, which a reloaded diff could put on another line", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const commentDrafts = createCommentDraftsState()
+    commentDrafts.remember({ filename: "a.ts", line: 1, side: "RIGHT" }, "half a thought")
+    commentDrafts.remember({ editingId: "comment-1" }, "a rewrite")
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
+      blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
+      commentDrafts,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(commentDrafts.drafts().size).toBe(0)
   })
 })

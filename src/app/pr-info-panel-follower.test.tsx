@@ -59,6 +59,7 @@ function frameOf(panel: Partial<AppState["prInfoPanel"]>, flash: Partial<FlashSt
     linePeek: null,
     blamePeek: null,
     mentions: { pool: [], searching: null },
+    commentDrafts: new Map(),
     commandKeys: new Map(),
   }
 }

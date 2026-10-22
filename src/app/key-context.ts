@@ -31,6 +31,7 @@ import type { LinePeekState } from "../features/line-peek/state"
 import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
+import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -152,6 +153,8 @@ export interface AppKeyContext {
   blameColumns: BlameColumnsState
   /** The @mention pool, the same instance the frame pass reads. */
   mentions: MentionsState
+  /** The comment composer's kept drafts, the same instance the frame pass reads. */
+  commentDrafts: CommentDraftsState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

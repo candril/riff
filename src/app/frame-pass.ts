@@ -36,6 +36,7 @@ import type { LinePeekState } from "../features/line-peek/state"
 import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
+import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -70,6 +71,7 @@ export interface FramePassContext {
   blamePeek: BlamePeekState
   blameColumns: Pick<BlameColumnsState, "columns">
   mentions: Pick<MentionsState, "pool" | "searching">
+  commentDrafts: Pick<CommentDraftsState, "drafts">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   // Helper
@@ -176,6 +178,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       linePeek,
       blamePeek,
       mentions: { pool: ctx.mentions.pool(), searching: ctx.mentions.searching() },
+      commentDrafts: ctx.commentDrafts.drafts(),
       commandKeys: ctx.getCommandKeys(),
     }
 

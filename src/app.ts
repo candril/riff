@@ -69,6 +69,7 @@ import { createLinePeekState } from "./features/line-peek/state"
 import { createBlamePeekState } from "./features/blame/peek-state"
 import { createBlameColumnsState } from "./features/blame/column-state"
 import { createMentionsState } from "./features/mentions/state"
+import { createCommentDraftsState } from "./features/inline-comment-overlay/drafts-state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -490,6 +491,7 @@ export async function createApp(options: AppOptions = {}) {
   const blamePeek = createBlamePeekState()
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
+  const commentDrafts = createCommentDraftsState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -505,6 +507,9 @@ export async function createApp(options: AppOptions = {}) {
     linePeek.close()
     blamePeek.close()
     blameColumns.clear()
+    // A draft is keyed by file, line and side, and the new diff can put other
+    // code on that line: kept, it would come back on the wrong one.
+    commentDrafts.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -544,6 +549,7 @@ export async function createApp(options: AppOptions = {}) {
     reveal: (anchor) => threadMotion.revealAnchor(anchor, threadMotionContext),
     fillComposer: (text) => threadPanel.composer.setValue(text),
     note: chat.note,
+    commentDrafts,
   })
   chat.onSessionClosed(proposals.endConversation)
   const chatColumn = createChatColumnIsland(renderer, chat, () => chatAtCandidates(state))
@@ -685,6 +691,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     mentions,
+    commentDrafts,
     getCommandKeys: () => paletteKeys,
     updateFileTreePanel,
     publishFrame: frame.publish,
@@ -1041,6 +1048,7 @@ export async function createApp(options: AppOptions = {}) {
     linePeek,
     blamePeek,
     blameColumns,
+    commentDrafts,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1879,6 +1887,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     mentions,
+    commentDrafts,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys

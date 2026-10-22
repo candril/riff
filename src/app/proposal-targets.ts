@@ -7,8 +7,8 @@ import {
   setInlineCommentInput,
   startInlineEdit,
   type AppState,
-  type DraftOn,
 } from "../state"
+import type { DraftOn } from "../features/inline-comment-overlay/drafts-state"
 import type { Comment } from "../types"
 
 /** Where a proposal opens in the composer, and how to read what the reviewer did there. */

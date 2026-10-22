@@ -45,6 +45,7 @@ async function proposing(comments: Comment[] = []) {
     },
     fillComposer: (text) => mounted.ctx.threadPanel.composer.setValue(text),
     note: mounted.chat.note,
+    commentDrafts: mounted.commentDrafts,
   })
   const keys = keysOn(mounted, {
     composerSettled: proposals.composerSettled,
@@ -84,7 +85,7 @@ test("Esc drops the agent's comment, and the line keeps no draft of it", async (
   app.setup.mockInput.pressEscape()
   expect(await outcome).toBe(DROPPED)
   expect(app.ctx.getState().comments).toEqual([])
-  expect(app.ctx.getState().commentDrafts.size).toBe(0)
+  expect(app.commentDrafts.drafts().size).toBe(0)
   expect(app.ctx.getState().toast.message).toBeNull()
 })
 

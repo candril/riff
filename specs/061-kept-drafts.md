@@ -41,6 +41,14 @@ The live textarea is what gets kept, not `inlineCommentOverlay.input`: state
 mirrors keystrokes, but reading the composer directly cannot be a keystroke
 behind — the same reason `Ctrl-g` hands the textarea's value to `$EDITOR`.
 
-Drafts live in `AppState.commentDrafts`, keyed `filename:line:side`, or
-`edit:<comment id>` while editing. The key is derived inside the reducers
-from the overlay's own anchor, so no call site has to know the shape of it.
+Drafts live in `createCommentDraftsState`
+(`src/features/inline-comment-overlay/drafts-state.ts`), keyed
+`filename:line:side`, or `edit:<comment id>` while editing. Callers name a
+line or an edit (`DraftOn`, which `draftOn` reads off the overlay) and the
+factory derives the key, so no call site has to know the shape of it. The
+state updaters that open the composer never look a draft up: their callers
+pass it as the prefill.
+
+A reload (`gr`, switching PRs, opening the branch's PR) clears them. A
+draft is keyed by file, line and side, and the reloaded diff can put other
+code on that line, where the draft would come back on the wrong one.

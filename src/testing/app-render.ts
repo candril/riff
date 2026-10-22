@@ -18,6 +18,7 @@ import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMentionsState } from "../features/mentions/state"
+import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -130,6 +131,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const blamePeek = createBlamePeekState()
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
+  const commentDrafts = createCommentDraftsState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -180,6 +182,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     blamePeek,
     blameColumns,
     mentions,
+    commentDrafts,
     getCommandKeys: () => commandKeys,
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
@@ -243,6 +246,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     blameColumns,
     /** The @mention pool's state, which the frame pass and the keys read as app.ts's do. */
     mentions,
+    /** The comment composer's kept drafts, which the frame pass and the keys read as app.ts's do. */
+    commentDrafts,
     fileTreePanel,
     render,
     agent,
@@ -288,6 +293,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts }
 }

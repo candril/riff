@@ -2,7 +2,8 @@ import { proposalAnchor, type ProposalAnchor } from "../features/chat/proposal-a
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 import type { CommentProposal, Proposer } from "../providers/agent/proposer"
 import { isUnsynced } from "../providers/agent/thread-text"
-import { commentDraftOn, forgetCommentDraftOn, type AppState } from "../state"
+import type { AppState } from "../state"
+import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { editTarget, newCommentTarget, type ProposalTarget } from "./proposal-targets"
 
 export const BUSY = "A proposal is already open; propose the next after the reviewer closes it."
@@ -20,6 +21,8 @@ export interface ProposalDeps {
   fillComposer(text: string): void
   /** Says in the chat what riff did with a proposal. */
   note(text: string): void
+  /** The reviewer's kept drafts, which a proposal never opens over (spec 061). */
+  commentDrafts: Pick<CommentDraftsState, "on" | "forget">
 }
 
 interface Pending {
@@ -54,7 +57,7 @@ export function createProposals(deps: ProposalDeps): Proposer & {
   }
 
   function draftRefusal(target: ProposalTarget): string | null {
-    if (!commentDraftOn(deps.getState(), target.draftOn)) return null
+    if (!deps.commentDrafts.on(target.draftOn)) return null
     const what = "editingId" in target.draftOn ? "an unsaved edit of the comment" : "an unsaved draft"
     return `The reviewer has ${what} on ${target.place}; it stays theirs, so nothing opened there.`
   }
@@ -75,8 +78,8 @@ export function createProposals(deps: ProposalDeps): Proposer & {
   function drop(pending: Pending) {
     // Untouched, the remembered draft is the agent's text, not something the reviewer half wrote,
     // and it would turn away the next proposal on the same place.
-    if (commentDraftOn(deps.getState(), pending.target.draftOn) === pending.text) {
-      deps.setState((s) => forgetCommentDraftOn(s, pending.target.draftOn))
+    if (deps.commentDrafts.on(pending.target.draftOn) === pending.text) {
+      deps.commentDrafts.forget(pending.target.draftOn)
     }
     settle(DROPPED)
   }

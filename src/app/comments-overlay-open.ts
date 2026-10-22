@@ -11,7 +11,7 @@ export interface CommentsOverlayOpen {
 export function createCommentsOverlayOpen(
   ctx: Pick<
     AppKeyContext,
-    "getState" | "setState" | "getVimState" | "setVimState" | "getLineMapping" | "getCommentScope" | "render"
+    "getState" | "setState" | "getVimState" | "setVimState" | "getLineMapping" | "getCommentScope" | "render" | "commentDrafts"
   >,
 ): CommentsOverlayOpen {
   /**
@@ -55,7 +55,7 @@ export function createCommentsOverlayOpen(
     ctx.setState((st) => {
       const opened = openInlineCommentOverlay(
         st, anchor.filename, anchor.line, anchor.side, mode, blockStart, undefined,
-        { note: anchor.note, anchorHash }
+        { note: anchor.note, anchorHash, draft: ctx.commentDrafts.on(anchor) }
       )
       // Asked for this thread by name: a resolved one opens rather than
       // showing its root and hiding the rest.

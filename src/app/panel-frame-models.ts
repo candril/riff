@@ -1,5 +1,4 @@
 import {
-  commentDraftFor,
   getCommentsPanelScopeFilename,
   getInlineCommentOverlayComments,
   getInlineCommentOverlayHiddenThreadCount,
@@ -9,6 +8,7 @@ import {
 } from "../state"
 import { collectMentionCandidates } from "../utils/mentions"
 import { commentPanelWidth } from "../features/inline-comment-overlay"
+import { draftIn } from "../features/inline-comment-overlay/drafts-state"
 import type { ThreadPanelInput } from "../components/thread-panel-model"
 import { feedModel, type FeedModel } from "../components/feed-model"
 import { flashLabelsOn } from "../vim-diff/flash-state"
@@ -18,7 +18,7 @@ import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, flashState, width, now, mentions }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, flashState, width, now, mentions, commentDrafts }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
   return {
@@ -32,7 +32,7 @@ export function threadPanelFrameInput({ state, flashState, width, now, mentions 
     appMode: state.appMode,
     highlightedIndex: overlay.highlightedIndex,
     editingId: overlay.editingId,
-    draft: commentDraftFor(state, overlay.filename, overlay.line, overlay.side),
+    draft: draftIn(commentDrafts, { filename: overlay.filename, line: overlay.line, side: overlay.side }),
     focused: state.focusedPanel === "comments",
     expanded: overlay.expanded,
     width: commentPanelWidth(width, overlay.expanded),

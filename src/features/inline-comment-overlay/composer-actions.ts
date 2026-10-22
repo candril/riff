@@ -8,7 +8,6 @@ import {
   clearToast,
   moveEmojiPickerSelection,
   moveMentionPickerSelection,
-  rememberCommentDraft,
   setEmojiPicker,
   setInlineCommentInput,
   setMentionPicker,
@@ -21,6 +20,7 @@ import type { ComposerHandle } from "../../app/island-composer"
 import type { InputPicker } from "../../app/at-picker-keys"
 import { submitInlineDraft, submitInlineEditDraft } from "./handlers"
 import type { ComposerKeyDeps } from "./composer-keys"
+import { draftOn } from "./drafts-state"
 
 /**
  * Ctrl-g, like shell Ctrl-x Ctrl-e. The textarea's live value is the source
@@ -67,11 +67,13 @@ export function insertSuggestion(deps: ComposerKeyDeps): void {
  */
 export function cancelComposer(deps: ComposerKeyDeps): void {
   const draft = deps.composer.value()
-  deps.setState((s) => cancelInlineComposer(rememberCommentDraft(s, draft)))
+  const ov = deps.getState().inlineCommentOverlay
+  if (ov.open) deps.commentDrafts.remember(draftOn(ov), draft)
+  deps.setState(cancelInlineComposer)
   deps.composerSettled?.("dropped")
   deps.render()
   // A proposal of the agent's dropped untouched is forgotten, not kept.
-  const kept = draft.trim() !== "" && [...deps.getState().commentDrafts.values()].includes(draft)
+  const kept = draft.trim() !== "" && deps.commentDrafts.holds(draft)
   if (kept) {
     deps.setState((s) => showToast(s, "Draft kept for this line", "info"))
     deps.render()

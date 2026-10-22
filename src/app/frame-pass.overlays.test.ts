@@ -30,6 +30,7 @@ import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMentionsState } from "../features/mentions/state"
+import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -117,6 +118,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     blamePeek,
     blameColumns: createBlameColumnsState(),
     mentions: createMentionsState(),
+    commentDrafts: createCommentDraftsState(),
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,

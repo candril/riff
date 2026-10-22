@@ -34,7 +34,7 @@ test("Esc closes the composer and keeps the draft on its line", async () => {
 
   expect(overlay(app).mode).toBe("view")
   expect(settled).toEqual(["dropped"])
-  expect([...app.ctx.getState().commentDrafts.values()]).toEqual(["almost"])
+  expect([...app.commentDrafts.drafts().values()]).toEqual(["almost"])
   expect(app.ctx.getState().toast.message).toBe("Draft kept for this line")
 })
 

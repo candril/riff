@@ -77,6 +77,7 @@ function frame(
     linePeek,
     blamePeek,
     mentions: { pool: [], searching: null },
+    commentDrafts: new Map(),
     commandKeys: new Map(),
   }
 }

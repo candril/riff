@@ -25,6 +25,7 @@ import {
 import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
 import { groupIntoThreads } from "../../utils/threads"
+import type { CommentDraftsState } from "./drafts-state"
 
 export interface ThreadPanelViewDeps {
   getState: () => AppState
@@ -68,6 +69,8 @@ export interface ThreadPanelViewDeps {
   onToggleHelp: () => void
   /** `+` — react on the highlighted comment (spec 042). */
   onReact: () => void
+  /** The kept drafts the composer picks back up (spec 061). */
+  commentDrafts: Pick<CommentDraftsState, "on">
 }
 
 type Deps = ThreadPanelViewDeps
@@ -198,17 +201,14 @@ export function startNew(deps: Deps): void {
 export function replyInline(deps: Deps): void {
   const highlighted = highlightedComment(deps.getState())
   if (highlighted) {
+    const { filename, line, side } = highlighted
     deps.setState((s) => startInlineCompose({
       ...s,
-      inlineCommentOverlay: {
-        ...s.inlineCommentOverlay,
-        filename: highlighted.filename,
-        line: highlighted.line,
-        side: highlighted.side,
-      },
-    }, "", { reply: true }))
+      inlineCommentOverlay: { ...s.inlineCommentOverlay, filename, line, side },
+    }, deps.commentDrafts.on({ filename, line, side }), { reply: true }))
   } else {
-    deps.setState((s) => startInlineCompose(s, "", { reply: true }))
+    const { filename, line, side } = deps.getState().inlineCommentOverlay
+    deps.setState((s) => startInlineCompose(s, deps.commentDrafts.on({ filename, line, side }), { reply: true }))
   }
   deps.render()
 }
@@ -226,7 +226,7 @@ export function editInEditor(deps: Deps): void {
 /** Only the highlighted comment can be edited, so with none there is nothing to open. */
 export function editInline(deps: Deps, highlighted: Comment): void {
   const prefill = highlighted.localEdit ?? highlighted.body
-  update(deps, (s) => startInlineEdit(s, highlighted.id, prefill))
+  update(deps, (s) => startInlineEdit(s, highlighted.id, deps.commentDrafts.on({ editingId: highlighted.id }) || prefill))
 }
 
 export function deleteHighlighted(deps: Deps): void {

@@ -11,7 +11,6 @@ import type { Comment } from "../../types"
 import {
   addComment,
   cancelInlineComposer,
-  forgetCommentDraft,
   clearToast,
   highlightInlineComment,
   showToast,
@@ -23,6 +22,7 @@ import { diffHunkAt } from "../../utils/diff-hunk"
 import { extractCommentImages } from "../../utils/comment-images"
 import { openUrl } from "../../utils/open-url"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { draftOn, type CommentDraftsState } from "./drafts-state"
 
 export interface InlineComposerHandlersContext {
   getState: () => AppState
@@ -31,6 +31,8 @@ export interface InlineComposerHandlersContext {
   source: string
   /** Current GitHub user, falls back to "@you" when unknown. */
   getCachedCurrentUser: () => string | null
+  /** The kept drafts; a saved comment's is forgotten (spec 061). */
+  commentDrafts: Pick<CommentDraftsState, "forget">
 }
 
 /**
@@ -85,7 +87,7 @@ export async function submitInlineDraft(
   }
 
   ctx.setState((s) => addComment(s, comment))
-  ctx.setState(forgetCommentDraft)
+  ctx.commentDrafts.forget(draftOn(ov))
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, comment.id))
   ctx.render()
@@ -145,7 +147,7 @@ export async function submitInlineEditDraft(
     ...s,
     comments: s.comments.map((c) => (c.id === target.id ? updated : c)),
   }))
-  ctx.setState(forgetCommentDraft)
+  ctx.commentDrafts.forget(draftOn(ov))
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, updated.id))
   ctx.setState((s) => showToast(s, "Comment updated", "success"))

@@ -4,13 +4,13 @@ import {
   cancelInlineComposer,
   createInitialState,
   openInlineCommentOverlay,
-  rememberCommentDraft,
   setInlineCommentInput,
   type AppState,
 } from "../state"
 import { createComment } from "../types"
 import { buildFileTree } from "../utils/file-tree"
 import { parseDiff } from "../utils/diff-parser"
+import { createCommentDraftsState, draftOn, type CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { BUSY, DROPPED, ENDED, createProposals } from "./proposals"
 
 const DIFF = `diff --git a/src/a.ts b/src/a.ts
@@ -27,9 +27,11 @@ index 1111111..2222222 100644
 const PROPOSAL = { path: "src/a.ts", line: 2, side: "new" as const, text: "Why upper case?" }
 const ANCHOR = { filename: "src/a.ts", line: 2, side: "RIGHT" as const }
 
-function setup(patch: (state: AppState) => AppState = (s) => s) {
+function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: CommentDraftsState) => void = () => {}) {
   const files = parseDiff(DIFF)
   let state = patch(createInitialState(files, buildFileTree(files), "test", ""))
+  const drafts = createCommentDraftsState()
+  keep(drafts)
   const notes: string[] = []
   const revealed: unknown[] = []
   const proposals = createProposals({
@@ -39,6 +41,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s) {
     reveal: (anchor) => void revealed.push(anchor),
     fillComposer: () => {},
     note: (text) => void notes.push(text),
+    commentDrafts: drafts,
   })
   const outcomes: string[] = []
   const propose = (proposal = PROPOSAL) => proposals.proposeComment(proposal).then((o) => void outcomes.push(o))
@@ -48,13 +51,19 @@ function setup(patch: (state: AppState) => AppState = (s) => s) {
     revealed,
     outcomes,
     propose,
+    drafts,
     state: () => state,
     update: (fn: (s: AppState) => AppState) => (state = fn(state)),
+    // What the composer's Esc does, before it reports.
+    escape() {
+      const ov = state.inlineCommentOverlay
+      if (ov.open) drafts.remember(draftOn(ov), ov.input)
+      state = cancelInlineComposer(state)
+    },
   }
 }
 
 // What the composer's keys do to state, before they report.
-const escape = (s: AppState) => cancelInlineComposer(rememberCommentDraft(s, s.inlineCommentOverlay.input))
 function save(s: AppState): AppState {
   const ov = s.inlineCommentOverlay
   const comment = createComment(ov.filename, ov.line, ov.input.trim(), ov.side, "@you")
@@ -93,16 +102,13 @@ test("a second proposal is refused while the first is open", async () => {
 })
 
 test("a draft the reviewer left on the line is never replaced", async () => {
-  const t = setup((s) =>
-    cancelInlineComposer(rememberCommentDraft(openInlineCommentOverlay(s, "src/a.ts", 2, "RIGHT", "compose"), "half")),
-  )
-  t.update((s) => ({ ...s, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: false } }))
+  const t = setup(undefined, (drafts) => drafts.remember(ANCHOR, "half"))
   void t.propose()
   await settled()
   expect(t.outcomes).toEqual([
     "The reviewer has an unsaved draft on src/a.ts:2; it stays theirs, so nothing opened there.",
   ])
-  expect(t.state().commentDrafts.get("src/a.ts:2:RIGHT")).toBe("half")
+  expect(t.drafts.on(ANCHOR)).toBe("half")
 })
 
 test("a proposal waits while the reviewer writes a comment, and opens once it is saved", async () => {
@@ -153,21 +159,22 @@ test("a save that saved nothing leaves the proposal open", async () => {
 test("dropping the agent's text untouched forgets it, so the line takes the next proposal", async () => {
   const t = setup()
   void t.propose()
-  t.update(escape)
+  t.escape()
   t.proposals.composerSettled("dropped")
   await settled()
   expect(t.outcomes).toEqual([DROPPED])
-  expect(t.state().commentDrafts.size).toBe(0)
+  expect(t.drafts.drafts().size).toBe(0)
 })
 
 test("dropping it after editing keeps the draft, as Esc always does", async () => {
   const t = setup()
   void t.propose()
-  t.update((s) => escape(setInlineCommentInput(s, "Why upper case? Mine now")))
+  t.update((s) => setInlineCommentInput(s, "Why upper case? Mine now"))
+  t.escape()
   t.proposals.composerSettled("dropped")
   await settled()
   expect(t.outcomes).toEqual([DROPPED])
-  expect(t.state().commentDrafts.get("src/a.ts:2:RIGHT")).toBe("Why upper case? Mine now")
+  expect(t.drafts.on(ANCHOR)).toBe("Why upper case? Mine now")
 })
 
 test("a composer closed some other way counts as dropped, once", async () => {
@@ -234,7 +241,7 @@ test("an unknown id, a comment on GitHub as written, or a second proposal is ref
 })
 
 test("an edit of the comment the reviewer left unsaved is never replaced", async () => {
-  const t = setup((s) => ({ ...withComments(s), commentDrafts: new Map([["edit:local-1", "half"]]) }))
+  const t = setup(withComments, (drafts) => drafts.remember({ editingId: "local-1" }, "half"))
   expect(await t.proposals.proposeEdit("local-1", "x")).toBe(
     "The reviewer has an unsaved edit of the comment on src/a.ts:2; it stays theirs, so nothing opened there.",
   )
@@ -275,14 +282,15 @@ test("saving the comment back as it was says it was kept", async () => {
 test("dropping new wording untouched forgets it; edited, it is kept", async () => {
   const t = setup(withComments)
   const untouched = t.proposals.proposeEdit("local-1", "Why upper case here?")
-  t.update(escape)
+  t.escape()
   t.proposals.composerSettled("dropped")
   expect(await untouched).toBe(DROPPED)
-  expect(t.state().commentDrafts.size).toBe(0)
+  expect(t.drafts.drafts().size).toBe(0)
 
   const edited = t.proposals.proposeEdit("local-1", "Why upper case here?")
-  t.update((s) => escape(setInlineCommentInput(s, "Mine now")))
+  t.update((s) => setInlineCommentInput(s, "Mine now"))
+  t.escape()
   t.proposals.composerSettled("dropped")
   expect(await edited).toBe(DROPPED)
-  expect(t.state().commentDrafts.get("edit:local-1")).toBe("Mine now")
+  expect(t.drafts.on({ editingId: "local-1" })).toBe("Mine now")
 })

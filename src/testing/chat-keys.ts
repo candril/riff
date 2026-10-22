@@ -70,6 +70,7 @@ export function keysOn(
     blamePeek: mounted.blamePeek,
     blameColumns: mounted.blameColumns,
     mentions: mounted.mentions,
+    commentDrafts: mounted.commentDrafts,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

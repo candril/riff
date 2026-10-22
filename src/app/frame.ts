@@ -68,6 +68,8 @@ export interface Frame {
   blamePeek: BlamePeekSnapshot | null
   /** The @mention pool and the query being searched on GitHub, read off their factory. */
   mentions: { pool: readonly string[]; searching: string | null }
+  /** The comment composer's kept drafts, read off their factory (spec 061). */
+  commentDrafts: ReadonlyMap<string, string>
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

@@ -8,6 +8,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -77,6 +78,7 @@ export async function threadPanelKeys(initial: AppState) {
     marksPicker: createMarksPickerState(),
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
+    commentDrafts: createCommentDraftsState(),
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {

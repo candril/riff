@@ -7,7 +7,6 @@ import { commentPanelWidth } from "../features/inline-comment-overlay"
 import {
   closeInlineCommentOverlay,
   openInlineCommentOverlay,
-  rememberCommentDraft,
   startInlineCompose,
   cancelInlineComposer,
   type AppState,
@@ -275,11 +274,13 @@ describe("the panel in the app", () => {
     expect(textarea.plainText).toBe("half a thought")
 
     // Esc keeps a draft; `n` brings it back into the same, still-mounted textarea.
-    app.show(cancelInlineComposer(rememberCommentDraft(app.ctx.getState(), textarea.plainText)))
+    const { filename, line, side } = app.ctx.getState().inlineCommentOverlay
+    app.commentDrafts.remember({ filename, line, side }, textarea.plainText)
+    app.show(cancelInlineComposer(app.ctx.getState()))
     expect(renderer.currentFocusedRenderable).not.toBe(textarea)
     expect(await app.frame()).not.toContain("half a thought")
     textarea.setText("")
-    app.show(startInlineCompose(app.ctx.getState()))
+    app.show(startInlineCompose(app.ctx.getState(), app.commentDrafts.on({ filename, line, side })))
     expect(textarea.plainText).toBe("half a thought")
     expect(renderer.currentFocusedRenderable).toBe(textarea)
     expect(await app.frame()).toContain("half a thought")
