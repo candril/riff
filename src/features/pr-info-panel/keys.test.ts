@@ -27,11 +27,13 @@ describe("the PR overview", () => {
     expect(keys.leftKeys).toEqual([])
   })
 
-  test("l and h open and close the row in the conversation", async () => {
+  test("l opens a folded row and h on it climbs to the header, in any section", async () => {
     const keys = await prInfoPanelKeys(overviewState(), { section: "conversation" })
     keys.press("l")
     keys.press("h")
-    expect(keys.calls).toEqual(["expandSelectedThread", "collapseSelectedThread"])
+    keys.panel.section = "files"
+    keys.press("l")
+    expect(keys.calls).toEqual(["openRow 0", "moveCursorTo -1", "openRow 0"])
   })
 
   test("x resolves the thread in the conversation and does nothing elsewhere", async () => {
@@ -140,7 +142,7 @@ describe("the PR overview", () => {
 })
 
 describe("the overview's z chord", () => {
-  test("za folds the section on its header and the thread in the conversation", async () => {
+  test("za folds the section on its header and opens the row under the cursor", async () => {
     const keys = await prInfoPanelKeys(overviewState(), { onHeader: true })
     keys.press("z")
     keys.press("a")
@@ -148,16 +150,35 @@ describe("the overview's z chord", () => {
     keys.panel.section = "conversation"
     keys.press("z")
     keys.press("a")
-    expect(keys.calls).toEqual(["toggleSection", "toggleSelectedThread"])
+    expect(keys.calls).toEqual(["collapseSection", "openRow 0"])
   })
 
-  test("zm, zM, zr and zR fold and unfold this section or all of them", async () => {
+  test("zo opens the folded row and zc, off a fold, folds the section around it", async () => {
+    const keys = await prInfoPanelKeys(overviewState())
+    for (const key of ["o", "c"]) {
+      keys.press("z")
+      keys.press(key)
+    }
+    expect(keys.calls).toEqual(["openRow 0", "collapseSection"])
+  })
+
+  test("zm and zM fold every section, zr and zR unfold every one, as in the diff", async () => {
     const keys = await prInfoPanelKeys(overviewState())
     for (const key of ["m", "M", "r", "R"]) {
       keys.press("z")
       keys.press(key)
     }
-    expect(keys.calls).toEqual(["collapseSection", "collapseAllSections", "expandSection", "expandAllSections"])
+    expect(keys.calls).toEqual(["collapseAllSections", "collapseAllSections", "expandAllSections", "expandAllSections"])
+  })
+
+  test("zO and zC are swallowed, not read as zo and zc", async () => {
+    const keys = await prInfoPanelKeys(overviewState())
+    for (const key of ["O", "C"]) {
+      keys.press("z")
+      keys.press(key)
+    }
+    expect(keys.calls).toEqual([])
+    expect(keys.leftKeys).toEqual([])
   })
 
   test("any other key after z is swallowed, q and s included", async () => {

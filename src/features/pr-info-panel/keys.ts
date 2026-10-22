@@ -1,6 +1,7 @@
 /**
  * The PR overview's keys (viewMode "state"): `j/k` walk the sections,
- * `za`/`zm`/`zr` fold, `l/h` open and close a row, `Enter`/`o`/`y` act on
+ * `za`/`zo`/`zc` fold the row or section, `zR`/`zM` every section, `l/h`
+ * open a fold or step into it and fold or climb out, `Enter`/`o`/`y` act on
  * it, `c` comments, `x` resolves, `+` reacts, `/` filters, `gg`/`G` the
  * ends, and the `g` chords that reach the app. While it is the view the
  * panel swallows every key it does not know, bar any ctrl key and the few
@@ -147,8 +148,8 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
       command("react", "React to the focused item", prevented(() => act.react(deps))),
       command("filter", "Filter the rows", prevented(() => act.startFilter(deps))),
       command("comment", "Comment on the PR", () => act.openCommentInput(deps)),
-      command("expandItem", "Open the row", () => act.expandItem(deps)),
-      command("collapseItem", "Close the row", () => act.collapseItem(deps)),
+      command("descend", "Open the row or step into it", () => act.fold(deps, "l")),
+      command("climb", "Fold the row or climb out of it", () => act.fold(deps, "h")),
       command("resolve", "Resolve or reopen the thread", () => act.toggleResolved(deps)),
       command("armZ", "Start a z chord", () => chords.armZ()),
       command("activate", "Act on the row", (event) => row.activate(deps, event)),
@@ -167,8 +168,8 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
       ...anyModifiers("+", "prInfoPanel.react"),
       ...anyModifiers("/", "prInfoPanel.filter"),
       ...anyModifiers("c", "prInfoPanel.comment"),
-      ...anyModifiers("l", "prInfoPanel.expandItem"),
-      ...anyModifiers("h", "prInfoPanel.collapseItem"),
+      ...anyModifiers("l", "prInfoPanel.descend"),
+      ...anyModifiers("h", "prInfoPanel.climb"),
       ...anyModifiers("x", "prInfoPanel.resolve"),
       ...anyModifiers("z", "prInfoPanel.armZ"),
       ...anyModifiers("return", "prInfoPanel.activate"),

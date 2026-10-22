@@ -69,6 +69,30 @@ glance, with everything else one keystroke away.
   dropped — it opens with a keystroke.
 - `Ctrl-f` filters sections and rows (spec 065); `s` labels them (spec 066).
 - `d` opens the diff at the file under the cursor when the cursor is on one.
+- The fold keys are nvim's and the diff's, and one rule holds at every
+  level. A section header is the parent of every row in its section; under
+  Merge status a gate line is the parent of its checks or threads, and a
+  check of its annotations; in Conversation a review is the parent of its
+  threads. Every other row (a description line, a preview, a file, a
+  commit, a pending reviewer) is a leaf.
+  - `l` on a folded row or header opens it. On an open one it moves the
+    cursor to its first child row; on a leaf, or an open row with no child
+    rows (a comment whose body is open), it does nothing.
+  - `h` on an open row or header folds it. On a child row or a folded row
+    it moves the cursor to the parent, which stays open; on a folded header
+    it does nothing.
+  - `zo` opens the row or header under the cursor, and does nothing on a
+    leaf or an open one. `zc` folds it when it is open; otherwise it folds
+    the nearest open fold around it and puts the cursor there, the header
+    when that fold is the section. `za` toggles a row or header that folds,
+    and on a leaf does what `zc` does.
+  - `zR` and `zM` open and fold every section. `zr` and `zm` are the same
+    keys, as they are in the diff. Neither touches the folds inside a
+    section, so a section reopens with its checks and threads as they were,
+    and opening every failing check, which would fetch the annotations of
+    each, is left to the reader. `zO` and `zC` are not bound.
+  - Folding a section from one of its rows puts the cursor on its header,
+    and is kept with the sections the reader opened.
 
 ## Technical Notes
 

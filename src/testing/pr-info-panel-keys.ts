@@ -1,4 +1,5 @@
 import type { PRInfoPanelClass } from "../components"
+import type { RowNode } from "../components/pr-info-tree"
 import { registerPrInfoPanelKeys, type PRInfoPanelKeyDeps } from "../features/pr-info-panel/keys"
 import { createInitialState, type AppState, type PRInfoPanelSection } from "../state"
 import type { ReactionTarget } from "../types"
@@ -50,16 +51,17 @@ export function stubPanel(calls: string[], options: StubPanelOptions = {}) {
     moveCursor: record("moveCursor", true),
     cycleSection: record("cycleSection"),
     cycleSectionToEnd: record("cycleSectionToEnd"),
-    toggleSection: record("toggleSection"),
+    getCursorIndex: () => (panel.onHeader ? -1 : 0),
+    // One folded row, so every fold key has something to act on.
+    rowNodes: (): RowNode[] => [{ level: 0, foldable: true, open: false }],
     collapseSection: record("collapseSection"),
     expandSection: record("expandSection"),
     collapseAllSections: record("collapseAllSections"),
     expandAllSections: record("expandAllSections"),
+    openRow: record("openRow"),
+    closeRow: record("closeRow"),
+    moveCursorTo: record("moveCursorTo", true),
     toggleSelectedThread: record("toggleSelectedThread"),
-    expandSelectedThread: record("expandSelectedThread"),
-    collapseSelectedThread: record("collapseSelectedThread"),
-    expandSelectedCheck: record("expandSelectedCheck"),
-    collapseSelectedCheck: record("collapseSelectedCheck"),
     toggleCheckExpansion: record("toggleCheckExpansion"),
     toggleSelectedPoint: () => false,
     getSelectedCheck: () => undefined,

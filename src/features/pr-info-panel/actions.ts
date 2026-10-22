@@ -1,14 +1,16 @@
 /**
- * What the PR overview's keys do: the section walk, the folds, the filter,
- * the `g` chords that reach the app. What `Enter`, `o` and `y` do on the
- * focused row is in `row-actions.ts`, the comment prompt's keys in
- * `comment-input.ts`. The panel controller does the moving and folding;
- * leaving the view is delegated through the deps, which the app wires.
+ * What the PR overview's keys do: the section walk, the folds and the tree
+ * walk of `l`/`h`, the filter, the `g` chords that reach the app. What
+ * `Enter`, `o` and `y` do on the focused row is in `row-actions.ts`, the
+ * comment prompt's keys in `comment-input.ts`. The panel controller does
+ * the moving and folding; leaving the view is delegated through the deps,
+ * which the app wires.
  */
 
 import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import type { PreviewRow } from "../../utils/previews"
+import { foldStep, type FoldOp } from "../../components/pr-info-tree"
 import {
   clearViewFilter,
   commitViewFilter,
@@ -92,62 +94,31 @@ export function moveUp(deps: Deps): void {
   }
 }
 
-/** `za`: the section, or the thread / check the cursor is on. */
-export function toggleFold(deps: Deps): void {
+/**
+ * `l`/`h` and `za`/`zo`/`zc`: one rule at every level, section headers
+ * included (spec 067). The tree decides, the panel folds and moves.
+ */
+export function fold(deps: Deps, op: FoldOp): void {
   const panel = deps.getPanel()
   if (!panel) return
-  if (panel.isOnSectionHeader()) {
-    panel.toggleSection()
-    return
-  }
-  const section = panel.getActiveSection()
-  if (section === 'conversation') {
-    panel.toggleSelectedThread()
-  } else if (section === 'checks') {
-    if (panel.toggleSelectedPoint()) return
-    const check = panel.getSelectedCheck()
-    if (check) panel.toggleCheckExpansion(check.id)
-  } else {
-    panel.toggleSection()
-  }
-}
-
-/** `zm` folds this section, `zM` every section. */
-export function collapse(deps: Deps, all: boolean): void {
-  const panel = deps.getPanel()
-  if (!panel) return
-  if (all) panel.collapseAllSections()
-  else panel.collapseSection()
-}
-
-/** `zr` unfolds this section, `zR` every section. */
-export function expand(deps: Deps, all: boolean): void {
-  const panel = deps.getPanel()
-  if (!panel) return
-  if (all) panel.expandAllSections()
-  else panel.expandSection()
-}
-
-/** `l`: conversation threads, or (spec 043) failing checks into their annotation list. */
-export function expandItem(deps: Deps): void {
-  const panel = deps.getPanel()
-  if (panel) {
-    const section = panel.getActiveSection()
-    if (section === 'conversation') panel.expandSelectedThread()
-    else if (section === 'checks') panel.expandSelectedCheck()
-  }
+  const intent = foldStep(panel.rowNodes(), panel.getCursorIndex(), panel.isSectionExpanded(), op)
+  if (!intent) return
+  if ('openSection' in intent) panel.expandSection()
+  else if ('closeSection' in intent) panel.collapseSection()
+  else if ('openRow' in intent) panel.openRow(intent.openRow)
+  else if ('closeRow' in intent) panel.closeRow(intent.closeRow)
+  else panel.moveCursorTo(intent.cursor)
   deps.render()
 }
 
-/** `h`: conversation threads, or (spec 043) expanded check annotation lists. */
-export function collapseItem(deps: Deps): void {
-  const panel = deps.getPanel()
-  if (panel) {
-    const section = panel.getActiveSection()
-    if (section === 'conversation') panel.collapseSelectedThread()
-    else if (section === 'checks') panel.collapseSelectedCheck()
-  }
-  deps.render()
+/** `zM`/`zm`: every section. */
+export function collapse(deps: Deps): void {
+  deps.getPanel()?.collapseAllSections()
+}
+
+/** `zR`/`zr`: every section. */
+export function expand(deps: Deps): void {
+  deps.getPanel()?.expandAllSections()
 }
 
 /**

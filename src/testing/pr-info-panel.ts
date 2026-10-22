@@ -4,6 +4,8 @@ import type { PrCheck, PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
 import type { Comment } from "../types"
 import type { DiffFile } from "../utils/diff-parser"
+import { fold, type PRInfoPanelDeps } from "../features/pr-info-panel/actions"
+import type { FoldOp } from "../components/pr-info-tree"
 import { mountRenderable, pinStdoutColumns } from "./frame"
 import { checks, commits, conversationComments, prInfo, PR_NOW, reviews, reviewThreadComments } from "./pr-info"
 
@@ -22,6 +24,11 @@ export const fullPr = (): PrInfo =>
 
 /** What markdown prose is drawn in: the markdown renderer's default, not theme.text. */
 export const MARKDOWN_WHITE = "#ffffff"
+
+/** A fold key on the panel, as the overview's `l`/`h`/`z` keys run it. */
+export function pressFold(panel: PRInfoPanelClass, op: FoldOp): void {
+  fold({ getPanel: () => panel, render() {} } as unknown as PRInfoPanelDeps, op)
+}
 
 /** Where `needle` first shows, as [column, row]. */
 export function find(lines: string[], needle: string, from = 0): [number, number] {

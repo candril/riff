@@ -3,7 +3,7 @@ import type { PrCheck, PrInfo, PrReview } from "../providers/github/types"
 import type { Comment } from "../types"
 import { fgAt, ints } from "../testing/frame"
 import { ago, prInfo } from "../testing/pr-info"
-import { find, PR_FILES, usePrInfoPanel } from "../testing/pr-info-panel"
+import { find, pressFold, PR_FILES, usePrInfoPanel } from "../testing/pr-info-panel"
 import { theme } from "../theme"
 
 // The Merge status section as the panel opens on it: the verdict right
@@ -144,11 +144,11 @@ describe("the checks line", () => {
     ])
   })
 
-  test("folds and opens with h and l on it, and h on a check folds the line and climbs onto it", async () => {
+  test("folds and opens with h and l on it, and h on a check climbs onto it and leaves it open", async () => {
     const { panel, mounted } = await open(blocked(), 3)
     panel.setActiveSection("checks")
     panel.moveCursor(1)
-    panel.collapseSelectedCheck()
+    pressFold(panel, "h")
     const folded = (await mounted.frame()).split("\n")
     expect(folded.slice(8, 10)).toEqual([
       "    ✗ Checks         1/2 · test failing  ▶",
@@ -156,12 +156,12 @@ describe("the checks line", () => {
     ])
     expect(panel.getSelectedCheck()).toBeUndefined()
 
-    panel.expandSelectedCheck()
-    panel.moveCursor(1)
+    pressFold(panel, "l")
+    pressFold(panel, "l")
     expect(panel.getSelectedCheck()?.name).toBe("build")
-    panel.collapseSelectedCheck()
+    pressFold(panel, "h")
     expect(panel.getCursorIndex()).toBe(0)
-    expect((await mounted.frame()).split("\n")[9]).toBe("    ✗ Reviews        1/2 approvals · changes requested by bob")
+    expect((await mounted.frame()).split("\n")[8]).toBe("    ✗ Checks         1/2 · test failing  ▼")
   })
 })
 
@@ -197,7 +197,7 @@ describe("the conversations line", () => {
         p.setActiveSection("checks")
         p.moveCursor(4)
         // Inside the mount, where the terminal reads as wide as the screen.
-        if (expand) p.expandSelectedCheck()
+        if (expand) pressFold(p, "l")
       },
     })
 
@@ -229,16 +229,16 @@ describe("the conversations line", () => {
     ])
   })
 
-  test("h on a thread folds the line and climbs onto it, and a thread is no check", async () => {
+  test("h on a thread climbs onto the line and leaves it open, and a thread is no check", async () => {
     const { panel, mounted } = await onConversations(100)
-    panel.expandSelectedCheck()
-    panel.moveCursor(1)
+    pressFold(panel, "l")
+    pressFold(panel, "l")
     expect(panel.getSelectedCheck()).toBeUndefined()
     expect(panel.getSelectedMergeThread()?.id).toBe("gh-2")
-    panel.collapseSelectedCheck()
+    pressFold(panel, "h")
     expect(panel.getCursorIndex()).toBe(3)
     expect(panel.getSelectedMergeThread()).toBeUndefined()
-    expect(gates((await mounted.frame()).split("\n"))[2]).toBe("    ⚠ Conversations  2 unresolved  ▶")
+    expect(gates((await mounted.frame()).split("\n"))[2]).toBe("    ⚠ Conversations  2 unresolved  ▼")
   })
 
   test("a rebuild with every thread resolved stops the line opening, drops its rows and keeps the cursor on a row", async () => {
@@ -267,9 +267,9 @@ describe("the conversations line", () => {
     // thread now sits on the Base line, in the same place.
     expect(rebuilt.panel.getMaxCursorIndex()).toBe(6)
     expect(rebuilt.panel.getCursorIndex()).toBe(5)
-    rebuilt.panel.expandSelectedCheck()
+    pressFold(rebuilt.panel, "zo")
     rebuilt.panel.moveCursor(-2)
-    rebuilt.panel.expandSelectedCheck()
+    pressFold(rebuilt.panel, "zo")
     expect(rebuilt.panel.getMaxCursorIndex()).toBe(6)
   })
 })

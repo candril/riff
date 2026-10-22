@@ -50,10 +50,11 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
   {
     title: "Folds & Context",
     keys: [
-      ["za", "Toggle fold at cursor (file, hunk, code block)"],
+      ["za", "Toggle fold (file, hunk, code block, overview row)"],
       ["zA", "Fold every code block in this file"],
-      ["zo / zc", "Open / close fold"],
-      ["zR / zM", "Open / close every fold"],
+      ["zo / zc", "Open / close fold (diff or PR overview)"],
+      ["zR / zM", "Open / close every fold or overview section"],
+      ["h / l", "Tree & overview: fold or climb / open or descend"],
       ["Enter", "Reveal hidden context lines"],
     ],
   },

@@ -82,7 +82,7 @@ describe("the conversation", () => {
         p.moveCursor(5)
         p.toggleSelectedThread()
         p.moveCursor(1)
-        p.expandSelectedThread()
+        p.openRow(p.getCursorIndex())
       },
       height: 60,
     })
@@ -158,7 +158,7 @@ describe("the conversation", () => {
         p.moveCursor(5)
         p.toggleSelectedThread()
         p.moveCursor(1)
-        p.expandSelectedThread()
+        p.openRow(p.getCursorIndex())
       },
       height: 60,
     })

@@ -30,6 +30,7 @@ import {
 import { panelMeta, stackLine } from "./pr-info-header"
 import { commitRowCount } from "./pr-info-list-rows"
 import { panelSections } from "./pr-info-panel-model"
+import { checkNodes, conversationNodes, leafNodes, type RowNode } from "./pr-info-tree"
 import { getSyntaxStyle } from "./pr-info-syntax-style"
 import { createPrInfoPanelIsland, type PrInfoPanelIsland } from "../app/pr-info-panel"
 import { prCommentPromptModel } from "./pr-comment-prompt"
@@ -477,36 +478,29 @@ export class PRInfoPanelClass {
     this.followCursor()
   }
 
-  /**
-   * Toggle expand/collapse for the active section (za)
-   */
   toggleSection(): void {
     this.applyFolds(Nav.toggleSection(this.nav))
   }
 
-  /**
-   * Collapse the active section (zm)
-   */
+  /** Folding the section the cursor is in takes the cursor up onto its header, the one row left. */
   collapseSection(): void {
-    this.applyFolds(Nav.collapseSection(this.nav))
+    const onRow = this.nav.cursorIndex !== -1
+    this.applyFolds(Nav.withCursor(Nav.collapseSection(this.nav), -1))
+    if (onRow) this.followCursor()
   }
 
-  /**
-   * Expand the active section (zr)
-   */
   expandSection(): void {
     this.applyFolds(Nav.expandSection(this.nav))
   }
 
-  /**
-   * Collapse all sections (zM)
-   */
+  /** `zM`/`zm`: the folds inside a section are left as they are, to show again when it reopens. */
   collapseAllSections(): void {
     this.applyFolds(Nav.collapseAll(this.nav))
   }
 
   /**
-   * Expand all sections (zR)
+   * `zR`/`zr`. Checks and threads stay folded: opening every failing check
+   * would also fetch the annotations of each.
    */
   expandAllSections(): void {
     this.applyFolds(Nav.expandAll(this.nav))
@@ -629,70 +623,6 @@ export class PRInfoPanelClass {
     this.push()
   }
 
-  /**
-   * Expand the currently-selected check row (no-op on annotation rows
-   * or already-expanded / non-failing checks). Used by `l` in the
-   * checks section, mirroring conversation (spec 043).
-   */
-  expandSelectedCheck(): void {
-    const point = this.selectedExpandablePoint()
-    if (point) return this.applyPoints(Nav.expandPoint(this.nav, point.id))
-    const check = this.getSelectedCheckRow()
-    if (!check || !isFailingCheck(check)) return
-    if (this.nav.expandedCheckIds.has(check.id)) return
-    this.toggleCheckExpansion(check.id)
-  }
-
-  /**
-   * Collapse the currently-selected check row. If the cursor is on one
-   * of that check's annotation rows, collapse its parent check and move
-   * the cursor back onto the check row (spec 043). On a thread under the
-   * conversations line, fold that line (spec 108).
-   */
-  collapseSelectedCheck(): void {
-    const item = this.selectedCheckItem()
-    if (!item) return
-    if (item.kind === 'point') {
-      if (isExpandablePoint(item.point, this.mergeRows())) this.applyPoints(Nav.collapsePoint(this.nav, item.point.id))
-      return
-    }
-    if (item.kind === 'thread') return this.collapsePointAndClimb('conversations')
-    const check = item.check
-    // A check with nothing open under it folds the line it sits under, the
-    // way `h` on a thread climbs to its review.
-    if (!this.nav.expandedCheckIds.has(check.id)) return this.collapsePointAndClimb('checks')
-
-    const parentIndex = this.flatCheckItems.findIndex(
-      i => i.kind === 'check' && i.check.id === check.id,
-    )
-    this.toggleCheckExpansion(check.id)
-    if (parentIndex >= 0 && this.nav.cursorIndex !== parentIndex) {
-      this.nav = Nav.withCursor(this.nav, parentIndex)
-      this.push()
-    }
-  }
-
-  private collapsePointAndClimb(id: MergePoint["id"]): void {
-    const pointIndex = this.flatCheckItems.findIndex((i) => i.kind === 'point' && i.point.id === id)
-    this.nav = Nav.collapsePoint(this.nav, id)
-    if (pointIndex >= 0) this.nav = Nav.withCursor(this.nav, pointIndex)
-    this.refreshFlatCheckItems()
-    this.push()
-  }
-
-  /**
-   * Like `getSelectedCheck`, but returns the check *only* when the
-   * cursor is actually on the check's row (not on one of its
-   * annotations). Used by the expand/collapse keys so e.g. pressing
-   * `l` on a deep annotation row doesn't re-expand the parent.
-   */
-  private getSelectedCheckRow(): PrCheck | undefined {
-    if (this.nav.activeSection !== 'checks' || this.nav.cursorIndex < 0) return undefined
-    const item = this.flatCheckItems[this.nav.cursorIndex]
-    if (!item || item.kind !== 'check') return undefined
-    return item.check
-  }
-
   /** Where a failing check opened for the first time asks for its annotations. */
   setOnOpenFailingCheck(cb: ((check: PrCheck) => void) | null): void {
     this.onOpenFailingCheck = cb
@@ -738,22 +668,47 @@ export class PRInfoPanelClass {
     this.push()
   }
 
-  /**
-   * Expand the currently selected conversation item (no-op if already expanded)
-   */
-  expandSelectedThread(): void {
-    const flatItem = this.getSelectedFlatItem()
-    if (!flatItem) return
-    this.applyContent(Nav.expandContent(this.nav, flatConversationItemId(flatItem)))
+  /** The active section's rows as a tree, for the fold keys (spec 067). */
+  rowNodes(): RowNode[] {
+    switch (this.nav.activeSection) {
+      case 'checks':
+        return checkNodes(this.flatCheckItems, this.mergeRows(), this.nav.expandedCheckIds)
+      case 'conversation':
+        return conversationNodes(this.flatConversationItems, this.nav.expandedContent)
+      default:
+        return leafNodes(this.getItemCountForSection(this.nav.activeSection))
+    }
   }
 
-  /**
-   * Collapse the currently selected conversation item (no-op if already collapsed)
-   */
-  collapseSelectedThread(): void {
-    const flatItem = this.getSelectedFlatItem()
-    if (!flatItem) return
-    this.applyContent(Nav.collapseContent(this.nav, flatConversationItemId(flatItem)))
+  openRow(index: number): void {
+    this.foldRow(index, true)
+  }
+
+  /** The cursor lands on the row it folded, which may be the one it was on or the fold around it. */
+  closeRow(index: number): void {
+    this.foldRow(index, false)
+    this.moveCursorTo(index)
+  }
+
+  moveCursorTo(index: number): boolean {
+    return this.moveTo(Nav.withCursor(this.nav, index))
+  }
+
+  private foldRow(index: number, open: boolean): void {
+    if (this.nav.activeSection === 'conversation') {
+      const item = this.flatConversationItems[index]
+      if (!item) return
+      const id = flatConversationItemId(item)
+      return this.applyContent(open ? Nav.expandContent(this.nav, id) : Nav.collapseContent(this.nav, id))
+    }
+    if (this.nav.activeSection !== 'checks') return
+    const item = this.flatCheckItems[index]
+    if (item?.kind === 'point') {
+      this.applyPoints(open ? Nav.expandPoint(this.nav, item.point.id) : Nav.collapsePoint(this.nav, item.point.id))
+    } else if (item?.kind === 'check' && this.nav.expandedCheckIds.has(item.check.id) !== open) {
+      // Through the toggle, so a failing check opened by any key asks for its annotations.
+      this.toggleCheckExpansion(item.check.id)
+    }
   }
 
   private applyContent(next: PrInfoNav): void {

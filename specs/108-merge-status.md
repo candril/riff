@@ -106,8 +106,8 @@ says whose move it is, this section says why.
   @bob  Rename this…`, a file-level thread `farewell.ts (file)`. Only a
   line with something under it opens: the checks line with any check, the
   conversations line with any unresolved thread. `l` / `Enter` open a line,
-  `h` folds it, and `h` on a check with nothing open under it, or on a
-  thread, folds the line and climbs onto it. The conversations line stays
+  `h` folds it, and `h` on a folded check or on a thread climbs onto the
+  line and leaves it open (the fold keys of spec 067). The conversations line stays
   folded on arrival. A filter opens a line onto the checks or threads it
   matches (a thread on its author, body or file), and keeps a line whose
   name or text matches or that holds a match.

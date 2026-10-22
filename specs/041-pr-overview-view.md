@@ -136,8 +136,9 @@ through `i`, `Tab` cycling, or the action menu — same as today.
 ## Interaction inside PR view
 
 Unchanged from spec 035 (the modal is the same content, just
-embedded): Tab/Shift+Tab cycle sections; `j/k` navigate items; `za`/`zm`/`zr`
-fold; Enter performs the section-specific action; `y`/`o` copy/open.
+embedded): Tab/Shift+Tab cycle sections; `j/k` navigate items; `za`/`zo`/`zc`,
+`zR`/`zM` and `h`/`l` fold and walk the rows as spec 067 sets out; Enter
+performs the section-specific action; `y`/`o` copy/open.
 
 One deletion: **`Esc` and `q` no longer "close the panel"**. There is no
 panel to close.

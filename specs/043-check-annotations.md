@@ -62,9 +62,9 @@ most well-configured pipelines across CI providers.
 
   | Key | On check row | On annotation row |
   |---|---|---|
-  | `l` | Expand (if failing) | (no-op) |
-  | `h` | Collapse | Collapse parent, cursor returns to check |
-  | `a` | Toggle expand | Toggle parent |
+  | `l` | Expand (if failing); on an open one, step onto its first annotation | (no-op) |
+  | `h` | Collapse; on a folded one, climb onto the checks line | Cursor returns to check, which stays open |
+  | `za` | Toggle expand | Collapse parent, cursor returns to check |
   | `Enter` | Toggle expand if failing, else open `detailsUrl` | Jump to `file:line` |
   | `o` | Open `detailsUrl` (unchanged) | Open `rawDetailsUrl` |
   | `y` | Copy check URL (unchanged) | Copy `path:line` |

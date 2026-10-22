@@ -43,15 +43,26 @@ export function createPanelChords(deps: act.PRInfoPanelDeps): PanelChords {
 
   const consumeZ = (key: KeyEvent) => {
     if (!deps.getPanel()) return
+    // `zm`/`zr` mean `zM`/`zR`, as they do in the diff. nvim's `zO`/`zC`
+    // recurse, which these folds do not, so they stay unbound rather than
+    // pass for `zo`/`zc`.
     switch (key.name) {
       case "a":
-        act.toggleFold(deps)
+        act.fold(deps, "za")
+        return
+      case "o":
+        if (!key.shift) act.fold(deps, "zo")
+        return
+      case "c":
+        if (!key.shift) act.fold(deps, "zc")
         return
       case "m":
-        act.collapse(deps, key.shift)
+      case "M":
+        act.collapse(deps)
         return
       case "r":
-        act.expand(deps, key.shift)
+      case "R":
+        act.expand(deps)
         return
     }
   }
