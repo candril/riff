@@ -214,7 +214,7 @@ export async function jumpScenario({
   }
   const recording = createJumpRecording({
     getState: render.getState,
-    setState: render.setState,
+    jumpList: mounted.jumpList,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
@@ -298,7 +298,7 @@ export async function jumpScenario({
       }
     },
     list() {
-      const { entries, index } = state().jumpList
+      const { entries, index } = mounted.jumpList.list()
       return { entries, index }
     },
     /** The mapping line of `file` that reads `text`. */

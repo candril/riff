@@ -1,6 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { createJumpRecorder, type Moment } from "./recorder"
-import { back, forward, push, type Jump } from "./index"
+import { capture, type Jump } from "./index"
+import { createJumpListState } from "./state"
 import { createInitialState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import type { DiffFile } from "../../utils/diff-parser"
@@ -276,30 +277,28 @@ describe("walking the list", () => {
       status: "unchanged" as const,
       content: "",
     }))
-    let state = createInitialState(files, [], "local", "")
+    const state = createInitialState(files, [], "local", "")
+    const jumpList = createJumpListState()
     const recorder = createJumpRecorder()
     const top = at("a.ts", 0)
     const bottom = at("b.ts", 99)
     const vimAt = (m: Moment) => ({ ...createCursorState(), line: m.place.cursorLine, col: m.place.cursorCol ?? 0 })
     const record = (k: Key, before: Moment, after: Moment) => {
       const jump = recorder.around(k, before, () => {}, () => after)
-      if (jump) state = push(state, jump)
+      if (jump) jumpList.push(jump)
     }
 
     record(key("G"), top, bottom)
 
-    const walkedBack = back(state, vimAt(bottom), { getLine: () => undefined })!
-    state = walkedBack.state
-    expect(walkedBack.jump).toEqual(top.place)
+    const here = () => capture(state, vimAt(bottom), { getLine: () => undefined })
+    expect(jumpList.back(state, here)).toEqual(top.place)
     record(ctrl("o"), bottom, top)
 
-    const walkedForward = forward(state)!
-    state = walkedForward.state
-    expect(walkedForward.jump.cursorLine).toBe(99)
+    expect(jumpList.forward(state)!.cursorLine).toBe(99)
     record(key("tab"), top, bottom)
 
-    expect(state.jumpList.entries.map((e) => e.cursorLine)).toEqual([0, 99])
-    expect(back(state, vimAt(bottom), { getLine: () => undefined })!.jump).toEqual(top.place)
+    expect(jumpList.list().entries.map((e) => e.cursorLine)).toEqual([0, 99])
+    expect(jumpList.back(state, here)).toEqual(top.place)
   })
 })
 

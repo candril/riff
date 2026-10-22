@@ -19,6 +19,7 @@ import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createJumpListState } from "../features/jumplist/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
 import { createInitialState, type AppState } from "../state"
@@ -132,6 +133,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
+  const jumpList = createJumpListState()
   // Empty until keysOn builds the keys, as app.ts's are until createAppKeys has run.
   let commandKeys: ReadonlyMap<string, string> = new Map()
   const setState = (updater: (s: AppState) => AppState) => {
@@ -248,6 +250,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     mentions,
     /** The comment composer's kept drafts, which the frame pass and the keys read as app.ts's do. */
     commentDrafts,
+    /** The jumplist, which the keys walk and the jump recording pushes to as app.ts's do. */
+    jumpList,
     fileTreePanel,
     render,
     agent,
@@ -293,6 +297,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList }
 }

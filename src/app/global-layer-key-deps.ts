@@ -28,6 +28,7 @@ export function globalLayerKeyDeps(
     getPane: ctx.getPane,
     quit: () => ctx.quit(),
     addComment: () => void commentsFeature.handleAddComment(ctx.commentsContext),
+    jumpList: ctx.jumpList,
     jumpApply: jumpApplyContext(ctx),
     goToBottom: () => folds.handleGoToBottom(ctx.foldsContext),
     openBranchPr: (view) => ctx.openBranchPr(view),

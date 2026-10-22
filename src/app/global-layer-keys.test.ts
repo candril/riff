@@ -9,6 +9,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
+import { createJumpListState } from "../features/jumplist/state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -43,6 +44,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     getPane: () => null,
     quit: () => void calls.push("quit"),
     addComment: () => void calls.push("addComment"),
+    jumpList: createJumpListState(),
     jumpApply: null as never,
     goToBottom: () => void calls.push("goToBottom"),
     openBranchPr: (view) => void calls.push(`openBranchPr:${view}`),

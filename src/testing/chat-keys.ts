@@ -71,6 +71,7 @@ export function keysOn(
     blameColumns: mounted.blameColumns,
     mentions: mounted.mentions,
     commentDrafts: mounted.commentDrafts,
+    jumpList: mounted.jumpList,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},
     vimHandler: new VimMotionHandler({

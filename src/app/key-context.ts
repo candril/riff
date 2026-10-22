@@ -19,6 +19,7 @@ import type { ChatState } from "../features/chat/state"
 import type { ChatAtPicker } from "../features/chat/at-picker"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
+import type { JumpListState } from "../features/jumplist/state"
 import type { SyncPreviewState } from "../features/sync-preview/state"
 import type { ReviewPreviewState } from "../features/review-preview/state"
 import type { FilePickerState } from "../features/file-picker/state"
@@ -155,6 +156,8 @@ export interface AppKeyContext {
   mentions: MentionsState
   /** The comment composer's kept drafts, the same instance the frame pass reads. */
   commentDrafts: CommentDraftsState
+  /** The jumplist Ctrl-o and Ctrl-i walk, the same instance the jump recording pushes to. */
+  jumpList: JumpListState
   /** How the thread panel's composer closed, for a proposal of the agent's that is open in it. */
   composerSettled?: (outcome: ComposerOutcome) => void
 }

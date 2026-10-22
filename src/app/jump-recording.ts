@@ -4,12 +4,13 @@ import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import * as jumplist from "../features/jumplist"
 import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
+import type { JumpListState } from "../features/jumplist/state"
 import { interactionSettled } from "./jump-settled"
 import { threadPanelHoldsKeys } from "./diff-focus"
 
 export interface JumpRecordingDeps extends PromptPickers {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  jumpList: Pick<JumpListState, "push">
   getVimState: () => VimCursorState
   getLineMapping: () => Pick<DiffLineMapping, "getLine">
   getPane: () => "left" | "right" | null
@@ -66,7 +67,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
   return {
     around(key, dispatch) {
       const jump = recorder.around(key, moment(), dispatch, moment)
-      if (jump) deps.setState((s) => jumplist.push(s, jump))
+      if (jump) deps.jumpList.push(jump)
     },
     retake: (key) => recorder.retake(key),
   }

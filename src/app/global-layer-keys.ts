@@ -14,6 +14,7 @@ import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { FlashSurface } from "../vim-diff/flash-state"
 import type { JumpApplyContext } from "../features/jumplist"
+import type { JumpListState } from "../features/jumplist/state"
 import { globalKeyCommands } from "./global-key-commands"
 import type { FilePickerState } from "../features/file-picker/state"
 import type { OccurrencePickerState } from "../features/occurrence-picker/state"
@@ -37,6 +38,7 @@ export interface GlobalLayerKeyDeps {
   quit: () => void
   /** `C` and `E`: the comment, or the thread, on the cursor's line in $EDITOR. */
   addComment: () => void
+  jumpList: Pick<JumpListState, "back" | "forward">
   jumpApply: JumpApplyContext
   /** The tree's `G`; the diff's is its motion handler's. */
   goToBottom: () => void

@@ -255,6 +255,8 @@ repo's roster, fetched once a session.
 The kept comment drafts are the sixteenth (`createCommentDraftsState` in
 `src/features/inline-comment-overlay/drafts-state.ts`); the frame carries
 the map for the panel's `n draft` hint, and a reload clears it.
+The jumplist is the seventeenth (`createJumpListState` in
+`src/features/jumplist/state.ts`); nothing draws it, and a reload clears it.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

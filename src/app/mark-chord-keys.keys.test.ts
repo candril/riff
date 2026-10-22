@@ -62,7 +62,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
   // Through app.ts's own recording, around riff's listener.
   const recording = createJumpRecording({
     getState: render.getState,
-    setState: render.setState,
+    jumpList: mounted.jumpList,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,
@@ -342,11 +342,11 @@ describe("where no mark chord opens", () => {
 })
 
 test("the jump recorder records 'a as one jump, from where ' was pressed", async () => {
-  const { type, state, toCode, moveTo, vim } = await markApp({}, { recordJumps: true })
+  const { mounted, type, toCode, moveTo, vim } = await markApp({}, { recordJumps: true })
   const marked = toCode()
   type("m", "a")
   moveTo(0)
-  const pushed = () => state().jumpList.entries.map((jump) => jump.cursorLine)
+  const pushed = () => mounted.jumpList.list().entries.map((jump) => jump.cursorLine)
   type("'")
   expect(pushed()).toEqual([])
   type("a")

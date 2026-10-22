@@ -9,6 +9,9 @@
  * cursor's line anchored as a mark is (file, line, side, text). `apply`
  * restores those, looking the anchor up in the mapping as it is now, so
  * folds and a refresh do not move it.
+ *
+ * The list itself is `createJumpListState` (state.ts), walked by walk.ts;
+ * this module takes a place and goes back to one.
  */
 
 import type { AppState } from "../../state"
@@ -20,10 +23,8 @@ import { resolveMark } from "../marks/resolve"
 import { openFoldHiding } from "../marks/fold-hiding"
 import type { Jump } from "./types"
 import { sameAnchor } from "./place"
-import { pushJump, stepBack, stepForward } from "./walk"
 
 export type { Jump, JumpList } from "./types"
-export { emptyJumpList } from "./types"
 export { sameLine, sameLocation } from "./place"
 export { isStepMotion, isListWalk, isFindMotion } from "./keys"
 
@@ -65,42 +66,6 @@ export function capture(
     cursorLine: vim.line,
     cursorCol: vim.col,
   }
-}
-
-/** Push a jump entry; see `pushJump`. */
-export function push(state: AppState, jump: Jump): AppState {
-  return { ...state, jumpList: pushJump(state.jumpList, jump) }
-}
-
-/**
- * Convenience: capture current location and push in one step. Use this
- * BEFORE a navigation mutates state — the entry is the location you'll
- * jump back to.
- */
-export function pushCurrent(
-  state: AppState,
-  vim: VimCursorState,
-  mapping: Pick<DiffLineMapping, "getLine">,
-  pane?: Pane | null,
-): AppState {
-  return push(state, capture(state, vim, mapping, pane))
-}
-
-/** Move back; returns new jumplist state + the jump to apply, or null. */
-export function back(
-  state: AppState,
-  vim: VimCursorState,
-  mapping: Pick<DiffLineMapping, "getLine">,
-  pane?: Pane | null,
-): { state: AppState; jump: Jump } | null {
-  const step = stepBack(state.jumpList, state, () => capture(state, vim, mapping, pane))
-  return step && { state: { ...state, jumpList: step.list }, jump: step.jump }
-}
-
-/** Move forward; returns new jumplist state + the jump to apply, or null. */
-export function forward(state: AppState): { state: AppState; jump: Jump } | null {
-  const step = stepForward(state.jumpList, state)
-  return step && { state: { ...state, jumpList: step.list }, jump: step.jump }
 }
 
 export interface JumpApplyContext {

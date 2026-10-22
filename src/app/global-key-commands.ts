@@ -40,11 +40,10 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
       run: (key) => {
         if (!key.ctrl) return false
         // Ctrl-O: back in jumplist (spec 038).
-        const result = jumplist.back(deps.getState(), deps.getVimState(), deps.getLineMapping(), deps.getPane())
-        if (result) {
-          deps.setState(() => result.state)
-          jumplist.apply(result.jump, deps.jumpApply)
-        }
+        const jump = deps.jumpList.back(deps.getState(), () =>
+          jumplist.capture(deps.getState(), deps.getVimState(), deps.getLineMapping(), deps.getPane()),
+        )
+        if (jump) jumplist.apply(jump, deps.jumpApply)
       },
     },
     palette: {
@@ -184,11 +183,8 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         // Tab and Ctrl-I are indistinguishable in terminal input; both
         // mean forward-jump in the jumplist (spec 038). The previous
         // view-toggle binding moved to bare `i`.
-        const result = jumplist.forward(deps.getState())
-        if (result) {
-          deps.setState(() => result.state)
-          jumplist.apply(result.jump, deps.jumpApply)
-        }
+        const jump = deps.jumpList.forward(deps.getState())
+        if (jump) jumplist.apply(jump, deps.jumpApply)
       },
     },
     backspace: {

@@ -70,6 +70,7 @@ import { createBlamePeekState } from "./features/blame/peek-state"
 import { createBlameColumnsState } from "./features/blame/column-state"
 import { createMentionsState } from "./features/mentions/state"
 import { createCommentDraftsState } from "./features/inline-comment-overlay/drafts-state"
+import { createJumpListState } from "./features/jumplist/state"
 import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
@@ -492,6 +493,7 @@ export async function createApp(options: AppOptions = {}) {
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
+  const jumpList = createJumpListState()
   // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
   function closeFeatureOverlays(): void {
     help.close()
@@ -510,6 +512,8 @@ export async function createApp(options: AppOptions = {}) {
     // A draft is keyed by file, line and side, and the new diff can put other
     // code on that line: kept, it would come back on the wrong one.
     commentDrafts.clear()
+    // An entry's anchor names lines in the old diff.
+    jumpList.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -960,7 +964,7 @@ export async function createApp(options: AppOptions = {}) {
     },
     getVisibleRegion: () => (split.shown() ? split.visibleRegion() : unified.visibleRegion()),
     jumpToRow: (surface, id) => {
-      state = jumplist.pushCurrent(state, vimState, lineMapping, split.commentScope().pane)
+      jumpList.push(jumplist.capture(state, vimState, lineMapping, split.commentScope().pane))
       if (surface === "tree") {
         state = { ...state, treeHighlightIndex: Number(id), focusedPanel: "tree" }
         updateFileTreePanel()
@@ -1049,6 +1053,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     commentDrafts,
+    jumpList,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
       // The panel is where the reader was, not just what it shows: rebuilt
@@ -1888,13 +1893,14 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     mentions,
     commentDrafts,
+    jumpList,
     composerSettled: proposals.composerSettled,
   })
   paletteKeys = dispatchKeypress.commandKeys
 
   const jumpRecording = createJumpRecording({
     getState: () => state,
-    setState: (fn) => { state = fn(state) },
+    jumpList,
     filePicker,
     commentsPicker,
     occurrencePicker,

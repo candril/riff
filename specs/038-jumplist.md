@@ -79,7 +79,7 @@ export interface Jump {
   cursorLine: number              // mapping line, for an anchor-less entry
 }
 
-export interface JumpListState {
+export interface JumpList {
   entries: Jump[]
   index: number                   // past the newest entry after a jump
 }
@@ -91,23 +91,39 @@ refreshes that renumber the mapping's lines.
 
 ### State integration
 
-Add to `AppState` in `src/state.ts`:
+The list is a feature state factory, not an `AppState` field (spec 100,
+M6; ADR-003): `createJumpListState()` in `src/features/jumplist/state.ts`
+holds a `JumpList` in a Solid signal, starting as `emptyJumpList()`
+(`{ entries: [], index: 0 }`). app.ts makes one; the global keys walk it
+and the jump recording pushes to it.
 
-```ts
-jumpList: JumpListState
-```
+- `list()` — the current `JumpList`.
+- `push(jump)` — record a jump.
+- `back(reach, here): Jump | null` — step back; the list changes only when
+  a jump comes back.
+- `forward(reach): Jump | null` — step forward.
+- `clear()` — empty it. A reload (`gr`, switching PRs, opening the
+  branch's PR) calls it from `adoptReloadedState` and app.ts's
+  `closeFeatureOverlays`: an entry's anchor names lines in the old diff.
 
-Initialize as `{ entries: [], index: 0 }`.
+`reach` is `Pick<AppState, "files" | "viewingCommit">`, which decides
+whether an entry's file can still be landed on.
 
 ### Feature module
 
-New `src/features/jumplist/` with:
+`src/features/jumplist/walk.ts` holds the list arithmetic, as pure
+functions over a `JumpList`:
+
+- `pushJump(list, jump): JumpList` — drop the entry for the same line,
+  append, evict past cap, put the index one past the newest entry.
+- `stepBack(list, reach, here): { list, jump } | null` — past the newest
+  entry, `here()` is pushed first; with nowhere reachable to go back to it
+  returns null, and the caller keeps the old list.
+- `stepForward(list, reach): { list, jump } | null`
+
+`src/features/jumplist/index.ts` takes a place and goes back to one:
 
 - `capture(state, vim, lineMapping, pane): Jump` — snapshot current location.
-- `push(state, jump): AppState` — drop the entry for the same line, append,
-  evict past cap, put the index one past the newest entry.
-- `back(state, vim, lineMapping, pane): { state, jump } | null`
-- `forward(state): { state, jump } | null`
 - `apply(jump, ctx)` — calls existing helpers:
   - `fileNavigation.handleSelectFile` for file changes
   - `ctx.onCommitSelected` for commit changes
@@ -120,7 +136,7 @@ Wrap each navigation site. Pattern:
 
 ```ts
 // before the navigation mutates state
-ctx.setState(s => jumplist.push(s, jumplist.capture(s, vim, lineMapping, pane)))
+jumpList.push(jumplist.capture(state, vim, lineMapping, pane))
 // ... existing navigation ...
 ```
 
