@@ -2,7 +2,7 @@
  * Global key handling
  *
  * Dispatches the keys the keymap's layers leave (ADR-002) to feature modules:
- * the `g`, `z` and mark chords first, then the split toggle and the chord
+ * the `g` and mark chords first, then the split toggle and the chord
  * openers, the tree for a key that broke off a chord or a slash its layer
  * cannot name, and the diff.
  */
@@ -33,8 +33,6 @@ import { createCommentsOverlayOpen } from "./comments-overlay-open"
 import { treeInputContext } from "./tree-key-deps"
 import { chordSuffix } from "./chord-stroke"
 import { diffTakesMarkChord } from "./mark-chord-gate"
-import { Z_SEQUENCES, zChordCommands } from "./z-chord-commands"
-import { zChordDeps } from "./z-chord-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as prInfoPanelFeature from "../features/pr-info-panel"
@@ -155,9 +153,9 @@ export interface KeyHandlerOptions {
    */
   blame?: BlameKeys
   /**
-   * Hands a `]` or `[` to the keymap's bracket layer, which holds those
-   * sequences. It reaches the chain when it broke off a chord, as in `]]f`
-   * or `g]f`, and still opens one.
+   * Hands a `]`, `[` or `z` to the keymap's sequence layers, which hold
+   * those sequences. It reaches the chain when it broke off a chord, as in
+   * `]]f`, `g]f` or `gzz`, and still opens one.
    */
   keymapChord: { start(key: KeyEvent): void }
 }
@@ -187,7 +185,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
   }
 
   const takesMarkChord = () => diffTakesMarkChord(ctx)
-  const zChords = zChordCommands(zChordDeps(ctx))
 
   const followLinkContext: followLink.FollowLinkContext = {
     setState: ctx.setState,
@@ -266,7 +263,7 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
   function handleKeypress(key: KeyEvent, chordBroken = false) {
     settleChord(key)
 
-    // ========== KEY SEQUENCES (gS, za, etc.) ==========
+    // ========== KEY SEQUENCES (gS, gg, etc.) ==========
     const chordPending = pendingKey !== null || chordBroken
     if (pendingKey === "m" || pendingKey === "'") {
       const action = marks.markChordAction(pendingKey, key, takesMarkChord())
@@ -282,9 +279,6 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
 
       const s = ctx.getState()
       if (!chordAllowedUnderPeek(sequence, s)) return
-
-      const zChord = Z_SEQUENCES[sequence as keyof typeof Z_SEQUENCES]
-      if (zChord && zChords[zChord]()) return
 
       if (sequence === "gS!" || sequence === "gs!") {
         reviewPreview.handleOpenReviewPreview(ctx.reviewPreviewOpenContext)
@@ -410,12 +404,12 @@ export function createKeyHandler(ctx: GlobalKeyContext, options: KeyHandlerOptio
       return
     }
 
-    if (key.name === "]" || key.name === "[") {
+    if (key.name === "]" || key.name === "[" || (key.name === "z" && !key.shift)) {
       keymapChord.start(key)
       return
     }
 
-    if ((key.name === "g" && !key.shift) || (key.name === "z" && !key.shift)) {
+    if (key.name === "g" && !key.shift) {
       openChord(key.name)
       return
     }

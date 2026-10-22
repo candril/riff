@@ -30,6 +30,10 @@ import { registerBracketKeys } from "./bracket-keys"
 import { bracketKeyDeps } from "./bracket-key-deps"
 import { BRACKET_SEQUENCES } from "./bracket-commands"
 import { registerChordStrokes, sequenceSuffixes } from "./chord-stroke"
+import { registerZChordKeys } from "./z-chord-keys"
+import { zChordKeyDeps } from "./z-chord-key-deps"
+import { Z_SEQUENCES } from "./z-chord-commands"
+import { expireSequenceOpeners } from "./sequence-expiry"
 import { createBlameKeys } from "../features/blame/keys"
 import { createLinksPicker } from "./links-picker"
 import { createOpenLink } from "./open-link"
@@ -45,8 +49,8 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   const blame = createBlameKeys(blameKeysContext(ctx))
   const legacy = createKeyHandler(ctx, { blame, keymapChord: { start: (key) => void riffKeymap.offer(key) } })
   // Whether the chain holds a chord, for every layer that gives way to one:
-  // the chain's own or a bracket sequence the keymap holds, which the chain
-  // asked as one of its own.
+  // the chain's own or a bracket or `z` sequence the keymap holds, which the
+  // chain asked as one of its own.
   const chain = {
     chordPending: () => legacy.chordPending() || riffKeymap.chordPending(),
     chordPendingAfter: (key: KeyEvent) => legacy.chordPendingAfter(key) || riffKeymap.chordPending(),
@@ -64,9 +68,10 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and the peeks, and the order makes no difference: the prompt needs the
   // tree focused and the text object the diff, and the peeks stand aside
   // for a pending text object through peekLeaves, so none of them is ever
-  // active together with it. The bracket sequences register first, behind
-  // every other layer, as the chain asked them after the global keys and
-  // before the tree; the layer is handed the chain's own chord rather than
+  // active together with it. The bracket and `z` sequences register first,
+  // behind every other layer, as the chain asked them after the global keys
+  // and before the tree; their openers differ, so their order between them
+  // makes no difference. Each is handed the chain's own chord rather than
   // the composed one, which its own pending sequence is part of. The tree
   // registers next, behind the global keys, as the chain asked it after
   // them and after its chords. The global keys register after it, behind
@@ -76,8 +81,10 @@ export function createAppKeys(renderer: CliRenderer, ctx: GlobalKeyContext): Key
   // and compose mode are never active together, and nor are the overview
   // and the feed, which are views of their own.
   const links = createLinksPicker(ctx)
-  registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES))
+  registerChordStrokes(riffKeymap.keymap, sequenceSuffixes(BRACKET_SEQUENCES, Z_SEQUENCES))
+  expireSequenceOpeners(riffKeymap, ["]", "[", "z"])
   registerBracketKeys(riffKeymap, bracketKeyDeps(ctx, legacy))
+  registerZChordKeys(riffKeymap, zChordKeyDeps(ctx, legacy))
   registerTreeKeys(riffKeymap, treeKeyDeps(ctx, chain))
   registerGlobalKeys(riffKeymap, globalLayerKeyDeps(ctx, chain))
   registerTextObjectKeys(riffKeymap, {

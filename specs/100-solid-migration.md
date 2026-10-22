@@ -124,7 +124,7 @@ chords stay its own too. The activity feed registers behind the PR
 overview, as the two are different views; its capture holds only the keys
 the feed acts on and leaves every other key to the chain, every ctrl and
 meta key among them and any key while the chain holds a chord, and while
-its filter prompt is up it holds every key. Its `za` stays in the chain.
+its filter prompt is up it holds every key. Its `za` is the `z` layer's.
 The search prompt and the tree's filter prompt register behind the feed
 (`src/app/prompt-keys.ts`), and the blame peek and the line peek behind
 them (`src/app/peek-keys.ts`), each group in the reverse of the order the
@@ -151,23 +151,30 @@ one layer registered behind the global keys
 through to it; it stands aside while the chain holds a chord, and a key
 that breaks off a chord without completing a sequence still reaches the
 tree through the chain, as does a slash kitty names after its base key
-on a layout where `/` is shifted. The `]`/`[` motions are one layer of
-keymap sequences registered behind the tree's
-(`src/app/bracket-keys.ts`), the lowest-ranked layer, as the chain asked
-its sequences after the global keys and before the tree. Its first stroke
-takes any modifiers and its second is a sequence pattern that matches on
-the suffix the chain spelled (`src/app/chord-stroke.ts`), so ctrl and
-meta are ignored and shift is not. It stands aside while any capture
-holds the key and while the chain holds a `g`, `z`, `m` or `'` chord. A
+on a layout where `/` is shifted. The `]`/`[` motions and the `z` chords
+are two layers of keymap sequences registered behind the tree's
+(`src/app/bracket-keys.ts`, `src/app/z-chord-keys.ts`), the lowest-ranked
+layers, as the chain asked its sequences after the global keys and before
+the tree; their openers differ, so neither outranks the other. The
+brackets' first stroke takes any modifiers; the `z` opener is a sequence
+pattern taking a key named `z` without shift, whatever else is held, as
+the chain opened on it, since a binding on `z` would also take a key
+named `Z`. Each second stroke is a sequence pattern that matches on the
+suffix the chain spelled (`src/app/chord-stroke.ts`), so ctrl and meta are
+ignored and shift is not, and a capital is told from its lower-case
+letter, so both spellings of a shifted `z` chord stay. The patterns are
+registered once for both layers. Each layer stands aside while any
+capture holds the key and while the chain holds a `g`, `m` or `'` chord. A
 key that breaks off a sequence reaches the chain as the second key of a
-chord, and a `]` or `[` that does so goes back to the keymap, so `]]f` and
-`g]f` still step a file. A lone `]` or `[` gives up after the chain's
-500 ms chord timeout (`chordTimeoutMs`), as the chain's opener did. Every
-layer that gives way to a chord the chain holds counts a pending bracket
-sequence as one.
+chord, and a `]`, `[` or `z` that does so goes back to the keymap, so
+`]]f`, `g]f` and `gzz` still act. A lone `]`, `[` or `z` gives up after
+the chain's 500 ms chord timeout (`chordTimeoutMs`), as the chain's opener
+did, through one `pendingSequence` listener (`src/app/sequence-expiry.ts`).
+Every layer that gives way to a chord the chain holds counts a pending
+bracket or `z` sequence as one.
 
-**Not built**: the rest of M6 (the `g`, `z` and mark chords, the diff dispatch, the
-palette reading command entries, and state factories); the file size
+**Not built**: the rest of M6 (the `g` and mark chords, the diff dispatch,
+the palette reading command entries, and state factories); the file size
 ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback

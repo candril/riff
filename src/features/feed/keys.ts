@@ -3,7 +3,8 @@
  * the highlight, `u` narrows to what is unseen, `Enter` opens the row, `Esc`
  * puts every narrowing back, `/` filters and the FEED_TYPES letters toggle
  * a type. While the filter prompt is up the feed holds every key, so its
- * field types them. `za` stays with the chain, which owns `z`.
+ * field types them. `za` belongs to the `z` chords' keymap layer, which
+ * owns `z`.
  *
  * The capture holds exactly the keys the feed acts on, and leaves every
  * other key to the chain: the feed shares the screen with the global keys,

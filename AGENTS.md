@@ -146,7 +146,7 @@ Keyboard input arrives through one `renderer.keyInput.on("keypress")`
 listener, inside the jump recorder. Each key goes first to the
 `@opentui/keymap` keymap's layers (`src/app/keymap.ts`), all registered
 from `src/app/keys.ts`, and only a key no layer takes reaches the priority
-chain in `src/app/global-keys.ts`, which resolves the `g`, `z` and mark chords and
+chain in `src/app/global-keys.ts`, which resolves the `g` and mark chords and
 hands the rest to the diff's `input.ts`, or to the tree's for a key that
 broke off a chord
 ([ADR-002](docs/decisions/ADR-002-keys-through-the-keymap.md)).
@@ -219,9 +219,11 @@ src/
 │   ├── bracket-keys.ts   # The ]/[ motions as keymap sequences, the lowest layer
 │   ├── bracket-key-deps.ts  # What those motions need of the app
 │   ├── bracket-commands.ts  # One command per ]/[ motion, and adjacentCommit
+│   ├── z-chord-keys.ts   # The z chords as keymap sequences, beside the bracket layer
 │   ├── z-chord-commands.ts  # One command per z chord
 │   ├── z-chord-key-deps.ts  # What the z chords need of the app
 │   ├── chord-stroke.ts   # A chord's second key as the chain spells it, and its sequence patterns
+│   ├── sequence-expiry.ts  # The chord timeout a lone ], [ or z gives up after
 │   ├── mark-chord-gate.ts  # Whether the diff reads m, ' and ]m as mark keys
 │   └── init.ts           # Loading a session into state
 ├── state.ts              # App state and its pure updaters

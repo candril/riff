@@ -21,7 +21,7 @@ export interface FeedExpandDeps {
 
 /**
  * `za` on a feed row. Lives outside the feed's keys because the chord is
- * resolved by the global key handler, which owns `z`.
+ * resolved by the `z` chords' keymap layer, which owns `z`.
  */
 export function toggleExpandedRow(deps: FeedExpandDeps): boolean {
   const state = deps.getState()
