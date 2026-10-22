@@ -33,6 +33,7 @@ import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import { createOpenLink, openerCommand } from "./open-link"
 import { createLinksPicker } from "./links-picker"
+import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 
 import * as commentsPicker from "../features/comments-picker"
 import * as occurrencePicker from "../features/occurrence-picker"
@@ -56,7 +57,6 @@ import { createBlameKeys, type BlameDeps } from "../features/blame/keys"
 import { createBlameColumnKeys } from "../features/blame/column-keys"
 import { chordAllowedUnderPeek } from "../features/blame/peek-chords"
 import type { Comment, ReactionTarget } from "../types"
-import { groupIntoThreads } from "../utils/threads"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 
 export interface GlobalKeyContext {
@@ -247,7 +247,9 @@ export type GlobalKeyHandler = ((key: KeyEvent) => void) & {
 
 export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
   const openLink = createOpenLink(ctx)
-  const { linksTitle, openLinksPicker, openReactPicker } = createLinksPicker(ctx)
+  const links = createLinksPicker(ctx)
+  const { linksTitle, openLinksPicker } = links
+  const prInfoPanelDeps = prInfoPanelKeyDeps(ctx, links)
 
   /**
    * Scroll the diff sideways and bring the cursor with it. Leaving the
@@ -525,77 +527,7 @@ export function createKeyHandler(ctx: GlobalKeyContext): GlobalKeyHandler {
     // ========== PR INFO PANEL (captures input while viewing PR overview) ==========
     // Runs after all modal overlays so they get first crack at keys like 1/2/3.
     if (
-      prInfoPanelFeature.handleInput(key, {
-        state: ctx.getState(),
-        setState: ctx.setState,
-        render: ctx.render,
-        getPanel: ctx.getPrInfoPanel,
-        onJumpToFile: (filename) => {
-          // Jump to file by filename.
-          // input handler BEFORE closePRInfoPanel, so the jump captures
-          // viewMode="pr" — back-jump can return to the PR view.
-          const state = ctx.getState()
-          const fileIndex = state.files.findIndex((f) => f.filename === filename)
-          if (fileIndex !== -1) {
-            fileNavigation.handleSelectFile(fileIndex, ctx.fileNavContext)
-          }
-        },
-        onOpenThread: (rootCommentId) => {
-          // Enter on a Conversation thread lands on the thread view. The
-          // panel already closed (back into the diff), so reuse the
-          // comments-picker jump: switch file, park the cursor on the
-          // anchor line, open the inline comment overlay.
-          const comment = ctx.getState().comments.find((c) => c.id === rootCommentId)
-          if (!comment) return
-          commentsPicker.jumpToComment(comment, {
-            getState: ctx.getState,
-            setState: ctx.setState,
-            getVimState: ctx.getVimState,
-            setVimState: ctx.setVimState,
-            getLineMapping: ctx.getLineMapping,
-            ensureCursorVisible: ctx.ensureCursorVisible,
-            render: ctx.render,
-            fileNavContext: ctx.fileNavContext,
-          })
-        },
-        onOpenFileAtLine: (filename, line) => {
-          void externalTools.handleOpenFileAtLine(ctx.externalToolsContext, filename, line)
-        },
-        onActivateCommit: (sha) => {
-          // Activate commit (set viewing commit). Jump push happens in
-          // the panel input handler before closePRInfoPanel.
-          ctx.onCommitSelected(sha)
-        },
-        onToggleThreadResolved: (rootCommentId) => {
-          // Resolve the review thread whose root has this id. Built from
-          // live state.comments so mutations/refresh reflect immediately.
-          const state = ctx.getState()
-          const threads = groupIntoThreads(state.comments)
-          const thread = threads.find((t) => t.id === rootCommentId)
-          if (!thread) return
-          void prOperations.handleToggleThreadResolved(ctx.prOperationsContext, thread)
-        },
-        executeAction: ctx.executeAction,
-        onOpenLinks: (action) => {
-          const sources = ctx.getPrInfoPanel()?.linkSources() ?? []
-          openLinksPicker(sources, linksTitle(action), action)
-        },
-        onToggleHelp: () => {
-          ctx.setState(toggleHelp)
-          ctx.render()
-        },
-        onReact: openReactPicker,
-        onPreviewRow: (action, row) => {
-          // Several places for one app: the same picker every other list of
-          // links uses, told whether it was `Enter` or `y` that asked. Only
-          // this row, because the key was pressed on this row.
-          openLinksPicker(
-            [{ title: row.app, links: row.links }],
-            `${action === "open" ? "Open" : "Copy"} — ${row.app}`,
-            action
-          )
-        },
-      })
+      prInfoPanelFeature.handleInput(key, { ...prInfoPanelDeps, state: ctx.getState() })
     ) {
       return
     }

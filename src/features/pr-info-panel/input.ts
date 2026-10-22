@@ -7,56 +7,20 @@
  * - j/k: navigate items within active section
  * - za/zm/zr/zR/zM: fold controls
  * - Enter: action on selected item
+ *
+ * What each key does is in `actions.ts`, `row-actions.ts` and
+ * `comment-input.ts`.
  */
 
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../../state"
-import type { PRInfoPanelClass } from "../../components"
-import type { PreviewRow } from "../../utils/previews"
-import {
-  clearViewFilter,
-  commitViewFilter,
-  startViewFilter,
-  closePRInfoPanel,
-  showToast,
-  clearToast,
-  openPRCommentInput,
-  closePRCommentInput,
-  setPRCommentInputText,
-  setPRCommentInputLoading,
-  setPRCommentInputError,
-  setReactionTarget,
-} from "../../state"
-import { submitPrComment } from "../../providers/github/mutations"
-import { copyToClipboard } from "../../utils/clipboard"
+import * as act from "./actions"
+import * as row from "./row-actions"
+import * as comment from "./comment-input"
 
 // Key sequence state for multi-key commands (e.g., "gg" for go to top)
 let pendingKey: string | null = null
 let pendingTimeout: ReturnType<typeof setTimeout> | null = null
-
-/**
- * The key handler is synchronous, so the copy runs detached. The toast waits
- * for the helper to exit rather than firing optimistically: a "copied" toast
- * over an empty clipboard is worse than a late one.
- */
-function copyAndToast(
-  ctx: PRInfoPanelInputContext,
-  text: string,
-  message: string,
-): void {
-  void copyToClipboard(text).then((copied) => {
-    ctx.setState((s) =>
-      copied.ok
-        ? showToast(s, message, "success")
-        : showToast(s, `Copy failed: ${copied.error}`, "error"),
-    )
-    ctx.render()
-    setTimeout(() => {
-      ctx.setState(clearToast)
-      ctx.render()
-    }, 2000)
-  })
-}
 
 function clearPendingKey(): void {
   pendingKey = null
@@ -66,45 +30,9 @@ function clearPendingKey(): void {
   }
 }
 
-export interface PRInfoPanelInputContext {
+/** The panel's deps with the state as it stood when the key arrived. */
+export interface PRInfoPanelInputContext extends Omit<act.PRInfoPanelDeps, "getState"> {
   readonly state: AppState
-  setState: (updater: (s: AppState) => AppState) => void
-  render: () => void
-  // The PR info panel class instance (for cursor movement and scrolling)
-  getPanel: () => PRInfoPanelClass | null
-  // Callback to jump to file (for files section Enter)
-  onJumpToFile?: (filename: string) => void
-  // Callback to open a specific file at a specific line in $EDITOR,
-  // bypassing the diff view (spec 043). Used for check annotations —
-  // the file may not even be in the PR diff.
-  onOpenFileAtLine?: (filename: string, line: number) => void
-  // Callback to activate a commit (for commits section Enter)
-  onActivateCommit?: (sha: string) => void
-  /** Act on the preview row the cursor is on — open it, or copy it. When
-   *  the row has several links, riff asks which (spec 068). */
-  onPreviewRow?: (action: "open" | "copy", row: PreviewRow) => void
-  // Toggle resolved state of a review thread by root comment id.
-  // Used by `x` in the Conversation section.
-  onToggleThreadResolved?: (rootCommentId: string) => void
-  // Open the inline comment overlay (the thread view) on a review thread,
-  // identified by its root comment id. Enter in the Conversation section
-  // uses this so a thread opens the same surface here as it does from the
-  // diff and from the comments picker.
-  onOpenThread?: (rootCommentId: string) => void
-  // Dispatch a global action by id. Used so chord shortcuts like `gr`
-  // (refresh), `go` (open in browser), `gy` (copy PR URL) work inside the
-  // panel even though the panel captures `r`/`o`/`y` standalone for its
-  // own section-scoped semantics.
-  executeAction?: (id: string) => void
-  /** `gx` opens a link in the view, `gX` copies it (spec 077). */
-  onOpenLinks?: (action: "open" | "copy") => void
-  /** `g?` — the keymap, which every surface owes the reader. */
-  onToggleHelp?: () => void
-  /** `+` — react on the focused description, comment or review (spec 042). */
-  onReact?: () => void
-  // Push current location onto the jumplist before navigating away (spec
-  // 038). Called BEFORE closePRInfoPanel so the entry captures
-  // viewMode="pr" — otherwise back-jump can't return to the PR view.
 }
 
 /**
@@ -115,34 +43,34 @@ export function handleInput(
   key: KeyEvent,
   ctx: PRInfoPanelInputContext
 ): boolean {
-  const handled = handleInputInner(key, ctx)
+  const deps: act.PRInfoPanelDeps = { ...ctx, getState: () => ctx.state }
+  const handled = handleInputInner(key, deps)
   // After every consumed key, sync state.reactionTarget to whatever the
   // panel is focused on now — keeps Ctrl+p → React… targeting the
   // visually-focused item (spec 042).
-  if (handled) syncReactionTarget(ctx)
+  if (handled) act.syncReactionTarget(deps)
   return handled
 }
 
 function handleInputInner(
   key: KeyEvent,
-  ctx: PRInfoPanelInputContext
+  deps: act.PRInfoPanelDeps
 ): boolean {
-  if (ctx.state.viewMode !== "state") {
+  const state = deps.getState()
+  if (state.viewMode !== "state") {
     return false
   }
 
   // The `Ctrl-f` prompt owns every key while it is open; only the two that
   // mean something to riff are taken, and the rest reach the input widget
   // (spec 065).
-  if (ctx.state.prInfoPanel.filterInput) {
+  if (state.prInfoPanel.filterInput) {
     if (key.name === "escape") {
       key.preventDefault()
-      ctx.setState(clearViewFilter)
-      ctx.render()
+      act.closeFilter(deps)
     } else if (key.name === "return" || key.name === "enter") {
       key.preventDefault()
-      ctx.setState(commitViewFilter)
-      ctx.render()
+      act.commitFilter(deps)
     }
     return true
   }
@@ -150,17 +78,17 @@ function handleInputInner(
   // When the tree sidebar has focus (spec 041: the tree is visible
   // alongside the PR view), let tree key handling run — except for the
   // sub-modal below, which always wins.
-  if (!ctx.state.prInfoPanel.commentInputOpen && ctx.state.focusedPanel === "tree") {
+  if (!state.prInfoPanel.commentInputOpen && state.focusedPanel === "tree") {
     return false
   }
 
   // Handle PR comment input mode (sub-modal within the PR view)
-  if (ctx.state.prInfoPanel.commentInputOpen) {
-    handleCommentInput(key, ctx)
+  if (state.prInfoPanel.commentInputOpen) {
+    handleCommentInput(key, deps)
     return true
   }
 
-  const panel = ctx.getPanel()
+  const panel = deps.getPanel()
 
   // Ctrl-modified keys never match the section-scoped letter handlers
   // below — fall through so Ctrl-O (jumplist back), Ctrl-I (forward),
@@ -175,28 +103,13 @@ function handleInputInner(
     if (!panel) return true
     switch (key.name) {
       case "a":
-        // Toggle the section, or the thread / check the cursor is on.
-        if (panel.isOnSectionHeader()) {
-          panel.toggleSection()
-        } else {
-          const section = panel.getActiveSection()
-          if (section === 'conversation') {
-            panel.toggleSelectedThread()
-          } else if (section === 'checks') {
-            const check = panel.getSelectedCheck()
-            if (check) panel.toggleCheckExpansion(check.id)
-          } else {
-            panel.toggleSection()
-          }
-        }
+        act.toggleFold(deps)
         return true
       case "m":
-        if (key.shift) panel.collapseAllSections()
-        else panel.collapseSection()
+        act.collapse(deps, key.shift)
         return true
       case "r":
-        if (key.shift) panel.expandAllSections()
-        else panel.expandSection()
+        act.expand(deps, key.shift)
         return true
     }
     return true
@@ -209,37 +122,35 @@ function handleInputInner(
     clearPendingKey()
     // `?` reaches some terminals as a name and others only as the sequence.
     if (key.name === "?" || key.sequence === "?") {
-      ctx.onToggleHelp?.()
+      act.toggleHelp(deps)
       return true
     }
     switch (key.name) {
       case "g":
-        if (panel) panel.getScrollBox().scrollTo(0)
+        act.scrollTop(deps)
         return true
       case "r":
-        ctx.executeAction?.("refresh")
+        act.runAction(deps, "refresh")
         return true
       case "o":
-        ctx.executeAction?.("open-in-browser")
+        act.runAction(deps, "open-in-browser")
         return true
       case "y":
-        ctx.executeAction?.("copy-pr-url")
+        act.runAction(deps, "copy-pr-url")
         return true
       // Terminals differ in whether shift+b reports its name as `B` or `b`.
       case "B":
-        ctx.executeAction?.("open-in-board")
+        act.runAction(deps, "open-in-board")
         return true
       case "b":
-        if (key.shift) ctx.executeAction?.("open-in-board")
+        if (key.shift) act.runAction(deps, "open-in-board")
         return true
       case "x":
       case "X":
-        // The links in the view — a rendered body has no column to put a
-        // cursor on (spec 077). preventDefault so the picker's prompt
-        // field, focused in this same keypress, does not also read the `x`
-        // as the first letter of a query.
+        // preventDefault so the picker's prompt field, focused in this same
+        // keypress, does not also read the `x` as the first letter of a query.
         key.preventDefault()
-        ctx.onOpenLinks?.(key.shift || key.name === "X" ? "copy" : "open")
+        act.openLinks(deps, key.shift || key.name === "X" ? "copy" : "open")
         return true
     }
     // Unknown g-sequence: swallow to avoid accidentally falling through
@@ -251,16 +162,14 @@ function handleInputInner(
     // preventDefault so the picker's prompt field, focused in this same
     // keypress, does not read the `+` as the start of a query.
     key.preventDefault()
-    ctx.onReact?.()
+    act.react(deps)
     return true
   }
 
-  // `/` narrows the panel's rows (spec 065), the key the tree uses for the
-  // same thing. Opening it focuses the input in this same keypress.
+  // Opening the filter focuses its input in this same keypress.
   if (key.name === "/" || key.sequence === "/") {
     key.preventDefault()
-    ctx.setState(startViewFilter)
-    ctx.render()
+    act.startFilter(deps)
     return true
   }
 
@@ -276,46 +185,20 @@ function handleInputInner(
       return false
 
     case "c":
-      // 'c' in conversation section opens comment input
-      if (panel && panel.getActiveSection() === 'conversation' && ctx.state.prInfo) {
-        ctx.setState(openPRCommentInput)
-        ctx.render()
-      }
+      act.openCommentInput(deps)
       return true
 
     case "l":
-      // l: expand selected item — conversation threads, or (spec 043)
-      // failing checks into their annotation list.
-      if (panel) {
-        const section = panel.getActiveSection()
-        if (section === 'conversation') panel.expandSelectedThread()
-        else if (section === 'checks') panel.expandSelectedCheck()
-      }
-      ctx.render()
+      act.expandItem(deps)
       return true
 
     case "h":
-      // h: collapse selected item — conversation threads, or (spec 043)
-      // expanded check annotation lists.
-      if (panel) {
-        const section = panel.getActiveSection()
-        if (section === 'conversation') panel.collapseSelectedThread()
-        else if (section === 'checks') panel.collapseSelectedCheck()
-      }
-      ctx.render()
+      act.collapseItem(deps)
       return true
 
-    case "x": {
-      // x: toggle resolved state of the focused review thread. Only
-      // meaningful when a review-thread row is focused — pr-comment and
-      // review-header don't have resolution state. The handler is a no-op
-      // for anything else.
-      if (!panel || panel.getActiveSection() !== 'conversation') return true
-      const flat = panel.getSelectedFlatItem?.()
-      if (!flat || flat.type !== 'review-thread') return true
-      ctx.onToggleThreadResolved?.(flat.data.id)
+    case "x":
+      act.toggleResolved(deps)
       return true
-    }
 
     case "z":
       // Fold commands: za, zm, zr, zM, zR — a real chord, so that the
@@ -327,284 +210,32 @@ function handleInputInner(
 
     case "return":
     case "enter":
-      // Enter: action based on current section
-      if (panel) {
-        const section = panel.getActiveSection()
-        switch (section) {
-          case 'checks': {
-            // Enter on an annotation opens the file at that line in
-            // $EDITOR (spec 043). We deliberately don't route through
-            // the diff view — error sites are often in code the PR
-            // didn't touch, so the file isn't in `state.files`. Enter
-            // on a failing check row toggles its annotation list
-            // (same "no location → toggle expand" pattern conversation
-            // uses); Enter on any other check row opens the browser.
-            const ann = panel.getSelectedAnnotation()
-            if (ann && ctx.onOpenFileAtLine) {
-              // Don't close the panel — $EDITOR is external, and on
-              // return the user wants to stay on the annotation they
-              // just inspected (spec 043).
-              ctx.onOpenFileAtLine(ann.annotation.path, ann.annotation.startLine)
-              break
-            }
-            const check = panel.getSelectedCheck()
-            if (check && panel.getSelectedAnnotation() === null) {
-              if (check.status === "completed" && (
-                check.conclusion === "failure" ||
-                check.conclusion === "timed_out" ||
-                check.conclusion === "action_required"
-              )) {
-                panel.toggleCheckExpansion(check.id)
-                ctx.render()
-                break
-              }
-            }
-            if (check?.detailsUrl) {
-              Bun.spawn(["open", check.detailsUrl])
-            }
-            break
-          }
-          case 'previews': {
-            const preview = panel.getSelectedPreview()
-            if (preview) {
-              // The palette's picker takes focus in this same keypress.
-              key.preventDefault()
-              ctx.onPreviewRow?.("open", preview)
-            }
-            break
-          }
-          case 'files': {
-            const file = panel.getSelectedFile()
-            if (file && ctx.onJumpToFile) {
-              ctx.setState(closePRInfoPanel)
-              ctx.render()
-              ctx.onJumpToFile(file.filename)
-            }
-            break
-          }
-          case 'commits': {
-            const commit = panel.getSelectedCommit()
-            if (commit && ctx.onActivateCommit) {
-              ctx.setState(closePRInfoPanel)
-              ctx.render()
-              ctx.onActivateCommit(commit.sha)
-            }
-            break
-          }
-          case 'conversation': {
-            // Enter on a thread opens the thread view (the inline comment
-            // overlay) on its anchor — same surface Enter gives on a
-            // commented diff line and on a comments-picker hit.
-            const flat = panel.getSelectedFlatItem?.()
-            if (flat?.type === 'review-thread' && ctx.onOpenThread) {
-              ctx.setState(closePRInfoPanel)
-              ctx.render()
-              ctx.onOpenThread(flat.data.id)
-              break
-            }
-            // Anything else (PR comment, review header, pending reviewers)
-            // has no thread of its own — expand it in place. For a review
-            // header that reveals its threads, which Enter then opens.
-            panel.toggleSelectedThread()
-            break
-          }
-        }
-      }
+      row.activate(deps, key)
       return true
 
     case "o":
-      // Open in browser based on current section/selection
-      if (panel && ctx.state.prInfo) {
-        const section = panel.getActiveSection()
-        switch (section) {
-          case 'checks': {
-            // `o` on an annotation prefers the raw log line URL; falls
-            // back to the check's details URL (spec 043).
-            const ann = panel.getSelectedAnnotation()
-            if (ann) {
-              const url = ann.annotation.rawDetailsUrl ?? ann.check.detailsUrl
-              if (url) Bun.spawn(["open", url])
-              break
-            }
-            const check = panel.getSelectedCheck()
-            if (check?.detailsUrl) {
-              Bun.spawn(["open", check.detailsUrl])
-            }
-            break
-          }
-          case 'previews': {
-            const preview = panel.getSelectedPreview()
-            if (preview) {
-              // The palette's picker takes focus in this same keypress.
-              key.preventDefault()
-              ctx.onPreviewRow?.("open", preview)
-            }
-            break
-          }
-          case 'commits': {
-            const commit = panel.getSelectedCommit()
-            if (commit) {
-              const { owner, repo } = ctx.state.prInfo
-              const url = `https://github.com/${owner}/${repo}/commit/${commit.sha}`
-              Bun.spawn(["open", url])
-            }
-            break
-          }
-          case 'files': {
-            const file = panel.getSelectedFile()
-            if (file) {
-              const { owner, repo, number } = ctx.state.prInfo
-              const url = `https://github.com/${owner}/${repo}/pull/${number}/files#diff-${file.filename.replace(/\//g, '-')}`
-              Bun.spawn(["open", url])
-            }
-            break
-          }
-          case 'conversation': {
-            const item = panel.getSelectedConversationItem()
-            if (item && item.type !== 'pending-reviewer') {
-              // Get URL - for PR comments use direct url, for reviews use first thread's url
-              const url = item.type === 'pr-comment' 
-                ? item.data.url 
-                : item.data.threads[0]?.url
-              if (url) Bun.spawn(["open", url])
-            }
-            break
-          }
-          default:
-            // Open PR itself
-            Bun.spawn(["open", ctx.state.prInfo.url])
-        }
-      }
+      row.openFocused(deps, key)
       return true
 
-    case "y": {
-      // y: Copy based on section, Y: Copy PR URL
-      if (panel && ctx.state.prInfo) {
-        const preview = panel.getActiveSection() === 'previews' ? panel.getSelectedPreview() : undefined
-        if (preview && preview.links.length > 0) {
-          // `Y` takes every link on the row at once; `y` takes the one link,
-          // or asks which when there are several (spec 068).
-          if (key.shift) {
-            const urls = preview.links.map((link) => link.url).join("\n")
-            copyAndToast(ctx, urls, `Copied ${preview.links.length} URLs`)
-          } else {
-            key.preventDefault()
-            ctx.onPreviewRow?.("copy", preview)
-          }
-        } else if (key.shift) {
-          // Y = copy PR URL
-          copyAndToast(ctx, ctx.state.prInfo.url, "PR URL copied")
-        } else {
-          // y = copy based on section
-          const section = panel.getActiveSection()
-          let copied = false
-          switch (section) {
-            case 'checks': {
-              // `y` on an annotation copies `path:line`; on a check row
-              // copies the check's details URL (spec 043).
-              const ann = panel.getSelectedAnnotation()
-              if (ann) {
-                const loc = `${ann.annotation.path}:${ann.annotation.startLine}`
-                copyAndToast(ctx, loc, `Copied ${loc}`)
-                copied = true
-                break
-              }
-              const check = panel.getSelectedCheck()
-              if (check?.detailsUrl) {
-                copyAndToast(ctx, check.detailsUrl, `Copied ${check.name} URL`)
-                copied = true
-              }
-              break
-            }
-            case 'commits': {
-              const commit = panel.getSelectedCommit()
-              if (commit) {
-                copyAndToast(ctx, commit.sha, `Copied ${commit.sha}`)
-                copied = true
-              }
-              break
-            }
-            case 'files': {
-              const file = panel.getSelectedFile()
-              if (file) {
-                copyAndToast(ctx, file.filename, `Copied ${file.filename}`)
-                copied = true
-              }
-              break
-            }
-            case 'conversation': {
-              const item = panel.getSelectedConversationItem()
-              if (item && item.type !== 'pending-reviewer') {
-                // Get body - for PR comments use direct body, for reviews use body or first thread body
-                const body = item.type === 'pr-comment' 
-                  ? item.data.body 
-                  : (item.data.body || item.data.threads[0]?.body || '')
-                if (body) {
-                  copyAndToast(ctx, body, "Comment copied")
-                  copied = true
-                }
-              }
-              break
-            }
-          }
-          if (!copied) {
-            // Default: copy PR URL
-            copyAndToast(ctx, ctx.state.prInfo.url, "PR URL copied")
-          }
-        }
-      }
+    case "y":
+      if (key.shift) row.copyAll(deps)
+      else row.copyFocused(deps, key)
       return true
-    }
 
     case "j":
     case "down":
-      if (panel) {
-        if (panel.isSectionExpanded()) {
-          // Try to move within section (header -> items -> next section)
-          const moved = panel.moveCursor(1)
-          if (!moved) {
-            // At end of items, go to next section header
-            panel.cycleSection(1)
-          }
-        } else {
-          // Section collapsed, go to next section
-          panel.cycleSection(1)
-        }
-      }
+      act.moveDown(deps)
       return true
 
     case "k":
     case "up":
-      if (panel) {
-        if (panel.isSectionExpanded()) {
-          // Try to move within section (items -> header -> prev section)
-          const moved = panel.moveCursor(-1)
-          if (!moved) {
-            // At header, go to previous section (at its last item or header)
-            panel.cycleSectionToEnd(-1)
-          }
-        } else {
-          // Section collapsed, go to previous section
-          panel.cycleSectionToEnd(-1)
-        }
-      }
+      act.moveUp(deps)
       return true
 
     case "d":
       // Ctrl+d pages down. Bare `d` is the diff: on a file row it opens the
       // diff at that file (spec 067), anywhere else the view router takes it.
-      if (!key.ctrl) {
-        if (panel && panel.getActiveSection() === 'files') {
-          const file = panel.getSelectedFile()
-          if (file && ctx.onJumpToFile) {
-            ctx.setState(closePRInfoPanel)
-            ctx.render()
-            ctx.onJumpToFile(file.filename)
-            return true
-          }
-        }
-        return false
-      }
+      if (!key.ctrl) return act.jumpToFileOnRow(deps)
       if (panel) panel.getScrollBox().scrollBy(10)
       return true
 
@@ -617,10 +248,7 @@ function handleInputInner(
 
     case "g": {
       if (key.shift) {
-        // G = scroll to bottom
-        if (panel) {
-          panel.getScrollBox().scrollTo(panel.getScrollBox().scrollHeight)
-        }
+        act.scrollBottom(deps)
         return true
       }
       // Start key sequence for g-prefixed commands
@@ -656,79 +284,29 @@ function handleInputInner(
  */
 function handleCommentInput(
   key: KeyEvent,
-  ctx: PRInfoPanelInputContext
+  deps: act.PRInfoPanelDeps
 ): void {
-  const { prInfoPanel, prInfo } = ctx.state
-  
   switch (key.name) {
     case "escape":
-      ctx.setState(closePRCommentInput)
-      ctx.render()
+      comment.closeCommentInput(deps)
       return
 
     case "return":
     case "enter":
-      // Enter to submit
-      if (prInfoPanel.commentInputText.trim() && prInfo) {
-        ctx.setState(s => setPRCommentInputLoading(s, true))
-        ctx.render()
-        
-        // Submit async
-        submitPrComment(
-          prInfo.owner,
-          prInfo.repo,
-          prInfo.number,
-          prInfoPanel.commentInputText.trim()
-        ).then(result => {
-          if (result.success) {
-            ctx.setState(s => {
-              const closed = closePRCommentInput(s)
-              return showToast(closed, "Comment posted", "success")
-            })
-            ctx.render()
-            setTimeout(() => {
-              ctx.setState(clearToast)
-              ctx.render()
-            }, 2000)
-          } else {
-            ctx.setState(s => setPRCommentInputError(s, result.error ?? "Failed to post comment"))
-            ctx.render()
-          }
-        })
-      }
+      comment.submitComment(deps)
       return
 
     case "backspace":
-      if (prInfoPanel.commentInputText.length > 0) {
-        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText.slice(0, -1)))
-        ctx.render()
-      }
+      comment.deleteCommentChar(deps)
       return
 
     default:
       // Add character to input
       if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText + key.sequence))
-        ctx.render()
+        comment.typeIntoComment(deps, key.sequence)
       } else if (key.name === "j" && key.ctrl) {
-        // Ctrl+j for newline
-        ctx.setState(s => setPRCommentInputText(s, s.prInfoPanel.commentInputText + "\n"))
-        ctx.render()
+        comment.newlineInComment(deps)
       }
       return
   }
-}
-
-/**
- * Pull the current reaction target from the panel and mirror it into
- * state (spec 042). Called after every consumed key so the palette's
- * React… entry targets whichever item is visually focused right now.
- */
-function syncReactionTarget(ctx: PRInfoPanelInputContext): void {
-  const panel = ctx.getPanel()
-  const target = panel?.getReactionTarget?.() ?? null
-  // setReactionTarget is identity-checked — it no-ops when the target
-  // is the same, so we don't thrash renders on e.g. repeated `j`s that
-  // land on the same item class.
-  ctx.setState(s => setReactionTarget(s, target))
 }
