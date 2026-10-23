@@ -99,6 +99,8 @@ export interface Frame {
   commentDrafts: ReadonlyMap<string, string>
   /** The comment composer's @mention and :emoji pickers, read off their factory, each null while it is closed. */
   composerPickers: { mention: MentionPickerState | null; emoji: EmojiPickerState | null }
+  /** The comment whose stored hunk the thread panel's code peek shows (spec 060), read off its factory, or null. */
+  codePeekId: string | null
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

@@ -35,6 +35,7 @@ import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import { createJumpListState } from "../features/jumplist/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
@@ -168,6 +169,7 @@ export async function mountApp(
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
   const composerPickers = createComposerPickersState()
+  const codePeek = createCodePeekState()
   const jumpList = createJumpListState()
   const marks = createMarksState()
   const activityFeed = createFeedState()
@@ -233,6 +235,7 @@ export async function mountApp(
     mentions,
     commentDrafts,
     composerPickers,
+    codePeek,
     chatColumn: chatColumnState,
     getCommandKeys: () => commandKeys,
     reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
@@ -328,6 +331,8 @@ export async function mountApp(
     commentDrafts,
     /** The comment composer's @mention and :emoji pickers, which the frame pass and the keys read as app.ts's do. */
     composerPickers,
+    /** The thread panel's code peek, which the frame pass and the keys read as app.ts's do. */
+    codePeek,
     /** The jumplist, which the keys walk and the jump recording pushes to as app.ts's do. */
     jumpList,
     /** The activity feed's state, which the frame pass and the keys read as app.ts's do. */
@@ -379,6 +384,6 @@ export async function mountApp(
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, codePeek, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, codePeek, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs }
 }

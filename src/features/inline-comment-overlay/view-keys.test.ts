@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { setCommentCodePeek, startInlineCompose, startViewFilter } from "../../state"
+import { startInlineCompose, startViewFilter, type AppState } from "../../state"
 import { panelState, threadPanelKeys } from "../../testing/thread-panel-keys"
 
 const CTRL = {
@@ -123,11 +123,11 @@ describe("the thread panel in view mode", () => {
   test("c opens the code the comment was written against, or says there is none", async () => {
     const keys = await threadPanelKeys(panelState())
     expect(keys.press("c").defaultPrevented).toBe(true)
-    expect(keys.overlay().codePeekId).toBe("a")
+    expect(keys.codePeek.id()).toBe("a")
 
     const none = await threadPanelKeys(panelState(2))
     none.press("c")
-    expect(none.overlay().codePeekId).toBeNull()
+    expect(none.codePeek.id()).toBeNull()
     expect(none.toast.current()?.message).toBe("No stored context for this comment")
   })
 
@@ -250,16 +250,23 @@ describe("the panel's filter prompt", () => {
   })
 })
 
+/** The panel's keys with the code peek up on comment `a`. */
+async function peeking(state: AppState, options: { chatOpen?: boolean } = {}) {
+  const keys = await threadPanelKeys(state, options)
+  keys.codePeek.open("a")
+  return keys
+}
+
 describe("the code peek over the panel", () => {
   test("only Esc, q and c close it; every other key is swallowed", async () => {
     for (const close of [ESC, "q", "c", "Q"]) {
-      const keys = await threadPanelKeys(setCommentCodePeek(panelState(), "a"))
+      const keys = await peeking(panelState())
       keys.press(close)
-      expect(keys.overlay().codePeekId).toBeNull()
+      expect(keys.codePeek.id()).toBeNull()
     }
-    const keys = await threadPanelKeys(setCommentCodePeek(panelState(), "a"))
+    const keys = await peeking(panelState())
     for (const sequence of ["j", "d", "x", "s", CTRL.p, CTRL.f]) keys.press(sequence)
-    expect(keys.overlay().codePeekId).toBe("a")
+    expect(keys.codePeek.id()).toBe("a")
     expect(keys.overlay().highlightedIndex).toBe(0)
     expect(keys.calls).toEqual([])
     expect(keys.leftKeys).toEqual([])
@@ -285,8 +292,8 @@ describe("what the panel leaves to the chain", () => {
   })
 
   test("the filter prompt and the code peek keep Ctrl-o and Tab", async () => {
-    for (const state of [startViewFilter(panelState(), "comments"), setCommentCodePeek(panelState(), "a")]) {
-      const keys = await threadPanelKeys(state)
+    for (const open of [() => threadPanelKeys(startViewFilter(panelState(), "comments")), () => peeking(panelState())]) {
+      const keys = await open()
       keys.press(CTRL.o)
       keys.press(TAB)
       expect(keys.leftKeys).toEqual([])
@@ -298,7 +305,7 @@ describe("what the panel leaves to the chain", () => {
       const keys = await threadPanelKeys(panelState(), { chatOpen })
       keys.press(CTRL.r)
       keys.press("\x1b[114;6u")
-      keys.set(setCommentCodePeek(keys.state(), "a"))
+      keys.codePeek.open("a")
       keys.press(CTRL.r)
       expect(keys.leftKeys).toEqual(["r", "r", "r"])
     }

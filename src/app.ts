@@ -77,6 +77,7 @@ import { createBlameColumnsState } from "./features/blame/column-state"
 import { createMentionsState } from "./features/mentions/state"
 import { createCommentDraftsState } from "./features/inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "./features/inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "./features/inline-comment-overlay/code-peek-state"
 import { createJumpListState } from "./features/jumplist/state"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
@@ -508,6 +509,7 @@ export async function createApp(options: AppOptions = {}) {
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
   const composerPickers = createComposerPickersState()
+  const codePeek = createCodePeekState()
   const jumpList = createJumpListState()
   const globalMarks = createMarksState()
   globalMarks.reset(initialMarks)
@@ -530,6 +532,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     commentDrafts,
     composerPickers,
+    codePeek,
     jumpList,
     pendingReview,
     prCommentInput,
@@ -580,6 +583,7 @@ export async function createApp(options: AppOptions = {}) {
     note: chat.note,
     commentDrafts,
     composerPickers,
+    codePeek,
   })
   chat.onSessionClosed(proposals.endConversation)
   const chatColumn = createChatColumnIsland(renderer, chat, () => chatAtCandidates(state))
@@ -738,6 +742,7 @@ export async function createApp(options: AppOptions = {}) {
     mentions,
     commentDrafts,
     composerPickers,
+    codePeek,
     chatColumn: chatColumnState,
     getCommandKeys: () => paletteKeys,
     reactionTarget,
@@ -935,6 +940,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     commentDrafts,
     composerPickers,
+    codePeek,
     jumpList,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
@@ -1083,6 +1089,7 @@ export async function createApp(options: AppOptions = {}) {
     fileNavContext,
     visit,
     composerPickers,
+    codePeek,
   }
 
   const marksContext: marks.MarksContext = {
@@ -1485,6 +1492,7 @@ export async function createApp(options: AppOptions = {}) {
     mentions,
     commentDrafts,
     composerPickers,
+    codePeek,
     prCommentInput,
     prInfoFilter,
     diffOptions,

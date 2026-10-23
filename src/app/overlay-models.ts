@@ -12,8 +12,8 @@ import { diffPeekModel, hunkPeekModel } from "./peeks"
 import type { Frame } from "./frame"
 
 /** What each overlay draws for `frame`, or null while it is not shown. */
-export function overlayModels({ state, vimState, mapping, cachedCurrentUser, width, height, now, help, confirmDialog, syncPreview, reviewPreview, pendingReview, toast, linePeek, blamePeek }: Frame) {
-  const codePeekId = state.inlineCommentOverlay.open ? state.inlineCommentOverlay.codePeekId : null
+export function overlayModels({ state, vimState, mapping, cachedCurrentUser, width, height, now, help, confirmDialog, syncPreview, reviewPreview, pendingReview, toast, linePeek, blamePeek, codePeekId }: Frame) {
+  const peeked = state.inlineCommentOverlay.open ? codePeekId : null
   return {
     toast: toast ? toastModel(toast.message, toast.type) : null,
     confirmDialog,
@@ -36,7 +36,7 @@ export function overlayModels({ state, vimState, mapping, cachedCurrentUser, wid
         ? blamePeekModel({ ...blamePeek, now, terminalWidth: width, terminalHeight: height })
         : null,
     hunkPeek:
-      codePeekId !== null ? hunkPeekModel(getInlineCommentOverlayComments(state), codePeekId, width, height) : null,
+      peeked !== null ? hunkPeekModel(getInlineCommentOverlayComments(state), peeked, width, height) : null,
   }
 }
 

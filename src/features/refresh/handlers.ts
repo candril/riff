@@ -42,6 +42,7 @@ import type { BlamePeekState } from "../blame/peek-state"
 import type { BlameColumnsState } from "../blame/column-state"
 import type { CommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
+import type { CodePeekState } from "../inline-comment-overlay/code-peek-state"
 import type { JumpListState } from "../jumplist/state"
 import type { PendingReviewState } from "../review-preview/pending-state"
 import { loadPendingReview } from "../review-preview/load-pending"
@@ -118,6 +119,7 @@ export interface RefreshContext {
   blameColumns: Pick<BlameColumnsState, "clear">
   commentDrafts: Pick<CommentDraftsState, "clear">
   composerPickers: Pick<ComposerPickersState, "clear">
+  codePeek: Pick<CodePeekState, "close">
   jumpList: Pick<JumpListState, "clear">
   pendingReview: Pick<PendingReviewState, "clear" | "set" | "generation">
   toast: Pick<ToastState, "show" | "clear">
@@ -334,7 +336,7 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "composerPickers" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh" | "fileContent" | "commitDiffs">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "composerPickers" | "codePeek" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh" | "fileContent" | "commitDiffs">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -352,6 +354,7 @@ export function adoptReloadedState(
   ctx.blamePeek.close()
   ctx.prCommentInput.close()
   ctx.composerPickers.clear()
+  ctx.codePeek.close()
   ctx.blameColumns.clear()
   // A draft is keyed by file, line and side, and the reloaded diff can put
   // other code on that line: kept, it would come back on the wrong one.

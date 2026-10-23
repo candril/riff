@@ -45,6 +45,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
         fileNavContext: ctx.fileNavContext,
         toast: ctx.toast,
         composerPickers: ctx.composerPickers,
+        codePeek: ctx.codePeek,
       })
     },
     onOpenFileAtLine: (filename, line) => {

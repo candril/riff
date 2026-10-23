@@ -40,6 +40,7 @@ import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import { createChatColumnState } from "../features/chat/column-state"
 
 /*
@@ -76,6 +77,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
   const blamePeek = createBlamePeekState()
   const activityFeed = createFeedState()
   const toast = createToastState()
+  const codePeek = createCodePeekState()
   const realParts = real(renderer)
   const islands = {
     ...Object.fromEntries(
@@ -141,6 +143,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
     composerPickers: createComposerPickersState(),
+    codePeek,
     chatColumn: createChatColumnState(),
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
@@ -151,12 +154,14 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     shell.root.getChildren().flatMap((child: Renderable) => (ids.has(child.id) && child.visible ? [child.id] : []))
   return {
     activityFeed,
+    codePeek,
     /**
      * `help`, `confirmDialog`, `syncPreview`, `reviewPreview`, `filePicker`,
      * `commentsPicker`, `occurrencePicker`, `marksPicker`, `commitPicker`,
      * `actionMenu` and `linePeek` open or close those overlays through their
-     * factories, and `toast` shows its message or, null, clears it; the rest
-     * patches the state.
+     * factories, `codePeek` peeks a comment or, null, closes the peek, and
+     * `toast` shows its message or, null, clears it; the rest patches the
+     * state.
      */
     show({
       help: helpOpen,
@@ -170,6 +175,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commitPicker: commitPickerOpen,
       actionMenu: actionMenuOpen,
       linePeek: linePeekOpen,
+      codePeek: peeked,
       toast: toastMessage,
       ...patch
     }: Partial<AppState> & {
@@ -184,6 +190,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       commitPicker?: boolean
       actionMenu?: boolean
       linePeek?: boolean
+      codePeek?: string | null
       toast?: string | null
     }) {
       state = { ...state, ...patch }
@@ -211,6 +218,8 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
       if (actionMenuOpen === false) actionMenu.close()
       if (linePeekOpen === true && !linePeek.open()) linePeek.toggle()
       if (linePeekOpen === false) linePeek.close()
+      if (peeked) codePeek.open(peeked)
+      if (peeked === null) codePeek.close()
       render()
       return overlays()
     },
@@ -240,18 +249,14 @@ const hunked: Comment = {
 
 test("the peeks sit between help and the confirm dialog, gl's under c's, each mounted only while it has a model", async () => {
   const app = await harness()
-  const overlay = (codePeekId: string | null) => ({
-    ...createInitialState([], [], "test", "").inlineCommentOverlay,
-    open: true,
-    codePeekId,
-  })
   expect(
     app.show({
       help: true,
       linePeek: true,
       viewMode: "diff",
       comments: [hunked],
-      inlineCommentOverlay: overlay("c1"),
+      inlineCommentOverlay: panel(true),
+      codePeek: "c1",
       confirmDialog: dialog,
     })
   ).toEqual(["helpOverlay", "diffPeek", "hunkPeek", "confirmDialog"])
@@ -265,7 +270,43 @@ test("the peeks sit between help and the confirm dialog, gl's under c's, each mo
     "hunkPeek",
     "confirmDialog",
   ])
-  expect(app.show({ inlineCommentOverlay: overlay(null) })).toEqual(["helpOverlay", "confirmDialog"])
+  expect(app.show({ codePeek: null })).toEqual(["helpOverlay", "confirmDialog"])
+})
+
+const panel = (open: boolean) => ({ ...createInitialState([], [], "test", "").inlineCommentOverlay, open })
+
+test("the pass closes the code peek with the panel, so reopening the panel shows no peek", async () => {
+  const app = await harness()
+  expect(app.show({ comments: [hunked], inlineCommentOverlay: panel(true), codePeek: "c1" })).toEqual(["hunkPeek"])
+  expect(app.codePeek.id()).toBe("c1")
+
+  expect(app.show({ inlineCommentOverlay: panel(false) })).toEqual([])
+  expect(app.codePeek.id()).toBeNull()
+  expect(app.show({ inlineCommentOverlay: panel(true) })).toEqual([])
+})
+
+test("the pass closes the code peek once its comment has left the panel, and leaves it up while it is shown", async () => {
+  const other: Comment = { ...hunked, id: "c2", line: 2 }
+  const app = await harness()
+  app.show({ comments: [hunked, other], inlineCommentOverlay: panel(true), codePeek: "c1" })
+
+  expect(app.show({ comments: [hunked] })).toEqual(["hunkPeek"])
+  expect(app.codePeek.id()).toBe("c1")
+  // Resolved under open-only, deleted, or gone in a poll or a reload alike.
+  expect(app.show({ comments: [other] })).toEqual([])
+  expect(app.codePeek.id()).toBeNull()
+})
+
+test("the pass closes a peek on a thread open-only hides, and keeps one on a thread it shows", async () => {
+  const resolved: Comment = { ...hunked, id: "r1", line: 2, isThreadResolved: true }
+  const app = await harness()
+  app.show({ comments: [hunked, resolved], inlineCommentOverlay: panel(true), codePeek: "r1" })
+  expect(app.codePeek.id()).toBe("r1")
+  expect(app.show({ threadPanelOpenOnly: true })).toEqual([])
+  expect(app.codePeek.id()).toBeNull()
+
+  expect(app.show({ codePeek: "c1" })).toEqual(["hunkPeek"])
+  expect(app.codePeek.id()).toBe("c1")
 })
 
 test("each picker is mounted only while it is open, under help and the confirm dialog", async () => {

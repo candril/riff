@@ -5,6 +5,7 @@ import { isUnsynced } from "../providers/agent/thread-text"
 import type { AppState } from "../state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import type { CodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import { editTarget, newCommentTarget, type ProposalTarget } from "./proposal-targets"
 
 export const BUSY = "A proposal is already open; propose the next after the reviewer closes it."
@@ -26,6 +27,8 @@ export interface ProposalDeps {
   commentDrafts: Pick<CommentDraftsState, "on" | "forget">
   /** Opening the proposal's composer leaves no picker of an earlier one behind. */
   composerPickers: Pick<ComposerPickersState, "clear">
+  /** Nor a code peek left up over the panel it opens. */
+  codePeek: Pick<CodePeekState, "close">
 }
 
 interface Pending {
@@ -74,6 +77,7 @@ export function createProposals(deps: ProposalDeps): Proposer & {
     deps.reveal(pending.target.anchor)
     deps.setState((s) => pending.target.open(s, pending.text))
     deps.composerPickers.clear()
+    deps.codePeek.close()
     deps.note(pending.target.opened)
     deps.render()
     deps.fillComposer(pending.text)

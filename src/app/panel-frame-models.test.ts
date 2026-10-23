@@ -89,6 +89,7 @@ function frame(
     mentions,
     commentDrafts,
     composerPickers,
+    codePeekId: null,
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },
   }

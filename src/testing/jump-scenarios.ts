@@ -179,6 +179,7 @@ export async function jumpScenario({
     fileNavContext,
     visit: mounted.visit,
     composerPickers: mounted.composerPickers,
+    codePeek: mounted.codePeek,
   }
   const searchHandler = new SearchHandler({
     getMapping: render.getLineMapping,

@@ -12,6 +12,7 @@ import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createChatColumnState } from "../features/chat/column-state"
@@ -59,6 +60,7 @@ export async function threadPanelKeys(initial: AppState, options: { chatOpen?: b
   const record = (entry: string) => () => void calls.push(entry)
   const commentDrafts = createCommentDraftsState()
   const composerPickers = createComposerPickersState()
+  const codePeek = createCodePeekState()
   const toast = createToastState()
   const deps: ThreadPanelKeyDeps = {
     getState: () => state,
@@ -96,6 +98,7 @@ export async function threadPanelKeys(initial: AppState, options: { chatOpen?: b
     chat: { column: chatColumn },
     commentDrafts,
     composerPickers,
+    codePeek,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)
   return {
@@ -104,6 +107,7 @@ export async function threadPanelKeys(initial: AppState, options: { chatOpen?: b
     unregister,
     commentDrafts,
     composerPickers,
+    codePeek,
     toast,
     state: () => state,
     overlay: () => state.inlineCommentOverlay,

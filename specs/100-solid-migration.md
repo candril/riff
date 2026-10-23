@@ -337,6 +337,11 @@ frame carries them for the thread panel, the composer's activity sets
 them only while the panel is open, and cancelling, closing or reopening
 the composer or the panel, a reload and a switch to another review clear
 them.
+The thread panel's code peek is the thirty-third (`createCodePeekState`
+in `src/features/inline-comment-overlay/code-peek-state.ts`); the frame
+carries its id for the hunk peek, and closing or reopening the panel, a
+reload, a switch to another review, and the pass once its comment is no
+longer shown all close it.
 What React… and Copy Comment Link act on is not kept anywhere:
 `reactionTargetOf` in `src/features/reactions/target.ts` derives it from
 what has focus when they are asked (the thread panel's highlighted comment

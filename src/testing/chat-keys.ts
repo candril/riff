@@ -100,6 +100,7 @@ function wireKeys(
     mentions: mounted.mentions,
     commentDrafts: mounted.commentDrafts,
     composerPickers: mounted.composerPickers,
+    codePeek: mounted.codePeek,
     jumpList: mounted.jumpList,
     getLineMapping: render.getLineMapping,
     ensureCursorVisible: () => {},

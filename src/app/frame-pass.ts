@@ -6,7 +6,7 @@ import type { SplitDiff } from "./split-diff"
 import type { UnifiedDiff } from "./unified-diff"
 import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
-import type { AppState } from "../state"
+import { getInlineCommentOverlayComments, type AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { ReactionTarget } from "../types"
 import type { FileParses } from "../vim-diff/file-parses"
@@ -47,6 +47,7 @@ import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import type { CodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import type { ChatColumnState } from "../features/chat/column-state"
 
 export interface FramePassContext {
@@ -93,6 +94,7 @@ export interface FramePassContext {
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
   composerPickers: Pick<ComposerPickersState, "mention" | "emoji">
+  codePeek: Pick<CodePeekState, "id" | "close">
   chatColumn: Pick<ChatColumnState, "open">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
@@ -118,6 +120,12 @@ export function createFramePass(ctx: FramePassContext): () => void {
     // The blame peek blames a line of the diff; kept across a switch it would come back over a line it no longer names.
     if (ctx.getState().viewMode !== "diff") ctx.blamePeek.close()
     const state = ctx.getState()
+    // The code peek draws a comment the thread panel shows. Once the panel
+    // is closed or the comment has left it, by a resolve under open-only, a
+    // delete, a poll or a reload, the peek would draw nothing yet keep
+    // holding the Esc, q and c that close it.
+    const peeked = ctx.codePeek.id()
+    if (peeked !== null && !threadPanelShows(state, peeked)) ctx.codePeek.close()
     const vimState = ctx.getVimState()
     const mapping = ctx.getLineMapping()
     const searchState = ctx.getSearchState()
@@ -218,6 +226,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       mentions: { pool: ctx.mentions.pool(), searching: ctx.mentions.searching() },
       commentDrafts: ctx.commentDrafts.drafts(),
       composerPickers: { mention: ctx.composerPickers.mention(), emoji: ctx.composerPickers.emoji() },
+      codePeekId: ctx.codePeek.id(),
       commandKeys: ctx.getCommandKeys(),
     }
 
@@ -245,4 +254,8 @@ export function createFramePass(ctx: FramePassContext): () => void {
       }
     }
   }
+}
+
+function threadPanelShows(state: AppState, commentId: string): boolean {
+  return state.inlineCommentOverlay.open && getInlineCommentOverlayComments(state).some((c) => c.id === commentId)
 }

@@ -44,6 +44,7 @@ export function feedKeyDeps(
             fileNavContext: ctx.fileNavContext,
             toast: ctx.toast,
             composerPickers: ctx.composerPickers,
+            codePeek: ctx.codePeek,
           })
           return
         }

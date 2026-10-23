@@ -12,6 +12,7 @@ import { buildFileTree } from "../utils/file-tree"
 import { parseDiff } from "../utils/diff-parser"
 import { createCommentDraftsState, draftOn, type CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import { BUSY, DROPPED, ENDED, createProposals } from "./proposals"
 
 const DIFF = `diff --git a/src/a.ts b/src/a.ts
@@ -36,6 +37,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
   const notes: string[] = []
   const revealed: unknown[] = []
   const pickers = createComposerPickersState()
+  const codePeek = createCodePeekState()
   const proposals = createProposals({
     getState: () => state,
     setState: (fn) => (state = fn(state)),
@@ -45,6 +47,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
     note: (text) => void notes.push(text),
     commentDrafts: drafts,
     composerPickers: pickers,
+    codePeek,
   })
   const outcomes: string[] = []
   const propose = (proposal = PROPOSAL) => proposals.proposeComment(proposal).then((o) => void outcomes.push(o))
@@ -56,6 +59,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
     propose,
     drafts,
     pickers,
+    codePeek,
     state: () => state,
     update: (fn: (s: AppState) => AppState) => (state = fn(state)),
     // What the composer's Esc does, before it reports.
@@ -95,6 +99,14 @@ test("a proposal opens the composer with no picker", () => {
   void t.propose()
   expect(t.state().inlineCommentOverlay.mode).toBe("compose")
   expect([t.pickers.mention(), t.pickers.emoji()]).toEqual([null, null])
+})
+
+test("a proposal opens its panel with no code peek over it", () => {
+  const t = setup()
+  t.codePeek.open("c1")
+  void t.propose()
+  expect(t.state().inlineCommentOverlay.mode).toBe("compose")
+  expect(t.codePeek.id()).toBeNull()
 })
 
 test("a refused place opens nothing and returns why", async () => {

@@ -18,7 +18,6 @@ import {
   startInlineCompose,
   startInlineEdit,
   toggleInlineCommentOverlayExpand,
-  setCommentCodePeek,
 } from "../../state"
 import { stateFilterTarget } from "../../app/view-filter"
 import { commentHunk } from "./hunk"
@@ -27,6 +26,7 @@ import { groupIntoThreads } from "../../utils/threads"
 import type { CommentDraftsState } from "./drafts-state"
 import type { ToastState } from "../toast/state"
 import type { ComposerPickersState } from "./composer-pickers-state"
+import type { CodePeekState } from "./code-peek-state"
 
 export interface ThreadPanelViewDeps {
   getState: () => AppState
@@ -75,6 +75,8 @@ export interface ThreadPanelViewDeps {
   commentDrafts: Pick<CommentDraftsState, "on">
   /** Cleared whenever the composer opens, changes mode or closes with the panel. */
   composerPickers: Pick<ComposerPickersState, "clear">
+  /** The code peek (spec 060), which closes with the panel. */
+  codePeek: Pick<CodePeekState, "id" | "open" | "close">
 }
 
 type Deps = ThreadPanelViewDeps
@@ -96,6 +98,12 @@ function recompose(deps: Deps, updater: (s: AppState) => AppState): void {
   deps.render()
 }
 
+/** The peek is a sub-modal of the panel, so it goes down with it. */
+function dismissPanel(deps: Deps): void {
+  deps.codePeek.close()
+  recompose(deps, closeInlineCommentOverlay)
+}
+
 export function closeFilter(deps: Deps): void {
   update(deps, (s) => clearViewFilter(s, stateFilterTarget(s)))
 }
@@ -109,7 +117,8 @@ export function startFilter(deps: Deps): void {
 }
 
 export function closeCodePeek(deps: Deps): void {
-  update(deps, (s) => setCommentCodePeek(s, null))
+  deps.codePeek.close()
+  deps.render()
 }
 
 /** Ctrl-h — hand focus back to the diff (mirror of file tree's exit). */
@@ -135,7 +144,7 @@ export function copyLink(deps: Deps): void {
 }
 
 export function closePanel(deps: Deps): void {
-  recompose(deps, closeInlineCommentOverlay)
+  dismissPanel(deps)
 }
 
 export function highlightEntry(deps: Deps, index: number): void {
@@ -226,12 +235,12 @@ export function replyInline(deps: Deps): void {
 }
 
 export function replyInEditor(deps: Deps): void {
-  recompose(deps, closeInlineCommentOverlay)
+  dismissPanel(deps)
   deps.handleReplyExternal()
 }
 
 export function editInEditor(deps: Deps): void {
-  recompose(deps, closeInlineCommentOverlay)
+  dismissPanel(deps)
   deps.handleEditExternal()
 }
 
@@ -279,7 +288,8 @@ export function openCodePeek(deps: Deps, highlighted: Comment): void {
     }, 2000)
     return
   }
-  update(deps, (s) => setCommentCodePeek(s, highlighted.id))
+  deps.codePeek.open(highlighted.id)
+  deps.render()
 }
 
 /**

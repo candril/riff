@@ -88,6 +88,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     prInfoFilter: mounted.prInfoFilter,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    codePeek: mounted.codePeek,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,

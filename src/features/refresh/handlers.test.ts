@@ -18,6 +18,7 @@ import { createBlamePeekState } from "../blame/peek-state"
 import { createBlameColumnsState } from "../blame/column-state"
 import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import { createComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
+import { createCodePeekState } from "../inline-comment-overlay/code-peek-state"
 import { createJumpListState } from "../jumplist/state"
 import { createLastRefreshState } from "./last-refresh-state"
 import { createFileContentState } from "../file-content/state"
@@ -54,6 +55,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -91,6 +93,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -129,6 +132,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -169,6 +173,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -207,6 +212,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -246,6 +252,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -286,6 +293,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -327,6 +335,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -367,6 +376,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -412,6 +422,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -454,6 +465,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -492,6 +504,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -529,6 +542,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -568,6 +582,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns,
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -606,6 +621,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts,
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
@@ -645,6 +661,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       composerPickers: createComposerPickersState(),
+      codePeek: createCodePeekState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent,
@@ -667,6 +684,15 @@ describe("a refresh's rebuilt state", () => {
     adoptReloadedState({ ...ctx, commitDiffs }, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
 
     expect(commitDiffs.has("abc1234")).toBe(false)
+  })
+
+  test("closes the thread panel's code peek, whose comment the rebuild can take away", () => {
+    const { ctx, codePeek } = refreshHarness({ appMode: "pr" })
+    codePeek.open("c1")
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(codePeek.id()).toBeNull()
   })
 })
 

@@ -77,6 +77,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     composerPickers: mounted.composerPickers,
+    codePeek: mounted.codePeek,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -122,6 +123,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     fileNavContext: known.fileNavContext!,
     visit: mounted.visit,
     composerPickers: mounted.composerPickers,
+    codePeek: mounted.codePeek,
   }
   const ctx = new Proxy(known, {
     get(target, name) {
@@ -273,15 +275,18 @@ describe("Opening the thread panel or moving it to another thread", () => {
   const pickers = () => [app!.composerPickers.mention(), app!.composerPickers.emoji()]
   const standingPicker = () => app!.composerPickers.setEmoji({ query: "smil", colonOffset: 3 })
 
-  test("Ctrl-t on the file's header row opens the panel with no picker", async () => {
+  test("Ctrl-t on the file's header row opens the panel with no picker and no code peek", async () => {
     app = await mountApp(FILE, { width: 140, height: 30 })
     app.show({ comments: THREADS, selectedFileIndex: 0 })
     keysOn(app)
     await app.frame()
     standingPicker()
+    // Nor does any key leave a code peek standing outside the panel.
+    app.codePeek.open("o1")
     app.setup.mockInput.pressKey("t", { ctrl: true })
     expect(app.ctx.getState().inlineCommentOverlay).toMatchObject({ open: true, mode: "view", line: 0 })
     expect(pickers()).toEqual([null, null])
+    expect(app.codePeek.id()).toBeNull()
   })
 
   test("Ctrl-n moves the panel to the next thread with no picker", async () => {

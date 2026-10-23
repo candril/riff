@@ -19,6 +19,7 @@ import {
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 import type { ToastState } from "../toast/state"
 import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
+import type { CodePeekState } from "../inline-comment-overlay/code-peek-state"
 
 export { registerCommentsPickerKeys, type CommentsPickerKeyDeps } from "./keys"
 
@@ -42,6 +43,8 @@ export interface CommentsPickerJumpContext {
   fileNavContext: FileNavigationContext
   /** Opening the panel afresh leaves no composer picker behind. */
   composerPickers: Pick<ComposerPickersState, "clear">
+  /** Nor a code peek on the thread it was opened on. */
+  codePeek: Pick<CodePeekState, "close">
 }
 
 /**
@@ -89,5 +92,6 @@ export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext):
     return highlightInlineComment(expandThreadFor(opened, comment.id), comment.id)
   })
   ctx.composerPickers.clear()
+  ctx.codePeek.close()
   ctx.render()
 }

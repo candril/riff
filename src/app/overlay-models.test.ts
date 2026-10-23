@@ -69,6 +69,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     composerPickers: { mention: null, emoji: null },
+    codePeekId: null,
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },
     ...rest,
@@ -105,7 +106,7 @@ const hunked: Comment = {
   status: "synced",
   diffHunk: "@@ -1 +1 @@\n+const a = 1",
 }
-const threadPanel = (open: boolean) => ({ ...initial.inlineCommentOverlay, open, codePeekId: "c1" })
+const threadPanel = (open: boolean) => ({ ...initial.inlineCommentOverlay, open })
 
 describe("overlayModels", () => {
   test("is null for every overlay while none is shown", () => {
@@ -134,7 +135,7 @@ describe("overlayModels", () => {
       frame({
         comments: [hunked],
         inlineCommentOverlay: threadPanel(true),
-      }, { toast: { message: "Saved", type: "success" }, help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek, blamePeek })
+      }, { toast: { message: "Saved", type: "success" }, help: { open: true, scroll: 2 }, confirmDialog: dialog, syncPreview: { loading: false }, reviewPreview: review, linePeek, blamePeek, codePeekId: "c1" })
     )
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
@@ -161,7 +162,7 @@ describe("overlayModels", () => {
   })
 
   test("c's hunk peek is drawn only while the thread panel is open", () => {
-    expect(overlayModels(frame({ comments: [hunked], inlineCommentOverlay: threadPanel(false) })).hunkPeek).toBeNull()
+    expect(overlayModels(frame({ comments: [hunked], inlineCommentOverlay: threadPanel(false) }, { codePeekId: "c1" })).hunkPeek).toBeNull()
   })
 
   test("Submit Review on the user's own PR follows who riff knows the user to be", () => {

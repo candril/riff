@@ -98,6 +98,7 @@ async function mount(width: number, height: number) {
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     composerPickers: { mention: null, emoji: null },
+    codePeekId: null,
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },
   })
@@ -234,6 +235,7 @@ test("every frame updates the islands in FRAME_ISLANDS' order, as focus passes d
       mentions: { pool: [], searching: null },
       commentDrafts: new Map(),
       composerPickers: { mention: null, emoji: null },
+      codePeekId: null,
       commandKeys: new Map(),
       actionFocus: { reactionTarget: null },
     })

@@ -10,6 +10,7 @@ import type { AppState } from "../../state"
 import { unseenComments, type VisitWatermark } from "../../utils/visit"
 import type { VisitState } from "../visit/state"
 import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
+import type { CodePeekState } from "../inline-comment-overlay/code-peek-state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
@@ -38,6 +39,8 @@ export interface ThreadMotionContext {
   visit: Pick<VisitState, "watermark">
   /** Reopening the panel on another thread leaves no composer picker behind. */
   composerPickers: Pick<ComposerPickersState, "clear">
+  /** Nor a code peek on the thread it left. */
+  codePeek: Pick<CodePeekState, "close">
 }
 
 export interface ThreadAnchorFilter {
@@ -221,5 +224,6 @@ export function jumpOverlayToAdjacentThread(
     )
   )
   ctx.composerPickers.clear()
+  ctx.codePeek.close()
   ctx.render()
 }

@@ -77,9 +77,6 @@ export interface InlineCommentOverlayState {
    *  threads use the same set to reveal the original diff hunk. Cleared
    *  when the panel closes. */
   expandedThreadIds: ReadonlySet<string>
-  /** The comment whose original code is on show over the panel (spec 060),
-   *  or null. */
-  codePeekId: string | null
 }
 
 /**
@@ -239,7 +236,6 @@ export function createInitialState(
       editingId: null,
       expanded: false,
       expandedThreadIds: new Set(),
-      codePeekId: null,
     },
     ignoredFiles,
     showHiddenFiles: false,
@@ -596,8 +592,8 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
 
   // With open-only on, resolving the highlighted thread takes it out of
   // the panel; the highlight stays at its index rather than pointing past
-  // the end, and whatever hung off the comment it left goes with it.
-  return followInlineCommentOverlayHighlight(state, {
+  // the end.
+  return clampInlineCommentOverlayHighlight({
     ...state,
     comments: newComments,
   })
@@ -817,7 +813,6 @@ export function openInlineCommentOverlay(
       // line (spec 061); view mode has nothing to prefill.
       input: mode === "compose" ? anchor?.draft ?? "" : "",
       editingId: null,
-      codePeekId: null,
       expanded: state.inlineCommentOverlay.expanded,
       // Fresh per-open expansion state — the user starts with everything
       // collapsed so the panel stays scannable.
@@ -854,7 +849,6 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
       input: "",
       editingId: null,
       expandedThreadIds: new Set(),
-      codePeekId: null,
     },
     // Hand focus back to the diff (or stay on tree). The panel can't
     // own focus while it's hidden.
@@ -960,16 +954,6 @@ export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] 
  * the set flips that default. Outdated threads use the same flag to reveal
  * the original `diffHunk`.
  */
-/**
- * Show (or put away) the code the highlighted comment was written against
- * (spec 060).
- */
-export function setCommentCodePeek(state: AppState, id: string | null): AppState {
-  const ov = state.inlineCommentOverlay
-  if (!ov.open) return state
-  return { ...state, inlineCommentOverlay: { ...ov, codePeekId: id } }
-}
-
 /**
  * Open the thread a comment is in, if it is not open already.
  *
@@ -1155,40 +1139,18 @@ export function toggleThreadPanelOpenOnly(state: AppState): AppState {
   const highlightedIndex = kept >= 0
     ? kept
     : Math.max(0, Math.min(order.length - 1, ov.highlightedIndex))
-  return settleInlineCommentOverlayHighlight(next, highlightedIndex)
+  return { ...next, inlineCommentOverlay: { ...ov, highlightedIndex } }
 }
 
-/**
- * After the panel's comments changed under it: the highlight keeps its
- * index, clamped, and when that now lands on a different comment, or the
- * peeked comment is gone, the peek follows.
- */
-function followInlineCommentOverlayHighlight(before: AppState, after: AppState): AppState {
-  const ov = after.inlineCommentOverlay
-  if (!ov.open) return after
-  const was = getInlineCommentOverlayDisplayOrder(before)[before.inlineCommentOverlay.highlightedIndex]
-  const order = getInlineCommentOverlayDisplayOrder(after)
-  const highlightedIndex = Math.min(ov.highlightedIndex, Math.max(0, order.length - 1))
-  const peekShown = ov.codePeekId === null || getInlineCommentOverlayComments(after).some((c) => c.id === ov.codePeekId)
-  if (order[highlightedIndex]?.id === was?.id && peekShown) {
-    return highlightedIndex === ov.highlightedIndex
-      ? after
-      : { ...after, inlineCommentOverlay: { ...ov, highlightedIndex } }
-  }
-  return settleInlineCommentOverlayHighlight(after, highlightedIndex)
-}
-
-/** Puts the highlight at `highlightedIndex` and drops a peek on a comment it no longer shows. */
-function settleInlineCommentOverlayHighlight(state: AppState, highlightedIndex: number): AppState {
+/** After the panel's comments changed under it: the highlight keeps its index, clamped. */
+function clampInlineCommentOverlayHighlight(state: AppState): AppState {
   const ov = state.inlineCommentOverlay
-  const shown = getInlineCommentOverlayComments(state)
-  const codePeekId = ov.codePeekId !== null && shown.some((c) => c.id === ov.codePeekId)
-    ? ov.codePeekId
-    : null
-  return {
-    ...state,
-    inlineCommentOverlay: { ...ov, highlightedIndex, codePeekId },
-  }
+  if (!ov.open) return state
+  const order = getInlineCommentOverlayDisplayOrder(state)
+  const highlightedIndex = Math.min(ov.highlightedIndex, Math.max(0, order.length - 1))
+  return highlightedIndex === ov.highlightedIndex
+    ? state
+    : { ...state, inlineCommentOverlay: { ...ov, highlightedIndex } }
 }
 
 /**

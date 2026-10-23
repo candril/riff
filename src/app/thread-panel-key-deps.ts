@@ -33,6 +33,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     chat: ctx.chat,
     commentDrafts: ctx.commentDrafts,
     composerPickers: ctx.composerPickers,
+    codePeek: ctx.codePeek,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
     handleEditExternal: () =>
@@ -95,6 +96,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
         )
       )
       ctx.composerPickers.clear()
+      ctx.codePeek.close()
       ctx.render()
     },
     handleCopyLink: (comment) => {

@@ -89,6 +89,7 @@ function frame(
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     composerPickers: { mention: null, emoji: null },
+    codePeekId: null,
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },
   }

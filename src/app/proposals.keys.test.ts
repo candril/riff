@@ -47,6 +47,7 @@ async function proposing(comments: Comment[] = []) {
     note: mounted.chat.note,
     commentDrafts: mounted.commentDrafts,
     composerPickers: mounted.composerPickers,
+    codePeek: mounted.codePeek,
   })
   const keys = keysOn(mounted, {
     composerSettled: proposals.composerSettled,

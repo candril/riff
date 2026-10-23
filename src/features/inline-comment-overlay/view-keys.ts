@@ -36,12 +36,12 @@ export interface ThreadPanelKeyDeps extends act.ThreadPanelViewDeps, ChatReachIn
  * Ctrl-i) walk the jumplist, and only the filter prompt and the code peek
  * keep those.
  */
-function passesThrough(key: KeyEvent, state: AppState, searchActive: boolean, inputs: ChatReachInputs): boolean {
+function passesThrough(key: KeyEvent, state: AppState, peeking: boolean, searchActive: boolean, inputs: ChatReachInputs): boolean {
   const chatReaches = !chatStandsAside(state, searchActive, inputs)
   if (key.ctrl && key.name === "r") return chatReaches
   if (key.ctrl && key.name === "l") return chatReaches && inputs.chat.column.open()
   const ov = state.inlineCommentOverlay
-  if (ov.filterInput || ov.codePeekId !== null) return false
+  if (ov.filterInput || peeking) return false
   if (key.ctrl && (key.name === "p" || key.name === "f" || key.name === "o")) return true
   if (key.name === "tab" && !key.shift) return true
   return key.name === "s" && !key.ctrl && !key.shift
@@ -56,7 +56,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
   const viewing = () => threadPanelHoldsKeys(deps.getState())
   const inMainView = () => {
     const ov = deps.getState().inlineCommentOverlay
-    return !ov.filterInput && ov.codePeekId === null
+    return !ov.filterInput && deps.codePeek.id() === null
   }
 
   // No preventDefault in the rest: the filter prompt's field types every
@@ -64,7 +64,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
   const captured = riffKeymap.capture(
     (key) => {
       if (!viewing()) return false
-      if (!passesThrough(key, deps.getState(), deps.searchActive(), deps)) return true
+      if (!passesThrough(key, deps.getState(), deps.codePeek.id() !== null, deps.searchActive(), deps)) return true
       // A pending `g` swallows the `s` that would go to flash; a pending
       // `z` is broken off by it, as by any key but `a`.
       if (isBareS(key)) {
@@ -139,10 +139,7 @@ export function registerThreadPanelKeys(riffKeymap: RiffKeymap, deps: ThreadPane
   })
 
   const unregisterPeek = riffKeymap.keymap.registerLayer({
-    enabled: () => {
-      const ov = deps.getState().inlineCommentOverlay
-      return captured.holds() && ov.codePeekId !== null && !ov.filterInput
-    },
+    enabled: () => captured.holds() && deps.codePeek.id() !== null && !deps.getState().inlineCommentOverlay.filterInput,
     commands: [command("peekClose", "Close the code peek", () => act.closeCodePeek(deps))],
     bindings: unprevented([
       ...anyModifiers("escape", "threadPanel.peekClose"),
