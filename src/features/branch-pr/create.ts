@@ -65,13 +65,11 @@ export interface CreatePrContext {
 }
 
 export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
-  // Build file summary from current state
   const fileSummary = ctx.getState().files.map((f) => {
     const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
     return `${prefix} ${f.filename}`
   })
 
-  // Get the raw diff for context
   let rawDiff = ""
   for (const f of ctx.getState().files) {
     rawDiff += f.content + "\n"
@@ -79,7 +77,6 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
 
   let suspended = false
   try {
-    // Suspend TUI and open editor
     ctx.suspend()
     suspended = true
 
@@ -93,12 +90,11 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
     suspended = false
 
     if (!result) {
-      // User cancelled
+      // An empty title or a failed editor means the reader backed out: nothing goes to GitHub.
       ctx.render()
       return
     }
 
-    // Create PR on GitHub
     ctx.toast.show("Creating PR...", "info")
     ctx.render()
 
@@ -107,10 +103,8 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
     ctx.toast.show(`PR #${prNumber} created! Loading...`, "success")
     ctx.render()
 
-    // Switch to PR mode: load the PR session and reinitialize state
     const prSession = await ctx.sources.loadPrSession(prNumber)
 
-    // Rebuild state as PR mode
     const newFiles = sortFiles(parseDiff(prSession.diff))
     const newFileTree = buildFileTree(newFiles)
     const newSource = `gh:${prSession.prInfo.owner}/${prSession.prInfo.repo}#${prNumber}`
@@ -138,7 +132,6 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
     // The new PR gets no panel here, so no rebuild forgets the lookups for it.
     ctx.forgetBaseLookups()
 
-    // Auto-collapse ignored files
     const created = ctx.getState()
     if (created.ignoredFiles.size > 0) {
       const newCollapsed = new Set(created.collapsedFiles)
@@ -155,7 +148,6 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
       treeKeptFile: null,
     }))
 
-    // Reset vim state and rebuild line mapping
     ctx.setVimState(createCursorState())
     ctx.setSearchState(createSearchState())
     ctx.setHeadSha(prSession.headSha)

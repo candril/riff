@@ -14,31 +14,12 @@ import type { BranchPr } from "../providers/current-pr"
 import type { loadPrSession } from "../providers/github/session"
 import type { getPendingReview } from "../providers/github/review"
 import type { LoadPendingReviewContext } from "../features/review-preview/load-pending"
-import { createHelpState } from "../features/help/state"
-import { createConfirmState } from "../features/confirm/state"
-import { createSyncPreviewState } from "../features/sync-preview/state"
-import { createReviewPreviewState } from "../features/review-preview/state"
-import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
 import { createLastRefreshState } from "../features/refresh/last-refresh-state"
-import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
-import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
-import { createFileContentState } from "../features/file-content/state"
-import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
-import { createFilePickerState } from "../features/file-picker/state"
-import { createCommentsPickerState } from "../features/comments-picker/state"
-import { createOccurrencePickerState } from "../features/occurrence-picker/state"
-import { createMarksPickerState } from "../features/marks/picker-state"
-import { createCommitPickerState } from "../features/commit-picker/state"
-import { createActionMenuState } from "../features/action-menu/state"
-import { createLinePeekState } from "../features/line-peek/state"
-import { createBlamePeekState } from "../features/blame/peek-state"
-import { createBlameColumnsState } from "../features/blame/column-state"
-import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
-import { createJumpListState } from "../features/jumplist/state"
 import { createMarksState } from "../features/marks/state"
 import { createFeedState } from "../features/feed/state"
 import { createVisitState } from "../features/visit/state"
+import { createAnotherReviewFeatures } from "./another-review-features"
 import { THREE_TOP_LEVEL_FILES } from "./refresh-harness"
 import { prInfo } from "./pr-info"
 
@@ -67,28 +48,7 @@ export function branchPrHarness(options: BranchPrHarnessOptions = {}) {
   let headSha = "local-head"
   let vimState: VimCursorState = createCursorState()
 
-  const features = {
-    help: createHelpState(),
-    confirm: createConfirmState(),
-    syncPreview: createSyncPreviewState(),
-    reviewPreview: createReviewPreviewState(),
-    filePicker: createFilePickerState(),
-    commentsPicker: createCommentsPickerState(),
-    occurrencePicker: createOccurrencePickerState(),
-    marksPicker: createMarksPickerState(),
-    commitPicker: createCommitPickerState(),
-    actionMenu: createActionMenuState(),
-    linePeek: createLinePeekState(),
-    blamePeek: createBlamePeekState(),
-    blameColumns: createBlameColumnsState(),
-    commentDrafts: createCommentDraftsState(),
-    jumpList: createJumpListState(),
-    pendingReview: createPendingReviewState(),
-    prCommentInput: createPrCommentInputState(),
-    prInfoFilter: createPrInfoFilterState(),
-    fileContent: createFileContentState(),
-    commitDiffs: createCommitDiffsState(),
-  }
+  const features = createAnotherReviewFeatures()
 
   const getState = () => state
   const setState = (fn: (s: AppState) => AppState) => { state = fn(state) }

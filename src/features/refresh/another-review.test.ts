@@ -1,54 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { createHelpState } from "../help/state"
-import { createConfirmState } from "../confirm/state"
-import { createSyncPreviewState } from "../sync-preview/state"
-import { createReviewPreviewState } from "../review-preview/state"
-import { createFilePickerState } from "../file-picker/state"
-import { createCommentsPickerState } from "../comments-picker/state"
-import { createOccurrencePickerState } from "../occurrence-picker/state"
-import { createMarksPickerState } from "../marks/picker-state"
-import { createCommitPickerState } from "../commit-picker/state"
-import { createActionMenuState } from "../action-menu/state"
-import { createLinePeekState } from "../line-peek/state"
-import { createBlamePeekState } from "../blame/peek-state"
-import { createBlameColumnsState } from "../blame/column-state"
-import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
-import { createJumpListState } from "../jumplist/state"
-import { createPendingReviewState } from "../review-preview/pending-state"
-import { createPrCommentInputState } from "../pr-info-panel/comment-input-state"
-import { createPrInfoFilterState } from "../pr-info-panel/filter-state"
-import { createFileContentState } from "../file-content/state"
-import { createCommitDiffsState } from "../commit-scope/diffs-state"
 import { closeFeatureOverlays } from "./another-review"
-
-function features() {
-  return {
-    help: createHelpState(),
-    confirm: createConfirmState(),
-    syncPreview: createSyncPreviewState(),
-    reviewPreview: createReviewPreviewState(),
-    filePicker: createFilePickerState(),
-    commentsPicker: createCommentsPickerState(),
-    occurrencePicker: createOccurrencePickerState(),
-    marksPicker: createMarksPickerState(),
-    commitPicker: createCommitPickerState(),
-    actionMenu: createActionMenuState(),
-    linePeek: createLinePeekState(),
-    blamePeek: createBlamePeekState(),
-    blameColumns: createBlameColumnsState(),
-    commentDrafts: createCommentDraftsState(),
-    jumpList: createJumpListState(),
-    pendingReview: createPendingReviewState(),
-    prCommentInput: createPrCommentInputState(),
-    prInfoFilter: createPrInfoFilterState(),
-    fileContent: createFileContentState(),
-    commitDiffs: createCommitDiffsState(),
-  }
-}
+import { createAnotherReviewFeatures } from "../../testing/another-review-features"
 
 describe("a switch to another review", () => {
   test("closes every overlay and forgets what the last review left in the factories", () => {
-    const f = features()
+    const f = createAnotherReviewFeatures()
     f.help.toggle()
     f.confirm.show({ title: "t", message: "m", onConfirm: () => {}, onCancel: () => {} })
     f.syncPreview.show()

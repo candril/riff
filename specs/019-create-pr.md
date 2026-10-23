@@ -75,17 +75,17 @@ riff  my-feature → main  All files (5)
 
 ```
 src/
-├── utils/editor.ts           # openPrCreator(), openPrEditor(), parsing functions
-├── providers/github.ts       # createPullRequest(), editPullRequest(), loadPrSession()
-├── providers/local.ts        # getBranchInfo() for header display
-├── app.ts                    # handleEditPr handler
+├── utils/editor.ts              # openPrCreator(), openPrEditor(), parsing functions
+├── providers/github.ts          # createPullRequest(), editPullRequest(), loadPrSession()
+├── providers/local.ts           # getBranchInfo() for header display
+├── app.ts                       # handleEditPr handler
 ├── features/branch-pr/create.ts # handleCreatePr
-├── app/g-chord-commands.ts   # gP keybinding (context-aware: local vs PR mode)
+├── app/g-chord-commands.ts      # gP keybinding (context-aware: local vs PR mode)
 ├── features/action-menu/
-│   └── execute.ts            # Action handler dispatch
-├── actions/registry.ts       # Action definitions (create-pr, edit-pr)
-├── components/Header.ts      # PR metadata + branch info display
-└── state.ts                  # branchInfo field on AppState
+│   └── execute.ts               # Action handler dispatch
+├── actions/registry.ts          # Action definitions (create-pr, edit-pr)
+├── components/Header.ts         # PR metadata + branch info display
+└── state.ts                     # branchInfo field on AppState
 ```
 
 ### Create PR via `gh` CLI
