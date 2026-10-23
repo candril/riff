@@ -82,23 +82,16 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
     }
   }
 
-  // The panel mirrored its focus into the reaction target after every key
-  // it took, for Ctrl+p → React… (spec 042).
-  const synced = (key: KeyEvent, run: (key: KeyEvent) => void) => {
-    run(key)
-    act.syncReactionTarget(deps)
-  }
-
   // No preventDefault in the rest: the filter prompt's field types every
   // key it is not bound to, and the panel never prevented a key it swallowed.
-  const captured = riffKeymap.capture(takes, (key) => synced(key, swallow))
+  const captured = riffKeymap.capture(takes, swallow)
 
   const command = (name: string, title: string, run: (event: KeyEvent) => void) => ({
     name: `prInfoPanel.${name}`,
     title,
     category: "PR",
     palette: false as const,
-    run: ({ event }: { event: KeyEvent }) => synced(event, capitalised(event) ? swallow : run),
+    run: ({ event }: { event: KeyEvent }) => (capitalised(event) ? swallow : run)(event),
   })
   const prevented = (run: (event: KeyEvent) => void) => (event: KeyEvent) => {
     event.preventDefault()

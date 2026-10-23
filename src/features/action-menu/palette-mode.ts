@@ -1,7 +1,7 @@
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import { getAvailableActions } from "../../actions"
-import { submenuOpenedFromPalette } from "../../actions/types"
+import { submenuOpenedFromPalette, type ActionFocus } from "../../actions/types"
 import { fuzzyFilter } from "../../utils/fuzzy"
 import type { ActionMenuMode } from "../../components/action-menu-model"
 import { getSubmenuRows } from "./submenu"
@@ -15,7 +15,8 @@ import type { ActionMenuSnapshot } from "./state"
 export function paletteMode(
   state: AppState,
   vimState: VimCursorState,
-  { submenu, query }: Pick<ActionMenuSnapshot, "submenu" | "query">
+  { submenu, query }: Pick<ActionMenuSnapshot, "submenu" | "query">,
+  focus: ActionFocus,
 ): ActionMenuMode {
   if (submenu) {
     return {
@@ -35,7 +36,7 @@ export function paletteMode(
       rows: getSubmenuRows(state, { submenu, query }),
     }
   }
-  const available = getAvailableActions(state, vimState)
+  const available = getAvailableActions(state, vimState, focus)
   return {
     kind: "actions",
     actions: query ? fuzzyFilter(query, available, (a) => [a.label, a.id, a.description]) : available,

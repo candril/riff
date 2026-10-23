@@ -39,7 +39,15 @@ export interface Action {
   category?: ActionCategory
   /** Check if action is available in current state.
    *  `vimState` is optional — most actions only need AppState. */
-  available: (state: AppState, vimState?: VimCursorState) => boolean
+  available: (state: AppState, vimState?: VimCursorState, focus?: ActionFocus) => boolean
+}
+
+/**
+ * What has focus that AppState does not hold, asked when the palette opens.
+ * One object, so a further read adds a field rather than a parameter.
+ */
+export interface ActionFocus {
+  reactionTarget: ReactionTarget | null
 }
 
 /**

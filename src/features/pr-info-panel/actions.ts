@@ -11,7 +11,7 @@ import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import type { PreviewRow } from "../../utils/previews"
 import { foldStep, type FoldOp } from "../../components/pr-info-tree"
-import { closePRInfoPanel, setReactionTarget } from "../../state"
+import { closePRInfoPanel } from "../../state"
 import type { ToastState } from "../toast/state"
 import type { PrCommentInputState } from "./comment-input-state"
 import type { PrInfoFilterState } from "./filter-state"
@@ -198,17 +198,4 @@ export function runAction(deps: Deps, id: "refresh" | "open-in-browser" | "copy-
 /** `gx`/`gX`: the links in the view — a rendered body has no column to put a cursor on (spec 077). */
 export function openLinks(deps: Deps, action: "open" | "copy"): void {
   deps.onOpenLinks?.(action)
-}
-
-/**
- * Mirrors whatever the panel is focused on into state.reactionTarget, so
- * Ctrl+p → React… targets the visually-focused item (spec 042).
- */
-export function syncReactionTarget(deps: Deps): void {
-  const panel = deps.getPanel()
-  const target = panel?.getReactionTarget?.() ?? null
-  // setReactionTarget is identity-checked — it no-ops when the target
-  // is the same, so we don't thrash renders on e.g. repeated `j`s that
-  // land on the same item class.
-  deps.setState(s => setReactionTarget(s, target))
 }

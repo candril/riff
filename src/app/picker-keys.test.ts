@@ -340,6 +340,7 @@ async function setupApp(initial: AppState, factories = createFactories(), action
     getVimState: () => createCursorState(),
     executeAction: () => {},
     onToggleReaction: () => {},
+    reactionTarget: () => null,
     onLink: () => {},
     getFlashState: () => ({ active: false }) as never,
     flashHandler: () => ({}) as never,

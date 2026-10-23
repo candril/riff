@@ -105,6 +105,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     getCachedCurrentUser: () => null,
     getPrInfoPanel: () => null,
     getCommandKeys: () => new Map(),
+    reactionTarget: () => null,
     renderer,
     shell,
     updateFileTreePanel() {},

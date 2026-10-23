@@ -24,6 +24,7 @@ test("after riff swaps a local review for its branch's pull request, a comment l
     render: () => {},
     toast: { show: (message) => void toasts.push(message), clear: () => {} },
     getHeadSha: () => "",
+    reactionTarget: () => null,
   }
 
   await handleCopyCommentLink(ctx)

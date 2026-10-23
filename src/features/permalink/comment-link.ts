@@ -10,7 +10,7 @@
  */
 
 import type { AppState } from "../../state"
-import type { Comment } from "../../types"
+import type { Comment, ReactionTarget } from "../../types"
 
 export type CommentLink =
   | { ok: true; url: string; label: string }
@@ -32,12 +32,11 @@ export function linkForComment(state: AppState, comment: Comment): CommentLink {
 }
 
 /**
- * Link to whatever the view last marked as reactable (spec 042). That target
- * already tracks "the comment the user is looking at" across the inline
- * overlay and the PR info panel, so it doubles as the focus signal here.
+ * Link to `target`, what has focus now (spec 042): the thread panel's
+ * highlighted comment or the PR overview's cursor, the same thing React…
+ * acts on.
  */
-export function linkForFocusedTarget(state: AppState): CommentLink | null {
-  const target = state.reactionTarget
+export function linkForFocusedTarget(state: AppState, target: ReactionTarget | null): CommentLink | null {
   const pr = state.prInfo
   if (!target || !pr) return null
 

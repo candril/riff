@@ -83,6 +83,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
       commands.push([name, keys])
       return run(name, keys)
     },
+    reactionTarget: () => null,
   }
   return { ctx, handled, commands, state: () => state }
 }

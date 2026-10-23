@@ -51,6 +51,7 @@ function openedUrl(mounted: NonNullable<typeof app>, vimState = createCursorStat
     render: () => {},
     toast: mounted.toast,
     getHeadSha: () => "",
+    reactionTarget: () => null,
   }
   const urls: string[] = []
   openPrInBoard({

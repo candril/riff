@@ -4,6 +4,7 @@ import { collectFromSources, type LinkSource } from "../utils/link-targets"
 import { referenceRepo, resolvedReferences } from "../features/references"
 import { reactSubmenu, type ActionMenuState } from "../features/action-menu"
 import type { ToastState } from "../features/toast/state"
+import type { ReactionTarget } from "../types"
 
 export interface LinksPicker {
   /** What the picker is called, which is the difference `gx` and `gX` make. */
@@ -19,6 +20,8 @@ export function createLinksPicker(ctx: {
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
   actionMenu: Pick<ActionMenuState, "showSubmenu">
+  /** What React… acts on: whatever has focus now (reactionTargetOf). */
+  reactionTarget: () => ReactionTarget | null
 }): LinksPicker {
   const openLink = createOpenLink(ctx)
 
@@ -62,7 +65,7 @@ export function createLinksPicker(ctx: {
   }
 
   function openReactPicker(): void {
-    const submenu = reactSubmenu(ctx.getState(), false)
+    const submenu = reactSubmenu(ctx.getState(), ctx.reactionTarget(), false)
     if (submenu) ctx.actionMenu.showSubmenu(submenu)
     ctx.render()
   }

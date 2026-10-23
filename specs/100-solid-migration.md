@@ -315,6 +315,10 @@ commit picker's scope reads them, and a reload, a switch to another PR,
 creating a PR and opening the branch's PR drop them; a read still in
 flight when the review goes is dropped when it lands. Fetching a scope's
 diff and bringing it into view live in `src/features/commit-scope`.
+What React… and Copy Comment Link act on is not kept anywhere:
+`reactionTargetOf` in `src/features/reactions/target.ts` derives it from
+what has focus when they are asked (the thread panel's highlighted comment
+or the PR overview's cursor), as `filterTarget` picks what Ctrl-f narrows.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

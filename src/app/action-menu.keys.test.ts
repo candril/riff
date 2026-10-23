@@ -46,7 +46,7 @@ test("ctrl+n moves the shaded row down the palette", async () => {
   const keys = keysOn(app)
   const { mockInput } = app.setup
   mockInput.pressKey("p", { ctrl: true })
-  const mode = paletteMode(app.ctx.getState(), keys.vimState(), app.actionMenu.snapshot())
+  const mode = paletteMode(app.ctx.getState(), keys.vimState(), app.actionMenu.snapshot(), { reactionTarget: app.ctx.reactionTarget() })
   const [first, second] = mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
   const rowOf = (lines: string[], label: string) => lines.findIndex((line) => line.includes(label))
 
@@ -103,7 +103,7 @@ test("the palette shows each action's key from the keymap command that runs it",
 
 /** The palette's rows in the order they are drawn, for what it holds now. */
 function paletteRows(mounted: NonNullable<typeof app>, keys: ReturnType<typeof keysOn>) {
-  const mode = paletteMode(mounted.ctx.getState(), keys.vimState(), mounted.actionMenu.snapshot())
+  const mode = paletteMode(mounted.ctx.getState(), keys.vimState(), mounted.actionMenu.snapshot(), { reactionTarget: mounted.ctx.reactionTarget() })
   return mode.kind === "actions" ? getVisualActionOrder(mode.actions).map((action) => action.label) : []
 }
 

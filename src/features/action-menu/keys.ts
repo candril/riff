@@ -28,6 +28,8 @@ export interface ActionMenuKeyDeps {
   executeAction: (actionId: string) => void
   /** Enter on a React… submenu row. */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
+  /** What React… acts on, which decides whether the palette offers it. */
+  reactionTarget: () => ReactionTarget | null
   /** A link picked out of the links submenu. */
   onLink: (action: "open" | "copy", link: { label: string; url: string }) => void
 }
@@ -43,7 +45,7 @@ export function registerActionMenuKeys(riffKeymap: RiffKeymap, deps: ActionMenuK
   const { actionMenu } = deps
   const view = () => {
     const palette = actionMenu.snapshot()
-    const mode = paletteMode(deps.getState(), deps.getVimState(), palette)
+    const mode = paletteMode(deps.getState(), deps.getVimState(), palette, { reactionTarget: deps.reactionTarget() })
     const submenuRows = mode.kind === "submenu" ? mode.rows : []
     const visualActions = mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
     const rowCount = palette.submenu ? submenuRows.length : visualActions.length

@@ -47,6 +47,7 @@ async function setup({ flash = true, palette = false, dialog = true, picker = fa
     getVimState: () => createCursorState(),
     executeAction: (id) => void calls.push(`palette ${id}`),
     onToggleReaction: () => void calls.push("palette reaction"),
+    reactionTarget: () => null,
     onLink: () => void calls.push("palette link"),
     getFlashState: () => flashState,
     flashHandler: () => handler,

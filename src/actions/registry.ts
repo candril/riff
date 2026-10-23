@@ -1,4 +1,4 @@
-import type { Action, ResolvedAction } from "./types"
+import type { Action, ActionFocus, ResolvedAction } from "./types"
 import { resolveActionLabel } from "./types"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
@@ -510,10 +510,10 @@ export const actions: Action[] = [
     description: "Copy a GitHub link to the focused comment or thread",
     command: "threadPanel.copyLink",
     category: "github",
-    available: (state) =>
+    available: (state, _vimState, focus) =>
       state.appMode === "pr" &&
       state.prInfo !== null &&
-      (state.reactionTarget !== null || state.comments.some((c) => c.githubId)),
+      (focus?.reactionTarget != null || state.comments.some((c) => c.githubId)),
   },
   {
     id: "copy-pr-diff-link",
@@ -541,7 +541,7 @@ export const actions: Action[] = [
     description: "Add or remove a reaction on the focused comment",
     command: "threadPanel.react",
     category: "github",
-    available: (state) => state.appMode === "pr" && state.reactionTarget !== null,
+    available: (state, _vimState, focus) => state.appMode === "pr" && focus?.reactionTarget != null,
   },
 
   {
@@ -682,9 +682,10 @@ export const actions: Action[] = [
  */
 export function getAvailableActions(
   state: AppState,
-  vimState?: VimCursorState,
+  vimState: VimCursorState | undefined,
+  focus: ActionFocus,
 ): ResolvedAction[] {
   return actions
-    .filter(a => a.available(state, vimState))
+    .filter(a => a.available(state, vimState, focus))
     .map(a => ({ ...a, label: resolveActionLabel(a, state, vimState) }))
 }

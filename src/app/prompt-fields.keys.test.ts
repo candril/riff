@@ -68,6 +68,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         runCommand: (name) => {
           throw new Error(`the palette ran ${name}`)
         },
+        reactionTarget: render.reactionTarget,
       }),
   })
 }

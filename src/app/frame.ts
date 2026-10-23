@@ -21,6 +21,7 @@ import type { CommitPickerSnapshot } from "../features/commit-picker/state"
 import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
 import type { BlamePeekSnapshot } from "../features/blame/peek-state"
+import type { ActionFocus } from "../actions/types"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -83,6 +84,8 @@ export interface Frame {
   commitPicker: CommitPickerSnapshot | null
   /** The command palette's state, read off its factory, or null while it is closed. */
   actionMenu: ActionMenuSnapshot | null
+  /** What has focus that the palette's actions ask about, read as the frame was published. */
+  actionFocus: ActionFocus
   /** The line peek's side and scroll, read off its factory, or null while it is closed. */
   linePeek: LinePeekSnapshot | null
   /** The blame peek's line and answer, read off its factory, or null while it is closed. */

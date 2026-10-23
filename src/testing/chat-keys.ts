@@ -91,6 +91,7 @@ export function keysOn(
       getViewportHeight: () => 20,
       onCursorMove: () => mounted.render(),
     }),
+    reactionTarget: render.reactionTarget,
     composerSettled: undefined,
     ...more,
   }

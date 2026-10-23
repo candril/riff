@@ -142,6 +142,7 @@ import * as feedFeature from "./features/feed"
 import { startCommentPoll } from "./features/comment-poll"
 import { focusHandler, reportsFocus } from "./features/comment-poll/focus"
 import * as reactions from "./features/reactions"
+import { reactionTargetOf } from "./features/reactions/target"
 import { reactionContentFromRowId } from "./features/action-menu"
 import type { ReactionTarget } from "./types"
 
@@ -222,11 +223,7 @@ export async function createApp(options: AppOptions = {}) {
       ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments, prInfoOpenSections)
       : null
 
-  // Seed the reaction target from the panel's initial focus so `Ctrl+p` →
-  // React… is available on the very first frame in PR mode (spec 042).
-  if (prInfoPanel) {
-    state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
-  }
+  const reactionTarget = () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null)
 
   const baseLookups = createBaseLookups({
     state: createBaseLookupsState(),
@@ -739,6 +736,7 @@ export async function createApp(options: AppOptions = {}) {
     mentions,
     commentDrafts,
     getCommandKeys: () => paletteKeys,
+    reactionTarget,
     updateFileTreePanel,
     publishFrame: frame.publish,
   })
@@ -891,7 +889,6 @@ export async function createApp(options: AppOptions = {}) {
         updateFileTreePanel()
       } else if (surface === "state") {
         prInfoPanel?.flashJump(id)
-        state = { ...state, reactionTarget: prInfoPanel?.getReactionTarget() ?? null }
       } else if (surface === "feed") {
         activityFeed.highlight(Number(id))
       } else if (surface === "comments") {
@@ -972,7 +969,6 @@ export async function createApp(options: AppOptions = {}) {
       prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments, openSections)
       wirePrInfoPanel(prInfoPanel, { reread: rereadsLookups(rebuild, { hadPanel }) })
       if (panelPosition) prInfoPanel.restorePosition(panelPosition)
-      state = { ...state, reactionTarget: prInfoPanel.getReactionTarget() }
       // Fresh PR data can carry references riff has never looked up.
       startReferencePrefetch(referenceContext)
     },
@@ -1082,6 +1078,7 @@ export async function createApp(options: AppOptions = {}) {
     getCommentScope: split.commentScope,
     render,
     getHeadSha: () => currentHeadSha,
+    reactionTarget,
   }
 
   const prOperationsContext: prOperations.PrOperationsContext = {
@@ -1452,6 +1449,7 @@ export async function createApp(options: AppOptions = {}) {
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
+      reactionTarget,
     })
   }
 
@@ -1619,6 +1617,7 @@ export async function createApp(options: AppOptions = {}) {
     toggleOpenThreadsOnly,
     toggleUnviewedFilesOnly: toggleUnviewedFiles,
     onToggleReaction: handleToggleReaction,
+    reactionTarget,
     onCommitSelected: (sha, filename, scope) => { void handleCommitSelected(commitSelectionContext, sha, filename, scope) },
     openBranchPr: (view) => { void openBranchPr(view) },
     foldsContext,

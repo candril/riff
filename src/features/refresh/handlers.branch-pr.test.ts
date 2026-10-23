@@ -85,7 +85,7 @@ describe("a local reload on a branch with a pull request", () => {
     await handleRefresh(ctx)
     const reloaded = state()
 
-    const ids = getAvailableActions(reloaded).map((a) => a.id)
+    const ids = getAvailableActions(reloaded, undefined, { reactionTarget: null }).map((a) => a.id)
     expect(ids).toContain("open-branch-pr")
     expect(ids).not.toContain("create-pr")
 

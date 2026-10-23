@@ -103,6 +103,8 @@ export interface AppKeyContext {
   /** Toggle a reaction on a target — fired when the user presses Enter
    *  on a React… submenu row (spec 042). */
   onToggleReaction: (target: ReactionTarget, rowId: string) => void
+  /** What React… acts on: whatever has focus now (reactionTargetOf). */
+  reactionTarget: () => ReactionTarget | null
   // Commit selection handler
   /** Scope the diff to a commit — and, when named, scroll to one of its files. */
   onCommitSelected: (sha: string | null, filename?: string, scope?: readonly string[] | null) => void

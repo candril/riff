@@ -44,6 +44,7 @@ async function paletteApp() {
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),
+          reactionTarget: mounted.ctx.reactionTarget,
         })
       },
     },

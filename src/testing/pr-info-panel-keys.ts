@@ -6,6 +6,7 @@ import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { ReactionTarget } from "../types"
+import { reactionTargetOf } from "../features/reactions/target"
 import { keymapHarness } from "./keymap-keys"
 import { prInfo } from "./pr-info"
 
@@ -125,6 +126,8 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     commentInput,
     prInfoFilter,
     state: () => state,
+    /** What React… acts on, derived from the stub panel as app.ts derives it from the real one. */
+    reactionTarget: () => reactionTargetOf(state, () => controller.getReactionTarget()),
     set: (next: AppState) => {
       state = next
     },

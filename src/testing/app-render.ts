@@ -60,6 +60,7 @@ import { createSplitDiff } from "../app/split-diff"
 import { createUnifiedDiff } from "../app/unified-diff"
 import type { adoptReloadedState } from "../features/refresh/handlers"
 import { trimFrame } from "./frame"
+import { reactionTargetOf } from "../features/reactions/target"
 
 /** The host's laid-out size reaches the diff a tick after the frame that laid it out. */
 const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -223,6 +224,7 @@ export async function mountApp(
     mentions,
     commentDrafts,
     getCommandKeys: () => commandKeys,
+    reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
     updateFileTreePanel() {
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({

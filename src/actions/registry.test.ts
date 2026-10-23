@@ -4,7 +4,7 @@ import { prInfo } from "../testing/pr-info"
 import { getAvailableActions } from "./registry"
 
 const local = createInitialState([], [], "test", "")
-const offersBoard = (state: AppState) => getAvailableActions(state).some((a) => a.id === "open-in-board")
+const offersBoard = (state: AppState) => getAvailableActions(state, undefined, { reactionTarget: null }).some((a) => a.id === "open-in-board")
 
 test("the palette offers Open in riff board once a PR has loaded", () => {
   expect(offersBoard({ ...local, appMode: "pr", prInfo: prInfo("") })).toBe(true)

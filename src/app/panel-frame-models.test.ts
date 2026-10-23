@@ -87,6 +87,7 @@ function frame(
     mentions,
     commentDrafts,
     commandKeys: new Map(),
+    actionFocus: { reactionTarget: null },
   }
 }
 

@@ -77,6 +77,7 @@ function frameOf(
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     commandKeys: new Map(),
+    actionFocus: { reactionTarget: null },
   }
 }
 

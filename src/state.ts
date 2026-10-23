@@ -220,12 +220,6 @@ export interface AppState {
   viewingCommitScope: string[] | null
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
-
-  // What the palette's "React…" action targets right now (spec 042).
-  // Views set this when they focus a reactable item (e.g. the inline
-  // overlay's highlighted comment) and clear it when they're dismissed.
-  // Null means the React action is not available in this context.
-  reactionTarget: ReactionTarget | null
 }
 
 /**
@@ -311,7 +305,6 @@ export function createInitialState(
     viewingCommitScope: null,
     allFiles: files,
     allFileTree: fileTree,
-    reactionTarget: null,
   }
 }
 
@@ -423,17 +416,12 @@ export function enterPrView(state: AppState): AppState {
   return switchView(state, "state")
 }
 
-/**
- * Switch to the diff view, preserving file selection (spec 041).
- * Clears any reaction target inherited from the PR view so the React…
- * palette entry doesn't linger in contexts where it can't act (spec 042).
- */
+/** Switch to the diff view, preserving file selection (spec 041). */
 export function enterDiffView(state: AppState): AppState {
   return {
     ...state,
     viewMode: "diff",
     focusedPanel: "diff",
-    reactionTarget: null,
   }
 }
 
@@ -1146,9 +1134,6 @@ export function closePRInfoPanel(state: AppState): AppState {
  * Open the inline comment overlay (spec 039) for a specific line/side.
  * Comments are derived live via `getInlineCommentOverlayComments` — we
  * only stash the anchor here.
- *
- * Also points `reactionTarget` at the first comment in the thread so the
- * palette's "React…" action becomes available immediately (spec 042).
  */
 export function openInlineCommentOverlay(
   state: AppState,
@@ -1209,20 +1194,10 @@ export function openInlineCommentOverlay(
     ...nextState.inlineCommentOverlay,
     highlightedIndex,
   }
-  // Reaction target tracks the highlighted comment (so "React…" in the
-  // palette acts on what the user actually sees selected).
-  const highlighted = displayOrder[highlightedIndex]
-  const reactionTarget: ReactionTarget | null = highlighted?.githubId
-    ? { kind: "review-comment", githubId: highlighted.githubId }
-    : null
-  return { ...nextState, reactionTarget }
+  return nextState
 }
 
-/**
- * Close the inline comment overlay. Clears the reaction target so the
- * "React…" palette entry disappears while no thread is visible
- * (spec 042).
- */
+/** Close the inline comment overlay. */
 export function closeInlineCommentOverlay(state: AppState): AppState {
   return {
     ...state,
@@ -1240,7 +1215,6 @@ export function closeInlineCommentOverlay(state: AppState): AppState {
     // Hand focus back to the diff (or stay on tree). The panel can't
     // own focus while it's hidden.
     focusedPanel: state.focusedPanel === "comments" ? "diff" : state.focusedPanel,
-    reactionTarget: null,
   }
 }
 
@@ -1336,12 +1310,6 @@ export function getInlineCommentOverlayDisplayOrder(state: AppState): Comment[] 
 }
 
 /**
- * Move the highlighted comment in the overlay by delta, clamped against
- * the current derived comment list. Also re-points `reactionTarget` at
- * the newly highlighted comment so the palette's React… submenu acts on
- * it (spec 042).
- */
-/**
  * Toggle a thread's "expanded" state in the inline comment overlay.
  * `za`/Enter folds/unfolds the thread. Resolved threads default to
  * collapsed (a one-line header); everything else defaults to expanded —
@@ -1401,14 +1369,9 @@ export function toggleInlineCommentOverlayExpand(state: AppState, threadId: stri
   const displayOrder = getInlineCommentOverlayDisplayOrder(nextState)
   const rootIdx = displayOrder.findIndex((c) => c.id === threadId)
   if (rootIdx === -1) return nextState
-  const highlighted = displayOrder[rootIdx]
-  const reactionTarget: ReactionTarget | null = highlighted?.githubId
-    ? { kind: "review-comment", githubId: highlighted.githubId }
-    : null
   return {
     ...nextState,
     inlineCommentOverlay: { ...nextState.inlineCommentOverlay, highlightedIndex: rootIdx },
-    reactionTarget,
   }
 }
 
@@ -1434,17 +1397,16 @@ export function highlightInlineComment(state: AppState, commentId: string): AppS
   }
   if (next === -1) return state
 
-  const highlighted = derived[next]
-  const reactionTarget: ReactionTarget | null = highlighted?.githubId
-    ? { kind: "review-comment", githubId: highlighted.githubId }
-    : null
   return {
     ...state,
     inlineCommentOverlay: { ...ov, highlightedIndex: next },
-    reactionTarget,
   }
 }
 
+/**
+ * Move the highlighted comment in the overlay by delta, clamped against
+ * the current derived comment list.
+ */
 export function moveInlineCommentOverlayHighlight(state: AppState, delta: number): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
@@ -1452,14 +1414,9 @@ export function moveInlineCommentOverlayHighlight(state: AppState, delta: number
   if (derived.length === 0) return state
   const next = Math.max(0, Math.min(derived.length - 1, ov.highlightedIndex + delta))
   if (next === ov.highlightedIndex) return state
-  const highlighted = derived[next]
-  const reactionTarget: ReactionTarget | null = highlighted?.githubId
-    ? { kind: "review-comment", githubId: highlighted.githubId }
-    : null
   return {
     ...state,
     inlineCommentOverlay: { ...ov, highlightedIndex: next },
-    reactionTarget,
   }
 }
 
@@ -1669,7 +1626,7 @@ export function toggleThreadPanelOpenOnly(state: AppState): AppState {
 /**
  * After the panel's comments changed under it: the highlight keeps its
  * index, clamped, and when that now lands on a different comment, or the
- * peeked comment is gone, the reaction target and the peek follow.
+ * peeked comment is gone, the peek follows.
  */
 function followInlineCommentOverlayHighlight(before: AppState, after: AppState): AppState {
   const ov = after.inlineCommentOverlay
@@ -1686,21 +1643,16 @@ function followInlineCommentOverlayHighlight(before: AppState, after: AppState):
   return settleInlineCommentOverlayHighlight(after, highlightedIndex)
 }
 
-/** Puts the highlight at `highlightedIndex` and points the reaction target and the peek at what it now shows. */
+/** Puts the highlight at `highlightedIndex` and drops a peek on a comment it no longer shows. */
 function settleInlineCommentOverlayHighlight(state: AppState, highlightedIndex: number): AppState {
   const ov = state.inlineCommentOverlay
   const shown = getInlineCommentOverlayComments(state)
   const codePeekId = ov.codePeekId !== null && shown.some((c) => c.id === ov.codePeekId)
     ? ov.codePeekId
     : null
-  const highlighted = getInlineCommentOverlayDisplayOrder(state)[highlightedIndex]
-  const reactionTarget: ReactionTarget | null = highlighted?.githubId
-    ? { kind: "review-comment", githubId: highlighted.githubId }
-    : null
   return {
     ...state,
     inlineCommentOverlay: { ...ov, highlightedIndex, codePeekId },
-    reactionTarget,
   }
 }
 
@@ -1787,32 +1739,6 @@ export function setViewingCommit(
 // ============================================================================
 // Reactions (spec 042)
 // ============================================================================
-
-/**
- * Declare what the palette's "React…" action should act on. Called by views
- * whenever their focused reactable item changes.
- */
-export function setReactionTarget(state: AppState, target: ReactionTarget | null): AppState {
-  // Identity check to avoid pointless re-renders when a view re-declares
-  // the same target on every focus/hover tick.
-  const cur = state.reactionTarget
-  if (cur === target) return state
-  if (cur && target && reactionTargetsEqual(cur, target)) return state
-  return { ...state, reactionTarget: target }
-}
-
-function reactionTargetsEqual(a: ReactionTarget, b: ReactionTarget): boolean {
-  if (a.kind !== b.kind) return false
-  switch (a.kind) {
-    case "review-comment":
-    case "issue-comment":
-      return a.githubId === (b as typeof a).githubId
-    case "review":
-      return a.reviewId === (b as typeof a).reviewId && a.prNumber === (b as typeof a).prNumber
-    case "issue":
-      return a.prNumber === (b as typeof a).prNumber
-  }
-}
 
 /**
  * Apply a reaction toggle to a target, optimistically or to reflect a

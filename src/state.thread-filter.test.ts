@@ -11,6 +11,7 @@ import {
   type AppState,
 } from "./state"
 import type { Comment } from "./types"
+import { reactionTargetOf } from "./features/reactions/target"
 import type { DiffFile } from "./utils/diff-parser"
 
 function comment(id: string, filename: string, line: number, fields: Partial<Comment> = {}): Comment {
@@ -157,7 +158,7 @@ describe("the thread panel's open-only toggle", () => {
 
     const resolved = setThreadResolved(onOpen1, "open1", true)
     expect(highlightedId(resolved)).toBe("open2")
-    expect(resolved.reactionTarget).toEqual({ kind: "review-comment", githubId: 105 })
+    expect(reactionTargetOf(resolved, () => null)).toEqual({ kind: "review-comment", githubId: 105 })
     expect(resolved.inlineCommentOverlay.codePeekId).toBeNull()
   })
 
@@ -165,13 +166,13 @@ describe("the thread panel's open-only toggle", () => {
     const withIds = COMMENTS.map((c, i) => ({ ...c, githubId: 100 + i }))
     const state = toggleThreadPanelOpenOnly(panelOn(withIds))
     const onOpen2 = setCommentCodePeek(
-      { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, highlightedIndex: 0 }, reactionTarget: null },
+      { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, highlightedIndex: 0 } },
       "open1"
     )
 
     const resolved = setThreadResolved(onOpen2, "open2", true)
     expect(highlightedId(resolved)).toBe("open1")
-    expect(resolved.reactionTarget).toBeNull()
+    expect(reactionTargetOf(resolved, () => null)).toEqual({ kind: "review-comment", githubId: 100 })
     expect(resolved.inlineCommentOverlay.codePeekId).toBe("open1")
   })
 

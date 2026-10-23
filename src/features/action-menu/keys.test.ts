@@ -5,6 +5,7 @@ import { createInitialState, type AppState } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { getVisualActionOrder } from "../../components/action-menu-model"
 import type { ActionSubmenu } from "../../actions/types"
+import type { ReactionTarget } from "../../types"
 import { paletteMode } from "./palette-mode"
 import { registerActionMenuKeys } from "./keys"
 import { createActionMenuState, type ActionMenuState } from "./state"
@@ -31,7 +32,7 @@ function opened(palette: Palette) {
   return actionMenu
 }
 
-async function setup(palette: Palette, state: AppState = local) {
+async function setup(palette: Palette, state: AppState = local, reactionTarget: ReactionTarget | null = null) {
   const { riffKeymap, leftKeys, press } = await keymapHarness()
   const actionMenu = opened(palette)
   const calls: string[] = []
@@ -42,13 +43,14 @@ async function setup(palette: Palette, state: AppState = local) {
     getVimState: () => vim,
     executeAction: (id) => void calls.push(`execute ${id}`),
     onToggleReaction: (_, rowId) => void calls.push(`reaction ${rowId}`),
+    reactionTarget: () => reactionTarget,
     onLink: (action, link) => void calls.push(`link ${action} ${link.url}`),
   })
   return { palette: actionMenu, calls, leftKeys, press }
 }
 
-const visualActions = (state: AppState, palette: Palette = open) => {
-  const mode = paletteMode(state, vim, opened(palette).snapshot())
+const visualActions = (state: AppState, reactionTarget: ReactionTarget | null = null) => {
+  const mode = paletteMode(state, vim, opened(open).snapshot(), { reactionTarget })
   return mode.kind === "actions" ? getVisualActionOrder(mode.actions) : []
 }
 
@@ -90,10 +92,10 @@ test("enter closes the palette, then runs the selected action", async () => {
 })
 
 test("enter on React… runs it with the palette still open, for its submenu", async () => {
-  const pr: AppState = { ...local, appMode: "pr", reactionTarget: target }
-  const at = visualActions(pr).findIndex((action) => action.id === "react")
+  const pr: AppState = { ...local, appMode: "pr" }
+  const at = visualActions(pr, target).findIndex((action) => action.id === "react")
   expect(at).toBeGreaterThanOrEqual(0)
-  const { palette, calls, press } = await setup(onRow(open, at), pr)
+  const { palette, calls, press } = await setup(onRow(open, at), pr, target)
 
   press("\r")
 

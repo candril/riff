@@ -19,15 +19,15 @@ function palette(setup: (actionMenu: ReturnType<typeof createActionMenuState>) =
 }
 
 function hintOf(submenu: ActionSubmenu) {
-  const mode = paletteMode(state, vim, palette((actionMenu) => actionMenu.showSubmenu(submenu)))
+  const mode = paletteMode(state, vim, palette((actionMenu) => actionMenu.showSubmenu(submenu)), { reactionTarget: null })
   return mode.kind === "submenu" ? mode.hint : "not a submenu"
 }
 
 describe("paletteMode", () => {
   test("lists every available action until something is typed, then the ones matching it", () => {
-    const all = getAvailableActions(state, vim)
-    expect(paletteMode(state, vim, palette())).toEqual({ kind: "actions", actions: all })
-    const narrowed = paletteMode(state, vim, palette((actionMenu) => actionMenu.setQuery("quit")))
+    const all = getAvailableActions(state, vim, { reactionTarget: null })
+    expect(paletteMode(state, vim, palette(), { reactionTarget: null })).toEqual({ kind: "actions", actions: all })
+    const narrowed = paletteMode(state, vim, palette((actionMenu) => actionMenu.setQuery("quit")), { reactionTarget: null })
     expect(narrowed.kind === "actions" && narrowed.actions.length).toBeLessThan(all.length)
   })
 

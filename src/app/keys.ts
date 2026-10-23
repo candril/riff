@@ -160,6 +160,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     getVimState: ctx.getVimState,
     executeAction: ctx.executeAction,
     onToggleReaction: ctx.onToggleReaction,
+    reactionTarget: ctx.reactionTarget,
     onLink: createOpenLink(ctx),
     getFlashState: ctx.getFlashState,
     flashHandler: () => ctx.flashHandler,

@@ -30,7 +30,7 @@ const COMMENT: Comment = {
 describe("Show Only Open Threads", () => {
   test("is offered once there are threads to hide", () => {
     const base = createInitialState([], [], "local", "local changes")
-    const ids = (state: AppState) => getAvailableActions(state).map((action) => action.id)
+    const ids = (state: AppState) => getAvailableActions(state, undefined, { reactionTarget: null }).map((action) => action.id)
     expect(ids(base)).not.toContain("toggle-open-threads-only")
     expect(ids({ ...base, comments: [COMMENT] })).toContain("toggle-open-threads-only")
   })
@@ -63,6 +63,7 @@ describe("Show Only Open Threads", () => {
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
+        reactionTarget: () => null,
       })
 
     await run()
@@ -83,7 +84,7 @@ describe("Show Only Unviewed Files", () => {
 `)
 
   test("is offered once there are files to hide", () => {
-    const ids = (state: AppState) => getAvailableActions(state).map((action) => action.id)
+    const ids = (state: AppState) => getAvailableActions(state, undefined, { reactionTarget: null }).map((action) => action.id)
     expect(ids(createInitialState([], [], "local", "local changes"))).not.toContain("toggle-unviewed-files-only")
     expect(ids(createInitialState(files, buildFileTree(files), "local", "local changes"))).toContain("toggle-unviewed-files-only")
   })
@@ -116,6 +117,7 @@ describe("Show Only Unviewed Files", () => {
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
+        reactionTarget: () => null,
       })
 
     await run()
@@ -151,6 +153,7 @@ describe("Peek Line", () => {
         handlers: {} as ActionHandlers,
         commandKeys: new Map(),
         runCommand: () => false,
+        reactionTarget: () => null,
       })
 
     expect(await run()).toBe(true)
@@ -187,6 +190,7 @@ describe("Toggle Wrap", () => {
         handlers: {} as ActionHandlers,
         commandKeys: new Map(),
         runCommand: () => false,
+        reactionTarget: () => null,
       })
 
     await run()

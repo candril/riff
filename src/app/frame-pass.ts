@@ -8,6 +8,7 @@ import type { PRInfoPanelClass } from "../components"
 import { colors } from "../theme"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
+import type { ReactionTarget } from "../types"
 import type { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { SearchState } from "../vim-diff/search-state"
@@ -91,6 +92,8 @@ export interface FramePassContext {
   commentDrafts: Pick<CommentDraftsState, "drafts">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
+  /** What React… acts on: whatever has focus now (reactionTargetOf). */
+  reactionTarget: () => ReactionTarget | null
   // Helper
   updateFileTreePanel: () => void
   /** Hands the pass's snapshot to every view that derives its own model from it. */
@@ -203,6 +206,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       visit,
       commitPicker,
       actionMenu,
+      actionFocus: { reactionTarget: ctx.reactionTarget() },
       linePeek,
       blamePeek,
       mentions: { pool: ctx.mentions.pool(), searching: ctx.mentions.searching() },

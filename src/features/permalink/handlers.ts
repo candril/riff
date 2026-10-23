@@ -13,7 +13,7 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
-import type { Comment } from "../../types"
+import type { Comment, ReactionTarget } from "../../types"
 import { treeRowsOf } from "../../components"
 import { copyToClipboard } from "../../utils/clipboard"
 import { getSelectionRange, isVisualMode } from "../../vim-diff/cursor-state"
@@ -33,6 +33,8 @@ export interface PermalinkContext {
   toast: Pick<ToastState, "show" | "clear">
   /** SHA of the PR head riff loaded the diff at. Empty in local mode. */
   getHeadSha: () => string
+  /** What has focus now that a comment link can name (reactionTargetOf). */
+  reactionTarget: () => ReactionTarget | null
 }
 
 /** What a permalink would cover right now. Drives the palette label. */
@@ -158,8 +160,8 @@ export async function handleCopyPrDiffLink(ctx: PermalinkContext): Promise<void>
  * Copy a link to a specific comment.
  *
  * `focused` is the comment the caller knows about — the overlay's highlighted
- * row. Without one, the cursor's own thread wins, then whatever the view last
- * marked as reactable, which is how the PR info panel's selection is picked up.
+ * row. Without one, the cursor's own thread wins, then what has focus, which
+ * is how the PR info panel's selection is picked up.
  */
 export async function handleCopyCommentLink(
   ctx: PermalinkContext,
@@ -172,7 +174,7 @@ export async function handleCopyCommentLink(
   }
 
   const comment = focused ?? commentAtCursor(ctx)
-  const link = comment ? linkForComment(state, comment) : linkForFocusedTarget(state)
+  const link = comment ? linkForComment(state, comment) : linkForFocusedTarget(state, ctx.reactionTarget())
 
   if (!link) {
     toast(ctx, "No comment here — move to a thread first", "info")

@@ -8,6 +8,7 @@ import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { buildFileTree } from "../../utils/file-tree"
 import type { DiffFile } from "../../utils/diff-parser"
 import { DOC, X, Y } from "../../testing/marks"
+import { reactionTargetOf } from "../reactions/target"
 
 const files: DiffFile[] = ["a.ts", "b.ts"].map((filename) => ({
   filename,
@@ -324,11 +325,13 @@ describe("apply", () => {
   test("leaves the PR overview for a diff entry in another file without its reaction target", () => {
     const h = applying([X, Y], { appMode: "pr" })
     const diffEntry = h.entry({ viewMode: "diff", fileIndex: 1, filename: "src/y.ts", anchor: null })
-    h.ctx.setState((s) => ({ ...s, viewMode: "state", selectedFileIndex: null, reactionTarget: { kind: "issue", prNumber: 1 } }))
+    h.ctx.setState((s) => ({ ...s, viewMode: "state", selectedFileIndex: null }))
+    const overviewTarget = () => ({ kind: "issue", prNumber: 1 }) as const
+    expect(reactionTargetOf(h.state(), overviewTarget)).not.toBeNull()
     apply(diffEntry, h.ctx)
     expect(h.state().viewMode).toBe("diff")
     expect(h.state().selectedFileIndex).toBe(1)
-    expect(h.state().reactionTarget).toBeNull()
+    expect(reactionTargetOf(h.state(), overviewTarget)).toBeNull()
   })
 
   test("from the PR overview to a feed entry in another file, the feed key's way back is the overview", () => {

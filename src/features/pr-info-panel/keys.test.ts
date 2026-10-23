@@ -309,15 +309,11 @@ describe("the overview's comment prompt", () => {
   })
 })
 
-test("the reaction target follows the focus after every key the overview takes, and only then", async () => {
+test("the reaction target is whatever the overview's cursor is on when it is asked", async () => {
   const keys = await prInfoPanelKeys(overviewState(), { section: "conversation" })
-  keys.press("q")
-  expect(keys.state().reactionTarget).toBeNull()
-  keys.press("w")
-  expect(keys.state().reactionTarget).toEqual({ kind: "review-comment", githubId: 7 })
+  expect(keys.reactionTarget()).toEqual({ kind: "review-comment", githubId: 7 })
   keys.panel.section = "files"
-  keys.press("j")
-  expect(keys.state().reactionTarget).toEqual({ kind: "issue", prNumber: 1259 })
+  expect(keys.reactionTarget()).toEqual({ kind: "issue", prNumber: 1259 })
 })
 
 test("unregistering leaves every key to the chain", async () => {

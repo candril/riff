@@ -14,7 +14,7 @@ import {
   toggleShowHiddenFiles,
   getReactionsForTarget,
 } from "../../state"
-import { REACTION_META } from "../../types"
+import { REACTION_META, type ReactionTarget } from "../../types"
 import { actions } from "../../actions/registry"
 import { actionKeys, type ActionSubmenu } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
@@ -88,6 +88,8 @@ export interface ExecuteContext {
   commandKeys: ReadonlyMap<string, string>
   /** Runs keymap command `name` on the key `keys` spells; false when it did not take it. */
   runCommand: (name: string, keys: string) => boolean
+  /** What React… acts on: whatever has focus now (reactionTargetOf). */
+  reactionTarget: () => ReactionTarget | null
 }
 
 /** The diff's catch-all command, which reads its key the way handleInput does. */
@@ -360,7 +362,7 @@ export async function executeAction(
     case "react": {
       // Open the react submenu rather than executing — the palette stays
       // open and the selected row's Enter handler fires the toggle.
-      const submenu = reactSubmenu(state, true)
+      const submenu = reactSubmenu(state, ctx.reactionTarget(), true)
       if (!submenu) break
       actionMenu.showSubmenu(submenu)
       render()
@@ -394,23 +396,24 @@ function runThroughCommand(actionId: string, ctx: ExecuteContext): boolean {
 }
 
 /**
- * The reaction picker on whatever `reactionTarget` points at, or null when
- * nothing reactable has focus. `+` opens it without the palette, and
- * showSubmenu opens the palette underneath it then.
+ * The reaction picker on `target`, what has focus, or null when nothing
+ * reactable does. `+` opens it without the palette, and showSubmenu opens
+ * the palette underneath it then.
  */
-export function reactSubmenu(state: AppState, fromPalette: boolean): ActionSubmenu | null {
-  const target = state.reactionTarget
+export function reactSubmenu(
+  state: AppState,
+  target: ReactionTarget | null,
+  fromPalette: boolean,
+): ActionSubmenu | null {
   if (state.appMode !== "pr" || !target) return null
-  return { kind: "react", target, title: reactSubmenuTitle(state), fromPalette }
+  return { kind: "react", target, title: reactSubmenuTitle(state, target), fromPalette }
 }
 
 /**
  * Build the submenu title for the React… submenu. Surfaces what the user is
  * about to react on so they're not toggling into the void.
  */
-function reactSubmenuTitle(state: AppState): string {
-  const target = state.reactionTarget
-  if (!target) return "React"
+function reactSubmenuTitle(state: AppState, target: ReactionTarget): string {
   switch (target.kind) {
     case "review-comment": {
       const c = state.comments.find(c => c.githubId === target.githubId)
@@ -436,8 +439,7 @@ function reactSubmenuTitle(state: AppState): string {
 
 /** Small helper exported for tests/debugging: describe the current
  * reaction set as a tiny comma-separated string. Not used at runtime yet. */
-export function describeReactions(state: AppState): string {
-  const t = state.reactionTarget
+export function describeReactions(state: AppState, t: ReactionTarget | null): string {
   if (!t) return ""
   const rs = getReactionsForTarget(state, t)
   return rs.map(r => `${REACTION_META[r.content].emoji}${r.count}`).join(" ")

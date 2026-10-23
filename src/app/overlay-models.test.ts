@@ -68,6 +68,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
     commandKeys: new Map(),
+    actionFocus: { reactionTarget: null },
     ...rest,
   }
 }
