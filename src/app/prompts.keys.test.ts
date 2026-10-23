@@ -120,3 +120,19 @@ test("q and i typed into the tree's filter are letters of the path, not quit or 
   expect(mounted.ctx.getState().viewMode).toBe("diff")
   expect(mounted.ctx.getState().treeFilter).toBe("qi")
 })
+
+test("/ on a tree filter kept with Enter reopens the field on its path, and the tree stays narrowed", async () => {
+  const { mounted } = await treeApp()
+  await mounted.setup.mockInput.typeText("/wave")
+  mounted.setup.mockInput.pressEnter()
+  await flush()
+  expect(mounted.ctx.getState().treeFilterInput).toBe(false)
+
+  mounted.setup.mockInput.pressKey("/")
+  await flush()
+  expect({ filter: mounted.ctx.getState().treeFilter, filtering: mounted.ctx.getState().treeFilterInput }).toEqual({ filter: "wave", filtering: true })
+  const tree = (await mounted.frame()).split("\n").map((line) => line.slice(0, 35)).join("\n")
+  expect(tree).toContain("/wave")
+  expect(tree).toContain("wave.ts")
+  expect(tree).not.toContain("greet.ts")
+})

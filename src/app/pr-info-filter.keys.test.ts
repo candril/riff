@@ -48,11 +48,7 @@ async function overviewApp() {
   panel = shown
   mounted.setPrInfoPanel(shown)
   const filterCtx = { getState: mounted.ctx.getState, setState: mounted.ctx.setState, feed: mounted.activityFeed, prInfoFilter: mounted.prInfoFilter }
-  // app.ts's wiring, but for a value the factory already has: opening the
-  // prompt writes the filter back into its field, which reports it as typed
-  // from inside the frame pass, and the test frame refuses a render there.
   shown.setOnFilterChange((value) => {
-    if (value === mounted.prInfoFilter.filter()) return
     viewFilter.setFilter(filterCtx, value)
     mounted.render()
   })
@@ -120,6 +116,23 @@ test("a filter kept with Enter is gone once the overview is left and entered aga
   expect(reopened).toContain(PROMPT)
   expect(reopened).not.toContain("/greet")
   expect(reopened).toContain("✓ build")
+})
+
+test("/ on a filter kept with Enter reopens the prompt on its text, and the rows stay narrowed", async () => {
+  const mounted = await overviewApp()
+  mounted.setup.mockInput.pressKey("/")
+  await mounted.setup.mockInput.typeText("greet")
+  mounted.setup.mockInput.pressEnter()
+  const kept = await mounted.frame()
+  expect(kept).not.toContain(PROMPT)
+  expect(kept).not.toContain("✓ build")
+
+  mounted.setup.mockInput.pressKey("/")
+  const reopened = await mounted.frame()
+  expect(reopened).toContain("/greet")
+  expect(reopened).toContain("src/greet.ts")
+  expect(reopened).not.toContain("✓ build")
+  expect({ filter: mounted.prInfoFilter.filter(), filterInput: mounted.prInfoFilter.filterInput() }).toEqual({ filter: "greet", filterInput: true })
 })
 
 test("a reload keeps the filter's text and its open prompt, and the rows stay narrowed", async () => {

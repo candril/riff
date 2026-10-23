@@ -93,6 +93,7 @@ export class PRInfoPanelClass {
   private readonly counts: Nav.SectionCounts = (section) => this.getItemCountForSection(section)
 
   private filterFocused: boolean = false
+  private seedingFilter = false
   private onFilterChange: ((value: string) => void) | null = null
   // Where the sections the reader opens or folds are kept for the review (set by app.ts).
   private onSectionsChange: ((open: ReadonlySet<PRInfoPanelSection>) => void) | null = null
@@ -166,7 +167,11 @@ export class PRInfoPanelClass {
         renderNode: tableRenderer(renderer, () => this.markdownWidth()),
         syntaxStyle: getSyntaxStyle(renderer.nativeScene),
       },
-      onFilterInput: (value) => this.onFilterChange?.(value),
+      // The seed is the filter coming back, not the reader typing, and
+      // reporting it would render from inside the frame pass.
+      onFilterInput: (value) => {
+        if (!this.seedingFilter) this.onFilterChange?.(value)
+      },
       beforeScrollRender: () => this.beforeScrollRender(),
       onDescriptionResize: () => this.descriptionResized(),
     })
@@ -438,7 +443,12 @@ export class PRInfoPanelClass {
 
     const input = this.island.filterInput
     if (open) {
-      input.value = filter
+      this.seedingFilter = true
+      try {
+        input.value = filter
+      } finally {
+        this.seedingFilter = false
+      }
       input.focus()
     } else {
       input.blur()
