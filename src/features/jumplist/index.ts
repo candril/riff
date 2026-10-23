@@ -23,6 +23,7 @@ import { resolveMark } from "../marks/resolve"
 import { openFoldHiding } from "../marks/fold-hiding"
 import type { Jump } from "./types"
 import { sameAnchor } from "./place"
+import type { BlockFoldsState } from "../folds/block-folds-state"
 
 export type { Jump, JumpList } from "./types"
 export { sameLine, sameLocation } from "./place"
@@ -72,6 +73,7 @@ export function capture(
 export interface JumpApplyContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  blockFolds: Pick<BlockFoldsState, "toggle">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
@@ -219,7 +221,7 @@ function landingOf(jump: Jump, ctx: JumpApplyContext): { line: number; side: "LE
   const found = resolveMark(mapping, anchor)
   if (!found) return { line: Math.max(0, jump.cursorLine), side: null }
   const resolved = openFoldHiding(anchor, found, {
-    setState: ctx.setState,
+    blockFolds: ctx.blockFolds,
     getLineMapping: ctx.getLineMapping,
     rebuildLineMapping: () => {
       ctx.rebuildLineMapping()

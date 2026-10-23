@@ -138,6 +138,7 @@ export async function jumpScenario({
   const foldsContext: FoldsContext = {
     getState: render.getState,
     setState: render.setState,
+    blockFolds: mounted.blockFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -259,6 +260,7 @@ export async function jumpScenario({
       marksContext: {
         ...threadMotionContext,
         toast: mounted.toast,
+        blockFolds: mounted.blockFolds,
         getPane,
         setPane,
         marks: mounted.marks,

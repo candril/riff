@@ -56,6 +56,7 @@ describe("creating a pull request", () => {
       cursorLine: 2,
     })
     h.features.help.toggle()
+    h.features.blockFolds.toggle("doc.md:0")
 
     await h.create()
 
@@ -70,6 +71,7 @@ describe("creating a pull request", () => {
     expect(h.common.activityFeed.snapshot()).toEqual(createFeedState().snapshot())
     expect(h.features.jumpList.list().entries).toHaveLength(0)
     expect(h.features.help.open()).toBe(false)
+    expect(h.features.blockFolds.collapsed().size).toBe(0)
   })
 
   test("a PR gh will not create gives the terminal back once and says why", async () => {

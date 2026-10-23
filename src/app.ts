@@ -58,6 +58,7 @@ import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
 import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
+import { createBlockFoldsState } from "./features/folds/block-folds-state"
 import { loadFileContent as loadFileContentInto } from "./features/file-content/load"
 import { createFileVersionsReader, liveFileVersionSources } from "./features/file-content/versions"
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
@@ -202,8 +203,9 @@ export async function createApp(options: AppOptions = {}) {
   let flashState: FlashState = createFlashState()
   const diffOptions = createDiffOptionsState({ wrap: initialConfig.diff.wrap, alignMarkdownTables: initialConfig.diff.alignMarkdownTables })
   const fileContent = createFileContentState()
+  const blockFolds = createBlockFoldsState()
   const commitDiffs = createCommitDiffsState()
-  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent)
+  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
@@ -316,7 +318,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     requestFileModeContent()
-    lineMapping = buildLineMapping(state, diffOptions, fileContent)
+    lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
@@ -527,6 +529,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfoFilter,
     fileContent,
     commitDiffs,
+    blockFolds,
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -960,6 +963,7 @@ export async function createApp(options: AppOptions = {}) {
   const foldsContext: folds.FoldsContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    blockFolds,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
     getLineMapping: () => lineMapping,
@@ -1065,6 +1069,7 @@ export async function createApp(options: AppOptions = {}) {
   const marksContext: marks.MarksContext = {
     ...threadMotionContext,
     toast,
+    blockFolds,
     getPane: () => split.commentScope().pane ?? null,
     setPane: (pane) => { if (split.shown()) split.source().setSide(pane) },
     marks: globalMarks,
@@ -1095,7 +1100,7 @@ export async function createApp(options: AppOptions = {}) {
     setVimState: (s) => { vimState = s },
     setSearchState: (s) => { searchState = s },
     setHeadSha: (sha) => { currentHeadSha = sha },
-    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent) },
+    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds) },
     forgetBaseLookups: () => baseLookups.state.forget(),
     render,
     toast,
@@ -1460,6 +1465,7 @@ export async function createApp(options: AppOptions = {}) {
     prCommentInput,
     prInfoFilter,
     diffOptions,
+    blockFolds,
     activityFeed,
     visit,
     jumpList,

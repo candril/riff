@@ -269,6 +269,35 @@ describe("a refresh's diff display options", () => {
   }
 })
 
+const FENCED_DOC = `diff --git a/doc.md b/doc.md
+index 1111111..2222222 100644
+--- a/doc.md
++++ b/doc.md
+@@ -1,5 +1,5 @@
+ intro
+ ~~~sh
+-echo hi
++echo hello
+ ~~~
+ end
+`
+
+describe("a refresh's fenced-block folds", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`keeps a folded block folded (${appMode})`, async () => {
+      const { ctx, toast, blockFolds, mapping } = refreshHarness({ appMode, diff: FENCED_DOC })
+      const id = mapping().foldableBlocks[0]!.id
+      blockFolds.toggle(id)
+      ctx.rebuildLineMapping()
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect(blockFolds.isCollapsed(id)).toBe(true)
+      expect(mapping().allLines.some((line) => line.blockFoldId === id)).toBe(true)
+    })
+  }
+})
+
 describe("a refresh's time", () => {
   for (const appMode of ["pr", "local"] as const) {
     test(`is stamped once the rebuild lands (${appMode})`, async () => {

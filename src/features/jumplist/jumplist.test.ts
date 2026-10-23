@@ -8,6 +8,7 @@ import { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { buildFileTree } from "../../utils/file-tree"
 import type { DiffFile } from "../../utils/diff-parser"
 import { DOC, X, Y } from "../../testing/marks"
+import { createBlockFoldsState } from "../folds/block-folds-state"
 import { reactionTargetOf } from "../reactions/target"
 
 const files: DiffFile[] = ["a.ts", "b.ts"].map((filename) => ({
@@ -246,10 +247,11 @@ describe("apply", () => {
     let split = splitAtStart
     let state: AppState = { ...createInitialState(diff, buildFileTree(diff), "local", ""), ...patch }
     let vim = createCursorState()
+    const blockFolds = createBlockFoldsState()
     const build = () =>
       new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
         collapsedFiles: state.collapsedFiles,
-        collapsedBlocks: state.collapsedBlocks,
+        collapsedBlocks: blockFolds.collapsed(),
       })
     let mapping = build()
     const calls: string[] = []
@@ -258,6 +260,7 @@ describe("apply", () => {
       setState: (update) => {
         state = update(state)
       },
+      blockFolds,
       getVimState: () => vim,
       setVimState: (next) => {
         vim = next
@@ -279,7 +282,7 @@ describe("apply", () => {
       },
     }
     const entry = (patch: Partial<Jump> = {}): Jump => ({ ...capture(state, vim, mapping, { split }), ...patch })
-    return { ctx, calls, entry, state: () => state, split: () => split, vim: () => vim, mapping: () => mapping }
+    return { ctx, calls, entry, blockFolds, state: () => state, split: () => split, vim: () => vim, mapping: () => mapping }
   }
 
   test("toggles split only when the entry's layout differs", () => {
@@ -307,9 +310,11 @@ describe("apply", () => {
 
   test("opens the code-block fold that hides the entry's line and lands on it", () => {
     const id = new DiffLineMapping([DOC], "all").foldableBlocks[0]!.id
-    const h = applying([DOC], { collapsedBlocks: new Set([id]) })
+    const h = applying([DOC])
+    h.blockFolds.set([id])
+    h.ctx.rebuildLineMapping()
     apply(h.entry({ anchor: { filename: "doc.md", line: 3, side: "RIGHT" }, cursorLine: 0 }), h.ctx)
-    expect(h.state().collapsedBlocks.has(id)).toBe(false)
+    expect(h.blockFolds.isCollapsed(id)).toBe(false)
     expect(h.mapping().getLine(h.vim().line)).toMatchObject({ content: "sequenceDiagram", newLineNum: 3 })
   })
 

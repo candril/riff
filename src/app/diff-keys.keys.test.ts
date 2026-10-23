@@ -51,6 +51,7 @@ async function diffApp(more: Partial<AppKeyContext> = {}) {
   const foldsContext: FoldsContext = {
     getState: render.getState,
     setState: render.setState,
+    blockFolds: mounted.blockFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -96,7 +97,7 @@ async function diffApp(more: Partial<AppKeyContext> = {}) {
     searchHandler,
     marksContext: {
       getState: render.getState,
-      setState: render.setState,
+      blockFolds: mounted.blockFolds,
       getVimState: vim,
       setVimState,
       getLineMapping: render.getLineMapping,

@@ -25,6 +25,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
+import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
@@ -88,7 +89,9 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   // Held beside the context, as app.ts holds it: the refresh is not handed it.
   const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
   const fileContent = createFileContentState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent)
+  // Held beside the context, as app.ts holds it: a reload leaves it alone.
+  const blockFolds = createBlockFoldsState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
   let headSha = "head-1"
 
   const calls = {
@@ -142,7 +145,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
     getMapping: () => mapping,
-    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent) },
+    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds) },
     revealCursor: () => {},
     refreshSearchMatches: () => {},
     reloadFeed: () => { calls.reloadFeed++ },
@@ -182,5 +185,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, mapping: () => mapping }
 }

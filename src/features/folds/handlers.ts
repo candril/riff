@@ -14,16 +14,15 @@ import {
   toggleFileFold,
   expandAllFiles,
   collapseAllFiles,
-  toggleBlockFold,
-  setBlockFolds,
-  expandAllBlocks,
 } from "../../state"
 import { toggleNodeExpansion } from "../../utils/file-tree"
+import type { BlockFoldsState } from "./block-folds-state"
 
 export interface FoldsContext {
   // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  blockFolds: Pick<BlockFoldsState, "collapsed" | "toggle" | "set" | "clear">
   // Vim state
   getVimState: () => VimCursorState
   setVimState: (state: VimCursorState) => void
@@ -173,7 +172,7 @@ function toggleBlockAtCursor(ctx: FoldsContext): boolean {
   const block = ctx.getLineMapping().blockAtLine(row)
   if (!block) return false
 
-  ctx.setState((s) => toggleBlockFold(s, block.id))
+  ctx.blockFolds.toggle(block.id)
   ctx.rebuildLineMapping()
   ctx.setVimState({ ...ctx.getVimState(), line: block.start, col: 0, desiredCol: null })
   ctx.ensureCursorVisible()
@@ -191,15 +190,15 @@ export function handleToggleFileBlocks(ctx: FoldsContext): void {
   const blockIds = mapping.blockIdsIn(filename)
   if (blockIds.length === 0) return
 
-  const state = ctx.getState()
-  const anyOpen = blockIds.some((id) => !state.collapsedBlocks.has(id))
-  const ids = new Set(state.collapsedBlocks)
+  const collapsed = ctx.blockFolds.collapsed()
+  const anyOpen = blockIds.some((id) => !collapsed.has(id))
+  const ids = new Set(collapsed)
   for (const id of blockIds) {
     if (anyOpen) ids.add(id)
     else ids.delete(id)
   }
 
-  ctx.setState((s) => setBlockFolds(s, [...ids]))
+  ctx.blockFolds.set([...ids])
   ctx.rebuildLineMapping()
   ctx.ensureCursorVisible()
   ctx.render()
@@ -238,7 +237,7 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
 
   // A folded block under the cursor opens first (spec 073).
   const openBlock = ctx.getLineMapping().blockAtLine(ctx.getVimState().line)
-  if (openBlock && state.collapsedBlocks.has(openBlock.id)) {
+  if (openBlock && ctx.blockFolds.collapsed().has(openBlock.id)) {
     toggleBlockAtCursor(ctx)
     return
   }
@@ -289,7 +288,7 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
 
   // An open block under the cursor closes first (spec 073).
   const closeBlock = ctx.getLineMapping().blockAtLine(ctx.getVimState().line)
-  if (closeBlock && !state.collapsedBlocks.has(closeBlock.id)) {
+  if (closeBlock && !ctx.blockFolds.collapsed().has(closeBlock.id)) {
     toggleBlockAtCursor(ctx)
     return
   }
@@ -333,7 +332,8 @@ export function handleExpandAllFolds(ctx: FoldsContext): void {
   // Diff view - expand all files, and every fenced block with them: "show
   // me everything" means everything (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
-  ctx.setState((s) => expandAllBlocks(expandAllFiles(s)))
+  ctx.setState(expandAllFiles)
+  ctx.blockFolds.clear()
   ctx.rebuildLineMapping()
   if (currentFilename) {
     const headerLine = findFileHeaderLine(ctx, currentFilename)
@@ -371,7 +371,8 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
   // file back up shows its prose rather than its diagrams (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
   const blockIds = ctx.getLineMapping().blockIdsIn()
-  ctx.setState((s) => setBlockFolds(collapseAllFiles(s), blockIds))
+  ctx.setState(collapseAllFiles)
+  ctx.blockFolds.set(blockIds)
   ctx.rebuildLineMapping()
   if (currentFilename) {
     const headerLine = findFileHeaderLine(ctx, currentFilename)

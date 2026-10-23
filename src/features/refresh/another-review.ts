@@ -28,6 +28,7 @@ import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 import type { PrInfoFilterState } from "../pr-info-panel/filter-state"
 import type { FileContentState } from "../file-content/state"
 import type { CommitDiffsState } from "../commit-scope/diffs-state"
+import type { BlockFoldsState } from "../folds/block-folds-state"
 
 export interface AnotherReviewFeatures {
   help: Pick<HelpState, "close">
@@ -50,6 +51,7 @@ export interface AnotherReviewFeatures {
   prInfoFilter: Pick<PrInfoFilterState, "clear">
   fileContent: Pick<FileContentState, "clear">
   commitDiffs: Pick<CommitDiffsState, "clear">
+  blockFolds: Pick<BlockFoldsState, "clear">
 }
 
 export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
@@ -80,4 +82,6 @@ export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
   features.fileContent.clear()
   // The next PR's commits are not this one's.
   features.commitDiffs.clear()
+  // A block id names a fence in the old diff.
+  features.blockFolds.clear()
 }

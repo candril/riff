@@ -12,10 +12,11 @@ import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { getCharSelection } from "../../vim-diff/cursor-state"
 import { wordAt } from "../../vim-diff/search-engine"
-import { switchView, toggleBlockFold } from "../../state"
+import { switchView } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 import type { OccurrenceHit } from "./filter"
 import type { ToastState } from "../toast/state"
+import type { BlockFoldsState } from "../folds/block-folds-state"
 
 export { registerOccurrencePickerKeys, type OccurrencePickerKeyDeps } from "./keys"
 export {
@@ -33,6 +34,7 @@ export { createOccurrencePickerState, type OccurrencePickerState, type Occurrenc
 export interface OccurrenceJumpContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  blockFolds: Pick<BlockFoldsState, "toggle">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
@@ -123,8 +125,7 @@ function findRowUnderFold(hit: OccurrenceHit, ctx: OccurrenceJumpContext): numbe
   }
   if (!foldId) return null
 
-  const id = foldId
-  ctx.setState((s) => toggleBlockFold(s, id))
+  ctx.blockFolds.toggle(foldId)
   ctx.fileNavContext.createLineMapping()
   return findRow(hit, ctx)
 }

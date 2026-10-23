@@ -45,7 +45,6 @@ export interface RefreshPosition {
   treeUnviewedOnly: boolean
   treeKeptFile: string | null
   collapsedFiles: Set<string>
-  collapsedBlocks: Set<string>
   /** Not put back by restorePosition: the expanded-context factory holds them, and the refresh restores them there. */
   expandedDividers: Set<string>
   anchor: CursorAnchor | null
@@ -80,7 +79,6 @@ export function capturePosition(
     treeUnviewedOnly: state.treeUnviewedOnly,
     treeKeptFile: state.treeKeptFile,
     collapsedFiles: new Set(state.collapsedFiles),
-    collapsedBlocks: new Set(state.collapsedBlocks),
     expandedDividers: new Set(expandedDividers),
     anchor: captureAnchor(mapping, vim),
     search,
@@ -134,7 +132,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     treeUnviewedOnly: position.treeUnviewedOnly,
     treeKeptFile: position.treeKeptFile,
     collapsedFiles: new Set(position.collapsedFiles),
-    collapsedBlocks: new Set(position.collapsedBlocks),
   }
 }
 

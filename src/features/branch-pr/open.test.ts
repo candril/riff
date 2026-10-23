@@ -71,6 +71,7 @@ describe("opening the branch's pull request", () => {
     })
     h.features.help.toggle()
     h.features.prInfoFilter.set("needle")
+    h.features.blockFolds.toggle("doc.md:0")
     expect(h.common.activityFeed.snapshot()).not.toEqual(createFeedState().snapshot())
 
     await h.open("state")
@@ -79,6 +80,7 @@ describe("opening the branch's pull request", () => {
     expect(h.features.jumpList.list().entries).toHaveLength(0)
     expect(h.features.help.open()).toBe(false)
     expect(h.features.prInfoFilter.filter()).toBe("")
+    expect(h.features.blockFolds.collapsed().size).toBe(0)
   })
 
   test("fetches the PR's pending review once the viewed statuses have landed, and shows its comment", async () => {

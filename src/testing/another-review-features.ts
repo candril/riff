@@ -23,6 +23,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createFileContentState } from "../features/file-content/state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
+import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import type { AnotherReviewFeatures } from "../features/refresh/another-review"
 
 export function createAnotherReviewFeatures() {
@@ -47,5 +48,6 @@ export function createAnotherReviewFeatures() {
     prInfoFilter: createPrInfoFilterState(),
     fileContent: createFileContentState(),
     commitDiffs: createCommitDiffsState(),
+    blockFolds: createBlockFoldsState(),
   } satisfies AnotherReviewFeatures
 }

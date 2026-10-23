@@ -105,6 +105,7 @@ async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
   const foldsContext: FoldsContext = {
     getState: render.getState,
     setState: render.setState,
+    blockFolds: mounted.blockFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -121,7 +122,7 @@ async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
     rebuildLineMapping,
     marksContext: {
       getState: render.getState,
-      setState: render.setState,
+      blockFolds: mounted.blockFolds,
       getVimState: vim,
       setVimState,
       getLineMapping: render.getLineMapping,
@@ -177,53 +178,64 @@ describe("folds", () => {
   test("zA and the shifted lower-case za both fold every fenced block of the file", async () => {
     const { mounted, type, state, lineOf, keys } = await zApp()
     for (const shifted of [SHIFT_A, SHIFTED_LOWER_A]) {
-      mounted.show({ collapsedBlocks: new Set(), files: state().files })
+      mounted.blockFolds.clear()
+      mounted.show({ files: state().files })
       keys.jumpTo(lineOf("between", "doc.md"))
       type("z", shifted)
-      expect(state().collapsedBlocks.size).toBe(1)
+      expect(mounted.blockFolds.collapsed().size).toBe(1)
     }
   })
 
   test("a second zA unfolds the file's blocks once zA has folded them all", async () => {
-    const { mounted, type, state, lineOf, keys } = await zApp()
+    const { mounted, type, lineOf, keys } = await zApp()
     keys.jumpTo(lineOf("between", "doc.md"))
     type("z", SHIFT_A)
-    expect(state().collapsedBlocks.size).toBe(1)
+    expect(mounted.blockFolds.collapsed().size).toBe(1)
     expect(await mounted.frame()).not.toContain("+echo hello")
 
     type("z", SHIFT_A)
-    expect(state().collapsedBlocks.size).toBe(0)
+    expect(mounted.blockFolds.collapsed().size).toBe(0)
     const frame = await mounted.frame()
     expect(frame).toContain("~~~sh")
     expect(frame).toContain("echo hello")
   })
 
-  test("zA folds the block za left open, then unfolds both", async () => {
-    const { type, state, lineOf, keys } = await zApp({}, TWO_BLOCKS)
+  test("za on a fence hides the block's lines, and a second za brings them back", async () => {
+    const { mounted, type, lineOf, keys } = await zApp()
     keys.jumpTo(lineOf("~~~sh", "doc.md"))
     type("z", "a")
-    expect(state().collapsedBlocks.size).toBe(1)
+    expect(await mounted.frame()).not.toContain("echo hello")
+
+    type("z", "a")
+    expect(await mounted.frame()).toContain("echo hello")
+  })
+
+  test("zA folds the block za left open, then unfolds both", async () => {
+    const { mounted, type, lineOf, keys } = await zApp({}, TWO_BLOCKS)
+    keys.jumpTo(lineOf("~~~sh", "doc.md"))
+    type("z", "a")
+    expect(mounted.blockFolds.collapsed().size).toBe(1)
 
     keys.jumpTo(lineOf("between", "doc.md"))
     type("z", SHIFT_A)
-    expect(state().collapsedBlocks.size).toBe(2)
+    expect(mounted.blockFolds.collapsed().size).toBe(2)
     type("z", SHIFT_A)
-    expect(state().collapsedBlocks.size).toBe(0)
+    expect(mounted.blockFolds.collapsed().size).toBe(0)
   })
 
   test("zM keeps a block za folded before it", async () => {
-    const { type, state, lineOf, keys } = await zApp({}, TWO_BLOCKS)
+    const { mounted, type, lineOf, keys } = await zApp({}, TWO_BLOCKS)
     keys.jumpTo(lineOf("~~~sh", "doc.md"))
     type("z", "a")
-    const folded = [...state().collapsedBlocks]
+    const folded = [...mounted.blockFolds.collapsed()]
 
     type("z", "\x1b[77;2u")
-    expect(state().collapsedBlocks.size).toBe(2)
-    expect([...state().collapsedBlocks]).toEqual(expect.arrayContaining(folded))
+    expect(mounted.blockFolds.collapsed().size).toBe(2)
+    expect([...mounted.blockFolds.collapsed()]).toEqual(expect.arrayContaining(folded))
   })
 
   test("zM, zm and the shifted zm fold every file, zR, zr and the shifted zr unfold them", async () => {
-    const { type, state } = await zApp()
+    const { mounted, type, state } = await zApp()
     const everyFile = ["a.ts", "b.ts", "doc.md"]
     for (const [fold, unfold] of [
       ["\x1b[77;2u", "\x1b[82;2u"],
@@ -232,8 +244,10 @@ describe("folds", () => {
     ] as const) {
       type("z", fold)
       expect([...state().collapsedFiles].sort()).toEqual(everyFile)
+      expect(mounted.blockFolds.collapsed().size).toBe(1)
       type("z", unfold)
       expect(state().collapsedFiles.size).toBe(0)
+      expect(mounted.blockFolds.collapsed().size).toBe(0)
     }
   })
 

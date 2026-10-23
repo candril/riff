@@ -13,6 +13,7 @@ export function jumpApplyContext(
     | "setPane"
     | "toggleSplitView"
     | "diffOptions"
+    | "blockFolds"
     | "ensureCursorVisible"
     | "render"
     | "onCommitSelected"
@@ -21,6 +22,7 @@ export function jumpApplyContext(
   return {
     getState: ctx.getState,
     setState: ctx.setState,
+    blockFolds: ctx.blockFolds,
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,

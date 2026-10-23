@@ -16,6 +16,7 @@ import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
+import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -84,7 +85,8 @@ export async function mountApp(
   const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
   const fileContent = createFileContentState()
   const commitDiffs = createCommitDiffsState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent)
+  const blockFolds = createBlockFoldsState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   // None unless a test mounts one, as app.ts has none outside a PR.
@@ -285,6 +287,8 @@ export async function mountApp(
     fileContent,
     /** The per-commit diffs, which the commit picker's scope reads and a reload drops as app.ts's do. */
     commitDiffs,
+    /** The folded fenced blocks, which the mapping reads and the fold keys write as app.ts's do. */
+    blockFolds,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -321,7 +325,7 @@ export async function mountApp(
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
       state = { ...state, ...patch }
-      if (patch.files) mapping = buildLineMapping(state, diffOptions, fileContent)
+      if (patch.files) mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
       render()
     },
     setVimState(next: typeof vimState) {

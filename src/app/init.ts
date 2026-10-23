@@ -42,6 +42,7 @@ import { buildFilesDiff, type FilesTarget } from "../providers/files"
 import { commentsInView } from "../utils/notes"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { FileContentState } from "../features/file-content/state"
+import type { BlockFoldsState } from "../features/folds/block-folds-state"
 
 export interface InitOptions {
   mode: AppMode
@@ -256,6 +257,7 @@ export function buildLineMapping(
   state: AppState,
   options: Pick<DiffOptionsState, "wrapLines" | "alignMarkdownTables">,
   fileContent: Pick<FileContentState, "contents" | "expanded">,
+  blockFolds: Pick<BlockFoldsState, "collapsed">,
 ): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
@@ -270,7 +272,7 @@ export function buildLineMapping(
     expandedDividers: fileContent.expanded(),
     fileContents,
     collapsedFiles: state.collapsedFiles,
-    collapsedBlocks: state.collapsedBlocks,
+    collapsedBlocks: blockFolds.collapsed(),
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     outsideDiff: state.fileMode,
     // Wrapped, the padding is worse than useless: it is the widest cell in

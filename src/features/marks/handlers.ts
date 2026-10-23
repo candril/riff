@@ -11,12 +11,13 @@ import { openFoldHiding } from "./fold-hiding"
 import type { GlobalMarksState } from "./state"
 import type { Mark } from "./types"
 import type { ToastState } from "../toast/state"
+import type { BlockFoldsState } from "../folds/block-folds-state"
 
 type Pane = "left" | "right"
 
 export interface MarksContext {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
+  blockFolds: Pick<BlockFoldsState, "toggle">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   /** The unified mapping: the cursor's line is one of its rows in split too. */
@@ -82,7 +83,7 @@ export function jumpToMark(letter: string, ctx: MarksContext): boolean {
     return false
   }
   const resolved = openFoldHiding(mark, found, {
-    setState: ctx.setState,
+    blockFolds: ctx.blockFolds,
     getLineMapping: ctx.getLineMapping,
     rebuildLineMapping: ctx.fileNavContext.createLineMapping,
   })

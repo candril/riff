@@ -56,6 +56,7 @@ import type { ToastState } from "../features/toast/state"
 import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
+import type { BlockFoldsState } from "../features/folds/block-folds-state"
 
 export interface AppKeyContext {
   // State access
@@ -172,6 +173,8 @@ export interface AppKeyContext {
   prInfoFilter: PrInfoFilterState
   /** The diff's wrap, split and table alignment, the same instance the diff views read. */
   diffOptions: DiffOptionsState
+  /** The folded fenced blocks, the same instance the line mapping reads. */
+  blockFolds: BlockFoldsState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

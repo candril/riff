@@ -5,6 +5,7 @@ import { parseDiff } from "../utils/diff-parser"
 import { buildFileTree } from "../utils/file-tree"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
+import { createBlockFoldsState } from "../features/folds/block-folds-state"
 
 const TABLE = `diff --git a/README.md b/README.md
 index 1111111..2222222 100644
@@ -19,7 +20,7 @@ index 1111111..2222222 100644
 const files = parseDiff(TABLE)
 const state = createInitialState(files, buildFileTree(files), "test", "")
 const padded = (options: Parameters<typeof createDiffOptionsState>[0]) =>
-  buildLineMapping(state, createDiffOptionsState(options), createFileContentState()).allLines.some((line) => line.sourceContent !== undefined)
+  buildLineMapping(state, createDiffOptionsState(options), createFileContentState(), createBlockFoldsState()).allLines.some((line) => line.sourceContent !== undefined)
 
 describe("buildLineMapping's table alignment", () => {
   test("pads the table when the options ask for it", () => {

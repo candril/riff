@@ -1,11 +1,10 @@
-import type { AppState } from "../../state"
-import { toggleBlockFold } from "../../state"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { resolveMark, type ResolvedMark } from "./resolve"
 import type { LineAnchor } from "./types"
+import type { BlockFoldsState } from "../folds/block-folds-state"
 
 export interface FoldHidingContext {
-  setState: (updater: (s: AppState) => AppState) => void
+  blockFolds: Pick<BlockFoldsState, "toggle">
   getLineMapping: () => DiffLineMapping
   rebuildLineMapping: () => DiffLineMapping
 }
@@ -22,11 +21,11 @@ export function openFoldHiding(anchor: LineAnchor, first: ResolvedMark, ctx: Fol
   const foldId = foldAbove(ctx.getLineMapping(), anchor, anchor.line)
   if (!foldId) return first
 
-  ctx.setState((s) => toggleBlockFold(s, foldId))
+  ctx.blockFolds.toggle(foldId)
   const opened = resolveMark(ctx.rebuildLineMapping(), anchor)
   if (opened?.landing === "exact") return opened
 
-  ctx.setState((s) => toggleBlockFold(s, foldId))
+  ctx.blockFolds.toggle(foldId)
   ctx.rebuildLineMapping()
   return first
 }

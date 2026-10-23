@@ -81,6 +81,7 @@ async function gApp(more: Partial<AppKeyContext> = {}) {
   const foldsContext: FoldsContext = {
     getState: render.getState,
     setState: render.setState,
+    blockFolds: mounted.blockFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,

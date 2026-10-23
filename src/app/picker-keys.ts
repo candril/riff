@@ -14,6 +14,7 @@ export function registerPickerKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext): 
   const jumpContext = () => ({
     getState: ctx.getState,
     setState: ctx.setState,
+    blockFolds: ctx.blockFolds,
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,

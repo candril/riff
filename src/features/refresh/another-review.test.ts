@@ -36,6 +36,7 @@ describe("a switch to another review", () => {
     f.fileContent.set("a.ts", "new", "old")
     f.fileContent.expand("a.ts:0")
     f.commitDiffs.put("abc1234", [])
+    f.blockFolds.toggle("doc.md:0")
 
     expect(f.help.open()).toBe(true)
     expect(f.confirm.dialog()).not.toBeNull()
@@ -57,6 +58,7 @@ describe("a switch to another review", () => {
     expect(f.prInfoFilter.filter()).toBe("needle")
     expect(f.fileContent.entry("a.ts")).not.toBeNull()
     expect(f.commitDiffs.has("abc1234")).toBe(true)
+    expect(f.blockFolds.isCollapsed("doc.md:0")).toBe(true)
 
     closeFeatureOverlays(f)
 
@@ -82,5 +84,6 @@ describe("a switch to another review", () => {
     expect(f.fileContent.entry("a.ts")).toBeNull()
     expect(f.fileContent.expanded().size).toBe(0)
     expect(f.commitDiffs.has("abc1234")).toBe(false)
+    expect(f.blockFolds.collapsed().size).toBe(0)
   })
 })

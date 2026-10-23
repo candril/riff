@@ -10,6 +10,7 @@ import { X, Y, DOC } from "../../testing/marks"
 import { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } from "./handlers"
 import { createMarksState } from "./state"
 import { createToastState } from "../toast/state"
+import { createBlockFoldsState } from "../folds/block-folds-state"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -30,15 +31,16 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     ...state,
     selectedFileIndex: setup.selected ?? null,
     collapsedFiles: new Set(setup.collapsedFiles ?? []),
-    collapsedBlocks: new Set(setup.collapsedBlocks ?? []),
   }
+  const blockFolds = createBlockFoldsState()
+  blockFolds.set(setup.collapsedBlocks ?? [])
   const marks = createMarksState()
   marks.reset(setup.marks ?? [])
   let vim: VimCursorState = { ...createCursorState(), line: setup.line ?? 0 }
   const build = () =>
     new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
       collapsedFiles: state.collapsedFiles,
-      collapsedBlocks: state.collapsedBlocks,
+      collapsedBlocks: blockFolds.collapsed(),
     })
   let mapping = build()
   const panes: Pane[] = []
@@ -61,7 +63,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
   }
   const ctx: MarksContext = {
     getState: () => state,
-    setState: fileNavContext.setState,
+    blockFolds,
     getVimState: () => vim,
     setVimState: (s) => { vim = s },
     getLineMapping: () => mapping,
@@ -81,6 +83,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     panes,
     saved,
     marks,
+    blockFolds,
     state: () => state,
     vim: () => vim,
     mapping: () => mapping,
@@ -237,7 +240,7 @@ describe("a mark under a folded block", () => {
     const id = blockId()
     const h = harness([DOC], { collapsedBlocks: [id], marks: [mark("a", "doc.md", 3)] })
     jumpToMark("a", h.ctx)
-    expect(h.state().collapsedBlocks.has(id)).toBe(false)
+    expect(h.blockFolds.isCollapsed(id)).toBe(false)
     expect(h.mapping().getLine(h.vim().line)).toMatchObject({ content: "sequenceDiagram", newLineNum: 3 })
     expect(h.toast()).toBeNull()
   })
@@ -246,7 +249,7 @@ describe("a mark under a folded block", () => {
     const id = blockId()
     const h = harness([DOC], { collapsedBlocks: [id], marks: [mark("a", "doc.md", 40)] })
     jumpToMark("a", h.ctx)
-    expect(h.state().collapsedBlocks.has(id)).toBe(true)
+    expect(h.blockFolds.isCollapsed(id)).toBe(true)
     expect(h.mapping().getLine(h.vim().line)).toMatchObject({ content: "prose after" })
     expect(h.toast()).toBe("Mark a: line 40 of doc.md is gone — landed nearby")
   })
@@ -283,7 +286,7 @@ describe("''", () => {
   test("after ]m failed onto a mark whose file is gone, goes back to the mark visited before it and adds no toast of its own", () => {
     const h = harness([X, Y], { marks })
     jumpToMark("a", h.ctx)
-    h.ctx.setState((s) => ({ ...s, files: [X] }))
+    h.ctx.fileNavContext.setState((s) => ({ ...s, files: [X] }))
     h.ctx.fileNavContext.createLineMapping()
     h.moveTo(2)
 
