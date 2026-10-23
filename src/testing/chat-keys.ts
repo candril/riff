@@ -136,6 +136,12 @@ function wireKeys(
 
 export const ctrl = (mounted: Mounted, name: string) => mounted.setup.mockInput.pressKey(name, { ctrl: true })
 
+// A lone ESC byte is held back a moment, in case it starts an escape sequence.
+export async function escape(mounted: Mounted) {
+  mounted.setup.mockInput.pressEscape()
+  await Bun.sleep(50)
+}
+
 /** Opens the chat and empties what Ctrl-r put in its input, for tests about something else. */
 export function openChat(mounted: Mounted) {
   ctrl(mounted, "r")

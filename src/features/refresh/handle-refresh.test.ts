@@ -300,14 +300,13 @@ describe("a refresh's fenced-block folds", () => {
 
 describe("a refresh's chat column", () => {
   for (const appMode of ["pr", "local"] as const) {
-    test(`keeps an open column open, and the keys in it (${appMode})`, async () => {
-      const { ctx, toast, chatColumn, state } = refreshHarness({ appMode })
-      chatColumn.show()
+    test(`keeps the keys in the chat (${appMode})`, async () => {
+      const { ctx, toast, state } = refreshHarness({ appMode })
       ctx.setState((s) => ({ ...s, focusedPanel: "chat" }))
 
       await landed(handleRefresh(ctx), toast)
 
-      expect([chatColumn.open(), state().focusedPanel]).toEqual([true, "chat"])
+      expect(state().focusedPanel).toBe("chat")
     })
   }
 })

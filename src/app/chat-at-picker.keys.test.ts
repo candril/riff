@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { mountApp } from "../testing/app-render"
-import { ctrl, keysOn, openChat } from "../testing/chat-keys"
+import { ctrl, escape, keysOn, openChat } from "../testing/chat-keys"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -36,12 +36,6 @@ async function chatWithPicker(size = { width: 140, height: 30 }) {
   const picker = app.chatColumn.atPicker
   const shown = () => picker.candidates().map((c) => c.text)
   return { app, input, picker, shown }
-}
-
-// A lone ESC byte is held back a moment, in case it starts an escape sequence.
-async function escape(mounted: NonNullable<typeof app>) {
-  mounted.setup.mockInput.pressEscape()
-  await Bun.sleep(50)
 }
 
 test("@ opens the picker on what a question can attach, @selection first", async () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mountApp, reloadCtx } from "../testing/app-render"
-import { ctrl, keysOn, moveTo, openChat } from "../testing/chat-keys"
+import { ctrl, escape, keysOn, moveTo, openChat } from "../testing/chat-keys"
 import { createInitialState, openInlineCommentOverlay } from "../state"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { capturePosition, restorePosition } from "../features/refresh/position"
@@ -118,7 +118,7 @@ test("Ctrl-r draws the column, a reload leaves it drawn, and Ctrl-r from inside 
   expect(diff.width).toBe(closedWidth - 48)
 
   // gr is the diff's, so the keys go back there first.
-  mounted.setup.mockInput.pressBackspace()
+  await escape(mounted)
   expect(mounted.ctx.getState().focusedPanel).toBe("diff")
   await mounted.setup.mockInput.typeText("gr")
   expect(mounted.ctx.getState().description).toBe("reloaded")

@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test"
-import { createMockKeys, type TestRendererSetup } from "@opentui/core/testing"
+import { createMockKeys } from "@opentui/core/testing"
 import { mountApp } from "../../testing/app-render"
-import { ctrl, keysOn, openChat } from "../../testing/chat-keys"
+import { ctrl, escape, keysOn, openChat } from "../../testing/chat-keys"
 import { openInlineCommentOverlay } from "../../state"
 import { NEW_CONVERSATION_PROMPT } from "./state"
 
@@ -28,12 +28,6 @@ async function mounted(width = 120) {
   app = await mountApp(DIFF, { width, height: 24 })
   app.show()
   return app
-}
-
-// A lone ESC byte is held back a moment, in case it starts an escape sequence.
-async function escape(keys: TestRendererSetup["mockInput"]) {
-  keys.pressEscape()
-  await Bun.sleep(50)
 }
 
 // The mock's default encoding drops shift and super from Ctrl-r and Enter; the kitty protocol keeps them.
@@ -129,10 +123,10 @@ test("Esc stops an answer while one runs, and otherwise hands the keys back to t
   openChat(app)
   await app.setup.mockInput.typeText("q")
   app.setup.mockInput.pressEnter()
-  await escape(app.setup.mockInput)
+  await escape(app)
   expect([app.agent.interrupts(), focus(app)]).toEqual([1, [true, "chat"]])
   app.agent.events().answerDone({ interrupted: true })
-  await escape(app.setup.mockInput)
+  await escape(app)
   expect([app.agent.interrupts(), focus(app), app.chat.status()]).toEqual([1, [true, "diff"], "idle"])
 })
 
