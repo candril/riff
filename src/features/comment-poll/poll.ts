@@ -30,7 +30,6 @@
 
 import type { Comment } from "../../types"
 import type { PrInfo } from "../../providers/github/types"
-import type { AppMode } from "../../types"
 import type { AppState } from "../../state"
 import {
   fetchPrReviewComments,
@@ -66,10 +65,18 @@ export interface CommentPollContext {
   // up the new comments. The panel caches comments internally, so it can't
   // see a `state.comments` swap on its own.
   recreatePrInfoPanel: () => void
-  mode: AppMode
-  prInfo: PrInfo | null
-  headSha: string
+  /** The PR head riff last loaded; it moves on a refresh. */
+  getHeadSha: () => string | undefined
 }
+
+/** What a tick asks GitHub through; a test hands in its own, so no gh runs. */
+export interface CommentPollCalls {
+  reviewCommentsChanged: typeof reviewCommentsChanged
+  fetchPrReviewComments: typeof fetchPrReviewComments
+  getPrThreadStates: typeof getPrThreadStates
+}
+
+const githubPollCalls: CommentPollCalls = { reviewCommentsChanged, fetchPrReviewComments, getPrThreadStates }
 
 /**
  * A stable fingerprint of the fetched GitHub comments — id, body, resolution,
@@ -166,15 +173,18 @@ export interface CommentPollHandle {
    * without waiting out the interval.
    */
   setFocused: (focused: boolean) => void
+  /** Poll once now, on the same guards as a timed tick. */
+  tick: () => Promise<void>
 }
 
 /**
  * Start the background comment poller.
  *
- * No-op per tick when not in PR mode, so calling it unconditionally is safe.
+ * The timer runs whatever the review, and each tick reads the review from
+ * state: a local review polls nothing until it opens its branch's PR.
  * An interval of 0 starts no timer at all — `gr` still refreshes on demand.
  */
-export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
+export function startCommentPoll(ctx: CommentPollContext, calls: CommentPollCalls = githubPollCalls): CommentPollHandle {
   let lastSig: string | null = null
   let inFlight = false
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -189,13 +199,13 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
    * Pull comment bodies and thread metadata, and merge. Costs a probe-depth
    * GraphQL query plus the paginated REST comment list.
    */
-  const refetchComments = async (): Promise<void> => {
-    const { owner, repo, number } = ctx.prInfo!
-    const fetched = await fetchPrReviewComments(
+  const refetchComments = async (prInfo: PrInfo): Promise<void> => {
+    const { owner, repo, number } = prInfo
+    const fetched = await calls.fetchPrReviewComments(
       owner,
       repo,
       number,
-      ctx.headSha,
+      ctx.getHeadSha() ?? "",
       THREAD_COMMENTS_PROBE,
     )
 
@@ -222,9 +232,9 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
    * Cheap path for when comment bodies are untouched: only resolution and
    * outdated state can have moved, and that costs a single GraphQL point.
    */
-  const refreshThreadStates = async (): Promise<void> => {
-    const { owner, repo, number } = ctx.prInfo!
-    const states = await getPrThreadStates(owner, repo, number)
+  const refreshThreadStates = async (prInfo: PrInfo): Promise<void> => {
+    const { owner, repo, number } = prInfo
+    const states = await calls.getPrThreadStates(owner, repo, number)
     if (states.length === 0) return
     if (isComposing(ctx.getState(), ctx.prCommentInputOpen())) return
 
@@ -238,7 +248,9 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
   }
 
   const tick = async (): Promise<void> => {
-    if (ctx.mode !== "pr" || !ctx.prInfo) return
+    // Read once, so a review swapped mid-tick cannot mix two PRs' answers.
+    const { appMode, prInfo } = ctx.getState()
+    if (appMode !== "pr" || !prInfo) return
     // Skip overlapping ticks if a fetch is slow — no point queueing gh calls.
     if (inFlight) return
     // An unfocused terminal has nobody reading the result; focus-in will
@@ -250,8 +262,8 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
     lastTickAt = Date.now()
 
     try {
-      const { owner, repo, number } = ctx.prInfo
-      const probe = await reviewCommentsChanged(owner, repo, number)
+      const { owner, repo, number } = prInfo
+      const probe = await calls.reviewCommentsChanged(owner, repo, number)
 
       // Only a definite 304 licenses the cheap path. An errored probe fails
       // open — it can't distinguish "nothing changed" from a blocked direct
@@ -259,9 +271,9 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
       // silently never surfacing replies again is far worse than paying the
       // (now 2-point) refetch.
       if (probe.status === "unchanged") {
-        await refreshThreadStates()
+        await refreshThreadStates(prInfo)
       } else {
-        await refetchComments()
+        await refetchComments(prInfo)
       }
 
       // Stamp "last refreshed" on every successful tick, changed or not, so
@@ -307,5 +319,6 @@ export function startCommentPoll(ctx: CommentPollContext): CommentPollHandle {
       if (Date.now() - lastTickAt < FOCUS_REFRESH_STALE_MS) return
       void tick()
     },
+    tick,
   }
 }

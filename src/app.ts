@@ -2039,7 +2039,8 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // Silently poll GitHub for new / updated review comments so replies show up
-  // without a manual refresh. Self-guards on PR mode; interval is unref'd.
+  // without a manual refresh. Each tick guards on state's review, so a local
+  // review that opens its branch's PR starts polling it; interval is unref'd.
   const pollConfig = loadConfig().poll
   const commentPoll = startCommentPoll({
     getState: () => state,
@@ -2052,9 +2053,7 @@ export async function createApp(options: AppOptions = {}) {
     },
     recreatePrInfoPanel: commentPollRebuild(refreshContext.recreatePrInfoPanel),
     prCommentInputOpen: prCommentInput.isOpen,
-    mode,
-    prInfo: prInfo ?? null,
-    headSha: currentHeadSha,
+    getHeadSha: () => currentHeadSha,
     intervalSeconds: pollConfig.interval,
     onFocus: pollConfig.onFocus,
   })

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import type { Comment } from "../../types"
 import type { ReactionSummary } from "../../types"
-import { applyThreadStates, mergeComments } from "./poll"
+import { createInitialState, type AppState } from "../../state"
+import { prInfo } from "../../testing/pr-info"
+import { applyThreadStates, mergeComments, startCommentPoll, type CommentPollCalls } from "./poll"
 
 function comment(overrides: Partial<Comment> & { id: string }): Comment {
   return {
@@ -92,5 +94,72 @@ describe("applyThreadStates", () => {
   test("an empty state list is a no-op — a failed query must not unresolve threads", () => {
     const comments = [comment({ id: "gh-1", githubId: 1, isThreadResolved: true })]
     expect(applyThreadStates(comments, [])).toBe(comments)
+  })
+})
+
+describe("startCommentPoll", () => {
+  const branchPr = prInfo("", { owner: "o", repo: "r", number: 7 })
+
+  function polling(initial: AppState) {
+    let state = initial
+    let headSha: string | undefined = "head-1"
+    const asked: string[] = []
+    const calls: CommentPollCalls = {
+      reviewCommentsChanged: async (owner, repo, number) => {
+        asked.push(`probe ${owner}/${repo}#${number}`)
+        return { status: "changed", data: [] }
+      },
+      fetchPrReviewComments: async (owner, repo, number, sha) => {
+        asked.push(`comments ${owner}/${repo}#${number} at ${sha}`)
+        return []
+      },
+      getPrThreadStates: async () => [],
+    }
+    const poll = startCommentPoll(
+      {
+        getState: () => state,
+        setState: (fn) => {
+          state = fn(state)
+        },
+        render: () => {},
+        prCommentInputOpen: () => false,
+        intervalSeconds: 0,
+        recreatePrInfoPanel: () => {},
+        getHeadSha: () => headSha,
+      },
+      calls,
+    )
+    return {
+      poll,
+      asked,
+      setState: (next: AppState) => {
+        state = next
+      },
+      state: () => state,
+      setHeadSha: (sha: string) => {
+        headSha = sha
+      },
+    }
+  }
+
+  test("a local review polls nothing, and starts polling once it opens its branch's pull request", async () => {
+    const p = polling(createInitialState([], [], "local", ""))
+    await p.poll.tick()
+    expect(p.asked).toEqual([])
+
+    p.setState({ ...p.state(), appMode: "pr", prInfo: branchPr, source: "gh:o/r#7" })
+    await p.poll.tick()
+    expect(p.asked).toEqual(["probe o/r#7", "comments o/r#7 at head-1"])
+  })
+
+  test("comments are read at the head riff last loaded", async () => {
+    const p = polling(createInitialState([], [], "gh:o/r#7", "", null, null, [], "pr", branchPr))
+    await p.poll.tick()
+    p.setHeadSha("head-2")
+    await p.poll.tick()
+    expect(p.asked.filter((a) => a.startsWith("comments"))).toEqual([
+      "comments o/r#7 at head-1",
+      "comments o/r#7 at head-2",
+    ])
   })
 })
