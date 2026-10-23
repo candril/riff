@@ -94,3 +94,35 @@ describe("handleCommitSelected", () => {
     expect(revealed).toEqual([0])
   })
 })
+
+describe("a commit read still in flight when the review is replaced", () => {
+  test("scopes nothing, keeps nothing and says nothing when it lands", async () => {
+    let land!: (diff: string) => void
+    const { ctx, state, commitDiffs, toast } = selecting(() => new Promise((resolve) => { land = resolve }))
+    const selected = handleCommitSelected(ctx, "ccc3333")
+    commitDiffs.clear()
+    toast.clear()
+
+    land(patch("b.ts", "two"))
+    await selected
+
+    expect(state().viewingCommit).toBeNull()
+    expect(state().files.map((file) => file.filename)).toEqual(["a.ts", "b.ts"])
+    expect(commitDiffs.has("ccc3333")).toBe(false)
+    expect(toast.current()).toBeNull()
+  })
+
+  test("shows no error when it fails", async () => {
+    let fail!: (error: Error) => void
+    const { ctx, state, commitDiffs, toast } = selecting(() => new Promise((_resolve, reject) => { fail = reject }))
+    const selected = handleCommitSelected(ctx, "ccc3333")
+    commitDiffs.clear()
+    toast.clear()
+
+    fail(new Error("Not Found"))
+    await selected
+
+    expect(state().viewingCommit).toBeNull()
+    expect(toast.current()).toBeNull()
+  })
+})

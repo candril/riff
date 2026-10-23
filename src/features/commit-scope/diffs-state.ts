@@ -5,7 +5,8 @@
  * state, so the feature owns it rather than AppState (spec 100, M6;
  * ADR-003). A reload, a switch to another PR, creating a PR and opening the
  * branch's PR drop it, since the commits it was fetched for are not the
- * new review's.
+ * new review's. A read still in flight when the review goes is dropped
+ * when it lands.
  */
 
 import { createSignal } from "solid-js"
@@ -21,6 +22,9 @@ export type CommitDiffsState = ReturnType<typeof createCommitDiffsState>
 
 export function createCommitDiffsState() {
   const [diffs, setDiffs] = createSignal<ReadonlyMap<string, CommitDiff>>(new Map())
+  // Not a signal: nothing draws it. A read compares it across its await to
+  // tell whether the review it was asked for is still the one on screen.
+  let generation = 0
 
   return {
     entry(key: string): CommitDiff | null {
@@ -32,7 +36,11 @@ export function createCommitDiffsState() {
     put(key: string, files: DiffFile[]) {
       setDiffs((cached) => new Map(cached).set(key, { files, fileTree: buildFileTree(files) }))
     },
+    generation(): number {
+      return generation
+    },
     clear() {
+      generation++
       setDiffs(new Map())
     },
   }

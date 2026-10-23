@@ -312,7 +312,8 @@ The per-commit diffs are the twenty-eighth (`createCommitDiffsState` in
 `src/features/commit-scope/diffs-state.ts`): the files of each commit or
 run of commits riff has fetched, so picking it again fetches nothing. The
 commit picker's scope reads them, and a reload, a switch to another PR,
-creating a PR and opening the branch's PR drop them. Fetching a scope's
+creating a PR and opening the branch's PR drop them; a read still in
+flight when the review goes is dropped when it lands. Fetching a scope's
 diff and bringing it into view live in `src/features/commit-scope`.
 
 The command palette reads the keymap's command entries: an action names

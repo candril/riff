@@ -43,4 +43,13 @@ describe("createCommitDiffsState", () => {
     expect(diffs.has(commitScopeKey("bbb2222", ["bbb2222"]))).toBe(false)
     expect(diffs.has(commitScopeKey("bbb2222", ["bbb2222", "aaa1111"]))).toBe(true)
   })
+
+  test("generation starts at 0 and only clear moves it", () => {
+    const diffs = createCommitDiffsState()
+    expect(diffs.generation()).toBe(0)
+    diffs.put("abc1234", [file])
+    expect(diffs.generation()).toBe(0)
+    diffs.clear()
+    expect(diffs.generation()).toBe(1)
+  })
 })

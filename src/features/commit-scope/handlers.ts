@@ -11,7 +11,7 @@ import { contiguousRun } from "./span"
 export interface CommitSelectionContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
-  commitDiffs: Pick<CommitDiffsState, "entry" | "has" | "put">
+  commitDiffs: Pick<CommitDiffsState, "entry" | "has" | "put" | "generation">
   fileContent: Pick<FileContentState, "forgetSpan">
   toast: Pick<ToastState, "show" | "clear">
   render: () => void
@@ -48,10 +48,16 @@ export async function handleCommitSelected(
     toast.show(shas.length > 1 ? "Loading commits..." : "Loading commit...", "info")
     render()
 
+    // A reload or a switch to another PR while this was in flight replaced
+    // the review: these commits are not the new one's, and its own rebuild
+    // has already taken the loading toast down, so this gives up silently.
+    const generation = ctx.commitDiffs.generation()
     try {
       const files = await scopeFiles(ctx.load, shas)
+      if (ctx.commitDiffs.generation() !== generation) return
       ctx.commitDiffs.put(cacheKey, files)
     } catch (err) {
+      if (ctx.commitDiffs.generation() !== generation) return
       toast.show(`Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
       render()
       setTimeout(() => { toast.clear(); render() }, 3000)
