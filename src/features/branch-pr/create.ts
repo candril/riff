@@ -13,6 +13,7 @@ import { createSearchState, type SearchState } from "../../vim-diff/search-state
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { openPrCreator } from "../../utils/editor/spawn"
+import { prFileSummary } from "../../utils/editor/pr-template"
 import { createPullRequest } from "../../providers/github/mutations"
 import { loadPrSession } from "../../providers/github/session"
 import { loadMarks, loadPanelFilters } from "../../storage/caches"
@@ -67,10 +68,7 @@ export interface CreatePrContext {
 }
 
 export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
-  const fileSummary = ctx.getState().files.map((f) => {
-    const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
-    return `${prefix} ${f.filename}`
-  })
+  const fileSummary = prFileSummary(ctx.getState().files)
 
   let rawDiff = ""
   for (const f of ctx.getState().files) {

@@ -7,8 +7,7 @@ import { commentsWithRows } from "./utils/notes"
 import { loadBranchPrReview } from "./features/branch-pr/review"
 import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
 import { getPendingReview } from "./providers/github/review"
-import { editPullRequest, submitPrComment } from "./providers/github/mutations"
-import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
+import { fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
 import { getCommitParentSha } from "./providers/github/content"
 import {
   promptOpen,
@@ -26,7 +25,6 @@ import { scopeSpan } from "./features/commit-scope/span"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
-import { openPrEditor, openPrCommentEditor } from "./utils/editor/spawn"
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
@@ -68,6 +66,8 @@ import { loadPendingReview, type LoadPendingReviewContext } from "./features/rev
 import type { AnotherReviewFeatures } from "./features/refresh/another-review"
 import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch-pr/open"
 import { handleCreatePr, liveCreatePrSources, type CreatePrContext } from "./features/branch-pr/create"
+import { handleEditPr, liveEditPrSources, type EditPrContext } from "./features/pr-operations/edit-pr"
+import { handleAddPrComment, liveAddPrCommentSources, type AddPrCommentContext } from "./features/pr-operations/add-pr-comment"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -1138,6 +1138,19 @@ export async function createApp(options: AppOptions = {}) {
     fileFolds,
   }
 
+  const editPrContext: EditPrContext = {
+    sources: liveEditPrSources,
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    suspend: () => renderer.suspend(),
+    resume: () => renderer.resume(),
+    later: (fn, ms) => { setTimeout(fn, ms) },
+    render,
+    toast,
+  }
+
+  const addPrCommentContext: AddPrCommentContext = { ...editPrContext, sources: liveAddPrCommentSources }
+
   const actionHandlers: actionMenuFeature.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
@@ -1196,137 +1209,9 @@ export async function createApp(options: AppOptions = {}) {
         Bun.spawnSync(command, { stdin: "inherit", stdout: "inherit", stderr: "inherit" })
       })
     },
-    handleEditPr: async () => {
-      const { prInfo } = state
-      if (!prInfo) return
-
-      // Show loading toast while fetching diff
-      toast.show("Fetching PR diff...", "info")
-      render()
-
-      let suspended = false
-      try {
-        // Fetch the full PR diff for context
-        const diff = await getPrDiff(prInfo.number, prInfo.owner, prInfo.repo)
-
-        // Build file summary from current state
-        const fileSummary = state.files.map((f) => {
-          const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
-          return `${prefix} ${f.filename}`
-        })
-
-        // Clear toast and suspend TUI
-        toast.clear()
-        renderer.suspend()
-        suspended = true
-
-        const result = await openPrEditor({
-          title: prInfo.title,
-          body: prInfo.body,
-          diff,
-          fileSummary,
-        })
-
-        renderer.resume()
-        suspended = false
-
-        if (!result) {
-          // User cancelled (empty title or editor error)
-          render()
-          return
-        }
-
-        // Check if anything changed
-        if (result.title === prInfo.title && result.body === prInfo.body) {
-          toast.show("No changes made", "info")
-          render()
-          setTimeout(() => {
-            toast.clear()
-            render()
-          }, 2000)
-          return
-        }
-
-        // Update on GitHub
-        toast.show("Updating PR...", "info")
-        render()
-
-        await editPullRequest(prInfo.number, result.title, result.body, prInfo.owner, prInfo.repo)
-
-        // Update local state with new title/body
-        state = {
-          ...state,
-          prInfo: state.prInfo ? { ...state.prInfo, title: result.title, body: result.body } : null,
-        }
-
-        toast.show("PR updated", "success")
-        render()
-        setTimeout(() => {
-          toast.clear()
-          render()
-        }, 2000)
-      } catch (err) {
-        if (suspended) renderer.resume()
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        toast.show(`Error: ${msg}`, "error")
-        render()
-        setTimeout(() => {
-          toast.clear()
-          render()
-        }, 3000)
-      }
-    },
+    handleEditPr: () => handleEditPr(editPrContext),
     handleCreatePr: () => handleCreatePr(createPrContext),
-    handleAddPrComment: async () => {
-      const { prInfo } = state
-      if (!prInfo) return
-
-      let suspended = false
-      try {
-        renderer.suspend()
-        suspended = true
-
-        const body = await openPrCommentEditor()
-
-        renderer.resume()
-        suspended = false
-
-        if (!body) {
-          render()
-          return
-        }
-
-        toast.show("Posting comment...", "info")
-        render()
-
-        const result = await submitPrComment(prInfo.owner, prInfo.repo, prInfo.number, body)
-
-        if (result.success) {
-          toast.show("Comment posted", "success")
-          render()
-          setTimeout(() => {
-            toast.clear()
-            render()
-          }, 2000)
-        } else {
-          toast.show(`Error: ${result.error}`, "error")
-          render()
-          setTimeout(() => {
-            toast.clear()
-            render()
-          }, 3000)
-        }
-      } catch (err) {
-        if (suspended) renderer.resume()
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        toast.show(`Error: ${msg}`, "error")
-        render()
-        setTimeout(() => {
-          toast.clear()
-          render()
-        }, 3000)
-      }
-    },
+    handleAddPrComment: () => handleAddPrComment(addPrCommentContext),
   }
 
   function executeAction(actionId: string) {

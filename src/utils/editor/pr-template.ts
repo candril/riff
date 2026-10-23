@@ -3,6 +3,8 @@
  * like `git commit --verbose`, and how it reads them back.
  */
 
+import type { DiffFile } from "../diff-parser"
+
 const PR_EDIT_SCISSORS = "# ------------------------ >8 ------------------------"
 const PR_EDIT_COMMENT_PREFIX = "# "
 
@@ -15,6 +17,13 @@ export interface PrEditOptions {
   diff: string
   /** File summary lines (e.g., "M src/app.ts") */
   fileSummary?: string[]
+}
+
+export function prFileSummary(files: DiffFile[]): string[] {
+  return files.map((f) => {
+    const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
+    return `${prefix} ${f.filename}`
+  })
 }
 
 export interface PrEditResult {

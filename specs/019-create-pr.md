@@ -78,8 +78,8 @@ src/
 ├── utils/editor.ts              # openPrCreator(), openPrEditor(), parsing functions
 ├── providers/github.ts          # createPullRequest(), editPullRequest(), loadPrSession()
 ├── providers/local.ts           # getBranchInfo() for header display
-├── app.ts                       # handleEditPr handler
 ├── features/branch-pr/create.ts # handleCreatePr
+├── features/pr-operations/edit-pr.ts # handleEditPr
 ├── app/g-chord-commands.ts      # gP keybinding (context-aware: local vs PR mode)
 ├── features/action-menu/
 │   └── execute.ts               # Action handler dispatch

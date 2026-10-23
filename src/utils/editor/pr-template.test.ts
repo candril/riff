@@ -4,7 +4,9 @@ import {
   buildPrEditContent,
   parsePrCreateOutput,
   parsePrEditOutput,
+  prFileSummary,
 } from "./pr-template"
+import type { DiffFile } from "../diff-parser"
 
 const diff = ["diff --git a/src/a.ts b/src/a.ts", "@@ -1 +1 @@", "-old", "+new"].join("\n")
 
@@ -53,5 +55,19 @@ describe("the PR create buffer", () => {
 
   test("an empty title cancels", () => {
     expect(parsePrCreateOutput(buildPrCreateContent(options))).toBeNull()
+  })
+})
+
+describe("the PR buffer's file summary", () => {
+  const file = (filename: string, status: DiffFile["status"]): DiffFile =>
+    ({ filename, status, additions: 0, deletions: 0, content: "" })
+
+  test("each file is listed under its status letter, in the order given", () => {
+    expect(prFileSummary([
+      file("src/new.ts", "added"),
+      file("src/gone.ts", "deleted"),
+      file("src/moved.ts", "renamed"),
+      file("src/app.ts", "modified"),
+    ])).toEqual(["A src/new.ts", "D src/gone.ts", "R src/moved.ts", "M src/app.ts"])
   })
 })
