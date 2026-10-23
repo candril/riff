@@ -34,6 +34,7 @@ import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import type { PRInfoPanelClass } from "../components"
 import type { FileTreeIsland } from "./file-tree"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -169,6 +170,8 @@ export interface AppKeyContext {
   mentions: MentionsState
   /** The comment composer's kept drafts, the same instance the frame pass reads. */
   commentDrafts: CommentDraftsState
+  /** The comment composer's @mention and :emoji pickers, the same instance the frame pass reads. */
+  composerPickers: ComposerPickersState
   /** The PR overview's comment prompt, the same instance the frame pass reads. */
   prCommentInput: PrCommentInputState
   /** The PR overview's filter, the same instance the frame pass reads. */

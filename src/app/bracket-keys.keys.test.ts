@@ -75,6 +75,7 @@ async function bracketApp(more: Partial<AppKeyContext> = {}) {
       render: mounted.render,
       fileNavContext,
       visit: mounted.visit,
+      composerPickers: mounted.composerPickers,
     },
     marksContext: {
       getState: render.getState,

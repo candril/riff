@@ -76,6 +76,7 @@ import { createBlamePeekState } from "./features/blame/peek-state"
 import { createBlameColumnsState } from "./features/blame/column-state"
 import { createMentionsState } from "./features/mentions/state"
 import { createCommentDraftsState } from "./features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "./features/inline-comment-overlay/composer-pickers-state"
 import { createJumpListState } from "./features/jumplist/state"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
@@ -506,6 +507,7 @@ export async function createApp(options: AppOptions = {}) {
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
+  const composerPickers = createComposerPickersState()
   const jumpList = createJumpListState()
   const globalMarks = createMarksState()
   globalMarks.reset(initialMarks)
@@ -527,6 +529,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     commentDrafts,
+    composerPickers,
     jumpList,
     pendingReview,
     prCommentInput,
@@ -576,6 +579,7 @@ export async function createApp(options: AppOptions = {}) {
     fillComposer: (text) => threadPanel.composer.setValue(text),
     note: chat.note,
     commentDrafts,
+    composerPickers,
   })
   chat.onSessionClosed(proposals.endConversation)
   const chatColumn = createChatColumnIsland(renderer, chat, () => chatAtCandidates(state))
@@ -672,9 +676,9 @@ export async function createApp(options: AppOptions = {}) {
       ...islands,
       composer: createComposerFollower(threadPanel.compose, {
         getState: () => state,
-        setState: setAppState,
         render: () => renderFrame(),
         mentions,
+        composerPickers,
       }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
@@ -733,6 +737,7 @@ export async function createApp(options: AppOptions = {}) {
     visit,
     mentions,
     commentDrafts,
+    composerPickers,
     chatColumn: chatColumnState,
     getCommandKeys: () => paletteKeys,
     reactionTarget,
@@ -929,6 +934,7 @@ export async function createApp(options: AppOptions = {}) {
     blamePeek,
     blameColumns,
     commentDrafts,
+    composerPickers,
     jumpList,
     recreatePrInfoPanel: (openSections, rebuild) => {
       if (state.appMode !== "pr" || !state.prInfo) return
@@ -1076,6 +1082,7 @@ export async function createApp(options: AppOptions = {}) {
     render,
     fileNavContext,
     visit,
+    composerPickers,
   }
 
   const marksContext: marks.MarksContext = {
@@ -1477,6 +1484,7 @@ export async function createApp(options: AppOptions = {}) {
     blameColumns,
     mentions,
     commentDrafts,
+    composerPickers,
     prCommentInput,
     prInfoFilter,
     diffOptions,

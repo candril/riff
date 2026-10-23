@@ -1,5 +1,4 @@
 import { afterEach, expect, mock, test } from "bun:test"
-import { setEmojiPicker, setMentionPicker } from "../state"
 import { filterEmoji } from "../utils/emoji"
 import { composing, overlay, send } from "../testing/composer-keys"
 
@@ -26,19 +25,19 @@ const pickers = [
     typed: "hi :smil",
     nothing: "hi :zzzq",
     accepted: () => `hi ${filterEmoji("smil")[1]!.char} `,
-    selected: (opened: Opened) => overlay(opened.app).emojiPicker?.selectedIndex,
+    selected: (opened: Opened) => opened.app.composerPickers.emoji()?.selectedIndex,
   },
   {
     name: "mention",
     typed: "ask @da",
     nothing: "ask @zzzq",
     accepted: () => "ask @dave ",
-    selected: (opened: Opened) => overlay(opened.app).mentionPicker?.selectedIndex,
+    selected: (opened: Opened) => opened.app.composerPickers.mention()?.selectedIndex,
   },
 ] as const
 
 const isOpen = (opened: Opened, name: string) =>
-  (name === "emoji" ? overlay(opened.app).emojiPicker : overlay(opened.app).mentionPicker) !== null
+  (name === "emoji" ? opened.app.composerPickers.emoji() : opened.app.composerPickers.mention()) !== null
 
 for (const picker of pickers) {
   test(`the ${picker.name} picker: down, Ctrl-n, up and Ctrl-p move the selection`, async () => {
@@ -142,16 +141,16 @@ test("with both pickers set, the emoji picker takes the keys", async () => {
   const opened = await composer()
   const { app } = opened
   await app.setup.mockInput.typeText("hi :smil")
-  app.ctx.setState((s) => setMentionPicker(s, { query: "da", atOffset: 0 }))
-  expect(overlay(app).emojiPicker).not.toBeNull()
+  app.composerPickers.setMention({ query: "da", atOffset: 0 })
+  expect(app.composerPickers.emoji()).not.toBeNull()
 
   app.setup.mockInput.pressArrow("down")
-  expect(overlay(app).emojiPicker?.selectedIndex).toBe(1)
-  expect(overlay(app).mentionPicker?.selectedIndex).toBe(0)
+  expect(app.composerPickers.emoji()?.selectedIndex).toBe(1)
+  expect(app.composerPickers.mention()?.selectedIndex).toBe(0)
 
   send(app, "\x1b")
-  expect(overlay(app).emojiPicker).toBeNull()
-  expect(overlay(app).mentionPicker).not.toBeNull()
+  expect(app.composerPickers.emoji()).toBeNull()
+  expect(app.composerPickers.mention()).not.toBeNull()
   expect(overlay(app).mode).toBe("compose")
 })
 
@@ -159,7 +158,7 @@ test("with both pickers set and no emoji to accept, Tab accepts the mention", as
   const opened = await composer()
   const { app } = opened
   await app.setup.mockInput.typeText("ask @da")
-  app.ctx.setState((s) => setEmojiPicker(s, { query: "zzzq", colonOffset: 0 }))
+  app.composerPickers.setEmoji({ query: "zzzq", colonOffset: 0 })
   send(app, "\t")
   await app.frame()
 

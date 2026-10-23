@@ -22,6 +22,7 @@ import type { ActionMenuSnapshot } from "../features/action-menu/state"
 import type { LinePeekSnapshot } from "../features/line-peek/state"
 import type { BlamePeekSnapshot } from "../features/blame/peek-state"
 import type { ActionFocus } from "../actions/types"
+import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 
 /**
  * What one render pass reads, published as a whole so views can derive
@@ -96,6 +97,8 @@ export interface Frame {
   mentions: { pool: readonly string[]; searching: string | null }
   /** The comment composer's kept drafts, read off their factory (spec 061). */
   commentDrafts: ReadonlyMap<string, string>
+  /** The comment composer's @mention and :emoji pickers, read off their factory, each null while it is closed. */
+  composerPickers: { mention: MentionPickerState | null; emoji: EmojiPickerState | null }
   /** Each keymap command's `keys`, the palette's hints; empty until the keys are built. */
   commandKeys: ReadonlyMap<string, string>
 }

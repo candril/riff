@@ -43,6 +43,6 @@ test("the fetched @mention pool outlives a reload: `@da` still offers its login"
   expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("compose")
   await mounted.setup.mockInput.typeText("ask @da")
 
-  expect(mounted.ctx.getState().inlineCommentOverlay.mentionPicker?.query).toBe("da")
+  expect(mounted.composerPickers.mention()?.query).toBe("da")
   expect(await mounted.frame()).toContain("@dana")
 })

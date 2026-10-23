@@ -11,7 +11,7 @@ export interface CommentsOverlayOpen {
 export function createCommentsOverlayOpen(
   ctx: Pick<
     AppKeyContext,
-    "getState" | "setState" | "getVimState" | "setVimState" | "getLineMapping" | "getCommentScope" | "render" | "commentDrafts"
+    "getState" | "setState" | "getVimState" | "setVimState" | "getLineMapping" | "getCommentScope" | "render" | "commentDrafts" | "composerPickers"
   >,
 ): CommentsOverlayOpen {
   /**
@@ -61,6 +61,7 @@ export function createCommentsOverlayOpen(
       // showing its root and hiding the rest.
       return mode === "view" && root ? expandThreadFor(opened, root.id) : opened
     })
+    ctx.composerPickers.clear()
     ctx.render()
     return true
   }
@@ -82,6 +83,7 @@ export function createCommentsOverlayOpen(
     ctx.setState((st) =>
       openInlineCommentOverlay(st, filename, 0, "RIGHT", "view")
     )
+    ctx.composerPickers.clear()
     ctx.render()
   }
 

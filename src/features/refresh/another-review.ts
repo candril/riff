@@ -22,6 +22,7 @@ import type { LinePeekState } from "../line-peek/state"
 import type { BlamePeekState } from "../blame/peek-state"
 import type { BlameColumnsState } from "../blame/column-state"
 import type { CommentDraftsState } from "../inline-comment-overlay/drafts-state"
+import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
 import type { JumpListState } from "../jumplist/state"
 import type { PendingReviewState } from "../review-preview/pending-state"
 import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
@@ -47,6 +48,7 @@ export interface AnotherReviewFeatures {
   blamePeek: Pick<BlamePeekState, "close">
   blameColumns: Pick<BlameColumnsState, "clear">
   commentDrafts: Pick<CommentDraftsState, "clear">
+  composerPickers: Pick<ComposerPickersState, "clear">
   jumpList: Pick<JumpListState, "clear">
   pendingReview: Pick<PendingReviewState, "clear">
   prCommentInput: Pick<PrCommentInputState, "close">
@@ -75,6 +77,8 @@ export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
   // A draft is keyed by file, line and side, and the new diff can put other
   // code on that line: kept, it would come back on the wrong one.
   features.commentDrafts.clear()
+  // The composer they were typed in went with the last review's panel.
+  features.composerPickers.clear()
   // An entry's anchor names lines in the old diff.
   features.jumpList.clear()
   // This draft's id must not submit into another PR; a PR with a draft fetches its own.

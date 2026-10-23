@@ -19,6 +19,8 @@ describe("a switch to another review", () => {
     f.blamePeek.show({ path: "a.ts", side: "head", line: 1 })
     f.blameColumns.toggle("a.ts")
     f.commentDrafts.remember({ filename: "a.ts", line: 1, side: "RIGHT" }, "half a thought")
+    f.composerPickers.setMention({ query: "da", atOffset: 0 })
+    f.composerPickers.setEmoji({ query: "smil", colonOffset: 4 })
     f.jumpList.push({
       fileIndex: 0,
       filename: "a.ts",
@@ -54,6 +56,8 @@ describe("a switch to another review", () => {
     expect(f.blamePeek.open()).toBe(true)
     expect(f.blameColumns.columns().size).toBe(1)
     expect(f.commentDrafts.drafts().size).toBe(1)
+    expect(f.composerPickers.mention()).not.toBeNull()
+    expect(f.composerPickers.emoji()).not.toBeNull()
     expect(f.jumpList.list().entries).toHaveLength(1)
     expect(f.pendingReview.review()).not.toBeNull()
     expect(f.prCommentInput.isOpen()).toBe(true)
@@ -80,6 +84,7 @@ describe("a switch to another review", () => {
     expect(f.blamePeek.open()).toBe(false)
     expect(f.blameColumns.columns().size).toBe(0)
     expect(f.commentDrafts.drafts().size).toBe(0)
+    expect([f.composerPickers.mention(), f.composerPickers.emoji()]).toEqual([null, null])
     expect(f.jumpList.list().entries).toHaveLength(0)
     expect(f.pendingReview.review()).toBeNull()
     expect(f.prCommentInput.isOpen()).toBe(false)

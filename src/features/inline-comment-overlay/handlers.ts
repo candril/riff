@@ -22,6 +22,7 @@ import { openUrl } from "../../utils/open-url"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { draftOn, type CommentDraftsState } from "./drafts-state"
 import type { ToastState } from "../toast/state"
+import type { ComposerPickersState } from "./composer-pickers-state"
 
 export interface InlineComposerHandlersContext {
   getState: () => AppState
@@ -32,6 +33,13 @@ export interface InlineComposerHandlersContext {
   getCachedCurrentUser: () => string | null
   /** The kept drafts; a saved comment's is forgotten (spec 061). */
   commentDrafts: Pick<CommentDraftsState, "forget">
+  composerPickers: Pick<ComposerPickersState, "clear">
+}
+
+/** Back to view mode; the pickers go with the composer they were typed in. */
+export function cancelComposing(ctx: Pick<InlineComposerHandlersContext, "setState" | "composerPickers">): void {
+  ctx.setState(cancelInlineComposer)
+  ctx.composerPickers.clear()
 }
 
 /**
@@ -87,7 +95,7 @@ export async function submitInlineDraft(
 
   ctx.setState((s) => addComment(s, comment))
   ctx.commentDrafts.forget(draftOn(ov))
-  ctx.setState(cancelInlineComposer)
+  cancelComposing(ctx)
   ctx.setState((s) => highlightInlineComment(s, comment.id))
   ctx.render()
   await saveComment(comment, ctx.getState().source)
@@ -109,7 +117,7 @@ export async function submitInlineEditDraft(
 
   const target = state.comments.find((c) => c.id === ov.editingId)
   if (!target) {
-    ctx.setState(cancelInlineComposer)
+    cancelComposing(ctx)
     ctx.render()
     return null
   }
@@ -119,14 +127,14 @@ export async function submitInlineEditDraft(
 
   // Empty edit: drop back to view mode without persisting.
   if (!trimmed) {
-    ctx.setState(cancelInlineComposer)
+    cancelComposing(ctx)
     ctx.render()
     return null
   }
 
   const currentBody = target.localEdit ?? target.body
   if (newBody === currentBody) {
-    ctx.setState(cancelInlineComposer)
+    cancelComposing(ctx)
     ctx.render()
     return null
   }
@@ -147,7 +155,7 @@ export async function submitInlineEditDraft(
     comments: s.comments.map((c) => (c.id === target.id ? updated : c)),
   }))
   ctx.commentDrafts.forget(draftOn(ov))
-  ctx.setState(cancelInlineComposer)
+  cancelComposing(ctx)
   ctx.setState((s) => highlightInlineComment(s, updated.id))
   ctx.toast.show("Comment updated", "success")
   ctx.render()

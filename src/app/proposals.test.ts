@@ -11,6 +11,7 @@ import { createComment } from "../types"
 import { buildFileTree } from "../utils/file-tree"
 import { parseDiff } from "../utils/diff-parser"
 import { createCommentDraftsState, draftOn, type CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { BUSY, DROPPED, ENDED, createProposals } from "./proposals"
 
 const DIFF = `diff --git a/src/a.ts b/src/a.ts
@@ -42,6 +43,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
     fillComposer: () => {},
     note: (text) => void notes.push(text),
     commentDrafts: drafts,
+    composerPickers: createComposerPickersState(),
   })
   const outcomes: string[] = []
   const propose = (proposal = PROPOSAL) => proposals.proposeComment(proposal).then((o) => void outcomes.push(o))

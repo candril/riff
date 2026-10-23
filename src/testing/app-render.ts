@@ -34,6 +34,7 @@ import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { createJumpListState } from "../features/jumplist/state"
 import { diffCursorPosition, reviewReferences } from "../app/review-chat"
 import { fakeAgent } from "../features/chat/fake-agent"
@@ -166,6 +167,7 @@ export async function mountApp(
   const blameColumns = createBlameColumnsState()
   const mentions = createMentionsState()
   const commentDrafts = createCommentDraftsState()
+  const composerPickers = createComposerPickersState()
   const jumpList = createJumpListState()
   const marks = createMarksState()
   const activityFeed = createFeedState()
@@ -180,7 +182,7 @@ export async function mountApp(
     {
       ...islands,
       ...chrome,
-      composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render(), mentions }),
+      composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, render: () => render(), mentions, composerPickers }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
         writePrompt({ getState: () => state, setState, feed: activityFeed, prInfoFilter, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
@@ -230,6 +232,7 @@ export async function mountApp(
     visit,
     mentions,
     commentDrafts,
+    composerPickers,
     chatColumn: chatColumnState,
     getCommandKeys: () => commandKeys,
     reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
@@ -323,6 +326,8 @@ export async function mountApp(
     mentions,
     /** The comment composer's kept drafts, which the frame pass and the keys read as app.ts's do. */
     commentDrafts,
+    /** The comment composer's @mention and :emoji pickers, which the frame pass and the keys read as app.ts's do. */
+    composerPickers,
     /** The jumplist, which the keys walk and the jump recording pushes to as app.ts's do. */
     jumpList,
     /** The activity feed's state, which the frame pass and the keys read as app.ts's do. */
@@ -374,6 +379,6 @@ export async function mountApp(
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, composerPickers, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs }
 }

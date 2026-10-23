@@ -298,6 +298,20 @@ describe("a refresh's fenced-block folds", () => {
   }
 })
 
+describe("a refresh's composer pickers", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`closes both, with the panel the reload closes (${appMode})`, async () => {
+      const { ctx, toast, composerPickers } = refreshHarness({ appMode })
+      composerPickers.setMention({ query: "da", atOffset: 0 })
+      composerPickers.setEmoji({ query: "smil", colonOffset: 4 })
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect([composerPickers.mention(), composerPickers.emoji()]).toEqual([null, null])
+    })
+  }
+})
+
 describe("a refresh's chat column", () => {
   for (const appMode of ["pr", "local"] as const) {
     test(`keeps the keys in the chat (${appMode})`, async () => {

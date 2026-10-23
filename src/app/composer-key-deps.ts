@@ -13,6 +13,7 @@ export function composerKeyDeps(ctx: AppKeyContext): ComposerKeyDeps {
     toast: ctx.toast,
     mentions: ctx.mentions,
     commentDrafts: ctx.commentDrafts,
+    composerPickers: ctx.composerPickers,
     getCachedCurrentUser: () => ctx.commentsContext.getCachedCurrentUser(),
     get composer() {
       return ctx.composer

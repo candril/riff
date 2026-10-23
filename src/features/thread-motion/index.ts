@@ -9,6 +9,7 @@
 import type { AppState } from "../../state"
 import { unseenComments, type VisitWatermark } from "../../utils/visit"
 import type { VisitState } from "../visit/state"
+import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileNavigationContext } from "../file-navigation"
@@ -35,6 +36,8 @@ export interface ThreadMotionContext {
   fileNavContext: FileNavigationContext
   /** The last visit, which says what `]n`/`[n` count as unseen. */
   visit: Pick<VisitState, "watermark">
+  /** Reopening the panel on another thread leaves no composer picker behind. */
+  composerPickers: Pick<ComposerPickersState, "clear">
 }
 
 export interface ThreadAnchorFilter {
@@ -217,5 +220,6 @@ export function jumpOverlayToAdjacentThread(
       target.rootCommentId
     )
   )
+  ctx.composerPickers.clear()
   ctx.render()
 }

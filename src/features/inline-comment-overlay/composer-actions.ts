@@ -3,20 +3,13 @@
  * `composer-keys.ts` binds (spec 039).
  */
 
-import {
-  cancelInlineComposer,
-  moveEmojiPickerSelection,
-  moveMentionPickerSelection,
-  setEmojiPicker,
-  setInlineCommentInput,
-  setMentionPicker,
-} from "../../state"
+import { setInlineCommentInput } from "../../state"
 import { filterEmoji } from "../../utils/emoji"
 import { collectMentionCandidates } from "../../utils/mentions"
 import { getFilteredMentionCandidates } from "../../components/thread-panel-picker"
 import type { ComposerHandle } from "../../app/island-composer"
 import type { InputPicker } from "../../app/at-picker-keys"
-import { submitInlineDraft, submitInlineEditDraft } from "./handlers"
+import { cancelComposing, submitInlineDraft, submitInlineEditDraft } from "./handlers"
 import type { ComposerKeyDeps } from "./composer-keys"
 import { draftOn } from "./drafts-state"
 
@@ -67,7 +60,7 @@ export function cancelComposer(deps: ComposerKeyDeps): void {
   const draft = deps.composer.value()
   const ov = deps.getState().inlineCommentOverlay
   if (ov.open) deps.commentDrafts.remember(draftOn(ov), draft)
-  deps.setState(cancelInlineComposer)
+  cancelComposing(deps)
   deps.composerSettled?.("dropped")
   deps.render()
   // A proposal of the agent's dropped untouched is forgotten, not kept.
@@ -100,18 +93,18 @@ export function saveDraft(deps: ComposerKeyDeps, publish: boolean): void {
 }
 
 export function emojiPicker(deps: ComposerKeyDeps): InputPicker {
-  const picker = () => deps.getState().inlineCommentOverlay.emojiPicker
+  const picker = deps.composerPickers.emoji
   const matches = () => filterEmoji(picker()?.query ?? "")
   return {
     open: () => picker() !== null,
     matches: () => matches().length,
     close: () => {
-      deps.setState((s) => setEmojiPicker(s, null))
+      deps.composerPickers.setEmoji(null)
       deps.render()
     },
     move: (delta) => {
       const count = matches().length
-      deps.setState((s) => moveEmojiPickerSelection(s, delta, count))
+      deps.composerPickers.moveEmoji(delta, count)
       deps.render()
     },
     accept: () => {
@@ -122,25 +115,25 @@ export function emojiPicker(deps: ComposerKeyDeps): InputPicker {
       // The emoji itself rather than its shortcode: GitHub renders both, and
       // only one of them is legible in riff's own panel.
       deps.composer.replaceRange(open.colonOffset, deps.composer.cursorOffset(), `${chosen.char} `)
-      deps.setState((s) => setEmojiPicker(s, null))
+      deps.composerPickers.setEmoji(null)
       deps.render()
     },
   }
 }
 
 export function mentionPicker(deps: ComposerKeyDeps): InputPicker {
-  const picker = () => deps.getState().inlineCommentOverlay.mentionPicker
+  const picker = deps.composerPickers.mention
   const matches = () => getFilteredMentionCandidates(collectMentionCandidates(deps.getState(), deps.mentions.pool()), picker()?.query ?? "")
   return {
     open: () => picker() !== null,
     matches: () => matches().length,
     close: () => {
-      deps.setState((s) => setMentionPicker(s, null))
+      deps.composerPickers.setMention(null)
       deps.render()
     },
     move: (delta) => {
       const count = matches().length
-      deps.setState((s) => moveMentionPickerSelection(s, delta, count))
+      deps.composerPickers.moveMention(delta, count)
       deps.render()
     },
     accept: () => {
@@ -163,7 +156,7 @@ function acceptMention(deps: ComposerKeyDeps, atOffset: number, username: string
   deps.composer.replaceRange(atOffset, cursor, `@${username} `)
   // Cleared here as well as by the content callback, so no frame shows the
   // picker over the finished mention should that callback ever come later.
-  deps.setState((s) => setMentionPicker(s, null))
+  deps.composerPickers.setMention(null)
   deps.render()
 }
 

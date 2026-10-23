@@ -17,7 +17,7 @@ import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, flashState, width, now, mentions, commentDrafts, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, flashState, width, now, mentions, commentDrafts, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
   return {
@@ -35,8 +35,8 @@ export function threadPanelFrameInput({ state, flashState, width, now, mentions,
     focused: state.focusedPanel === "comments",
     expanded: overlay.expanded,
     width: commentPanelWidth(width, overlay.expanded),
-    mentionPicker: overlay.mentionPicker,
-    emojiPicker: overlay.emojiPicker,
+    mentionPicker: composerPickers.mention,
+    emojiPicker: composerPickers.emoji,
     mentionCandidates: collectMentionCandidates(state, mentions.pool),
     mentionSearchQuery: mentions.searching,
     expandedThreadIds: overlay.expandedThreadIds,

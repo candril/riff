@@ -46,6 +46,7 @@ import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import type { ChatColumnState } from "../features/chat/column-state"
 
 export interface FramePassContext {
@@ -91,6 +92,7 @@ export interface FramePassContext {
   visit: Pick<VisitState, "watermark" | "markSeen">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
+  composerPickers: Pick<ComposerPickersState, "mention" | "emoji">
   chatColumn: Pick<ChatColumnState, "open">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
@@ -215,6 +217,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       blamePeek,
       mentions: { pool: ctx.mentions.pool(), searching: ctx.mentions.searching() },
       commentDrafts: ctx.commentDrafts.drafts(),
+      composerPickers: { mention: ctx.composerPickers.mention(), emoji: ctx.composerPickers.emoji() },
       commandKeys: ctx.getCommandKeys(),
     }
 

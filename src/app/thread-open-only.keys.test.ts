@@ -76,6 +76,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     prInfoFilter: mounted.prInfoFilter,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
+    composerPickers: mounted.composerPickers,
     getVimState: () => vimState,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -120,6 +121,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     render: mounted.render,
     fileNavContext: known.fileNavContext!,
     visit: mounted.visit,
+    composerPickers: mounted.composerPickers,
   }
   const ctx = new Proxy(known, {
     get(target, name) {

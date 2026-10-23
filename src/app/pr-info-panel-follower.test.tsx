@@ -77,6 +77,7 @@ function frameOf(
     blamePeek: null,
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
+    composerPickers: { mention: null, emoji: null },
     commandKeys: new Map(),
     actionFocus: { reactionTarget: null },
   }

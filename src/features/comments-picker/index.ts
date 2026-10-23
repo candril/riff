@@ -18,6 +18,7 @@ import {
 } from "../../state"
 import { handleSelectFile, ensureFileExpanded, type FileNavigationContext } from "../file-navigation"
 import type { ToastState } from "../toast/state"
+import type { ComposerPickersState } from "../inline-comment-overlay/composer-pickers-state"
 
 export { registerCommentsPickerKeys, type CommentsPickerKeyDeps } from "./keys"
 
@@ -39,6 +40,8 @@ export interface CommentsPickerJumpContext {
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
   fileNavContext: FileNavigationContext
+  /** Opening the panel afresh leaves no composer picker behind. */
+  composerPickers: Pick<ComposerPickersState, "clear">
 }
 
 /**
@@ -85,5 +88,6 @@ export function jumpToComment(comment: Comment, ctx: CommentsPickerJumpContext):
     const opened = openInlineCommentOverlay(s, comment.filename, comment.line, comment.side, "view")
     return highlightInlineComment(expandThreadFor(opened, comment.id), comment.id)
   })
+  ctx.composerPickers.clear()
   ctx.render()
 }

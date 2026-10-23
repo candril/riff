@@ -15,6 +15,7 @@ import type { Comment } from "../../types"
 import type { InlineComposerHandlersContext } from "./handlers"
 import type { CommentDraftsState } from "./drafts-state"
 import type { MentionsState } from "../mentions/state"
+import type { ComposerPickersState } from "./composer-pickers-state"
 import {
   cancelComposer,
   editDraftInEditor,
@@ -41,6 +42,8 @@ export interface ComposerKeyDeps extends InlineComposerHandlersContext {
   mentions: Pick<MentionsState, "pool">
   /** The kept drafts: Esc keeps what was typed, a save forgets it (spec 061). */
   commentDrafts: Pick<CommentDraftsState, "remember" | "forget" | "holds">
+  /** The @mention and :emoji pickers the textarea's activity opens. */
+  composerPickers: ComposerPickersState
 }
 
 type Command = { name: string; title: string; category: string; palette: false; enabled?: () => boolean; run: (ctx: { event: KeyEvent }) => void }

@@ -43,6 +43,7 @@ export function feedKeyDeps(
             render: ctx.render,
             fileNavContext: ctx.fileNavContext,
             toast: ctx.toast,
+            composerPickers: ctx.composerPickers,
           })
           return
         }

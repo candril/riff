@@ -1,16 +1,17 @@
 import { collectMentionCandidates, detectAtTrigger, MENTION_QUERY_CHARS } from "../utils/mentions"
 import { detectEmojiTrigger } from "../utils/emoji"
-import { setEmojiPicker, setMentionPicker, type AppState } from "../state"
+import type { AppState } from "../state"
 import { requestMentionSearch } from "../features/mentions"
 import type { ComposerSession } from "./composer-session"
 import type { ComposerModel } from "./composer-model"
 import type { MentionsState } from "../features/mentions/state"
+import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 
 export interface ComposerFollowerDeps {
   getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   mentions: MentionsState
+  composerPickers: Pick<ComposerPickersState, "setMention" | "setEmoji">
 }
 
 /**
@@ -19,17 +20,18 @@ export interface ComposerFollowerDeps {
  */
 export function createComposerFollower(
   compose: (session: ComposerSession | null) => void,
-  { getState, setState, render, mentions }: ComposerFollowerDeps
+  { getState, render, mentions, composerPickers }: ComposerFollowerDeps
 ) {
   const onActivity = (text: string, cursorOffset: number) => {
-    // Detect `@<query>` against the live textarea state. The
-    // mention picker is feature-gated to PR mode (no candidates
-    // in local diff review) — `setMentionPicker` short-circuits
-    // when there's nothing to set.
     const trigger = detectAtTrigger(text, cursorOffset, MENTION_QUERY_CHARS)
-    setState((s) => setMentionPicker(s, trigger))
-    // And `:shortcode`, which needs nothing fetched (spec 082).
-    setState((s) => setEmojiPicker(s, detectEmojiTrigger(text, cursorOffset)))
+    // The textarea lives as long as the island, so it can report activity
+    // with no panel open; a picker set then would come up under the next
+    // composer.
+    if (getState().inlineCommentOverlay.open) {
+      composerPickers.setMention(trigger)
+      // And `:shortcode`, which needs nothing fetched (spec 082).
+      composerPickers.setEmoji(detectEmojiTrigger(text, cursorOffset))
+    }
     if (trigger) {
       // Widen the pool for fragments the cached roster can't cover
       // (large orgs) — debounced, so this is a no-op most keystrokes.

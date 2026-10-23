@@ -330,6 +330,13 @@ The chat column's open flag is the thirty-first (`createChatColumnState`
 in `src/features/chat/column-state.ts`); the frame carries it for the
 layout and the column, a reload keeps it, and a switch to another review
 closes it.
+The composer's mention and emoji pickers are the thirty-second
+(`createComposerPickersState` in
+`src/features/inline-comment-overlay/composer-pickers-state.ts`); the
+frame carries them for the thread panel, the composer's activity sets
+them only while the panel is open, and cancelling, closing or reopening
+the composer or the panel, a reload and a switch to another review clear
+them.
 What React… and Copy Comment Link act on is not kept anywhere:
 `reactionTargetOf` in `src/features/reactions/target.ts` derives it from
 what has focus when they are asked (the thread panel's highlighted comment

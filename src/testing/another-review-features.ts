@@ -17,6 +17,7 @@ import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { createJumpListState } from "../features/jumplist/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
@@ -44,6 +45,7 @@ export function createAnotherReviewFeatures() {
     blamePeek: createBlamePeekState(),
     blameColumns: createBlameColumnsState(),
     commentDrafts: createCommentDraftsState(),
+    composerPickers: createComposerPickersState(),
     jumpList: createJumpListState(),
     pendingReview: createPendingReviewState(),
     prCommentInput: createPrCommentInputState(),

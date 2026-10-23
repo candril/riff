@@ -39,6 +39,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { createChatColumnState } from "../features/chat/column-state"
 
 /*
@@ -139,6 +140,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     visit: createVisitState(),
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
+    composerPickers: createComposerPickersState(),
     chatColumn: createChatColumnState(),
   } as unknown as FramePassContext
   const render = createFramePass(ctx)

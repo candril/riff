@@ -38,6 +38,7 @@ import { createLinePeekState } from "../features/line-peek/state"
 import { createBlamePeekState } from "../features/blame/peek-state"
 import { createBlameColumnsState } from "../features/blame/column-state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { createJumpListState } from "../features/jumplist/state"
 import { createMarksState } from "../features/marks/state"
 import { createFeedState } from "../features/feed/state"
@@ -115,6 +116,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const prCommentInput = createPrCommentInputState()
   // Held beside the context, as app.ts holds it: the refresh is not handed it.
   const prInfoFilter = createPrInfoFilterState()
+  const composerPickers = createComposerPickersState()
 
   const sources: RefreshSources = {
     loadPrSession: async () => ({
@@ -185,9 +187,10 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     blamePeek: createBlamePeekState(),
     blameColumns: createBlameColumnsState(),
     commentDrafts: createCommentDraftsState(),
+    composerPickers,
     jumpList: createJumpListState(),
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, fileFolds, mapping: () => mapping }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, composerPickers, diffOptions, fileContent, blockFolds, fileFolds, mapping: () => mapping }
 }

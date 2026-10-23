@@ -60,7 +60,7 @@ test("editing a comment whose body ends in a mention seeds the composer without 
   expect(frame).toContain("(editing)")
   expect(frame).toContain("Editing comment")
   expect(frame).not.toContain("@alma")
-  expect(mounted.ctx.getState().inlineCommentOverlay.mentionPicker).toBeNull()
+  expect(mounted.composerPickers.mention()).toBeNull()
   const textarea = composerTextareaIn(mounted.ctx.threadPanel.host)
   expect(textarea.plainText).toBe("ask @al")
   expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("edit")

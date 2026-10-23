@@ -46,7 +46,7 @@ test("`:smil` opens the emoji picker, and Tab puts the emoji in its place", asyn
   const { app, textarea } = await composing()
   await app.setup.mockInput.typeText("hi :smil")
 
-  expect(app.ctx.getState().inlineCommentOverlay.emojiPicker?.query).toBe("smil")
+  expect(app.composerPickers.emoji()?.query).toBe("smil")
   const frame = await app.frame()
   expect(frame).toMatch(/😃 +:smiley:/)
   expect(frame).toContain("Tab/⏎ accept")
@@ -54,7 +54,7 @@ test("`:smil` opens the emoji picker, and Tab puts the emoji in its place", asyn
   app.setup.mockInput.pressTab()
   await app.frame()
   expect(textarea.plainText).toBe("hi 😄 ")
-  expect(app.ctx.getState().inlineCommentOverlay.emojiPicker).toBeNull()
+  expect(app.composerPickers.emoji()).toBeNull()
 })
 
 test("`@da` opens the mention picker on a known login, and Tab completes it", async () => {
@@ -62,11 +62,11 @@ test("`@da` opens the mention picker on a known login, and Tab completes it", as
   app.mentions.merge(["dana"])
   await app.setup.mockInput.typeText("ask @da")
 
-  expect(app.ctx.getState().inlineCommentOverlay.mentionPicker?.query).toBe("da")
+  expect(app.composerPickers.mention()?.query).toBe("da")
   expect(await app.frame()).toContain("@dana")
 
   app.setup.mockInput.pressTab()
   await app.frame()
   expect(textarea.plainText).toBe("ask @dana ")
-  expect(app.ctx.getState().inlineCommentOverlay.mentionPicker).toBeNull()
+  expect(app.composerPickers.mention()).toBeNull()
 })

@@ -26,6 +26,7 @@ import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./mot
 import { groupIntoThreads } from "../../utils/threads"
 import type { CommentDraftsState } from "./drafts-state"
 import type { ToastState } from "../toast/state"
+import type { ComposerPickersState } from "./composer-pickers-state"
 
 export interface ThreadPanelViewDeps {
   getState: () => AppState
@@ -72,6 +73,8 @@ export interface ThreadPanelViewDeps {
   onReact: () => void
   /** The kept drafts the composer picks back up (spec 061). */
   commentDrafts: Pick<CommentDraftsState, "on">
+  /** Cleared whenever the composer opens, changes mode or closes with the panel. */
+  composerPickers: Pick<ComposerPickersState, "clear">
 }
 
 type Deps = ThreadPanelViewDeps
@@ -83,6 +86,13 @@ export function highlightedComment(state: AppState): Comment | undefined {
 
 function update(deps: Deps, updater: (s: AppState) => AppState): void {
   deps.setState(updater)
+  deps.render()
+}
+
+/** An update that starts, swaps or ends the composer, whose pickers do not carry over. */
+function recompose(deps: Deps, updater: (s: AppState) => AppState): void {
+  deps.setState(updater)
+  deps.composerPickers.clear()
   deps.render()
 }
 
@@ -125,7 +135,7 @@ export function copyLink(deps: Deps): void {
 }
 
 export function closePanel(deps: Deps): void {
-  update(deps, closeInlineCommentOverlay)
+  recompose(deps, closeInlineCommentOverlay)
 }
 
 export function highlightEntry(deps: Deps, index: number): void {
@@ -211,23 +221,24 @@ export function replyInline(deps: Deps): void {
     const { filename, line, side } = deps.getState().inlineCommentOverlay
     deps.setState((s) => startInlineCompose(s, deps.commentDrafts.on({ filename, line, side }), { reply: true }))
   }
+  deps.composerPickers.clear()
   deps.render()
 }
 
 export function replyInEditor(deps: Deps): void {
-  update(deps, closeInlineCommentOverlay)
+  recompose(deps, closeInlineCommentOverlay)
   deps.handleReplyExternal()
 }
 
 export function editInEditor(deps: Deps): void {
-  update(deps, closeInlineCommentOverlay)
+  recompose(deps, closeInlineCommentOverlay)
   deps.handleEditExternal()
 }
 
 /** Only the highlighted comment can be edited, so with none there is nothing to open. */
 export function editInline(deps: Deps, highlighted: Comment): void {
   const prefill = highlighted.localEdit ?? highlighted.body
-  update(deps, (s) => startInlineEdit(s, highlighted.id, deps.commentDrafts.on({ editingId: highlighted.id }) || prefill))
+  recompose(deps, (s) => startInlineEdit(s, highlighted.id, deps.commentDrafts.on({ editingId: highlighted.id }) || prefill))
 }
 
 export function deleteHighlighted(deps: Deps): void {
