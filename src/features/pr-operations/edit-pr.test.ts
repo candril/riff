@@ -80,6 +80,20 @@ describe("editing the pull request", () => {
     expect(h.later).toEqual([{ ms: 2000 }])
   })
 
+  test("an edit saved after riff moved on to another PR leaves that PR's title alone", async () => {
+    const other = prInfo("Another body", { number: 77, title: "Another PR" })
+    const h = editor({
+      openPrEditor: async () => {
+        h.setState((s) => ({ ...s, prInfo: other }))
+        return { title: "New title", body: "New body" }
+      },
+    })
+    await h.edit()
+    expect(h.edited).toEqual([[1259, "New title", "New body", "owner", "repo"]])
+    expect(h.state().prInfo).toBe(other)
+    expect(h.toast.current()).toMatchObject({ message: "PR updated", type: "success" })
+  })
+
   test("a diff gh will not fetch never takes the terminal, and says why", async () => {
     const h = editor({ getPrDiff: async () => { throw new Error("no network") } })
     await h.edit()

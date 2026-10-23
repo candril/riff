@@ -84,10 +84,13 @@ export async function handleEditPr(ctx: EditPrContext): Promise<void> {
 
     await ctx.sources.editPullRequest(prInfo.number, result.title, result.body, prInfo.owner, prInfo.repo)
 
-    ctx.setState((s) => ({
-      ...s,
-      prInfo: s.prInfo ? { ...s.prInfo, title: result.title, body: result.body } : null,
-    }))
+    // riff may have moved on to another PR while the editor and gh had the
+    // reader; GitHub still took the edit, but it belongs to the PR edited.
+    ctx.setState((s) => {
+      const current = s.prInfo
+      if (!current || current.number !== prInfo.number || current.owner !== prInfo.owner || current.repo !== prInfo.repo) return s
+      return { ...s, prInfo: { ...current, title: result.title, body: result.body } }
+    })
 
     ctx.toast.show("PR updated", "success")
     ctx.render()
