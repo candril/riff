@@ -91,6 +91,21 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
   expect(diff.width).toBe(closedWidth)
 })
 
+test("Ctrl-r from a line of the diff fills @line, and from a file header @file", async () => {
+  app = await mountApp(THREE_ADDED, { width: 120, height: 24 })
+  app.show()
+  const { vimState } = keysOn(app)
+  ctrl(app, "r")
+  expect(app.chatColumn.input()!.plainText).toBe("@file ")
+  await escape(app)
+  app.chatColumn.input()!.clear()
+  moveTo(app, vimState, "  const c = 3")
+  ctrl(app, "r")
+  const input = app.chatColumn.input()!
+  expect([input.plainText, input.cursorOffset]).toEqual(["@line ", "@line ".length])
+  expect(await app.frame()).toContain("@line")
+})
+
 test("Ctrl-r draws the column, a reload leaves it drawn, and Ctrl-r from inside takes it away", async () => {
   app = await mountApp(DIFF, { width: 120, height: 24 })
   app.show()

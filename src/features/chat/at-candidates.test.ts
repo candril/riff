@@ -19,8 +19,9 @@ const pr = () => createInitialState(FILES, [], "gh:o/r#1", "#1", null, null, [],
 const texts = (candidates: { text: string }[]) => candidates.map((c) => c.text)
 
 describe("what the chat's @ offers", () => {
-  test("the selection, the file and the PR, then every file of the change in diff order", () => {
+  test("the cursor's line, the selection, the file and the PR, then every file of the change in diff order", () => {
     expect(texts(chatAtCandidates(pr()))).toEqual([
+      "@line",
       "@selection",
       "@file",
       "@pr",
@@ -32,6 +33,7 @@ describe("what the chat's @ offers", () => {
 
   test("no @pr in a local review, where it would stop the question", () => {
     expect(texts(chatAtCandidates(local()))).toEqual([
+      "@line",
       "@selection",
       "@file",
       "@input/deeply/nested/other.ts",
@@ -42,12 +44,12 @@ describe("what the chat's @ offers", () => {
 
   test("files only from the change itself", () => {
     const none = createInitialState([], [], "local", "")
-    expect(texts(chatAtCandidates(none))).toEqual(["@selection", "@file"])
+    expect(texts(chatAtCandidates(none))).toEqual(["@line", "@selection", "@file"])
   })
 
   test("a file's status and line counts as its detail", () => {
     const details = chatAtCandidates(local()).map((c) => c.detail)
-    expect(details).toEqual([undefined, undefined, "M  +3 -1", "A  +12 -0", "D  +0 -7"])
+    expect(details).toEqual([undefined, undefined, undefined, "M  +3 -1", "A  +12 -0", "D  +0 -7"])
   })
 
   test("a query ranks a file by its basename first", () => {

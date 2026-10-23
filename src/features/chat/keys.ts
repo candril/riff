@@ -181,9 +181,10 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
         () => {
           const state = deps.getState()
           const fromDiff = state.focusedPanel === "diff" && state.viewMode === "diff"
+          const onLine = fromDiff && chat.state.position()?.line !== undefined
           const next = toggleChat(state, chat.column)
           move(() => next)
-          if (fromDiff) attachOnScreen(chat.input(), isVisualMode(deps.getVimState()))
+          if (fromDiff) attachOnScreen(chat.input(), isVisualMode(deps.getVimState()), onLine)
         },
         false,
       ),

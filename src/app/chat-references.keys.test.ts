@@ -62,20 +62,40 @@ test("in visual mode Ctrl-r puts @selection in the input, and every selected lin
   expect(frame.split("\n")[question - 1]).toContain("src/sum.ts:2-4  @selection sum.ts:2-4")
 })
 
-test("in normal mode Ctrl-r puts @file in the input, and the file's diff goes along", async () => {
+test("in normal mode Ctrl-r puts @line in the input, and the cursor's hunk goes along", async () => {
   app = await mountApp(THREE_ADDED, { width: 140, height: 24 })
   app.show()
   const { vimState } = keysOn(app)
   moveTo(app, vimState, "  const c = 3")
 
   ctrl(app, "r")
-  expect(app.chatColumn.input()!.plainText).toBe("@file ")
+  expect(app.chatColumn.input()!.plainText).toBe("@line ")
   await app.setup.mockInput.typeText("what is this?")
   app.setup.mockInput.pressEnter()
 
-  expect(app.agent.attachments[0]![0]!.split("\n", 2)).toEqual(["[@file: the diff of src/sum.ts]", "@@ -1,2 +1,5 @@"])
+  expect(app.agent.attachments[0]![0]!.split("\n")).toEqual([
+    "[@line: src/sum.ts:3 (new side)]",
+    "@@ -1,2 +1,5 @@",
+    "     1     1  export function sum() {",
+    "           2 +  const b = 2",
+    ">          3 +  const c = 3",
+    "           4 +  const d = 4",
+    "     2     5    return 1",
+  ])
   const frame = await app.frame()
-  expect(frame.split("\n")[lineWith(frame, "› @file what is this?") - 1]).toContain("src/sum.ts:3  @file src/sum.ts")
+  expect(frame.split("\n")[lineWith(frame, "› @line what is this?") - 1]).toContain("src/sum.ts:3  @line sum.ts:3")
+})
+
+test("@line on a file header shows its error and sends nothing", async () => {
+  app = await mountApp(THREE_ADDED, { width: 140, height: 24 })
+  app.show()
+  keysOn(app)
+  openChat(app)
+  await app.setup.mockInput.typeText("@line why")
+  app.setup.mockInput.pressEnter()
+
+  expect(app.agent.asked).toEqual([])
+  expect((await app.frame()).replace(/\s+/g, " ")).toContain("@line needs the diff cursor on a line; the question was not sent.")
 })
 
 test("Ctrl-r does not add a token the input already holds", async () => {

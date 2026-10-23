@@ -86,8 +86,11 @@ like any comment the reviewer typed.
   left pane draws them. They are capped at 400 lines in all, with a footer naming `read_thread` for the
   rest. The chat shows `N threads` among the labels. "This thread" and
   "this comment" mean those.
-- **`@` attaches more on purpose**: `@selection` (or `@s`: every selected
-  line on its side, with its hunk header), `@file` (the current file's
+- **`@` attaches more on purpose**: `@line` (the cursor's line: the hunk
+  that holds it, with the line marked by a leading `>` as in the
+  position's excerpt; with a selection, exactly what `@selection`
+  attaches, and the two attach it once), `@selection` (or `@s`: every
+  selected line on its side, with its hunk header), `@file` (the current file's
   diff), `@pr` (the PR's title, number, description and its file list with
   counts), or `@path` for another changed file. The tokens are expanded
   when the question is sent, against the same position it carries, and the
@@ -100,7 +103,7 @@ like any comment the reviewer typed.
 - **`@` suggests what it can attach**: typing `@` at the start of the
   input or after a space opens the comment composer's `@mention` picker
   ([039](./039-inline-comment-overlay.md)), titled `@attach`, floating
-  just above the input. It lists `@selection`, `@file`, `@pr` (only for a PR, as it stops
+  just above the input. It lists `@line`, `@selection`, `@file`, `@pr` (only for a PR, as it stops
   a local question), then every file of the change in diff order with its
   status and `+/-` counts; a path outside the change is never offered.
   Further characters up to the next space fuzzy-filter it, a file ranked by
@@ -108,16 +111,18 @@ like any comment the reviewer typed.
   and `Ctrl-p`/`Ctrl-n` move, and `Esc` closes it and keeps what was typed,
   without stopping an answer or leaving the chat. With nothing matched,
   `Enter` sends and `Tab` types, as without the picker.
-- **A reference that names nothing stops the question**: `@selection`
-  with no selection, `@file` with no file under the cursor, `@pr` in a
+- **A reference that names nothing stops the question**: `@line` with
+  the cursor on a file header or outside the diff, `@selection` with no
+  selection, `@file` with no file under the cursor, `@pr` in a
   local review, or a path that is no changed file. The chat says why, and
   the input keeps the text so it can be fixed.
 - **The chat shows what went along**: a short label per attachment
-  (`@selection a.ts:12-30`, `@file src/a.ts`, `@pr #812`, `@src/b.ts`)
+  (`@line a.ts:12`, `@selection a.ts:12-30`, `@file src/a.ts`, `@pr #812`, `@src/b.ts`)
   beside the position label above the question, on one line.
 - **Asking about what is on screen** is one key from the diff: in visual
   mode, `Ctrl-r` opens the chat with `@selection` at the start of the
-  input; elsewhere in the diff it puts `@file` there. A token the input
+  input; on a line of the diff it puts `@line` there, and on a file
+  header, where there is no line, `@file`. A token the input
   already holds is not added again, and Ctrl-r from the tree, the thread
   panel or another view adds nothing. This replaces the palette's
   "Claude: Chat about selection/file/whole diff" actions.

@@ -74,6 +74,25 @@ function selectionLines(file: DiffFile, side: "old" | "new", selection: { start:
   return lines
 }
 
+/**
+ * The hunk that holds `line` on `side`, its lines marked as formatForAgent
+ * marks the cursor's, each with where it sits in fileDiffLines.
+ */
+function cursorHunkLines(file: DiffFile, side: "old" | "new", line: number) {
+  let at = 0
+  for (const hunk of hunksOf(file)) {
+    const cursor = hunk.lines.findIndex((l) => (side === "new" ? l.newLine : l.oldLine) === line)
+    if (cursor >= 0) {
+      return {
+        at,
+        lines: [hunk.header, ...hunk.lines.map((l, i) => `${i === cursor ? ">" : " "}${formatDiffLine(l)}`)],
+      }
+    }
+    at += 1 + hunk.lines.length
+  }
+  return null
+}
+
 function prLines(pr: PrSummary): { lines: string[]; firstFile: number } {
   const lines = [`#${pr.number} ${pr.title}`, ...(pr.description.trim() ? pr.description.split("\n") : ["(no description)"])]
   lines.push("", `Changed files (${pr.files.length}):`)
@@ -98,31 +117,55 @@ export function expandReferences(text: string, ctx: ReferenceContext): Expanded 
     labels.push(label)
   }
 
+  const position = ctx.position
+  const cursorFile = position && ctx.files.find((f) => f.filename === position.path)
+  // One key for @selection and @line, so a selection named by both is attached once.
+  const addSelection = (name: string, at: Position, selection: { start: number; end: number }, file: DiffFile) => {
+    const side = at.side ?? "new"
+    add("selection", `@${name} ${basename(at.path)}:${range(selection)}`, () => {
+      const lines = selectionLines(file, side, selection)
+      return attachment(
+        `[@${name}: ${at.path}:${range(selection)} (${side} side)]`,
+        lines.map((l) => l.text),
+        (shown) => `read_diff path=${file.filename} offset=${lines[shown]!.at}`,
+      )
+    })
+  }
+
   for (const match of text.matchAll(TOKEN)) {
     const token = match[1]!.replace(TRAILING, "")
-    const position = ctx.position
 
     if (SELECTION.has(token)) {
-      const file = position && ctx.files.find((f) => f.filename === position.path)
-      if (!position?.selection || !file) {
+      if (!position?.selection || !cursorFile) {
         return { error: "@selection needs a visual selection in the diff; the question was not sent." }
       }
-      const side = position.side ?? "new"
-      const selection = position.selection
-      const where = `${position.path}:${range(selection)}`
-      add("selection", `@selection ${basename(position.path)}:${range(selection)}`, () => {
-        const lines = selectionLines(file, side, selection)
-        return attachment(
-          `[@selection: ${where} (${side} side)]`,
-          lines.map((l) => l.text),
-          (shown) => `read_diff path=${file.filename} offset=${lines[shown]!.at}`,
-        )
-      })
+      addSelection("selection", position, position.selection, cursorFile)
+      continue
+    }
+
+    if (token === "line") {
+      const lineError = { error: "@line needs the diff cursor on a line; the question was not sent." }
+      if (!position || !cursorFile) return lineError
+      if (position.selection) {
+        addSelection("line", position, position.selection, cursorFile)
+        continue
+      }
+      const { side, line } = position
+      const hunk = side && line !== undefined ? cursorHunkLines(cursorFile, side, line) : null
+      if (!side || line === undefined || !hunk) return lineError
+      const file = cursorFile
+      add(`line:${file.filename}:${side}:${line}`, `@line ${basename(position.path)}:${line}`, () =>
+        attachment(
+          `[@line: ${position.path}:${line} (${side} side)]`,
+          hunk.lines,
+          (shown) => `read_diff path=${file.filename} offset=${hunk.at + shown}`,
+        ),
+      )
       continue
     }
 
     if (token === "file") {
-      const file = position && ctx.files.find((f) => f.filename === position.path)
+      const file = cursorFile
       if (!file) {
         return { error: "@file needs the diff cursor on a file; the question was not sent." }
       }

@@ -97,6 +97,8 @@ export function createChatState(
   }
 
   return {
+    /** Where the reviewer is, as the next question would carry it. */
+    position,
     entries,
     status,
     paused,

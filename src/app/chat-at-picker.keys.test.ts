@@ -38,13 +38,13 @@ async function chatWithPicker(size = { width: 140, height: 30 }) {
   return { app, input, picker, shown }
 }
 
-test("@ opens the picker on what a question can attach, @selection first", async () => {
+test("@ opens the picker on what a question can attach, @line first", async () => {
   const { app, shown } = await chatWithPicker()
   await app.setup.mockInput.typeText("@")
-  expect(shown()).toEqual(["@selection", "@file", "@src/greet.ts", "@src/sum.ts"])
+  expect(shown()).toEqual(["@line", "@selection", "@file", "@src/greet.ts", "@src/sum.ts"])
   const frame = await app.frame()
   expect(frame).toContain("@attach")
-  expect(frame).toContain("▸ @selection")
+  expect(frame).toContain("▸ @line")
   expect(frame).toMatch(/@src\/sum\.ts +M {2}\+1 -0/)
 })
 
@@ -69,7 +69,7 @@ test("Down then Enter inserts the second row, and nothing is sent", async () => 
   await app.setup.mockInput.typeText("@")
   app.setup.mockInput.pressArrow("down")
   app.setup.mockInput.pressEnter()
-  expect(input.plainText).toBe("@file ")
+  expect(input.plainText).toBe("@selection ")
   expect(app.agent.asked).toEqual([])
   expect(picker.session()).toBeNull()
 })
@@ -116,27 +116,27 @@ test("a picker key declines a start over asked while the picker is up", async ()
 test("closing the chat closes its picker and keeps the draft", async () => {
   const { app, input, picker } = await chatWithPicker()
   await app.setup.mockInput.typeText("why @")
-  expect(await app.frame()).toContain("▸ @selection")
+  expect(await app.frame()).toContain("▸ @line")
   ctrl(app, "r")
   expect(app.chatColumnState.open()).toBe(false)
   expect(picker.open()).toBe(false)
   expect(input.plainText).toBe("why @")
   const frame = await app.frame()
   expect(frame).not.toContain("@attach")
-  expect(frame).not.toContain("@selection")
+  expect(frame).not.toContain("@line")
 })
 
 test("focus leaving the open chat closes its picker, which would take no keys", async () => {
   const { app, input, picker } = await chatWithPicker()
   await app.setup.mockInput.typeText("@")
-  expect(await app.frame()).toContain("▸ @selection")
+  expect(await app.frame()).toContain("▸ @line")
   app.show({ focusedPanel: "diff" })
   expect(app.chatColumnState.open()).toBe(true)
   expect(picker.open()).toBe(false)
   expect(input.plainText).toBe("@")
   const frame = await app.frame()
   expect(frame).not.toContain("@attach")
-  expect(frame).not.toContain("@selection")
+  expect(frame).not.toContain("@line")
   expect(frame).not.toContain("@src/sum.ts")
 })
 
@@ -145,7 +145,7 @@ test("the picker covers the chat hint across the input's width", async () => {
   await app.setup.mockInput.typeText("@")
   const lines = (await app.frame()).split("\n")
   const left = app.chatColumn.host.x
-  for (const row of ["▸ @selection", "@file"]) {
+  for (const row of ["▸ @line", "@selection"]) {
     const line = lines.find((l) => l.slice(left).includes(row))!
     expect(line).toBeDefined()
     // Between the column's edge and the picker's row there is no hint text.

@@ -99,6 +99,66 @@ describe("@selection", () => {
   })
 })
 
+describe("@line", () => {
+  test("on a line, attaches the hunk that holds it with the cursor's line marked", () => {
+    expect(expand("why @line?")).toEqual({
+      attachments: [
+        [
+          "[@line: src/a.ts:2 (new side)]",
+          "@@ -1,4 +1,5 @@",
+          "     1     1  one",
+          "     2       -two",
+          ">          2 +TWO",
+          "           3 +three",
+          "     3     4  four",
+          "     4     5  five",
+        ].join("\n"),
+      ],
+      labels: ["@line a.ts:2"],
+    })
+  })
+
+  test("an old-side line is found by its old number, in its own hunk", () => {
+    const result = expand("@line", { position: at({ side: "old", line: 41 }) })
+    if (!("attachments" in result)) throw new Error(result.error)
+    expect(result.attachments[0]!.split("\n")).toEqual([
+      "[@line: src/a.ts:41 (old side)]",
+      "@@ -40,2 +41,2 @@",
+      "    40    41  forty",
+      ">   41       -old",
+      "          42 +new",
+    ])
+  })
+
+  test("with a selection, attaches what @selection does", () => {
+    const result = expand("@line", { position: at({ selection: { start: 2, end: 3 } }) })
+    expect(result).toEqual({
+      attachments: [
+        [
+          "[@line: src/a.ts:2-3 (new side)]",
+          "@@ -1,4 +1,5 @@",
+          "          2 +TWO",
+          "          3 +three",
+        ].join("\n"),
+      ],
+      labels: ["@line a.ts:2-3"],
+    })
+  })
+
+  test("with a selection, @line and @selection attach it once", () => {
+    const result = expand("@line and @selection", { position: at({ selection: { start: 2, end: 3 } }) })
+    expect(result).toMatchObject({ labels: ["@line a.ts:2-3"] })
+    if (!("attachments" in result)) throw new Error(result.error)
+    expect(result.attachments).toHaveLength(1)
+  })
+
+  test("on a file header, or without a position, the question is not sent", () => {
+    const error = "@line needs the diff cursor on a line; the question was not sent."
+    expect(expand("@line", { position: at({ side: undefined, line: undefined, label: "src/a.ts" }) })).toEqual({ error })
+    expect(expand("@line", { position: null })).toEqual({ error })
+  })
+})
+
 describe("@file and @path", () => {
   test("@file attaches the diff of the file under the cursor in read_diff's format", () => {
     const result = expand("@file what changed?")
@@ -197,6 +257,14 @@ describe("the cap", () => {
     expect(result.attachments[0]!.split("\n").at(-1)).toBe(
       "[cut at 400 of 451 lines; read_diff path=big.ts offset=450 for the rest]",
     )
+  })
+
+  test("a hunk past the cap points read_diff at its first line left out", () => {
+    const result = expandReferences("@line", { files: long(500), position: at({ path: "big.ts", line: 3 }), pr: null })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    expect(lines[4]).toBe(">          3 +l3")
+    expect(lines.at(-1)).toBe("[cut at 400 of 501 lines; read_diff path=big.ts offset=400 for the rest]")
   })
 
   test("a long file list is cut with a footer that points at list_files", () => {
