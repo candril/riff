@@ -15,6 +15,7 @@ import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
 import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
+import { commitScopeKey } from "./features/commit-scope/key"
 
 /**
  * UI mode for the app
@@ -1741,13 +1742,6 @@ export function toggleShowHiddenFiles(state: AppState): AppState {
     ...state,
     showHiddenFiles: !state.showHiddenFiles,
   }
-}
-
-/**
- * How a commit scope is cached: the commits in it, in list order (spec 078).
- */
-export function commitScopeKey(sha: string, scope?: readonly string[] | null): string {
-  return scope && scope.length > 1 ? scope.join("+") : sha
 }
 
 /**

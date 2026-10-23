@@ -22,12 +22,12 @@ import {
   type AppState,
   setTreeFilter,
   highlightInlineComment,
-  commitScopeKey,
   setFileDiff,
   toggleThreadPanelOpenOnly,
 } from "./state"
 import { toggleUnviewedFilesOnly } from "./app/tree-unviewed"
 import { scopeToCommit } from "./app/commit-scope"
+import { commitScopeKey } from "./features/commit-scope/key"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
