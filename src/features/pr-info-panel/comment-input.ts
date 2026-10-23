@@ -14,14 +14,14 @@ export function closeCommentInput(deps: Deps): void {
 }
 
 /** Posts the comment, unless it is blank; the prompt closes once GitHub has it. */
-export function submitComment(deps: Deps): void {
+export function submitComment(deps: Deps, post: typeof submitPrComment = submitPrComment): void {
   const { prInfo } = deps.getState()
   const { text } = deps.commentInput.current()
   if (!text.trim() || !prInfo) return
   deps.commentInput.setLoading(true)
   deps.render()
 
-  submitPrComment(
+  post(
     prInfo.owner,
     prInfo.repo,
     prInfo.number,
