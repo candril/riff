@@ -106,3 +106,26 @@ test("gC opens the picker on its factory, Ctrl-n wraps, a query narrows, Enter j
   expect(mounted.commentsPicker.open()).toBe(false)
   expect(await mounted.frame()).not.toContain("Find Comments")
 })
+
+test("Enter on a comment opens the panel on it with no composer picker", async () => {
+  app = await mountApp(DIFF, { width: 110, height: 30 })
+  const mounted = app
+  const { ctx: render } = mounted
+  mounted.show({ focusedPanel: "diff", comments: [createComment("src/farewell.ts", 2, "needs a test")] })
+  const rebuildLineMapping = () => mounted.show({ files: render.getState().files })
+  const fileNavContext = {
+    getState: render.getState,
+    setState: render.setState,
+    fileFolds: mounted.fileFolds,
+    createLineMapping: rebuildLineMapping,
+  } as unknown as AppKeyContext["fileNavContext"]
+  keysOn(mounted, { rebuildLineMapping, fileNavContext })
+
+  await mounted.setup.mockInput.typeText("gC")
+  // No key leaves a composer picker standing outside the composer; set
+  // here, it shows the jump clearing it.
+  mounted.composerPickers.setEmoji({ query: "smil", colonOffset: 3 })
+  mounted.setup.mockInput.pressEnter()
+  expect(render.getState().inlineCommentOverlay).toMatchObject({ open: true, filename: "src/farewell.ts", line: 2 })
+  expect([mounted.composerPickers.mention(), mounted.composerPickers.emoji()]).toEqual([null, null])
+})

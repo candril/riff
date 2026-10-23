@@ -266,3 +266,29 @@ describe("Ctrl-n and K in the thread panel", () => {
     expect(cursorLine()).toBe(3)
   })
 })
+
+// No key leaves a composer picker standing outside the composer, so each
+// case sets one just before its key to show that key clearing it.
+describe("Opening the thread panel or moving it to another thread", () => {
+  const pickers = () => [app!.composerPickers.mention(), app!.composerPickers.emoji()]
+  const standingPicker = () => app!.composerPickers.setEmoji({ query: "smil", colonOffset: 3 })
+
+  test("Ctrl-t on the file's header row opens the panel with no picker", async () => {
+    app = await mountApp(FILE, { width: 140, height: 30 })
+    app.show({ comments: THREADS, selectedFileIndex: 0 })
+    keysOn(app)
+    await app.frame()
+    standingPicker()
+    app.setup.mockInput.pressKey("t", { ctrl: true })
+    expect(app.ctx.getState().inlineCommentOverlay).toMatchObject({ open: true, mode: "view", line: 0 })
+    expect(pickers()).toEqual([null, null])
+  })
+
+  test("Ctrl-n moves the panel to the next thread with no picker", async () => {
+    const mounted = await panelApp(140)
+    standingPicker()
+    mounted.setup.mockInput.pressKey("n", { ctrl: true })
+    expect(mounted.ctx.getState().inlineCommentOverlay.line).toBe(1)
+    expect(pickers()).toEqual([null, null])
+  })
+})

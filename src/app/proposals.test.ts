@@ -35,6 +35,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
   keep(drafts)
   const notes: string[] = []
   const revealed: unknown[] = []
+  const pickers = createComposerPickersState()
   const proposals = createProposals({
     getState: () => state,
     setState: (fn) => (state = fn(state)),
@@ -43,7 +44,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
     fillComposer: () => {},
     note: (text) => void notes.push(text),
     commentDrafts: drafts,
-    composerPickers: createComposerPickersState(),
+    composerPickers: pickers,
   })
   const outcomes: string[] = []
   const propose = (proposal = PROPOSAL) => proposals.proposeComment(proposal).then((o) => void outcomes.push(o))
@@ -54,6 +55,7 @@ function setup(patch: (state: AppState) => AppState = (s) => s, keep: (drafts: C
     outcomes,
     propose,
     drafts,
+    pickers,
     state: () => state,
     update: (fn: (s: AppState) => AppState) => (state = fn(state)),
     // What the composer's Esc does, before it reports.
@@ -83,6 +85,16 @@ test("a proposal opens the composer on its line, holding the agent's text, and s
   expect(t.state().viewMode).toBe("diff")
   expect(t.revealed).toEqual([ANCHOR])
   expect(t.notes).toEqual(["Proposed a comment on src/a.ts:2 — it is open in the thread panel."])
+})
+
+test("a proposal opens the composer with no picker", () => {
+  const t = setup()
+  // The reviewer's own composer clears its pickers when it closes; one set
+  // here shows the proposal's composer starting without it all the same.
+  t.pickers.setEmoji({ query: "smil", colonOffset: 3 })
+  void t.propose()
+  expect(t.state().inlineCommentOverlay.mode).toBe("compose")
+  expect([t.pickers.mention(), t.pickers.emoji()]).toEqual([null, null])
 })
 
 test("a refused place opens nothing and returns why", async () => {

@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test"
+import { KeyEvent, parseKeypress } from "@opentui/core"
 import { createInitialState } from "../state"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { reloadCtx } from "../testing/app-render"
@@ -41,12 +42,19 @@ async function reopen(opened: Opened) {
   return app.frame()
 }
 
-test("Esc cancelling the composer leaves no picker for the composer reopened on the line", async () => {
+test("cancelling the composer clears a picker left standing, so the composer reopened on the line draws none", async () => {
   const opened = await composer()
   await typingSmil(opened)
 
   send(opened.app, "\x1b")
-  send(opened.app, "\x1b")
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(pickers(opened)).toEqual([null, null])
+  // Esc reaches the composer's cancel only once the picker layer has let it
+  // go, so no key cancels with a picker up. Run on a standing picker, the
+  // cancel command shows its own clear, which the close above could hide.
+  opened.app.composerPickers.setEmoji({ query: "smil", colonOffset: 3 })
+  const escape = new KeyEvent(parseKeypress("\x1b")!)
+  expect(opened.keys.keymap.runCommand("composer.cancel", { event: escape }).ok).toBe(true)
   expect(overlay(opened.app).mode).toBe("view")
   expect(pickers(opened)).toEqual([null, null])
 
@@ -97,4 +105,52 @@ test("a reload while the picker shows clears it with the panel the rebuild close
 
   expect(pickers(opened)).toEqual([null, null])
   expect(await app.frame()).not.toContain(":smiley:")
+})
+
+// Every way into the composer or onto another thread starts with no picker.
+// No key leaves one standing outside the composer, since leaving it clears
+// them, so each case sets one on the factory just before its key.
+const standingPicker = (opened: Opened) => opened.app.composerPickers.setEmoji({ query: "smil", colonOffset: 3 })
+
+/** A saved comment on the changed line, the panel on it in view mode. */
+async function savedComment() {
+  const opened = await composer()
+  await opened.app.setup.mockInput.typeText("hi")
+  send(opened.app, "\r")
+  expect(overlay(opened.app).mode).toBe("view")
+  expect(opened.app.ctx.getState().comments).toHaveLength(1)
+  return opened
+}
+
+test("c on a diff line opens the composer with no picker", async () => {
+  const opened = await savedComment()
+  ctrl(opened.app, "h")
+  standingPicker(opened)
+  opened.app.setup.mockInput.pressKey("c")
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(pickers(opened)).toEqual([null, null])
+})
+
+test("n in the panel starts a new comment with no picker", async () => {
+  const opened = await savedComment()
+  standingPicker(opened)
+  opened.app.setup.mockInput.pressKey("n")
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(pickers(opened)).toEqual([null, null])
+})
+
+test("r in the panel starts a reply with no picker", async () => {
+  const opened = await savedComment()
+  standingPicker(opened)
+  opened.app.setup.mockInput.pressKey("r")
+  expect(overlay(opened.app).mode).toBe("compose")
+  expect(pickers(opened)).toEqual([null, null])
+})
+
+test("e in the panel edits the comment with no picker", async () => {
+  const opened = await savedComment()
+  standingPicker(opened)
+  opened.app.setup.mockInput.pressKey("e")
+  expect(overlay(opened.app).mode).toBe("edit")
+  expect(pickers(opened)).toEqual([null, null])
 })
