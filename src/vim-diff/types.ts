@@ -169,8 +169,6 @@ export interface DiffLineMappingOptions {
   collapsedFiles?: Set<string>
   /** Pad markdown table cells onto a shared grid (display only). */
   alignMarkdownTables?: boolean
-  /** Set of collapsed hunk keys ("filename:hunkIndex") */
-  collapsedHunks?: Set<string>
   /** Ids of folded fenced blocks (spec 073). */
   collapsedBlocks?: ReadonlySet<string>
   /** Filenames the all-files view is restricted to, or undefined for all of

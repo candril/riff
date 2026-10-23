@@ -124,7 +124,6 @@ describe("restoring the view", () => {
       viewMode: "diff" as const,
       selectedFileIndex: 1,
       collapsedFiles: new Set(["a.ts"]),
-      collapsedHunks: new Set(["b.ts:0"]),
       treeFilter: "b",
       threadPanelOpenOnly: true,
       treeUnviewedOnly: true,
@@ -139,7 +138,6 @@ describe("restoring the view", () => {
 
     expect(after.files[after.selectedFileIndex!]?.filename).toBe("b.ts")
     expect(after.collapsedFiles).toEqual(new Set(["a.ts"]))
-    expect(after.collapsedHunks).toEqual(new Set(["b.ts:0"]))
     expect(after.treeFilter).toBe("b")
     expect(after.threadPanelOpenOnly).toBe(true)
     expect(after.treeUnviewedOnly).toBe(true)

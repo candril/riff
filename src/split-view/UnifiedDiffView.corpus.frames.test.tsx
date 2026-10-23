@@ -69,8 +69,6 @@ describe("a single file", () => {
 })
 
 describe("folds", () => {
-  // collapsedHunks is accepted by DiffLineMapping but nothing reads it, so
-  // there is no hunk fold to pin.
   test("a collapsed file is its header row alone, under a closed marker", async () => {
     const frame = await (await mount({
       raw: TWO_FILES,

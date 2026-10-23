@@ -270,7 +270,6 @@ export function buildLineMapping(
     expandedDividers: fileContent.expanded(),
     fileContents,
     collapsedFiles: state.collapsedFiles,
-    collapsedHunks: state.collapsedHunks,
     collapsedBlocks: state.collapsedBlocks,
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     outsideDiff: state.fileMode,

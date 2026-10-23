@@ -21,7 +21,6 @@ export class DiffLineMapping implements LineSource {
   private expandedDividers: ReadonlySet<string>
   private fileContents: Map<string, string>
   private collapsedFiles: Set<string>
-  private collapsedHunks: Set<string>
   private collapsedBlocks: ReadonlySet<string>
   private visibleFiles: ReadonlySet<string> | undefined
   private outsideDiff: boolean
@@ -35,7 +34,6 @@ export class DiffLineMapping implements LineSource {
     this.expandedDividers = options?.expandedDividers ?? new Set()
     this.fileContents = options?.fileContents ?? new Map()
     this.collapsedFiles = options?.collapsedFiles ?? new Set()
-    this.collapsedHunks = options?.collapsedHunks ?? new Set()
     this.collapsedBlocks = options?.collapsedBlocks ?? new Set()
     this.visibleFiles = options?.visibleFiles
     this.outsideDiff = options?.outsideDiff ?? false

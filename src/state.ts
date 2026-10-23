@@ -162,9 +162,6 @@ export interface AppState {
   chatOpen: boolean
   mode: UIMode
 
-  // Diff view state
-  cursorLine: number                // Selected line in diff view
-
   // Comment state - comments stored separately from session
   session: ReviewSession | null
   comments: Comment[]
@@ -184,9 +181,6 @@ export interface AppState {
   // Collapsed files in all-files diff view (filenames that are collapsed)
   collapsedFiles: Set<string>
   
-  // Collapsed hunks (key: "filename:hunkIndex")
-  collapsedHunks: Set<string>
-
   // Folded fenced blocks in the diff, by their own id (spec 073): a
   // forty-line mermaid fence is one thing, and folds like one.
   collapsedBlocks: ReadonlySet<string>
@@ -263,7 +257,6 @@ export function createInitialState(
     focusedPanel: "diff",
     chatOpen: false,
     mode: "normal",
-    cursorLine: 1,
     session,
     comments,
     source,
@@ -273,7 +266,6 @@ export function createInitialState(
     prInfo,
     commits: [],
     collapsedFiles: new Set(),
-    collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
@@ -320,7 +312,6 @@ export function selectFile(state: AppState, index: number | null): AppState {
     ...state,
     viewMode: state.viewMode === "state" ? "diff" : state.viewMode,
     selectedFileIndex: index,
-    cursorLine: 1,  // Reset cursor when changing file
   }
 }
 
@@ -352,7 +343,6 @@ export function clearFileSelection(state: AppState): AppState {
     ...state,
     viewMode: state.viewMode === "state" ? "diff" : state.viewMode,
     selectedFileIndex: null,
-    cursorLine: 1,
   }
 }
 
@@ -634,55 +624,12 @@ export function focusLeft(state: AppState): AppState {
 }
 
 /**
- * Switch focus between panels
- */
-export function toggleFocus(state: AppState): AppState {
-  if (!state.showFilePanel) return state
-  return {
-    ...state,
-    focusedPanel: state.focusedPanel === "tree" ? "diff" : "tree",
-  }
-}
-
-/**
  * Update file tree (e.g., after toggling expansion)
  */
 export function updateFileTree(state: AppState, fileTree: FileTreeNode[]): AppState {
   return {
     ...state,
     fileTree,
-  }
-}
-
-/**
- * Move cursor in diff view
- */
-export function moveCursor(state: AppState, delta: number, maxLine: number): AppState {
-  const newLine = Math.max(1, Math.min(state.cursorLine + delta, maxLine))
-  return {
-    ...state,
-    cursorLine: newLine,
-  }
-}
-
-/**
- * Set cursor to specific line
- */
-export function setCursorLine(state: AppState, line: number, maxLine: number): AppState {
-  const newLine = Math.max(1, Math.min(line, maxLine))
-  return {
-    ...state,
-    cursorLine: newLine,
-  }
-}
-
-/**
- * Reset cursor when changing files
- */
-export function resetCursor(state: AppState): AppState {
-  return {
-    ...state,
-    cursorLine: 1,
   }
 }
 
@@ -708,18 +655,6 @@ export function deleteComment(state: AppState, commentId: string): AppState {
 }
 
 /**
- * Update a comment body
- */
-export function updateCommentBody(state: AppState, commentId: string, body: string): AppState {
-  return {
-    ...state,
-    comments: state.comments.map(c =>
-      c.id === commentId ? { ...c, body } : c
-    ),
-  }
-}
-
-/**
  * Update thread resolved state on a root comment
  * The root comment is identified by its ID (thread ID matches root comment ID)
  */
@@ -736,43 +671,6 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
     ...state,
     comments: newComments,
   })
-}
-
-/**
- * Get comments for current view scope (selected file or all)
- */
-export function getVisibleComments(state: AppState): Comment[] {
-  if (state.selectedFileIndex === null) {
-    // No file selected - show all comments
-    return state.comments
-  }
-  
-  const selectedFile = state.files[state.selectedFileIndex]
-  if (!selectedFile) return []
-  
-  return state.comments.filter(c => c.filename === selectedFile.filename)
-}
-
-/**
- * Get comment for a specific line in the selected file
- */
-export function getCommentForLine(state: AppState, line: number): Comment | undefined {
-  const selectedFile = getSelectedFile(state)
-  if (!selectedFile) return undefined
-  
-  return state.comments.find(
-    c => c.filename === selectedFile.filename && c.line === line
-  )
-}
-
-/**
- * Update the session
- */
-export function updateSession(state: AppState, session: ReviewSession): AppState {
-  return {
-    ...state,
-    session,
-  }
 }
 
 // ============================================================================
@@ -817,60 +715,6 @@ export function expandAllFiles(state: AppState): AppState {
     ...state,
     collapsedFiles: new Set(),
   }
-}
-
-// ============================================================================
-// Hunk Fold State
-// ============================================================================
-
-/**
- * Toggle a hunk's collapsed state
- * @param hunkKey - Format: "filename:hunkIndex"
- */
-export function toggleHunkFold(state: AppState, hunkKey: string): AppState {
-  const newCollapsed = new Set(state.collapsedHunks)
-  if (newCollapsed.has(hunkKey)) {
-    newCollapsed.delete(hunkKey)
-  } else {
-    newCollapsed.add(hunkKey)
-  }
-  return {
-    ...state,
-    collapsedHunks: newCollapsed,
-  }
-}
-
-/**
- * Check if a hunk is collapsed
- */
-export function isHunkCollapsed(state: AppState, hunkKey: string): boolean {
-  return state.collapsedHunks.has(hunkKey)
-}
-
-/**
- * Collapse all hunks
- */
-export function collapseAllHunks(state: AppState): AppState {
-  // This would need line mapping to know all hunk keys
-  // For now, just return state - implement if needed
-  return state
-}
-
-/**
- * Expand all hunks
- */
-export function expandAllHunks(state: AppState): AppState {
-  return {
-    ...state,
-    collapsedHunks: new Set(),
-  }
-}
-
-/**
- * Check if a file is collapsed
- */
-export function isFileCollapsed(state: AppState, filename: string): boolean {
-  return state.collapsedFiles.has(filename)
 }
 
 /**
@@ -975,52 +819,11 @@ export function isFileViewed(state: AppState, filename: string): boolean {
 }
 
 /**
- * Toggle the viewed status of a file.
- * Note: For full functionality including viewedAtCommit, use the async version
- * toggleFileViewedWithCommit in the caller (app.ts).
- */
-export function toggleFileViewed(state: AppState, filename: string): AppState {
-  const current = state.fileStatuses.get(filename)?.viewed ?? false
-  const newStatuses = new Map(state.fileStatuses)
-  
-  newStatuses.set(filename, {
-    filename,
-    viewed: !current,
-    viewedAt: !current ? new Date().toISOString() : undefined,
-  })
-  
-  return {
-    ...state,
-    fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
-  }
-}
-
-/**
  * Set the viewed status of a file with full status object
  */
 export function setFileViewedStatus(state: AppState, status: FileReviewStatus): AppState {
   const newStatuses = new Map(state.fileStatuses)
   newStatuses.set(status.filename, status)
-  
-  return {
-    ...state,
-    fileStatuses: newStatuses,
-    viewedStats: recomputeViewedStats(newStatuses, state.files, state.ignoredFiles),
-  }
-}
-
-/**
- * Set the viewed status of a file (simple version)
- */
-export function setFileViewed(state: AppState, filename: string, viewed: boolean): AppState {
-  const newStatuses = new Map(state.fileStatuses)
-  
-  newStatuses.set(filename, {
-    filename,
-    viewed,
-    viewedAt: viewed ? new Date().toISOString() : undefined,
-  })
   
   return {
     ...state,
@@ -1101,13 +904,6 @@ function recomputeViewedStats(
     viewed,
     outdated,
   }
-}
-
-/**
- * Check if a file is stale (viewed but modified since)
- */
-export function isFileStale(state: AppState, filename: string): boolean {
-  return state.fileStatuses.get(filename)?.isStale ?? false
 }
 
 // ============================================================================
@@ -1714,9 +1510,7 @@ export function setViewingCommit(
       files: state.allFiles,
       fileTree: state.allFileTree,
       selectedFileIndex: null,
-      cursorLine: 1,
       collapsedFiles: new Set(),
-      collapsedHunks: new Set(),
     }
   }
 
@@ -1730,9 +1524,7 @@ export function setViewingCommit(
     files: cached.files,
     fileTree: cached.fileTree,
     selectedFileIndex: null,
-    cursorLine: 1,
     collapsedFiles: new Set(),
-    collapsedHunks: new Set(),
   }
 }
 
