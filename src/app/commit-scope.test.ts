@@ -57,12 +57,12 @@ describe("the text riff has read of a file", () => {
     expect(fileContent.entry("a.ts")).not.toBeNull()
   })
 
-  test("leaves the divider being fetched to clear its own spinner", () => {
+  test("ends the spinner of the divider being fetched, whose read will be dropped", () => {
     const fileContent = createFileContentState()
     fileContent.setExpanding("a.ts:start:0")
 
     scopeToCommit(review(), fileContent, "abc1234")
 
-    expect(fileContent.expanding()).toBe("a.ts:start:0")
+    expect(fileContent.expanding()).toBeNull()
   })
 })

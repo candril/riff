@@ -307,7 +307,7 @@ line mapping and the colour parses read the files and the opened runs off
 the factory, and both diff views read the run being fetched for its
 `⟳ Expanding` label. A reload keeps the opened runs but not the files read
 for them, a commit switch drops both, and creating a PR or opening the
-branch's PR drops all of it.
+branch's PR drops all of it; a read that lands after a drop is discarded.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

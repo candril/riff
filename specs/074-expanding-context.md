@@ -31,6 +31,8 @@ too.
   than a number it is guessing at; once the file is in hand the count
   appears, or the row goes away because the hunk reached the end after all.
 - Only the run being fetched for shows the spinner.
+- A read still in flight when the diff changes underneath it — a commit
+  switch, a reload, another PR — is dropped, and the run stays closed.
 
 ## Technical Notes
 

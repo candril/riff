@@ -5,7 +5,9 @@
  * of the files around the diff, not review state, so the feature owns it
  * rather than AppState (spec 100, M6; ADR-003). A reload keeps the opened
  * runs but reads the files again, a commit switch drops both, and creating
- * a PR or opening the branch's PR drops all of it.
+ * a PR or opening the branch's PR drops all of it. A read still in flight
+ * when any of them happens lands into nothing: it belongs to the span it
+ * was asked for.
  */
 
 import { createSignal } from "solid-js"
@@ -29,6 +31,9 @@ export function createFileContentState() {
   // The one riff is fetching the file for right now: every other collapsed
   // run in that file is not loading, and should not say it is.
   const [expanding, setExpanding] = createSignal<string | null>(null)
+  // Not a signal: nothing draws it. A read compares it across its await to
+  // tell whether what it fetched still belongs to the diff on screen.
+  let generation = 0
 
   const put = (filename: string, entry: FileContentEntry) =>
     setContents((cache) => ({ ...cache, [filename]: entry }))
@@ -68,17 +73,24 @@ export function createFileContentState() {
       setExpanding(dividerKey)
     },
 
+    generation(): number {
+      return generation
+    },
+
     /**
      * What riff read of a file belongs to the span it read it for: once a
      * commit comes into or leaves scope the rows on screen are a different
-     * diff, between different ends. A fetch still in flight clears its own
-     * spinner when it lands.
+     * diff, between different ends. A read still in flight lands into
+     * nothing, so it can no longer end its own spinner, and this ends it.
      */
     forgetSpan() {
+      generation++
       setContents({})
       setExpanded(new Set<string>())
+      setExpanding(null)
     },
     clear() {
+      generation++
       setContents({})
       setExpanded(new Set<string>())
       setExpanding(null)

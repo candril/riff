@@ -6,23 +6,26 @@ export type FetchFileVersions = (
 ) => Promise<{ ok: true; newContent: string; oldContent: string | null } | { ok: false; error: string }>
 
 export interface LoadFileContentContext {
-  fileContent: Pick<FileContentState, "markLoading" | "set" | "setError">
+  fileContent: Pick<FileContentState, "markLoading" | "set" | "setError" | "generation">
   fetchFileVersions: FetchFileVersions
   render: () => void
 }
 
 export async function loadFileContent(ctx: LoadFileContentContext, filename: string): Promise<void> {
+  const generation = ctx.fileContent.generation()
   ctx.fileContent.markLoading(filename)
   ctx.render()
 
   try {
     const fetched = await ctx.fetchFileVersions(filename)
+    if (ctx.fileContent.generation() !== generation) return
     if (fetched.ok) {
       ctx.fileContent.set(filename, fetched.newContent, fetched.oldContent)
     } else {
       ctx.fileContent.setError(filename, fetched.error)
     }
   } catch (err) {
+    if (ctx.fileContent.generation() !== generation) return
     const msg = err instanceof Error ? err.message : "Unknown error"
     ctx.fileContent.setError(filename, msg)
   }

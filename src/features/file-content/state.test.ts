@@ -55,7 +55,7 @@ describe("createFileContentState", () => {
     expect(files.expanding()).toBeNull()
   })
 
-  test("forgetSpan drops what was read and opened but leaves the fetch in flight", () => {
+  test("forgetSpan drops what was read, what was opened and the run being fetched", () => {
     const files = createFileContentState()
     files.set("a.ts", "new", "old")
     files.expand("a.ts:middle:0")
@@ -63,7 +63,23 @@ describe("createFileContentState", () => {
     files.forgetSpan()
     expect(files.contents()).toEqual({})
     expect(files.isExpanded("a.ts:middle:0")).toBe(false)
-    expect(files.expanding()).toBe("a.ts:middle:1")
+    expect(files.expanding()).toBeNull()
+  })
+
+  test("generation starts at 0 and only forgetSpan and clear move it", () => {
+    const files = createFileContentState()
+    expect(files.generation()).toBe(0)
+    files.set("a.ts", "new", "old")
+    files.markLoading("b.ts")
+    files.setError("c.ts", "404")
+    files.expand("a.ts:middle:0")
+    files.setExpanding("a.ts:middle:1")
+    files.restoreExpanded(new Set(["a.ts:middle:2"]))
+    expect(files.generation()).toBe(0)
+    files.forgetSpan()
+    expect(files.generation()).toBe(1)
+    files.clear()
+    expect(files.generation()).toBe(2)
   })
 
   test("clear drops all three", () => {

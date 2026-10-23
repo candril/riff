@@ -28,7 +28,7 @@ const HIGHLIGHT_SOURCE_DELAY_MS = 150
 export const HIGHLIGHT_SOURCE_BATCH = 6
 
 export interface HighlightSourceDeps {
-  fileContent: Pick<FileContentState, "entry" | "set">
+  fileContent: Pick<FileContentState, "entry" | "set" | "generation">
   fetchFileVersions: FetchFileVersions
   /** The files with rows in the diff view on screen. */
   visibleFilenames: () => Iterable<string>
@@ -88,9 +88,16 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
     return key
   }
 
+  /**
+   * A read that lands after the diff changed is dropped whole, failure
+   * included: the next diff asks for the file again, with nothing in the
+   * way.
+   */
   async function readHighlightSource(filename: string, key: string): Promise<void> {
+    const generation = deps.fileContent.generation()
     try {
       const fetched = await deps.fetchFileVersions(filename)
+      if (deps.fileContent.generation() !== generation) return
       if (fetched.ok) {
         deps.fileContent.set(filename, fetched.newContent, fetched.oldContent)
         deps.render()
@@ -98,6 +105,7 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
         highlightSourceFailed.add(key)
       }
     } catch {
+      if (deps.fileContent.generation() !== generation) return
       highlightSourceFailed.add(key)
     } finally {
       highlightSourceInFlight.delete(key)

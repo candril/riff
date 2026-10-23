@@ -109,6 +109,36 @@ describe("createHighlightSourceReader", () => {
     })
   }
 
+  test("a read that lands after the span was forgotten writes and draws nothing", async () => {
+    let land!: (value: Awaited<ReturnType<FetchFileVersions>>) => void
+    const r = reader({ onScreen: ["a.ts"], fetch: () => new Promise((resolve) => (land = resolve)) })
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    expect(r.fetched).toEqual(["a.ts"])
+
+    r.fileContent.forgetSpan()
+    land({ ok: true, newContent: "stale", oldContent: null })
+    await settle()
+
+    expect(r.fileContent.entry("a.ts")).toBeNull()
+    expect(r.renders()).toBe(0)
+  })
+
+  test("a read that fails after the span was forgotten is read again", async () => {
+    let land!: (value: Awaited<ReturnType<FetchFileVersions>>) => void
+    const r = reader({ onScreen: ["a.ts"], fetch: () => new Promise((resolve) => (land = resolve)) })
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+
+    r.fileContent.forgetSpan()
+    land({ ok: false, error: "Not Found" })
+    await settle()
+
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    expect(r.fetched).toEqual(["a.ts", "a.ts"])
+  })
+
   test("an unchanged set of wanted files leaves the pending pause running", () => {
     const r = reader({ onScreen: ["a.ts"] })
     r.read.request()

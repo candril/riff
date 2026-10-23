@@ -2,6 +2,16 @@ import { describe, expect, test } from "bun:test"
 import { createFileContentState } from "./state"
 import { loadFileContent, type FetchFileVersions } from "./load"
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 function loading(fetchFileVersions: FetchFileVersions) {
   const fileContent = createFileContentState()
   const drawn: unknown[] = []
@@ -33,4 +43,32 @@ describe("loadFileContent", () => {
     await load()
     expect(fileContent.entry("a.ts")?.error).toBe("socket hang up")
   })
+
+  for (const drop of ["forgetSpan", "clear"] as const) {
+    test(`a read that lands after ${drop} writes nothing and draws nothing`, async () => {
+      const fetch = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+      const { fileContent, drawn, load } = loading(() => fetch.promise)
+      const loaded = load()
+      fileContent[drop]()
+
+      fetch.resolve({ ok: true, newContent: "new", oldContent: "old" })
+      await loaded
+
+      expect(fileContent.entry("a.ts")).toBeNull()
+      expect(drawn).toHaveLength(1)
+    })
+
+    test(`a read that fails after ${drop} records no error`, async () => {
+      const fetch = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+      const { fileContent, drawn, load } = loading(() => fetch.promise)
+      const loaded = load()
+      fileContent[drop]()
+
+      fetch.reject(new Error("socket hang up"))
+      await loaded
+
+      expect(fileContent.entry("a.ts")).toBeNull()
+      expect(drawn).toHaveLength(1)
+    })
+  }
 })

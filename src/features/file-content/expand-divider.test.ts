@@ -101,4 +101,39 @@ describe("expandDividerAtCursor", () => {
     expect(fileContent.expanding()).toBeNull()
     expect(calls).toEqual([`render expanding=${KEY}`, "render expanding=null"])
   })
+
+  test("a read that lands after the span was forgotten opens nothing", async () => {
+    const load = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+    const { ctx, fileContent, calls } = context(() => load.promise)
+
+    const expanding = expandDividerAtCursor(ctx)
+    fileContent.forgetSpan()
+    load.resolve({ ok: true, newContent: "new", oldContent: "old" })
+
+    expect(await expanding).toBe(false)
+    expect(fileContent.isExpanded(KEY)).toBe(false)
+    expect(fileContent.entry("a.ts")).toBeNull()
+    expect(fileContent.expanding()).toBeNull()
+    expect(calls).toEqual([`render expanding=${KEY}`])
+  })
+
+  test("a read that lands after the span was forgotten leaves a newer expand's spinner alone", async () => {
+    const OTHER = "b.ts:middle:0"
+    const old = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+    const fresh = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+    let cursor = KEY
+    const { ctx, fileContent } = context((filename) => (filename === "a.ts" ? old.promise : fresh.promise))
+    ctx.dividerKeyAtCursor = () => cursor
+
+    const stale = expandDividerAtCursor(ctx)
+    fileContent.forgetSpan()
+    cursor = OTHER
+    void expandDividerAtCursor(ctx)
+    old.resolve({ ok: true, newContent: "new", oldContent: "old" })
+
+    expect(await stale).toBe(false)
+    expect(fileContent.expanding()).toBe(OTHER)
+    expect(fileContent.entry("a.ts")).toBeNull()
+    expect(fileContent.entry("b.ts")?.loading).toBe(true)
+  })
 })
