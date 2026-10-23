@@ -15,7 +15,7 @@ import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
 import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
-import { commitScopeKey } from "./features/commit-scope/key"
+import type { CommitDiff } from "./features/commit-scope/diffs-state"
 
 /**
  * UI mode for the app
@@ -220,7 +220,6 @@ export interface AppState {
   viewingCommitScope: string[] | null
   allFiles: DiffFile[]               // Full PR diff files (preserved when filtering by commit)
   allFileTree: FileTreeNode[]        // Full PR file tree (preserved when filtering by commit)
-  commitDiffCache: Map<string, { files: DiffFile[]; fileTree: FileTreeNode[] }>  // Cached per-commit data
 
   // What the palette's "React…" action targets right now (spec 042).
   // Views set this when they focus a reactable item (e.g. the inline
@@ -312,7 +311,6 @@ export function createInitialState(
     viewingCommitScope: null,
     allFiles: files,
     allFileTree: fileTree,
-    commitDiffCache: new Map(),
     reactionTarget: null,
   }
 }
@@ -1746,13 +1744,14 @@ export function toggleShowHiddenFiles(state: AppState): AppState {
 
 /**
  * Set the viewing commit and swap files/fileTree accordingly.
- * When switching to a specific commit, files/fileTree come from the cache.
+ * When switching to a specific commit, files/fileTree come from its cached diff.
  * When switching to null (all commits), restore allFiles/allFileTree.
  */
 export function setViewingCommit(
   state: AppState,
   commitSha: string | null,
-  scope?: readonly string[] | null,
+  scope: readonly string[] | null | undefined,
+  cached: CommitDiff | null,
 ): AppState {
   if (commitSha === null) {
     // Restore full PR diff
@@ -1770,7 +1769,6 @@ export function setViewingCommit(
   }
 
   // Switch to a specific commit's diff
-  const cached = state.commitDiffCache.get(commitScopeKey(commitSha, scope))
   if (!cached) return state  // Should not happen — caller caches first
 
   return {

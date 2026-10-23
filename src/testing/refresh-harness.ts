@@ -25,6 +25,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
+import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -166,6 +167,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     lastRefresh,
     prCommentInput,
     fileContent,
+    commitDiffs: createCommitDiffsState(),
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),

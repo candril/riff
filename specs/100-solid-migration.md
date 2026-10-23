@@ -308,6 +308,12 @@ the factory, and both diff views read the run being fetched for its
 `⟳ Expanding` label. A reload keeps the opened runs but not the files read
 for them, a commit switch drops both, and creating a PR or opening the
 branch's PR drops all of it; a read that lands after a drop is discarded.
+The per-commit diffs are the twenty-eighth (`createCommitDiffsState` in
+`src/features/commit-scope/diffs-state.ts`): the files of each commit or
+run of commits riff has fetched, so picking it again fetches nothing. The
+commit picker's scope reads them, and a reload, a switch to another PR,
+creating a PR and opening the branch's PR drop them. Fetching a scope's
+diff and bringing it into view live in `src/features/commit-scope`.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

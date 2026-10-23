@@ -15,6 +15,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
+import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -81,6 +82,7 @@ export async function mountApp(
   let flashState = createFlashState()
   const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
   const fileContent = createFileContentState()
+  const commitDiffs = createCommitDiffsState()
   let mapping = buildLineMapping(state, diffOptions, fileContent)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
@@ -279,6 +281,8 @@ export async function mountApp(
     diffOptions,
     /** The expanded context, which the diff views and the mapping read as app.ts's do. */
     fileContent,
+    /** The per-commit diffs, which the commit picker's scope reads and a reload drops as app.ts's do. */
+    commitDiffs,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -354,6 +358,6 @@ export async function mountApp(
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent, commitDiffs }
 }

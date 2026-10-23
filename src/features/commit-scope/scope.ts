@@ -1,5 +1,7 @@
-import { setViewingCommit, type AppState } from "../state"
-import type { FileContentState } from "../features/file-content/state"
+import { setViewingCommit, type AppState } from "../../state"
+import type { FileContentState } from "../file-content/state"
+import type { CommitDiffsState } from "./diffs-state"
+import { commitScopeKey } from "./key"
 
 /**
  * Bring a commit into scope, or with `null` go back to the whole review
@@ -10,11 +12,13 @@ import type { FileContentState } from "../features/file-content/state"
  */
 export function scopeToCommit(
   state: AppState,
+  commitDiffs: Pick<CommitDiffsState, "entry">,
   fileContent: Pick<FileContentState, "forgetSpan">,
   commitSha: string | null,
   scope?: readonly string[] | null,
 ): AppState {
-  const next = setViewingCommit(state, commitSha, scope)
+  const cached = commitSha === null ? null : commitDiffs.entry(commitScopeKey(commitSha, scope))
+  const next = setViewingCommit(state, commitSha, scope, cached)
   if (next !== state) fileContent.forgetSpan()
   return next
 }

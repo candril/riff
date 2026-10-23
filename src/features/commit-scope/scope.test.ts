@@ -1,8 +1,9 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, type AppState } from "../state"
-import type { DiffFile } from "../utils/diff-parser"
-import { createFileContentState, type FileContentState } from "../features/file-content/state"
-import { scopeToCommit } from "./commit-scope"
+import { createInitialState, type AppState } from "../../state"
+import type { DiffFile } from "../../utils/diff-parser"
+import { createFileContentState, type FileContentState } from "../file-content/state"
+import { createCommitDiffsState } from "./diffs-state"
+import { scopeToCommit } from "./scope"
 
 const file: DiffFile = {
   filename: "a.ts",
@@ -18,8 +19,13 @@ function readFile(fileContent: FileContentState): void {
 }
 
 function review(): AppState {
-  const state = createInitialState([file], [], "gh:o/r#1", "#1: a PR", null, null, [], "pr", null)
-  return { ...state, commitDiffCache: new Map([["abc1234", { files: [file], fileTree: [] }]]) }
+  return createInitialState([file], [], "gh:o/r#1", "#1: a PR", null, null, [], "pr", null)
+}
+
+function fetched() {
+  const commitDiffs = createCommitDiffsState()
+  commitDiffs.put("abc1234", [file])
+  return commitDiffs
 }
 
 describe("the text riff has read of a file", () => {
@@ -28,7 +34,7 @@ describe("the text riff has read of a file", () => {
     readFile(fileContent)
     expect(fileContent.entry("a.ts")?.newContent).toBe("const one = 1\nconst two = 2")
 
-    const scoped = scopeToCommit(review(), fileContent, "abc1234")
+    const scoped = scopeToCommit(review(), fetched(), fileContent, "abc1234")
 
     expect(scoped.viewingCommit).toBe("abc1234")
     expect(fileContent.entry("a.ts")).toBeNull()
@@ -37,11 +43,11 @@ describe("the text riff has read of a file", () => {
 
   test("is dropped again on the way back to the whole review", () => {
     const fileContent = createFileContentState()
-    const scoped = scopeToCommit(review(), fileContent, "abc1234")
+    const scoped = scopeToCommit(review(), fetched(), fileContent, "abc1234")
     readFile(fileContent)
     expect(fileContent.entry("a.ts")).not.toBeNull()
 
-    const whole = scopeToCommit(scoped, fileContent, null)
+    const whole = scopeToCommit(scoped, fetched(), fileContent, null)
 
     expect(whole.viewingCommit).toBeNull()
     expect(fileContent.entry("a.ts")).toBeNull()
@@ -53,7 +59,7 @@ describe("the text riff has read of a file", () => {
     readFile(fileContent)
     const state = review()
 
-    expect(scopeToCommit(state, fileContent, "not-cached")).toBe(state)
+    expect(scopeToCommit(state, fetched(), fileContent, "not-cached")).toBe(state)
     expect(fileContent.entry("a.ts")).not.toBeNull()
   })
 
@@ -61,7 +67,7 @@ describe("the text riff has read of a file", () => {
     const fileContent = createFileContentState()
     fileContent.setExpanding("a.ts:start:0")
 
-    scopeToCommit(review(), fileContent, "abc1234")
+    scopeToCommit(review(), fetched(), fileContent, "abc1234")
 
     expect(fileContent.expanding()).toBeNull()
   })

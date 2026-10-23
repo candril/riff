@@ -26,8 +26,10 @@ import {
   toggleThreadPanelOpenOnly,
 } from "./state"
 import { toggleUnviewedFilesOnly } from "./app/tree-unviewed"
-import { scopeToCommit } from "./app/commit-scope"
-import { commitScopeKey } from "./features/commit-scope/key"
+import { createCommitDiffsState } from "./features/commit-scope/diffs-state"
+import { handleCommitSelected, type CommitSelectionContext } from "./features/commit-scope/handlers"
+import { spanBaseRef, type CommitScopeLoadContext } from "./features/commit-scope/load"
+import { scopeSpan } from "./features/commit-scope/span"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
@@ -80,7 +82,6 @@ import { parseDiff, sortFiles } from "./utils/diff-parser"
 import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
-import type { DiffFile } from "./utils/diff-parser"
 
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
@@ -205,6 +206,7 @@ export async function createApp(options: AppOptions = {}) {
   let flashState: FlashState = createFlashState()
   const diffOptions = createDiffOptionsState({ wrap: initialConfig.diff.wrap, alignMarkdownTables: initialConfig.diff.alignMarkdownTables })
   const fileContent = createFileContentState()
+  const commitDiffs = createCommitDiffsState()
   let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
@@ -539,6 +541,8 @@ export async function createApp(options: AppOptions = {}) {
     // The text narrowed the last PR's rows; the next PR's overview opens unfiltered.
     prInfoFilter.clear()
     fileContent.clear()
+    // The next PR's commits are not this one's.
+    commitDiffs.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -766,6 +770,16 @@ export async function createApp(options: AppOptions = {}) {
     },
   })
 
+  const commitScopeLoadContext: CommitScopeLoadContext = {
+    getState: () => state,
+    target: options.target,
+    fetchCommitDiff,
+    fetchCommitRangeDiff,
+    getLocalCommitDiff,
+    getLocalCommitRangeDiff,
+    getCommitParentSha,
+  }
+
   /**
    * Both versions of a file, for expanding context beyond the diff hunks.
    * PR mode pins to the head riff loaded and the PR's base ref rather than
@@ -775,11 +789,11 @@ export async function createApp(options: AppOptions = {}) {
   async function fetchFileVersions(filename: string): ReturnType<FetchFileVersions> {
     // A commit in scope is a diff of its own, running between that span's
     // ends rather than the review's (spec 078).
-    const span = scopeSpan()
+    const span = scopeSpan(state)
 
     if (state.appMode === "pr" && state.prInfo) {
       const { owner, repo, number, baseRef } = state.prInfo
-      const spanBase = span ? await spanBaseRef(span.oldest) : null
+      const spanBase = span ? await spanBaseRef(commitScopeLoadContext, span.oldest) : null
       const [head, base] = await Promise.all([
         span
           ? getFileContentAtRef(owner, repo, filename, span.newest)
@@ -809,7 +823,7 @@ export async function createApp(options: AppOptions = {}) {
     fileContent,
     fetchFileVersions,
     visibleFilenames: () => (split.shown() ? split.visibleFilenames() : unified.visibleFilenames()),
-    scopeSpan,
+    scopeSpan: () => scopeSpan(state),
     head: () => currentHeadSha,
     target: options.target,
     appMode: () => state.appMode,
@@ -911,6 +925,7 @@ export async function createApp(options: AppOptions = {}) {
     toast,
     lastRefresh,
     fileContent,
+    commitDiffs,
     render,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -1465,185 +1480,22 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== COMMIT SELECTION =====
-  /**
-   * The commit a span is measured from: the one before its oldest in the
-   * list — which is newest-first — or the PR's base when the span starts at
-   * the first commit there is.
-   */
-  function parentOfCommit(sha: string): string {
-    const index = state.commits.findIndex((commit) => commit.sha === sha)
-    const parent = index === -1 ? undefined : state.commits[index + 1]
-    return parent?.sha ?? state.prInfo?.baseRef ?? `${sha}^`
-  }
-
-  /**
-   * The oldest and newest commit in scope, or null when the whole review is
-   * in view. A selection with gaps is read as its commits' own patches
-   * (spec 078), and no pair of revisions spans those.
-   */
-  function scopeSpan(): { oldest: string; newest: string } | null {
-    const newest = state.viewingCommit
-    if (!newest) return null
-    const scope = state.viewingCommitScope
-    return scope ? contiguousRun(scope) : { oldest: newest, newest }
-  }
-
-  /**
-   * The revision a span's diff is measured from: the commit before its
-   * oldest. That one is in the list riff already has, except for the first
-   * commit of the review, whose predecessor the API has to name.
-   */
-  async function spanBaseRef(oldest: string): Promise<string | null> {
-    const index = state.commits.findIndex((commit) => commit.sha === oldest)
-    const previous = index === -1 ? undefined : state.commits[index + 1]
-    if (previous) return previous.sha
-    if (!state.prInfo) return null
-    try {
-      return await getCommitParentSha(state.prInfo.owner, state.prInfo.repo, oldest)
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * Is this scope a run of commits, oldest to newest, with nothing skipped?
-   * A run has one cumulative diff; a selection with gaps does not, and is
-   * read as its commits' patches instead (spec 078).
-   */
-  function contiguousRun(scope: readonly string[]): { oldest: string; newest: string } | null {
-    if (scope.length < 2) return null
-    const positions = scope.map((sha) => state.commits.findIndex((c) => c.sha === sha))
-    if (positions.some((index) => index === -1)) return null
-    const sorted = [...positions].sort((a, b) => a - b)
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i]! !== sorted[i - 1]! + 1) return null
-    }
-    return {
-      oldest: state.commits[sorted[sorted.length - 1]!]!.sha,
-      newest: state.commits[sorted[0]!]!.sha,
-    }
-  }
-
-  /** One commit's patch, from whichever provider this review came from. */
-  async function commitPatch(sha: string): Promise<string> {
-    return state.appMode === "pr" && state.prInfo
-      ? await fetchCommitDiff(state.prInfo.owner, state.prInfo.repo, sha)
-      : await getLocalCommitDiff(sha, options.target)
-  }
-
-  /**
-   * The files a scope covers. A run is one cumulative diff; commits picked
-   * with gaps between them are their own patches, oldest first, with a file
-   * two of them touched carrying both sets of hunks — which is what
-   * `git log -p` would have shown.
-   */
-  async function scopeFiles(scope: readonly string[]): Promise<DiffFile[]> {
-    const run = contiguousRun(scope)
-    if (run) {
-      const raw = state.appMode === "pr" && state.prInfo
-        ? await fetchCommitRangeDiff(
-            state.prInfo.owner,
-            state.prInfo.repo,
-            parentOfCommit(run.oldest),
-            run.newest
-          )
-        : await getLocalCommitRangeDiff(run.oldest, run.newest)
-      return sortFiles(parseDiff(raw))
-    }
-
-    if (scope.length === 1) return sortFiles(parseDiff(await commitPatch(scope[0]!)))
-
-    const merged = new Map<string, DiffFile>()
-    for (const sha of [...scope].reverse()) {
-      for (const file of parseDiff(await commitPatch(sha))) {
-        const seen = merged.get(file.filename)
-        merged.set(
-          file.filename,
-          seen
-            ? {
-                ...seen,
-                additions: seen.additions + file.additions,
-                deletions: seen.deletions + file.deletions,
-                content: `${seen.content}\n${file.content}`,
-              }
-            : file
-        )
-      }
-    }
-    return sortFiles([...merged.values()])
-  }
-
-  async function handleCommitSelected(
-    sha: string | null,
-    filename?: string,
-    scope?: readonly string[] | null,
-  ) {
-    if (sha === null) {
-      // Switch back to all commits
-      state = scopeToCommit(state, fileContent, null)
-      state = { ...state, fileTree: buildFileTree(state.files) }
-      vimState = createCursorState()
-      createLineMapping()
-      toast.show("Viewing all commits", "info")
-      render()
-      setTimeout(() => { toast.clear(); render() }, 1500)
-      return
-    }
-
-    const shas = scope && scope.length > 0 ? scope : [sha]
-    const cacheKey = commitScopeKey(sha, shas)
-
-    if (!state.commitDiffCache.has(cacheKey)) {
-      toast.show(shas.length > 1 ? "Loading commits..." : "Loading commit...", "info")
-      render()
-
-      try {
-        const files = await scopeFiles(shas)
-        const newCache = new Map(state.commitDiffCache)
-        newCache.set(cacheKey, { files, fileTree: buildFileTree(files) })
-        state = { ...state, commitDiffCache: newCache }
-      } catch (err) {
-        toast.show(`Failed to load commit: ${err instanceof Error ? err.message : "Unknown error"}`, "error")
-        render()
-        setTimeout(() => { toast.clear(); render() }, 3000)
-        return
-      }
-    }
-
-    // Switch to the commit's diff
-    state = scopeToCommit(state, fileContent, sha, shas)
-    vimState = createCursorState()
-    createLineMapping()
-
-    // Asked for from a file row: the commit's diff, at that file — with the
-    // file at the top of the window, since it is the whole reason for
-    // coming. Drawing the new commit's mapping reveals the cursor wherever
-    // it is, so the placement waits for revealFile to have moved it.
-    const fileIndex = filename ? state.files.findIndex((file) => file.filename === filename) : -1
-    if (fileIndex !== -1) {
+  const commitSelectionContext: CommitSelectionContext = {
+    getState: () => state,
+    setState: setAppState,
+    commitDiffs,
+    fileContent,
+    toast,
+    render,
+    resetCursor: () => { vimState = createCursorState() },
+    rebuildLineMapping: () => { createLineMapping() },
+    // Drawing the new commit's mapping reveals the cursor wherever it is, so
+    // the placement waits for revealFile to have moved it.
+    revealFileAtTop: (fileIndex) => {
       diffViewport.onceRebuilt(() => diffViewport.scrollCursorTo(vimState.line, "top"))
       fileNavigation.revealFile(fileIndex, fileNavContext)
-    }
-
-    // Show toast with commit info
-    const commit = state.commits.find(c => c.sha === sha)
-    const commitIdx = state.commits.findIndex(c => c.sha === sha) + 1
-    const run = contiguousRun(shas)
-    if (run) {
-      const oldestIdx = state.commits.findIndex(c => c.sha === run.oldest) + 1
-      toast.show(
-        `Commits ${commitIdx}\u2013${oldestIdx} of ${state.commits.length}`,
-        "info"
-      )
-    } else if (shas.length > 1) {
-      toast.show(`${shas.length} commits of ${state.commits.length}`, "info")
-    } else {
-      const msg = commit ? `${commit.sha}: ${commit.message}` : sha
-      const truncMsg = msg.length > 50 ? msg.slice(0, 49) + "\u2026" : msg
-      toast.show(`Commit ${commitIdx}/${state.commits.length}: ${truncMsg}`, "info")
-    }
-    render()
-    setTimeout(() => { toast.clear(); render() }, 1500)
+    },
+    load: commitScopeLoadContext,
   }
 
   const feedLoadContext: feedFeature.FeedLoadContext = {
@@ -1767,7 +1619,7 @@ export async function createApp(options: AppOptions = {}) {
     toggleOpenThreadsOnly,
     toggleUnviewedFilesOnly: toggleUnviewedFiles,
     onToggleReaction: handleToggleReaction,
-    onCommitSelected: handleCommitSelected,
+    onCommitSelected: (sha, filename, scope) => { void handleCommitSelected(commitSelectionContext, sha, filename, scope) },
     openBranchPr: (view) => { void openBranchPr(view) },
     foldsContext,
     fileNavContext,

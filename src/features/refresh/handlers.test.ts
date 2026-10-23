@@ -20,6 +20,7 @@ import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state
 import { createJumpListState } from "../jumplist/state"
 import { createLastRefreshState } from "./last-refresh-state"
 import { createFileContentState } from "../file-content/state"
+import { createCommitDiffsState } from "../commit-scope/diffs-state"
 import { createFeedState } from "../feed/state"
 import type { FeedEvent } from "../../utils/feed"
 import { refreshHarness } from "../../testing/refresh-harness"
@@ -54,6 +55,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -89,6 +91,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -125,6 +128,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -163,6 +167,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -199,6 +204,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -236,6 +242,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -274,6 +281,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -313,6 +321,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -351,6 +360,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -394,6 +404,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -434,6 +445,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -470,6 +482,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -505,6 +518,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -542,6 +556,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -578,6 +593,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent: createFileContentState(),
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -615,6 +631,7 @@ describe("a refresh's rebuilt state", () => {
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
       fileContent,
+      commitDiffs: createCommitDiffsState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -623,6 +640,16 @@ describe("a refresh's rebuilt state", () => {
     expect(fileContent.contents()).toEqual({})
     expect([...fileContent.expanded()]).toEqual([])
     expect(fileContent.expanding()).toBeNull()
+  })
+
+  test("empties the per-commit diffs, which were fetched for the review before it", () => {
+    const { ctx } = refreshHarness({ appMode: "pr" })
+    const commitDiffs = createCommitDiffsState()
+    commitDiffs.put("abc1234", [])
+
+    adoptReloadedState({ ...ctx, commitDiffs }, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(commitDiffs.has("abc1234")).toBe(false)
   })
 })
 

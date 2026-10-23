@@ -6,7 +6,6 @@ import { mountApp } from "./app-render"
 import { keysOn } from "./chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
 import { FlashHandler } from "../vim-diff/flash-handler"
-import { buildFileTree } from "../utils/file-tree"
 import { parseDiff } from "../utils/diff-parser"
 import { clearFileSelection, setViewingCommit, type AppState } from "../state"
 import { commitScopeKey } from "../features/commit-scope/key"
@@ -117,13 +116,13 @@ export async function jumpScenario({
   const mounted = await mountApp(diff, { width, height })
   const allFiles = parseDiff(diff)
   const onlyBeta = allFiles.filter((file) => file.filename === "src/beta.ts")
+  mounted.commitDiffs.put(commitScopeKey("aaa1111"), onlyBeta)
   mounted.show({
     focusedPanel: "diff",
     showFilePanel: true,
     treeHighlightIndex: 0,
     comments: THREADS,
     commits: COMMITS,
-    commitDiffCache: new Map([[commitScopeKey("aaa1111"), { files: onlyBeta, fileTree: buildFileTree(onlyBeta) }]]),
   })
   const { ctx: render } = mounted
   const cursorView = routeDiffViewport(render.unified, {
@@ -202,7 +201,7 @@ export async function jumpScenario({
   })
   const onCommitSelected = (sha: string | null) => {
     // app.ts's handleCommitSelected without the fetch: the commit's files are cached.
-    render.setState((s) => setViewingCommit(s, sha, sha ? [sha] : null))
+    render.setState((s) => setViewingCommit(s, sha, sha ? [sha] : null, sha ? mounted.commitDiffs.entry(commitScopeKey(sha)) : null))
     setVimState(createCursorState())
     rebuildLineMapping()
   }

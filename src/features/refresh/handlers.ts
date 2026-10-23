@@ -61,6 +61,7 @@ import type { ToastState } from "../toast/state"
 import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 import type { LastRefreshState } from "./last-refresh-state"
 import type { FileContentState } from "../file-content/state"
+import type { CommitDiffsState } from "../commit-scope/diffs-state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -121,6 +122,8 @@ export interface RefreshContext {
   lastRefresh: Pick<LastRefreshState, "stamp">
   /** The opened runs of context survive a reload; the files read for them are read again. */
   fileContent: Pick<FileContentState, "expanded" | "clear" | "restoreExpanded">
+  /** The reloaded review's commits may not be the ones these were fetched for. */
+  commitDiffs: Pick<CommitDiffsState, "clear">
   // App config (captured from options at init time)
   target: string | undefined
 }
@@ -313,7 +316,9 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * reloaded PR's draft again afterwards, the toast because a refresh shows its
  * outcome only once the rebuild has landed; the expanded context is emptied
  * too, so its files are read again from the reloaded diff's ends, and the
- * caller puts back the runs that were open; the refresh time is stamped, since
+ * caller puts back the runs that were open; the per-commit diffs are emptied,
+ * as the rebuild started a fresh cache when AppState held it; the refresh
+ * time is stamped, since
  * the review was just confirmed current; the global marks are not emptied,
  * since a mark is followed to its line's new place, and nor is the activity
  * feed, whose row, filters, opened commits and unseen-only are the reader's
@@ -321,7 +326,7 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh" | "fileContent">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh" | "fileContent" | "commitDiffs">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -347,6 +352,7 @@ export function adoptReloadedState(
   ctx.pendingReview.clear()
   ctx.toast.clear()
   ctx.fileContent.clear()
+  ctx.commitDiffs.clear()
   ctx.lastRefresh.stamp()
 }
 
