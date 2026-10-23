@@ -94,6 +94,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     fileNavContext: {
       getState: render.getState,
       setState: render.setState,
+      fileFolds: mounted.fileFolds,
       createLineMapping: () => {},
       getHeadSha: () => "abc1234",
       setHeadSha: () => {},

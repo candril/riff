@@ -44,7 +44,6 @@ export interface RefreshPosition {
   threadPanelOpenOnly: boolean
   treeUnviewedOnly: boolean
   treeKeptFile: string | null
-  collapsedFiles: Set<string>
   /** Not put back by restorePosition: the expanded-context factory holds them, and the refresh restores them there. */
   expandedDividers: Set<string>
   anchor: CursorAnchor | null
@@ -78,7 +77,6 @@ export function capturePosition(
     threadPanelOpenOnly: state.threadPanelOpenOnly,
     treeUnviewedOnly: state.treeUnviewedOnly,
     treeKeptFile: state.treeKeptFile,
-    collapsedFiles: new Set(state.collapsedFiles),
     expandedDividers: new Set(expandedDividers),
     anchor: captureAnchor(mapping, vim),
     search,
@@ -86,9 +84,9 @@ export function capturePosition(
 }
 
 /**
- * Put the view back, over freshly loaded data. The folds are restored as
- * they were and the reload's own decisions — a file that just became viewed
- * or ignored — are unioned on top by the caller afterwards.
+ * Put the view back, over freshly loaded data. The folds are not here: their
+ * factories outlive the reload, and the caller folds the files that just
+ * became viewed or ignored on top of them.
  */
 export function restorePosition(state: AppState, position: RefreshPosition): AppState {
   return reseatTreeHighlight(restoreFields(state, position), position.treeHighlightPath)
@@ -131,7 +129,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     threadPanelOpenOnly: position.threadPanelOpenOnly,
     treeUnviewedOnly: position.treeUnviewedOnly,
     treeKeptFile: position.treeKeptFile,
-    collapsedFiles: new Set(position.collapsedFiles),
   }
 }
 

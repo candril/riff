@@ -104,6 +104,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     fileNavContext: {
       getState: render.getState,
       setState: render.setState,
+      fileFolds: mounted.fileFolds,
       createLineMapping: () => {},
     } as unknown as AppKeyContext["fileNavContext"],
     commentsContext: { getCachedCurrentUser: () => null } as unknown as AppKeyContext["commentsContext"],

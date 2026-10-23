@@ -50,6 +50,7 @@ async function bracketApp(more: Partial<AppKeyContext> = {}) {
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,

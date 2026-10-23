@@ -76,6 +76,7 @@ export function branchPrHarness(options: BranchPrHarnessOptions = {}) {
     activityFeed: createFeedState(),
     visit: createVisitState(),
     features,
+    fileFolds: features.fileFolds,
   }
 
   return {

@@ -11,7 +11,6 @@ import { editPullRequest, submitPrComment } from "./providers/github/mutations"
 import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
 import { getCommitParentSha } from "./providers/github/content"
 import {
-  expandFiles,
   promptOpen,
   type AppState,
   setTreeFilter,
@@ -59,6 +58,7 @@ import { createToastState } from "./features/toast/state"
 import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
 import { createBlockFoldsState } from "./features/folds/block-folds-state"
+import { createFileFoldsState } from "./features/folds/file-folds-state"
 import { loadFileContent as loadFileContentInto } from "./features/file-content/load"
 import { createFileVersionsReader, liveFileVersionSources } from "./features/file-content/versions"
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
@@ -176,7 +176,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit, config: initialConfig } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit, foldedFiles: initialFoldedFiles, config: initialConfig } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -204,8 +204,10 @@ export async function createApp(options: AppOptions = {}) {
   const diffOptions = createDiffOptionsState({ wrap: initialConfig.diff.wrap, alignMarkdownTables: initialConfig.diff.alignMarkdownTables })
   const fileContent = createFileContentState()
   const blockFolds = createBlockFoldsState()
+  const fileFolds = createFileFoldsState()
+  fileFolds.collapse(initialFoldedFiles)
   const commitDiffs = createCommitDiffsState()
-  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds)
+  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds, fileFolds)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
@@ -318,7 +320,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     requestFileModeContent()
-    lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
+    lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
@@ -530,6 +532,7 @@ export async function createApp(options: AppOptions = {}) {
     fileContent,
     commitDiffs,
     blockFolds,
+    fileFolds,
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -816,10 +819,10 @@ export async function createApp(options: AppOptions = {}) {
     },
     getCollapsedFiles: () =>
       state.files
-        .filter((file) => state.collapsedFiles.has(file.filename))
+        .filter((file) => fileFolds.isCollapsed(file.filename))
         .map((file) => ({ filename: file.filename, diff: file.content })),
     expandFiles: (filenames) => {
-      state = expandFiles(state, filenames)
+      fileFolds.expand(filenames)
       createLineMapping()
     },
     onUpdate: () => {
@@ -884,6 +887,7 @@ export async function createApp(options: AppOptions = {}) {
     lastRefresh,
     fileContent,
     commitDiffs,
+    fileFolds,
     render,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -964,6 +968,7 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     blockFolds,
+    fileFolds,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
     getLineMapping: () => lineMapping,
@@ -978,6 +983,7 @@ export async function createApp(options: AppOptions = {}) {
   const fileNavContext: fileNavigation.FileNavigationContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    fileFolds,
     toast,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -1100,7 +1106,7 @@ export async function createApp(options: AppOptions = {}) {
     setVimState: (s) => { vimState = s },
     setSearchState: (s) => { searchState = s },
     setHeadSha: (sha) => { currentHeadSha = sha },
-    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds) },
+    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds) },
     forgetBaseLookups: () => baseLookups.state.forget(),
     render,
     toast,
@@ -1109,6 +1115,7 @@ export async function createApp(options: AppOptions = {}) {
     activityFeed,
     visit,
     features: anotherReviewFeatures,
+    fileFolds,
   }
 
   const actionHandlers: actionMenuFeature.ActionHandlers = {
@@ -1355,6 +1362,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: setAppState,
     commitDiffs,
     fileContent,
+    fileFolds,
     toast,
     render,
     resetCursor: () => { vimState = createCursorState() },
@@ -1390,6 +1398,7 @@ export async function createApp(options: AppOptions = {}) {
     activityFeed,
     visit,
     features: anotherReviewFeatures,
+    fileFolds,
     pendingReviewLoad,
   })
 
@@ -1466,6 +1475,7 @@ export async function createApp(options: AppOptions = {}) {
     prInfoFilter,
     diffOptions,
     blockFolds,
+    fileFolds,
     activityFeed,
     visit,
     jumpList,

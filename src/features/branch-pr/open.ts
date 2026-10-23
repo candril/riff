@@ -6,7 +6,7 @@
  */
 
 import type { AppState } from "../../state"
-import { createInitialState, loadFileStatuses, collapseViewedFiles } from "../../state"
+import { createInitialState, loadFileStatuses, viewedFilenames } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
@@ -24,6 +24,7 @@ import type { ToastState } from "../toast/state"
 import type { LastRefreshState } from "../refresh/last-refresh-state"
 import { closeFeatureOverlays, type AnotherReviewFeatures } from "../refresh/another-review"
 import type { RecreatePrInfoPanel } from "../pr-info-panel/rebuild"
+import type { FileFoldsState } from "../folds/file-folds-state"
 import { loadPendingReview, type LoadPendingReviewContext } from "../review-preview/load-pending"
 
 export interface OpenBranchPrSources {
@@ -64,6 +65,7 @@ export interface OpenBranchPrContext {
   activityFeed: Pick<ActivityFeedState, "reset">
   visit: Pick<VisitState, "reset">
   features: AnotherReviewFeatures
+  fileFolds: Pick<FileFoldsState, "collapse">
   pendingReviewLoad: LoadPendingReviewContext
 }
 
@@ -114,7 +116,6 @@ export function createBranchPrOpener(ctx: OpenBranchPrContext): (view: "state" |
       const followed = await ctx.sources.followLoadedMarks(source, await ctx.sources.loadMarks(source), files, loaded.headSha || undefined)
       ctx.setState(() => ({
         ...next,
-        collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
         commits: loaded.prInfo.commits ?? [],
         threadPanelOpenOnly: panelFilters.openThreadsOnly,
         treeUnviewedOnly: panelFilters.unviewedFilesOnly,
@@ -126,9 +127,11 @@ export function createBranchPrOpener(ctx: OpenBranchPrContext): (view: "state" |
       ctx.activityFeed.reset()
       ctx.visit.reset()
       closeFeatureOverlays(ctx.features)
+      ctx.fileFolds.collapse(ignored)
       const opened = ctx.getState()
       const viewed = await ctx.sources.loadViewedStatuses(source)
-      ctx.setState(() => collapseViewedFiles(loadFileStatuses(opened, viewed)))
+      ctx.setState(() => loadFileStatuses(opened, viewed))
+      ctx.fileFolds.collapse(viewedFilenames(ctx.getState()))
 
       // A local review has no PR info panel — there was no pull request to
       // build one from — and the overview is that panel. Without this the

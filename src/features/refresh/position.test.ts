@@ -118,12 +118,11 @@ describe("restoring the view", () => {
     return createInitialState(of, buildFileTree(of), "local", "local changes")
   }
 
-  test("keeps the selected file, the folds and the view mode", () => {
+  test("keeps the selected file and the view mode", () => {
     const before = {
       ...stateWith(files),
       viewMode: "diff" as const,
       selectedFileIndex: 1,
-      collapsedFiles: new Set(["a.ts"]),
       treeFilter: "b",
       threadPanelOpenOnly: true,
       treeUnviewedOnly: true,
@@ -137,7 +136,6 @@ describe("restoring the view", () => {
     const after = restorePosition(stateWith(reordered), position)
 
     expect(after.files[after.selectedFileIndex!]?.filename).toBe("b.ts")
-    expect(after.collapsedFiles).toEqual(new Set(["a.ts"]))
     expect(after.treeFilter).toBe("b")
     expect(after.threadPanelOpenOnly).toBe(true)
     expect(after.treeUnviewedOnly).toBe(true)

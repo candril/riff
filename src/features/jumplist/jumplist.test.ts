@@ -250,7 +250,6 @@ describe("apply", () => {
     const blockFolds = createBlockFoldsState()
     const build = () =>
       new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
-        collapsedFiles: state.collapsedFiles,
         collapsedBlocks: blockFolds.collapsed(),
       })
     let mapping = build()

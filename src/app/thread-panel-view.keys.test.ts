@@ -44,6 +44,7 @@ async function panelApp() {
     fileNavContext: {
       getState: mounted.ctx.getState,
       setState: mounted.ctx.setState,
+      fileFolds: mounted.fileFolds,
       createLineMapping: () => {},
     } as unknown as AppKeyContext["fileNavContext"],
     flashHandler: {

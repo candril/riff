@@ -3,6 +3,7 @@ import type { AppState } from "../../state"
 import { commitsReview, loadContext, patch } from "../../testing/commit-scope"
 import { parseDiff } from "../../utils/diff-parser"
 import { createFileContentState } from "../file-content/state"
+import { createFileFoldsState } from "../folds/file-folds-state"
 import { createToastState } from "../toast/state"
 import { createCommitDiffsState } from "./diffs-state"
 import { handleCommitSelected, type CommitSelectionContext } from "./handlers"
@@ -20,6 +21,7 @@ function selecting(fetchCommitDiff: (sha: string) => Promise<string>) {
     setState: (fn) => { state = fn(state) },
     commitDiffs,
     fileContent: createFileContentState(),
+    fileFolds: createFileFoldsState(),
     toast,
     render: () => {},
     resetCursor: () => {},

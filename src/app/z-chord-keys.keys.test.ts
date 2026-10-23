@@ -106,6 +106,7 @@ async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
     getState: render.getState,
     setState: render.setState,
     blockFolds: mounted.blockFolds,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -167,12 +168,44 @@ describe("the cursor's line", () => {
 
 describe("folds", () => {
   test("za folds the file the cursor is in, and unfolds it again", async () => {
-    const { type, state, lineOf, keys } = await zApp()
+    const { mounted, type, lineOf, keys } = await zApp()
     keys.jumpTo(lineOf('  return "hello"'))
     type("z", "a")
-    expect([...state().collapsedFiles]).toEqual(["a.ts"])
+    expect([...mounted.fileFolds.collapsed()]).toEqual(["a.ts"])
     type("z", "a")
-    expect(state().collapsedFiles.size).toBe(0)
+    expect(mounted.fileFolds.collapsed().size).toBe(0)
+  })
+
+  test("zc on a file's body hides its lines under its header, and zo brings them back", async () => {
+    const { mounted, type, lineOf, keys } = await zApp()
+    const hellos = (frame: string) => frame.split('return "hello"').length - 1
+    expect(hellos(await mounted.frame())).toBe(2)
+
+    keys.jumpTo(lineOf('  return "hello"'))
+    type("z", "c")
+    const folded = await mounted.frame()
+    expect(hellos(folded)).toBe(1)
+    expect(folded).toContain("▶   a.ts")
+
+    type("z", "o")
+    const unfolded = await mounted.frame()
+    expect(hellos(unfolded)).toBe(2)
+    expect(unfolded).toContain("▼   a.ts")
+  })
+
+  test("zM hides every file's lines under its header, and zR brings them back", async () => {
+    const { mounted, type } = await zApp()
+    type("z", "\x1b[77;2u")
+    const folded = await mounted.frame()
+    expect(folded).not.toContain('return "hello"')
+    expect(folded).not.toContain("between")
+    for (const file of ["a.ts", "b.ts", "doc.md"]) expect(folded).toContain(`▶   ${file}`)
+
+    type("z", "\x1b[82;2u")
+    const unfolded = await mounted.frame()
+    expect(unfolded.split('return "hello"').length - 1).toBe(2)
+    expect(unfolded).toContain("between")
+    for (const file of ["a.ts", "b.ts", "doc.md"]) expect(unfolded).toContain(`▼   ${file}`)
   })
 
   test("zA and the shifted lower-case za both fold every fenced block of the file", async () => {
@@ -235,7 +268,7 @@ describe("folds", () => {
   })
 
   test("zM, zm and the shifted zm fold every file, zR, zr and the shifted zr unfold them", async () => {
-    const { mounted, type, state } = await zApp()
+    const { mounted, type } = await zApp()
     const everyFile = ["a.ts", "b.ts", "doc.md"]
     for (const [fold, unfold] of [
       ["\x1b[77;2u", "\x1b[82;2u"],
@@ -243,21 +276,21 @@ describe("folds", () => {
       ["\x1b[109;2u", "\x1b[114;2u"],
     ] as const) {
       type("z", fold)
-      expect([...state().collapsedFiles].sort()).toEqual(everyFile)
+      expect([...mounted.fileFolds.collapsed()].sort()).toEqual(everyFile)
       expect(mounted.blockFolds.collapsed().size).toBe(1)
       type("z", unfold)
-      expect(state().collapsedFiles.size).toBe(0)
+      expect(mounted.fileFolds.collapsed().size).toBe(0)
       expect(mounted.blockFolds.collapsed().size).toBe(0)
     }
   })
 
   test("zc closes the fold at the cursor and zo opens it", async () => {
-    const { type, state, lineOf, keys } = await zApp()
+    const { mounted, type, lineOf, keys } = await zApp()
     keys.jumpTo(lineOf('  return "hello"'))
     type("z", "c")
-    expect([...state().collapsedFiles]).toEqual(["a.ts"])
+    expect([...mounted.fileFolds.collapsed()]).toEqual(["a.ts"])
     type("z", "o")
-    expect(state().collapsedFiles.size).toBe(0)
+    expect(mounted.fileFolds.collapsed().size).toBe(0)
   })
 })
 
@@ -289,7 +322,7 @@ test("zl and zh scroll a column, zL and zH half a window, zs and ze to the curso
 })
 
 test("in the feed, za opens the highlighted row", async () => {
-  const { mounted, type, state } = await zApp()
+  const { mounted, type } = await zApp()
   mounted.activityFeed.setEvents(FEED_EVENTS)
   mounted.show({
     appMode: "pr",
@@ -298,7 +331,7 @@ test("in the feed, za opens the highlighted row", async () => {
   await mounted.frame()
   type("z", "a")
   expect(mounted.activityFeed.expandedIds().size).toBe(1)
-  expect(state().collapsedFiles.size).toBe(0)
+  expect(mounted.fileFolds.collapsed().size).toBe(0)
 })
 
 describe("a key that breaks off a sequence", () => {
@@ -435,7 +468,7 @@ describe("under a modal", () => {
     expect(keys.chordPending()).toBe(false)
     type("z", "z", "a")
     expect(scrolls).toEqual([])
-    expect(state().collapsedFiles.size).toBe(0)
+    expect(mounted.fileFolds.collapsed().size).toBe(0)
     expect(state().inlineCommentOverlay.open).toBe(true)
   })
 
@@ -443,7 +476,7 @@ describe("under a modal", () => {
     setSystemTime(PR_NOW)
     const restoreColumns = pinStdoutColumns(120)
     let panel: PRInfoPanelClass | null = null
-    const { mounted, type, scrolls, keys, state } = await zApp({ getPrInfoPanel: () => panel })
+    const { mounted, type, scrolls, keys } = await zApp({ getPrInfoPanel: () => panel })
     const info = fullPr()
     panel = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [], new Set(["description"]))
     try {
@@ -455,7 +488,7 @@ describe("under a modal", () => {
       type("a")
       expect(await mounted.frame()).toContain("▶  Description")
       expect(scrolls).toEqual([])
-      expect(state().collapsedFiles.size).toBe(0)
+      expect(mounted.fileFolds.collapsed().size).toBe(0)
     } finally {
       panel?.destroy()
       restoreColumns()

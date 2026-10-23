@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
+import type { AppState } from "../../state"
+import { IgnoreMatcher } from "../../utils/ignore"
 import { createFeedState } from "../feed/state"
 import { branchPrHarness, prSession } from "../../testing/branch-pr-harness"
 import { handleCreatePr, type CreatePrSources } from "./create"
 
-function creator(sources: Partial<CreatePrSources> = {}) {
-  const h = branchPrHarness({ state: (s) => ({ ...s, branchPr: null }) })
+function creator(sources: Partial<CreatePrSources> = {}, state: (s: AppState) => AppState = (s) => s) {
+  const h = branchPrHarness({ state: (s) => state({ ...s, branchPr: null }) })
   const terminal: string[] = []
   const later: { ms: number }[] = []
   const created: string[] = []
@@ -72,6 +74,15 @@ describe("creating a pull request", () => {
     expect(h.features.jumpList.list().entries).toHaveLength(0)
     expect(h.features.help.open()).toBe(false)
     expect(h.features.blockFolds.collapsed().size).toBe(0)
+  })
+
+  test("drops the local review's folded files and folds the PR's ignored ones", async () => {
+    const h = creator({}, (s) => ({ ...s, ignoreMatcher: new IgnoreMatcher(["b.ts"]) }))
+    h.features.fileFolds.collapse(["a.ts", "c.ts"])
+
+    await h.create()
+
+    expect([...h.features.fileFolds.collapsed()]).toEqual(["b.ts"])
   })
 
   test("a PR gh will not create gives the terminal back once and says why", async () => {

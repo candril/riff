@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { AppState } from "../../state"
 import type { PendingReview } from "../../providers/github/types"
 import { createFeedState } from "../feed/state"
+import { IgnoreMatcher } from "../../utils/ignore"
 import { branchPrHarness, prSession, type BranchPrHarnessOptions } from "../../testing/branch-pr-harness"
 import { deferred } from "../../testing/refresh-harness"
 import { createBranchPrOpener, type OpenBranchPrSources } from "./open"
@@ -81,6 +82,18 @@ describe("opening the branch's pull request", () => {
     expect(h.features.help.open()).toBe(false)
     expect(h.features.prInfoFilter.filter()).toBe("")
     expect(h.features.blockFolds.collapsed().size).toBe(0)
+  })
+
+  test("drops the local review's folded files and folds the PR's ignored and viewed ones", async () => {
+    const h = opener({
+      state: (s) => ({ ...s, ignoreMatcher: new IgnoreMatcher(["b.ts"]) }),
+      sources: { loadViewedStatuses: async () => [{ filename: "c.ts", viewed: true }] },
+    })
+    h.features.fileFolds.collapse(["a.ts"])
+
+    await h.open("state")
+
+    expect([...h.features.fileFolds.collapsed()].sort()).toEqual(["b.ts", "c.ts"])
   })
 
   test("fetches the PR's pending review once the viewed statuses have landed, and shows its comment", async () => {

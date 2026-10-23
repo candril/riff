@@ -14,7 +14,7 @@ import {
   createInitialState,
   loadFileStatuses,
   updateFileStatuses,
-  collapseViewedFiles,
+  viewedFilenames,
 } from "../../state"
 import { PR_COMMITS_FETCH_LIMIT } from "../../providers/github/session"
 import { mergeGitHubViewedStates } from "../../utils/viewed-status"
@@ -62,6 +62,7 @@ import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 import type { LastRefreshState } from "./last-refresh-state"
 import type { FileContentState } from "../file-content/state"
 import type { CommitDiffsState } from "../commit-scope/diffs-state"
+import type { FileFoldsState } from "../folds/file-folds-state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -124,6 +125,8 @@ export interface RefreshContext {
   fileContent: Pick<FileContentState, "expanded" | "clear" | "restoreExpanded">
   /** The reloaded review's commits may not be the ones these were fetched for. */
   commitDiffs: Pick<CommitDiffsState, "clear">
+  /** Not reset by a reload: the files it finds newly viewed or ignored are folded on top. */
+  fileFolds: Pick<FileFoldsState, "collapse">
   // App config (captured from options at init time)
   target: string | undefined
 }
@@ -183,8 +186,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           prevState.ignoreMatcher
         )
         const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
-        return collapseIgnoredFiles(restorePosition(withCommits, position))
+        return restorePosition(withCommits, position)
       })
+      ctx.fileFolds.collapse(ctx.getState().ignoredFiles)
       ctx.fileContent.restoreExpanded(position.expandedDividers)
       ctx.visit.begin(watermark, forcePushed)
       followReloadedMarks(ctx, headSha || undefined)
@@ -194,16 +198,15 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       ctx.setState((s) =>
         keepTreeHighlight(s, (loading) => {
           const local = loadFileStatuses(loading, localViewedStatuses)
-          const merged =
-            viewedStatuses && headSha
-              ? updateFileStatuses(
-                  local,
-                  mergeGitHubViewedStates(local.fileStatuses, viewedStatuses, headSha, local.allFiles)
-                )
-              : local
-          return collapseViewedFiles(merged)
+          return viewedStatuses && headSha
+            ? updateFileStatuses(
+                local,
+                mergeGitHubViewedStates(local.fileStatuses, viewedStatuses, headSha, local.allFiles)
+              )
+            : local
         })
       )
+      ctx.fileFolds.collapse(viewedFilenames(ctx.getState()))
 
       rebuildFeedStream(ctx)
 
@@ -249,8 +252,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
           branchPr: prevState.branchPr,
         }
 
-        return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
+        return restorePosition(withBranchAndCommits, position)
       })
+      ctx.fileFolds.collapse(ctx.getState().ignoredFiles)
       ctx.fileContent.restoreExpanded(position.expandedDividers)
       // A local review has no visit, and a PR review loaded without its PR
       // info reloads down this path too: its watermark has nothing left to
@@ -263,8 +267,9 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       // them would drop every file's review status.
       const localViewedStatuses = await ctx.sources.loadViewedStatuses(state.source)
       ctx.setState((s) =>
-        keepTreeHighlight(s, (loading) => collapseViewedFiles(loadFileStatuses(loading, localViewedStatuses)))
+        keepTreeHighlight(s, (loading) => loadFileStatuses(loading, localViewedStatuses))
       )
+      ctx.fileFolds.collapse(viewedFilenames(ctx.getState()))
     }
 
     const landed = restoreCursor(ctx, position)
@@ -370,14 +375,4 @@ function restoreCursor(ctx: RefreshContext, position: RefreshPosition) {
   ctx.refreshSearchMatches()
 
   return landing
-}
-
-function collapseIgnoredFiles(state: AppState): AppState {
-  if (state.ignoredFiles.size === 0) return state
-
-  const collapsedFiles = new Set(state.collapsedFiles)
-  for (const filename of state.ignoredFiles) {
-    collapsedFiles.add(filename)
-  }
-  return { ...state, collapsedFiles }
 }

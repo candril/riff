@@ -47,6 +47,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,

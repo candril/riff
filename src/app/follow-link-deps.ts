@@ -1,6 +1,5 @@
 import type { AppKeyContext } from "./key-context"
 import { createOpenLink, openerCommand } from "./open-link"
-import { expandFiles } from "../state"
 import * as fileNavigation from "../features/file-navigation"
 import * as externalTools from "../features/external-tools"
 import type { FollowLinkContext } from "../features/follow-link"
@@ -21,8 +20,8 @@ export function followLinkContext(ctx: AppKeyContext): FollowLinkContext {
       const fileIndex = state.files.findIndex((file) => file.filename === filename)
 
       // A file marked viewed is folded shut; a link to it means to read it.
-      if (state.collapsedFiles.has(filename)) {
-        ctx.setState((s) => expandFiles(s, [filename]))
+      if (ctx.fileFolds.isCollapsed(filename)) {
+        ctx.fileFolds.expand([filename])
         ctx.rebuildLineMapping()
       }
       fileNavigation.revealFile(fileIndex, ctx.fileNavContext)

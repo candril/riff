@@ -178,9 +178,6 @@ export interface AppState {
   // Commits in this diff (PR commits or local commits)
   commits: PrCommit[]
   
-  // Collapsed files in all-files diff view (filenames that are collapsed)
-  collapsedFiles: Set<string>
-  
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
   viewedStats: ViewedStats
@@ -261,7 +258,6 @@ export function createInitialState(
     error,
     prInfo,
     commits: [],
-    collapsedFiles: new Set(),
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
     inlineCommentOverlay: {
@@ -653,92 +649,14 @@ export function setThreadResolved(state: AppState, rootCommentId: string, resolv
 }
 
 // ============================================================================
-// File Fold State (for all-files diff view)
+// Viewed files
 // ============================================================================
 
-/**
- * Toggle a file's collapsed state
- */
-export function toggleFileFold(state: AppState, filename: string): AppState {
-  const newCollapsed = new Set(state.collapsedFiles)
-  if (newCollapsed.has(filename)) {
-    newCollapsed.delete(filename)
-  } else {
-    newCollapsed.add(filename)
-  }
-  return {
-    ...state,
-    collapsedFiles: newCollapsed,
-  }
-}
-
-/**
- * Collapse all files (zM)
- */
-export function collapseAllFiles(state: AppState): AppState {
-  const newCollapsed = new Set<string>()
-  for (const file of state.files) {
-    newCollapsed.add(file.filename)
-  }
-  return {
-    ...state,
-    collapsedFiles: newCollapsed,
-  }
-}
-
-/**
- * Expand all files (zR)
- */
-export function expandAllFiles(state: AppState): AppState {
-  return {
-    ...state,
-    collapsedFiles: new Set(),
-  }
-}
-
-/**
- * Collapse a file (for marking as viewed)
- */
-export function collapseFile(state: AppState, filename: string): AppState {
-  if (state.collapsedFiles.has(filename)) {
-    return state  // Already collapsed
-  }
-  const newCollapsed = new Set(state.collapsedFiles)
-  newCollapsed.add(filename)
-  return {
-    ...state,
-    collapsedFiles: newCollapsed,
-  }
-}
-
-/**
- * Expand a set of files, whatever their viewed status.
- */
-export function expandFiles(state: AppState, filenames: string[]): AppState {
-  const newCollapsed = new Set(state.collapsedFiles)
-  for (const filename of filenames) {
-    newCollapsed.delete(filename)
-  }
-  return {
-    ...state,
-    collapsedFiles: newCollapsed,
-  }
-}
-
-/**
- * Collapse all viewed files
- */
-export function collapseViewedFiles(state: AppState): AppState {
-  const newCollapsed = new Set(state.collapsedFiles)
-  for (const file of state.files) {
-    if (state.fileStatuses.get(file.filename)?.viewed) {
-      newCollapsed.add(file.filename)
-    }
-  }
-  return {
-    ...state,
-    collapsedFiles: newCollapsed,
-  }
+/** The diff's files marked viewed, which a load folds shut. */
+export function viewedFilenames(state: AppState): string[] {
+  return state.files
+    .filter((file) => state.fileStatuses.get(file.filename)?.viewed)
+    .map((file) => file.filename)
 }
 
 // ============================================================================
@@ -1489,7 +1407,6 @@ export function setViewingCommit(
       files: state.allFiles,
       fileTree: state.allFileTree,
       selectedFileIndex: null,
-      collapsedFiles: new Set(),
     }
   }
 
@@ -1503,7 +1420,6 @@ export function setViewingCommit(
     files: cached.files,
     fileTree: cached.fileTree,
     selectedFileIndex: null,
-    collapsedFiles: new Set(),
   }
 }
 

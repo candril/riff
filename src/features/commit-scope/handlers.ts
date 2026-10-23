@@ -1,6 +1,7 @@
 import type { AppState } from "../../state"
 import { buildFileTree } from "../../utils/file-tree"
 import type { FileContentState } from "../file-content/state"
+import type { FileFoldsState } from "../folds/file-folds-state"
 import type { ToastState } from "../toast/state"
 import type { CommitDiffsState } from "./diffs-state"
 import { commitScopeKey } from "./key"
@@ -13,6 +14,7 @@ export interface CommitSelectionContext {
   setState: (updater: (s: AppState) => AppState) => void
   commitDiffs: Pick<CommitDiffsState, "entry" | "has" | "put" | "generation">
   fileContent: Pick<FileContentState, "forgetSpan">
+  fileFolds: Pick<FileFoldsState, "clear">
   toast: Pick<ToastState, "show" | "clear">
   render: () => void
   resetCursor: () => void
@@ -30,7 +32,7 @@ export async function handleCommitSelected(
 ) {
   const { toast, render } = ctx
   if (sha === null) {
-    ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, null))
+    ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, ctx.fileFolds, null))
     ctx.setState((state) => ({ ...state, fileTree: buildFileTree(state.files) }))
     ctx.resetCursor()
     ctx.rebuildLineMapping()
@@ -64,7 +66,7 @@ export async function handleCommitSelected(
     }
   }
 
-  ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, sha, shas))
+  ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, ctx.fileFolds, sha, shas))
   ctx.resetCursor()
   ctx.rebuildLineMapping()
 

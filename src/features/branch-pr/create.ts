@@ -23,6 +23,7 @@ import type { VisitState } from "../visit/state"
 import type { ToastState } from "../toast/state"
 import type { LastRefreshState } from "../refresh/last-refresh-state"
 import { closeFeatureOverlays, type AnotherReviewFeatures } from "../refresh/another-review"
+import type { FileFoldsState } from "../folds/file-folds-state"
 
 export interface CreatePrSources {
   openPrCreator: typeof openPrCreator
@@ -62,6 +63,7 @@ export interface CreatePrContext {
   activityFeed: Pick<ActivityFeedState, "reset">
   visit: Pick<VisitState, "reset">
   features: AnotherReviewFeatures
+  fileFolds: Pick<FileFoldsState, "collapse">
 }
 
 export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
@@ -132,14 +134,7 @@ export async function handleCreatePr(ctx: CreatePrContext): Promise<void> {
     // The new PR gets no panel here, so no rebuild forgets the lookups for it.
     ctx.forgetBaseLookups()
 
-    const created = ctx.getState()
-    if (created.ignoredFiles.size > 0) {
-      const newCollapsed = new Set(created.collapsedFiles)
-      for (const filename of created.ignoredFiles) {
-        newCollapsed.add(filename)
-      }
-      ctx.setState((state) => ({ ...state, collapsedFiles: newCollapsed }))
-    }
+    ctx.fileFolds.collapse(ctx.getState().ignoredFiles)
     const panelFilters = await ctx.sources.loadPanelFilters(newSource)
     ctx.setState((state) => ({
       ...state,

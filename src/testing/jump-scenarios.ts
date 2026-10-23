@@ -7,8 +7,9 @@ import { keysOn } from "./chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
 import { FlashHandler } from "../vim-diff/flash-handler"
 import { parseDiff } from "../utils/diff-parser"
-import { clearFileSelection, setViewingCommit, type AppState } from "../state"
+import { clearFileSelection, type AppState } from "../state"
 import { commitScopeKey } from "../features/commit-scope/key"
+import { scopeToCommit } from "../features/commit-scope/scope"
 import { createCursorState } from "../vim-diff/cursor-state"
 import type { FoldsContext } from "../features/folds"
 import type { Comment } from "../types"
@@ -139,6 +140,7 @@ export async function jumpScenario({
     getState: render.getState,
     setState: render.setState,
     blockFolds: mounted.blockFolds,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -152,6 +154,7 @@ export async function jumpScenario({
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -202,7 +205,7 @@ export async function jumpScenario({
   })
   const onCommitSelected = (sha: string | null) => {
     // app.ts's handleCommitSelected without the fetch: the commit's files are cached.
-    render.setState((s) => setViewingCommit(s, sha, sha ? [sha] : null, sha ? mounted.commitDiffs.entry(commitScopeKey(sha)) : null))
+    render.setState((s) => scopeToCommit(s, mounted.commitDiffs, mounted.fileContent, mounted.fileFolds, sha, sha ? [sha] : null))
     setVimState(createCursorState())
     rebuildLineMapping()
   }

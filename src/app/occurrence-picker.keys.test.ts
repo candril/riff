@@ -67,6 +67,7 @@ test("Ctrl-s opens the picker on its factory seeded with the word under the curs
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     createLineMapping: rebuildLineMapping,
   } as unknown as AppKeyContext["fileNavContext"]
   const keys = keysOn(mounted, { rebuildLineMapping, fileNavContext })

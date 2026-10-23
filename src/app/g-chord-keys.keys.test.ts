@@ -82,6 +82,7 @@ async function gApp(more: Partial<AppKeyContext> = {}) {
     getState: render.getState,
     setState: render.setState,
     blockFolds: mounted.blockFolds,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,

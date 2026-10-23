@@ -65,6 +65,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     fileNavContext: {
       getState: render.getState,
       setState: render.setState,
+      fileFolds: mounted.fileFolds,
       getVimState: () => vimState,
       setVimState,
       getLineMapping: render.getLineMapping,

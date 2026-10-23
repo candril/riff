@@ -9,20 +9,17 @@ import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { FileTreeIsland } from "../../app/file-tree"
 import { treeRowsOf } from "../../components"
-import {
-  updateFileTree,
-  toggleFileFold,
-  expandAllFiles,
-  collapseAllFiles,
-} from "../../state"
+import { updateFileTree } from "../../state"
 import { toggleNodeExpansion } from "../../utils/file-tree"
 import type { BlockFoldsState } from "./block-folds-state"
+import type { FileFoldsState } from "./file-folds-state"
 
 export interface FoldsContext {
   // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   blockFolds: Pick<BlockFoldsState, "collapsed" | "toggle" | "set" | "clear">
+  fileFolds: Pick<FileFoldsState, "isCollapsed" | "toggle" | "collapseAll" | "clear">
   // Vim state
   getVimState: () => VimCursorState
   setVimState: (state: VimCursorState) => void
@@ -153,7 +150,7 @@ export function handleToggleFoldAtCursor(ctx: FoldsContext): void {
 
     const filename = currentLine.filename ?? getFilenameAtCursor(ctx)
     if (filename) {
-      ctx.setState((s) => toggleFileFold(s, filename))
+      ctx.fileFolds.toggle(filename)
       ctx.rebuildLineMapping()
       const headerLine = findFileHeaderLine(ctx, filename)
       ctx.setVimState({ ...ctx.getVimState(), line: headerLine, col: 0 })
@@ -246,8 +243,8 @@ export function handleOpenFoldAtCursor(ctx: FoldsContext): void {
   if (state.selectedFileIndex !== null) return
 
   const filename = getFilenameAtCursor(ctx)
-  if (filename && state.collapsedFiles.has(filename)) {
-    ctx.setState((s) => toggleFileFold(s, filename))
+  if (filename && ctx.fileFolds.isCollapsed(filename)) {
+    ctx.fileFolds.toggle(filename)
     ctx.rebuildLineMapping()
     const headerLine = findFileHeaderLine(ctx, filename)
     ctx.setVimState({ ...ctx.getVimState(), line: headerLine, col: 0 })
@@ -297,8 +294,8 @@ export function handleCloseFoldAtCursor(ctx: FoldsContext): void {
   if (state.selectedFileIndex !== null) return
 
   const filename = getFilenameAtCursor(ctx)
-  if (filename && !state.collapsedFiles.has(filename)) {
-    ctx.setState((s) => toggleFileFold(s, filename))
+  if (filename && !ctx.fileFolds.isCollapsed(filename)) {
+    ctx.fileFolds.toggle(filename)
     ctx.rebuildLineMapping()
     const headerLine = findFileHeaderLine(ctx, filename)
     ctx.setVimState({ ...ctx.getVimState(), line: headerLine, col: 0 })
@@ -320,10 +317,8 @@ export function handleExpandAllFolds(ctx: FoldsContext): void {
         children: node.isDirectory ? expandAll(node.children) : node.children,
       }))
     }
-    ctx.setState((s) => {
-      const withTree = updateFileTree(s, expandAll(s.fileTree))
-      return expandAllFiles(withTree)
-    })
+    ctx.setState((s) => updateFileTree(s, expandAll(s.fileTree)))
+    ctx.fileFolds.clear()
     ctx.rebuildLineMapping()
     ctx.render()
     return
@@ -332,7 +327,7 @@ export function handleExpandAllFolds(ctx: FoldsContext): void {
   // Diff view - expand all files, and every fenced block with them: "show
   // me everything" means everything (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
-  ctx.setState(expandAllFiles)
+  ctx.fileFolds.clear()
   ctx.blockFolds.clear()
   ctx.rebuildLineMapping()
   if (currentFilename) {
@@ -358,10 +353,8 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
         children: node.isDirectory ? collapseAll(node.children) : node.children,
       }))
     }
-    ctx.setState((s) => {
-      const withTree = updateFileTree(s, collapseAll(s.fileTree))
-      return collapseAllFiles(withTree)
-    })
+    ctx.setState((s) => updateFileTree(s, collapseAll(s.fileTree)))
+    ctx.fileFolds.collapseAll(ctx.getState().files.map((file) => file.filename))
     ctx.rebuildLineMapping()
     ctx.render()
     return
@@ -371,7 +364,7 @@ export function handleCollapseAllFolds(ctx: FoldsContext): void {
   // file back up shows its prose rather than its diagrams (spec 073).
   const currentFilename = getFilenameAtCursor(ctx)
   const blockIds = ctx.getLineMapping().blockIdsIn()
-  ctx.setState(collapseAllFiles)
+  ctx.fileFolds.collapseAll(state.files.map((file) => file.filename))
   ctx.blockFolds.set(blockIds)
   ctx.rebuildLineMapping()
   if (currentFilename) {

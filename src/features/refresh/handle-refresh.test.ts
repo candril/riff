@@ -298,6 +298,61 @@ describe("a refresh's fenced-block folds", () => {
   }
 })
 
+describe("a refresh's file folds", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`keeps a folded file folded (${appMode})`, async () => {
+      const { ctx, toast, fileFolds, mapping } = refreshHarness({ appMode })
+      fileFolds.toggle("a.ts")
+      ctx.rebuildLineMapping()
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect([...fileFolds.collapsed()]).toEqual(["a.ts"])
+      expect(mapping().allLines.filter((line) => line.filename === "a.ts").map((line) => line.type)).toEqual(["file-header"])
+    })
+
+    test(`folds a file that became viewed during the reload on top of the kept folds (${appMode})`, async () => {
+      const { ctx, toast, fileFolds } = refreshHarness({
+        appMode,
+        sources: { loadViewedStatuses: async () => [{ filename: "b.ts", viewed: true }] },
+      })
+      fileFolds.toggle("a.ts")
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect([...fileFolds.collapsed()].sort()).toEqual(["a.ts", "b.ts"])
+    })
+
+    test(`keeps a fold toggled while the reload was awaited (${appMode})`, async () => {
+      const reached = deferred<void>()
+      const held = deferred<void>()
+      const hold = async <T>(value: T): Promise<T> => {
+        reached.resolve()
+        await held.promise
+        return value
+      }
+      const { ctx, toast, fileFolds } = refreshHarness({
+        appMode,
+        sources: {
+          loadPrSession: () =>
+            hold({ prInfo: prInfo(""), diff: THREE_TOP_LEVEL_FILES, comments: [], viewedStatuses: new Map(), headSha: "head-2" }),
+          getLocalDiff: () => hold(THREE_TOP_LEVEL_FILES),
+        },
+      })
+      fileFolds.toggle("a.ts")
+
+      const refreshing = handleRefresh(ctx)
+      await reached.promise
+      fileFolds.toggle("a.ts")
+      fileFolds.toggle("c.ts")
+      held.resolve()
+      await landed(refreshing, toast)
+
+      expect([...fileFolds.collapsed()]).toEqual(["c.ts"])
+    })
+  }
+})
+
 describe("a refresh's time", () => {
   for (const appMode of ["pr", "local"] as const) {
     test(`is stamped once the rebuild lands (${appMode})`, async () => {

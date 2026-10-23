@@ -26,6 +26,7 @@ import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
+import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
@@ -91,7 +92,9 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const fileContent = createFileContentState()
   // Held beside the context, as app.ts holds it: a reload leaves it alone.
   const blockFolds = createBlockFoldsState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds)
+  // A reload only folds more files in it.
+  const fileFolds = createFileFoldsState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
   let headSha = "head-1"
 
   const calls = {
@@ -145,7 +148,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
     getMapping: () => mapping,
-    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds) },
+    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds) },
     revealCursor: () => {},
     refreshSearchMatches: () => {},
     reloadFeed: () => { calls.reloadFeed++ },
@@ -171,6 +174,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     prCommentInput,
     fileContent,
     commitDiffs: createCommitDiffsState(),
+    fileFolds,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
@@ -185,5 +189,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, mapping: () => mapping }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, fileFolds, mapping: () => mapping }
 }

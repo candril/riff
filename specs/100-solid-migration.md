@@ -319,6 +319,13 @@ The fenced-block folds are the twenty-ninth (`createBlockFoldsState` in
 `src/features/folds/block-folds-state.ts`); the line mapping reads them
 off the factory, a reload and a commit switch keep them, and creating a
 PR or opening the branch's PR drops them.
+The file folds are the thirtieth (`createFileFoldsState` in
+`src/features/folds/file-folds-state.ts`); a load seeds them from the
+viewed and ignored files, the line mapping reads them off the factory, a
+reload keeps them (a fold toggled while it is awaited too) and folds the
+newly viewed and ignored files on top, and a commit switch, creating a PR
+and opening the branch's PR drop them, the last two then folding the new
+review's own. Nothing saves them to disk.
 What React… and Copy Comment Link act on is not kept anywhere:
 `reactionTargetOf` in `src/features/reactions/target.ts` derives it from
 what has focus when they are asked (the thread panel's highlighted comment

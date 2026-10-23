@@ -13,8 +13,6 @@ import {
   selectFile,
   isFileViewed,
   setFileViewedStatus,
-  collapseFile,
-  toggleFileFold,
   getSelectedFile,
 } from "../../state"
 import { createCursorState } from "../../vim-diff/cursor-state"
@@ -22,11 +20,13 @@ import { createViewedStatus, getHeadCommit } from "../../utils/viewed-status"
 import { saveFileViewedStatus } from "../../storage/caches"
 import { markFileViewedOnGitHub } from "../../providers/github/viewed"
 import type { ToastState } from "../toast/state"
+import type { FileFoldsState } from "../folds/file-folds-state"
 
 export interface FileNavigationContext {
   // State access
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  fileFolds: Pick<FileFoldsState, "isCollapsed" | "collapse" | "expand">
   // Vim state
   getVimState: () => VimCursorState
   setVimState: (state: VimCursorState) => void
@@ -480,7 +480,7 @@ export async function handleToggleViewed(
 
   // In all-files view, when marking as viewed: collapse and jump to next
   if (inAllFilesView && newViewed) {
-    ctx.setState((s) => collapseFile(s, filename!))
+    ctx.fileFolds.collapse([filename])
     ctx.createLineMapping()
     navigateToNextFile(filename, ctx)
   }
@@ -504,8 +504,8 @@ export async function handleToggleViewed(
 export function ensureFileExpanded(filename: string, ctx: FileNavigationContext): void {
   const state = ctx.getState()
   if (state.selectedFileIndex !== null) return
-  if (!state.collapsedFiles.has(filename)) return
+  if (!ctx.fileFolds.isCollapsed(filename)) return
 
-  ctx.setState((s) => toggleFileFold(s, filename))
+  ctx.fileFolds.expand([filename])
   ctx.createLineMapping()
 }

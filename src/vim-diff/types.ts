@@ -166,7 +166,7 @@ export interface DiffLineMappingOptions {
   /** Map of filename -> full file content (new version) */
   fileContents?: Map<string, string>
   /** Set of collapsed file names (for all-files mode) */
-  collapsedFiles?: Set<string>
+  collapsedFiles?: ReadonlySet<string>
   /** Pad markdown table cells onto a shared grid (display only). */
   alignMarkdownTables?: boolean
   /** Ids of folded fenced blocks (spec 073). */

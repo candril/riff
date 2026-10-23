@@ -48,6 +48,7 @@ test("gC opens the picker on its factory, Ctrl-n wraps, a query narrows, Enter j
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     createLineMapping: rebuildLineMapping,
   } as unknown as AppKeyContext["fileNavContext"]
   const keys = keysOn(mounted, { rebuildLineMapping, fileNavContext })

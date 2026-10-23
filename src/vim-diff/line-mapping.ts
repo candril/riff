@@ -20,7 +20,7 @@ export class DiffLineMapping implements LineSource {
   private lines: DiffLine[] = []
   private expandedDividers: ReadonlySet<string>
   private fileContents: Map<string, string>
-  private collapsedFiles: Set<string>
+  private collapsedFiles: ReadonlySet<string>
   private collapsedBlocks: ReadonlySet<string>
   private visibleFiles: ReadonlySet<string> | undefined
   private outsideDiff: boolean

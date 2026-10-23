@@ -65,6 +65,7 @@ export function keysOn(
     prInfoFilter: mounted.prInfoFilter,
     diffOptions: mounted.diffOptions,
     blockFolds: mounted.blockFolds,
+    fileFolds: mounted.fileFolds,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,

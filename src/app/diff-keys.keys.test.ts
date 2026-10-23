@@ -52,6 +52,7 @@ async function diffApp(more: Partial<AppKeyContext> = {}) {
     getState: render.getState,
     setState: render.setState,
     blockFolds: mounted.blockFolds,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,
@@ -65,6 +66,7 @@ async function diffApp(more: Partial<AppKeyContext> = {}) {
   const fileNavContext = {
     getState: render.getState,
     setState: render.setState,
+    fileFolds: mounted.fileFolds,
     getVimState: vim,
     setVimState,
     getLineMapping: render.getLineMapping,

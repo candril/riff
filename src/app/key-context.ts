@@ -57,6 +57,7 @@ import type { PrCommentInputState } from "../features/pr-info-panel/comment-inpu
 import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { BlockFoldsState } from "../features/folds/block-folds-state"
+import type { FileFoldsState } from "../features/folds/file-folds-state"
 
 export interface AppKeyContext {
   // State access
@@ -175,6 +176,8 @@ export interface AppKeyContext {
   diffOptions: DiffOptionsState
   /** The folded fenced blocks, the same instance the line mapping reads. */
   blockFolds: BlockFoldsState
+  /** The folded files of the all-files diff, the same instance the line mapping reads. */
+  fileFolds: FileFoldsState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

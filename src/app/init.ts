@@ -17,7 +17,7 @@ import {
   createInitialState,
   loadFileStatuses,
   updateFileStatuses,
-  collapseViewedFiles,
+  viewedFilenames,
   type AppState,
   type PRInfoPanelSection,
 } from "../state"
@@ -43,6 +43,7 @@ import { commentsInView } from "../utils/notes"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { FileContentState } from "../features/file-content/state"
 import type { BlockFoldsState } from "../features/folds/block-folds-state"
+import type { FileFoldsState } from "../features/folds/file-folds-state"
 
 export interface InitOptions {
   mode: AppMode
@@ -80,6 +81,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
   marks: readonly Mark[]
   /** When riff last had this PR open, and whether the branch was rewritten since; the visit factory's to own. */
   visit: { watermark: VisitWatermark | null; rebased: boolean }
+  /** The viewed and ignored files, which open folded; the file folds factory's to own. */
+  foldedFiles: string[]
   config: Config
 }> {
   const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
@@ -179,9 +182,6 @@ export async function initializeAppState(options: InitOptions): Promise<{
     )
   }
 
-  // Collapse viewed files initially
-  state = collapseViewedFiles(state)
-
   // File mode opens on one file, and the tree opens folded except for the
   // path down to it. A repository is browsed a file at a time; listed flat
   // and expanded it is neither a tree nor anything anyone reads.
@@ -196,20 +196,13 @@ export async function initializeAppState(options: InitOptions): Promise<{
     }
   }
 
-  // Auto-collapse ignored files in diff view
-  if (state.ignoredFiles.size > 0) {
-    const newCollapsed = new Set(state.collapsedFiles)
-    for (const filename of state.ignoredFiles) {
-      newCollapsed.add(filename)
-    }
-    state = { ...state, collapsedFiles: newCollapsed }
-  }
+  const foldedFiles = [...viewedFilenames(state), ...state.ignoredFiles]
 
   // A rewritten branch makes "changed since the last visit" (spec 069)
   // unanswerable from commits, so it is noted rather than guessed at.
   const rebased = wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT)
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased }, config }
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased }, foldedFiles, config }
 }
 
 /**
@@ -258,6 +251,7 @@ export function buildLineMapping(
   options: Pick<DiffOptionsState, "wrapLines" | "alignMarkdownTables">,
   fileContent: Pick<FileContentState, "contents" | "expanded">,
   blockFolds: Pick<BlockFoldsState, "collapsed">,
+  fileFolds: Pick<FileFoldsState, "collapsed">,
 ): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
@@ -271,7 +265,7 @@ export function buildLineMapping(
   return new DiffLineMappingClass(state.files, mappingMode, state.selectedFileIndex ?? undefined, {
     expandedDividers: fileContent.expanded(),
     fileContents,
-    collapsedFiles: state.collapsedFiles,
+    collapsedFiles: fileFolds.collapsed(),
     collapsedBlocks: blockFolds.collapsed(),
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     outsideDiff: state.fileMode,

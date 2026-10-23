@@ -11,6 +11,7 @@ import { setMarkAtCursor, jumpToMark, flipMark, stepToMark, type MarksContext } 
 import { createMarksState } from "./state"
 import { createToastState } from "../toast/state"
 import { createBlockFoldsState } from "../folds/block-folds-state"
+import { createFileFoldsState } from "../folds/file-folds-state"
 import type { Mark } from "./types"
 
 type Pane = "left" | "right"
@@ -30,8 +31,9 @@ function harness(files: DiffFile[], setup: Setup = {}) {
   state = {
     ...state,
     selectedFileIndex: setup.selected ?? null,
-    collapsedFiles: new Set(setup.collapsedFiles ?? []),
   }
+  const fileFolds = createFileFoldsState()
+  fileFolds.collapse(setup.collapsedFiles ?? [])
   const blockFolds = createBlockFoldsState()
   blockFolds.set(setup.collapsedBlocks ?? [])
   const marks = createMarksState()
@@ -39,7 +41,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
   let vim: VimCursorState = { ...createCursorState(), line: setup.line ?? 0 }
   const build = () =>
     new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
-      collapsedFiles: state.collapsedFiles,
+      collapsedFiles: fileFolds.collapsed(),
       collapsedBlocks: blockFolds.collapsed(),
     })
   let mapping = build()
@@ -50,6 +52,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
   const fileNavContext: FileNavigationContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
+    fileFolds,
     getVimState: () => vim,
     setVimState: (s) => { vim = s },
     getLineMapping: () => mapping,
@@ -84,6 +87,7 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     saved,
     marks,
     blockFolds,
+    fileFolds,
     state: () => state,
     vim: () => vim,
     mapping: () => mapping,
@@ -199,7 +203,7 @@ describe("'{letter}", () => {
   test("unfolds a collapsed file to reach the mark", () => {
     const h = harness([X, Y], { collapsedFiles: ["src/y.ts"], marks: [mark("a", "src/y.ts", 2)] })
     jumpToMark("a", h.ctx)
-    expect(h.state().collapsedFiles.has("src/y.ts")).toBe(false)
+    expect(h.fileFolds.isCollapsed("src/y.ts")).toBe(false)
     expect(h.mapping().getLine(h.vim().line)).toMatchObject({ filename: "src/y.ts", newLineNum: 2 })
   })
 

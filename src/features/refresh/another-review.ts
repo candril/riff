@@ -29,6 +29,7 @@ import type { PrInfoFilterState } from "../pr-info-panel/filter-state"
 import type { FileContentState } from "../file-content/state"
 import type { CommitDiffsState } from "../commit-scope/diffs-state"
 import type { BlockFoldsState } from "../folds/block-folds-state"
+import type { FileFoldsState } from "../folds/file-folds-state"
 
 export interface AnotherReviewFeatures {
   help: Pick<HelpState, "close">
@@ -52,6 +53,7 @@ export interface AnotherReviewFeatures {
   fileContent: Pick<FileContentState, "clear">
   commitDiffs: Pick<CommitDiffsState, "clear">
   blockFolds: Pick<BlockFoldsState, "clear">
+  fileFolds: Pick<FileFoldsState, "clear">
 }
 
 export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
@@ -84,4 +86,6 @@ export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
   features.commitDiffs.clear()
   // A block id names a fence in the old diff.
   features.blockFolds.clear()
+  // The next review is read afresh; its caller folds its viewed and ignored files.
+  features.fileFolds.clear()
 }
