@@ -48,6 +48,10 @@ export interface PrInfo {
   deleteBranchOnMerge?: boolean
   /** Whether the viewer may merge past the base's branch protection. */
   viewerCanMergeAsAdmin?: boolean
+  /** Whether the repository lets a PR arm auto-merge; absent when the query did not ask. */
+  autoMergeAllowed?: boolean
+  /** The PR's GraphQL node id, needed only to dequeue it, which gh has no command for. */
+  nodeId?: string
   // Extended info (loaded separately)
   commits?: PrCommit[]
   reviews?: PrReview[]

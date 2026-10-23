@@ -199,12 +199,15 @@ describe("reading a PR out of the GraphQL bundle", () => {
       rebaseMergeAllowed: false,
       viewerDefaultMergeMethod: "MERGE",
       deleteBranchOnMerge: true,
+      autoMergeAllowed: false,
     }
-    const info = prInfoOf(pr({ viewerCanMergeAsAdmin: true }), "o", "r", repository)
+    const info = prInfoOf(pr({ viewerCanMergeAsAdmin: true, id: "PR_kwDO" }), "o", "r", repository)
     expect(info.mergeMethods).toEqual(["squash", "merge"])
     expect(info.defaultMergeMethod).toBe("merge")
     expect(info.deleteBranchOnMerge).toBe(true)
     expect(info.viewerCanMergeAsAdmin).toBe(true)
+    expect(info.autoMergeAllowed).toBe(false)
+    expect(info.nodeId).toBe("PR_kwDO")
 
     const none = prInfoOf(pr(), "o", "r", { viewerDefaultMergeMethod: null })
     expect(none.mergeMethods).toEqual([])
@@ -212,7 +215,7 @@ describe("reading a PR out of the GraphQL bundle", () => {
     expect(none.deleteBranchOnMerge).toBe(false)
 
     const bare = prInfoOf(pr(), "o", "r")
-    for (const key of ["mergeMethods", "defaultMergeMethod", "deleteBranchOnMerge", "viewerCanMergeAsAdmin"]) {
+    for (const key of ["mergeMethods", "defaultMergeMethod", "deleteBranchOnMerge", "viewerCanMergeAsAdmin", "autoMergeAllowed", "nodeId"]) {
       expect(key in bare).toBe(false)
     }
   })

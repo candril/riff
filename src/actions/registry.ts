@@ -14,6 +14,12 @@ export const MERGE_ACTIONS: readonly { id: string; label: string; method: MergeM
   { id: "merge-rebase", label: "Rebase and Merge", method: "rebase" },
 ]
 
+export const AUTO_MERGE_ACTIONS: readonly { id: string; label: string; method: MergeMethod }[] = [
+  { id: "auto-merge-squash", label: "Enable Auto-Merge (Squash)", method: "squash" },
+  { id: "auto-merge-commit", label: "Enable Auto-Merge (Merge Commit)", method: "merge" },
+  { id: "auto-merge-rebase", label: "Enable Auto-Merge (Rebase)", method: "rebase" },
+]
+
 /**
  * All available actions in the app.
  * The handler is not stored here - it's looked up by ID in app.ts.
@@ -488,6 +494,39 @@ export const actions: Action[] = [
     available: (state) =>
       state.appMode === "pr" && state.prInfo?.state === "open" && (state.prInfo.mergeMethods?.includes(method) ?? false),
   })),
+  ...AUTO_MERGE_ACTIONS.map(({ id, label, method }): Action => ({
+    id,
+    label,
+    description: `Merge the PR once its requirements pass, after asking (gh pr merge --auto --${method})`,
+    category: "github",
+    available: (state) => {
+      const pr = state.prInfo
+      return state.appMode === "pr" && pr?.state === "open" && !pr.mergeQueue && pr.autoMergeAllowed !== false
+        && !pr.autoMergeMethod && (pr.mergeMethods?.includes(method) ?? false)
+    },
+  })),
+  {
+    id: "disable-auto-merge",
+    label: "Disable Auto-Merge",
+    description: "Stop the PR from merging on its own, after asking (gh pr merge --disable-auto)",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo?.state === "open" && !!state.prInfo.autoMergeMethod,
+  },
+  {
+    id: "merge-queue-add",
+    label: "Add to Merge Queue",
+    description: "Add the PR to its base's merge queue, after asking (gh pr merge)",
+    category: "github",
+    available: (state) =>
+      state.appMode === "pr" && state.prInfo?.state === "open" && !!state.prInfo.mergeQueue && !state.prInfo.mergeQueue.inQueue,
+  },
+  {
+    id: "merge-queue-remove",
+    label: "Remove from Merge Queue",
+    description: "Take the PR out of its base's merge queue, after asking (gh api graphql dequeuePullRequest)",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo?.mergeQueue?.inQueue === true,
+  },
   {
     id: "update-branch",
     label: "Update Branch",

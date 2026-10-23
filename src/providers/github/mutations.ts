@@ -221,6 +221,45 @@ export function updatePullRequestBranch(owner: string, repo: string, prNumber: n
   return runGh(updateBranchCommand(owner, repo, prNumber, method))
 }
 
+export function autoMergeCommand(owner: string, repo: string, prNumber: number, method: MergeMethod): string[] {
+  return ["gh", "pr", "merge", String(prNumber), "-R", `${owner}/${repo}`, "--auto", `--${method}`]
+}
+
+export function disableAutoMergeCommand(owner: string, repo: string, prNumber: number): string[] {
+  return ["gh", "pr", "merge", String(prNumber), "-R", `${owner}/${repo}`, "--disable-auto"]
+}
+
+/**
+ * A base with a merge queue takes no strategy: gh queues the PR, or arms
+ * auto-merge for the queue while its checks are still pending.
+ */
+export function enqueueCommand(owner: string, repo: string, prNumber: number): string[] {
+  return ["gh", "pr", "merge", String(prNumber), "-R", `${owner}/${repo}`]
+}
+
+const DEQUEUE_MUTATION = "mutation($id: ID!) { dequeuePullRequest(input: {id: $id}) { clientMutationId } }"
+
+/** gh has no command to take a PR out of its queue, so this goes to GraphQL by node id. */
+export function dequeueCommand(nodeId: string): string[] {
+  return ["gh", "api", "graphql", "-f", `query=${DEQUEUE_MUTATION}`, "-F", `id=${nodeId}`]
+}
+
+export function enableAutoMerge(owner: string, repo: string, prNumber: number, method: MergeMethod): Promise<ReadyResult> {
+  return runGh(autoMergeCommand(owner, repo, prNumber, method))
+}
+
+export function disableAutoMerge(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
+  return runGh(disableAutoMergeCommand(owner, repo, prNumber))
+}
+
+export function enqueuePullRequest(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
+  return runGh(enqueueCommand(owner, repo, prNumber))
+}
+
+export function dequeuePullRequest(nodeId: string): Promise<ReadyResult> {
+  return runGh(dequeueCommand(nodeId))
+}
+
 interface CreatePrResult {
   prNumber: number
   url: string

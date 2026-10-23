@@ -31,9 +31,9 @@ export const PR_COMMITS_FETCH_LIMIT = 100
 const PR_BUNDLE_QUERY = `
   query($owner: String!, $repo: String!, $prNumber: Int!) {
     repository(owner: $owner, name: $repo) {
-      mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed viewerDefaultMergeMethod deleteBranchOnMerge
+      mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed viewerDefaultMergeMethod deleteBranchOnMerge autoMergeAllowed
       pullRequest(number: $prNumber) {
-        number title body state isDraft url viewerCanMergeAsAdmin
+        id number title body state isDraft url viewerCanMergeAsAdmin
         additions deletions changedFiles createdAt updatedAt
         headRefName baseRefName headRefOid
         mergeable mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
@@ -260,10 +260,13 @@ export function prInfoOf(pr: any, owner: string, repo: string, repository?: any)
     bodyReactions: parseReactionGroups(pr.reactionGroups),
     ...(repository ? mergeSettingsOf(repository) : {}),
     ...(typeof pr.viewerCanMergeAsAdmin === "boolean" ? { viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin } : {}),
+    ...(typeof pr.id === "string" ? { nodeId: pr.id } : {}),
   }
 }
 
-function mergeSettingsOf(repository: any): Pick<PrInfo, "mergeMethods" | "defaultMergeMethod" | "deleteBranchOnMerge"> {
+function mergeSettingsOf(
+  repository: any
+): Pick<PrInfo, "mergeMethods" | "defaultMergeMethod" | "deleteBranchOnMerge" | "autoMergeAllowed"> {
   const allowed: Record<MergeMethod, boolean> = {
     squash: repository.squashMergeAllowed === true,
     merge: repository.mergeCommitAllowed === true,
@@ -274,6 +277,7 @@ function mergeSettingsOf(repository: any): Pick<PrInfo, "mergeMethods" | "defaul
     mergeMethods: MERGE_METHODS.filter((m) => allowed[m]),
     defaultMergeMethod: (MERGE_METHODS as readonly string[]).includes(preferred) ? (preferred as MergeMethod) : null,
     deleteBranchOnMerge: repository.deleteBranchOnMerge === true,
+    ...(typeof repository.autoMergeAllowed === "boolean" ? { autoMergeAllowed: repository.autoMergeAllowed } : {}),
   }
 }
 

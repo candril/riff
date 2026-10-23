@@ -70,6 +70,14 @@ import { handleEditPr, liveEditPrSources, type EditPrContext } from "./features/
 import { handleToggleReady, liveReadyStateSources, type ReadyStateContext } from "./features/pr-operations/ready-state"
 import { handleMerge, liveMergeSources } from "./features/pr-operations/merge"
 import { handleUpdateBranch, liveUpdateBranchSources } from "./features/pr-operations/update-branch"
+import {
+  handleDequeue,
+  handleDisableAutoMerge,
+  handleEnableAutoMerge,
+  handleEnqueue,
+  liveAutoMergeSources,
+  type AutoMergeContext,
+} from "./features/pr-operations/auto-merge"
 import { handleAddPrComment, liveAddPrCommentSources, type AddPrCommentContext } from "./features/pr-operations/add-pr-comment"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -1169,6 +1177,8 @@ export async function createApp(options: AppOptions = {}) {
     later: (fn, ms) => { setTimeout(fn, ms) },
   }
 
+  const autoMergeContext: AutoMergeContext = { ...readyStateContext, sources: liveAutoMergeSources }
+
   const actionHandlers: actionMenuFeature.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
@@ -1237,6 +1247,10 @@ export async function createApp(options: AppOptions = {}) {
         behindBy: () => baseLookups.state.behindBy(),
         settleBehindBy: (behindBy) => baseLookups.settleBehindBy(behindBy),
       }),
+    handleEnableAutoMerge: (method) => handleEnableAutoMerge(autoMergeContext, method),
+    handleDisableAutoMerge: () => handleDisableAutoMerge(autoMergeContext),
+    handleEnqueue: () => handleEnqueue(autoMergeContext),
+    handleDequeue: () => handleDequeue(autoMergeContext),
     handleCreatePr: () => handleCreatePr(createPrContext),
     handleAddPrComment: () => handleAddPrComment(addPrCommentContext),
   }

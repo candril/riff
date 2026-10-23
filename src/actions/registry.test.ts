@@ -63,3 +63,38 @@ test("no merge is offered on a merged or closed PR, or outside a PR", () => {
   expect(merges({ ...local, appMode: "pr", prInfo: all({ state: "closed" }) })).toEqual([])
   expect(merges({ ...local, prInfo: all() })).toEqual([])
 })
+
+test("the palette offers auto-merge per allowed method only on an open PR with no queue, no armed auto-merge and the repository's leave", () => {
+  const autoMerges = (state: AppState) =>
+    getAvailableActions(state, undefined, { reactionTarget: null })
+      .map((a) => a.id)
+      .filter((id) => id.startsWith("auto-merge-"))
+  const pr = (extra: Parameters<typeof prInfo>[1] = {}) => ({
+    ...local,
+    appMode: "pr" as const,
+    prInfo: prInfo("", { mergeMethods: ["squash", "rebase"], autoMergeMethod: null, ...extra }),
+  })
+  const queue = { entry: null, inQueue: false, removal: null }
+  expect(autoMerges(pr())).toEqual(["auto-merge-squash", "auto-merge-rebase"])
+  expect(autoMerges(pr({ autoMergeAllowed: true }))).toEqual(["auto-merge-squash", "auto-merge-rebase"])
+  expect(autoMerges(pr({ autoMergeAllowed: false }))).toEqual([])
+  expect(autoMerges(pr({ autoMergeMethod: "squash" }))).toEqual([])
+  expect(autoMerges(pr({ mergeQueue: queue }))).toEqual([])
+  expect(autoMerges(pr({ state: "closed" }))).toEqual([])
+  expect(autoMerges({ ...pr(), appMode: "local" })).toEqual([])
+})
+
+test("the palette offers Disable Auto-Merge only while it is armed, and the queue actions by the PR's place in it", () => {
+  const offers = (state: AppState) =>
+    getAvailableActions(state, undefined, { reactionTarget: null })
+      .map((a) => a.id)
+      .filter((id) => id === "disable-auto-merge" || id.startsWith("merge-queue-"))
+  const pr = (extra: Parameters<typeof prInfo>[1] = {}) => ({ ...local, appMode: "pr" as const, prInfo: prInfo("", extra) })
+  const queue = { entry: null, inQueue: false, removal: null }
+  expect(offers(pr())).toEqual([])
+  expect(offers(pr({ autoMergeMethod: "merge" }))).toEqual(["disable-auto-merge"])
+  expect(offers(pr({ autoMergeMethod: "merge", state: "merged" }))).toEqual([])
+  expect(offers(pr({ mergeQueue: queue }))).toEqual(["merge-queue-add"])
+  expect(offers(pr({ mergeQueue: { ...queue, inQueue: true } }))).toEqual(["merge-queue-remove"])
+  expect(offers(pr({ mergeQueue: queue, state: "closed" }))).toEqual([])
+})

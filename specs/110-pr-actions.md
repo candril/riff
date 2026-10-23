@@ -2,9 +2,9 @@
 
 **Status**: In Progress
 
-**Not built**: auto-merge and the merge queue, the keys in the merge
-status section, the panel's refresh after anything but ready, draft, merge
-and update, and the merge status's re-poll after a merge or an update.
+**Not built**: the keys in the merge status section, the panel's refresh
+after anything but ready, draft, merge, update, auto-merge and the merge
+queue, and the merge status's re-poll after a merge or an update.
 
 ## Description
 
@@ -132,5 +132,29 @@ run sends a real merge, ready or update.
   `gh pr update-branch N -R owner/repo [--rebase]`;
   `updatePullRequestBranch` runs exactly that argv. The dialog binds `d`
   and `r` as second answers, each acting only when the dialog offers it.
+- `src/features/pr-operations/auto-merge.ts`: `handleEnableAutoMerge(ctx,
+  method)` refuses, in order, a PR that is not open, a draft, a repository
+  with `autoMergeAllowed` false, a method it has off, a base with a merge
+  queue, auto-merge already armed, and a status of `CLEAN`, `HAS_HOOKS`
+  or `UNSTABLE`, since GitHub rejects arming auto-merge on a PR that can
+  merge now. `handleDisableAutoMerge` refuses a PR that is not open or
+  has auto-merge off; `handleEnqueue` one that is not open, a draft, a
+  base with no queue, a PR already queued and one armed to join the
+  queue once checks pass; `handleDequeue` one that is not open, not
+  queued, or has no node id. Each asks with no alternative, patches
+  `autoMergeMethod` or `mergeQueue` at once, puts it back with an error
+  toast if gh refuses, and refetches like merge.
+- `autoMergeCommand` builds `gh pr merge N -R owner/repo --auto
+  --squash|--merge|--rebase`, `disableAutoMergeCommand` `gh pr merge N
+  -R owner/repo --disable-auto`, and `enqueueCommand` `gh pr merge N -R
+  owner/repo`, which on a base with a queue queues the PR or arms
+  auto-merge for the queue. gh has no dequeue, so `dequeueCommand(nodeId)`
+  sends GraphQL's `dequeuePullRequest` through `gh api graphql` by the
+  PR's node id. `enableAutoMerge`, `disableAutoMerge`,
+  `enqueuePullRequest` and `dequeuePullRequest` run exactly those argvs,
+  and none passes `--delete-branch` or `--admin`. The bundle reads the
+  repository's `autoMergeAllowed` and the PR's `id` into
+  `PrInfo.autoMergeAllowed` and `nodeId`, scalars that leave the cost at
+  54 points.
 - The panel takes the new `PrInfo` through `PRInfoPanel.setPrInfo`, which
   keeps its folds and cursor, the way a reaction reaches it.

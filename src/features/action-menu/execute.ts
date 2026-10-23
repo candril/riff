@@ -15,7 +15,7 @@ import {
   getReactionsForTarget,
 } from "../../state"
 import { REACTION_META, type ReactionTarget } from "../../types"
-import { actions, MERGE_ACTIONS } from "../../actions/registry"
+import { actions, AUTO_MERGE_ACTIONS, MERGE_ACTIONS } from "../../actions/registry"
 import type { MergeMethod } from "../../providers/github/types"
 import { actionKeys, type ActionSubmenu } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
@@ -59,6 +59,11 @@ export interface ActionHandlers {
   handleMerge: (method: MergeMethod) => void
   /** Asks first, then brings the PR's branch up to date with its base (spec 110). */
   handleUpdateBranch: () => void
+  /** Each asks first, then arms or disarms auto-merge, or moves the PR in or out of its merge queue (spec 110). */
+  handleEnableAutoMerge: (method: MergeMethod) => void
+  handleDisableAutoMerge: () => void
+  handleEnqueue: () => void
+  handleDequeue: () => void
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
@@ -239,6 +244,26 @@ export async function executeAction(
 
     case "update-branch":
       handlers.handleUpdateBranch()
+      break
+
+    case "auto-merge-squash":
+    case "auto-merge-commit":
+    case "auto-merge-rebase": {
+      const autoMerge = AUTO_MERGE_ACTIONS.find((action) => action.id === actionId)
+      if (autoMerge) handlers.handleEnableAutoMerge(autoMerge.method)
+      break
+    }
+
+    case "disable-auto-merge":
+      handlers.handleDisableAutoMerge()
+      break
+
+    case "merge-queue-add":
+      handlers.handleEnqueue()
+      break
+
+    case "merge-queue-remove":
+      handlers.handleDequeue()
       break
 
     case "open-in-browser":
