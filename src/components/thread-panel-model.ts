@@ -1,5 +1,6 @@
 import type { Comment, ReactionSummary } from "../types"
-import type { EmojiPickerState, InlineCommentOverlayMode, MentionPickerState } from "../state"
+import type { InlineCommentOverlayMode } from "../state"
+import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"

@@ -1,4 +1,4 @@
-import type { EmojiPickerState, MentionPickerState } from "../state"
+import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { theme } from "../theme"
 import { filterEmoji, type Emoji } from "../utils/emoji"
 import { clampSelection, filterAtCandidates, type AtPicker } from "./at-picker"

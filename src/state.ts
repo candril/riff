@@ -16,6 +16,7 @@ import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
 import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
 import type { CommitDiff } from "./features/commit-scope/diffs-state"
+import type { EmojiPickerState, MentionPickerState } from "./features/inline-comment-overlay/composer-pickers-state"
 
 /**
  * UI mode for the app
@@ -90,25 +91,6 @@ export interface InlineCommentOverlayState {
   /** The comment whose original code is on show over the panel (spec 060),
    *  or null. */
   codePeekId: string | null
-}
-
-/**
- * Active `@mention` autocomplete session inside the composer. The
- * picker is driven by the textarea's content/cursor change events;
- * `atOffset` records where the triggering `@` sits in the buffer so
- * accepting a candidate can replace `@<query>` with `@<username> `.
- */
-export interface MentionPickerState {
-  query: string
-  selectedIndex: number
-  atOffset: number
-}
-
-/** An open `:shortcode` in the composer, and where its colon is (spec 082). */
-export interface EmojiPickerState {
-  query: string
-  selectedIndex: number
-  colonOffset: number
 }
 
 /**
