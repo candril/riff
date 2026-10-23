@@ -11,6 +11,7 @@ import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -96,6 +97,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const pendingReview = createPendingReviewState()
   const toast = createToastState()
   const prCommentInput = createPrCommentInputState()
+  const prInfoFilter = createPrInfoFilterState()
   const islands = createFrameIslands(renderer, {
     onSummaryChange(value) {
       if (reviewPreview.open()) reviewPreview.setBody(value)
@@ -160,7 +162,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
       composer: createComposerFollower(chrome.threadPanel.compose, { getState: () => state, setState, render: () => render(), mentions }),
       prompt: createPromptFollower(
         promptIslandsOf(islands, chrome.feed, chrome.threadPanel),
-        writePrompt({ getState: () => state, setState, feed: activityFeed, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
+        writePrompt({ getState: () => state, setState, feed: activityFeed, prInfoFilter, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => updateSearchPattern(value) }, () => render())
       ),
       prInfoPanel: createPrInfoPanelFollower(() => prInfoPanel),
     },
@@ -190,6 +192,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     pendingReview,
     toast,
     prCommentInput,
+    prInfoFilter,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -255,6 +258,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     toast,
     /** The PR overview's comment prompt, which the frame pass reads and the overview's keys write as app.ts's do. */
     prCommentInput,
+    /** The PR overview's filter, which the frame pass reads and the overview's keys write as app.ts's do. */
+    prInfoFilter,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */

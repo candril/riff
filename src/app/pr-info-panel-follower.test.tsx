@@ -31,20 +31,20 @@ function follow(currentPanel: () => PRInfoPanelClass | null) {
   const islands = { ...stubs, prInfoPanel: createPrInfoPanelFollower(currentPanel) }
   stops.push(followFrame(frame, islands as unknown as Parameters<typeof followFrame>[1], { show() {} }))
   return (
-    panel: Partial<AppState["prInfoPanel"]> = {},
+    filter: Partial<Frame["prInfoFilter"]> = {},
     flash: Partial<FlashState> = {},
     prompt: Partial<Frame["prCommentInput"]> = {}
-  ) => publish(frameOf(panel, flash, prompt))
+  ) => publish(frameOf(filter, flash, prompt))
 }
 
 function frameOf(
-  panel: Partial<AppState["prInfoPanel"]>,
+  filter: Partial<Frame["prInfoFilter"]>,
   flash: Partial<FlashState>,
   prompt: Partial<Frame["prCommentInput"]>
 ): Frame {
   const state = { ...createInitialState(PR_FILES, [], "pr", "PR"), viewMode: "state" as const }
   return {
-    state: { ...state, prInfoPanel: { ...state.prInfoPanel, ...panel } },
+    state,
     vimState: createCursorState(),
     mapping: new DiffLineMapping([], "all"),
     searchState: createSearchState(),
@@ -61,6 +61,7 @@ function frameOf(
     pendingReview: null,
     toast: null,
     prCommentInput: { open: false, text: "", loading: false, error: null, ...prompt },
+    prInfoFilter: { filter: "", filterInput: false, ...filter },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

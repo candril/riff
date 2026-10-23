@@ -39,6 +39,7 @@ async function paletteApp() {
           actionMenu: mounted.actionMenu,
           linePeek: mounted.linePeek,
           feed: mounted.activityFeed,
+          prInfoFilter: mounted.prInfoFilter,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

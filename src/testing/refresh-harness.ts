@@ -21,6 +21,7 @@ import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -96,6 +97,8 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const pendingReview = createPendingReviewState()
   const toast = createToastState()
   const prCommentInput = createPrCommentInputState()
+  // Held beside the context, as app.ts holds it: the refresh is not handed it.
+  const prInfoFilter = createPrInfoFilterState()
 
   const sources: RefreshSources = {
     loadPrSession: async () => ({
@@ -166,5 +169,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, prCommentInput }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, prCommentInput, prInfoFilter }
 }

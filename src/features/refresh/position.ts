@@ -50,7 +50,6 @@ export interface RefreshPosition {
   collapsedHunks: Set<string>
   collapsedBlocks: Set<string>
   expandedDividers: Set<string>
-  prInfoPanel: AppState["prInfoPanel"]
   anchor: CursorAnchor | null
   search: SearchState
 }
@@ -87,7 +86,6 @@ export function capturePosition(
     collapsedHunks: new Set(state.collapsedHunks),
     collapsedBlocks: new Set(state.collapsedBlocks),
     expandedDividers: new Set(state.expandedDividers),
-    prInfoPanel: state.prInfoPanel,
     anchor: captureAnchor(mapping, vim),
     search,
   }
@@ -145,7 +143,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     collapsedHunks: new Set(position.collapsedHunks),
     collapsedBlocks: new Set(position.collapsedBlocks),
     expandedDividers: new Set(position.expandedDividers),
-    prInfoPanel: position.prInfoPanel,
   }
 }
 

@@ -11,16 +11,10 @@ import type { AppState } from "../../state"
 import type { PRInfoPanelClass } from "../../components"
 import type { PreviewRow } from "../../utils/previews"
 import { foldStep, type FoldOp } from "../../components/pr-info-tree"
-import { stateFilterTarget } from "../../app/view-filter"
-import {
-  clearViewFilter,
-  commitViewFilter,
-  startViewFilter,
-  closePRInfoPanel,
-  setReactionTarget,
-} from "../../state"
+import { closePRInfoPanel, setReactionTarget } from "../../state"
 import type { ToastState } from "../toast/state"
 import type { PrCommentInputState } from "./comment-input-state"
+import type { PrInfoFilterState } from "./filter-state"
 
 export interface PRInfoPanelDeps {
   getState: () => AppState
@@ -28,6 +22,7 @@ export interface PRInfoPanelDeps {
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
   commentInput: PrCommentInputState
+  prInfoFilter: Pick<PrInfoFilterState, "filterInput" | "start" | "commit" | "clear">
   getPanel: () => PRInfoPanelClass | null
   onJumpToFile?: (filename: string) => void
   // Callback to open a specific file at a specific line in $EDITOR,
@@ -173,17 +168,17 @@ export function scrollBottom(deps: Deps): void {
  * same thing.
  */
 export function startFilter(deps: Deps): void {
-  deps.setState((s) => startViewFilter(s, stateFilterTarget(s)))
+  deps.prInfoFilter.start()
   deps.render()
 }
 
 export function closeFilter(deps: Deps): void {
-  deps.setState((s) => clearViewFilter(s, stateFilterTarget(s)))
+  deps.prInfoFilter.clear()
   deps.render()
 }
 
 export function commitFilter(deps: Deps): void {
-  deps.setState((s) => commitViewFilter(s, stateFilterTarget(s)))
+  deps.prInfoFilter.commit()
   deps.render()
 }
 

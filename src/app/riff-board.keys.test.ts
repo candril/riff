@@ -60,6 +60,7 @@ function keysOn(mounted: NonNullable<typeof app>, executeAction: (id: string) =>
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     prCommentInput: mounted.prCommentInput,
+    prInfoFilter: mounted.prInfoFilter,
     getVimState: () => ({ ...createCursorState(), line: cursorLine }),
     getLineMapping: render.getLineMapping,
     blame,

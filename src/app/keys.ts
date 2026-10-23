@@ -110,6 +110,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
     activityFeed: ctx.activityFeed,
+    prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
@@ -133,6 +134,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
     activityFeed: ctx.activityFeed,
+    prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
     chat: ctx.chat,
   })

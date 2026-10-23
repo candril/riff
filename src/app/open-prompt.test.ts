@@ -11,6 +11,7 @@ import { createCommitPickerState, type CommitPickerState } from "../features/com
 import { createActionMenuState, type ActionMenuState } from "../features/action-menu/state"
 import type { PromptSnapshots } from "./frame"
 import { createFeedState } from "../features/feed/state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { emptyFeed } from "../features/feed/types"
 
 const initial = createInitialState([], [], "test", "")
@@ -130,6 +131,7 @@ describe("where what is typed goes", () => {
         getState: () => state,
         setState: (updater) => (state = updater(state)),
         feed,
+        prInfoFilter: createPrInfoFilterState(),
         ...pickers,
         updateSearchPattern: (value) => void searched.push(value),
       },

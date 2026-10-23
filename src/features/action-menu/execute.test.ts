@@ -14,6 +14,7 @@ import { createCommitPickerState } from "../commit-picker/state"
 import { createActionMenuState } from "./state"
 import { createLinePeekState } from "../line-peek/state"
 import { createFeedState } from "../feed/state"
+import { createPrInfoFilterState } from "../pr-info-panel/filter-state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -56,6 +57,7 @@ describe("Show Only Open Threads", () => {
         actionMenu: createActionMenuState(),
         linePeek: createLinePeekState(),
         feed: createFeedState(),
+        prInfoFilter: createPrInfoFilterState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -107,6 +109,7 @@ describe("Show Only Unviewed Files", () => {
         actionMenu: createActionMenuState(),
         linePeek: createLinePeekState(),
         feed: createFeedState(),
+        prInfoFilter: createPrInfoFilterState(),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -140,6 +143,7 @@ describe("Peek Line", () => {
         actionMenu: createActionMenuState(),
         linePeek,
         feed: createFeedState(),
+        prInfoFilter: createPrInfoFilterState(),
         handlers: {} as ActionHandlers,
         commandKeys: new Map(),
         runCommand: () => false,

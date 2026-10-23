@@ -250,3 +250,18 @@ describe("a refresh's pending review", () => {
     await landed(handleRefresh(ctx), toast)
   })
 })
+
+describe("a refresh's PR overview filter", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`keeps its text and its open prompt, and the overview it narrows (${appMode})`, async () => {
+      const { ctx, state, toast, prInfoFilter } = refreshHarness({ appMode, state: (s) => ({ ...s, viewMode: "state" }) })
+      prInfoFilter.start()
+      prInfoFilter.set("greet")
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect(state().viewMode).toBe("state")
+      expect({ filter: prInfoFilter.filter(), filterInput: prInfoFilter.filterInput() }).toEqual({ filter: "greet", filterInput: true })
+    })
+  }
+})

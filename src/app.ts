@@ -63,6 +63,7 @@ import { createFeedState } from "./features/feed/state"
 import { createVisitState } from "./features/visit/state"
 import { createPendingReviewState } from "./features/review-preview/pending-state"
 import { createPrCommentInputState } from "./features/pr-info-panel/comment-input-state"
+import { createPrInfoFilterState } from "./features/pr-info-panel/filter-state"
 import { createToastState } from "./features/toast/state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
@@ -262,7 +263,7 @@ export async function createApp(options: AppOptions = {}) {
       })
     })
     panel.setOnFilterChange((value) => {
-      viewFilter.setFilter({ getState: () => state, setState: (fn) => { state = fn(state) }, feed: activityFeed }, value)
+      viewFilter.setFilter({ getState: () => state, setState: (fn) => { state = fn(state) }, feed: activityFeed, prInfoFilter }, value)
       render()
     })
     panel.setOnSectionsChange((open) => {
@@ -361,7 +362,7 @@ export async function createApp(options: AppOptions = {}) {
   // (spec 065); the views that have no cursor of their own park it. The
   // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, activityFeed }) && !(state.chatOpen && state.focusedPanel === "chat")) {
+    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, activityFeed, prInfoFilter }) && !(state.chatOpen && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -489,6 +490,7 @@ export async function createApp(options: AppOptions = {}) {
   const reviewPreview = createReviewPreviewState()
   const pendingReview = createPendingReviewState()
   const prCommentInput = createPrCommentInputState()
+  const prInfoFilter = createPrInfoFilterState()
   const pendingReviewLoad: LoadPendingReviewContext = {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
@@ -537,6 +539,8 @@ export async function createApp(options: AppOptions = {}) {
     pendingReview.clear()
     // Half a comment on one PR must not post to the PR that replaced it.
     prCommentInput.close()
+    // The text narrowed the last PR's rows; the next PR's overview opens unfiltered.
+    prInfoFilter.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -674,7 +678,7 @@ export async function createApp(options: AppOptions = {}) {
       prompt: createPromptFollower(
         promptIslandsOf(islands, feedIsland, threadPanel),
         writePrompt(
-          { getState: () => state, setState: setAppState, feed: activityFeed, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
+          { getState: () => state, setState: setAppState, feed: activityFeed, prInfoFilter, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, updateSearchPattern: (value) => searchHandler.updatePattern(value) },
           () => renderFrame()
         )
       ),
@@ -711,6 +715,7 @@ export async function createApp(options: AppOptions = {}) {
     pendingReview,
     toast,
     prCommentInput,
+    prInfoFilter,
     filePicker,
     commentsPicker,
     occurrencePicker,
@@ -1128,6 +1133,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     render,
     commentInput: prCommentInput,
+    prInfoFilter,
   }
 
   const foldsContext: folds.FoldsContext = {
@@ -1573,6 +1579,7 @@ export async function createApp(options: AppOptions = {}) {
       actionMenu,
       linePeek,
       feed: activityFeed,
+      prInfoFilter,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1943,6 +1950,7 @@ export async function createApp(options: AppOptions = {}) {
     mentions,
     commentDrafts,
     prCommentInput,
+    prInfoFilter,
     activityFeed,
     visit,
     jumpList,
@@ -1960,6 +1968,7 @@ export async function createApp(options: AppOptions = {}) {
     commitPicker,
     actionMenu,
     activityFeed,
+    prInfoFilter,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getPane: marksContext.getPane,

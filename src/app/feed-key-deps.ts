@@ -17,6 +17,7 @@ export function feedKeyDeps(
     setState: ctx.setState,
     render: ctx.render,
     feed: ctx.activityFeed,
+    prInfoFilter: ctx.prInfoFilter,
     visit: ctx.visit,
     chordPending: () => chord.chordPending(),
     onOpenEvent: (event) => {

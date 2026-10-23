@@ -61,6 +61,8 @@ export interface Frame {
   toast: { message: string; type: ToastType } | null
   /** The PR overview's comment prompt, read off its factory. */
   prCommentInput: { open: boolean; text: string; loading: boolean; error: string | null }
+  /** The PR overview's filter, read off its factory. */
+  prInfoFilter: { filter: string; filterInput: boolean }
   /** The file picker's state, read off its factory, or null while it is closed. */
   filePicker: FilePickerSnapshot | null
   /** The comments picker's state, read off its factory, or null while it is closed. */

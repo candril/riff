@@ -4,6 +4,7 @@ import { registerPrInfoPanelKeys, type PRInfoPanelKeyDeps } from "../features/pr
 import { createInitialState, type AppState, type PRInfoPanelSection } from "../state"
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { ReactionTarget } from "../types"
 import { keymapHarness } from "./keymap-keys"
 import { prInfo } from "./pr-info"
@@ -18,10 +19,6 @@ export function overviewState(patch: Partial<AppState> = {}): AppState {
     focusedPanel: "diff",
     ...patch,
   }
-}
-
-export function withPanelState(state: AppState, patch: Partial<AppState["prInfoPanel"]>): AppState {
-  return { ...state, prInfoPanel: { ...state.prInfoPanel, ...patch } }
 }
 
 export interface StubPanelOptions {
@@ -96,6 +93,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
   const record = (entry: string) => (...args: unknown[]) => void calls.push([entry, ...args].join(" "))
   const toast = createToastState()
   const commentInput = createPrCommentInputState()
+  const prInfoFilter = createPrInfoFilterState()
   const deps: PRInfoPanelKeyDeps = {
     getState: () => state,
     setState: (update) => {
@@ -104,6 +102,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     render() {},
     toast,
     commentInput,
+    prInfoFilter,
     getPanel: () => controller,
     onJumpToFile: record("jumpToFile"),
     onOpenFileAtLine: record("openFileAtLine"),
@@ -124,6 +123,7 @@ export async function prInfoPanelKeys(initial: AppState, options: StubPanelOptio
     unregister,
     toast,
     commentInput,
+    prInfoFilter,
     state: () => state,
     set: (next: AppState) => {
       state = next

@@ -81,6 +81,7 @@ export interface ExecuteContext {
   actionMenu: Pick<ActionMenuState, "showSubmenu">
   linePeek: Pick<LinePeekState, "toggle">
   feed: viewFilter.ViewFilterContext["feed"]
+  prInfoFilter: viewFilter.ViewFilterContext["prInfoFilter"]
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -152,7 +153,7 @@ export async function executeAction(
       break
 
     case "filter-view":
-      viewFilter.startFilter({ getState: () => state, setState, feed: ctx.feed })
+      viewFilter.startFilter({ getState: () => state, setState, feed: ctx.feed, prInfoFilter: ctx.prInfoFilter })
       render()
       break
 

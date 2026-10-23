@@ -28,6 +28,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
     activityFeed: ctx.activityFeed,
+    prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
     commentDrafts: ctx.commentDrafts,
     handleReplyExternal: () =>

@@ -14,6 +14,7 @@ import type { MarksPickerState } from "./features/marks/picker-state"
 import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
+import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
 
 /**
  * UI mode for the app
@@ -132,13 +133,6 @@ export type PRInfoPanelSection =
   | 'files'
   | 'commits'
 
-export interface PRInfoPanelState {
-  /** `Ctrl-f`: the text the panel's rows are narrowed to, and whether the
-   *  prompt for it is open (spec 065). */
-  filter: string
-  filterInput: boolean
-}
-
 /**
  * Application state
  */
@@ -231,9 +225,6 @@ export interface AppState {
   // File review status (viewed/reviewed tracking)
   fileStatuses: Map<string, FileReviewStatus>
   viewedStats: ViewedStats
-  
-  // PR info panel state
-  prInfoPanel: PRInfoPanelState
 
   // Inline comment overlay state (spec 039 — actionable thread overlay)
   inlineCommentOverlay: InlineCommentOverlayState
@@ -331,10 +322,6 @@ export function createInitialState(
     collapsedBlocks: new Set<string>(),
     fileStatuses: new Map(),
     viewedStats: { total: files.length - ignoredFiles.size, viewed: 0, outdated: 0 },
-    prInfoPanel: {
-      filter: "",
-      filterInput: false,
-    },
     inlineCommentOverlay: {
       filter: "",
       filterInput: false,
@@ -496,7 +483,7 @@ export function enterDiffView(state: AppState): AppState {
  * looking at, and the file tree for the diff — filtering "the files" is what
  * narrowing a diff means.
  */
-export type FilterTarget = StateFilterTarget | "feed"
+export type FilterTarget = StateFilterTarget | "feed" | "state"
 
 export function filterTarget(state: AppState): FilterTarget {
   if (state.inlineCommentOverlay.open && state.focusedPanel === "comments") return "comments"
@@ -507,17 +494,16 @@ export function filterTarget(state: AppState): FilterTarget {
 
 /**
  * The surfaces whose filter AppState holds, which the functions below take.
- * The feed's is in its factory; src/app/view-filter.ts routes there.
+ * The feed's and the PR overview's are in their factories;
+ * src/app/view-filter.ts routes there.
  */
-export type StateFilterTarget = "tree" | "state" | "comments"
+export type StateFilterTarget = "tree" | "comments"
 
 /** Open `target`'s filter prompt, keeping what it already has. */
 export function startViewFilter(state: AppState, target: StateFilterTarget): AppState {
   switch (target) {
     case "comments":
       return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: true } }
-    case "state":
-      return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: true } }
     case "tree":
       // A hidden tree cannot show what the filter left.
       return { ...startTreeFilter(state), showFilePanel: true, focusedPanel: "tree" }
@@ -531,8 +517,6 @@ export function setViewFilter(state: AppState, target: StateFilterTarget, value:
         ...state,
         inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: value, highlightedIndex: 0 },
       }
-    case "state":
-      return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: value } }
     case "tree":
       return setTreeFilter(state, value)
   }
@@ -543,8 +527,6 @@ export function commitViewFilter(state: AppState, target: StateFilterTarget): Ap
   switch (target) {
     case "comments":
       return { ...state, inlineCommentOverlay: { ...state.inlineCommentOverlay, filterInput: false } }
-    case "state":
-      return { ...state, prInfoPanel: { ...state.prInfoPanel, filterInput: false } }
     case "tree":
       return commitTreeFilter(state)
   }
@@ -558,8 +540,6 @@ export function clearViewFilter(state: AppState, target: StateFilterTarget): App
         ...state,
         inlineCommentOverlay: { ...state.inlineCommentOverlay, filter: "", filterInput: false },
       }
-    case "state":
-      return { ...state, prInfoPanel: { ...state.prInfoPanel, filter: "", filterInput: false } }
     case "tree":
       return clearTreeFilter(state)
   }
@@ -577,6 +557,7 @@ export interface PromptPickers {
   commitPicker: Pick<CommitPickerState, "open">
   actionMenu: Pick<ActionMenuState, "open">
   activityFeed: Pick<ActivityFeedState, "filterInput">
+  prInfoFilter: Pick<PrInfoFilterState, "filterInput">
 }
 
 /**
@@ -594,7 +575,7 @@ export function promptOpen(state: AppState, pickers: PromptPickers): boolean {
     pickers.commitPicker.open() ||
     state.treeFilterInput ||
     pickers.activityFeed.filterInput() ||
-    state.prInfoPanel.filterInput ||
+    pickers.prInfoFilter.filterInput() ||
     state.inlineCommentOverlay.filterInput
   )
 }
@@ -1294,15 +1275,9 @@ export function isFileStale(state: AppState, filename: string): boolean {
 // PR Info Panel State
 // ============================================================================
 
-/** Enter PR overview (spec 041), its filter cleared. */
+/** Enter PR overview (spec 041). Its filter is in a factory of its own, which the caller clears. */
 export function openPRInfoPanel(state: AppState): AppState {
-  return {
-    ...enterPrView(state),
-    prInfoPanel: {
-      filter: "",
-      filterInput: false,
-    },
-  }
+  return enterPrView(state)
 }
 
 /**

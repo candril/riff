@@ -1,6 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { createInitialState, filterTarget, openInlineCommentOverlay, switchView, type AppState } from "../state"
 import { createFeedState } from "../features/feed/state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { DiffFile } from "../utils/diff-parser"
 import * as viewFilter from "./view-filter"
 
@@ -19,14 +20,16 @@ function prState(): AppState {
 function filtering(initial: AppState) {
   let state = initial
   const feed = createFeedState()
+  const prInfoFilter = createPrInfoFilterState()
   const ctx: viewFilter.ViewFilterContext = {
     getState: () => state,
     setState: (update) => {
       state = update(state)
     },
     feed,
+    prInfoFilter,
   }
-  return { ctx, feed, state: () => state }
+  return { ctx, feed, prInfoFilter, state: () => state }
 }
 
 describe("what Ctrl-f narrows", () => {
@@ -42,16 +45,18 @@ describe("what Ctrl-f narrows", () => {
     expect(state().treeFilter).toBe("limiter")
   })
 
-  test("the info panel's rows, in the state view", () => {
-    const { ctx, state } = filtering(prState())
+  test("the info panel's rows, in the state view, in its own state and not in AppState", () => {
+    const initial = prState()
+    const { ctx, prInfoFilter, state } = filtering(initial)
 
     expect(filterTarget(state())).toBe("state")
     viewFilter.startFilter(ctx)
     viewFilter.setFilter(ctx, "client")
-    expect(state().prInfoPanel.filterInput).toBe(true)
-    expect(state().prInfoPanel.filter).toBe("client")
+    expect(prInfoFilter.filterInput()).toBe(true)
+    expect(prInfoFilter.filter()).toBe("client")
+    expect(state()).toBe(initial)
     viewFilter.clearFilter(ctx)
-    expect(state().prInfoPanel).toMatchObject({ filter: "", filterInput: false })
+    expect({ filter: prInfoFilter.filter(), filterInput: prInfoFilter.filterInput() }).toEqual({ filter: "", filterInput: false })
   })
 
   test("the feed's rows, in the feed, in its own state and not in AppState", () => {
@@ -87,22 +92,27 @@ describe("what Ctrl-f narrows", () => {
     viewFilter.startFilter(kept.ctx)
     viewFilter.setFilter(kept.ctx, "client")
     viewFilter.commitFilter(kept.ctx)
-    expect(kept.state().prInfoPanel).toMatchObject({ filter: "client", filterInput: false })
+    expect({ filter: kept.prInfoFilter.filter(), filterInput: kept.prInfoFilter.filterInput() }).toEqual({ filter: "client", filterInput: false })
 
     const dropped = filtering(prState())
     viewFilter.startFilter(dropped.ctx)
     viewFilter.setFilter(dropped.ctx, "client")
     viewFilter.clearFilter(dropped.ctx)
-    expect(dropped.state().prInfoPanel.filter).toBe("")
+    expect(dropped.prInfoFilter.filter()).toBe("")
   })
 })
 
 describe("stateFilterTarget", () => {
-  test("names the surface for the overview's and the thread panel's keys", () => {
-    expect(viewFilter.stateFilterTarget(prState())).toBe("state")
+  test("names the surface for the thread panel's keys", () => {
+    const panel = {
+      ...openInlineCommentOverlay(switchView(prState(), "diff"), "a.ts", 1, "RIGHT", "view"),
+      focusedPanel: "comments" as const,
+    }
+    expect(viewFilter.stateFilterTarget(panel)).toBe("comments")
   })
 
-  test("refuses the feed, whose filter AppState does not hold", () => {
+  test("refuses the feed and the overview, whose filters AppState does not hold", () => {
     expect(() => viewFilter.stateFilterTarget(switchView(prState(), "feed"))).toThrow()
+    expect(() => viewFilter.stateFilterTarget(prState())).toThrow()
   })
 })

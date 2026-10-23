@@ -63,6 +63,7 @@ export function keysOn(
     reviewPreview: mounted.reviewPreview,
     toast: mounted.toast,
     prCommentInput: mounted.prCommentInput,
+    prInfoFilter: mounted.prInfoFilter,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,

@@ -8,6 +8,7 @@ import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createFeedState } from "../features/feed/state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 
 const initial: AppState = { ...createInitialState([], [], "", ""), viewMode: "diff" }
 const idle: InteractionInputs = {
@@ -19,6 +20,7 @@ const idle: InteractionInputs = {
   commitPicker: createCommitPickerState(),
   actionMenu: createActionMenuState(),
   activityFeed: createFeedState(),
+  prInfoFilter: createPrInfoFilterState(),
   vim: { pendingFindChar: null, pendingTextObject: null },
   searchActive: false,
   flashActive: false,

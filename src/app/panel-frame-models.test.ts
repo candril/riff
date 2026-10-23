@@ -71,6 +71,7 @@ function frame(
     pendingReview: null,
     toast: null,
     prCommentInput: { open: false, text: "", loading: false, error: null },
+    prInfoFilter: { filter: "", filterInput: false },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,
@@ -171,10 +172,7 @@ describe("feedFrameModel", () => {
 })
 
 describe("prInfoPanelFrameModel", () => {
-  const prPanel = (patch: Partial<AppState["prInfoPanel"]>) => {
-    const state = base()
-    return { ...state, prInfoPanel: { ...state.prInfoPanel, ...patch } }
-  }
+  const filtered = (prInfoFilter: Frame["prInfoFilter"]) => ({ ...frame(base()), prInfoFilter })
 
   test("is handed whatever the view, closed and unlabelled at rest", () => {
     for (const viewMode of ["diff", "feed", "state"] as const) {
@@ -196,11 +194,11 @@ describe("prInfoPanelFrameModel", () => {
   })
 
   test("carries the filter, open or closed", () => {
-    expect(prInfoPanelFrameModel(frame(prPanel({ filterInput: true, filter: "greet" })))).toMatchObject({
+    expect(prInfoPanelFrameModel(filtered({ filterInput: true, filter: "greet" }))).toMatchObject({
       filterOpen: true,
       filter: "greet",
     })
-    expect(prInfoPanelFrameModel(frame(prPanel({ filterInput: false, filter: "greet" })))).toMatchObject({
+    expect(prInfoPanelFrameModel(filtered({ filterInput: false, filter: "greet" }))).toMatchObject({
       filterOpen: false,
       filter: "greet",
     })
@@ -208,7 +206,7 @@ describe("prInfoPanelFrameModel", () => {
 
   test("passes the comment prompt's fields through", () => {
     const prompt = { open: true, text: "hi", loading: true, error: "boom" }
-    const model = prInfoPanelFrameModel({ ...frame(prPanel({})), prCommentInput: prompt })
+    const model = prInfoPanelFrameModel({ ...frame(base()), prCommentInput: prompt })
     expect(model.commentInput).toEqual({ open: true, text: "hi", loading: true, error: "boom" })
   })
 })

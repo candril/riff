@@ -100,12 +100,11 @@ export interface PrInfoPanelFrameModel {
  * What the PR info panel is handed for `frame`. Never null: the panel lives
  * on while another view is up, and is kept in step with the state all along.
  */
-export function prInfoPanelFrameModel({ state, flashState, prCommentInput }: Frame): PrInfoPanelFrameModel {
-  const panel = state.prInfoPanel
+export function prInfoPanelFrameModel({ flashState, prCommentInput, prInfoFilter }: Frame): PrInfoPanelFrameModel {
   return {
     flashLabels: flashLabelsOn(flashState, "state"),
-    filterOpen: panel.filterInput,
-    filter: panel.filter,
+    filterOpen: prInfoFilter.filterInput,
+    filter: prInfoFilter.filter,
     commentInput: prCommentInput,
   }
 }

@@ -15,6 +15,7 @@ export function prInfoPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): PRIn
     render: ctx.render,
     toast: ctx.toast,
     commentInput: ctx.prCommentInput,
+    prInfoFilter: ctx.prInfoFilter,
     getPanel: ctx.getPrInfoPanel,
     onJumpToFile: (filename) => {
       // Jump to file by filename.

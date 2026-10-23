@@ -79,6 +79,7 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     prCommentInput: mounted.prCommentInput,
+    prInfoFilter: mounted.prInfoFilter,
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),

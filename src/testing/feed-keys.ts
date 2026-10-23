@@ -3,6 +3,7 @@ import { pendingMarkChordGivesWay } from "../features/marks"
 import { createInitialState, type AppState } from "../state"
 import { emptyFeed, type CommitFileSummary, type FeedState } from "../features/feed/types"
 import { createFeedState, type ActivityFeedState } from "../features/feed/state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createVisitState } from "../features/visit/state"
 import type { FeedEvent } from "../utils/feed"
 import { keymapHarness } from "./keymap-keys"
@@ -79,6 +80,7 @@ export async function feedKeys(patch: Partial<FeedState> = {}, initial: AppState
     },
     render() {},
     feed,
+    prInfoFilter: createPrInfoFilterState(),
     visit,
     onOpenEvent: (event) => void calls.push(`openEvent ${event.id}`),
     onOpenCommitFile: (sha, filename) => void calls.push(`openCommitFile ${sha} ${filename}`),

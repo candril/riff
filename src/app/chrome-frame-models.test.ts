@@ -50,6 +50,7 @@ function frame(
     pendingReview: null,
     toast: null,
     prCommentInput: { open: false, text: "", loading: false, error: null },
+    prInfoFilter: { filter: "", filterInput: false },
     filePicker: null,
     commentsPicker: null,
     occurrencePicker: null,

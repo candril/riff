@@ -33,6 +33,8 @@ export interface FeedKeyDeps {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   feed: ActivityFeedState
+  /** The overview's filter, which view-filter.ts routes to; the feed's keys never stand in the overview. */
+  prInfoFilter: viewFilter.ViewFilterContext["prInfoFilter"]
   /** The last visit, whose unseen comments the feed's unseen-only filter keeps. */
   visit: Pick<VisitState, "watermark">
   /** Open what a row is about (spec 070). */

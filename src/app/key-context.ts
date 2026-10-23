@@ -54,6 +54,7 @@ import type { Comment, ReactionTarget } from "../types"
 import type { ComposerOutcome } from "../features/inline-comment-overlay/composer-keys"
 import type { ToastState } from "../features/toast/state"
 import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 
 export interface AppKeyContext {
   // State access
@@ -164,6 +165,8 @@ export interface AppKeyContext {
   commentDrafts: CommentDraftsState
   /** The PR overview's comment prompt, the same instance the frame pass reads. */
   prCommentInput: PrCommentInputState
+  /** The PR overview's filter, the same instance the frame pass reads. */
+  prInfoFilter: PrInfoFilterState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

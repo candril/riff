@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { overviewState, prInfoPanelKeys, withPanelState } from "../../testing/pr-info-panel-keys"
+import { overviewState, prInfoPanelKeys } from "../../testing/pr-info-panel-keys"
 
 const CTRL = {
   d: "\x04",
@@ -95,11 +95,11 @@ describe("the PR overview", () => {
     for (const plus of ["+", KITTY_PLUS]) expect(keys.press(plus).defaultPrevented).toBe(true)
     expect(keys.calls).toEqual(["react", "react"])
     expect(keys.press("/").defaultPrevented).toBe(true)
-    expect(keys.state().prInfoPanel.filterInput).toBe(true)
+    expect(keys.prInfoFilter.filterInput()).toBe(true)
 
     const keypad = await prInfoPanelKeys(overviewState())
     expect(keypad.press(KEYPAD_SLASH).defaultPrevented).toBe(true)
-    expect(keypad.state().prInfoPanel.filterInput).toBe(true)
+    expect(keypad.prInfoFilter.filterInput()).toBe(true)
   })
 
   test("Ctrl-Shift-= is a ctrl key, and goes to the chain like every other", async () => {
@@ -236,7 +236,7 @@ describe("the overview's g chord", () => {
     }
     expect(keys.calls).toEqual([])
     expect(keys.leftKeys).toEqual([])
-    expect(keys.state().prInfoPanel.filterInput).toBe(false)
+    expect(keys.prInfoFilter.filterInput()).toBe(false)
   })
 
   test("a g left alone for half a second lapses", async () => {
@@ -249,25 +249,33 @@ describe("the overview's g chord", () => {
 })
 
 describe("the overview's filter prompt", () => {
+  const filtering = async (filter: string) => {
+    const keys = await prInfoPanelKeys(overviewState())
+    keys.prInfoFilter.set(filter)
+    keys.prInfoFilter.start()
+    return keys
+  }
+
   test("types every key but Esc and Enter: none reaches a command, the chain or a prevent", async () => {
-    const keys = await prInfoPanelKeys(withPanelState(overviewState(), { filterInput: true }))
+    const keys = await filtering("")
     for (const key of ["j", "q", "s", "g", "+", "/", CTRL.p, CTRL.r, CTRL.d]) {
       expect(keys.press(key).defaultPrevented).toBe(false)
     }
     expect(keys.calls).toEqual([])
     expect(keys.leftKeys).toEqual([])
-    expect(keys.state().prInfoPanel.filterInput).toBe(true)
+    expect(keys.prInfoFilter.filterInput()).toBe(true)
   })
 
   test("Esc drops the filter and Enter keeps it, both prevented", async () => {
-    const keys = await prInfoPanelKeys(withPanelState(overviewState(), { filterInput: true, filter: "x" }))
+    const keys = await filtering("x")
     expect(keys.press(ESC).defaultPrevented).toBe(true)
-    expect(keys.state().prInfoPanel.filterInput).toBe(false)
+    expect(keys.prInfoFilter.filterInput()).toBe(false)
+    expect(keys.prInfoFilter.filter()).toBe("")
 
-    const kept = await prInfoPanelKeys(withPanelState(overviewState(), { filterInput: true, filter: "x" }))
+    const kept = await filtering("x")
     expect(kept.press(ENTER).defaultPrevented).toBe(true)
-    expect(kept.state().prInfoPanel.filterInput).toBe(false)
-    expect(kept.state().prInfoPanel.filter).toBe("x")
+    expect(kept.prInfoFilter.filterInput()).toBe(false)
+    expect(kept.prInfoFilter.filter()).toBe("x")
   })
 })
 

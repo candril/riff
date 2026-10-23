@@ -25,6 +25,7 @@ export function registerPeekKeys(riffKeymap: RiffKeymap, ctx: AppKeyContext, cho
     commitPicker: ctx.commitPicker,
     actionMenu: ctx.actionMenu,
     activityFeed: ctx.activityFeed,
+    prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
     chordPending: () => chord.chordPending(),
   }

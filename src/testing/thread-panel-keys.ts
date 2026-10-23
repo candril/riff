@@ -8,6 +8,7 @@ import { createOccurrencePickerState } from "../features/occurrence-picker/state
 import { createMarksPickerState } from "../features/marks/picker-state"
 import { createCommitPickerState } from "../features/commit-picker/state"
 import { createFeedState } from "../features/feed/state"
+import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createToastState } from "../features/toast/state"
@@ -85,6 +86,7 @@ export async function threadPanelKeys(initial: AppState) {
     commitPicker: createCommitPickerState(),
     actionMenu: createActionMenuState(),
     activityFeed: createFeedState(),
+    prInfoFilter: createPrInfoFilterState(),
     prCommentInput: createPrCommentInputState(),
     commentDrafts,
   }

@@ -41,7 +41,6 @@ type Bindings = { key: string; cmd: string }[]
 
 export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPanelKeyDeps): () => void {
   const chords = createPanelChords(deps)
-  const panelState = () => deps.getState().prInfoPanel
 
   /** Whether the panel takes `key`, read before it runs. */
   const takes = (key: KeyEvent) => {
@@ -49,7 +48,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
     if (state.viewMode !== "state") return false
     // The filter prompt and the comment prompt own every key, ctrl included;
     // the comment prompt even with the tree focused.
-    if (state.prInfoPanel.filterInput || deps.commentInput.isOpen()) return true
+    if (deps.prInfoFilter.filterInput() || deps.commentInput.isOpen()) return true
     if (state.focusedPanel === "tree") return false
     // Ctrl-O (jumplist back), Ctrl-P (palette) and the chat's Ctrl-r reach
     // past the panel, and leave its chords pending.
@@ -61,8 +60,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
 
   /** A key the panel holds that no binding of its took. */
   const swallow = (key: KeyEvent) => {
-    const panel = panelState()
-    if (panel.filterInput) return
+    if (deps.prInfoFilter.filterInput()) return
     if (deps.commentInput.isOpen()) {
       // Typed into state, not into a focused field, so nothing to prevent.
       if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
@@ -111,7 +109,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
   const unprevented = (bindings: Bindings) => bindings.map((binding) => ({ ...binding, preventDefault: false }))
 
   const unregisterFilter = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && panelState().filterInput,
+    enabled: () => captured.holds() && deps.prInfoFilter.filterInput(),
     commands: [
       command("filterClose", "Drop the filter", prevented(() => act.closeFilter(deps))),
       command("filterCommit", "Keep the filter", prevented(() => act.commitFilter(deps))),
@@ -124,7 +122,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
   })
 
   const unregisterComment = riffKeymap.keymap.registerLayer({
-    enabled: () => captured.holds() && deps.commentInput.isOpen() && !panelState().filterInput,
+    enabled: () => captured.holds() && deps.commentInput.isOpen() && !deps.prInfoFilter.filterInput(),
     commands: [
       command("commentClose", "Drop the comment", () => comment.closeCommentInput(deps)),
       command("commentSubmit", "Post the comment", () => comment.submitComment(deps)),
@@ -140,10 +138,7 @@ export function registerPrInfoPanelKeys(riffKeymap: RiffKeymap, deps: PRInfoPane
 
   // A pending chord takes the next key in the rest, ahead of every binding here.
   const unregisterMain = riffKeymap.keymap.registerLayer({
-    enabled: () => {
-      const panel = panelState()
-      return captured.holds() && !panel.filterInput && !deps.commentInput.isOpen() && !chords.pending()
-    },
+    enabled: () => captured.holds() && !deps.prInfoFilter.filterInput() && !deps.commentInput.isOpen() && !chords.pending(),
     commands: [
       command("react", "React to the focused item", prevented(() => act.react(deps))),
       command("filter", "Filter the rows", prevented(() => act.startFilter(deps))),
