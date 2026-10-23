@@ -49,7 +49,7 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
   let highlightSourceTimer: ReturnType<typeof setTimeout> | null = null
   let highlightSourceArmedFor = ""
   const highlightSourceFailed = new Set<string>()
-  const highlightSourceInFlight = new Set<string>()
+  const highlightSourceInFlight = new Map<string, number>()
   const highlightSourcePending = new Map<string, string>()
 
   /**
@@ -79,7 +79,8 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
     if (cached?.newContent || cached?.loading || cached?.error) return null
 
     const key = highlightSourceKey(filename)
-    if (highlightSourceInFlight.has(key) || highlightSourceFailed.has(key)) return null
+    if (highlightSourceInFlight.get(key) === deps.fileContent.generation()) return null
+    if (highlightSourceFailed.has(key)) return null
 
     // Locally the size is one stat away, so the read never happens at all.
     // A PR's is not known until it arrives, and the parse declines it then.
@@ -91,10 +92,11 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
   /**
    * A read that lands after the diff changed is dropped whole, failure
    * included: the next diff asks for the file again, with nothing in the
-   * way.
+   * way. In flight counts per diff for the same reason — a read from an
+   * older diff never holds back the new diff's read, and landing late, it
+   * never frees the slot the new diff's read holds.
    */
-  async function readHighlightSource(filename: string, key: string): Promise<void> {
-    const generation = deps.fileContent.generation()
+  async function readHighlightSource(filename: string, key: string, generation: number): Promise<void> {
     try {
       const fetched = await deps.fetchFileVersions(filename)
       if (deps.fileContent.generation() !== generation) return
@@ -108,7 +110,7 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
       if (deps.fileContent.generation() !== generation) return
       highlightSourceFailed.add(key)
     } finally {
-      highlightSourceInFlight.delete(key)
+      if (highlightSourceInFlight.get(key) === generation) highlightSourceInFlight.delete(key)
     }
   }
 
@@ -153,8 +155,9 @@ export function createHighlightSourceReader(deps: HighlightSourceDeps) {
         for (const [filename, key] of wanted) {
           // The state may have moved while the pause ran.
           if (highlightSourceNeeded(filename) !== key) continue
-          highlightSourceInFlight.add(key)
-          void readHighlightSource(filename, key)
+          const generation = deps.fileContent.generation()
+          highlightSourceInFlight.set(key, generation)
+          void readHighlightSource(filename, key, generation)
         }
       }, delayMs)
     },

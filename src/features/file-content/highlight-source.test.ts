@@ -124,6 +124,47 @@ describe("createHighlightSourceReader", () => {
     expect(r.renders()).toBe(0)
   })
 
+  test("a new diff reads the file at once, without waiting for the old diff's read to land", async () => {
+    const lands: ((value: Awaited<ReturnType<FetchFileVersions>>) => void)[] = []
+    const r = reader({ onScreen: ["a.ts"], fetch: () => new Promise((resolve) => void lands.push(resolve)) })
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    expect(r.fetched).toEqual(["a.ts"])
+
+    r.fileContent.clear()
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    expect(r.fetched).toEqual(["a.ts", "a.ts"])
+
+    lands[0]!({ ok: true, newContent: "stale", oldContent: null })
+    await settle()
+    expect(r.fileContent.entry("a.ts")?.newContent).not.toBe("stale")
+    expect(r.renders()).toBe(0)
+
+    lands[1]!({ ok: true, newContent: "fresh", oldContent: null })
+    await settle()
+    expect(r.fileContent.entry("a.ts")?.newContent).toBe("fresh")
+    expect(r.renders()).toBe(1)
+  })
+
+  test("an old diff's read landing late does not free the new diff's read to start twice", async () => {
+    const lands: ((value: Awaited<ReturnType<FetchFileVersions>>) => void)[] = []
+    const r = reader({ onScreen: ["a.ts"], fetch: () => new Promise((resolve) => void lands.push(resolve)) })
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    r.fileContent.forgetSpan()
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+    expect(r.fetched).toEqual(["a.ts", "a.ts"])
+
+    lands[0]!({ ok: true, newContent: "stale", oldContent: null })
+    await settle()
+    r.read.request()
+    jest.advanceTimersByTime(DELAY)
+
+    expect(r.fetched).toEqual(["a.ts", "a.ts"])
+  })
+
   test("a read that fails after the span was forgotten is read again", async () => {
     let land!: (value: Awaited<ReturnType<FetchFileVersions>>) => void
     const r = reader({ onScreen: ["a.ts"], fetch: () => new Promise((resolve) => (land = resolve)) })

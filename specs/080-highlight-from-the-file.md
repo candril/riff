@@ -41,7 +41,7 @@ fetched the way riff already fetches one to expand context.
 - Until it arrives — and when it cannot be had at all — the rows are
   highlighted as they are today. Nothing waits for a parse.
 - A read still in flight when the diff changes underneath it is dropped;
-  the file is read again for the new diff once it is on screen.
+  the new diff reads the file at once, without waiting for it to land.
 - riff's own rows keep their own styling: the fold markers and file headers
   are chrome, not source.
 
