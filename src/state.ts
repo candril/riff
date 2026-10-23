@@ -137,8 +137,6 @@ export interface PRInfoPanelState {
    *  prompt for it is open (spec 065). */
   filter: string
   filterInput: boolean
-  activeSection: PRInfoPanelSection  // Currently focused section
-  cursorIndex: number  // Currently selected item within active section
 }
 
 /**
@@ -336,8 +334,6 @@ export function createInitialState(
     prInfoPanel: {
       filter: "",
       filterInput: false,
-      activeSection: 'description',
-      cursorIndex: -1,
     },
     inlineCommentOverlay: {
       filter: "",
@@ -1298,18 +1294,13 @@ export function isFileStale(state: AppState, filename: string): boolean {
 // PR Info Panel State
 // ============================================================================
 
-/**
- * Enter PR overview (spec 041). Resets panel cursor to the top section
- * so the user lands at a predictable starting point.
- */
+/** Enter PR overview (spec 041), its filter cleared. */
 export function openPRInfoPanel(state: AppState): AppState {
   return {
     ...enterPrView(state),
     prInfoPanel: {
       filter: "",
       filterInput: false,
-      activeSection: 'description',
-      cursorIndex: -1,
     },
   }
 }
@@ -1319,55 +1310,6 @@ export function openPRInfoPanel(state: AppState): AppState {
  */
 export function closePRInfoPanel(state: AppState): AppState {
   return enterDiffView(state)
-}
-
-/**
- * Move the cursor in the PR info panel
- */
-export function movePRInfoPanelCursor(state: AppState, delta: number, maxIndex: number): AppState {
-  const newIndex = Math.max(0, Math.min(maxIndex, state.prInfoPanel.cursorIndex + delta))
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      cursorIndex: newIndex,
-    },
-  }
-}
-
-/**
- * All PR info panel sections in order
- */
-const PR_INFO_SECTIONS: PRInfoPanelSection[] = ['description', 'conversation', 'files', 'commits']
-
-/**
- * Move to the next/previous section in the PR info panel
- */
-export function cyclePRInfoPanelSection(state: AppState, delta: number): AppState {
-  const currentIndex = PR_INFO_SECTIONS.indexOf(state.prInfoPanel.activeSection)
-  const newIndex = (currentIndex + delta + PR_INFO_SECTIONS.length) % PR_INFO_SECTIONS.length
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      activeSection: PR_INFO_SECTIONS[newIndex]!,
-      cursorIndex: 0,  // Reset cursor when changing sections
-    },
-  }
-}
-
-/**
- * Set the active section in the PR info panel
- */
-export function setPRInfoPanelSection(state: AppState, section: PRInfoPanelSection): AppState {
-  return {
-    ...state,
-    prInfoPanel: {
-      ...state.prInfoPanel,
-      activeSection: section,
-      cursorIndex: 0,
-    },
-  }
 }
 
 // ============================================================================
