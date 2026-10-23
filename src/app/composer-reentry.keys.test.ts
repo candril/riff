@@ -43,7 +43,7 @@ test("editing a comment whose body ends in a mention seeds the composer without 
   const mounted = app
   const keys = keysOn(mounted, {
     getCommentScope: mounted.ctx.split.commentScope,
-    commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
+    commentsContext: { getCachedCurrentUser: () => null } as unknown as CommentsContext,
   })
   mounted.mentions.merge(["alma"])
   mounted.show({ comments: [MENTIONING] })

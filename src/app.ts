@@ -1103,17 +1103,15 @@ export async function createApp(options: AppOptions = {}) {
       // Fresh PR data can carry references riff has never looked up.
       startReferencePrefetch(referenceContext)
     },
-    mode,
     target: options.target,
-    prInfo: prInfo ?? null,
   }
 
   const reviewPreviewOpenContext: reviewPreviewFeature.ReviewPreviewOpenContext = {
+    getState: () => state,
     reviewPreview,
     render,
     getCachedCurrentUser: () => cachedCurrentUser,
     setCachedCurrentUser: (user) => { cachedCurrentUser = user },
-    mode,
   }
 
   const syncPreviewOpenContext: syncPreviewFeature.SyncPreviewOpenContext = {
@@ -1156,9 +1154,6 @@ export async function createApp(options: AppOptions = {}) {
     getCursorView: () => diffViewport,
     ensureCursorVisible,
     render,
-    mode,
-    prInfo: prInfo ?? null,
-    source,
     getHeadSha: () => currentHeadSha,
     setHeadSha: (sha) => { currentHeadSha = sha },
   }
@@ -1174,9 +1169,6 @@ export async function createApp(options: AppOptions = {}) {
     render,
     suspendRenderer: () => renderer.suspend(),
     resumeRenderer: () => renderer.resume(),
-    source,
-    mode,
-    prInfo: prInfo ?? null,
     getCachedCurrentUser: () => cachedCurrentUser,
     setCachedCurrentUser: (user) => { cachedCurrentUser = user },
     confirm,
@@ -1191,8 +1183,6 @@ export async function createApp(options: AppOptions = {}) {
     render,
     suspendRenderer: () => renderer.suspend(),
     resumeRenderer: () => renderer.resume(),
-    mode,
-    prInfo: prInfo ?? null,
     getHeadSha: () => currentHeadSha,
     options,
   }
@@ -1217,8 +1207,6 @@ export async function createApp(options: AppOptions = {}) {
     getLineMapping: () => lineMapping,
     getCommentScope: split.commentScope,
     render,
-    mode,
-    prInfo: prInfo ?? null,
     getHeadSha: () => currentHeadSha,
   }
 
@@ -1227,8 +1215,6 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     toast,
     render,
-    source,
-    prInfo: prInfo ?? null,
     syncPreview,
     reviewPreview,
     pendingReview,
@@ -1329,6 +1315,7 @@ export async function createApp(options: AppOptions = {}) {
       })
     },
     handleEditPr: async () => {
+      const { prInfo } = state
       if (!prInfo) return
 
       // Show loading toast while fetching diff
@@ -1520,6 +1507,7 @@ export async function createApp(options: AppOptions = {}) {
       }
     },
     handleAddPrComment: async () => {
+      const { prInfo } = state
       if (!prInfo) return
 
       let suspended = false
@@ -2028,8 +2016,6 @@ export async function createApp(options: AppOptions = {}) {
   const referenceContext = {
     getState: () => state,
     render,
-    mode,
-    prInfo: prInfo ?? null,
   }
 
   startReferencePrefetch(referenceContext)

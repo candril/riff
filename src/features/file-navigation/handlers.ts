@@ -8,7 +8,6 @@ import type { AppState } from "../../state"
 import type { FileReviewStatus } from "../../types"
 import type { CursorView, VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { PrInfo } from "../../providers/github/types"
 import { treeRowsOf, treeRowsWithViewedOf } from "../../components"
 import {
   selectFile,
@@ -40,10 +39,6 @@ export interface FileNavigationContext {
   ensureCursorVisible: () => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  // Mode and PR info
-  mode: "local" | "pr"
-  prInfo: PrInfo | null
-  source: string
   // Head SHA cache
   getHeadSha: () => string | null
   setHeadSha: (sha: string) => void
@@ -416,6 +411,8 @@ export async function toggleViewedForFile(
   ctx: FileNavigationContext
 ): Promise<boolean> {
   const state = ctx.getState()
+  // Read once: the mark is saved under, and synced to, the review it was made in.
+  const { appMode, prInfo, source } = state
 
   // Get current HEAD for viewedAtCommit
   let commitSha = ctx.getHeadSha()
@@ -436,18 +433,18 @@ export async function toggleViewedForFile(
 
   ctx.setState((s) => setFileViewedStatus(s, newStatus))
 
-  await saveFileViewedStatus(ctx.source, newStatus)
+  await saveFileViewedStatus(source, newStatus)
 
   // Sync to GitHub in PR mode
-  if (ctx.mode === "pr" && ctx.prInfo) {
-    const { owner, repo, number: prNumber } = ctx.prInfo
+  if (appMode === "pr" && prInfo) {
+    const { owner, repo, number: prNumber } = prInfo
     markFileViewedOnGitHub(owner, repo, prNumber, filename, newViewed).then((result) => {
       if (result.success) {
         const syncedStatus = ctx.getState().fileStatuses.get(filename)
         if (syncedStatus) {
           const updated = { ...syncedStatus, githubSynced: true, syncedAt: new Date().toISOString() }
           ctx.setState((s) => setFileViewedStatus(s, updated))
-          saveFileViewedStatus(ctx.source, updated)
+          saveFileViewedStatus(source, updated)
         }
       }
     })

@@ -31,7 +31,7 @@ async function composing() {
   const mounted = app
   const keys = keysOn(mounted, {
     getCommentScope: mounted.ctx.split.commentScope,
-    commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
+    commentsContext: { getCachedCurrentUser: () => null } as unknown as CommentsContext,
   })
   await mounted.frame()
   moveTo(mounted, keys.vimState, '  return "hello"')

@@ -11,7 +11,6 @@ import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
 import type { ValidatedComment } from "../../components/review-preview-model"
 import type { SubmitResult } from "../../providers/github/mutations"
-import type { PrInfo } from "../../providers/github/types"
 import {
   addComment,
   deleteComment,
@@ -52,10 +51,6 @@ export interface CommentsContext {
   // Renderer control
   suspendRenderer: () => void
   resumeRenderer: () => void
-  // Mode and PR info
-  source: string
-  mode: "local" | "pr"
-  prInfo: PrInfo | null
   // Cached current user (for faster comment creation)
   getCachedCurrentUser: () => string | null
   setCachedCurrentUser: (user: string) => void
@@ -186,7 +181,7 @@ export async function handleAddComment(
           ...s,
           comments: s.comments.map((c) => (c.id === comment.id ? updatedComment : c)),
         }))
-        await persistComment(updatedComment, ctx.source)
+        await persistComment(updatedComment, ctx.getState().source)
       }
 
       // Handle new reply
@@ -217,7 +212,7 @@ export async function handleAddComment(
         }
 
         ctx.setState((s) => addComment(s, comment))
-        await persistComment(comment, ctx.source)
+        await persistComment(comment, ctx.getState().source)
       }
     }
   } finally {
@@ -266,9 +261,11 @@ export async function handleSubmitSingleComment(
   comment?: Comment
 ): Promise<void> {
   const state = ctx.getState()
+  // Read once: the comment is sent to, and saved under, the review it was submitted from.
+  const { prInfo, source } = state
 
   // Check we're in PR mode
-  if (ctx.mode !== "pr" || !ctx.prInfo) {
+  if (state.appMode !== "pr" || !prInfo) {
     return
   }
 
@@ -292,7 +289,7 @@ export async function handleSubmitSingleComment(
     return
   }
 
-  const { owner, repo, number: prNumber } = ctx.prInfo
+  const { owner, repo, number: prNumber } = prInfo
   let result: SubmitResult
 
   if (isEdit && toSubmit.githubId) {
@@ -370,7 +367,7 @@ export async function handleSubmitSingleComment(
     ctx.toast.show(toastMessage, "success")
 
     // Persist to storage
-    await saveComment(updatedComment, ctx.source)
+    await saveComment(updatedComment, source)
 
     ctx.render()
 
@@ -413,8 +410,9 @@ export async function handleDeleteComment(
 
   // Check if comment is synced (exists on GitHub)
   if (toDelete.status === "synced") {
+    const state = ctx.getState()
     // Must be in PR mode with valid prInfo and have a GitHub ID
-    if (ctx.mode !== "pr" || !ctx.prInfo || !toDelete.githubId) {
+    if (state.appMode !== "pr" || !state.prInfo || !toDelete.githubId) {
       ctx.toast.show("Cannot delete: missing GitHub info", "error")
       ctx.render()
       setTimeout(() => {
@@ -451,14 +449,15 @@ export async function handleDeleteComment(
  * Execute the GitHub delete after confirmation
  */
 async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): Promise<void> {
-  if (!ctx.prInfo || !toDelete.githubId) {
+  const { prInfo } = ctx.getState()
+  if (!prInfo || !toDelete.githubId) {
     ctx.confirm.close()
     ctx.toast.show("Cannot delete: missing GitHub info", "error")
     ctx.render()
     return
   }
 
-  const { owner, repo } = ctx.prInfo
+  const { owner, repo } = prInfo
 
   // Close dialog and show loading toast
   ctx.confirm.close()
@@ -486,11 +485,12 @@ async function executeDeleteOnGitHub(ctx: CommentsContext, toDelete: Comment): P
  * Perform the actual delete (from state and storage)
  */
 async function performDelete(ctx: CommentsContext, toDelete: Comment): Promise<void> {
+  const { source } = ctx.getState()
   // Delete the comment from state
   ctx.setState((s) => deleteComment(s, toDelete.id))
 
   // Delete from storage
-  await deleteCommentFile(toDelete.id, ctx.source)
+  await deleteCommentFile(toDelete.id, source)
 
   // Show success toast
   ctx.toast.show("Comment deleted", "success")
@@ -523,7 +523,7 @@ export async function handleClearLocalComments(ctx: CommentsContext): Promise<vo
     message: `Delete ${count} local comment${count === 1 ? "" : "s"}? They were never sent to GitHub.`,
     onConfirm: () => {
       void (async () => {
-        const removed = await clearLocalComments(ctx.source)
+        const removed = await clearLocalComments(ctx.getState().source)
         ctx.confirm.close()
         ctx.setState((s2) => ({
           ...s2,

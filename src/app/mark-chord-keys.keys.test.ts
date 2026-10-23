@@ -55,9 +55,6 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     render: mounted.render,
     getHeadSha: () => "abc1234",
     setHeadSha: () => {},
-    source: "test",
-    mode: "local",
-    prInfo: null,
   } as unknown as AppKeyContext["fileNavContext"]
   // Through app.ts's own recording, around riff's listener.
   const recording = createJumpRecording({

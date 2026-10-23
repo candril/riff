@@ -13,7 +13,6 @@ import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { scopeAnchors, type CommentScope } from "../../diff-rows/comment-scope"
-import type { PrInfo } from "../../providers/github/types"
 import type { Comment } from "../../types"
 import { treeRowsOf } from "../../components"
 import { copyToClipboard } from "../../utils/clipboard"
@@ -32,8 +31,6 @@ export interface PermalinkContext {
   getCommentScope: () => CommentScope
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  mode: "local" | "pr"
-  prInfo: PrInfo | null
   /** SHA of the PR head riff loaded the diff at. Empty in local mode. */
   getHeadSha: () => string
 }
@@ -73,6 +70,7 @@ export async function handleCopyPermalink(
     return
   }
 
+  const local = ctx.getState().appMode === "local"
   const repo = await resolveRepoRef(ctx)
   if (!repo) {
     toast(
@@ -96,7 +94,7 @@ export async function handleCopyPermalink(
   // lands on are whatever that ref holds — say so rather than let the reader
   // discover it.
   const drifted =
-    ctx.mode === "local" && (await fileDiffersAtRef(repo.ref, target.filename))
+    local && (await fileDiffersAtRef(repo.ref, target.filename))
   if (drifted) {
     toast(
       ctx,
@@ -120,8 +118,8 @@ export async function handleCopyPermalink(
  */
 export async function handleCopyPrDiffLink(ctx: PermalinkContext): Promise<void> {
   const state = ctx.getState()
-  const prInfo = ctx.prInfo
-  if (ctx.mode !== "pr" || !prInfo) {
+  const prInfo = state.prInfo
+  if (state.appMode !== "pr" || !prInfo) {
     toast(ctx, "Not reviewing a PR", "info")
     return
   }
@@ -168,7 +166,7 @@ export async function handleCopyCommentLink(
   focused?: Comment | null,
 ): Promise<void> {
   const state = ctx.getState()
-  if (ctx.mode !== "pr" || !state.prInfo) {
+  if (state.appMode !== "pr" || !state.prInfo) {
     toast(ctx, "Not reviewing a PR", "info")
     return
   }
@@ -252,11 +250,12 @@ function lineRange(target: Target): { startLine?: number; endLine?: number } {
 }
 
 async function resolveRepoRef(ctx: PermalinkContext): Promise<RepoRef | null> {
-  if (ctx.mode === "pr" && ctx.prInfo) {
+  const state = ctx.getState()
+  if (state.appMode === "pr" && state.prInfo) {
     // Viewing one commit's diff means the line numbers are that commit's, so
     // that's what the link has to pin to; otherwise the head riff loaded.
-    const displayed = ctx.getState().viewingCommit || ctx.getHeadSha()
-    return repoRefForPr(ctx.prInfo, displayed || undefined)
+    const displayed = state.viewingCommit || ctx.getHeadSha()
+    return repoRefForPr(state.prInfo, displayed || undefined)
   }
   return resolveLocalRepoRef()
 }

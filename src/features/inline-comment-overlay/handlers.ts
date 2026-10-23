@@ -28,7 +28,6 @@ export interface InlineComposerHandlersContext {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  source: string
   /** Current GitHub user, falls back to "@you" when unknown. */
   getCachedCurrentUser: () => string | null
   /** The kept drafts; a saved comment's is forgotten (spec 061). */
@@ -91,7 +90,7 @@ export async function submitInlineDraft(
   ctx.setState(cancelInlineComposer)
   ctx.setState((s) => highlightInlineComment(s, comment.id))
   ctx.render()
-  await saveComment(comment, ctx.source)
+  await saveComment(comment, ctx.getState().source)
   return comment
 }
 
@@ -152,7 +151,7 @@ export async function submitInlineEditDraft(
   ctx.setState((s) => highlightInlineComment(s, updated.id))
   ctx.toast.show("Comment updated", "success")
   ctx.render()
-  await saveComment(updated, ctx.source)
+  await saveComment(updated, ctx.getState().source)
   return updated
 }
 

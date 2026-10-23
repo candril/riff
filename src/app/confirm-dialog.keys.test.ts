@@ -90,13 +90,10 @@ test("d on a synced comment asks before deleting it on GitHub; n leaves it, and 
       getState: mounted.ctx.getState,
       setState: mounted.ctx.setState,
       render: mounted.render,
-      source: "gh:octo/riff#7",
-      mode: "pr",
-      prInfo: prInfo("body"),
       confirm: mounted.confirm,
     } as unknown as AppKeyContext["commentsContext"],
   })
-  mounted.show({ comments: [synced, reply] })
+  mounted.show({ appMode: "pr", prInfo: prInfo("body"), source: "gh:octo/riff#7", comments: [synced, reply] })
   mounted.show({
     ...openInlineCommentOverlay(mounted.ctx.getState(), "src/greet.ts", 2, "RIGHT", "view"),
     focusedPanel: "comments",

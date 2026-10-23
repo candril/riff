@@ -40,7 +40,7 @@ export async function composing(patch: Partial<AppState> = {}) {
   const suspended: string[] = []
   const keys = keysOn(app, {
     getCommentScope: app.ctx.split.commentScope,
-    commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
+    commentsContext: { getCachedCurrentUser: () => null } as unknown as CommentsContext,
     externalToolsContext: {
       suspendRenderer: () => void suspended.push("suspend"),
       resumeRenderer: () => void suspended.push("resume"),

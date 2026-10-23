@@ -105,7 +105,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
       setState: render.setState,
       createLineMapping: () => {},
     } as unknown as AppKeyContext["fileNavContext"],
-    commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as AppKeyContext["commentsContext"],
+    commentsContext: { getCachedCurrentUser: () => null } as unknown as AppKeyContext["commentsContext"],
   }
   known.threadMotionContext = {
     getState: render.getState,

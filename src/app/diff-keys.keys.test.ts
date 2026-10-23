@@ -68,9 +68,6 @@ async function diffApp() {
     render: mounted.render,
     getHeadSha: () => "abc1234",
     setHeadSha: () => {},
-    source: "test",
-    mode: "local",
-    prInfo: null,
   } as unknown as AppKeyContext["fileNavContext"]
   const searchHandler = new SearchHandler({
     getMapping: render.getLineMapping,

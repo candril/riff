@@ -49,8 +49,6 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
     },
     setState: render.setState,
     render: mounted.render,
-    source: "test",
-    prInfo: null,
     syncPreview: mounted.syncPreview,
     reviewPreview: mounted.reviewPreview,
     pendingReview: mounted.pendingReview,
@@ -87,11 +85,12 @@ function keysOn(mounted: NonNullable<typeof app>, prOperations: Partial<PrOperat
     renderer: mounted.setup.renderer,
     render: mounted.render,
     reviewPreviewOpenContext: {
+      getState: render.getState,
       reviewPreview: mounted.reviewPreview,
       render: mounted.render,
-      getCachedCurrentUser: () => null,
+      // Known already, so opening Submit Review on a PR never asks gh who is reviewing.
+      getCachedCurrentUser: () => "octo",
       setCachedCurrentUser() {},
-      mode: "local",
     },
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     prOperationsContext,
@@ -225,7 +224,7 @@ test("a submit forgets GitHub's pending review: Submit Review opens again withou
     getPrComments: async () => [],
     saveComment: async () => {},
   }
-  keysOn(app, { prInfo: pr, reviewCalls })
+  keysOn(app, { reviewCalls })
   const { mockInput } = app.setup
 
   await mockInput.typeText("gS")

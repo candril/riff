@@ -9,7 +9,6 @@ import { join } from "node:path"
 import type { AppState } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
-import type { PrInfo } from "../../providers/github/types"
 import { treeRowsOf } from "../../components"
 import { openFileInEditor } from "../../utils/editor/spawn"
 import { openInTmuxWindow, openInTmuxPane, insideTmux } from "../../utils/editor/tmux"
@@ -36,9 +35,6 @@ export interface ExternalToolsContext {
   // Renderer control
   suspendRenderer: () => void
   resumeRenderer: () => void
-  // Mode and PR info
-  mode: "local" | "pr"
-  prInfo: PrInfo | null
   /** SHA of the PR head riff loaded the diff at. Empty in local mode.
    *  Passing it spares a `gh pr view` (GraphQL) per file open. */
   getHeadSha: () => string
@@ -107,7 +103,7 @@ export function showFilePath(ctx: CursorContext & Pick<ExternalToolsContext, "to
  * local `git rev-parse`, no API.
  */
 async function workingCopyIsAtHead(ctx: ExternalToolsContext): Promise<boolean> {
-  if (ctx.mode !== "pr") return true
+  if (ctx.getState().appMode !== "pr") return true
 
   const headSha = ctx.getHeadSha()
   if (!headSha) return false
@@ -196,11 +192,12 @@ async function fetchHeadContent(
   ctx: ExternalToolsContext,
   filename: string,
 ): Promise<FileContentResult> {
-  if (ctx.mode === "pr" && ctx.prInfo) {
+  const { appMode, prInfo } = ctx.getState()
+  if (appMode === "pr" && prInfo) {
     return getPrFileContent(
-      ctx.prInfo.owner,
-      ctx.prInfo.repo,
-      ctx.prInfo.number,
+      prInfo.owner,
+      prInfo.repo,
+      prInfo.number,
       filename,
       ctx.getHeadSha(),
     )
@@ -344,8 +341,9 @@ async function fileVersions(
   ctx: ExternalToolsContext,
   filename: string,
 ): Promise<{ ok: true; old: string; new: string } | { ok: false; error: string }> {
-  if (ctx.mode === "pr" && ctx.prInfo) {
-    const { owner, repo, number, baseRef } = ctx.prInfo
+  const { appMode, prInfo } = ctx.getState()
+  if (appMode === "pr" && prInfo) {
+    const { owner, repo, number, baseRef } = prInfo
     const [head, base] = await Promise.all([
       getPrFileContent(owner, repo, number, filename, ctx.getHeadSha()),
       getPrBaseFileContent(owner, repo, number, filename, baseRef, ctx.getHeadSha()),
@@ -445,11 +443,12 @@ export async function handleOpenExternalDiff(
     let newContent: string | null = null
     let failure = "no content on either side"
 
-    if (ctx.mode === "pr" && ctx.prInfo) {
+    const { appMode, prInfo } = ctx.getState()
+    if (appMode === "pr" && prInfo) {
       // For PRs, fetch both base and head versions from GitHub
-      const { owner, repo, number: prNumber } = ctx.prInfo
+      const { owner, repo, number: prNumber, baseRef } = prInfo
       const [base, head] = await Promise.all([
-        getPrBaseFileContent(owner, repo, prNumber, filename, ctx.prInfo.baseRef, ctx.getHeadSha()),
+        getPrBaseFileContent(owner, repo, prNumber, filename, baseRef, ctx.getHeadSha()),
         getPrFileContent(owner, repo, prNumber, filename, ctx.getHeadSha()),
       ])
       oldContent = base.ok ? base.content : null
@@ -500,8 +499,9 @@ export async function handleOpenExternalDiff(
  * Only available in PR mode when a local repo path is configured.
  */
 export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<void> {
+  const { appMode, prInfo } = ctx.getState()
   // Only works in PR mode
-  if (ctx.mode !== "pr" || !ctx.prInfo) {
+  if (appMode !== "pr" || !prInfo) {
     ctx.toast.show("Checkout only available in PR mode", "info")
     ctx.render()
     return
@@ -517,7 +517,7 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
 
   // Find local repo path
   const config = loadConfig()
-  const repoName = `${ctx.prInfo.owner}/${ctx.prInfo.repo}`
+  const repoName = `${prInfo.owner}/${prInfo.repo}`
   const localPath = findLocalRepoPath(repoName, config)
 
   if (!localPath) {
@@ -526,12 +526,12 @@ export async function handleCheckoutAndEdit(ctx: ExternalToolsContext): Promise<
     return
   }
 
-  ctx.toast.show(`Checking out PR #${ctx.prInfo!.number}...`, "info")
+  ctx.toast.show(`Checking out PR #${prInfo.number}...`, "info")
   ctx.render()
 
   try {
     // Checkout the PR branch
-    const checkoutResult = await checkoutPR(ctx.prInfo.number, repoName, localPath)
+    const checkoutResult = await checkoutPR(prInfo.number, repoName, localPath)
 
     if (!checkoutResult.success) {
       ctx.toast.show(checkoutResult.message, "error")

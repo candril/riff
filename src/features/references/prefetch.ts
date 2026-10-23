@@ -8,7 +8,6 @@
  */
 
 import type { AppState } from "../../state"
-import type { PrInfo } from "../../providers/github/types"
 import { getReferenceTitles } from "../../providers/github/lookups"
 import { getCurrentRepoInfo } from "../../storage/resolve"
 import { findReferences, referenceKey, type Repo } from "../../utils/references"
@@ -23,8 +22,6 @@ import {
 export interface ReferencePrefetchContext {
   getState: () => AppState
   render: () => void
-  mode: "local" | "pr"
-  prInfo: PrInfo | null
 }
 
 /** Kick off a pass. Returns immediately; titles appear when they land. */
@@ -79,8 +76,9 @@ function collect(state: AppState, repo: Repo): string[] {
  * local mode whatever repo the working directory is in.
  */
 async function resolveRepo(ctx: ReferencePrefetchContext): Promise<Repo | null> {
-  if (ctx.mode === "pr" && ctx.prInfo) {
-    return { owner: ctx.prInfo.owner, repo: ctx.prInfo.repo }
+  const { appMode, prInfo } = ctx.getState()
+  if (appMode === "pr" && prInfo) {
+    return { owner: prInfo.owner, repo: prInfo.repo }
   }
   return getCurrentRepoInfo()
 }

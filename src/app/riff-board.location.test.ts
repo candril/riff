@@ -50,8 +50,6 @@ function openedUrl(mounted: NonNullable<typeof app>, vimState = createCursorStat
     getCommentScope: () => ctx.split.commentScope(),
     render: () => {},
     toast: mounted.toast,
-    mode: "pr",
-    prInfo: PR,
     getHeadSha: () => "",
   }
   const urls: string[] = []

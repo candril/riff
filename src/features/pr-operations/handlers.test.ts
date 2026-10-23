@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createInitialState, withPendingComments, type AppState } from "../../state"
 import type { Comment } from "../../types"
+import type { DiffFile } from "../../utils/diff-parser"
 import type { PendingReview } from "../../providers/github/types"
 import { prInfo } from "../../testing/pr-info"
 import { createSyncPreviewState } from "../sync-preview/state"
@@ -28,7 +29,7 @@ const edited: Comment = {
 }
 
 function harness(comments: Comment[]) {
-  let state: AppState = { ...createInitialState([], [], "test", ""), appMode: "pr", comments }
+  let state: AppState = { ...createInitialState([], [], "test", ""), appMode: "pr", prInfo: prInfo(""), comments }
   const syncPreview = createSyncPreviewState()
   syncPreview.show()
   const reviewPreview = createReviewPreviewState()
@@ -51,8 +52,6 @@ function harness(comments: Comment[]) {
       state = fn(state)
     },
     render: () => {},
-    source: "test",
-    prInfo: prInfo(""),
     syncPreview,
     reviewPreview,
     pendingReview,
@@ -60,15 +59,15 @@ function harness(comments: Comment[]) {
     reviewCalls,
   }
   const calls: SyncCalls = {
-    updateComment: async (_owner, _repo, id, body) => {
-      seen.push(`update ${id} while ${syncPreview.loading() ? "loading" : "idle"}: ${body}`)
+    updateComment: async (owner, repo, id, body) => {
+      seen.push(`update ${owner}/${repo} ${id} while ${syncPreview.loading() ? "loading" : "idle"}: ${body}`)
       return { success: true, githubId: id }
     },
     submitReply: fail,
     submitSingleComment: fail,
     getPrHeadSha: fail,
-    saveComment: async (comment) => {
-      seen.push(`save ${comment.id}`)
+    saveComment: async (comment, source) => {
+      seen.push(`save ${comment.id} under ${source}`)
     },
   }
   return { ctx, calls, reviewCalls, syncPreview, reviewPreview, pendingReview, toast, seen, state: () => state }
@@ -78,7 +77,7 @@ describe("handleExecuteSync", () => {
   test("marks the preview loading while it sends, then closes it", async () => {
     const h = harness([edited])
     await handleExecuteSync(h.ctx, h.calls)
-    expect(h.seen).toEqual(["update 42 while loading: Looks fine, ship it", "save c1"])
+    expect(h.seen).toEqual(["update owner/repo 42 while loading: Looks fine, ship it", "save c1 under test"])
     expect([h.syncPreview.open(), h.syncPreview.loading()]).toEqual([false, false])
     expect(h.state().comments[0]).toMatchObject({ body: "Looks fine, ship it", localEdit: undefined })
     expect(h.toast.current()?.message).toBe("Synced 1 change")
@@ -90,6 +89,46 @@ describe("handleExecuteSync", () => {
     expect(h.seen).toEqual([])
     expect(h.syncPreview.open()).toBe(false)
     expect(h.toast.current()).toBeNull()
+  })
+})
+
+describe("after riff swaps a local review for its branch's pull request", () => {
+  const branchPr = prInfo("", { owner: "o", repo: "r", number: 7 })
+  const file: DiffFile = { filename: "a.ts", status: "modified", additions: 1, deletions: 0, content: "" }
+  const local: Comment = { ...edited, id: "l1", status: "local", githubId: undefined, localEdit: undefined }
+
+  function swapped(comments: Comment[]) {
+    const h = harness(comments)
+    h.ctx.setState((s) => ({ ...s, appMode: "local", prInfo: null, source: "local-source" }))
+    h.ctx.setState((s) => ({ ...s, appMode: "pr", prInfo: branchPr, source: "gh:o/r#7", files: [file] }))
+    return h
+  }
+
+  test("a sync sends to that pull request and saves under its storage", async () => {
+    const h = swapped([edited])
+    await handleExecuteSync(h.ctx, h.calls)
+    expect(h.seen).toEqual(["update o/r 42 while loading: Looks fine, ship it", "save c1 under gh:o/r#7"])
+  })
+
+  test("Submit Review sends to that pull request and saves under its storage", async () => {
+    const h = swapped([local])
+    h.reviewPreview.show()
+    const sent: string[] = []
+    h.reviewCalls.getPrHeadSha = async (number, owner, repo) => {
+      sent.push(`head ${owner}/${repo}#${number}`)
+      return "head"
+    }
+    h.reviewCalls.submitReview = async (owner, repo, number) => {
+      sent.push(`review ${owner}/${repo}#${number}`)
+      return { success: true }
+    }
+    h.reviewCalls.getCurrentUser = async () => "octo"
+    h.reviewCalls.getPrComments = async () => []
+    h.reviewCalls.saveComment = async (comment, source) => {
+      sent.push(`save ${comment.id} under ${source}`)
+    }
+    await handleConfirmReview(h.ctx)
+    expect(sent).toEqual(["head o/r#7", "review o/r#7", "save l1 under gh:o/r#7"])
   })
 })
 

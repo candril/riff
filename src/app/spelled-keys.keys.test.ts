@@ -66,8 +66,6 @@ async function typedOn(command: string) {
         throw new Error("a hint reached an external program")
       },
       resumeRenderer: () => {},
-      mode: "local",
-      prInfo: null,
       getHeadSha: () => "",
       options: {},
     } satisfies AppKeyContext["externalToolsContext"],

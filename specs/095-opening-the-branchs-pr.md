@@ -26,6 +26,9 @@ just told you a pull request was there.
   land on the view that was asked for. The same load `riff pr` does, in
   place, so everything the pull request has — checks, reviews, commits, the
   feed, the whole comment set — is there afterwards.
+- After the load, commenting, Submit Review, Sync, permalinks and viewed-file
+  sync act on the pull request and save under its storage, not the local
+  review's.
 - It says it is loading, and says what went wrong if it does, rather than
   looking like a key that does nothing.
 - A second press while the first is still loading is ignored.

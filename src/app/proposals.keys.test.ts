@@ -49,7 +49,7 @@ async function proposing(comments: Comment[] = []) {
   })
   const keys = keysOn(mounted, {
     composerSettled: proposals.composerSettled,
-    commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext,
+    commentsContext: { getCachedCurrentUser: () => null } as unknown as CommentsContext,
   })
   jumpTo = keys.jumpTo
   // As the propose tools' handlers call it.

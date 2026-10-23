@@ -96,9 +96,6 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
       createLineMapping: () => {},
       getHeadSha: () => "abc1234",
       setHeadSha: () => {},
-      source: "test",
-      mode: "local",
-      prInfo: null,
     } as unknown as AppKeyContext["fileNavContext"],
   }
   const ctx = new Proxy(known, {

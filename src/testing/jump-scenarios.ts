@@ -163,9 +163,6 @@ export async function jumpScenario({
     render: mounted.render,
     getHeadSha: () => "abc1234",
     setHeadSha: () => {},
-    source: "test",
-    mode: "local",
-    prInfo: null,
   } as unknown as AppKeyContext["fileNavContext"]
   const threadMotionContext = {
     getState: render.getState,

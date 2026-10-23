@@ -95,7 +95,7 @@ test("each island types into its own textarea, whichever renderer was built last
 test("typing in the composer draws what is typed with the terminal cursor showing, and Esc hides the cursor again", async () => {
   const app = await mountApp(DIFF, { width: 120, height: 24 })
   teardown.push(() => app.dispose())
-  keysOn(app, { commentsContext: { source: "test", getCachedCurrentUser: () => null } as unknown as CommentsContext })
+  keysOn(app, { commentsContext: { getCachedCurrentUser: () => null } as unknown as CommentsContext })
   app.show(openInlineCommentOverlay(app.ctx.getState(), "src/greet.ts", 2, "RIGHT", "view"))
   app.show({ focusedPanel: "comments" })
   await app.frame()

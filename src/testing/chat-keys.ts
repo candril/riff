@@ -47,11 +47,12 @@ export function keysOn(
     render: mounted.render,
     quit: () => void quits.push(1),
     reviewPreviewOpenContext: {
+      getState: render.getState,
       reviewPreview: mounted.reviewPreview,
       render: mounted.render,
-      getCachedCurrentUser: () => null,
+      // Known already, so opening Submit Review on a PR never asks gh who is reviewing.
+      getCachedCurrentUser: () => "octo",
       setCachedCurrentUser() {},
-      mode: "local",
     },
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,

@@ -8,7 +8,6 @@
 import type { AppState } from "../../state"
 import type { Comment } from "../../types"
 import type { SubmitResult } from "../../providers/github/mutations"
-import type { PrInfo } from "../../providers/github/types"
 import {
   setThreadResolved,
   withPendingComments,
@@ -40,10 +39,6 @@ export interface PrOperationsContext {
   // Render
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  // Source for storage
-  source: string
-  // PR info
-  prInfo: PrInfo | null
   syncPreview: Pick<SyncPreviewState, "close" | "startSync">
   reviewPreview: Pick<ReviewPreviewState, "selectedEvent" | "body" | "excludedCommentIds" | "startSubmit" | "fail" | "close">
   pendingReview: Pick<PendingReviewState, "review" | "clear">
@@ -76,9 +71,11 @@ export const githubReviewCalls: ReviewCalls = { getPrHeadSha, submitReview, getC
 /** `calls` is an argument so a test can drive the sync without spawning gh. */
 export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCalls = githubSyncCalls): Promise<void> {
   const state = ctx.getState()
-  if (!ctx.prInfo) return
+  // Read once: a sync is sent to, and saved under, the review it started on.
+  const { prInfo, source } = state
+  if (!prInfo) return
 
-  const { owner, repo, number: prNumber } = ctx.prInfo
+  const { owner, repo, number: prNumber } = prInfo
   const syncItems = gatherSyncItems(state.comments)
 
   if (syncItems.length === 0) {
@@ -110,7 +107,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCal
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await calls.saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, source)
           successCount++
         } else {
           lastError = result.error || "Failed to update comment"
@@ -133,7 +130,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCal
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await calls.saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, source)
           successCount++
         } else {
           lastError = result.error || "Failed to submit reply"
@@ -158,7 +155,7 @@ export async function handleExecuteSync(ctx: PrOperationsContext, calls: SyncCal
             ...s,
             comments: s.comments.map((c) => (c.id === updatedComment.id ? updatedComment : c)),
           }))
-          await calls.saveComment(updatedComment, ctx.source)
+          await calls.saveComment(updatedComment, source)
           successCount++
         } else {
           lastError = result.error || "Failed to submit comment"
@@ -212,7 +209,7 @@ export async function handleToggleThreadResolved(
     // Persist the change - get the updated comment from state
     const updatedComment = ctx.getState().comments.find((c) => c.id === rootComment.id)
     if (updatedComment) {
-      await saveComment(updatedComment, ctx.source)
+      await saveComment(updatedComment, state.source)
     }
     ctx.render()
     return
@@ -232,7 +229,7 @@ export async function handleToggleThreadResolved(
     // Persist the change - get the updated comment from state
     const updatedComment = ctx.getState().comments.find((c) => c.id === rootComment.id)
     if (updatedComment) {
-      await saveComment(updatedComment, ctx.source)
+      await saveComment(updatedComment, state.source)
     }
 
     // Show toast
@@ -269,8 +266,9 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
   const excludedCommentIds = ctx.reviewPreview.excludedCommentIds()
   const pendingReview = ctx.pendingReview.review()
 
+  const { prInfo, source } = state
   // Check we're in PR mode
-  if (state.appMode !== "pr" || !ctx.prInfo) {
+  if (state.appMode !== "pr" || !prInfo) {
     return
   }
 
@@ -300,9 +298,6 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
     ctx.render()
     return
   }
-
-  const prInfo = ctx.prInfo
-  if (!prInfo) return
 
   // Set loading state
   ctx.reviewPreview.startSubmit()
@@ -424,7 +419,7 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
           author: comment.author || currentUser,
           ...(remoteIds ? { githubId: remoteIds.githubId, githubUrl: remoteIds.githubUrl } : {}),
         },
-        ctx.source
+        source
       )
     }
 

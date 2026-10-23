@@ -6,8 +6,6 @@
  */
 
 import type { AppState } from "../../state"
-import type { PrInfo } from "../../providers/github/types"
-import type { AppMode } from "../../types"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import type { SearchState } from "../../vim-diff/search-state"
@@ -119,9 +117,7 @@ export interface RefreshContext {
   toast: Pick<ToastState, "show" | "clear">
   prCommentInput: Pick<PrCommentInputState, "close">
   // App config (captured from options at init time)
-  mode: AppMode
   target: string | undefined
-  prInfo: PrInfo | null
 }
 
 /**

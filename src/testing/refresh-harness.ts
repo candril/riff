@@ -163,9 +163,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     blameColumns: createBlameColumnsState(),
     commentDrafts: createCommentDraftsState(),
     jumpList: createJumpListState(),
-    mode: appMode,
     target: undefined,
-    prInfo: pr,
   }
 
   return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, prCommentInput }

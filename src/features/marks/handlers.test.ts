@@ -56,9 +56,6 @@ function harness(files: DiffFile[], setup: Setup = {}) {
     ensureCursorVisible: () => {},
     render: () => {},
     toast,
-    mode: "local",
-    prInfo: null,
-    source: "local",
     getHeadSha: () => null,
     setHeadSha: () => {},
   }
