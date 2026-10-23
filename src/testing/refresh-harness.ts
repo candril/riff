@@ -24,6 +24,7 @@ import { createLastRefreshState } from "../features/refresh/last-refresh-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
+import { createFileContentState } from "../features/file-content/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -85,7 +86,8 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   let searchState = createSearchState()
   // Held beside the context, as app.ts holds it: the refresh is not handed it.
   const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
-  let mapping = buildLineMapping(state, diffOptions)
+  const fileContent = createFileContentState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent)
   let headSha = "head-1"
 
   const calls = {
@@ -139,7 +141,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
     getMapping: () => mapping,
-    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions) },
+    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent) },
     revealCursor: () => {},
     refreshSearchMatches: () => {},
     reloadFeed: () => { calls.reloadFeed++ },
@@ -163,6 +165,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     toast,
     lastRefresh,
     prCommentInput,
+    fileContent,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
     occurrencePicker: createOccurrencePickerState(),
@@ -177,5 +180,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent }
 }

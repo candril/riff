@@ -1,6 +1,7 @@
 import type { BlameColumns } from "../split-view/blame-cells"
 import type { Mark } from "../features/marks/types"
 import type { AppState } from "../state"
+import type { FileContentCache, FileContentState } from "../features/file-content/state"
 import type { FileParses, FileVersions } from "../vim-diff/file-parses"
 import type { FlashState } from "../vim-diff/flash-state"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
@@ -15,6 +16,7 @@ import type { UnifiedDiff } from "./unified-diff"
 export interface DiffPassDeps {
   /** The files' own text and their parses, which both diff views colour rows from. */
   parses: FileParses
+  fileContent: Pick<FileContentState, "contents">
   unified: UnifiedDiff
   split: SplitDiff
 }
@@ -38,7 +40,7 @@ export interface DiffPassInput {
  * The text of the files riff has already read, so they can be highlighted
  * as files rather than as the rows on screen (spec 080).
  */
-export function parsesOf(fileContentCache: AppState["fileContentCache"]): Map<string, FileVersions> {
+export function parsesOf(fileContentCache: FileContentCache): Map<string, FileVersions> {
   return new Map(
     Object.entries(fileContentCache).flatMap(([filename, entry]) =>
       entry?.newContent ? [[filename, { new: entry.newContent, old: entry.oldContent }] as const] : []
@@ -47,11 +49,11 @@ export function parsesOf(fileContentCache: AppState["fileContentCache"]): Map<st
 }
 
 /** Both diff views drawn for one pass, and the status bar's readout of them. */
-export function createDiffPass({ parses, unified, split }: DiffPassDeps) {
+export function createDiffPass({ parses, fileContent, unified, split }: DiffPassDeps) {
   return {
     draw({ state, vimState, mapping, searchState, flashState, blameColumns, marks, focused, diffShown, splitOn }: DiffPassInput): void {
       if (diffShown) {
-        parses.set(parsesOf(state.fileContentCache))
+        parses.set(parsesOf(fileContent.contents()))
         // Fed while split is drawn too, so toggling back has nothing to rebuild.
         unified.draw({
           mapping,

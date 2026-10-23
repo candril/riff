@@ -60,6 +60,7 @@ import {
 import type { ToastState } from "../toast/state"
 import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 import type { LastRefreshState } from "./last-refresh-state"
+import type { FileContentState } from "../file-content/state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -118,6 +119,8 @@ export interface RefreshContext {
   toast: Pick<ToastState, "show" | "clear">
   prCommentInput: Pick<PrCommentInputState, "close">
   lastRefresh: Pick<LastRefreshState, "stamp">
+  /** The opened runs of context survive a reload; the files read for them are read again. */
+  fileContent: Pick<FileContentState, "expanded" | "clear" | "restoreExpanded">
   // App config (captured from options at init time)
   target: string | undefined
 }
@@ -130,7 +133,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
   // A refresh is a look (spec 069): what was on screen when it began goes
   // into the watermark, not what the reader sees while gh is awaited.
   const seenAtStart = ctx.visit.seen()
-  const position = capturePosition(state, ctx.getVimState(), ctx.getMapping(), ctx.getSearchState())
+  const position = capturePosition(state, ctx.getVimState(), ctx.getMapping(), ctx.getSearchState(), ctx.fileContent.expanded())
 
   // Show loading toast
   ctx.toast.show("Refreshing...", "info")
@@ -179,6 +182,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         const withCommits = { ...newState, commits: newPrInfo.commits ?? [] }
         return collapseIgnoredFiles(restorePosition(withCommits, position))
       })
+      ctx.fileContent.restoreExpanded(position.expandedDividers)
       ctx.visit.begin(watermark, forcePushed)
       followReloadedMarks(ctx, headSha || undefined)
 
@@ -244,6 +248,7 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
 
         return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))
       })
+      ctx.fileContent.restoreExpanded(position.expandedDividers)
       // A local review has no visit, and a PR review loaded without its PR
       // info reloads down this path too: its watermark has nothing left to
       // compare against.
@@ -306,7 +311,9 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * jumplist, GitHub's pending review and the toast live in factories too, and
  * are emptied here, the pending review because a PR refresh fetches the
  * reloaded PR's draft again afterwards, the toast because a refresh shows its
- * outcome only once the rebuild has landed; the refresh time is stamped, since
+ * outcome only once the rebuild has landed; the expanded context is emptied
+ * too, so its files are read again from the reloaded diff's ends, and the
+ * caller puts back the runs that were open; the refresh time is stamped, since
  * the review was just confirmed current; the global marks are not emptied,
  * since a mark is followed to its line's new place, and nor is the activity
  * feed, whose row, filters, opened commits and unseen-only are the reader's
@@ -314,7 +321,7 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
  * begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh" | "fileContent">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -339,6 +346,7 @@ export function adoptReloadedState(
   ctx.jumpList.clear()
   ctx.pendingReview.clear()
   ctx.toast.clear()
+  ctx.fileContent.clear()
   ctx.lastRefresh.stamp()
 }
 

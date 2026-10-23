@@ -14,6 +14,7 @@ import { createLastRefreshState } from "../features/refresh/last-refresh-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
+import { createFileContentState } from "../features/file-content/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -79,7 +80,8 @@ export async function mountApp(
   let searchState = createSearchState()
   let flashState = createFlashState()
   const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
-  let mapping = buildLineMapping(state, diffOptions)
+  const fileContent = createFileContentState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   // None unless a test mounts one, as app.ts has none outside a PR.
@@ -93,6 +95,7 @@ export async function mountApp(
     scrollOff: 2,
     getState: () => state,
     diffOptions,
+    fileContent,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -193,6 +196,7 @@ export async function mountApp(
     split,
     unified,
     parses,
+    fileContent,
     help,
     confirm,
     syncPreview,
@@ -273,6 +277,8 @@ export async function mountApp(
     prInfoFilter,
     /** The diff's wrap, split and table alignment, which the diff views read and the keys toggle as app.ts's do. */
     diffOptions,
+    /** The expanded context, which the diff views and the mapping read as app.ts's do. */
+    fileContent,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -309,7 +315,7 @@ export async function mountApp(
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
       state = { ...state, ...patch }
-      if (patch.files) mapping = buildLineMapping(state, diffOptions)
+      if (patch.files) mapping = buildLineMapping(state, diffOptions, fileContent)
       render()
     },
     setVimState(next: typeof vimState) {
@@ -348,6 +354,6 @@ export async function mountApp(
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh, fileContent }
 }

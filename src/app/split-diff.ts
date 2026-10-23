@@ -18,6 +18,7 @@ import { paneOfLine, toRowSelection } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
 import { splitSelection } from "./split-selection"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
+import type { FileContentState } from "../features/file-content/state"
 
 export interface SplitDiffDeps {
   renderer: CliRenderer
@@ -25,6 +26,7 @@ export interface SplitDiffDeps {
   scrollOff: number
   getState: () => AppState
   diffOptions: Pick<DiffOptionsState, "splitView">
+  fileContent: Pick<FileContentState, "expanding">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
@@ -126,7 +128,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
       marks,
       blameColumns,
       fileStatuses: state.fileStatuses,
-      expandingDivider: state.expandingDivider,
+      expandingDivider: deps.fileContent.expanding(),
       cursor: { row: cursorRow(), col: vimState.col },
       side: source().side,
       focused: true,

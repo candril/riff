@@ -19,6 +19,7 @@ import { createBlameColumnsState } from "../blame/column-state"
 import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import { createJumpListState } from "../jumplist/state"
 import { createLastRefreshState } from "./last-refresh-state"
+import { createFileContentState } from "../file-content/state"
 import { createFeedState } from "../feed/state"
 import type { FeedEvent } from "../../utils/feed"
 import { refreshHarness } from "../../testing/refresh-harness"
@@ -52,6 +53,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -86,6 +88,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -121,6 +124,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -158,6 +162,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -193,6 +198,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -229,6 +235,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -266,6 +273,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -304,6 +312,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -341,6 +350,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -383,6 +393,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -422,6 +433,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -457,6 +469,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -491,6 +504,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -527,6 +541,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -562,6 +577,7 @@ describe("a refresh's rebuilt state", () => {
       commentDrafts,
       jumpList: createJumpListState(),
       lastRefresh: createLastRefreshState(),
+      fileContent: createFileContentState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -569,6 +585,70 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(commentDrafts.drafts().size).toBe(0)
   })
+
+  test("empties the expanded context, fetch in flight included", () => {
+    let state: AppState = createInitialState([], [], "local", "")
+    const fileContent = createFileContentState()
+    fileContent.set("a.ts", "new", "old")
+    fileContent.expand("a.ts:middle:0")
+    fileContent.setExpanding("a.ts:middle:1")
+    const ctx = {
+      getState: () => state,
+      setState: (fn: (s: AppState) => AppState) => { state = fn(state) },
+      help: createHelpState(),
+      confirm: createConfirmState(),
+      syncPreview: createSyncPreviewState(),
+      reviewPreview: createReviewPreviewState(),
+      pendingReview: createPendingReviewState(),
+      toast: createToastState(),
+      prCommentInput: createPrCommentInputState(),
+      filePicker: createFilePickerState(),
+      commentsPicker: createCommentsPickerState(),
+      occurrencePicker: createOccurrencePickerState(),
+      marksPicker: createMarksPickerState(),
+      commitPicker: createCommitPickerState(),
+      actionMenu: createActionMenuState(),
+      linePeek: createLinePeekState(),
+      blamePeek: createBlamePeekState(),
+      blameColumns: createBlameColumnsState(),
+      commentDrafts: createCommentDraftsState(),
+      jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
+      fileContent,
+    }
+
+    adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
+
+    expect(state.description).toBe("reloaded")
+    expect(fileContent.contents()).toEqual({})
+    expect([...fileContent.expanded()]).toEqual([])
+    expect(fileContent.expanding()).toBeNull()
+  })
+})
+
+describe("a refresh's expanded context", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`keeps the opened runs and reads the files again (${appMode})`, async () => {
+      const { ctx, fileContent } = refreshHarness({ appMode })
+      fileContent.set("b.ts", "export const v1 = 1\nexport const w1 = 1", "export const v1 = 1")
+      fileContent.expand("b.ts:end:0")
+      fileContent.setExpanding("c.ts:end:0")
+      const rebuild = ctx.rebuildLineMapping
+      let openWhenRebuilt: string[] = []
+      ctx.rebuildLineMapping = () => {
+        openWhenRebuilt = [...fileContent.expanded()]
+        rebuild()
+      }
+
+      await handleRefresh(ctx)
+
+      expect([...fileContent.expanded()]).toEqual(["b.ts:end:0"])
+      expect(fileContent.contents()).toEqual({})
+      expect(fileContent.expanding()).toBeNull()
+      // The cursor is put back on a mapping that already has the runs open.
+      expect(openWhenRebuilt).toEqual(["b.ts:end:0"])
+    })
+  }
 })
 
 describe("a refresh's PR comment prompt", () => {

@@ -16,13 +16,7 @@ import { loadPrSession } from "./providers/github/session"
 import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
 import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha } from "./providers/github/content"
 import {
-  setFileContentLoading,
-  setFileContent,
-  setFileContentError,
-  expandDivider,
-  setExpandingDivider,
   expandFiles,
-  setViewingCommit,
   createInitialState,
   promptOpen,
   type AppState,
@@ -33,6 +27,7 @@ import {
   toggleThreadPanelOpenOnly,
 } from "./state"
 import { toggleUnviewedFilesOnly } from "./app/tree-unviewed"
+import { scopeToCommit } from "./app/commit-scope"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
@@ -67,6 +62,7 @@ import { createPrInfoFilterState } from "./features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
 import { createLastRefreshState } from "./features/refresh/last-refresh-state"
+import { createFileContentState } from "./features/file-content/state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -213,7 +209,8 @@ export async function createApp(options: AppOptions = {}) {
   let searchState: SearchState = createSearchState()
   let flashState: FlashState = createFlashState()
   const diffOptions = createDiffOptionsState({ wrap: initialConfig.diff.wrap, alignMarkdownTables: initialConfig.diff.alignMarkdownTables })
-  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions)
+  const fileContent = createFileContentState()
+  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
@@ -330,7 +327,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     requestFileModeContent()
-    lineMapping = buildLineMapping(state, diffOptions)
+    lineMapping = buildLineMapping(state, diffOptions, fileContent)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
@@ -545,6 +542,7 @@ export async function createApp(options: AppOptions = {}) {
     prCommentInput.close()
     // The text narrowed the last PR's rows; the next PR's overview opens unfiltered.
     prInfoFilter.clear()
+    fileContent.clear()
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -618,6 +616,7 @@ export async function createApp(options: AppOptions = {}) {
     scrollOff: SCROLL_OFF,
     getState: () => state,
     diffOptions,
+    fileContent,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -629,6 +628,7 @@ export async function createApp(options: AppOptions = {}) {
     scrollOff: SCROLL_OFF,
     getState: () => state,
     diffOptions,
+    fileContent,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -714,6 +714,7 @@ export async function createApp(options: AppOptions = {}) {
     split,
     unified,
     parses,
+    fileContent,
     help,
     confirm,
     syncPreview,
@@ -809,19 +810,19 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   async function loadFileContent(filename: string): Promise<void> {
-    state = setFileContentLoading(state, filename)
+    fileContent.markLoading(filename)
     render()
 
     try {
       const fetched = await fetchFileVersions(filename)
       if (fetched.ok) {
-        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+        fileContent.set(filename, fetched.newContent, fetched.oldContent)
       } else {
-        state = setFileContentError(state, filename, fetched.error)
+        fileContent.setError(filename, fetched.error)
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error"
-      state = setFileContentError(state, filename, msg)
+      fileContent.setError(filename, msg)
     }
 
     render()
@@ -872,7 +873,7 @@ export async function createApp(options: AppOptions = {}) {
    * a reader, riff colours from the file (spec 080).
    */
   function highlightSourceNeeded(filename: string): string | null {
-    const cached = state.fileContentCache[filename]
+    const cached = fileContent.entry(filename)
     if (cached?.newContent || cached?.loading || cached?.error) return null
 
     const key = highlightSourceKey(filename)
@@ -889,7 +890,7 @@ export async function createApp(options: AppOptions = {}) {
     try {
       const fetched = await fetchFileVersions(filename)
       if (fetched.ok) {
-        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+        fileContent.set(filename, fetched.newContent, fetched.oldContent)
         render()
       } else {
         highlightSourceFailed.add(key)
@@ -963,15 +964,12 @@ export async function createApp(options: AppOptions = {}) {
       ensureCursorVisible()
       refreshCursor()
     },
-    getFileContent: (filename) => {
-      const cached = state.fileContentCache[filename]
-      return cached?.newContent ?? null
-    },
+    getFileContent: (filename) => fileContent.entry(filename)?.newContent ?? null,
     loadFileContent,
     expandDividerForLine: (filename, lineNum) => {
       const dividerKey = lineMapping.findDividerForLine(filename, lineNum)
       if (dividerKey) {
-        state = expandDivider(state, dividerKey)
+        fileContent.expand(dividerKey)
         createLineMapping()
       }
     },
@@ -1029,29 +1027,33 @@ export async function createApp(options: AppOptions = {}) {
     const [filename] = dividerKey.split(":")
     if (!filename) return false
 
-    const cached = state.fileContentCache[filename]
+    const cached = fileContent.entry(filename)
     if (!cached || cached.error) {
-      state = setExpandingDivider(setFileContentLoading(state, filename), dividerKey)
+      fileContent.markLoading(filename)
+      fileContent.setExpanding(dividerKey)
       render()
 
       try {
         const fetched = await fetchFileVersions(filename)
         if (!fetched.ok) {
-          state = setExpandingDivider(setFileContentError(state, filename, fetched.error), null)
+          fileContent.setError(filename, fetched.error)
+          fileContent.setExpanding(null)
           render()
           return false
         }
 
-        state = setFileContent(state, filename, fetched.newContent, fetched.oldContent)
+        fileContent.set(filename, fetched.newContent, fetched.oldContent)
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error"
-        state = setExpandingDivider(setFileContentError(state, filename, msg), null)
+        fileContent.setError(filename, msg)
+        fileContent.setExpanding(null)
         render()
         return false
       }
     }
 
-    state = setExpandingDivider(expandDivider(state, dividerKey), null)
+    fileContent.expand(dividerKey)
+    fileContent.setExpanding(null)
     createLineMapping()
     render()
     ensureCursorVisible()
@@ -1067,6 +1069,7 @@ export async function createApp(options: AppOptions = {}) {
     setState: (fn) => { state = fn(state) },
     toast,
     lastRefresh,
+    fileContent,
     render,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -1503,7 +1506,7 @@ export async function createApp(options: AppOptions = {}) {
         vimState = createCursorState()
         searchState = createSearchState()
         currentHeadSha = prSession.headSha
-        lineMapping = buildLineMapping(state, diffOptions)
+        lineMapping = buildLineMapping(state, diffOptions, fileContent)
 
         toast.show(`PR #${prNumber} created: ${url}`, "success")
         render()
@@ -1736,7 +1739,7 @@ export async function createApp(options: AppOptions = {}) {
   ) {
     if (sha === null) {
       // Switch back to all commits
-      state = setViewingCommit(state, null)
+      state = scopeToCommit(state, fileContent, null)
       state = { ...state, fileTree: buildFileTree(state.files) }
       vimState = createCursorState()
       createLineMapping()
@@ -1767,7 +1770,7 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     // Switch to the commit's diff
-    state = setViewingCommit(state, sha, shas)
+    state = scopeToCommit(state, fileContent, sha, shas)
     vimState = createCursorState()
     createLineMapping()
 

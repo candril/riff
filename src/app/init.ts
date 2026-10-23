@@ -41,6 +41,7 @@ import { IgnoreMatcher } from "../utils/ignore"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
 import { commentsInView } from "../utils/notes"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
+import type { FileContentState } from "../features/file-content/state"
 
 export interface InitOptions {
   mode: AppMode
@@ -254,18 +255,19 @@ async function loadLocalDiff(
 export function buildLineMapping(
   state: AppState,
   options: Pick<DiffOptionsState, "wrapLines" | "alignMarkdownTables">,
+  fileContent: Pick<FileContentState, "contents" | "expanded">,
 ): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
   const fileContents = new Map<string, string>()
-  for (const [filename, cache] of Object.entries(state.fileContentCache)) {
+  for (const [filename, cache] of Object.entries(fileContent.contents())) {
     if (cache.newContent) {
       fileContents.set(filename, cache.newContent)
     }
   }
 
   return new DiffLineMappingClass(state.files, mappingMode, state.selectedFileIndex ?? undefined, {
-    expandedDividers: state.expandedDividers,
+    expandedDividers: fileContent.expanded(),
     fileContents,
     collapsedFiles: state.collapsedFiles,
     collapsedHunks: state.collapsedHunks,

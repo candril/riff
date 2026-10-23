@@ -162,7 +162,7 @@ export interface VimCursorState {
  */
 export interface DiffLineMappingOptions {
   /** Set of expanded divider keys ("filename:hunkIndex") */
-  expandedDividers?: Set<string>
+  expandedDividers?: ReadonlySet<string>
   /** Map of filename -> full file content (new version) */
   fileContents?: Map<string, string>
   /** Set of collapsed file names (for all-files mode) */

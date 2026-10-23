@@ -37,6 +37,7 @@ async function mount() {
     scrollOff: 2,
     getState: () => state,
     diffOptions: { splitView: () => true },
+    fileContent: { expanding: () => null },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

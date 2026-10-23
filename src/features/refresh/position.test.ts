@@ -125,14 +125,13 @@ describe("restoring the view", () => {
       selectedFileIndex: 1,
       collapsedFiles: new Set(["a.ts"]),
       collapsedHunks: new Set(["b.ts:0"]),
-      expandedDividers: new Set(["b.ts:1"]),
       treeFilter: "b",
       threadPanelOpenOnly: true,
       treeUnviewedOnly: true,
       treeKeptFile: "b.ts",
       focusedPanel: "tree" as const,
     }
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
 
     // The reload reorders the files: an index would now point elsewhere.
     const reordered = [files[1]!, files[0]!]
@@ -141,7 +140,6 @@ describe("restoring the view", () => {
     expect(after.files[after.selectedFileIndex!]?.filename).toBe("b.ts")
     expect(after.collapsedFiles).toEqual(new Set(["a.ts"]))
     expect(after.collapsedHunks).toEqual(new Set(["b.ts:0"]))
-    expect(after.expandedDividers).toEqual(new Set(["b.ts:1"]))
     expect(after.treeFilter).toBe("b")
     expect(after.threadPanelOpenOnly).toBe(true)
     expect(after.treeUnviewedOnly).toBe(true)
@@ -150,10 +148,19 @@ describe("restoring the view", () => {
     expect(after.viewMode).toBe("diff")
   })
 
+  test("carries a copy of the opened runs of context, which restorePosition leaves to the factory", () => {
+    const open = new Set(["b.ts:1"])
+    const position = capturePosition(stateWith(files), cursorAt(0), mappingOf(files), createSearchState(), open)
+    open.add("a.ts:0")
+
+    expect(position.expandedDividers).toEqual(new Set(["b.ts:1"]))
+    expect("expandedDividers" in restorePosition(stateWith(files), position)).toBe(false)
+  })
+
   test("the tree highlight keeps its row's path among the rows the viewed filter leaves", () => {
     const viewed = new Map([["a.ts", { filename: "a.ts", viewed: true }]])
     const before = { ...stateWith(files), fileStatuses: viewed, treeUnviewedOnly: true, treeHighlightIndex: 0 }
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
     expect(position.treeHighlightPath).toBe("b.ts")
 
     const after = restorePosition({ ...stateWith([files[1]!, files[0]!]), fileStatuses: viewed }, position)
@@ -163,7 +170,7 @@ describe("restoring the view", () => {
   test("the tree highlight is found again once the reload's viewed states arrive", () => {
     const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
     const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
-    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState(), new Set())
     expect(position.treeHighlightPath).toBe("c.ts")
 
     // The statuses land after the restore, and hide a row above the highlight.
@@ -178,7 +185,7 @@ describe("restoring the view", () => {
   test("a highlight moved after the restore, before the viewed states land, is kept", () => {
     const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
     const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
-    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState(), new Set())
     const restored = restorePosition(stateWith(three), position)
     const highlighted = (s: typeof restored) => treeRowsOf(s)[s.treeHighlightIndex]?.node.path
 
@@ -193,7 +200,7 @@ describe("restoring the view", () => {
   test("the viewed states landing keep the restored highlight on its row", () => {
     const three = [...files, diffFile("c.ts", "@@ -1,1 +1,1 @@\n+const six = 6")]
     const before = { ...stateWith(three), treeUnviewedOnly: true, treeHighlightIndex: 2 }
-    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(three), createSearchState(), new Set())
     const restored = restorePosition(stateWith(three), position)
     const settled = keepTreeHighlight(restored, (s) =>
       updateFileStatuses(s, new Map([["b.ts", { filename: "b.ts", viewed: true }]]))
@@ -209,14 +216,14 @@ describe("restoring the view", () => {
 
   test("an open chat with the keys stays open and keeps them", () => {
     const before = { ...stateWith(files), chatOpen: true, focusedPanel: "chat" as const }
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
     const after = restorePosition(stateWith(files), position)
     expect([after.chatOpen, after.focusedPanel]).toEqual([true, "chat"])
   })
 
   test("a PR that was being read as a diff does not snap back to the overview", () => {
     const before = { ...stateWith(files), appMode: "pr" as const, viewMode: "diff" as const }
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
 
     const reloaded = { ...stateWith(files), appMode: "pr" as const, viewMode: "state" as const }
     expect(restorePosition(reloaded, position).viewMode).toBe("diff")
@@ -224,7 +231,7 @@ describe("restoring the view", () => {
 
   test("a selected file that the reload dropped falls back to the whole diff", () => {
     const before = { ...stateWith(files), selectedFileIndex: 0 }
-    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState())
+    const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
 
     expect(restorePosition(stateWith([files[1]!]), position).selectedFileIndex).toBeNull()
   })

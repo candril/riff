@@ -18,7 +18,7 @@ export function anchorSide(type: DiffLine["type"], pane: "left" | "right" | unde
 
 export class DiffLineMapping implements LineSource {
   private lines: DiffLine[] = []
-  private expandedDividers: Set<string>
+  private expandedDividers: ReadonlySet<string>
   private fileContents: Map<string, string>
   private collapsedFiles: Set<string>
   private collapsedHunks: Set<string>

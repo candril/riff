@@ -300,6 +300,14 @@ The refresh time is the twenty-sixth (`createLastRefreshState` in
 `src/features/refresh/last-refresh-state.ts`); the frame carries it for
 the header, and a reload, a switch to another PR, opening the branch's PR
 and every successful poll tick stamp it.
+The expanded context is the twenty-seventh (`createFileContentState` in
+`src/features/file-content/state.ts`): the files riff read around the
+diff, the collapsed runs opened for good and the one being fetched. The
+line mapping and the colour parses read the files and the opened runs off
+the factory, and both diff views read the run being fetched for its
+`⟳ Expanding` label. A reload keeps the opened runs but not the files read
+for them, a commit switch drops both, and creating a PR or opening the
+branch's PR drops all of it.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

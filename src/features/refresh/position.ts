@@ -47,6 +47,7 @@ export interface RefreshPosition {
   collapsedFiles: Set<string>
   collapsedHunks: Set<string>
   collapsedBlocks: Set<string>
+  /** Not put back by restorePosition: the expanded-context factory holds them, and the refresh restores them there. */
   expandedDividers: Set<string>
   anchor: CursorAnchor | null
   search: SearchState
@@ -56,7 +57,8 @@ export function capturePosition(
   state: AppState,
   vim: VimCursorState,
   mapping: DiffLineMapping,
-  search: SearchState
+  search: SearchState,
+  expandedDividers: ReadonlySet<string>,
 ): RefreshPosition {
   // The rows on screen, which the highlight's index counts in.
   const flatItems = treeRowsOf(state)
@@ -81,7 +83,7 @@ export function capturePosition(
     collapsedFiles: new Set(state.collapsedFiles),
     collapsedHunks: new Set(state.collapsedHunks),
     collapsedBlocks: new Set(state.collapsedBlocks),
-    expandedDividers: new Set(state.expandedDividers),
+    expandedDividers: new Set(expandedDividers),
     anchor: captureAnchor(mapping, vim),
     search,
   }
@@ -136,7 +138,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     collapsedFiles: new Set(position.collapsedFiles),
     collapsedHunks: new Set(position.collapsedHunks),
     collapsedBlocks: new Set(position.collapsedBlocks),
-    expandedDividers: new Set(position.expandedDividers),
   }
 }
 

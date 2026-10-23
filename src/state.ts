@@ -15,7 +15,6 @@ import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
 import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
-import type { FileContentCache } from "./features/file-content/state"
 
 /**
  * UI mode for the app
@@ -28,8 +27,6 @@ export type UIMode = "normal" | "comment-input" | "comments-list"
  * request, so only the diff exists in local mode.
  */
 export type ViewMode = "state" | "feed" | "diff"
-
-export type { FileContentCache }
 
 /**
  * Inline comment overlay state (spec 039).
@@ -183,15 +180,6 @@ export interface AppState {
   // Commits in this diff (PR commits or local commits)
   commits: PrCommit[]
   
-  // File content cache for expansion
-  fileContentCache: FileContentCache
-  
-  // Expanded dividers (key: "filename:dividerIndex")
-  expandedDividers: Set<string>
-  // The one riff is fetching the file for right now (spec 074): every other
-  // collapsed run in that file is not loading, and should not say it is.
-  expandingDivider: string | null
-  
   // Collapsed files in all-files diff view (filenames that are collapsed)
   collapsedFiles: Set<string>
   
@@ -290,9 +278,6 @@ export function createInitialState(
     error,
     prInfo,
     commits: [],
-    fileContentCache: {},
-    expandedDividers: new Set(),
-    expandingDivider: null,
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
     collapsedBlocks: new Set<string>(),
@@ -803,89 +788,6 @@ export function updateSession(state: AppState, session: ReviewSession): AppState
   }
 }
 
-/**
- * Set file content loading state
- */
-export function setFileContentLoading(state: AppState, filename: string): AppState {
-  return {
-    ...state,
-    fileContentCache: {
-      ...state.fileContentCache,
-      [filename]: {
-        newContent: null,
-        oldContent: null,
-        loading: true,
-      },
-    },
-  }
-}
-
-/**
- * Set file content (after loading)
- */
-export function setFileContent(
-  state: AppState,
-  filename: string,
-  newContent: string | null,
-  oldContent: string | null
-): AppState {
-  return {
-    ...state,
-    fileContentCache: {
-      ...state.fileContentCache,
-      [filename]: {
-        newContent,
-        oldContent,
-        loading: false,
-      },
-    },
-  }
-}
-
-/**
- * Set file content error
- */
-export function setFileContentError(state: AppState, filename: string, error: string): AppState {
-  return {
-    ...state,
-    fileContentCache: {
-      ...state.fileContentCache,
-      [filename]: {
-        newContent: null,
-        oldContent: null,
-        loading: false,
-        error,
-      },
-    },
-  }
-}
-
-/**
- * Open a collapsed run of context, for good (spec 074).
- *
- * One-way on purpose: expanding is not folding. A fold hides something you
- * can already see; this fetches lines the diff never carried, and there is
- * nothing to gain from putting them back — `gr` or folding the file does.
- */
-export function expandDivider(state: AppState, dividerKey: string): AppState {
-  if (state.expandedDividers.has(dividerKey)) return state
-  const expandedDividers = new Set(state.expandedDividers)
-  expandedDividers.add(dividerKey)
-  return { ...state, expandedDividers }
-}
-
-/** The divider riff is fetching the file for, so only it shows the spinner. */
-export function setExpandingDivider(state: AppState, dividerKey: string | null): AppState {
-  return state.expandingDivider === dividerKey ? state : { ...state, expandingDivider: dividerKey }
-}
-
-/**
- * Check if a divider is expanded
- */
-export function isDividerExpanded(state: AppState, dividerKey: string): boolean {
-  return state.expandedDividers.has(dividerKey)
-}
-
 // ============================================================================
 // File Fold State (for all-files diff view)
 // ============================================================================
@@ -1027,18 +929,6 @@ export function collapseViewedFiles(state: AppState): AppState {
     ...state,
     collapsedFiles: newCollapsed,
   }
-}
-
-/**
- * Get file content from cache
- */
-export function getFileContent(state: AppState, filename: string): { 
-  newContent: string | null
-  oldContent: string | null
-  loading: boolean
-  error?: string 
-} | null {
-  return state.fileContentCache[filename] ?? null
 }
 
 // ============================================================================
@@ -1882,10 +1772,6 @@ export function setViewingCommit(
       cursorLine: 1,
       collapsedFiles: new Set(),
       collapsedHunks: new Set(),
-      expandedDividers: new Set(),
-      // What riff read of a file belongs to the span it read it for: the
-      // rows now on screen are a different diff, between different ends.
-      fileContentCache: {},
     }
   }
 
@@ -1903,8 +1789,6 @@ export function setViewingCommit(
     cursorLine: 1,
     collapsedFiles: new Set(),
     collapsedHunks: new Set(),
-    expandedDividers: new Set(),
-    fileContentCache: {},
   }
 }
 

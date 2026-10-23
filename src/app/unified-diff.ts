@@ -13,6 +13,7 @@ import { searchOf } from "./diff-search"
 import { unifiedSelection } from "./split-selection"
 import { createUnifiedIsland } from "./unified-island"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
+import type { FileContentState } from "../features/file-content/state"
 
 export interface UnifiedDiffDeps {
   renderer: CliRenderer
@@ -20,6 +21,7 @@ export interface UnifiedDiffDeps {
   scrollOff: number
   getState: () => AppState
   diffOptions: Pick<DiffOptionsState, "wrapLines">
+  fileContent: Pick<FileContentState, "expanding">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
@@ -91,7 +93,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
       marks,
       blameColumns,
       fileStatuses: state.fileStatuses,
-      expandingDivider: state.expandingDivider,
+      expandingDivider: deps.fileContent.expanding(),
       cursor: { line: vimState.line, col: vimState.col },
       wrap,
       focused: input.focused,

@@ -24,6 +24,7 @@ describe("drawing the diff views for one pass", () => {
     const calls: unknown[][] = []
     const deps = {
       parses: { set: () => void calls.push(["parses.set"]) },
+      fileContent: { contents: () => ({}) },
       unified: {
         draw: () => void calls.push(["unified.draw"]),
         syncDrawn: (drawn: boolean) => void calls.push(["unified.syncDrawn", drawn]),

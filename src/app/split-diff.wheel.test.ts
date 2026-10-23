@@ -43,6 +43,7 @@ test("the wheel drags the app's cursor onto the line handed over, and its reveal
     scrollOff: SCROLL_OFF,
     getState: () => state,
     diffOptions: { splitView: () => true },
+    fileContent: { expanding: () => null },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

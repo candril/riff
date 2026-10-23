@@ -35,6 +35,7 @@ import type { VisitState } from "../features/visit/state"
 import type { PendingReviewState } from "../features/review-preview/pending-state"
 import type { ToastState } from "../features/toast/state"
 import type { LastRefreshState } from "../features/refresh/last-refresh-state"
+import type { FileContentState } from "../features/file-content/state"
 import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
@@ -64,6 +65,7 @@ export interface FramePassContext {
   unified: UnifiedDiff
   /** The files' own text and their parses, which both diff views colour rows from. */
   parses: FileParses
+  fileContent: Pick<FileContentState, "contents">
   help: HelpState
   confirm: ConfirmState
   syncPreview: SyncPreviewState
