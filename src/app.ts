@@ -69,6 +69,7 @@ import { loadFileContent as loadFileContentInto, type FetchFileVersions } from "
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
 import { createHighlightSourceReader } from "./features/file-content/highlight-source"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
+import { closeFeatureOverlays, type AnotherReviewFeatures } from "./features/refresh/another-review"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -511,35 +512,27 @@ export async function createApp(options: AppOptions = {}) {
   const activityFeed = createFeedState()
   const visit = createVisitState()
   visit.begin(initialVisit.watermark, initialVisit.rebased)
-  // A reload rebuilds AppState from createInitialState, which never reaches the factories' own state.
-  function closeFeatureOverlays(): void {
-    help.close()
-    confirm.close()
-    syncPreview.close()
-    reviewPreview.close()
-    filePicker.close()
-    commentsPicker.close()
-    occurrencePicker.close()
-    marksPicker.close()
-    commitPicker.close()
-    actionMenu.close()
-    linePeek.close()
-    blamePeek.close()
-    blameColumns.clear()
-    // A draft is keyed by file, line and side, and the new diff can put other
-    // code on that line: kept, it would come back on the wrong one.
-    commentDrafts.clear()
-    // An entry's anchor names lines in the old diff.
-    jumpList.clear()
-    // This draft's id must not submit into another PR; a PR with a draft fetches its own.
-    pendingReview.clear()
-    // Half a comment on one PR must not post to the PR that replaced it.
-    prCommentInput.close()
-    // The text narrowed the last PR's rows; the next PR's overview opens unfiltered.
-    prInfoFilter.clear()
-    fileContent.clear()
-    // The next PR's commits are not this one's.
-    commitDiffs.clear()
+  const anotherReviewFeatures: AnotherReviewFeatures = {
+    help,
+    confirm,
+    syncPreview,
+    reviewPreview,
+    filePicker,
+    commentsPicker,
+    occurrencePicker,
+    marksPicker,
+    commitPicker,
+    actionMenu,
+    linePeek,
+    blamePeek,
+    blameColumns,
+    commentDrafts,
+    jumpList,
+    pendingReview,
+    prCommentInput,
+    prInfoFilter,
+    fileContent,
+    commitDiffs,
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -1332,7 +1325,7 @@ export async function createApp(options: AppOptions = {}) {
         )
         lastRefresh.stamp()
         toast.clear()
-        closeFeatureOverlays()
+        closeFeatureOverlays(anotherReviewFeatures)
         globalMarks.reset(followed)
         activityFeed.reset()
         visit.reset()
@@ -1557,7 +1550,7 @@ export async function createApp(options: AppOptions = {}) {
       globalMarks.reset(followed)
       activityFeed.reset()
       visit.reset()
-      closeFeatureOverlays()
+      closeFeatureOverlays(anotherReviewFeatures)
       state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
 
       // A local review has no PR info panel — there was no pull request to

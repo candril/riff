@@ -319,6 +319,8 @@ What React… and Copy Comment Link act on is not kept anywhere:
 `reactionTargetOf` in `src/features/reactions/target.ts` derives it from
 what has focus when they are asked (the thread panel's highlighted comment
 or the PR overview's cursor), as `filterTarget` picks what Ctrl-f narrows.
+A switch to another review closes what the last one left in the factories
+through `closeFeatureOverlays` in `src/features/refresh/another-review.ts`.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field
