@@ -3,6 +3,7 @@ import type { Comment } from "../../types"
 import type { ReactionSummary } from "../../types"
 import { createInitialState, type AppState } from "../../state"
 import { prInfo } from "../../testing/pr-info"
+import { focusHandler } from "./focus"
 import { applyThreadStates, mergeComments, startCommentPoll, type CommentPollCalls } from "./poll"
 
 function comment(overrides: Partial<Comment> & { id: string }): Comment {
@@ -100,9 +101,9 @@ describe("applyThreadStates", () => {
 describe("startCommentPoll", () => {
   const branchPr = prInfo("", { owner: "o", repo: "r", number: 7 })
 
-  function polling(initial: AppState) {
+  function polling(initial: AppState, timing: { intervalSeconds: number; onFocus?: boolean } = { intervalSeconds: 0 }) {
     let state = initial
-    let headSha: string | undefined = "head-1"
+    let headSha = "head-1"
     const asked: string[] = []
     const calls: CommentPollCalls = {
       reviewCommentsChanged: async (owner, repo, number) => {
@@ -123,7 +124,7 @@ describe("startCommentPoll", () => {
         },
         render: () => {},
         prCommentInputOpen: () => false,
-        intervalSeconds: 0,
+        ...timing,
         recreatePrInfoPanel: () => {},
         getHeadSha: () => headSha,
       },
@@ -161,5 +162,26 @@ describe("startCommentPoll", () => {
       "comments o/r#7 at head-1",
       "comments o/r#7 at head-2",
     ])
+  })
+
+  test("a focus regain routed through the focus handler polls a PR review", async () => {
+    const p = polling(createInitialState([], [], "gh:o/r#7", "", null, null, [], "pr", branchPr), { intervalSeconds: 300, onFocus: true })
+    let reloads = 0
+    const onFocus = focusHandler({
+      appMode: () => p.state().appMode,
+      setPollFocused: p.poll.setFocused,
+      reloadLocal: () => {
+        reloads++
+      },
+    })
+    onFocus(false)
+    await p.poll.tick()
+    expect(p.asked).toEqual([])
+
+    onFocus(true)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    p.poll.stop()
+    expect(p.asked).toEqual(["probe o/r#7", "comments o/r#7 at head-1"])
+    expect(reloads).toBe(0)
   })
 })

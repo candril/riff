@@ -33,7 +33,9 @@ This spec closes the loop:
   composer just saves — there is no PR to publish to.
 - **Refresh on focus-in works in local mode.** With `poll.onFocus` on, coming
   back to the terminal re-reads the diff and `.riff/`, so comments Claude
-  retired (and the edits it made) show up without `gr`.
+  retired (and the edits it made) show up without `gr`. That holds whatever
+  `poll.interval` is, and stops once the review has opened its branch's PR,
+  which the comment poll then covers.
 
 ## Out of Scope
 
@@ -81,8 +83,9 @@ regenerates the file.
 `Enter save · Ctrl-j newline · Ctrl-g $EDITOR · Esc cancel` while composing
 and no `S submit` in the panel.
 
-**Focus refresh** — `app.ts` wires `setupFocusReporting` to `handleRefresh`
-in local mode when `poll.onFocus` is set (it was PR-only before).
+**Focus refresh** — `app.ts` wires `setupFocusReporting` through
+`focusHandler`, which hands every focus change to the comment poll and, on a
+regain while the review in state is local, calls `handleRefresh`.
 
 **`--help`** — the shortcut list was accurate but partial; it now covers the
 comments panel, the composer, `]o`/`[o`, `]R`/`[R`, `gC`, `gc`, `gd`/`gD`,

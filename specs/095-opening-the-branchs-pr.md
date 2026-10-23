@@ -30,7 +30,8 @@ just told you a pull request was there.
   sync act on the pull request and save under its storage, not the local
   review's.
 - The comment poll follows the review in state, so it starts polling the
-  pull request once the load lands, at the head riff last loaded.
+  pull request once the load lands, at the head riff last loaded. Focus-in
+  follows the poll from then on, not the local reload.
 - It says it is loading, and says what went wrong if it does, rather than
   looking like a key that does nothing.
 - A second press while the first is still loading is ignored.

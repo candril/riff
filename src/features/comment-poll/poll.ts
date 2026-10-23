@@ -66,7 +66,7 @@ export interface CommentPollContext {
   // see a `state.comments` swap on its own.
   recreatePrInfoPanel: () => void
   /** The PR head riff last loaded; it moves on a refresh. */
-  getHeadSha: () => string | undefined
+  getHeadSha: () => string
 }
 
 /** What a tick asks GitHub through; a test hands in its own, so no gh runs. */
@@ -205,7 +205,7 @@ export function startCommentPoll(ctx: CommentPollContext, calls: CommentPollCall
       owner,
       repo,
       number,
-      ctx.getHeadSha() ?? "",
+      ctx.getHeadSha(),
       THREAD_COMMENTS_PROBE,
     )
 

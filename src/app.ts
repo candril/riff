@@ -145,6 +145,7 @@ import * as marks from "./features/marks"
 import * as refresh from "./features/refresh"
 import * as feedFeature from "./features/feed"
 import { startCommentPoll } from "./features/comment-poll"
+import { focusHandler, reportsFocus } from "./features/comment-poll/focus"
 import * as reactions from "./features/reactions"
 import { reactionContentFromRowId } from "./features/action-menu"
 import type { ReactionTarget } from "./types"
@@ -2058,22 +2059,18 @@ export async function createApp(options: AppOptions = {}) {
     onFocus: pollConfig.onFocus,
   })
 
-  // Focus reporting drives the poller: no point spending API quota on a pane
-  // the user switched away from, and coming back should show current comments
-  // without waiting out the interval. Only enabled when the poller will act
-  // on it, so terminals without focus support are unaffected either way.
-  if (pollConfig.onFocus && pollConfig.interval > 0) {
-    stopFocusReporting = setupFocusReporting(renderer, commentPoll.setFocused)
-  } else if (pollConfig.onFocus && mode === "local") {
-    // A local review has nothing to poll, but it does have a working copy
-    // and a .riff/ that something else — an editor, a Claude session
-    // retiring comments through `riff comments` — changes while riff is in
-    // the background. Coming back re-reads both; it's local disk, no quota.
-    let focused = true
-    stopFocusReporting = setupFocusReporting(renderer, (next) => {
-      if (next && !focused) void refresh.handleRefresh(refreshContext)
-      focused = next
-    })
+  // Focus gates the poller: no point spending API quota on a pane the user
+  // switched away from, and coming back should show current comments without
+  // waiting out the interval. A local review has nothing to poll, but an
+  // editor or a Claude session retiring comments through `riff comments`
+  // changes its working copy and .riff/ while riff is in the background, so a
+  // regain re-reads both; it's local disk, no quota.
+  if (reportsFocus(pollConfig, mode)) {
+    stopFocusReporting = setupFocusReporting(renderer, focusHandler({
+      appMode: () => state.appMode,
+      setPollFocused: commentPoll.setFocused,
+      reloadLocal: () => void refresh.handleRefresh(refreshContext),
+    }))
   }
 
   return {
