@@ -63,6 +63,9 @@ import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
 import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
+import { loadFileContent as loadFileContentInto, type FetchFileVersions } from "./features/file-content/load"
+import { expandDividerAtCursor } from "./features/file-content/expand-divider"
+import { createHighlightSourceReader } from "./features/file-content/highlight-source"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -78,14 +81,6 @@ import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
 import type { DiffFile } from "./utils/diff-parser"
-import { MAX_HIGHLIGHT_BYTES } from "./vim-diff/file-highlights"
-
-/**
- * How long the cursor stays in a file before riff reads it for the colours
- * (spec 080). Long enough that `]f]f]f` through a review reads nothing,
- * short enough that arriving somewhere and looking at it does.
- */
-const HIGHLIGHT_SOURCE_DELAY_MS = 150
 
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
@@ -345,6 +340,7 @@ export async function createApp(options: AppOptions = {}) {
     split.dispose()
     unified.dispose()
     highlights.dispose()
+    highlightSource.dispose()
     parses.dispose()
     renderer.destroy()
     // The terminal is riff's again to hand on — `then` is how a relaunch
@@ -776,9 +772,7 @@ export async function createApp(options: AppOptions = {}) {
    * re-resolving either — each lookup would be a `gh pr view`, i.e. a
    * GraphQL request, on every expand.
    */
-  async function fetchFileVersions(
-    filename: string,
-  ): Promise<{ ok: true; newContent: string; oldContent: string | null } | { ok: false; error: string }> {
+  async function fetchFileVersions(filename: string): ReturnType<FetchFileVersions> {
     // A commit in scope is a diff of its own, running between that span's
     // ends rather than the review's (spec 078).
     const span = scopeSpan()
@@ -809,150 +803,24 @@ export async function createApp(options: AppOptions = {}) {
       : { ok: true, newContent, oldContent }
   }
 
-  async function loadFileContent(filename: string): Promise<void> {
-    fileContent.markLoading(filename)
-    render()
+  const loadFileContent = (filename: string) => loadFileContentInto({ fileContent, fetchFileVersions, render }, filename)
 
-    try {
-      const fetched = await fetchFileVersions(filename)
-      if (fetched.ok) {
-        fileContent.set(filename, fetched.newContent, fetched.oldContent)
-      } else {
-        fileContent.setError(filename, fetched.error)
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error"
-      fileContent.setError(filename, msg)
-    }
-
-    render()
-  }
-
-  /**
-   * Read the files on screen, so their rows can be highlighted as files
-   * rather than as the fragments they are (spec 080).
-   *
-   * Asked for per file as it comes into view, never for the diff at large:
-   * a two-hundred-file review is not two hundred reads nobody wanted. Local
-   * mode takes it off disk; a PR asks GitHub, the way expanding context
-   * already does, and the same cache answers both.
-   */
-  let highlightSourceTimer: ReturnType<typeof setTimeout> | null = null
-  let highlightSourceArmedFor = ""
-  const highlightSourceFailed = new Set<string>()
-  const highlightSourceInFlight = new Set<string>()
-  const highlightSourcePending = new Map<string, string>()
-
-  /**
-   * How many files one pass reads. A screen of one-line files would
-   * otherwise be a screen of fetches at once; the rest stay on screen, so
-   * the render each finished read triggers comes back for them.
-   */
-  const HIGHLIGHT_SOURCE_BATCH = 6
-
-  /**
-   * What a read would fetch: the file, from the revisions in view. A refresh
-   * or a change of commit drops what riff read, and this is how it knows to
-   * read it again rather than leaving the rows to the fragment parse.
-   */
-  function highlightSourceKey(filename: string): string {
-    const span = scopeSpan()
-    const from = span
-      ? `${span.oldest}..${span.newest}`
-      : currentHeadSha ?? options.target ?? ""
-    return `${filename}@${from}`
-  }
-
-  /**
-   * The key a read of this file would carry, or null if it needs no read.
-   *
-   * The ignore list is not consulted. It decides what the tree offers, not
-   * what the diff draws — `**​/__snapshots__/**` is ignored by default, and
-   * a snapshot is exactly the generated file a reader does open, to see the
-   * one line that moved. Being on screen is the whole test: what riff shows
-   * a reader, riff colours from the file (spec 080).
-   */
-  function highlightSourceNeeded(filename: string): string | null {
-    const cached = fileContent.entry(filename)
-    if (cached?.newContent || cached?.loading || cached?.error) return null
-
-    const key = highlightSourceKey(filename)
-    if (highlightSourceInFlight.has(key) || highlightSourceFailed.has(key)) return null
-
-    // Locally the size is one stat away, so the read never happens at all.
-    // A PR's is not known until it arrives, and the parse declines it then.
-    if (state.appMode === "local" && Bun.file(filename).size > MAX_HIGHLIGHT_BYTES) return null
-
-    return key
-  }
-
-  async function readHighlightSource(filename: string, key: string): Promise<void> {
-    try {
-      const fetched = await fetchFileVersions(filename)
-      if (fetched.ok) {
-        fileContent.set(filename, fetched.newContent, fetched.oldContent)
-        render()
-      } else {
-        highlightSourceFailed.add(key)
-      }
-    } catch {
-      highlightSourceFailed.add(key)
-    } finally {
-      highlightSourceInFlight.delete(key)
-    }
-  }
-
-  /**
-   * Read every file with code on screen, not only the one the cursor is in
-   * (spec 080). A file the reader can see is coloured from the file or from
-   * the fragment, and the fragment is wrong in ways the file is not — a
-   * hunk starting inside a comment, or a schema whose `on` turns up as a
-   * keyword in the middle of a word.
-   *
-   * Bounded by the viewport rather than by the review: what is on screen is
-   * a handful of files, where the diff at large is two hundred reads nobody
-   * asked for.
-   */
-  function requestHighlightSource(): void {
-    highlightSourcePending.clear()
-    for (const filename of split.shown() ? split.visibleFilenames() : unified.visibleFilenames()) {
-      const key = highlightSourceNeeded(filename)
-      if (key) highlightSourcePending.set(filename, key)
-    }
-    if (highlightSourcePending.size === 0) return
-
-    // Re-armed only when the set of wanted files changes, which is what
-    // makes walking a review with `]f` read nothing: each move rearms, and
-    // the read lands once the reader has stopped somewhere. An unchanged
-    // set leaves the pending timer alone, so a render on its own timer —
-    // the comment poll — cannot starve it.
-    const armFor = [...highlightSourcePending.values()].sort().join("|")
-    if (highlightSourceTimer && armFor === highlightSourceArmedFor) return
-    highlightSourceArmedFor = armFor
-    if (highlightSourceTimer) clearTimeout(highlightSourceTimer)
-
-    // Quietly: none of these may put the panel into a loading state the
-    // reader would have to watch.
-    highlightSourceTimer = setTimeout(() => {
-      highlightSourceTimer = null
-      highlightSourceArmedFor = ""
-      const wanted = [...highlightSourcePending].slice(0, HIGHLIGHT_SOURCE_BATCH)
-      highlightSourcePending.clear()
-
-      for (const [filename, key] of wanted) {
-        // The state may have moved while the pause ran.
-        if (highlightSourceNeeded(filename) !== key) continue
-        highlightSourceInFlight.add(key)
-        void readHighlightSource(filename, key)
-      }
-    }, HIGHLIGHT_SOURCE_DELAY_MS)
-  }
+  const highlightSource = createHighlightSourceReader({
+    fileContent,
+    fetchFileVersions,
+    visibleFilenames: () => (split.shown() ? split.visibleFilenames() : unified.visibleFilenames()),
+    scopeSpan,
+    head: () => currentHeadSha,
+    target: options.target,
+    appMode: () => state.appMode,
+    render,
+  })
 
   // Which files are on screen is known once a frame is laid out, not when
   // `render()` updates the tree — the rows it would walk then are the old
   // layout's, or none — and moving the cursor draws without calling it at
   // all (spec 080). The walk is cheap; the reads behind it are debounced.
-  renderer.addPostProcessFn(() => requestHighlightSource())
+  renderer.addPostProcessFn(() => highlightSource.request())
 
   const searchHandler = new SearchHandler({
     getMapping: () => lineMapping,
@@ -1020,45 +888,18 @@ export async function createApp(options: AppOptions = {}) {
   })
 
   // ===== EXPAND DIVIDER =====
-  async function handleExpandDivider(): Promise<boolean> {
-    const dividerKey = lineMapping.getDividerKey(vimState.line)
-    if (!dividerKey) return false
-
-    const [filename] = dividerKey.split(":")
-    if (!filename) return false
-
-    const cached = fileContent.entry(filename)
-    if (!cached || cached.error) {
-      fileContent.markLoading(filename)
-      fileContent.setExpanding(dividerKey)
-      render()
-
-      try {
-        const fetched = await fetchFileVersions(filename)
-        if (!fetched.ok) {
-          fileContent.setError(filename, fetched.error)
-          fileContent.setExpanding(null)
-          render()
-          return false
-        }
-
-        fileContent.set(filename, fetched.newContent, fetched.oldContent)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        fileContent.setError(filename, msg)
-        fileContent.setExpanding(null)
-        render()
-        return false
-      }
-    }
-
-    fileContent.expand(dividerKey)
-    fileContent.setExpanding(null)
-    createLineMapping()
-    render()
-    ensureCursorVisible()
-    refreshCursor()
-    return true
+  function handleExpandDivider(): Promise<boolean> {
+    return expandDividerAtCursor({
+      fileContent,
+      fetchFileVersions,
+      dividerKeyAtCursor: () => lineMapping.getDividerKey(vimState.line),
+      rebuildLineMapping: createLineMapping,
+      render,
+      revealCursor: () => {
+        ensureCursorVisible()
+        refreshCursor()
+      },
+    })
   }
 
   // ===== FEATURE CONTEXTS =====
