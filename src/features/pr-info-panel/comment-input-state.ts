@@ -2,7 +2,8 @@
  * The overview's comment prompt (`c` in the conversation section): the text
  * of a PR-level comment while it is written and posted. It is the
  * overview's sub-modal, not review state: nothing in the review reads it,
- * and it lives only until the comment posts or the prompt is dismissed. The
+ * and it lives until the comment posts or the prompt is dismissed, or until
+ * a reload, a switch to another PR or entering the overview closes it. The
  * feature owns it rather than AppState, which sheds one slice per feature
  * this way (spec 100, M6; ADR-003).
  */

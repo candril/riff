@@ -187,7 +187,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit, config: initialConfig } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -212,8 +212,7 @@ export async function createApp(options: AppOptions = {}) {
   let lastCursorMode = vimState.mode
   let searchState: SearchState = createSearchState()
   let flashState: FlashState = createFlashState()
-  const diffConfig = loadConfig().diff
-  const diffOptions = createDiffOptionsState({ wrap: diffConfig.wrap, alignMarkdownTables: diffConfig.alignMarkdownTables })
+  const diffOptions = createDiffOptionsState({ wrap: initialConfig.diff.wrap, alignMarkdownTables: initialConfig.diff.alignMarkdownTables })
   let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.

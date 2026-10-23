@@ -596,9 +596,6 @@ export function clearTreeFilter(state: AppState): AppState {
   return { ...state, treeFilter: "", treeFilterInput: false, treeHighlightIndex: 0 }
 }
 
-/**
- * Toggle soft wrap
- */
 /** Fold or unfold one fenced block (spec 073). */
 export function toggleBlockFold(state: AppState, id: string): AppState {
   const collapsedBlocks = new Set(state.collapsedBlocks)

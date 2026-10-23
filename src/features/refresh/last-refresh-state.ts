@@ -2,8 +2,9 @@
  * When riff last confirmed the review current, as an ISO timestamp: the
  * header's `↻ HH:MM`. It says how fresh the review is, not what the review
  * holds, so the feature owns it rather than AppState (spec 100, M6;
- * ADR-003). A reload, a switch to another PR and every successful poll tick
- * stamp it; a failed one leaves the last good time standing.
+ * ADR-003). A reload, a switch to another PR, opening the branch's PR and
+ * every successful poll tick stamp it; a failed one leaves the last good
+ * time standing.
  */
 
 import { createSignal } from "solid-js"

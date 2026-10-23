@@ -13,6 +13,7 @@ import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
 import { createFeedState, type ActivityFeedState } from "../features/feed/state"
 import { createVisitState } from "../features/visit/state"
+import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 
 const disposers: (() => void)[] = []
 afterEach(() => {
@@ -36,6 +37,7 @@ async function keysFor(state: AppState, feed: ActivityFeedState, height: number)
   const known: Partial<AppKeyContext> = {
     activityFeed: feed,
     visit: createVisitState(),
+    prCommentInput: createPrCommentInputState(),
     getState: () => state,
     setState: (update) => (state = update(state)),
     getVimState: () => createCursorState(),

@@ -198,7 +198,13 @@ describe("startCommentPoll", () => {
     expect(p.asked).toEqual([])
 
     onFocus(true)
-    await p.stamped
+    // A tick that fails never stamps, so the wait is bounded to fail with a
+    // reason instead of running into bun's timeout.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const unstamped = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("the focus regain's poll tick never stamped the refresh time")), 1000)
+    })
+    await Promise.race([p.stamped, unstamped]).finally(() => clearTimeout(timer))
     p.poll.stop()
     expect(p.asked).toEqual(["probe o/r#7", "comments o/r#7 at head-1"])
     expect(reloads).toBe(0)

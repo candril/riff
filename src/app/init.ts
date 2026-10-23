@@ -36,7 +36,7 @@ import { getTreeSitterClient } from "@opentui/core"
 import { FileParses } from "../vim-diff/file-parses"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mapping"
-import { loadConfig } from "../config"
+import { loadConfig, type Config } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
 import { commentsInView } from "../utils/notes"
@@ -78,6 +78,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   marks: readonly Mark[]
   /** When riff last had this PR open, and whether the branch was rewritten since; the visit factory's to own. */
   visit: { watermark: VisitWatermark | null; rebased: boolean }
+  config: Config
 }> {
   const { mode, target, filesTarget, diff: preloadedDiff, comments: preloadedComments, prInfo, githubViewedStatuses, headSha } = options
 
@@ -206,7 +207,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // unanswerable from commits, so it is noted rather than guessed at.
   const rebased = wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT)
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased } }
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased }, config }
 }
 
 /**

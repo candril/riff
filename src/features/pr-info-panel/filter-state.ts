@@ -2,10 +2,10 @@
  * The overview's filter (`/` or `Ctrl-f`, spec 065): the text its rows are
  * narrowed to, and whether the prompt for it is open. It is the overview's
  * own sub-modal, not review state, so the feature owns it rather than
- * AppState (spec 100, M6; ADR-003). It lives for one visit to the
- * overview of one PR: a reload leaves it alone, so the rows stay narrowed
- * across `gr`, and entering the overview or switching to another PR clears
- * it.
+ * AppState (spec 100, M6; ADR-003). Besides the reader's Esc, two paths
+ * clear it: handleOpenPRInfoPanel, on entering the overview, and
+ * closeFeatureOverlays, on switching to another PR. A reload leaves it
+ * alone, so the rows stay narrowed across `gr`.
  */
 
 import { createSignal } from "solid-js"

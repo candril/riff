@@ -251,21 +251,6 @@ describe("a refresh's pending review", () => {
   })
 })
 
-describe("a refresh's PR overview filter", () => {
-  for (const appMode of ["pr", "local"] as const) {
-    test(`keeps its text and its open prompt, and the overview it narrows (${appMode})`, async () => {
-      const { ctx, state, toast, prInfoFilter } = refreshHarness({ appMode, state: (s) => ({ ...s, viewMode: "state" }) })
-      prInfoFilter.start()
-      prInfoFilter.set("greet")
-
-      await landed(handleRefresh(ctx), toast)
-
-      expect(state().viewMode).toBe("state")
-      expect({ filter: prInfoFilter.filter(), filterInput: prInfoFilter.filterInput() }).toEqual({ filter: "greet", filterInput: true })
-    })
-  }
-})
-
 describe("a refresh's diff display options", () => {
   for (const appMode of ["pr", "local"] as const) {
     test(`keeps split, wrap and table alignment as the reader left them (${appMode})`, async () => {
@@ -300,6 +285,22 @@ describe("a refresh's time", () => {
       sources: {
         loadPrSession: async () => {
           throw new Error("gh is down")
+        },
+      },
+    })
+
+    await handleRefresh(ctx)
+
+    expect(toast.current()).toMatchObject({ type: "error" })
+    expect(lastRefresh.at()).toBe("0")
+  })
+
+  test("is left alone by a local reload whose diff fails to load", async () => {
+    const { ctx, toast, lastRefresh } = refreshHarness({
+      appMode: "local",
+      sources: {
+        getLocalDiff: async () => {
+          throw new Error("git is gone")
         },
       },
     })

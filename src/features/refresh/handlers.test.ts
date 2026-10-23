@@ -21,7 +21,8 @@ import { createJumpListState } from "../jumplist/state"
 import { createLastRefreshState } from "./last-refresh-state"
 import { createFeedState } from "../feed/state"
 import type { FeedEvent } from "../../utils/feed"
-import { adoptReloadedState, rebuildFeedStream } from "./handlers"
+import { refreshHarness } from "../../testing/refresh-harness"
+import { adoptReloadedState, handleRefresh, rebuildFeedStream } from "./handlers"
 
 describe("a refresh's rebuilt state", () => {
   test("closes the help, which createInitialState no longer resets", () => {
@@ -568,6 +569,20 @@ describe("a refresh's rebuilt state", () => {
     expect(state.description).toBe("reloaded")
     expect(commentDrafts.drafts().size).toBe(0)
   })
+})
+
+describe("a refresh's PR comment prompt", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`is closed with what was typed in it (${appMode})`, async () => {
+      const { ctx, prCommentInput } = refreshHarness({ appMode })
+      prCommentInput.open()
+      prCommentInput.setText("Looks good")
+
+      await handleRefresh(ctx)
+
+      expect(prCommentInput.current()).toEqual({ open: false, text: "", loading: false, error: null })
+    })
+  }
 })
 
 describe("a PR refresh's feed", () => {
