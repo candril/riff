@@ -6,7 +6,7 @@ import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
 import { collapseViewedFiles, loadFileStatuses, toggleSplitView } from "./state"
 import { getCurrentRepo } from "./providers/github/exec"
-import { loadComments } from "./storage/comments"
+import { loadBranchPrReview } from "./features/branch-pr/review"
 import { loadOrCreateSession } from "./storage/session"
 import { loadViewedStatuses } from "./storage/caches"
 import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
@@ -2044,20 +2044,11 @@ export async function createApp(options: AppOptions = {}) {
       render()
 
       // And the review on it, if riff has already fetched one (spec 094).
-      // Reading what is on disk, never fetching: a local review that opens
-      // in a second should not wait on GitHub, and `riff pr` is what says
-      // "go and get it".
-      try {
-        const { owner, repo } = await getCurrentRepo()
-        const review = await loadComments(`gh:${owner}/${repo}#${branchPr.number}`)
-        const anchored = commentsWithRows(review, state.files, state.fileMode)
-        if (anchored.length === 0) return
-        state = { ...state, comments: [...state.comments, ...anchored] }
-        render()
-      } catch {
-        // No review on disk, or a repo riff cannot name. The local comments
-        // are then the whole of it.
-      }
+      const review = await loadBranchPrReview(branchPr)
+      const anchored = commentsWithRows(review, state.files, state.fileMode)
+      if (anchored.length === 0) return
+      state = { ...state, comments: [...state.comments, ...anchored] }
+      render()
     })
   }
 

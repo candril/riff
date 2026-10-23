@@ -9,6 +9,7 @@ import { getPendingReview } from "../../providers/github/review"
 import { getLocalDiff, getDiffDescription, getBranchInfo, getLocalCommits } from "../../providers/local"
 import { loadComments } from "../../storage/comments"
 import { loadViewedStatuses, saveVisit } from "../../storage/caches"
+import { loadBranchPrReview } from "../branch-pr/review"
 
 export interface RefreshSources {
   loadPrSession: typeof loadPrSession
@@ -20,6 +21,7 @@ export interface RefreshSources {
   loadViewedStatuses: typeof loadViewedStatuses
   saveVisit: typeof saveVisit
   getPendingReview: typeof getPendingReview
+  loadBranchPrReview: typeof loadBranchPrReview
 }
 
 export const liveRefreshSources: RefreshSources = {
@@ -32,4 +34,5 @@ export const liveRefreshSources: RefreshSources = {
   loadViewedStatuses,
   saveVisit,
   getPendingReview,
+  loadBranchPrReview,
 }

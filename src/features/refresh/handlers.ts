@@ -20,7 +20,7 @@ import {
 } from "../../state"
 import { PR_COMMITS_FETCH_LIMIT } from "../../providers/github/session"
 import { mergeGitHubViewedStates } from "../../utils/viewed-status"
-import { commentsInView } from "../../utils/notes"
+import { commentsInView, commentsWithRows } from "../../utils/notes"
 import { parseDiff, sortFiles } from "../../utils/diff-parser"
 import { buildFileTree } from "../../utils/file-tree"
 import { markVisit } from "../../utils/visit"
@@ -214,12 +214,14 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       )
     } else {
       // Local mode - reload diff, commits, and branch info
-      const [newDiff, newDescription, newBranchInfo, newCommits, newComments] = await Promise.all([
+      const { branchPr } = state
+      const [newDiff, newDescription, newBranchInfo, newCommits, newComments, branchReview] = await Promise.all([
         ctx.sources.getLocalDiff(ctx.target),
         ctx.sources.getDiffDescription(ctx.target),
         ctx.sources.getBranchInfo(ctx.target),
         ctx.sources.getLocalCommits(ctx.target),
         ctx.sources.loadComments(state.source),
+        branchPr ? ctx.sources.loadBranchPrReview(branchPr) : Promise.resolve([]),
       ])
 
       const newFiles = sortFiles(parseDiff(newDiff))
@@ -229,13 +231,17 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
         // The store holds the repo's notes; this diff is about some of them
         // (spec 085).
         const inView = commentsInView(newComments, newFiles, prevState.fileMode)
-        const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, inView, "local", null, prevState.ignoreMatcher)
+        const comments = [...inView, ...commentsWithRows(branchReview, newFiles, prevState.fileMode)]
+        const newState = createInitialState(newFiles, newFileTree, prevState.source, newDescription, null, prevState.session, comments, "local", null, prevState.ignoreMatcher)
 
         // Set branch info and commits
         const withBranchAndCommits = {
           ...newState,
           branchInfo: newBranchInfo,
           commits: newCommits,
+          // The branch's pull request is asked for once a session (spec 079):
+          // a reload that dropped it would never get it back.
+          branchPr: prevState.branchPr,
         }
 
         return collapseIgnoredFiles(restorePosition(withBranchAndCommits, position))

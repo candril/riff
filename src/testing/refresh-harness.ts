@@ -112,6 +112,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     loadComments: async () => comments,
     loadViewedStatuses: async () => [],
     getPendingReview: async () => null,
+    loadBranchPrReview: async () => [],
     ...options.sources,
     saveVisit: async (savedTo, watermark) => {
       calls.saveVisit.push({ source: savedTo, watermark })

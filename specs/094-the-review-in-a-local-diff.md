@@ -46,3 +46,7 @@ riff was waiting for anyway.
 
 `commentsWithRows` is `commentsInView` without the exemption: every comment
 has to have a row, whatever kind it is.
+
+A reload keeps the pull request riff found and reads its review from disk
+again, anchored against the reloaded diff; `findCurrentPr()` is asked once a
+session.
