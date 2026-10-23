@@ -66,6 +66,7 @@ import { createPrCommentInputState } from "./features/pr-info-panel/comment-inpu
 import { createPrInfoFilterState } from "./features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
+import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -205,6 +206,7 @@ export async function createApp(options: AppOptions = {}) {
   // ===== MUTABLE STATE =====
   let state: AppState = initialState
   const toast = createToastState()
+  const lastRefresh = createLastRefreshState()
   let vimState: VimCursorState = createCursorState()
   /** The mode the status bar was last drawn for. */
   let lastCursorMode = vimState.mode
@@ -719,6 +721,7 @@ export async function createApp(options: AppOptions = {}) {
     reviewPreview,
     pendingReview,
     toast,
+    lastRefresh,
     prCommentInput,
     prInfoFilter,
     filePicker,
@@ -1064,6 +1067,7 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     setState: (fn) => { state = fn(state) },
     toast,
+    lastRefresh,
     render,
     getVimState: () => vimState,
     setVimState: (s) => { vimState = s },
@@ -1471,6 +1475,7 @@ export async function createApp(options: AppOptions = {}) {
           prSession.prInfo,
           state.ignoreMatcher
         )
+        lastRefresh.stamp()
         toast.clear()
         closeFeatureOverlays()
         globalMarks.reset(followed)
@@ -1854,6 +1859,7 @@ export async function createApp(options: AppOptions = {}) {
         treeUnviewedOnly: panelFilters.unviewedFilesOnly,
         viewMode: view,
       }
+      lastRefresh.stamp()
       toast.clear()
       globalMarks.reset(followed)
       activityFeed.reset()
@@ -2069,6 +2075,7 @@ export async function createApp(options: AppOptions = {}) {
     recreatePrInfoPanel: commentPollRebuild(refreshContext.recreatePrInfoPanel),
     prCommentInputOpen: prCommentInput.isOpen,
     getHeadSha: () => currentHeadSha,
+    lastRefresh,
     intervalSeconds: pollConfig.interval,
     onFocus: pollConfig.onFocus,
   })

@@ -186,11 +186,6 @@ export interface AppState {
   branchInfo: string | null
   error: string | null
 
-  // Wall-clock time (ISO) the diff/comments were last pulled from the
-  // source: set on initial load, on `gr` (via createInitialState), and on
-  // every successful background comment-poll tick. Shown in the header.
-  lastRefreshedAt: string
-
   // PR info (only in PR mode)
   prInfo: PrInfo | null
   
@@ -302,7 +297,6 @@ export function createInitialState(
     description,
     branchInfo: null,
     error,
-    lastRefreshedAt: new Date().toISOString(),
     prInfo,
     commits: [],
     fileContentCache: {},

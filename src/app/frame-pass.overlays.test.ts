@@ -34,6 +34,7 @@ import { createFeedState } from "../features/feed/state"
 import { createVisitState } from "../features/visit/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
+import { createLastRefreshState } from "../features/refresh/last-refresh-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createMentionsState } from "../features/mentions/state"
@@ -119,6 +120,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     reviewPreview,
     pendingReview: createPendingReviewState(),
     toast,
+    lastRefresh: createLastRefreshState(),
     prCommentInput: createPrCommentInputState(),
     prInfoFilter: createPrInfoFilterState(),
     filePicker,

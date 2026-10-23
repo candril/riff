@@ -283,3 +283,30 @@ describe("a refresh's diff display options", () => {
     })
   }
 })
+
+describe("a refresh's time", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`is stamped once the rebuild lands (${appMode})`, async () => {
+      const { ctx, toast, lastRefresh } = refreshHarness({ appMode })
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect(lastRefresh.at()).toBe("1")
+    })
+  }
+
+  test("is left alone by a refresh whose load fails", async () => {
+    const { ctx, toast, lastRefresh } = refreshHarness({
+      sources: {
+        loadPrSession: async () => {
+          throw new Error("gh is down")
+        },
+      },
+    })
+
+    await handleRefresh(ctx)
+
+    expect(toast.current()).toMatchObject({ type: "error" })
+    expect(lastRefresh.at()).toBe("0")
+  })
+})

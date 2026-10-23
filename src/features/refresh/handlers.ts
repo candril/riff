@@ -59,6 +59,7 @@ import {
 } from "./position"
 import type { ToastState } from "../toast/state"
 import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
+import type { LastRefreshState } from "./last-refresh-state"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -116,6 +117,7 @@ export interface RefreshContext {
   pendingReview: Pick<PendingReviewState, "clear" | "set" | "generation">
   toast: Pick<ToastState, "show" | "clear">
   prCommentInput: Pick<PrCommentInputState, "close">
+  lastRefresh: Pick<LastRefreshState, "stamp">
   // App config (captured from options at init time)
   target: string | undefined
 }
@@ -296,22 +298,23 @@ export function rebuildFeedStream(ctx: Pick<RefreshContext, "getState" | "feed" 
 /**
  * Swap in the state a reload rebuilt from createInitialState. The help
  * overlay, the confirm dialog, the sync preview, Submit Review, the PR
- * overview's comment prompt and the file,
- * comments, occurrence, marks and commit pickers, the command palette, the
- * line and blame peeks, and the blame columns, which a reload turns off, live
- * in factories that createInitialState never reaches, so they are closed here,
- * as the rebuild closes every overlay still kept in AppState. The kept comment
- * drafts, the jumplist, GitHub's pending review and the toast live in
- * factories too, and are emptied here, the pending review because a PR
- * refresh fetches the reloaded PR's draft again afterwards, the toast because
- * a refresh shows its outcome only once the rebuild has landed; the global
- * marks are not, since a mark is followed to its line's new place, and nor is
- * the activity feed, whose row, filters, opened commits and unseen-only are
- * the reader's (a PR refresh drops only its stream), nor the visit, which the
- * caller begins anew on a PR refresh and drops on a local reload.
+ * overview's comment prompt and the file, comments, occurrence, marks and
+ * commit pickers, the command palette, the line and blame peeks, and the
+ * blame columns, which a reload turns off, live in factories that
+ * createInitialState never reaches, so they are closed here, as the rebuild
+ * closes every overlay still kept in AppState. The kept comment drafts, the
+ * jumplist, GitHub's pending review and the toast live in factories too, and
+ * are emptied here, the pending review because a PR refresh fetches the
+ * reloaded PR's draft again afterwards, the toast because a refresh shows its
+ * outcome only once the rebuild has landed; the refresh time is stamped, since
+ * the review was just confirmed current; the global marks are not emptied,
+ * since a mark is followed to its line's new place, and nor is the activity
+ * feed, whose row, filters, opened commits and unseen-only are the reader's
+ * (a PR refresh drops only its stream), nor the visit, which the caller
+ * begins anew on a PR refresh and drops on a local reload.
  */
 export function adoptReloadedState(
-  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput">,
+  ctx: Pick<RefreshContext, "getState" | "setState" | "help" | "confirm" | "syncPreview" | "reviewPreview" | "filePicker" | "commentsPicker" | "occurrencePicker" | "marksPicker" | "commitPicker" | "actionMenu" | "linePeek" | "blamePeek" | "blameColumns" | "commentDrafts" | "jumpList" | "pendingReview" | "toast" | "prCommentInput" | "lastRefresh">,
   rebuild: (prevState: AppState) => AppState
 ): void {
   ctx.setState(() => rebuild(ctx.getState()))
@@ -336,6 +339,7 @@ export function adoptReloadedState(
   ctx.jumpList.clear()
   ctx.pendingReview.clear()
   ctx.toast.clear()
+  ctx.lastRefresh.stamp()
 }
 
 /**

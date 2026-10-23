@@ -31,6 +31,7 @@
 import type { Comment } from "../../types"
 import type { PrInfo } from "../../providers/github/types"
 import type { AppState } from "../../state"
+import type { LastRefreshState } from "../refresh/last-refresh-state"
 import {
   fetchPrReviewComments,
   getPrThreadStates,
@@ -67,6 +68,7 @@ export interface CommentPollContext {
   recreatePrInfoPanel: () => void
   /** The PR head riff last loaded; it moves on a refresh. */
   getHeadSha: () => string
+  lastRefresh: Pick<LastRefreshState, "stamp">
 }
 
 /** What a tick asks GitHub through; a test hands in its own, so no gh runs. */
@@ -278,7 +280,7 @@ export function startCommentPoll(ctx: CommentPollContext, calls: CommentPollCall
 
       // Stamp "last refreshed" on every successful tick, changed or not, so
       // the header reflects that comments were confirmed current just now.
-      ctx.setState((s) => ({ ...s, lastRefreshedAt: new Date().toISOString() }))
+      ctx.lastRefresh.stamp()
       ctx.render()
     } catch {
       // Transient gh/network failure — swallow and try again next tick.

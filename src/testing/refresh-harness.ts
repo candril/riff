@@ -20,6 +20,7 @@ import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
+import { createLastRefreshState } from "../features/refresh/last-refresh-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
@@ -99,6 +100,9 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const help = createHelpState()
   const pendingReview = createPendingReviewState()
   const toast = createToastState()
+  // Counts its reads, so a test sees how often the refresh stamped it: "0" is the seed.
+  let clockReads = 0
+  const lastRefresh = createLastRefreshState(() => String(clockReads++))
   const prCommentInput = createPrCommentInputState()
   // Held beside the context, as app.ts holds it: the refresh is not handed it.
   const prInfoFilter = createPrInfoFilterState()
@@ -157,6 +161,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     reviewPreview: createReviewPreviewState(),
     pendingReview,
     toast,
+    lastRefresh,
     prCommentInput,
     filePicker: createFilePickerState(),
     commentsPicker: createCommentsPickerState(),
@@ -172,5 +177,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, prCommentInput, prInfoFilter, diffOptions }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions }
 }

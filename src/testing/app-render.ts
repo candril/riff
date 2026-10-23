@@ -10,6 +10,7 @@ import { createSyncPreviewState } from "../features/sync-preview/state"
 import { createReviewPreviewState } from "../features/review-preview/state"
 import { createPendingReviewState } from "../features/review-preview/pending-state"
 import { createToastState } from "../features/toast/state"
+import { createLastRefreshState } from "../features/refresh/last-refresh-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
@@ -66,7 +67,10 @@ const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0))
  * way app.ts wires them, with highlighting that never lands so frames stay
  * deterministic.
  */
-export async function mountApp(raw: string, { width = 120, height = 24 }: { width?: number; height?: number } = {}) {
+export async function mountApp(
+  raw: string,
+  { width = 120, height = 24, refreshClock }: { width?: number; height?: number; refreshClock?: () => string } = {}
+) {
   const setup = await createTestRenderer({ width, height })
   const renderer = setup.renderer
   const files = parseDiff(raw)
@@ -99,6 +103,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   const reviewPreview = createReviewPreviewState()
   const pendingReview = createPendingReviewState()
   const toast = createToastState()
+  const lastRefresh = createLastRefreshState(refreshClock)
   const prCommentInput = createPrCommentInputState()
   const prInfoFilter = createPrInfoFilterState()
   const islands = createFrameIslands(renderer, {
@@ -194,6 +199,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     reviewPreview,
     pendingReview,
     toast,
+    lastRefresh,
     prCommentInput,
     prInfoFilter,
     filePicker,
@@ -259,6 +265,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     pendingReview,
     /** The toast's state, which the frame pass reads and the keys show and clear as app.ts's do. */
     toast,
+    /** When riff last confirmed the review current, which the frame pass reads and a reload stamps as app.ts's do. */
+    lastRefresh,
     /** The PR overview's comment prompt, which the frame pass reads and the overview's keys write as app.ts's do. */
     prCommentInput,
     /** The PR overview's filter, which the frame pass reads and the overview's keys write as app.ts's do. */
@@ -340,6 +348,6 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
 
 /** What adoptReloadedState needs, taken from the mounted app as app.ts hands it over on a reload. */
 export function reloadCtx(mounted: Awaited<ReturnType<typeof mountApp>>): Parameters<typeof adoptReloadedState>[0] {
-  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput } = mounted
-  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput }
+  const { help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh } = mounted
+  return { getState: mounted.ctx.getState, setState: mounted.ctx.setState, help, confirm, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek, blameColumns, commentDrafts, jumpList, pendingReview, toast, prCommentInput, lastRefresh }
 }

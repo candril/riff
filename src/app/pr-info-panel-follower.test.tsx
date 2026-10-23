@@ -60,6 +60,7 @@ function frameOf(
     reviewPreview: null,
     pendingReview: null,
     toast: null,
+    lastRefreshedAt: "",
     prCommentInput: { open: false, text: "", loading: false, error: null, ...prompt },
     prInfoFilter: { filter: "", filterInput: false, ...filter },
     filePicker: null,

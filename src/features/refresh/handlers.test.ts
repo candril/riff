@@ -18,6 +18,7 @@ import { createBlamePeekState } from "../blame/peek-state"
 import { createBlameColumnsState } from "../blame/column-state"
 import { createCommentDraftsState } from "../inline-comment-overlay/drafts-state"
 import { createJumpListState } from "../jumplist/state"
+import { createLastRefreshState } from "./last-refresh-state"
 import { createFeedState } from "../feed/state"
 import type { FeedEvent } from "../../utils/feed"
 import { adoptReloadedState, rebuildFeedStream } from "./handlers"
@@ -49,6 +50,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -82,6 +84,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -116,6 +119,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -152,6 +156,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -186,6 +191,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -221,6 +227,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -257,6 +264,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -294,6 +302,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -330,6 +339,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -371,6 +381,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -409,6 +420,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -443,6 +455,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -476,6 +489,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -511,6 +525,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns,
       commentDrafts: createCommentDraftsState(),
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))
@@ -545,6 +560,7 @@ describe("a refresh's rebuilt state", () => {
       blameColumns: createBlameColumnsState(),
       commentDrafts,
       jumpList: createJumpListState(),
+      lastRefresh: createLastRefreshState(),
     }
 
     adoptReloadedState(ctx, (prev) => ({ ...createInitialState([], [], prev.source, "reloaded") }))

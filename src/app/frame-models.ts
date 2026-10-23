@@ -56,7 +56,7 @@ export function frameModels(frame: Frame) {
         viewingCommitScope: state.viewingCommitScope,
         branchPr: state.branchPr,
         commits: state.commits,
-        lastRefreshedAt: state.lastRefreshedAt,
+        lastRefreshedAt: frame.lastRefreshedAt,
         merge: state.prInfo ? mergeReading(state.prInfo, state.prInfo.checks ?? [], state.comments) : null,
       }),
       version,

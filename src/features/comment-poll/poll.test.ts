@@ -101,8 +101,18 @@ describe("applyThreadStates", () => {
 describe("startCommentPoll", () => {
   const branchPr = prInfo("", { owner: "o", repo: "r", number: 7 })
 
-  function polling(initial: AppState, timing: { intervalSeconds: number; onFocus?: boolean } = { intervalSeconds: 0 }) {
+  function polling(
+    initial: AppState,
+    timing: { intervalSeconds: number; onFocus?: boolean } = { intervalSeconds: 0 },
+    overrides: Partial<CommentPollCalls> = {},
+  ) {
     let state = initial
+    let stamps = 0
+    let markStamped!: () => void
+    // A tick's last step on success, so awaiting it waits out the whole tick chain.
+    const stamped = new Promise<void>((resolve) => {
+      markStamped = resolve
+    })
     let headSha = "head-1"
     const asked: string[] = []
     const calls: CommentPollCalls = {
@@ -115,6 +125,7 @@ describe("startCommentPoll", () => {
         return []
       },
       getPrThreadStates: async () => [],
+      ...overrides,
     }
     const poll = startCommentPoll(
       {
@@ -127,12 +138,20 @@ describe("startCommentPoll", () => {
         ...timing,
         recreatePrInfoPanel: () => {},
         getHeadSha: () => headSha,
+        lastRefresh: {
+          stamp: () => {
+            stamps++
+            markStamped()
+          },
+        },
       },
       calls,
     )
     return {
       poll,
       asked,
+      stamped,
+      stamps: () => stamps,
       setState: (next: AppState) => {
         state = next
       },
@@ -179,9 +198,26 @@ describe("startCommentPoll", () => {
     expect(p.asked).toEqual([])
 
     onFocus(true)
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    await p.stamped
     p.poll.stop()
     expect(p.asked).toEqual(["probe o/r#7", "comments o/r#7 at head-1"])
     expect(reloads).toBe(0)
+  })
+
+  test("a tick that succeeds stamps the refresh time", async () => {
+    const p = polling(createInitialState([], [], "gh:o/r#7", "", null, null, [], "pr", branchPr))
+    await p.poll.tick()
+    expect(p.stamps()).toBe(1)
+  })
+
+  test("a tick whose fetch throws leaves the refresh time alone", async () => {
+    const p = polling(createInitialState([], [], "gh:o/r#7", "", null, null, [], "pr", branchPr), undefined, {
+      fetchPrReviewComments: async () => {
+        throw new Error("gh is down")
+      },
+    })
+    await p.poll.tick()
+    expect(p.asked).toEqual(["probe o/r#7"])
+    expect(p.stamps()).toBe(0)
   })
 })

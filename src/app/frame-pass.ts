@@ -34,6 +34,7 @@ import type { ActivityFeedState } from "../features/feed/state"
 import type { VisitState } from "../features/visit/state"
 import type { PendingReviewState } from "../features/review-preview/pending-state"
 import type { ToastState } from "../features/toast/state"
+import type { LastRefreshState } from "../features/refresh/last-refresh-state"
 import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { CommitPickerState } from "../features/commit-picker/state"
@@ -69,6 +70,7 @@ export interface FramePassContext {
   reviewPreview: ReviewPreviewState
   pendingReview: Pick<PendingReviewState, "review">
   toast: Pick<ToastState, "current">
+  lastRefresh: Pick<LastRefreshState, "at">
   prCommentInput: Pick<PrCommentInputState, "current">
   prInfoFilter: Pick<PrInfoFilterState, "filter" | "filterInput">
   filePicker: FilePickerState
@@ -187,6 +189,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       reviewPreview,
       pendingReview: ctx.pendingReview.review(),
       toast: ctx.toast.current(),
+      lastRefreshedAt: ctx.lastRefresh.at(),
       prCommentInput: ctx.prCommentInput.current(),
       prInfoFilter: { filter: ctx.prInfoFilter.filter(), filterInput: ctx.prInfoFilter.filterInput() },
       filePicker,

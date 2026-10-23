@@ -70,6 +70,7 @@ function frame(
     reviewPreview: null,
     pendingReview: null,
     toast: null,
+    lastRefreshedAt: "",
     prCommentInput: { open: false, text: "", loading: false, error: null },
     prInfoFilter: { filter: "", filterInput: false },
     filePicker: null,

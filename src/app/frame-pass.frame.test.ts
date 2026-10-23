@@ -29,11 +29,11 @@ afterEach(async () => {
 })
 
 test("a full pass draws the header, the tree beside the diff, and the status bar", async () => {
-  app = await mountApp(DIFF, { width: 100, height: 16 })
+  // No refresh time, and the build's version masked below: both would change the frame from run to run.
+  app = await mountApp(DIFF, { width: 100, height: 16, refreshClock: () => "" })
   // A selection is what gives the status bar text to draw.
   app.setVimState({ ...createCursorState(), line: 2, mode: "visual-line", selectionAnchor: 1 })
-  // No refresh time, and the build's version masked: both would change the frame from run to run.
-  app.show({ lastRefreshedAt: "" })
+  app.show()
   const frame = (await app.frame()).replace(version, "VERSION")
   expect(frame).toBe(
     [

@@ -59,6 +59,8 @@ export interface Frame {
   pendingReview: PendingReview | null
   /** The toast, read off its factory, or null while none shows. */
   toast: { message: string; type: ToastType } | null
+  /** When riff last confirmed the review current (ISO), read off its factory, for the header. */
+  lastRefreshedAt: string
   /** The PR overview's comment prompt, read off its factory. */
   prCommentInput: { open: boolean; text: string; loading: boolean; error: string | null }
   /** The PR overview's filter, read off its factory. */
