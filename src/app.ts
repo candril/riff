@@ -4,11 +4,7 @@ import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
-import { collapseViewedFiles, loadFileStatuses } from "./state"
-import { getCurrentRepo } from "./providers/github/exec"
 import { loadBranchPrReview } from "./features/branch-pr/review"
-import { loadOrCreateSession } from "./storage/session"
-import { loadViewedStatuses } from "./storage/caches"
 import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
 import { getPendingReview } from "./providers/github/review"
 import { editPullRequest, createPullRequest, submitPrComment } from "./providers/github/mutations"
@@ -45,7 +41,7 @@ import { createBlameSource } from "./providers/blame/source"
 import { demoBlameSource } from "./features/blame/demo-source"
 import type { BlameDeps } from "./features/blame/keys"
 import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage/caches"
-import { loadInfoSections, saveInfoSections } from "./storage/info-sections"
+import { saveInfoSections } from "./storage/info-sections"
 import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
 import { createConfirmState } from "./features/confirm/state"
@@ -70,6 +66,7 @@ import { expandDividerAtCursor } from "./features/file-content/expand-divider"
 import { createHighlightSourceReader } from "./features/file-content/highlight-source"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import { closeFeatureOverlays, type AnotherReviewFeatures } from "./features/refresh/another-review"
+import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch-pr/open"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -1495,86 +1492,24 @@ export async function createApp(options: AppOptions = {}) {
     render,
   }
 
-  /**
-   * Read the pull request the branch already has (spec 095).
-   *
-   * riff names it in the header of every local review, and until now that
-   * was all it did with it — the overview and the feed are the pull
-   * request's surfaces and a local review had none. Asking for one is what
-   * fetches it: the same load `riff pr` does, in place.
-   */
-  async function openBranchPr(view: "state" | "feed"): Promise<void> {
-    const branchPr = state.branchPr
-    if (!branchPr || state.appMode === "pr") return
-    if (loadingBranchPr) return
-    loadingBranchPr = true
-
-    toast.show(`Opening #${branchPr.number}…`, "info")
-    render()
-
-    try {
-      const { owner, repo } = await getCurrentRepo()
-      const loaded = await loadPrSession(branchPr.number, owner, repo)
-      const source = `gh:${owner}/${repo}#${branchPr.number}`
-      const files = sortFiles(parseDiff(loaded.diff))
-
-      currentHeadSha = loaded.headSha
-      const session = await loadOrCreateSession(source)
-      const next = createInitialState(
-        files,
-        buildFileTree(files),
-        source,
-        `#${branchPr.number}: ${loaded.prInfo.title}`,
-        null,
-        session,
-        loaded.comments,
-        "pr",
-        loaded.prInfo,
-        state.ignoreMatcher,
-      )
-      // A file riff was told not to show opens folded, the way every other
-      // load leaves it.
-      const ignored = new Set([...next.ignoredFiles].filter((f) => next.files.some((x) => x.filename === f)))
-      const [panelFilters, openSections] = await Promise.all([loadPanelFilters(source), loadInfoSections(source)])
-      const followed = await followLoadedMarks(source, await loadMarks(source), files, loaded.headSha || undefined)
-      state = {
-        ...next,
-        collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
-        commits: loaded.prInfo.commits ?? [],
-        threadPanelOpenOnly: panelFilters.openThreadsOnly,
-        treeUnviewedOnly: panelFilters.unviewedFilesOnly,
-        viewMode: view,
-      }
-      lastRefresh.stamp()
-      toast.clear()
-      globalMarks.reset(followed)
-      activityFeed.reset()
-      visit.reset()
-      closeFeatureOverlays(anotherReviewFeatures)
-      state = collapseViewedFiles(loadFileStatuses(state, await loadViewedStatuses(source)))
-
-      // A local review has no PR info panel — there was no pull request to
-      // build one from — and the overview is that panel. Without this the
-      // view switches and there is nothing there to draw, which reads as
-      // being stuck on the diff.
-      refreshContext.recreatePrInfoPanel(openSections)
-
-      createLineMapping()
-      vimState = createCursorState()
-      updateFileTreePanel()
-      render()
-      void loadPendingReview(pendingReviewLoad, { owner, repo, number: branchPr.number })
-    } catch (err) {
-      toast.show(
-        `Could not open #${branchPr.number}: ${err instanceof Error ? err.message : "unknown error"}`,
-        "error",
-      )
-      render()
-    } finally {
-      loadingBranchPr = false
-    }
-  }
-  let loadingBranchPr = false
+  const openBranchPr = createBranchPrOpener({
+    sources: liveOpenBranchPrSources,
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    setHeadSha: (sha) => { currentHeadSha = sha },
+    setVimState: (s) => { vimState = s },
+    rebuildLineMapping: createLineMapping,
+    recreatePrInfoPanel: refreshContext.recreatePrInfoPanel,
+    updateFileTreePanel,
+    render,
+    toast,
+    lastRefresh,
+    globalMarks,
+    activityFeed,
+    visit,
+    features: anotherReviewFeatures,
+    pendingReviewLoad,
+  })
 
   // ===== KEYBOARD INPUT =====
   const dispatchKeypress = createAppKeys(renderer, {
