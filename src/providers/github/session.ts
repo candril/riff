@@ -154,6 +154,14 @@ async function fetchPrBundle(
   })
 }
 
+/**
+ * The PR's info alone, for a refetch after riff acted on it: the bundle's
+ * one GraphQL round trip, with no diff, no REST comments and nothing saved.
+ */
+export async function fetchPrInfo(owner: string, repo: string, prNumber: number): Promise<PrInfo> {
+  return (await fetchPrBundle(owner, repo, prNumber)).prInfo
+}
+
 export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
   const commits: PrCommit[] = (pr.commits?.nodes ?? []).map((n: any) => {
     const author = n.commit?.authors?.nodes?.[0]

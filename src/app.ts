@@ -67,6 +67,7 @@ import type { AnotherReviewFeatures } from "./features/refresh/another-review"
 import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch-pr/open"
 import { handleCreatePr, liveCreatePrSources, type CreatePrContext } from "./features/branch-pr/create"
 import { handleEditPr, liveEditPrSources, type EditPrContext } from "./features/pr-operations/edit-pr"
+import { handleToggleReady, liveReadyStateSources, type ReadyStateContext } from "./features/pr-operations/ready-state"
 import { handleAddPrComment, liveAddPrCommentSources, type AddPrCommentContext } from "./features/pr-operations/add-pr-comment"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -1151,6 +1152,21 @@ export async function createApp(options: AppOptions = {}) {
 
   const addPrCommentContext: AddPrCommentContext = { ...editPrContext, sources: liveAddPrCommentSources }
 
+  const readyStateContext: ReadyStateContext = {
+    sources: liveReadyStateSources,
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    confirm,
+    toast,
+    // The panel draws from its own copy of prInfo; handing it over keeps
+    // its folds and cursor, where rebuilding it would not.
+    render: () => {
+      if (state.prInfo) prInfoPanel?.setPrInfo(state.prInfo)
+      render()
+    },
+    later: (fn, ms) => { setTimeout(fn, ms) },
+  }
+
   const actionHandlers: actionMenuFeature.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
@@ -1210,6 +1226,7 @@ export async function createApp(options: AppOptions = {}) {
       })
     },
     handleEditPr: () => handleEditPr(editPrContext),
+    handleToggleReady: () => handleToggleReady(readyStateContext),
     handleCreatePr: () => handleCreatePr(createPrContext),
     handleAddPrComment: () => handleAddPrComment(addPrCommentContext),
   }

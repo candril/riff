@@ -2,10 +2,10 @@
 
 **Status**: In Progress
 
-**Not built**: every capability below: marking ready and back to draft,
-merging, updating the branch, auto-merge and the merge queue, the keys in
-the merge status section, the panel's refresh, and the merge status's
-re-poll after a merge or an update.
+**Not built**: merging, updating the branch, auto-merge and the merge queue,
+the keys in the merge status section, the panel's refresh after anything
+but ready and draft, and the merge status's re-poll after a merge or an
+update.
 
 ## Description
 
@@ -82,3 +82,14 @@ budget in AGENTS.md.
 Tests stub `gh` through the action's sources; nothing in a test or a pty
 run sends a real merge, ready or update.
 
+## Technical Notes
+
+- `src/features/pr-operations/ready-state.ts`: `handleToggleReady(ctx)`
+  asks, flips `isDraft` at once, runs the mutation and refetches with
+  `fetchPrInfo`; every write to state is guarded to the PR it started on.
+  The palette's `mark-ready` and `mark-draft` both run it.
+- `markPullRequestReady` / `markPullRequestDraft` in
+  `src/providers/github/mutations.ts` return `{ success, error }` and never
+  throw; `readyCommand` builds the arguments they run and the dialog shows.
+- The panel takes the new `PrInfo` through `PRInfoPanel.setPrInfo`, which
+  keeps its folds and cursor, the way a reaction reaches it.

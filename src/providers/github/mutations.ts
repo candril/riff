@@ -161,6 +161,33 @@ export async function editPullRequest(
   })
 }
 
+/**
+ * `gh pr ready`'s arguments, which the confirm dialog shows as they are, so
+ * the reader sees exactly what runs.
+ */
+export function readyCommand(owner: string, repo: string, prNumber: number, toDraft: boolean): string[] {
+  return ["gh", "pr", "ready", String(prNumber), "-R", `${owner}/${repo}`, ...(toDraft ? ["--undo"] : [])]
+}
+
+export type ReadyResult = { success: true } | { success: false; error: string }
+
+async function runReady(args: string[]): Promise<ReadyResult> {
+  try {
+    await $`${args}`.quiet()
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: extractShellError(err) }
+  }
+}
+
+export function markPullRequestReady(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
+  return runReady(readyCommand(owner, repo, prNumber, false))
+}
+
+export function markPullRequestDraft(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
+  return runReady(readyCommand(owner, repo, prNumber, true))
+}
+
 interface CreatePrResult {
   prNumber: number
   url: string

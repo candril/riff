@@ -52,6 +52,8 @@ export interface ActionHandlers {
   handleOpenFileAlone: () => void
   handleToggleSplitView: () => void
   handleEditPr: () => Promise<void>
+  /** Asks first, then marks the PR ready or back to draft (spec 110). */
+  handleToggleReady: () => void
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
@@ -215,6 +217,11 @@ export async function executeAction(
       if (state.prInfo) {
         await handlers.handleEditPr()
       }
+      break
+
+    case "mark-ready":
+    case "mark-draft":
+      handlers.handleToggleReady()
       break
 
     case "open-in-browser":

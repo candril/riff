@@ -458,6 +458,20 @@ export const actions: Action[] = [
     available: (state) => state.appMode === "pr" && state.prInfo !== null,
   },
   {
+    id: "mark-ready",
+    label: "Mark Ready for Review",
+    description: "Take the PR out of draft, after asking (gh pr ready)",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo?.state === "open" && state.prInfo.isDraft === true,
+  },
+  {
+    id: "mark-draft",
+    label: "Convert to Draft",
+    description: "Put the PR back into draft, after asking (gh pr ready --undo)",
+    category: "github",
+    available: (state) => state.appMode === "pr" && state.prInfo?.state === "open" && !state.prInfo.isDraft,
+  },
+  {
     id: "open-in-browser",
     label: "Open in Browser",
     description: "Open PR in web browser",
