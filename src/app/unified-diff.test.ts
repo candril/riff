@@ -14,6 +14,7 @@ import { createSearchState } from "../vim-diff/search-state"
 import type { VimCursorState } from "../vim-diff/types"
 import { createDiffHighlights } from "./diff-highlights"
 import { createUnifiedDiff, type UnifiedDiff } from "./unified-diff"
+import { createDiffOptionsState } from "../features/diff-view/options-state"
 
 let setup: TestRendererSetup | null = null
 let unified: UnifiedDiff | null = null
@@ -47,8 +48,8 @@ async function mount(options: MountOptions) {
     ...createInitialState(files, [], "", ""),
     viewMode: "diff",
     selectedFileIndex: selectedFileIndex ?? null,
-    wrapLines: options.wrap ?? false,
   }
+  const diffOptions = createDiffOptionsState({ wrap: options.wrap ?? false, alignMarkdownTables: true })
   let mapping = mappingOf(state.selectedFileIndex)
   let vimState: VimCursorState = createCursorState()
   let renders = 0
@@ -65,6 +66,7 @@ async function mount(options: MountOptions) {
     highlights,
     scrollOff: 2,
     getState: () => state,
+    diffOptions,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,
@@ -120,7 +122,7 @@ async function mount(options: MountOptions) {
       mapping = mappingOf(state.selectedFileIndex)
     },
     toggleWrap() {
-      state = { ...state, wrapLines: !state.wrapLines }
+      diffOptions.toggleWrap()
     },
     /** The cursor's visual row sits inside the window, scroll-off aside. */
     cursorInWindow() {

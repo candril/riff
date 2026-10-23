@@ -35,6 +35,7 @@ async function mount() {
     highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 5,
     getState: () => state,
+    diffOptions: { wrapLines: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

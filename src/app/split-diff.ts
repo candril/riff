@@ -17,12 +17,14 @@ import { selectionStatus } from "./selection-status"
 import { paneOfLine, toRowSelection } from "./split-cursor"
 import { createSplitIsland } from "./split-island"
 import { splitSelection } from "./split-selection"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface SplitDiffDeps {
   renderer: CliRenderer
   highlights: DiffHighlights
   scrollOff: number
   getState: () => AppState
+  diffOptions: Pick<DiffOptionsState, "splitView">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
@@ -64,7 +66,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
 
   function shown(): boolean {
     const state = deps.getState()
-    return state.viewMode === "diff" && splitShown(state.splitView, paneWidth(), deps.getMapping().lineCount)
+    return state.viewMode === "diff" && splitShown(deps.diffOptions.splitView(), paneWidth(), deps.getMapping().lineCount)
   }
 
   let drawnLastPass = false

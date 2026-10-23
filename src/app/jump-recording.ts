@@ -7,9 +7,11 @@ import { createJumpRecorder, type Moment } from "../features/jumplist/recorder"
 import type { JumpListState } from "../features/jumplist/state"
 import { interactionSettled } from "./jump-settled"
 import { threadPanelHoldsKeys } from "./diff-focus"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface JumpRecordingDeps extends PromptPickers {
   getState: () => AppState
+  diffOptions: Pick<DiffOptionsState, "splitView">
   jumpList: Pick<JumpListState, "push">
   getVimState: () => VimCursorState
   getLineMapping: () => Pick<DiffLineMapping, "getLine">
@@ -45,7 +47,7 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
     const vim = deps.getVimState()
     const mapping = deps.getLineMapping()
     return {
-      place: jumplist.capture(state, vim, mapping, deps.getPane()),
+      place: jumplist.capture(state, vim, mapping, { split: deps.diffOptions.splitView(), pane: deps.getPane() }),
       file: jumplist.cursorFile(mapping, vim.line),
       settled: interactionSettled({
         state,

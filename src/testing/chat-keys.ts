@@ -5,7 +5,6 @@ import { createAppKeys } from "../app/keys"
 import type { mountApp } from "./app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
-import { toggleSplitView } from "../state"
 import { VimMotionHandler } from "../vim-diff/motion-handler"
 
 type Mounted = Awaited<ReturnType<typeof mountApp>>
@@ -34,8 +33,8 @@ export function keysOn(
     setVimState,
     // app.ts's handleToggleSplitView, whose redrawDiff this spells out.
     toggleSplitView: () => {
-      mounted.show(toggleSplitView(render.getState()))
-      if (render.getState().splitView) render.split.enter()
+      mounted.diffOptions.toggleSplit()
+      if (mounted.diffOptions.splitView()) render.split.enter()
       mounted.render()
       ctx.ensureCursorVisible()
       if (render.split.shown()) render.split.refreshCursor()
@@ -64,6 +63,7 @@ export function keysOn(
     toast: mounted.toast,
     prCommentInput: mounted.prCommentInput,
     prInfoFilter: mounted.prInfoFilter,
+    diffOptions: mounted.diffOptions,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
     occurrencePicker: mounted.occurrencePicker,

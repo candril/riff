@@ -62,6 +62,7 @@ function keysFor(mounted: NonNullable<typeof app>) {
         linePeek: mounted.linePeek,
         feed: mounted.activityFeed,
         prInfoFilter: mounted.prInfoFilter,
+        diffOptions: mounted.diffOptions,
         handlers,
         commandKeys: new Map(),
         runCommand: (name) => {

@@ -234,7 +234,7 @@ describe("gb", () => {
   test("in split, the left pane of a modified row asks the base", async () => {
     const { asked, jumpTo } = await mount(undefined, 240)
     press("\\")
-    expect(app!.ctx.getState().splitView).toBe(true)
+    expect(app!.diffOptions.splitView()).toBe(true)
     jumpTo(lineOf('  return "hi"'))
     app!.ctx.split.syncPane()
     expect(app!.ctx.split.splitRows()?.side).toBe("left")

@@ -166,12 +166,6 @@ export interface AppState {
   treeFilter: string
   /** True while the filter prompt is capturing keys. */
   treeFilterInput: boolean
-  /** `zw` — soft-wrap long lines instead of scrolling sideways. */
-  wrapLines: boolean
-  /** `\` — asks for the diff side by side; drawn only where the diff pane is wide enough. */
-  splitView: boolean
-  /** Pad markdown table cells onto a shared grid in the diff. */
-  alignMarkdownTables: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments" | "chat"
@@ -296,9 +290,6 @@ export function createInitialState(
     // visible when there's more than one file to navigate.
     treeFilter: "",
     treeFilterInput: false,
-    wrapLines: false,
-    splitView: false,
-    alignMarkdownTables: true,
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
@@ -614,17 +605,6 @@ export function clearTreeFilter(state: AppState): AppState {
 /**
  * Toggle soft wrap
  */
-export function toggleWrapLines(state: AppState): AppState {
-  return {
-    ...state,
-    wrapLines: !state.wrapLines,
-  }
-}
-
-export function toggleSplitView(state: AppState): AppState {
-  return { ...state, splitView: !state.splitView }
-}
-
 /** Fold or unfold one fenced block (spec 073). */
 export function toggleBlockFold(state: AppState, id: string): AppState {
   const collapsedBlocks = new Set(state.collapsedBlocks)

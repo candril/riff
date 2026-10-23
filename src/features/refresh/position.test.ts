@@ -126,7 +126,6 @@ describe("restoring the view", () => {
       collapsedFiles: new Set(["a.ts"]),
       collapsedHunks: new Set(["b.ts:0"]),
       expandedDividers: new Set(["b.ts:1"]),
-      wrapLines: true,
       treeFilter: "b",
       threadPanelOpenOnly: true,
       treeUnviewedOnly: true,
@@ -143,7 +142,6 @@ describe("restoring the view", () => {
     expect(after.collapsedFiles).toEqual(new Set(["a.ts"]))
     expect(after.collapsedHunks).toEqual(new Set(["b.ts:0"]))
     expect(after.expandedDividers).toEqual(new Set(["b.ts:1"]))
-    expect(after.wrapLines).toBe(true)
     expect(after.treeFilter).toBe("b")
     expect(after.threadPanelOpenOnly).toBe(true)
     expect(after.treeUnviewedOnly).toBe(true)

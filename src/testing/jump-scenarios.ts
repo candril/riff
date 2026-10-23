@@ -212,6 +212,7 @@ export async function jumpScenario({
   }
   const recording = createJumpRecording({
     getState: render.getState,
+    diffOptions: mounted.diffOptions,
     jumpList: mounted.jumpList,
     filePicker: mounted.filePicker,
     commentsPicker: mounted.commentsPicker,
@@ -295,7 +296,7 @@ export async function jumpScenario({
         line,
         col: vim().col,
         text: row?.content ?? null,
-        view: { split: s.splitView, singleFile: s.selectedFileIndex !== null, mode: s.viewMode },
+        view: { split: mounted.diffOptions.splitView(), singleFile: s.selectedFileIndex !== null, mode: s.viewMode },
         focus: s.focusedPanel,
       }
     },

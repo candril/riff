@@ -45,7 +45,7 @@ const RIGHT_X = paneWidths(WIDTH).left
 async function mount() {
   setup = await createTestRenderer({ width: WIDTH, height: 12 })
   const files = [uneven]
-  const state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", splitView: true }
+  const state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff" }
   const help = createHelpState()
   const mapping = new DiffLineMapping(files, "all")
   let vimState: VimCursorState = createCursorState()
@@ -54,6 +54,7 @@ async function mount() {
     highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 2,
     getState: () => state,
+    diffOptions: { splitView: () => true },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

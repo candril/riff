@@ -18,6 +18,7 @@ import { createActionMenuState } from "./state"
 import { createLinePeekState } from "../line-peek/state"
 import { createFeedState } from "../feed/state"
 import { createPrInfoFilterState } from "../pr-info-panel/filter-state"
+import { createDiffOptionsState } from "../diff-view/options-state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -75,6 +76,7 @@ function recordingContext(run: (name: string, keys: string) => boolean = () => t
     linePeek: createLinePeekState(),
     feed: createFeedState(),
     prInfoFilter: createPrInfoFilterState(),
+    diffOptions: createDiffOptionsState({ wrap: false, alignMarkdownTables: true }),
     handlers,
     commandKeys,
     runCommand: (name, keys) => {

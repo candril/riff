@@ -15,6 +15,7 @@ import { createActionMenuState } from "./state"
 import { createLinePeekState } from "../line-peek/state"
 import { createFeedState } from "../feed/state"
 import { createPrInfoFilterState } from "../pr-info-panel/filter-state"
+import { createDiffOptionsState } from "../diff-view/options-state"
 
 const COMMENT: Comment = {
   id: "c1",
@@ -58,6 +59,7 @@ describe("Show Only Open Threads", () => {
         linePeek: createLinePeekState(),
         feed: createFeedState(),
         prInfoFilter: createPrInfoFilterState(),
+        diffOptions: createDiffOptionsState({ wrap: false, alignMarkdownTables: true }),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -110,6 +112,7 @@ describe("Show Only Unviewed Files", () => {
         linePeek: createLinePeekState(),
         feed: createFeedState(),
         prInfoFilter: createPrInfoFilterState(),
+        diffOptions: createDiffOptionsState({ wrap: false, alignMarkdownTables: true }),
         handlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -144,6 +147,7 @@ describe("Peek Line", () => {
         linePeek,
         feed: createFeedState(),
         prInfoFilter: createPrInfoFilterState(),
+        diffOptions: createDiffOptionsState({ wrap: false, alignMarkdownTables: true }),
         handlers: {} as ActionHandlers,
         commandKeys: new Map(),
         runCommand: () => false,
@@ -153,6 +157,42 @@ describe("Peek Line", () => {
     expect(linePeek.open()).toBe(true)
     await run()
     expect(linePeek.open()).toBe(false)
+    expect(renders).toBe(2)
+  })
+})
+
+describe("Toggle Wrap", () => {
+  test("flips the diff's wrap on its factory, and renders", async () => {
+    const state = createInitialState([], [], "local", "local changes")
+    const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
+    let renders = 0
+    const run = () =>
+      executeAction("toggle-wrap", {
+        state,
+        setState: () => {
+          throw new Error("wrap is not AppState's")
+        },
+        render: () => void renders++,
+        toast: createToastState(),
+        filePicker: createFilePickerState(),
+        commentsPicker: createCommentsPickerState(),
+        occurrencePicker: createOccurrencePickerState(),
+        marksPicker: createMarksPickerState(),
+        commitPicker: createCommitPickerState(),
+        actionMenu: createActionMenuState(),
+        linePeek: createLinePeekState(),
+        feed: createFeedState(),
+        prInfoFilter: createPrInfoFilterState(),
+        diffOptions,
+        handlers: {} as ActionHandlers,
+        commandKeys: new Map(),
+        runCommand: () => false,
+      })
+
+    await run()
+    expect(diffOptions.wrapLines()).toBe(true)
+    await run()
+    expect(diffOptions.wrapLines()).toBe(false)
     expect(renders).toBe(2)
   })
 })

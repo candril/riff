@@ -248,11 +248,11 @@ describe("folds", () => {
 })
 
 test("zw toggles wrapping", async () => {
-  const { type, state } = await zApp()
+  const { type } = await zApp()
   type("z", "w")
-  expect(state().wrapLines).toBe(true)
+  expect(app!.diffOptions.wrapLines()).toBe(true)
   type("z", "w")
-  expect(state().wrapLines).toBe(false)
+  expect(app!.diffOptions.wrapLines()).toBe(false)
 })
 
 test("zl and zh scroll a column, zL and zH half a window, zs and ze to the cursor's column", async () => {
@@ -289,13 +289,13 @@ test("in the feed, za opens the highlighted row", async () => {
 
 describe("a key that breaks off a sequence", () => {
   test("a lone z gives up after the chord timeout, so the next key is a key of its own", async () => {
-    const { type, state, keys } = await zApp()
+    const { type, keys } = await zApp()
     type("z")
     expect(keys.chordPending()).toBe(true)
     await Bun.sleep(700)
     expect(keys.chordPending()).toBe(false)
     type("\\")
-    expect(state().splitView).toBe(true)
+    expect(app!.diffOptions.splitView()).toBe(true)
   })
 
   // The bracket's timer would fire 500 ms after the ]; the z's own one,

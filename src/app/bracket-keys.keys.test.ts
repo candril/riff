@@ -202,19 +202,19 @@ describe("a key that breaks off a sequence", () => {
   })
 
   test("] then a backslash does not toggle the split view", async () => {
-    const { type, state } = await bracketApp()
+    const { type } = await bracketApp()
     type("]", "\\")
-    expect(state().splitView).toBe(false)
+    expect(app!.diffOptions.splitView()).toBe(false)
   })
 
   test("a lone ] gives up after the chord timeout, so the next key is a key of its own", async () => {
-    const { type, state, cursorFile, keys } = await bracketApp()
+    const { type, cursorFile, keys } = await bracketApp()
     type("]")
     expect(keys.chordPending()).toBe(true)
     await Bun.sleep(700)
     expect(keys.chordPending()).toBe(false)
     type("\\")
-    expect(state().splitView).toBe(true)
+    expect(app!.diffOptions.splitView()).toBe(true)
     type("\\", "]")
     await Bun.sleep(700)
     type("f")

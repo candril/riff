@@ -10,7 +10,6 @@ import {
   toggleFilePanel,
   toggleFilePanelExpanded,
   switchView,
-  toggleWrapLines,
   clearFileSelection,
   toggleShowHiddenFiles,
   getReactionsForTarget,
@@ -28,6 +27,7 @@ import type { ActionMenuState } from "./state"
 import type { LinePeekState } from "../line-peek/state"
 import * as viewFilter from "../../app/view-filter"
 import type { ToastState } from "../toast/state"
+import type { DiffOptionsState } from "../diff-view/options-state"
 
 /**
  * Handlers that the action executor needs access to.
@@ -82,6 +82,7 @@ export interface ExecuteContext {
   linePeek: Pick<LinePeekState, "toggle">
   feed: viewFilter.ViewFilterContext["feed"]
   prInfoFilter: viewFilter.ViewFilterContext["prInfoFilter"]
+  diffOptions: Pick<DiffOptionsState, "toggleWrap">
   handlers: ActionHandlers
   /** Each keymap command's `keys`, the palette's hints. */
   commandKeys: ReadonlyMap<string, string>
@@ -321,7 +322,7 @@ export async function executeAction(
       break
 
     case "toggle-wrap":
-      setState(toggleWrapLines)
+      ctx.diffOptions.toggleWrap()
       render()
       break
 

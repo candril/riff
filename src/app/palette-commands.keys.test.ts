@@ -40,6 +40,7 @@ async function paletteApp() {
           linePeek: mounted.linePeek,
           feed: mounted.activityFeed,
           prInfoFilter: mounted.prInfoFilter,
+          diffOptions: mounted.diffOptions,
           handlers,
           commandKeys: keys.commandKeys,
           runCommand: paletteCommandRunner(keys.keymap, recording),

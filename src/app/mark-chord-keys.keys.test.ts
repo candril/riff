@@ -68,6 +68,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     actionMenu: mounted.actionMenu,
     activityFeed: mounted.activityFeed,
     prInfoFilter: mounted.prInfoFilter,
+    diffOptions: mounted.diffOptions,
     getVimState: vim,
     getLineMapping: render.getLineMapping,
     getPane: () => null,
@@ -215,10 +216,10 @@ describe("any other second key", () => {
   })
 
   test("\\ right after m does not toggle the split view", async () => {
-    const { type, state, toCode, keys } = await markApp()
+    const { type, toCode, keys } = await markApp()
     toCode()
     type("m", "\\")
-    expect(state().splitView).toBe(false)
+    expect(app!.diffOptions.splitView()).toBe(false)
     expect(keys.chordPending()).toBe(false)
   })
 })

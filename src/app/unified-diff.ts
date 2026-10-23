@@ -12,12 +12,14 @@ import { diffPaneHeight, diffPaneWidthOf } from "./diff-layout"
 import { searchOf } from "./diff-search"
 import { unifiedSelection } from "./split-selection"
 import { createUnifiedIsland } from "./unified-island"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface UnifiedDiffDeps {
   renderer: CliRenderer
   highlights: DiffHighlights
   scrollOff: number
   getState: () => AppState
+  diffOptions: Pick<DiffOptionsState, "wrapLines">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
@@ -77,8 +79,9 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
     const switched = drawn !== null && drawn.file !== file
     if (switched) island.resetColumns()
     // Wrap and a remap change which row the cursor's line is drawn on, and only a reveal follows it there.
-    const moved = switched || drawn?.mapping !== mapping || drawn?.wrap !== state.wrapLines
-    drawn = { mapping, file, wrap: state.wrapLines }
+    const wrap = deps.diffOptions.wrapLines()
+    const moved = switched || drawn?.mapping !== mapping || drawn?.wrap !== wrap
+    drawn = { mapping, file, wrap }
     island.update({
       mapping,
       files: state.files,
@@ -90,7 +93,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
       fileStatuses: state.fileStatuses,
       expandingDivider: state.expandingDivider,
       cursor: { line: vimState.line, col: vimState.col },
-      wrap: state.wrapLines,
+      wrap,
       focused: input.focused,
       selection: unifiedSelection(vimState),
       search: searchOf(searchState),

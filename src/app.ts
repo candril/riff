@@ -4,7 +4,7 @@ import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
 import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
-import { collapseViewedFiles, loadFileStatuses, toggleSplitView } from "./state"
+import { collapseViewedFiles, loadFileStatuses } from "./state"
 import { getCurrentRepo } from "./providers/github/exec"
 import { loadBranchPrReview } from "./features/branch-pr/review"
 import { loadOrCreateSession } from "./storage/session"
@@ -64,6 +64,7 @@ import { createVisitState } from "./features/visit/state"
 import { createPendingReviewState } from "./features/review-preview/pending-state"
 import { createPrCommentInputState } from "./features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "./features/pr-info-panel/filter-state"
+import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
 import * as viewFilter from "./app/view-filter"
@@ -209,7 +210,9 @@ export async function createApp(options: AppOptions = {}) {
   let lastCursorMode = vimState.mode
   let searchState: SearchState = createSearchState()
   let flashState: FlashState = createFlashState()
-  let lineMapping: DiffLineMapping = buildLineMapping(initialState)
+  const diffConfig = loadConfig().diff
+  const diffOptions = createDiffOptionsState({ wrap: diffConfig.wrap, alignMarkdownTables: diffConfig.alignMarkdownTables })
+  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
@@ -326,7 +329,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     requestFileModeContent()
-    lineMapping = buildLineMapping(state)
+    lineMapping = buildLineMapping(state, diffOptions)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
@@ -406,8 +409,8 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   function handleToggleSplitView(): void {
-    state = toggleSplitView(state)
-    if (state.splitView) split.enter()
+    diffOptions.toggleSplit()
+    if (diffOptions.splitView()) split.enter()
     redrawDiff()
   }
 
@@ -613,6 +616,7 @@ export async function createApp(options: AppOptions = {}) {
     highlights,
     scrollOff: SCROLL_OFF,
     getState: () => state,
+    diffOptions,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -623,6 +627,7 @@ export async function createApp(options: AppOptions = {}) {
     highlights,
     scrollOff: SCROLL_OFF,
     getState: () => state,
+    diffOptions,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -998,7 +1003,7 @@ export async function createApp(options: AppOptions = {}) {
     },
     getVisibleRegion: () => (split.shown() ? split.visibleRegion() : unified.visibleRegion()),
     jumpToRow: (surface, id) => {
-      jumpList.push(jumplist.capture(state, vimState, lineMapping, split.commentScope().pane))
+      jumpList.push(jumplist.capture(state, vimState, lineMapping, { split: diffOptions.splitView(), pane: split.commentScope().pane }))
       if (surface === "tree") {
         state = { ...state, treeHighlightIndex: Number(id), focusedPanel: "tree" }
         updateFileTreePanel()
@@ -1494,7 +1499,7 @@ export async function createApp(options: AppOptions = {}) {
         vimState = createCursorState()
         searchState = createSearchState()
         currentHeadSha = prSession.headSha
-        lineMapping = buildLineMapping(state)
+        lineMapping = buildLineMapping(state, diffOptions)
 
         toast.show(`PR #${prNumber} created: ${url}`, "success")
         render()
@@ -1580,6 +1585,7 @@ export async function createApp(options: AppOptions = {}) {
       linePeek,
       feed: activityFeed,
       prInfoFilter,
+      diffOptions,
       handlers: actionHandlers,
       commandKeys: paletteKeys,
       runCommand: paletteCommandRunner(dispatchKeypress.keymap, jumpRecording),
@@ -1844,9 +1850,6 @@ export async function createApp(options: AppOptions = {}) {
         ...next,
         collapsedFiles: new Set([...next.collapsedFiles, ...ignored]),
         commits: loaded.prInfo.commits ?? [],
-        wrapLines: state.wrapLines,
-        splitView: state.splitView,
-        alignMarkdownTables: state.alignMarkdownTables,
         threadPanelOpenOnly: panelFilters.openThreadsOnly,
         treeUnviewedOnly: panelFilters.unviewedFilesOnly,
         viewMode: view,
@@ -1951,6 +1954,7 @@ export async function createApp(options: AppOptions = {}) {
     commentDrafts,
     prCommentInput,
     prInfoFilter,
+    diffOptions,
     activityFeed,
     visit,
     jumpList,
@@ -1969,6 +1973,7 @@ export async function createApp(options: AppOptions = {}) {
     actionMenu,
     activityFeed,
     prInfoFilter,
+    diffOptions,
     getVimState: () => vimState,
     getLineMapping: () => lineMapping,
     getPane: marksContext.getPane,

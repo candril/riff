@@ -44,8 +44,6 @@ export interface RefreshPosition {
   threadPanelOpenOnly: boolean
   treeUnviewedOnly: boolean
   treeKeptFile: string | null
-  wrapLines: boolean
-  alignMarkdownTables: boolean
   collapsedFiles: Set<string>
   collapsedHunks: Set<string>
   collapsedBlocks: Set<string>
@@ -80,8 +78,6 @@ export function capturePosition(
     threadPanelOpenOnly: state.threadPanelOpenOnly,
     treeUnviewedOnly: state.treeUnviewedOnly,
     treeKeptFile: state.treeKeptFile,
-    wrapLines: state.wrapLines,
-    alignMarkdownTables: state.alignMarkdownTables,
     collapsedFiles: new Set(state.collapsedFiles),
     collapsedHunks: new Set(state.collapsedHunks),
     collapsedBlocks: new Set(state.collapsedBlocks),
@@ -137,8 +133,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     threadPanelOpenOnly: position.threadPanelOpenOnly,
     treeUnviewedOnly: position.treeUnviewedOnly,
     treeKeptFile: position.treeKeptFile,
-    wrapLines: position.wrapLines,
-    alignMarkdownTables: position.alignMarkdownTables,
     collapsedFiles: new Set(position.collapsedFiles),
     collapsedHunks: new Set(position.collapsedHunks),
     collapsedBlocks: new Set(position.collapsedBlocks),

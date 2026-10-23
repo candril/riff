@@ -30,7 +30,7 @@ afterEach(() => {
 async function mount() {
   setup = await createTestRenderer({ width: 160, height: 30 })
   const mapping = new DiffLineMapping([doc], "all")
-  let state: AppState = { ...createInitialState([doc], [], "", ""), viewMode: "diff" as const, splitView: true }
+  let state: AppState = { ...createInitialState([doc], [], "", ""), viewMode: "diff" as const }
   let vimState: VimCursorState = createCursorState()
   let shownChanges = 0
   split = createSplitDiff({
@@ -38,6 +38,7 @@ async function mount() {
     highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 2,
     getState: () => state,
+    diffOptions: { splitView: () => true },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,
@@ -153,7 +154,7 @@ describe("single-file mode", () => {
 
   async function mountSingle(files = twoFiles) {
     setup = await createTestRenderer({ width: 160, height: 30 })
-    let state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", splitView: true, selectedFileIndex: 0 }
+    let state: AppState = { ...createInitialState(files, [], "", ""), viewMode: "diff", selectedFileIndex: 0 }
     let mapping = new DiffLineMapping(files, "single", 0)
     let vimState: VimCursorState = createCursorState()
     const diff = createSplitDiff({
@@ -161,6 +162,7 @@ describe("single-file mode", () => {
       highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
       scrollOff: 2,
       getState: () => state,
+      diffOptions: { splitView: () => true },
       getMapping: () => mapping,
       getVimState: () => vimState,
       filePanelWidth: () => 0,

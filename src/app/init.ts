@@ -40,6 +40,7 @@ import { loadConfig } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
 import { commentsInView } from "../utils/notes"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface InitOptions {
   mode: AppMode
@@ -150,8 +151,6 @@ export async function initializeAppState(options: InitOptions): Promise<{
     ...state,
     fileMode: filesTarget !== undefined,
     branchInfo,
-    wrapLines: config.diff.wrap,
-    alignMarkdownTables: config.diff.alignMarkdownTables,
     threadPanelOpenOnly: panelFilters.openThreadsOnly,
     treeUnviewedOnly: panelFilters.unviewedFilesOnly,
   }
@@ -251,7 +250,10 @@ async function loadLocalDiff(
 /**
  * Build a DiffLineMapping from current state
  */
-export function buildLineMapping(state: AppState): DiffLineMapping {
+export function buildLineMapping(
+  state: AppState,
+  options: Pick<DiffOptionsState, "wrapLines" | "alignMarkdownTables">,
+): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
   const fileContents = new Map<string, string>()
@@ -272,7 +274,7 @@ export function buildLineMapping(state: AppState): DiffLineMapping {
     // Wrapped, the padding is worse than useless: it is the widest cell in
     // the table spent on every row, wrapping into blank lines, and the
     // column it was lining up has been broken across rows anyway.
-    alignMarkdownTables: state.alignMarkdownTables && !state.wrapLines,
+    alignMarkdownTables: options.alignMarkdownTables() && !options.wrapLines(),
   })
 }
 

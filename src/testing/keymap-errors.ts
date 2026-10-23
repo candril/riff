@@ -8,7 +8,7 @@ import type { AppKeys } from "../app/keys"
  * whole layer off and the test would go on passing against a keymap riff
  * never runs. Call it inside a test.
  */
-export function failOnKeymapErrors(keys: AppKeys): AppKeys {
+export function failOnKeymapErrors<Keys extends Pick<AppKeys, "keymap">>(keys: Keys): Keys {
   const errors: string[] = []
   keys.keymap.on("error", ({ code, error }) => {
     errors.push(`${code}: ${error instanceof Error ? error.message : String(error)}`)

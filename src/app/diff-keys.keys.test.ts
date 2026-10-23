@@ -6,6 +6,10 @@ import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
 import type { FoldsContext } from "../features/folds"
+import { adoptReloadedState } from "../features/refresh/handlers"
+import { reloadCtx } from "../testing/app-render"
+import { failOnKeymapErrors } from "../testing/keymap-errors"
+import { createInitialState } from "../state"
 
 const fileDiff = (name: string) => `diff --git a/${name} b/${name}
 index 1111111..2222222 100644
@@ -28,7 +32,7 @@ afterEach(async () => {
 })
 
 /** riff's keys through the real createAppKeys with the diff focused, and what its motions reach wired to the app. */
-async function diffApp() {
+async function diffApp(more: Partial<AppKeyContext> = {}) {
   // Split draws once the diff's pane is 120 columns wide.
   app = await mountApp(DIFF, { width: 160, height: 30 })
   app.show({ focusedPanel: "diff" })
@@ -106,6 +110,7 @@ async function diffApp() {
       save: () => {},
       getHead: () => undefined,
     },
+    ...more,
   })
   await mounted.frame()
   const press = (sequence: string) =>
@@ -131,11 +136,37 @@ test("\\ draws the split panes, and \\ again draws unified", async () => {
   const { mounted, type, sideBySide } = await diffApp()
   expect(await sideBySide()).toEqual([])
   type("\\")
-  expect(mounted.ctx.getState().splitView).toBe(true)
+  expect(mounted.diffOptions.splitView()).toBe(true)
   expect((await sideBySide()).length).toBeGreaterThan(0)
   type("\\")
-  expect(mounted.ctx.getState().splitView).toBe(false)
+  expect(mounted.diffOptions.splitView()).toBe(false)
   expect(await sideBySide()).toEqual([])
+})
+
+test("split asked for with \\ is still drawn after gr reloads the diff", async () => {
+  const reloaded: string[] = []
+  const { mounted, keys, type, sideBySide } = await diffApp({
+    // The swap handleRefresh ends in, over the files it already has.
+    refreshContext: {
+      handleRefresh: async () => {
+        adoptReloadedState(reloadCtx(mounted), (prev) => ({
+          ...createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"),
+          focusedPanel: "diff",
+        }))
+        mounted.render()
+        reloaded.push("reloaded")
+      },
+    },
+  })
+  failOnKeymapErrors(keys)
+  type("\\")
+  expect((await sideBySide()).length).toBeGreaterThan(0)
+
+  type("g", "r")
+  expect(reloaded).toEqual(["reloaded"])
+  expect(mounted.ctx.getState().description).toBe("reloaded")
+  expect(mounted.diffOptions.splitView()).toBe(true)
+  expect((await sideBySide()).length).toBeGreaterThan(0)
 })
 
 test("/ opens the search prompt, and the / is not typed into it", async () => {

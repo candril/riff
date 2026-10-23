@@ -10,6 +10,7 @@ export function zChordDeps(ctx: AppKeyContext): ZChordDeps {
   return {
     getState: ctx.getState,
     setState: ctx.setState,
+    diffOptions: ctx.diffOptions,
     render: ctx.render,
     rebuildLineMapping: () => ctx.rebuildLineMapping(),
     getVimState: ctx.getVimState,

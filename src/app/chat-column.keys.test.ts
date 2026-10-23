@@ -209,7 +209,7 @@ describe("a question carries the reviewer's place in the diff", () => {
     app.show()
     const { jumpTo } = keysOn(app)
     app.setup.mockInput.pressKey("\\")
-    expect(app.ctx.getState().splitView).toBe(true)
+    expect(app.diffOptions.splitView()).toBe(true)
     jumpTo(app.ctx.getLineMapping().allLines.findIndex((line) => line.content === "  }"))
 
     openChat(app)

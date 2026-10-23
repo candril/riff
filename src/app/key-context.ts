@@ -55,6 +55,7 @@ import type { ComposerOutcome } from "../features/inline-comment-overlay/compose
 import type { ToastState } from "../features/toast/state"
 import type { PrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface AppKeyContext {
   // State access
@@ -167,6 +168,8 @@ export interface AppKeyContext {
   prCommentInput: PrCommentInputState
   /** The PR overview's filter, the same instance the frame pass reads. */
   prInfoFilter: PrInfoFilterState
+  /** The diff's wrap, split and table alignment, the same instance the diff views read. */
+  diffOptions: DiffOptionsState
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

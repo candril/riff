@@ -67,7 +67,8 @@ test("showing the tree narrows the unified diff beside it in the frame Ctrl-b dr
 
 test("split redraws both panes at the new width in the frame Ctrl-b draws", async () => {
   app = await mountApp(DIFF, { width: 160, height: 12 })
-  app.show({ splitView: true, showFilePanel: true })
+  app.diffOptions.toggleSplit()
+  app.show({ showFilePanel: true })
   await app.frame()
 
   const hidden = await firstFrameAfter({ showFilePanel: false })

@@ -291,6 +291,11 @@ The PR overview's filter is the twenty-fourth (`createPrInfoFilterState`
 in `src/features/pr-info-panel/filter-state.ts`); the frame carries its
 text and whether its prompt is open, a reload keeps both, and entering the
 overview or switching to another PR clears them.
+The diff's display options are the twenty-fifth (`createDiffOptionsState`
+in `src/features/diff-view/options-state.ts`): soft wrap, the side-by-side
+split and markdown table alignment. The diff views and the line mapping
+read them off the factory, the config seeds wrap and table alignment, and
+a reload and a switch to another PR keep all three.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field

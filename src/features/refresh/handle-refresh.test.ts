@@ -265,3 +265,21 @@ describe("a refresh's PR overview filter", () => {
     })
   }
 })
+
+describe("a refresh's diff display options", () => {
+  for (const appMode of ["pr", "local"] as const) {
+    test(`keeps split, wrap and table alignment as the reader left them (${appMode})`, async () => {
+      const { ctx, toast, diffOptions } = refreshHarness({ appMode })
+      diffOptions.toggleSplit()
+      diffOptions.toggleWrap()
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect({ split: diffOptions.splitView(), wrap: diffOptions.wrapLines(), align: diffOptions.alignMarkdownTables() }).toEqual({
+        split: true,
+        wrap: true,
+        align: true,
+      })
+    })
+  }
+})

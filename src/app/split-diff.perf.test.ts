@@ -27,7 +27,7 @@ afterEach(() => {
 
 async function mount() {
   setup = await createTestRenderer({ width: 240, height: 50 })
-  const state = { ...createInitialState(files, [], "", ""), viewMode: "diff" as const, splitView: true }
+  const state = { ...createInitialState(files, [], "", ""), viewMode: "diff" as const }
   let vimState: VimCursorState = createCursorState()
   const searchState = createSearchState()
   const flashState = createFlashState()
@@ -36,6 +36,7 @@ async function mount() {
     highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: 2,
     getState: () => state,
+    diffOptions: { splitView: () => true },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

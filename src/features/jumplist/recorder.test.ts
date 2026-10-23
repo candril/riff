@@ -290,7 +290,7 @@ describe("walking the list", () => {
 
     record(key("G"), top, bottom)
 
-    const here = () => capture(state, vimAt(bottom), { getLine: () => undefined })
+    const here = () => capture(state, vimAt(bottom), { getLine: () => undefined }, { split: false })
     expect(jumpList.back(state, here)).toEqual(top.place)
     record(ctrl("o"), bottom, top)
 

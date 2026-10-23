@@ -4,16 +4,17 @@
  */
 
 import type { AppState } from "../state"
-import { toggleWrapLines } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
 import type { LinePeekState } from "../features/line-peek/state"
 import type { BlamePeekState } from "../features/blame/peek-state"
 import type { DiffViewport } from "./diff-viewport"
 import * as folds from "../features/folds"
+import type { DiffOptionsState } from "../features/diff-view/options-state"
 
 export interface ZChordDeps {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
+  diffOptions: Pick<DiffOptionsState, "toggleWrap">
   render: () => void
   rebuildLineMapping: () => void
   getVimState: () => VimCursorState
@@ -126,7 +127,7 @@ export function zChordCommands(deps: ZChordDeps): Record<ZCommand, () => boolean
       // The mapping is rebuilt because markdown table padding is applied
       // there and is dropped while wrapping. Drawing the new mapping
       // brings the cursor back into view.
-      deps.setState(toggleWrapLines)
+      deps.diffOptions.toggleWrap()
       deps.rebuildLineMapping()
       deps.render()
     }),

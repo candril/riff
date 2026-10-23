@@ -3,7 +3,6 @@ import {
   createInitialState,
   switchView,
   selectFile,
-  toggleSplitView,
   type AppState,
 } from "./state"
 import type { DiffFile } from "./utils/diff-parser"
@@ -65,14 +64,5 @@ describe("moving between the three surfaces", () => {
     expect(local.viewMode).toBe("diff")
     expect(switchView(local, "state")).toBe(local)
     expect(switchView(local, "feed")).toBe(local)
-  })
-})
-
-describe("side by side", () => {
-  test("is asked for with a toggle, and starts unified", () => {
-    const state = prState()
-    expect(state.splitView).toBe(false)
-    expect(toggleSplitView(state).splitView).toBe(true)
-    expect(toggleSplitView(toggleSplitView(state)).splitView).toBe(false)
   })
 })

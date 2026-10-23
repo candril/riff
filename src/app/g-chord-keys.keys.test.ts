@@ -255,9 +255,9 @@ describe("a key that breaks off a g sequence", () => {
   })
 
   test("\\ does not toggle the split view", async () => {
-    const { type, state } = await gApp()
+    const { type } = await gApp()
     type("g", "\\")
-    expect(state().splitView).toBe(false)
+    expect(app!.diffOptions.splitView()).toBe(false)
   })
 
   test("g]f steps a file", async () => {

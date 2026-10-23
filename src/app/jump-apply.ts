@@ -12,6 +12,7 @@ export function jumpApplyContext(
     | "rebuildLineMapping"
     | "setPane"
     | "toggleSplitView"
+    | "diffOptions"
     | "ensureCursorVisible"
     | "render"
     | "onCommitSelected"
@@ -24,6 +25,7 @@ export function jumpApplyContext(
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,
     setPane: ctx.setPane,
+    splitView: () => ctx.diffOptions.splitView(),
     toggleSplitView: ctx.toggleSplitView,
     rebuildLineMapping: ctx.rebuildLineMapping,
     ensureCursorVisible: ctx.ensureCursorVisible,

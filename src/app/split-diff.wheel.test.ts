@@ -34,7 +34,7 @@ const file = diffFile("long.ts", [
 test("the wheel drags the app's cursor onto the line handed over, and its reveal leaves the window where the wheel put it", async () => {
   setup = await createTestRenderer({ width: 160, height: 20 })
   const files = [file]
-  const state = { ...createInitialState(files, [], "", ""), viewMode: "diff" as const, splitView: true }
+  const state = { ...createInitialState(files, [], "", ""), viewMode: "diff" as const }
   const mapping = new DiffLineMapping(files, "all")
   let vimState: VimCursorState = createCursorState()
   const diff = createSplitDiff({
@@ -42,6 +42,7 @@ test("the wheel drags the app's cursor onto the line handed over, and its reveal
     highlights: createDiffHighlights(new FileParses(async () => null), () => {}),
     scrollOff: SCROLL_OFF,
     getState: () => state,
+    diffOptions: { splitView: () => true },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

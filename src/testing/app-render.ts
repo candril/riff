@@ -12,6 +12,7 @@ import { createPendingReviewState } from "../features/review-preview/pending-sta
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
+import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -73,7 +74,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
   let vimState = createCursorState()
   let searchState = createSearchState()
   let flashState = createFlashState()
-  let mapping = buildLineMapping(state)
+  const diffOptions = createDiffOptionsState({ wrap: false, alignMarkdownTables: true })
+  let mapping = buildLineMapping(state, diffOptions)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   // None unless a test mounts one, as app.ts has none outside a PR.
@@ -86,6 +88,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     highlights,
     scrollOff: 2,
     getState: () => state,
+    diffOptions,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -260,6 +263,8 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     prCommentInput,
     /** The PR overview's filter, which the frame pass reads and the overview's keys write as app.ts's do. */
     prInfoFilter,
+    /** The diff's wrap, split and table alignment, which the diff views read and the keys toggle as app.ts's do. */
+    diffOptions,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -296,7 +301,7 @@ export async function mountApp(raw: string, { width = 120, height = 24 }: { widt
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
       state = { ...state, ...patch }
-      if (patch.files) mapping = buildLineMapping(state)
+      if (patch.files) mapping = buildLineMapping(state, diffOptions)
       render()
     },
     setVimState(next: typeof vimState) {

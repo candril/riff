@@ -77,18 +77,18 @@ describe("isFindMotion", () => {
 
 describe("sameLocation", () => {
   test("a different file, line or column is a different place", () => {
-    const here = capture(at(0, 5).state, at(0, 5).vim, noRows)
-    expect(sameLocation(here, capture(at(0, 5).state, at(0, 5).vim, noRows))).toBe(true)
-    expect(sameLocation(here, capture(at(1, 5).state, at(1, 5).vim, noRows))).toBe(false)
-    expect(sameLocation(here, capture(at(0, 9).state, at(0, 9).vim, noRows))).toBe(false)
-    expect(sameLocation(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows))).toBe(false)
+    const here = capture(at(0, 5).state, at(0, 5).vim, noRows, { split: false })
+    expect(sameLocation(here, capture(at(0, 5).state, at(0, 5).vim, noRows, { split: false }))).toBe(true)
+    expect(sameLocation(here, capture(at(1, 5).state, at(1, 5).vim, noRows, { split: false }))).toBe(false)
+    expect(sameLocation(here, capture(at(0, 9).state, at(0, 9).vim, noRows, { split: false }))).toBe(false)
+    expect(sameLocation(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows, { split: false }))).toBe(false)
   })
 })
 
 describe("capture", () => {
   test("records split or unified and the panel that has focus", () => {
     const { state, vim } = at(0, 5)
-    const jump = capture({ ...state, splitView: true, focusedPanel: "tree" }, vim, noRows)
+    const jump = capture({ ...state, focusedPanel: "tree" }, vim, noRows, { split: true })
     expect(jump).toMatchObject({ splitView: true, focusedPanel: "tree" })
   })
 })
@@ -96,30 +96,30 @@ describe("capture", () => {
 describe("push", () => {
   test("the column travels with the jump", () => {
     const { state, vim } = at(0, 5, 12)
-    const pushed = pushJump(emptyJumpList(), capture(state, vim, noRows))
+    const pushed = pushJump(emptyJumpList(), capture(state, vim, noRows, { split: false }))
     expect(pushed.entries[0]).toMatchObject({ cursorLine: 5, cursorCol: 12 })
   })
 
   test("the same place twice is one entry", () => {
     const { state, vim } = at(0, 5)
-    const once = pushJump(emptyJumpList(), capture(state, vim, noRows))
-    const twice = pushJump(once, capture(state, vim, noRows))
+    const once = pushJump(emptyJumpList(), capture(state, vim, noRows, { split: false }))
+    const twice = pushJump(once, capture(state, vim, noRows, { split: false }))
     expect(twice.entries.length).toBe(1)
   })
 })
 
 describe("sameLine", () => {
   test("the column does not make another line; the file or the line does", () => {
-    const here = capture(at(0, 5).state, at(0, 5).vim, noRows)
-    expect(sameLine(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows))).toBe(true)
-    expect(sameLine(here, capture(at(1, 5).state, at(1, 5).vim, noRows))).toBe(false)
-    expect(sameLine(here, capture(at(0, 6).state, at(0, 6).vim, noRows))).toBe(false)
+    const here = capture(at(0, 5).state, at(0, 5).vim, noRows, { split: false })
+    expect(sameLine(here, capture(at(0, 5, 3).state, at(0, 5, 3).vim, noRows, { split: false }))).toBe(true)
+    expect(sameLine(here, capture(at(1, 5).state, at(1, 5).vim, noRows, { split: false }))).toBe(false)
+    expect(sameLine(here, capture(at(0, 6).state, at(0, 6).vim, noRows, { split: false }))).toBe(false)
     expect(sameLine(here, { ...here, viewMode: "state" })).toBe(false)
   })
 
   test("anchored, it is the file's line and side, wherever the mapping put it", () => {
     const anchor = { filename: "a.ts", line: 12, side: "RIGHT" as const }
-    const here = { ...capture(at(0, 5).state, at(0, 5).vim, noRows), anchor }
+    const here = { ...capture(at(0, 5).state, at(0, 5).vim, noRows, { split: false }), anchor }
     expect(sameLine(here, { ...here, cursorLine: 40, fileIndex: null, filename: null })).toBe(true)
     expect(sameLine(here, { ...here, anchor: { ...anchor, side: "LEFT" } })).toBe(false)
     expect(sameLine(here, { ...here, anchor: { ...anchor, line: 13 } })).toBe(false)
@@ -128,7 +128,7 @@ describe("sameLine", () => {
 
 describe("the list, as nvim keeps it", () => {
   const { state: start } = at(null, 0)
-  const jump = (line: number, col = 0) => capture(start, { ...createCursorState(), line, col }, noRows)
+  const jump = (line: number, col = 0) => capture(start, { ...createCursorState(), line, col }, noRows, { split: false })
   const pushAll = (lines: number[]) => lines.reduce((list, line) => pushJump(list, jump(line)), emptyJumpList())
   const lines = (list: JumpList) => list.entries.map((entry) => entry.cursorLine)
   const back = (list: JumpList, line: number) => stepBack(list, start, () => jump(line))
@@ -189,12 +189,12 @@ describe("the list, as nvim keeps it", () => {
 describe("an entry whose file left the diff", () => {
   const { state: start } = at(null, 0)
   const inFile = (filename: string, line: number) => ({
-    ...capture(start, { ...createCursorState(), line }, noRows),
+    ...capture(start, { ...createCursorState(), line }, noRows, { split: false }),
     anchor: { filename, line, side: "RIGHT" as const },
   })
   const listOf = (entries: ReturnType<typeof inFile>[], index: number): JumpList => ({ entries, index })
   const lines = (list: JumpList) => list.entries.map((entry) => entry.cursorLine)
-  const here = () => capture(start, { ...createCursorState(), line: 8 }, noRows)
+  const here = () => capture(start, { ...createCursorState(), line: 8 }, noRows, { split: false })
 
   test("is walked past going back, and kept", () => {
     const list = listOf([inFile("a.ts", 1), inFile("gone.ts", 2), inFile("left.ts", 3)], 3)
@@ -241,7 +241,8 @@ describe("cursorFile", () => {
 })
 
 describe("apply", () => {
-  function applying(diff: DiffFile[], patch: Partial<AppState> = {}) {
+  function applying(diff: DiffFile[], patch: Partial<AppState> = {}, splitAtStart = false) {
+    let split = splitAtStart
     let state: AppState = { ...createInitialState(diff, buildFileTree(diff), "local", ""), ...patch }
     let vim = createCursorState()
     const build = () =>
@@ -265,8 +266,9 @@ describe("apply", () => {
         mapping = build()
       },
       setPane: (pane) => void calls.push(`pane ${pane}`),
+      splitView: () => split,
       toggleSplitView: () => {
-        state = { ...state, splitView: !state.splitView }
+        split = !split
         calls.push("toggle split")
       },
       ensureCursorVisible: () => {},
@@ -275,8 +277,8 @@ describe("apply", () => {
         throw new Error("no commit switch here")
       },
     }
-    const entry = (patch: Partial<Jump> = {}): Jump => ({ ...capture(state, vim, mapping), ...patch })
-    return { ctx, calls, entry, state: () => state, vim: () => vim, mapping: () => mapping }
+    const entry = (patch: Partial<Jump> = {}): Jump => ({ ...capture(state, vim, mapping, { split }), ...patch })
+    return { ctx, calls, entry, state: () => state, split: () => split, vim: () => vim, mapping: () => mapping }
   }
 
   test("toggles split only when the entry's layout differs", () => {
@@ -285,7 +287,7 @@ describe("apply", () => {
     expect(h.calls).toEqual([])
     apply(h.entry({ splitView: true, anchor: null }), h.ctx)
     expect(h.calls).toEqual(["toggle split"])
-    expect(h.state().splitView).toBe(true)
+    expect(h.split()).toBe(true)
   })
 
   test("gives focus back to the panel it was taken in while that panel is open", () => {
@@ -349,7 +351,7 @@ describe("apply", () => {
 
   test("makes the entry's side the active pane on a context row", () => {
     // Row 5 of [X, Y] is a context row, old 3 and new 4: see src/testing/marks.ts.
-    const h = applying([X, Y], { splitView: true })
+    const h = applying([X, Y], {}, true)
     apply(h.entry({ anchor: { filename: "src/x.ts", line: 3, side: "LEFT" }, cursorLine: 5 }), h.ctx)
     expect(h.vim().line).toBe(5)
     expect(h.calls).toEqual(["pane left"])

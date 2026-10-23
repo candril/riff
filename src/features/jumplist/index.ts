@@ -40,14 +40,15 @@ export function cursorFile(mapping: { getLine(i: number): { filename?: string } 
 }
 
 /**
- * Snapshot the current location into a Jump. `pane` is the active split
- * pane, which decides the side of a line both panes show.
+ * Snapshot the current location into a Jump. `view.split` is whether split
+ * is asked for, and `view.pane` the active split pane, which decides the
+ * side of a line both panes show.
  */
 export function capture(
   state: AppState,
   vim: VimCursorState,
   mapping: Pick<DiffLineMapping, "getLine">,
-  pane?: Pane | null,
+  view: { split: boolean; pane?: Pane | null },
 ): Jump {
   const filename =
     state.selectedFileIndex !== null
@@ -58,11 +59,11 @@ export function capture(
     filename,
     viewingCommit: state.viewingCommit,
     viewMode: state.viewMode,
-    splitView: state.splitView,
+    splitView: view.split,
     focusedPanel: state.focusedPanel,
     // The mapping is the diff's even while another view shows, so off the
     // diff the cursor's line would anchor to a row that is not under it.
-    anchor: state.viewMode === "diff" ? anchorAt(mapping, vim.line, pane ?? undefined) : null,
+    anchor: state.viewMode === "diff" ? anchorAt(mapping, vim.line, view.pane ?? undefined) : null,
     cursorLine: vim.line,
     cursorCol: vim.col,
   }
@@ -76,6 +77,7 @@ export interface JumpApplyContext {
   getLineMapping: () => DiffLineMapping
   rebuildLineMapping: () => void
   setPane: (pane: Pane) => void
+  splitView: () => boolean
   toggleSplitView: () => void
   ensureCursorVisible: () => void
   render: () => void
@@ -171,7 +173,7 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
   // After the cursor has moved, so the pane split opens in is the
   // destination's and its own draw already shows the destination. The
   // mapping is the same in both layouts, so the landing above holds.
-  if (ctx.getState().splitView !== jump.splitView) ctx.toggleSplitView()
+  if (ctx.splitView() !== jump.splitView) ctx.toggleSplitView()
   // A context row is in both panes, and split leaves the pane alone there,
   // so the entry's own side has to be made active.
   if (landing.side) ctx.setPane(landing.side === "LEFT" ? "left" : "right")
