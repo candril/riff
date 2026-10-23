@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import { PRInfoPanelClass } from "./components"
 import { VERTICAL_SCROLL_OFF } from "./vim-diff/scroll-off"
-import { getFileContent, getOldFileContent, getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
+import { getLocalCommitDiff, getLocalCommitRangeDiff, filesChangedBetween } from "./providers/local"
 import { findCurrentPr } from "./providers/current-pr"
 import { commentsWithRows } from "./utils/notes"
 import { loadBranchPrReview } from "./features/branch-pr/review"
@@ -9,7 +9,7 @@ import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./provider
 import { getPendingReview } from "./providers/github/review"
 import { editPullRequest, submitPrComment } from "./providers/github/mutations"
 import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
-import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha } from "./providers/github/content"
+import { getCommitParentSha } from "./providers/github/content"
 import {
   expandFiles,
   promptOpen,
@@ -22,7 +22,7 @@ import {
 import { toggleUnviewedFilesOnly } from "./app/tree-unviewed"
 import { createCommitDiffsState } from "./features/commit-scope/diffs-state"
 import { handleCommitSelected, type CommitSelectionContext } from "./features/commit-scope/handlers"
-import { spanBaseRef, type CommitScopeLoadContext } from "./features/commit-scope/load"
+import type { CommitScopeLoadContext } from "./features/commit-scope/load"
 import { scopeSpan } from "./features/commit-scope/span"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
@@ -58,7 +58,8 @@ import { createDiffOptionsState } from "./features/diff-view/options-state"
 import { createToastState } from "./features/toast/state"
 import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
-import { loadFileContent as loadFileContentInto, type FetchFileVersions } from "./features/file-content/load"
+import { loadFileContent as loadFileContentInto } from "./features/file-content/load"
+import { createFileVersionsReader, liveFileVersionSources } from "./features/file-content/versions"
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
 import { createHighlightSourceReader } from "./features/file-content/highlight-source"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
@@ -764,42 +765,13 @@ export async function createApp(options: AppOptions = {}) {
     getCommitParentSha,
   }
 
-  /**
-   * Both versions of a file, for expanding context beyond the diff hunks.
-   * PR mode pins to the head riff loaded and the PR's base ref rather than
-   * re-resolving either — each lookup would be a `gh pr view`, i.e. a
-   * GraphQL request, on every expand.
-   */
-  async function fetchFileVersions(filename: string): ReturnType<FetchFileVersions> {
-    // A commit in scope is a diff of its own, running between that span's
-    // ends rather than the review's (spec 078).
-    const span = scopeSpan(state)
-
-    if (state.appMode === "pr" && state.prInfo) {
-      const { owner, repo, number, baseRef } = state.prInfo
-      const spanBase = span ? await spanBaseRef(commitScopeLoadContext, span.oldest) : null
-      const [head, base] = await Promise.all([
-        span
-          ? getFileContentAtRef(owner, repo, filename, span.newest)
-          : getPrFileContent(owner, repo, number, filename, currentHeadSha),
-        spanBase
-          ? getFileContentAtRef(owner, repo, filename, spanBase)
-          : getPrBaseFileContent(owner, repo, number, filename, baseRef, currentHeadSha),
-      ])
-      // A file added by the PR has no base version; that's not a failure.
-      return head.ok
-        ? { ok: true, newContent: head.content, oldContent: base.ok ? base.content : null }
-        : { ok: false, error: head.error }
-    }
-
-    const [newContent, oldContent] = await Promise.all([
-      getFileContent(filename, span?.newest ?? options.target),
-      getOldFileContent(filename, span?.oldest ?? options.target),
-    ])
-    return newContent === null
-      ? { ok: false, error: "Could not read file from the working tree" }
-      : { ok: true, newContent, oldContent }
-  }
+  const fetchFileVersions = createFileVersionsReader({
+    sources: liveFileVersionSources,
+    getState: () => state,
+    head: () => currentHeadSha,
+    target: options.target,
+    getCommitParentSha,
+  })
 
   const loadFileContent = (filename: string) => loadFileContentInto({ fileContent, fetchFileVersions, render }, filename)
 
