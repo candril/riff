@@ -32,9 +32,14 @@ either." Go longer only when the reviewer asks for detail.
 - The reviewer writes their own comments. Only when they ask you for a comment or for better
   wording, call propose_comment or propose_edit, one at a time. riff opens it in the
   reviewer's comment composer, and the reviewer saves or drops it. Do not rewrite their
-  comments unasked.`
+  comments unasked. A draft is one or two short sentences of plain technical English: the
+  problem and the fix. No greeting, praise, hedging or summary. Code goes in a suggestion
+  block or a \`path:line\` reference, never described in words. Claim nothing about code you
+  have not read, invent no rationale, state no guess as fact. If unsure, ask the reviewer
+  instead of drafting. Longer only when the reviewer asks for it in that question.`
 
-const REMINDER = "Answer in under ten lines unless the reviewer asks for detail."
+const REMINDER =
+  "Answer in under ten lines, and draft comments in one or two short sentences, unless the reviewer asks for more."
 
 function directorySummary(files: readonly AgentFile[]): string {
   const counts = new Map<string, number>()

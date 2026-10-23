@@ -156,8 +156,8 @@ like any comment the reviewer typed.
   sentence that answers, then at most three one-line bullets with their
   `path:line`, under ten lines in all; longer only when asked. No
   headings, no preamble, no closing offer of help. The prompt ends with
-  the length rule again, because the last instruction is the one a model
-  keeps.
+  the length rule again, covering drafted comments too, because the last
+  instruction is the one a model keeps.
 - **It does not start by analysing the PR.** It does not review,
   summarise or list issues unless that is the question. tenor found that
   the bare Claude Code preset answers the first question with a full
@@ -166,6 +166,16 @@ like any comment the reviewer typed.
   reads first.
 - **It writes comments only when asked**, and never rewrites the
   reviewer's own unasked.
+- **Drafted comments are short and technical.** One or two short
+  sentences of plain technical English: the problem and the fix. No
+  greeting, praise, hedging or summary. Code goes in a suggestion block or
+  a `path:line` reference, never described in words. Nothing is claimed
+  about code the agent has not read, no rationale is invented and no
+  guess is stated as fact; when unsure it asks the reviewer instead of
+  drafting. Longer only when the reviewer asks for it in that question.
+  The rules sit in the posture and again in the `text` descriptions of
+  `propose_comment` and `propose_edit`, which the model reads as it
+  drafts.
 
 ### P2 - Continuity
 

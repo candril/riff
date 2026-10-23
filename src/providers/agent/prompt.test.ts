@@ -66,7 +66,11 @@ test(`over ${MAX_LISTED_FILES} files lists directories with counts instead`, () 
 
 test("the length reminder comes last, and only riff's P1 tools are named", () => {
   const context = buildContext(pr, files(1), 0)
-  expect(context.endsWith("Answer in under ten lines unless the reviewer asks for detail.")).toBe(true)
+  expect(
+    context.endsWith(
+      "Answer in under ten lines, and draft comments in one or two short sentences, unless the reviewer asks for more.",
+    ),
+  ).toBe(true)
   expect(context).toContain("propose_comment or propose_edit, one at a time")
   expect(context).not.toContain("propose_review")
   expect(context).not.toContain("open_target")
@@ -84,4 +88,17 @@ test("the posture says what the attached threads are and what 'this thread' mean
   expect(prose).toContain("A question may carry [Thread …] blocks")
   expect(prose).toContain('"This thread" and "this comment" mean those;')
   expect(prose).toContain("a thread on a whole file reads as `path (file)`.")
+})
+
+test("the posture holds the drafting rules", () => {
+  const prose = buildContext(pr, files(1), 0).replace(/\s+/g, " ")
+  expect(prose).toContain("one or two short sentences of plain technical English")
+  expect(prose).toContain("the problem and the fix")
+  expect(prose).toContain("No greeting, praise, hedging or summary.")
+  expect(prose).toContain("in a suggestion block or a `path:line` reference, never described in words")
+  expect(prose).toContain("Claim nothing about code you have not read")
+  expect(prose).toContain("invent no rationale")
+  expect(prose).toContain("state no guess as fact")
+  expect(prose).toContain("If unsure, ask the reviewer instead of drafting.")
+  expect(prose).toContain("Longer only when the reviewer asks for it in that question.")
 })
