@@ -360,6 +360,9 @@ describe("panels with g chords of their own", () => {
       fileNavContext: {
         getState: () => app!.ctx.getState(),
         setState: (update: Parameters<AppKeyContext["setState"]>[0]) => app!.ctx.setState(update),
+        get fileFolds() {
+          return app!.fileFolds
+        },
         createLineMapping: () => {},
       } as unknown as AppKeyContext["fileNavContext"],
     })

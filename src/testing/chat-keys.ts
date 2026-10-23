@@ -1,7 +1,8 @@
 import { expect } from "bun:test"
 import type { KeyEvent } from "@opentui/core"
 import type { AppKeyContext } from "../app/key-context"
-import { createAppKeys } from "../app/keys"
+import { createAppKeys, type AppKeys } from "../app/keys"
+import { failOnKeymapErrors } from "./keymap-errors"
 import type { mountApp } from "./app-render"
 import { createFlashState } from "../vim-diff/flash-state"
 import { createSearchState } from "../vim-diff/search-state"
@@ -18,6 +19,24 @@ export function keysOn(
   mounted: Mounted,
   more: Partial<AppKeyContext> = {},
   around: (key: KeyEvent, dispatch: () => void) => void = (_key, dispatch) => dispatch(),
+) {
+  return wireKeys(mounted, more, around, failOnKeymapErrors)
+}
+
+/**
+ * keysOn without the guard, for a test that means a command to throw on
+ * the context it leaves unwired, or that wires keys where no test is
+ * running, such as at module load.
+ */
+export function unguardedKeysOn(mounted: Mounted, more: Partial<AppKeyContext> = {}) {
+  return wireKeys(mounted, more, (_key, dispatch) => dispatch(), (keys) => keys)
+}
+
+function wireKeys(
+  mounted: Mounted,
+  more: Partial<AppKeyContext>,
+  around: (key: KeyEvent, dispatch: () => void) => void,
+  guard: (keys: AppKeys) => AppKeys,
 ) {
   const { ctx: render } = mounted
   let vimState = render.getVimState()
@@ -105,7 +124,7 @@ export function keysOn(
       }
     },
   }) as AppKeyContext
-  const keys = createAppKeys(mounted.setup.renderer, ctx)
+  const keys = guard(createAppKeys(mounted.setup.renderer, ctx))
   mounted.setCommandKeys(keys.commandKeys)
   // `around` stands where app.ts's jump recording does, so a test can record through it.
   mounted.setup.renderer.keyInput.on("keypress", (key: KeyEvent) => around(key, () => keys(key)))

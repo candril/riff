@@ -131,6 +131,7 @@ async function zApp(more: Partial<AppKeyContext> = {}, diff = DIFF) {
       setPane: () => {},
       ensureCursorVisible: () => {},
       render: mounted.render,
+      toast: mounted.toast,
       marks: mounted.marks,
       save: () => {},
       getHead: () => undefined,

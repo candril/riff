@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test"
 import { KeyEvent, parseKeypress } from "@opentui/core"
 import { mountApp } from "../testing/app-render"
-import { keysOn } from "../testing/chat-keys"
+import { unguardedKeysOn } from "../testing/chat-keys"
 import { spelledStrokes } from "./spelled-keys"
 import type { AppKeyContext } from "./key-context"
 
@@ -50,7 +50,7 @@ async function typedOn(command: string) {
   app = await mountApp(DIFF, { width: 100, height: 30 })
   app.show({ showFilePanel: true })
   const { ctx: render } = app
-  const keys = keysOn(app, {
+  const keys = unguardedKeysOn(app, {
     getPane: () => null,
     // No file under a highlight past the tree's end: `ge`, `gd` and the
     // rest stop at "No file selected", and `gc` at local mode, before
@@ -99,7 +99,7 @@ async function type(mounted: NonNullable<typeof app>, command: string, keys: str
 /** Every registered command's hint, read off riff's real layers. */
 async function allCommandKeys() {
   const mounted = await mountApp(DIFF, { width: 100, height: 30 })
-  const keys = keysOn(mounted).commandKeys
+  const keys = unguardedKeysOn(mounted).commandKeys
   await mounted.dispose()
   return [...keys]
 }

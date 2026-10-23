@@ -35,13 +35,12 @@ afterEach(async () => {
   app = null
 })
 
-// The thread panel reads `y` as "copy a link" and `n` as "new comment";
-// keysOn throws for both, since neither is in its ctx, and the renderer
-// reports a handler's throw on console.error rather than rethrowing it.
+// The thread panel reads `y` as "copy a link" and `n` as "new comment".
 test("y and n answer the dialog over the thread panel, which never sees them", async () => {
   app = await mountApp(DIFF, { width: 120, height: 24 })
   const mounted = app
-  keysOn(mounted)
+  const copies: string[] = []
+  keysOn(mounted, { handleCopyCommentLink: async (comment) => void copies.push(comment?.id ?? "") })
   mounted.show({ comments: [COMMENT] })
   mounted.show({
     ...openInlineCommentOverlay(mounted.ctx.getState(), "src/greet.ts", 2, "RIGHT", "view"),
@@ -74,9 +73,10 @@ test("y and n answer the dialog over the thread panel, which never sees them", a
   expect(mounted.ctx.getState().focusedPanel).toBe("comments")
   expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("view")
   expect(leaks).not.toHaveBeenCalled()
+  expect(copies).toEqual([])
 
   mounted.setup.mockInput.pressKey("y")
-  expect(String(leaks.mock.calls[0]?.[1])).toContain("ctx.handleCopyCommentLink")
+  expect(copies).toEqual(["c1"])
 })
 
 test("d on a synced comment asks before deleting it on GitHub; n leaves it, and nothing moves while it asks", async () => {
@@ -92,6 +92,13 @@ test("d on a synced comment asks before deleting it on GitHub; n leaves it, and 
       render: mounted.render,
       confirm: mounted.confirm,
     } as unknown as AppKeyContext["commentsContext"],
+    // The highlight brings the diff cursor along, which reads the files.
+    fileNavContext: {
+      getState: mounted.ctx.getState,
+      setState: mounted.ctx.setState,
+      fileFolds: mounted.fileFolds,
+      createLineMapping: () => {},
+    } as unknown as AppKeyContext["fileNavContext"],
   })
   mounted.show({ appMode: "pr", prInfo: prInfo("body"), source: "gh:octo/riff#7", comments: [synced, reply] })
   mounted.show({
@@ -119,8 +126,7 @@ test("d on a synced comment asks before deleting it on GitHub; n leaves it, and 
   expect(after).toContain("say hello properly")
   expect(leaks).not.toHaveBeenCalled()
 
-  // The same j, with the dialog gone, reaches the panel; following the
-  // highlight into the diff needs a context this harness leaves out.
+  // The same j, with the dialog gone, reaches the panel.
   mounted.setup.mockInput.pressKey("j")
   expect(highlighted()).toBe(1)
 })
