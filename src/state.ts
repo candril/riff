@@ -15,6 +15,7 @@ import type { CommitPickerState } from "./features/commit-picker/state"
 import type { ActionMenuState } from "./features/action-menu/state"
 import type { ActivityFeedState } from "./features/feed/state"
 import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
+import type { FileContentCache } from "./features/file-content/state"
 
 /**
  * UI mode for the app
@@ -28,17 +29,7 @@ export type UIMode = "normal" | "comment-input" | "comments-list"
  */
 export type ViewMode = "state" | "feed" | "diff"
 
-/**
- * Cached file content (full file, not just diff)
- */
-export interface FileContentCache {
-  [filename: string]: {
-    newContent: string | null  // After changes (HEAD or working copy)
-    oldContent: string | null  // Before changes (parent revision)
-    loading: boolean
-    error?: string
-  }
-}
+export type { FileContentCache }
 
 /**
  * Inline comment overlay state (spec 039).
