@@ -61,6 +61,7 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
   let filtering = false
   let scroll: ScrollBoxRenderable | undefined
   let onFilterChange: ((value: string) => void) | null = null
+  let seeding = false
 
   // A real OpenTUI input rather than a hand-rolled prompt, so Ctrl-w, word
   // jumps, paste, undo and selection behave as in every other text field.
@@ -77,7 +78,11 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
       flexGrow: 1,
     })
   )
-  field.on(InputRenderableEvents.INPUT, (value: string) => onFilterChange?.(value))
+  // The seed is the filter coming back, not the reader typing, and reporting
+  // it would render from inside the pass that pushed the tree.
+  field.on(InputRenderableEvents.INPUT, (value: string) => {
+    if (!seeding) onFilterChange?.(value)
+  })
 
   const [state, setState] = createStore({ model: empty() })
 
@@ -133,7 +138,12 @@ export function createFileTreeIsland(renderer: CliRenderer, { width: initialWidt
     if (treeFilterInput === filtering) return
     filtering = treeFilterInput
     if (filtering) {
-      field.value = treeFilter
+      seeding = true
+      try {
+        field.value = treeFilter
+      } finally {
+        seeding = false
+      }
       field.focus()
     } else {
       field.blur()

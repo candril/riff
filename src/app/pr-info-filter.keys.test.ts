@@ -118,7 +118,7 @@ test("a filter kept with Enter is gone once the overview is left and entered aga
   expect(reopened).toContain("✓ build")
 })
 
-test("/ on a filter kept with Enter reopens the prompt on its text, and the rows stay narrowed", async () => {
+test("/ on a filter kept with Enter draws the prompt on its text over the narrowed rows", async () => {
   const mounted = await overviewApp()
   mounted.setup.mockInput.pressKey("/")
   await mounted.setup.mockInput.typeText("greet")

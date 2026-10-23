@@ -3,6 +3,8 @@ import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
 import { setTreeFilter } from "../state"
+import { bgAt, ints } from "../testing/frame"
+import { theme } from "../theme"
 
 const fileDiff = (name: string, body: string) => `diff --git a/${name} b/${name}
 index 1111111..2222222 100644
@@ -121,7 +123,7 @@ test("q and i typed into the tree's filter are letters of the path, not quit or 
   expect(mounted.ctx.getState().treeFilter).toBe("qi")
 })
 
-test("/ on a tree filter kept with Enter reopens the field on its path, and the tree stays narrowed", async () => {
+test("/ on a tree filter kept with Enter draws the field on its path over the narrowed tree", async () => {
   const { mounted } = await treeApp()
   await mounted.setup.mockInput.typeText("/wave")
   mounted.setup.mockInput.pressEnter()
@@ -135,4 +137,45 @@ test("/ on a tree filter kept with Enter reopens the field on its path, and the 
   expect(tree).toContain("/wave")
   expect(tree).toContain("wave.ts")
   expect(tree).not.toContain("greet.ts")
+})
+
+test("/ after Esc reopens an empty field without reporting it as typed, and the highlight stays put", async () => {
+  const { mounted } = await treeApp()
+  let reported = 0
+  mounted.fileTreePanel.setOnFilterChange((value) => {
+    reported++
+    mounted.ctx.setState((s) => setTreeFilter(s, value))
+    mounted.ctx.updateFileTreePanel()
+    mounted.render()
+  })
+
+  await mounted.setup.mockInput.typeText("/wave")
+  mounted.setup.mockInput.pressEscape()
+  await Bun.sleep(50)
+  expect({ filter: mounted.ctx.getState().treeFilter, filtering: mounted.ctx.getState().treeFilterInput }).toEqual({ filter: "", filtering: false })
+  mounted.setup.mockInput.pressKey("j")
+  await flush()
+  expect(mounted.ctx.getState().treeHighlightIndex).toBe(1)
+
+  reported = 0
+  mounted.setup.mockInput.pressKey("/")
+  await flush()
+  const state = mounted.ctx.getState()
+  expect({ reported, highlight: state.treeHighlightIndex, filtering: state.treeFilterInput, filter: state.treeFilter }).toEqual({
+    reported: 0,
+    highlight: 1,
+    filtering: true,
+    filter: "",
+  })
+  const lines = (await mounted.frame()).split("\n").map((line) => line.slice(0, 35))
+  const tree = lines.join("\n")
+  expect(tree).toContain("/filter by path…")
+  expect(tree).not.toContain("/wave")
+  expect(tree).toContain("wave.ts")
+  expect(tree).toContain("greet.ts")
+  // Row 0 is the lib directory, so index 1 is wave.ts under it.
+  const spans = mounted.setup.captureSpans()
+  const shadeOn = (name: string) => bgAt(spans, 4, lines.findIndex((line) => line.includes(name)))
+  expect(shadeOn("wave.ts")).toEqual(ints(theme.surface0))
+  expect(shadeOn("lib")).not.toEqual(ints(theme.surface0))
 })
