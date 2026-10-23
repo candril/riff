@@ -192,6 +192,31 @@ describe("reading a PR out of the GraphQL bundle", () => {
     expect("isRequired" in info.checks![2]!).toBe(false)
   })
 
+  test("the repository's merge settings come in GitHub's button order, and only when the repository node is passed", () => {
+    const repository = {
+      mergeCommitAllowed: true,
+      squashMergeAllowed: true,
+      rebaseMergeAllowed: false,
+      viewerDefaultMergeMethod: "MERGE",
+      deleteBranchOnMerge: true,
+    }
+    const info = prInfoOf(pr({ viewerCanMergeAsAdmin: true }), "o", "r", repository)
+    expect(info.mergeMethods).toEqual(["squash", "merge"])
+    expect(info.defaultMergeMethod).toBe("merge")
+    expect(info.deleteBranchOnMerge).toBe(true)
+    expect(info.viewerCanMergeAsAdmin).toBe(true)
+
+    const none = prInfoOf(pr(), "o", "r", { viewerDefaultMergeMethod: null })
+    expect(none.mergeMethods).toEqual([])
+    expect(none.defaultMergeMethod).toBeNull()
+    expect(none.deleteBranchOnMerge).toBe(false)
+
+    const bare = prInfoOf(pr(), "o", "r")
+    for (const key of ["mergeMethods", "defaultMergeMethod", "deleteBranchOnMerge", "viewerCanMergeAsAdmin"]) {
+      expect(key in bare).toBe(false)
+    }
+  })
+
   test("mergeable passes through, and is null where the query did not ask", () => {
     expect(prInfoOf(pr({ mergeable: "CONFLICTING" }), "o", "r").mergeable).toBe("CONFLICTING")
     expect(prInfoOf(pr(), "o", "r").mergeable).toBeNull()

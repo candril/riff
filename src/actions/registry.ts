@@ -5,6 +5,14 @@ import type { VimCursorState } from "../vim-diff/types"
 import { detectPermalinkScope } from "../features/permalink"
 import { publishableLocalComments } from "../utils/publishable"
 import { isVisualMode } from "../vim-diff/cursor-state"
+import type { MergeMethod } from "../providers/github/types"
+
+/** One palette action per method, in the order GitHub's merge button lists them. */
+export const MERGE_ACTIONS: readonly { id: string; label: string; method: MergeMethod }[] = [
+  { id: "merge-squash", label: "Squash and Merge", method: "squash" },
+  { id: "merge-commit", label: "Create a Merge Commit", method: "merge" },
+  { id: "merge-rebase", label: "Rebase and Merge", method: "rebase" },
+]
 
 /**
  * All available actions in the app.
@@ -471,6 +479,15 @@ export const actions: Action[] = [
     category: "github",
     available: (state) => state.appMode === "pr" && state.prInfo?.state === "open" && !state.prInfo.isDraft,
   },
+  ...MERGE_ACTIONS.map(({ id, label, method }): Action => ({
+    id,
+    label,
+    description: `Merge the PR, after asking (gh pr merge --${method})`,
+    category: "github",
+    // Mergeability is left to the handler, which can say why a merge is refused.
+    available: (state) =>
+      state.appMode === "pr" && state.prInfo?.state === "open" && (state.prInfo.mergeMethods?.includes(method) ?? false),
+  })),
   {
     id: "open-in-browser",
     label: "Open in Browser",

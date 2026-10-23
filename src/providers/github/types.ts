@@ -40,6 +40,14 @@ export interface PrInfo {
   /** Where the PR stands in its base branch's merge queue; null or absent
    *  when the base has none. */
   mergeQueue?: PrMergeQueue | null
+  /** The merge methods the repository allows, in the order GitHub's merge button lists them. */
+  mergeMethods?: MergeMethod[]
+  /** GitHub's pick for this viewer: the method they last used here, else the repository's default. */
+  defaultMergeMethod?: MergeMethod | null
+  /** When on, GitHub deletes the head branch itself once the PR merges. */
+  deleteBranchOnMerge?: boolean
+  /** Whether the viewer may merge past the base's branch protection. */
+  viewerCanMergeAsAdmin?: boolean
   // Extended info (loaded separately)
   commits?: PrCommit[]
   reviews?: PrReview[]
@@ -48,6 +56,9 @@ export interface PrInfo {
   checks?: PrCheck[]
   bodyReactions?: ReactionSummary[]
 }
+
+export const MERGE_METHODS = ["squash", "merge", "rebase"] as const
+export type MergeMethod = (typeof MERGE_METHODS)[number]
 
 export interface PrMergeQueue {
   entry: PrMergeQueueEntry | null

@@ -68,6 +68,7 @@ import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch
 import { handleCreatePr, liveCreatePrSources, type CreatePrContext } from "./features/branch-pr/create"
 import { handleEditPr, liveEditPrSources, type EditPrContext } from "./features/pr-operations/edit-pr"
 import { handleToggleReady, liveReadyStateSources, type ReadyStateContext } from "./features/pr-operations/ready-state"
+import { handleMerge, liveMergeSources } from "./features/pr-operations/merge"
 import { handleAddPrComment, liveAddPrCommentSources, type AddPrCommentContext } from "./features/pr-operations/add-pr-comment"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
@@ -1227,6 +1228,7 @@ export async function createApp(options: AppOptions = {}) {
     },
     handleEditPr: () => handleEditPr(editPrContext),
     handleToggleReady: () => handleToggleReady(readyStateContext),
+    handleMerge: (method) => handleMerge({ ...readyStateContext, sources: liveMergeSources }, method),
     handleCreatePr: () => handleCreatePr(createPrContext),
     handleAddPrComment: () => handleAddPrComment(addPrCommentContext),
   }

@@ -12,7 +12,7 @@ import {
   type GraphQLThreadInfo,
 } from "./threads"
 import { fetchRemainingViewedStatuses, type ViewerViewedState } from "./viewed"
-import type { PrCheck, PrCommit, PrConversationComment, PrInfo, PrMergeQueue, PrReview } from "./types"
+import { MERGE_METHODS, type MergeMethod, type PrCheck, type PrCommit, type PrConversationComment, type PrInfo, type PrMergeQueue, type PrReview } from "./types"
 import type { Comment, ReviewSession } from "../../types"
 
 /**
@@ -31,8 +31,9 @@ export const PR_COMMITS_FETCH_LIMIT = 100
 const PR_BUNDLE_QUERY = `
   query($owner: String!, $repo: String!, $prNumber: Int!) {
     repository(owner: $owner, name: $repo) {
+      mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed viewerDefaultMergeMethod deleteBranchOnMerge
       pullRequest(number: $prNumber) {
-        number title body state isDraft url
+        number title body state isDraft url viewerCanMergeAsAdmin
         additions deletions changedFiles createdAt updatedAt
         headRefName baseRefName headRefOid
         mergeable mergeStateStatus reviewDecision autoMergeRequest { mergeMethod }
@@ -124,12 +125,13 @@ async function fetchPrBundle(
 ): Promise<PrBundle> {
   return safeGhCommand(async () => {
     const result = await $`gh api graphql -f query=${PR_BUNDLE_QUERY} -F owner=${owner} -F repo=${repo} -F prNumber=${prNumber}`.json() as any
-    const pr = result?.data?.repository?.pullRequest
+    const repository = result?.data?.repository
+    const pr = repository?.pullRequest
     if (!pr) {
       throw new Error(`PR #${prNumber} not found in ${owner}/${repo}`)
     }
 
-    const prInfo = prInfoOf(pr, owner, repo)
+    const prInfo = prInfoOf(pr, owner, repo, repository)
 
     const viewedStatuses = new Map<string, ViewerViewedState>()
     for (const file of pr.files?.nodes ?? []) {
@@ -162,7 +164,8 @@ export async function fetchPrInfo(owner: string, repo: string, prNumber: number)
   return (await fetchPrBundle(owner, repo, prNumber)).prInfo
 }
 
-export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
+/** `repository` is the PR's parent node, which holds the merge settings; without it those stay unset. */
+export function prInfoOf(pr: any, owner: string, repo: string, repository?: any): PrInfo {
   const commits: PrCommit[] = (pr.commits?.nodes ?? []).map((n: any) => {
     const author = n.commit?.authors?.nodes?.[0]
     return {
@@ -255,6 +258,22 @@ export function prInfoOf(pr: any, owner: string, repo: string): PrInfo {
     conversationComments,
     checks,
     bodyReactions: parseReactionGroups(pr.reactionGroups),
+    ...(repository ? mergeSettingsOf(repository) : {}),
+    ...(typeof pr.viewerCanMergeAsAdmin === "boolean" ? { viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin } : {}),
+  }
+}
+
+function mergeSettingsOf(repository: any): Pick<PrInfo, "mergeMethods" | "defaultMergeMethod" | "deleteBranchOnMerge"> {
+  const allowed: Record<MergeMethod, boolean> = {
+    squash: repository.squashMergeAllowed === true,
+    merge: repository.mergeCommitAllowed === true,
+    rebase: repository.rebaseMergeAllowed === true,
+  }
+  const preferred = String(repository.viewerDefaultMergeMethod ?? "").toLowerCase()
+  return {
+    mergeMethods: MERGE_METHODS.filter((m) => allowed[m]),
+    defaultMergeMethod: (MERGE_METHODS as readonly string[]).includes(preferred) ? (preferred as MergeMethod) : null,
+    deleteBranchOnMerge: repository.deleteBranchOnMerge === true,
   }
 }
 

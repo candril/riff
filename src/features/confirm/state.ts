@@ -13,6 +13,15 @@ export interface ConfirmDialogState {
   onConfirm: () => void
   /** Called when the user presses `n` or Escape. */
   onCancel: () => void
+  /** A second way to say yes, on its own key, such as merging and deleting the branch. */
+  alternative?: ConfirmAlternative
+}
+
+export interface ConfirmAlternative {
+  key: string
+  label: string
+  details?: string
+  onConfirm: () => void
 }
 
 export type ConfirmState = ReturnType<typeof createConfirmState>

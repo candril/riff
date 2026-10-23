@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import { extractShellError, safeGhCommand } from "./exec"
 import type { Comment } from "../../types"
+import type { MergeMethod } from "./types"
 
 export interface SubmitResult {
   success: boolean
@@ -171,7 +172,7 @@ export function readyCommand(owner: string, repo: string, prNumber: number, toDr
 
 export type ReadyResult = { success: true } | { success: false; error: string }
 
-async function runReady(args: string[]): Promise<ReadyResult> {
+async function runGh(args: string[]): Promise<ReadyResult> {
   try {
     await $`${args}`.quiet()
     return { success: true }
@@ -181,11 +182,32 @@ async function runReady(args: string[]): Promise<ReadyResult> {
 }
 
 export function markPullRequestReady(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
-  return runReady(readyCommand(owner, repo, prNumber, false))
+  return runGh(readyCommand(owner, repo, prNumber, false))
 }
 
 export function markPullRequestDraft(owner: string, repo: string, prNumber: number): Promise<ReadyResult> {
-  return runReady(readyCommand(owner, repo, prNumber, true))
+  return runGh(readyCommand(owner, repo, prNumber, true))
+}
+
+export interface MergeOptions {
+  method: MergeMethod
+  deleteBranch: boolean
+  /** Merges past the base's branch protection, as GitHub offers its admins. */
+  admin: boolean
+}
+
+export type MergeResult = ReadyResult
+
+export function mergeCommand(owner: string, repo: string, prNumber: number, { method, deleteBranch, admin }: MergeOptions): string[] {
+  return [
+    "gh", "pr", "merge", String(prNumber), "-R", `${owner}/${repo}`, `--${method}`,
+    ...(deleteBranch ? ["--delete-branch"] : []),
+    ...(admin ? ["--admin"] : []),
+  ]
+}
+
+export function mergePullRequest(owner: string, repo: string, prNumber: number, options: MergeOptions): Promise<MergeResult> {
+  return runGh(mergeCommand(owner, repo, prNumber, options))
 }
 
 interface CreatePrResult {

@@ -15,7 +15,8 @@ import {
   getReactionsForTarget,
 } from "../../state"
 import { REACTION_META, type ReactionTarget } from "../../types"
-import { actions } from "../../actions/registry"
+import { actions, MERGE_ACTIONS } from "../../actions/registry"
+import type { MergeMethod } from "../../providers/github/types"
 import { actionKeys, type ActionSubmenu } from "../../actions/types"
 import { copyToClipboard } from "../../utils/clipboard"
 import type { FilePickerState } from "../file-picker/state"
@@ -54,6 +55,8 @@ export interface ActionHandlers {
   handleEditPr: () => Promise<void>
   /** Asks first, then marks the PR ready or back to draft (spec 110). */
   handleToggleReady: () => void
+  /** Asks first, then merges with the method the action names (spec 110). */
+  handleMerge: (method: MergeMethod) => void
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
@@ -223,6 +226,14 @@ export async function executeAction(
     case "mark-draft":
       handlers.handleToggleReady()
       break
+
+    case "merge-squash":
+    case "merge-commit":
+    case "merge-rebase": {
+      const merge = MERGE_ACTIONS.find((action) => action.id === actionId)
+      if (merge) handlers.handleMerge(merge.method)
+      break
+    }
 
     case "open-in-browser":
       if (state.prInfo) {

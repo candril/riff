@@ -5,12 +5,10 @@
  * refetch come in as sources, so a test can run it with neither.
  */
 
-import type { AppState } from "../../state"
 import type { PrInfo } from "../../providers/github/types"
 import { markPullRequestDraft, markPullRequestReady, readyCommand } from "../../providers/github/mutations"
 import { fetchPrInfo } from "../../providers/github/session"
-import type { ConfirmState } from "../confirm/state"
-import type { ToastState } from "../toast/state"
+import { flash, patchSamePr, prRef, type PrActionContext } from "./pr-action"
 
 export interface ReadyStateSources {
   markPullRequestReady: typeof markPullRequestReady
@@ -24,16 +22,7 @@ export const liveReadyStateSources: ReadyStateSources = {
   fetchPrInfo,
 }
 
-export interface ReadyStateContext {
-  sources: ReadyStateSources
-  getState: () => AppState
-  setState: (updater: (s: AppState) => AppState) => void
-  confirm: Pick<ConfirmState, "show" | "close">
-  toast: Pick<ToastState, "show" | "clear">
-  /** Draws, after handing the PR info panel the state's current prInfo. */
-  render: () => void
-  later: (fn: () => void, ms: number) => void
-}
+export type ReadyStateContext = PrActionContext<ReadyStateSources>
 
 export function handleToggleReady(ctx: ReadyStateContext): void {
   const { prInfo } = ctx.getState()
@@ -44,7 +33,7 @@ export function handleToggleReady(ctx: ReadyStateContext): void {
   }
 
   const toDraft = !prInfo.isDraft
-  const ref = `${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
+  const ref = prRef(prInfo)
   ctx.confirm.show({
     title: toDraft ? "Convert to Draft" : "Mark Ready for Review",
     message: toDraft
@@ -84,22 +73,4 @@ async function sendReady(ctx: ReadyStateContext, prInfo: PrInfo, toDraft: boolea
   if (!fresh) return
   patchSamePr(ctx, prInfo, () => fresh)
   ctx.render()
-}
-
-/** riff may have moved on to another PR while gh was awaited; that PR stays as it is. */
-function patchSamePr(ctx: ReadyStateContext, prInfo: PrInfo, patch: (current: PrInfo) => PrInfo): void {
-  ctx.setState((s) => {
-    const current = s.prInfo
-    if (!current || current.number !== prInfo.number || current.owner !== prInfo.owner || current.repo !== prInfo.repo) return s
-    return { ...s, prInfo: patch(current) }
-  })
-}
-
-function flash(ctx: ReadyStateContext, message: string, type: "info" | "success" | "error", ms: number): void {
-  ctx.toast.show(message, type)
-  ctx.render()
-  ctx.later(() => {
-    ctx.toast.clear()
-    ctx.render()
-  }, ms)
 }

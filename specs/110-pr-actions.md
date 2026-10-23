@@ -2,9 +2,9 @@
 
 **Status**: In Progress
 
-**Not built**: merging, updating the branch, auto-merge and the merge queue,
-the keys in the merge status section, the panel's refresh after anything
-but ready and draft, and the merge status's re-poll after a merge or an
+**Not built**: updating the branch, auto-merge and the merge queue, the
+keys in the merge status section, the panel's refresh after anything but
+ready, draft and merge, and the merge status's re-poll after a merge or an
 update.
 
 ## Description
@@ -36,6 +36,9 @@ what riff did without a full reload.
 - **Merge.** The method is picked from those the repository allows (merge,
   squash, rebase); the default is the repository's default, or the method
   last used. Deleting the branch is optional. riff runs `gh pr merge`.
+  The palette offers one action per allowed method (`Squash and Merge`,
+  `Create a Merge Commit`, `Rebase and Merge`); the default method applies
+  to the merge status section's key, which comes later.
 - **Update branch** from the base, by merge or rebase as GitHub offers,
   through GraphQL `updatePullRequestBranch`.
 - **Auto-merge**: enabled with a method or disabled, through
@@ -91,5 +94,29 @@ run sends a real merge, ready or update.
 - `markPullRequestReady` / `markPullRequestDraft` in
   `src/providers/github/mutations.ts` return `{ success, error }` and never
   throw; `readyCommand` builds the arguments they run and the dialog shows.
+- `src/features/pr-operations/merge.ts`: `handleMerge(ctx, method)` refuses
+  with an info toast, in order, a PR that is not open, a draft, a method
+  the repository has off, a base with a merge queue, and any merge status
+  but `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, or `BLOCKED` where the viewer can
+  merge as admin (then with `--admin`). The last refusal carries the
+  header's own reading from `mergeReading`. It then asks, sets `state` to
+  `merged` at once, runs the merge and refetches, like ready-state. Both
+  share `PrActionContext`, `patchSamePr` and `flash` from
+  `src/features/pr-operations/pr-action.ts`.
+- `mergeCommand(owner, repo, N, { method, deleteBranch, admin })` builds
+  `gh pr merge N -R owner/repo --squash|--merge|--rebase [--delete-branch]
+  [--admin]`; `mergePullRequest` runs exactly that argv, so the dialog
+  shows what is sent.
+- The PR bundle reads the repository's `squashMergeAllowed`,
+  `mergeCommitAllowed`, `rebaseMergeAllowed`, `viewerDefaultMergeMethod`
+  and `deleteBranchOnMerge`, and the PR's `viewerCanMergeAsAdmin`, into
+  `PrInfo.mergeMethods` (in GitHub's button order: squash, merge, rebase),
+  `defaultMergeMethod`, `deleteBranchOnMerge` and `viewerCanMergeAsAdmin`.
+  They are scalars, so the query still costs 54 points.
+- The confirm dialog takes an optional `alternative` (key, label, details,
+  `onConfirm`). The merge dialog offers `d`, merge and delete the branch,
+  with its own command under the main one, unless the repository deletes
+  the branch itself; `y` then never passes `--delete-branch` and the
+  message says so. Only `d` is bound as a second answer.
 - The panel takes the new `PrInfo` through `PRInfoPanel.setPrInfo`, which
   keeps its folds and cursor, the way a reaction reaches it.

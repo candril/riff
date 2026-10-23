@@ -32,3 +32,23 @@ test("neither ready nor draft is offered outside a PR", () => {
   expect(offered(local)).toEqual([])
   expect(offered({ ...local, prInfo: prInfo("", { isDraft: true }) })).toEqual([])
 })
+
+const merges = (state: AppState) =>
+  getAvailableActions(state, undefined, { reactionTarget: null })
+    .map((a) => a.id)
+    .filter((id) => id.startsWith("merge-"))
+
+test("the palette offers one merge per method the repository allows, whatever GitHub thinks of the PR", () => {
+  const pr = (extra: Parameters<typeof prInfo>[1]) => ({ ...local, appMode: "pr" as const, prInfo: prInfo("", extra) })
+  expect(merges(pr({ mergeMethods: ["squash", "merge", "rebase"] }))).toEqual(["merge-squash", "merge-commit", "merge-rebase"])
+  expect(merges(pr({ mergeMethods: ["rebase"], mergeStateStatus: "DIRTY", isDraft: true }))).toEqual(["merge-rebase"])
+  expect(merges(pr({ mergeMethods: [] }))).toEqual([])
+  expect(merges(pr({}))).toEqual([])
+})
+
+test("no merge is offered on a merged or closed PR, or outside a PR", () => {
+  const all = (extra: Parameters<typeof prInfo>[1] = {}) => prInfo("", { mergeMethods: ["squash", "merge", "rebase"], ...extra })
+  expect(merges({ ...local, appMode: "pr", prInfo: all({ state: "merged" }) })).toEqual([])
+  expect(merges({ ...local, appMode: "pr", prInfo: all({ state: "closed" }) })).toEqual([])
+  expect(merges({ ...local, prInfo: all() })).toEqual([])
+})
