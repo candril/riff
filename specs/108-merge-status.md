@@ -22,10 +22,10 @@ says whose move it is, this section says why.
 - **Legacy commit statuses.** They stay filtered out of the checks; a
   required legacy status shows up only through the branch
   protection fallback (`blocked by branch protection`).
-- **Merging from riff.**
+- **Merging from riff**: spec [110](./110-pr-actions.md).
 - **Changing the header's one-word verdict.**
-- **Adding a PR to the merge queue or removing it** (P2, a confirmed
-  palette action later).
+- **Adding a PR to the merge queue or removing it**: spec
+  [110](./110-pr-actions.md).
 
 ## Capabilities
 
