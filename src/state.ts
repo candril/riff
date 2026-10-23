@@ -158,8 +158,6 @@ export interface AppState {
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments" | "chat"
-  /** The chat column beside the diff (spec 102); its conversation lives outside AppState. */
-  chatOpen: boolean
   mode: UIMode
 
   // Comment state - comments stored separately from session
@@ -248,7 +246,6 @@ export function createInitialState(
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
-    chatOpen: false,
     mode: "normal",
     session,
     comments,
@@ -560,25 +557,17 @@ export function toggleFilePanelExpanded(state: AppState): AppState {
   }
 }
 
-/** `Ctrl-r`: opens the chat and gives it the keys, focuses it when open elsewhere, and closes it from inside. */
-export function toggleChat(state: AppState): AppState {
-  if (state.chatOpen && state.focusedPanel === "chat") {
-    return { ...state, chatOpen: false, focusedPanel: "diff" }
-  }
-  return { ...state, chatOpen: true, focusedPanel: "chat" }
-}
-
 /** `Ctrl-l`: one panel right along tree → diff → comments → chat, skipping what is not open. */
-export function focusRight(state: AppState): AppState {
+export function focusRight(state: AppState, chatOpen: boolean): AppState {
   switch (state.focusedPanel) {
     case "tree":
       // Leaving the tree drops its visual-line selection, so it does not linger as dormant state.
       return { ...state, focusedPanel: "diff", treeSelectionAnchor: null }
     case "diff":
       if (state.inlineCommentOverlay.open) return { ...state, focusedPanel: "comments" }
-      return state.chatOpen ? { ...state, focusedPanel: "chat" } : state
+      return chatOpen ? { ...state, focusedPanel: "chat" } : state
     case "comments":
-      return state.chatOpen ? { ...state, focusedPanel: "chat" } : state
+      return chatOpen ? { ...state, focusedPanel: "chat" } : state
     case "chat":
       return state
   }

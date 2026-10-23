@@ -127,7 +127,7 @@ test("Ctrl-r still opens the chat from the overview, and a bare s still starts f
   expect(flashes).toEqual(["state"])
 
   ctrl(mounted, "r")
-  expect(mounted.ctx.getState().chatOpen).toBe(true)
+  expect(mounted.chatColumnState.open()).toBe(true)
   expect(mounted.ctx.getState().focusedPanel).toBe("chat")
   await mounted.frame()
 })

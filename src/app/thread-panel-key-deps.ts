@@ -30,6 +30,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     activityFeed: ctx.activityFeed,
     prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
+    chat: ctx.chat,
     commentDrafts: ctx.commentDrafts,
     handleReplyExternal: () =>
       commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),

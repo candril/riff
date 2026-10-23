@@ -14,6 +14,7 @@ export function jumpApplyContext(
     | "toggleSplitView"
     | "diffOptions"
     | "blockFolds"
+    | "chat"
     | "ensureCursorVisible"
     | "render"
     | "onCommitSelected"
@@ -23,6 +24,7 @@ export function jumpApplyContext(
     getState: ctx.getState,
     setState: ctx.setState,
     blockFolds: ctx.blockFolds,
+    chatColumn: ctx.chat.column,
     getVimState: ctx.getVimState,
     setVimState: ctx.setVimState,
     getLineMapping: ctx.getLineMapping,

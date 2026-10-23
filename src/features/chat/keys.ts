@@ -8,7 +8,7 @@ import type { KeyEvent, TextareaRenderable } from "@opentui/core"
 import type { RiffKeymap } from "../../app/keymap"
 import { anyModifiers, without } from "../../app/key-variants"
 import { composerOpen } from "../../app/diff-focus"
-import { focusLeft, focusRight, promptOpen, toggleChat, type AppState, type PromptPickers } from "../../state"
+import { focusLeft, focusRight, promptOpen, type AppState, type PromptPickers } from "../../state"
 import type { VimCursorState } from "../../vim-diff/types"
 import type { SearchState } from "../../vim-diff/search-state"
 import { isVisualMode } from "../../vim-diff/cursor-state"
@@ -16,6 +16,8 @@ import { registerAtPickerLayer } from "../../app/at-picker-keys"
 import { attachOnScreen } from "./attach"
 import type { ChatAtPicker } from "./at-picker"
 import type { ChatState } from "./state"
+import type { ChatColumnState } from "./column-state"
+import { toggleChat } from "./toggle"
 import type { PrCommentInputState } from "../pr-info-panel/comment-input-state"
 
 /** The prompts the chat stands aside for that AppState does not hold. */
@@ -23,13 +25,18 @@ export interface ChatAsideInputs extends PromptPickers {
   prCommentInput: Pick<PrCommentInputState, "isOpen">
 }
 
-export interface ChatKeyDeps extends ChatAsideInputs {
+/** What decides whether the chat's reach takes a key: the prompts it stands aside for, and whether its column is open. */
+export interface ChatReachInputs extends ChatAsideInputs {
+  chat: { column: Pick<ChatColumnState, "open"> }
+}
+
+export interface ChatKeyDeps extends ChatReachInputs {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   getVimState: () => VimCursorState
   getSearchState: () => SearchState
-  chat: { state: ChatState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
+  chat: { state: ChatState; column: ChatColumnState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
 }
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
@@ -52,11 +59,11 @@ export function chatReaches(
   key: Pick<KeyEvent, "name" | "ctrl">,
   state: AppState,
   searchActive: boolean,
-  inputs: ChatAsideInputs
+  inputs: ChatReachInputs
 ): boolean {
   if (!key.ctrl || chatStandsAside(state, searchActive, inputs)) return false
   if (key.name === "r") return true
-  return key.name === "l" && state.focusedPanel === "comments" && state.chatOpen
+  return key.name === "l" && state.focusedPanel === "comments" && inputs.chat.column.open()
 }
 
 export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () => void {
@@ -64,7 +71,7 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
   const standsAside = () => chatStandsAside(deps.getState(), deps.getSearchState().active, deps)
   const focused = () => {
     const state = deps.getState()
-    return state.chatOpen && state.focusedPanel === "chat" && !standsAside()
+    return chat.column.open() && state.focusedPanel === "chat" && !standsAside()
   }
   // No preventDefault in the rest: the focused textarea types every key the
   // chat does not bind, and runs only after riff's key handler leaves it.
@@ -158,15 +165,16 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
         () => {
           const state = deps.getState()
           const fromDiff = state.focusedPanel === "diff" && state.viewMode === "diff"
-          move(toggleChat)
+          const next = toggleChat(state, chat.column)
+          move(() => next)
           if (fromDiff) attachOnScreen(chat.input(), isVisualMode(deps.getVimState()))
         },
         false,
       ),
       {
         // The thread panel swallows the keys it does not know, so the step from it to the chat is taken here.
-        ...command("fromThreads", "Step from the threads to the chat", () => move(focusRight), false),
-        enabled: () => deps.getState().focusedPanel === "comments" && deps.getState().chatOpen,
+        ...command("fromThreads", "Step from the threads to the chat", () => move((s) => focusRight(s, chat.column.open())), false),
+        enabled: () => deps.getState().focusedPanel === "comments" && chat.column.open(),
       },
     ],
     bindings: [...anyModifiers("ctrl+r", "chat.toggle"), ...anyModifiers("ctrl+l", "chat.fromThreads")],

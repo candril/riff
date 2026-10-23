@@ -38,7 +38,7 @@ for (const first of ["z", "]", "["]) {
     ctrl(app, "r")
 
     const state = app.ctx.getState()
-    expect([state.chatOpen, state.focusedPanel]).toEqual([true, "chat"])
+    expect([app.chatColumnState.open(), state.focusedPanel]).toEqual([true, "chat"])
     expect(keys.chordPending()).toBe(false)
   })
 }

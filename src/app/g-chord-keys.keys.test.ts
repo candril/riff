@@ -184,9 +184,9 @@ describe("under the line peek", () => {
   })
 
   test("g then Ctrl-r still opens the chat", async () => {
-    const { type, state } = await gApp()
+    const { mounted, type, state } = await gApp()
     type("g", "l", "g", CTRL_R)
-    expect([state().chatOpen, state().focusedPanel]).toEqual([true, "chat"])
+    expect([mounted.chatColumnState.open(), state().focusedPanel]).toEqual([true, "chat"])
   })
 
   test("g then F12 still toggles the debug console, as the app layer ignores chords", async () => {
@@ -235,9 +235,9 @@ test("under the blame peek gb and go act and every other g chord is swallowed", 
 
 describe("a key that breaks off a g sequence", () => {
   test("Ctrl-r after a lone g opens the chat", async () => {
-    const { type, state, keys } = await gApp()
+    const { mounted, type, state, keys } = await gApp()
     type("g", CTRL_R)
-    expect([state().chatOpen, state().focusedPanel]).toEqual([true, "chat"])
+    expect([mounted.chatColumnState.open(), state().focusedPanel]).toEqual([true, "chat"])
     expect(keys.chordPending()).toBe(false)
   })
 

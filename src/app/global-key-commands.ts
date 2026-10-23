@@ -217,7 +217,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
       run: (key) => {
         if (!key.ctrl) return false
         // Ctrl-l moves focus one panel right: tree → diff → comments → chat.
-        show(focusRight)
+        show((s) => focusRight(s, deps.chatColumn.open()))
         setTimeout(() => {
           deps.render()
         }, 0)

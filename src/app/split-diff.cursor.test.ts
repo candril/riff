@@ -56,6 +56,7 @@ async function mount() {
     getState: () => state,
     diffOptions: { splitView: () => true },
     fileContent: { expanding: () => null },
+    chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,
@@ -67,7 +68,7 @@ async function mount() {
   // As the frame pass hands split its focus: the draw, then the diff's focus.
   const draw = () => {
     diff.draw({ mapping, state, vimState, searchState: createSearchState(), flashState: createFlashState(), blameColumns: new Map(), marks: [] })
-    diff.island.update({ focused: diffCursorShown(state, { prompt: false, help: help.open(), confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false, blamePeek: false }) })
+    diff.island.update({ focused: diffCursorShown(state, { prompt: false, help: help.open(), confirm: false, syncPreview: false, reviewPreview: false, filePicker: false, commentsPicker: false, occurrencePicker: false, marksPicker: false, commitPicker: false, actionMenu: false, linePeek: false, blamePeek: false }, false) })
   }
   const handler = new VimMotionHandler({
     getMapping: () => diff.source(),

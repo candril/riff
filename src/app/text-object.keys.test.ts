@@ -72,7 +72,7 @@ test("with a text object pending, Ctrl-r still opens the chat", async () => {
   await mounted.setup.mockInput.typeText("vi")
   expect(vimState().pendingTextObject).not.toBeNull()
   ctrl(mounted, "r")
-  expect(mounted.ctx.getState().chatOpen).toBe(true)
+  expect(mounted.chatColumnState.open()).toBe(true)
 })
 
 test("with the line peek up, a pending text object takes its key past the peek", async () => {

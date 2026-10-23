@@ -17,6 +17,7 @@ import { createFeedState } from "../features/feed/state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createChatColumnState } from "../features/chat/column-state"
 
 export const BLAME_TARGET: BlameTarget = { path: "a.ts", side: "head", line: 1 }
 
@@ -57,6 +58,7 @@ export async function peekKeys(initial: AppState, options: { height?: number } =
     activityFeed: createFeedState(),
     prInfoFilter: createPrInfoFilterState(),
     prCommentInput: createPrCommentInputState(),
+    chat: { column: createChatColumnState() },
     chordPending: () => chord !== null,
   }
   registerLinePeekKeys(harness.riffKeymap, {

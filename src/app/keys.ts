@@ -112,6 +112,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     activityFeed: ctx.activityFeed,
     prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
+    chat: ctx.chat,
     feed: (key) => ctx.vimHandler.handleKey({ name: key.name, sequence: key.sequence, ctrl: key.ctrl, shift: key.shift }),
     render: ctx.render,
   })

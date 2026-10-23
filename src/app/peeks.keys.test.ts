@@ -47,7 +47,7 @@ test("with the line peek up, Ctrl-r still opens the chat", async () => {
   const { mounted } = await peekApp()
   await mounted.setup.mockInput.typeText("gl")
   ctrl(mounted, "r")
-  expect(mounted.ctx.getState().chatOpen).toBe(true)
+  expect(mounted.chatColumnState.open()).toBe(true)
   expect(mounted.ctx.getState().focusedPanel).toBe("chat")
 })
 

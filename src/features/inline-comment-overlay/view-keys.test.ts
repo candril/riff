@@ -295,7 +295,7 @@ describe("what the panel leaves to the chain", () => {
 
   test("Ctrl-r passes in view mode and under the code peek, whether the chat is open or not", async () => {
     for (const chatOpen of [false, true]) {
-      const keys = await threadPanelKeys(panelState(0, { chatOpen }))
+      const keys = await threadPanelKeys(panelState(), { chatOpen })
       keys.press(CTRL.r)
       keys.press("\x1b[114;6u")
       keys.set(setCommentCodePeek(keys.state(), "a"))
@@ -305,7 +305,7 @@ describe("what the panel leaves to the chain", () => {
   })
 
   test("under the filter prompt, where the chat stands aside, Ctrl-r and Ctrl-l stay with the panel", async () => {
-    const keys = await threadPanelKeys(startViewFilter(panelState(0, { chatOpen: true }), "comments"))
+    const keys = await threadPanelKeys(startViewFilter(panelState(), "comments"), { chatOpen: true })
     keys.press(CTRL.r)
     keys.press(CTRL.l)
     expect(keys.leftKeys).toEqual([])
@@ -317,7 +317,7 @@ describe("what the panel leaves to the chain", () => {
     closed.press(CTRL.l)
     expect(closed.leftKeys).toEqual([])
 
-    const open = await threadPanelKeys(panelState(0, { chatOpen: true }))
+    const open = await threadPanelKeys(panelState(), { chatOpen: true })
     open.press(CTRL.l)
     expect(open.leftKeys).toEqual(["l"])
   })

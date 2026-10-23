@@ -31,6 +31,7 @@ export function globalLayerKeyDeps(
     addComment: () => void commentsFeature.handleAddComment(ctx.commentsContext),
     jumpList: ctx.jumpList,
     jumpApply: jumpApplyContext(ctx),
+    chatColumn: ctx.chat.column,
     goToBottom: () => folds.handleGoToBottom(ctx.foldsContext),
     openBranchPr: (view) => ctx.openBranchPr(view),
     feed: ctx.activityFeed,

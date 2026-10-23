@@ -8,9 +8,9 @@ import type { KeyEvent } from "@opentui/core"
 import type { RiffKeymap } from "./keymap"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
-import { chatReaches, type ChatAsideInputs } from "../features/chat/keys"
+import { chatReaches, type ChatReachInputs } from "../features/chat/keys"
 
-export interface TextObjectKeyDeps extends ChatAsideInputs {
+export interface TextObjectKeyDeps extends ChatReachInputs {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean
@@ -29,7 +29,7 @@ export function textObjectTakes(
   state: AppState,
   vim: Pick<VimCursorState, "pendingTextObject">,
   searchActive: boolean,
-  inputs: ChatAsideInputs,
+  inputs: ChatReachInputs,
 ): boolean {
   return vim.pendingTextObject !== null && state.focusedPanel === "diff" && !chatReaches(key, state, searchActive, inputs)
 }

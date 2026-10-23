@@ -25,11 +25,12 @@ function state(patch: Partial<AppState> = {}): AppState {
 
 function frame(
   appState: AppState,
-  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120, help = false }: {
+  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120, help = false, chatOpen = false }: {
     search?: Partial<SearchState>
     diff?: Frame["diff"]
     width?: number
     help?: boolean
+    chatOpen?: boolean
   } = {}
 ): Frame {
   return {
@@ -43,6 +44,7 @@ function frame(
     height: 40,
     now: 0,
     diff,
+    chatOpen,
     help: { open: help, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
@@ -92,25 +94,26 @@ describe("statusBarFrameModel", () => {
 })
 
 describe("chatColumnFrameModel", () => {
-  const chatting = (patch: Partial<AppState> = {}) => state({ chatOpen: true, focusedPanel: "chat", ...patch })
+  const chatting = (patch: Partial<AppState> = {}) => state({ focusedPanel: "chat", ...patch })
+  const open = { chatOpen: true }
 
   test("is null while the chat is closed", () => {
-    expect(chatColumnFrameModel(frame(state({ focusedPanel: "chat" })))).toBeNull()
+    expect(chatColumnFrameModel(frame(chatting()))).toBeNull()
   })
 
   test("is as wide as the chat column for the frame's width", () => {
-    expect(chatColumnFrameModel(frame(chatting(), { width: 140 }))).toEqual({ width: chatColumnWidth(140), focused: true })
+    expect(chatColumnFrameModel(frame(chatting(), { ...open, width: 140 }))).toEqual({ width: chatColumnWidth(140), focused: true })
   })
 
   test("is not focused while the diff has the keys", () => {
-    expect(chatColumnFrameModel(frame(chatting({ focusedPanel: "diff" })))?.focused).toBe(false)
+    expect(chatColumnFrameModel(frame(chatting({ focusedPanel: "diff" }), open))?.focused).toBe(false)
   })
 
   test("gives up the keys to a prompt, a composer or an overlay", () => {
-    expect(chatColumnFrameModel(frame(chatting(), { search: { active: true } }))?.focused).toBe(false)
+    expect(chatColumnFrameModel(frame(chatting(), { ...open, search: { active: true } }))?.focused).toBe(false)
     const composing = chatting({ inlineCommentOverlay: { ...initial.inlineCommentOverlay, open: true, mode: "compose" } })
-    expect(chatColumnFrameModel(frame(composing))?.focused).toBe(false)
-    expect(chatColumnFrameModel(frame(chatting(), { help: true }))?.focused).toBe(false)
+    expect(chatColumnFrameModel(frame(composing, open))?.focused).toBe(false)
+    expect(chatColumnFrameModel(frame(chatting(), { ...open, help: true }))?.focused).toBe(false)
   })
 })
 

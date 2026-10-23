@@ -65,6 +65,7 @@ function frame(
     height: 40,
     now,
     diff: { columnInfo: null, selectionInfo: null },
+    chatOpen: false,
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,

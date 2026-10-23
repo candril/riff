@@ -3,6 +3,7 @@ import { createFileTreeIsland } from "../app/file-tree"
 import { createThreadPanelIsland } from "../app/thread-panel"
 import { createChatColumnIsland } from "../app/chat-column"
 import { createChatState } from "../features/chat/state"
+import { createChatColumnState } from "../features/chat/column-state"
 import { chatAtCandidates } from "../features/chat/at-candidates"
 import { createHelpState } from "../features/help/state"
 import { createConfirmState } from "../features/confirm/state"
@@ -88,6 +89,7 @@ export async function mountApp(
   const commitDiffs = createCommitDiffsState()
   const blockFolds = createBlockFoldsState()
   const fileFolds = createFileFoldsState()
+  const chatColumnState = createChatColumnState()
   let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
@@ -103,6 +105,7 @@ export async function mountApp(
     getState: () => state,
     diffOptions,
     fileContent,
+    chatColumn: chatColumnState,
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -227,6 +230,7 @@ export async function mountApp(
     visit,
     mentions,
     commentDrafts,
+    chatColumn: chatColumnState,
     getCommandKeys: () => commandKeys,
     reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
     updateFileTreePanel() {
@@ -265,6 +269,8 @@ export async function mountApp(
     chatColumn: chrome.chatColumn,
     /** The one conversation with riff's agent, which outlives the column's opening and closing. */
     chat,
+    /** Whether the chat column is open, which the frame pass reads and Ctrl-r writes as app.ts's do. */
+    chatColumnState,
     /** The help overlay's state, which the frame pass reads as app.ts's does. */
     help,
     /** The confirm dialog's state, which the frame pass and the keys read as app.ts's do. */

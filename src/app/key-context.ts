@@ -17,6 +17,7 @@ import type { CommentScope } from "../diff-rows/comment-scope"
 import type { DiffViewport } from "./diff-viewport"
 import type { ChatState } from "../features/chat/state"
 import type { ChatAtPicker } from "../features/chat/at-picker"
+import type { ChatColumnState } from "../features/chat/column-state"
 import type { HelpState } from "../features/help/state"
 import type { ConfirmState } from "../features/confirm/state"
 import type { JumpListState } from "../features/jumplist/state"
@@ -134,8 +135,8 @@ export interface AppKeyContext {
   marksContext: marks.MarksContext
   /** `gb`'s blame source and the browser and clipboard its peek hands off to (spec 103). */
   blame: BlameDeps
-  /** The chat column's conversation and its input (spec 102). */
-  chat: { state: ChatState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
+  /** The chat column's conversation, whether the column is open, and its input (spec 102). */
+  chat: { state: ChatState; column: ChatColumnState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
   /** The help overlay's state, the same instance the frame pass reads. */
   help: HelpState
   /** The confirm dialog's state, the same instance the frame pass reads. */

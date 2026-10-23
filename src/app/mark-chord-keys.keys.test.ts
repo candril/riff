@@ -230,7 +230,7 @@ describe("keys asked ahead of the chord", () => {
     const { type, state, marks, toCode, keys } = await markApp()
     toCode()
     type("m", CTRL_R)
-    expect([state().chatOpen, state().focusedPanel]).toEqual([true, "chat"])
+    expect([app!.chatColumnState.open(), state().focusedPanel]).toEqual([true, "chat"])
     expect(keys.chordPending()).toBe(false)
     expect(marks()).toEqual([])
   })

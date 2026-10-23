@@ -210,11 +210,10 @@ describe("restoring the view", () => {
     expect(reseatTreeHighlight(state, null).treeHighlightIndex).toBe(0)
   })
 
-  test("an open chat with the keys stays open and keeps them", () => {
-    const before = { ...stateWith(files), chatOpen: true, focusedPanel: "chat" as const }
+  test("the chat keeps the keys", () => {
+    const before = { ...stateWith(files), focusedPanel: "chat" as const }
     const position = capturePosition(before, cursorAt(0), mappingOf(files), createSearchState(), new Set())
-    const after = restorePosition(stateWith(files), position)
-    expect([after.chatOpen, after.focusedPanel]).toEqual([true, "chat"])
+    expect(restorePosition(stateWith(files), position).focusedPanel).toBe("chat")
   })
 
   test("a PR that was being read as a diff does not snap back to the overview", () => {

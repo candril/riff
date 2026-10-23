@@ -44,6 +44,7 @@ test("the wheel drags the app's cursor onto the line handed over, and its reveal
     getState: () => state,
     diffOptions: { splitView: () => true },
     fileContent: { expanding: () => null },
+    chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
     filePanelWidth: () => 0,

@@ -10,6 +10,7 @@ import { createActionMenuState } from "../features/action-menu/state"
 import { createFeedState } from "../features/feed/state"
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createChatColumnState } from "../features/chat/column-state"
 
 const diff = (patch: Partial<AppState> = {}): AppState => ({
   ...createInitialState([], [], "test", ""),
@@ -28,7 +29,11 @@ const pickers = {
   activityFeed: createFeedState(),
   prInfoFilter: createPrInfoFilterState(),
   prCommentInput: createPrCommentInputState(),
+  chat: { column: createChatColumnState() },
 }
+const openColumn = createChatColumnState()
+openColumn.show()
+const chatOpen = { ...pickers, chat: { column: openColumn } }
 
 describe("textObjectTakes", () => {
   test("takes any object key while one is pending in the diff", () => {
@@ -46,10 +51,10 @@ describe("textObjectTakes", () => {
 
   test("leaves Ctrl-r to the chat's reach", () => {
     expect(textObjectTakes(key("r", true), diff(), pending, false, pickers)).toBe(false)
-    expect(textObjectTakes(key("r", true), diff({ chatOpen: true }), pending, false, pickers)).toBe(false)
+    expect(textObjectTakes(key("r", true), diff(), pending, false, chatOpen)).toBe(false)
   })
 
   test("takes Ctrl-l, which the chat reaches only from the thread panel", () => {
-    expect(textObjectTakes(key("l", true), diff({ chatOpen: true }), pending, false, pickers)).toBe(true)
+    expect(textObjectTakes(key("l", true), diff(), pending, false, chatOpen)).toBe(true)
   })
 })

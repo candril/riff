@@ -69,8 +69,8 @@ export function feedFrameModel({ state, feed, visit, flashState, height, now }: 
 
 /** The chat column for `frame`, or null while it is closed. */
 export function chatColumnFrameModel(frame: Frame): { width: number; focused: boolean } | null {
-  const { state, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek } = frame
-  if (!state.chatOpen) return null
+  const { state, chatOpen, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek } = frame
+  if (!chatOpen) return null
   const outside = {
     prompt: promptOpenIn(state, searchState, frame),
     help: help.open,
@@ -86,7 +86,7 @@ export function chatColumnFrameModel(frame: Frame): { width: number; focused: bo
     linePeek: linePeek !== null,
     blamePeek: blamePeek !== null,
   }
-  return { width: chatColumnWidth(width), focused: chatInputFocused(state, outside) }
+  return { width: chatColumnWidth(width), focused: chatInputFocused(state, outside, chatOpen) }
 }
 
 export interface PrInfoPanelFrameModel {

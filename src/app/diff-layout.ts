@@ -34,8 +34,9 @@ export function diffPaneWidth(
  * is measured.
  */
 export function diffPaneWidthOf(
-  state: Pick<AppState, "showFilePanel" | "viewMode" | "chatOpen"> & {
+  state: Pick<AppState, "showFilePanel" | "viewMode"> & {
     inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
+    chatOpen: boolean
   },
   screenWidth: number,
   treeWidth: number

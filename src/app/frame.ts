@@ -48,6 +48,8 @@ export interface Frame {
    * rows a selection spans; no function of the state alone can compute it.
    */
   diff: { columnInfo: ColumnStatus; selectionInfo: SelectionStatus }
+  /** Whether the chat column is open, read off its factory, for the diff's layout and the column. */
+  chatOpen: boolean
   /** The help overlay's state, read off its factory as the frame was published. */
   help: { open: boolean; scroll: number }
   /** The confirm dialog's question, read off its factory; its answers stay there, where the keys reach them. */

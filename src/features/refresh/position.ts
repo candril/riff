@@ -36,7 +36,6 @@ export interface RefreshPosition {
   selectedFilename: string | null
   treeHighlightPath: string | null
   focusedPanel: AppState["focusedPanel"]
-  chatOpen: boolean
   showFilePanel: boolean
   filePanelExpanded: boolean
   treeFilter: string
@@ -69,7 +68,6 @@ export function capturePosition(
         : state.files[state.selectedFileIndex]?.filename ?? null,
     treeHighlightPath: flatItems[state.treeHighlightIndex]?.node.path ?? null,
     focusedPanel: state.focusedPanel,
-    chatOpen: state.chatOpen,
     showFilePanel: state.showFilePanel,
     filePanelExpanded: state.filePanelExpanded,
     treeFilter: state.treeFilter,
@@ -121,7 +119,6 @@ function restoreFields(state: AppState, position: RefreshPosition): AppState {
     previousView: position.previousView,
     selectedFileIndex,
     focusedPanel: position.focusedPanel,
-    chatOpen: position.chatOpen,
     showFilePanel: position.showFilePanel,
     filePanelExpanded: position.filePanelExpanded,
     treeFilter: position.treeFilter,

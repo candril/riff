@@ -14,6 +14,7 @@ import type { VimCursorState } from "../vim-diff/types"
 import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { FlashSurface } from "../vim-diff/flash-state"
 import type { JumpApplyContext } from "../features/jumplist"
+import type { ChatColumnState } from "../features/chat/column-state"
 import type { JumpListState } from "../features/jumplist/state"
 import { globalKeyCommands } from "./global-key-commands"
 import type { FilePickerState } from "../features/file-picker/state"
@@ -43,6 +44,7 @@ export interface GlobalLayerKeyDeps {
   addComment: () => void
   jumpList: Pick<JumpListState, "back" | "forward">
   jumpApply: JumpApplyContext
+  chatColumn: Pick<ChatColumnState, "open">
   /** The tree's `G`; the diff's is its motion handler's. */
   goToBottom: () => void
   openBranchPr: (view: "state" | "feed") => void

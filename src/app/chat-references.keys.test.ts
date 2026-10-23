@@ -122,7 +122,7 @@ test("Ctrl-r from the chat closes it and puts nothing in the input", async () =>
   openChat(app)
   await app.setup.mockInput.typeText("draft")
   ctrl(app, "r")
-  expect([app.ctx.getState().chatOpen, app.chatColumn.input()!.plainText]).toEqual([false, "draft"])
+  expect([app.chatColumnState.open(), app.chatColumn.input()!.plainText]).toEqual([false, "draft"])
   // The diff widens again on the next frame; let it land before the app is torn down.
   await app.frame()
 })

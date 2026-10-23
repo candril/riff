@@ -13,6 +13,7 @@ import { createActionMenuState } from "../features/action-menu/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
 import { createToastState } from "../features/toast/state"
 import { createPrCommentInputState } from "../features/pr-info-panel/comment-input-state"
+import { createChatColumnState } from "../features/chat/column-state"
 
 const comment = (id: string, line: number, fields: Partial<Comment> = {}): Comment => ({
   id,
@@ -48,8 +49,10 @@ export function panelState(highlightedIndex = 0, patch: Partial<AppState> = {}):
  * The panel's layers on a real keymap in front of a recording leftover,
  * with every hand-off to the app recorded in `calls`. Call it inside a test.
  */
-export async function threadPanelKeys(initial: AppState) {
+export async function threadPanelKeys(initial: AppState, options: { chatOpen?: boolean } = {}) {
   const harness = await keymapHarness()
+  const chatColumn = createChatColumnState()
+  if (options.chatOpen) chatColumn.show()
   let state = initial
   const calls: string[] = []
   const record = (entry: string) => () => void calls.push(entry)
@@ -88,6 +91,7 @@ export async function threadPanelKeys(initial: AppState) {
     activityFeed: createFeedState(),
     prInfoFilter: createPrInfoFilterState(),
     prCommentInput: createPrCommentInputState(),
+    chat: { column: chatColumn },
     commentDrafts,
   }
   const unregister = registerThreadPanelKeys(harness.riffKeymap, deps)

@@ -326,6 +326,10 @@ reload keeps them (a fold toggled while it is awaited too) and folds the
 newly viewed and ignored files on top, and a commit switch, creating a PR
 and opening the branch's PR drop them, the last two then folding the new
 review's own. Nothing saves them to disk.
+The chat column's open flag is the thirty-first (`createChatColumnState`
+in `src/features/chat/column-state.ts`); the frame carries it for the
+layout and the column, a reload keeps it, and a switch to another review
+closes it.
 What React… and Copy Comment Link act on is not kept anywhere:
 `reactionTargetOf` in `src/features/reactions/target.ts` derives it from
 what has focus when they are asked (the thread panel's highlighted comment

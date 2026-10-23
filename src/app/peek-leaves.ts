@@ -1,7 +1,7 @@
 import type { KeyEvent } from "@opentui/core"
 import type { AppState } from "../state"
 import type { VimCursorState } from "../vim-diff/types"
-import { chatReaches, type ChatAsideInputs } from "../features/chat/keys"
+import { chatReaches, type ChatReachInputs } from "../features/chat/keys"
 
 const BLAME_PEEK_CHORDS = new Set(["go", "gb"])
 
@@ -22,7 +22,7 @@ export function chordAllowedUnderPeek(
 }
 
 /** What both peeks read to decide whether they hold a key, beyond whether they are up. */
-export interface PeekKeyContext extends ChatAsideInputs {
+export interface PeekKeyContext extends ChatReachInputs {
   getState: () => AppState
   getVimState: () => VimCursorState
   searchActive: () => boolean

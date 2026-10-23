@@ -38,6 +38,7 @@ describe("a switch to another review", () => {
     f.commitDiffs.put("abc1234", [])
     f.blockFolds.toggle("doc.md:0")
     f.fileFolds.collapse(["a.ts"])
+    f.chatColumn.show()
 
     expect(f.help.open()).toBe(true)
     expect(f.confirm.dialog()).not.toBeNull()
@@ -61,6 +62,7 @@ describe("a switch to another review", () => {
     expect(f.commitDiffs.has("abc1234")).toBe(true)
     expect(f.blockFolds.isCollapsed("doc.md:0")).toBe(true)
     expect(f.fileFolds.isCollapsed("a.ts")).toBe(true)
+    expect(f.chatColumn.open()).toBe(true)
 
     closeFeatureOverlays(f)
 
@@ -88,5 +90,6 @@ describe("a switch to another review", () => {
     expect(f.commitDiffs.has("abc1234")).toBe(false)
     expect(f.blockFolds.collapsed().size).toBe(0)
     expect(f.fileFolds.collapsed().size).toBe(0)
+    expect(f.chatColumn.open()).toBe(false)
   })
 })

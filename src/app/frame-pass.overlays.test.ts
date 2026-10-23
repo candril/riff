@@ -39,6 +39,7 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createMentionsState } from "../features/mentions/state"
 import { createCommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import { createChatColumnState } from "../features/chat/column-state"
 
 /*
  * Only where the frame pass and its followers put the overlay islands' hosts,
@@ -138,6 +139,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     visit: createVisitState(),
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
+    chatColumn: createChatColumnState(),
   } as unknown as FramePassContext
   const render = createFramePass(ctx)
   // Every overlay host stays mounted; what counts as shown is a visible one,

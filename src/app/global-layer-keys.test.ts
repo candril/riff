@@ -12,6 +12,7 @@ import { createCommitPickerState } from "../features/commit-picker/state"
 import { createActionMenuState } from "../features/action-menu/state"
 import { createJumpListState } from "../features/jumplist/state"
 import { createFeedState } from "../features/feed/state"
+import { createChatColumnState } from "../features/chat/column-state"
 
 const CTRL_F = "\x06"
 const CTRL_P = "\x10"
@@ -50,6 +51,7 @@ async function globalKeys(patch: Partial<AppState> = {}, chordPending = false) {
     addComment: () => void calls.push("addComment"),
     jumpList: createJumpListState(),
     jumpApply: null as never,
+    chatColumn: createChatColumnState(),
     goToBottom: () => void calls.push("goToBottom"),
     openBranchPr: (view) => void calls.push(`openBranchPr:${view}`),
     feed: createFeedState(),

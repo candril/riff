@@ -54,6 +54,7 @@ function frameOf(
     height: 40,
     now: PR_NOW.getTime(),
     diff: { columnInfo: null, selectionInfo: null },
+    chatOpen: false,
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,

@@ -82,7 +82,7 @@ test("j moves the highlight to the next thread, the diff cursor follows, and the
 test("Ctrl-r from the focused panel opens the chat, and with the chat open Ctrl-l steps into it", async () => {
   const { mounted } = await panelApp()
   ctrl(mounted, "r")
-  expect(mounted.ctx.getState().chatOpen).toBe(true)
+  expect(mounted.chatColumnState.open()).toBe(true)
   expect(mounted.ctx.getState().focusedPanel).toBe("chat")
   expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("view")
 

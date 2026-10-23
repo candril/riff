@@ -19,6 +19,7 @@ import { createSplitIsland } from "./split-island"
 import { splitSelection } from "./split-selection"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { FileContentState } from "../features/file-content/state"
+import type { ChatColumnState } from "../features/chat/column-state"
 
 export interface SplitDiffDeps {
   renderer: CliRenderer
@@ -27,6 +28,7 @@ export interface SplitDiffDeps {
   getState: () => AppState
   diffOptions: Pick<DiffOptionsState, "splitView">
   fileContent: Pick<FileContentState, "expanding">
+  chatColumn: Pick<ChatColumnState, "open">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
   filePanelWidth: () => number
@@ -64,7 +66,8 @@ export function createSplitDiff(deps: SplitDiffDeps) {
     return built.source
   }
 
-  const paneWidth = () => diffPaneWidthOf(deps.getState(), deps.renderer.width, deps.filePanelWidth())
+  const paneWidth = () =>
+    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width, deps.filePanelWidth())
 
   function shown(): boolean {
     const state = deps.getState()

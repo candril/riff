@@ -74,7 +74,7 @@ function wireKeys(
     },
     readReviewSummary: mounted.islands.reviewPreview.summaryValue,
     composer: render.threadPanel.composer,
-    chat: { state: mounted.chat, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
+    chat: { state: mounted.chat, column: mounted.chatColumnState, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     help: mounted.help,
     confirm: mounted.confirm,
     syncPreview: mounted.syncPreview,

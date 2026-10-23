@@ -39,7 +39,7 @@ async function escape(keys: TestRendererSetup["mockInput"]) {
 // The mock's default encoding drops shift and super from Ctrl-r and Enter; the kitty protocol keeps them.
 const kitty = (app: App) => createMockKeys(app.setup.renderer, { kittyKeyboard: true })
 
-const focus = (app: App) => [app.ctx.getState().chatOpen, app.ctx.getState().focusedPanel]
+const focus = (app: App) => [app.chatColumnState.open(), app.ctx.getState().focusedPanel]
 
 test("Ctrl-r opens and closes the chat with shift or super held as well", async () => {
   const app = await mounted()
@@ -59,7 +59,7 @@ test("Ctrl-r under the help leaves the chat shut and the help up", async () => {
   app.help.toggle()
   app.show()
   ctrl(app, "r")
-  expect([app.ctx.getState().chatOpen, app.help.open()]).toEqual([false, true])
+  expect([app.chatColumnState.open(), app.help.open()]).toEqual([false, true])
   await app.frame()
 })
 
@@ -69,7 +69,7 @@ test("Ctrl-r with a picker open leaves the chat shut", async () => {
   app.filePicker.show()
   app.show()
   ctrl(app, "r")
-  expect(app.ctx.getState().chatOpen).toBe(false)
+  expect(app.chatColumnState.open()).toBe(false)
   await app.frame()
 })
 
@@ -218,7 +218,7 @@ test("with the composer open, Ctrl-r leaves the chat shut", async () => {
   keysOn(app)
   app.show(openInlineCommentOverlay(app.ctx.getState(), "src/greet.ts", 2, "RIGHT", "compose"))
   ctrl(app, "r")
-  expect(app.ctx.getState().chatOpen).toBe(false)
+  expect(app.chatColumnState.open()).toBe(false)
   await app.frame()
 })
 
@@ -231,5 +231,5 @@ test("with the PR comment input open, the chat's keys stand aside", async () => 
   await app.setup.mockInput.typeText("x")
   expect(app.chatColumn.input()!.plainText).toBe("x")
   ctrl(app, "r")
-  expect(app.ctx.getState().chatOpen).toBe(true)
+  expect(app.chatColumnState.open()).toBe(true)
 })

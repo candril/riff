@@ -30,6 +30,7 @@ import type { FileContentState } from "../file-content/state"
 import type { CommitDiffsState } from "../commit-scope/diffs-state"
 import type { BlockFoldsState } from "../folds/block-folds-state"
 import type { FileFoldsState } from "../folds/file-folds-state"
+import type { ChatColumnState } from "../chat/column-state"
 
 export interface AnotherReviewFeatures {
   help: Pick<HelpState, "close">
@@ -54,6 +55,7 @@ export interface AnotherReviewFeatures {
   commitDiffs: Pick<CommitDiffsState, "clear">
   blockFolds: Pick<BlockFoldsState, "clear">
   fileFolds: Pick<FileFoldsState, "clear">
+  chatColumn: Pick<ChatColumnState, "hide">
 }
 
 export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
@@ -88,4 +90,6 @@ export function closeFeatureOverlays(features: AnotherReviewFeatures): void {
   features.blockFolds.clear()
   // The next review is read afresh; its caller folds its viewed and ignored files.
   features.fileFolds.clear()
+  // The new review opens on its diff, with the focus there and the column shut.
+  features.chatColumn.hide()
 }

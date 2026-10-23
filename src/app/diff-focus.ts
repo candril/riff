@@ -52,10 +52,10 @@ export function overlayOpen(state: AppState, outside: OutsideOverlays): boolean 
  * so a cursor that is not live is not shown at all. A composer, a prompt
  * or the chat's input needs the terminal cursor for itself besides (spec 065).
  */
-export function diffCursorShown(state: AppState, outside: OutsideOverlays): boolean {
+export function diffCursorShown(state: AppState, outside: OutsideOverlays, chatOpen: boolean): boolean {
   const comments = state.inlineCommentOverlay
   const readingComments = comments.open && state.focusedPanel === "comments"
-  const chatting = state.chatOpen && state.focusedPanel === "chat"
+  const chatting = chatOpen && state.focusedPanel === "chat"
   // Composing hides the diff's cursor, which keeps the textarea's cursor
   // visible; otherwise the diff would re-claim it after the textarea's
   // renderCursor pass.
@@ -63,6 +63,6 @@ export function diffCursorShown(state: AppState, outside: OutsideOverlays): bool
 }
 
 /** Whether the chat's input has the keys: the chat is focused and nothing is drawn over it. */
-export function chatInputFocused(state: AppState, outside: OutsideOverlays): boolean {
-  return state.chatOpen && state.focusedPanel === "chat" && !composerOpen(state) && !overlayOpen(state, outside)
+export function chatInputFocused(state: AppState, outside: OutsideOverlays, chatOpen: boolean): boolean {
+  return chatOpen && state.focusedPanel === "chat" && !composerOpen(state) && !overlayOpen(state, outside)
 }

@@ -27,6 +27,7 @@ import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
+import { createChatColumnState } from "../features/chat/column-state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
@@ -94,6 +95,8 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const blockFolds = createBlockFoldsState()
   // A reload only folds more files in it.
   const fileFolds = createFileFoldsState()
+  // Held beside the context, as app.ts holds it: a reload leaves it alone.
+  const chatColumn = createChatColumnState()
   let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
   let headSha = "head-1"
 
@@ -189,5 +192,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, fileFolds, mapping: () => mapping }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, diffOptions, fileContent, blockFolds, fileFolds, chatColumn, mapping: () => mapping }
 }

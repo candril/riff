@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { mountApp } from "../testing/app-render"
+import { mountApp, reloadCtx } from "../testing/app-render"
 import { ctrl, keysOn, moveTo, openChat } from "../testing/chat-keys"
-import { openInlineCommentOverlay } from "../state"
+import { createInitialState, openInlineCommentOverlay } from "../state"
+import { adoptReloadedState } from "../features/refresh/handlers"
+import { capturePosition, restorePosition } from "../features/refresh/position"
 import { CHAT_HINT } from "../features/chat/ChatPane"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
@@ -60,7 +62,7 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
 
   ctrl(app, "r")
   const state = app.ctx.getState()
-  expect([state.chatOpen, state.focusedPanel]).toEqual([true, "chat"])
+  expect([app.chatColumnState.open(), state.focusedPanel]).toEqual([true, "chat"])
   const input = app.chatColumn.input()!
   expect(app.setup.renderer.currentFocusedRenderable).toBe(input)
   const opened = await app.frame()
@@ -71,7 +73,7 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
   expect(input.plainText).toBe("@file jq")
   expect(vimState()).toBe(before)
   expect(quits).toEqual([])
-  expect(app.ctx.getState().chatOpen).toBe(true)
+  expect(app.chatColumnState.open()).toBe(true)
 
   app.setup.mockInput.pressEnter()
   expect(app.agent.asked).toEqual(["@file jq"])
@@ -82,10 +84,51 @@ test("Ctrl-r opens the column with the keys in its input, and typed letters stay
   expect(asked.replace(/\s+/g, " ")).not.toContain(CHAT_HINT)
 
   ctrl(app, "r")
-  expect([app.ctx.getState().chatOpen, app.ctx.getState().focusedPanel]).toEqual([false, "diff"])
+  expect([app.chatColumnState.open(), app.ctx.getState().focusedPanel]).toEqual([false, "diff"])
   expect(app.chatColumn.host.visible).toBe(false)
   expect(app.setup.renderer.currentFocusedRenderable).not.toBe(input)
   await app.frame()
+  expect(diff.width).toBe(closedWidth)
+})
+
+test("Ctrl-r draws the column, a reload leaves it drawn, and Ctrl-r from inside takes it away", async () => {
+  app = await mountApp(DIFF, { width: 120, height: 24 })
+  app.show()
+  const mounted = app
+  keysOn(mounted, {
+    // handleRefresh's swap: the state built afresh, with the position put back over it.
+    refreshContext: {
+      handleRefresh: async () => {
+        const { ctx } = mounted
+        const position = capturePosition(ctx.getState(), ctx.getVimState(), ctx.getLineMapping(), ctx.getSearchState(), mounted.fileContent.expanded())
+        adoptReloadedState(reloadCtx(mounted), (prev) =>
+          restorePosition(createInitialState(prev.files, prev.fileTree, prev.source, "reloaded"), position)
+        )
+        mounted.render()
+      },
+    },
+  })
+  const drawn = async () => (await mounted.frame()).replace(/\s+/g, " ")
+  const diff = mounted.ctx.unified.island.host
+  expect(await drawn()).not.toContain("Ask about this review.")
+  const closedWidth = diff.width
+
+  openChat(mounted)
+  expect(await drawn()).toContain("Ask about this review.")
+  expect(diff.width).toBe(closedWidth - 48)
+
+  // gr is the diff's, so the keys go back there first.
+  mounted.setup.mockInput.pressBackspace()
+  expect(mounted.ctx.getState().focusedPanel).toBe("diff")
+  await mounted.setup.mockInput.typeText("gr")
+  expect(mounted.ctx.getState().description).toBe("reloaded")
+  expect(await drawn()).toContain("Ask about this review.")
+  expect(diff.width).toBe(closedWidth - 48)
+
+  ctrl(mounted, "r")
+  expect(mounted.ctx.getState().focusedPanel).toBe("chat")
+  ctrl(mounted, "r")
+  expect(await drawn()).not.toContain("Ask about this review.")
   expect(diff.width).toBe(closedWidth)
 })
 
@@ -96,7 +139,7 @@ test("with the thread panel closed, Ctrl-l steps from the diff to the chat and C
   openChat(app)
   app.setup.mockInput.pressBackspace()
   expect(app.ctx.getState().focusedPanel).toBe("diff")
-  expect(app.ctx.getState().chatOpen).toBe(true)
+  expect(app.chatColumnState.open()).toBe(true)
   ctrl(app, "l")
   expect(app.ctx.getState().focusedPanel).toBe("chat")
   ctrl(app, "l")

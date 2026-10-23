@@ -59,6 +59,7 @@ import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
 import { createBlockFoldsState } from "./features/folds/block-folds-state"
 import { createFileFoldsState } from "./features/folds/file-folds-state"
+import { createChatColumnState } from "./features/chat/column-state"
 import { loadFileContent as loadFileContentInto } from "./features/file-content/load"
 import { createFileVersionsReader, liveFileVersionSources } from "./features/file-content/versions"
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
@@ -206,6 +207,7 @@ export async function createApp(options: AppOptions = {}) {
   const blockFolds = createBlockFoldsState()
   const fileFolds = createFileFoldsState()
   fileFolds.collapse(initialFoldedFiles)
+  const chatColumnState = createChatColumnState()
   const commitDiffs = createCommitDiffsState()
   let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds, fileFolds)
   // Tree filter the current mapping was built against, so a filter change can
@@ -357,7 +359,7 @@ export async function createApp(options: AppOptions = {}) {
   // (spec 065); the views that have no cursor of their own park it. The
   // chat's input draws its own too, in whichever view the column is open.
   renderer.addPostProcessFn(() => {
-    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, activityFeed, prInfoFilter }) && !(state.chatOpen && state.focusedPanel === "chat")) {
+    if (state.viewMode !== "diff" && !promptOpen(state, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, activityFeed, prInfoFilter }) && !(chatColumnState.open() && state.focusedPanel === "chat")) {
       renderer.setCursorPosition(0, 0, false)
     }
   })
@@ -533,6 +535,7 @@ export async function createApp(options: AppOptions = {}) {
     commitDiffs,
     blockFolds,
     fileFolds,
+    chatColumn: chatColumnState,
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -607,6 +610,7 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     diffOptions,
     fileContent,
+    chatColumn: chatColumnState,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -619,6 +623,7 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     diffOptions,
     fileContent,
+    chatColumn: chatColumnState,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
     filePanelWidth: () => fileTreePanel.getWidth(),
@@ -728,6 +733,7 @@ export async function createApp(options: AppOptions = {}) {
     visit,
     mentions,
     commentDrafts,
+    chatColumn: chatColumnState,
     getCommandKeys: () => paletteKeys,
     reactionTarget,
     updateFileTreePanel,
@@ -1454,7 +1460,7 @@ export async function createApp(options: AppOptions = {}) {
     threadMotionContext,
     marksContext,
     blame,
-    chat: { state: chat, input: chatColumn.input, atPicker: chatColumn.atPicker },
+    chat: { state: chat, column: chatColumnState, input: chatColumn.input, atPicker: chatColumn.atPicker },
     help,
     confirm,
     syncPreview,

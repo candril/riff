@@ -76,6 +76,16 @@ describe("creating a pull request", () => {
     expect(h.features.blockFolds.collapsed().size).toBe(0)
   })
 
+  test("closes the chat column the local review had open, and the PR opens with the keys outside it", async () => {
+    const h = creator({}, (s) => ({ ...s, focusedPanel: "chat" }))
+    h.features.chatColumn.show()
+
+    await h.create()
+
+    expect(h.features.chatColumn.open()).toBe(false)
+    expect(h.state().focusedPanel).not.toBe("chat")
+  })
+
   test("drops the local review's folded files and folds the PR's ignored ones", async () => {
     const h = creator({}, (s) => ({ ...s, ignoreMatcher: new IgnoreMatcher(["b.ts"]) }))
     h.features.fileFolds.collapse(["a.ts", "c.ts"])

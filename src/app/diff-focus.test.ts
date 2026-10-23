@@ -20,61 +20,61 @@ const blamePeek: OutsideOverlays = { ...none, blamePeek: true }
 const comments = (overrides: Partial<AppState["inlineCommentOverlay"]>, focusedPanel: AppState["focusedPanel"]) =>
   (s: AppState): AppState => ({ ...s, focusedPanel, inlineCommentOverlay: { ...s.inlineCommentOverlay, open: true, ...overrides } })
 
-/** What is open, given the state it starts from: AppState's part and the factories'. */
-type Scene = (s: AppState) => [AppState, OutsideOverlays]
-const inState = (change: (s: AppState) => AppState): Scene => (s) => [change(s), none]
+/** What is open, given the state it starts from: AppState's part, the overlays' factories' and whether the chat column is open. */
+type Scene = (s: AppState) => [AppState, OutsideOverlays, boolean]
+const inState = (change: (s: AppState) => AppState): Scene => (s) => [change(s), none, false]
 
 const hidden: [string, Scene][] = [
-  ["the peek over the diff", (s) => [s, linePeek]],
-  ["the blame peek over the diff", (s) => [s, blamePeek]],
+  ["the peek over the diff", (s) => [s, linePeek, false]],
+  ["the blame peek over the diff", (s) => [s, blamePeek, false]],
   ["the comments panel holding the keys", inState(comments({ mode: "view" }, "comments"))],
   ["a composer", inState(comments({ mode: "compose" }, "diff"))],
-  ["the chat holding the keys", inState((s) => ({ ...s, chatOpen: true, focusedPanel: "chat" }))],
+  ["the chat holding the keys", (s) => [{ ...s, focusedPanel: "chat" }, none, true]],
 ]
 
 describe("the diff's cursor", () => {
   test("shows with nothing open", () => {
-    expect(diffCursorShown(initial, none)).toBe(true)
+    expect(diffCursorShown(initial, none, false)).toBe(true)
   })
 
   test("hides while a prompt is open", () => {
-    expect(diffCursorShown(initial, prompt)).toBe(false)
+    expect(diffCursorShown(initial, prompt, false)).toBe(false)
   })
 
   test("hides under the help", () => {
-    expect(diffCursorShown(initial, help)).toBe(false)
+    expect(diffCursorShown(initial, help, false)).toBe(false)
   })
 
   test("hides under a confirmation", () => {
-    expect(diffCursorShown(initial, confirmation)).toBe(false)
+    expect(diffCursorShown(initial, confirmation, false)).toBe(false)
   })
 
   test("hides under the sync preview", () => {
-    expect(diffCursorShown(initial, syncPreview)).toBe(false)
+    expect(diffCursorShown(initial, syncPreview, false)).toBe(false)
   })
 
   test("hides under Submit Review", () => {
-    expect(diffCursorShown(initial, reviewPreview)).toBe(false)
+    expect(diffCursorShown(initial, reviewPreview, false)).toBe(false)
   })
 
   test("hides under the file picker", () => {
-    expect(diffCursorShown(initial, filePicker)).toBe(false)
+    expect(diffCursorShown(initial, filePicker, false)).toBe(false)
   })
 
   test("hides under the comments picker", () => {
-    expect(diffCursorShown(initial, commentsPicker)).toBe(false)
+    expect(diffCursorShown(initial, commentsPicker, false)).toBe(false)
   })
 
   test("hides under the occurrence picker", () => {
-    expect(diffCursorShown(initial, occurrencePicker)).toBe(false)
+    expect(diffCursorShown(initial, occurrencePicker, false)).toBe(false)
   })
 
   test("hides under the marks picker", () => {
-    expect(diffCursorShown(initial, marksPicker)).toBe(false)
+    expect(diffCursorShown(initial, marksPicker, false)).toBe(false)
   })
 
   test("hides under the commit picker, its query closed", () => {
-    expect(diffCursorShown(initial, commitPicker)).toBe(false)
+    expect(diffCursorShown(initial, commitPicker, false)).toBe(false)
   })
 
   for (const [name, open] of hidden) {
@@ -86,7 +86,8 @@ describe("the diff's cursor", () => {
   const shown: [string, Scene][] = [
     ["the file tree's focus", inState((s) => ({ ...s, focusedPanel: "tree" }))],
     ["the comments panel open beside a diff that keeps the keys", inState(comments({ mode: "view" }, "diff"))],
-    ["a peek left open behind the overview", (s) => [{ ...s, viewMode: "state" }, linePeek]],
+    ["a peek left open behind the overview", (s) => [{ ...s, viewMode: "state" }, linePeek, false]],
+    ["the chat open beside a diff that keeps the keys", (s) => [s, none, true]],
   ]
   for (const [name, change] of shown) {
     test(`stays with ${name}`, () => {
@@ -108,24 +109,28 @@ describe("the composer", () => {
 })
 
 describe("the chat's input", () => {
-  const chatting: AppState = { ...initial, chatOpen: true, focusedPanel: "chat" }
+  const chatting: AppState = { ...initial, focusedPanel: "chat" }
 
   test("has the keys while the chat is focused and nothing is drawn over it", () => {
-    expect(chatInputFocused(chatting, none)).toBe(true)
-    expect(chatInputFocused({ ...chatting, focusedPanel: "diff" }, none)).toBe(false)
+    expect(chatInputFocused(chatting, none, true)).toBe(true)
+    expect(chatInputFocused({ ...chatting, focusedPanel: "diff" }, none, true)).toBe(false)
+    expect(chatInputFocused(chatting, none, false)).toBe(false)
   })
 
   test("gives them up to a prompt or an overlay drawn over it", () => {
-    expect(chatInputFocused(chatting, prompt)).toBe(false)
-    expect(chatInputFocused(chatting, help)).toBe(false)
-    expect(chatInputFocused(chatting, confirmation)).toBe(false)
-    expect(chatInputFocused(chatting, syncPreview)).toBe(false)
-    expect(chatInputFocused(chatting, reviewPreview)).toBe(false)
-    expect(chatInputFocused(chatting, filePicker)).toBe(false)
-    expect(chatInputFocused(chatting, commentsPicker)).toBe(false)
-    expect(chatInputFocused(chatting, occurrencePicker)).toBe(false)
-    expect(chatInputFocused(chatting, marksPicker)).toBe(false)
-    expect(chatInputFocused(chatting, commitPicker)).toBe(false)
-    for (const [, open] of hidden.slice(0, 2)) expect(chatInputFocused(...open(chatting))).toBe(false)
+    expect(chatInputFocused(chatting, prompt, true)).toBe(false)
+    expect(chatInputFocused(chatting, help, true)).toBe(false)
+    expect(chatInputFocused(chatting, confirmation, true)).toBe(false)
+    expect(chatInputFocused(chatting, syncPreview, true)).toBe(false)
+    expect(chatInputFocused(chatting, reviewPreview, true)).toBe(false)
+    expect(chatInputFocused(chatting, filePicker, true)).toBe(false)
+    expect(chatInputFocused(chatting, commentsPicker, true)).toBe(false)
+    expect(chatInputFocused(chatting, occurrencePicker, true)).toBe(false)
+    expect(chatInputFocused(chatting, marksPicker, true)).toBe(false)
+    expect(chatInputFocused(chatting, commitPicker, true)).toBe(false)
+    for (const [, open] of hidden.slice(0, 2)) {
+      const [state, outside] = open(chatting)
+      expect(chatInputFocused(state, outside, true)).toBe(false)
+    }
   })
 })

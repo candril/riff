@@ -9,6 +9,7 @@ import { buildFileTree } from "../../utils/file-tree"
 import type { DiffFile } from "../../utils/diff-parser"
 import { DOC, X, Y } from "../../testing/marks"
 import { createBlockFoldsState } from "../folds/block-folds-state"
+import { createChatColumnState } from "../chat/column-state"
 import { reactionTargetOf } from "../reactions/target"
 
 const files: DiffFile[] = ["a.ts", "b.ts"].map((filename) => ({
@@ -248,6 +249,7 @@ describe("apply", () => {
     let state: AppState = { ...createInitialState(diff, buildFileTree(diff), "local", ""), ...patch }
     let vim = createCursorState()
     const blockFolds = createBlockFoldsState()
+    const chatColumn = createChatColumnState()
     const build = () =>
       new DiffLineMapping(state.files, state.selectedFileIndex === null ? "all" : "single", state.selectedFileIndex ?? undefined, {
         collapsedBlocks: blockFolds.collapsed(),
@@ -260,6 +262,7 @@ describe("apply", () => {
         state = update(state)
       },
       blockFolds,
+      chatColumn,
       getVimState: () => vim,
       setVimState: (next) => {
         vim = next
@@ -281,7 +284,7 @@ describe("apply", () => {
       },
     }
     const entry = (patch: Partial<Jump> = {}): Jump => ({ ...capture(state, vim, mapping, { split }), ...patch })
-    return { ctx, calls, entry, blockFolds, state: () => state, split: () => split, vim: () => vim, mapping: () => mapping }
+    return { ctx, calls, entry, blockFolds, chatColumn, state: () => state, split: () => split, vim: () => vim, mapping: () => mapping }
   }
 
   test("toggles split only when the entry's layout differs", () => {
@@ -299,9 +302,16 @@ describe("apply", () => {
     expect(h.state().focusedPanel).toBe("tree")
   })
 
+  test("gives focus back to the chat while its column is open", () => {
+    const h = applying([X, Y])
+    h.chatColumn.show()
+    apply(h.entry({ focusedPanel: "chat" }), h.ctx)
+    expect(h.state().focusedPanel).toBe("chat")
+  })
+
   test("focuses the diff when the panel it was taken in has closed", () => {
     for (const focusedPanel of ["tree", "comments", "chat"] as const) {
-      const h = applying([X, Y], { showFilePanel: false, chatOpen: false })
+      const h = applying([X, Y], { showFilePanel: false })
       apply(h.entry({ focusedPanel }), h.ctx)
       expect(h.state().focusedPanel).toBe("diff")
     }

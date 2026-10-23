@@ -84,6 +84,16 @@ describe("opening the branch's pull request", () => {
     expect(h.features.blockFolds.collapsed().size).toBe(0)
   })
 
+  test("closes the chat column the local review had open, and the PR opens with the keys outside it", async () => {
+    const h = opener({ state: (s) => ({ ...s, focusedPanel: "chat" }) })
+    h.features.chatColumn.show()
+
+    await h.open("state")
+
+    expect(h.features.chatColumn.open()).toBe(false)
+    expect(h.state().focusedPanel).not.toBe("chat")
+  })
+
   test("drops the local review's folded files and folds the PR's ignored and viewed ones", async () => {
     const h = opener({
       state: (s) => ({ ...s, ignoreMatcher: new IgnoreMatcher(["b.ts"]) }),

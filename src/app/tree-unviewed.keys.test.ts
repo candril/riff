@@ -71,6 +71,7 @@ function keysOn(mounted: NonNullable<typeof app>, saves: Partial<PanelFilters>[]
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,
     prCommentInput: mounted.prCommentInput,
+    chat: { state: mounted.chat, column: mounted.chatColumnState, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     prInfoFilter: mounted.prInfoFilter,
     getVimState: () => vimState,
     setVimState,

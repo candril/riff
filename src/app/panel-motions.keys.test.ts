@@ -84,6 +84,7 @@ function keysOn(mounted: NonNullable<typeof app>) {
     commitPicker: mounted.commitPicker,
     actionMenu: mounted.actionMenu,
     prCommentInput: mounted.prCommentInput,
+    chat: { state: mounted.chat, column: mounted.chatColumnState, input: mounted.chatColumn.input, atPicker: mounted.chatColumn.atPicker },
     prInfoFilter: mounted.prInfoFilter,
     linePeek: mounted.linePeek,
     blamePeek: mounted.blamePeek,

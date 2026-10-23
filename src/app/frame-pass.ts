@@ -46,6 +46,7 @@ import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import type { ChatColumnState } from "../features/chat/column-state"
 
 export interface FramePassContext {
   // Mutable state accessors
@@ -90,6 +91,7 @@ export interface FramePassContext {
   visit: Pick<VisitState, "watermark" | "markSeen">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
+  chatColumn: Pick<ChatColumnState, "open">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   /** What React… acts on: whatever has focus now (reactionTargetOf). */
@@ -139,6 +141,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
     const marks = ctx.marks.marks()
     const feed = ctx.activityFeed.snapshot()
     const visit = ctx.visit.watermark()
+    const chatOpen = ctx.chatColumn.open()
     const focused = diffCursorShown(state, {
       prompt: promptOpenIn(state, searchState, { filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, feed }),
       help: help.open,
@@ -153,7 +156,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       actionMenu: actionMenu !== null,
       linePeek: linePeek !== null,
       blamePeek: blamePeek !== null,
-    })
+    }, chatOpen)
 
     const prInfoPanel = ctx.getPrInfoPanel()
     const { slot, withTree } = viewSlotOf(state, { overview: prInfoPanel !== null })
@@ -188,6 +191,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       height: ctx.renderer.height,
       now,
       diff: diffPass.readout(splitOn, state.viewMode, vimState),
+      chatOpen,
       help,
       confirmDialog,
       syncPreview,

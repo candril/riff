@@ -24,6 +24,7 @@ import { openFoldHiding } from "../marks/fold-hiding"
 import type { Jump } from "./types"
 import { sameAnchor } from "./place"
 import type { BlockFoldsState } from "../folds/block-folds-state"
+import type { ChatColumnState } from "../chat/column-state"
 
 export type { Jump, JumpList } from "./types"
 export { sameLine, sameLocation } from "./place"
@@ -74,6 +75,7 @@ export interface JumpApplyContext {
   getState: () => AppState
   setState: (updater: (s: AppState) => AppState) => void
   blockFolds: Pick<BlockFoldsState, "toggle">
+  chatColumn: Pick<ChatColumnState, "open">
   getVimState: () => VimCursorState
   setVimState: (s: VimCursorState) => void
   getLineMapping: () => DiffLineMapping
@@ -152,7 +154,7 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
       next = { ...next, viewMode: s.viewMode, previousView: s.previousView }
     }
 
-    return { ...next, focusedPanel: focusable(next, jump.focusedPanel) }
+    return { ...next, focusedPanel: focusable(next, ctx.chatColumn.open(), jump.focusedPanel) }
   })
 
   ctx.rebuildLineMapping()
@@ -191,14 +193,14 @@ function applyFileAndCursor(jump: Jump, ctx: JumpApplyContext): void {
  * Ctrl-o returns to a place; it does not undo closing a panel, so focus
  * recorded in a panel that has since closed lands in the diff.
  */
-function focusable(state: AppState, panel: AppState["focusedPanel"]): AppState["focusedPanel"] {
+function focusable(state: AppState, chatOpen: boolean, panel: AppState["focusedPanel"]): AppState["focusedPanel"] {
   switch (panel) {
     case "tree":
       return state.showFilePanel ? panel : "diff"
     case "comments":
       return state.inlineCommentOverlay.open ? panel : "diff"
     case "chat":
-      return state.chatOpen ? panel : "diff"
+      return chatOpen ? panel : "diff"
     case "diff":
       return panel
   }
