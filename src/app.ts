@@ -7,13 +7,11 @@ import { commentsWithRows } from "./utils/notes"
 import { loadBranchPrReview } from "./features/branch-pr/review"
 import { fetchBehindBy, fetchStackInfo, getPrCheckAnnotations } from "./providers/github/lookups"
 import { getPendingReview } from "./providers/github/review"
-import { editPullRequest, createPullRequest, submitPrComment } from "./providers/github/mutations"
-import { loadPrSession } from "./providers/github/session"
+import { editPullRequest, submitPrComment } from "./providers/github/mutations"
 import { getPrDiff, fetchCommitDiff, fetchCommitRangeDiff } from "./providers/github/diff"
 import { getPrFileContent, getPrBaseFileContent, getFileContentAtRef, getCommitParentSha } from "./providers/github/content"
 import {
   expandFiles,
-  createInitialState,
   promptOpen,
   type AppState,
   setTreeFilter,
@@ -29,7 +27,7 @@ import { scopeSpan } from "./features/commit-scope/span"
 import { createTreeHighlightSync, followCursorInTree as followedInTree } from "./app/tree-highlight"
 import { type AppMode, type Comment } from "./types"
 import { openFileAsDiff, type FilesTarget } from "./providers/files"
-import { openPrEditor, openPrCreator, openPrCommentEditor } from "./utils/editor/spawn"
+import { openPrEditor, openPrCommentEditor } from "./utils/editor/spawn"
 import { setupFocusReporting } from "./utils/focus-reporting"
 import { loadConfig } from "./config"
 import { detectPreviews } from "./utils/previews"
@@ -40,9 +38,8 @@ import { getCurrentRepoRef } from "./providers/repo"
 import { createBlameSource } from "./providers/blame/source"
 import { demoBlameSource } from "./features/blame/demo-source"
 import type { BlameDeps } from "./features/blame/keys"
-import { saveVisitSync, saveMarks, loadMarks, loadPanelFilters, updatePanelFilters } from "./storage/caches"
+import { saveVisitSync, saveMarks, updatePanelFilters } from "./storage/caches"
 import { saveInfoSections } from "./storage/info-sections"
-import { followLoadedMarks } from "./features/marks/load"
 import { createHelpState } from "./features/help/state"
 import { createConfirmState } from "./features/confirm/state"
 import { createSyncPreviewState } from "./features/sync-preview/state"
@@ -65,8 +62,9 @@ import { loadFileContent as loadFileContentInto, type FetchFileVersions } from "
 import { expandDividerAtCursor } from "./features/file-content/expand-divider"
 import { createHighlightSourceReader } from "./features/file-content/highlight-source"
 import { loadPendingReview, type LoadPendingReviewContext } from "./features/review-preview/load-pending"
-import { closeFeatureOverlays, type AnotherReviewFeatures } from "./features/refresh/another-review"
+import type { AnotherReviewFeatures } from "./features/refresh/another-review"
 import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch-pr/open"
+import { handleCreatePr, liveCreatePrSources, type CreatePrContext } from "./features/branch-pr/create"
 import * as viewFilter from "./app/view-filter"
 import { createCommitPickerState } from "./features/commit-picker/state"
 import { createActionMenuState } from "./features/action-menu/state"
@@ -76,8 +74,6 @@ import { createBlameColumnsState } from "./features/blame/column-state"
 import { createMentionsState } from "./features/mentions/state"
 import { createCommentDraftsState } from "./features/inline-comment-overlay/drafts-state"
 import { createJumpListState } from "./features/jumplist/state"
-import { parseDiff, sortFiles } from "./utils/diff-parser"
-import { buildFileTree } from "./utils/file-tree"
 import type { ViewerViewedState } from "./providers/github/viewed"
 import type { PrInfo } from "./providers/github/types"
 
@@ -1117,6 +1113,27 @@ export async function createApp(options: AppOptions = {}) {
   }
 
   // ===== ACTION EXECUTION =====
+  const createPrContext: CreatePrContext = {
+    sources: liveCreatePrSources,
+    getState: () => state,
+    setState: (fn) => { state = fn(state) },
+    suspend: () => renderer.suspend(),
+    resume: () => renderer.resume(),
+    later: (fn, ms) => { setTimeout(fn, ms) },
+    setVimState: (s) => { vimState = s },
+    setSearchState: (s) => { searchState = s },
+    setHeadSha: (sha) => { currentHeadSha = sha },
+    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent) },
+    forgetBaseLookups: () => baseLookups.state.forget(),
+    render,
+    toast,
+    lastRefresh,
+    globalMarks,
+    activityFeed,
+    visit,
+    features: anotherReviewFeatures,
+  }
+
   const actionHandlers: actionMenuFeature.ActionHandlers = {
     handleToggleOpenThreadsOnly: toggleOpenThreadsOnly,
     handleToggleUnviewedFilesOnly: toggleUnviewedFiles,
@@ -1255,119 +1272,7 @@ export async function createApp(options: AppOptions = {}) {
         }, 3000)
       }
     },
-    handleCreatePr: async () => {
-      // Build file summary from current state
-      const fileSummary = state.files.map((f) => {
-        const prefix = f.status === "added" ? "A" : f.status === "deleted" ? "D" : f.status === "renamed" ? "R" : "M"
-        return `${prefix} ${f.filename}`
-      })
-
-      // Get the raw diff for context
-      let rawDiff = ""
-      for (const f of state.files) {
-        rawDiff += f.content + "\n"
-      }
-
-      let suspended = false
-      try {
-        // Suspend TUI and open editor
-        renderer.suspend()
-        suspended = true
-
-        const result = await openPrCreator({
-          diff: rawDiff,
-          fileSummary,
-          branchInfo: state.branchInfo,
-        })
-
-        renderer.resume()
-        suspended = false
-
-        if (!result) {
-          // User cancelled
-          render()
-          return
-        }
-
-        // Create PR on GitHub
-        toast.show("Creating PR...", "info")
-        render()
-
-        const { prNumber, url } = await createPullRequest(result.title, result.body, result.draft)
-
-        toast.show(`PR #${prNumber} created! Loading...`, "success")
-        render()
-
-        // Switch to PR mode: load the PR session and reinitialize state
-        const prSession = await loadPrSession(prNumber)
-
-        // Rebuild state as PR mode
-        const newFiles = sortFiles(parseDiff(prSession.diff))
-        const newFileTree = buildFileTree(newFiles)
-        const newSource = `gh:${prSession.prInfo.owner}/${prSession.prInfo.repo}#${prNumber}`
-        // Marks belong to the review: the PR's own, or the next `m` would save over them.
-        const followed = await followLoadedMarks(newSource, await loadMarks(newSource), newFiles, prSession.headSha || undefined)
-
-        state = createInitialState(
-          newFiles,
-          newFileTree,
-          newSource,
-          `#${prNumber}: ${prSession.prInfo.title}`,
-          null,
-          state.session,
-          prSession.comments,
-          "pr",
-          prSession.prInfo,
-          state.ignoreMatcher
-        )
-        lastRefresh.stamp()
-        toast.clear()
-        closeFeatureOverlays(anotherReviewFeatures)
-        globalMarks.reset(followed)
-        activityFeed.reset()
-        visit.reset()
-        // The new PR gets no panel here, so no rebuild forgets the lookups for it.
-        baseLookups.state.forget()
-
-        // Auto-collapse ignored files
-        if (state.ignoredFiles.size > 0) {
-          const newCollapsed = new Set(state.collapsedFiles)
-          for (const filename of state.ignoredFiles) {
-            newCollapsed.add(filename)
-          }
-          state = { ...state, collapsedFiles: newCollapsed }
-        }
-        const panelFilters = await loadPanelFilters(newSource)
-        state = {
-          ...state,
-          threadPanelOpenOnly: panelFilters.openThreadsOnly,
-          treeUnviewedOnly: panelFilters.unviewedFilesOnly,
-          treeKeptFile: null,
-        }
-
-        // Reset vim state and rebuild line mapping
-        vimState = createCursorState()
-        searchState = createSearchState()
-        currentHeadSha = prSession.headSha
-        lineMapping = buildLineMapping(state, diffOptions, fileContent)
-
-        toast.show(`PR #${prNumber} created: ${url}`, "success")
-        render()
-        setTimeout(() => {
-          toast.clear()
-          render()
-        }, 4000)
-      } catch (err) {
-        if (suspended) renderer.resume()
-        const msg = err instanceof Error ? err.message : "Unknown error"
-        toast.show(`Error: ${msg}`, "error")
-        render()
-        setTimeout(() => {
-          toast.clear()
-          render()
-        }, 3000)
-      }
-    },
+    handleCreatePr: () => handleCreatePr(createPrContext),
     handleAddPrComment: async () => {
       const { prInfo } = state
       if (!prInfo) return

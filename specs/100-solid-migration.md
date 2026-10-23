@@ -321,8 +321,9 @@ what has focus when they are asked (the thread panel's highlighted comment
 or the PR overview's cursor), as `filterTarget` picks what Ctrl-f narrows.
 A switch to another review closes what the last one left in the factories
 through `closeFeatureOverlays` in `src/features/refresh/another-review.ts`.
-Opening the branch's PR (`src/features/branch-pr/open.ts`) lives outside
-`app.ts` and reads its I/O from sources a test can stub.
+Opening the branch's PR (`src/features/branch-pr/open.ts`) and creating
+one (`src/features/branch-pr/create.ts`) live outside `app.ts` and read
+their I/O from sources a test can stub.
 
 The command palette reads the keymap's command entries: an action names
 the command that runs it, and its hint is that command's `keys` field
