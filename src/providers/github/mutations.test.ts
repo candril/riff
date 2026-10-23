@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mergeCommand, readyCommand } from "./mutations"
+import { mergeCommand, readyCommand, updateBranchCommand } from "./mutations"
 
 describe("gh pr ready's arguments", () => {
   test("marking ready carries no --undo", () => {
@@ -22,5 +22,15 @@ describe("gh pr merge's arguments", () => {
     expect(mergeCommand("owner", "repo", 12, { method: "squash", deleteBranch: true, admin: true })).toEqual([
       ...base, "--squash", "--delete-branch", "--admin",
     ])
+  })
+})
+
+describe("gh pr update-branch's arguments", () => {
+  test("a merge from the base carries no flag", () => {
+    expect(updateBranchCommand("owner", "repo", 12, "merge")).toEqual(["gh", "pr", "update-branch", "12", "-R", "owner/repo"])
+  })
+
+  test("a rebase onto the base carries --rebase", () => {
+    expect(updateBranchCommand("owner", "repo", 12, "rebase")).toEqual(["gh", "pr", "update-branch", "12", "-R", "owner/repo", "--rebase"])
   })
 })

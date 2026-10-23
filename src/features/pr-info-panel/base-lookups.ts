@@ -68,6 +68,11 @@ export function createBaseLookups(deps: BaseLookupsDeps) {
 
   return {
     state,
+    /** For a count riff knows without asking, as after it updated the branch itself. */
+    settleBehindBy(next: BehindBy): void {
+      state.settle(next)
+      deps.panel()?.setBehindBy(next)
+    },
     /**
      * Seeds a panel — the first or a replacement — from what was last heard,
      * so a rebuild never draws the lookups as not yet asked; `reread` forgets

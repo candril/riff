@@ -210,6 +210,17 @@ export function mergePullRequest(owner: string, repo: string, prNumber: number, 
   return runGh(mergeCommand(owner, repo, prNumber, options))
 }
 
+export type UpdateMethod = "merge" | "rebase"
+
+export function updateBranchCommand(owner: string, repo: string, prNumber: number, method: UpdateMethod): string[] {
+  return ["gh", "pr", "update-branch", String(prNumber), "-R", `${owner}/${repo}`, ...(method === "rebase" ? ["--rebase"] : [])]
+}
+
+/** gh sends GraphQL's updatePullRequestBranch itself, so no node id is needed here. */
+export function updatePullRequestBranch(owner: string, repo: string, prNumber: number, method: UpdateMethod): Promise<ReadyResult> {
+  return runGh(updateBranchCommand(owner, repo, prNumber, method))
+}
+
 interface CreatePrResult {
   prNumber: number
   url: string

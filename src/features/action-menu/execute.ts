@@ -57,6 +57,8 @@ export interface ActionHandlers {
   handleToggleReady: () => void
   /** Asks first, then merges with the method the action names (spec 110). */
   handleMerge: (method: MergeMethod) => void
+  /** Asks first, then brings the PR's branch up to date with its base (spec 110). */
+  handleUpdateBranch: () => void
   /** Reopen riff on the PR this branch already has (spec 079). */
   handleReviewBranchPr: (prNumber: number) => void
   handleCreatePr: () => Promise<void>
@@ -234,6 +236,10 @@ export async function executeAction(
       if (merge) handlers.handleMerge(merge.method)
       break
     }
+
+    case "update-branch":
+      handlers.handleUpdateBranch()
+      break
 
     case "open-in-browser":
       if (state.prInfo) {

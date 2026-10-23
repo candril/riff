@@ -46,6 +46,17 @@ test("the palette offers one merge per method the repository allows, whatever Gi
   expect(merges(pr({}))).toEqual([])
 })
 
+test("the palette offers Update Branch on an open PR whatever its merge state, and nowhere else", () => {
+  const offersUpdate = (state: AppState) =>
+    getAvailableActions(state, undefined, { reactionTarget: null }).some((a) => a.id === "update-branch")
+  const pr = (extra: Parameters<typeof prInfo>[1]) => ({ ...local, appMode: "pr" as const, prInfo: prInfo("", extra) })
+  expect(offersUpdate(pr({ mergeStateStatus: "BEHIND" }))).toBe(true)
+  expect(offersUpdate(pr({ mergeStateStatus: "CLEAN" }))).toBe(true)
+  expect(offersUpdate(pr({ state: "merged" }))).toBe(false)
+  expect(offersUpdate(pr({ state: "closed" }))).toBe(false)
+  expect(offersUpdate({ ...local, prInfo: prInfo("") })).toBe(false)
+})
+
 test("no merge is offered on a merged or closed PR, or outside a PR", () => {
   const all = (extra: Parameters<typeof prInfo>[1] = {}) => prInfo("", { mergeMethods: ["squash", "merge", "rebase"], ...extra })
   expect(merges({ ...local, appMode: "pr", prInfo: all({ state: "merged" }) })).toEqual([])

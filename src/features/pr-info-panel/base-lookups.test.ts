@@ -153,6 +153,16 @@ describe("the base lookups", () => {
     expect(h.renders).toBe(0)
   })
 
+  test("a settled count stands against an answer that lands after it", async () => {
+    const h = harness()
+    const panel = h.rebuild(true)
+    h.lookups.settleBehindBy(0)
+    h.answerBehindBy(0, 5)
+    await settle()
+    expect(h.state.behindBy()).toBe(0)
+    expect(panel.behindCalls()).toEqual([null, 0])
+  })
+
   test("drops an answer whose head moved while it was out", async () => {
     const h = harness()
     const panel = h.rebuild(true)

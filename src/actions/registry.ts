@@ -489,6 +489,14 @@ export const actions: Action[] = [
       state.appMode === "pr" && state.prInfo?.state === "open" && (state.prInfo.mergeMethods?.includes(method) ?? false),
   })),
   {
+    id: "update-branch",
+    label: "Update Branch",
+    description: "Bring the PR's branch up to date with its base, after asking (gh pr update-branch)",
+    category: "github",
+    // Whether the head is behind is left to the handler, which can say why not.
+    available: (state) => state.appMode === "pr" && state.prInfo?.state === "open",
+  },
+  {
     id: "open-in-browser",
     label: "Open in Browser",
     description: "Open PR in web browser",

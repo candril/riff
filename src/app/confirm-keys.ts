@@ -7,7 +7,7 @@ export interface ConfirmKeyDeps {
 }
 
 /** A dialog's second answer may sit on any of these; one binding each keeps the layer static. */
-const ALTERNATIVE_KEYS = ["d"] as const
+const ALTERNATIVE_KEYS = ["d", "r"] as const
 
 /**
  * A question waiting for an answer outranks every panel, and `y`/`n` mean

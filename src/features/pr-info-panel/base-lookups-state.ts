@@ -51,6 +51,11 @@ export function createBaseLookupsState() {
       })
       return true
     },
+    /** Sets what riff knows without asking, dropping any answer still out. */
+    settle(next: BehindBy): void {
+      behindByAsks++
+      setBehindBy(next)
+    },
     answerBehindBy(ticket: number, next: BehindBy): boolean {
       if (ticket !== behindByAsks) return false
       setBehindBy(next)

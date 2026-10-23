@@ -2,10 +2,9 @@
 
 **Status**: In Progress
 
-**Not built**: updating the branch, auto-merge and the merge queue, the
-keys in the merge status section, the panel's refresh after anything but
-ready, draft and merge, and the merge status's re-poll after a merge or an
-update.
+**Not built**: auto-merge and the merge queue, the keys in the merge
+status section, the panel's refresh after anything but ready, draft, merge
+and update, and the merge status's re-poll after a merge or an update.
 
 ## Description
 
@@ -39,8 +38,9 @@ what riff did without a full reload.
   The palette offers one action per allowed method (`Squash and Merge`,
   `Create a Merge Commit`, `Rebase and Merge`); the default method applies
   to the merge status section's key, which comes later.
-- **Update branch** from the base, by merge or rebase as GitHub offers,
-  through GraphQL `updatePullRequestBranch`.
+- **Update branch** from the base through `gh pr update-branch`, which
+  sends GraphQL `updatePullRequestBranch`: `y` merges the base into the
+  head, `r` rebases the head onto the base with `--rebase`.
 - **Auto-merge**: enabled with a method or disabled, through
   `enablePullRequestAutoMerge` and `disablePullRequestAutoMerge`. When the
   base has a merge queue, the same action adds the PR to the queue or
@@ -117,6 +117,20 @@ run sends a real merge, ready or update.
   `onConfirm`). The merge dialog offers `d`, merge and delete the branch,
   with its own command under the main one, unless the repository deletes
   the branch itself; `y` then never passes `--delete-branch` and the
-  message says so. Only `d` is bound as a second answer.
+  message says so.
+- `src/features/pr-operations/update-branch.ts`: `handleUpdateBranch(ctx)`
+  refuses with an info toast, in order, a PR that is not open, a head
+  known to be up to date (`behindBy` 0 and no `BEHIND`), and a head not
+  yet known to be behind (`behindBy` unknown or failed and no `BEHIND`).
+  It then asks, with the merge command as details and `r`, the rebase,
+  as the alternative. Nothing is patched before gh answers. On success it
+  calls `settleBehindBy(0)`, which sets the base lookups' count and drops
+  an answer still out, so the base line reads up to date at once, then
+  refetches with `fetchPrInfo`; every write is guarded to the PR it
+  started on. It neither reloads the diff nor moves the head riff shows.
+- `updateBranchCommand(owner, repo, N, method)` builds
+  `gh pr update-branch N -R owner/repo [--rebase]`;
+  `updatePullRequestBranch` runs exactly that argv. The dialog binds `d`
+  and `r` as second answers, each acting only when the dialog offers it.
 - The panel takes the new `PrInfo` through `PRInfoPanel.setPrInfo`, which
   keeps its folds and cursor, the way a reaction reaches it.
