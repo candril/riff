@@ -136,7 +136,7 @@ import * as commentsFeature from "./features/comments"
 import * as externalTools from "./features/external-tools"
 import { getTreeMultiSelectionFilenames } from "./features/file-tree/multi-selection"
 import * as permalink from "./features/permalink"
-import { boardLocation, openPrInBoard } from "./features/riff-board"
+import { BOARD_SCHEMES, boardLocation, openPrInBoard } from "./features/riff-board"
 import { startMentionPrefetch } from "./features/mentions"
 import { startReferencePrefetch } from "./features/references"
 import * as yank from "./features/yank"
@@ -1197,7 +1197,7 @@ export async function createApp(options: AppOptions = {}) {
         setState: (fn) => { state = fn(state) },
         toast,
         render,
-        openUrl,
+        openUrl: (url) => openUrl(url, BOARD_SCHEMES),
         boardUrl: loadConfig().board.url,
         location: () => boardLocation(state, permalink.diffTargetAt(permalinkContext)),
       }),

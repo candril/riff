@@ -32,6 +32,11 @@ test("the board URL is the base, then /pr/owner/repo/number", () => {
   expect(boardPrUrl("http://localhost:4477", PR)).toBe("http://localhost:4477/pr/owner/repo/42")
 })
 
+test("the app's link scheme takes the same path, with or without its slashes", () => {
+  expect(boardPrUrl("riff-board:", PR)).toBe("riff-board:/pr/owner/repo/42")
+  expect(boardPrUrl("riff-board://", PR)).toBe("riff-board:/pr/owner/repo/42")
+})
+
 test("a trailing slash on the base does not double up", () => {
   expect(boardPrUrl("http://localhost:4477/", PR)).toBe("http://localhost:4477/pr/owner/repo/42")
 })

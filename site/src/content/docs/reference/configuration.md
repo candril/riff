@@ -191,7 +191,7 @@ url = "http://localhost:4477"
 
 | Key | Default | What |
 | --- | --- | --- |
-| `url` | `"http://localhost:4477"` | Where riff board listens. `gB` opens `<url>/pr/<owner>/<repo>/<number>` for the current PR in the browser. riff board is a separate app you run yourself; riff never starts or probes it, so when it is down the browser shows the connection error. |
+| `url` | `"http://localhost:4477"` | Where riff board listens. `gB` opens `<url>/pr/<owner>/<repo>/<number>` for the current PR in the browser. riff board is a separate app you run yourself; riff never starts or probes it, so when it is down the browser shows the connection error. `"riff-board:"` opens the riff board app instead, which starts if it is not running. |
 
 ## Environment
 

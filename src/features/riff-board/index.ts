@@ -8,6 +8,12 @@ import type { DiffTarget } from "../permalink"
 import type { ToastType } from "../../components/notification-model"
 import type { ToastState } from "../toast/state"
 
+/**
+ * `board.url` is the user's own config, not remote input, so besides the web
+ * it may name the riff board app's link scheme.
+ */
+export const BOARD_SCHEMES = ["http:", "https:", "riff-board:"]
+
 export interface BoardPr {
   owner: string
   repo: string
