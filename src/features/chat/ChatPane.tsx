@@ -9,7 +9,7 @@ import type { ChatState } from "./state"
 import { statusLineText } from "./status-line"
 
 export const CHAT_HINT =
-  "Ask about this review. Enter sends, Ctrl-j breaks the line, Esc stops an answer, Ctrl-n twice starts over."
+  "Ask about this review. Enter sends, Ctrl-j breaks the line, Ctrl-g opens $EDITOR, Esc stops an answer, Ctrl-n twice starts over."
 const PLACEHOLDER = "Ask about this review"
 
 // The input starts one line high and grows with what is typed, up to six lines, then scrolls.

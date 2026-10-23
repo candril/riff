@@ -17,6 +17,7 @@ import { registerThreadPanelKeys } from "../features/inline-comment-overlay/view
 import { registerPrInfoPanelKeys } from "../features/pr-info-panel/keys"
 import { registerFeedKeys } from "../features/feed/keys"
 import { composerKeyDeps } from "./composer-key-deps"
+import { openQuestionInEditor } from "./chat-editor"
 import { threadPanelKeyDeps } from "./thread-panel-key-deps"
 import { prInfoPanelKeyDeps } from "./pr-info-panel-key-deps"
 import { feedKeyDeps } from "./feed-key-deps"
@@ -138,6 +139,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     prInfoFilter: ctx.prInfoFilter,
     prCommentInput: ctx.prCommentInput,
     chat: ctx.chat,
+    openQuestionInEditor: openQuestionInEditor(ctx),
   })
   registerHelpKeys(riffKeymap, {
     help: ctx.help,

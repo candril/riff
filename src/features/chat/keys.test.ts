@@ -1,9 +1,11 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, expect, mock, spyOn, test } from "bun:test"
 import { createMockKeys } from "@opentui/core/testing"
 import { mountApp } from "../../testing/app-render"
 import { ctrl, escape, keysOn, openChat } from "../../testing/chat-keys"
 import { openInlineCommentOverlay } from "../../state"
 import { NEW_CONVERSATION_PROMPT } from "./state"
+import * as spawn from "../../utils/editor/spawn"
+import type { ExternalToolsContext } from "../external-tools"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -20,6 +22,7 @@ type App = Awaited<ReturnType<typeof mountApp>>
 
 let app: App | null = null
 afterEach(async () => {
+  mock.restore()
   await app?.dispose()
   app = null
 })
@@ -80,7 +83,7 @@ test("Ctrl-r cancels a chord the chain holds", async () => {
   await app.frame()
 })
 
-test("Enter sends the trimmed text and clears the input; shift-Enter does not send", async () => {
+test("Enter sends the trimmed text and clears the input; shift-Enter breaks the line rather than sending", async () => {
   const app = await mounted()
   keysOn(app)
   openChat(app)
@@ -89,7 +92,7 @@ test("Enter sends the trimmed text and clears the input; shift-Enter does not se
   expect([app.agent.asked, input.plainText]).toEqual([[], ""])
   await app.setup.mockInput.typeText("  what does this do? ")
   kitty(app).pressEnter({ shift: true })
-  expect(app.agent.asked).toEqual([])
+  expect([app.agent.asked, input.plainText]).toEqual([[], "  what does this do? \n"])
   app.setup.mockInput.pressEnter()
   expect(app.agent.asked).toEqual(["what does this do?"])
   expect(input.plainText).toBe("")
@@ -115,6 +118,55 @@ test("Ctrl-j breaks the line rather than sending", async () => {
   ctrl(app, "j")
   expect(app.chatColumn.input()!.plainText).toBe("one\ntwo\n")
   expect(app.agent.asked).toEqual([])
+})
+
+/** The chat's keys with $EDITOR stubbed to answer `saved`, and riff's screen handover recorded. */
+function editorAnswering(app: App, saved: string | null) {
+  const editor = spyOn(spawn, "openTextInEditor").mockResolvedValue(saved)
+  const handover: string[] = []
+  keysOn(app, {
+    externalToolsContext: {
+      suspendRenderer: () => void handover.push("suspend"),
+      resumeRenderer: () => void handover.push("resume"),
+    } as unknown as ExternalToolsContext,
+  })
+  return { editor, handover }
+}
+
+test("Ctrl-g hands the question to $EDITOR and puts what was saved in the input, without sending", async () => {
+  const app = await mounted()
+  const saved = "why\nis this async?"
+  const { editor, handover } = editorAnswering(app, saved)
+  openChat(app)
+  await app.setup.mockInput.typeText("why")
+  ctrl(app, "g")
+  await Bun.sleep(0)
+  const input = app.chatColumn.input()!
+  expect(editor.mock.calls).toEqual([["why"]])
+  expect(handover).toEqual(["suspend", "resume"])
+  expect([input.plainText, input.cursorOffset, app.agent.asked]).toEqual([saved, saved.length, []])
+})
+
+test("Ctrl-g quit without saving leaves the question as it was", async () => {
+  const app = await mounted()
+  editorAnswering(app, null)
+  openChat(app)
+  await app.setup.mockInput.typeText("why")
+  ctrl(app, "g")
+  await Bun.sleep(0)
+  expect([app.chatColumn.input()!.plainText, app.agent.asked]).toEqual(["why", []])
+})
+
+test("Ctrl-g declines a pending start-over", async () => {
+  const app = await mounted()
+  editorAnswering(app, null)
+  openChat(app)
+  await app.setup.mockInput.typeText("q")
+  app.setup.mockInput.pressEnter()
+  app.agent.answer("a")
+  ctrl(app, "n")
+  ctrl(app, "g")
+  expect(app.chat.clearPrompt()).toBeNull()
 })
 
 test("Esc stops an answer while one runs, and otherwise hands the keys back to the diff", async () => {

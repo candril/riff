@@ -114,6 +114,25 @@ for (const width of [50, 36]) {
       expect(frame).toContain("8")
       expect(frame).not.toMatch(/^\s*1$/m)
     })
+
+    test("past six typed lines the input scrolls, so the last line and the cursor stay on screen", async () => {
+      const { setup, island } = await mountColumn(width)
+      await draw(setup)
+      const input = island.input()!
+      for (let line = 1; line <= 8; line++) {
+        if (line > 1) input.newLine()
+        await setup.mockInput.typeText(`line ${line}`)
+      }
+      const frame = await draw(setup)
+      const rows = frame.split("\n")
+      const last = rows.findIndex((row) => row.includes("line 8"))
+      expect(input.height).toBe(6)
+      expect(last).toBeGreaterThan(-1)
+      expect(frame).not.toContain("line 2")
+      const cursor = setup.renderer.getCursorState()
+      // The renderer's cursor is 1-based.
+      expect([cursor.visible, cursor.y - 1, cursor.x - 1]).toEqual([true, last, rows[last]!.indexOf("line 8") + "line 8".length])
+    })
   })
 }
 

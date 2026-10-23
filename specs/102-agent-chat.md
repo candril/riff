@@ -52,8 +52,12 @@ like any comment the reviewer typed.
 - **Focus moves with the existing walk** (`Ctrl-l` / `Ctrl-h`: tree →
   diff → threads → chat). The input's shading shows that the chat has
   focus, so letters typed there never run diff commands.
-- **The input** grows from one to six lines. `Enter` sends, or queues the
-  question while an answer is still coming; `Ctrl-j` inserts a line break;
+- **The input** grows from one to six lines, then scrolls so the line
+  with the cursor stays in view. `Enter` sends, or queues the question
+  while an answer is still coming; `Ctrl-j`, and `Shift-Enter` where the
+  terminal reports it, inserts a line break; `Ctrl-g` opens the question
+  in `$EDITOR`, as the comment composer's `Ctrl-g` does, and what is saved
+  comes back into the input (quitting without saving keeps the text);
   `Esc` interrupts an answer; a new conversation needs the key pressed
   twice.
 - **Answers stream in** from the bottom of the column, rendered as

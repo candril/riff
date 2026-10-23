@@ -37,6 +37,8 @@ export interface ChatKeyDeps extends ChatReachInputs {
   getVimState: () => VimCursorState
   getSearchState: () => SearchState
   chat: { state: ChatState; column: ChatColumnState; input: () => TextareaRenderable | null; atPicker: ChatAtPicker }
+  /** The question as saved in $EDITOR, or null when the editor was quit without saving. */
+  openQuestionInEditor: (current: string) => Promise<string | null>
 }
 
 const isNewConversation = (key: KeyEvent) => key.ctrl && key.name === "n"
@@ -95,6 +97,15 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
     },
   })
   const inputText = () => chat.input()?.plainText ?? ""
+  const editQuestionInEditor = async () => {
+    const edited = await deps.openQuestionInEditor(inputText())
+    const input = chat.input()
+    if (edited !== null && input) {
+      input.setText(edited)
+      input.gotoBufferEnd()
+    }
+    deps.render()
+  }
 
   const unregisterFocused = riffKeymap.keymap.registerLayer({
     enabled: () => captured.holds(),
@@ -107,6 +118,7 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
         }
       }),
       command("newLine", "Break the line", () => chat.input()?.newLine()),
+      command("editor", "Edit the question in $EDITOR", () => void editQuestionInEditor()),
       command("escape", "Stop the answer, or back to the diff", () => {
         if (chat.state.status() === "answering") chat.state.interrupt()
         else move((s) => ({ ...s, focusedPanel: "diff" }))
@@ -132,6 +144,10 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
       // Ctrl-j is a line feed on the wire; the kitty protocol reports it as itself.
       ...anyModifiers("linefeed", "chat.newLine"),
       ...anyModifiers("ctrl+j", "chat.newLine"),
+      // Only a terminal that reports modifiers on Enter (kitty) tells Shift-Enter apart; the textarea alone ignores it.
+      ...anyModifiers("shift+return", "chat.newLine"),
+      ...anyModifiers("shift+enter", "chat.newLine"),
+      ...anyModifiers("ctrl+g", "chat.editor"),
       ...anyModifiers("escape", "chat.escape"),
       ...anyModifiers("ctrl+n", "chat.newConversation"),
       ...anyModifiers("ctrl+l", "chat.right"),
