@@ -198,7 +198,7 @@ export function globalKeyCommands(deps: GlobalLayerKeyDeps): Record<string, Glob
         // Terminals deliver bare Ctrl-h as backspace, so this key is both
         // things at once — and walking back to the tree has to come first,
         // or returning to look at what the filter left would drop it.
-        if (state.mode === "normal" && focusLeft(state) !== state) {
+        if (focusLeft(state) !== state) {
           show(focusLeft)
           return
         }

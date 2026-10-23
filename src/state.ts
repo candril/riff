@@ -18,11 +18,6 @@ import type { PrInfoFilterState } from "./features/pr-info-panel/filter-state"
 import type { CommitDiff } from "./features/commit-scope/diffs-state"
 
 /**
- * UI mode for the app
- */
-export type UIMode = "normal" | "comment-input" | "comments-list"
-
-/**
  * Which of the three surfaces is on screen (spec 064): the PR's state, the
  * feed of what happened to it, or the diff. State and feed describe a pull
  * request, so only the diff exists in local mode.
@@ -134,7 +129,6 @@ export interface AppState {
   showFilePanel: boolean
   filePanelExpanded: boolean  // When true, file panel takes full width
   focusedPanel: "tree" | "diff" | "comments" | "chat"
-  mode: UIMode
 
   // Comment state - comments stored separately from session
   session: ReviewSession | null
@@ -222,7 +216,6 @@ export function createInitialState(
     showFilePanel: appMode === "pr" ? false : files.length > 1,
     filePanelExpanded: false,
     focusedPanel: "diff",
-    mode: "normal",
     session,
     comments,
     source,
@@ -577,7 +570,6 @@ export function updateFileTree(state: AppState, fileTree: FileTreeNode[]): AppSt
 export function addComment(state: AppState, comment: Comment): AppState {
   return {
     ...state,
-    mode: "normal",
     comments: [...state.comments, comment],
   }
 }
