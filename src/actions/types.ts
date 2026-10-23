@@ -38,7 +38,9 @@ export interface Action {
   /** Category for grouping */
   category?: ActionCategory
   /** Check if action is available in current state.
-   *  `vimState` is optional — most actions only need AppState. */
+   *  `vimState` is optional — most actions only need AppState. `focus` is
+   *  what has focus when the palette asks, which React… and Copy Comment
+   *  Link read. */
   available: (state: AppState, vimState?: VimCursorState, focus?: ActionFocus) => boolean
 }
 

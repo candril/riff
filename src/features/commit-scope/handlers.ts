@@ -30,7 +30,6 @@ export async function handleCommitSelected(
 ) {
   const { toast, render } = ctx
   if (sha === null) {
-    // Switch back to all commits
     ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, null))
     ctx.setState((state) => ({ ...state, fileTree: buildFileTree(state.files) }))
     ctx.resetCursor()
@@ -65,7 +64,6 @@ export async function handleCommitSelected(
     }
   }
 
-  // Switch to the commit's diff
   ctx.setState((state) => scopeToCommit(state, ctx.commitDiffs, ctx.fileContent, sha, shas))
   ctx.resetCursor()
   ctx.rebuildLineMapping()
@@ -77,7 +75,6 @@ export async function handleCommitSelected(
   const fileIndex = filename ? state.files.findIndex((file) => file.filename === filename) : -1
   if (fileIndex !== -1) ctx.revealFileAtTop(fileIndex)
 
-  // Show toast with commit info
   const commit = state.commits.find(c => c.sha === sha)
   const commitIdx = state.commits.findIndex(c => c.sha === sha) + 1
   const run = contiguousRun(state.commits, shas)
