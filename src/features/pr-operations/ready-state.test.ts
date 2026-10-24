@@ -104,7 +104,17 @@ describe("marking a pull request ready or back to draft", () => {
     await settle()
     expect(h.state().prInfo?.isDraft).toBe(false)
     expect(h.toast.current()).toMatchObject({ message: "Error: Pull request is in clean status", type: "error" })
-    expect(h.refetched).toEqual([])
+  })
+
+  test("a refusal still asks GitHub what the PR now is, and shows its answer", async () => {
+    const h = harness(prInfo("", { isDraft: false }), {
+      markPullRequestDraft: async () => ({ success: false, error: "nope" }),
+    })
+    h.toggle()
+    h.confirm.dialog()!.onConfirm()
+    await settle()
+    expect(h.refetched).toEqual(["owner/repo#1259"])
+    expect(h.state().prInfo).toMatchObject({ title: "Fresh from GitHub", isDraft: false })
   })
 
   test("success refetches the PR's info and patches it in", async () => {
@@ -233,5 +243,40 @@ describe("toggling again before the first toggle has settled", () => {
     await settle()
     expect(h.state().prInfo?.isDraft).toBe(false)
     expect(h.toast.current()).toMatchObject({ message: "Error: nope", type: "error" })
+    expect(h.fetches).toEqual([])
+  })
+
+  test("both toggles refused: GitHub's answer replaces the newer toggle's revert", async () => {
+    const pr = prInfo("", { isDraft: false })
+    const h = overlapping(pr)
+    h.confirmToggle()
+    h.confirmToggle()
+    expect(h.marks.map((m) => m.kind)).toEqual(["draft", "ready"])
+
+    h.marks[1]!.answer({ success: false, error: "second refused" })
+    await settle()
+    expect(h.fetches).toHaveLength(0)
+    h.marks[0]!.answer({ success: false, error: "first refused" })
+    await settle()
+    expect(h.fetches).toHaveLength(1)
+    h.fetches[0]!.answer({ ...pr, isDraft: false })
+    await settle()
+    expect(h.state().prInfo?.isDraft).toBe(false)
+  })
+
+  test("the newer toggle refused and the older one landing late: GitHub's answer shows", async () => {
+    const pr = prInfo("", { isDraft: false })
+    const h = overlapping(pr)
+    h.confirmToggle()
+    h.confirmToggle()
+
+    h.marks[1]!.answer({ success: false, error: "second refused" })
+    await settle()
+    h.marks[0]!.answer({ success: true })
+    await settle()
+    expect(h.fetches).toHaveLength(1)
+    h.fetches[0]!.answer({ ...pr, isDraft: true, title: "Draft after all" })
+    await settle()
+    expect(h.state().prInfo).toMatchObject({ isDraft: true, title: "Draft after all" })
   })
 })

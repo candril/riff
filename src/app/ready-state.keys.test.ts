@@ -34,10 +34,10 @@ afterEach(async () => {
   setSystemTime()
 })
 
-async function onDraftPr() {
+async function onDraftPr(isDraft = true) {
   app = await mountApp(DIFF, { width: 120, height: 40 })
   const mounted = app
-  const info = { ...fullPr(), isDraft: true }
+  const info = { ...fullPr(), isDraft }
   const shown = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [], new Set(["checks", "description"]))
   panel = shown
   mounted.setPrInfoPanel(shown)
@@ -97,4 +97,42 @@ test("the dialog shows owner/repo#N and the command, and once y confirms the hea
   expect(after.split("\n")[0]).toStartWith(" Open #1259")
   expect(after).toMatch(/Blockers\s+none/)
   expect(after).toContain("PR marked ready for review")
+})
+
+test("two toggles GitHub both refuses leave the header on GitHub's answer, not the newer toggle's revert", async () => {
+  const { mounted, shown } = await onDraftPr(false)
+  const marks: ((r: { success: false; error: string }) => void)[] = []
+  const pending = () => new Promise<{ success: false; error: string }>((r) => { marks.push(r) })
+  const sources: ReadyStateSources = {
+    markPullRequestReady: pending,
+    markPullRequestDraft: pending,
+    fetchPrInfo: async () => ({ ...fullPr(), isDraft: false }),
+  }
+  const ctx = {
+    sources,
+    getState: mounted.ctx.getState,
+    setState: mounted.ctx.setState,
+    confirm: mounted.confirm,
+    toast: mounted.toast,
+    render: () => {
+      const info = mounted.ctx.getState().prInfo
+      if (info) shown.setPrInfo(info)
+      mounted.render()
+    },
+    later: () => {},
+    sends: createReadySends(),
+  }
+  expect((await mounted.frame()).split("\n")[0]).toStartWith(" Open #1259")
+  handleToggleReady(ctx)
+  mounted.confirm.dialog()!.onConfirm()
+  handleToggleReady(ctx)
+  mounted.confirm.dialog()!.onConfirm()
+
+  marks[1]!({ success: false, error: "second refused" })
+  await Bun.sleep(10)
+  expect((await mounted.frame()).split("\n")[0]).toStartWith(" Draft #1259")
+
+  marks[0]!({ success: false, error: "first refused" })
+  await Bun.sleep(10)
+  expect((await mounted.frame()).split("\n")[0]).toStartWith(" Open #1259")
 })

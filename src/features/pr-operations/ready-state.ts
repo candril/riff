@@ -24,11 +24,22 @@ export const liveReadyStateSources: ReadyStateSources = {
 
 export type ReadySends = ReturnType<typeof createReadySends>
 
-/** Numbers each send, so a slow one can tell a newer toggle has overtaken it. */
+/**
+ * Numbers each send and counts the ones gh has not answered. Only the last
+ * to be answered refetches: with an older send still out, GitHub's answer
+ * could be overtaken by that send landing after it.
+ */
 export function createReadySends() {
   let latest = 0
+  let inFlight = 0
   return {
-    next: () => ++latest,
+    begin: () => {
+      inFlight++
+      return ++latest
+    },
+    /** True once no send is left in flight. */
+    settle: () => --inFlight === 0,
+    current: () => latest,
     isLatest: (send: number) => send === latest,
   }
 }
@@ -65,25 +76,27 @@ export function handleToggleReady(ctx: ReadyStateContext): void {
 
 async function sendReady(ctx: ReadyStateContext, prInfo: PrInfo, toDraft: boolean): Promise<void> {
   const { owner, repo, number } = prInfo
-  const send = ctx.sends.next()
+  const send = ctx.sends.begin()
   patchSamePr(ctx, prInfo, (current) => ({ ...current, isDraft: toDraft }))
   ctx.render()
 
   const mark = toDraft ? ctx.sources.markPullRequestDraft : ctx.sources.markPullRequestReady
   const result = await mark(owner, repo, number)
-  if (!result.success) {
+  if (result.success) {
+    flash(ctx, toDraft ? "PR converted to draft" : "PR marked ready for review", "success", 2000)
+  } else {
+    // An older send's value would be stale here; the refetch settles it.
     if (ctx.sends.isLatest(send)) patchSamePr(ctx, prInfo, (current) => ({ ...current, isDraft: prInfo.isDraft }))
     flash(ctx, `Error: ${result.error}`, "error", 3000)
-    return
   }
+  if (!ctx.sends.settle()) return
 
-  flash(ctx, toDraft ? "PR converted to draft" : "PR marked ready for review", "success", 2000)
-
-  // The local flip already holds, so a refetch that fails changes nothing
+  const asked = ctx.sends.current()
+  // The local value already holds, so a refetch that fails changes nothing
   // the reader needs to hear about.
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
-  // A newer toggle has flipped isDraft since; this answer would write it back.
-  if (!fresh || !ctx.sends.isLatest(send)) return
+  // A toggle sent since has flipped isDraft; this answer would write it back.
+  if (!fresh || !ctx.sends.isLatest(asked)) return
   patchSamePr(ctx, prInfo, () => fresh)
   ctx.render()
 }
