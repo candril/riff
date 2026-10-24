@@ -22,6 +22,11 @@ export interface Position {
   label: string
   // Line numbers on `side`, inclusive; the cursor sits at one end of the range.
   selection?: { start: number; end: number }
+  // Unified only: the selection's line numbers on the side opposite `side`.
+  // A unified selection runs from a removed row to an added one, and the
+  // rows outside `side`'s range have no number on it, so without this
+  // @selection would drop rows the screen shows selected.
+  otherSelection?: { start: number; end: number }
 }
 
 const formatLine = (line: ExcerptLine, atCursor: boolean) =>

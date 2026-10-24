@@ -44,24 +44,30 @@ function fileAttachment(header: string, file: DiffFile): string {
   return attachment(header, lines, (shown) => `read_diff path=${file.filename} offset=${shown}`)
 }
 
+type Span = { start: number; end: number }
+
 /**
  * The selected lines with their hunk headers. A unified selection runs
  * across the other side's lines between its ends, so those come along too:
  * the reviewer selected them, and the agent reads the change as one run.
+ * Its rows beyond `side`'s range are found by their other-side numbers.
  * Each line keeps where it sits in fileDiffLines, so a cut selection can
  * point read_diff at the rest.
  */
-function selectionLines(file: DiffFile, side: "old" | "new", selection: { start: number; end: number }) {
+function selectionLines(file: DiffFile, side: "old" | "new", selection: Span, otherSelection?: Span) {
   const lines: Array<{ text: string; at: number }> = []
+  const within = (n: number | undefined, span: Span | undefined) =>
+    n !== undefined && span !== undefined && n >= span.start && n <= span.end
   let at = 0
   for (const hunk of hunksOf(file)) {
     const header = at
-    const numberOf = (i: number) => (side === "new" ? hunk.lines[i]!.newLine : hunk.lines[i]!.oldLine)
     const inside = hunk.lines
       .map((_, i) => i)
       .filter((i) => {
-        const n = numberOf(i)
-        return n !== undefined && n >= selection.start && n <= selection.end
+        const { newLine, oldLine } = hunk.lines[i]!
+        return side === "new"
+          ? within(newLine, selection) || within(oldLine, otherSelection)
+          : within(oldLine, selection) || within(newLine, otherSelection)
       })
     if (inside.length > 0) {
       lines.push({ text: hunk.header, at: header })
@@ -76,7 +82,7 @@ function selectionLines(file: DiffFile, side: "old" | "new", selection: { start:
 
 /**
  * The hunk that holds `line` on `side`, its lines marked as formatForAgent
- * marks the cursor's, each with where it sits in fileDiffLines.
+ * marks the cursor's; `at` is where its header sits in fileDiffLines.
  */
 function cursorHunkLines(file: DiffFile, side: "old" | "new", line: number) {
   let at = 0
@@ -85,12 +91,38 @@ function cursorHunkLines(file: DiffFile, side: "old" | "new", line: number) {
     if (cursor >= 0) {
       return {
         at,
-        lines: [hunk.header, ...hunk.lines.map((l, i) => `${i === cursor ? ">" : " "}${formatDiffLine(l)}`)],
+        cursor,
+        header: hunk.header,
+        lines: hunk.lines.map((l, i) => `${i === cursor ? ">" : " "}${formatDiffLine(l)}`),
       }
     }
     at += 1 + hunk.lines.length
   }
   return null
+}
+
+/**
+ * A hunk past the cap is cut around the cursor rather than at its head, so
+ * the line the reviewer asks about is always in the attachment; the header
+ * stays first, as the agent needs it to place the lines.
+ */
+function cursorHunkAttachment(header: string, path: string, hunk: NonNullable<ReturnType<typeof cursorHunkLines>>) {
+  const all = [hunk.header, ...hunk.lines]
+  const room = ATTACHMENT_LINES - 1
+  if (hunk.lines.length <= room) {
+    return attachment(header, all, (shown) => `read_diff path=${path} offset=${hunk.at + shown}`)
+  }
+  const start = Math.max(0, Math.min(hunk.cursor - Math.floor(room / 2), hunk.lines.length - room))
+  const end = start + room
+  const below = hunk.lines.length - end
+  const readFrom = (offset: number) => `read_diff path=${path} offset=${offset}`
+  const footers: string[] = []
+  if (start > 0) footers.push(`[cut ${start} of ${all.length} lines above; ${readFrom(hunk.at + 1)} for them]`)
+  if (below > 0) {
+    const cut = start > 0 ? `cut ${below} of ${all.length} lines below` : `cut at ${ATTACHMENT_LINES} of ${all.length} lines`
+    footers.push(`[${cut}; ${readFrom(hunk.at + 1 + end)} for the rest]`)
+  }
+  return [header, hunk.header, ...hunk.lines.slice(start, end), ...footers].join("\n")
 }
 
 function prLines(pr: PrSummary): { lines: string[]; firstFile: number } {
@@ -120,10 +152,10 @@ export function expandReferences(text: string, ctx: ReferenceContext): Expanded 
   const position = ctx.position
   const cursorFile = position && ctx.files.find((f) => f.filename === position.path)
   // One key for @selection and @line, so a selection named by both is attached once.
-  const addSelection = (name: string, at: Position, selection: { start: number; end: number }, file: DiffFile) => {
+  const addSelection = (name: string, at: Position, selection: Span, file: DiffFile) => {
     const side = at.side ?? "new"
     add("selection", `@${name} ${basename(at.path)}:${range(selection)}`, () => {
-      const lines = selectionLines(file, side, selection)
+      const lines = selectionLines(file, side, selection, at.otherSelection)
       return attachment(
         `[@${name}: ${at.path}:${range(selection)} (${side} side)]`,
         lines.map((l) => l.text),
@@ -155,11 +187,7 @@ export function expandReferences(text: string, ctx: ReferenceContext): Expanded 
       if (!side || line === undefined || !hunk) return lineError
       const file = cursorFile
       add(`line:${file.filename}:${side}:${line}`, `@line ${basename(position.path)}:${line}`, () =>
-        attachment(
-          `[@line: ${position.path}:${line} (${side} side)]`,
-          hunk.lines,
-          (shown) => `read_diff path=${file.filename} offset=${hunk.at + shown}`,
-        ),
+        cursorHunkAttachment(`[@line: ${position.path}:${line} (${side} side)]`, file.filename, hunk),
       )
       continue
     }

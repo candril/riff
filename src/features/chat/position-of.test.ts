@@ -144,6 +144,20 @@ describe("chatPositionOf", () => {
     expect(position).toMatchObject({ side: "new", selection: { start: 4, end: 5 }, label: "s.ts:4-5" })
   })
 
+  test("a unified selection from a removed row down to an added row carries the removed rows' old numbers", () => {
+    const position = positionOf(smallMapping, cursor(at(smallMapping, "B"), at(smallMapping, "b")))!
+    expect(position).toMatchObject({ side: "new", selection: { start: 2, end: 2 }, otherSelection: { start: 2, end: 3 } })
+  })
+
+  test("a split selection carries no other side", () => {
+    const mapping = new DiffLineMapping([small], "all")
+    for (const pane of ["left", "right"] as const) {
+      const position = positionOf(mapping, cursor(at(mapping, "B"), at(mapping, "b")), [small], pane)!
+      expect(position.selection).toBeDefined()
+      expect(position.otherSelection).toBeUndefined()
+    }
+  })
+
   test("a selection on the old side says so", () => {
     const position = positionOf(smallMapping, cursor(at(smallMapping, "c"), at(smallMapping, "b")))!
     expect(position).toMatchObject({ side: "old", selection: { start: 2, end: 3 }, label: "s.ts:2-3 (old)" })

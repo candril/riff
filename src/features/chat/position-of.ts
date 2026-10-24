@@ -41,6 +41,11 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
   const file = files.find((f) => f.filename === path)
   const selecting = getSelectionRange(vim) !== null
   const selectionOnSide = (side: Side) => (selecting ? selectionOn(mapping, scope.lines, path, side) : undefined)
+  // A split pane draws one side only, so only unified selects rows of both.
+  const otherSelectionOf = (side: Side) => {
+    const otherSelection = rows ? undefined : selectionOnSide(side === "old" ? "new" : "old")
+    return otherSelection ? { otherSelection } : {}
+  }
 
   const onDivider = line.type === "divider" || line.type === "hunk-header"
   const anchored = !onDivider
@@ -52,7 +57,7 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
     const side: Side = scope.pane === "left" ? "old" : "new"
     const selection = selectionOnSide(side)
     if (!selection) return (onDivider && hunkBelow(mapping, vim.line, path, file)) || { path, excerpt: [], label: path }
-    return { path, excerpt: [], side, label: labelOf(path, side, selection), selection }
+    return { path, excerpt: [], side, label: labelOf(path, side, selection), selection, ...otherSelectionOf(side) }
   }
 
   const { index: at, anchor } = anchored
@@ -70,7 +75,7 @@ export function chatPositionOf({ mapping, vim, scope, files, rows }: PositionInp
     excerpt,
     cursorIndex,
     label: labelOf(path, side, selection ?? { start: anchor.line, end: anchor.line }),
-    ...(selection ? { selection } : {}),
+    ...(selection ? { selection, ...otherSelectionOf(side) } : {}),
   }
 }
 

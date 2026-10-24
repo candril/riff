@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test"
 import { createInitialState } from "../state"
-import { createReviewChat, reviewAgent } from "./review-chat"
+import { createReadTools } from "../providers/agent/read-tools"
+import { createRiffSource } from "../providers/agent/riff-source"
+import type { PrInfo } from "../providers/github/types"
+import { parseDiff } from "../utils/diff-parser"
+import { createReviewChat, reviewAgent, reviewReferences } from "./review-chat"
 
 const deps = (demo: boolean) => ({
   demo,
@@ -34,4 +38,26 @@ test("a failing check leaves the chat empty", async () => {
   const review = createReviewChat({ ...deps(false), claudeVersion: () => Promise.reject(new Error("boom")) })
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(review.entries).toEqual([])
+})
+
+test("@pr's footer sends list_files to the first file its attachment left out, with ignored files among them", async () => {
+  const diff = Array.from(
+    { length: 450 },
+    (_, i) => `diff --git a/f${i}.ts b/f${i}.ts\nnew file mode 100644\n--- /dev/null\n+++ b/f${i}.ts\n@@ -0,0 +1,1 @@\n+x\n`,
+  ).join("")
+  const files = parseDiff(diff)
+  const state = {
+    ...createInitialState(files, [], "pr", ""),
+    prInfo: { number: 7, title: "Many files", body: "Why.", owner: "o", repo: "r" } as PrInfo,
+    ignoredFiles: new Set(["f3.ts", "f100.ts", "f200.ts", "f420.ts"]),
+  }
+  const result = reviewReferences(() => state)("@pr", null)
+  if (!("attachments" in result)) throw new Error(result.error)
+  const lines = result.attachments[0]!.split("\n")
+  const offset = Number(lines.at(-1)!.match(/list_files offset=(\d+)/)![1])
+  const lastShown = lines.at(-2)!.split(" ")[1]
+  const source = createRiffSource({ state: () => state, target: undefined, headSha: () => null })
+  const listed = (await createReadTools(source, () => {}).listFiles(undefined, offset)).text.split("\n")
+  const visible = files.map((f) => f.filename).filter((name) => !state.ignoredFiles.has(name))
+  expect(listed[0]).toBe(`added ${visible[visible.indexOf(lastShown!) + 1]} (+1 -0)`)
 })

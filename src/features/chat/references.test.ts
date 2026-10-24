@@ -92,6 +92,30 @@ describe("@selection", () => {
     ])
   })
 
+  test("a unified selection from a removed row to an added row holds the removed rows above the first added one", () => {
+    const pair = parseDiff(
+      "diff --git a/p.ts b/p.ts\n--- a/p.ts\n+++ b/p.ts\n@@ -1,3 +1,3 @@\n ctx\n-a\n-b\n+A\n+B\n",
+    )
+    const result = expandReferences("@selection", {
+      files: pair,
+      position: at({ path: "p.ts", line: 3, selection: { start: 2, end: 3 }, otherSelection: { start: 2, end: 3 } }),
+      pr: null,
+    })
+    expect(result).toEqual({
+      attachments: [
+        [
+          "[@selection: p.ts:2-3 (new side)]",
+          "@@ -1,3 +1,3 @@",
+          "    2       -a",
+          "    3       -b",
+          "          2 +A",
+          "          3 +B",
+        ].join("\n"),
+      ],
+      labels: ["@selection p.ts:2-3"],
+    })
+  })
+
   test("without a selection, or without a position, the question is not sent", () => {
     const error = "@selection needs a visual selection in the diff; the question was not sent."
     expect(expand("@selection")).toEqual({ error })
@@ -265,6 +289,38 @@ describe("the cap", () => {
     const lines = result.attachments[0]!.split("\n")
     expect(lines[4]).toBe(">          3 +l3")
     expect(lines.at(-1)).toBe("[cut at 400 of 501 lines; read_diff path=big.ts offset=400 for the rest]")
+  })
+
+  test("a hunk past the cap keeps its header and a window around a cursor deep inside it", () => {
+    const result = expandReferences("@line", {
+      files: long(900),
+      position: at({ path: "big.ts", line: 700 }),
+      pr: null,
+    })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    const diffLines = lines.slice(1).filter((l) => !l.startsWith("[cut"))
+    expect(lines[1]).toBe("@@ -0,0 +1,900 @@")
+    expect(diffLines).toHaveLength(ATTACHMENT_LINES)
+    expect(diffLines).toContain(">        700 +l700")
+    expect(diffLines[1]).toBe("         501 +l501")
+    expect(diffLines.at(-1)).toBe("         899 +l899")
+    expect(lines.slice(-2)).toEqual([
+      "[cut 500 of 901 lines above; read_diff path=big.ts offset=1 for them]",
+      "[cut 1 of 901 lines below; read_diff path=big.ts offset=900 for the rest]",
+    ])
+  })
+
+  test("a window at a long hunk's end needs no footer below", () => {
+    const result = expandReferences("@line", {
+      files: long(900),
+      position: at({ path: "big.ts", line: 900 }),
+      pr: null,
+    })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    expect(lines.at(-2)).toBe(">        900 +l900")
+    expect(lines.at(-1)).toBe("[cut 501 of 901 lines above; read_diff path=big.ts offset=1 for them]")
   })
 
   test("a long file list is cut with a footer that points at list_files", () => {
