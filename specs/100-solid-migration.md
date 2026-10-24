@@ -1,6 +1,8 @@
 # Solid Migration
 
-**Status**: In Progress
+**Status**: Done — every view, panel and key runs on Solid and @opentui/keymap; per-feature state is partly built
+
+**Not built**: the rest of M6's state factories (src/state.ts and src/app.ts still hold the review's core state: diff, cursor, session, refresh); the file size ratchet (P3)
 
 ## Description
 
@@ -361,9 +363,6 @@ the command that runs it, and its hint is that command's `keys` field
 (`src/app/command-keys.ts`, [020](./020-action-menu.md)).
 An action with no case of its own in the executor runs that command
 through `runCommand`, on the keypress its hint spells.
-
-**Not built**: the rest of M6 (the rest of the state factories); the file
-size ratchet (P3).
 
 The Out of Scope line on new features gave way to the user's feedback
 queue. At the user's request the migration also added:
