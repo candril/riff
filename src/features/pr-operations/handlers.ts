@@ -10,7 +10,7 @@ import type { Comment } from "../../types"
 import type { SubmitResult } from "../../providers/github/mutations"
 import {
   setThreadResolved,
-  withPendingComments,
+  withPendingCommentsSubmitted,
 } from "../../state"
 import { gatherSyncItems } from "../../components"
 import type { ValidatedComment } from "../../components/review-preview-model"
@@ -387,11 +387,11 @@ export async function handleConfirmReview(ctx: PrOperationsContext): Promise<voi
       }),
     }))
 
-    // The draft is submitted now, so its id cannot take another submit. Its
-    // comments come back synced with the comment poll or the next refresh,
-    // and kept as pending copies they would show twice.
+    // The draft's id cannot take another submit. Its comments are on GitHub
+    // now under the same ids, so they stay on screen as synced rather than
+    // vanishing until the next poll, which replaces them by githubId.
     ctx.pendingReview.clear()
-    ctx.setState((s) => withPendingComments(s, null))
+    ctx.setState(withPendingCommentsSubmitted)
 
     // Close the review preview and show success toast
     const pendingReviewCommentCount = pendingReview?.comments.length ?? 0

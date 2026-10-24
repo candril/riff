@@ -8,6 +8,9 @@ import {
   openInlineCommentOverlay,
   startInlineCompose,
   cancelInlineComposer,
+  createInitialState,
+  withPendingComments,
+  withPendingCommentsSubmitted,
   type AppState,
 } from "../state"
 import { mountApp } from "../testing/app-render"
@@ -299,4 +302,22 @@ test("a panel hidden by a close shows the new model, not the last one, when it o
   const { frame } = await draw(setup)
   expect(frame).toContain("1 comment")
   expect(frame).not.toContain("Fixed in the next commit")
+})
+
+describe("a submitted review's draft comments", () => {
+  test("stay drawn in the panel after Submit Review succeeds", async () => {
+    const drafted = withPendingComments(createInitialState([], [], "gh:o/r#1", ""), {
+      id: 7,
+      user: "alice",
+      body: "",
+      comments: [{ id: 11, body: "Draft before submit", path: "src/greet.ts", line: 3, side: "RIGHT" }],
+    })
+    const submitted = withPendingCommentsSubmitted(drafted)
+
+    const before = await pushed(64, [input(64, { comments: drafted.comments, appMode: "pr" })])
+    const after = await pushed(64, [input(64, { comments: submitted.comments, appMode: "pr" })])
+
+    expect(before.frame).toContain("Draft before submit")
+    expect(after.frame).toContain("Draft before submit")
+  })
 })

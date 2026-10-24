@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { createInitialState, withPendingComments, type AppState } from "./state"
+import { createInitialState, withPendingComments, withPendingCommentsSubmitted, type AppState } from "./state"
 import type { Comment } from "./types"
 import type { PendingReview } from "./providers/github/types"
 
@@ -66,5 +66,33 @@ describe("withPendingComments", () => {
     ]))
 
     expect(withPendingComments(earlier, null).comments.map(c => c.id)).toEqual(["c1"])
+  })
+})
+
+describe("withPendingCommentsSubmitted", () => {
+  test("turns the draft's comments synced and keeps everything else about them", () => {
+    const synced = comment("gh-5", { status: "synced", githubId: 5 })
+    const drafted = withPendingComments(withComments([comment("c1"), synced]), review([
+      { id: 11, body: "Draft", path: "b.ts", line: 4, side: "LEFT", inReplyToId: 5 },
+      { id: 12, body: "Reply", path: "b.ts", line: 4, side: "LEFT", inReplyToId: 11 },
+    ]))
+
+    const next = withPendingCommentsSubmitted(drafted)
+
+    expect(next.comments).toEqual(drafted.comments.map(c => c.status === "pending" ? { ...c, status: "synced" } : c))
+    expect(next.comments.map(c => [c.id, c.status, c.githubId, c.inReplyTo])).toEqual([
+      ["c1", "local", undefined, undefined],
+      ["gh-5", "synced", 5, undefined],
+      ["pending-11", "synced", 11, "gh-5"],
+      ["pending-12", "synced", 12, "pending-11"],
+    ])
+  })
+
+  test("a later draft no longer replaces them", () => {
+    const submitted = withPendingCommentsSubmitted(withPendingComments(withComments([]), review([
+      { id: 11, body: "Draft", path: "a.ts", line: 1, side: "RIGHT" },
+    ])))
+
+    expect(withPendingComments(submitted, null).comments.map(c => c.id)).toEqual(["pending-11"])
   })
 })

@@ -172,13 +172,26 @@ describe("handleConfirmReview with GitHub's pending review", () => {
     return { ...h, sent }
   }
 
-  test("a submit forgets the draft and its comments, and the toast counts them once", async () => {
+  test("a submit forgets the draft but keeps its comments as synced, and the toast counts them once", async () => {
     const h = withDraft({ success: true })
     await handleConfirmReview(h.ctx)
     expect(h.sent).toEqual([7])
     expect(h.pendingReview.review()).toBeNull()
     expect(pendingIds(h.state())).toEqual([])
+    expect(h.state().comments.map((c) => [c.id, c.status, c.githubId, c.body])).toEqual([
+      ["pending-1", "synced", 1, "Draft one"],
+      ["pending-2", "synced", 2, "Draft two"],
+    ])
     expect(h.toast.current()?.message).toBe("Review submitted (2 comments) (merged with pending)")
+  })
+
+  test("a second Submit Review does not send the submitted draft's comments again", async () => {
+    const h = withDraft({ success: true })
+    await handleConfirmReview(h.ctx)
+    h.reviewPreview.show()
+    await handleConfirmReview(h.ctx)
+    expect(h.sent).toEqual([7])
+    expect(h.reviewPreview.error()).toBe("Add a comment or summary to submit")
   })
 
   test("a failed submit keeps the draft and its comments", async () => {

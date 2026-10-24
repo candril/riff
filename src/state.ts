@@ -655,6 +655,18 @@ export function withPendingComments(
   }
 }
 
+/**
+ * A submitted draft's comments keep their REST ids on GitHub, so they stay
+ * drawn as synced until the comment poll or a refresh swaps in GitHub's
+ * copies by githubId; dropping them would blank them until then.
+ */
+export function withPendingCommentsSubmitted(state: AppState): AppState {
+  return {
+    ...state,
+    comments: state.comments.map(c => c.status === "pending" ? { ...c, status: "synced" as const } : c),
+  }
+}
+
 // ============================================================================
 // File Review Status (Viewed/Reviewed)
 // ============================================================================
