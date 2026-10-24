@@ -4,6 +4,7 @@ import { baseVersionRef, getPrHeadSha } from "../github/content"
 import type { GitBase } from "../git-target"
 import { detectVcs, resolveGitBase, type VcsType } from "../local"
 import { getCurrentRepoRef, type RepoRef } from "../repo"
+import { findRepoRoot } from "../../storage/resolve"
 import { parseGitBlamePorcelain } from "./git"
 import { BLAME_QUERY, parseGithubBlame } from "./github"
 import { JJ_ANNOTATE_TEMPLATE, parseJjAnnotate } from "./jj"
@@ -66,27 +67,38 @@ async function spawnText(command: ReturnType<typeof $>): Promise<string | null> 
   throw new Error(message || `exit code ${result.exitCode}`)
 }
 
-const DEFAULT_RUNNERS: BlameRunners = {
-  vcs: detectVcs,
-  jjAnnotate: (rev, path) => spawnText($`jj file annotate -r ${rev} -T ${JJ_ANNOTATE_TEMPLATE} ${path}`),
-  gitBlame: (rev, path) =>
-    spawnText(rev === null ? $`git blame --porcelain -- ${path}` : $`git blame --porcelain ${rev} -- ${path}`),
-  gitBase: resolveGitBase,
-  prBase: baseVersionRef,
-  prHead: (owner, repo, number) => getPrHeadSha(number, owner, repo),
-  async githubBlame(owner, repo, commit, path) {
-    const text = await spawnText(
-      $`gh api graphql -f query=${BLAME_QUERY} -f owner=${owner} -f name=${repo} -f expression=${commit} -f path=${path}`,
-    )
-    return text === null ? null : JSON.parse(text)
-  },
-  repoRef: getCurrentRepoRef,
-  prForCommit,
+// The diff's paths are relative to the repository root, so jj and git must run there, not in
+// whichever subdirectory riff was started from.
+function defaultRunners(root: () => Promise<string>): BlameRunners {
+  return {
+    vcs: detectVcs,
+    jjAnnotate: async (rev, path) =>
+      spawnText($`jj file annotate -r ${rev} -T ${JJ_ANNOTATE_TEMPLATE} ${path}`.cwd(await root())),
+    gitBlame: async (rev, path) =>
+      spawnText(
+        (rev === null ? $`git blame --porcelain -- ${path}` : $`git blame --porcelain ${rev} -- ${path}`).cwd(
+          await root(),
+        ),
+      ),
+    gitBase: resolveGitBase,
+    prBase: baseVersionRef,
+    prHead: (owner, repo, number) => getPrHeadSha(number, owner, repo),
+    async githubBlame(owner, repo, commit, path) {
+      const text = await spawnText(
+        $`gh api graphql -f query=${BLAME_QUERY} -f owner=${owner} -f name=${repo} -f expression=${commit} -f path=${path}`,
+      )
+      return text === null ? null : JSON.parse(text)
+    },
+    repoRef: getCurrentRepoRef,
+    prForCommit,
+  }
 }
 
 /** Who last changed a line of the review, by the revisions the diff's line numbers count in. */
 export function createBlameSource(deps: BlameSourceDeps): BlameSource {
-  const run = { ...DEFAULT_RUNNERS, ...deps.runners }
+  let repoRoot: Promise<string> | undefined
+  const root = () => (repoRoot ??= findRepoRoot().then((found) => found ?? process.cwd()))
+  const run = { ...defaultRunners(root), ...deps.runners }
   const files = new Map<string, Promise<LoadedFileBlame | null>>()
 
   async function sideRevision(side: BlameSide): Promise<SideRevision> {

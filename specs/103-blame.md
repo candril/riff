@@ -54,6 +54,8 @@ context line, or one revealed by expanding context.
   the working tree. Porcelain names a commit's author, time and summary
   only on its first group, so they are carried per sha; the all-zero sha
   is a line not yet committed.
+- **jj and git run from the repository root**, since the diff's paths are
+  relative to it, so blame works from any directory inside the repo.
 - **A PR**: GitHub GraphQL `blame(path)` on the head or base commit,
   through `gh api graphql`, so no checkout is needed. Each range carries
   `associatedPullRequests(first: 1)`, which is the PR the peek names.
