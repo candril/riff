@@ -8,7 +8,7 @@ import { prInfo } from "../../testing/pr-info"
 import { THREE_TOP_LEVEL_FILES } from "../../testing/refresh-harness"
 import type { PrInfo } from "../../providers/github/types"
 import type { ReadyResult } from "../../providers/github/mutations"
-import { handleToggleReady, type ReadyStateSources } from "./ready-state"
+import { createReadySends, handleToggleReady, type ReadyStateSources } from "./ready-state"
 
 function harness(pr: PrInfo, sources: Partial<ReadyStateSources> = {}) {
   const files = sortFiles(parseDiff(THREE_TOP_LEVEL_FILES))
@@ -39,6 +39,7 @@ function harness(pr: PrInfo, sources: Partial<ReadyStateSources> = {}) {
     toast,
     render: () => {},
     later: () => {},
+    sends: createReadySends(),
   }
   return {
     toggle: () => handleToggleReady(ctx),
@@ -165,5 +166,72 @@ describe("marking a pull request ready or back to draft", () => {
     expect(h.confirm.dialog()).toBeNull()
     expect(h.sent).toEqual([])
     expect(h.toast.current()).toMatchObject({ message: `PR is ${prState}` })
+  })
+})
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
+  const promise = new Promise<T>((r) => { resolve = r })
+  return { promise, resolve }
+}
+
+describe("toggling again before the first toggle has settled", () => {
+  // Every gh call and refetch waits for the test to answer it, in call order.
+  function overlapping(pr: PrInfo) {
+    const marks: { kind: string; answer: (r: ReadyResult) => void }[] = []
+    const fetches: { answer: (p: PrInfo) => void }[] = []
+    const mark = (kind: string) => () => {
+      const d = deferred<ReadyResult>()
+      marks.push({ kind, answer: d.resolve })
+      return d.promise
+    }
+    const h = harness(pr, {
+      markPullRequestReady: mark("ready"),
+      markPullRequestDraft: mark("draft"),
+      fetchPrInfo: () => {
+        const d = deferred<PrInfo>()
+        fetches.push({ answer: d.resolve })
+        return d.promise
+      },
+    })
+    const confirmToggle = () => {
+      h.toggle()
+      h.confirm.dialog()!.onConfirm()
+    }
+    return { ...h, marks, fetches, confirmToggle }
+  }
+
+  test("the first toggle's refetch, landing after the second toggle, does not undo it", async () => {
+    const pr = prInfo("", { isDraft: true })
+    const h = overlapping(pr)
+    h.confirmToggle()
+    h.marks[0]!.answer({ success: true })
+    await settle()
+    expect(h.fetches).toHaveLength(1)
+
+    h.confirmToggle()
+    expect(h.marks.map((m) => m.kind)).toEqual(["ready", "draft"])
+    h.marks[1]!.answer({ success: true })
+    await settle()
+    h.fetches[1]!.answer({ ...pr, isDraft: true, title: "After the second toggle" })
+    await settle()
+
+    h.fetches[0]!.answer({ ...pr, isDraft: false, title: "After the first toggle" })
+    await settle()
+    expect(h.state().prInfo).toMatchObject({ isDraft: true, title: "After the second toggle" })
+  })
+
+  test("the first toggle's refusal, landing after later toggles, does not put its old value back", async () => {
+    const h = overlapping(prInfo("", { isDraft: true }))
+    h.confirmToggle()
+    h.confirmToggle()
+    h.confirmToggle()
+    expect(h.marks.map((m) => m.kind)).toEqual(["ready", "draft", "ready"])
+    expect(h.state().prInfo?.isDraft).toBe(false)
+
+    h.marks[0]!.answer({ success: false, error: "nope" })
+    await settle()
+    expect(h.state().prInfo?.isDraft).toBe(false)
+    expect(h.toast.current()).toMatchObject({ message: "Error: nope", type: "error" })
   })
 })

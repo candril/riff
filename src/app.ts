@@ -67,7 +67,7 @@ import type { AnotherReviewFeatures } from "./features/refresh/another-review"
 import { createBranchPrOpener, liveOpenBranchPrSources } from "./features/branch-pr/open"
 import { handleCreatePr, liveCreatePrSources, type CreatePrContext } from "./features/branch-pr/create"
 import { handleEditPr, liveEditPrSources, type EditPrContext } from "./features/pr-operations/edit-pr"
-import { handleToggleReady, liveReadyStateSources, type ReadyStateContext } from "./features/pr-operations/ready-state"
+import { createReadySends, handleToggleReady, liveReadyStateSources, type ReadyStateContext } from "./features/pr-operations/ready-state"
 import { handleMerge, liveMergeSources } from "./features/pr-operations/merge"
 import { handleUpdateBranch, liveUpdateBranchSources } from "./features/pr-operations/update-branch"
 import {
@@ -1167,6 +1167,7 @@ export async function createApp(options: AppOptions = {}) {
       render()
     },
     later: (fn, ms) => { setTimeout(fn, ms) },
+    sends: createReadySends(),
   }
 
   const autoMergeContext: AutoMergeContext = { ...readyStateContext, sources: liveAutoMergeSources }

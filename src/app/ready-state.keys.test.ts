@@ -5,7 +5,7 @@ import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
-import { handleToggleReady, type ReadyStateSources } from "../features/pr-operations/ready-state"
+import { createReadySends, handleToggleReady, type ReadyStateSources } from "../features/pr-operations/ready-state"
 
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
@@ -82,6 +82,7 @@ test("the dialog shows owner/repo#N and the command, and once y confirms the hea
       mounted.render()
     },
     later: () => {},
+    sends: createReadySends(),
   })
   const asking = await mounted.frame()
   expect(asking).toContain("Mark Ready for Review")

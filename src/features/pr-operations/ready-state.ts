@@ -22,7 +22,18 @@ export const liveReadyStateSources: ReadyStateSources = {
   fetchPrInfo,
 }
 
-export type ReadyStateContext = PrActionContext<ReadyStateSources>
+export type ReadySends = ReturnType<typeof createReadySends>
+
+/** Numbers each send, so a slow one can tell a newer toggle has overtaken it. */
+export function createReadySends() {
+  let latest = 0
+  return {
+    next: () => ++latest,
+    isLatest: (send: number) => send === latest,
+  }
+}
+
+export type ReadyStateContext = PrActionContext<ReadyStateSources> & { sends: ReadySends }
 
 export function handleToggleReady(ctx: ReadyStateContext): void {
   const { prInfo } = ctx.getState()
@@ -54,13 +65,14 @@ export function handleToggleReady(ctx: ReadyStateContext): void {
 
 async function sendReady(ctx: ReadyStateContext, prInfo: PrInfo, toDraft: boolean): Promise<void> {
   const { owner, repo, number } = prInfo
+  const send = ctx.sends.next()
   patchSamePr(ctx, prInfo, (current) => ({ ...current, isDraft: toDraft }))
   ctx.render()
 
   const mark = toDraft ? ctx.sources.markPullRequestDraft : ctx.sources.markPullRequestReady
   const result = await mark(owner, repo, number)
   if (!result.success) {
-    patchSamePr(ctx, prInfo, (current) => ({ ...current, isDraft: prInfo.isDraft }))
+    if (ctx.sends.isLatest(send)) patchSamePr(ctx, prInfo, (current) => ({ ...current, isDraft: prInfo.isDraft }))
     flash(ctx, `Error: ${result.error}`, "error", 3000)
     return
   }
@@ -70,7 +82,8 @@ async function sendReady(ctx: ReadyStateContext, prInfo: PrInfo, toDraft: boolea
   // The local flip already holds, so a refetch that fails changes nothing
   // the reader needs to hear about.
   const fresh = await ctx.sources.fetchPrInfo(owner, repo, number).catch(() => null)
-  if (!fresh) return
+  // A newer toggle has flipped isDraft since; this answer would write it back.
+  if (!fresh || !ctx.sends.isLatest(send)) return
   patchSamePr(ctx, prInfo, () => fresh)
   ctx.render()
 }
