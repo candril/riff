@@ -38,6 +38,7 @@ import {
   THREAD_COMMENTS_PROBE,
 } from "../../providers/github/threads"
 import { reviewCommentsChanged } from "../../providers/rest"
+import { reparentReplies } from "../../utils/reply-parents"
 
 /** Fallback when config carries no interval. See `PollConfig.interval`. */
 const DEFAULT_POLL_SECONDS = 300
@@ -103,11 +104,17 @@ function signature(comments: Comment[]): string {
  *
  * Mirrors `loadPrSession`'s merge: drop any local comment whose `githubId`
  * is now in the fetched set (it's been synced and the GitHub copy wins),
- * keep the rest, then append all fetched comments and re-sort by time.
+ * keep the rest, with replies to a dropped comment pointed at its copy, then
+ * append all fetched comments and re-sort by time.
  */
 export function mergeComments(existing: Comment[], fetched: Comment[]): Comment[] {
   const fetchedGithubIds = new Set(fetched.map((c) => c.githubId))
-  const local = existing.filter((c) => !c.githubId || !fetchedGithubIds.has(c.githubId))
+  const isOnGitHub = (c: Comment) => !!c.githubId && fetchedGithubIds.has(c.githubId)
+  const local = reparentReplies(
+    existing.filter((c) => !isOnGitHub(c)),
+    existing.filter(isOnGitHub),
+    fetched,
+  )
 
   // The poller queries threads at probe depth, so only roots come back with
   // reactions; replies arrive with an empty list. Keep whatever the last full

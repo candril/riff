@@ -45,6 +45,19 @@ describe("mergeComments", () => {
     expect(merged.map((c) => c.id)).toEqual(["gh-11", "gh-12"])
   })
 
+  test("a reply typed after Submit Review follows its parent to GitHub's copy", () => {
+    const draftParent = comment({ id: "pending-11", githubId: 11 })
+    const draftReply = comment({ id: "reply-a", status: "local", inReplyTo: "pending-11" })
+    const localParent = comment({ id: "5f0c2a9e-uuid", githubId: 21 })
+    const localReply = comment({ id: "reply-b", status: "local", inReplyTo: "5f0c2a9e-uuid" })
+    const merged = mergeComments([draftParent, draftReply, localParent, localReply], [
+      comment({ id: "gh-11", githubId: 11 }),
+      comment({ id: "gh-21", githubId: 21 }),
+    ])
+    expect(merged.find((c) => c.id === "reply-a")!.inReplyTo).toBe("gh-11")
+    expect(merged.find((c) => c.id === "reply-b")!.inReplyTo).toBe("gh-21")
+  })
+
   test("carries reactions over when probe depth returned none", () => {
     const existing = comment({ id: "gh-1", githubId: 1, reactions: thumbsUp })
     const fetched = comment({ id: "gh-1", githubId: 1, reactions: [] })

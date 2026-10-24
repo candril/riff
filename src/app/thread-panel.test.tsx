@@ -17,6 +17,7 @@ import { mountApp } from "../testing/app-render"
 import { columnWidths, DIFF_MIN_WIDTH } from "./column-widths"
 import { composerTextareaIn } from "../testing/composer"
 import { trimFrame } from "../testing/frame"
+import { mergeComments } from "../features/comment-poll/poll"
 import type { Comment } from "../types"
 
 const HEIGHT = 30
@@ -319,5 +320,30 @@ describe("a submitted review's draft comments", () => {
 
     expect(before.frame).toContain("Draft before submit")
     expect(after.frame).toContain("Draft before submit")
+  })
+
+  test("keep a reply typed after Submit Review under its parent once the poll brings GitHub's copy", async () => {
+    const submitted = withPendingCommentsSubmitted(withPendingComments(createInitialState([], [], "gh:o/r#1", ""), {
+      id: 7,
+      user: "alice",
+      body: "",
+      comments: [{ id: 11, body: "Draft before submit", path: "src/greet.ts", line: 3, side: "RIGHT" }],
+    }))
+    const reply = comment("reply-1", 3, {
+      status: "local",
+      author: "bob",
+      body: "Reply typed after submit",
+      inReplyTo: "pending-11",
+      createdAt: new Date(Date.now() + 1000).toISOString(),
+    })
+    const githubCopy: Comment = { ...submitted.comments[0]!, id: "gh-11" }
+
+    const polled = mergeComments([...submitted.comments, reply], [githubCopy])
+    const { frame } = await pushed(64, [input(64, { comments: polled, appMode: "pr" })])
+
+    expect(frame).toContain("Draft before submit")
+    expect(frame).toContain("└ @bob")
+    expect(frame).toContain("Reply typed after submit")
+    expect(frame.match(/─ line 3/g)).toHaveLength(1)
   })
 })

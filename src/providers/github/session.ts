@@ -14,6 +14,7 @@ import {
 import { fetchRemainingViewedStatuses, type ViewerViewedState } from "./viewed"
 import { MERGE_METHODS, type MergeMethod, type PrCheck, type PrCommit, type PrConversationComment, type PrInfo, type PrMergeQueue, type PrReview } from "./types"
 import type { Comment, ReviewSession } from "../../types"
+import { reparentReplies } from "../../utils/reply-parents"
 
 /**
  * How many commits the PR bundle asks for. Exported because a truncated
@@ -407,7 +408,8 @@ export async function loadPrSession(
   await Promise.all(githubComments.map((comment) => saveComment(comment, prSource)))
   
   // Merge: GitHub comments + local comments (that aren't already on GitHub)
-  const comments: Comment[] = []
+  const kept: Comment[] = []
+  const onGitHub: Comment[] = []
   
   // Track which local comments to delete (synced ones that now exist on GitHub)
   const localCommentsToDelete: string[] = []
@@ -417,6 +419,7 @@ export async function loadPrSession(
     // Skip if this comment's githubId is in the fetched set
     // (either it was submitted and now exists on GitHub, or it was re-fetched)
     if (existing.githubId && fetchedGithubIds.has(existing.githubId)) {
+      onGitHub.push(existing)
       // If this is a local comment that was synced (has UUID id, not gh- prefix)
       // we should delete its local file since the GitHub version takes precedence
       if (!existing.id.startsWith("gh-")) {
@@ -430,11 +433,14 @@ export async function loadPrSession(
       continue
     }
     
-    comments.push(existing)
+    kept.push(existing)
   }
   
   // Delete local comment files that are now on GitHub
   await Promise.all(localCommentsToDelete.map((id) => deleteCommentFile(id, prSource)))
+
+  const comments = reparentReplies(kept, onGitHub, githubComments)
+  await Promise.all(comments.filter((c, i) => c !== kept[i]).map((c) => saveComment(c, prSource)))
 
   comments.push(...githubComments)
   
