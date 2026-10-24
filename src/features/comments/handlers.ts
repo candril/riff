@@ -55,6 +55,8 @@ export interface CommentsContext {
   getCachedCurrentUser: () => string | null
   setCachedCurrentUser: (user: string) => void
   confirm: Pick<ConfirmState, "show" | "close">
+  openEditor?: typeof openCommentEditor
+  persist?: typeof persistComment
 }
 
 /**
@@ -132,9 +134,17 @@ export async function handleAddComment(
   // We don't make a network call here to keep the editor opening instant
   // The actual username will be fetched when submitting the comment
   const username = (state.appMode === "pr" && ctx.getCachedCurrentUser()) || "@you"
+  // Another review can open while the editor is up; what was written belongs to this one.
+  const source = state.source
+  let saved = 0
+  const persist = async (comment: Comment) => {
+    await (ctx.persist ?? persistComment)(comment, source)
+    saved++
+  }
+  const stillOpen = () => ctx.getState().source === source
 
   try {
-    const rawContent = await openCommentEditor({
+    const rawContent = await (ctx.openEditor ?? openCommentEditor)({
       diffContent: contextLines.length > 0 ? contextLines.join("\n") : file.content,
       filePath: anchor.filename,
       line: anchor.line,
@@ -177,11 +187,13 @@ export async function handleAddComment(
           updatedComment = { ...comment, body: newBody }
         }
 
-        ctx.setState((s) => ({
-          ...s,
-          comments: s.comments.map((c) => (c.id === comment.id ? updatedComment : c)),
-        }))
-        await persistComment(updatedComment, ctx.getState().source)
+        if (stillOpen()) {
+          ctx.setState((s) => ({
+            ...s,
+            comments: s.comments.map((c) => (c.id === comment.id ? updatedComment : c)),
+          }))
+        }
+        await persist(updatedComment)
       }
 
       // Handle new reply
@@ -211,9 +223,11 @@ export async function handleAddComment(
           comment.inReplyTo = thread[thread.length - 1]!.id
         }
 
-        ctx.setState((s) => addComment(s, comment))
-        await persistComment(comment, ctx.getState().source)
+        if (stillOpen()) ctx.setState((s) => addComment(s, comment))
+        await persist(comment)
       }
+
+      if (saved > 0 && !stillOpen()) ctx.toast.show("Comment saved to the review it was written in", "info")
     }
   } finally {
     // Exit visual mode if we were in it
