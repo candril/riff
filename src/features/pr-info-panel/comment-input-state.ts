@@ -42,5 +42,8 @@ export function createPrCommentInputState() {
     setError(error: string | null) {
       setInput((prev) => ({ ...prev, error }))
     },
+    fail(error: string) {
+      setInput((prev) => ({ ...prev, loading: false, error }))
+    },
   }
 }

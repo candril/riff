@@ -50,4 +50,13 @@ describe("createPrCommentInputState", () => {
     input.setError("boom")
     expect(input.current()).toEqual({ open: true, text: "hi", loading: false, error: "boom" })
   })
+
+  test("fail stops loading and shows the error, keeping the text", () => {
+    const input = createPrCommentInputState()
+    input.open()
+    input.setText("hi")
+    input.setLoading(true)
+    input.fail("boom")
+    expect(input.current()).toEqual({ open: true, text: "hi", loading: false, error: "boom" })
+  })
 })

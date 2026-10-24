@@ -7,10 +7,12 @@ import { createPrCommentInputState } from "./comment-input-state"
 import { createPrInfoFilterState } from "./filter-state"
 import type { PRInfoPanelDeps } from "./actions"
 import { submitComment } from "./comment-input"
+import { prCommentPromptModel } from "../../components/pr-comment-prompt"
+import { theme } from "../../theme"
 
 type SubmitResult = Awaited<ReturnType<typeof submitPrComment>>
 
-function prompt(text: string, result: SubmitResult = { success: true }) {
+function prompt(text: string, result: SubmitResult | Error = { success: true }) {
   let state: AppState = { ...createInitialState([], [], "gh:owner/repo#1259", ""), appMode: "pr", prInfo: prInfo("") }
   const commentInput = createPrCommentInputState()
   commentInput.open()
@@ -28,6 +30,7 @@ function prompt(text: string, result: SubmitResult = { success: true }) {
   }
   const post = async (...args: Parameters<typeof submitPrComment>) => {
     posted.push(args)
+    if (result instanceof Error) throw result
     return result
   }
   return { submit: () => submitComment(deps, post), commentInput, toast, posted }
@@ -61,7 +64,8 @@ describe("the PR overview's comment prompt", () => {
     const h = prompt("Looks good.", { success: false, error: "nope" })
     h.submit()
     await settle()
-    expect(h.commentInput.current()).toMatchObject({ open: true, text: "Looks good.", error: "nope" })
+    expect(h.commentInput.current()).toMatchObject({ open: true, text: "Looks good.", loading: false, error: "nope" })
+    expect(prCommentPromptModel(h.commentInput.current())).toMatchObject({ status: "nope", statusFg: theme.red })
     expect(h.toast.current()).toBeNull()
   })
 
@@ -69,6 +73,19 @@ describe("the PR overview's comment prompt", () => {
     const h = prompt("Looks good.", { success: false })
     h.submit()
     await settle()
-    expect(h.commentInput.current()).toMatchObject({ open: true, error: "Failed to post comment" })
+    expect(h.commentInput.current()).toMatchObject({ open: true, loading: false, error: "Failed to post comment" })
+    expect(prCommentPromptModel(h.commentInput.current())).toMatchObject({
+      status: "Failed to post comment",
+      statusFg: theme.red,
+    })
+  })
+
+  test("a post that throws keeps the prompt open with the error", async () => {
+    const h = prompt("Looks good.", new Error("gh not found"))
+    h.submit()
+    await settle()
+    expect(h.commentInput.current()).toMatchObject({ open: true, text: "Looks good.", loading: false, error: "gh not found" })
+    expect(prCommentPromptModel(h.commentInput.current())).toMatchObject({ status: "gh not found", statusFg: theme.red })
+    expect(h.toast.current()).toBeNull()
   })
 })

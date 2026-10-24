@@ -36,10 +36,16 @@ export function submitComment(deps: Deps, post: typeof submitPrComment = submitP
         deps.render()
       }, 2000)
     } else {
-      deps.commentInput.setError(result.error ?? "Failed to post comment")
-      deps.render()
+      fail(result.error ?? "Failed to post comment")
     }
+  }, (error: unknown) => {
+    fail(error instanceof Error ? error.message : String(error))
   })
+
+  function fail(message: string): void {
+    deps.commentInput.fail(message)
+    deps.render()
+  }
 }
 
 export function deleteCommentChar(deps: Deps): void {
