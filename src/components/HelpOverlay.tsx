@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch } from "solid-js"
 import { theme, colors } from "../theme"
-import { HELP_COLUMN_ROWS, HELP_KEY_CELLS, helpColumnCells, type HelpRow } from "./help-sections"
+import { HELP_GAP, HELP_KEY_CELLS, HELP_PADDING, type HelpRow } from "./help-sections"
 import type { HelpOverlayModel } from "./help-overlay-model"
 
 function Row(props: { row: HelpRow }) {
@@ -25,11 +25,9 @@ function Row(props: { row: HelpRow }) {
   )
 }
 
-const [LEFT_CELLS, RIGHT_CELLS] = HELP_COLUMN_ROWS.map(helpColumnCells)
-
 function Column(props: { rows: readonly HelpRow[]; cells: number }) {
   return (
-    <box flexDirection="column" flexGrow={1} flexBasis={props.cells}>
+    <box flexDirection="column" width={props.cells} flexShrink={0} overflow="hidden">
       <For each={props.rows}>{(row) => <Row row={row} />}</For>
     </box>
   )
@@ -46,16 +44,15 @@ function moreMarker(more: HelpOverlayModel["more"]): string {
 export function HelpOverlay(props: { model: HelpOverlayModel }) {
   const scrolls = () => props.model.more.above || props.model.more.below
   return (
-    <box flexDirection="column" backgroundColor={theme.base} padding={2} minWidth={80} maxWidth={104}>
+    <box flexDirection="column" backgroundColor={theme.base} padding={HELP_PADDING} width={props.model.width} flexShrink={0}>
       <box height={1} marginBottom={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.primary}>Keyboard Shortcuts</text>
         <Show when={props.model.version !== undefined}>
           <text fg={theme.overlay0}>{`riff ${props.model.version}`}</text>
         </Show>
       </box>
-      <box flexDirection="row" gap={4}>
-        <Column rows={props.model.left} cells={LEFT_CELLS!} />
-        <Column rows={props.model.right} cells={RIGHT_CELLS!} />
+      <box flexDirection="row" gap={HELP_GAP}>
+        <For each={props.model.columns}>{(column) => <Column rows={column.rows} cells={column.cells} />}</For>
       </box>
       <box height={1} marginTop={1} flexDirection="row" justifyContent="space-between">
         <text fg={colors.textDim}>{scrolls() ? "j / k scroll · g? or Esc to close" : "Press g? or Esc to close"}</text>

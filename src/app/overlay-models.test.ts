@@ -140,7 +140,7 @@ describe("overlayModels", () => {
     const state = frame().state
     expect(open.toast).toEqual(toastModel("Saved", "success"))
     expect(open.confirmDialog).toEqual(confirmDialogModel(dialog))
-    expect(open.helpOverlay).toEqual(helpOverlayModel(version, 2, 30))
+    expect(open.helpOverlay).toEqual(helpOverlayModel(version, 2, 30, 100))
     expect(open.reviewPreview).toEqual(
       reviewPreviewModel(validateCommentsForSubmit(reviewCandidates([hunked]), state.files), review, null, false)
     )

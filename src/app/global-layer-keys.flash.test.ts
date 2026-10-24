@@ -43,7 +43,7 @@ async function keysFor(state: AppState, feed: ActivityFeedState, height: number)
     getVimState: () => createCursorState(),
     getFlashState: () => createFlashState(),
     getSearchState: () => createSearchState(),
-    renderer: { height },
+    renderer: { height, width: 120 },
     flashHandler: { startList: (surface: string, ids: string[]) => lists.push({ surface, ids }) } as never,
     render() {},
   }

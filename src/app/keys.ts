@@ -145,6 +145,7 @@ export function createAppKeys(renderer: CliRenderer, ctx: AppKeyContext): AppKey
     help: ctx.help,
     render: ctx.render,
     height: () => ctx.renderer.height,
+    width: () => ctx.renderer.width,
     // Help gives way to a pending chord, such as the g of `g?`.
     chordPending: () => chord.chordPending(),
   })

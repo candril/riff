@@ -2,18 +2,21 @@ import { test, expect, afterEach } from "bun:test"
 import { mountJsx } from "../testing/frame"
 import { HelpOverlay } from "./HelpOverlay"
 import { helpOverlayModel } from "./help-overlay-model"
-import { helpViewport } from "./help-sections"
+import { HELP_MARGIN, HELP_PADDING, helpViewport } from "./help-sections"
 
 let mounted: Awaited<ReturnType<typeof mountJsx>> | null = null
 
 const FOOTER = /Press g\? or Esc to close|j \/ k scroll · g\? or Esc to close/
 
+// Wide enough for both columns side by side.
+const WIDE = 180
+
 /** The overlay centred on a screen of its own, as the island places it. */
-async function frame({ version, scroll = 0, width = 110, height = 70 }: { version?: string; scroll?: number; width?: number; height?: number } = {}) {
+async function frame({ version, scroll = 0, width = WIDE, height = 70 }: { version?: string; scroll?: number; width?: number; height?: number } = {}) {
   mounted = await mountJsx(
     () => (
       <box width="100%" height="100%" justifyContent="center" alignItems="center">
-        <HelpOverlay model={helpOverlayModel(version, scroll, height)} />
+        <HelpOverlay model={helpOverlayModel(version, scroll, height, width)} />
       </box>
     ),
     { width, height }
@@ -93,10 +96,38 @@ test("on a 40-row terminal the overlay fits, its footer once below every key, no
 })
 
 test("scrolled to the end on a 40-row terminal, Quit shows, Navigation is gone, and more lies above", async () => {
-  const rows = await frame({ width: 120, height: 40, scroll: helpViewport(40).maxScroll })
+  const rows = await frame({ width: 120, height: 40, scroll: helpViewport(40, 120).maxScroll })
   const text = rows.join("\n")
   expect(rows.some((line) => /q\s+Quit/.test(line))).toBe(true)
   expect(text).not.toContain("Navigation")
   expect(text).toContain("↑ more")
   expect(text).not.toContain("↓ more")
+})
+
+test("at 104 columns every description is drawn whole, the left column's among them", async () => {
+  const rows = await frame({ width: 104, height: 70 })
+  expect(rows.some((line) => /v \/ V\s+Select by character \/ by line\s*$/.test(line))).toBe(true)
+  expect(rows.some((line) => /\\\s+Toggle side by side \(120\+ columns\)\s*$/.test(line))).toBe(true)
+  expect(rows.join("\n")).not.toContain("…")
+})
+
+for (const width of [85, 60]) {
+  test(`at ${width} columns one column is drawn, inside the screen less its margin`, async () => {
+    const rows = await frame({ version: "9.9.9", width, height: 40 })
+    expect(rows.some((line) => line.includes("Move down / up") && line.includes("Toggle file tree"))).toBe(false)
+    expect(rows.some((line) => /j \/ k\s+Move down \/ up/.test(line))).toBe(true)
+    const inside = HELP_MARGIN + HELP_PADDING
+    for (const line of rows.filter((line) => line.trim() !== "")) {
+      expect(line.search(/\S/)).toBeGreaterThanOrEqual(inside)
+      expect(line.length).toBeLessThanOrEqual(width - inside)
+    }
+    expect(rows.find((line) => line.includes("Keyboard Shortcuts"))).toContain("riff 9.9.9")
+  })
+}
+
+test("at 60 columns, scrolled to the end, the one column reaches Quit", async () => {
+  const rows = await frame({ width: 60, height: 40, scroll: helpViewport(40, 60).maxScroll })
+  expect(rows.some((line) => /q\s+Quit/.test(line))).toBe(true)
+  expect(rows.join("\n")).toContain("↑ more")
+  expect(rows.join("\n")).not.toContain("↓ more")
 })

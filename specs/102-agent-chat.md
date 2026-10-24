@@ -66,7 +66,8 @@ like any comment the reviewer typed.
   in `$EDITOR`, as the comment composer's `Ctrl-g` does, and what is saved
   comes back into the input (quitting without saving keeps the text);
   `Esc` interrupts an answer; a new conversation needs the key pressed
-  twice.
+  twice. The help overlay (`g?`) lists these keys in a section of its own,
+  Chat, just before Panels & Files, where `Ctrl-r` is.
 - **Answers stream in** from the bottom of the column, rendered as
   markdown, with one status line above the input: thinking, answering,
   how long, how many questions wait.

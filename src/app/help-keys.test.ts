@@ -23,7 +23,10 @@ const HYPER_J = "\x1b[106;17u"
 
 const parse = (sequence: string) => parseKeypress(sequence, { useKittyKeyboard: true })!
 
-async function openHelp(rows: number, { syncPreview = false } = {}) {
+// One column, as on most screens, so the body scrolls as far as it can.
+const WIDTH = 120
+
+async function openHelp(rows: number, { syncPreview = false, width = WIDTH } = {}) {
   let chordPending = false
   const { riffKeymap, leftKeys, press } = await keymapHarness()
   const helpState = createHelpState()
@@ -35,7 +38,7 @@ async function openHelp(rows: number, { syncPreview = false } = {}) {
   const render = () => {
     renders++
   }
-  registerHelpKeys(riffKeymap, { help: helpState, render, height: () => height, chordPending: () => chordPending })
+  registerHelpKeys(riffKeymap, { help: helpState, render, height: () => height, width: () => width, chordPending: () => chordPending })
   registerSyncPreviewKeys(riffKeymap, { syncPreview: syncPreviewState, render, onExecuteSync: () => {} })
   return {
     press,
@@ -67,7 +70,7 @@ test("j and k scroll the help a row at a time, and k stops at the top", async ()
 })
 
 test("Ctrl-d jumps half the window and stops at the end; Ctrl-u comes back", async () => {
-  const { rows, maxScroll } = helpViewport(40)
+  const { rows, maxScroll } = helpViewport(40, WIDTH)
   const help = await openHelp(40)
   help.press(CTRL_D)
   expect(help.scroll()).toBe(Math.min(maxScroll, Math.floor(rows / 2)))
@@ -83,7 +86,7 @@ test("Ctrl-d jumps half the window and stops at the end; Ctrl-u comes back", asy
 })
 
 test("where every key fits, scrolling keys leave the help where it is", async () => {
-  const help = await openHelp(70)
+  const help = await openHelp(70, { width: 200 })
   help.press("j")
   help.press(CTRL_D)
   expect(help.scroll()).toBe(0)
@@ -174,12 +177,12 @@ test("under the sync preview the help scrolls and closes on none of its keys", a
 test("after the terminal grows, the first k moves the help up from where it is drawn", async () => {
   const short = 30
   const tall = 45
-  expect(helpViewport(tall).maxScroll).toBeGreaterThan(0)
-  expect(helpViewport(tall).maxScroll).toBeLessThan(helpViewport(short).maxScroll)
+  expect(helpViewport(tall, WIDTH).maxScroll).toBeGreaterThan(0)
+  expect(helpViewport(tall, WIDTH).maxScroll).toBeLessThan(helpViewport(short, WIDTH).maxScroll)
   const help = await openHelp(short)
   for (let i = 0; i < 80; i++) help.press("j")
-  const before = helpOverlayModel(undefined, help.scroll(), tall).scroll
+  const before = helpOverlayModel(undefined, help.scroll(), tall, WIDTH).scroll
   help.resize(tall)
   help.press("k")
-  expect(helpOverlayModel(undefined, help.scroll(), tall).scroll).toBe(before - 1)
+  expect(helpOverlayModel(undefined, help.scroll(), tall, WIDTH).scroll).toBe(before - 1)
 })

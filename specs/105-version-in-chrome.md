@@ -28,6 +28,12 @@ the right end of the header and on the help overlay's title row.
   a resize that makes room, without a keypress.
 - **The help overlay (`g?`) carries `riff <version>`** at the right of its
   title row.
+- **The help overlay fits the screen.** Its two columns stand side by side
+  only where both fit whole, the overlay then exactly as wide as their
+  widest rows; otherwise every section stacks in one column, in the same
+  order, which `j`/`k` scroll through to the last row. Below that column's
+  own width the descriptions end in `…` at the overlay's edge. The overlay
+  always leaves two cells of the screen on each side.
 
 ## Technical Notes
 

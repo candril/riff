@@ -80,7 +80,7 @@ export interface AppKeyContext {
   // Flash jump state (spec 022)
   getFlashState: () => FlashState
   // UI
-  renderer: { height: number }
+  renderer: { height: number; width: number }
   cursorView: DiffViewport
   fileTreePanel: FileTreeIsland
   threadPanelLayout: () => ThreadPanelLayout | null

@@ -26,7 +26,7 @@ export function overlayModels({ state, vimState, mapping, cachedCurrentUser, wid
         )
       : null,
     syncPreview: syncPreview ? syncPreviewModel(gatherSyncItems(state.comments), syncPreview) : null,
-    helpOverlay: help.open ? helpOverlayModel(version, help.scroll, height) : null,
+    helpOverlay: help.open ? helpOverlayModel(version, help.scroll, height, width) : null,
     diffPeek:
       linePeek && state.viewMode === "diff"
         ? diffPeekModel(mapping, vimState.line, linePeek.side, linePeek.scroll, width, height)

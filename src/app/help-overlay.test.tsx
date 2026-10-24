@@ -29,7 +29,7 @@ test("the overlay draws on a model, clears on null, and an identical update keep
   expect((await screen()).trim()).toBe("")
   const empty = setup.captureSpans()
 
-  island.update(helpOverlayModel("9.9.9+test", 0, 70))
+  island.update(helpOverlayModel("9.9.9+test", 0, 70, 120))
   const shown = await screen()
   expect(shown).toContain("Keyboard Shortcuts")
   expect(shown).toContain("riff 9.9.9+test")
@@ -37,7 +37,7 @@ test("the overlay draws on a model, clears on null, and an identical update keep
   const title = findText(island.host, "Keyboard Shortcuts")
   expect(title).toBeDefined()
 
-  island.update(helpOverlayModel("9.9.9+test", 0, 70))
+  island.update(helpOverlayModel("9.9.9+test", 0, 70, 120))
   expect(await screen()).toBe(shown)
   expect(findText(island.host, "Keyboard Shortcuts")).toBe(title!)
 
@@ -54,15 +54,15 @@ test("scrolling a row keeps the rows still in view rather than drawing them anew
   setup.renderer.root.add(parent)
   parent.add(island.host)
 
-  island.update(helpOverlayModel(undefined, 0, 40))
+  island.update(helpOverlayModel(undefined, 0, 40, 120))
   expect(await screen()).toContain("Navigation")
-  const comments = findText(island.host, "Comments")
-  expect(comments).toBeDefined()
+  const searchTitle = findText(island.host, "Search & Jump")
+  expect(searchTitle).toBeDefined()
 
-  island.update(helpOverlayModel(undefined, 1, 40))
+  island.update(helpOverlayModel(undefined, 1, 40, 120))
   const scrolled = await screen()
   expect(scrolled).not.toContain("Navigation")
   expect(scrolled).toContain("↑ more · ↓ more")
-  expect(findText(island.host, "Comments")).toBe(comments!)
+  expect(findText(island.host, "Search & Jump")).toBe(searchTitle!)
   island.dispose()
 })
