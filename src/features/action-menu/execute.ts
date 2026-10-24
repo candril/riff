@@ -190,6 +190,20 @@ export async function executeAction(
       handlers.handleToggleUnviewedFilesOnly()
       break
 
+    // Ctrl-h and Ctrl-l step one panel over, which from the comments panel or the chat is not
+    // the panel these entries name.
+    case "focus-tree":
+      setState((s) => ({ ...s, focusedPanel: "tree" }))
+      render()
+      break
+
+    case "focus-content":
+      // Leaving the tree drops its visual-line selection, as Ctrl-l does, so it does not linger
+      // on screen and stop the tree following the diff cursor.
+      setState((s) => ({ ...s, focusedPanel: "diff", treeSelectionAnchor: null }))
+      render()
+      break
+
     case "toggle-file-panel-expanded":
       setState(toggleFilePanelExpanded)
       render()

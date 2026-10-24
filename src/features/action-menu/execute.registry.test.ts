@@ -108,7 +108,7 @@ test("every action the palette offers is handled, by a case of its own or by the
   expect(unhandled).toEqual([])
   expect(unspelled).toEqual([])
   expect(throughCommand).toEqual(
-    expect.arrayContaining(["next-file", "jump-back", "toggle-fold", "search-diff", "visual-select", "focus-tree", "follow-link"]),
+    expect.arrayContaining(["next-file", "jump-back", "toggle-fold", "search-diff", "visual-select", "follow-link"]),
   )
 })
 
@@ -123,7 +123,28 @@ test("an action without a case runs its command on the key the palette shows for
   expect(await run("expand-all-folds")).toEqual([["zchord.expandAllFolds", "zR"]])
   expect(await run("search-diff")).toEqual([["diff.key", "/"]])
   expect(await run("visual-select")).toEqual([["diff.key", "V"]])
-  expect(await run("focus-tree")).toEqual([["global.backspace", "Ctrl+h"]])
+})
+
+test("Focus File Tree and Focus Content land on the panel they name, wherever focus was", async () => {
+  const focusFrom = async (id: string, from: AppState["focusedPanel"], filter?: string) => {
+    const { ctx, commands, state } = recordingContext()
+    ctx.setState((s) => ({ ...s, focusedPanel: from, ...(filter === undefined ? {} : { treeFilter: filter }) }))
+    await executeAction(id, ctx)
+    expect(commands).toEqual([])
+    return state()
+  }
+  expect((await focusFrom("focus-tree", "comments")).focusedPanel).toBe("tree")
+  const filtered = await focusFrom("focus-tree", "tree", "greet")
+  expect([filtered.focusedPanel, filtered.treeFilter]).toEqual(["tree", "greet"])
+  expect((await focusFrom("focus-content", "tree")).focusedPanel).toBe("diff")
+  expect((await focusFrom("focus-content", "chat")).focusedPanel).toBe("diff")
+})
+
+test("Focus Content drops the tree's visual-line selection, as every other way out of the tree does", async () => {
+  const { ctx, state } = recordingContext()
+  ctx.setState((s) => ({ ...s, focusedPanel: "tree", treeSelectionAnchor: "src/alpha.ts" }))
+  await executeAction("focus-content", ctx)
+  expect([state().focusedPanel, state().treeSelectionAnchor]).toEqual(["diff", null])
 })
 
 test("a diff key run from the palette lands in the diff, which is where the entry says it acts", async () => {

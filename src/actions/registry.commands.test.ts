@@ -72,8 +72,6 @@ const SHOWN: Record<string, string> = {
   "visual-select": "V",
   "visual-select-char": "v",
   "mark-viewed": "x",
-  "focus-tree": "Ctrl+h",
-  "focus-content": "Ctrl+l",
 }
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null

@@ -4,6 +4,7 @@ import { executeAction, type ActionHandlers } from "../features/action-menu/exec
 import { paletteCommandRunner } from "./palette-commands"
 import { fgAt, ints } from "../testing/frame"
 import { colors } from "../theme"
+import { openInlineCommentOverlay } from "../state"
 
 const scenarios: JumpScenario[] = []
 afterEach(async () => {
@@ -132,17 +133,45 @@ test("Visual Line Select starts a line selection, as V does", async () => {
   expect(await choose(opened, "visual line select")).toContain("VISUAL LINE")
 })
 
+/** The tree's title: muted while another panel has focus, the primary colour while the tree has it. */
+function treeTitleFg(opened: JumpScenario) {
+  const rows = opened.mounted.setup.captureCharFrame().split("\n")
+  const y = rows.findIndex((row) => row.includes("Files ("))
+  return fgAt(opened.mounted.setup.captureSpans(), rows[y]!.indexOf("Files ("), y)
+}
+
 test("Focus File Tree moves focus to the tree, as Ctrl-h does, and its title lights up", async () => {
   const opened = await paletteApp()
-  const titleFg = () => {
-    const rows = opened.mounted.setup.captureCharFrame().split("\n")
-    const y = rows.findIndex((row) => row.includes("Files ("))
-    return fgAt(opened.mounted.setup.captureSpans(), rows[y]!.indexOf("Files ("), y)
-  }
   await opened.mounted.frame()
-  expect(titleFg()).toEqual(ints(colors.textMuted))
+  expect(treeTitleFg(opened)).toEqual(ints(colors.textMuted))
 
   await choose(opened, "focus file tree")
   expect(opened.state().focusedPanel).toBe("tree")
-  expect(titleFg()).toEqual(ints(colors.primary))
+  expect(treeTitleFg(opened)).toEqual(ints(colors.primary))
+})
+
+test("Focus File Tree from the thread panel lands in the tree, where Ctrl-h would stop at the diff", async () => {
+  const opened = await paletteApp()
+  opened.mounted.show({ ...openInlineCommentOverlay(opened.state(), "src/alpha.ts", 5, "RIGHT"), focusedPanel: "comments" })
+  expect(await opened.mounted.frame()).toContain("Files (")
+  expect(treeTitleFg(opened)).toEqual(ints(colors.textMuted))
+
+  await choose(opened, "focus file tree")
+  expect(opened.state().focusedPanel).toBe("tree")
+  expect(opened.state().inlineCommentOverlay.open).toBe(true)
+  expect(treeTitleFg(opened)).toEqual(ints(colors.primary))
+})
+
+test("Focus Content out of a tree selection drops it, so the tree goes on following the diff cursor", async () => {
+  const opened = await paletteApp()
+  await choose(opened, "focus file tree")
+  opened.press("v")
+  expect(opened.state().treeSelectionAnchor).not.toBeNull()
+
+  await choose(opened, "focus content")
+  opened.press("]", "f")
+  await opened.mounted.frame()
+  expect(opened.where().file).toBe("src/beta.ts")
+  expect(treeNameFg(opened, "beta.ts")).toEqual(ints(colors.primary))
+  expect(treeNameFg(opened, "alpha.ts")).not.toEqual(ints(colors.primary))
 })
