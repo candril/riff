@@ -31,7 +31,6 @@ export interface SplitDiffDeps {
   chatColumn: Pick<ChatColumnState, "open">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
-  filePanelWidth: () => number
   /** The pane crossed 120 columns while split is requested; only a full render swaps the views. */
   onShownChanged: () => void
 }
@@ -67,7 +66,7 @@ export function createSplitDiff(deps: SplitDiffDeps) {
   }
 
   const paneWidth = () =>
-    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width, deps.filePanelWidth())
+    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width)
 
   function shown(): boolean {
     const state = deps.getState()

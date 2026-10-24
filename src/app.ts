@@ -96,6 +96,7 @@ import type { PrInfo } from "./providers/github/types"
 // App submodules
 import { initializeAppState, initializeRenderer, buildLineMapping } from "./app/init"
 import { createFramePass } from "./app/frame-pass"
+import { columnWidthsOf } from "./app/column-widths"
 import { createAppShell } from "./app/shell"
 import { diffColumnStatus, splitOn } from "./app/column-status"
 import { createStatusBarIsland } from "./app/status-bar"
@@ -468,15 +469,8 @@ export async function createApp(options: AppOptions = {}) {
       }
     }
 
-    // Calculate file panel width based on expanded state
-    const normalWidth = 35
-    const terminalWidth = process.stdout.columns || 80
-    const expandedWidth = Math.floor(terminalWidth * 0.45)  // 45% of terminal width
-    const panelWidth = state.filePanelExpanded ? expandedWidth : normalWidth
-
-    // Update panel width if it changed
-    if (fileTreePanel.getWidth() !== panelWidth) {
-      fileTreePanel.setWidth(panelWidth)
+    if (state.showFilePanel) {
+      fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).tree)
     }
 
     state = treeHighlight.sync(state, cursorFile(), (synced) => {
@@ -632,7 +626,6 @@ export async function createApp(options: AppOptions = {}) {
     chatColumn: chatColumnState,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
-    filePanelWidth: () => fileTreePanel.getWidth(),
     onShownChanged: redrawDiff,
   })
   const unified = createUnifiedDiff({
@@ -645,7 +638,6 @@ export async function createApp(options: AppOptions = {}) {
     chatColumn: chatColumnState,
     getMapping: () => lineMapping,
     getVimState: () => vimState,
-    filePanelWidth: () => fileTreePanel.getWidth(),
   })
 
   // A mouse wheel moves the viewport and nothing else — no key is pressed,

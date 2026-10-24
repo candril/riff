@@ -47,7 +47,6 @@ test("the wheel drags the app's cursor onto the line handed over, and its reveal
     chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
-    filePanelWidth: () => 0,
     onShownChanged: () => {},
   })
   split = diff

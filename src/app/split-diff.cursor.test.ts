@@ -59,7 +59,6 @@ async function mount() {
     chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
-    filePanelWidth: () => 0,
     onShownChanged: () => {},
   })
   split = diff

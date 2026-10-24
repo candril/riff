@@ -3,7 +3,6 @@ import type { Renderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createThreadPanelIsland } from "./thread-panel"
 import type { ThreadPanelInput } from "../components/thread-panel-model"
-import { commentPanelWidth } from "../features/inline-comment-overlay"
 import {
   closeInlineCommentOverlay,
   openInlineCommentOverlay,
@@ -12,6 +11,7 @@ import {
   type AppState,
 } from "../state"
 import { mountApp } from "../testing/app-render"
+import { columnWidths, DIFF_MIN_WIDTH } from "./column-widths"
 import { composerTextareaIn } from "../testing/composer"
 import { trimFrame } from "../testing/frame"
 import type { Comment } from "../types"
@@ -234,10 +234,11 @@ describe("the panel in the app", () => {
         app.show(opened())
         await app.setup.renderOnce()
         expect(panel.visible).toBe(true)
-        expect(panel.width).toBe(Math.min(commentPanelWidth(width, false), width - 35))
+        const shared = columnWidths(width, { tree: { visible: true, expanded: false }, threads: { open: true, expanded: false }, chat: { open: false } })
+        expect(panel.width).toBe(shared.threads)
         expect(panel.x).toBe(width - panel.width)
-        // At 80 columns the tree and the panel take every column, and the diff has none left to measure.
-        if (closedWidth > panel.width) expect(diff.width).toBe(closedWidth - panel.width)
+        expect(diff.width).toBe(shared.diff)
+        expect(diff.width).toBeGreaterThanOrEqual(DIFF_MIN_WIDTH)
         await app.frame()
         counts.push(countTree(renderer.root))
 

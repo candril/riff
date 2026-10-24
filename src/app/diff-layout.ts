@@ -1,6 +1,5 @@
 import type { AppState } from "../state"
-import { commentPanelWidth } from "../features/inline-comment-overlay/width"
-import { chatColumnWidth } from "../features/chat/width"
+import { columnWidthsOf } from "./column-widths"
 
 /**
  * Below this a pane is under 60 cells, and a gutter, a sign and a number
@@ -8,46 +7,29 @@ import { chatColumnWidth } from "../features/chat/width"
  */
 export const SPLIT_MIN_WIDTH = 120
 
-export interface SideColumn {
-  open: boolean
-  width: number
-}
-
-const CLOSED: SideColumn = { open: false, width: 0 }
-
-/** What is left of the screen for the diff once the file panel, the thread panel and the chat have their share. */
-export function diffPaneWidth(
-  screenWidth: number,
-  filePanel: { visible: boolean; width: number },
-  commentPanel: SideColumn,
-  chatColumn: SideColumn = CLOSED
-): number {
-  const tree = filePanel.visible ? filePanel.width : 0
-  const threads = commentPanel.open ? commentPanel.width : 0
-  const chat = chatColumn.open ? chatColumn.width : 0
-  return Math.max(0, screenWidth - tree - threads - chat)
-}
-
 /**
  * The pane the diff is drawn in, beside the tree, the thread panel and the
  * chat. The columns are drawn in every view, but only the diff view's pane
  * is measured.
  */
 export function diffPaneWidthOf(
-  state: Pick<AppState, "showFilePanel" | "viewMode"> & {
+  state: Pick<AppState, "showFilePanel" | "filePanelExpanded" | "viewMode"> & {
     inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
     chatOpen: boolean
   },
-  screenWidth: number,
-  treeWidth: number
+  screenWidth: number
 ): number {
+  const inDiff = state.viewMode === "diff"
   const panel = state.inlineCommentOverlay
-  return diffPaneWidth(
-    screenWidth,
-    { visible: state.showFilePanel, width: treeWidth },
-    { open: panel.open && state.viewMode === "diff", width: commentPanelWidth(screenWidth, panel.expanded) },
-    { open: state.chatOpen && state.viewMode === "diff", width: chatColumnWidth(screenWidth) }
-  )
+  return columnWidthsOf(
+    {
+      showFilePanel: state.showFilePanel,
+      filePanelExpanded: state.filePanelExpanded,
+      inlineCommentOverlay: { open: panel.open && inDiff, expanded: panel.expanded },
+      chatOpen: state.chatOpen && inDiff,
+    },
+    screenWidth
+  ).diff
 }
 
 /**

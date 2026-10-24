@@ -193,8 +193,9 @@ describe("H in the thread panel", () => {
     expect(highlightedId()).toBe("o2")
   })
 
-  test("at the panel's narrowest, on an 80-column screen, the note gives way and the count stays whole", async () => {
-    const mounted = await panelApp(80)
+  // 88 is the narrowest screen that leaves the 48-column panel whole beside the diff's floor.
+  test("at the panel's narrowest, on an 88-column screen, the note gives way and the count stays whole", async () => {
+    const mounted = await panelApp(88)
     await mounted.setup.mockInput.typeText("H")
     const header = async () => {
       const lines = (await mounted.frame()).split("\n")

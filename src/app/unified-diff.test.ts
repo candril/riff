@@ -71,7 +71,6 @@ async function mount(options: MountOptions) {
     chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
-    filePanelWidth: () => 0,
   })
   unified = diff
   setup.renderer.root.add(diff.island.host)

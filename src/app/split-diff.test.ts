@@ -43,7 +43,6 @@ async function mount() {
     chatColumn: { open: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
-    filePanelWidth: () => 0,
     onShownChanged: () => shownChanges++,
   })
   const pair = split.source().rows[8] as { kind: "pair"; left: number; right: number }
@@ -169,7 +168,6 @@ describe("single-file mode", () => {
       chatColumn: { open: () => false },
       getMapping: () => mapping,
       getVimState: () => vimState,
-      filePanelWidth: () => 0,
       onShownChanged: () => {},
     })
     split = diff

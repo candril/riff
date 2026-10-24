@@ -26,7 +26,6 @@ export interface UnifiedDiffDeps {
   chatColumn: Pick<ChatColumnState, "open">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
-  filePanelWidth: () => number
 }
 
 export interface UnifiedDrawInput {
@@ -51,7 +50,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
   let drawn: { mapping: DiffLineMapping; file: number | null; wrap: boolean } | null = null
 
   const paneWidth = () =>
-    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width, deps.filePanelWidth())
+    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width)
 
   /**
    * The island's rows are numbered by the mapping it last drew. A fold or

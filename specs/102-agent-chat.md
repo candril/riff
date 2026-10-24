@@ -49,6 +49,13 @@ like any comment the reviewer typed.
   its content visible, and split view falls back to unified below 120
   columns as usual. When the thread panel is open as well, it sits
   between the diff and the chat.
+- **The diff keeps a floor on narrow screens.** The tree, the thread panel
+  and the chat each ask for their own width; where those leave the diff
+  fewer than 40 cells, the chat and the threads give way first, down to
+  28 cells each, then the tree down to 20, and on a screen too narrow
+  even for those floors the side columns share what the diff's 40 leave.
+  Wide screens keep every column at the width it asks for
+  (`src/app/column-widths.ts`).
 - **Focus moves with the existing walk** (`Ctrl-l` / `Ctrl-h`: tree →
   diff → threads → chat). The input's shading shows that the chat has
   focus, so letters typed there never run diff commands.

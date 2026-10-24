@@ -48,6 +48,7 @@ import { FileParses } from "../vim-diff/file-parses"
 import { createSearchState } from "../vim-diff/search-state"
 import { buildLineMapping } from "../app/init"
 import { createFramePass, type FramePassContext } from "../app/frame-pass"
+import { columnWidthsOf } from "../app/column-widths"
 import { createStatusBarIsland } from "../app/status-bar"
 import { createFeedIsland } from "../app/feed"
 import { createFrameIslands, followFrame, frameIslandHosts } from "../app/overlays"
@@ -110,7 +111,6 @@ export async function mountApp(
     chatColumn: chatColumnState,
     getMapping: () => mapping,
     getVimState: () => vimState,
-    filePanelWidth: () => fileTreePanel.getWidth(),
   }
   const split = createSplitDiff({ ...diffDeps, onShownChanged: () => render() })
   const unified = createUnifiedDiff(diffDeps)
@@ -240,6 +240,9 @@ export async function mountApp(
     getCommandKeys: () => commandKeys,
     reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
     updateFileTreePanel() {
+      if (state.showFilePanel) {
+        fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).tree)
+      }
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({
           files: synced.files,

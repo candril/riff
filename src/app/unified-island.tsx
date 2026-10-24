@@ -163,7 +163,8 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
   let disposed = false
   island.host.onSizeChange = () => {
     setTimeout(() => {
-      if (disposed) return
+      // The renderer can go before the island does, and a resize then writes into a destroyed scene.
+      if (disposed || renderer.isDestroyed) return
       resize(island.host.width, island.host.height)
       renderer.requestRender()
     }, 0)
