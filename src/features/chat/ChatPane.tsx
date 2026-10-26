@@ -12,9 +12,8 @@ export const CHAT_HINT =
   "Ask about this review. Enter sends, Ctrl-j breaks the line, Ctrl-g opens $EDITOR, Esc stops an answer, Ctrl-n twice starts over."
 const PLACEHOLDER = "Ask about this review"
 
-// The input starts one line high and grows with what is typed, up to six lines, then scrolls.
+// The input starts one line high and grows with what is typed, wrapped lines included, up to six lines, then scrolls.
 export const MAX_INPUT_LINES = 6
-export const linesIn = (text: string) => Math.min(MAX_INPUT_LINES, Math.max(1, text.split("\n").length))
 
 const TICK_MS = 1000
 
@@ -38,7 +37,6 @@ export function ChatPane(props: {
   onInput: (input: TextareaRenderable) => void
 }) {
   let input!: TextareaRenderable
-  const [inputHeight, setInputHeight] = createSignal(1)
   const now = useNow(() => props.state.status() === "answering")
   const status = () => statusLineText(props.state.activity(), props.state.clearPrompt(), now())
   const shade = () => (props.focused ? chatColors.inputFocused : chatColors.inputIdle)
@@ -85,11 +83,9 @@ export function ChatPane(props: {
             props.onInput(r)
           }}
           id="chat-input"
-          height={inputHeight()}
-          onContentChange={() => {
-            setInputHeight(linesIn(input.plainText))
-            followAt()
-          }}
+          minHeight={1}
+          maxHeight={MAX_INPUT_LINES}
+          onContentChange={followAt}
           onCursorChange={followAt}
           placeholder={PLACEHOLDER}
           backgroundColor={shade()}

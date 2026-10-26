@@ -115,6 +115,30 @@ for (const width of [50, 36]) {
       expect(frame).not.toMatch(/^\s*1$/m)
     })
 
+    test("a long line with no break wraps onto the rows under it, and the input grows with it", async () => {
+      const { setup, island } = await mountColumn(width)
+      await draw(setup)
+      const input = island.input()!
+      await setup.mockInput.typeText("begin " + "word ".repeat(width / 5) + "finish")
+      const rows = (await draw(setup)).split("\n")
+      const begin = rows.findIndex((row) => row.includes("begin"))
+      const finish = rows.findIndex((row) => row.includes("finish"))
+      expect(begin).toBeGreaterThan(-1)
+      expect(finish).toBeGreaterThan(begin)
+      expect(input.height).toBeGreaterThan(1)
+    })
+
+    test("a wrapped prompt far longer than six rows stops the input at six, under the conversation", async () => {
+      const { setup, island } = await mountColumn(width)
+      await draw(setup)
+      const input = island.input()!
+      await setup.mockInput.typeText("word ".repeat(width * 3) + "finish")
+      const frame = await draw(setup)
+      expect(input.height).toBe(6)
+      expect(frame).toContain("finish")
+      expect(flat(frame)).toContain("Ctrl-n twice starts over.")
+    })
+
     test("past six typed lines the input scrolls, so the last line and the cursor stay on screen", async () => {
       const { setup, island } = await mountColumn(width)
       await draw(setup)
