@@ -38,6 +38,7 @@ import type { DiffLineMapping } from "../vim-diff/line-mapping"
 import { DiffLineMapping as DiffLineMappingClass } from "../vim-diff/line-mapping"
 import { loadConfig, type Config } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
+import { loadChat, type SavedChat } from "../storage/chat"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
 import { commentsInView } from "../utils/notes"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
@@ -77,6 +78,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
   headSha: string
   // The info panel's to own, not app state's: the sections the reader opened in this review.
   prInfoOpenSections: Set<PRInfoPanelSection>
+  /** The review's earlier chat conversation, if it has one; the chat's to own. */
+  savedChat: SavedChat | null
   /** The review's saved marks, followed to where their lines are now; the marks factory's to own. */
   marks: readonly Mark[]
   /** When riff last had this PR open, and whether the branch was rewritten since; the visit factory's to own. */
@@ -99,7 +102,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
 
   // Nothing below depends on anything else below, and in local mode each
   // entry costs a process spawn — so ask for all of it at once.
-  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks, panelFilters, prInfoOpenSections] =
+  const [localDiff, localBranchInfo, localCommits, loadedComments, session, localViewedStatuses, loadedMarks, panelFilters, prInfoOpenSections, savedChat] =
     await Promise.all([
       isPreloadedPr || filesTarget ? null : loadLocalDiff(target),
       // A path is not a revision, so there is no branch and no commit range
@@ -112,6 +115,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       loadMarks(source),
       loadPanelFilters(source),
       loadInfoSections(source),
+      loadChat(source),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
@@ -202,7 +206,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // unanswerable from commits, so it is noted rather than guessed at.
   const rebased = wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT)
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections, marks, visit: { watermark: visit, rebased }, foldedFiles, config }
+  return { state, source, headSha: headSha ?? "", prInfoOpenSections, savedChat, marks, visit: { watermark: visit, rebased }, foldedFiles, config }
 }
 
 /**

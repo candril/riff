@@ -11,6 +11,8 @@ const deps = (demo: boolean) => ({
   getState: () => createInitialState([], [], "local", ""),
   target: undefined,
   headSha: () => null,
+  source: "local",
+  savedChat: null,
   position: () => null,
   proposer: () => ({ proposeComment: async () => "", proposeEdit: async () => "" }),
 })
@@ -32,6 +34,19 @@ test("a review says a drifted claude in the chat once the check returns; --demo 
   expect(checks).toBe(1)
   expect(demo.entries).toEqual([])
   expect(review.entries).toEqual([{ kind: "note", ...drift }])
+})
+
+test("a review picks up its earlier conversation; --demo starts empty", () => {
+  const savedChat = {
+    sessionId: "s",
+    headSha: null,
+    entries: [{ kind: "question" as const, text: "why?", labels: [] }],
+  }
+  const claudeVersion = () => Promise.resolve(null)
+  const demo = createReviewChat({ ...deps(true), savedChat })
+  const review = createReviewChat({ ...deps(false), savedChat, claudeVersion })
+  expect(demo.entries).toEqual([])
+  expect(review.entries.map((e) => e.text)).toEqual(["why?"])
 })
 
 test("a failing check leaves the chat empty", async () => {

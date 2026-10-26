@@ -241,3 +241,35 @@ describe("an @ in the input floats the picker of what it can attach just above i
     expect(frame).not.toContain("@attach")
   })
 })
+
+test("a review's earlier conversation is drawn when the column opens", async () => {
+  const width = 50
+  const setup = await createTestRenderer({ width, height: HEIGHT })
+  const state = createChatState(fakeAgent().agent, undefined, undefined, {
+    saved: {
+      sessionId: "session-1",
+      headSha: null,
+      entries: [
+        { kind: "question", text: "why is the cache keyed by path?", labels: ["src/cache.ts:12"] },
+        { kind: "answer", text: "Paths are unique per review.", interrupted: false },
+      ],
+    },
+    head: () => null,
+    save: () => {},
+    saveNow: () => {},
+    clear: () => {},
+  })
+  const island = createChatColumnIsland(setup.renderer, state, () => [])
+  teardown.push(async () => {
+    await setup.waitForVisualIdle().catch(() => {})
+    island.dispose()
+    setup.renderer.destroy()
+  })
+  setup.renderer.root.add(island.host)
+  island.update({ width, focused: true })
+  const frame = await draw(setup)
+  expect(frame).toContain("src/cache.ts:12")
+  expect(flat(frame)).toContain("› why is the cache keyed by path?")
+  expect(flat(frame)).toContain("Paths are unique per review.")
+  expect(flat(frame)).not.toContain(CHAT_HINT)
+})

@@ -191,7 +191,7 @@ export async function createApp(options: AppOptions = {}) {
   // State first, renderer second: the renderer starts reading stdin as soon
   // as it exists, and a key typed before the keypress handler is wired up is
   // read and dropped. Loading first keeps that window shut.
-  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, marks: initialMarks, visit: initialVisit, foldedFiles: initialFoldedFiles, config: initialConfig } = await initializeAppState({
+  const { state: initialState, source, headSha: initialHeadSha, prInfoOpenSections, savedChat, marks: initialMarks, visit: initialVisit, foldedFiles: initialFoldedFiles, config: initialConfig } = await initializeAppState({
     mode,
     target: options.target,
     filesTarget: options.filesTarget,
@@ -553,6 +553,8 @@ export async function createApp(options: AppOptions = {}) {
     getState: () => state,
     target: options.target,
     headSha: () => currentHeadSha ?? null,
+    source,
+    savedChat,
     position: diffCursorPosition({
       getState: () => state,
       getVimState: () => vimState,

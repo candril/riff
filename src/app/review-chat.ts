@@ -18,7 +18,8 @@ import {
 import { claudeExecutable } from "../providers/agent/environment"
 import { agentFilesOf, agentTargetOf, hiddenFileCount } from "../providers/agent/target"
 import { demoAgent } from "../features/chat/demo-agent"
-import { createChatState, type ChatState } from "../features/chat/state"
+import { createChatState, type ChatContinuity, type ChatState } from "../features/chat/state"
+import { clearChat, saveChat, saveChatSync, type SavedChat } from "../storage/chat"
 import { chatPositionOf } from "../features/chat/position-of"
 import { expandReferences, type Expanded } from "../features/chat/references"
 import { threadAttachment, threadsAt } from "../features/chat/position-threads"
@@ -33,6 +34,9 @@ export interface ReviewChatDeps {
   getState: () => AppState
   target: string | undefined
   headSha: () => string | null
+  /** The review's store key, where its conversation is kept between launches. */
+  source: string
+  savedChat: SavedChat | null
   /** Read once per question, as it is sent. */
   position: () => Position | null
   /** Asked for when a session opens: app.ts builds the chat before the diff the proposals move. */
@@ -75,13 +79,33 @@ export function reviewAgent(deps: ReviewChatDeps): Agent {
  * when the reviewer first opens it rather than as a failure on the first question.
  */
 export function createReviewChat(deps: ReviewChatDeps): ChatState {
-  const chat = createChatState(reviewAgent(deps), deps.position, reviewReferences(deps.getState))
+  const chat = createChatState(
+    reviewAgent(deps),
+    deps.position,
+    reviewReferences(deps.getState),
+    deps.demo ? undefined : reviewContinuity(deps),
+  )
   if (!deps.demo) {
     void (deps.claudeVersion ?? installedClaudeVersion)()
       .then((note) => note && chat.note(note.text, note.tone))
       .catch(() => {})
   }
   return chat
+}
+
+/**
+ * Not for `--demo`: its agent cannot resume a session, and the fixture's
+ * store must not colour the next run. Only a PR has a head that moves
+ * under the conversation; a local review's changes are read fresh anyway.
+ */
+function reviewContinuity(deps: ReviewChatDeps): ChatContinuity {
+  return {
+    saved: deps.savedChat,
+    head: () => (deps.getState().appMode === "pr" ? deps.headSha() : null),
+    save: (chat) => void saveChat(deps.source, chat).catch(() => {}),
+    saveNow: (chat) => saveChatSync(deps.source, chat),
+    clear: () => void clearChat(deps.source).catch(() => {}),
+  }
 }
 
 // Only a compiled riff has a pin, and only a compiled riff runs the user's own claude.

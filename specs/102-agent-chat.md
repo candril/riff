@@ -2,7 +2,11 @@
 
 **Status**: Done
 
-**Not built**: P2 (continuity, search), P3 (proposing a review)
+**Built from P2**: continuity: the stored conversation, its session
+resumed, a note when that session is gone, new commits told once
+
+**Not built**: P2 (search; telling the agent about a refresh or about
+comments added or removed), P3 (proposing a review)
 
 ## Description
 
@@ -207,10 +211,12 @@ like any comment the reviewer typed.
 
 ### P2 - Continuity
 
-- **The conversation survives a restart** of riff on the same review: the
-  session id is stored with the review in `.riff/<source>/chat.json`, and
-  resumed when its session still exists. When it does not, the chat says
-  so and starts fresh.
+- **The conversation survives a restart** of riff on the same review:
+  `.riff/<source>/chat.json` holds the session id, the PR head the agent
+  last heard about, and the questions and answers, which the chat shows
+  again on reopening. The first question resumes the session when it
+  still exists. When it does not, the chat says so and starts fresh.
+  Ctrl-n Ctrl-n starts over and clears the file.
 - **The agent hears about changes once**, with the next question: new
   commits on the PR, a refresh, comments the reviewer added or removed.
 - **Searching the repository.** Text search across the head revision,
