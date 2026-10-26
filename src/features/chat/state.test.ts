@@ -3,6 +3,7 @@ import { createSignal } from "solid-js"
 import type { Position } from "../../providers/agent/position"
 import { fakeAgent } from "./fake-agent"
 import { createChatState, NEW_CONVERSATION_PROMPT, type ChatState } from "./state"
+import type { SavedChat } from "../../storage/chat"
 
 const kinds = (state: ChatState) =>
   state.entries.map((e) =>
@@ -203,4 +204,159 @@ test("a note from outside the conversation keeps the tone it is given", () => {
   const chat = createChatState(fakeAgent().agent)
   chat.note("claude 2.2.0 is installed", "error")
   expect(kinds(chat)).toEqual(["N:error:claude 2.2.0 is installed"])
+})
+
+function continuity(saved: SavedChat | null, head: () => string | null = () => null) {
+  const saves: SavedChat[] = []
+  const savedNow: SavedChat[] = []
+  let clears = 0
+  return {
+    continuity: {
+      saved,
+      head,
+      save: (chat: SavedChat) => void saves.push(structuredClone(chat)),
+      saveNow: (chat: SavedChat) => void savedNow.push(structuredClone(chat)),
+      clear: () => void clears++,
+    },
+    saves,
+    savedNow,
+    clears: () => clears,
+  }
+}
+
+const earlier: SavedChat = {
+  sessionId: "session-1",
+  headSha: "aaaaaaa111",
+  entries: [
+    { kind: "question", text: "why?", labels: ["src/a.ts:3"] },
+    { kind: "answer", text: "because", interrupted: false },
+  ],
+}
+
+const lastSave = (store: { saves: SavedChat[] }) => store.saves.at(-1)!
+
+test("a stored conversation is back in the chat before anything is asked", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, undefined, undefined, continuity(earlier).continuity)
+  expect(kinds(chat)).toEqual(["Q:why?", "A:because"])
+  const question = chat.entries[0] as Extract<(typeof chat.entries)[number], { kind: "question" }>
+  expect([question.position, [...question.labels], [...question.attachments]]).toEqual([null, ["src/a.ts:3"], []])
+  expect(fake.starts()).toBe(0)
+})
+
+test("the first question resumes the stored session; one after a failure starts a new one", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, undefined, undefined, continuity(earlier).continuity)
+  chat.send("and now?")
+  expect(fake.resumedWith()).toBe("session-1")
+  fake.events().failed({ kind: "session-dropped" })
+  chat.send("again?")
+  expect([fake.starts(), fake.resumedWith()]).toEqual([2, null])
+})
+
+test("a stored session the agent no longer has is said in the chat", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, undefined, undefined, continuity(earlier).continuity)
+  chat.send("and now?")
+  fake.events().sessionLost?.()
+  expect(kinds(chat).at(-1)).toBe(
+    "N:info:The earlier session is gone; this question starts a new one, which does not know the conversation above.",
+  )
+})
+
+test("the question, a new session id and the answer are each saved", () => {
+  const fake = fakeAgent()
+  const store = continuity(null, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  expect(lastSave(store)).toEqual({
+    sessionId: null,
+    headSha: "bbbbbbb222",
+    entries: [
+      { kind: "question", text: "one", labels: [] },
+      { kind: "answer", text: "", interrupted: true },
+    ],
+  })
+  fake.events().sessionStarted?.("session-2")
+  expect(lastSave(store).sessionId).toBe("session-2")
+  fake.answer("1")
+  expect(lastSave(store).entries.at(-1)).toEqual({ kind: "answer", text: "1", interrupted: false })
+})
+
+test("a failure is saved with the answer it cut short", () => {
+  const fake = fakeAgent()
+  const store = continuity(null)
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  fake.events().text("par")
+  fake.events().failed({ kind: "session-dropped" })
+  expect(lastSave(store).entries).toEqual([
+    { kind: "question", text: "one", labels: [] },
+    { kind: "answer", text: "par", interrupted: true },
+  ])
+})
+
+test("new commits since the agent last heard go along with the next question only", () => {
+  const fake = fakeAgent()
+  const [head, setHead] = createSignal<string | null>("bbbbbbb222")
+  const store = continuity(earlier, head)
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  expect(fake.attachments[0]).toEqual([
+    "New commits on the PR since this conversation last spoke about it: head moved from aaaaaaa to bbbbbbb. Re-read what you need with the tools.",
+  ])
+  const question = chat.entries[2] as Extract<(typeof chat.entries)[number], { kind: "question" }>
+  expect([...question.labels]).toEqual(["new commits aaaaaaa..bbbbbbb"])
+  expect(lastSave(store).headSha).toBe("bbbbbbb222")
+  fake.answer("1")
+  chat.send("two")
+  expect(fake.attachments[1]).toEqual([])
+  fake.answer("2")
+  setHead("ccccccc333")
+  chat.send("three")
+  expect(fake.attachments[2]?.[0]).toContain("from bbbbbbb to ccccccc")
+})
+
+test("without a head to compare, nothing about commits goes", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, undefined, undefined, continuity({ ...earlier, headSha: null }, () => "bbbbbbb222").continuity)
+  chat.send("one")
+  expect(fake.attachments[0]).toEqual([])
+})
+
+test("a new conversation clears what is stored and the next question resumes nothing", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.newConversation()
+  chat.newConversation()
+  expect([store.clears(), chat.entries.length]).toEqual([1, 0])
+  chat.send("fresh")
+  expect([fake.resumedWith(), fake.attachments[0]]).toEqual([null, []])
+})
+
+test("leaving saves the conversation at once, an answer still streaming as interrupted", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier)
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  fake.events().text("half")
+  chat.dispose()
+  expect(store.savedNow).toEqual([
+    {
+      sessionId: "session-1",
+      headSha: "aaaaaaa111",
+      entries: [
+        ...earlier.entries,
+        { kind: "question", text: "one", labels: [] },
+        { kind: "answer", text: "half", interrupted: true },
+      ],
+    },
+  ])
+})
+
+test("leaving with nothing said writes nothing", () => {
+  const store = continuity(null)
+  createChatState(fakeAgent().agent, undefined, undefined, store.continuity).dispose()
+  expect(store.savedNow).toEqual([])
 })

@@ -4,6 +4,7 @@ import type { Agent, AgentSession, Usage } from "../../providers/agent/agent"
 import type { Position } from "../../providers/agent/position"
 import { describeFailure, type Entry } from "./entries"
 import type { Expanded } from "./references"
+import type { SavedChat, SavedEntry } from "../../storage/chat"
 
 export type { Entry } from "./entries"
 
@@ -19,6 +20,38 @@ export type ChatState = ReturnType<typeof createChatState>
 
 export const NEW_CONVERSATION_PROMPT = "Press Ctrl-n again to start a new conversation"
 
+export const SESSION_LOST_NOTE =
+  "The earlier session is gone; this question starts a new one, which does not know the conversation above."
+
+/** Where the review's conversation is kept between launches, and the PR head the agent should know about. */
+export interface ChatContinuity {
+  saved: SavedChat | null
+  head: () => string | null
+  save(chat: SavedChat): void
+  // On the way out, where a queued write would not land before the process ends.
+  saveNow(chat: SavedChat): void
+  clear(): void
+}
+
+const short = (sha: string) => sha.slice(0, 7)
+
+function restored(entry: SavedEntry): Entry {
+  return entry.kind === "question"
+    ? { kind: "question", text: entry.text, waiting: false, position: null, attachments: [], labels: [...entry.labels] }
+    : { kind: "answer", text: entry.text, streaming: false, interrupted: entry.interrupted }
+}
+
+function saved(entry: Entry): SavedEntry[] {
+  if (entry.kind === "question") {
+    const labels = [entry.position?.label, ...entry.labels].filter((label): label is string => !!label)
+    return [{ kind: "question", text: entry.text, labels }]
+  }
+  if (entry.kind === "answer") {
+    return [{ kind: "answer", text: entry.text, interrupted: entry.interrupted || entry.streaming }]
+  }
+  return []
+}
+
 /**
  * One conversation with riff's agent. The session opens on the first
  * question, not before: opening the chat costs nothing until something is
@@ -29,8 +62,9 @@ export function createChatState(
   agent: Agent,
   position: () => Position | null = () => null,
   expand: (text: string, position: Position | null) => Expanded = () => ({ attachments: [], labels: [] }),
+  continuity?: ChatContinuity,
 ) {
-  const [entries, setEntries] = createStore<Entry[]>([])
+  const [entries, setEntries] = createStore<Entry[]>(continuity?.saved?.entries.map(restored) ?? [])
   const [status, setStatus] = createSignal<AgentStatus>("idle")
   // After a failure the queue holds still until the reviewer asks again.
   const [paused, setPaused] = createSignal(false)
@@ -39,6 +73,13 @@ export function createChatState(
   const [clearPrompt, setClearPrompt] = createSignal<string | null>(null)
   let session: AgentSession | null = null
   const sessionClosed = new Set<() => void>()
+  let sessionId = continuity?.saved?.sessionId ?? null
+  // Only the first session resumes: one opened after a failure starts fresh, as describeFailure tells the reviewer.
+  let resumeId = sessionId
+  let toldHead = continuity?.saved?.headSha ?? null
+
+  const snapshot = (): SavedChat => ({ sessionId, headSha: toldHead, entries: entries.flatMap(saved) })
+  const save = () => continuity?.save(snapshot())
 
   const push = (entry: Entry) => setEntries(entries.length, entry)
   const streamingAnswer = () => {
@@ -68,7 +109,29 @@ export function createChatState(
       setStatus("answering")
       setAnswerStartedAt(Date.now())
     })
-    session ??= agent.start({
+    const attachments = [...question.attachments]
+    const head = continuity?.head() ?? null
+    if (toldHead !== null && head !== null && toldHead !== head) {
+      attachments.unshift(
+        `New commits on the PR since this conversation last spoke about it: head moved from ${short(toldHead)} to ${short(head)}. Re-read what you need with the tools.`,
+      )
+      const label = `new commits ${short(toldHead)}..${short(head)}`
+      setEntries(i, produce((e) => void (e as { labels: string[] }).labels.push(label)))
+    }
+    if (head !== null) toldHead = head
+    session ??= openSession()
+    session.send(question.text, question.position, attachments)
+  }
+
+  function openSession(): AgentSession {
+    const resume = resumeId
+    resumeId = null
+    return agent.start({
+      sessionStarted: (id) => {
+        sessionId = id
+        save()
+      },
+      sessionLost: () => push({ kind: "note", text: SESSION_LOST_NOTE, tone: "info" }),
       text: (chunk) => {
         const a = streamingAnswer()
         if (a >= 0) setEntries(a, produce((e) => void ((e as { text: string }).text += chunk)))
@@ -81,6 +144,7 @@ export function createChatState(
           setStatus("idle")
         })
         sendNext()
+        save()
       },
       failed: (failure) => {
         // Whatever failed, this session is done; the next question opens another.
@@ -91,9 +155,9 @@ export function createChatState(
           setStatus("failed")
           setPaused(entries.some((e) => e.kind === "question" && e.waiting))
         })
+        save()
       },
-    })
-    session.send(question.text, question.position, question.attachments)
+    }, resume)
   }
 
   return {
@@ -130,6 +194,7 @@ export function createChatState(
         setPaused(false)
       })
       sendNext()
+      save()
       return true
     },
     interrupt() {
@@ -143,6 +208,10 @@ export function createChatState(
         return
       }
       closeSession()
+      sessionId = null
+      resumeId = null
+      toldHead = null
+      continuity?.clear()
       batch(() => {
         setEntries([])
         setStatus("idle")
@@ -156,6 +225,9 @@ export function createChatState(
     note: (text: string, tone: "error" | "info" = "info") => push({ kind: "note", text, tone }),
     // A tool call still waiting on the reviewer belongs to the session; it has no one to answer once that closes.
     onSessionClosed: (listener: () => void) => void sessionClosed.add(listener),
-    dispose: closeSession,
+    dispose() {
+      closeSession()
+      if (entries.some((e) => e.kind !== "note") || sessionId !== null) continuity?.saveNow(snapshot())
+    },
   }
 }
