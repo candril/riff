@@ -108,6 +108,6 @@ test("the posture holds the drafting rules", () => {
 test("the posture shows a bad and a good draft", () => {
   const context = buildContext(pr, files(1), 0)
   expect(context).toContain(
-    "  Bad: Could you move `resolveRedirect` below the `describe` block, so the file starts with the test cases? A `function` declaration is hoisted, so it still works when defined at the bottom.\n  Good: Move `resolveRedirect` below the `describe` block so the file starts with the tests.",
+    "  Bad: Could you move `resolveRedirect` below the `describe` block, so the file starts with the\n       test cases? A `function` declaration is hoisted, so it still works when defined at the\n       bottom.\n  Good: Move `resolveRedirect` below the `describe` block so the file starts with the tests.",
   )
 })

@@ -204,7 +204,6 @@ like any comment the reviewer typed.
     hoisted, so it still works when defined at the bottom."
   - Good: "Move `resolveRedirect` below the `describe` block so the file
     starts with the tests."
-
   The rules sit in the posture and again in the `text` descriptions of
   `propose_comment` and `propose_edit`, which the model reads as it
   drafts.

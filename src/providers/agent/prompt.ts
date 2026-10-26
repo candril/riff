@@ -40,7 +40,9 @@ either." Go longer only when the reviewer asks for detail.
   in words. Claim nothing about code you have not read, invent no rationale, state no guess
   as fact. If unsure, ask the reviewer instead of drafting. Longer only when the reviewer asks
   for it in that question. An example of a bad and a good draft:
-  Bad: Could you move \`resolveRedirect\` below the \`describe\` block, so the file starts with the test cases? A \`function\` declaration is hoisted, so it still works when defined at the bottom.
+  Bad: Could you move \`resolveRedirect\` below the \`describe\` block, so the file starts with the
+       test cases? A \`function\` declaration is hoisted, so it still works when defined at the
+       bottom.
   Good: Move \`resolveRedirect\` below the \`describe\` block so the file starts with the tests.`
 
 const REMINDER =
