@@ -41,3 +41,14 @@ export function isFindMotion(key: Key): boolean {
 export function isZOpener(key: Key): boolean {
   return key.name === "z" && !key.ctrl && !key.shift
 }
+
+/**
+ * `H`, `M` and `L` aim at a row of the screen; centring the window after
+ * them would move the very row they aimed at.
+ */
+export function keepsItsRow(key: Key): boolean {
+  if (key.ctrl) return false
+  const name = key.name ?? ""
+  if (["H", "M", "L"].includes(name)) return true
+  return key.shift === true && ["h", "m", "l"].includes(name)
+}

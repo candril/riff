@@ -43,15 +43,26 @@ const typed = (text: string) => [...text].map((c) => key(c, { sequence: c }))
  * key, starting from `start`; returns what it asked to push.
  */
 function drive(start: Moment, steps: [Key, Moment][]): Jump[] {
+  return run(start, steps).pushed
+}
+
+/** Which of the keys, by index, finished an interaction that lands the cursor. */
+function landings(start: Moment, steps: [Key, Moment][]): number[] {
+  return run(start, steps).landed
+}
+
+function run(start: Moment, steps: [Key, Moment][]) {
   const recorder = createJumpRecorder()
   const pushed: Jump[] = []
+  const landed: number[] = []
   let now = start
-  for (const [k, next] of steps) {
-    const jump = recorder.around(k, now, () => {}, () => next)
-    if (jump) pushed.push(jump)
+  steps.forEach(([k, next], i) => {
+    const { push, landed: lands } = recorder.around(k, now, () => {}, () => next)
+    if (push) pushed.push(push)
+    if (lands) landed.push(i)
     now = next
-  }
-  return pushed
+  })
+  return { pushed, landed }
 }
 
 const origin = at("a.ts", 3, 4)
@@ -284,8 +295,8 @@ describe("walking the list", () => {
     const bottom = at("b.ts", 99)
     const vimAt = (m: Moment) => ({ ...createCursorState(), line: m.place.cursorLine, col: m.place.cursorCol ?? 0 })
     const record = (k: Key, before: Moment, after: Moment) => {
-      const jump = recorder.around(k, before, () => {}, () => after)
-      if (jump) jumpList.push(jump)
+      const { push } = recorder.around(k, before, () => {}, () => after)
+      if (push) jumpList.push(push)
     }
 
     record(key("G"), top, bottom)
@@ -299,6 +310,57 @@ describe("walking the list", () => {
 
     expect(jumpList.list().entries.map((e) => e.cursorLine)).toEqual([0, 99])
     expect(jumpList.back(state, here)).toEqual(top.place)
+  })
+})
+
+describe("where an interaction lands the cursor", () => {
+  test("a jump that moves lands", () => {
+    expect(landings(origin, [[key("n"), at("a.ts", 40)]])).toEqual([0])
+    expect(landings(origin, [[key("G"), at("b.ts", 99)]])).toEqual([0])
+  })
+
+  test("a jump that goes nowhere does not", () => {
+    expect(landings(origin, [[key("n"), origin]])).toEqual([])
+  })
+
+  test("a step does not, not even one into another file that is recorded", () => {
+    expect(landings(origin, [[key("j"), at("a.ts", 4)]])).toEqual([])
+    expect(landings(origin, [[ctrl("d"), at("a.ts", 30)]])).toEqual([])
+    const last = at("a.ts", 9)
+    const steps: [Key, Moment][] = [[key("j"), at("b.ts", 10)]]
+    expect(drive(last, steps)).toEqual([last.place])
+    expect(landings(last, steps)).toEqual([])
+  })
+
+  test("a z command does not", () => {
+    expect(landings(origin, [[key("z"), open(origin)], [key("z"), at("a.ts", 3)]])).toEqual([])
+    expect(landings(origin, [[key("z"), open(origin)], [key("j"), at("a.ts", 40)]])).toEqual([])
+  })
+
+  test("a walk that moves lands, though it records nothing", () => {
+    const steps: [Key, Moment][] = [[ctrl("o"), at("b.ts", 70)], [key("tab"), at("b.ts", 70)], [key("tab"), origin]]
+    expect(drive(origin, steps)).toEqual([])
+    expect(landings(origin, steps)).toEqual([0, 2])
+  })
+
+  test("H, M and L aim at a row of the screen, so none of them lands", () => {
+    for (const k of [key("H"), key("h", { shift: true }), key("M"), key("m", { shift: true }), key("L"), key("l", { shift: true })]) {
+      expect(landings(origin, [[k, at("a.ts", 25)]])).toEqual([])
+    }
+  })
+
+  test("an interaction still taking keys lands only on the key that settles it", () => {
+    const steps: [Key, Moment][] = [
+      [key("/"), open(origin)],
+      [key("f", { sequence: "f" }), open(at("a.ts", 40))],
+      [key("o", { sequence: "o" }), open(at("a.ts", 50))],
+      [key("return"), at("a.ts", 50)],
+    ]
+    expect(landings(origin, steps)).toEqual([3])
+  })
+
+  test("a picker opened with Ctrl-f lands where Enter takes it", () => {
+    expect(landings(origin, [[ctrl("f"), open(origin)], [key("return"), at("b.ts", 12)]])).toEqual([1])
   })
 })
 

@@ -12,7 +12,7 @@ import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
 import { cursorColumnInWindow, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
 import { lineOfRow } from "./split-cursor"
-import { clampScroll, placeRow, revealRow } from "./split-scroll"
+import { clampScroll, landRow, placeRow, revealRow } from "./split-scroll"
 import { wheelDragRow } from "./wheel-drag"
 
 export type SplitInputs = Omit<SplitDiffViewProps, "scrollTop" | "held" | "columns" | "width" | "height">
@@ -243,6 +243,9 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
     seedSize: resize,
     scrollCursorTo(row: number, where: "center" | "top" | "bottom") {
       setScrollTop(placeRow(window(), row, where, scrollOff))
+    },
+    landCursor(row: number) {
+      setScrollTop(landRow(window(), row, scrollOff))
     },
     viewportHeight: () => size().height,
     width: () => size().width,

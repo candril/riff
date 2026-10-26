@@ -40,3 +40,16 @@ export function placeRow(
     where === "center" ? row - Math.floor(height / 2) : where === "top" ? row - margin : row - height + 1 + margin
   return clampScroll({ ...window, scrollTop: target })
 }
+
+/**
+ * Where a jump leaves the window. A jump lands where the eye reads next,
+ * the middle of the pane, rather than at the scrolloff edge it would have
+ * to be chased to; a target already in the upper half is read where it is,
+ * and moving the window under it would only lose the reader's place.
+ */
+export function landRow(window: ScrollWindow, row: number, scrollOff: number): number {
+  const { scrollTop, height } = window
+  if (height <= 0 || row < 0) return clampScroll(window)
+  if (row >= scrollTop && row <= scrollTop + Math.floor(height / 2)) return revealRow(window, row, scrollOff)
+  return placeRow(window, row, "center", scrollOff)
+}

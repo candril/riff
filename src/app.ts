@@ -1442,6 +1442,9 @@ export async function createApp(options: AppOptions = {}) {
     searchActive: () => searchState.active,
     flashActive: () => flashState.active,
     chordPending: () => dispatchKeypress.chordPending(),
+    landCursor: () => {
+      if (state.viewMode === "diff") diffViewport.onceRebuilt(() => diffViewport.landCursor(vimState.line))
+    },
   })
 
   function handleKeypress(key: KeyEvent) {

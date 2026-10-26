@@ -234,6 +234,9 @@ export async function jumpScenario({
     searchActive: () => render.getSearchState().active,
     flashActive: () => render.getFlashState().active,
     chordPending: () => keys.chordPending(),
+    landCursor: () => {
+      if (render.getState().viewMode === "diff") cursorView.onceRebuilt(() => cursorView.landCursor(vim().line))
+    },
   })
   keys = keysOn(
     mounted,
@@ -318,6 +321,20 @@ export async function jumpScenario({
     /** Puts the cursor somewhere without a key, so nothing is recorded. */
     moveTo(line: number, col = 0) {
       keys.setVim({ line, col })
+    },
+    /** The shown island's window and the row the cursor is drawn on, rows being visual ones under wrap. */
+    window() {
+      if (render.split.shown()) {
+        const island = render.split.island
+        return { scrollTop: island.scrollTop(), height: island.viewportHeight(), row: render.split.rowAtLine(vim().line) }
+      }
+      const island = render.unified.island
+      return { scrollTop: island.scrollTop(), height: island.viewportHeight(), row: island.cursorRow() }
+    },
+    /** The cursor's row counted from the top of the pane. */
+    screenRow() {
+      const { scrollTop, row } = this.window()
+      return row - scrollTop
     },
     /** The label flash put on `line`, once a pattern has been typed. */
     flashLabel(line: number) {

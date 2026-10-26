@@ -121,6 +121,10 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
     scrollCursorTo(where: "center" | "top" | "bottom"): void {
       if (syncCursor()) island.scrollCursorTo(where)
     },
+    /** Where a jump leaves the window: the cursor's line in the upper half of the pane. */
+    landCursor(): void {
+      if (syncCursor()) island.landCursor()
+    },
     viewportHeight: () => island.viewportHeight(),
     /**
      * Called every pass. The host is only laid out once it is in the tree,

@@ -76,6 +76,7 @@ async function markApp(more: Partial<AppKeyContext> = {}, { recordJumps = false 
     searchActive: () => false,
     flashActive: () => false,
     chordPending: () => keys.chordPending(),
+    landCursor: () => {},
   })
   keys = keysOn(mounted, {
     rebuildLineMapping,

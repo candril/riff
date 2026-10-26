@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test"
-import { clampScroll, placeRow, revealRow } from "./split-scroll"
+import { clampScroll, landRow, placeRow, revealRow } from "./split-scroll"
 
 const window = (scrollTop: number, height = 10, rows = 100) => ({ scrollTop, height, rows })
 
@@ -41,5 +41,36 @@ describe("zz, zt and zb", () => {
   test("stay inside the rows there are", () => {
     expect(placeRow(window(40), 2, "center", 3)).toBe(0)
     expect(placeRow(window(0), 98, "top", 3)).toBe(90)
+  })
+})
+
+describe("where a jump lands", () => {
+  test("a row below the window comes to the middle", () => {
+    expect(landRow(window(0), 50, 3)).toBe(45)
+  })
+
+  test("a row in the lower half comes to the middle", () => {
+    expect(landRow(window(20), 27, 3)).toBe(22)
+  })
+
+  test("a row in the upper half stays where it is", () => {
+    expect(landRow(window(20), 25, 3)).toBe(20)
+    expect(landRow(window(20), 23, 3)).toBe(20)
+  })
+
+  test("a row in the upper half still keeps the margin above", () => {
+    expect(landRow(window(20), 21, 3)).toBe(18)
+  })
+
+  test("a row above the window comes to the middle", () => {
+    expect(landRow(window(40), 10, 3)).toBe(5)
+  })
+
+  test("the last rows cannot come further up than the end of the content allows", () => {
+    expect(landRow(window(0), 98, 3)).toBe(90)
+  })
+
+  test("before the view is laid out there is nothing to scroll", () => {
+    expect(landRow(window(0, 0), 50, 3)).toBe(0)
   })
 })

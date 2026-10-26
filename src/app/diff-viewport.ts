@@ -7,6 +7,7 @@ export interface DiffViewport extends CursorView {
   /** Runs `then` once the view has drawn what the caller just changed. */
   onceRebuilt(then: () => void): void
   scrollCursorTo(line: number, where: "center" | "top" | "bottom"): void
+  landCursor(line: number): void
   scrollColumnsBy(delta: number): void
   halfColumnWindow(line: number): number
   scrollColumnToEdge(line: number, col: number, edge: "start" | "end"): void
@@ -17,7 +18,7 @@ type ColumnMoves = "scrollColumnsBy" | "halfColumnWindow" | "scrollColumnToEdge"
 
 export interface SplitRoute {
   shown(): boolean
-  island: Pick<SplitIsland, "scrollCursorTo" | ColumnMoves>
+  island: Pick<SplitIsland, "scrollCursorTo" | "landCursor" | ColumnMoves>
   rowAtLine(line: number): number
   refreshCursor(): void
 }
@@ -25,6 +26,7 @@ export interface SplitRoute {
 export interface UnifiedRoute {
   island: Pick<UnifiedIsland, ColumnMoves>
   scrollCursorTo(where: "center" | "top" | "bottom"): void
+  landCursor(): void
 }
 
 /**
@@ -41,6 +43,7 @@ export function routeDiffViewport(unified: UnifiedRoute, split: SplitRoute): Dif
     onceRebuilt: (then) => queueMicrotask(then),
     scrollCursorTo: (line, where) =>
       split.shown() ? split.island.scrollCursorTo(split.rowAtLine(line), where) : unified.scrollCursorTo(where),
+    landCursor: (line) => (split.shown() ? split.island.landCursor(split.rowAtLine(line)) : unified.landCursor()),
     scrollColumnsBy: (delta) => shown().scrollColumnsBy(delta),
     halfColumnWindow: () => shown().halfColumnWindow(),
     scrollColumnToEdge: (_line, _col, edge) => shown().scrollColumnToEdge(edge),

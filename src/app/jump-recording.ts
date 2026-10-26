@@ -19,6 +19,8 @@ export interface JumpRecordingDeps extends PromptPickers {
   searchActive: () => boolean
   flashActive: () => boolean
   chordPending: () => boolean
+  /** Brings the cursor's line to the upper half of the diff once everything the interaction drew is drawn. */
+  landCursor: () => void
 }
 
 export interface JumpRecording {
@@ -38,6 +40,10 @@ export interface JumpRecording {
  * be steps, and a chord is two keys; judged key by key, each would leave
  * a half-finished place or none. The place before the first key is what
  * gets recorded, once nothing is waiting for more keys.
+ *
+ * Where the cursor lands hangs off the same judgement, so every kind of
+ * jump, and every one added later, brings its target to where the eye
+ * reads next without a reveal of its own.
  */
 export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
   const recorder = createJumpRecorder()
@@ -70,8 +76,9 @@ export function createJumpRecording(deps: JumpRecordingDeps): JumpRecording {
 
   return {
     around(key, dispatch) {
-      const jump = recorder.around(key, moment(), dispatch, moment)
-      if (jump) deps.jumpList.push(jump)
+      const { push, landed } = recorder.around(key, moment(), dispatch, moment)
+      if (push) deps.jumpList.push(push)
+      if (landed) deps.landCursor()
     },
     retake: (key) => recorder.retake(key),
   }

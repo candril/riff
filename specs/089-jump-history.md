@@ -101,6 +101,25 @@ would be: `%` is unbound, `gd` opens an external diff, a URL under `gf` or
 keys never move the diff: an agent's proposal reveals its line as it opens,
 without a key, which is navigation that no key caused (below).
 
+### Where a jump lands
+
+A jump, and a `Ctrl-o`, `Ctrl-i` or `Tab` walk that moves the cursor,
+lands the cursor's line at the vertical centre of the diff or above it. A
+target off-screen or in the lower half is brought to the centre, as `zz`
+would; one already in the upper half stays put, and the window does not
+move. Unified and split land alike, and under wrap the rows counted are
+the visual ones. Near the end of the diff the line stays as high as the
+last row lets it. The rule hangs off the recorder that judges what is a
+jump, so a jump kind added later lands the same way without asking.
+
+Steps and scrolling keep the scrolloff reveal: `j`/`k`, `h`/`l`, `w`/`b`/`e`,
+`Ctrl-d`/`Ctrl-u`/`Ctrl-e`/`Ctrl-y`, the wheel and the mouse, a step that
+crosses into another file though it is recorded, and the `z` commands.
+`H`, `M` and `L` are exempt as well, since they aim at a row of the
+screen. Centring is for the diff only: the overview, the feed and the
+panels' own lists keep their reveal. `src/app/jump-landing.keys.test.ts`
+drives each jump kind.
+
 ## Out of Scope, found while building
 
 - Navigation that no key caused. The recording hangs off the keypress, so a

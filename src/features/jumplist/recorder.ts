@@ -1,4 +1,4 @@
-import { isFindMotion, isListWalk, isStepMotion, isZOpener } from "./keys"
+import { isFindMotion, isListWalk, isStepMotion, isZOpener, keepsItsRow } from "./keys"
 import { sameLocation } from "./place"
 import type { Jump } from "./types"
 
@@ -21,9 +21,21 @@ export interface Moment {
 
 type Kind = "jump" | "step" | "walk" | "z"
 
+/**
+ * What a finished interaction leaves behind: the place to push, and
+ * whether the cursor landed somewhere the reader has to find, which a walk
+ * of the list does without extending it.
+ */
+export interface Interaction {
+  push: Jump | null
+  landed: boolean
+}
+
+const NOTHING: Interaction = { push: null, landed: false }
+
 export interface JumpRecorder {
-  /** Runs one key, and returns the place to push once the interaction it belongs to is over. */
-  around(key: Key, before: Moment, dispatch: () => void, after: () => Moment): Jump | null
+  /** Runs one key, and returns what to do once the interaction it belongs to is over. */
+  around(key: Key, before: Moment, dispatch: () => void, after: () => Moment): Interaction
   /**
    * Judges the interaction under way as one `key` had opened. The palette
    * runs an action on the key its hint spells, inside the interaction
@@ -72,26 +84,31 @@ function changedRow(from: Jump, to: Jump): boolean {
 export function createJumpRecorder(): JumpRecorder {
   let origin: Moment | null = null
   let kind: Kind = "jump"
+  let aimed = false
 
   return {
     around(key, before, dispatch, after) {
       if (before.settled || origin === null) {
         origin = before
         kind = kindOf(key, before)
+        aimed = keepsItsRow(key)
       }
       dispatch()
       const now = after()
-      if (!now.settled) return null
+      if (!now.settled) return NOTHING
 
       const from = origin
       origin = null
-      if (kind === "walk") return null
-      if (kind === "step") return now.file !== null && now.file !== from.file ? from.place : null
-      if (kind === "z") return changedRow(from.place, now.place) ? from.place : null
-      return moved(from.place, now.place) ? from.place : null
+      if (kind === "walk") return { push: null, landed: moved(from.place, now.place) }
+      if (kind === "step") return { push: now.file !== null && now.file !== from.file ? from.place : null, landed: false }
+      if (kind === "z") return { push: changedRow(from.place, now.place) ? from.place : null, landed: false }
+      const jumped = moved(from.place, now.place)
+      return { push: jumped ? from.place : null, landed: jumped && !aimed }
     },
     retake(key) {
-      if (origin !== null) kind = kindOf(key, origin)
+      if (origin === null) return
+      kind = kindOf(key, origin)
+      aimed = keepsItsRow(key)
     },
   }
 }

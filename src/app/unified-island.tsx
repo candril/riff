@@ -8,7 +8,7 @@ import { unifiedShownCells } from "../split-view/unified-markers"
 import { diffWheel } from "./diff-wheel"
 import { mountSolid } from "./solid-island"
 import { cursorColumnInWindow, halfWindow, revealColumn, scrollBy, toEdge } from "./split-columns"
-import { clampScroll, placeRow, revealRow } from "./split-scroll"
+import { clampScroll, landRow, placeRow, revealRow } from "./split-scroll"
 import { EmptyMessage, isEmpty } from "./unified-empty"
 import { draggedLine } from "./unified-wheel"
 import { IN_CODE, codeWidth, createUnifiedWindows } from "./unified-windows"
@@ -213,6 +213,10 @@ export function createUnifiedIsland(renderer: CliRenderer, scrollOff: number) {
     scrollCursorTo(where: "center" | "top" | "bottom") {
       const row = cursorRow()
       if (row >= 0) setScrollTop(placeRow(window(), row, where, scrollOff))
+    },
+    landCursor() {
+      const row = cursorRow()
+      if (row >= 0) setScrollTop(landRow(window(), row, scrollOff))
     },
     revealColumn: revealCursorColumn,
     // One window for every line, so it moves from any line the cursor is on, a header's too.
