@@ -77,6 +77,12 @@ export function createChatState(
   // Only the first session resumes: one opened after a failure starts fresh, as describeFailure tells the reviewer.
   let resumeId = sessionId
   let toldHead = continuity?.saved?.headSha ?? null
+  // A session can fail before the agent has the question; saving its head as told would keep a resumed agent from hearing of the commits.
+  let sendingHead: string | null = null
+  const acknowledge = () => {
+    if (sendingHead !== null) toldHead = sendingHead
+    sendingHead = null
+  }
 
   const snapshot = (): SavedChat => ({ sessionId, headSha: toldHead, entries: entries.flatMap(saved) })
   const save = () => continuity?.save(snapshot())
@@ -118,7 +124,7 @@ export function createChatState(
       const label = `new commits ${short(toldHead)}..${short(head)}`
       setEntries(i, produce((e) => void (e as { labels: string[] }).labels.push(label)))
     }
-    if (head !== null) toldHead = head
+    if (head !== null) sendingHead = head
     session ??= openSession()
     session.send(question.text, question.position, attachments)
   }
@@ -133,11 +139,13 @@ export function createChatState(
       },
       sessionLost: () => push({ kind: "note", text: SESSION_LOST_NOTE, tone: "info" }),
       text: (chunk) => {
+        acknowledge()
         const a = streamingAnswer()
         if (a >= 0) setEntries(a, produce((e) => void ((e as { text: string }).text += chunk)))
       },
       readFailed: (what) => push({ kind: "note", text: `Read failed: ${what}`, tone: "info" }),
       answerDone: ({ interrupted, usage: answerUsage }) => {
+        acknowledge()
         batch(() => {
           endAnswer(interrupted)
           if (answerUsage) setUsage(answerUsage)
@@ -149,6 +157,7 @@ export function createChatState(
       failed: (failure) => {
         // Whatever failed, this session is done; the next question opens another.
         closeSession()
+        sendingHead = null
         batch(() => {
           endAnswer(true)
           push({ kind: "note", text: describeFailure(failure), tone: "error" })
@@ -211,6 +220,7 @@ export function createChatState(
       sessionId = null
       resumeId = null
       toldHead = null
+      sendingHead = null
       continuity?.clear()
       batch(() => {
         setEntries([])

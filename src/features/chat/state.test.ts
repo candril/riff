@@ -271,7 +271,7 @@ test("the question, a new session id and the answer are each saved", () => {
   chat.send("one")
   expect(lastSave(store)).toEqual({
     sessionId: null,
-    headSha: "bbbbbbb222",
+    headSha: null,
     entries: [
       { kind: "question", text: "one", labels: [] },
       { kind: "answer", text: "", interrupted: true },
@@ -281,6 +281,7 @@ test("the question, a new session id and the answer are each saved", () => {
   expect(lastSave(store).sessionId).toBe("session-2")
   fake.answer("1")
   expect(lastSave(store).entries.at(-1)).toEqual({ kind: "answer", text: "1", interrupted: false })
+  expect(lastSave(store).headSha).toBe("bbbbbbb222")
 })
 
 test("a failure is saved with the answer it cut short", () => {
@@ -307,14 +308,60 @@ test("new commits since the agent last heard go along with the next question onl
   ])
   const question = chat.entries[2] as Extract<(typeof chat.entries)[number], { kind: "question" }>
   expect([...question.labels]).toEqual(["new commits aaaaaaa..bbbbbbb"])
-  expect(lastSave(store).headSha).toBe("bbbbbbb222")
   fake.answer("1")
+  expect(lastSave(store).headSha).toBe("bbbbbbb222")
   chat.send("two")
   expect(fake.attachments[1]).toEqual([])
   fake.answer("2")
   setHead("ccccccc333")
   chat.send("three")
   expect(fake.attachments[2]?.[0]).toContain("from bbbbbbb to ccccccc")
+})
+
+test("new commits stay untold when the question that carried them fails before the agent has it", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  fake.events().failed({ kind: "session-dropped" })
+  expect(lastSave(store).headSha).toBe("aaaaaaa111")
+  chat.send("two")
+  expect(fake.attachments[1]?.[0]).toContain("from aaaaaaa to bbbbbbb")
+  const question = chat.entries.findLast((e) => e.kind === "question") as Extract<(typeof chat.entries)[number], { kind: "question" }>
+  expect([...question.labels]).toEqual(["new commits aaaaaaa..bbbbbbb"])
+})
+
+test("new commits stay untold when riff closes before the agent has the question", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  chat.dispose()
+  expect(store.savedNow.at(-1)?.headSha).toBe("aaaaaaa111")
+})
+
+test("new commits count as told once the agent answers, even when the answer was interrupted", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  chat.interrupt()
+  fake.events().answerDone({ interrupted: true })
+  expect(lastSave(store).headSha).toBe("bbbbbbb222")
+  chat.send("two")
+  expect(fake.attachments[1]).toEqual([])
+})
+
+test("new commits count as told once the answer starts streaming, so a failure after it does not repeat them", () => {
+  const fake = fakeAgent()
+  const store = continuity(earlier, () => "bbbbbbb222")
+  const chat = createChatState(fake.agent, undefined, undefined, store.continuity)
+  chat.send("one")
+  fake.events().text("par")
+  fake.events().failed({ kind: "session-dropped" })
+  expect(lastSave(store).headSha).toBe("bbbbbbb222")
+  chat.send("two")
+  expect(fake.attachments[1]).toEqual([])
 })
 
 test("without a head to compare, nothing about commits goes", () => {
