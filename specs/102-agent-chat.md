@@ -183,13 +183,24 @@ like any comment the reviewer typed.
   reads first.
 - **It writes comments only when asked**, and never rewrites the
   reviewer's own unasked.
-- **Drafted comments are short and technical.** One or two short
-  sentences of plain technical English: the problem and the fix. No
-  greeting, praise, hedging or summary. Code goes in a suggestion block or
-  a `path:line` reference, never described in words. Nothing is claimed
-  about code the agent has not read, no rationale is invented and no
-  guess is stated as fact; when unsure it asks the reviewer instead of
-  drafting. Longer only when the reviewer asks for it in that question.
+- **Drafted comments are direct.** One sentence where one is enough, two
+  at most. A draft states the fix as an imperative or a plain statement,
+  never a request or a question ("Could you", "Would you mind" and
+  "Maybe" are named as forbidden). No please, thanks, greeting, praise,
+  hedging or summary. No justification or background, such as why it
+  works or language trivia, unless the reviewer asked for it. Code goes
+  in a suggestion block or a `path:line` reference, never described in
+  words. Nothing is claimed about code the agent has not read, no
+  rationale is invented and no guess is stated as fact; when unsure it
+  asks the reviewer instead of drafting. Longer only when the reviewer
+  asks for it in that question. The posture carries one bad and one good
+  draft as an example of the register:
+  - Bad: "Could you move `resolveRedirect` below the `describe` block, so
+    the file starts with the test cases? A `function` declaration is
+    hoisted, so it still works when defined at the bottom."
+  - Good: "Move `resolveRedirect` below the `describe` block so the file
+    starts with the tests."
+
   The rules sit in the posture and again in the `text` descriptions of
   `propose_comment` and `propose_edit`, which the model reads as it
   drafts.

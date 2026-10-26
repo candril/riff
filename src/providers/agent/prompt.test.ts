@@ -68,7 +68,7 @@ test("the length reminder comes last, and only riff's P1 tools are named", () =>
   const context = buildContext(pr, files(1), 0)
   expect(
     context.endsWith(
-      "Answer in under ten lines, and draft comments in one or two short sentences, unless the reviewer asks for more.",
+      "Answer in under ten lines, and draft comments as one direct sentence, unless the reviewer asks for more.",
     ),
   ).toBe(true)
   expect(context).toContain("propose_comment or propose_edit, one at a time")
@@ -92,13 +92,22 @@ test("the posture says what the attached threads are and what 'this thread' mean
 
 test("the posture holds the drafting rules", () => {
   const prose = buildContext(pr, files(1), 0).replace(/\s+/g, " ")
-  expect(prose).toContain("one or two short sentences of plain technical English")
-  expect(prose).toContain("the problem and the fix")
-  expect(prose).toContain("No greeting, praise, hedging or summary.")
+  expect(prose).toContain("A draft is one sentence where one is enough, two at most")
+  expect(prose).toContain("an imperative or a plain statement, never a request or a question")
+  expect(prose).toContain('no "Could you", "Would you mind" or "Maybe"')
+  expect(prose).toContain("No please, thanks, greeting, praise, hedging or summary.")
+  expect(prose).toContain("No justification or background, such as why it works or language trivia, unless the reviewer asked for it.")
   expect(prose).toContain("in a suggestion block or a `path:line` reference, never described in words")
   expect(prose).toContain("Claim nothing about code you have not read")
   expect(prose).toContain("invent no rationale")
   expect(prose).toContain("state no guess as fact")
   expect(prose).toContain("If unsure, ask the reviewer instead of drafting.")
   expect(prose).toContain("Longer only when the reviewer asks for it in that question.")
+})
+
+test("the posture shows a bad and a good draft", () => {
+  const context = buildContext(pr, files(1), 0)
+  expect(context).toContain(
+    "  Bad: Could you move `resolveRedirect` below the `describe` block, so the file starts with the test cases? A `function` declaration is hoisted, so it still works when defined at the bottom.\n  Good: Move `resolveRedirect` below the `describe` block so the file starts with the tests.",
+  )
 })

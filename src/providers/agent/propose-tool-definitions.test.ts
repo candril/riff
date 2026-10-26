@@ -13,10 +13,13 @@ describe.each(["propose_comment", "propose_edit"])("%s", (name) => {
     expect(definition.description).toContain("if unsure, ask the reviewer instead")
   })
 
-  test("its text is one or two short sentences: problem and fix, code as a suggestion or path:line", () => {
+  test("its text is one direct sentence in the reviewer's voice, code as a suggestion or path:line", () => {
     const text: string = definition.inputSchema.text.description
-    expect(text).toContain("One or two short sentences")
-    expect(text).toContain("the problem and the fix")
+    expect(text).toContain("One direct sentence in the reviewer's voice, two at most")
+    expect(text).toContain("an imperative or a plain statement, never a request")
+    expect(text).toContain('no "Could you", "Would you mind" or "Maybe"')
+    expect(text).toContain("no please or thanks")
+    expect(text).toContain("no justification or background unless the reviewer asked for it")
     expect(text).toContain("Code in a suggestion block or a `path:line` reference")
   })
 })

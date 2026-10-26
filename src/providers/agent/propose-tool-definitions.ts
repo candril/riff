@@ -9,7 +9,7 @@ const asContent = (text: string) => ({ content: [{ type: "text" as const, text }
 const always = { alwaysLoad: true }
 
 const draft =
-  "One or two short sentences of plain technical English in the reviewer's voice: the problem and the fix. Code in a suggestion block or a `path:line` reference. Longer only when the reviewer asked for it."
+  'One direct sentence in the reviewer\'s voice, two at most: an imperative or a plain statement, never a request; no "Could you", "Would you mind" or "Maybe"; no please or thanks; no justification or background unless the reviewer asked for it. Code in a suggestion block or a `path:line` reference. Longer only when the reviewer asked for it.'
 const grounded = "Draft only from code you have read; if unsure, ask the reviewer instead."
 
 export function proposeToolDefinitions(proposer: Proposer): AgentTool[] {
