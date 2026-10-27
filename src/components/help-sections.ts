@@ -16,6 +16,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["f / t", "Find / till character"],
       ["Ctrl+d / Ctrl+u", "Half page down / up"],
       ["gg / G", "Go to top / bottom"],
+      ["% / gm", "Matching bracket"],
       ["s", "Flash jump — labels rows in a list"],
       ["]c / [c", "Next / previous hunk"],
       ["]f / [f", "Next / previous file"],

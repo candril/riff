@@ -16,6 +16,13 @@ export function anchorSide(type: DiffLine["type"], pane: "left" | "right" | unde
   return pane === "left" ? "LEFT" : "RIGHT"
 }
 
+/** The version of a file a line number counts in: the change's result, or what it changed. */
+export type FileSide = "new" | "old"
+
+export function lineNumOn(line: Pick<DiffLine, "newLineNum" | "oldLineNum">, side: FileSide): number | undefined {
+  return side === "old" ? line.oldLineNum : line.newLineNum
+}
+
 export class DiffLineMapping implements LineSource {
   private lines: DiffLine[] = []
   private expandedDividers: ReadonlySet<string>
@@ -528,11 +535,12 @@ export class DiffLineMapping implements LineSource {
    * 
    * @param filename - The filename to search in
    * @param lineNum - The 1-indexed line number in the file
+   * @param side - Which version of the file `lineNum` counts in
    */
-  findVisualLineForFileLine(filename: string, lineNum: number): number | null {
+  findVisualLineForFileLine(filename: string, lineNum: number, side: FileSide = "new"): number | null {
     for (let i = 0; i < this.lines.length; i++) {
       const line = this.lines[i]!
-      if (line.filename === filename && line.newLineNum === lineNum) {
+      if (line.filename === filename && lineNumOn(line, side) === lineNum) {
         return i
       }
     }
@@ -550,7 +558,7 @@ export class DiffLineMapping implements LineSource {
    * @param filename - The filename to search in
    * @param lineNum - The 1-indexed line number in the file
    */
-  findDividerForLine(filename: string, lineNum: number): string | null {
+  findDividerForLine(filename: string, lineNum: number, side: FileSide = "new"): string | null {
     // For now, look through dividers and check if lineNum might be in their range
     // This requires tracking divider ranges which we'd need to add to parsing
     
@@ -564,8 +572,9 @@ export class DiffLineMapping implements LineSource {
         let prevLineNum = 0
         for (let j = i - 1; j >= 0; j--) {
           const prev = this.lines[j]
-          if (prev?.filename === filename && prev.newLineNum !== undefined) {
-            prevLineNum = prev.newLineNum
+          const prevNum = prev?.filename === filename ? lineNumOn(prev, side) : undefined
+          if (prevNum !== undefined) {
+            prevLineNum = prevNum
             break
           }
         }
@@ -574,8 +583,9 @@ export class DiffLineMapping implements LineSource {
         let nextLineNum = Infinity
         for (let j = i + 1; j < this.lines.length; j++) {
           const next = this.lines[j]
-          if (next?.filename === filename && next.newLineNum !== undefined) {
-            nextLineNum = next.newLineNum
+          const nextNum = next?.filename === filename ? lineNumOn(next, side) : undefined
+          if (nextNum !== undefined) {
+            nextLineNum = nextNum
             break
           }
         }

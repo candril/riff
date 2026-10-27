@@ -51,6 +51,8 @@ they arrive.
 - `Ctrl-o` and `Ctrl-i` are not jumps either — walking the list does not
   extend it, even when it lands in another file.
 - The `z` commands (folds, wrap, scroll) are not jumps, as in nvim.
+- `%` and `gm` are jumps, as `%` is in nvim, even when the matching
+  bracket is on the same line ([012](./012-vim-navigation.md)).
 - Nothing typed into a composer, a filter, a picker's input or any other
   text field records anything.
 - A jump restores the column it left, not just the line.
@@ -96,7 +98,7 @@ them, and an entry taken there is the same line as that one.
 
 `src/app/jumplist-scenarios.keys.test.ts` drives each of these through
 riff's keys. Some of nvim's jumps are not riff's, and it says so where they
-would be: `%` is unbound, `gd` opens an external diff, a URL under `gf` or
+would be: `gd` opens an external diff, a URL under `gf` or
 `gx` and every link the links picker lists open the browser, and the chat's
 keys never move the diff: an agent's proposal reveals its line as it opens,
 without a key, which is navigation that no key caused (below).

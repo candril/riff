@@ -16,6 +16,7 @@ import * as reviewPreview from "../features/review-preview"
 import * as folds from "../features/folds"
 import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
+import type { VimMotionHandler } from "../vim-diff/motion-handler"
 
 export interface GChordDeps {
   getState: () => AppState
@@ -35,6 +36,7 @@ export interface GChordDeps {
   blame: Pick<BlameKeys, "toggle" | "openLink">
   linePeek: Pick<LinePeekState, "open" | "toggle">
   blamePeek: Pick<BlamePeekState, "open">
+  vimHandler: Pick<VimMotionHandler, "jumpToMatchingBracket">
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ
@@ -69,6 +71,7 @@ export const G_SEQUENCES = {
   "gp!": "editOrCreatePr",
   gb: "toggleBlamePeek",
   gl: "toggleLinePeek",
+  gm: "matchBracket",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",
@@ -170,6 +173,11 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
       // is more work than reading it is worth.
       deps.linePeek.toggle()
       deps.render()
+    }),
+    matchBracket: taking(() => {
+      // `%` spelled so it needs no shift; the diff's own keys reach it only when it has the focus.
+      const s = deps.getState()
+      if (s.viewMode === "diff" && s.focusedPanel === "diff") deps.vimHandler.jumpToMatchingBracket()
     }),
     refresh: taking(() => void deps.refreshContext.handleRefresh()),
     goToTop: taking(() => folds.handleGoToTop(deps.foldsContext)),

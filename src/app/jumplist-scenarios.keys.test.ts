@@ -256,7 +256,7 @@ describe("a: a jump records the place before it, and Ctrl-o returns there", () =
 
   // The chat's keys never move the diff. An agent's proposal reveals its line without a key,
   // which spec 089 leaves out as navigation that no key caused.
-  // `%` is unbound, and `gd` opens an external diff: neither is a riff jump.
+  // `gd` opens an external diff, so it is no riff jump. `%` is, in matching-bracket.keys.test.ts.
 })
 
 describe("b: plain motions do not record", () => {

@@ -8,7 +8,7 @@ export interface LineSource {
   readonly lineCount: number
   getLine(index: number): DiffLine | undefined
   getLineContent(index: number): string
-  findVisualLineForFileLine(filename: string, lineNum: number): number | null
+  findVisualLineForFileLine(filename: string, lineNum: number, side?: "new" | "old"): number | null
   /** Optional because only a split source has a second pane to cross into. */
   crossPane?(direction: 1 | -1): boolean
 }

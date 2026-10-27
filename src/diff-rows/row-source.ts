@@ -67,8 +67,8 @@ export class RowLineSource implements LineSource {
     return line === undefined ? "" : this.mapping.getLineContent(line)
   }
 
-  findVisualLineForFileLine(filename: string, lineNum: number): number | null {
-    const line = this.mapping.findVisualLineForFileLine(filename, lineNum)
+  findVisualLineForFileLine(filename: string, lineNum: number, side?: "new" | "old"): number | null {
+    const line = this.mapping.findVisualLineForFileLine(filename, lineNum, side)
     return line === null ? null : this.rowAtLine(line)
   }
 

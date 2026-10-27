@@ -28,6 +28,7 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
     blame,
     linePeek: ctx.linePeek,
     blamePeek: ctx.blamePeek,
+    vimHandler: ctx.vimHandler,
   }
 }
 

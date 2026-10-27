@@ -31,6 +31,9 @@ import {
 } from "./cursor-state"
 import { resolveTextObject } from "./text-objects"
 
+/** Where `%` takes the cursor from a row and column, in the same rows, or null to stay. */
+export type MatchBracket = (row: number, col: number) => { row: number; col: number } | null
+
 export interface KeyEvent {
   name: string
   sequence?: string
@@ -45,6 +48,7 @@ export interface VimMotionHandlerOptions {
   setState: (state: VimCursorState) => void
   getViewportHeight: () => number
   onCursorMove: () => void
+  matchBracket?: MatchBracket
 }
 
 export class VimMotionHandler {
@@ -53,6 +57,7 @@ export class VimMotionHandler {
   private setState: (state: VimCursorState) => void
   private getViewportHeight: () => number
   private onCursorMove: () => void
+  private matchBracket: MatchBracket | undefined
 
   // For gg detection
   private lastKeyTime: number = 0
@@ -64,6 +69,7 @@ export class VimMotionHandler {
     this.setState = options.setState
     this.getViewportHeight = options.getViewportHeight
     this.onCursorMove = options.onCursorMove
+    this.matchBracket = options.matchBracket
   }
 
   /**
@@ -215,6 +221,16 @@ export class VimMotionHandler {
       key.name === "$"
     ) {
       this.goToEndOfLine()
+      return true
+    }
+
+    // % - matching bracket (shift+5 on US keyboard, or direct %)
+    if (
+      key.sequence === "%" ||
+      key.name === "%" ||
+      (key.name === "5" && key.shift)
+    ) {
+      this.jumpToMatchingBracket()
       return true
     }
 
@@ -559,6 +575,23 @@ export class VimMotionHandler {
       this.setState(newState)
       this.onCursorMove()
     }
+  }
+
+  /**
+   * `%` and `gm`: to the bracket matching the one at or after the cursor.
+   * The jumplist and the landing come from the app's jump recording.
+   */
+  jumpToMatchingBracket(): void {
+    const before = this.getState()
+    const target = this.matchBracket?.(before.line, before.col)
+    if (!target) return
+    // Read again: opening collapsed context to show the match moves the rows.
+    const state = this.getState()
+    const mapping = this.getMapping()
+    const lineLen = mapping.getLineContent(target.row).length
+    const onLine = moveCursorToLine(state, target.row, mapping.lineCount, lineLen, false)
+    this.setState(moveCursorToCol(onLine, target.col, lineLen))
+    this.onCursorMove()
   }
 
   /**

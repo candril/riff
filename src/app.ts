@@ -160,6 +160,7 @@ import type { ReactionTarget } from "./types"
 // Vim navigation imports
 import type { VimCursorState } from "./vim-diff/types"
 import { VimMotionHandler } from "./vim-diff/motion-handler"
+import { matchingBracketFor } from "./features/matching-bracket"
 import { createSearchState, type SearchState } from "./vim-diff/search-state"
 import { createFlashState, flashLabelsOn, type FlashState } from "./vim-diff/flash-state"
 import { FlashHandler } from "./vim-diff/flash-handler"
@@ -780,6 +781,18 @@ export async function createApp(options: AppOptions = {}) {
       if (isVisualMode(vimState) || lastCursorMode !== vimState.mode) render()
       lastCursorMode = vimState.mode
     },
+    matchBracket: matchingBracketFor({
+      getSource: () => (split.shown() ? split.source() : lineMapping),
+      getMapping: () => lineMapping,
+      parses,
+      fileContent,
+      rebuildLineMapping: createLineMapping,
+      getVimState: () => vimState,
+      setVimState: (next) => { vimState = next },
+      loadFileContent: (filename) => void loadFileContent(filename),
+      toast,
+      render,
+    }),
   })
 
   const commitScopeLoadContext: CommitScopeLoadContext = {

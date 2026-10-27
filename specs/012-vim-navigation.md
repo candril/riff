@@ -54,6 +54,35 @@ Replace the current DiffRenderable-based diff view with a custom renderer built 
 - **Marks**: `m{a-z}` to set mark, `'{a-z}` to jump to mark
 - **Jump list**: `Ctrl-o/Ctrl-i` to navigate jump history
 
+**Matching bracket** (built):
+- **`%` and `gm`** move to the bracket that pairs with the first `(`, `[`,
+  `{`, `)`, `]` or `}` at or after the cursor on its line, as vim's `%`
+  does. A row with no bracket from the cursor on, or with no line number on
+  its side (a file header, a hunk header, a divider, the blank half of a
+  split row), stays put. `gm` is the same motion without the shift.
+- **The whole file, on its side.** The match is looked for in the full text
+  of that version of the file, not in the fragment the diff shows: a removed
+  row reads the old file, an added or context row the new one; side by
+  side the pane decides, left old, right new. Only brackets of the starting
+  kind count toward the depth.
+- **Strings and comments are skipped** by the file's tree-sitter captures:
+  any capture whose group starts with `comment` or `string` (so
+  `string.special`, `string.escape` and the like), and `character`. A start
+  inside one of them matches only within that same capture, so `"(" … ")"`
+  in one string still pairs up. A file read but not parsed yet is matched
+  without skipping anything.
+- **Where it lands.** On the row showing the match's line, at its column.
+  A match in collapsed context between hunks, or after the last one, opens
+  that run (as Enter on it would, spec 074) and lands on it. A match folded
+  away (a folded file or fenced block) lands on the nearest row above it in
+  that file, the fold's own row, and unfolds nothing.
+- **Before the file is read**, the match is made within the rows shown for
+  that file on that side, with nothing skipped; a toast says so, and riff
+  starts reading the file so the next press matches against all of it.
+- **A jump** (spec 089): it is recorded in the jumplist and lands in the
+  upper half of the diff like any other. In visual mode it extends the
+  selection. No count (`50%`) and no matchit pairs (`if`/`end`, tags).
+
 ### P3 - Polish
 
 - **Count prefix**: `5j` move 5 lines, `3w` move 3 words

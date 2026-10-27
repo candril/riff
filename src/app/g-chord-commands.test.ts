@@ -36,6 +36,7 @@ const G_SPELLINGS = {
   "gp!": "editOrCreatePr",
   gb: "toggleBlamePeek",
   gl: "toggleLinePeek",
+  gm: "matchBracket",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",
@@ -72,6 +73,7 @@ function gChords(more: Partial<AppState> = {}, blameLink = false) {
     render: () => {},
     commentsPicker,
     executeAction: (id: string) => void ran.push(id),
+    vimHandler: { jumpToMatchingBracket: () => void ran.push("matchBracket") },
     blame: {
       toggle: () => void ran.push("blame.toggle"),
       openLink: () => {
@@ -122,6 +124,22 @@ describe("outside PR mode", () => {
     expect(commands.copyPrUrl(key())).toBe(true)
     expect(ran).toEqual([])
     expect(state()).toBe(before)
+  })
+})
+
+describe("gm", () => {
+  test("in the diff with the diff focused, jumps to the matching bracket", () => {
+    const { commands, ran, key } = gChords({ viewMode: "diff", focusedPanel: "diff" })
+    expect(commands.matchBracket(key())).toBe(true)
+    expect(ran).toEqual(["matchBracket"])
+  })
+
+  test("anywhere else takes the key and does nothing", () => {
+    for (const more of [{ viewMode: "diff", focusedPanel: "tree" }, { viewMode: "feed", focusedPanel: "diff" }] as const) {
+      const { commands, ran, key } = gChords(more)
+      expect(commands.matchBracket(key())).toBe(true)
+      expect(ran).toEqual([])
+    }
   })
 })
 
