@@ -40,6 +40,7 @@ import { loadConfig, type Config } from "../config"
 import { IgnoreMatcher } from "../utils/ignore"
 import { loadChat, type SavedChat } from "../storage/chat"
 import { buildFilesDiff, type FilesTarget } from "../providers/files"
+import { chatKeyOf } from "./chat-key"
 import { commentsInView } from "../utils/notes"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { FileContentState } from "../features/file-content/state"
@@ -75,6 +76,8 @@ export interface InitResult {
 export async function initializeAppState(options: InitOptions): Promise<{
   state: AppState
   source: string
+  /** Where the chat's conversation is kept, which unlike every other store tells --files apart from the working copy. */
+  chatKey: string
   headSha: string
   // The info panel's to own, not app state's: the sections the reader opened in this review.
   prInfoOpenSections: Set<PRInfoPanelSection>
@@ -98,6 +101,8 @@ export async function initializeAppState(options: InitOptions): Promise<{
       ? `gh:${prInfo.owner}/${prInfo.repo}#${prInfo.number}`
       : target ?? "local"
 
+  const chatKey = chatKeyOf(source, filesTarget)
+
   const isPreloadedPr = mode === "pr" && preloadedDiff !== undefined
 
   // Nothing below depends on anything else below, and in local mode each
@@ -115,7 +120,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
       loadMarks(source),
       loadPanelFilters(source),
       loadInfoSections(source),
-      loadChat(source),
+      loadChat(chatKey),
     ])
   const visit = mode === "pr" ? await loadVisit(source) : null
 
@@ -206,7 +211,7 @@ export async function initializeAppState(options: InitOptions): Promise<{
   // unanswerable from commits, so it is noted rather than guessed at.
   const rebased = wasRebased(visit, prInfo?.commits ?? [], PR_COMMITS_FETCH_LIMIT)
 
-  return { state, source, headSha: headSha ?? "", prInfoOpenSections, savedChat, marks, visit: { watermark: visit, rebased }, foldedFiles, config }
+  return { state, source, chatKey, headSha: headSha ?? "", prInfoOpenSections, savedChat, marks, visit: { watermark: visit, rebased }, foldedFiles, config }
 }
 
 /**

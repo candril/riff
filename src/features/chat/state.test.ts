@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { createSignal } from "solid-js"
 import type { Position } from "../../providers/agent/position"
 import { fakeAgent } from "./fake-agent"
-import { createChatState, NEW_CONVERSATION_PROMPT, type ChatState } from "./state"
+import { createChatState, NEW_CONVERSATION_PROMPT, SESSION_LOST_NOTE, type ChatState } from "./state"
 import type { SavedChat } from "../../storage/chat"
 
 const kinds = (state: ChatState) =>
@@ -254,14 +254,22 @@ test("the first question resumes the stored session; one after a failure starts 
   expect([fake.starts(), fake.resumedWith()]).toEqual([2, null])
 })
 
-test("a stored session the agent no longer has is said in the chat", () => {
+test("a stored session the agent no longer has is said in the chat, between the restored conversation and the new question", () => {
   const fake = fakeAgent()
   const chat = createChatState(fake.agent, undefined, undefined, continuity(earlier).continuity)
   chat.send("and now?")
   fake.events().sessionLost?.()
-  expect(kinds(chat).at(-1)).toBe(
-    "N:info:The earlier session is gone; this question starts a new one, which does not know the conversation above.",
-  )
+  expect(kinds(chat)).toEqual(["Q:why?", "A:because", `N:info:${SESSION_LOST_NOTE}`, "Q:and now?", "A:"])
+})
+
+test("the lost-session note sits above the question that opened the session, and questions queued after it stay below", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent)
+  chat.send("one")
+  chat.send("two")
+  fake.events().sessionLost?.()
+  expect(chat.entries.map((e) => e.kind)).toEqual(["note", "question", "answer", "question"])
+  expect(kinds(chat)).toEqual([`N:info:${SESSION_LOST_NOTE}`, "Q:one", "A:", "Q:two:waiting"])
 })
 
 test("the question, a new session id and the answer are each saved", () => {

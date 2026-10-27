@@ -1,4 +1,4 @@
-import { join } from "path"
+import { dirname, join } from "path"
 import { mkdirSync, writeFileSync } from "fs"
 import { mkdir, rm } from "fs/promises"
 import { localStorageDir, sourceToDir } from "./resolve"
@@ -27,8 +27,16 @@ function reviewDir(source: string): string {
   return join(localStorageDir(), sourceToDir(source))
 }
 
+/**
+ * Comments anchor to a file and line, so every local review shares one store;
+ * a conversation is about one diff, so each local target keeps its own. The
+ * uncommitted changes and a PR keep the plain name their files already have.
+ * A revset such as `main..@` is no safe file name, hence the hash.
+ */
 function chatPath(source: string): string {
-  return join(reviewDir(source), CHAT_FILE)
+  if (source === "local" || source.startsWith("gh:")) return join(reviewDir(source), CHAT_FILE)
+  const id = new Bun.CryptoHasher("sha256").update(source).digest("hex").slice(0, 12)
+  return join(reviewDir(source), `chat-${id}.json`)
 }
 
 const isStrings = (value: unknown): value is string[] =>
@@ -84,22 +92,32 @@ function queue(path: string, write: () => Promise<void>): Promise<void> {
   return queued
 }
 
+// The sync write is the final word on the way out: nothing queued before or asked after it may touch the file.
+const sealed = new Set<string>()
+
 export function saveChat(source: string, chat: SavedChat): Promise<void> {
-  return queue(chatPath(source), async () => {
-    await mkdir(reviewDir(source), { recursive: true })
-    await Bun.write(chatPath(source), JSON.stringify(chat, null, 2))
+  const path = chatPath(source)
+  return queue(path, async () => {
+    await mkdir(dirname(path), { recursive: true })
+    if (sealed.has(path)) return
+    await Bun.write(path, JSON.stringify(chat, null, 2))
   })
 }
 
 export function saveChatSync(source: string, chat: SavedChat): void {
+  const path = chatPath(source)
   try {
-    mkdirSync(reviewDir(source), { recursive: true })
-    writeFileSync(chatPath(source), JSON.stringify(chat, null, 2))
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, JSON.stringify(chat, null, 2))
   } catch {
     // A conversation that cannot be written is not worth failing the exit over.
   }
+  sealed.add(path)
 }
 
 export function clearChat(source: string): Promise<void> {
-  return queue(chatPath(source), () => rm(chatPath(source), { force: true }))
+  const path = chatPath(source)
+  return queue(path, async () => {
+    if (!sealed.has(path)) await rm(path, { force: true })
+  })
 }

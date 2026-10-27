@@ -125,11 +125,11 @@ export function createChatState(
       setEntries(i, produce((e) => void (e as { labels: string[] }).labels.push(label)))
     }
     if (head !== null) sendingHead = head
-    session ??= openSession()
+    session ??= openSession(question)
     session.send(question.text, question.position, attachments)
   }
 
-  function openSession(): AgentSession {
+  function openSession(opener: Entry): AgentSession {
     const resume = resumeId
     resumeId = null
     return agent.start({
@@ -137,7 +137,11 @@ export function createChatState(
         sessionId = id
         save()
       },
-      sessionLost: () => push({ kind: "note", text: SESSION_LOST_NOTE, tone: "info" }),
+      // The agent says so only after a lookup, when the answer is already listed; the note speaks of "this question", so it goes above it.
+      sessionLost: () => {
+        const at = entries.indexOf(opener)
+        if (at >= 0) setEntries(produce((list) => list.splice(at, 0, { kind: "note", text: SESSION_LOST_NOTE, tone: "info" })))
+      },
       text: (chunk) => {
         acknowledge()
         const a = streamingAnswer()

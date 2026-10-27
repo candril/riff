@@ -34,8 +34,8 @@ export interface ReviewChatDeps {
   getState: () => AppState
   target: string | undefined
   headSha: () => string | null
-  /** The review's store key, where its conversation is kept between launches. */
-  source: string
+  /** Where the review's conversation is kept between launches. */
+  chatKey: string
   savedChat: SavedChat | null
   /** Read once per question, as it is sent. */
   position: () => Position | null
@@ -102,9 +102,9 @@ function reviewContinuity(deps: ReviewChatDeps): ChatContinuity {
   return {
     saved: deps.savedChat,
     head: () => (deps.getState().appMode === "pr" ? deps.headSha() : null),
-    save: (chat) => void saveChat(deps.source, chat).catch(() => {}),
-    saveNow: (chat) => saveChatSync(deps.source, chat),
-    clear: () => void clearChat(deps.source).catch(() => {}),
+    save: (chat) => void saveChat(deps.chatKey, chat).catch(() => {}),
+    saveNow: (chat) => saveChatSync(deps.chatKey, chat),
+    clear: () => void clearChat(deps.chatKey).catch(() => {}),
   }
 }
 

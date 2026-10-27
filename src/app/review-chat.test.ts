@@ -11,7 +11,7 @@ const deps = (demo: boolean) => ({
   getState: () => createInitialState([], [], "local", ""),
   target: undefined,
   headSha: () => null,
-  source: "local",
+  chatKey: "local",
   savedChat: null,
   position: () => null,
   proposer: () => ({ proposeComment: async () => "", proposeEdit: async () => "" }),

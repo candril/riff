@@ -1,5 +1,5 @@
 import { test, expect, describe, afterAll } from "bun:test"
-import { mkdtemp, mkdir, writeFile, rm } from "fs/promises"
+import { mkdtemp, mkdir, readdir, writeFile, rm } from "fs/promises"
 import { existsSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
@@ -110,6 +110,62 @@ describe("the chat file", () => {
       const clear = clearChat("local")
       await Promise.all([save, clear])
       expect(existsSync(filePath(root))).toBe(false)
+    })
+  })
+})
+
+describe("the snapshot written on quit", () => {
+  const older = (text: string): SavedChat => ({ ...saved, entries: [{ kind: "answer", text, interrupted: false }] })
+
+  test("is not overwritten by saves queued before it", async () => {
+    await inRepo(async () => {
+      const a = saveChat("local", older("A"))
+      const b = saveChat("local", older("B"))
+      saveChatSync("local", saved)
+      await Promise.all([a, b])
+      expect(await loadChat("local")).toEqual(saved)
+    })
+  })
+
+  test("is not removed by a clear queued before it, nor by a save or clear after it", async () => {
+    await inRepo(async () => {
+      const clear = clearChat("local")
+      saveChatSync("local", saved)
+      await clear
+      await saveChat("local", older("late"))
+      await clearChat("local")
+      expect(await loadChat("local")).toEqual(saved)
+    })
+  })
+})
+
+describe("which file holds a review's conversation", () => {
+  test("a local revset gets its own, apart from the uncommitted changes' chat.json", async () => {
+    await inRepo(async (root) => {
+      await saveChat("@-", saved)
+      expect(await loadChat("local")).toBeNull()
+      expect(await loadChat("@-")).toEqual(saved)
+      expect(existsSync(filePath(root))).toBe(false)
+      const files = await readdir(join(root, ".riff", "local"))
+      expect(files).toHaveLength(1)
+      expect(files[0]).toMatch(/^chat-[0-9a-f]{12}\.json$/)
+    })
+  })
+
+  test("the uncommitted changes keep chat.json", async () => {
+    await inRepo(async (root) => {
+      await saveChat("local", saved)
+      expect(existsSync(filePath(root))).toBe(true)
+    })
+  })
+
+  test("a PR keeps chat.json in its own folder", async () => {
+    await inRepo(async (root) => {
+      await saveChat("gh:owner/repo#1", saved)
+      const files = await readdir(join(root, ".riff"), { recursive: true })
+      expect(files.filter((file) => file.endsWith(".json"))).toEqual([expect.stringMatching(/(^|\/)chat\.json$/)])
+      expect(files.some((file) => file.startsWith("local"))).toBe(false)
+      expect(await loadChat("gh:owner/repo#1")).toEqual(saved)
     })
   })
 })

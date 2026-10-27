@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createChatColumnIsland } from "./chat-column"
 import { fakeAgent } from "../features/chat/fake-agent"
-import { createChatState } from "../features/chat/state"
+import { createChatState, SESSION_LOST_NOTE } from "../features/chat/state"
 import { CHAT_HINT } from "../features/chat/ChatPane"
 import type { AtCandidate } from "../features/chat/at-candidates"
 import { theme } from "../theme"
@@ -96,6 +96,18 @@ for (const width of [50, 36]) {
       const frame = await draw(setup)
       expect(flat(frame)).toContain("Not logged in to Claude. Run `claude login`, then ask again.")
       expect(frame).not.toMatch(/thinking|answering/)
+    })
+
+    test("a lost session's note is drawn above the question it speaks of", async () => {
+      const { setup, state, fake } = await mountColumn(width)
+      state.send("and now?")
+      fake.events().sessionLost?.()
+      const rows = (await draw(setup)).split("\n")
+      const noteRow = rows.findIndex((row) => row.includes("The earlier session is gone"))
+      const questionRow = rows.findIndex((row) => row.includes("› and now?"))
+      expect(noteRow).toBeGreaterThanOrEqual(0)
+      expect(questionRow).toBeGreaterThan(noteRow)
+      expect(flat(rows.slice(noteRow, questionRow).join("\n"))).toContain(SESSION_LOST_NOTE)
     })
 
     test("the input is one line high, grows with what is typed and stops at six", async () => {
