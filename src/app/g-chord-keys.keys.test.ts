@@ -4,7 +4,6 @@ import type { AppKeyContext } from "./key-context"
 import { routeDiffViewport, type DiffViewport } from "./diff-viewport"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -378,7 +377,6 @@ describe("panels with g chords of their own", () => {
 
   test("the PR overview keeps its g", async () => {
     setSystemTime(PR_NOW)
-    const restoreColumns = pinStdoutColumns(120)
     let panel: PRInfoPanelClass | null = null
     const { mounted, type, keys, state, line } = await gApp({ getPrInfoPanel: () => panel })
     const info = fullPr()
@@ -395,7 +393,6 @@ describe("panels with g chords of their own", () => {
       expect(state().viewMode).toBe("state")
     } finally {
       panel?.destroy()
-      restoreColumns()
       setSystemTime()
     }
   })

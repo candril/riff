@@ -2,7 +2,6 @@ import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test"
 import { mountApp, reloadCtx } from "../testing/app-render"
 import { adoptReloadedState } from "../features/refresh/handlers"
 import { keysOn } from "../testing/chat-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -25,17 +24,14 @@ const OPENED_BEFORE: ReadonlySet<PRInfoPanelSection> = new Set(["checks", "descr
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 let panel: PRInfoPanelClass | null = null
-let restoreColumns: (() => void) | null = null
 beforeEach(() => {
   setSystemTime(PR_NOW)
-  restoreColumns = pinStdoutColumns(120)
 })
 afterEach(async () => {
   panel?.destroy()
   panel = null
   await app?.dispose()
   app = null
-  restoreColumns?.()
   setSystemTime()
 })
 

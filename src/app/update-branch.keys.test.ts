@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -22,17 +21,14 @@ index 1111111..2222222 100644
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 let panel: PRInfoPanelClass | null = null
-let restoreColumns: (() => void) | null = null
 beforeEach(() => {
   setSystemTime(PR_NOW)
-  restoreColumns = pinStdoutColumns(120)
 })
 afterEach(async () => {
   panel?.destroy()
   panel = null
   await app?.dispose()
   app = null
-  restoreColumns?.()
   setSystemTime()
 })
 

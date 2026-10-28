@@ -76,13 +76,3 @@ export function paintOf(spans: Spans) {
     line.spans.map((span) => ({ text: span.text, fg: span.fg.toInts(), bg: span.bg.toInts(), attributes: span.attributes }))
   )
 }
-
-/** Sets `process.stdout.columns` until the returned undo runs. */
-export function pinStdoutColumns(columns: number): () => void {
-  const original = Object.getOwnPropertyDescriptor(process.stdout, "columns")
-  Object.defineProperty(process.stdout, "columns", { value: columns, configurable: true, writable: true })
-  return () => {
-    if (original) Object.defineProperty(process.stdout, "columns", original)
-    else delete (process.stdout as { columns?: number }).columns
-  }
-}

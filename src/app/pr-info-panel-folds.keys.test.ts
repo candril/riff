@@ -3,7 +3,6 @@ import { createTestRenderer } from "@opentui/core/testing"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
 import type { PrCheck } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
-import { pinStdoutColumns } from "../testing/frame"
 import { commits, conversationComments, PR_NOW, prInfo, reviews, reviewThreadComments } from "../testing/pr-info"
 import { PR_FILES } from "../testing/pr-info-panel"
 import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
@@ -28,15 +27,12 @@ const lint: PrCheck = { ...unit(), id: 8, name: "lint", conclusion: "success" }
 // t1 is unresolved, so the merge status's conversations line opens onto it.
 const comments = () => reviewThreadComments().map((c) => (c.id === "t1" ? { ...c, isThreadResolved: false } : c))
 
-let restoreColumns: (() => void) | null = null
 const cleanups: (() => void)[] = []
 beforeEach(() => {
   setSystemTime(PR_NOW)
-  restoreColumns = pinStdoutColumns(120)
 })
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup()
-  restoreColumns?.()
   setSystemTime()
 })
 

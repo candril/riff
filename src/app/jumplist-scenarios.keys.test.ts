@@ -8,7 +8,6 @@ import {
   type JumpScenario,
 } from "../testing/jump-scenarios"
 import { stubPanel } from "../testing/pr-info-panel-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -522,7 +521,6 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
 
   test("the feed, with the feed key going back to the overview Ctrl-o left", async () => {
     setSystemTime(PR_NOW)
-    const restoreColumns = pinStdoutColumns(160)
     let panel: PRInfoPanelClass | null = null
     try {
       const a = await scenario({ more: { getPrInfoPanel: () => panel } })
@@ -549,7 +547,6 @@ describe("g: Ctrl-o restores the view and the focus the jump was made from", () 
       expect(overview).not.toContain("1 event · all types")
     } finally {
       panel?.destroy()
-      restoreColumns()
       setSystemTime()
     }
   })

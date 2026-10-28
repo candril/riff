@@ -9,7 +9,6 @@ import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { keymapHarness } from "../testing/keymap-keys"
 import { FEED_EVENTS } from "../testing/feed-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -475,7 +474,6 @@ describe("under a modal", () => {
 
   test("the PR overview keeps za its own", async () => {
     setSystemTime(PR_NOW)
-    const restoreColumns = pinStdoutColumns(120)
     let panel: PRInfoPanelClass | null = null
     const { mounted, type, scrolls, keys } = await zApp({ getPrInfoPanel: () => panel })
     const info = fullPr()
@@ -492,7 +490,6 @@ describe("under a modal", () => {
       expect(mounted.fileFolds.collapsed().size).toBe(0)
     } finally {
       panel?.destroy()
-      restoreColumns()
       setSystemTime()
     }
   })

@@ -1,7 +1,7 @@
 import { test, expect, describe, afterEach, beforeEach, setSystemTime } from "bun:test"
 import type { PrCheck, PrInfo } from "../providers/github/types"
 import type { PRInfoPanelSection } from "../state"
-import { mountRenderable, pinStdoutColumns } from "../testing/frame"
+import { mountRenderable } from "../testing/frame"
 import { prInfo, previews, PR_NOW, ago } from "../testing/pr-info"
 import { find, PR_FILES } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "./PRInfoPanel"
@@ -36,11 +36,9 @@ const blocked = (): PrInfo =>
 
 let panel: PRInfoPanelClass | null = null
 let screen: Awaited<ReturnType<typeof mountRenderable>> | null = null
-let restoreColumns: (() => void) | null = null
 
 beforeEach(() => {
   setSystemTime(PR_NOW)
-  restoreColumns = pinStdoutColumns(100)
 })
 
 afterEach(async () => {
@@ -48,7 +46,6 @@ afterEach(async () => {
   panel = null
   await screen?.dispose()
   screen = null
-  restoreColumns?.()
   setSystemTime()
 })
 

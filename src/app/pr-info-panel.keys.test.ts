@@ -3,7 +3,6 @@ import { createTestRenderer } from "@opentui/core/testing"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW, prInfo } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { overviewState, prInfoPanelKeys } from "../testing/pr-info-panel-keys"
@@ -27,18 +26,15 @@ const OPENED_BEFORE: ReadonlySet<PRInfoPanelSection> = new Set(["checks", "descr
 
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 let panel: PRInfoPanelClass | null = null
-let restoreColumns: (() => void) | null = null
 // The panel's times read the clock.
 beforeEach(() => {
   setSystemTime(PR_NOW)
-  restoreColumns = pinStdoutColumns(120)
 })
 afterEach(async () => {
   panel?.destroy()
   panel = null
   await app?.dispose()
   app = null
-  restoreColumns?.()
   setSystemTime()
 })
 

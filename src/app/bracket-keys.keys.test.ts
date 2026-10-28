@@ -4,7 +4,6 @@ import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { keysOn } from "../testing/chat-keys"
 import { FEED_EVENTS } from "../testing/feed-keys"
-import { pinStdoutColumns } from "../testing/frame"
 import { PR_NOW } from "../testing/pr-info"
 import { fullPr } from "../testing/pr-info-panel"
 import { PRInfoPanelClass } from "../components/PRInfoPanel"
@@ -272,7 +271,6 @@ describe("]m", () => {
 
 test("with the PR overview open, Ctrl-] then f goes to the overview rather than stepping a file", async () => {
   setSystemTime(PR_NOW)
-  const restoreColumns = pinStdoutColumns(120)
   let panel: PRInfoPanelClass | null = null
   const { mounted, type, cursorFile, keys } = await bracketApp({ getPrInfoPanel: () => panel })
   const info = fullPr()
@@ -286,7 +284,6 @@ test("with the PR overview open, Ctrl-] then f goes to the overview rather than 
     expect(keys.chordPending()).toBe(false)
   } finally {
     panel?.destroy()
-    restoreColumns()
     setSystemTime()
   }
 })
