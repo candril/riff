@@ -49,7 +49,7 @@ export function sectionConfigs(input: SectionConfigsInput): SectionConfig[] {
       id: 'checks',
       title: 'Merge status',
       count: null,
-      summary: mergeHeaderSummary(input.mergeStatus, prInfo.checks ?? []),
+      summary: mergeHeaderSummary(input.mergeStatus, prInfo),
       openSummary: openMergeSummary(input.mergeStatus),
       hasItems: true,
     },

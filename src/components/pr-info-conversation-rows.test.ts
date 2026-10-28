@@ -26,7 +26,7 @@ function rows(items: FlatConversationItem[], over: Partial<ConversationInput> = 
     selected: -1,
     labels: new Map(),
     expanded: new Set(),
-    terminalWidth: 120,
+    panelWidth: 120,
     diffContext: () => null,
     now: NOW,
     ...over,
@@ -42,7 +42,7 @@ const withThreads = (...ids: string[]) => new Set([BOB_REVIEW, ...ids])
 
 describe("conversationRows", () => {
   test("draws a note and no rows when there is nothing to list", () => {
-    expect(conversationRows([], { selected: -1, labels: new Map(), expanded: new Set(), terminalWidth: 120, diffContext: () => null })).toEqual({
+    expect(conversationRows([], { selected: -1, labels: new Map(), expanded: new Set(), panelWidth: 120, diffContext: () => null })).toEqual({
       rows: [],
       note: "No comments",
     })
@@ -152,8 +152,8 @@ describe("conversationRows", () => {
     expect(rows(flat(withThreads("t1")), { expanded: withThreads("t1") })[5]!.header[0]!.text).toBe("▼ ")
   })
 
-  test("gives the thread's file name a quarter of the terminal, between twenty and forty", () => {
-    const fileCell = (width: number) => rows(flat(withThreads()), { expanded: withThreads(), terminalWidth: width })[7]!.header[1]!.text
+  test("gives the thread's file name a quarter of the panel, between twenty and forty", () => {
+    const fileCell = (width: number) => rows(flat(withThreads()), { expanded: withThreads(), panelWidth: width })[7]!.header[1]!.text
     expect(fileCell(80)).toBe(" an-extremely-l…:40  ")
     expect(fileCell(120)).toBe(" an-extremely-long-module…:40  ")
     expect(fileCell(200)).toBe(" an-extremely-long-module-name-that…:40  ")
@@ -260,7 +260,7 @@ describe("conversationRows", () => {
 })
 
 describe("packNames", () => {
-  test("wraps once the names outgrow the terminal less eight cells, never below twenty", () => {
+  test("wraps once the names outgrow the panel less eight cells, never below twenty", () => {
     const names = ["aaaaaaaa", "bbbbbbbb", "cccccccc"]
     // Each piece is "@" + 8 plus a two-space separator: 11 cells.
     expect(packNames(names, 30)).toEqual(["@aaaaaaaa  @bbbbbbbb", "@cccccccc"])

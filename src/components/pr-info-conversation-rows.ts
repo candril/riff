@@ -60,7 +60,7 @@ export interface ConversationInput {
   /** The panel's flash labels, keyed `conversation:${index}`. */
   labels: ReadonlyMap<string, string>
   expanded: ReadonlySet<string>
-  terminalWidth: number
+  panelWidth: number
   /** The loaded diff around a line, for a thread GitHub sent without a hunk. */
   diffContext: (filename: string, line: number) => string | null
   now?: number
@@ -85,7 +85,7 @@ export function conversationRows(items: FlatConversationItem[], input: Conversat
       case "review-thread":
         return { ...base, kind: "item", indent: 2, ...threadRow(item.data, selected, input, base.key) }
       case "pending-reviewer":
-        return { ...base, kind: "reviewers", ...reviewersRow(item.data, selected, input.terminalWidth) }
+        return { ...base, kind: "reviewers", ...reviewersRow(item.data, selected, input.panelWidth) }
     }
   })
   return { rows, note: null }
@@ -131,7 +131,7 @@ function commentRow(comment: PrConversationComment, selected: boolean, input: Co
     expanded
       ? grow("", theme.subtext1)
       : grow(
-          `  ${truncate(cleanBodyPreview(comment.body), bodyPreviewWidth(input.terminalWidth))}`,
+          `  ${truncate(cleanBodyPreview(comment.body), bodyPreviewWidth(input.panelWidth))}`,
           bot ? theme.overlay0 : selected ? theme.text : theme.subtext1
         ),
     ...trailing(comment.reactions, comment.createdAt, input.now),
@@ -172,7 +172,7 @@ function threadRow(thread: ReviewThread, selected: boolean, input: ConversationI
   const expanded = input.expanded.has(thread.id)
   const icon = thread.isResolved ? "✓" : expanded ? "▼" : "▶"
   // Five cells of the column stay free for ":line".
-  const file = truncate(thread.filename.split("/").pop() || thread.filename, threadFileLineWidth(input.terminalWidth) - 5)
+  const file = truncate(thread.filename.split("/").pop() || thread.filename, threadFileLineWidth(input.panelWidth) - 5)
   const header = [
     fixed(`${icon} `, thread.isResolved ? theme.green : theme.subtext0),
     fixed(` ${file}:${thread.line}  `, theme.yellow),
@@ -180,7 +180,7 @@ function threadRow(thread: ReviewThread, selected: boolean, input: ConversationI
     expanded
       ? grow("", theme.subtext1)
       : grow(
-          `  ${truncate(cleanBodyPreview(thread.body), threadBodyPreviewWidth(input.terminalWidth))}`,
+          `  ${truncate(cleanBodyPreview(thread.body), threadBodyPreviewWidth(input.panelWidth))}`,
           selected ? theme.text : theme.subtext1
         ),
     ...(thread.replies.length > 0 && !expanded ? [fixed(`  (${thread.replies.length + 1})`, theme.overlay0)] : []),
@@ -206,22 +206,22 @@ function threadBody(thread: ReviewThread, input: ConversationInput, rowKey: stri
 
 /**
  * One cursor stop for everyone still asked to review: a header, then the
- * names packed onto as many rows as the terminal needs, rather than one
+ * names packed onto as many rows as the panel needs, rather than one
  * "awaiting review" row each.
  */
-function reviewersRow(reviewers: string[], selected: boolean, terminalWidth: number) {
+function reviewersRow(reviewers: string[], selected: boolean, panelWidth: number) {
   const header = [fixed("○ ", theme.yellow), fixed(`awaiting review (${reviewers.length})`, theme.yellow)]
   const fg = selected ? theme.blue : theme.sapphire
   return {
     header,
-    names: packNames(reviewers, terminalWidth).map((text) => ({ text, fg })),
+    names: packNames(reviewers, panelWidth).map((text) => ({ text, fg })),
     namesIndent: REVIEWER_INDENT,
   }
 }
 
-/** `@name`s joined two spaces apart, wrapped to the terminal less an indent and a gutter. */
-export function packNames(names: string[], terminalWidth: number): string[] {
-  const available = Math.max(20, terminalWidth - REVIEWER_INDENT - REVIEWER_GUTTER)
+/** `@name`s joined two spaces apart, wrapped to the panel less an indent and a gutter. */
+export function packNames(names: string[], panelWidth: number): string[] {
+  const available = Math.max(20, panelWidth - REVIEWER_INDENT - REVIEWER_GUTTER)
   const chunks: string[][] = []
   let current: string[] = []
   let width = 0

@@ -216,7 +216,6 @@ describe("the conversations line", () => {
         p.setBehindBy(0)
         p.setActiveSection("checks")
         p.moveCursor(4)
-        // Inside the mount, where the terminal reads as wide as the screen.
         if (expand) pressFold(p, "l")
       },
     })

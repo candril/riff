@@ -35,7 +35,7 @@ function input(over: Partial<PrInfoNav> = {}, labels: ReadonlyMap<string, string
     mergeStatus: status,
     nav,
     flashLabels: labels,
-    terminalWidth: 120,
+    panelWidth: 120,
     listWidth: 93,
   }
 }

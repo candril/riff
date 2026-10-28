@@ -108,15 +108,15 @@ export function commitRowCount(commits: PrCommit[]): number {
 
 /**
  * The newest twenty commits; the rest are only counted. The message gets
- * what the time and sha columns leave of the terminal's width.
+ * what the time and sha columns leave of the panel's width.
  */
 export function commitRows(
   commits: PrCommit[],
-  input: ListInput & { terminalWidth: number; now?: number }
+  input: ListInput & { panelWidth: number; now?: number }
 ): ListRows {
   if (commits.length === 0) return { rows: [], note: "No commits" }
 
-  const messageWidth = Math.max(20, input.terminalWidth - 20)
+  const messageWidth = Math.max(20, input.panelWidth - 20)
   const rows = commits.slice(0, MAX_COMMITS).map((commit, index) => {
     const selected = index === input.selected
     const segments: ListSegment[] = [

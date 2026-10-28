@@ -52,7 +52,7 @@ const openThread: Comment = {
 }
 
 const summary = (pr: PrInfo, { comments = [] as Comment[], behindBy = 0 as BehindBy } = {}) =>
-  mergeHeaderSummary(mergeStatus({ prInfo: pr, comments, behindBy }), pr.checks ?? [])
+  mergeHeaderSummary(mergeStatus({ prInfo: pr, comments, behindBy }), pr)
 const plain = (pr: PrInfo, opts?: Parameters<typeof summary>[1]) => summary(pr, opts).map((s) => s.text).join("")
 
 describe("mergeHeaderSummary", () => {
@@ -107,6 +107,37 @@ describe("mergeHeaderSummary", () => {
     expect(plain(ready({ mergeStateStatus: "BEHIND" }), { behindBy: 3 })).toBe("✗ blocked · behind main")
     expect(plain(ready({ mergeStateStatus: "BLOCKED" }))).toBe("✗ blocked · branch protection")
     expect(plain(ready({ mergeStateStatus: "UNKNOWN" }))).toBe("⚠ mergeable with warnings · computing")
+  })
+
+  test("names conflicts GitHub is still checking, in the pending colour", () => {
+    expect(summary(ready({ mergeable: "UNKNOWN" }))).toEqual([
+      { text: "⚠ mergeable with warnings", fg: theme.yellow },
+      { text: " · ", fg: theme.subtext0 },
+      { text: "checking conflicts", fg: theme.overlay0 },
+    ])
+  })
+
+  test("names a base riff is still comparing with, in the pending colour", () => {
+    expect(summary(ready(), { behindBy: null })).toEqual([
+      { text: "⚠ mergeable with warnings", fg: theme.yellow },
+      { text: " · ", fg: theme.subtext0 },
+      { text: "comparing with main", fg: theme.overlay0 },
+    ])
+  })
+
+  test("names an unstable merge state in yellow when no line gives a reason, and only then", () => {
+    expect(summary(ready({ mergeStateStatus: "UNSTABLE", checks: [check("build")] }))).toEqual([
+      { text: "⚠ mergeable with warnings", fg: theme.yellow },
+      { text: " · ", fg: theme.subtext0 },
+      { text: "unstable", fg: theme.yellow },
+    ])
+    expect(plain(ready({ mergeStateStatus: "UNSTABLE", checks: [pending("build")] })))
+      .toBe("⚠ mergeable with warnings · ⧗ 1 pending")
+  })
+
+  test("names every pending gate in the section's order", () => {
+    expect(plain(ready({ mergeable: "UNKNOWN", checks: [pending("build")] }), { behindBy: null, comments: [openThread] }))
+      .toBe("⚠ mergeable with warnings · ⧗ 1 pending · 1 unresolved · checking conflicts · comparing with main")
   })
 
   test("leaves an info line out: armed auto-merge is no reason", () => {

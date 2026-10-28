@@ -8,8 +8,13 @@ export interface SummarySpan {
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
+/** In the cells the renderer lays the spans into, the same ones fitSpans cuts by. */
 export function spansWidth(spans: readonly SummarySpan[]): number {
-  return spans.reduce((width, span) => width + Bun.stringWidth(span.text), 0)
+  let width = 0
+  for (const span of spans) {
+    for (const { segment } of graphemes.segment(span.text)) width += graphemeCells(segment)
+  }
+  return width
 }
 
 /**

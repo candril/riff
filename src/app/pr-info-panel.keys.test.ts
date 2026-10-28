@@ -28,7 +28,7 @@ const OPENED_BEFORE: ReadonlySet<PRInfoPanelSection> = new Set(["checks", "descr
 let app: Awaited<ReturnType<typeof mountApp>> | null = null
 let panel: PRInfoPanelClass | null = null
 let restoreColumns: (() => void) | null = null
-// The panel's times read the clock and its rows are cut to the terminal's width.
+// The panel's times read the clock.
 beforeEach(() => {
   setSystemTime(PR_NOW)
   restoreColumns = pinStdoutColumns(120)

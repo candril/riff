@@ -29,6 +29,7 @@ const rowsOf = (
     filter = "",
     threads = [],
     openPoints = open ? ["checks"] : [],
+    width = 120,
   }: {
     selected?: number
     expanded?: Set<number>
@@ -37,6 +38,7 @@ const rowsOf = (
     filter?: string
     threads?: readonly Comment[]
     openPoints?: MergePoint["id"][]
+    width?: number
   } = {}
 ) =>
   checkRows(
@@ -50,7 +52,7 @@ const rowsOf = (
       labels,
       expanded,
       expandable: (point) => isExpandablePoint(point, { checks: list, threads }),
-      terminalWidth: 120,
+      panelWidth: width,
     }
   )
 
@@ -208,6 +210,14 @@ describe("threads under the conversations line", () => {
       "  ⚠ farewell.ts (file)  @you  Naming Rename x to **count**",
     ])
     expect(texts(conversations({ threads: [thread("t3", { line: 0 })] }))[1]).toStartWith("  ⚠ greet.ts (file)  @bob")
+  })
+
+  test("cut only the preview at a narrow panel, keeping the place and the author whole", () => {
+    const row = texts(conversations({ width: 40, threads: [thread("t1", { author: "alice" })] }))[1]!
+    expect(row).toStartWith("  ⚠ greet.ts:12  @alice  ")
+    expect(row).toEndWith("…")
+    // The row has the panel less its margin, and fills it.
+    expect(Bun.stringWidth(row)).toBe(40 - 7)
   })
 
   test("colour the warning and the place yellow, the author sapphire, the body subtext1, and under the cursor blue and text", () => {

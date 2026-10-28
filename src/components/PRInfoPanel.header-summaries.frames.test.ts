@@ -99,6 +99,17 @@ describe("the folded merge status", () => {
     expect(fgAt(spans, ...find(lines, "conflicts"))).toEqual(ints(theme.red))
   })
 
+  test("names a gate still pending when that is all that warns", async () => {
+    const { lines, spans } = await folded(ready({ mergeable: "UNKNOWN" }))
+    expect(mergeHeader(lines)).toBe("  ▶  Merge status  ⚠ mergeable with warnings · checking conflicts")
+    expect(fgAt(spans, ...find(lines, "checking conflicts"))).toEqual(ints(theme.overlay0))
+    const comparing = await mount({ info: ready(), width: 100, comments: [] })
+    expect(mergeHeader(comparing.lines)).toBe("  ▶  Merge status  ⚠ mergeable with warnings · comparing with main")
+    const unstable = await folded(ready({ mergeStateStatus: "UNSTABLE" }))
+    expect(mergeHeader(unstable.lines)).toBe("  ▶  Merge status  ⚠ mergeable with warnings · unstable")
+    expect(fgAt(unstable.spans, ...find(unstable.lines, "unstable"))).toEqual(ints(theme.yellow))
+  })
+
   test("ends in … at a narrow panel's edge rather than wrapping onto a second row", async () => {
     const info = ready({ mergeable: "CONFLICTING", mergeStateStatus: "DIRTY", checks: [failingCheck(1, "lint")] })
     const { lines, spans } = await folded(info, { width: 50, comments: [openThread] })

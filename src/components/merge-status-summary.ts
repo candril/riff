@@ -1,4 +1,4 @@
-import type { PrCheck } from "../providers/github/types"
+import type { PrCheck, PrInfo } from "../providers/github/types"
 import { theme } from "../theme"
 import type { SummarySpan } from "./fit-spans"
 import { formatEta, positionText } from "./merge-queue"
@@ -33,12 +33,18 @@ export function openMergeSummary(status: MergeStatus): SummarySpan[] {
  * in its line's colour. Only short names go up here; the lists stay in the
  * section.
  */
-export function mergeHeaderSummary(status: MergeStatus, checks: readonly PrCheck[]): SummarySpan[] {
+export function mergeHeaderSummary(status: MergeStatus, prInfo: Pick<PrInfo, "checks" | "mergeStateStatus">): SummarySpan[] {
+  const checks = prInfo.checks ?? []
   const queued = queuedSpan(status)
   if (queued) return [queued]
   const verdict = verdictSpan(status)
   if (status.verdict === "ready") return [verdict]
   const reasons = status.points.flatMap((point) => reasonsFor(point, checks))
+  // GitHub's UNSTABLE alone makes the verdict a warning, so with every line
+  // fine it is the only reason there is to name.
+  if (reasons.length === 0 && prInfo.mergeStateStatus === "UNSTABLE") {
+    reasons.push({ text: "unstable", fg: pointStyle("warn").fg })
+  }
   return [verdict, ...reasons.flatMap((reason) => [{ text: " · ", fg: theme.subtext0 }, reason])]
 }
 
@@ -59,8 +65,10 @@ function reasonsFor(point: MergePoint, checks: readonly PrCheck[]): SummarySpan[
     case "conversations":
       return holds ? [{ text: point.text, fg }] : []
     case "conflicts":
+      if (point.state === "pending") return [{ text: "checking conflicts", fg }]
       return holds ? [{ text: "conflicts", fg }] : []
     case "base":
+      if (point.state === "pending") return [{ text: point.text, fg }]
       return holds ? [{ text: point.text.slice(point.text.indexOf("behind ")), fg }] : []
     case "queue":
       if (point.state !== "fail") return []

@@ -42,7 +42,7 @@ export interface PanelSection {
 /**
  * Everything the panel holds that its sections are drawn from. The flat
  * items are the panel's, already fitted to `nav`. The widths are the
- * terminal's rather than the panel's: the rows are cut to them.
+ * panel's, the diff column it is drawn in: the rows are cut to them.
  */
 export interface PanelInput {
   prInfo: PrInfo
@@ -55,7 +55,7 @@ export interface PanelInput {
   mergeStatus: MergeStatus
   nav: PrInfoNav
   flashLabels: ReadonlyMap<string, string>
-  terminalWidth: number
+  panelWidth: number
   listWidth: number
 }
 
@@ -84,7 +84,7 @@ export function panelSections(input: PanelInput): PanelSection[] {
         expanded,
         highlighted: active && nav.cursorIndex === -1,
         label: input.flashLabels.get(config.id) ?? null,
-        width: input.terminalWidth - PANEL_PADDING,
+        width: input.panelWidth - PANEL_PADDING,
       }),
       body: expanded ? sectionBody(config.id, active, input, visible) : null,
     }
@@ -104,7 +104,7 @@ function sectionBody(section: PRInfoPanelSection, active: boolean, input: PanelI
         selected,
         labels: input.flashLabels,
         expanded: nav.expandedContent,
-        terminalWidth: input.terminalWidth,
+        panelWidth: input.panelWidth,
         diffContext: (filename, line) => fileDiffContext(input.files, filename, line),
       }),
     }
@@ -126,11 +126,11 @@ function listRows(
         ...rows,
         expanded: input.nav.expandedCheckIds,
         expandable: (point) => isExpandablePoint(point, { checks: input.prInfo.checks, threads: input.mergeStatus.threads }),
-        terminalWidth: input.terminalWidth,
+        panelWidth: input.panelWidth,
       })
     case 'files':
       return fileRows(visible.files, { ...rows, listWidth: input.listWidth })
     case 'commits':
-      return commitRows(visible.commits, { ...rows, terminalWidth: input.terminalWidth })
+      return commitRows(visible.commits, { ...rows, panelWidth: input.panelWidth })
   }
 }

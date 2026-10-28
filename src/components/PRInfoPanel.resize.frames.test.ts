@@ -1,12 +1,13 @@
 import { test, expect } from "bun:test"
 import type { PrCheck } from "../providers/github/types"
 import type { Comment } from "../types"
-import { pinStdoutColumns, trimFrame } from "../testing/frame"
+import { trimFrame } from "../testing/frame"
 import { ago, prInfo } from "../testing/pr-info"
 import { find, usePrInfoPanel } from "../testing/pr-info-panel"
 
-// A header is cut to the terminal's width when it is pushed; the cut has to
-// follow the terminal when it is resized under an open panel (spec 067).
+// A header is cut to the panel's width when it is pushed, and that width
+// follows the screen's; the cut has to follow the screen when it is resized
+// under an open panel (spec 067).
 
 const mount = usePrInfoPanel()
 
@@ -46,7 +47,7 @@ const blocked = prInfo("Adds the skill.", {
 
 const FULL = "  ▶  Merge status  ✗ blocked · lint failing · 1 unresolved · conflicts"
 
-test("the folded merge status is cut again when the terminal narrows, and whole again when it widens", async () => {
+test("the folded merge status is cut again when the screen narrows, and whole again when it widens", async () => {
   const { lines, mounted } = await mount({
     info: blocked,
     width: 100,
@@ -57,14 +58,9 @@ test("the folded merge status is cut again when the terminal narrows, and whole 
   expect(lines[find(lines, "Merge status")[1]]).toBe(FULL)
 
   const resizedTo = async (width: number) => {
-    const restore = pinStdoutColumns(width)
-    try {
-      mounted.setup.resize(width, 40)
-      const frame = (await mounted.frame()).split("\n")
-      return frame[find(frame, "Merge status")[1]]!
-    } finally {
-      restore()
-    }
+    mounted.setup.resize(width, 40)
+    const frame = (await mounted.frame()).split("\n")
+    return frame[find(frame, "Merge status")[1]]!
   }
 
   const narrow = await resizedTo(50)

@@ -37,21 +37,11 @@ import { prCommentPromptModel } from "./pr-comment-prompt"
 import * as Nav from "./pr-info-nav"
 import type { PrInfoNav } from "./pr-info-nav"
 
-/**
- * Get terminal width (defaults to 80 if unavailable)
- */
-function getTerminalWidth(): number {
-  return process.stdout.columns || 80
-}
-
-/**
- * Calculate available width for file/commit lists.
- */
-function getListItemWidth(): number {
-  const termWidth = getTerminalWidth()
+/** What the file and commit lists leave their names, out of the panel's width. */
+function listItemWidth(panelWidth: number): number {
   // Reserve space for: indent (4) + icon (2) + status (~15) + padding (~6)
   const reserved = 27
-  return Math.max(30, termWidth - reserved)
+  return Math.max(30, panelWidth - reserved)
 }
 
 function sameSections(a: ReadonlySet<PRInfoPanelSection>, b: ReadonlySet<PRInfoPanelSection>): boolean {
@@ -139,9 +129,15 @@ export class PRInfoPanelClass {
   // Flash labels by row id, while `s` is labelling (spec 066).
   private flashLabels: ReadonlyMap<string, string> = new Map()
 
-  // Headers and list rows are cut to the terminal's width when they are
-  // pushed, so a resize has to push them again or they keep the old cut.
+  // Headers and list rows are cut to the panel's width when they are
+  // pushed, and that width follows the screen's, so a resize has to push
+  // them again or they keep the old cut.
   private readonly onResize = () => this.push()
+
+  // The width the panel is drawn at, which only the app knows: the rows are
+  // cut to it before layout gives the panel a width of its own, and a row
+  // too wide for it squeezes the segments in front of the one to cut.
+  private readonly width: () => number
 
   constructor(
     renderer: CliRenderer,
@@ -149,8 +145,10 @@ export class PRInfoPanelClass {
     files: DiffFile[] = [],
     comments: Comment[] = [],
     openSections?: ReadonlySet<PRInfoPanelSection>,
+    width: () => number = () => renderer.width,
   ) {
     this.renderer = renderer
+    this.width = width
     this.nav = Nav.initialNav(openSections)
     this.prInfo = prInfo
     this.files = files
@@ -192,12 +190,11 @@ export class PRInfoPanelClass {
    *
    * The panel's own width, once it has one. It has none before its first
    * layout, when the first push already renders a table in the PR's
-   * description. The panel is the whole of the row it is mounted in, so the
-   * terminal's width is the width it is about to have, and it is what the
-   * inline overlay's tables already measure against.
+   * description, so until then it is the width the app says the panel is
+   * about to be drawn at.
    */
   private markdownWidth(): number {
-    return this.island.host.width || this.renderer.width
+    return this.island.host.width || this.width()
   }
 
   /**
@@ -924,8 +921,8 @@ export class PRInfoPanelClass {
         mergeStatus: this.mergeStatus,
         nav: this.nav,
         flashLabels: this.flashLabels,
-        terminalWidth: getTerminalWidth(),
-        listWidth: getListItemWidth(),
+        panelWidth: this.width(),
+        listWidth: listItemWidth(this.width()),
       }),
     })
   }

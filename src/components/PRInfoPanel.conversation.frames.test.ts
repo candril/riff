@@ -180,9 +180,9 @@ describe("the conversation", () => {
     find(lines, "Done, renamed.")
   })
 
-  test("cuts its previews to process.stdout.columns, not to the panel's width", async () => {
+  test("cuts its previews to the width the app says it is drawn at, not to its laid-out width", async () => {
     const { lines } = await mount({
-      columns: 80,
+      panelWidth: 80,
       section: "conversation",
       prepare: (p) => {
         p.moveCursor(5)
@@ -272,8 +272,8 @@ describe("the pending reviewers", () => {
     expect(fgAt(spans, ...find(lines, "@niaj"))).toEqual(ints(theme.sapphire))
   })
 
-  test("pack to process.stdout.columns, not to the panel's width", async () => {
-    const { lines } = await mount({ info: info(), columns: 80, section: "conversation" })
+  test("pack to the width the app says the panel is drawn at, not to its laid-out width", async () => {
+    const { lines } = await mount({ info: info(), panelWidth: 80, section: "conversation" })
     expect(lines.slice(25, 28)).toEqual([
       "    ○ awaiting review (8)",
       "        @frank-the-reviewer  @grace-hopper  @heidi-klum  @ivan-the-terrible",

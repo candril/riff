@@ -124,7 +124,8 @@ import { createAppKeys } from "./app/keys"
 import * as actionMenuFeature from "./features/action-menu"
 import * as prInfoPanelFeature from "./features/pr-info-panel"
 import { openFailingCheck } from "./features/pr-info-panel/check-annotations"
-import { commentPollRebuild, rereadsLookups, type PanelRebuild } from "./features/pr-info-panel/rebuild"
+import { commentPollRebuild, type PanelRebuild } from "./features/pr-info-panel/rebuild"
+import { createPrInfoPanelRecreate } from "./features/pr-info-panel/recreate"
 import { createBaseLookups } from "./features/pr-info-panel/base-lookups"
 import { createBaseLookupsState } from "./features/pr-info-panel/base-lookups-state"
 import * as syncPreviewFeature from "./features/sync-preview"
@@ -233,10 +234,13 @@ export async function createApp(options: AppOptions = {}) {
   // cost a git spawn and say nothing the text does not.
   const markHead = (): string | undefined => (state.appMode === "pr" && currentHeadSha ? currentHeadSha : undefined)
   let cachedCurrentUser: string | null = null
+  // The panel is drawn in the diff column, between whichever of the tree,
+  // the thread panel and the chat are open.
+  const prInfoPanelWidth = () => columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).diff
   // Persistent for PR sessions (spec 041); null in local mode.
   let prInfoPanel: PRInfoPanelClass | null =
     mode === "pr" && prInfo
-      ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments, prInfoOpenSections)
+      ? new PRInfoPanelClass(renderer, prInfo, initialState.files, initialState.comments, prInfoOpenSections, prInfoPanelWidth)
       : null
 
   const reactionTarget = () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null)
@@ -960,19 +964,17 @@ export async function createApp(options: AppOptions = {}) {
     composerPickers,
     codePeek,
     jumpList,
-    recreatePrInfoPanel: (openSections, rebuild) => {
-      if (state.appMode !== "pr" || !state.prInfo) return
-      // The panel is where the reader was, not just what it shows: rebuilt
-      // from scratch it would drop them back on the description's header.
-      const panelPosition = prInfoPanel?.capturePosition()
-      const hadPanel = prInfoPanel !== null
-      prInfoPanel?.destroy()
-      prInfoPanel = new PRInfoPanelClass(renderer, state.prInfo, state.files, state.comments, openSections)
-      wirePrInfoPanel(prInfoPanel, { reread: rereadsLookups(rebuild, { hadPanel }) })
-      if (panelPosition) prInfoPanel.restorePosition(panelPosition)
+    recreatePrInfoPanel: createPrInfoPanelRecreate({
+      getState: () => state,
+      getPanel: () => prInfoPanel,
+      setPanel: (panel) => { prInfoPanel = panel },
+      build: (info, files, comments, openSections) =>
+        new PRInfoPanelClass(renderer, info, files, comments, openSections, prInfoPanelWidth),
+      saved: prInfoOpenSections,
+      wire: wirePrInfoPanel,
       // Fresh PR data can carry references riff has never looked up.
-      startReferencePrefetch(referenceContext)
-    },
+      rebuilt: () => startReferencePrefetch(referenceContext),
+    }),
     target: options.target,
   }
 

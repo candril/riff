@@ -8,18 +8,18 @@ export interface Segment {
 }
 
 /** Room for a comment's one-line preview once its row's icon, author, time and padding are placed. */
-export function bodyPreviewWidth(terminalWidth: number): number {
-  return Math.max(20, terminalWidth - 44)
+export function bodyPreviewWidth(panelWidth: number): number {
+  return Math.max(20, panelWidth - 44)
 }
 
 /** As bodyPreviewWidth, less the file:line column and reply count a thread row also carries. */
-export function threadBodyPreviewWidth(terminalWidth: number): number {
-  return Math.max(15, terminalWidth - 63)
+export function threadBodyPreviewWidth(panelWidth: number): number {
+  return Math.max(15, panelWidth - 63)
 }
 
-/** A wider terminal gives the file name more room, within bounds. */
-export function threadFileLineWidth(terminalWidth: number): number {
-  return Math.min(40, Math.max(20, Math.floor(terminalWidth * 0.25)))
+/** A wider panel gives the file name more room, within bounds. */
+export function threadFileLineWidth(panelWidth: number): number {
+  return Math.min(40, Math.max(20, Math.floor(panelWidth * 0.25)))
 }
 
 /**

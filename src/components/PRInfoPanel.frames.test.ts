@@ -30,7 +30,7 @@ const MERGE_STATUS = [
   "    ✓ Blockers       none",
 ]
 const FOLDED_MERGE_STATUS =
-  "  ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved"
+  "  ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved · checking confl…"
 const HEADERS = [
   "  ▶  Previews (0)",
   "",
@@ -316,7 +316,7 @@ describe("flash labels", () => {
         p.setFlashLabels(new Map([["checks", "a"], ["files:1", "sd"]]))
       },
     })
-    expect(lines[6]).toBe("  a ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved")
+    expect(lines[6]).toBe("  a ▶  Merge status  ✗ blocked · test, e2e failing +2 · ⧗ 1 pending · changes requested · 2 unresolved · checking con…")
     expect(lines.slice(17, 21)).toEqual([
       "  ▼  Files (2)",
       "",

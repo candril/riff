@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { fitSpans, spansWidth } from "./fit-spans"
+import { graphemeCells } from "../diff-rows/cells"
+import { fitSpans, spansWidth, type SummarySpan } from "./fit-spans"
 
 const A = { text: "abc", fg: "#111111" }
 const B = { text: "défg", fg: "#222222" }
@@ -21,5 +22,16 @@ describe("fitSpans", () => {
     const wide = { text: "日本語", fg: A.fg }
     expect(spansWidth([wide])).toBe(6)
     expect(fitSpans([wide], 4)).toEqual([{ text: "日…", fg: A.fg }])
+  })
+
+  test("measures with the cells it cuts by, so what it hands back always fits", () => {
+    // Bun.stringWidth counts a soft hyphen as nothing; the renderer gives it a cell.
+    const hyphenated = { text: "co\u00ADop", fg: A.fg }
+    const graphemes = (text: string) => [...new Intl.Segmenter().segment(text)].map(({ segment }) => segment)
+    const cells = (spans: SummarySpan[]) =>
+      spans.flatMap(({ text }) => graphemes(text)).reduce((width, grapheme) => width + graphemeCells(grapheme), 0)
+    expect(cells(fitSpans([hyphenated], 4))).toBeLessThanOrEqual(4)
+    expect(fitSpans([hyphenated], 4)).toEqual([{ text: "co\u00AD…", fg: A.fg }])
+    expect(fitSpans([hyphenated], 5)).toEqual([hyphenated])
   })
 })

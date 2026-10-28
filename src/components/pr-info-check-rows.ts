@@ -15,8 +15,8 @@ const PLACEHOLDERS = {
   error: `${CHECK_INDENT}  Could not fetch annotations`,
 } as const
 
-// The columns of the terminal a merge status row cannot use: the panel's
-// indent in front of it and its margin after it.
+// The columns of the panel's width a merge status row cannot use: the
+// panel's indent in front of it and its margin after it.
 const ROW_MARGIN = 7
 
 const LABEL_WIDTH = Math.max(...Object.values(POINT_LABELS).map((label) => label.length))
@@ -33,7 +33,7 @@ export function checkRows(
   input: ListInput & {
     expanded: ReadonlySet<number>
     expandable: (point: MergePoint) => boolean
-    terminalWidth: number
+    panelWidth: number
   }
 ): ListRows {
   const keys = new Map<string, number>()
@@ -70,7 +70,7 @@ export function checkRows(
           input
         )
       case "thread":
-        return row("checks", index, `thread:${item.thread.id}`, threadSegments(item.thread, selected, input.terminalWidth), input)
+        return row("checks", index, `thread:${item.thread.id}`, threadSegments(item.thread, selected, input.panelWidth), input)
     }
   })
   return { rows, note: null }
@@ -112,7 +112,7 @@ function checkSegments(check: PrCheck, selected: boolean, expanded: ReadonlySet<
   return segments
 }
 
-function threadSegments(thread: Comment, selected: boolean, terminalWidth: number): ListSegment[] {
+function threadSegments(thread: Comment, selected: boolean, panelWidth: number): ListSegment[] {
   const file = thread.filename.split("/").pop() || thread.filename
   // A file-level comment comes back from GitHub with no line at all.
   const location = thread.line > 0 ? `${file}:${thread.line}` : `${file} (file)`
@@ -124,7 +124,7 @@ function threadSegments(thread: Comment, selected: boolean, terminalWidth: numbe
   // A text too wide for its row squeezes the segments before it rather than
   // being cut, so the preview is cut here to what is left of the row.
   const used = segments.reduce((width, segment) => width + Bun.stringWidth(segment.text), 0)
-  const preview = truncate(cleanBodyPreview(thread.body), Math.max(1, terminalWidth - ROW_MARGIN - used - 2))
+  const preview = truncate(cleanBodyPreview(thread.body), Math.max(1, panelWidth - ROW_MARGIN - used - 2))
   segments.push({ text: `  ${preview}`, fg: selected ? theme.text : theme.subtext1 })
   return segments
 }

@@ -77,11 +77,7 @@ export function paintOf(spans: Spans) {
   )
 }
 
-/**
- * Sets `process.stdout.columns` until the returned undo runs. Some views
- * still cut their rows to the terminal's width rather than their own, so a
- * frame of them is only repeatable with it pinned.
- */
+/** Sets `process.stdout.columns` until the returned undo runs. */
 export function pinStdoutColumns(columns: number): () => void {
   const original = Object.getOwnPropertyDescriptor(process.stdout, "columns")
   Object.defineProperty(process.stdout, "columns", { value: columns, configurable: true, writable: true })

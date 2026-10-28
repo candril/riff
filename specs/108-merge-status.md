@@ -69,6 +69,12 @@ says whose move it is, this section says why.
     never appears.
   - A failing Queue line: `removed from queue` or `unmergeable in queue`.
     A PR not queued adds nothing.
+  - Conflicts GitHub is still checking: `checking conflicts`, in the
+    pending line's colour.
+  - A base riff is still comparing with: `comparing with main`, in the
+    pending line's colour.
+  - GitHub's UNSTABLE when no line above gives a reason: `unstable`, in
+    yellow.
   Long lists stay in the section; the cap of two names keeps them out of
   the header. The header is never wrapped: at the panel's edge it ends in
   `…`.

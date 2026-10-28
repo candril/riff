@@ -86,7 +86,7 @@ describe("fileRows", () => {
 })
 
 describe("commitRows", () => {
-  const input = { ...none, terminalWidth: 120, now: PR_NOW.getTime() }
+  const input = { ...none, panelWidth: 120, now: PR_NOW.getTime() }
 
   test("lists twenty and counts the rest", () => {
     const list = commitRows(commits(23), input)
@@ -99,9 +99,9 @@ describe("commitRows", () => {
     expect(commitRows(commits(20), input).note).toBeNull()
   })
 
-  test("cuts the message to the terminal's width less twenty, never under twenty", () => {
+  test("cuts the message to the panel's width less twenty, never under twenty", () => {
     expect(commitRows(commits(1), input).rows[0]!.segments[2]!.text).toHaveLength(100)
-    expect(commitRows(commits(1), { ...input, terminalWidth: 30 }).rows[0]!.segments[2]!.text).toHaveLength(20)
+    expect(commitRows(commits(1), { ...input, panelWidth: 30 }).rows[0]!.segments[2]!.text).toHaveLength(20)
   })
 
   test("colours the sha peach and the message text when selected, yellow and subtext1 otherwise", () => {
@@ -123,7 +123,7 @@ describe("commitRows", () => {
 describe("commitRowCount", () => {
   test("counts the rows commitRows draws, which stop at twenty", () => {
     for (const n of [0, 1, 20, 23]) {
-      expect(commitRowCount(commits(n))).toBe(commitRows(commits(n), { ...none, terminalWidth: 120 }).rows.length)
+      expect(commitRowCount(commits(n))).toBe(commitRows(commits(n), { ...none, panelWidth: 120 }).rows.length)
     }
     expect(commitRowCount(commits(23))).toBe(20)
   })
