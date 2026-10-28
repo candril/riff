@@ -1,6 +1,6 @@
 import { dirname, join } from "path"
-import { mkdirSync, writeFileSync } from "fs"
-import { mkdir, rm } from "fs/promises"
+import { mkdirSync, renameSync, rmSync, writeFileSync } from "fs"
+import { mkdir } from "fs/promises"
 import { localStorageDir, sourceToDir } from "./resolve"
 
 const CHAT_FILE = "chat.json"
@@ -92,15 +92,23 @@ function queue(path: string, write: () => Promise<void>): Promise<void> {
   return queued
 }
 
-// The sync write is the final word on the way out: nothing queued before or asked after it may touch the file.
+/**
+ * The sync write is the final word on the way out: nothing queued before or
+ * asked after it may touch the file. Queued work therefore touches the file
+ * only in the same synchronous turn as its look at the seal, so the sync
+ * write can never land between the two.
+ */
 const sealed = new Set<string>()
 
 export function saveChat(source: string, chat: SavedChat): Promise<void> {
   const path = chatPath(source)
+  // The queue runs one write per file at a time, so one temp name per process is enough.
+  const temp = `${path}.${process.pid}.tmp`
   return queue(path, async () => {
     await mkdir(dirname(path), { recursive: true })
-    if (sealed.has(path)) return
-    await Bun.write(path, JSON.stringify(chat, null, 2))
+    await Bun.write(temp, JSON.stringify(chat, null, 2))
+    if (sealed.has(path)) rmSync(temp, { force: true })
+    else renameSync(temp, path)
   })
 }
 
@@ -118,6 +126,6 @@ export function saveChatSync(source: string, chat: SavedChat): void {
 export function clearChat(source: string): Promise<void> {
   const path = chatPath(source)
   return queue(path, async () => {
-    if (!sealed.has(path)) await rm(path, { force: true })
+    if (!sealed.has(path)) rmSync(path, { force: true })
   })
 }

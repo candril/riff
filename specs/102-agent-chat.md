@@ -109,7 +109,8 @@ like any comment the reviewer typed.
   agent receives each attachment ahead of the question, which keeps its
   tokens as typed. Each is capped at 400 lines, with a footer that names
   the `read_diff` or `list_files` call for the rest, so one reference
-  cannot flood the context. A repeated token attaches once; trailing
+  cannot flood the context. For `@line` the 400 counts the hunk header, so
+  a cut hunk shows its header and the 399 hunk lines around the cursor. A repeated token attaches once; trailing
   punctuation is not part of a token; `@Inject` or `@handle`, which do not
   look like a path, stay text.
 - **`@` suggests what it can attach**: typing `@` at the start of the
@@ -211,11 +212,16 @@ like any comment the reviewer typed.
 ### P2 - Continuity
 
 - **The conversation survives a restart** of riff on the same review:
-  `.riff/<source>/chat.json` holds the session id, the PR head the agent
-  last heard about, and the questions and answers, which the chat shows
+  a chat file holds the session id, the PR head the agent last heard
+  about, and the questions and answers, which the chat shows
   again on reopening. The first question resumes the session when it
   still exists. When it does not, the chat says so and starts fresh.
-  Ctrl-n Ctrl-n starts over and clears the file.
+  Ctrl-n Ctrl-n starts over and clears the file. The uncommitted changes
+  and a PR keep `chat.json` in their review folder (`.riff/local/chat.json`,
+  `.riff/gh-<owner>-<repo>-<number>/chat.json`); a local revset or a `--files` target gets its
+  own `chat-<first 12 hex of the sha256 of its key>.json` there, so each
+  local target keeps its own conversation. What riff writes on quit is
+  final: no save still under way replaces it.
 - **The agent hears about changes once**, with the next question: new
   commits on the PR, a refresh, comments the reviewer added or removed.
 - **Searching the repository.** Text search across the head revision,

@@ -291,6 +291,45 @@ describe("the cap", () => {
     expect(lines.at(-1)).toBe("[cut at 400 of 501 lines; read_diff path=big.ts offset=400 for the rest]")
   })
 
+  test("a hunk past the cap with the cursor in its first window is cut only below", () => {
+    const result = expandReferences("@line", { files: long(500), position: at({ path: "big.ts", line: 199 }), pr: null })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    expect(lines).toHaveLength(ATTACHMENT_LINES + 2)
+    expect(lines[1]).toBe("@@ -0,0 +1,500 @@")
+    expect(lines).toContain(">        199 +l199")
+    expect(lines.at(-2)).toBe("         399 +l399")
+    expect(lines.filter((l) => l.startsWith("[cut"))).toEqual([
+      "[cut at 400 of 501 lines; read_diff path=big.ts offset=400 for the rest]",
+    ])
+  })
+
+  test("a hunk one line past the cap shifts its window by that line when the cursor sits past the middle", () => {
+    const result = expandReferences("@line", { files: long(400), position: at({ path: "big.ts", line: 201 }), pr: null })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    expect(lines).toHaveLength(ATTACHMENT_LINES + 2)
+    expect(lines.slice(1, 3)).toEqual(["@@ -0,0 +1,400 @@", "           2 +l2"])
+    expect(lines).toContain(">        201 +l201")
+    expect(lines.at(-2)).toBe("         400 +l400")
+    expect(lines.filter((l) => l.startsWith("[cut"))).toEqual([
+      "[cut 1 of 401 lines above; read_diff path=big.ts offset=1 for them]",
+    ])
+  })
+
+  test("a hunk one line past the cap keeps its head when the cursor sits before the middle", () => {
+    const result = expandReferences("@line", { files: long(400), position: at({ path: "big.ts", line: 200 }), pr: null })
+    if (!("attachments" in result)) throw new Error(result.error)
+    const lines = result.attachments[0]!.split("\n")
+    expect(lines).toHaveLength(ATTACHMENT_LINES + 2)
+    expect(lines.slice(1, 3)).toEqual(["@@ -0,0 +1,400 @@", "           1 +l1"])
+    expect(lines).toContain(">        200 +l200")
+    expect(lines.at(-2)).toBe("         399 +l399")
+    expect(lines.filter((l) => l.startsWith("[cut"))).toEqual([
+      "[cut at 400 of 401 lines; read_diff path=big.ts offset=400 for the rest]",
+    ])
+  })
+
   test("a hunk past the cap keeps its header and a window around a cursor deep inside it", () => {
     const result = expandReferences("@line", {
       files: long(900),

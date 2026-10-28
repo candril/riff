@@ -272,6 +272,18 @@ test("the lost-session note sits above the question that opened the session, and
   expect(kinds(chat)).toEqual([`N:info:${SESSION_LOST_NOTE}`, "Q:one", "A:", "Q:two:waiting"])
 })
 
+test("a lost session reported after the conversation was cleared adds no note", () => {
+  const fake = fakeAgent()
+  const chat = createChatState(fake.agent, undefined, undefined, continuity(earlier).continuity)
+  chat.send("and now?")
+  chat.newConversation()
+  chat.newConversation()
+  expect([chat.entries.length, fake.closes()]).toEqual([0, 1])
+  expect(() => fake.events().sessionLost?.()).not.toThrow()
+  expect(chat.entries.some((e) => e.kind === "note" && e.text === SESSION_LOST_NOTE)).toBe(false)
+  expect(chat.entries.length).toBe(0)
+})
+
 test("the question, a new session id and the answer are each saved", () => {
   const fake = fakeAgent()
   const store = continuity(null, () => "bbbbbbb222")

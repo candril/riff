@@ -1,4 +1,4 @@
-import { test, expect, describe, afterAll } from "bun:test"
+import { test, expect, describe, afterAll, spyOn } from "bun:test"
 import { mkdtemp, mkdir, readdir, writeFile, rm } from "fs/promises"
 import { existsSync } from "fs"
 import { tmpdir } from "os"
@@ -135,6 +135,37 @@ describe("the snapshot written on quit", () => {
       await saveChat("local", older("late"))
       await clearChat("local")
       expect(await loadChat("local")).toEqual(saved)
+    })
+  })
+
+  test("is not overwritten by a save whose write was already under way", async () => {
+    await inRepo(async () => {
+      const write = Bun.write
+      const gate = Promise.withResolvers<void>()
+      const started = Promise.withResolvers<void>()
+      const spy = spyOn(Bun, "write").mockImplementation((async (...args: Parameters<typeof Bun.write>) => {
+        started.resolve()
+        await gate.promise
+        return write(...args)
+      }) as typeof Bun.write)
+      try {
+        const pending = saveChat("local", older("A"))
+        await started.promise
+        saveChatSync("local", older("B"))
+        gate.resolve()
+        await pending
+        expect(await loadChat("local")).toEqual(older("B"))
+      } finally {
+        spy.mockRestore()
+      }
+    })
+  })
+
+  test("a save skipped after it leaves no temporary file behind", async () => {
+    await inRepo(async (root) => {
+      saveChatSync("local", saved)
+      await saveChat("local", older("late"))
+      expect(await readdir(join(root, ".riff", "local"))).toEqual(["chat.json"])
     })
   })
 })
