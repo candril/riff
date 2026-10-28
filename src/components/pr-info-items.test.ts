@@ -132,6 +132,12 @@ describe("flatConversationItems", () => {
     const flat = flatConversationItems(items(), "farewell", NONE)
     expect(flatIds(flat)).toEqual(["PRR_bob2", "t2"])
   })
+
+  test("a review the reader folded under the filter keeps its header only", () => {
+    expect(flatIds(flatConversationItems(items(), "farewell", NONE, new Set(["PRR_bob2"])))).toEqual(["PRR_bob2"])
+    expect(flatIds(flatConversationItems(items(), "", new Set(["PRR_bob2"]), new Set(["PRR_bob2"]))).slice(4, 6))
+      .toEqual(["PRR_bob2", "t1"])
+  })
 })
 
 describe("flatCheckItems", () => {
@@ -165,8 +171,9 @@ describe("flatCheckItems", () => {
       open = OPEN as ReadonlySet<MergePoint["id"]>,
       filter = "",
       threads = [] as readonly Comment[],
+      filterFolded = new Set<string>() as ReadonlySet<string>,
     } = {}
-  ) => flatCheckItems(points, { checks: list, threads }, { expandedCheckIds: expanded, expandedPoints: open, filter }).map(row)
+  ) => flatCheckItems(points, { checks: list, threads }, { expandedCheckIds: expanded, expandedPoints: open, filter, filterFolded }).map(row)
 
   test("gives each gate a row, in the model's order, and nothing under a folded checks line", () => {
     expect(items(checks(), { points: POINTS, open: new Set() })).toEqual(["[checks]", "[reviews]", "[base]"])
@@ -263,6 +270,11 @@ describe("flatCheckItems", () => {
       expect(items([], { points, threads: THREADS, open: new Set(), filter: "farewell" })).toEqual([
         "[conversations]", "thread t2",
       ])
+    })
+
+    test("a line the reader folded under the filter keeps its row, with nothing under it", () => {
+      expect(items([], { points, threads: THREADS, open: new Set(), filter: "rename", filterFolded: new Set(["conversations"]) }))
+        .toEqual(["[conversations]"])
     })
 
     test("a filter nothing under it matches drops the line", () => {

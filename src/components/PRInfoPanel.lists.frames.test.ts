@@ -137,8 +137,19 @@ describe("the cursor in a section longer than the screen", () => {
     expect(panel.getSelectedCommit()?.sha).toStartWith("c19")
   })
 
-  // The reveal scrolls inside a frame, after that frame's layout, so only
-  // the frame after it shows the scroll.
+  test("is in view, the margin kept, in the very frame a j past the edge draws", async () => {
+    const { panel, mounted } = await mount({ section: "commits", height: 30, prepare: (p) => p.moveCursor(15) })
+    for (let i = 0; i < 3; i++) {
+      panel.moveCursor(1)
+      await mounted.setup.renderOnce()
+      const lines = mounted.setup.captureCharFrame().split("\n")
+      const [, y] = find(lines, `c${String(panel.getCursorIndex()).padStart(2, "0")}abcd`)
+      expect(y).toBe(viewportRows(panel)[1] - 3)
+    }
+  })
+
+  // A reveal corrected after a frame's layout is drawn only in the frame
+  // after, which the scroll asks for itself.
   describe("asks for one more frame", () => {
     /** Whether drawing one frame after `move` asked for another. */
     async function asksAfterOneFrame(move: (panel: PRInfoPanelClass) => void): Promise<boolean> {

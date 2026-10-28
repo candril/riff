@@ -66,6 +66,7 @@ export interface PRInfoPanelPosition {
   expandedCheckIds: Set<number>
   expandedPoints: Set<MergePoint["id"]>
   filterOpened: Set<PRInfoPanelSection>
+  filterFolded: Set<string>
   scrollTop: number
 }
 
@@ -115,8 +116,8 @@ export class PRInfoPanelClass {
   // Where a failing check asks for its annotations; the app fetches them (set by app.ts).
   private onOpenFailingCheck: ((check: PrCheck) => void) | null = null
   
-  // Set when the cursor moved; the next frame scrolls it into view, once
-  // layout has placed whatever the move changed.
+  // Set when the cursor moved; the next frame scrolls it into view, before
+  // its layout and again once layout has placed whatever the move changed.
   private revealPending = false
   // Where a restored position had scrolled to. A panel restored before its
   // first layout would clamp it to 0, so the first frame applies it.
@@ -176,6 +177,7 @@ export class PRInfoPanelClass {
     this.pushMeta()
     this.push()
     renderer.on("resize", this.onResize)
+    renderer.setFrameCallback(this.beforeLayout)
   }
 
   /**
@@ -226,6 +228,7 @@ export class PRInfoPanelClass {
       expandedCheckIds: new Set(this.nav.expandedCheckIds),
       expandedPoints: new Set(this.nav.expandedPoints),
       filterOpened: new Set(this.nav.filterOpened),
+      filterFolded: new Set(this.nav.filterFolded),
       // A panel rebuilt again before its first frame has not applied its
       // restored scroll yet; the box still reads 0.
       scrollTop: this.pendingScrollTop ?? this.island.scrollBox.scrollTop,
@@ -275,7 +278,7 @@ export class PRInfoPanelClass {
   }
 
   private refreshFlatItems(nav: PrInfoNav = this.nav): void {
-    this.flatConversationItems = flatConversationItems(this.conversationItems, nav.filter, nav.expandedContent)
+    this.flatConversationItems = flatConversationItems(this.conversationItems, nav.filter, nav.expandedContent, nav.filterFolded)
   }
 
   private refreshFlatCheckItems(nav: PrInfoNav = this.nav): void {
@@ -346,7 +349,7 @@ export class PRInfoPanelClass {
     this.renderer.requestRender()
   }
 
-  /** Where the cursor row is on screen, and how tall. */
+  /** Where the cursor row is on screen, and how tall: no height before its first layout. */
   private cursorBounds(): { y: number; height: number } | null {
     const section = this.nav.activeSection
     if (this.nav.cursorIndex === -1) {
@@ -359,7 +362,7 @@ export class PRInfoPanelClass {
       return { y: box.y + Math.min(this.nav.cursorIndex, box.height - 1), height: 1 }
     }
     const row = this.island.rowAt(section, this.nav.cursorIndex)
-    return row ? { y: row.y, height: Math.max(1, row.height) } : null
+    return row ? { y: row.y, height: row.height } : null
   }
 
   /** The description's box while its section is open; a folded one is hidden and counts no rows. */
@@ -369,18 +372,18 @@ export class PRInfoPanelClass {
 
   /**
    * Scroll just enough to keep the cursor row `CURSOR_SCROLL_OFF` rows off
-   * the edges. Runs from the scroll box's own render, after layout, so a
-   * row the move just changed is measured where it now is.
+   * the edges, measured where the last layout put it. Before a frame's
+   * layout a row that has never been laid out is left for after it.
    */
-  private revealCursor(): void {
+  private revealCursor(beforeLayout = false): void {
     const bounds = this.cursorBounds()
-    if (!bounds) return
+    if (!bounds || (beforeLayout && bounds.height === 0)) return
 
     const viewport = this.island.scrollBox.viewport
     const off = Math.min(CURSOR_SCROLL_OFF, Math.floor((viewport.height - 1) / 2))
     const top = bounds.y - viewport.y
     // A row taller than the room between the margins shows its top.
-    const bottom = top + Math.min(bounds.height, viewport.height - 2 * off)
+    const bottom = top + Math.min(Math.max(1, bounds.height), viewport.height - 2 * off)
 
     if (top < off) {
       this.island.scrollBox.scrollBy(top - off)
@@ -671,12 +674,11 @@ export class PRInfoPanelClass {
    * - For reviews: toggles threads visibility (flattens them as navigable items)
    */
   toggleSelectedThread(): void {
-    const flatItem = this.getSelectedFlatItem()
-    if (!flatItem) return
-    
-    this.nav = Nav.toggleContent(this.nav, flatConversationItemId(flatItem))
-    this.refreshFlatItems()
-    this.push()
+    if (!this.getSelectedFlatItem()) return
+    // Whether it is open is read from what is drawn: a filter shows a
+    // review's threads without the reader opening it.
+    const open = this.rowNodes()[this.nav.cursorIndex]?.open ?? false
+    this.foldRow(this.nav.cursorIndex, !open)
   }
 
   /** The active section's rows as a tree, for the fold keys (spec 067). */
@@ -936,9 +938,21 @@ export class PRInfoPanelClass {
   }
 
   /**
-   * The first point a frame has the rows a push changed laid out. A scroll
-   * made here only reaches the next frame, but setting scrollTop moves the
-   * content, which asks the renderer for that frame itself.
+   * Before the frame's layout, the last layout still places every row a
+   * push did not change, which is all a plain cursor move touches. A scroll
+   * made here is drawn in this very frame. One made from any hook after
+   * layout, `renderBefore` or a size change alike, reaches only the next:
+   * OpenTUI has placed the frame's rows for painting by then.
+   */
+  private readonly beforeLayout = async (): Promise<void> => {
+    if (this.revealPending && this.pendingScrollTop === null) this.revealCursor(true)
+  }
+
+  /**
+   * The first point a frame has the rows a push changed laid out, which
+   * corrects a reveal made before it from where those rows used to be. A
+   * scroll made here only reaches the next frame, but setting scrollTop
+   * moves the content, which asks the renderer for that frame itself.
    */
   private beforeScrollRender(): void {
     if (this.pendingScrollTop !== null) {
@@ -961,6 +975,7 @@ export class PRInfoPanelClass {
    */
   destroy(): void {
     this.renderer.off("resize", this.onResize)
+    this.renderer.removeFrameCallback(this.beforeLayout)
     this.island.dispose()
   }
 }

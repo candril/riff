@@ -36,6 +36,17 @@ export type FlatCheckItem =
   | { kind: 'placeholder'; check: PrCheck; placeholder: 'loading' | 'empty' | 'error' }
   | { kind: 'thread'; thread: Comment }
 
+const NONE: ReadonlySet<string> = new Set()
+
+/**
+ * Whether a merge status line or a review is drawn open: the reader's own
+ * open rows always are, and while a filter is set so is every other, but
+ * those the reader folded under it.
+ */
+export function isRowOpen(expanded: ReadonlySet<string>, id: string, filter: string, filterFolded: ReadonlySet<string>): boolean {
+  return expanded.has(id) || (filter !== "" && !filterFolded.has(id))
+}
+
 export const ALL_SECTIONS: readonly PRInfoPanelSection[] = [
   'checks',
   'description',
@@ -76,6 +87,7 @@ export function flatConversationItems(
   items: ConversationItem[],
   filter: string,
   expandedContent: ReadonlySet<string>,
+  filterFolded: ReadonlySet<string> = NONE,
 ): FlatConversationItem[] {
   const flat: FlatConversationItem[] = []
   const matches = (...text: (string | undefined)[]) => matchesFilter(filter, ...text)
@@ -96,7 +108,7 @@ export function flatConversationItems(
     ) {
       flat.push({ type: 'review-header', data: item.data })
 
-      if (expandedContent.has(conversationItemId(item)) || filter) {
+      if (isRowOpen(expandedContent, conversationItemId(item), filter, filterFolded)) {
         for (const thread of item.data.threads) {
           if (matches(thread.author, thread.body, thread.filename)) {
             flat.push({ type: 'review-thread', data: thread, parentReview: item.data })
@@ -146,7 +158,7 @@ export function isExpandablePoint(point: MergePoint, { checks, threads }: MergeR
 }
 
 /**
- * One row per gate, and while a line is open or a filter is set, the rows
+ * One row per gate, and while a line is open (see isRowOpen), the rows
  * under it: under the checks gate each check plus any inline annotation /
  * placeholder rows for currently-expanded failing checks, under the
  * conversations gate each unresolved thread (specs 043, 108).
@@ -154,10 +166,11 @@ export function isExpandablePoint(point: MergePoint, { checks, threads }: MergeR
 export function flatCheckItems(
   points: readonly MergePoint[],
   source: MergeRows,
-  { expandedCheckIds, expandedPoints, filter }: {
+  { expandedCheckIds, expandedPoints, filter, filterFolded = NONE }: {
     expandedCheckIds: ReadonlySet<number>
     expandedPoints: ReadonlySet<MergePoint["id"]>
     filter: string
+    filterFolded?: ReadonlySet<string>
   },
 ): FlatCheckItem[] {
   const flat: FlatCheckItem[] = []
@@ -177,7 +190,7 @@ export function flatCheckItems(
     const holdsMatch = filter !== "" && rows.length > 0
     if (!matchesFilter(filter, POINT_LABELS[point.id], point.text) && !holdsMatch) continue
     flat.push({ kind: 'point', point })
-    if (expandedPoints.has(point.id) || filter) flat.push(...rows)
+    if (isRowOpen(expandedPoints, point.id, filter, filterFolded)) flat.push(...rows)
   }
   return flat
 }

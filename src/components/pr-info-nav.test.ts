@@ -24,7 +24,6 @@ import {
   setFilter,
   stepNav,
   toggleCheck,
-  toggleContent,
   togglePoint,
   withCursor,
   withFilter,
@@ -60,6 +59,7 @@ describe("initialNav", () => {
       expandedCheckIds: new Set(),
       expandedPoints: new Set(['checks']),
       filterOpened: open(),
+      filterFolded: new Set(),
       filter: "",
     })
   })
@@ -194,11 +194,32 @@ describe("setFilter", () => {
   })
 })
 
+describe("setFilter and the rows folded under a filter", () => {
+  test("a new filter opens its matches again, and clearing it forgets the folds", () => {
+    const folded = collapsePoint(setFilter(nav(), "greet", counts()), 'conversations')
+    expect(setFilter(folded, "greeting", counts()).filterFolded).toEqual(new Set())
+    expect(setFilter(folded, "", counts()).filterFolded).toEqual(new Set())
+    expect(setFilter(folded, "greet", counts())).toBe(folded)
+  })
+
+  test("a rebuilt panel, unfiltered until it is handed the app's filter again, keeps the folds it carried", () => {
+    const folded = collapsePoint(setFilter(nav(), "greet", counts()), 'conversations')
+    const rebuilt = setFilter(navAt(folded, ""), "greet", counts())
+    expect(rebuilt.filterFolded).toEqual(new Set(['conversations']))
+  })
+})
+
 describe("withFilter", () => {
   test("changes the filter alone, and hands back the same nav for the same filter", () => {
     const from = nav({ activeSection: 'files', cursorIndex: 4, expandedSections: open() })
     expect(withFilter(from, "x")).toEqual({ ...from, filter: "x" })
     expect(withFilter(from, "")).toBe(from)
+  })
+
+  test("forgets the rows folded under the filter it leaves, as setFilter does, so the rows refiltered first agree", () => {
+    const folded = collapsePoint(setFilter(nav(), "greet", counts()), 'conversations')
+    expect(withFilter(folded, "greeting").filterFolded).toEqual(new Set())
+    expect(withFilter(navAt(folded, ""), "greet").filterFolded).toEqual(new Set(['conversations']))
   })
 })
 
@@ -225,6 +246,7 @@ describe("navAt", () => {
       expandedCheckIds: new Set([3]),
       expandedPoints: new Set(['checks'] as const),
       filterOpened: open('commits'),
+      filterFolded: new Set(["PRR_bob2"]),
     }
     const restored = navAt(position, "greet")
     expect(restored).toEqual({ ...position, filter: "greet" })
@@ -289,14 +311,35 @@ describe("toggles", () => {
     expect(toggleCheck(opened, 7).expandedCheckIds).toEqual(new Set())
   })
 
-  test("the content toggles add and remove, and expand/collapse hand back the same nav when there is nothing to do", () => {
-    const opened = toggleContent(nav(), "c1")
+  test("expand and collapse add and remove content, and hand back the same nav when there is nothing to do", () => {
+    const opened = expandContent(nav(), "c1")
     expect(opened.expandedContent).toEqual(new Set(["c1"]))
-    expect(toggleContent(opened, "c1").expandedContent).toEqual(new Set())
     expect(expandContent(opened, "c1")).toBe(opened)
     expect(collapseContent(nav(), "c1")).toEqual(nav())
     expect(expandContent(nav(), "c2").expandedContent).toEqual(new Set(["c2"]))
     expect(collapseContent(opened, "c1").expandedContent).toEqual(new Set())
+  })
+
+  test("folding a row the filter holds open keeps it folded until it is opened again", () => {
+    const filtered = nav({ filter: "greet", expandedPoints: new Set(), expandedContent: new Set() })
+    const point = collapsePoint(filtered, 'conversations')
+    expect(point.filterFolded).toEqual(new Set(['conversations']))
+    expect(point.expandedPoints).toEqual(new Set())
+    expect(expandPoint(point, 'conversations').filterFolded).toEqual(new Set())
+    expect(togglePoint(point, 'conversations').filterFolded).toEqual(new Set())
+    expect(togglePoint(filtered, 'conversations').filterFolded).toEqual(new Set(['conversations']))
+
+    const content = collapseContent(filtered, "PRR_bob2")
+    expect(content.filterFolded).toEqual(new Set(["PRR_bob2"]))
+    expect(expandContent(content, "PRR_bob2").filterFolded).toEqual(new Set())
+    expect(collapseContent(content, "PRR_bob2")).toBe(content)
+  })
+
+  test("folding a row the reader opened under a filter takes it from them too, or the filter would hold it open", () => {
+    const opened = nav({ filter: "greet", expandedPoints: new Set(['checks']) })
+    const folded = collapsePoint(opened, 'checks')
+    expect(folded.expandedPoints).toEqual(new Set())
+    expect(folded.filterFolded).toEqual(new Set(['checks']))
   })
 
   test("expandAll opens every section and collapseAll none", () => {

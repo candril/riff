@@ -38,7 +38,7 @@ afterEach(() => {
 
 /** The folded overview on a real panel, the cursor on `section`'s header. */
 async function overview(section: PRInfoPanelSection, open: PRInfoPanelSection[] = []) {
-  const { renderer, renderOnce } = await createTestRenderer({ width: 120, height: 80 })
+  const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({ width: 120, height: 80 })
   const check = unit()
   const info = prInfo("Body line one.\n\nLine two.", {
     reviews: reviews(),
@@ -77,7 +77,11 @@ async function overview(section: PRInfoPanelSection, open: PRInfoPanelSection[] 
       content: [...p.expandedContent].sort(),
     }
   }
-  return { panel, keys, z, at, opened, asked, renderOnce }
+  const frame = async () => {
+    await renderOnce()
+    return captureCharFrame()
+  }
+  return { panel, keys, z, at, opened, asked, renderOnce, frame }
 }
 
 describe("merge status: header, checks line, failing check, annotation", () => {
@@ -316,5 +320,52 @@ describe("every section at once", () => {
     z("r")
     expect(opened().sections).toEqual(all)
     expect(opened().checks).toEqual([7])
+  })
+})
+
+describe("a row the filter holds open", () => {
+  test("h folds a merge status line the filter opened, and l opens it again", async () => {
+    const { panel, keys, at, frame } = await overview("checks")
+    panel.setFilter("Rename")
+    const thread = "Rename greet to welcome"
+    const filtered = await frame()
+    expect(filtered).toContain("Conversations")
+    expect(filtered.split(thread).length - 1).toBe(2)
+
+    keys.press("j")
+    keys.press("h")
+    expect(at()).toEqual(["checks", 0])
+    expect((await frame()).split(thread).length - 1).toBe(1)
+    keys.press("h")
+    expect(at()).toEqual(["checks", -1])
+
+    keys.press("j")
+    keys.press("l")
+    expect((await frame()).split(thread).length - 1).toBe(2)
+  })
+
+  test("a changed filter opens a merge status line the reader folded", async () => {
+    const { panel, keys, frame } = await overview("checks")
+    panel.setFilter("Rename")
+    const thread = "Rename greet to welcome"
+    keys.press("j")
+    keys.press("h")
+    expect((await frame()).split(thread).length - 1).toBe(1)
+
+    panel.setFilter("Renam")
+    expect([...panel.capturePosition().filterFolded]).toEqual([])
+    expect((await frame()).split(thread).length - 1).toBe(2)
+  })
+
+  test("zc folds a review the filter opened onto its threads", async () => {
+    const { panel, z, at, frame } = await overview("conversation")
+    panel.setFilter("farewell")
+    expect(await frame()).toContain("Typo here")
+    panel.moveCursorTo(0)
+    expect(panel.getSelectedFlatItem()?.type).toBe("review-header")
+
+    z("c")
+    expect(at()).toEqual(["conversation", 0])
+    expect(await frame()).not.toContain("Typo here")
   })
 })

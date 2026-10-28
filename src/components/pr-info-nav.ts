@@ -1,7 +1,7 @@
 import type { PRInfoPanelSection } from "../state"
 import type { ReactionTarget } from "../types"
 import type { MergePoint } from "./merge-status-model"
-import { ALL_SECTIONS, type FlatConversationItem } from "./pr-info-items"
+import { ALL_SECTIONS, isRowOpen, type FlatConversationItem } from "./pr-info-items"
 
 /** Where the reader is in the PR info panel, and what they have opened. */
 export interface PrInfoNav {
@@ -17,6 +17,12 @@ export interface PrInfoNav {
   readonly expandedPoints: ReadonlySet<MergePoint["id"]>
   /** Sections a filter opened that the reader had not: open on screen, but not theirs to keep. */
   readonly filterOpened: ReadonlySet<PRInfoPanelSection>
+  /**
+   * Merge status lines and conversation items the reader folded while the
+   * filter holds them open. Their ids cannot collide: a line's id is a word,
+   * an item's a GitHub id.
+   */
+  readonly filterFolded: ReadonlySet<string>
   /** What `Ctrl-f` narrows the panel to (spec 065). Empty means everything. */
   readonly filter: string
 }
@@ -42,6 +48,7 @@ export function initialNav(openSections: ReadonlySet<PRInfoPanelSection> = ARRIV
     expandedCheckIds: new Set(),
     expandedPoints: new Set(['checks']),
     filterOpened: new Set(),
+    filterFolded: new Set(),
     filter: "",
   }
 }
@@ -142,11 +149,16 @@ export function readerSections(nav: PrInfoNav): Set<PRInfoPanelSection> {
 }
 
 /**
- * The nav with a new filter and nothing else changed: what the panel
- * refilters its rows against before `setFilter` asks it for counts.
+ * The nav with a new filter and its row folds settled, before any section
+ * opens: what the panel refilters its rows against before `setFilter` asks
+ * it for counts, so the rows it draws agree with the nav it ends up with.
  */
 export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
-  return filter === nav.filter ? nav : { ...nav, filter }
+  if (filter === nav.filter) return nav
+  // A fold made under one filter says nothing about what the next one
+  // matches. A rebuilt panel starts unfiltered and is handed the app's
+  // filter again, so the folds it carried over survive that first step.
+  return { ...nav, filter, filterFolded: nav.filter ? new Set() : nav.filterFolded }
 }
 
 /**
@@ -160,6 +172,7 @@ export function withFilter(nav: PrInfoNav, filter: string): PrInfoNav {
  */
 export function setFilter(nav: PrInfoNav, filter: string, counts: SectionCounts): PrInfoNav {
   if (filter === nav.filter) return nav
+  const { filterFolded } = withFilter(nav, filter)
   let { expandedSections, filterOpened } = nav
   if (filter) {
     const opened = new Set(expandedSections)
@@ -172,23 +185,36 @@ export function setFilter(nav: PrInfoNav, filter: string, counts: SectionCounts)
     expandedSections = opened
     filterOpened = byFilter
   }
-  return clampCursor({ ...nav, filter, expandedSections, filterOpened }, counts)
+  return clampCursor({ ...nav, filter, expandedSections, filterOpened, filterFolded }, counts)
 }
 
-export function toggleContent(nav: PrInfoNav, itemId: string): PrInfoNav {
-  return { ...nav, expandedContent: toggled(nav.expandedContent, itemId) }
+/**
+ * Opening a row makes it the reader's, whoever opened it before. Folding
+ * one takes it from them, and while a filter is set it is kept folded
+ * against the filter too, which would otherwise hold it open.
+ */
+function openedRow<T extends string>(nav: PrInfoNav, expanded: ReadonlySet<T>, id: T): { expanded: Set<T>; filterFolded: ReadonlySet<string> } | null {
+  if (expanded.has(id) && !nav.filterFolded.has(id)) return null
+  return { expanded: new Set(expanded).add(id), filterFolded: without(nav.filterFolded, id) }
+}
+
+function foldedRow<T extends string>(nav: PrInfoNav, expanded: ReadonlySet<T>, id: T): { expanded: Set<T>; filterFolded: ReadonlySet<string> } | null {
+  if (!isRowOpen(expanded, id, nav.filter, nav.filterFolded)) return null
+  return { expanded: without(expanded, id), filterFolded: nav.filter ? new Set(nav.filterFolded).add(id) : nav.filterFolded }
 }
 
 export function expandContent(nav: PrInfoNav, itemId: string): PrInfoNav {
-  if (nav.expandedContent.has(itemId)) return nav
-  return { ...nav, expandedContent: new Set(nav.expandedContent).add(itemId) }
+  const row = openedRow(nav, nav.expandedContent, itemId)
+  return row ? { ...nav, expandedContent: row.expanded, filterFolded: row.filterFolded } : nav
 }
 
+/**
+ * For a row that is drawn open. A filter holds only a review's threads
+ * open, never a comment's body, yet under one every id reads as open here.
+ */
 export function collapseContent(nav: PrInfoNav, itemId: string): PrInfoNav {
-  if (!nav.expandedContent.has(itemId)) return nav
-  const expandedContent = new Set(nav.expandedContent)
-  expandedContent.delete(itemId)
-  return { ...nav, expandedContent }
+  const row = foldedRow(nav, nav.expandedContent, itemId)
+  return row ? { ...nav, expandedContent: row.expanded, filterFolded: row.filterFolded } : nav
 }
 
 export function toggleCheck(nav: PrInfoNav, checkId: number): PrInfoNav {
@@ -196,19 +222,17 @@ export function toggleCheck(nav: PrInfoNav, checkId: number): PrInfoNav {
 }
 
 export function togglePoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
-  return { ...nav, expandedPoints: toggled(nav.expandedPoints, id) }
+  return isRowOpen(nav.expandedPoints, id, nav.filter, nav.filterFolded) ? collapsePoint(nav, id) : expandPoint(nav, id)
 }
 
 export function expandPoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
-  if (nav.expandedPoints.has(id)) return nav
-  return { ...nav, expandedPoints: new Set(nav.expandedPoints).add(id) }
+  const row = openedRow(nav, nav.expandedPoints, id)
+  return row ? { ...nav, expandedPoints: row.expanded, filterFolded: row.filterFolded } : nav
 }
 
 export function collapsePoint(nav: PrInfoNav, id: MergePoint["id"]): PrInfoNav {
-  if (!nav.expandedPoints.has(id)) return nav
-  const expandedPoints = new Set(nav.expandedPoints)
-  expandedPoints.delete(id)
-  return { ...nav, expandedPoints }
+  const row = foldedRow(nav, nav.expandedPoints, id)
+  return row ? { ...nav, expandedPoints: row.expanded, filterFolded: row.filterFolded } : nav
 }
 
 /** Everything about a nav a refresh carries over to the next panel; the filter lives in app state. */
@@ -228,6 +252,7 @@ export function navAt(position: NavPosition, filter: string): PrInfoNav {
     expandedCheckIds: new Set(position.expandedCheckIds),
     expandedPoints: new Set(position.expandedPoints),
     filterOpened: new Set(position.filterOpened),
+    filterFolded: new Set(position.filterFolded),
     filter,
   }
 }
