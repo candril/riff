@@ -56,6 +56,7 @@ function mount(props: Partial<ThreadPanelInput>) {
         expanded: false,
         width: WIDTH,
         viewportRows: 0,
+        pickerRoom: null,
         mentionPicker: null,
         emojiPicker: null,
         mentionCandidates: [],

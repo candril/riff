@@ -42,7 +42,10 @@ spec 010; that panel is retired.
 - **The composer sits at the panel's foot**, even with no threads, so its
   mention or emoji picker opens above it inside the panel. Where the panel
   is too short for the whole list, the picker shows the rows around its
-  selection, so what Tab inserts is always in view.
+  selection, so what Tab inserts is always in view. Its room is what the
+  composer leaves below the header in the frame being drawn, from the
+  screen's height and the draft, so a draft that grows or a resize does not
+  let the picker cover the header.
 - **Borderless on `mantle`** against the diff's `base`, with the composer
   and the selected picker row on `surface0`
   ([106](./106-borderless-ui.md)). Focus shows in the header title's
@@ -61,7 +64,8 @@ spec 010; that panel is retired.
   panel still has context above it. At 120x24 two ordinary threads fit
   above. While composing, the composer's rows come off the viewport first:
   its padding and label, and its textarea's lines for the draft, wrapped
-  to its width, up to the twelve rows the textarea grows to.
+  by word to its width as the textarea wraps them, up to the twelve rows
+  the textarea grows to.
   Ctrl-d / Ctrl-u move by half a page of drawn rows, and guess the rows of
   entries outside the window from their text wrapped to the panel's width.
 - **A Solid island handed a model**: `src/app/thread-panel.tsx` mounts

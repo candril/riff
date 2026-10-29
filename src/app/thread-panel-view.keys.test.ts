@@ -2,6 +2,9 @@ import { afterEach, expect, test } from "bun:test"
 import type { AppKeyContext } from "./key-context"
 import { mountApp } from "../testing/app-render"
 import { ctrl, keysOn } from "../testing/chat-keys"
+import { composerTextareaIn } from "../testing/composer"
+import { composerColumns, composerRows } from "../components/thread-rows-estimate"
+import { threadPanelGeometry } from "./thread-panel-geometry"
 import { getInlineCommentOverlayDisplayOrder, openInlineCommentOverlay } from "../state"
 import type { Comment } from "../types"
 
@@ -169,4 +172,27 @@ test("at 120x24, with threads still to come below a long highlighted thread, the
   expect(frame).toContain("▸ @ana")
   expect(frame).toContain("↓ 2 more")
   expect(frame).not.toContain("@cy")
+})
+
+test("at 120x24, a draft whose words wrap to more rows than its characters would is counted as drawn, and keeps the author on screen", async () => {
+  const authors = ["ana", "bo", "cy", "di", "ed"]
+  const comments = authors.map((author, i) => comment(`c${i + 1}`, 1 + i * 2, author))
+  const size = { width: 120, height: 24 }
+  const { mounted } = await panelApp(size, comments)
+  mounted.setup.mockInput.pressKey("G")
+  mounted.setup.mockInput.pressKey("r")
+  await mounted.frame()
+  const { width } = threadPanelGeometry(mounted.ctx.getState(), false, size, () => "")
+  // Three words a little over half the textarea's columns: a row each by word, two rows by character.
+  const word = (letter: string) => letter.repeat(Math.floor(composerColumns(width) / 2) + 1)
+  const draft = ["a", "b", "c"].map((letter) => [word(letter), word(letter), word(letter)].join(" ")).join("\n")
+  mounted.ctx.threadPanel.composer.setValue(draft)
+  await mounted.frame()
+
+  const frame = await mounted.frame()
+  const textarea = composerTextareaIn(mounted.ctx.threadPanel.host)
+  expect(textarea.virtualLineCount).toBe(9)
+  expect(composerRows(draft, width)).toBe(3 + textarea.virtualLineCount)
+  expect(frame).toContain("@ed")
+  expect(frame).toContain("Reply @ greet.ts:9")
 })

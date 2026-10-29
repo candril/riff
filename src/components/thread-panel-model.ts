@@ -48,6 +48,13 @@ export interface ThreadPanelInput {
   width: number
   /** The rows the threads' viewport shows, from the screen's height; 0 while unknown. */
   viewportRows: number
+  /**
+   * The rows between the panel's header and the composer, from the screen's
+   * height and the draft, so a picker opened in the frame the draft grows is
+   * fitted to the composer it floats over in that frame. Null with no
+   * composer, or none of them free.
+   */
+  pickerRoom: number | null
   /** Active @mention picker session (null when no `@<query>` trigger). */
   mentionPicker: MentionPickerState | null
   /** Active `:shortcode` session (spec 082). */
@@ -144,11 +151,7 @@ export interface ThreadPanelModel {
   hints: Hint[] | null
 }
 
-/** `pickerRoom`: the rows above the composer as last laid out, or null before it was. */
-export function threadPanelModel(
-  input: ThreadPanelInput & { now: number },
-  pickerRoom: number | null = null
-): ThreadPanelModel {
+export function threadPanelModel(input: ThreadPanelInput & { now: number }): ThreadPanelModel {
   const { comments, mode } = input
   const { displayOrder, window } = windowThreads(
     comments,
@@ -189,7 +192,7 @@ export function threadPanelModel(
     composer: isComposing
       ? { mode: mode === "edit" ? "edit" : "compose", label: composerLabel(input, highlighted) }
       : null,
-    picker: isComposing ? fitPicker(threadPanelPicker(input), pickerRoom) : null,
+    picker: isComposing ? fitPicker(threadPanelPicker(input), input.pickerRoom) : null,
     hints: isComposing ? null : threadPanelHints(input, highlighted),
   }
 }

@@ -37,6 +37,7 @@ export function threadPanelFrameInput({ state, chatOpen, flashState, width, heig
     expanded: overlay.expanded,
     width: panel.width,
     viewportRows: panel.budget.viewportRows,
+    pickerRoom: panel.pickerRoom,
     mentionPicker: composerPickers.mention,
     emojiPicker: composerPickers.emoji,
     mentionCandidates: collectMentionCandidates(state, mentions.pool),

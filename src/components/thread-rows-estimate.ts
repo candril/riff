@@ -1,4 +1,5 @@
 import type { Comment } from "../types"
+import { wordWrapRows } from "./word-wrap-rows"
 
 /** The thread panel host's side padding (`app/thread-panel.tsx`). */
 export const PANEL_PADDING_X = 1
@@ -36,14 +37,20 @@ export function threadTextWidth(panelWidth: number): number {
   return Math.max(1, panelWidth - 2 * PANEL_PADDING_X - 2 * VIEWPORT_PADDING_X)
 }
 
+/** The columns of the composer's textarea in a panel `panelWidth` wide. */
+export function composerColumns(panelWidth: number): number {
+  return Math.max(1, panelWidth - 2 * (PANEL_PADDING_X + COMPOSER_PADDING_X + COMPOSER_SURFACE_PADDING_X))
+}
+
 /**
  * The rows the composer takes in a panel `panelWidth` wide while `text` is
- * in it: its padding and label, and its textarea's lines, each wrapped to
- * the textarea's columns, up to the rows the textarea grows to.
+ * in it: its padding and label, and its textarea's lines, each word-wrapped
+ * to the textarea's columns as the textarea wraps them, up to the rows the
+ * textarea grows to.
  */
 export function composerRows(text: string, panelWidth: number): number {
-  const columns = Math.max(1, panelWidth - 2 * (PANEL_PADDING_X + COMPOSER_PADDING_X + COMPOSER_SURFACE_PADDING_X))
-  const lines = text.split("\n").reduce((rows, line) => rows + Math.max(1, Math.ceil(Bun.stringWidth(line) / columns)), 0)
+  const columns = composerColumns(panelWidth)
+  const lines = text.split("\n").reduce((rows, line) => rows + wordWrapRows(line, columns), 0)
   return 2 * COMPOSER_PADDING_Y + COMPOSER_LABEL_ROWS + Math.min(COMPOSER_MAX_ROWS, lines)
 }
 

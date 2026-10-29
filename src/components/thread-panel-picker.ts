@@ -88,7 +88,7 @@ const MENTION_CHROME_ROWS = 3
  * The picker cut to the `room` rows above the composer, its selection kept in
  * view: it floats over whatever is above, and on a short panel its top rows
  * would cover the header and take the selection, what Tab inserts, with them.
- * Null room, before the composer was ever laid out, leaves it whole.
+ * Null room, with no rows above the composer to fit, leaves it whole.
  */
 export function fitPicker(picker: ThreadPanelPicker, room: number | null): ThreadPanelPicker {
   if (room === null || picker === null) return picker

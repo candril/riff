@@ -9,19 +9,23 @@ import { diffPaneHeight } from "./diff-layout"
  * half-page motions all read it here, so they agree on which threads are
  * mounted before the panel was ever drawn. `composerText` reads what the
  * composer's textarea holds, which sizes the composer, and is called only
- * while one is open.
+ * while one is open. `pickerRoom` is what the composer, at the panel's foot,
+ * leaves below the one-row header for a picker floating above it.
  */
 export function threadPanelGeometry(
   state: AppState,
   chatOpen: boolean,
   screen: { width: number; height: number },
   composerText: () => string
-): { width: number; budget: ThreadRowBudget } {
+): { width: number; budget: ThreadRowBudget; pickerRoom: number | null } {
   const width = columnWidthsOf({ ...state, chatOpen }, screen.width).threads
   const composer = state.inlineCommentOverlay.mode !== "view" ? composerRows(composerText(), width) : null
   // The panel spans the content row, which is the diff pane's height.
+  const panelRows = diffPaneHeight(screen.height)
+  const pickerRoom = composer === null ? 0 : panelRows - 1 - composer
   return {
     width,
-    budget: { textWidth: threadTextWidth(width), viewportRows: threadViewportRows(diffPaneHeight(screen.height), composer) },
+    budget: { textWidth: threadTextWidth(width), viewportRows: threadViewportRows(panelRows, composer) },
+    pickerRoom: pickerRoom > 0 ? pickerRoom : null,
   }
 }

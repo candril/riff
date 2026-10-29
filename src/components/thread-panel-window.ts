@@ -28,9 +28,10 @@ export interface ThreadPanelWindow {
  * above cannot push the highlighted one past the bottom edge. They always
  * get at least a third of the viewport: a highlighted thread taller than
  * the panel is read from its top anyway, and context above it still helps.
- * Before the viewport's rows are known it keeps `WINDOW_LEAD`. `windowSize` caps how many threads mount at
- * once — the viewport clips whatever runs past the bottom, and its edge rows
- * count the threads hidden past each edge (`ThreadEdgeHints.tsx`).
+ * Before the viewport's rows are known it keeps `WINDOW_LEAD`. `windowSize`
+ * caps how many threads mount at once — the viewport clips whatever runs
+ * past the bottom, and its edge rows count the threads hidden past each
+ * edge (`ThreadEdgeHints.tsx`).
  *
  * Note this is thread-granular: navigating *within* a very tall thread
  * (many replies) doesn't re-scroll, so a deep reply in an oversized

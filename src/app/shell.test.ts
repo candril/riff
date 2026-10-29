@@ -83,6 +83,7 @@ function panel(renderer: CliRenderer, width: number) {
     expanded: false,
     width,
     viewportRows: 0,
+    pickerRoom: null,
     mentionPicker: null,
     emojiPicker: null,
     mentionCandidates: [],

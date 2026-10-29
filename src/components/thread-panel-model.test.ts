@@ -50,6 +50,7 @@ function model(input: Partial<ThreadPanelInput> = {}) {
     expanded: false,
     width: 48,
     viewportRows: 0,
+    pickerRoom: null,
     mentionPicker: null,
     emojiPicker: null,
     mentionCandidates: [],

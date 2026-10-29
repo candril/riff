@@ -67,6 +67,7 @@ function input(width: number, fields: Partial<ThreadPanelInput> = {}): ThreadPan
     expanded: false,
     width,
     viewportRows: 0,
+    pickerRoom: null,
     mentionPicker: null,
     emojiPicker: null,
     mentionCandidates: [],
