@@ -114,7 +114,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
       openCommentImages(ctx, comment)
     },
     getPanelLayout: () => ctx.threadPanelLayout(),
-    getPanelTextWidth: () => threadPanelGeometry(ctx.getState(), ctx.chat.column.open(), ctx.renderer).budget.textWidth,
+    getPanelTextWidth: () => threadPanelGeometry(ctx.getState(), ctx.chat.column.open(), ctx.renderer, ctx.composer.value).budget.textWidth,
     syncCursorToHighlight: () => {
       // Cross-file moves switch files first in single-file view.
       const s = ctx.getState()

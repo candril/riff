@@ -23,10 +23,12 @@ export interface ThreadPanelWindow {
  * that keeps it near the top of the viewport with some preceding context
  * and, because the start point follows the cursor, the view scrolls as the
  * user moves through threads with j/k. The threads kept above are at most
- * `WINDOW_LEAD`, and only as many as fit in a third of the viewport's rows
- * by their estimated height, so a long thread above cannot push the
- * highlighted one past the bottom edge. Before the viewport's rows are
- * known it keeps `WINDOW_LEAD`. `windowSize` caps how many threads mount at
+ * `WINDOW_LEAD`, and only as many as fit, by their estimated height, in the
+ * rows the highlighted thread leaves free of the viewport, so a long thread
+ * above cannot push the highlighted one past the bottom edge. They always
+ * get at least a third of the viewport: a highlighted thread taller than
+ * the panel is read from its top anyway, and context above it still helps.
+ * Before the viewport's rows are known it keeps `WINDOW_LEAD`. `windowSize` caps how many threads mount at
  * once — the viewport clips whatever runs past the bottom, and its edge rows
  * count the threads hidden past each edge (`ThreadEdgeHints.tsx`).
  *
@@ -68,7 +70,11 @@ export function pickVisibleThreads(
 
 function leadAbove(threads: WindowThread[], highlightedThreadIdx: number, budget: ThreadRowBudget): number {
   if (budget.viewportRows <= 0) return WINDOW_LEAD
-  const room = Math.floor(budget.viewportRows / 3)
+  const highlighted = threads[highlightedThreadIdx]
+  const highlightedRows = highlighted
+    ? estimatedThreadRows(highlighted.thread.comments, highlighted.collapsed, budget.textWidth)
+    : 0
+  const room = Math.max(Math.floor(budget.viewportRows / 3), budget.viewportRows - highlightedRows)
   let lead = 0
   let rows = 0
   while (lead < WINDOW_LEAD && highlightedThreadIdx - lead - 1 >= 0) {

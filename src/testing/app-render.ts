@@ -234,6 +234,7 @@ export async function mountApp(
     visit,
     mentions,
     commentDrafts,
+    composer: chrome.threadPanel.composer,
     composerPickers,
     codePeek,
     chatColumn: chatColumnState,

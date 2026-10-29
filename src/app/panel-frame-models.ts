@@ -17,10 +17,10 @@ import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, chatOpen, flashState, width, height, now, mentions, commentDrafts, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, chatOpen, flashState, width, height, now, mentions, commentDrafts, composerText, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
-  const panel = threadPanelGeometry(state, chatOpen, { width, height })
+  const panel = threadPanelGeometry(state, chatOpen, { width, height }, () => composerText)
   return {
     comments: getInlineCommentOverlayComments(state),
     scopeFilename: getCommentsPanelScopeFilename(state),

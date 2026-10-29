@@ -97,6 +97,8 @@ export interface Frame {
   mentions: { pool: readonly string[]; searching: string | null }
   /** The comment composer's kept drafts, read off their factory (spec 061). */
   commentDrafts: ReadonlyMap<string, string>
+  /** What the comment composer's textarea holds while it is open, read off it, for the rows the composer takes from the thread window. */
+  composerText: string
   /** The comment composer's @mention and :emoji pickers, read off their factory, each null while it is closed. */
   composerPickers: { mention: MentionPickerState | null; emoji: EmojiPickerState | null }
   /** The comment whose stored hunk the thread panel's code peek shows (spec 060), read off its factory, or null. */

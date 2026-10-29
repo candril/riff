@@ -751,6 +751,7 @@ export async function createApp(options: AppOptions = {}) {
     visit,
     mentions,
     commentDrafts,
+    composer: threadPanel.composer,
     composerPickers,
     codePeek,
     chatColumn: chatColumnState,

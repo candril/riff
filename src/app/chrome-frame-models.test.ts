@@ -67,6 +67,7 @@ function frame(
     blamePeek: null,
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
+    composerText: "",
     composerPickers: { mention: null, emoji: null },
     codePeekId: null,
     commandKeys: new Map(),

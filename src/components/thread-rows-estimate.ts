@@ -9,6 +9,16 @@ export const ROOT_BODY_INDENT = 4
 export const REPLY_INDENT = 2
 export const REPLY_BODY_INDENT = 6
 
+/** The composer's box pads its surface by a row above and below, and a column on either side (`ThreadPanelView.tsx`). */
+export const COMPOSER_PADDING_Y = 1
+export const COMPOSER_PADDING_X = 1
+/** The composer's surface pads its label and textarea by a column on either side. */
+export const COMPOSER_SURFACE_PADDING_X = 1
+/** The label row above the composer's textarea. */
+const COMPOSER_LABEL_ROWS = 1
+/** The rows the composer's textarea grows to with its text before it scrolls (`CommentComposer.tsx`). */
+export const COMPOSER_MAX_ROWS = 12
+
 /** A collapsed thread draws only its header: the gap above it, its margin and its row. */
 const COLLAPSED_THREAD_ROWS = 3
 
@@ -27,13 +37,24 @@ export function threadTextWidth(panelWidth: number): number {
 }
 
 /**
- * The rows the threads' viewport shows in a panel `panelRows` tall: less
- * the header, the key hints (not drawn while composing) and the viewport's
- * padding rows. The composer's own rows are left out; they only take rows
- * while a comment is being written.
+ * The rows the composer takes in a panel `panelWidth` wide while `text` is
+ * in it: its padding and label, and its textarea's lines, each wrapped to
+ * the textarea's columns, up to the rows the textarea grows to.
  */
-export function threadViewportRows(panelRows: number, composing: boolean): number {
-  return Math.max(0, panelRows - 1 - (composing ? 0 : 1) - 2)
+export function composerRows(text: string, panelWidth: number): number {
+  const columns = Math.max(1, panelWidth - 2 * (PANEL_PADDING_X + COMPOSER_PADDING_X + COMPOSER_SURFACE_PADDING_X))
+  const lines = text.split("\n").reduce((rows, line) => rows + Math.max(1, Math.ceil(Bun.stringWidth(line) / columns)), 0)
+  return 2 * COMPOSER_PADDING_Y + COMPOSER_LABEL_ROWS + Math.min(COMPOSER_MAX_ROWS, lines)
+}
+
+/**
+ * The rows the threads' viewport shows in a panel `panelRows` tall: less
+ * the header and the viewport's padding rows, and below them the key hints
+ * or, while a comment is being written, the composer's `composer` rows in
+ * their place.
+ */
+export function threadViewportRows(panelRows: number, composer: number | null): number {
+  return Math.max(0, panelRows - 1 - (composer ?? 1) - 2)
 }
 
 /**

@@ -6,7 +6,7 @@ import { BottomThreadHint, TopThreadHint } from "./ThreadEdgeHints"
 import { ThreadPanelPickerView, type Picker } from "./ThreadPanelPicker"
 import { CommentRow, ThreadHeader } from "./ThreadPanelRows"
 import type { Hint, ThreadCommentModel, ThreadModel, ThreadPanelHeader, ThreadPanelModel } from "./thread-panel-model"
-import { VIEWPORT_PADDING_X } from "./thread-rows-estimate"
+import { COMPOSER_PADDING_X, COMPOSER_PADDING_Y, COMPOSER_SURFACE_PADDING_X, VIEWPORT_PADDING_X } from "./thread-rows-estimate"
 
 /**
  * The thread panel's contents (spec 039): a header, the threads in their
@@ -173,7 +173,14 @@ function Threads(props: {
  */
 function Composer(props: { model: ThreadPanelModel; textarea: JSX.Element; ref?: (composer: BoxRenderable) => void }) {
   return (
-    <box ref={props.ref} visible={props.model.composer !== null} flexDirection="column" paddingX={1} paddingY={1} flexShrink={0}>
+    <box
+      ref={props.ref}
+      visible={props.model.composer !== null}
+      flexDirection="column"
+      paddingX={COMPOSER_PADDING_X}
+      paddingY={COMPOSER_PADDING_Y}
+      flexShrink={0}
+    >
       {/*
        * A picker floats above the composer rather than sitting under it:
        * laid out in the column it would push the box you are typing in up
@@ -186,7 +193,7 @@ function Composer(props: { model: ThreadPanelModel; textarea: JSX.Element; ref?:
           </box>
         )}
       </Show>
-      <box flexDirection="column" paddingX={1} paddingY={0} backgroundColor={theme.surface0}>
+      <box flexDirection="column" paddingX={COMPOSER_SURFACE_PADDING_X} paddingY={0} backgroundColor={theme.surface0}>
         {/* `height: 1` so the row keeps its line under flex pressure — without it the label collapses to zero rows and paints over the textarea. */}
         <box flexDirection="row" height={1}>
           <text fg={theme.blue}>{props.model.composer?.label ?? ""}</text>

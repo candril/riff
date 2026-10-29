@@ -121,3 +121,35 @@ test("below two long threads, j keeps the highlighted thread on screen", async (
   expect(frame).toContain("▸ @cy")
   expect(frame).toContain("cy on line 6")
 })
+
+test("at 120x24, G on five ordinary threads draws the last one and the two above it", async () => {
+  const authors = ["ana", "bo", "cy", "di", "ed"]
+  const comments = authors.map((author, i) => comment(`c${i + 1}`, 1 + i * 2, author))
+  const { mounted } = await panelApp({ width: 120, height: 24 }, comments)
+  mounted.setup.mockInput.pressKey("G")
+  expect(highlighted().id).toBe("c5")
+
+  const frame = await mounted.frame()
+  expect(frame).toContain("▸ @ed")
+  expect(frame).toContain("@cy")
+  expect(frame).toContain("@di")
+  expect(frame).not.toContain("@bo")
+})
+
+test("at 120x24, replying to the last of five threads with a four-line draft draws its author and the composer", async () => {
+  const authors = ["ana", "bo", "cy", "di", "ed"]
+  const comments = authors.map((author, i) => comment(`c${i + 1}`, 1 + i * 2, author))
+  const { mounted } = await panelApp({ width: 120, height: 24 }, comments)
+  mounted.setup.mockInput.pressKey("G")
+  mounted.setup.mockInput.pressKey("r")
+  await mounted.frame()
+  expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("compose")
+  mounted.ctx.threadPanel.composer.setValue("one\ntwo\nthree\nfour")
+  await mounted.frame()
+
+  const frame = await mounted.frame()
+  expect(frame).toContain("@ed")
+  expect(frame).toContain("ed on line 9")
+  expect(frame).toContain("Reply @ greet.ts:9")
+  expect(frame).toContain("four")
+})

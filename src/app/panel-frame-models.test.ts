@@ -88,6 +88,7 @@ function frame(
     blamePeek: null,
     mentions,
     commentDrafts,
+    composerText: "",
     composerPickers,
     codePeekId: null,
     commandKeys: new Map(),

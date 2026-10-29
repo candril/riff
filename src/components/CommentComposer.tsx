@@ -1,5 +1,6 @@
 import type { TextareaRenderable } from "@opentui/core"
 import { theme } from "../theme"
+import { COMPOSER_MAX_ROWS } from "./thread-rows-estimate"
 
 /**
  * The inline comment overlay's multiline input (spec 039), shown by the
@@ -27,7 +28,7 @@ export function CommentComposer(props: {
       cursorColor={theme.blue}
       cursorStyle={{ style: "block", blinking: true }}
       wrapMode="word"
-      maxHeight={12}
+      maxHeight={COMPOSER_MAX_ROWS}
       onContentChange={() => props.onActivity()}
       onCursorChange={() => props.onActivity()}
     />

@@ -46,6 +46,7 @@ import type { BlamePeekState } from "../features/blame/peek-state"
 import type { BlameColumnsState } from "../features/blame/column-state"
 import type { MentionsState } from "../features/mentions/state"
 import type { CommentDraftsState } from "../features/inline-comment-overlay/drafts-state"
+import type { ComposerHandle } from "./island-composer"
 import type { ComposerPickersState } from "../features/inline-comment-overlay/composer-pickers-state"
 import type { CodePeekState } from "../features/inline-comment-overlay/code-peek-state"
 import type { ChatColumnState } from "../features/chat/column-state"
@@ -93,6 +94,7 @@ export interface FramePassContext {
   visit: Pick<VisitState, "watermark" | "markSeen">
   mentions: Pick<MentionsState, "pool" | "searching">
   commentDrafts: Pick<CommentDraftsState, "drafts">
+  composer: Pick<ComposerHandle, "value">
   composerPickers: Pick<ComposerPickersState, "mention" | "emoji">
   codePeek: Pick<CodePeekState, "id" | "close">
   chatColumn: Pick<ChatColumnState, "open">
@@ -225,6 +227,8 @@ export function createFramePass(ctx: FramePassContext): () => void {
       blamePeek,
       mentions: { pool: ctx.mentions.pool(), searching: ctx.mentions.searching() },
       commentDrafts: ctx.commentDrafts.drafts(),
+      // The textarea's buffer goes with the renderer, and a toast's timer can still render after that.
+      composerText: state.inlineCommentOverlay.mode !== "view" && !ctx.renderer.isDestroyed ? ctx.composer.value() : "",
       composerPickers: { mention: ctx.composerPickers.mention(), emoji: ctx.composerPickers.emoji() },
       codePeekId: ctx.codePeek.id(),
       commandKeys: ctx.getCommandKeys(),

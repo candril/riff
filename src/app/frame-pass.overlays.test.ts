@@ -142,6 +142,7 @@ async function harness(real: (renderer: TestRendererSetup["renderer"]) => Partia
     visit: createVisitState(),
     mentions: createMentionsState(),
     commentDrafts: createCommentDraftsState(),
+    composer: { value: () => "" },
     composerPickers: createComposerPickersState(),
     codePeek,
     chatColumn: createChatColumnState(),

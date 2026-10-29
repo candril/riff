@@ -26,7 +26,7 @@ export function flashSurface(state: AppState): FlashSurface | null {
 
 export function flashTargets(
   state: AppState,
-  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed" | "visit" | "chat">,
+  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed" | "visit" | "chat" | "composer">,
 ): string[] {
   switch (flashSurface(state)) {
     case "tree": {
@@ -48,7 +48,7 @@ export function flashTargets(
         state.inlineCommentOverlay.expandedThreadIds,
         state.inlineCommentOverlay.highlightedIndex,
         state.inlineCommentOverlay.expanded,
-        threadPanelGeometry(state, ctx.chat.column.open(), ctx.renderer).budget
+        threadPanelGeometry(state, ctx.chat.column.open(), ctx.renderer, ctx.composer.value).budget
       )
     default:
       return []

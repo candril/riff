@@ -68,6 +68,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     blamePeek: null,
     mentions: { pool: [], searching: null },
     commentDrafts: new Map(),
+    composerText: "",
     composerPickers: { mention: null, emoji: null },
     codePeekId: null,
     commandKeys: new Map(),

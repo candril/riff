@@ -59,8 +59,15 @@ describe("the threads kept above the highlighted one", () => {
     expect(firstDrawn([...longThreads, target], 18)).toBe("t")
   })
 
-  test("are two when two short threads fit in a third of the panel", () => {
-    expect(firstDrawn([...short, target], 40)).toBe("s1")
+  for (const viewportRows of [18, 40]) {
+    test(`are two when two short threads fit in the rows the highlighted one leaves, ${viewportRows} rows`, () => {
+      expect(firstDrawn([...short, target], viewportRows)).toBe("s1")
+    })
+  }
+
+  test("are kept in a third of the panel when the highlighted thread fills it", () => {
+    const tall = comment("t", 3, undefined, long)
+    expect(firstDrawn([...short, tall], 18)).toBe("s2")
   })
 
   test("are only the nearer one when two do not fit", () => {

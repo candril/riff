@@ -37,7 +37,8 @@ spec 010; that panel is retired.
   rather than draw over the tree.
 - **The composer's keys are in `g?`**, under "Comment composer". While
   composing, the panel's hint row is not drawn and its row goes to the
-  threads; in view mode the hint row stays.
+  threads; in view mode the hint row stays, at the panel's foot whether
+  the panel has threads or none.
 - **The composer sits at the panel's foot**, even with no threads, so its
   mention or emoji picker opens above it inside the panel. Where the panel
   is too short for the whole list, the picker shows the rows around its
@@ -48,9 +49,15 @@ spec 010; that panel is retired.
   colour. There is no scrollbar: the viewport's top and bottom edge rows
   say `↑ N` and `↓ N more` for the threads above and below the window.
 - **The window keeps the highlighted thread on screen.** It starts a
-  little above the highlighted thread: at most two threads, and never more
-  than fit in a third of the panel's rows by their estimated height, so a
-  long thread above cannot push the highlighted one past the bottom edge.
+  little above the highlighted thread: at most two threads, and only as
+  many as fit, by their estimated height, in the rows the highlighted
+  thread leaves free of the panel's viewport, so a long thread above
+  cannot push the highlighted one past the bottom edge. They always get at
+  least a third of the viewport, so a highlighted thread taller than the
+  panel still has context above it. At 120x24 two ordinary threads fit
+  above. While composing, the composer's rows come off the viewport first:
+  its padding and label, and its textarea's lines for the draft, wrapped
+  to its width, up to the twelve rows the textarea grows to.
   Ctrl-d / Ctrl-u move by half a page of drawn rows, and guess the rows of
   entries outside the window from their text wrapped to the panel's width.
 - **A Solid island handed a model**: `src/app/thread-panel.tsx` mounts
