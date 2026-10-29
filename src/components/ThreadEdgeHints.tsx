@@ -1,7 +1,7 @@
 import { RGBA, type OptimizedBuffer, type Renderable } from "@opentui/core"
 import { Show } from "solid-js"
 import { theme } from "../theme"
-import { edgeHints, threadsHiddenBelow } from "./overflow-hints"
+import { bottomThreadHint, edgeHints, type ThreadRows } from "./overflow-hints"
 
 /** The thread rows' own inset inside the viewport, so a hint reads in their column. */
 const TEXT_INSET = 2
@@ -31,8 +31,10 @@ export function TopThreadHint(props: { before: number }) {
 }
 
 /**
- * The thread viewport's bottom edge row, "↓ N more". Which of the window's
- * threads run into that row is known only once the stack is laid out, and
+ * The thread viewport's bottom edge row, "↓ N more" for the threads whose
+ * header lies at or past it, or a bare "↓" when only a thread's tail does.
+ * Where the window's threads start and end is known only once the stack is
+ * laid out, and
  * OpenTUI has no hook that runs between layout and paint, so the count is
  * taken while painting. It reads only layout, never the frame buffer.
  *
@@ -42,8 +44,8 @@ export function TopThreadHint(props: { before: number }) {
 export function BottomThreadHint(props: { threadSizes: readonly number[]; after: number }) {
   function paint(this: Renderable, buffer: OptimizedBuffer) {
     const stack = this.parent?.getChildren()[0]
-    const rows = stack ? threadLastRows(stack.getChildren(), props.threadSizes) : []
-    const text = edgeHints(0, threadsHiddenBelow(rows, this.y, props.after)).below
+    const rows = stack ? threadRows(stack.getChildren(), props.threadSizes) : []
+    const text = bottomThreadHint(rows, this.y, props.after)
     if (text === null) return
     const background = RGBA.fromHex(theme.mantle)
     buffer.fillRect(this.x, this.y, this.width, 1, background)
@@ -52,13 +54,14 @@ export function BottomThreadHint(props: { threadSizes: readonly number[]; after:
   return <box position="absolute" bottom={0} left={0} right={0} height={1} renderAfter={paint} />
 }
 
-function threadLastRows(children: readonly Renderable[], threadSizes: readonly number[]): number[] {
-  const rows: number[] = []
-  let end = 0
+function threadRows(children: readonly Renderable[], threadSizes: readonly number[]): ThreadRows[] {
+  const rows: ThreadRows[] = []
+  let start = 0
   for (const size of threadSizes) {
-    end += size
-    const last = children[end - 1]
-    if (last) rows.push(last.y + last.height - 1)
+    const first = children[start]
+    const last = children[start + size - 1]
+    start += size
+    if (first && last) rows.push({ first: first.y, last: last.y + last.height - 1 })
   }
   return rows
 }

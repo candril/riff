@@ -32,10 +32,29 @@ export function edgeHints(above: number, below: number): OverflowHints {
   }
 }
 
+/** Where a thread's rows start and end in the stack. */
+export interface ThreadRows {
+  first: number
+  last: number
+}
+
 /**
  * How many threads the bottom edge hides: every one past the window, and
- * every one in it whose last row is at or under the edge row the hint covers.
+ * every one in it whose header is at or under the edge row the hint covers.
+ * A thread whose header is readable is one the reader has already reached,
+ * however much of its tail the edge clips, so it is no thread "more".
  */
-export function threadsHiddenBelow(threadLastRows: readonly number[], edgeRow: number, after: number): number {
-  return after + threadLastRows.filter((row) => row >= edgeRow).length
+export function threadsHiddenBelow(threads: readonly ThreadRows[], edgeRow: number, after: number): number {
+  return after + threads.filter((thread) => thread.first >= edgeRow).length
+}
+
+/**
+ * The thread viewport's bottom edge hint. With no whole thread hidden but a
+ * thread's tail running into the edge row, a bare arrow still says the text
+ * goes on, without counting a thread that does not follow.
+ */
+export function bottomThreadHint(threads: readonly ThreadRows[], edgeRow: number, after: number): string | null {
+  const hidden = threadsHiddenBelow(threads, edgeRow, after)
+  if (hidden > 0) return edgeHints(0, hidden).below
+  return threads.some((thread) => thread.last >= edgeRow) ? "↓" : null
 }

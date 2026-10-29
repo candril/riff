@@ -136,7 +136,7 @@ test("at 120x24, G on five ordinary threads draws the last one and the two above
   expect(frame).not.toContain("@bo")
 })
 
-test("at 120x24, replying to the last of five threads with a four-line draft draws its author and the composer", async () => {
+test("at 120x24, replying to the last of five threads with a twelve-line draft draws its author and the composer, and counts no thread below it", async () => {
   const authors = ["ana", "bo", "cy", "di", "ed"]
   const comments = authors.map((author, i) => comment(`c${i + 1}`, 1 + i * 2, author))
   const { mounted } = await panelApp({ width: 120, height: 24 }, comments)
@@ -144,12 +144,29 @@ test("at 120x24, replying to the last of five threads with a four-line draft dra
   mounted.setup.mockInput.pressKey("r")
   await mounted.frame()
   expect(mounted.ctx.getState().inlineCommentOverlay.mode).toBe("compose")
-  mounted.ctx.threadPanel.composer.setValue("one\ntwo\nthree\nfour")
+  const draft = Array.from({ length: 12 }, (_, i) => `draft line ${i + 1}`)
+  mounted.ctx.threadPanel.composer.setValue(draft.join("\n"))
   await mounted.frame()
 
   const frame = await mounted.frame()
   expect(frame).toContain("@ed")
-  expect(frame).toContain("ed on line 9")
   expect(frame).toContain("Reply @ greet.ts:9")
-  expect(frame).toContain("four")
+  expect(frame).toContain("draft line 12")
+  expect(frame).not.toContain("1 more")
+  expect(frame.split("\n").some((line) => line.trimEnd().endsWith("  ↓"))).toBe(true)
+})
+
+test("at 120x24, with threads still to come below a long highlighted thread, the bottom edge counts them", async () => {
+  const long = (id: string, line: number, author: string): Comment => ({
+    ...comment(id, line, author),
+    body: `${author} opens ` + "a single paragraph that wraps across many rows of the panel ".repeat(12),
+  })
+  const comments = [long("l1", 2, "ana"), comment("c2", 6, "bo"), comment("c3", 9, "cy")]
+  const { mounted } = await panelApp({ width: 120, height: 24 }, comments)
+  expect(highlighted().id).toBe("l1")
+
+  const frame = await mounted.frame()
+  expect(frame).toContain("▸ @ana")
+  expect(frame).toContain("↓ 2 more")
+  expect(frame).not.toContain("@cy")
 })

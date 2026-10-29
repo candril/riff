@@ -48,6 +48,10 @@ spec 010; that panel is retired.
   ([106](./106-borderless-ui.md)). Focus shows in the header title's
   colour. There is no scrollbar: the viewport's top and bottom edge rows
   say `↑ N` and `↓ N more` for the threads above and below the window.
+  `↓ N more` counts only threads still to come: those past the window and
+  those whose header lies at or under the bottom edge row. A thread whose
+  header is on screen is not counted however much of it the edge clips;
+  when nothing else follows, that edge row shows a bare `↓`.
 - **The window keeps the highlighted thread on screen.** It starts a
   little above the highlighted thread: at most two threads, and only as
   many as fit, by their estimated height, in the rows the highlighted

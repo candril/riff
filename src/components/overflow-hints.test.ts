@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { edgeHints, overflowHints, threadsHiddenBelow } from "./overflow-hints"
+import { bottomThreadHint, edgeHints, overflowHints, threadsHiddenBelow } from "./overflow-hints"
 
 test("a list that fits says nothing", () => {
   expect(overflowHints(5, 0, 5)).toEqual({ above: null, below: null })
@@ -36,10 +36,28 @@ test("edge hints count whatever unit they are given, and say nothing at zero", (
   expect(edgeHints(3, 9)).toEqual({ above: "↑ 3", below: "↓ 9 more" })
 })
 
-test("a thread whose last row reaches the edge row is hidden below, with every thread past the window", () => {
+const rows = (...spans: [number, number][]) => spans.map(([first, last]) => ({ first, last }))
+
+test("a thread whose header reaches the edge row is hidden below, with every thread past the window", () => {
   expect(threadsHiddenBelow([], 28, 0)).toBe(0)
-  expect(threadsHiddenBelow([5, 11, 17], 28, 0)).toBe(0)
-  expect(threadsHiddenBelow([5, 11, 27], 28, 0)).toBe(0)
-  expect(threadsHiddenBelow([5, 11, 28], 28, 0)).toBe(1)
-  expect(threadsHiddenBelow([5, 23, 29, 35], 28, 6)).toBe(8)
+  expect(threadsHiddenBelow(rows([0, 5], [6, 11], [12, 17]), 28, 0)).toBe(0)
+  expect(threadsHiddenBelow(rows([0, 5], [6, 11], [12, 27]), 28, 0)).toBe(0)
+  expect(threadsHiddenBelow(rows([0, 5], [6, 11], [28, 30]), 28, 0)).toBe(1)
+  expect(threadsHiddenBelow(rows([0, 5], [6, 23], [24, 29], [30, 35]), 28, 6)).toBe(7)
+})
+
+test("a thread whose header is on screen and whose tail the edge clips is no thread more", () => {
+  expect(threadsHiddenBelow(rows([0, 2], [3, 40]), 7, 0)).toBe(0)
+  expect(bottomThreadHint(rows([0, 2], [3, 40]), 7, 0)).toBe("↓")
+})
+
+test("the bottom edge counts a header under it, and threads past the window", () => {
+  expect(bottomThreadHint(rows([0, 6], [7, 9]), 7, 0)).toBe("↓ 1 more")
+  expect(bottomThreadHint(rows([0, 2], [3, 40]), 7, 2)).toBe("↓ 2 more")
+  expect(bottomThreadHint(rows([0, 2], [3, 5]), 7, 3)).toBe("↓ 3 more")
+})
+
+test("the bottom edge says nothing when every thread ends above it", () => {
+  expect(bottomThreadHint([], 7, 0)).toBeNull()
+  expect(bottomThreadHint(rows([0, 2], [3, 6]), 7, 0)).toBeNull()
 })

@@ -81,10 +81,10 @@ async function mountPanel(props: Partial<ThreadPanelInput>) {
   return { rows, spans: mounted.setup.captureSpans() }
 }
 
-/** Threads whose body row is readable above the bottom edge row: the ones drawn whole. */
-const wholeThreads = (rows: string[], count: number) =>
-  threads(count).filter((_, i) => {
-    const y = rows.findIndex((row) => row.includes(`body-${i}-end`))
+/** Threads whose header is readable above the bottom edge row: the ones the reader has reached. */
+const reachedThreads = (rows: string[], count: number) =>
+  threads(count).filter((comment) => {
+    const y = rows.findIndex((row) => row.trim() === `─ line ${comment.line}`)
     return y >= 0 && y < LAST_ROW
   }).length
 
@@ -106,10 +106,10 @@ describe("the thread panel's edge hints", () => {
     expect(rows[LAST_ROW]!.trim()).toBe("")
   })
 
-  test("count on the bottom edge row the threads not drawn whole, above the key hints", async () => {
+  test("count on the bottom edge row the threads not yet reached, above the key hints", async () => {
     const { rows, spans } = await mountPanel({ comments: threads(12) })
-    const hidden = 12 - wholeThreads(rows, 12)
-    expect(hidden).toBe(8)
+    const hidden = 12 - reachedThreads(rows, 12)
+    expect(hidden).toBe(7)
     expectHint(rows, spans, LAST_ROW, `↓ ${hidden} more`)
     expect(rows[LAST_ROW + 1]).toContain("Ctrl-t")
     expect(rows.join("\n")).not.toContain("↑")
@@ -119,15 +119,15 @@ describe("the thread panel's edge hints", () => {
   test("count on the top edge row the threads above the window", async () => {
     const { rows, spans } = await mountPanel({ comments: threads(12), highlightedIndex: 6 })
     expectHint(rows, spans, FIRST_ROW, "↑ 4")
-    const hidden = 12 - 4 - wholeThreads(rows, 12)
-    expect(hidden).toBe(4)
+    const hidden = 12 - 4 - reachedThreads(rows, 12)
+    expect(hidden).toBe(3)
     expectHint(rows, spans, LAST_ROW, `↓ ${hidden} more`)
   })
 
-  test("count the threads past the window together with the ones it clips", async () => {
+  test("count the threads past the window together with the ones under the edge", async () => {
     const { rows, spans } = await mountPanel({ comments: threads(30) })
-    const hidden = 30 - wholeThreads(rows, 30)
-    expect(hidden).toBe(6 + 20)
+    const hidden = 30 - reachedThreads(rows, 30)
+    expect(hidden).toBe(5 + 20)
     expectHint(rows, spans, LAST_ROW, `↓ ${hidden} more`)
     const frame = rows.join("\n")
     expect(frame).not.toContain("more thread")
@@ -138,6 +138,6 @@ describe("the thread panel's edge hints", () => {
     mounted = await mount({ comments: threads(12) })
     await mounted.setup.renderOnce()
     const rows = trimFrame(mounted.setup.captureCharFrame()).split("\n")
-    expectHint(rows, mounted.setup.captureSpans(), LAST_ROW, "↓ 8 more")
+    expectHint(rows, mounted.setup.captureSpans(), LAST_ROW, "↓ 7 more")
   })
 })
