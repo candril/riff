@@ -3,6 +3,7 @@ import { batch } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { ThreadPanelView } from "../components/ThreadPanelView"
 import { threadPanelMarkdown } from "../components/thread-panel-markdown"
+import { PANEL_PADDING_X } from "../components/thread-rows-estimate"
 import { threadPanelModel, type ThreadPanelInput, type ThreadPanelModel } from "../components/thread-panel-model"
 import { withReferences } from "../components/with-references"
 import type { ThreadPanelLayout } from "../features/inline-comment-overlay/motions"
@@ -83,7 +84,7 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
       flexDirection: "column",
       // Mantle against the diff's base is what sets the panel apart.
       backgroundColor: theme.mantle,
-      paddingX: 1,
+      paddingX: PANEL_PADDING_X,
       overflow: "hidden",
       visible: false,
     }

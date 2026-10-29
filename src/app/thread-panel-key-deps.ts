@@ -1,5 +1,6 @@
 import type { AppKeyContext } from "./key-context"
 import type { LinksPicker } from "./links-picker"
+import { threadPanelGeometry } from "./thread-panel-geometry"
 import type { ThreadPanelKeyDeps } from "../features/inline-comment-overlay/view-keys"
 import {
   getInlineCommentOverlayComments,
@@ -113,6 +114,7 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
       openCommentImages(ctx, comment)
     },
     getPanelLayout: () => ctx.threadPanelLayout(),
+    getPanelTextWidth: () => threadPanelGeometry(ctx.getState(), ctx.chat.column.open(), ctx.renderer).budget.textWidth,
     syncCursorToHighlight: () => {
       // Cross-file moves switch files first in single-file view.
       const s = ctx.getState()

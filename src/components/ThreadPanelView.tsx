@@ -6,6 +6,7 @@ import { BottomThreadHint, TopThreadHint } from "./ThreadEdgeHints"
 import { ThreadPanelPickerView, type Picker } from "./ThreadPanelPicker"
 import { CommentRow, ThreadHeader } from "./ThreadPanelRows"
 import type { Hint, ThreadCommentModel, ThreadModel, ThreadPanelHeader, ThreadPanelModel } from "./thread-panel-model"
+import { VIEWPORT_PADDING_X } from "./thread-rows-estimate"
 
 /**
  * The thread panel's contents (spec 039): a header, the threads in their
@@ -140,8 +141,8 @@ function Threads(props: {
       overflow="hidden"
       flexGrow={1}
       width="100%"
-      paddingLeft={2}
-      paddingRight={2}
+      paddingLeft={VIEWPORT_PADDING_X}
+      paddingRight={VIEWPORT_PADDING_X}
       paddingTop={1}
       paddingBottom={1}
     >

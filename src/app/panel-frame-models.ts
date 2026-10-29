@@ -11,14 +11,16 @@ import type { ThreadPanelInput } from "../components/thread-panel-model"
 import { feedModel, type FeedModel } from "../components/feed-model"
 import { flashLabelsOn } from "../vim-diff/flash-state"
 import { columnWidthsOf } from "./column-widths"
+import { threadPanelGeometry } from "./thread-panel-geometry"
 import { chatInputFocused } from "./diff-focus"
 import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, chatOpen, flashState, width, now, mentions, commentDrafts, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, chatOpen, flashState, width, height, now, mentions, commentDrafts, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
+  const panel = threadPanelGeometry(state, chatOpen, { width, height })
   return {
     comments: getInlineCommentOverlayComments(state),
     scopeFilename: getCommentsPanelScopeFilename(state),
@@ -33,7 +35,8 @@ export function threadPanelFrameInput({ state, chatOpen, flashState, width, now,
     draft: draftIn(commentDrafts, { filename: overlay.filename, line: overlay.line, side: overlay.side }),
     focused: state.focusedPanel === "comments",
     expanded: overlay.expanded,
-    width: columnWidthsOf({ ...state, chatOpen }, width).threads,
+    width: panel.width,
+    viewportRows: panel.budget.viewportRows,
     mentionPicker: composerPickers.mention,
     emojiPicker: composerPickers.emoji,
     mentionCandidates: collectMentionCandidates(state, mentions.pool),

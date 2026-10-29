@@ -1,5 +1,6 @@
 import type { Comment } from "../types"
 import { groupIntoThreads, isThreadCollapsed, type Thread } from "../utils/threads"
+import { estimatedThreadRows, type ThreadRowBudget } from "./thread-rows-estimate"
 
 /** A thread with its fold decided, so everything that draws or labels it agrees. */
 export interface WindowThread {
@@ -18,13 +19,16 @@ export interface ThreadPanelWindow {
  *
  * This doubles as the panel's scroll model. The clipping viewport keeps its
  * content pinned at the top — only content near the top of the column is
- * on-screen. So we render *starting* a couple of threads above the
- * highlighted one: that keeps the highlighted thread near the top of the
- * viewport (with a little preceding context) and, because the start point
- * follows the cursor, the view scrolls as the user moves through threads
- * with j/k. `windowSize` caps how many threads mount at once — the viewport
- * clips whatever runs past the bottom, and its edge rows count the threads
- * hidden past each edge (`ThreadEdgeHints.tsx`).
+ * on-screen. So we render *starting* a little above the highlighted thread:
+ * that keeps it near the top of the viewport with some preceding context
+ * and, because the start point follows the cursor, the view scrolls as the
+ * user moves through threads with j/k. The threads kept above are at most
+ * `WINDOW_LEAD`, and only as many as fit in a third of the viewport's rows
+ * by their estimated height, so a long thread above cannot push the
+ * highlighted one past the bottom edge. Before the viewport's rows are
+ * known it keeps `WINDOW_LEAD`. `windowSize` caps how many threads mount at
+ * once — the viewport clips whatever runs past the bottom, and its edge rows
+ * count the threads hidden past each edge (`ThreadEdgeHints.tsx`).
  *
  * Note this is thread-granular: navigating *within* a very tall thread
  * (many replies) doesn't re-scroll, so a deep reply in an oversized
@@ -46,13 +50,14 @@ export function pickVisibleThreads(
   threads: WindowThread[],
   displayOrder: Comment[],
   highlightedIndex: number,
-  windowSize: number
+  windowSize: number,
+  budget: ThreadRowBudget
 ): ThreadPanelWindow {
   const highlightedId = displayOrder[highlightedIndex]?.id
   const highlightedThreadIdx = highlightedId
     ? threads.findIndex(({ thread }) => thread.comments.some((c) => c.id === highlightedId))
     : 0
-  const start = Math.max(0, highlightedThreadIdx - WINDOW_LEAD)
+  const start = Math.max(0, highlightedThreadIdx - leadAbove(threads, highlightedThreadIdx, budget))
   const end = Math.min(threads.length, start + windowSize)
   return {
     threads: threads.slice(start, end),
@@ -61,11 +66,26 @@ export function pickVisibleThreads(
   }
 }
 
+function leadAbove(threads: WindowThread[], highlightedThreadIdx: number, budget: ThreadRowBudget): number {
+  if (budget.viewportRows <= 0) return WINDOW_LEAD
+  const room = Math.floor(budget.viewportRows / 3)
+  let lead = 0
+  let rows = 0
+  while (lead < WINDOW_LEAD && highlightedThreadIdx - lead - 1 >= 0) {
+    const { thread, collapsed } = threads[highlightedThreadIdx - lead - 1]!
+    rows += estimatedThreadRows(thread.comments, collapsed, budget.textWidth)
+    if (rows > room) break
+    lead++
+  }
+  return lead
+}
+
 export function windowThreads(
   comments: Comment[],
   expandedThreadIds: ReadonlySet<string>,
   highlightedIndex: number,
-  expanded: boolean
+  expanded: boolean,
+  budget: ThreadRowBudget
 ) {
   // Resolved threads default to collapsed (scannable), everything else
   // to expanded; `expandedThreadIds` flips that default.
@@ -78,7 +98,7 @@ export function windowThreads(
   // `getInlineCommentOverlayDisplayOrder` so j/k indices align with
   // what's drawn.
   const displayOrder = threads.flatMap(({ thread, collapsed }) => (collapsed ? [thread.comments[0]!] : thread.comments))
-  const window = pickVisibleThreads(threads, displayOrder, highlightedIndex, threadWindowSize(expanded))
+  const window = pickVisibleThreads(threads, displayOrder, highlightedIndex, threadWindowSize(expanded), budget)
   return { displayOrder, window }
 }
 
@@ -93,9 +113,10 @@ export function visibleOverlayCommentIds(
   comments: Comment[],
   expandedThreadIds: ReadonlySet<string>,
   highlightedIndex: number,
-  expanded: boolean
+  expanded: boolean,
+  budget: ThreadRowBudget
 ): string[] {
-  const { window } = windowThreads(comments, expandedThreadIds, highlightedIndex, expanded)
+  const { window } = windowThreads(comments, expandedThreadIds, highlightedIndex, expanded, budget)
   return window.threads.flatMap(({ thread, collapsed }) =>
     collapsed ? [thread.comments[0]!.id] : thread.comments.map((comment) => comment.id)
   )

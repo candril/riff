@@ -42,6 +42,7 @@ function composing(width: number): ThreadPanelInput & { now: number } {
     focused: true,
     expanded: false,
     width,
+    viewportRows: 0,
     mentionPicker: null,
     emojiPicker: null,
     mentionCandidates: [],

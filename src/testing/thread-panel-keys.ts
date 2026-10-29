@@ -79,6 +79,7 @@ export async function threadPanelKeys(initial: AppState, options: { chatOpen?: b
     handleStartNewComment: record("new"),
     syncCursorToHighlight: record("sync"),
     getPanelLayout: () => null,
+    getPanelTextWidth: () => 42,
     handleCopyLink: (c) => void calls.push(`copyLink ${c.id}`),
     handleOpenInEditor: (c) => void calls.push(`editor ${c.id}`),
     handleOpenImages: (c) => void calls.push(`images ${c.id}`),

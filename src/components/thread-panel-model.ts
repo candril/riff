@@ -7,6 +7,7 @@ import { extractCommentImages, type CommentImage } from "../utils/comment-images
 import { fitPicker, threadPanelPicker, type ThreadPanelPicker } from "./thread-panel-picker"
 import { threadPanelHints, type Hint } from "./thread-panel-hints"
 import { windowThreads, type WindowThread } from "./thread-panel-window"
+import { REPLY_BODY_INDENT, REPLY_INDENT, ROOT_BODY_INDENT, threadTextWidth } from "./thread-rows-estimate"
 import { displayAuthor } from "./display-author"
 
 export type { Hint } from "./thread-panel-hints"
@@ -45,6 +46,8 @@ export interface ThreadPanelInput {
   expanded: boolean
   /** The panel's columns, which the diff beside it gives up. */
   width: number
+  /** The rows the threads' viewport shows, from the screen's height; 0 while unknown. */
+  viewportRows: number
   /** Active @mention picker session (null when no `@<query>` trigger). */
   mentionPicker: MentionPickerState | null
   /** Active `:shortcode` session (spec 082). */
@@ -151,7 +154,8 @@ export function threadPanelModel(
     comments,
     input.expandedThreadIds,
     input.highlightedIndex,
-    input.expanded
+    input.expanded,
+    { textWidth: threadTextWidth(input.width), viewportRows: input.viewportRows }
   )
   const highlighted = displayOrder[input.highlightedIndex]
   const isComposing = mode === "compose" || mode === "edit"
@@ -234,7 +238,7 @@ function commentModel(
     key: comment.id,
     caret: caretContent(label, highlighted),
     caretFg: caretFg(label, highlighted),
-    indent: isRoot ? 0 : 2,
+    indent: isRoot ? 0 : REPLY_INDENT,
     connector: isRoot ? null : "└ ",
     author: displayAuthor(comment.author || "you"),
     time: formatTimeAgo(comment.createdAt, input.now),
@@ -243,7 +247,7 @@ function commentModel(
     edited: comment.localEdit !== undefined,
     editing: comment.id === input.editingId,
     highlighted,
-    bodyIndent: isRoot ? 4 : 6,
+    bodyIndent: isRoot ? ROOT_BODY_INDENT : REPLY_BODY_INDENT,
     bodyText: body.text,
     images: body.images,
     reactions: comment.reactions !== undefined && comment.reactions.length > 0 ? comment.reactions : null,

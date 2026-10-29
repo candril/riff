@@ -47,6 +47,12 @@ spec 010; that panel is retired.
   ([106](./106-borderless-ui.md)). Focus shows in the header title's
   colour. There is no scrollbar: the viewport's top and bottom edge rows
   say `↑ N` and `↓ N more` for the threads above and below the window.
+- **The window keeps the highlighted thread on screen.** It starts a
+  little above the highlighted thread: at most two threads, and never more
+  than fit in a third of the panel's rows by their estimated height, so a
+  long thread above cannot push the highlighted one past the bottom edge.
+  Ctrl-d / Ctrl-u move by half a page of drawn rows, and guess the rows of
+  entries outside the window from their text wrapped to the panel's width.
 - **A Solid island handed a model**: `src/app/thread-panel.tsx` mounts
   `ThreadPanelView`, drawn from `thread-panel-model.ts`, with the mention
   and emoji pickers as `ThreadPanelPicker`; the keys stay in

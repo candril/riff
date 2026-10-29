@@ -57,6 +57,8 @@ export interface ThreadPanelViewDeps {
   syncCursorToHighlight: () => void
   /** Where the panel's entries were last drawn, for Ctrl-d / Ctrl-u; null before the panel is laid out. */
   getPanelLayout: () => ThreadPanelLayout | null
+  /** The columns of the panel's comment stack, which an unmounted entry's guessed rows wrap to. */
+  getPanelTextWidth: () => number
   /** `y` — copy a GitHub link to the highlighted comment. */
   handleCopyLink: (comment: Comment) => void
   /** `o` — open the highlighted comment's file in $EDITOR at its
@@ -160,7 +162,7 @@ export function highlightEntry(deps: Deps, index: number): void {
 export function halfPage(deps: Deps, direction: 1 | -1): void {
   const state = deps.getState()
   const layout = deps.getPanelLayout() ?? UNLAID
-  const spans = entrySpans(getInlineCommentOverlayDisplayOrder(state), layout)
+  const spans = entrySpans(getInlineCommentOverlayDisplayOrder(state), layout, deps.getPanelTextWidth())
   highlightEntry(deps, halfPageEntry(spans, state.inlineCommentOverlay.highlightedIndex, direction, layout.viewportRows))
 }
 

@@ -58,6 +58,7 @@ async function mountPanel(props: Partial<ThreadPanelInput> = {}, width = WIDTH) 
         focused: false,
         expanded: false,
         width,
+        viewportRows: 0,
         mentionPicker: null,
         emojiPicker: null,
         mentionCandidates: [],

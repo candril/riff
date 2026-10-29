@@ -34,9 +34,9 @@ afterEach(async () => {
 })
 
 /** riff with the thread panel open and focused, its keys through the real createAppKeys. */
-async function panelApp() {
-  app = await mountApp(FILE, { width: 160, height: 30 })
-  app.show({ comments: THREADS, selectedFileIndex: 0 })
+async function panelApp(size = { width: 160, height: 30 }, comments = THREADS) {
+  app = await mountApp(FILE, size)
+  app.show({ comments, selectedFileIndex: 0 })
   const mounted = app
   const flashes: { surface: string; ids: string[] }[] = []
   const keys = keysOn(mounted, {
@@ -104,4 +104,20 @@ test("a bare s starts flash labels on the panel's comments", async () => {
   expect(flashes).toHaveLength(1)
   expect(flashes[0]!.surface).toBe("comments")
   expect(flashes[0]!.ids).toEqual(["c1", "c2", "c3"])
+})
+
+test("below two long threads, j keeps the highlighted thread on screen", async () => {
+  const long = (id: string, line: number, author: string): Comment => ({
+    ...comment(id, line, author),
+    body: `${author} opens ` + "a single paragraph that wraps across many rows of the panel ".repeat(12),
+  })
+  const comments = [long("l1", 2, "ana"), long("l2", 4, "bo"), comment("c3", 6, "cy"), comment("c4", 9, "di")]
+  const { mounted } = await panelApp({ width: 120, height: 24 }, comments)
+  mounted.setup.mockInput.pressKey("j")
+  mounted.setup.mockInput.pressKey("j")
+  expect(highlighted().id).toBe("c3")
+
+  const frame = await mounted.frame()
+  expect(frame).toContain("▸ @cy")
+  expect(frame).toContain("cy on line 6")
 })

@@ -9,6 +9,7 @@ import {
   type ThreadPanelInput,
 } from "./thread-panel-model"
 import { emptyPickerMessage } from "./thread-panel-picker"
+import { threadTextWidth } from "./thread-rows-estimate"
 import { colors, theme } from "../theme"
 import type { Comment } from "../types"
 
@@ -48,6 +49,7 @@ function model(input: Partial<ThreadPanelInput> = {}) {
     focused: false,
     expanded: false,
     width: 48,
+    viewportRows: 0,
     mentionPicker: null,
     emojiPicker: null,
     mentionCandidates: [],
@@ -106,7 +108,9 @@ describe("the thread panel's window", () => {
     )
     expect(m.threads.some((thread) => thread.header.caret !== null)).toBe(true)
     expect(m.threads.find((thread) => thread.key === "t33")!.comments).toHaveLength(2)
-    expect(visibleOverlayCommentIds(comments, expandedThreadIds, 50, false)).toEqual(drawn)
+    expect(
+      visibleOverlayCommentIds(comments, expandedThreadIds, 50, false, { textWidth: threadTextWidth(48), viewportRows: 0 })
+    ).toEqual(drawn)
   })
 })
 

@@ -6,6 +6,7 @@ import { treeRowsOf } from "../components"
 import { visibleOverlayCommentIds } from "../components/thread-panel-window"
 import { feedRowsInView } from "../components/feed-window"
 import type { AppKeyContext } from "./key-context"
+import { threadPanelGeometry } from "./thread-panel-geometry"
 
 /**
  * Which list `s` labels, or null when the diff has the cursor and its own
@@ -25,7 +26,7 @@ export function flashSurface(state: AppState): FlashSurface | null {
 
 export function flashTargets(
   state: AppState,
-  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed" | "visit">,
+  ctx: Pick<AppKeyContext, "fileTreePanel" | "getPrInfoPanel" | "renderer" | "activityFeed" | "visit" | "chat">,
 ): string[] {
   switch (flashSurface(state)) {
     case "tree": {
@@ -46,7 +47,8 @@ export function flashTargets(
         getInlineCommentOverlayComments(state),
         state.inlineCommentOverlay.expandedThreadIds,
         state.inlineCommentOverlay.highlightedIndex,
-        state.inlineCommentOverlay.expanded
+        state.inlineCommentOverlay.expanded,
+        threadPanelGeometry(state, ctx.chat.column.open(), ctx.renderer).budget
       )
     default:
       return []

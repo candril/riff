@@ -1,5 +1,6 @@
 import type { Comment } from "../../types"
 import { halfPage } from "../../utils/half-page"
+import { estimatedCommentRows } from "../../components/thread-rows-estimate"
 
 /**
  * Where the panel's entries sit as last laid out. Only the window of
@@ -15,24 +16,16 @@ export interface ThreadPanelLayout {
 export const UNLAID: ThreadPanelLayout = { viewportRows: 0, tops: new Map(), bottom: 0 }
 
 /**
- * An entry outside the mounted window has no layout to read, so its rows
- * are guessed from its text as the panel draws it: a gap and the author
- * row, the body's lines unwrapped, and above a thread's first comment its
- * divider with the space around it.
- */
-function estimatedRows(comment: Comment): number {
-  const lines = (comment.localEdit ?? comment.body).split("\n").filter((line) => line.trim() !== "").length
-  return (comment.inReplyTo ? 2 : 5) + Math.max(1, lines)
-}
-
-/**
  * The rows each display entry takes, from its top to the next entry's top,
  * so the divider of an expanded thread counts toward the entry above it.
+ * Only the window of threads around the highlight is mounted; an entry
+ * outside it has no layout to read, so its rows are guessed from its text
+ * wrapped to `textWidth`, the columns of the panel's comment stack.
  */
-export function entrySpans(order: readonly Comment[], layout: ThreadPanelLayout): number[] {
+export function entrySpans(order: readonly Comment[], layout: ThreadPanelLayout, textWidth: number): number[] {
   return order.map((comment, i) => {
     const top = layout.tops.get(comment.id)
-    if (top === undefined) return estimatedRows(comment)
+    if (top === undefined) return estimatedCommentRows(comment, textWidth)
     const next = order[i + 1]
     const nextTop = next ? layout.tops.get(next.id) : undefined
     if (nextTop !== undefined) return nextTop - top
