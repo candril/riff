@@ -25,12 +25,13 @@ function state(patch: Partial<AppState> = {}): AppState {
 
 function frame(
   appState: AppState,
-  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120, help = false, chatOpen = false }: {
+  { search = {}, diff = { columnInfo: null, selectionInfo: null }, width = 120, help = false, chatOpen = false, chatExpanded = false }: {
     search?: Partial<SearchState>
     diff?: Frame["diff"]
     width?: number
     help?: boolean
     chatOpen?: boolean
+    chatExpanded?: boolean
   } = {}
 ): Frame {
   return {
@@ -45,6 +46,7 @@ function frame(
     now: 0,
     diff,
     chatOpen,
+    chatExpanded,
     help: { open: help, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,
@@ -105,7 +107,11 @@ describe("chatColumnFrameModel", () => {
   })
 
   test("is as wide as the chat column for the frame's width", () => {
-    expect(chatColumnFrameModel(frame(chatting(), { ...open, width: 140 }))).toEqual({ width: chatColumnWidth(140), focused: true })
+    expect(chatColumnFrameModel(frame(chatting(), { ...open, width: 140 }))).toEqual({ width: chatColumnWidth(140, false), focused: true })
+  })
+
+  test("is as wide as the expanded chat column once Ctrl-e widened it", () => {
+    expect(chatColumnFrameModel(frame(chatting(), { ...open, chatExpanded: true, width: 140 }))).toEqual({ width: chatColumnWidth(140, true), focused: true })
   })
 
   test("is not focused while the diff has the keys", () => {

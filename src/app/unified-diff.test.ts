@@ -68,7 +68,7 @@ async function mount(options: MountOptions) {
     getState: () => state,
     diffOptions,
     fileContent: { expanding: () => null },
-    chatColumn: { open: () => false },
+    chatColumn: { open: () => false, expanded: () => false },
     getMapping: () => mapping,
     getVimState: () => vimState,
   })

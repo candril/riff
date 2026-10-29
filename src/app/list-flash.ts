@@ -48,7 +48,7 @@ export function flashTargets(
         state.inlineCommentOverlay.expandedThreadIds,
         state.inlineCommentOverlay.highlightedIndex,
         state.inlineCommentOverlay.expanded,
-        threadPanelGeometry(state, ctx.chat.column.open(), ctx.renderer, ctx.composer.value).budget
+        threadPanelGeometry(state, { open: ctx.chat.column.open(), expanded: ctx.chat.column.expanded() }, ctx.renderer, ctx.composer.value).budget
       )
     default:
       return []

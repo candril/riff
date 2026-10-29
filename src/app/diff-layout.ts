@@ -16,6 +16,7 @@ export function diffPaneWidthOf(
   state: Pick<AppState, "showFilePanel" | "filePanelExpanded" | "viewMode"> & {
     inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
     chatOpen: boolean
+    chatExpanded: boolean
   },
   screenWidth: number
 ): number {
@@ -27,6 +28,7 @@ export function diffPaneWidthOf(
       filePanelExpanded: state.filePanelExpanded,
       inlineCommentOverlay: { open: panel.open && inDiff, expanded: panel.expanded },
       chatOpen: state.chatOpen && inDiff,
+      chatExpanded: state.chatExpanded,
     },
     screenWidth
   ).diff

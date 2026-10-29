@@ -69,7 +69,10 @@ like any comment the reviewer typed.
   terminal reports it, inserts a line break; `Ctrl-g` opens the question
   in `$EDITOR`, as the comment composer's `Ctrl-g` does, and what is saved
   comes back into the input (quitting without saving keeps the text);
-  `Esc` interrupts an answer; a new conversation needs the key pressed
+  `Ctrl-e` widens the column to make room for long answers, as it widens
+  the tree and the thread panel, and again narrows it back; the wider
+  width lasts the session, through closing the chat and a reload, and
+  costs the input its end-of-line key; `Esc` interrupts an answer; a new conversation needs the key pressed
   twice. The help overlay (`g?`) lists these keys in a section of its own,
   Chat, just before Panels & Files, where `Ctrl-r` is.
 - **Answers stream in** from the bottom of the column, rendered as

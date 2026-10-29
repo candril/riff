@@ -242,7 +242,7 @@ export async function mountApp(
     reactionTarget: () => reactionTargetOf(state, () => prInfoPanel?.getReactionTarget() ?? null),
     updateFileTreePanel() {
       if (state.showFilePanel) {
-        fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).tree)
+        fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open(), chatExpanded: chatColumnState.expanded() }, renderer.width).tree)
       }
       state = treeHighlight.sync(state, mapping.getLine(vimState.line)?.filename ?? null, (synced) =>
         fileTreePanel.update({

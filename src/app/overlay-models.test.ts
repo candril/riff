@@ -46,6 +46,7 @@ function frame(patch: Partial<AppState> = {}, rest: Partial<Omit<Frame, "state">
     now: NOW,
     diff: { columnInfo: null, selectionInfo: null },
     chatOpen: false,
+    chatExpanded: false,
     help: { open: false, scroll: 0 },
     confirmDialog: null,
     syncPreview: null,

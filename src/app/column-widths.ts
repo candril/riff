@@ -24,7 +24,7 @@ export function fileTreeWidth(screenWidth: number, expanded: boolean): number {
 export interface OpenColumns {
   tree: { visible: boolean; expanded: boolean }
   threads: { open: boolean; expanded: boolean }
-  chat: { open: boolean }
+  chat: { open: boolean; expanded: boolean }
 }
 
 export interface ColumnWidths {
@@ -69,7 +69,7 @@ export function columnWidths(screenWidth: number, open: OpenColumns): ColumnWidt
   const screen = Math.max(0, screenWidth)
   const tree = open.tree.visible ? fileTreeWidth(screen, open.tree.expanded) : 0
   const threads = open.threads.open ? commentPanelWidth(screen, open.threads.expanded) : 0
-  const chat = open.chat.open ? chatColumnWidth(screen) : 0
+  const chat = open.chat.open ? chatColumnWidth(screen, open.chat.expanded) : 0
   const room = Math.max(0, screen - DIFF_MIN_WIDTH)
   const over = tree + threads + chat - room
   if (over <= 0) return { tree, threads, chat, diff: screen - tree - threads - chat }
@@ -86,12 +86,13 @@ export function columnWidthsOf(
   state: Pick<AppState, "showFilePanel" | "filePanelExpanded"> & {
     inlineCommentOverlay: Pick<AppState["inlineCommentOverlay"], "open" | "expanded">
     chatOpen: boolean
+    chatExpanded: boolean
   },
   screenWidth: number
 ): ColumnWidths {
   return columnWidths(screenWidth, {
     tree: { visible: state.showFilePanel, expanded: state.filePanelExpanded },
     threads: state.inlineCommentOverlay,
-    chat: { open: state.chatOpen },
+    chat: { open: state.chatOpen, expanded: state.chatExpanded },
   })
 }

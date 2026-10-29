@@ -23,4 +23,23 @@ describe("createChatColumnState", () => {
     column.hide()
     expect(column.open()).toBe(false)
   })
+
+  test("starts at the normal width, and toggleExpanded widens it and narrows it back", () => {
+    const column = createChatColumnState()
+    expect(column.expanded()).toBe(false)
+    column.toggleExpanded()
+    expect(column.expanded()).toBe(true)
+    column.toggleExpanded()
+    expect(column.expanded()).toBe(false)
+  })
+
+  test("closing and reopening the column keeps its width", () => {
+    const column = createChatColumnState()
+    column.show()
+    column.toggleExpanded()
+    column.hide()
+    expect(column.expanded()).toBe(true)
+    column.show()
+    expect(column.expanded()).toBe(true)
+  })
 })

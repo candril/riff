@@ -256,7 +256,7 @@ describe("the panel in the app", () => {
         app.show(opened())
         await app.setup.renderOnce()
         expect(panel.visible).toBe(true)
-        const shared = columnWidths(width, { tree: { visible: true, expanded: false }, threads: { open: true, expanded: false }, chat: { open: false } })
+        const shared = columnWidths(width, { tree: { visible: true, expanded: false }, threads: { open: true, expanded: false }, chat: { open: false, expanded: false } })
         expect(panel.width).toBe(shared.threads)
         expect(panel.x).toBe(width - panel.width)
         expect(diff.width).toBe(shared.diff)

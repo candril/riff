@@ -76,6 +76,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["Ctrl+j", "Break the line"],
       ["Shift+Enter", "Break the line, where the terminal tells it"],
       ["Ctrl+g", "Edit the question in $EDITOR"],
+      ["Ctrl+e", "Widen the chat, or narrow it back"],
       ["@", "Attach @line @selection @file @pr"],
       ["Esc", "Stop an answer, or back to the diff"],
       ["Ctrl+n Ctrl+n", "Start a new conversation"],

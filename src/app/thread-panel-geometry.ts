@@ -14,11 +14,11 @@ import { diffPaneHeight } from "./diff-layout"
  */
 export function threadPanelGeometry(
   state: AppState,
-  chatOpen: boolean,
+  chat: { open: boolean; expanded: boolean },
   screen: { width: number; height: number },
   composerText: () => string
 ): { width: number; budget: ThreadRowBudget; pickerRoom: number | null } {
-  const width = columnWidthsOf({ ...state, chatOpen }, screen.width).threads
+  const width = columnWidthsOf({ ...state, chatOpen: chat.open, chatExpanded: chat.expanded }, screen.width).threads
   const composer = state.inlineCommentOverlay.mode !== "view" ? composerRows(composerText(), width) : null
   // The panel spans the content row, which is the diff pane's height.
   const panelRows = diffPaneHeight(screen.height)

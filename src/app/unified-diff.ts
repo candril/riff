@@ -23,7 +23,7 @@ export interface UnifiedDiffDeps {
   getState: () => AppState
   diffOptions: Pick<DiffOptionsState, "wrapLines">
   fileContent: Pick<FileContentState, "expanding">
-  chatColumn: Pick<ChatColumnState, "open">
+  chatColumn: Pick<ChatColumnState, "open" | "expanded">
   getMapping: () => DiffLineMapping
   getVimState: () => VimCursorState
 }
@@ -50,7 +50,7 @@ export function createUnifiedDiff(deps: UnifiedDiffDeps) {
   let drawn: { mapping: DiffLineMapping; file: number | null; wrap: boolean } | null = null
 
   const paneWidth = () =>
-    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open() }, deps.renderer.width)
+    diffPaneWidthOf({ ...deps.getState(), chatOpen: deps.chatColumn.open(), chatExpanded: deps.chatColumn.expanded() }, deps.renderer.width)
 
   /**
    * The island's rows are numbered by the mapping it last drew. A fold or

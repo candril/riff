@@ -28,6 +28,7 @@ describe("the pane the views draw the diff in", () => {
     filePanelExpanded: false,
     viewMode,
     chatOpen,
+    chatExpanded: false,
     inlineCommentOverlay: { open, expanded: false },
   })
 

@@ -200,7 +200,7 @@ test("with the thread panel and the chat both open, the threads sit between the 
   const threads = panel(renderer, commentPanelWidth(width, false))
   const chat = createChatColumnIsland(renderer, createChatState(fakeAgent().agent))
   disposers.unshift(() => chat.dispose())
-  chat.update({ width: chatColumnWidth(width), focused: false })
+  chat.update({ width: chatColumnWidth(width, false), focused: false })
   const shell = bareShell(renderer, undefined, {}, threads, chat.host)
   const view = keepAlive(new TextRenderable(renderer, { content: "x" }))
   shell.setView(view, { withTree: false })

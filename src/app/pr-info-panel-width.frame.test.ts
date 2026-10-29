@@ -69,7 +69,7 @@ test("a thread under the merge status keeps its place and author whole beside th
   app = await mountApp(DIFF, { width: 120, height: 30 })
   const mounted = app
   mounted.show({ appMode: "pr", prInfo: info, viewMode: "state", focusedPanel: "diff", showFilePanel: true })
-  const width = () => columnWidthsOf({ ...mounted.ctx.getState(), chatOpen: mounted.chatColumnState.open() }, 120).diff
+  const width = () => columnWidthsOf({ ...mounted.ctx.getState(), chatOpen: mounted.chatColumnState.open(), chatExpanded: mounted.chatColumnState.expanded() }, 120).diff
   const shown = new PRInfoPanelClass(mounted.setup.renderer, info, mounted.ctx.getState().files, [thread], new Set(["checks"]), width)
   panel = shown
   mounted.setPrInfoPanel(shown)

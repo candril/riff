@@ -236,7 +236,7 @@ export async function createApp(options: AppOptions = {}) {
   let cachedCurrentUser: string | null = null
   // The panel is drawn in the diff column, between whichever of the tree,
   // the thread panel and the chat are open.
-  const prInfoPanelWidth = () => columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).diff
+  const prInfoPanelWidth = () => columnWidthsOf({ ...state, chatOpen: chatColumnState.open(), chatExpanded: chatColumnState.expanded() }, renderer.width).diff
   // Persistent for PR sessions (spec 041); null in local mode.
   let prInfoPanel: PRInfoPanelClass | null =
     mode === "pr" && prInfo
@@ -475,7 +475,7 @@ export async function createApp(options: AppOptions = {}) {
     }
 
     if (state.showFilePanel) {
-      fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open() }, renderer.width).tree)
+      fileTreePanel.setWidth(columnWidthsOf({ ...state, chatOpen: chatColumnState.open(), chatExpanded: chatColumnState.expanded() }, renderer.width).tree)
     }
 
     state = treeHighlight.sync(state, cursorFile(), (synced) => {

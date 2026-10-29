@@ -97,7 +97,7 @@ export interface FramePassContext {
   composer: Pick<ComposerHandle, "value">
   composerPickers: Pick<ComposerPickersState, "mention" | "emoji">
   codePeek: Pick<CodePeekState, "id" | "close">
-  chatColumn: Pick<ChatColumnState, "open">
+  chatColumn: Pick<ChatColumnState, "open" | "expanded">
   /** The keymap's command `keys` (command-keys.ts); the keys are built after the pass. */
   getCommandKeys: () => ReadonlyMap<string, string>
   /** What React… acts on: whatever has focus now (reactionTargetOf). */
@@ -204,6 +204,7 @@ export function createFramePass(ctx: FramePassContext): () => void {
       now,
       diff: diffPass.readout(splitOn, state.viewMode, vimState),
       chatOpen,
+      chatExpanded: ctx.chatColumn.expanded(),
       help,
       confirmDialog,
       syncPreview,

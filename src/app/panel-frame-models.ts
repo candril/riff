@@ -17,10 +17,10 @@ import { promptOpenIn } from "./open-prompt"
 import type { Frame } from "./frame"
 
 /** What the thread panel is handed for `frame`, or null while it is closed. */
-export function threadPanelFrameInput({ state, chatOpen, flashState, width, height, now, mentions, commentDrafts, composerText, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
+export function threadPanelFrameInput({ state, chatOpen, chatExpanded, flashState, width, height, now, mentions, commentDrafts, composerText, composerPickers, visit }: Frame): (ThreadPanelInput & { now: number }) | null {
   const overlay = state.inlineCommentOverlay
   if (!overlay.open) return null
-  const panel = threadPanelGeometry(state, chatOpen, { width, height }, () => composerText)
+  const panel = threadPanelGeometry(state, { open: chatOpen, expanded: chatExpanded }, { width, height }, () => composerText)
   return {
     comments: getInlineCommentOverlayComments(state),
     scopeFilename: getCommentsPanelScopeFilename(state),
@@ -72,7 +72,7 @@ export function feedFrameModel({ state, feed, visit, flashState, height, now }: 
 
 /** The chat column for `frame`, or null while it is closed. */
 export function chatColumnFrameModel(frame: Frame): { width: number; focused: boolean } | null {
-  const { state, chatOpen, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek } = frame
+  const { state, chatOpen, chatExpanded, searchState, width, help, confirmDialog, syncPreview, reviewPreview, filePicker, commentsPicker, occurrencePicker, marksPicker, commitPicker, actionMenu, linePeek, blamePeek } = frame
   if (!chatOpen) return null
   const outside = {
     prompt: promptOpenIn(state, searchState, frame),
@@ -89,7 +89,7 @@ export function chatColumnFrameModel(frame: Frame): { width: number; focused: bo
     linePeek: linePeek !== null,
     blamePeek: blamePeek !== null,
   }
-  return { width: columnWidthsOf({ ...state, chatOpen }, width).chat, focused: chatInputFocused(state, outside, chatOpen) }
+  return { width: columnWidthsOf({ ...state, chatOpen, chatExpanded }, width).chat, focused: chatInputFocused(state, outside, chatOpen) }
 }
 
 export interface PrInfoPanelFrameModel {

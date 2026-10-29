@@ -6,7 +6,9 @@
  * reload keeps the column open. A switch to another review (opening the
  * branch's PR, creating a PR) closes it, because the next review opens on
  * its diff with the focus there, and a column left open would speak about
- * the review that went.
+ * the review that went. Its width, which Ctrl-e widens, is layout too, so
+ * it lives here beside `open`, and a closed column keeps it for its next
+ * opening.
  */
 
 import { createSignal } from "solid-js"
@@ -15,9 +17,14 @@ export type ChatColumnState = ReturnType<typeof createChatColumnState>
 
 export function createChatColumnState() {
   const [open, setOpen] = createSignal(false)
+  const [expanded, setExpanded] = createSignal(false)
 
   return {
     open,
+    expanded,
+    toggleExpanded() {
+      setExpanded((was) => !was)
+    },
     show() {
       setOpen(true)
     },

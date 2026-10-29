@@ -16,10 +16,18 @@ const open = ({
   threads = true,
   threadsExpanded = false,
   chat = true,
-}: { tree?: boolean; treeExpanded?: boolean; threads?: boolean; threadsExpanded?: boolean; chat?: boolean } = {}): OpenColumns => ({
+  chatExpanded = false,
+}: {
+  tree?: boolean
+  treeExpanded?: boolean
+  threads?: boolean
+  threadsExpanded?: boolean
+  chat?: boolean
+  chatExpanded?: boolean
+} = {}): OpenColumns => ({
   tree: { visible: tree, expanded: treeExpanded },
   threads: { open: threads, expanded: threadsExpanded },
-  chat: { open: chat },
+  chat: { open: chat, expanded: chatExpanded },
 })
 
 const total = (widths: { tree: number; threads: number; chat: number; diff: number }) =>
@@ -31,6 +39,8 @@ const LAYOUTS = [
   open({ treeExpanded: true }),
   open({ threadsExpanded: true }),
   open({ treeExpanded: true, threadsExpanded: true }),
+  open({ chatExpanded: true }),
+  open({ treeExpanded: true, threadsExpanded: true, chatExpanded: true }),
   open({ chat: false }),
   open({ threads: false }),
   open({ tree: false }),
@@ -42,8 +52,8 @@ describe("on a screen where every column fits", () => {
     expect(columnWidths(200, open())).toEqual({
       tree: 35,
       threads: commentPanelWidth(200, false),
-      chat: chatColumnWidth(200),
-      diff: 200 - 35 - commentPanelWidth(200, false) - chatColumnWidth(200),
+      chat: chatColumnWidth(200, false),
+      diff: 200 - 35 - commentPanelWidth(200, false) - chatColumnWidth(200, false),
     })
   })
 
@@ -55,6 +65,10 @@ describe("on a screen where every column fits", () => {
       diff: 300 - fileTreeWidth(300, true) - commentPanelWidth(300, false),
     })
     expect(columnWidths(300, open({ threadsExpanded: true })).threads).toBe(commentPanelWidth(300, true))
+  })
+
+  test("an expanded chat takes its wider target from the diff", () => {
+    expect(columnWidths(140, open({ tree: false, threads: false, chatExpanded: true }))).toEqual({ tree: 0, threads: 0, chat: 84, diff: 56 })
   })
 
   test("a closed column takes no width", () => {
@@ -74,7 +88,7 @@ describe("on a screen too narrow for every column", () => {
     const widths = columnWidths(140, open())
     expect(widths.tree).toBe(35)
     expect(widths.threads).toBeLessThan(commentPanelWidth(140, false))
-    expect(widths.chat).toBeLessThan(chatColumnWidth(140))
+    expect(widths.chat).toBeLessThan(chatColumnWidth(140, false))
     expect(Math.min(widths.threads, widths.chat)).toBeGreaterThanOrEqual(SIDE_COLUMN_MIN_WIDTH)
     expect(widths.diff).toBe(DIFF_MIN_WIDTH)
   })
@@ -91,6 +105,12 @@ describe("on a screen too narrow for every column", () => {
     const widths = columnWidths(120, open({ chat: false, threadsExpanded: true }))
     expect(widths.threads).toBe(120 - 35 - DIFF_MIN_WIDTH)
     expect(widths.diff).toBe(DIFF_MIN_WIDTH)
+  })
+
+  test("an expanded chat gives way as well", () => {
+    const widths = columnWidths(120, open({ threads: false, chatExpanded: true }))
+    expect(chatColumnWidth(120, true)).toBe(72)
+    expect(widths).toEqual({ tree: 35, threads: 0, chat: 120 - 35 - DIFF_MIN_WIDTH, diff: DIFF_MIN_WIDTH })
   })
 
   test("an expanded tree gives way as well", () => {

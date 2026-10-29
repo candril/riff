@@ -182,7 +182,7 @@ test("at 120x24, a draft whose words wrap to more rows than its characters would
   mounted.setup.mockInput.pressKey("G")
   mounted.setup.mockInput.pressKey("r")
   await mounted.frame()
-  const { width } = threadPanelGeometry(mounted.ctx.getState(), false, size, () => "")
+  const { width } = threadPanelGeometry(mounted.ctx.getState(), { open: false, expanded: false }, size, () => "")
   // Three words a little over half the textarea's columns: a row each by word, two rows by character.
   const word = (letter: string) => letter.repeat(Math.floor(composerColumns(width) / 2) + 1)
   const draft = ["a", "b", "c"].map((letter) => [word(letter), word(letter), word(letter)].join(" ")).join("\n")

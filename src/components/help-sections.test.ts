@@ -47,7 +47,7 @@ test("the composer's section lists the keys its input handler binds", () => {
 // The keys src/features/chat/keys.ts binds while the chat input has focus.
 test("the chat's section lists the keys its input binds, next to Ctrl+r in the order of the sections", () => {
   const chat = HELP_SECTIONS.find((s) => s.title === "Chat")
-  expect(chat?.keys.map(([key]) => key)).toEqual(["Enter", "Ctrl+j", "Shift+Enter", "Ctrl+g", "@", "Esc", "Ctrl+n Ctrl+n"])
+  expect(chat?.keys.map(([key]) => key)).toEqual(["Enter", "Ctrl+j", "Shift+Enter", "Ctrl+g", "Ctrl+e", "@", "Esc", "Ctrl+n Ctrl+n"])
   expect(chat?.keys.find(([key]) => key === "@")?.[1]).toContain("@line @selection @file @pr")
   const titles = HELP_SECTIONS.map((s) => s.title)
   expect(titles.indexOf("Panels & Files")).toBe(titles.indexOf("Chat") + 1)

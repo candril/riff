@@ -282,3 +282,74 @@ describe("a question carries the reviewer's place in the diff", () => {
     expect(lines[question - 1]).toContain("src/cart.ts:2")
   })
 })
+
+describe("Ctrl-e in the chat", () => {
+  // Where the input's text is drawn: the further left, the wider the column.
+  const textColumn = (frame: string, text: string) => {
+    const row = frame.split("\n").find((line) => line.includes(text))
+    expect(row).toBeDefined()
+    return row!.indexOf(text)
+  }
+
+  test("widens the column and narrows it back, leaving the input's text alone", async () => {
+    app = await mountApp(DIFF, { width: 140, height: 24 })
+    app.show()
+    keysOn(app)
+    const diff = app.ctx.unified.island.host
+    openChat(app)
+    await app.setup.mockInput.typeText("why")
+    const input = app.chatColumn.input()!
+    const normal = await app.frame()
+    const normalDiff = diff.width
+
+    ctrl(app, "e")
+    expect(app.chatColumnState.expanded()).toBe(true)
+    expect(input.plainText).toBe("why")
+    const wide = await app.frame()
+    expect(textColumn(wide, "why")).toBe(textColumn(normal, "why") - (84 - 56))
+    expect(diff.width).toBe(normalDiff - (84 - 56))
+
+    ctrl(app, "e")
+    expect(app.chatColumnState.expanded()).toBe(false)
+    expect(input.plainText).toBe("why")
+    expect(textColumn(await app.frame(), "why")).toBe(textColumn(normal, "why"))
+    expect(diff.width).toBe(normalDiff)
+  })
+
+  test("with the tree shown, widens the chat and leaves the tree as it was", async () => {
+    app = await mountApp(DIFF, { width: 160, height: 24 })
+    app.show({ showFilePanel: true })
+    keysOn(app)
+    openChat(app)
+    ctrl(app, "e")
+    expect([app.chatColumnState.expanded(), app.ctx.getState().filePanelExpanded]).toEqual([true, false])
+  })
+
+  test("from the diff with the tree shown, still widens the tree and leaves the chat as it was", async () => {
+    app = await mountApp(DIFF, { width: 160, height: 24 })
+    app.show({ showFilePanel: true })
+    keysOn(app)
+    openChat(app)
+    await escape(app)
+    expect(app.ctx.getState().focusedPanel).toBe("diff")
+    ctrl(app, "e")
+    expect([app.chatColumnState.expanded(), app.ctx.getState().filePanelExpanded]).toEqual([false, true])
+  })
+
+  test("the wider column outlasts closing and reopening the chat", async () => {
+    app = await mountApp(DIFF, { width: 140, height: 24 })
+    app.show()
+    keysOn(app)
+    const diff = app.ctx.unified.island.host
+    await app.frame()
+    const closedWidth = diff.width
+    openChat(app)
+    ctrl(app, "e")
+    ctrl(app, "r")
+    expect(app.chatColumnState.open()).toBe(false)
+    ctrl(app, "r")
+    expect(app.chatColumnState.expanded()).toBe(true)
+    await app.frame()
+    expect(diff.width).toBe(closedWidth - 84)
+  })
+})

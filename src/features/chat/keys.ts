@@ -119,6 +119,10 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
       }),
       command("newLine", "Break the line", () => chat.input()?.newLine()),
       command("editor", "Edit the question in $EDITOR", () => void editQuestionInEditor()),
+      command("expand", "Widen the chat, or narrow it back", () => {
+        chat.column.toggleExpanded()
+        deps.render()
+      }),
       command("escape", "Stop the answer, or back to the diff", () => {
         if (chat.state.status() === "answering") chat.state.interrupt()
         else move((s) => ({ ...s, focusedPanel: "diff" }))
@@ -148,6 +152,8 @@ export function registerChatKeys(riffKeymap: RiffKeymap, deps: ChatKeyDeps): () 
       ...anyModifiers("shift+return", "chat.newLine"),
       ...anyModifiers("shift+enter", "chat.newLine"),
       ...anyModifiers("ctrl+g", "chat.editor"),
+      // Riff's widen key on every column; the textarea's end-of-line goes for it.
+      ...anyModifiers("ctrl+e", "chat.expand"),
       ...anyModifiers("escape", "chat.escape"),
       ...anyModifiers("ctrl+n", "chat.newConversation"),
       ...anyModifiers("ctrl+l", "chat.right"),
