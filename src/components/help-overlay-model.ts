@@ -14,9 +14,15 @@ export function helpOverlayModel(version: string | undefined, scroll: number, he
   const layout = helpLayout(width)
   const { rows, maxScroll } = helpViewport(height, width)
   const top = Math.max(0, Math.min(maxScroll, scroll))
+  // Copies, since the island's store reconciles into the rows it holds by id,
+  // and a narrow screen's cut row carries the id of the shared row it cut.
   const window = {
     width: layout.width,
-    columns: layout.columns.map((column) => ({ id: column.id, cells: column.cells, rows: column.rows.slice(top, top + rows) })),
+    columns: layout.columns.map((column) => ({
+      id: column.id,
+      cells: column.cells,
+      rows: column.rows.slice(top, top + rows).map((row) => ({ ...row })),
+    })),
     scroll: top,
     more: { above: top > 0, below: top < maxScroll },
   }

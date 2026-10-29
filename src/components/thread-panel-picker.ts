@@ -1,6 +1,6 @@
 import type { EmojiPickerState, MentionPickerState } from "../features/inline-comment-overlay/composer-pickers-state"
 import { theme } from "../theme"
-import { filterEmoji, type Emoji } from "../utils/emoji"
+import { filterEmoji } from "../utils/emoji"
 import { clampSelection, filterAtCandidates, type AtPicker } from "./at-picker"
 import { displayAuthor } from "./display-author"
 import { pickerWindow } from "./picker-window"
@@ -18,10 +18,23 @@ export function getFilteredMentionCandidates(candidates: readonly string[], quer
  * a mention one.
  */
 export type ThreadPanelPicker =
-  | { kind: "emoji"; rows: Emoji[]; selected: number }
+  | { kind: "emoji"; rows: EmojiRow[]; selected: number }
   | { kind: "emoji-empty"; text: string }
   | { kind: "mention"; picker: AtPicker }
   | null
+
+/**
+ * An emoji as the picker draws it: a copy, never the shared table's entry.
+ * The panel's store reconciles rows in place, so a row that was the
+ * table's entry would turn the table into whatever the last query showed
+ * there. The shortcode keys it, so a narrowed query keeps the rows it still
+ * shows instead of rewriting them by position.
+ */
+export interface EmojiRow {
+  key: string
+  name: string
+  char: string
+}
 
 export function threadPanelPicker(input: {
   emojiPicker: EmojiPickerState | null
@@ -33,7 +46,8 @@ export function threadPanelPicker(input: {
   if (emojiPicker) {
     const matches = filterEmoji(emojiPicker.query)
     if (matches.length === 0) return { kind: "emoji-empty", text: `No emoji for :${emojiPicker.query}` }
-    return { kind: "emoji", rows: matches, selected: clampSelection(emojiPicker.selectedIndex, matches.length) }
+    const rows = matches.map(({ name, char }) => ({ key: name, name, char }))
+    return { kind: "emoji", rows, selected: clampSelection(emojiPicker.selectedIndex, matches.length) }
   }
   if (mentionPicker) return { kind: "mention", picker: mentionAtPicker(input, mentionPicker) }
   return null

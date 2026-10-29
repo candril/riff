@@ -3,6 +3,7 @@ import { BoxRenderable } from "@opentui/core"
 import { createTestRenderer, type TestRendererSetup } from "@opentui/core/testing"
 import { createHelpOverlayIsland } from "./help-overlay"
 import { helpOverlayModel } from "../components/help-overlay-model"
+import { helpLayout } from "../components/help-sections"
 import { bgAt, findText } from "../testing/frame"
 
 let setup: TestRendererSetup | null = null
@@ -64,5 +65,29 @@ test("scrolling a row keeps the rows still in view rather than drawing them anew
   expect(scrolled).not.toContain("Navigation")
   expect(scrolled).toContain("↑ more · ↓ more")
   expect(findText(island.host, "Search & Jump")).toBe(searchTitle!)
+  island.dispose()
+})
+
+/**
+ * Rows a narrow screen cuts are copies carrying the shared rows' ids, so the
+ * store matches them to the rows it holds and writes into those.
+ */
+test("narrowing the screen under the overlay leaves the shared help rows uncut", async () => {
+  const wide = () => JSON.stringify(helpLayout(120).columns)
+  const before = wide()
+  setup = await createTestRenderer({ width: 120, height: 130 })
+  const island = createHelpOverlayIsland(setup.renderer)
+  const parent = new BoxRenderable(setup.renderer, { width: "100%", height: "100%" })
+  setup.renderer.root.add(parent)
+  parent.add(island.host)
+
+  island.update(helpOverlayModel(undefined, 0, 130, 120))
+  const shown = await screen()
+  island.update(helpOverlayModel(undefined, 0, 130, 50))
+  await screen()
+  expect(wide()).toBe(before)
+
+  island.update(helpOverlayModel(undefined, 0, 130, 120))
+  expect(await screen()).toBe(shown)
   island.dispose()
 })

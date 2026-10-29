@@ -250,7 +250,12 @@ function commentModel(
     bodyIndent: isRoot ? ROOT_BODY_INDENT : REPLY_BODY_INDENT,
     bodyText: body.text,
     images: body.images,
-    reactions: comment.reactions !== undefined && comment.reactions.length > 0 ? comment.reactions : null,
+    // Copies: the island's store reconciles into the reactions it holds, and
+    // those would otherwise be the state's own, shared with the state before.
+    reactions:
+      comment.reactions !== undefined && comment.reactions.length > 0
+        ? comment.reactions.map((reaction) => ({ ...reaction }))
+        : null,
   }
 }
 

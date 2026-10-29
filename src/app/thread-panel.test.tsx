@@ -204,6 +204,22 @@ describe("comment bodies", () => {
   })
 })
 
+test("a reaction toggled on a comment leaves the reactions of the state before it as they were", async () => {
+  const thumbs = { content: "+1" as const, count: 1, viewerHasReacted: false }
+  const heart = { content: "heart" as const, count: 2, viewerHasReacted: false }
+  const before = [thumbs, heart]
+  const withReactions = (reactions: Comment["reactions"]) =>
+    COMMENTS.map((c) => (c.id === "l1" ? { ...c, reactions } : c))
+  const { setup, island } = await mountPanel(64)
+  island.update(input(64, { comments: withReactions(before) }))
+  await draw(setup)
+
+  island.update(input(64, { comments: withReactions([{ ...thumbs, count: 2, viewerHasReacted: true }, heart]) }))
+  await draw(setup)
+  expect(before).toEqual([thumbs, heart])
+  expect(thumbs).toEqual({ content: "+1", count: 1, viewerHasReacted: false })
+})
+
 const DIFF = `diff --git a/src/greet.ts b/src/greet.ts
 index 1111111..2222222 100644
 --- a/src/greet.ts
