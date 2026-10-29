@@ -24,6 +24,8 @@ export function ThreadPanelView(props: {
   markdown: PanelMarkdownStyle
   /** The threads' clipping viewport, for the half-page motions to read their layout off. */
   viewportRef?: (viewport: BoxRenderable) => void
+  /** The composer's box, for the picker floating above it to read its room off. */
+  composerRef?: (composer: BoxRenderable) => void
 }) {
   return (
     <>
@@ -31,14 +33,16 @@ export function ThreadPanelView(props: {
       <Show
         when={!props.model.empty}
         fallback={
-          <box flexDirection="column" paddingX={2} paddingY={1}>
+          // Grows as the threads' viewport does, so the composer keeps to the
+          // panel's foot and the picker floating above it opens inside the panel.
+          <box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
             <text fg={theme.overlay0}>{props.model.emptyText}</text>
           </box>
         }
       >
         <Threads model={props.model} markdown={props.markdown} viewportRef={props.viewportRef} />
       </Show>
-      <Composer model={props.model} textarea={props.composer} />
+      <Composer model={props.model} textarea={props.composer} ref={props.composerRef} />
       {/*
        * 1-row tall to match the header and the file tree's tight shell.
        * While composing the row is not drawn: the composer's keys would not
@@ -166,9 +170,9 @@ function Threads(props: {
  * textarea (label and placeholder glyphs interleaved) and its bottom edge
  * was clipped off the panel.
  */
-function Composer(props: { model: ThreadPanelModel; textarea: JSX.Element }) {
+function Composer(props: { model: ThreadPanelModel; textarea: JSX.Element; ref?: (composer: BoxRenderable) => void }) {
   return (
-    <box visible={props.model.composer !== null} flexDirection="column" paddingX={1} paddingY={1} flexShrink={0}>
+    <box ref={props.ref} visible={props.model.composer !== null} flexDirection="column" paddingX={1} paddingY={1} flexShrink={0}>
       {/*
        * A picker floats above the composer rather than sitting under it:
        * laid out in the column it would push the box you are typing in up

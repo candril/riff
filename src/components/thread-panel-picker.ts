@@ -3,6 +3,7 @@ import { theme } from "../theme"
 import { filterEmoji, type Emoji } from "../utils/emoji"
 import { clampSelection, filterAtCandidates, type AtPicker } from "./at-picker"
 import { displayAuthor } from "./display-author"
+import { pickerWindow } from "./picker-window"
 
 export function getFilteredMentionCandidates(candidates: readonly string[], query: string): string[] {
   return filterAtCandidates(candidates, query, (c) => c)
@@ -63,4 +64,32 @@ export function emptyPickerMessage(query: string, searchQuery: string | null): s
   if (!query) return "No participants to mention"
   if (searchQuery === query) return `Searching GitHub for @${query}…`
   return `No match for @${query}`
+}
+
+/** The rows a picker spends besides its list: the title and the footer, and the mention list's gap above. */
+const EMOJI_CHROME_ROWS = 2
+const MENTION_CHROME_ROWS = 3
+
+/**
+ * The picker cut to the `room` rows above the composer, its selection kept in
+ * view: it floats over whatever is above, and on a short panel its top rows
+ * would cover the header and take the selection, what Tab inserts, with them.
+ * Null room, before the composer was ever laid out, leaves it whole.
+ */
+export function fitPicker(picker: ThreadPanelPicker, room: number | null): ThreadPanelPicker {
+  if (room === null || picker === null) return picker
+  if (picker.kind === "emoji") {
+    const { rows, selected } = windowed(picker.rows, picker.selected, room - EMOJI_CHROME_ROWS)
+    return { ...picker, rows, selected }
+  }
+  if (picker.kind === "mention" && picker.picker.kind === "rows") {
+    const { rows, selected } = windowed(picker.picker.rows, picker.picker.selected, room - MENTION_CHROME_ROWS)
+    return { ...picker, picker: { ...picker.picker, rows, selected } }
+  }
+  return picker
+}
+
+function windowed<Row>(rows: Row[], selected: number, max: number): { rows: Row[]; selected: number } {
+  const { start, end } = pickerWindow(rows.length, selected, Math.max(1, max))
+  return { rows: rows.slice(start, end), selected: selected - start }
 }

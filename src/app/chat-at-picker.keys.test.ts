@@ -152,3 +152,17 @@ test("the picker covers the chat hint across the input's width", async () => {
     expect(line.slice(left, line.indexOf(row, left)).trim()).toBe("")
   }
 })
+
+test("at 100x24 the picker opens inside the chat column with its selection in view, under the column's header", async () => {
+  const { app } = await chatWithPicker({ width: 100, height: 24 })
+  await app.setup.mockInput.typeText("@")
+  const lines = (await app.frame()).split("\n")
+  const left = app.chatColumn.host.x
+  const top = app.chatColumn.host.y
+  const inColumn = (text: string) => lines.findIndex((l) => l.slice(left).includes(text))
+  const title = inColumn("@attach")
+  const selected = inColumn("▸ @line")
+  expect(title).toBeGreaterThan(top)
+  expect(selected).toBeGreaterThan(title)
+  expect(selected).toBeLessThan(app.chatColumn.host.y + app.chatColumn.host.height)
+})

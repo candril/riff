@@ -38,6 +38,10 @@ spec 010; that panel is retired.
 - **The composer's keys are in `g?`**, under "Comment composer". While
   composing, the panel's hint row is not drawn and its row goes to the
   threads; in view mode the hint row stays.
+- **The composer sits at the panel's foot**, even with no threads, so its
+  mention or emoji picker opens above it inside the panel. Where the panel
+  is too short for the whole list, the picker shows the rows around its
+  selection, so what Tab inserts is always in view.
 - **Borderless on `mantle`** against the diff's `base`, with the composer
   and the selected picker row on `surface0`
   ([106](./106-borderless-ui.md)). Focus shows in the header title's

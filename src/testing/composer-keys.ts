@@ -29,8 +29,8 @@ type Mounted = Awaited<ReturnType<typeof mountApp>>
  * saved nowhere, its post to GitHub and its $EDITOR stubbed. Undo the
  * spies with `mock.restore()` and dispose `app` after each test.
  */
-export async function composing(patch: Partial<AppState> = {}) {
-  const app = await mountApp(COMPOSER_DIFF, { width: 120, height: 24 })
+export async function composing(patch: Partial<AppState> = {}, size = { width: 120, height: 24 }) {
+  const app = await mountApp(COMPOSER_DIFF, size)
   app.show(patch)
   // Saving writes the comment under .riff/; a test has no business there.
   spyOn(storage, "saveComment").mockResolvedValue()

@@ -4,7 +4,7 @@ import type { EmojiPickerState, MentionPickerState } from "../features/inline-co
 import { colors, theme } from "../theme"
 import { flashLabelCell } from "../vim-diff/flash-state"
 import { extractCommentImages, type CommentImage } from "../utils/comment-images"
-import { threadPanelPicker, type ThreadPanelPicker } from "./thread-panel-picker"
+import { fitPicker, threadPanelPicker, type ThreadPanelPicker } from "./thread-panel-picker"
 import { threadPanelHints, type Hint } from "./thread-panel-hints"
 import { windowThreads, type WindowThread } from "./thread-panel-window"
 import { displayAuthor } from "./display-author"
@@ -141,7 +141,11 @@ export interface ThreadPanelModel {
   hints: Hint[] | null
 }
 
-export function threadPanelModel(input: ThreadPanelInput & { now: number }): ThreadPanelModel {
+/** `pickerRoom`: the rows above the composer as last laid out, or null before it was. */
+export function threadPanelModel(
+  input: ThreadPanelInput & { now: number },
+  pickerRoom: number | null = null
+): ThreadPanelModel {
   const { comments, mode } = input
   const { displayOrder, window } = windowThreads(
     comments,
@@ -181,7 +185,7 @@ export function threadPanelModel(input: ThreadPanelInput & { now: number }): Thr
     composer: isComposing
       ? { mode: mode === "edit" ? "edit" : "compose", label: composerLabel(input, highlighted) }
       : null,
-    picker: isComposing ? threadPanelPicker(input) : null,
+    picker: isComposing ? fitPicker(threadPanelPicker(input), pickerRoom) : null,
     hints: isComposing ? null : threadPanelHints(input, highlighted),
   }
 }

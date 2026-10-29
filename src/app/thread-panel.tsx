@@ -57,6 +57,7 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
   const composer = createIslandComposer()
   const markdown = threadPanelMarkdown(renderer)
   let viewport: BoxRenderable | undefined
+  let composerBox: BoxRenderable | undefined
 
   const island = mountSolid(
     renderer,
@@ -70,6 +71,7 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
           composer={composerField}
           markdown={markdown}
           viewportRef={(ref) => (viewport = ref)}
+          composerRef={(ref) => (composerBox = ref)}
         />
       )
     },
@@ -87,6 +89,19 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
     }
   )
 
+  /**
+   * The rows between the panel's one-row header and the composer, as last
+   * laid out. The composer does not move while its picker opens, since the
+   * picker floats, so the last layout is the one it opens over. A composer
+   * shown since that layout still sits where a hidden box does, at the top,
+   * and has no room to report.
+   */
+  const pickerRoom = (): number | null => {
+    if (!composerBox || composerBox.isDestroyed || !composerBox.visible) return null
+    const room = composerBox.y - island.host.y - 1
+    return room > 0 ? room : null
+  }
+
   return {
     host: island.host,
     update(input: (ThreadPanelInput & { now: number }) | null) {
@@ -95,7 +110,7 @@ export function createThreadPanelIsland(renderer: CliRenderer) {
         // OpenTUI turns shrinking off on any box handed a fixed width after
         // it is built, and the panel must still give way to the tree.
         island.host.flexShrink = 1
-        const model = withBodiesAsDrawn(threadPanelModel(input))
+        const model = withBodiesAsDrawn(threadPanelModel(input, pickerRoom()))
         batch(() => setState("model", reconcile(model, { key: "key" })))
       }
       island.host.visible = input !== null
