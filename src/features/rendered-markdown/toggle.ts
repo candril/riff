@@ -112,6 +112,8 @@ function cursorSourceLine(mapping: DiffLineMapping, cursor: number, filename: st
 /**
  * The row drawn from the anchor's line, or from the next line that has one:
  * a fence has no rendered row, and a line in a collapsed run has no diff row.
+ * A row standing for a whole block, a drawn diagram, is the row of every
+ * line in it.
  */
 function rowForSourceLine(mapping: DiffLineMapping, filename: string, anchor: number | null): number {
   let first: number | null = null
@@ -119,7 +121,9 @@ function rowForSourceLine(mapping: DiffLineMapping, filename: string, anchor: nu
     const line = mapping.getLine(index)!
     if (line.filename !== filename) continue
     first ??= index
-    if (anchor !== null && line.newLineNum !== undefined && line.newLineNum >= anchor) return index
+    if (anchor !== null && line.newLineNum !== undefined && (line.renderedLastLine ?? line.newLineNum) >= anchor) {
+      return index
+    }
   }
   return first ?? 0
 }

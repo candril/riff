@@ -1,6 +1,7 @@
 import { test, expect, describe } from "bun:test"
 import { buildRows, halvesOf, lineOf, rowIndexByLine, type Row, type View } from "./rows"
-import { fenceId, mappingOf, middleDivider } from "./fixtures"
+import { DiffLineMapping } from "../vim-diff/line-mapping"
+import { diffFile, fenceId, mappingOf, middleDivider } from "./fixtures"
 
 const views: View[] = ["unified", "split"]
 
@@ -35,6 +36,28 @@ describe("buildRows", () => {
       expect(lines.some((line) => line.expanded)).toBe(true)
       const keys = buildRows(lines, view).map((row) => row.key)
       expect(new Set(keys).size).toBe(keys.length)
+    })
+  }
+
+  for (const view of views) {
+    test(`rendered rows that share a source line keep apart in ${view} view`, () => {
+      const file = diffFile("doc.md", ["@@ -1 +1,2 @@", " a", "+b"])
+      const lines = new DiffLineMapping([file], "single", 0, {
+        fileContents: new Map([["doc.md", "a\nb"]]),
+        renderedFiles: new Map([
+          [
+            "doc.md",
+            [
+              { text: "┌─┐", sourceLine: 1, spans: [], part: 0, lastLine: 2 },
+              { text: "└─┘", sourceLine: 1, spans: [], part: 1, lastLine: 2 },
+            ],
+          ],
+        ]),
+      }).allLines
+      expect(lines.map((line) => line.newLineNum)).toEqual([1, 1])
+      const keys = buildRows(lines, view).map((row) => row.key)
+      expect(keys).toHaveLength(2)
+      expect(new Set(keys).size).toBe(2)
     })
   }
 

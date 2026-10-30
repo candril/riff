@@ -118,6 +118,23 @@ describe("a rendered markdown file in the mapping", () => {
     expect(map.findLineForComment({ filename: "README.md", line: 3, side: "RIGHT" })).toBe(1)
   })
 
+  test("a drawn diagram's rows carry their part and last line, and its fence's comment finds the first", () => {
+    const rows: RenderedLine[] = [
+      { text: "a", sourceLine: 1, spans: [] },
+      { text: "┌─┐", sourceLine: 3, spans: [], part: 0, lastLine: 6 },
+      { text: "└─┘", sourceLine: 3, spans: [], part: 1, lastLine: 6 },
+      { text: "b", sourceLine: 7, spans: [] },
+    ]
+    const lines = mapping("single", rows).allLines
+    expect(lines.map((line) => [line.renderedPart, line.renderedLastLine])).toEqual([
+      [undefined, undefined],
+      [0, 6],
+      [1, 6],
+      [undefined, undefined],
+    ])
+    expect(mapping("single", rows).findLineForComment({ filename: "README.md", line: 3, side: "RIGHT" })).toBe(1)
+  })
+
   test("rendered rows carry their spans", () => {
     const shipping = mapping("single").allLines.find((row) => row.content === "Shipping")!
     expect(shipping.renderedSpans).toEqual([[0, 8, "markup.heading.2"]])

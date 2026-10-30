@@ -9,6 +9,9 @@ export type Row =
   | { kind: "line"; key: string; index: number }
   | { kind: "pair"; key: string; left?: number; right?: number }
 
+// A drawn diagram's rows all sit on its fence line, so the line alone cannot tell them apart.
+const partOf = (line: DiffLine): string => (line.renderedPart === undefined ? "" : `.${line.renderedPart}`)
+
 const prefixOf = (line: DiffLine | undefined): string =>
   line?.type === "deletion" ? "-" : line?.type === "addition" ? "+" : " "
 
@@ -31,7 +34,7 @@ export function lineKey(lines: readonly DiffLine[], index: number): string {
     case "hunk-header":
       return `${f}\0hunk\0${line.hunkKey ?? ""}`
     case "context":
-      return `${f}\0c${line.oldLineNum ?? ""}:${line.newLineNum ?? ""}`
+      return `${f}\0c${line.oldLineNum ?? ""}:${line.newLineNum ?? ""}${partOf(line)}`
     case "addition":
       return `${f}\0+${line.newLineNum}`
     case "deletion":
@@ -48,7 +51,7 @@ function pairKey(lines: readonly DiffLine[], left?: number, right?: number): str
   const f = (leftLine ?? rightLine)?.filename ?? ""
   // A marker has no number of its own; "nl" keeps it apart from an empty half.
   const leftId = leftLine ? (leftLine.oldLineNum ?? "nl") : ""
-  const rightId = rightLine ? (rightLine.newLineNum ?? "nl") : ""
+  const rightId = rightLine ? `${rightLine.newLineNum ?? "nl"}${partOf(rightLine)}` : ""
   return `${f}\0p${leftId}:${rightId}`
 }
 

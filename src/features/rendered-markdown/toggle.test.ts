@@ -203,6 +203,29 @@ describe("toggleRendered", () => {
     expect(app.cursorRow()).toMatchObject({ content: "Shipping", newLineNum: 5 })
   })
 
+  test("from inside a mermaid block, gR lands on the diagram's first row", async () => {
+    const source = ["# doc", "", "```mermaid", "graph TD", "A-->B", "```", "after"].join("\n")
+    const doc: DiffFile = {
+      filename: "README.md",
+      additions: 7,
+      deletions: 0,
+      status: "added",
+      content: [
+        "diff --git a/README.md b/README.md",
+        "--- /dev/null",
+        "+++ b/README.md",
+        "@@ -0,0 +1,7 @@",
+        ...source.split("\n").map((line) => `+${line}`),
+      ].join("\n"),
+    }
+    const app = harness({ files: [doc], loaded: false })
+    app.fileContent.set("README.md", source, null)
+    app.jumpTo(app.lineOf("A-->B"))
+    expect(app.cursorRow()).toMatchObject({ newLineNum: 5 })
+    await app.gR()
+    expect(app.cursorRow()).toMatchObject({ newLineNum: 3, renderedPart: 0, rendered: true })
+  })
+
   test("a diff that changed while the read was pending takes no toggle", async () => {
     const app = harness({ loaded: false })
     app.jumpTo(app.lineOf("## Shipping"))

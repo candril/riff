@@ -2,9 +2,8 @@
 
 **Status**: In Progress
 
-**Not built**: inline mermaid, followable links,
-remembering the toggle for the review, `Tab` for the old version, wrap
-rules, P2, P3
+**Not built**: followable links, remembering the toggle for the review,
+`Tab` for the old version, wrap rules, P2, P3
 
 ## Description
 
@@ -57,8 +56,10 @@ the chat already use.
   comment made on a rendered row anchors to its source line. A row that
   exists only in rendering (a drawn diagram's row, a table rule) anchors to
   the first line of its block. A fenced block's fence lines are not drawn;
-  its content lines are. A rendered row outside the diff's hunks takes a
-  note as an expanded line does ([085](./085-comments-on-files.md)).
+  its content lines are. A drawn diagram's rows all sit on the block's
+  opening fence line, so a comment on the block's other lines has no row
+  while the file is rendered. A rendered row outside the diff's hunks takes
+  a note as an expanded line does ([085](./085-comments-on-files.md)).
 - **`Tab` shows the old version** rendered the same way, as `gl` does, for a
   file that existed before.
 - **Wrap** follows the view's width: prose wraps at word boundaries, while

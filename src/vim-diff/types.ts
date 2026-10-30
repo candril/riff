@@ -86,6 +86,11 @@ export interface DiffLine {
   /** The fenced block this row is code from, parsed as its own language
    *  because the file's markdown parse sees it only as raw text. */
   renderedCode?: RenderedCode
+  /** Which of the rows drawn from one source line this is, when a line
+   *  draws several: a diagram does, and its rows still need keys of their own. */
+  renderedPart?: number
+  /** The last source line the row stands for, when it stands for a block. */
+  renderedLastLine?: number
 }
 
 /** A row of a fenced code block, and the block it is parsed with (spec 111). */
@@ -104,6 +109,8 @@ export interface RenderedLine {
   sourceLine: number
   spans: readonly CaptureSpan[]
   code?: RenderedCode
+  part?: number
+  lastLine?: number
 }
 
 /**

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { renderMermaid } from "../../utils/mermaid"
 import { isMarkdownFile, renderMarkdown, type RenderedRow } from "./render"
 
 const texts = (rows: readonly RenderedRow[]) => rows.map((row) => row.text)
@@ -108,6 +109,48 @@ describe("renderMarkdown", () => {
     expect(code.text).toBe("  const a = 1")
     expect(spanned(code)).toEqual([["const a = 1", "markup.raw.block"]])
     expect(code.code).toBeUndefined()
+  })
+
+  test("a mermaid block draws its diagram, every row on the opening fence", () => {
+    const rows = renderMarkdown("intro\n\n```mermaid\ngraph TD\nA-->B\n```\nafter")
+    const drawing = renderMermaid("graph TD\nA-->B").lines
+    expect(drawing.length).toBeGreaterThan(0)
+    expect(texts(rows)).toEqual(["intro", "", ...drawing, "after"])
+    const diagram = rows.slice(2, -1)
+    expect(diagram.every((row) => row.sourceLine === 3 && row.lastLine === 6)).toBe(true)
+    expect(diagram.map((row) => row.part)).toEqual(drawing.map((_, index) => index))
+    expect(diagram.every((row) => row.code === undefined && row.spans.length === 0)).toBe(true)
+    expect(rows.at(-1)).toEqual({ text: "after", sourceLine: 7, spans: [] })
+  })
+
+  test("a mermaid fence is told by its first word in any case", () => {
+    const rows = renderMarkdown("```Mermaid title\ngraph TD\nA-->B\n```")
+    expect(texts(rows)).toEqual(renderMermaid("graph TD\nA-->B").lines)
+  })
+
+  test("an unclosed mermaid block's rows stand for every line to the end", () => {
+    const rows = renderMarkdown("```mermaid\ngraph TD\nA-->B")
+    expect(rows.every((row) => row.sourceLine === 1 && row.lastLine === 3)).toBe(true)
+  })
+
+  test("a mermaid block riff cannot draw, or an empty one, stays its source block", () => {
+    expect(renderMarkdown('```mermaid\npie\n"a": 1\n```')).toEqual(renderMarkdown('```\npie\n"a": 1\n```'))
+    expect(renderMarkdown("```mermaid\n```")).toEqual(renderMarkdown("```\n```"))
+    expect(texts(renderMarkdown("```mermaid\ngraph TD\n```"))).toEqual(["graph TD"])
+  })
+
+  test("a blank line inside a drawn mermaid block adds no row", () => {
+    const rows = renderMarkdown("```mermaid\ngraph TD\n\nA-->B\n```")
+    expect(texts(rows)).toEqual(renderMermaid("graph TD\n\nA-->B").lines)
+    expect(rows.every((row) => row.sourceLine === 1)).toBe(true)
+  })
+
+  test("a mermaid block inside a list item is drawn in the item's columns", () => {
+    const rows = renderMarkdown("- item\n\n  ```mermaid\n  graph TD\n  A-->B\n  ```")
+    const drawing = renderMermaid("graph TD\nA-->B").lines
+    const diagram = rows.filter((row) => row.sourceLine === 3)
+    expect(diagram.map((row) => row.text)).toEqual(drawing.map((line) => `  ${line}`))
+    expect(diagram.map((row) => row.part)).toEqual(drawing.map((_, index) => index))
   })
 
   test("an indented block loses its four-space indent", () => {

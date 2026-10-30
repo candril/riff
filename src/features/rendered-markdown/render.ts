@@ -12,6 +12,7 @@ import type { CaptureSpan } from "../../diff-rows/segments"
 import { MARKDOWN_FILE, alignMarkdownTables } from "../../utils/markdown-tables"
 import { getFiletypeFromFence } from "../../vim-diff/filetype"
 import type { RenderedCode } from "../../vim-diff/types"
+import { isMermaidFence, renderMermaidBlock } from "./render-mermaid"
 
 export interface RenderedRow {
   text: string
@@ -22,6 +23,11 @@ export interface RenderedRow {
   /** Set on a row of a fenced block in a language riff can parse; `spans`
    *  stays the flat colour until that parse lands. */
   code?: RenderedCode
+  /** 0-based index among the rows drawn from `sourceLine`, set when one
+   *  line draws several, as a mermaid diagram's fence does. */
+  part?: number
+  /** The last source line the row stands for, when it stands for a block. */
+  lastLine?: number
 }
 
 // Wrap rules are not built yet, so a rule cannot follow the view's width.
@@ -54,7 +60,11 @@ function renderBlocks(source: string, firstLine: number): RenderedRow[] {
  * comment can land on, and dropping it would squash the document's rhythm.
  */
 function withBlankLines(rows: RenderedRow[], source: string, firstLine: number): RenderedRow[] {
-  const covered = new Set(rows.map((row) => row.sourceLine))
+  const covered = new Set(
+    rows.flatMap((row) =>
+      Array.from({ length: (row.lastLine ?? row.sourceLine) - row.sourceLine + 1 }, (_, index) => row.sourceLine + index),
+    ),
+  )
   const sourceLines = source === "" ? [] : source.split("\n")
   // The newline that ends the last line does not start another.
   if (source.endsWith("\n")) sourceLines.pop()
@@ -127,6 +137,11 @@ function renderCode(token: Tokens.Code, line: number): RenderedRow[] {
 
   if (token.codeBlockStyle === "indented") {
     return source.map((text, index) => block(text.replace(/^( {1,4}|\t)/, ""), line + index))
+  }
+
+  if (isMermaidFence(token.lang ?? "")) {
+    const drawn = renderMermaidBlock(token.text, line, line + source.length - 1)
+    if (drawn) return drawn
   }
 
   const closed = source.length > 1 && /^\s*(```|~~~)/.test(source.at(-1)!)
@@ -231,6 +246,8 @@ function prefixRows(rows: readonly RenderedRow[], first: string, rest: string, c
       text: prefix + row.text,
       sourceLine: row.sourceLine,
       spans: capture ? [[0, prefix.length, capture] as const, ...shifted] : shifted,
+      ...(row.part !== undefined ? { part: row.part } : {}),
+      ...(row.lastLine !== undefined ? { lastLine: row.lastLine } : {}),
     }
   })
 }

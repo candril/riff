@@ -555,6 +555,8 @@ export class DiffLineMapping implements LineSource {
         rendered: true,
         renderedSpans: row.spans,
         ...(row.code ? { renderedCode: row.code } : {}),
+        ...(row.part !== undefined ? { renderedPart: row.part } : {}),
+        ...(row.lastLine !== undefined ? { renderedLastLine: row.lastLine } : {}),
         fileIndex,
         filename,
       }
