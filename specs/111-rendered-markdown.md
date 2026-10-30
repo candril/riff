@@ -40,7 +40,8 @@ the chat already use.
 - **`gR` toggles a markdown file** (`.md`, `.markdown`, `.mdx`) between its
   diff and its rendered new version, in single-file and all-files mode,
   per file. The file header says "rendered". The toggle is remembered for
-  the review.
+  the review. In the side-by-side view the rendered file fills the new
+  half; the old half stays empty.
 - **What renders:**
   - headings (by level, in the theme's heading colours)
   - bold, italic, inline code, strikethrough

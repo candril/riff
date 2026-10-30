@@ -44,7 +44,37 @@ describe("loadFileContent", () => {
     expect(fileContent.entry("a.ts")?.error).toBe("socket hang up")
   })
 
+  test("a second load while the first is in flight joins it, and asks for the file once", async () => {
+    const fetch = deferred<Awaited<ReturnType<FetchFileVersions>>>()
+    let asked = 0
+    const { fileContent, load } = loading(() => {
+      asked++
+      return fetch.promise
+    })
+    const first = load()
+    const second = load()
+    expect(second).toBe(first)
+
+    fetch.resolve({ ok: true, newContent: "new", oldContent: "old" })
+    await second
+    expect(asked).toBe(1)
+    expect(fileContent.entry("a.ts")?.newContent).toBe("new")
+    expect(fileContent.reading("a.ts")).toBeUndefined()
+  })
+
   for (const drop of ["forgetSpan", "clear"] as const) {
+    test(`a load after ${drop} reads the file again rather than joining the dropped read`, async () => {
+      let asked = 0
+      const { fileContent, load } = loading(() => {
+        asked++
+        return new Promise(() => {})
+      })
+      void load()
+      fileContent[drop]()
+      void load()
+      expect(asked).toBe(2)
+    })
+
     test(`a read that lands after ${drop} writes nothing and draws nothing`, async () => {
       const fetch = deferred<Awaited<ReturnType<FetchFileVersions>>>()
       const { fileContent, drawn, load } = loading(() => fetch.promise)

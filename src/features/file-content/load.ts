@@ -6,12 +6,21 @@ export type FetchFileVersions = (
 ) => Promise<{ ok: true; newContent: string; oldContent: string | null } | { ok: false; error: string }>
 
 export interface LoadFileContentContext {
-  fileContent: Pick<FileContentState, "markLoading" | "set" | "setError" | "generation">
+  fileContent: Pick<FileContentState, "markLoading" | "set" | "setError" | "generation" | "reading" | "track">
   fetchFileVersions: FetchFileVersions
   render: () => void
 }
 
-export async function loadFileContent(ctx: LoadFileContentContext, filename: string): Promise<void> {
+/** A read of the file already under way is joined, not asked for twice. */
+export function loadFileContent(ctx: LoadFileContentContext, filename: string): Promise<void> {
+  const underWay = ctx.fileContent.reading(filename)
+  if (underWay) return underWay
+  const read = readFileContent(ctx, filename)
+  ctx.fileContent.track(filename, read)
+  return read
+}
+
+async function readFileContent(ctx: LoadFileContentContext, filename: string): Promise<void> {
   const generation = ctx.fileContent.generation()
   ctx.fileContent.markLoading(filename)
   ctx.render()

@@ -27,7 +27,7 @@ export function pairLines(lines: readonly DiffLine[]): Array<LinePair | { full: 
   while (i < lines.length) {
     const type = lines[i]!.type
     if (type === "context") {
-      rows.push({ left: i, right: i })
+      rows.push(lines[i]!.rendered ? { right: i } : { left: i, right: i })
       i++
     } else if (type === "deletion" || type === "addition") {
       const removed = runOf("deletion", i)

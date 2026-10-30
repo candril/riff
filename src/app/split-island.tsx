@@ -217,9 +217,12 @@ export function createSplitIsland(renderer: CliRenderer, scrollOff: number) {
      */
     lineWindow(line: number): LineWindow {
       const props = inputs.value
-      const type = props?.mapping.getLine(line)?.type
+      const shown = props?.mapping.getLine(line)
       if (!props) return { startCol: 0, endCol: 0 }
-      return windowOn(line, type === "deletion" ? "left" : type === "addition" ? "right" : props.side)
+      const type = shown?.type
+      // A rendered row is drawn in the new half alone, like an addition.
+      const right = type === "addition" || shown?.rendered === true
+      return windowOn(line, type === "deletion" ? "left" : right ? "right" : props.side)
     },
     /**
      * Every window a mapping line is drawn in, each tagged with its pane:

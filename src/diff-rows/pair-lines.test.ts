@@ -2,6 +2,8 @@ import { test, expect, describe } from "bun:test"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { pairLines } from "./pair-lines"
 import { diffFile, mappingOf } from "./fixtures"
+import { renderMarkdown } from "../features/rendered-markdown/render"
+import { buildRows, lineOf } from "./rows"
 
 // File mode draws no "rest of the file" divider, so the lines are the body alone.
 function linesOf(body: string[]) {
@@ -12,6 +14,29 @@ function linesOf(body: string[]) {
 describe("pairLines", () => {
   test("a context line faces itself", () => {
     expect(pairLines(linesOf([" same"]))).toEqual([{ left: 0, right: 0 }])
+  })
+
+  test("a rendered line is the new version alone, so it stands on the right while plain context faces itself", () => {
+    const source = "# Title\n\n- fast"
+    const readme = diffFile("README.md", ["@@ -1,1 +1,3 @@", " # Title", "+", "+- fast"])
+    const plain = diffFile("a.ts", ["@@ -1,1 +1,1 @@", " same"])
+    const lines = new DiffLineMapping([readme, plain], "all", undefined, {
+      outsideDiff: true,
+      fileContents: new Map([["README.md", source]]),
+      renderedFiles: new Map([["README.md", renderMarkdown(source)]]),
+    }).allLines
+    const pairs = pairLines(lines)
+    const rendered = lines.flatMap((line, index) => (line.rendered && line.type === "context" ? [index] : []))
+    const same = lines.findIndex((line) => line.content === "same")
+    expect(rendered).toHaveLength(3)
+    for (const index of rendered) expect(pairs).toContainEqual({ right: index })
+    expect(pairs).toContainEqual({ left: same, right: same })
+
+    // An empty left half reads as the right one, and every row keeps its own key.
+    const rows = buildRows(lines, "split")
+    const renderedRows = rows.filter((row) => row.kind === "pair" && rendered.includes(row.right!))
+    expect(renderedRows.map((row) => lineOf(row, "left"))).toEqual(rendered)
+    expect(new Set(rows.map((row) => row.key)).size).toBe(rows.length)
   })
 
   test("two removals against three additions leave the last addition facing nothing", () => {

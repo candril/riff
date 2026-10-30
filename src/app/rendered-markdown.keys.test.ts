@@ -8,6 +8,8 @@ import { reloadRenderedFiles } from "../features/rendered-markdown/reload"
 import { createInitialState } from "../state"
 import { keysOn } from "../testing/chat-keys"
 import { SearchHandler } from "../vim-diff/search-handler"
+import { VimMotionHandler } from "../vim-diff/motion-handler"
+import { toLineState, toRowState } from "./split-cursor"
 
 const README = ["# shop", "", "Intro", "", "## Shipping", "", "- fast", "- cheap"].join("\n")
 
@@ -46,8 +48,12 @@ afterEach(async () => {
 })
 
 /** riff's keys on a README and a .ts file, the README's new version loaded unless `loaded` is false. */
-async function renderedApp({ loaded = true, more = {} }: { loaded?: boolean; more?: Partial<AppKeyContext> } = {}) {
-  app = await mountApp(DIFF, { width: 120, height: 24 })
+async function renderedApp({
+  loaded = true,
+  more = {},
+  width = 120,
+}: { loaded?: boolean; more?: Partial<AppKeyContext>; width?: number } = {}) {
+  app = await mountApp(DIFF, { width, height: 24 })
   const mounted = app
   if (loaded) mounted.fileContent.set("README.md", README, "# shop\n\nIntro")
   mounted.show({ focusedPanel: "diff" })
@@ -252,4 +258,64 @@ test("after gr the README is still drawn rendered, and one gR brings its diff ba
   const back = await mounted.frame()
   expect(back).toContain("## Shipping")
   expect(back).not.toContain("rendered")
+})
+
+test("gR on a README still to be read draws it rendered once the read lands a tick later, the cursor on its line", async () => {
+  let release = () => {}
+  const tick = new Promise<void>((resolve) => (release = resolve))
+  const { mounted, gR, keys, lineOf, cursorRow } = await renderedApp({
+    loaded: false,
+    more: {
+      loadFileContent: async (filename) => {
+        mounted.fileContent.markLoading(filename)
+        mounted.render()
+        await tick
+        mounted.fileContent.set(filename, README, "# shop\n\nIntro")
+        mounted.render()
+      },
+    },
+  })
+  keys.jumpTo(lineOf("Intro"))
+  await gR()
+  expect(mounted.renderedMarkdown.files().size).toBe(0)
+
+  release()
+  await Bun.sleep(0)
+  const frame = await mounted.frame()
+  expect(frame).not.toContain("## Shipping")
+  expect(frame).toContain("Shipping")
+  expect(frame).toContain("• fast")
+  expect(cursorRow()).toMatchObject({ content: "Intro", newLineNum: 3, rendered: true })
+})
+
+test("in the side-by-side view the rendered rows sit in the new half, and j and k walk them from the old pane", async () => {
+  let opened!: Awaited<ReturnType<typeof renderedApp>>
+  const ctx = () => opened.mounted.ctx
+  // The motions walk split rows while split is shown, as app.ts wires them.
+  const vimHandler = new VimMotionHandler({
+    getMapping: () => (ctx().split.shown() ? ctx().split.source() : ctx().getLineMapping()),
+    getState: () => (ctx().split.shown() ? toRowState(opened.vim(), ctx().split.source()) : opened.vim()),
+    setState: (next) =>
+      opened.keys.setVim(ctx().split.shown() ? toLineState(next, ctx().split.source(), opened.vim()) : next),
+    getViewportHeight: () => 20,
+    onCursorMove: () => opened.mounted.render(),
+  })
+  opened = await renderedApp({ width: 200, more: { vimHandler } })
+  const { mounted, gR, keys, type, lineOf, cursorRow } = opened
+  keys.jumpTo(lineOf("## Shipping"))
+  await gR()
+  type("\\")
+  expect(mounted.diffOptions.splitView()).toBe(true)
+  const rows = (await mounted.frame()).split("\n")
+  const shipping = rows.filter((row) => row.includes("Shipping"))
+  expect(shipping).toHaveLength(1)
+  // The tree takes the first 36 columns; the old half ends at the middle of the rest.
+  expect(shipping[0]!.indexOf("Shipping")).toBeGreaterThanOrEqual(36 + (200 - 36) / 2)
+
+  type("h", "h")
+  expect(mounted.ctx.split.source().side).toBe("left")
+  type("j", "j")
+  expect(cursorRow()).toMatchObject({ content: "• fast", rendered: true })
+  type("k")
+  expect(cursorRow()).toMatchObject({ newLineNum: 6, rendered: true })
 })

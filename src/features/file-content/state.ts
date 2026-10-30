@@ -7,7 +7,7 @@
  * runs but reads the files again, a commit switch drops both, and creating
  * a PR or opening the branch's PR drops all of it. A read still in flight
  * when any of them happens lands into nothing: it belongs to the span it
- * was asked for.
+ * was asked for, and a reader after it starts a read of its own.
  */
 
 import { createSignal } from "solid-js"
@@ -34,6 +34,9 @@ export function createFileContentState() {
   // Not a signal: nothing draws it. A read compares it across its await to
   // tell whether what it fetched still belongs to the diff on screen.
   let generation = 0
+  // A second reader of a file joins the read already under way rather than
+  // asking for the file again: every read of a PR's file is an API call.
+  const reads = new Map<string, Promise<void>>()
 
   const put = (filename: string, entry: FileContentEntry) =>
     setContents((cache) => ({ ...cache, [filename]: entry }))
@@ -77,6 +80,17 @@ export function createFileContentState() {
       return generation
     },
 
+    reading(filename: string): Promise<void> | undefined {
+      return reads.get(filename)
+    },
+    track(filename: string, read: Promise<void>) {
+      reads.set(filename, read)
+      const settle = () => {
+        if (reads.get(filename) === read) reads.delete(filename)
+      }
+      read.then(settle, settle)
+    },
+
     /**
      * What riff read of a file belongs to the span it read it for: once a
      * commit comes into or leaves scope the rows on screen are a different
@@ -85,12 +99,14 @@ export function createFileContentState() {
      */
     forgetSpan() {
       generation++
+      reads.clear()
       setContents({})
       setExpanded(new Set<string>())
       setExpanding(null)
     },
     clear() {
       generation++
+      reads.clear()
       setContents({})
       setExpanded(new Set<string>())
       setExpanding(null)

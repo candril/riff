@@ -190,7 +190,7 @@ export interface AppKeyContext {
   /** The markdown files drawn rendered, the same instance the line mapping reads (spec 111). */
   renderedMarkdown: RenderedMarkdownState
   /** Both versions of each loaded file, the same instance the line mapping reads. */
-  fileContent: Pick<FileContentState, "entry">
+  fileContent: Pick<FileContentState, "entry" | "generation">
   /** Fetch a file's versions into fileContent; settles once they are there. */
   loadFileContent: (filename: string) => Promise<void>
   /** The activity feed's state, the same instance the frame pass reads. */

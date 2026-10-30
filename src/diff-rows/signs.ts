@@ -23,7 +23,8 @@ function commentSignColor(comment: SignedComment): string {
 /**
  * The sign each commented line carries, keyed by the mapping's line. A
  * context line is in both halves, so the comment's own side picks one; a
- * line drawn in one half only can carry its sign nowhere else.
+ * line drawn in one half only, a rendered row among them, can carry its
+ * sign nowhere else.
  */
 export function commentSigns(mapping: DiffLineMapping, comments: readonly Comment[]): Map<number, CommentSign> {
   const signs = new Map<number, CommentSign>()
@@ -31,8 +32,9 @@ export function commentSigns(mapping: DiffLineMapping, comments: readonly Commen
     const line = mapping.findLineForComment(comment)
     if (line === null) continue
     const own = sideOf(mapping.allLines, line)
+    const shown = mapping.getLine(line)
     const side: Side =
-      mapping.getLine(line)?.type === "context" || own === undefined
+      (shown?.type === "context" && !shown.rendered) || own === undefined
         ? comment.side === "LEFT" ? "left" : "right"
         : own === "old" ? "left" : "right"
     signs.set(line, { color: commentSignColor(comment), side })
