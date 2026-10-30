@@ -83,6 +83,33 @@ describe("renderMarkdown", () => {
     expect(spanned(rows[0]!)).toEqual([["const a = 1", "markup.raw.block"]])
   })
 
+  test("a fenced block in a known language carries its block for a parse of its own", () => {
+    const rows = renderMarkdown("```ts\nconst a = 1\n\nconst b = 2\n```")
+    const block = "const a = 1\n\nconst b = 2\n"
+    expect(rows.map((row) => row.code)).toEqual([
+      { filetype: "typescript", block, at: 0 },
+      { filetype: "typescript", block, at: 1 },
+      { filetype: "typescript", block, at: 2 },
+    ])
+    expect(spanned(rows[0]!)).toEqual([["const a = 1", "markup.raw.block"]])
+  })
+
+  test("a block with no language, an indented block and a mermaid block carry no parse", () => {
+    for (const source of ["```\nconst a = 1\n```", "para\n\n    const a = 1", "```mermaid\ngraph TD\n```"]) {
+      const rows = renderMarkdown(source)
+      expect(rows.length).toBeGreaterThan(0)
+      expect(rows.every((row) => row.code === undefined)).toBe(true)
+    }
+  })
+
+  test("a fenced block inside a list item keeps its flat colour in the item's columns", () => {
+    const rows = renderMarkdown("- item\n\n  ```ts\n  const a = 1\n  ```")
+    const code = rows.find((row) => row.text.includes("const"))!
+    expect(code.text).toBe("  const a = 1")
+    expect(spanned(code)).toEqual([["const a = 1", "markup.raw.block"]])
+    expect(code.code).toBeUndefined()
+  })
+
   test("an indented block loses its four-space indent", () => {
     const rows = renderMarkdown("para\n\n    code here\n      nested")
     expect(texts(rows)).toEqual(["para", "", "code here", "  nested"])

@@ -3,7 +3,7 @@ import { lineStarts } from "../vim-diff/file-highlights"
 import { parseHighlights, type FileParses, type Parse } from "../vim-diff/file-parses"
 import { getFiletypeFromPath } from "../vim-diff/filetype"
 import { dropSplitKeywords } from "../vim-diff/split-keywords"
-import type { DiffLine } from "../vim-diff/types"
+import type { DiffLine, RenderedCode } from "../vim-diff/types"
 import type { CaptureSpan } from "./segments"
 
 export type TextSide = "old" | "new"
@@ -75,6 +75,7 @@ export class LineSpans {
     const side = sideOf(lines, index)
     if (!line || !side) return undefined
     if (line.type === "no-newline") return NO_SPANS
+    if (line.renderedCode) return this.codeSpans(line.renderedCode, line.renderedSpans ?? NO_SPANS)
     if (line.renderedSpans) return line.renderedSpans
 
     const file = line.filename ? this.parses.get(line.filename)?.[side] : undefined
@@ -89,8 +90,7 @@ export class LineSpans {
     const cached = this.fragments.get(slot.key)
     if (cached === "pending") return undefined
     if (cached) {
-      this.fragments.delete(slot.key)
-      this.fragments.set(slot.key, cached)
+      this.store(slot.key, cached)
       return cached[slot.at] ?? NO_SPANS
     }
 
@@ -102,6 +102,24 @@ export class LineSpans {
     this.store(slot.key, "pending")
     void this.parseFragment(slot.key, slot.text, filetype)
     return undefined
+  }
+
+  /**
+   * A rendered row's columns are not the source's, so the file's markdown
+   * parse cannot colour its code: the block is parsed alone, in its own
+   * language. Until that lands, and if it fails, the row keeps its flat colour.
+   */
+  private codeSpans(code: RenderedCode, fallback: readonly CaptureSpan[]): readonly CaptureSpan[] {
+    const key = `rendered-code\0${code.filetype}\0${code.block}`
+    const cached = this.fragments.get(key)
+    if (cached === undefined) {
+      this.store(key, "pending")
+      void this.parseFragment(key, code.block, code.filetype)
+      return fallback
+    }
+    if (cached === "pending") return fallback
+    this.store(key, cached)
+    return cached.length === 0 ? fallback : (cached[code.at] ?? NO_SPANS)
   }
 
   /** A parse landing once the renderer is gone would draw into freed native memory. */

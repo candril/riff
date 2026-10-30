@@ -1,9 +1,12 @@
 import { test, expect, describe } from "bun:test"
 import type { SimpleHighlight } from "@opentui/core"
+import { renderMarkdown } from "../features/rendered-markdown/render"
+import { parseDiff } from "../utils/diff-parser"
 import { FileParses } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import { code, diffFile, mappingOf } from "./fixtures"
 import { LineSpans, sideOf } from "./line-spans"
+import type { CaptureSpan } from "./segments"
 
 interface Call {
   text: string
@@ -208,5 +211,70 @@ describe("a line's spans from its hunk's side", () => {
     expect(spans.spans(runs[0]!, 1)).toEqual([])
     expect(spans.spans(runs[1]!, 1)).toBeUndefined()
     expect(calls.map((call) => call.text)).toEqual(["a\n", "b\n", "c\n", "b\n"])
+  })
+})
+
+describe("a rendered code block's spans", () => {
+  const README = ["# demo", "", "```ts", "const a = 1", "let b", "```", ""].join("\n")
+  const DIFF = [
+    "diff --git a/README.md b/README.md",
+    "--- a/README.md",
+    "+++ b/README.md",
+    "@@ -1,1 +1,6 @@",
+    " # demo",
+    "+",
+    "+```ts",
+    "+const a = 1",
+    "+let b",
+    "+```",
+    "",
+  ].join("\n")
+  const renderedLines = () =>
+    new DiffLineMapping(parseDiff(DIFF), "all", undefined, {
+      outsideDiff: true,
+      fileContents: new Map([["README.md", README]]),
+      renderedFiles: new Map([["README.md", renderMarkdown(README)]]),
+    }).allLines
+  const raw = (text: string): CaptureSpan[] => [[0, text.length, "markup.raw.block"]]
+
+  test("keep the flat colour while the block's parse is pending, and two rows ask for one parse", () => {
+    const { calls, parse } = deferredParse()
+    const spans = new LineSpans(new FileParses(parse), parse)
+    const lines = renderedLines()
+
+    expect(spans.spans(lines, indexOf(lines, "const a = 1"))).toEqual(raw("const a = 1"))
+    expect(spans.spans(lines, indexOf(lines, "let b"))).toEqual(raw("let b"))
+    expect(spans.spans(lines, indexOf(lines, "const a = 1"))).toEqual(raw("const a = 1"))
+    expect(calls.map((call) => [call.text, call.filetype])).toEqual([["const a = 1\nlet b\n", "typescript"]])
+  })
+
+  test("take the block's parse once it lands, in place of the flat colour", async () => {
+    const { calls, parse } = deferredParse()
+    const spans = new LineSpans(new FileParses(parse), parse)
+    let landed = 0
+    spans.onSpans = () => landed++
+    const lines = renderedLines()
+    spans.spans(lines, indexOf(lines, "const a = 1"))
+
+    calls[0]!.resolve([[0, 5, "keyword"], [10, 11, "number"], [12, 15, "keyword"]])
+    await settle()
+
+    expect(landed).toBe(1)
+    expect(spans.spans(lines, indexOf(lines, "const a = 1"))).toEqual([[0, 5, "keyword"], [10, 11, "number"]])
+    expect(spans.spans(lines, indexOf(lines, "let b"))).toEqual([[0, 3, "keyword"]])
+  })
+
+  test("keep the flat colour when the parse fails or answers nothing", async () => {
+    for (const fails of [false, true]) {
+      const { calls, parse } = deferredParse()
+      const fragment = fails ? () => Promise.reject(new Error("worker gone")) : parse
+      const spans = new LineSpans(new FileParses(parse), fragment)
+      const lines = renderedLines()
+      spans.spans(lines, indexOf(lines, "let b"))
+      calls[0]?.resolve(null)
+      await settle()
+
+      expect(spans.spans(lines, indexOf(lines, "let b"))).toEqual(raw("let b"))
+    }
   })
 })

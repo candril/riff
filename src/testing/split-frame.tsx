@@ -3,7 +3,7 @@ import { LineSpans } from "../diff-rows/line-spans"
 import { RowLineSource } from "../diff-rows/row-source"
 import { SplitDiffView, type SplitDiffViewProps } from "../split-view/SplitDiffView"
 import { parseDiff } from "../utils/diff-parser"
-import { FileParses } from "../vim-diff/file-parses"
+import { FileParses, type Parse } from "../vim-diff/file-parses"
 import { DiffLineMapping } from "../vim-diff/line-mapping"
 import type { DiffLineMappingOptions } from "../vim-diff/types"
 import { mountJsx } from "./frame"
@@ -11,19 +11,22 @@ import { mountJsx } from "./frame"
 export interface MountSplitOptions extends Partial<Omit<SplitDiffViewProps, "mapping" | "source" | "files" | "lineSpans">> {
   raw: string
   mappingOptions?: DiffLineMappingOptions
+  /** Answers every parse; by default none answers. */
+  parse?: Parse
 }
 
 /** The split view alone on a test screen, at 120 columns unless told otherwise. */
 export async function mountSplit(options: MountSplitOptions) {
-  const { raw, mappingOptions, ...rest } = options
+  // No parser answers, so nothing waits on a worker and every line is plain text.
+  const { raw, mappingOptions, parse = async () => null, ...rest } = options
   const files = parseDiff(raw)
   const mapping = new DiffLineMapping(files, "all", undefined, mappingOptions)
+  const lineSpans = new LineSpans(new FileParses(parse), parse)
   const props: SplitDiffViewProps = {
     mapping,
     source: new RowLineSource(mapping, "split"),
     files,
-    // No parser answers, so nothing waits on a worker and every line is plain text.
-    lineSpans: new LineSpans(new FileParses(async () => null), async () => null),
+    lineSpans,
     highlightVersion: 0,
     comments: [],
     marks: [],
@@ -43,8 +46,12 @@ export async function mountSplit(options: MountSplitOptions) {
   }
   const [focused, setFocused] = createSignal(props.focused)
   const [side, setSide] = createSignal(props.side)
+  // As the app does, so a parse that lands draws again.
+  const [highlightVersion, setHighlightVersion] = createSignal(props.highlightVersion)
+  lineSpans.onSpans = () => setHighlightVersion((version) => version + 1)
   const live = {
     ...props,
+    get highlightVersion() { return highlightVersion() },
     get focused() { return focused() },
     get side() { return side() },
   }

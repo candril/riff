@@ -554,6 +554,7 @@ export class DiffLineMapping implements LineSource {
         ...(anchorable.has(row.sourceLine) ? {} : { expanded: true }),
         rendered: true,
         renderedSpans: row.spans,
+        ...(row.code ? { renderedCode: row.code } : {}),
         fileIndex,
         filename,
       }

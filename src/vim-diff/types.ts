@@ -83,6 +83,18 @@ export interface DiffLine {
   /** Capture spans in the rendered text's columns, which the file's own
    *  parse cannot give: its columns are the source's. */
   renderedSpans?: readonly CaptureSpan[]
+  /** The fenced block this row is code from, parsed as its own language
+   *  because the file's markdown parse sees it only as raw text. */
+  renderedCode?: RenderedCode
+}
+
+/** A row of a fenced code block, and the block it is parsed with (spec 111). */
+export interface RenderedCode {
+  filetype: string
+  /** The block's content lines, each ended by a newline. */
+  block: string
+  /** 0-based row within the block. */
+  at: number
 }
 
 /** One row of a rendered markdown file, as the mapping needs it (spec 111). */
@@ -91,6 +103,7 @@ export interface RenderedLine {
   /** 1-based line of the new version the row was rendered from. */
   sourceLine: number
   spans: readonly CaptureSpan[]
+  code?: RenderedCode
 }
 
 /**

@@ -2,7 +2,7 @@
 
 **Status**: In Progress
 
-**Not built**: highlighted code blocks, inline mermaid, followable links,
+**Not built**: inline mermaid, followable links,
 remembering the toggle for the review, `Tab` for the old version, wrap
 rules, P2, P3
 

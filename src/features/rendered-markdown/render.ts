@@ -10,6 +10,8 @@
 import { Lexer, type Token, type Tokens } from "marked"
 import type { CaptureSpan } from "../../diff-rows/segments"
 import { MARKDOWN_FILE, alignMarkdownTables } from "../../utils/markdown-tables"
+import { getFiletypeFromFence } from "../../vim-diff/filetype"
+import type { RenderedCode } from "../../vim-diff/types"
 
 export interface RenderedRow {
   text: string
@@ -17,6 +19,9 @@ export interface RenderedRow {
   sourceLine: number
   /** Columns in `text`. */
   spans: readonly CaptureSpan[]
+  /** Set on a row of a fenced block in a language riff can parse; `spans`
+   *  stays the flat colour until that parse lands. */
+  code?: RenderedCode
 }
 
 // Wrap rules are not built yet, so a rule cannot follow the view's width.
@@ -126,8 +131,13 @@ function renderCode(token: Tokens.Code, line: number): RenderedRow[] {
 
   const closed = source.length > 1 && /^\s*(```|~~~)/.test(source.at(-1)!)
   const contentLines = source.length - 1 - (closed ? 1 : 0)
-  const text = token.text.split("\n")
-  return Array.from({ length: contentLines }, (_, index) => block(text[index] ?? "", line + 1 + index))
+  const lines = token.text.split("\n")
+  const text = Array.from({ length: contentLines }, (_, index) => lines[index] ?? "")
+  const rows = text.map((content, index) => block(content, line + 1 + index))
+  const filetype = getFiletypeFromFence(token.lang ?? "")
+  if (!filetype) return rows
+  const code = `${text.join("\n")}\n`
+  return rows.map((row, at) => ({ ...row, code: { filetype, block: code, at } }))
 }
 
 function renderTable(raw: string, line: number): RenderedRow[] {
@@ -216,6 +226,7 @@ function prefixRows(rows: readonly RenderedRow[], first: string, rest: string, c
   return rows.map((row, index) => {
     const prefix = index === 0 ? first : rest
     const shifted = row.spans.map(([from, to, name]) => [from + prefix.length, to + prefix.length, name] as const)
+    // No `code`: its parse is in the block's columns, which the prefix has moved.
     return {
       text: prefix + row.text,
       sourceLine: row.sourceLine,
