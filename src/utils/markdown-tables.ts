@@ -16,7 +16,7 @@
  * still yanks what is in the file.
  */
 
-const MARKDOWN_FILE = /\.(md|markdown|mdx)$/i
+export const MARKDOWN_FILE = /\.(md|markdown|mdx)$/i
 const FENCE = /^(```|~~~)/
 const DELIMITER_CELL = /^:?-+:?$/
 
