@@ -22,7 +22,8 @@ export interface HeaderModel {
 
 export interface HeaderProps {
   title?: string
-  selectedFile?: DiffFile | null  // null = all files
+  /** `rendered`: the file is drawn rendered in place of its diff (spec 111). */
+  selectedFile?: (DiffFile & { rendered?: boolean }) | null  // null = all files
   totalFiles?: number
   prInfo?: PrInfo | null
   reviewProgress?: { reviewed: number; total: number; outdated?: number }
@@ -231,6 +232,7 @@ export function headerModel({
           { content: `+${selectedFile.additions}`, fg: theme.green },
           { content: " ", fg: colors.text },
           { content: `-${selectedFile.deletions}`, fg: theme.red },
+          ...(selectedFile.rendered ? [{ content: " rendered", fg: theme.overlay1 }] : []),
         ]]
       : []),
   ]

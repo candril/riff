@@ -28,6 +28,7 @@ import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createChatColumnState } from "../features/chat/column-state"
+import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
 import type { AnotherReviewFeatures } from "../features/refresh/another-review"
 
 export function createAnotherReviewFeatures() {
@@ -57,5 +58,6 @@ export function createAnotherReviewFeatures() {
     blockFolds: createBlockFoldsState(),
     fileFolds: createFileFoldsState(),
     chatColumn: createChatColumnState(),
+    renderedMarkdown: createRenderedMarkdownState(),
   } satisfies AnotherReviewFeatures
 }

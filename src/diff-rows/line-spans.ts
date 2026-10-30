@@ -75,6 +75,7 @@ export class LineSpans {
     const side = sideOf(lines, index)
     if (!line || !side) return undefined
     if (line.type === "no-newline") return NO_SPANS
+    if (line.renderedSpans) return line.renderedSpans
 
     const file = line.filename ? this.parses.get(line.filename)?.[side] : undefined
     if (file?.highlights) {

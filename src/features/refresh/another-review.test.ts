@@ -42,6 +42,7 @@ describe("a switch to another review", () => {
     f.blockFolds.toggle("doc.md:0")
     f.fileFolds.collapse(["a.ts"])
     f.chatColumn.show()
+    f.renderedMarkdown.toggle("README.md")
 
     expect(f.help.open()).toBe(true)
     expect(f.confirm.dialog()).not.toBeNull()
@@ -69,6 +70,7 @@ describe("a switch to another review", () => {
     expect(f.blockFolds.isCollapsed("doc.md:0")).toBe(true)
     expect(f.fileFolds.isCollapsed("a.ts")).toBe(true)
     expect(f.chatColumn.open()).toBe(true)
+    expect(f.renderedMarkdown.has("README.md")).toBe(true)
 
     closeFeatureOverlays(f)
 
@@ -99,5 +101,6 @@ describe("a switch to another review", () => {
     expect(f.blockFolds.collapsed().size).toBe(0)
     expect(f.fileFolds.collapsed().size).toBe(0)
     expect(f.chatColumn.open()).toBe(false)
+    expect(f.renderedMarkdown.files().size).toBe(0)
   })
 })

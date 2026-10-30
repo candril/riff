@@ -359,6 +359,14 @@ export const actions: Action[] = [
     category: "view",
     available: (state) => state.viewMode === "diff" && state.files.length > 0,
   },
+  {
+    id: "toggle-rendered-markdown",
+    label: "Toggle Rendered Markdown",
+    description: "Show the markdown file at the cursor rendered in place of its diff, or its diff again",
+    command: "gchord.toggleRendered",
+    category: "view",
+    available: (state) => state.viewMode === "diff" && state.files.length > 0,
+  },
 
   // Folds
   {

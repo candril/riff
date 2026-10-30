@@ -47,7 +47,7 @@ export function frameModels(frame: Frame) {
     header: {
       ...headerModel({
         title: "riff",
-        selectedFile: getSelectedFile(state),
+        selectedFile: selectedFileOf(frame),
         totalFiles: state.files.length,
         prInfo: state.prInfo,
         reviewProgress: getReviewProgress(state),
@@ -62,6 +62,12 @@ export function frameModels(frame: Frame) {
       version,
     },
   }
+}
+
+// A single file's mapping is that file's rows alone, so its first row says how the file is drawn.
+function selectedFileOf(frame: Frame) {
+  const file = getSelectedFile(frame.state)
+  return file && frame.mapping.getLine(0)?.rendered ? { ...file, rendered: true } : file
 }
 
 export type FrameModels = ReturnType<typeof frameModels>

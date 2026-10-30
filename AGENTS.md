@@ -138,7 +138,8 @@ tenor ([ADR-003](docs/decisions/ADR-003-feature-state-factories.md)):
 `src/features/marks/state.ts`,
 `src/features/feed/state.ts`,
 `src/features/visit/state.ts`,
-`src/features/review-preview/pending-state.ts` and
+`src/features/review-preview/pending-state.ts`,
+`src/features/rendered-markdown/state.ts` and
 `src/features/toast/state.ts` are the examples. The frame
 pass reads each factory's accessors into the `Frame` (all but the
 jumplist's, which nothing draws), so islands keep
@@ -404,6 +405,7 @@ Actions are commands that can be triggered via the action menu (`Ctrl+p`) or key
 | Sync Changes | gs | Sync local comments/edits/replies |
 | Create/Edit PR | gP | Create PR (local) or edit PR (PR mode) |
 | Open in Browser | go | Open PR in browser |
+| Toggle Rendered Markdown | gR | The markdown file at the cursor rendered in place of its diff (spec 111); gR again brings the diff back |
 | Blame | gb | Who last changed the cursor's line; from its peek, go opens the commit or PR and y copies the sha |
 | PR Info | gi | Show PR details |
 | PR state / feed / diff | i / a / d | The three views; the same key again goes back |

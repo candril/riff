@@ -7,7 +7,7 @@ import { alignMarkdownTables } from "../utils/markdown-tables"
 import { findFoldableBlocks, blockAt, type FoldableBlock } from "../utils/fenced-blocks"
 import type { DiffFile } from "../utils/diff-parser"
 import type { Comment } from "../types"
-import type { DiffLine, CommentAnchor, DiffLineMappingOptions } from "./types"
+import type { DiffLine, CommentAnchor, DiffLineMappingOptions, RenderedLine } from "./types"
 import type { LineSource } from "./line-source"
 
 export function anchorSide(type: DiffLine["type"], pane: "left" | "right" | undefined): CommentAnchor["side"] | null {
@@ -31,6 +31,7 @@ export class DiffLineMapping implements LineSource {
   private collapsedBlocks: ReadonlySet<string>
   private visibleFiles: ReadonlySet<string> | undefined
   private outsideDiff: boolean
+  private renderedFiles: ReadonlyMap<string, readonly RenderedLine[]>
 
   constructor(
     files: DiffFile[],
@@ -44,6 +45,7 @@ export class DiffLineMapping implements LineSource {
     this.collapsedBlocks = options?.collapsedBlocks ?? new Set()
     this.visibleFiles = options?.visibleFiles
     this.outsideDiff = options?.outsideDiff ?? false
+    this.renderedFiles = options?.renderedFiles ?? new Map()
     
     if (mode === "single" && fileIndex !== undefined && files[fileIndex]) {
       this.lines = this.parseSingleFile(files[fileIndex], fileIndex)
@@ -70,7 +72,10 @@ export class DiffLineMapping implements LineSource {
    * cursor). The file's own text moves to `sourceContent`.
    */
   private alignTables(): void {
-    for (const { index, content } of alignMarkdownTables(this.lines)) {
+    // A rendered row is aligned already, and its sourceContent is the file's
+    // line, which a second alignment would overwrite with the rendered text.
+    const alignable = this.lines.map((line) => (line.rendered ? { ...line, type: "rendered" } : line))
+    for (const { index, content } of alignMarkdownTables(alignable)) {
       const line = this.lines[index]!
       this.lines[index] = { ...line, content, sourceContent: line.content }
     }
@@ -295,6 +300,7 @@ export class DiffLineMapping implements LineSource {
         fileIndex,
         filename: file.filename,
         isCollapsed,  // Mark if this file is collapsed (for rendering)
+        ...(this.renderedFiles.has(file.filename) ? { rendered: true as const } : {}),
       })
 
       // Skip diff content if file is collapsed
@@ -332,6 +338,9 @@ export class DiffLineMapping implements LineSource {
     fileIndex: number,
     filename: string
   ): DiffLine[] {
+    const rendered = this.renderedFiles.get(filename)
+    if (rendered) return this.parseRendered(content, rendered, fileIndex, filename)
+
     const lines: DiffLine[] = []
     const rawLines = content.split("\n")
     
@@ -520,6 +529,38 @@ export class DiffLineMapping implements LineSource {
   }
   
   /**
+   * A markdown file's rendered rows in place of its hunks (spec 111). The
+   * rows are the new version only, so they carry no old line. GitHub can
+   * anchor only inside a hunk, so a row rendered from any other line is
+   * expanded, and a comment there is a note as on expanded context.
+   */
+  private parseRendered(
+    diff: string,
+    rows: readonly RenderedLine[],
+    fileIndex: number,
+    filename: string
+  ): DiffLine[] {
+    const source = this.fileContents.get(filename)?.split("\n") ?? []
+    const anchorable = newLinesInHunks(diff)
+    return rows.map((row, visualIndex) => {
+      const sourceContent = source[row.sourceLine - 1] ?? ""
+      return {
+        visualIndex,
+        type: "context",
+        content: row.text,
+        sourceContent,
+        rawLine: ` ${sourceContent}`,
+        newLineNum: row.sourceLine,
+        ...(anchorable.has(row.sourceLine) ? {} : { expanded: true }),
+        rendered: true,
+        renderedSpans: row.spans,
+        fileIndex,
+        filename,
+      }
+    })
+  }
+
+  /**
    * Get the divider key for a visual line (if it's a divider)
    * Returns null if the line is not a divider
    */
@@ -599,4 +640,22 @@ export class DiffLineMapping implements LineSource {
     
     return null
   }
+}
+
+/** The new-side lines a file's hunks show, added or context: where GitHub can anchor. */
+function newLinesInHunks(diff: string): Set<number> {
+  const lines = new Set<number>()
+  let newLine = 0
+  let inHunk = false
+  for (const raw of diff.split("\n")) {
+    const hunk = raw.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+    if (hunk) {
+      newLine = parseInt(hunk[1]!, 10)
+      inHunk = true
+      continue
+    }
+    if (!inHunk) continue
+    if (raw.startsWith("+") || raw.startsWith(" ")) lines.add(newLine++)
+  }
+  return lines
 }

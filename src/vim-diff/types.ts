@@ -2,6 +2,8 @@
  * Types for the vim-diff module
  */
 
+import type { CaptureSpan } from "../diff-rows/segments"
+
 /**
  * Type of line in a diff
  */
@@ -74,6 +76,21 @@ export interface DiffLine {
 
   /** This row stands for a folded fenced block (spec 073). */
   blockFoldId?: string
+
+  /** A markdown file drawn rendered rather than as its diff (spec 111):
+   *  its rows, and its header in all-files mode. */
+  rendered?: true
+  /** Capture spans in the rendered text's columns, which the file's own
+   *  parse cannot give: its columns are the source's. */
+  renderedSpans?: readonly CaptureSpan[]
+}
+
+/** One row of a rendered markdown file, as the mapping needs it (spec 111). */
+export interface RenderedLine {
+  text: string
+  /** 1-based line of the new version the row was rendered from. */
+  sourceLine: number
+  spans: readonly CaptureSpan[]
 }
 
 /**
@@ -179,4 +196,6 @@ export interface DiffLineMappingOptions {
    *  file mode (spec 084). Read as `expanded`, which is already how riff
    *  says "no anchor to give GitHub". */
   outsideDiff?: boolean
+  /** Files drawn rendered in place of their hunks, with their rows (spec 111). */
+  renderedFiles?: ReadonlyMap<string, readonly RenderedLine[]>
 }

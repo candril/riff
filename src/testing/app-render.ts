@@ -19,6 +19,7 @@ import { createFileContentState } from "../features/file-content/state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
+import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
 import { createFilePickerState } from "../features/file-picker/state"
 import { createCommentsPickerState } from "../features/comments-picker/state"
 import { createOccurrencePickerState } from "../features/occurrence-picker/state"
@@ -92,8 +93,10 @@ export async function mountApp(
   const commitDiffs = createCommitDiffsState()
   const blockFolds = createBlockFoldsState()
   const fileFolds = createFileFoldsState()
+  const renderedMarkdown = createRenderedMarkdownState()
   const chatColumnState = createChatColumnState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
+  const buildMapping = () => buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
+  let mapping = buildMapping()
   const fileTreePanel = createFileTreeIsland(renderer, { width: 35 })
   const parses = new FileParses(async () => null)
   // None unless a test mounts one, as app.ts has none outside a PR.
@@ -265,7 +268,11 @@ export async function mountApp(
     },
     publishFrame: frame.publish,
   }
-  render = createFramePass(framePassContext)
+  const framePass = createFramePass(framePassContext)
+  render = () => {
+    if (renderedMarkdown.stale((filename) => fileContent.entry(filename)?.newContent || undefined)) mapping = buildMapping()
+    framePass()
+  }
   // Keys tests reach the composer through the thread panel, and the frame
   // pass's context does not carry it.
   const ctx = { ...framePassContext, threadPanel: chrome.threadPanel }
@@ -309,6 +316,8 @@ export async function mountApp(
     blockFolds,
     /** The folded files of the all-files diff, which the mapping reads and the fold keys write as app.ts's do. */
     fileFolds,
+    /** The markdown files drawn rendered, which the mapping reads and gR writes as app.ts's do. */
+    renderedMarkdown,
     /** The file picker's state, which the frame pass and the keys read as app.ts's do. */
     filePicker,
     /** The comments picker's state, which the frame pass and the keys read as app.ts's do. */
@@ -349,7 +358,7 @@ export async function mountApp(
     /** Applies `patch` and renders, rebuilding the mapping when the files changed. */
     show(patch: Partial<AppState> = {}) {
       state = { ...state, ...patch }
-      if (patch.files) mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
+      if (patch.files) mapping = buildMapping()
       render()
     },
     setVimState(next: typeof vimState) {

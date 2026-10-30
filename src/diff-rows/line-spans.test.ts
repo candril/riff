@@ -77,6 +77,22 @@ describe("a line's spans from its file's parse", () => {
     expect(spans.spans(lines, indexOf(lines, "two"))).toEqual([[0, 3, "keyword"]])
     expect(fragments.calls).toEqual([])
   })
+
+  test("give way to a rendered row's spans, which are in the rendered text's columns", async () => {
+    const files = deferredParse()
+    const parses = new FileParses(files.parse)
+    parses.set(new Map([["b.ts", { new: "one\nTWO\nthree", old: "one\ntwo\nthree" }]]))
+    files.calls[0]!.resolve([[0, 3, "variable"]])
+    files.calls[1]!.resolve([])
+    await settle()
+
+    const spans = new LineSpans(parses, deferredParse().parse)
+    const lines = codeLines().map((line) =>
+      line.content === "one" ? { ...line, rendered: true as const, renderedSpans: [[0, 2, "markup.strong"] as const] } : line
+    )
+
+    expect(spans.spans(lines, indexOf(lines, "one"))).toEqual([[0, 2, "markup.strong"]])
+  })
 })
 
 describe("a line's spans from its hunk's side", () => {

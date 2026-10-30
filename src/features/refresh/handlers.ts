@@ -65,6 +65,8 @@ import type { LastRefreshState } from "./last-refresh-state"
 import type { FileContentState } from "../file-content/state"
 import type { CommitDiffsState } from "../commit-scope/diffs-state"
 import type { FileFoldsState } from "../folds/file-folds-state"
+import type { RenderedMarkdownState } from "../rendered-markdown/state"
+import { reloadRenderedFiles } from "../rendered-markdown/reload"
 
 export interface RefreshContext {
   sources: RefreshSources
@@ -126,7 +128,10 @@ export interface RefreshContext {
   prCommentInput: Pick<PrCommentInputState, "close">
   lastRefresh: Pick<LastRefreshState, "stamp">
   /** The opened runs of context survive a reload; the files read for them are read again. */
-  fileContent: Pick<FileContentState, "expanded" | "clear" | "restoreExpanded">
+  fileContent: Pick<FileContentState, "expanded" | "clear" | "restoreExpanded" | "entry">
+  /** Not reset by a reload: how the reader chose to read a file outlives the reload. */
+  renderedMarkdown: Pick<RenderedMarkdownState, "files" | "retain">
+  loadFileContent: (filename: string) => Promise<void>
   /** The reloaded review's commits may not be the ones these were fetched for. */
   commitDiffs: Pick<CommitDiffsState, "clear">
   /** Not reset by a reload: the files it finds newly viewed or ignored are folded on top. */
@@ -275,6 +280,10 @@ export async function handleRefresh(ctx: RefreshContext): Promise<void> {
       )
       ctx.fileFolds.collapse(viewedFilenames(ctx.getState()))
     }
+
+    // Before the cursor goes back: it lands on a line of the rendered rows,
+    // and they are drawn only once the file's new version is read again.
+    await reloadRenderedFiles({ ...ctx, files: () => ctx.getState().files })
 
     const landed = restoreCursor(ctx, position)
     const { message, type } = refreshMessage(landed, position.anchor, forcePushed)

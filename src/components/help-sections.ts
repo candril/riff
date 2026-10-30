@@ -28,6 +28,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
       ["zs / ze", "Cursor column to left / right edge"],
       ["zz / zt / zb", "Cursor row to centre / top / bottom"],
       ["gl", "Peek the line, its table, or a diagram"],
+      ["gR", "Rendered markdown / back to the diff"],
       ["gb", "Who last changed this line"],
       ["zw", "Toggle soft wrap"],
       ["zB", "Blame column for this file"],

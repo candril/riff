@@ -57,6 +57,7 @@ import { createLastRefreshState } from "./features/refresh/last-refresh-state"
 import { createFileContentState } from "./features/file-content/state"
 import { createBlockFoldsState } from "./features/folds/block-folds-state"
 import { createFileFoldsState } from "./features/folds/file-folds-state"
+import { createRenderedMarkdownState } from "./features/rendered-markdown/state"
 import { createChatColumnState } from "./features/chat/column-state"
 import { loadFileContent as loadFileContentInto } from "./features/file-content/load"
 import { createFileVersionsReader, liveFileVersionSources } from "./features/file-content/versions"
@@ -223,9 +224,10 @@ export async function createApp(options: AppOptions = {}) {
   const blockFolds = createBlockFoldsState()
   const fileFolds = createFileFoldsState()
   fileFolds.collapse(initialFoldedFiles)
+  const renderedMarkdown = createRenderedMarkdownState()
   const chatColumnState = createChatColumnState()
   const commitDiffs = createCommitDiffsState()
-  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds, fileFolds)
+  let lineMapping: DiffLineMapping = buildLineMapping(initialState, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
   // Tree filter the current mapping was built against, so a filter change can
   // be spotted from the panel update every filter path already goes through.
   let mappedTreeFilter: string = initialState.treeFilter
@@ -341,7 +343,7 @@ export async function createApp(options: AppOptions = {}) {
 
   function createLineMapping() {
     requestFileModeContent()
-    lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
+    lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
     mappedTreeFilter = state.treeFilter
     // Refresh search matches for the new line mapping
     // This ensures search results are updated when switching files
@@ -487,6 +489,7 @@ export async function createApp(options: AppOptions = {}) {
 
   // ===== RENDER =====
   function render(): void {
+    if (renderedMarkdown.stale((filename) => fileContent.entry(filename)?.newContent || undefined)) createLineMapping()
     renderFrame()
     proposals.afterRender()
   }
@@ -552,6 +555,7 @@ export async function createApp(options: AppOptions = {}) {
     blockFolds,
     fileFolds,
     chatColumn: chatColumnState,
+    renderedMarkdown,
   }
   const chat = createReviewChat({
     demo: options.demo === true,
@@ -925,6 +929,8 @@ export async function createApp(options: AppOptions = {}) {
     toast,
     lastRefresh,
     fileContent,
+    renderedMarkdown,
+    loadFileContent,
     commitDiffs,
     fileFolds,
     render,
@@ -1147,7 +1153,7 @@ export async function createApp(options: AppOptions = {}) {
     setVimState: (s) => { vimState = s },
     setSearchState: (s) => { searchState = s },
     setHeadSha: (sha) => { currentHeadSha = sha },
-    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds) },
+    rebuildLineMapping: () => { lineMapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown) },
     forgetBaseLookups: () => baseLookups.state.forget(),
     render,
     toast,
@@ -1435,6 +1441,9 @@ export async function createApp(options: AppOptions = {}) {
     diffOptions,
     blockFolds,
     fileFolds,
+    renderedMarkdown,
+    fileContent,
+    loadFileContent,
     activityFeed,
     visit,
     jumpList,

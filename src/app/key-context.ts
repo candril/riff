@@ -61,6 +61,8 @@ import type { PrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { BlockFoldsState } from "../features/folds/block-folds-state"
 import type { FileFoldsState } from "../features/folds/file-folds-state"
+import type { RenderedMarkdownState } from "../features/rendered-markdown/state"
+import type { FileContentState } from "../features/file-content/state"
 
 export interface AppKeyContext {
   // State access
@@ -185,6 +187,12 @@ export interface AppKeyContext {
   blockFolds: BlockFoldsState
   /** The folded files of the all-files diff, the same instance the line mapping reads. */
   fileFolds: FileFoldsState
+  /** The markdown files drawn rendered, the same instance the line mapping reads (spec 111). */
+  renderedMarkdown: RenderedMarkdownState
+  /** Both versions of each loaded file, the same instance the line mapping reads. */
+  fileContent: Pick<FileContentState, "entry">
+  /** Fetch a file's versions into fileContent; settles once they are there. */
+  loadFileContent: (filename: string) => Promise<void>
   /** The activity feed's state, the same instance the frame pass reads. */
   activityFeed: feed.ActivityFeedState
   /** The last visit's watermark and what this session has seen, the same instance the frame pass reads. */

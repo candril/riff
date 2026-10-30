@@ -64,6 +64,8 @@ export function FileLabel(props: {
   flash?: readonly FlashMatch[]
   /** A file mark's letter, drawn in the leading padding so the fold mark, the tick and the path keep their cells. */
   mark?: string
+  /** The file is drawn rendered in place of its diff (spec 111). */
+  rendered?: boolean
 }) {
   const viewed = () => props.env.props.fileStatuses.get(props.filename)?.viewed ?? false
   const file = () => props.env.files().get(props.filename)
@@ -91,6 +93,9 @@ export function FileLabel(props: {
       </box>
       <Cell fg={dimmed(props.env, theme.green, theme.surface0)}>{`+${file()?.additions ?? 0}`}</Cell>
       <Cell fg={dimmed(props.env, theme.red, theme.surface0)}>{`-${file()?.deletions ?? 0}`}</Cell>
+      <Show when={props.rendered}>
+        <Cell fg={theme.overlay1}>rendered</Cell>
+      </Show>
     </Bar>
   )
 }
@@ -107,6 +112,7 @@ function FileHeader(props: RowProps) {
       env={props.env}
       filename={filename}
       collapsed={props.line.isCollapsed ?? false}
+      rendered={props.line.rendered}
       cursor={cursor()}
       flash={props.env.flashHits()?.get(props.index)}
       // A header row is in both halves, so a file mark shows whichever side it was set on.

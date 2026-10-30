@@ -25,6 +25,8 @@ import { createPrCommentInputState } from "../features/pr-info-panel/comment-inp
 import { createPrInfoFilterState } from "../features/pr-info-panel/filter-state"
 import { createDiffOptionsState } from "../features/diff-view/options-state"
 import { createFileContentState } from "../features/file-content/state"
+import { loadFileContent } from "../features/file-content/load"
+import { createRenderedMarkdownState } from "../features/rendered-markdown/state"
 import { createBlockFoldsState } from "../features/folds/block-folds-state"
 import { createFileFoldsState } from "../features/folds/file-folds-state"
 import { createCommitDiffsState } from "../features/commit-scope/diffs-state"
@@ -75,6 +77,8 @@ export interface RefreshHarnessOptions {
   comments?: Comment[]
   state?: (state: AppState) => AppState
   sources?: Partial<Omit<RefreshSources, "saveVisit">>
+  /** What reading a file's two versions hands back, by filename. */
+  fileVersions?: Record<string, { newContent: string; oldContent: string | null }>
 }
 
 export function refreshHarness(options: RefreshHarnessOptions = {}) {
@@ -96,7 +100,8 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
   const blockFolds = createBlockFoldsState()
   // A reload only folds more files in it.
   const fileFolds = createFileFoldsState()
-  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds)
+  const renderedMarkdown = createRenderedMarkdownState()
+  let mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown)
   let headSha = "head-1"
 
   const calls = {
@@ -152,7 +157,7 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     getSearchState: () => searchState,
     setSearchState: (s) => { searchState = s },
     getMapping: () => mapping,
-    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds) },
+    rebuildLineMapping: () => { mapping = buildLineMapping(state, diffOptions, fileContent, blockFolds, fileFolds, renderedMarkdown) },
     revealCursor: () => {},
     refreshSearchMatches: () => {},
     reloadFeed: () => { calls.reloadFeed++ },
@@ -177,6 +182,15 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     lastRefresh,
     prCommentInput,
     fileContent,
+    renderedMarkdown,
+    loadFileContent: (filename) => loadFileContent({
+      fileContent,
+      fetchFileVersions: async (name) => {
+        const versions = options.fileVersions?.[name]
+        return versions ? { ok: true, ...versions } : { ok: false, error: `no ${name}` }
+      },
+      render: () => {},
+    }, filename),
     commitDiffs: createCommitDiffsState(),
     fileFolds,
     filePicker: createFilePickerState(),
@@ -195,5 +209,5 @@ export function refreshHarness(options: RefreshHarnessOptions = {}) {
     target: undefined,
   }
 
-  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, composerPickers, codePeek, diffOptions, fileContent, blockFolds, fileFolds, mapping: () => mapping }
+  return { ctx, state: () => state, calls, feed, visit, help, pendingReview, toast, lastRefresh, prCommentInput, prInfoFilter, composerPickers, codePeek, diffOptions, fileContent, renderedMarkdown, blockFolds, fileFolds, mapping: () => mapping }
 }

@@ -3,7 +3,7 @@
  *
  * The pain this solves: while you're reviewing, teammates post replies on
  * existing threads (or new review comments). Without a live refresh those
- * only appear on a manual `gR`, so it's easy to reply to a stale thread.
+ * only appear on a manual `gr`, so it's easy to reply to a stale thread.
  *
  * The poller fetches just the review comments (no diff / checks / reviews, no
  * disk I/O) and merges them into `state.comments`. The inline comment overlay

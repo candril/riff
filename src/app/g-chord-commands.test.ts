@@ -37,6 +37,8 @@ const G_SPELLINGS = {
   gb: "toggleBlamePeek",
   gl: "toggleLinePeek",
   gm: "matchBracket",
+  "gR!": "toggleRendered",
+  "gr!": "toggleRendered",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",
@@ -52,7 +54,7 @@ describe("G_SEQUENCES", () => {
   })
 
   test("maps both spellings of a shifted letter to one command", () => {
-    for (const letter of ["s", "b", "y", "f", "x", "e", "c", "d", "p"]) {
+    for (const letter of ["s", "b", "y", "f", "x", "e", "c", "d", "p", "r"]) {
       const upper = G_SEQUENCES[`g${letter.toUpperCase()}!` as keyof typeof G_SEQUENCES]
       expect(upper).toBeDefined()
       expect(G_SEQUENCES[`g${letter}!` as keyof typeof G_SEQUENCES]).toBe(upper)

@@ -63,6 +63,7 @@ const SHOWN: Record<string, string> = {
   "toggle-file-panel": "Ctrl+b",
   "toggle-file-panel-expanded": "Ctrl+e",
   "toggle-open-threads-only": "H (comments panel)",
+  "toggle-rendered-markdown": "gR",
   refresh: "gr",
   quit: "q",
   "search-diff": "/",

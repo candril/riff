@@ -29,6 +29,19 @@ export function gChordDeps(ctx: AppKeyContext, blame: BlameKeys): GChordDeps {
     linePeek: ctx.linePeek,
     blamePeek: ctx.blamePeek,
     vimHandler: ctx.vimHandler,
+    renderedMarkdown: {
+      getState: ctx.getState,
+      getMapping: ctx.getLineMapping,
+      getVimState: ctx.getVimState,
+      setVimState: ctx.setVimState,
+      rendered: ctx.renderedMarkdown,
+      fileContent: ctx.fileContent,
+      loadFileContent: ctx.loadFileContent,
+      rebuildLineMapping: ctx.rebuildLineMapping,
+      cursorView: ctx.cursorView,
+      toast: ctx.toast,
+      render: ctx.render,
+    },
   }
 }
 

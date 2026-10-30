@@ -69,6 +69,11 @@ describe("local mode", () => {
       { content: "-1", fg: theme.red },
     ]])
   })
+
+  test("a selected file drawn rendered says so after its counts", () => {
+    const model = headerModel({ selectedFile: { ...GREET, rendered: true } })
+    expect(model.right.at(-1)?.at(-1)).toEqual({ content: " rendered", fg: theme.overlay1 })
+  })
 })
 
 describe("review progress", () => {

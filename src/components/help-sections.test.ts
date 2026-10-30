@@ -23,6 +23,11 @@ test("the left column runs Navigation to Chat, the right Panels & Files to GitHu
   expect([...left, ...right]).toEqual([...HELP_SECTIONS])
 })
 
+test("Navigation lists gR beside the line peek, as the g chords spell it", () => {
+  const keys = HELP_SECTIONS.find((s) => s.title === "Navigation")!.keys.map(([key]) => key)
+  expect(keys.indexOf("gR")).toBe(keys.indexOf("gl") + 1)
+})
+
 test("every key leaves at least a cell before its description", () => {
   for (const { keys } of HELP_SECTIONS) {
     for (const [key] of keys) expect(cellsOf(key)).toBeLessThanOrEqual(HELP_KEY_CELLS - 1)

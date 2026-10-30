@@ -46,6 +46,8 @@ import type { DiffOptionsState } from "../features/diff-view/options-state"
 import type { FileContentState } from "../features/file-content/state"
 import type { BlockFoldsState } from "../features/folds/block-folds-state"
 import type { FileFoldsState } from "../features/folds/file-folds-state"
+import type { RenderedMarkdownState } from "../features/rendered-markdown/state"
+import type { RenderedRow } from "../features/rendered-markdown/render"
 
 export interface InitOptions {
   mode: AppMode
@@ -261,6 +263,7 @@ export function buildLineMapping(
   fileContent: Pick<FileContentState, "contents" | "expanded">,
   blockFolds: Pick<BlockFoldsState, "collapsed">,
   fileFolds: Pick<FileFoldsState, "collapsed">,
+  rendered?: Pick<RenderedMarkdownState, "files" | "rowsFor">,
 ): DiffLineMapping {
   const mappingMode = state.selectedFileIndex === null ? "all" : "single"
 
@@ -271,6 +274,13 @@ export function buildLineMapping(
     }
   }
 
+  // A file whose new version is still loading keeps its diff until it lands.
+  const renderedFiles = new Map<string, readonly RenderedRow[]>()
+  for (const filename of rendered?.files() ?? []) {
+    const content = fileContents.get(filename)
+    if (content !== undefined) renderedFiles.set(filename, rendered!.rowsFor(filename, content))
+  }
+
   return new DiffLineMappingClass(state.files, mappingMode, state.selectedFileIndex ?? undefined, {
     expandedDividers: fileContent.expanded(),
     fileContents,
@@ -278,6 +288,7 @@ export function buildLineMapping(
     collapsedBlocks: blockFolds.collapsed(),
     visibleFiles: filteredFilenames(state.fileTree, state.treeFilter) ?? undefined,
     outsideDiff: state.fileMode,
+    renderedFiles,
     // Wrapped, the padding is worse than useless: it is the widest cell in
     // the table spent on every row, wrapping into blank lines, and the
     // column it was lining up has been broken across rows anyway.

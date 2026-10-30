@@ -422,3 +422,40 @@ describe("a refresh's time", () => {
     expect(lastRefresh.at()).toBe("0")
   })
 })
+
+describe("a refresh's rendered markdown", () => {
+  const README_DIFF = [
+    "diff --git a/README.md b/README.md",
+    "index 1111111..2222222 100644",
+    "--- a/README.md",
+    "+++ b/README.md",
+    "@@ -1,1 +1,3 @@",
+    " # shop",
+    "+",
+    "+## Shipping",
+    "",
+  ].join("\n")
+  const README = "# shop\n\n## Shipping"
+
+  for (const appMode of ["pr", "local"] as const) {
+    test(`a file shown rendered before gr is drawn rendered after it (${appMode})`, async () => {
+      const { ctx, toast, fileContent, renderedMarkdown, mapping } = refreshHarness({
+        appMode,
+        diff: README_DIFF,
+        fileVersions: { "README.md": { newContent: README, oldContent: "# shop" } },
+      })
+      fileContent.set("README.md", README, "# shop")
+      renderedMarkdown.toggle("README.md")
+      ctx.rebuildLineMapping()
+      const texts = () => Array.from({ length: mapping().lineCount }, (_, index) => mapping().getLine(index)!)
+        .filter((line) => line.rendered && line.type === "context")
+        .map((line) => line.content)
+      expect(texts()).toContain("Shipping")
+
+      await landed(handleRefresh(ctx), toast)
+
+      expect(renderedMarkdown.has("README.md")).toBe(true)
+      expect(texts()).toContain("Shipping")
+    })
+  }
+})

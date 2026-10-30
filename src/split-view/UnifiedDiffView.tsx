@@ -108,6 +108,7 @@ export function UnifiedDiffView(props: UnifiedDiffViewProps) {
               env={env}
               filename={props.mapping.getLine(sticky()!)?.filename ?? ""}
               collapsed={props.mapping.getLine(sticky()!)?.isCollapsed ?? false}
+              rendered={props.mapping.getLine(sticky()!)?.rendered}
               mark={env.marks().get(sticky()!)?.[0]?.letter}
             />
           </box>

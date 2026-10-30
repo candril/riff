@@ -17,6 +17,7 @@ import * as folds from "../features/folds"
 import * as externalTools from "../features/external-tools"
 import * as followLink from "../features/follow-link"
 import type { VimMotionHandler } from "../vim-diff/motion-handler"
+import { toggleRendered, type ToggleRenderedDeps } from "../features/rendered-markdown/toggle"
 
 export interface GChordDeps {
   getState: () => AppState
@@ -37,6 +38,7 @@ export interface GChordDeps {
   linePeek: Pick<LinePeekState, "open" | "toggle">
   blamePeek: Pick<BlamePeekState, "open">
   vimHandler: Pick<VimMotionHandler, "jumpToMatchingBracket">
+  renderedMarkdown: ToggleRenderedDeps
 }
 
 // Both spellings of a shifted letter are accepted because terminals differ
@@ -72,6 +74,8 @@ export const G_SEQUENCES = {
   gb: "toggleBlamePeek",
   gl: "toggleLinePeek",
   gm: "matchBracket",
+  "gR!": "toggleRendered",
+  "gr!": "toggleRendered",
   gr: "refresh",
   gg: "goToTop",
   "gG!": "goToBottom",
@@ -104,6 +108,7 @@ export const G_PALETTE_KEYS: Partial<Record<GCommand, string>> = {
   diffInTmuxWindow: "gD",
   editOrCreatePr: "gP",
   toggleLinePeek: "gl",
+  toggleRendered: "gR",
   refresh: "gr",
 }
 
@@ -179,6 +184,8 @@ export function gChordCommands(deps: GChordDeps): Record<GCommand, (key: KeyEven
       const s = deps.getState()
       if (s.viewMode === "diff" && s.focusedPanel === "diff") deps.vimHandler.jumpToMatchingBracket()
     }),
+    // A markdown file as its reader sees it, in its diff's place (spec 111).
+    toggleRendered: taking(() => void toggleRendered(deps.renderedMarkdown)),
     refresh: taking(() => void deps.refreshContext.handleRefresh()),
     goToTop: taking(() => folds.handleGoToTop(deps.foldsContext)),
     goToBottom: taking(() => folds.handleGoToBottom(deps.foldsContext)),
