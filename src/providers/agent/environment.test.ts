@@ -18,9 +18,20 @@ test("strips the variables that move the agent off the subscription login", () =
     PATH: "/bin",
     ANTHROPIC_API_KEY: "sk",
     ANTHROPIC_AUTH_TOKEN: "t",
+    CLAUDE_CODE_SIMPLE: "1",
     HOME: "/h",
   })
-  expect(env).toEqual({ PATH: "/bin", HOME: "/h" })
+  expect(env).toMatchObject({ PATH: "/bin", HOME: "/h" })
+  expect(env).not.toContainKeys(["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_SIMPLE"])
+})
+
+test("a shell's tool timeout does not cut short a proposal waiting for the reviewer", () => {
+  expect(agentEnv({ MCP_TOOL_TIMEOUT: "30000" })).not.toContainKey("MCP_TOOL_TIMEOUT")
+})
+
+test("tool search and auto-memory stay off, whatever the shell sets", () => {
+  const env = agentEnv({ ENABLE_TOOL_SEARCH: "true", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "0" })
+  expect(env).toMatchObject({ ENABLE_TOOL_SEARCH: "false", CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" })
 })
 
 test("the agent's directory is riff's own, under the state home, and exists", () => {

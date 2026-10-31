@@ -145,10 +145,12 @@ test("locks the agent down: no built-in tools, no settings, own directory, only 
   await settle()
   const o = seen.options!
   expect(o.tools).toEqual([])
+  expect(o.skills).toEqual([])
   expect(o.settingSources).toEqual([])
   expect(o.strictMcpConfig).toBe(true)
   expect(o.permissionMode).toBe("dontAsk")
   expect(o.includePartialMessages).toBe(true)
+  expect(o.verbatimPrompts).toBe(true)
   expect(o.model).toBe("claude-opus-5-5")
   expect(o.cwd).toBe(join(stateHome, "riff", "agent"))
   expect(Object.keys(o.mcpServers ?? {})).toEqual(["riff"])

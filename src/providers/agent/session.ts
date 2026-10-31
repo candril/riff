@@ -51,12 +51,16 @@ export function sessionOptions(opts: ClaudeAgentOptions, tools: readonly AgentTo
     model: opts.model,
     systemPrompt: { type: "preset", preset: "claude_code", append: buildContext(target, files, hidden) },
     tools: [],
+    skills: [],
     settingSources: [],
     strictMcpConfig: true,
     mcpServers: { [SERVER]: createToolServer(tools) },
     allowedTools: allowedToolsOf(tools),
     permissionMode: "dontAsk",
     includePartialMessages: true,
+    // The prompt carries PR comments and diff text, where `@user` would be taken for a file
+    // mention and a leading `/` for a slash command.
+    verbatimPrompts: true,
     env: agentEnv(),
     ...(executable.path ? { pathToClaudeCodeExecutable: executable.path } : {}),
   }

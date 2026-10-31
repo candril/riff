@@ -2,15 +2,28 @@ import { mkdirSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-// Either variable silently moves the agent off the subscription login onto API billing.
-const STRIPPED = new Set(["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"])
+const STRIPPED = new Set([
+  // Each silently moves the agent off the subscription login: the first two onto API billing,
+  // CLAUDE_CODE_SIMPLE (bare mode) by skipping OAuth.
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "CLAUDE_CODE_SIMPLE",
+  // propose_comment and propose_edit wait for the reviewer, however long that takes.
+  "MCP_TOOL_TIMEOUT",
+])
+
+const PINNED = {
+  // riff's few tools would otherwise sit behind a tool search, a round trip before every first call.
+  ENABLE_TOOL_SEARCH: "false",
+  // The agent answers about one review; notes it keeps would follow it into the next.
+  CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+}
 
 export function agentEnv(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined && !STRIPPED.has(entry[0]),
-    ),
+  const inherited = Object.entries(env).filter(
+    (entry): entry is [string, string] => entry[1] !== undefined && !STRIPPED.has(entry[0]),
   )
+  return { ...Object.fromEntries(inherited), ...PINNED }
 }
 
 // The agent never runs inside the reviewed repository: the claude_code preset would describe

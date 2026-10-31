@@ -22,6 +22,6 @@ A. It is the only route with a documented multi-turn API and no per-token cost, 
 
 ## Consequences
 - The agent sits behind an `Agent` interface; the SDK is one implementation, so B or C can replace it without touching the chat.
-- The agent's environment drops `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`, and riff never passes `--bare`; either silently switches away from the subscription.
+- The agent's environment drops `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_SIMPLE`, and riff never passes `--bare`; each silently switches away from the subscription.
 - The compiled binary does not autoload `.env` or `bunfig.toml`: riff runs inside the repositories it reviews, and their `.env` could carry an API key.
 - riff is never distributed in a way that lets another person use the author's subscription.
