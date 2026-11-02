@@ -1,5 +1,14 @@
-import { describe, expect, test } from "bun:test"
-import { createInitialState, withPendingComments, type AppState } from "../../state"
+import { describe, expect, spyOn, test } from "bun:test"
+import {
+  createInitialState,
+  openInlineCommentOverlay,
+  setInlineCommentInput,
+  withPendingComments,
+  type AppState,
+} from "../../state"
+import * as storage from "../../storage/comments"
+import { twoThreadsOn } from "../../testing/two-threads"
+import { submitInlineDraft } from "../inline-comment-overlay/handlers"
 import type { Comment } from "../../types"
 import type { DiffFile } from "../../utils/diff-parser"
 import type { PendingReview } from "../../providers/github/types"
@@ -199,5 +208,31 @@ describe("handleConfirmReview with GitHub's pending review", () => {
     await handleConfirmReview(h.ctx)
     expect(h.pendingReview.review()).toBe(draft)
     expect(pendingIds(h.state())).toEqual(["pending-1", "pending-2"])
+  })
+})
+
+describe("a reply typed on one of two threads on a line", () => {
+  test("is sent to GitHub as a reply to that thread's root", async () => {
+    const saveComment = spyOn(storage, "saveComment").mockResolvedValue()
+    const file: DiffFile = { filename: "a.ts", status: "modified", additions: 1, deletions: 0, content: "" }
+    const h = harness(twoThreadsOn("a.ts", 1))
+    h.ctx.setState((s) =>
+      setInlineCommentInput(openInlineCommentOverlay({ ...s, files: [file] }, "a.ts", 1, "RIGHT", "compose", undefined, "older"), "my reply")
+    )
+    await submitInlineDraft({
+      ...h.ctx,
+      getCachedCurrentUser: () => "octo",
+      commentDrafts: { forget: () => {} },
+      composerPickers: { clear: () => {} },
+    })
+    saveComment.mockRestore()
+
+    const sent: string[] = []
+    h.calls.submitReply = async (_owner, _repo, _number, comment, parentId) => {
+      sent.push(`${parentId}: ${comment.body}`)
+      return { success: true, githubId: 4442999999 }
+    }
+    await handleExecuteSync(h.ctx, h.calls)
+    expect(sent).toEqual(["4442935764: my reply"])
   })
 })

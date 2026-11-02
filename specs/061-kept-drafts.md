@@ -26,8 +26,11 @@ panel — it is already in the box.
   against — file, line and side — and says so.
 - Esc on an empty composer throws the kept draft away. That is how you drop
   one deliberately.
-- Opening the composer on that line prefills it, whether from the diff (`c`),
-  from the panel (`n`), or by replying into the same anchor.
+- Opening the composer on that line prefills it, whether from the diff (`c`)
+  or from the panel (`n`).
+- A draft written as a reply belongs to the thread it answers, not to the
+  line: replying to that thread again resumes it, while a reply to another
+  thread on the same line, or a new comment there, starts empty (spec 081).
 - A draft written while editing an existing comment belongs to that comment,
   not to the line: editing it again resumes the rewrite, and a new comment on
   the same line still starts empty.
@@ -43,8 +46,9 @@ behind — the same reason `Ctrl-g` hands the textarea's value to `$EDITOR`.
 
 Drafts live in `createCommentDraftsState`
 (`src/features/inline-comment-overlay/drafts-state.ts`), keyed
-`filename:line:side`, or `edit:<comment id>` while editing. Callers name a
-line or an edit (`DraftOn`, which `draftOn` reads off the overlay) and the
+`filename:line:side`, `reply:<root comment id>` while replying, or
+`edit:<comment id>` while editing. Callers name a line, a reply or an edit
+(`DraftOn`, which `draftOn` reads off the overlay) and the
 factory derives the key, so no call site has to know the shape of it. The
 state updaters that open the composer never look a draft up: their callers
 pass it as the prefill.

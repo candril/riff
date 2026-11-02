@@ -114,19 +114,21 @@ describe("the thread panel picks a kept draft back up", () => {
   })
 
   // The panel was opened on src/greet.ts, line 0, right side; the highlighted
-  // comment differs in all three, so a reply keyed off the panel's own anchor
-  // would pick up the decoy instead.
-  test("r on a comment picks up the draft kept on that comment's file, line and side, not the panel's", async () => {
+  // comment differs in all three, so a reply anchored on the panel's own line
+  // would land there. Its draft is the one kept for its thread, not either line's.
+  test("r on a comment answers its thread on that comment's file, line and side, with the draft kept for that thread", async () => {
     const keys = await threadPanelKeys(panelState(2, {
       comments: PANEL_COMMENTS.map((c) => c.id === "b" ? { ...c, filename: "src/part.ts", side: "LEFT" as const } : c),
     }))
     const panel = keys.overlay()
     expect({ filename: panel.filename, line: panel.line, side: panel.side }).toEqual({ filename: "src/greet.ts", line: 0, side: "RIGHT" })
     keys.commentDrafts.remember({ filename: panel.filename, line: panel.line, side: panel.side }, "the panel's own line")
-    keys.commentDrafts.remember({ filename: "src/part.ts", line: 3, side: "LEFT" }, "a reply in progress")
+    keys.commentDrafts.remember({ filename: "src/part.ts", line: 3, side: "LEFT" }, "a new comment in progress")
+    keys.commentDrafts.remember({ replyTo: "a" }, "a reply to another thread")
+    keys.commentDrafts.remember({ replyTo: "b" }, "a reply in progress")
     keys.press("r")
     expect(keys.overlay().mode).toBe("compose")
-    expect(keys.overlay().replyToThread).toBe(true)
+    expect(keys.overlay().replyTo).toBe("b")
     const { filename, line, side } = keys.overlay()
     expect({ filename, line, side }).toEqual({ filename: "src/part.ts", line: 3, side: "LEFT" })
     expect(keys.overlay().input).toBe("a reply in progress")

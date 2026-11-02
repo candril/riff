@@ -22,6 +22,7 @@ import { isLocallyResolved, publishableLocalComments } from "../../utils/publish
 import { openCommentEditor } from "../../utils/editor/spawn"
 import { parseEditorOutput } from "../../utils/editor/comment-template"
 import { diffHunkAt } from "../../utils/diff-hunk"
+import { threadComments } from "../../utils/threads"
 import { exitVisualMode, isVisualMode } from "../../vim-diff/cursor-state"
 import {
   submitSingleComment,
@@ -93,7 +94,8 @@ export async function persistComment(comment: Comment, source: string): Promise<
  */
 export async function handleAddComment(
   ctx: CommentsContext,
-  options: { reply?: boolean } = {},
+  /** `replyTo`: the root of the thread a reply answers; without it, this starts a thread of its own (spec 081). */
+  options: { replyTo?: string } = {},
 ): Promise<void> {
   const state = ctx.getState()
   if (state.files.length === 0) return
@@ -112,10 +114,13 @@ export async function handleAddComment(
   const file = state.files.find((f) => f.filename === anchor!.filename)
   if (!file) return
 
-  // Find existing thread for this location (all comments on this line)
-  const thread = state.comments.filter(
-    (c) => c.filename === anchor!.filename && c.line === anchor!.line && c.side === anchor!.side
-  )
+  // A reply is handed the thread it answers alone: a line can hold several,
+  // and the editor lets every comment it shows be rewritten.
+  const thread = options.replyTo
+    ? threadComments(state.comments, options.replyTo)
+    : state.comments.filter(
+        (c) => c.filename === anchor!.filename && c.line === anchor!.line && c.side === anchor!.side
+      )
 
   // Build diff context from the selection range
   const contextLines: string[] = []
@@ -217,11 +222,9 @@ export async function handleAddComment(
           comment.anchorHash = lineMapping.hashAt(scope.lines[scope.lines.length - 1]!)
         }
 
-        // Only a reply joins the thread already here. `C` from the diff
-        // starts one of its own, the way `c` does (spec 081).
-        if (thread.length > 0 && options.reply) {
-          comment.inReplyTo = thread[thread.length - 1]!.id
-        }
+        // Only a reply joins a thread, by its root. `C` from the diff starts
+        // one of its own, the way `c` does (spec 081).
+        if (thread.length > 0 && options.replyTo) comment.inReplyTo = options.replyTo
 
         if (stillOpen()) ctx.setState((s) => addComment(s, comment))
         await persist(comment)

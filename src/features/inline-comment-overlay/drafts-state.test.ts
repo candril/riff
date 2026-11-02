@@ -83,3 +83,17 @@ test("draftIn reads a handed-over map with the factory's keying", () => {
   expect(draftIn(map, line)).toBe("half a thought")
   expect(draftIn(map, { editingId: "comment-1" })).toBe("")
 })
+
+// A line can hold several threads (spec 081): a reply kept for one is not the reply to another.
+test("a reply draft belongs to the thread it answers, not to another thread or a new comment on its line", () => {
+  const drafts = createCommentDraftsState()
+  drafts.remember(draftOn({ ...line, editingId: null, replyTo: "root-a" }), "agreed, but")
+
+  expect(drafts.on({ replyTo: "root-a" })).toBe("agreed, but")
+  expect(drafts.on({ replyTo: "root-b" })).toBe("")
+  expect(drafts.on(line)).toBe("")
+})
+
+test("an edit keys the draft even when the composer was a reply before", () => {
+  expect(draftOn({ ...line, editingId: "comment-1", replyTo: "root-a" })).toEqual({ editingId: "comment-1" })
+})

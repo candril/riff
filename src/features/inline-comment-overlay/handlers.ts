@@ -19,6 +19,7 @@ import type { DraftEditorContext } from "../../utils/editor/comment-template"
 import { diffHunkAt } from "../../utils/diff-hunk"
 import { extractCommentImages } from "../../utils/comment-images"
 import { openUrl } from "../../utils/open-url"
+import { threadComments } from "../../utils/threads"
 import type { DiffLineMapping } from "../../vim-diff/line-mapping"
 import { draftOn, type CommentDraftsState } from "./drafts-state"
 import type { ToastState } from "../toast/state"
@@ -66,15 +67,11 @@ export async function submitInlineDraft(
   const username =
     (state.appMode === "pr" && ctx.getCachedCurrentUser()) || "@you"
 
-  // The thread already on this anchor, which a reply joins. A comment is
-  // only a reply when it was asked for as one: a line can hold two
-  // conversations, and GitHub files them apart (spec 081).
-  const thread = state.comments.filter(
-    (c) =>
-      c.filename === ov.filename &&
-      c.line === ov.line &&
-      c.side === ov.side
-  )
+  // A reply joins the thread it was asked on, by its root: that is what
+  // groupIntoThreads keys on and whose githubId GitHub takes as in_reply_to.
+  // A thread deleted or resynced away meanwhile is not swapped for another.
+  const replyTo = ov.replyTo && state.comments.some((c) => c.id === ov.replyTo) ? ov.replyTo : undefined
+  const orphaned = ov.replyTo !== undefined && replyTo === undefined
 
   const comment = createComment(ov.filename, ov.line, body, ov.side, username)
   // Written where GitHub has no anchor — file mode, or context expanded
@@ -89,15 +86,14 @@ export async function submitInlineDraft(
   if (ov.startLine && ov.startLine < ov.line) comment.startLine = ov.startLine
   const hunk = diffHunkAt(file.content, ov.line, ov.side)
   if (hunk) comment.diffHunk = hunk
-  if (thread.length > 0 && ov.replyToThread) {
-    comment.inReplyTo = thread[thread.length - 1]!.id
-  }
+  if (replyTo) comment.inReplyTo = replyTo
 
   ctx.setState((s) => addComment(s, comment))
   ctx.commentDrafts.forget(draftOn(ov))
   cancelComposing(ctx)
   ctx.setState((s) => highlightInlineComment(s, comment.id))
-  ctx.render()
+  if (orphaned) toast(ctx, "That thread is gone — saved as a new thread", "info")
+  else ctx.render()
   await saveComment(comment, ctx.getState().source)
   return comment
 }
@@ -235,13 +231,16 @@ export function buildComposerEditorContext(
   const side = editing?.side ?? ov.side
   if (!filename || line <= 0) return undefined
 
-  const thread = state.comments.filter(
-    (c) =>
-      c.filename === filename &&
-      c.line === line &&
-      c.side === side &&
-      c.id !== editing?.id
-  )
+  // A reply's editor is handed the thread it answers; the line may hold others.
+  const thread = !editing && ov.replyTo
+    ? threadComments(state.comments, ov.replyTo)
+    : state.comments.filter(
+        (c) =>
+          c.filename === filename &&
+          c.line === line &&
+          c.side === side &&
+          c.id !== editing?.id
+      )
 
   const visualLine = lineMapping.findLineForComment({ filename, line, side })
   const anchorRow = visualLine !== null ? lineMapping.getLine(visualLine) : undefined

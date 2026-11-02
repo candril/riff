@@ -53,12 +53,13 @@ export function insertSuggestion(deps: ComposerKeyDeps): void {
 }
 
 /**
- * Esc: back to view mode, keeping what was typed as a draft on this line
- * (spec 061). State mirrors keystrokes, but reading the composer cannot be stale.
+ * Esc: back to view mode, keeping what was typed as a draft on this line, or
+ * on the thread a reply answers (spec 061). State mirrors keystrokes, but reading the composer cannot be stale.
  */
 export function cancelComposer(deps: ComposerKeyDeps): void {
   const draft = deps.composer.value()
   const ov = deps.getState().inlineCommentOverlay
+  const keptFor = ov.mode === "compose" && ov.replyTo ? "thread" : "line"
   if (ov.open) deps.commentDrafts.remember(draftOn(ov), draft)
   cancelComposing(deps)
   deps.composerSettled?.("dropped")
@@ -66,7 +67,7 @@ export function cancelComposer(deps: ComposerKeyDeps): void {
   // A proposal of the agent's dropped untouched is forgotten, not kept.
   const kept = draft.trim() !== "" && deps.commentDrafts.holds(draft)
   if (kept) {
-    deps.toast.show("Draft kept for this line", "info")
+    deps.toast.show(`Draft kept for this ${keptFor}`, "info")
     deps.render()
     setTimeout(() => {
       deps.toast.clear()

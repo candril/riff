@@ -49,9 +49,11 @@ export interface InlineCommentOverlayState {
   /** First line of the block the composer was opened on, when that was a
    *  selection rather than one line (spec 076). */
   startLine?: number
-  /** Join the thread already on this line rather than starting one — what
-   *  `r` means beside `c` and `n` (spec 081). */
-  replyToThread?: boolean
+  /** The root comment of the thread this composer answers — what `r` means
+   *  beside `c` and `n`. A line can hold several threads, so the composer
+   *  carries which one rather than finding it by line; undefined starts a
+   *  comment or thread of its own (spec 081). */
+  replyTo?: string
   /** riff has the line; GitHub cannot anchor to it. What is written here is
    *  a note, and the composer says so before anything is typed (spec 085). */
   note?: boolean
@@ -799,8 +801,8 @@ export function openInlineCommentOverlay(
   mode: InlineCommentOverlayMode = "view",
   /** The block this was opened on, when it was more than one line. */
   startLine?: number,
-  /** Join the thread already here rather than starting one (spec 081). */
-  reply?: boolean,
+  /** The root of the thread to answer, rather than starting one (spec 081). */
+  replyTo?: string,
   /** What the anchor said about this line: whether GitHub could take it,
    *  and how the line read when the composer opened (spec 085); and the
    *  draft kept on it, which compose mode picks up (spec 061). */
@@ -816,7 +818,7 @@ export function openInlineCommentOverlay(
       filename,
       line,
       startLine: startLine && startLine < line ? startLine : undefined,
-      replyToThread: reply === true,
+      replyTo,
       note: anchor?.note === true,
       anchorHash: anchor?.anchorHash,
       side,
@@ -1068,7 +1070,7 @@ export function moveInlineCommentOverlayHighlight(state: AppState, delta: number
 export function startInlineCompose(
   state: AppState,
   prefill: string = "",
-  options: { reply?: boolean } = {},
+  options: { replyTo?: string } = {},
 ): AppState {
   const ov = state.inlineCommentOverlay
   if (!ov.open) return state
@@ -1079,7 +1081,7 @@ export function startInlineCompose(
       mode: "compose",
       input: prefill,
       editingId: null,
-      replyToThread: options.reply === true,
+      replyTo: options.replyTo,
     },
   }
 }

@@ -38,6 +38,23 @@ export function isThreadCollapsed(
 }
 
 /**
+ * The root of the thread `commentId` sits in, walking up its replies the way
+ * groupIntoThreads does: a comment whose parent is unknown is a root. Null
+ * when `commentId` is not among `comments`.
+ */
+export function threadRootId(comments: Comment[], commentId: string): string | null {
+  const comment = comments.find((c) => c.id === commentId)
+  if (!comment) return null
+  const parent = comment.inReplyTo ? comments.find((c) => c.id === comment.inReplyTo) : undefined
+  return parent ? threadRootId(comments, parent.id) : comment.id
+}
+
+/** The comments of the thread rooted at `rootId`, root first; empty when there is no such root. */
+export function threadComments(comments: Comment[], rootId: string): Comment[] {
+  return groupIntoThreads(comments).find((thread) => thread.id === rootId)?.comments ?? []
+}
+
+/**
  * Group comments into threads by file and line.
  * Returns threads sorted by filename, then line number.
  */

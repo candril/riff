@@ -26,7 +26,7 @@ export function threadPanelFrameInput({ state, chatOpen, chatExpanded, flashStat
     scopeFilename: getCommentsPanelScopeFilename(state),
     composeFilename: overlay.filename,
     line: overlay.line,
-    replyToThread: overlay.replyToThread === true,
+    replyToThread: overlay.replyTo !== undefined,
     note: overlay.note === true,
     mode: overlay.mode,
     appMode: state.appMode,

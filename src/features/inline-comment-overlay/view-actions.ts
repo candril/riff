@@ -22,7 +22,7 @@ import {
 import { stateFilterTarget } from "../../app/view-filter"
 import { commentHunk } from "./hunk"
 import { entrySpans, halfPageEntry, UNLAID, type ThreadPanelLayout } from "./motions"
-import { groupIntoThreads } from "../../utils/threads"
+import { groupIntoThreads, threadRootId } from "../../utils/threads"
 import type { CommentDraftsState } from "./drafts-state"
 import type { ToastState } from "../toast/state"
 import type { ComposerPickersState } from "./composer-pickers-state"
@@ -33,12 +33,12 @@ export interface ThreadPanelViewDeps {
   setState: (updater: (s: AppState) => AppState) => void
   render: () => void
   toast: Pick<ToastState, "show" | "clear">
-  /** $EDITOR reply (Shift-r). Reuses the existing add-comment flow. */
-  handleReplyExternal: () => void
+  /** $EDITOR reply (Shift-r) to the thread rooted at `replyTo`. Reuses the existing add-comment flow. */
+  handleReplyExternal: (replyTo: string | undefined) => void
   /** $EDITOR edit (Shift-e). Reuses the existing add-comment flow,
    *  which detects edits via the comment id passed back from the
-   *  editor output. */
-  handleEditExternal: () => void
+   *  editor output. The editor is handed the thread rooted at `replyTo`. */
+  handleEditExternal: (replyTo: string | undefined) => void
   handleDelete: (comment: Comment) => void
   /** Pushes a local or locally edited comment to GitHub. */
   handleSubmit: (comment: Comment) => void
@@ -86,6 +86,17 @@ type Deps = ThreadPanelViewDeps
 /** The comment the highlight is on: j/k move through the display order, in which resolved threads collapse to their root. */
 export function highlightedComment(state: AppState): Comment | undefined {
   return getInlineCommentOverlayDisplayOrder(state)[state.inlineCommentOverlay.highlightedIndex]
+}
+
+/**
+ * The root of the highlighted comment's thread: a line can hold several, and
+ * a reply answers this one. Looked up among all comments, since the panel's
+ * filter can leave a root out while showing its replies.
+ */
+function highlightedThreadRoot(state: AppState): string | undefined {
+  const highlighted = highlightedComment(state)
+  if (!highlighted) return undefined
+  return threadRootId(state.comments, highlighted.id) ?? highlighted.id
 }
 
 function update(deps: Deps, updater: (s: AppState) => AppState): void {
@@ -177,20 +188,6 @@ export function moveHighlight(deps: Deps, delta: 1 | -1): void {
 }
 
 /**
- * The root comment id for a thread containing `commentId`, which the
- * expand toggle keys on.
- */
-function findThreadRootId(comments: Comment[], commentId: string): string | null {
-  const c = comments.find((x) => x.id === commentId)
-  if (!c) return null
-  if (!c.inReplyTo) return c.id
-  // Replies inherit the root from their parent chain; in practice the
-  // groupIntoThreads logic ensures inReplyTo points at the root.
-  const parent = comments.find((x) => x.id === c.inReplyTo)
-  return parent ? findThreadRootId(comments, parent.id) : c.id
-}
-
-/**
  * `za` and Enter: resolved threads reveal their body and replies,
  * outdated threads the original diff hunk.
  */
@@ -198,7 +195,7 @@ export function toggleHighlightedThread(deps: Deps): void {
   const state = deps.getState()
   const highlighted = highlightedComment(state)
   if (!highlighted) return
-  const rootId = findThreadRootId(getInlineCommentOverlayComments(state), highlighted.id) ?? highlighted.id
+  const rootId = threadRootId(getInlineCommentOverlayComments(state), highlighted.id) ?? highlighted.id
   update(deps, (s) => toggleInlineCommentOverlayExpand(s, rootId))
 }
 
@@ -218,32 +215,39 @@ export function startNew(deps: Deps): void {
  * The inline reply re-anchors to the highlighted thread's (file, line,
  * side) before dropping into the composer: without it, replying after
  * j/k navigation (or in all-files view, after crossing files) would
- * attach to whatever the panel was originally opened on.
+ * attach to whatever the panel was originally opened on. With nothing
+ * highlighted there is no thread to answer, so `r` opens a new comment
+ * on the panel's line, which is what the composer then says.
  */
 export function replyInline(deps: Deps): void {
-  const highlighted = highlightedComment(deps.getState())
-  if (highlighted) {
+  const state = deps.getState()
+  const highlighted = highlightedComment(state)
+  const replyTo = highlightedThreadRoot(state)
+  if (highlighted && replyTo) {
     const { filename, line, side } = highlighted
     deps.setState((s) => startInlineCompose({
       ...s,
       inlineCommentOverlay: { ...s.inlineCommentOverlay, filename, line, side },
-    }, deps.commentDrafts.on({ filename, line, side }), { reply: true }))
+    }, deps.commentDrafts.on({ replyTo }), { replyTo }))
   } else {
-    const { filename, line, side } = deps.getState().inlineCommentOverlay
-    deps.setState((s) => startInlineCompose(s, deps.commentDrafts.on({ filename, line, side }), { reply: true }))
+    const { filename, line, side } = state.inlineCommentOverlay
+    deps.setState((s) => startInlineCompose(s, deps.commentDrafts.on({ filename, line, side })))
   }
   deps.composerPickers.clear()
   deps.render()
 }
 
+// The highlight is read before the panel goes: it is what says which thread is meant.
 export function replyInEditor(deps: Deps): void {
+  const replyTo = highlightedThreadRoot(deps.getState())
   dismissPanel(deps)
-  deps.handleReplyExternal()
+  deps.handleReplyExternal(replyTo)
 }
 
 export function editInEditor(deps: Deps): void {
+  const replyTo = highlightedThreadRoot(deps.getState())
   dismissPanel(deps)
-  deps.handleEditExternal()
+  deps.handleEditExternal(replyTo)
 }
 
 /** Only the highlighted comment can be edited, so with none there is nothing to open. */

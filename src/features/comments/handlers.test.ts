@@ -7,6 +7,7 @@ import { buildCommentFileContent } from "../../utils/editor/comment-template"
 import type { openCommentEditor } from "../../utils/editor/spawn"
 import { createCursorState } from "../../vim-diff/cursor-state"
 import { DiffLineMapping } from "../../vim-diff/line-mapping"
+import { twoThreadsOn } from "../../testing/two-threads"
 import { handleAddComment, type CommentsContext } from "./handlers"
 
 const file = diffFile("s.ts", ["@@ -1,2 +1,2 @@", " a", "-b", "+B"])
@@ -22,11 +23,13 @@ function heldEditor() {
   const closed = new Promise<(buffer: string) => string>((resolve) => (close = resolve))
   let opened!: () => void
   const isOpen = new Promise<void>((resolve) => (opened = resolve))
+  let given: Parameters<typeof openCommentEditor>[0] | null = null
   const openEditor = async (options: Parameters<typeof openCommentEditor>[0]) => {
+    given = options
     opened()
     return (await closed)(buildCommentFileContent(options))
   }
-  return { openEditor, close, isOpen }
+  return { openEditor, close, isOpen, given: () => given }
 }
 
 function harness(comments: Comment[]) {
@@ -89,5 +92,29 @@ describe("handleAddComment", () => {
     expect(h.persisted.map(({ comment, source }) => [comment.body, source])).toEqual([["looks wrong", LOCAL]])
     expect(h.state().comments.map((c) => c.body)).toEqual(["looks wrong"])
     expect(h.toasts).toEqual([])
+  })
+})
+
+describe("handleAddComment replying to one of two threads on the line", () => {
+  test("the editor is handed that thread alone, and the reply joins its root", async () => {
+    const h = harness(twoThreadsOn(file.filename, 2))
+    const adding = handleAddComment(h.ctx, { replyTo: "older" })
+    await h.editor.isOpen
+    expect(h.editor.given()?.thread?.map((c) => c.id)).toEqual(["older", "older-reply"])
+    h.editor.close((buffer) => "my reply" + buffer)
+    await adding
+
+    const reply = h.state().comments.find((c) => c.body === "my reply")
+    expect(reply?.inReplyTo).toBe("older")
+  })
+
+  test("without a thread to answer, `C` from the diff starts a thread of its own", async () => {
+    const h = harness(twoThreadsOn(file.filename, 2))
+    const adding = handleAddComment(h.ctx)
+    await h.editor.isOpen
+    h.editor.close((buffer) => "my comment" + buffer)
+    await adding
+
+    expect(h.state().comments.find((c) => c.body === "my comment")?.inReplyTo).toBeUndefined()
   })
 })

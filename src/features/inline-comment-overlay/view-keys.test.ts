@@ -82,11 +82,20 @@ describe("the thread panel in view mode", () => {
     expect(reply.defaultPrevented).toBe(true)
     expect(keys.overlay().mode).toBe("compose")
     expect(keys.overlay().line).toBe(3)
+    expect(keys.overlay().replyTo).toBe("b")
 
-    const again = await threadPanelKeys(panelState())
+    // On a reply, R answers the thread that reply is in, by its root.
+    const again = await threadPanelKeys(panelState(1))
     again.press("R")
     expect(again.overlay().open).toBe(false)
-    expect(again.calls).toEqual(["replyInEditor"])
+    expect(again.calls).toEqual(["replyInEditor a"])
+  })
+
+  test("r with no comment to highlight has no thread to answer, so it opens a new comment", async () => {
+    const keys = await threadPanelKeys(panelState(0, { comments: [] }))
+    keys.press("r")
+    expect(keys.overlay().mode).toBe("compose")
+    expect(keys.overlay().replyTo).toBeUndefined()
   })
 
   test("e edits the highlighted comment inline and E in $EDITOR", async () => {
@@ -97,7 +106,7 @@ describe("the thread panel in view mode", () => {
     const again = await threadPanelKeys(panelState())
     again.press("E")
     expect(again.overlay().open).toBe(false)
-    expect(again.calls).toEqual(["editInEditor"])
+    expect(again.calls).toEqual(["editInEditor a"])
   })
 
   test("d deletes, x resolves, y copies a link and n starts a new comment", async () => {

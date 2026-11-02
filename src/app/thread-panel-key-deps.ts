@@ -35,10 +35,10 @@ export function threadPanelKeyDeps(ctx: AppKeyContext, links: LinksPicker): Thre
     commentDrafts: ctx.commentDrafts,
     composerPickers: ctx.composerPickers,
     codePeek: ctx.codePeek,
-    handleReplyExternal: () =>
-      commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
-    handleEditExternal: () =>
-      commentsFeature.handleAddComment(ctx.commentsContext, { reply: true }),
+    handleReplyExternal: (replyTo) =>
+      commentsFeature.handleAddComment(ctx.commentsContext, { replyTo }),
+    handleEditExternal: (replyTo) =>
+      commentsFeature.handleAddComment(ctx.commentsContext, { replyTo }),
     handleDelete: (comment) =>
       commentsFeature.handleDeleteComment(ctx.commentsContext, comment),
     handleSubmit: (comment) =>
